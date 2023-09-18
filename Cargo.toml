@@ -1,0 +1,9 @@
+[workspace]
+
+resolver = "2"
+members = [
+    "machine-check-traits",
+    "machine-check-macros",
+    "machine-check",
+    "btor2rs",
+]
