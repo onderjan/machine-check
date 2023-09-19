@@ -288,7 +288,8 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
     let mut nodes = BTreeMap::<Nid, Btor2Node>::new();
 
     let lines = BufReader::new(file).lines().map(|l| l.unwrap());
-    for (line_num, line) in lines.enumerate() {
+    for (zero_start_line_num, line) in lines.enumerate() {
+        let line_num = zero_start_line_num + 1;
         if line.starts_with(";") {
             // comment
             continue;
@@ -594,7 +595,7 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
 }
 
 fn main() {
-    let file = File::open("examples/recount4.btor2").unwrap();
+    let file = File::open("examples/noninitstate.btor2").unwrap();
     let btor2 = parse_btor2(file).unwrap();
 
     let state_tokens: Vec<_> = btor2
@@ -694,27 +695,27 @@ fn main() {
 
     let tokens = quote!(
         #[derive(Debug)]
-        struct MachineInput {
+        pub struct MachineInput {
             #(#input_tokens),*
         }
 
         #[derive(Debug)]
-        struct MachineState {
+        pub struct MachineState {
             #(#state_tokens),*
         }
 
         impl MachineState {
-            fn init(input: &MachineInput) -> MachineState {
+            pub fn init(input: &MachineInput) -> MachineState {
                 #(#init_statements)*
                 MachineState{#(#init_result_tokens),*}
             }
 
-            fn next(&self, input: &MachineInput) -> MachineState {
+            pub fn next(&self, input: &MachineInput) -> MachineState {
                 #(#noninit_statements)*
                 MachineState{#(#next_result_tokens),*}
             }
 
-            fn bad(&self) -> bool {
+            pub fn bad(&self) -> bool {
                 (#(#bad_results)|*) != ::machine_check_types::MachineBitvector::<1>::new(0)
             }
         }
