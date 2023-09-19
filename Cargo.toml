@@ -6,4 +6,5 @@ members = [
     "machine-check-macros",
     "machine-check",
     "btor2rs",
+    "machine-run",
 ]

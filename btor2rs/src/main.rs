@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use proc_macro2::{Ident, Span};
+use proc_macro2::{Ident, Span, TokenStream, Literal};
 use quote::quote;
 use std::{
     collections::BTreeMap,
@@ -8,9 +8,10 @@ use std::{
     num::Wrapping,
     str::SplitWhitespace,
 };
+use syn::token::Token;
 
-type Btor2NonWrappingBitvecType = u64;
-type Btor2BitvecType = Wrapping<Btor2NonWrappingBitvecType>;
+type Btor2BitvecPrimitive = u64;
+type Btor2BitvecType = Wrapping<u64>;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 struct Sid(usize);
@@ -19,8 +20,10 @@ struct Sid(usize);
 struct Nid(usize);
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 enum Btor2Sort {
     Bitvec(usize),
+    // TODO: array
 }
 
 #[derive(Debug, Clone)]
@@ -226,7 +229,7 @@ fn parse_const_value(
     // slice out negation
     let value = &value[is_negative as usize..];
 
-    let Ok(value) = Btor2NonWrappingBitvecType::from_str_radix(value, radix) else {
+    let Ok(value) = Btor2BitvecPrimitive::from_str_radix(value, radix) else {
         return Err(anyhow!("Cannot parse const value on line {}", line_num));
     };
 
@@ -494,6 +497,73 @@ fn pretty(item: proc_macro2::TokenStream) -> String {
     prettyplease::unparse(&file)
 }
 
+fn create_mask(length: usize) -> Btor2BitvecType {
+    let one = Wrapping(1u64);
+    let num_values = one << length;
+    let value_mask = num_values - one;
+    value_mask
+}
+
+fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, anyhow::Error> {
+    let statements = btor2
+        .nodes
+        .iter()
+        .filter_map(|(nid, node)| {
+            let ident = Ident::new(&format!("node_{}", nid.0), Span::call_site());
+            match node {
+                Btor2Node::State(state) => {
+                    if is_init {
+                        if let Some(a) = &state.init {
+                            let a_ident = Ident::new(&format!("node_{}", a.0), Span::call_site());
+                            Some(quote!(let #ident = #a_ident;))
+                        } else {
+                            None
+                        }
+                    } else {
+                        Some(quote!(let #ident = self.#ident;))
+                    }
+                }
+                Btor2Node::Intake(intake) => {
+                    if let Btor2IntakeType::Const(const_value) = intake.itype {
+                        let const_value = const_value.0;
+                        Some(quote!(let #ident = ::core::num::Wrapping::<u64>(#const_value);))
+                    } else {
+                        None
+                    }
+                }
+                Btor2Node::BiOp(bi_op) => {
+                    let a_ident = Ident::new(&format!("node_{}", bi_op.a.0), Span::call_site());
+                    let b_ident = Ident::new(&format!("node_{}", bi_op.b.0), Span::call_site());
+                    match bi_op.op_type {
+                        Btor2BiOpType::Add => Some(quote!(let #ident = #a_ident + #b_ident;)),
+                        Btor2BiOpType::Eq => {
+                            // equality must be taken modulo
+                            let Some(a_node) = btor2.nodes.get(&bi_op.a) else {
+                                panic!("Unknown nid {} in equality nid {}", bi_op.a.0, nid.0);
+                            };
+                            let Btor2Node::State(a_state) = a_node else {
+                                panic!("Non-state nid {} in equality nid {}", bi_op.a.0, nid.0);
+                            };
+                            let Btor2Sort::Bitvec(bitvec_length) = a_state.sort else {
+                                // TODO: support array equality
+                                panic!("Non-bitvector nid {} in equality nid {}", bi_op.a.0, nid.0);
+                            };
+                            let mask = create_mask(bitvec_length);
+                            let mask_primitive = mask.0;
+                            let mask_quote = quote!(::core::num::Wrapping(#mask_primitive));
+                            
+                            Some(quote!(let #ident = ::core::num::Wrapping (((#a_ident & #mask_quote) == (#b_ident & #mask_quote)) as u64);))
+                        },
+                        _ => todo!(),
+                    }
+                }
+                Btor2Node::Bad(_) => None,
+                _ => todo!(),
+            }
+        });
+        Ok(statements.collect())
+}
+
 fn main() {
     let file = File::open("examples/count4.btor2").unwrap();
     let btor2 = parse_btor2(file).unwrap();
@@ -529,48 +599,43 @@ fn main() {
         })
         .collect();
 
-    let init_statements: Vec<_> = btor2
+    let bad_results: Vec<_> = btor2
         .nodes
         .iter()
         .filter_map(|(nid, node)| {
             let ident = Ident::new(&format!("node_{}", nid.0), Span::call_site());
             match node {
-                Btor2Node::State(state) => {
-                    if let Some(a) = &state.init {
-                        let a_ident = Ident::new(&format!("node_{}", a.0), Span::call_site());
-                        Some(quote!(let #ident = #a_ident;))
-                    } else {
-                        None
-                    }
-                }
-                Btor2Node::Intake(intake) => {
-                    if let Btor2IntakeType::Const(const_value) = intake.itype {
-                        let const_value = const_value.0;
-                        Some(quote!(let #ident = #const_value;))
-                    } else {
-                        None
-                    }
+                Btor2Node::Bad(bad) => {
+                    let bad_ident = Ident::new(&format!("node_{}", bad.0), Span::call_site());
+                    Some(quote!(#bad_ident))
                 }
                 _ => None,
             }
         })
         .collect();
 
+    let init_statements = create_statements(&btor2, true).unwrap();
+    let noninit_statements = create_statements(&btor2, false).unwrap();
+
     let tokens = quote!(
         struct MachineState {
-            #(#state_tokens: std::num::Wrapping<u64>),*
+            #(#state_tokens: ::core::num::Wrapping::<u64>),*
         }
 
         impl MachineState {
             fn init() -> MachineState {
                 #(#init_statements)*
-                todo!();
                 MachineState{#(#state_tokens),*}
             }
 
             fn next(&self) -> MachineState {
-                todo!();
+                #(#noninit_statements)*
                 MachineState{#(#next_tokens),*}
+            }
+
+            fn bad(&self) -> bool {
+                #(#noninit_statements)*
+                (#(#bad_results)|*) != ::core::num::Wrapping(0u64)
             }
         }
     );
