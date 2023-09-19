@@ -21,7 +21,7 @@ struct Nid(usize);
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 enum Btor2Sort {
-    Bitvec(usize),
+    Bitvec(u32),
     // TODO: array
 }
 
@@ -325,7 +325,7 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
                             .next()
                             .ok_or_else(|| anyhow!("Missing bitvec length on line {}", line_num))?;
 
-                        let Ok(bitvec_length): Result<usize, _> = bitvec_length.parse() else {
+                        let Ok(bitvec_length) = bitvec_length.parse() else {
                             return Err(anyhow!("Cannot parse bitvec length on line {}", line_num));
                         };
                         sorts.insert(Sid { 0: id }, Btor2Sort::Bitvec(bitvec_length));
@@ -364,7 +364,7 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
                 let one: Btor2BitvecType = Wrapping(1);
                 let Btor2Sort::Bitvec(bitvec_length) = result_sort;
 
-                let num_values = one << bitvec_length;
+                let num_values = one << bitvec_length as usize;
                 let value_mask = num_values - one;
                 nodes.insert(
                     nid,
@@ -547,8 +547,9 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                     }
                 }
                 Btor2NodeType::Const(const_value) => {
-                        let const_value = const_value.0;
-                        Some(quote!(let #ident = ::core::num::Wrapping::<u64>(#const_value);))
+                    let Btor2Sort::Bitvec(bitvec_length) = node.result_sort;
+                    let const_value = const_value.0;
+                    Some(quote!(let #ident = ::machine_check_types::MachineBitvector::<#bitvec_length>::new(#const_value);))
                 }
                 Btor2NodeType::Input => {
                     let input_ident = Ident::new(&format!("input_{}", nid.0), Span::call_site());
@@ -559,21 +560,8 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                     let b_ident = Ident::new(&format!("node_{}", bi_op.b.0), Span::call_site());
                     match bi_op.op_type {
                         Btor2BiOpType::Add => Some(quote!(let #ident = #a_ident + #b_ident;)),
-                        Btor2BiOpType::Eq => {
-                            // equality must be taken modulo
-                            let Some(a_node) = btor2.nodes.get(&bi_op.a) else {
-                                panic!("Unknown nid {} in equality nid {}", bi_op.a.0, nid.0);
-                            };
-                            let Btor2Sort::Bitvec(bitvec_length) = a_node.result_sort else {
-                                // TODO: support array equality
-                                panic!("Non-bitvector nid {} in equality nid {}", bi_op.a.0, nid.0);
-                            };
-                            let mask = create_mask(bitvec_length);
-                            let mask_primitive = mask.0;
-                            let mask_quote = quote!(::core::num::Wrapping(#mask_primitive));
-                            
-                            Some(quote!(let #ident = ::core::num::Wrapping (((#a_ident & #mask_quote) == (#b_ident & #mask_quote)) as u64);))
-                        },
+                        Btor2BiOpType::Eq =>
+                            Some(quote!(let #ident = ::machine_check_types::TypedEq::typed_eq(#a_ident, #b_ident);)),
                         _ => todo!(),
                     }
                 }
@@ -588,14 +576,9 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                             let Some(then_node) = btor2.nodes.get(then_branch) else {
                                 panic!("Unknown nid {} in ite nid {}", then_branch.0, nid.0);
                             };
-                            let Btor2Sort::Bitvec(bitvec_length) = then_node.result_sort else {
-                                // TODO: support array ite
-                                panic!("Non-bitvector nid {} in ite nid {}", tri_op.a.0, nid.0);
-                            };
-                            let condition_mask_iter = (0..bitvec_length).map(|i| quote!((#a_ident & ::core::num::Wrapping(1u64)) << #i));
-                            let condition_mask = quote!((#(#condition_mask_iter)|*));
-                            let neg_condition_mask_iter = (0..bitvec_length).map(|i| quote!(((!#a_ident) & ::core::num::Wrapping(1u64)) << #i));
-                            let neg_condition_mask = quote!((#(#neg_condition_mask_iter)|*));
+                            let Btor2Sort::Bitvec(bitvec_length) = then_node.result_sort;
+                            let condition_mask = quote!(::machine_check_types::Sext::<#bitvec_length>::sext(#a_ident));
+                            let neg_condition_mask = quote!(::machine_check_types::Sext::<#bitvec_length>::sext(!#a_ident));
 
                             Some(quote!(let #ident = (#b_ident & #condition_mask) | (#c_ident & #neg_condition_mask);))
                             
@@ -620,12 +603,14 @@ fn main() {
         .filter_map(|(nid, node)| {
             match node.node_type{
                 Btor2NodeType::State(_) => {
+                    let Btor2Sort::Bitvec(bitvec_length) = node.result_sort;
                     let state_ident = Ident::new(&format!("state_{}", nid.0), Span::call_site());
-                    Some(state_ident)
+                    Some(quote!(#state_ident: ::machine_check_types::MachineBitvector<#bitvec_length>))
                 }
                 Btor2NodeType::Bad(_) => {
+                    let Btor2Sort::Bitvec(bitvec_length) = node.result_sort;
                     let bad_ident = Ident::new(&format!("bad_{}", nid.0), Span::call_site());
-                    Some(bad_ident)
+                    Some(quote!(#bad_ident: ::machine_check_types::MachineBitvector<#bitvec_length>))
                 }
                 
                 _ => None
@@ -637,9 +622,10 @@ fn main() {
     .nodes
     .iter()
     .filter_map(|(nid, node)| {
+        let Btor2Sort::Bitvec(bitvec_length) = node.result_sort;
         let ident = Ident::new(&format!("input_{}", nid.0), Span::call_site());
         if let Btor2NodeType::Input = node.node_type {
-            Some(ident)
+            Some(quote!(#ident: ::machine_check_types::MachineBitvector<#bitvec_length>))
         } else {
             None
         }
@@ -709,12 +695,12 @@ fn main() {
     let tokens = quote!(
         #[derive(Debug)]
         struct MachineInput {
-            #(#input_tokens: ::core::num::Wrapping::<u64>),*
+            #(#input_tokens),*
         }
 
         #[derive(Debug)]
         struct MachineState {
-            #(#state_tokens: ::core::num::Wrapping::<u64>),*
+            #(#state_tokens),*
         }
 
         impl MachineState {
@@ -729,7 +715,7 @@ fn main() {
             }
 
             fn bad(&self) -> bool {
-                (#(#bad_results)|*) != ::core::num::Wrapping(0u64)
+                (#(#bad_results)|*) != ::machine_check_types::MachineBitvector::<1>::new(0)
             }
         }
     );

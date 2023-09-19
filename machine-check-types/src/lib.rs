@@ -3,6 +3,7 @@ use std::{
     ops::{Add, BitAnd, BitOr, BitXor, Neg, Not, Sub},
 };
 
+#[derive(Debug, Clone, Copy)]
 pub struct MachineBitvector<const N: u32> {
     v: Wrapping<u64>,
 }
@@ -25,6 +26,8 @@ impl<const N: u32> MachineBitvector<N> {
         if (value & !mask) != Wrapping(0) {
             panic!("MachineU value {} does not fit into {} bits", value, N);
         }
+
+        //println!("New {}-bitvector (mask {}): {}", N, mask, value);
 
         MachineBitvector { v: value }
     }
@@ -99,12 +102,15 @@ impl<const N: u32> PartialEq for MachineBitvector<N> {
 impl<const N: u32> Eq for MachineBitvector<N> {}
 
 pub trait TypedEq {
-    fn typed_eq(self, rhs: Self) -> Self;
+    type Output;
+
+    fn typed_eq(self, rhs: Self) -> Self::Output;
 }
 
 impl<const N: u32> TypedEq for MachineBitvector<N> {
-    fn typed_eq(self, rhs: Self) -> Self {
-        MachineBitvector::w_new(Wrapping((self == rhs) as u64))
+    type Output = MachineBitvector<1>;
+    fn typed_eq(self, rhs: Self) -> Self::Output {
+        MachineBitvector::<1>::w_new(Wrapping((self == rhs) as u64))
     }
 }
 
@@ -126,20 +132,20 @@ impl<const N: u32, const M: u32> Uext<M> for MachineBitvector<N> {
 pub trait Sext<const M: u32> {
     type Output;
 
-    fn uext(self) -> Self::Output;
+    fn sext(self) -> Self::Output;
 }
 
 impl<const N: u32, const M: u32> Sext<M> for MachineBitvector<N> {
     type Output = MachineBitvector<M>;
 
-    fn uext(self) -> Self::Output {
+    fn sext(self) -> Self::Output {
         // shorten if needed
         let mut v = self.v & compute_mask(M);
         // copy sign bit where necessary
         if M > N {
             let num_sign_extend = M - N;
             let sign_masked = self.v & (Wrapping(1u64) << (N - 1) as usize);
-            for i in 0..num_sign_extend {
+            for i in 1..num_sign_extend + 1 {
                 v |= sign_masked << i as usize;
             }
         }

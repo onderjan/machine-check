@@ -1,0 +1,157 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'machine-check-types'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=machine-check-types"
+                ],
+                "filter": {
+                    "name": "machine-check-types",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'machine-check-traits'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=machine-check-traits"
+                ],
+                "filter": {
+                    "name": "machine-check-traits",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'machine-check'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=machine-check",
+                    "--package=machine-check"
+                ],
+                "filter": {
+                    "name": "machine-check",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'machine-check'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=machine-check",
+                    "--package=machine-check"
+                ],
+                "filter": {
+                    "name": "machine-check",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'btor2rs'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=btor2rs",
+                    "--package=btor2rs"
+                ],
+                "filter": {
+                    "name": "btor2rs",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'btor2rs'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=btor2rs",
+                    "--package=btor2rs"
+                ],
+                "filter": {
+                    "name": "btor2rs",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'machine-run'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=machine-run",
+                    "--package=machine-run"
+                ],
+                "filter": {
+                    "name": "machine-run",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'machine-run'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=machine-run",
+                    "--package=machine-run"
+                ],
+                "filter": {
+                    "name": "machine-run",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
