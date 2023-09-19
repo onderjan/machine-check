@@ -52,8 +52,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "machine-check-types"
+version = "0.1.0"
+
+[[package]]
 name = "machine-run"
 version = "0.1.0"
+dependencies = [
+ "machine-check-types",
+]
 
 [[package]]
 name = "num"

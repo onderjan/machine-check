@@ -1,3 +1,5 @@
+use machine_check_types::MachineBitvector;
+
 #[derive(Debug)]
 struct MachineInput {
     input_2: ::core::num::Wrapping<u64>,
@@ -89,6 +91,8 @@ impl MachineState {
 }
 
 fn main() {
+    let a = MachineBitvector::<2>::new(1);
+
     println!("Starting machine.");
     let input = MachineInput {
         input_2: ::core::num::Wrapping(1),
