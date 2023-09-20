@@ -144,6 +144,67 @@ enum Btor2BiOpType {
     Read,
 }
 
+impl TryFrom<&str> for Btor2BiOpType {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, ()> {
+        match value {
+            // Boolean
+            "iff" => Ok(Btor2BiOpType::Iff),
+            "implies" => Ok(Btor2BiOpType::Implies),
+            // (dis)equality
+            "eq" => Ok(Btor2BiOpType::Eq),
+            "neq" => Ok(Btor2BiOpType::Neq),
+            // (un)signed equality
+            "sgt" => Ok(Btor2BiOpType::Sgt),
+            "ugt" => Ok(Btor2BiOpType::Ugt),
+            "sgte" => Ok(Btor2BiOpType::Sgte),
+            "ugte" => Ok(Btor2BiOpType::Ugte),
+            "slt" => Ok(Btor2BiOpType::Slt),
+            "ult" => Ok(Btor2BiOpType::Ult),
+            "slte" => Ok(Btor2BiOpType::Slte),
+            "ulte" => Ok(Btor2BiOpType::Ulte),
+            // bitwise
+            "and" => Ok(Btor2BiOpType::And),
+            "nand" => Ok(Btor2BiOpType::Nand),
+            "nor" => Ok(Btor2BiOpType::Nor),
+            "or" => Ok(Btor2BiOpType::Or),
+            "xnor" => Ok(Btor2BiOpType::Xnor),
+            "xor" => Ok(Btor2BiOpType::Xor),
+            // rotate
+            "rol" => Ok(Btor2BiOpType::Rol),
+            "ror" => Ok(Btor2BiOpType::Ror),
+            // shift
+            "sll" => Ok(Btor2BiOpType::Sll),
+            "sra" => Ok(Btor2BiOpType::Sra),
+            "srl" => Ok(Btor2BiOpType::Srl),
+            // arithmetic
+            "add" => Ok(Btor2BiOpType::Add),
+            "mul" => Ok(Btor2BiOpType::Mul),
+            "sdiv" => Ok(Btor2BiOpType::Sdiv),
+            "udiv" => Ok(Btor2BiOpType::Udiv),
+            "smod" => Ok(Btor2BiOpType::Smod),
+            "srem" => Ok(Btor2BiOpType::Srem),
+            "urem" => Ok(Btor2BiOpType::Urem),
+            "sub" => Ok(Btor2BiOpType::Sub),
+            // overflow
+            "saddo" => Ok(Btor2BiOpType::Saddo),
+            "uaddo" => Ok(Btor2BiOpType::Uaddo),
+            "sdivo" => Ok(Btor2BiOpType::Sdivo),
+            "udivo" => Ok(Btor2BiOpType::Udivo),
+            "smulo" => Ok(Btor2BiOpType::Smulo),
+            "umulo" => Ok(Btor2BiOpType::Umulo),
+            "ssubo" => Ok(Btor2BiOpType::Ssubo),
+            "usubo" => Ok(Btor2BiOpType::Usubo),
+            // concatenation
+            "concat" => Ok(Btor2BiOpType::Concat),
+            // array read
+            "read" => Ok(Btor2BiOpType::Read),
+            _ => Err(())
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Btor2BiOp {
     op_type: Btor2BiOpType,
@@ -314,6 +375,16 @@ fn insert_bi_op(
     let result_sort = parse_sort(split, &sorts, line_num)?;
     let a = parse_flippable_nid(split, &sorts, line_num)?;
     let b = parse_flippable_nid(split, &sorts, line_num)?;
+
+    match op_type {
+        Btor2BiOpType::Eq | Btor2BiOpType::Iff => {
+            let Btor2Sort::Bitvec(bitvec_length) = result_sort;
+            if bitvec_length != 1 {
+                return Err(anyhow!("Expected one-bit bitvec sort on line {}", line_num));
+            }
+        }
+        _ => ()
+    }
     nodes.insert(
         nid,
         Btor2Node{result_sort, node_type: Btor2NodeType::BiOp(Btor2BiOp {
@@ -358,6 +429,7 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
             .next()
             .ok_or_else(|| anyhow!("Missing second symbol on line {}", line_num))?;
 
+        // sorts
         match second {
             "sort" => {
                 // insert to sorts
@@ -388,6 +460,21 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
         }
 
         let nid = Nid { 0: id };
+
+        // binary operations
+        if let Ok(bi_op_type) = Btor2BiOpType::try_from(second) {
+            insert_bi_op(
+                bi_op_type,
+                nid,
+                &mut split,
+                &sorts,
+                &mut nodes,
+                line_num,
+            )?;
+            continue;
+        }
+        
+        // other operations
         match second {
             "input" => {
                 let result_sort = parse_sort(&mut split, &sorts, line_num)?;
@@ -442,26 +529,7 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
                     })},
                 );
             }
-            "add" => {
-                insert_bi_op(
-                    Btor2BiOpType::Add,
-                    nid,
-                    &mut split,
-                    &sorts,
-                    &mut nodes,
-                    line_num,
-                )?;
-            }
-            "eq" => {
-                insert_bi_op(
-                    Btor2BiOpType::Eq,
-                    nid,
-                    &mut split,
-                    &sorts,
-                    &mut nodes,
-                    line_num,
-                )?;
-            }
+            // hard operations
             "ite" => {
                 let result_sort = parse_sort(&mut split, &sorts, line_num)?;
 
@@ -479,8 +547,7 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
                     })},
                 );
             }
-
-            // TODO: more operations
+            // state manipulation
             "init" => {
                 let _sid = parse_sid(&mut split, &sorts, line_num)?;
                 let state_nid = parse_nid(&mut split, &sorts, line_num)?;
@@ -517,6 +584,7 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
 
                 state.next = Some(value_nid);
             }
+            // properties
             "bad" => {
                 let a = parse_nid(&mut split, &sorts, line_num)?;
                 nodes.insert(nid, Btor2Node{result_sort: Btor2Sort::Bitvec(1), node_type: Btor2NodeType::Bad(a)});
@@ -530,6 +598,7 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
             }
         };
     }
+
     println!("Sorts: {:?}", sorts);
     println!("Nodes: {:?}", nodes);
     Ok(Btor2 { sorts, nodes })
@@ -542,13 +611,6 @@ fn pretty(item: proc_macro2::TokenStream) -> String {
     };
 
     prettyplease::unparse(&file)
-}
-
-fn create_mask(length: usize) -> Btor2BitvecType {
-    let one = Wrapping(1u64);
-    let num_values = one << length;
-    let value_mask = num_values - one;
-    value_mask
 }
 
 fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, anyhow::Error> {
@@ -584,6 +646,9 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                     let a_ident = bi_op.a.create_tokens("node");
                     let b_ident = bi_op.b.create_tokens("node");
                     match bi_op.op_type {
+                        Btor2BiOpType::Implies => Some(quote!(let #result_ident = ::machine_check_types::TypedEq::typed_eq(#a_ident, #b_ident);)),
+                        Btor2BiOpType::Iff => Some(quote!(let #result_ident = !#a_ident | #b_ident)),
+                        Btor2BiOpType::And => Some(quote!(let #result_ident = #a_ident & #b_ident;)),
                         Btor2BiOpType::Add => Some(quote!(let #result_ident = #a_ident + #b_ident;)),
                         Btor2BiOpType::Eq =>
                             Some(quote!(let #result_ident = ::machine_check_types::TypedEq::typed_eq(#a_ident, #b_ident);)),
@@ -619,7 +684,7 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
 }
 
 fn main() {
-    let file = File::open("examples/recount4.btor2").unwrap();
+    let file = File::open("examples/twocount32.btor2").unwrap();
     let btor2 = parse_btor2(file).unwrap();
 
     let state_tokens: Vec<_> = btor2
