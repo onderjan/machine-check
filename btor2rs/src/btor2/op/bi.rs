@@ -123,7 +123,7 @@ impl BiOp {
             BiOpType::Sra => Ok(quote!(::machine_check_types::Sra::sra(#a_tokens, #b_tokens))),
             BiOpType::Srl => Ok(quote!(::machine_check_types::Srl::srl(#a_tokens, #b_tokens))),
             BiOpType::Add => Ok(quote!((#a_tokens) + (#b_tokens))),
-            BiOpType::Mul => todo!(),
+            BiOpType::Mul => Ok(quote!((#a_tokens) * (#b_tokens))),
             BiOpType::Sdiv => Err(anyhow!("Signed division generation not implemented")),
             BiOpType::Udiv => Err(anyhow!("Unsigned division generation not implemented")),
             BiOpType::Smod => Err(anyhow!("Signed modulo generation not implemented")),
@@ -155,7 +155,7 @@ impl BiOp {
                 };
                 let b_length = b_sort.length.get();
 
-                let sll_const = Const::new(false, result_length as u64);
+                let sll_const = Const::new(false, b_length as u64);
                 let sll_tokens = sll_const.create_tokens(result_sort);
                 let a_uext_sll = quote!(::machine_check_types::Sll::sll(#a_uext, #sll_tokens));
 

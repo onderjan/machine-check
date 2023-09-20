@@ -1,6 +1,6 @@
 use std::{
     num::Wrapping,
-    ops::{Add, BitAnd, BitOr, BitXor, Neg, Not, Sub},
+    ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -58,6 +58,14 @@ impl<const N: u32> Sub for MachineBitvector<N> {
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self::w_new((self.v - rhs.v) & compute_mask(N))
+    }
+}
+
+impl<const N: u32> Mul for MachineBitvector<N> {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self::w_new((self.v * rhs.v) & compute_mask(N))
     }
 }
 
