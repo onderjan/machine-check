@@ -25,7 +25,8 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                 }
                 NodeType::Const(const_value) => {
                     let Sort::Bitvec(bitvec_length) = node.result_sort;
-                    Some(quote!(let #result_ident = ::machine_check_types::MachineBitvector::<#bitvec_length>::new(#const_value);))
+                    let const_tokens = const_value.create_tokens(bitvec_length);
+                    Some(quote!(let #result_ident = #const_tokens;))
                 }
                 NodeType::Input => {
                     let input_ident = result.create_ident("input");

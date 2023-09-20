@@ -12,6 +12,7 @@ use std::{
     str::SplitWhitespace,
 };
 
+use crate::btor2::node::Const;
 use crate::btor2::{
     op::{TriOp, TriOpType},
     state::State,
@@ -61,31 +62,6 @@ fn parse_sort(
     Ok(sort.clone())
 }
 
-fn parse_const_value(split: &mut SplitWhitespace<'_>, radix: u32) -> Result<u64, anyhow::Error> {
-    let Some(value) = split.next() else {
-        return Err(anyhow!("Missing const value"));
-    };
-    // TODO: move negation to const so that it is negated on the bitvector
-    // strip negation
-    let (negate, value) = if let Some(stripped_value) = value.strip_prefix('-') {
-        (true, stripped_value)
-    } else {
-        (false, value)
-    };
-
-    let Ok(value) = u64::from_str_radix(value, radix) else {
-        return Err(anyhow!("Cannot parse const value"));
-    };
-
-    // wrapping-negate if necessary
-    let value = if negate {
-        0u64.wrapping_sub(value)
-    } else {
-        value
-    };
-    Ok(value)
-}
-
 fn insert_const(
     nid: Nid,
     split: &mut SplitWhitespace<'_>,
@@ -94,12 +70,16 @@ fn insert_const(
     radix: u32,
 ) -> Result<(), anyhow::Error> {
     let result_sort = parse_sort(split, sorts)?;
-    let value = parse_const_value(split, radix)?;
+
+    let Some(value) = split.next() else {
+        return Err(anyhow!("Missing const value"));
+    };
+    let const_value = Const::try_from_radix(value, radix)?;
     nodes.insert(
         nid,
         Node {
             result_sort,
-            node_type: NodeType::Const(value),
+            node_type: NodeType::Const(const_value),
         },
     );
     Ok(())
@@ -212,21 +192,17 @@ fn parse_btor2_line(
                 nid,
                 Node {
                     result_sort,
-                    node_type: NodeType::Const(1),
+                    node_type: NodeType::Const(Const::new(false, 1)),
                 },
             );
         }
         "ones" => {
             let result_sort = parse_sort(&mut split, sorts)?;
-            let Sort::Bitvec(bitvec_length) = result_sort;
-
-            let num_values = 1u64 << bitvec_length as usize;
-            let value_mask = num_values - 1u64;
             nodes.insert(
                 nid,
                 Node {
                     result_sort,
-                    node_type: NodeType::Const(value_mask),
+                    node_type: NodeType::Const(Const::new(true, 1)),
                 },
             );
         }
@@ -236,7 +212,7 @@ fn parse_btor2_line(
                 nid,
                 Node {
                     result_sort,
-                    node_type: NodeType::Const(0),
+                    node_type: NodeType::Const(Const::new(false, 0)),
                 },
             );
         }
