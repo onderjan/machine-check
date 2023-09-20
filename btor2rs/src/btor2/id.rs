@@ -1,8 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::anyhow;
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use proc_macro2::{Ident, Span};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Sid(usize);
@@ -80,16 +79,5 @@ impl Display for FlippableNid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let sign = if self.flip { "-" } else { "" };
         write!(f, "{}{}", sign, self.nid)
-    }
-}
-
-impl FlippableNid {
-    pub fn create_tokens(&self, flavor: &str) -> TokenStream {
-        let ident = self.nid.create_ident(flavor);
-        if self.flip {
-            quote!((!#ident))
-        } else {
-            quote!(#ident)
-        }
     }
 }

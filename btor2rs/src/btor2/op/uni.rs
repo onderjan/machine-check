@@ -53,7 +53,6 @@ impl UniOp {
             // just here to be sure, should not happen
             return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
         };
-        let bitvec_length = bitvec.length.get();
         match self.op_type {
             UniOpType::Not => Ok(quote!(!(#a_ident))),
             UniOpType::Inc => {

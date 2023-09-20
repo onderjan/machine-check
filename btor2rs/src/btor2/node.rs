@@ -1,5 +1,4 @@
 use super::{
-    id::Nid,
     lref::Lref,
     op::{
         bi::BiOp,
@@ -8,7 +7,7 @@ use super::{
         uni::UniOp,
     },
     rref::Rref,
-    sort::{BitvecSort, Sort},
+    sort::BitvecSort,
     state::State,
 };
 use anyhow::anyhow;

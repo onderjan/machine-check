@@ -1,10 +1,6 @@
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::TokenStream;
 
-use crate::btor2::{
-    node::{Node, NodeType},
-    sort::Sort,
-    Btor2,
-};
+use crate::btor2::{node::NodeType, sort::Sort, Btor2};
 use anyhow::anyhow;
 use quote::quote;
 
@@ -45,7 +41,7 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                 statements.push(quote!(let #result_ident = #expression;));
             }
             NodeType::TriOp(tri_op) => {
-                let expression = tri_op.create_expression(&node.result.sort, &btor2.nodes)?;
+                let expression = tri_op.create_expression(&node.result.sort)?;
                 statements.push(quote!(let #result_ident = #expression;));
             }
             NodeType::Bad(_) => {}
@@ -75,12 +71,9 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let mut input_tokens = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
         let result_type = node.result.sort.create_type_tokens()?;
-        match node.ntype {
-            NodeType::Input => {
-                let input_ident = nid.create_ident("input");
-                input_tokens.push(quote!(pub #input_ident: #result_type))
-            }
-            _ => (),
+        if let NodeType::Input = node.ntype {
+            let input_ident = nid.create_ident("input");
+            input_tokens.push(quote!(pub #input_ident: #result_type))
         }
     }
 

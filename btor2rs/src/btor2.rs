@@ -8,8 +8,6 @@ pub mod state;
 use anyhow::anyhow;
 use anyhow::Context;
 use std::num::NonZeroU32;
-use std::num::NonZeroUsize;
-use std::result;
 use std::{
     collections::BTreeMap,
     fs::File,

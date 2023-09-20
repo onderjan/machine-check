@@ -1,4 +1,4 @@
-use crate::btor2::{id::FlippableNid, rref::Rref, sort::Sort};
+use crate::btor2::{rref::Rref, sort::Sort};
 
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
@@ -98,10 +98,7 @@ impl BiOp {
             | BiOpType::Umulo
             | BiOpType::Ssubo
             | BiOpType::Usubo => {
-                let Sort::Bitvec(bitvec) = result_sort else {
-                    return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
-                };
-                if !bitvec.is_single_bit() {
+                if !result_sort.is_single_bit() {
                     return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
                 }
             }

@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-
-use crate::btor2::{id::Nid, node::Node, rref::Rref, sort::Sort};
+use crate::btor2::{rref::Rref, sort::Sort};
 
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
@@ -73,11 +71,7 @@ impl TriOp {
         Ok(TriOp { op_type, a, b, c })
     }
 
-    pub fn create_expression(
-        &self,
-        result_sort: &Sort,
-        nodes: &BTreeMap<Nid, Node>,
-    ) -> Result<TokenStream, anyhow::Error> {
+    pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
         let a_ident = self.a.create_tokens("node");
         let b_ident = self.b.create_tokens("node");
         let c_ident = self.c.create_tokens("node");
