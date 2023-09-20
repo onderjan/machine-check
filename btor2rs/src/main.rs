@@ -1,4 +1,5 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
+use btor2_id::{Nid, FlippableNid, Sid};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use std::{
@@ -9,37 +10,7 @@ use std::{
     str::SplitWhitespace,
 };
 
-type Btor2BitvecPrimitive = u64;
-type Btor2BitvecType = Wrapping<u64>;
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-struct Sid(usize);
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-struct Nid(usize);
-
-impl Nid {
-    fn create_ident(&self, flavor: &str) -> Ident {
-        Ident::new(&format!("{}_{}", flavor, self.0), Span::call_site())
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct FlippableNid {
-    flip: bool,
-    nid: Nid,
-}
-
-impl FlippableNid {
-    fn create_tokens(&self, flavor: &str) -> TokenStream {
-        let ident = self.nid.create_ident(flavor);
-        if self.flip {
-            quote!((!#ident))
-        } else {
-            quote!(#ident)
-        }
-    }
-}
+mod btor2_id;
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -241,7 +212,7 @@ struct Btor2ArrayWriteOp {
 enum Btor2NodeType {
     State(Btor2State),
     Input,
-    Const(Btor2BitvecType),
+    Const(u64),
     UniOp(Btor2UniOp),
     BiOp(Btor2BiOp),
     TriOp(Btor2TriOp),
@@ -260,89 +231,60 @@ struct Btor2 {
     nodes: BTreeMap<Nid, Btor2Node>,
 }
 
-fn parse_sid(
-    split: &mut SplitWhitespace<'_>,
-    sorts: &BTreeMap<Sid, Btor2Sort>,
-    line_num: usize,
-) -> Result<Sid, anyhow::Error> {
-    let sid = split
-        .next()
-        .ok_or_else(|| anyhow!("Missing sid on line {}", line_num))?;
-
-    let Ok(sid): Result<usize, _> = sid.parse() else {
-        return Err(anyhow!("Cannot parse sid on line {}", line_num));
-    };
-    Ok(Sid { 0: sid })
+fn parse_sid(split: &mut SplitWhitespace<'_>) -> Result<Sid, anyhow::Error> {
+    let sid = split.next()
+            .ok_or_else(|| anyhow!("Missing sid"))?;
+    Sid::try_from(sid)
 }
 
 fn parse_nid(
     split: &mut SplitWhitespace<'_>,
-    sorts: &BTreeMap<Sid, Btor2Sort>,
-    line_num: usize,
 ) -> Result<Nid, anyhow::Error> {
     let nid = split
         .next()
-        .ok_or_else(|| anyhow!("Missing nid on line {}", line_num))?;
-
-    let Ok(nid): Result<usize, _> = nid.parse() else {
-        return Err(anyhow!("Cannot parse nid on line {}", line_num));
-    };
-    Ok(Nid { 0: nid })
+        .ok_or_else(|| anyhow!("Missing nid"))?;
+    Nid::try_from(nid)
 }
 
 fn parse_flippable_nid(
-    split: &mut SplitWhitespace<'_>,
-    sorts: &BTreeMap<Sid, Btor2Sort>,
-    line_num: usize,
+    split: &mut SplitWhitespace<'_>
 ) -> Result<FlippableNid, anyhow::Error> {
-    let nid = split
+    let flippable_nid = split
         .next()
-        .ok_or_else(|| anyhow!("Missing nid on line {}", line_num))?;
-
-    let (flip, nid) = if nid.starts_with("-") {
-        (true, &nid[1..])
-    } else {
-        (false, &nid[..])
-    };
-
-    let Ok(nid): Result<usize, _> = nid.parse() else {
-        return Err(anyhow!("Cannot parse nid on line {}", line_num));
-    };
-    Ok(FlippableNid { flip, nid: Nid(nid) })
+        .ok_or_else(|| anyhow!("Missing nid"))?;
+    FlippableNid::try_from(flippable_nid)
 }
 
 fn parse_sort(
     split: &mut SplitWhitespace<'_>,
-    sorts: &BTreeMap<Sid, Btor2Sort>,
-    line_num: usize,
+    sorts: &BTreeMap<Sid, Btor2Sort>
 ) -> Result<Btor2Sort, anyhow::Error> {
-    let sid = parse_sid(split, sorts, line_num)?;
+    let sid = parse_sid(split)?;
     let Some(sort) = sorts.get(&sid) else {
-        return Err(anyhow!("Unknown sid on line {}", line_num));
+        return Err(anyhow!("Unknown sid"));
     };
     Ok(sort.clone())
 }
 
 fn parse_const_value(
     split: &mut SplitWhitespace<'_>,
-    line_num: usize,
     radix: u32,
-) -> Result<Btor2BitvecType, anyhow::Error> {
+) -> Result<u64, anyhow::Error> {
     let Some(value) = split.next() else {
-        return Err(anyhow!("Missing const value on line {}", line_num));
+        return Err(anyhow!("Missing const value"));
     };
     let is_negative = value.starts_with("-");
     // slice out negation
     let value = &value[is_negative as usize..];
 
-    let Ok(value) = Btor2BitvecPrimitive::from_str_radix(value, radix) else {
-        return Err(anyhow!("Cannot parse const value on line {}", line_num));
+    let Ok(value) = u64::from_str_radix(value, radix) else {
+        return Err(anyhow!("Cannot parse const value"));
     };
 
     let value = if is_negative {
-        Wrapping(0) - Wrapping(value)
+        0u64.wrapping_sub(value)
     } else {
-        Wrapping(value)
+        value
     };
     Ok(value)
 }
@@ -352,11 +294,10 @@ fn insert_const(
     split: &mut SplitWhitespace<'_>,
     sorts: &BTreeMap<Sid, Btor2Sort>,
     nodes: &mut BTreeMap<Nid, Btor2Node>,
-    line_num: usize,
     radix: u32,
 ) -> Result<(), anyhow::Error> {
-    let result_sort = parse_sort(split, &sorts, line_num)?;
-    let value = parse_const_value(split, line_num, 10)?;
+    let result_sort = parse_sort(split, &sorts)?;
+    let value = parse_const_value(split, 10)?;
     nodes.insert(
         nid,
         Btor2Node{result_sort, node_type: Btor2NodeType::Const(value)}
@@ -370,17 +311,16 @@ fn insert_bi_op(
     split: &mut SplitWhitespace<'_>,
     sorts: &BTreeMap<Sid, Btor2Sort>,
     nodes: &mut BTreeMap<Nid, Btor2Node>,
-    line_num: usize,
 ) -> Result<(), anyhow::Error> {
-    let result_sort = parse_sort(split, &sorts, line_num)?;
-    let a = parse_flippable_nid(split, &sorts, line_num)?;
-    let b = parse_flippable_nid(split, &sorts, line_num)?;
+    let result_sort = parse_sort(split, &sorts)?;
+    let a = parse_flippable_nid(split)?;
+    let b = parse_flippable_nid(split)?;
 
     match op_type {
         Btor2BiOpType::Eq | Btor2BiOpType::Iff => {
             let Btor2Sort::Bitvec(bitvec_length) = result_sort;
             if bitvec_length != 1 {
-                return Err(anyhow!("Expected one-bit bitvec sort on line {}", line_num));
+                return Err(anyhow!("Expected one-bit bitvec sort"));
             }
         }
         _ => ()
@@ -396,8 +336,196 @@ fn insert_bi_op(
     Ok(())
 }
 
+fn parse_btor2_line(line: String, sorts: &mut BTreeMap::<Sid, Btor2Sort>, nodes: &mut BTreeMap::<Nid, Btor2Node>) -> Result<(), anyhow::Error> {
+    if line.starts_with(";") {
+        // comment
+        return Ok(());
+    }
+    
+    let mut split = line.split_whitespace();
+    print!("Line: ");
+    for element in split.clone() {
+        print!("'{}' ", element);
+    }
+    println!();
+    let Some(id) = split.next() else {
+        // empty line
+        return Ok(());
+    };
+
+    let second = split
+        .next()
+        .ok_or_else(|| anyhow!("Missing second symbol"))?;
+
+    // sorts
+    match second {
+        "sort" => {
+            let sid = Sid::try_from(id)?;
+            // insert to sorts
+            let third = split
+                .next()
+                .ok_or_else(|| anyhow!("Missing sort type"))?;
+            match third {
+                "bitvec" => {
+                    let bitvec_length = split
+                        .next()
+                        .ok_or_else(|| anyhow!("Missing bitvec length"))?;
+
+                    let Ok(bitvec_length) = bitvec_length.parse() else {
+                        return Err(anyhow!("Cannot parse bitvec length"));
+                    };
+                    sorts.insert(sid, Btor2Sort::Bitvec(bitvec_length));
+                }
+                "array" => {
+                    todo!();
+                }
+                _ => {
+                    return Err(anyhow!("Unknown sort type"));
+                }
+            }
+            return Ok(());
+        }
+        _ => (),
+    }
+
+    let nid = Nid::try_from(id)?;
+
+    // binary operations
+    if let Ok(bi_op_type) = Btor2BiOpType::try_from(second) {
+        insert_bi_op(
+            bi_op_type,
+            nid,
+            &mut split,
+            &sorts,
+            nodes,
+        )?;
+        return Ok(());
+    }
+    
+    // other operations
+    match second {
+        "input" => {
+            let result_sort = parse_sort(&mut split, &sorts)?;
+            nodes.insert(
+                nid,
+                Btor2Node{result_sort, node_type: Btor2NodeType::Input}
+            );
+        }
+        "one" => {
+            let result_sort = parse_sort(&mut split, &sorts)?;
+            nodes.insert(
+                nid,
+                Btor2Node{result_sort, node_type: Btor2NodeType::Const(1)}
+            );
+        }
+        "ones" => {
+            let result_sort = parse_sort(&mut split, &sorts)?;
+            let Btor2Sort::Bitvec(bitvec_length) = result_sort;
+
+            let num_values = 1u64 << bitvec_length as usize;
+            let value_mask = num_values - 1u64;
+            nodes.insert(
+                nid,
+                Btor2Node{result_sort, node_type: Btor2NodeType::Const(value_mask)}
+            );
+        }
+        "zero" => {
+            let result_sort = parse_sort(&mut split, &sorts)?;
+            nodes.insert(
+                nid,
+                Btor2Node{result_sort, node_type: Btor2NodeType::Const(0)}
+            );
+        }
+        "const" => {
+            insert_const(nid, &mut split, &sorts, nodes, 2)?;
+        }
+        "constd" => {
+            insert_const(nid, &mut split, &sorts, nodes, 10)?;
+        }
+        "consth" => {
+            insert_const(nid, &mut split, &sorts, nodes, 16)?;
+        }
+        "state" => {
+            let result_sort = parse_sort(&mut split, &sorts)?;
+            nodes.insert(
+                nid,
+                Btor2Node{result_sort, node_type: Btor2NodeType::State(Btor2State {
+                    init: None,
+                    next: None,
+                })},
+            );
+        }
+        // hard operations
+        "ite" => {
+            let result_sort = parse_sort(&mut split, &sorts)?;
+
+            let condition = parse_flippable_nid(&mut split)?;
+            let then_branch = parse_flippable_nid(&mut split)?;
+            let else_branch = parse_flippable_nid(&mut split)?;
+
+            nodes.insert(
+                nid,
+                Btor2Node{result_sort, node_type: Btor2NodeType::TriOp(Btor2TriOp {
+                    op_type: Btor2TriOpType::Ite,
+                    a: condition,
+                    b: then_branch,
+                    c: else_branch,
+                })},
+            );
+        }
+        // state manipulation
+        "init" => {
+            let _sid = parse_sid(&mut split)?;
+            let state_nid = parse_nid(&mut split)?;
+            let value_nid = parse_nid(&mut split)?;
+
+            let state = nodes
+                .get_mut(&state_nid)
+                .map_or(None, |node| {
+                    if let Btor2NodeType::State(state) = &mut node.node_type {
+                        Some(state)
+                    } else {
+                        None
+                    }
+                })
+                .ok_or_else(|| anyhow!("Invalid state nid {}", state_nid))?;
+
+            state.init = Some(value_nid);
+        }
+        "next" => {
+            let _sid = parse_sid(&mut split)?;
+            let state_nid = parse_nid(&mut split)?;
+            let value_nid = parse_nid(&mut split)?;
+
+            let state = nodes
+                .get_mut(&state_nid)
+                .map_or(None, |node| {
+                    if let Btor2NodeType::State(state) = &mut node.node_type {
+                        Some(state)
+                    } else {
+                        None
+                    }
+                })
+                .ok_or_else(|| anyhow!("Invalid state nid {}", state_nid))?;
+
+            state.next = Some(value_nid);
+        }
+        // properties
+        "bad" => {
+            let a = parse_nid(&mut split)?;
+            nodes.insert(nid, Btor2Node{result_sort: Btor2Sort::Bitvec(1), node_type: Btor2NodeType::Bad(a)});
+        }
+        _ => {
+            return Err(anyhow!(
+                "Unknown second symbol '{}'",
+                second
+            ));
+        }
+    };
+    Ok(())
+}
+
 fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
-    println!("Hello, world!");
 
     let mut sorts = BTreeMap::<Sid, Btor2Sort>::new();
     let mut nodes = BTreeMap::<Nid, Btor2Node>::new();
@@ -405,198 +533,7 @@ fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
     let lines = BufReader::new(file).lines().map(|l| l.unwrap());
     for (zero_start_line_num, line) in lines.enumerate() {
         let line_num = zero_start_line_num + 1;
-        if line.starts_with(";") {
-            // comment
-            continue;
-        }
-
-        let mut split = line.split_whitespace();
-        print!("Line: ");
-        for element in split.clone() {
-            print!("'{}' ", element);
-        }
-        println!();
-        let Some(id) = split.next() else {
-            // empty line
-            continue;
-        };
-
-        // node
-        let Ok(id): Result<usize, _> = id.parse() else {
-            return Err(anyhow!("Cannot parse id on line {}", line_num));
-        };
-        let second = split
-            .next()
-            .ok_or_else(|| anyhow!("Missing second symbol on line {}", line_num))?;
-
-        // sorts
-        match second {
-            "sort" => {
-                // insert to sorts
-                let third = split
-                    .next()
-                    .ok_or_else(|| anyhow!("Missing sort type on line {}", line_num))?;
-                match third {
-                    "bitvec" => {
-                        let bitvec_length = split
-                            .next()
-                            .ok_or_else(|| anyhow!("Missing bitvec length on line {}", line_num))?;
-
-                        let Ok(bitvec_length) = bitvec_length.parse() else {
-                            return Err(anyhow!("Cannot parse bitvec length on line {}", line_num));
-                        };
-                        sorts.insert(Sid { 0: id }, Btor2Sort::Bitvec(bitvec_length));
-                    }
-                    "array" => {
-                        todo!();
-                    }
-                    _ => {
-                        return Err(anyhow!("Unknown sort type on line {}", line_num));
-                    }
-                }
-                continue;
-            }
-            _ => (),
-        }
-
-        let nid = Nid { 0: id };
-
-        // binary operations
-        if let Ok(bi_op_type) = Btor2BiOpType::try_from(second) {
-            insert_bi_op(
-                bi_op_type,
-                nid,
-                &mut split,
-                &sorts,
-                &mut nodes,
-                line_num,
-            )?;
-            continue;
-        }
-        
-        // other operations
-        match second {
-            "input" => {
-                let result_sort = parse_sort(&mut split, &sorts, line_num)?;
-                nodes.insert(
-                    nid,
-                    Btor2Node{result_sort, node_type: Btor2NodeType::Input}
-                );
-            }
-            "one" => {
-                let result_sort = parse_sort(&mut split, &sorts, line_num)?;
-                nodes.insert(
-                    nid,
-                    Btor2Node{result_sort, node_type: Btor2NodeType::Const(Wrapping(1))}
-                );
-            }
-            "ones" => {
-                let result_sort = parse_sort(&mut split, &sorts, line_num)?;
-                let zero: Btor2BitvecType = Wrapping(0);
-                let one: Btor2BitvecType = Wrapping(1);
-                let Btor2Sort::Bitvec(bitvec_length) = result_sort;
-
-                let num_values = one << bitvec_length as usize;
-                let value_mask = num_values - one;
-                nodes.insert(
-                    nid,
-                    Btor2Node{result_sort, node_type: Btor2NodeType::Const(value_mask)}
-                );
-            }
-            "zero" => {
-                let result_sort = parse_sort(&mut split, &sorts, line_num)?;
-                nodes.insert(
-                    nid,
-                    Btor2Node{result_sort, node_type: Btor2NodeType::Const(Wrapping(0))}
-                );
-            }
-            "const" => {
-                insert_const(nid, &mut split, &sorts, &mut nodes, line_num, 2)?;
-            }
-            "constd" => {
-                insert_const(nid, &mut split, &sorts, &mut nodes, line_num, 10)?;
-            }
-            "consth" => {
-                insert_const(nid, &mut split, &sorts, &mut nodes, line_num, 16)?;
-            }
-            "state" => {
-                let result_sort = parse_sort(&mut split, &sorts, line_num)?;
-                nodes.insert(
-                    nid,
-                    Btor2Node{result_sort, node_type: Btor2NodeType::State(Btor2State {
-                        init: None,
-                        next: None,
-                    })},
-                );
-            }
-            // hard operations
-            "ite" => {
-                let result_sort = parse_sort(&mut split, &sorts, line_num)?;
-
-                let condition = parse_flippable_nid(&mut split, &sorts, line_num)?;
-                let then_branch = parse_flippable_nid(&mut split, &sorts, line_num)?;
-                let else_branch = parse_flippable_nid(&mut split, &sorts, line_num)?;
-
-                nodes.insert(
-                    nid,
-                    Btor2Node{result_sort, node_type: Btor2NodeType::TriOp(Btor2TriOp {
-                        op_type: Btor2TriOpType::Ite,
-                        a: condition,
-                        b: then_branch,
-                        c: else_branch,
-                    })},
-                );
-            }
-            // state manipulation
-            "init" => {
-                let _sid = parse_sid(&mut split, &sorts, line_num)?;
-                let state_nid = parse_nid(&mut split, &sorts, line_num)?;
-                let value_nid = parse_nid(&mut split, &sorts, line_num)?;
-
-                let state = nodes
-                    .get_mut(&state_nid)
-                    .map_or(None, |node| {
-                        if let Btor2NodeType::State(state) = &mut node.node_type {
-                            Some(state)
-                        } else {
-                            None
-                        }
-                    })
-                    .ok_or_else(|| anyhow!("Invalid state sid {}", line_num))?;
-
-                state.init = Some(value_nid);
-            }
-            "next" => {
-                let _sid = parse_sid(&mut split, &sorts, line_num)?;
-                let state_nid = parse_nid(&mut split, &sorts, line_num)?;
-                let value_nid = parse_nid(&mut split, &sorts, line_num)?;
-
-                let state = nodes
-                    .get_mut(&state_nid)
-                    .map_or(None, |node| {
-                        if let Btor2NodeType::State(state) = &mut node.node_type {
-                            Some(state)
-                        } else {
-                            None
-                        }
-                    })
-                    .ok_or_else(|| anyhow!("Invalid state sid {}", line_num))?;
-
-                state.next = Some(value_nid);
-            }
-            // properties
-            "bad" => {
-                let a = parse_nid(&mut split, &sorts, line_num)?;
-                nodes.insert(nid, Btor2Node{result_sort: Btor2Sort::Bitvec(1), node_type: Btor2NodeType::Bad(a)});
-            }
-            _ => {
-                return Err(anyhow!(
-                    "Unknown second symbol '{}' on line {}",
-                    second,
-                    line_num
-                ));
-            }
-        };
+        parse_btor2_line(line, &mut sorts, &mut nodes).with_context(|| format!("Occured on line {}", line_num))?;
     }
 
     println!("Sorts: {:?}", sorts);
@@ -635,7 +572,6 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                 }
                 Btor2NodeType::Const(const_value) => {
                     let Btor2Sort::Bitvec(bitvec_length) = node.result_sort;
-                    let const_value = const_value.0;
                     Some(quote!(let #result_ident = ::machine_check_types::MachineBitvector::<#bitvec_length>::new(#const_value);))
                 }
                 Btor2NodeType::Input => {
@@ -664,7 +600,7 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                             // to avoid control flow, convert condition to bitmask
                             let then_branch = &tri_op.b;
                             let Some(then_node) = btor2.nodes.get(&then_branch.nid) else {
-                                panic!("Unknown nid {} in ite nid {}", then_branch.nid.0, result.0);
+                                panic!("Unknown nid {} in ite nid {}", then_branch.nid, result);
                             };
                             let Btor2Sort::Bitvec(bitvec_length) = then_node.result_sort;
                             let condition_mask = quote!(::machine_check_types::Sext::<#bitvec_length>::sext(#a_ident));
@@ -684,7 +620,7 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
 }
 
 fn main() {
-    let file = File::open("examples/twocount32.btor2").unwrap();
+    let file = File::open("examples/recount4.btor2").unwrap();
     let btor2 = parse_btor2(file).unwrap();
 
     let state_tokens: Vec<_> = btor2
@@ -694,12 +630,12 @@ fn main() {
             match node.node_type{
                 Btor2NodeType::State(_) => {
                     let Btor2Sort::Bitvec(bitvec_length) = node.result_sort;
-                    let state_ident = Ident::new(&format!("state_{}", nid.0), Span::call_site());
+                    let state_ident = Ident::new(&format!("state_{}", nid), Span::call_site());
                     Some(quote!(pub #state_ident: ::machine_check_types::MachineBitvector<#bitvec_length>))
                 }
                 Btor2NodeType::Bad(_) => {
                     let Btor2Sort::Bitvec(bitvec_length) = node.result_sort;
-                    let bad_ident = Ident::new(&format!("bad_{}", nid.0), Span::call_site());
+                    let bad_ident = Ident::new(&format!("bad_{}", nid), Span::call_site());
                     Some(quote!(pub #bad_ident: ::machine_check_types::MachineBitvector<#bitvec_length>))
                 }
                 
@@ -713,7 +649,7 @@ fn main() {
     .iter()
     .filter_map(|(nid, node)| {
         let Btor2Sort::Bitvec(bitvec_length) = node.result_sort;
-        let ident = Ident::new(&format!("input_{}", nid.0), Span::call_site());
+        let ident = Ident::new(&format!("input_{}", nid), Span::call_site());
         if let Btor2NodeType::Input = node.node_type {
             Some(quote!(pub #ident: ::machine_check_types::MachineBitvector<#bitvec_length>))
         } else {
@@ -728,13 +664,13 @@ fn main() {
     .filter_map(|(nid, node)| {
         match node.node_type {
             Btor2NodeType::State(_) => {
-            let state_ident = Ident::new(&format!("state_{}", nid.0), Span::call_site());
-            let node_ident = Ident::new(&format!("node_{}", nid.0), Span::call_site());
+            let state_ident = Ident::new(&format!("state_{}", nid), Span::call_site());
+            let node_ident = Ident::new(&format!("node_{}", nid), Span::call_site());
             Some(quote!(#state_ident: #node_ident))
             }
             Btor2NodeType::Bad(bad) => {
-            let bad_ident = Ident::new(&format!("bad_{}", nid.0), Span::call_site());
-            let ident = Ident::new(&format!("node_{}", bad.0), Span::call_site());
+            let bad_ident = Ident::new(&format!("bad_{}", nid), Span::call_site());
+            let ident = Ident::new(&format!("node_{}", bad), Span::call_site());
             Some(quote!(#bad_ident: #ident))
             }
             _ => None
@@ -749,16 +685,16 @@ fn main() {
             match &node.node_type {
                 Btor2NodeType::State(state) => {
                     if let Some(next) = &state.next {
-                        let state_ident = Ident::new(&format!("state_{}", nid.0), Span::call_site());
-                        let node_ident = Ident::new(&format!("node_{}", next.0), Span::call_site());
+                        let state_ident = Ident::new(&format!("state_{}", nid), Span::call_site());
+                        let node_ident = Ident::new(&format!("node_{}", next), Span::call_site());
                         Some(quote!(#state_ident: #node_ident))
                     } else {
                         None
                     }
                 }
                 Btor2NodeType::Bad(bad) => {
-                    let bad_ident = Ident::new(&format!("bad_{}", nid.0), Span::call_site());
-                    let ident = Ident::new(&format!("node_{}", bad.0), Span::call_site());
+                    let bad_ident = Ident::new(&format!("bad_{}", nid), Span::call_site());
+                    let ident = Ident::new(&format!("node_{}", bad), Span::call_site());
                     Some(quote!(#bad_ident: #ident))
                 }
                 _ => None
@@ -771,16 +707,19 @@ fn main() {
         .iter()
         .filter_map(|(nid, node)| {
             if let Btor2NodeType::Bad(_) = node.node_type {
-                    let bad_ident = Ident::new(&format!("bad_{}", nid.0), Span::call_site());
+                    let bad_ident = Ident::new(&format!("bad_{}", nid), Span::call_site());
                     Some(quote!(self.#bad_ident))
             } else {
                 None
             }
         })
         .collect();
+    
+    let bad_expression = if bad_results.is_empty() { quote!(false)} else { quote!((#(#bad_results)|*) != ::machine_check_types::MachineBitvector::<1>::new(0)) };
 
     let init_statements = create_statements(&btor2, true).unwrap();
     let noninit_statements = create_statements(&btor2, false).unwrap();
+
 
     let tokens = quote!(
         #[derive(Debug)]
@@ -805,7 +744,7 @@ fn main() {
             }
 
             pub fn bad(&self) -> bool {
-                (#(#bad_results)|*) != ::machine_check_types::MachineBitvector::<1>::new(0)
+                #bad_expression
             }
         }
     );
