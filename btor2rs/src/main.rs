@@ -31,7 +31,7 @@ fn generate_complex_machines() {
             let result = generate_machine(path);
             match result {
                 Ok(_) => println!("OK"),
-                Err(_) => println!("ERROR"),
+                Err(err) => println!("ERROR: {:#}", err),
             }
         }
     }

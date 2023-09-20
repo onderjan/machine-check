@@ -1,5 +1,6 @@
-use crate::btor2::{rref::Rref, sort::Sort};
+use crate::btor2::{node::Const, rref::Rref, sort::Sort};
 
+use anyhow::anyhow;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -72,7 +73,7 @@ impl BiOp {
         BiOp { op_type, a, b }
     }
 
-    pub fn create_expression(&self, _result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
+    pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
         let a_tokens = self.a.create_tokens("node");
         let b_tokens = self.b.create_tokens("node");
         match self.op_type {
@@ -118,9 +119,9 @@ impl BiOp {
             BiOpType::Xor => Ok(quote!((#a_tokens) ^ (#b_tokens))),
             BiOpType::Rol => todo!(),
             BiOpType::Ror => todo!(),
-            BiOpType::Sll => Ok(quote!(!(::machine_check_types::Sll::sll(#a_tokens, #b_tokens)))),
-            BiOpType::Sra => Ok(quote!(!(::machine_check_types::Sra::sra(#a_tokens, #b_tokens)))),
-            BiOpType::Srl => Ok(quote!(!(::machine_check_types::Srl::srl(#a_tokens, #b_tokens)))),
+            BiOpType::Sll => Ok(quote!(::machine_check_types::Sll::sll(#a_tokens, #b_tokens))),
+            BiOpType::Sra => Ok(quote!(::machine_check_types::Sra::sra(#a_tokens, #b_tokens))),
+            BiOpType::Srl => Ok(quote!(::machine_check_types::Srl::srl(#a_tokens, #b_tokens))),
             BiOpType::Add => Ok(quote!((#a_tokens) + (#b_tokens))),
             BiOpType::Mul => todo!(),
             BiOpType::Sdiv => todo!(),
@@ -137,7 +138,30 @@ impl BiOp {
             BiOpType::Umulo => todo!(),
             BiOpType::Ssubo => todo!(),
             BiOpType::Usubo => todo!(),
-            BiOpType::Concat => todo!(),
+            BiOpType::Concat => {
+                // a is the higher, b is the lower
+                let Sort::Bitvec(result_sort) = result_sort else {
+                    return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
+                };
+                let result_length = result_sort.length.get();
+
+                // do unsigned extension of both to result type
+                let a_uext = quote!(::machine_check_types::Uext::<#result_length>::uext(#a_tokens));
+                let b_uext = quote!(::machine_check_types::Uext::<#result_length>::uext(#b_tokens));
+
+                // shift a by length of b
+                let Sort::Bitvec(b_sort) = &self.b.sort else {
+                    return Err(anyhow!("Expected bitvec second parameter, but have {}", self.b.sort));
+                };
+                let b_length = b_sort.length.get();
+
+                let sll_const = Const::new(false, b_length as u64);
+                let sll_tokens = sll_const.create_tokens(result_sort);
+                let a_uext_sll = quote!(::machine_check_types::Sll::sll(#a_uext, #sll_tokens));
+
+                // bit-or together
+                Ok(quote!((#a_uext_sll) | (#b_uext)))
+            }
             BiOpType::Read => {
                 // a is the array, b is the index
                 Ok(quote!(::machine_check_types::MachineArray::read(&(#a_tokens), #b_tokens)))
