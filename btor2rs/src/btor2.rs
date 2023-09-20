@@ -205,7 +205,7 @@ fn parse_btor2_line(
     if let Ok(op_type) = UniOpType::try_from(second) {
         let result_sort = parse_sort(&mut split, sorts)?;
         let a = parse_rref(&mut split, nodes)?;
-        let ntype = NodeType::UniOp(UniOp::try_new(&result_sort, op_type, a)?);
+        let ntype = NodeType::UniOp(UniOp::new(op_type, a));
         insert_node(nodes, result_sort, nid, ntype);
         return Ok(());
     }
@@ -215,7 +215,7 @@ fn parse_btor2_line(
         let result_sort = parse_sort(&mut split, sorts)?;
         let a = parse_rref(&mut split, nodes)?;
         let b = parse_rref(&mut split, nodes)?;
-        let ntype = NodeType::BiOp(BiOp::try_new(&result_sort, op_type, a, b)?);
+        let ntype = NodeType::BiOp(BiOp::new(op_type, a, b));
         insert_node(nodes, result_sort, nid, ntype);
         return Ok(());
     }
@@ -226,7 +226,7 @@ fn parse_btor2_line(
         let a = parse_rref(&mut split, nodes)?;
         let b = parse_rref(&mut split, nodes)?;
         let c = parse_rref(&mut split, nodes)?;
-        let ntype = NodeType::TriOp(TriOp::try_new(&result_sort, op_type, a, b, c)?);
+        let ntype = NodeType::TriOp(TriOp::new(op_type, a, b, c));
         insert_node(nodes, result_sort, nid, ntype);
         return Ok(());
     }
@@ -272,8 +272,6 @@ fn parse_btor2_line(
             let state_rref = parse_lref(&mut split, nodes)?;
             let init_rref = parse_rref(&mut split, nodes)?;
 
-            // TODO: equality of state and value type
-
             let state_nid = state_rref.nid;
 
             let state = nodes
@@ -293,8 +291,6 @@ fn parse_btor2_line(
             let _sid = parse_sid(&mut split)?;
             let state_lref = parse_lref(&mut split, nodes)?;
             let next_rref = parse_rref(&mut split, nodes)?;
-
-            // TODO: equality of state and value type
 
             let state_nid = state_lref.nid;
 

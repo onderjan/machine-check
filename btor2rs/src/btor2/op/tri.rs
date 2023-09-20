@@ -23,52 +23,8 @@ pub struct TriOp {
 }
 
 impl TriOp {
-    pub fn try_new(
-        result_sort: &Sort,
-        op_type: TriOpType,
-        a: Rref,
-        b: Rref,
-        c: Rref,
-    ) -> Result<TriOp, anyhow::Error> {
-        // TODO: check operand types
-        match op_type {
-            TriOpType::Ite => {
-                // ite is only for bitvectors
-                // a must be single-bit
-                // result, b (then branch) and c (else branch) must be of the same length
-
-                let Sort::Bitvec(result_bitvec) = result_sort else {
-                    return Err(anyhow!(
-                        "Expected bitvector result, but have {}",
-                        result_sort
-                    ));
-                };
-                if !a.sort.is_single_bit() {
-                    return Err(anyhow!(
-                        "Expected single-bit condition, but have {}",
-                        a.sort
-                    ));
-                };
-                let Sort::Bitvec(b_bitvec) = &b.sort else {
-                    return Err(anyhow!("Expected bitvector then-branch, but have {}", b.sort));
-                };
-                let Sort::Bitvec(c_bitvec) = &c.sort else {
-                    return Err(anyhow!("Expected bitvector else-branch, but have {}", c.sort));
-                };
-                if result_bitvec.length != b_bitvec.length
-                    || result_bitvec.length != c_bitvec.length
-                {
-                    return Err(anyhow!(
-                        "Expected ite matching bitvectors lengths, but have {}, {}, {}",
-                        result_bitvec,
-                        b_bitvec,
-                        c_bitvec
-                    ));
-                }
-            }
-            TriOpType::Write => todo!(),
-        }
-        Ok(TriOp { op_type, a, b, c })
+    pub fn new(op_type: TriOpType, a: Rref, b: Rref, c: Rref) -> TriOp {
+        TriOp { op_type, a, b, c }
     }
 
     pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
@@ -79,7 +35,6 @@ impl TriOp {
             TriOpType::Ite => {
                 // to avoid control flow, convert condition to bitmask
                 let Sort::Bitvec(bitvec) = result_sort else {
-                    // just here to be sure, should not happen
                     return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
                 };
                 let bitvec_length = bitvec.length.get();

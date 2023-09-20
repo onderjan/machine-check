@@ -24,27 +24,8 @@ pub struct UniOp {
 }
 
 impl UniOp {
-    pub fn try_new(
-        result_sort: &Sort,
-        op_type: UniOpType,
-        a: Rref,
-    ) -> Result<UniOp, anyhow::Error> {
-        // TODO: check operand types
-        match op_type {
-            UniOpType::Not | UniOpType::Inc | UniOpType::Dec | UniOpType::Neg => {
-                let Sort::Bitvec(_) = result_sort else {
-                    return Err(anyhow!("Expected bitvector result, but have {}", result_sort));
-                };
-            }
-            UniOpType::Redand | UniOpType::Redor | UniOpType::Redxor => {
-                if !result_sort.is_single_bit() {
-                    return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
-                };
-            }
-        }
-
-        // TODO: match types once arrays are supported
-        Ok(UniOp { op_type, a })
+    pub fn new(op_type: UniOpType, a: Rref) -> UniOp {
+        UniOp { op_type, a }
     }
 
     pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {

@@ -1,6 +1,5 @@
 use crate::btor2::{rref::Rref, sort::Sort};
 
-use anyhow::anyhow;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -69,65 +68,8 @@ pub struct BiOp {
 }
 
 impl BiOp {
-    pub fn try_new(
-        result_sort: &Sort,
-        op_type: BiOpType,
-        a: Rref,
-        b: Rref,
-    ) -> Result<BiOp, anyhow::Error> {
-        // check result type
-        // TODO: check operand types
-        match op_type {
-            BiOpType::Iff
-            | BiOpType::Implies
-            | BiOpType::Eq
-            | BiOpType::Neq
-            | BiOpType::Sgt
-            | BiOpType::Ugt
-            | BiOpType::Sgte
-            | BiOpType::Ugte
-            | BiOpType::Slt
-            | BiOpType::Ult
-            | BiOpType::Slte
-            | BiOpType::Ulte
-            | BiOpType::Saddo
-            | BiOpType::Uaddo
-            | BiOpType::Sdivo
-            | BiOpType::Udivo
-            | BiOpType::Smulo
-            | BiOpType::Umulo
-            | BiOpType::Ssubo
-            | BiOpType::Usubo => {
-                if !result_sort.is_single_bit() {
-                    return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
-                }
-            }
-            BiOpType::And
-            | BiOpType::Nand
-            | BiOpType::Nor
-            | BiOpType::Or
-            | BiOpType::Xnor
-            | BiOpType::Xor
-            | BiOpType::Rol
-            | BiOpType::Ror
-            | BiOpType::Sll
-            | BiOpType::Sra
-            | BiOpType::Srl
-            | BiOpType::Add
-            | BiOpType::Mul
-            | BiOpType::Sdiv
-            | BiOpType::Udiv
-            | BiOpType::Smod
-            | BiOpType::Srem
-            | BiOpType::Urem
-            | BiOpType::Sub => {
-                let Sort::Bitvec(_) = result_sort else {
-                    return Err(anyhow!("Expected bitvector result, but have {}", result_sort));
-                };
-            }
-            BiOpType::Concat | BiOpType::Read => todo!(),
-        }
-        Ok(BiOp { op_type, a, b })
+    pub fn new(op_type: BiOpType, a: Rref, b: Rref) -> BiOp {
+        BiOp { op_type, a, b }
     }
 
     pub fn create_expression(&self, _result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
