@@ -25,6 +25,8 @@ fn generate_complex_machines() {
     let mut num_ok: usize = 0;
     let mut num_err: usize = 0;
 
+    let mut current_ok = 0;
+
     let start = Instant::now();
 
     for entry in WalkDir::new("examples/complex") {
@@ -32,19 +34,27 @@ fn generate_complex_machines() {
         let path = entry.path();
         let extension = path.extension().and_then(OsStr::to_str);
         if let Some("btor2") = extension {
-            print!("{}: ", path.display());
             let result = generate_machine(path);
+            if (current_ok != 0 && result.is_err()) || current_ok == 100 {
+                println!("(... {} OK ...)", current_ok);
+                current_ok = 0;
+            }
             match result {
                 Ok(_) => {
                     num_ok += 1;
-                    println!("OK");
+                    current_ok += 1;
                 }
                 Err(err) => {
-                    println!("ERROR: {:#}", err);
+                    println!("ERROR [{}]: {:#}", path.display(), err);
                     num_err += 1;
                 }
             }
         }
+    }
+
+    if current_ok != 0 {
+        println!("(... {} OK ...)", current_ok);
+        current_ok = 0;
     }
 
     let duration = start.elapsed();
