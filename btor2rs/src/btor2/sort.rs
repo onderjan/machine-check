@@ -9,6 +9,14 @@ pub struct BitvecSort {
     pub length: NonZeroU32,
 }
 
+impl BitvecSort {
+    pub fn single_bit() -> BitvecSort {
+        BitvecSort {
+            length: NonZeroU32::MIN,
+        }
+    }
+}
+
 impl Display for BitvecSort {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "bitvec(length: {})", self.length)

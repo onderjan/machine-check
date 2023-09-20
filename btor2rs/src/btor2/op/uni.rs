@@ -1,8 +1,14 @@
-use crate::btor2::{node::Const, rref::Rref, sort::Sort};
+use crate::btor2::{
+    node::Const,
+    rref::Rref,
+    sort::{BitvecSort, Sort},
+};
 
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
 use quote::quote;
+
+use super::indexed::SliceOp;
 
 // derive Btor2 string representations, which are lower-case
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -60,7 +66,19 @@ impl UniOp {
                     quote!(!(::machine_check_types::TypedEq::typed_eq(#a_tokens, #all_zeros_tokens))),
                 )
             }
-            UniOpType::Redxor => todo!(),
+            UniOpType::Redxor => {
+                // naive version, just slice all relevant bits and xor them together
+                let bitvec_length = bitvec.length.get();
+                let mut slice_expressions = Vec::<TokenStream>::new();
+                let single_bit_sort = Sort::Bitvec(BitvecSort::single_bit());
+                for i in 0..bitvec_length {
+                    let i_slice = SliceOp::new(self.a.clone(), i, i)?;
+                    let i_unparenthesised_expression =
+                        i_slice.create_expression(&single_bit_sort)?;
+                    slice_expressions.push(quote!((#i_unparenthesised_expression)));
+                }
+                Ok(quote!("#(#slices)^*"))
+            }
         }
     }
 }

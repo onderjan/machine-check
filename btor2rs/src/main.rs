@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use std::{ffi::OsStr, fs::File, path::Path};
+use std::{ffi::OsStr, fs::File, path::Path, time::Instant};
 use walkdir::WalkDir;
 
 use crate::btor2::parse_btor2;
@@ -22,6 +22,11 @@ fn generate_machine(path: &Path) -> Result<TokenStream, anyhow::Error> {
 }
 
 fn generate_complex_machines() {
+    let mut num_ok: usize = 0;
+    let mut num_err: usize = 0;
+
+    let start = Instant::now();
+
     for entry in WalkDir::new("examples/complex") {
         let entry = entry.expect("Should be able to walk");
         let path = entry.path();
@@ -30,11 +35,24 @@ fn generate_complex_machines() {
             print!("{}: ", path.display());
             let result = generate_machine(path);
             match result {
-                Ok(_) => println!("OK"),
-                Err(err) => println!("ERROR: {:#}", err),
+                Ok(_) => {
+                    num_ok += 1;
+                    println!("OK");
+                }
+                Err(err) => {
+                    println!("ERROR: {:#}", err);
+                    num_err += 1;
+                }
             }
         }
     }
+
+    let duration = start.elapsed();
+
+    println!(
+        "Processed all complex examples, {} ok, {} errors, took {:?}",
+        num_ok, num_err, duration
+    );
 }
 
 fn generate_normal_machine() {
