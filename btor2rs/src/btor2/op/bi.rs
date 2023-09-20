@@ -75,15 +75,60 @@ impl BiOp {
         a: FlippableNid,
         b: FlippableNid,
     ) -> Result<BiOp, anyhow::Error> {
-        // TODO: match types once arrays are supported
+        // check result type
+        // TODO: check operand types
         match op_type {
-            BiOpType::Eq | BiOpType::Iff => {
-                let Sort::Bitvec(bitvec_length) = result_sort;
+            BiOpType::Iff
+            | BiOpType::Implies
+            | BiOpType::Eq
+            | BiOpType::Neq
+            | BiOpType::Sgt
+            | BiOpType::Ugt
+            | BiOpType::Sgte
+            | BiOpType::Ugte
+            | BiOpType::Slt
+            | BiOpType::Ult
+            | BiOpType::Slte
+            | BiOpType::Ulte
+            | BiOpType::Saddo
+            | BiOpType::Uaddo
+            | BiOpType::Sdivo
+            | BiOpType::Udivo
+            | BiOpType::Smulo
+            | BiOpType::Umulo
+            | BiOpType::Ssubo
+            | BiOpType::Usubo => {
+                let Sort::Bitvec(bitvec_length) = result_sort else {
+                    return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
+                };
                 if *bitvec_length != 1 {
-                    return Err(anyhow!("Expected one-bit bitvec"));
+                    return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
                 }
             }
-            _ => (),
+            BiOpType::And
+            | BiOpType::Nand
+            | BiOpType::Nor
+            | BiOpType::Or
+            | BiOpType::Xnor
+            | BiOpType::Xor
+            | BiOpType::Rol
+            | BiOpType::Ror
+            | BiOpType::Sll
+            | BiOpType::Sra
+            | BiOpType::Srl
+            | BiOpType::Add
+            | BiOpType::Mul
+            | BiOpType::Sdiv
+            | BiOpType::Udiv
+            | BiOpType::Smod
+            | BiOpType::Srem
+            | BiOpType::Urem
+            | BiOpType::Sub => {
+                let Sort::Bitvec(_) = result_sort else {
+                    return Err(anyhow!("Expected bitvector result, but have {}", result_sort));
+                };
+            }
+            BiOpType::Concat | BiOpType::Read => todo!(),
         }
         Ok(BiOp { op_type, a, b })
     }
