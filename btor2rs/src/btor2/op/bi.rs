@@ -4,8 +4,9 @@ use anyhow::anyhow;
 use proc_macro2::TokenStream;
 use quote::quote;
 
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
+// derive Btor2 string representations, which are lower-case
+#[derive(Debug, Clone, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "lowercase")]
 pub enum BiOpType {
     // Boolean
     Iff,
@@ -58,67 +59,6 @@ pub enum BiOpType {
     Concat,
     // array read
     Read,
-}
-
-impl TryFrom<&str> for BiOpType {
-    type Error = ();
-
-    fn try_from(value: &str) -> Result<Self, ()> {
-        match value {
-            // Boolean
-            "iff" => Ok(BiOpType::Iff),
-            "implies" => Ok(BiOpType::Implies),
-            // (dis)equality
-            "eq" => Ok(BiOpType::Eq),
-            "neq" => Ok(BiOpType::Neq),
-            // (un)signed equality
-            "sgt" => Ok(BiOpType::Sgt),
-            "ugt" => Ok(BiOpType::Ugt),
-            "sgte" => Ok(BiOpType::Sgte),
-            "ugte" => Ok(BiOpType::Ugte),
-            "slt" => Ok(BiOpType::Slt),
-            "ult" => Ok(BiOpType::Ult),
-            "slte" => Ok(BiOpType::Slte),
-            "ulte" => Ok(BiOpType::Ulte),
-            // bitwise
-            "and" => Ok(BiOpType::And),
-            "nand" => Ok(BiOpType::Nand),
-            "nor" => Ok(BiOpType::Nor),
-            "or" => Ok(BiOpType::Or),
-            "xnor" => Ok(BiOpType::Xnor),
-            "xor" => Ok(BiOpType::Xor),
-            // rotate
-            "rol" => Ok(BiOpType::Rol),
-            "ror" => Ok(BiOpType::Ror),
-            // shift
-            "sll" => Ok(BiOpType::Sll),
-            "sra" => Ok(BiOpType::Sra),
-            "srl" => Ok(BiOpType::Srl),
-            // arithmetic
-            "add" => Ok(BiOpType::Add),
-            "mul" => Ok(BiOpType::Mul),
-            "sdiv" => Ok(BiOpType::Sdiv),
-            "udiv" => Ok(BiOpType::Udiv),
-            "smod" => Ok(BiOpType::Smod),
-            "srem" => Ok(BiOpType::Srem),
-            "urem" => Ok(BiOpType::Urem),
-            "sub" => Ok(BiOpType::Sub),
-            // overflow
-            "saddo" => Ok(BiOpType::Saddo),
-            "uaddo" => Ok(BiOpType::Uaddo),
-            "sdivo" => Ok(BiOpType::Sdivo),
-            "udivo" => Ok(BiOpType::Udivo),
-            "smulo" => Ok(BiOpType::Smulo),
-            "umulo" => Ok(BiOpType::Umulo),
-            "ssubo" => Ok(BiOpType::Ssubo),
-            "usubo" => Ok(BiOpType::Usubo),
-            // concatenation
-            "concat" => Ok(BiOpType::Concat),
-            // array read
-            "read" => Ok(BiOpType::Read),
-            _ => Err(()),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

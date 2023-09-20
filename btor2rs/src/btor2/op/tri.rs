@@ -10,25 +10,14 @@ use anyhow::anyhow;
 use proc_macro2::TokenStream;
 use quote::quote;
 
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
+// derive Btor2 string representations, which are lower-case
+#[derive(Debug, Clone, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "lowercase")]
 pub enum TriOpType {
     // if-then-else
     Ite,
     // array write
     Write,
-}
-
-impl TryFrom<&str> for TriOpType {
-    type Error = ();
-
-    fn try_from(value: &str) -> Result<Self, ()> {
-        match value {
-            "ite" => Ok(TriOpType::Ite),
-            "write" => Ok(TriOpType::Write),
-            _ => Err(()),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]

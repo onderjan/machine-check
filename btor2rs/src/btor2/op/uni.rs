@@ -3,8 +3,9 @@ use crate::btor2::{id::FlippableNid, node::Const, sort::Sort};
 use proc_macro2::TokenStream;
 use quote::quote;
 
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
+// derive Btor2 string representations, which are lower-case
+#[derive(Debug, Clone, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "lowercase")]
 pub enum UniOpType {
     Not,
     Inc,
@@ -13,23 +14,6 @@ pub enum UniOpType {
     Redand,
     Redor,
     Redxor,
-}
-
-impl TryFrom<&str> for UniOpType {
-    type Error = ();
-
-    fn try_from(value: &str) -> Result<Self, ()> {
-        match value {
-            "not" => Ok(UniOpType::Not),
-            "inc" => Ok(UniOpType::Inc),
-            "dec" => Ok(UniOpType::Dec),
-            "neg" => Ok(UniOpType::Neg),
-            "redand" => Ok(UniOpType::Redand),
-            "redor" => Ok(UniOpType::Redor),
-            "redxor" => Ok(UniOpType::Redxor),
-            _ => Err(()),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
