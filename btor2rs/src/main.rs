@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use btor2_id::{Nid, FlippableNid, Sid};
+use btor2::id::{Nid, FlippableNid, Sid};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use std::{
@@ -10,7 +10,7 @@ use std::{
     str::SplitWhitespace,
 };
 
-mod btor2_id;
+mod btor2;
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
