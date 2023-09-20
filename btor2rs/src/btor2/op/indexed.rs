@@ -1,12 +1,41 @@
-use crate::btor2::{id::FlippableNid, node::Const, rref::Rref, sort::Sort};
+use crate::btor2::{node::Const, rref::Rref, sort::Sort};
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
 use quote::quote;
 
 #[derive(Debug, Clone)]
 pub struct ExtOp {
+    signed: bool,
     a: Rref,
     extension_size: u32,
+}
+
+impl ExtOp {
+    pub fn new(signed: bool, a: Rref, extension_size: u32) -> Result<Self, anyhow::Error> {
+        Ok(ExtOp {
+            signed,
+            a,
+            extension_size,
+        })
+    }
+
+    pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
+        let a_tokens = self.a.create_tokens("node");
+
+        // just compute the new number of bits and perform the extension
+        let Sort::Bitvec(a_bitvec) = &self.a.sort else {
+            return Err(anyhow!("Expected bitvec operand, but have {}", result_sort));
+        };
+        let a_length = a_bitvec.length.get();
+
+        let result_length = a_length + self.extension_size;
+
+        if self.signed {
+            Ok(quote!(::machine_check_types::Sext::<#result_length>::sext(#a_tokens)))
+        } else {
+            Ok(quote!(::machine_check_types::Uext::<#result_length>::uext(#a_tokens)))
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

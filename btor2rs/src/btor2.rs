@@ -17,6 +17,7 @@ use std::{
 
 use self::lref::Lref;
 use self::node::NodeType;
+use self::op::indexed::ExtOp;
 use self::op::indexed::SliceOp;
 use self::rref::Rref;
 use self::{id::FlippableNid, node::Node};
@@ -289,6 +290,20 @@ fn parse_btor2_line(
             insert_const(nid, &mut split, sorts, nodes, 16)?;
         }
         // special operations
+        "sext" => {
+            let result_sort = parse_sort(&mut split, sorts)?;
+            let a = parse_rref(&mut split, nodes)?;
+            let extension_size = parse_u32(&mut split)?;
+            let ntype = NodeType::ExtOp(ExtOp::new(true, a, extension_size)?);
+            insert_node(nodes, result_sort, nid, ntype);
+        }
+        "uext" => {
+            let result_sort = parse_sort(&mut split, sorts)?;
+            let a = parse_rref(&mut split, nodes)?;
+            let extension_size = parse_u32(&mut split)?;
+            let ntype = NodeType::ExtOp(ExtOp::new(false, a, extension_size)?);
+            insert_node(nodes, result_sort, nid, ntype);
+        }
         "slice" => {
             let result_sort = parse_sort(&mut split, sorts)?;
             let a = parse_rref(&mut split, nodes)?;
@@ -297,7 +312,6 @@ fn parse_btor2_line(
             let ntype = NodeType::SliceOp(SliceOp::new(a, upper_bit, lower_bit)?);
             insert_node(nodes, result_sort, nid, ntype);
         }
-
         // states
         "state" => {
             let result_sort = parse_sort(&mut split, sorts)?;

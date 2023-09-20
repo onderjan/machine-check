@@ -45,7 +45,10 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
             NodeType::Output(_) => {
                 // outputs are unimportant for verification
             }
-            NodeType::ExtOp(_) => todo!(),
+            NodeType::ExtOp(op) => {
+                let expression = op.create_expression(&node.result.sort)?;
+                statements.push(quote!(let #result_ident = #expression;));
+            }
             NodeType::SliceOp(op) => {
                 let expression = op.create_expression(&node.result.sort)?;
                 statements.push(quote!(let #result_ident = #expression;));
