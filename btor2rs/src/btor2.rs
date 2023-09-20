@@ -360,11 +360,14 @@ fn parse_btor2_line(
         }
         // properties
         "bad" => {
-            let result_sort = Sort::Bitvec(BitvecSort {
-                length: NonZeroU32::MIN,
-            });
+            let result_sort = Sort::Bitvec(BitvecSort::single_bit());
             let a = parse_rref(&mut split, nodes)?;
             insert_node(nodes, result_sort, nid, NodeType::Bad(a));
+        }
+        "constraint" => {
+            let result_sort = Sort::Bitvec(BitvecSort::single_bit());
+            let a = parse_rref(&mut split, nodes)?;
+            insert_node(nodes, result_sort, nid, NodeType::Constraint(a));
         }
         _ => {
             return Err(anyhow!("Unknown second symbol '{}'", second));

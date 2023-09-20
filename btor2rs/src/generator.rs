@@ -1,6 +1,10 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, Span, TokenStream};
 
-use crate::btor2::{node::NodeType, sort::Sort, Btor2};
+use crate::btor2::{
+    node::NodeType,
+    sort::{BitvecSort, Sort},
+    state, Btor2,
+};
 use anyhow::anyhow;
 use quote::quote;
 
@@ -68,12 +72,21 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
             NodeType::Bad(_) => {
                 // bad is treated in its own function
             }
+            NodeType::Constraint(_) => {
+                // constraints are treated at the end
+            }
         }
     }
     Ok(statements)
 }
 
 pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
+    let has_constraints = btor2
+        .nodes
+        .iter()
+        .any(|(nid, node)| matches!(node.ntype, NodeType::Constraint(_)));
+    let constraint_ident = Ident::new("constraint", Span::call_site());
+
     let mut state_tokens = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
         let result_type = node.result.sort.create_type_tokens()?;
@@ -165,11 +178,32 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
         })
         .collect();
 
-    let bad_expression = if bad_results.is_empty() {
+    let mut bad_expression = if bad_results.is_empty() {
         quote!(false)
     } else {
         quote!((#(#bad_results)|*) != ::machine_check_types::MachineBitvector::<1>::new(0))
     };
+
+    if has_constraints {
+        let single_bit_sort = Sort::Bitvec(BitvecSort::single_bit()).create_type_tokens()?;
+        state_tokens.push(quote!(constraint: #single_bit_sort));
+        let mut constraints_tokens = Vec::<TokenStream>::new();
+
+        for node in btor2.nodes.values() {
+            if let NodeType::Constraint(constraint) = &node.ntype {
+                constraints_tokens.push(constraint.create_tokens("node"));
+            }
+        }
+
+        // that is for the init constraints, OR them together
+        init_result_tokens.push(quote!(#constraint_ident: #(#constraints_tokens)|*));
+        // for non-init constraints, also OR the constraints from previously
+        next_result_tokens
+            .push(quote!(#constraint_ident: self.#constraint_ident | #(#constraints_tokens)|*));
+
+        // change bad expression so that constraints are taken into account
+        bad_expression = quote!(#bad_expression && #constraint_ident != ::machine_check_types::MachineBitvector::<1>::new(0));
+    }
 
     let init_statements = create_statements(&btor2, true)?;
     let noninit_statements = create_statements(&btor2, false)?;

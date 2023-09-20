@@ -61,6 +61,7 @@ pub enum NodeType {
     BiOp(BiOp),
     TriOp(TriOp),
     Bad(Rref),
+    Constraint(Rref),
 }
 
 #[derive(Debug, Clone)]
