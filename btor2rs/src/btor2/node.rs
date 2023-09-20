@@ -1,6 +1,6 @@
 use super::{
     id::Nid,
-    op::{BiOp, TriOp, UniOp},
+    op::{BiOp, ExtOp, SliceOp, TriOp, UniOp},
     sort::Sort,
     state::State,
 };
@@ -47,6 +47,8 @@ pub enum NodeType {
     State(State),
     Input,
     Const(Const),
+    ExtOp(ExtOp),
+    SliceOp(SliceOp),
     UniOp(UniOp),
     BiOp(BiOp),
     TriOp(TriOp),

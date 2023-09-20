@@ -13,11 +13,13 @@ use std::{
 };
 
 use crate::btor2::node::Const;
+use crate::btor2::op::UniOpType;
 use crate::btor2::{
     op::{TriOp, TriOpType},
     state::State,
 };
 
+use self::op::UniOp;
 use self::{
     id::FlippableNid,
     node::NodeType,
@@ -85,36 +87,6 @@ fn insert_const(
     Ok(())
 }
 
-fn insert_bi_op(
-    op_type: BiOpType,
-    nid: Nid,
-    split: &mut SplitWhitespace<'_>,
-    sorts: &BTreeMap<Sid, Sort>,
-    nodes: &mut BTreeMap<Nid, Node>,
-) -> Result<(), anyhow::Error> {
-    let result_sort = parse_sort(split, sorts)?;
-    let a = parse_flippable_nid(split)?;
-    let b = parse_flippable_nid(split)?;
-
-    match op_type {
-        BiOpType::Eq | BiOpType::Iff => {
-            let Sort::Bitvec(bitvec_length) = result_sort;
-            if bitvec_length != 1 {
-                return Err(anyhow!("Expected one-bit bitvec sort"));
-            }
-        }
-        _ => (),
-    }
-    nodes.insert(
-        nid,
-        Node {
-            result_sort,
-            node_type: NodeType::BiOp(BiOp { op_type, a, b }),
-        },
-    );
-    Ok(())
-}
-
 fn parse_btor2_line(
     line: String,
     sorts: &mut BTreeMap<Sid, Sort>,
@@ -168,9 +140,51 @@ fn parse_btor2_line(
 
     let nid = Nid::try_from(id)?;
 
+    // unary operations
+    if let Ok(op_type) = UniOpType::try_from(second) {
+        let result_sort = parse_sort(&mut split, sorts)?;
+        let a = parse_flippable_nid(&mut split)?;
+
+        nodes.insert(
+            nid,
+            Node {
+                result_sort: result_sort.clone(),
+                node_type: NodeType::UniOp(UniOp::try_new(&result_sort, op_type, a)?),
+            },
+        );
+        return Ok(());
+    }
+
     // binary operations
-    if let Ok(bi_op_type) = BiOpType::try_from(second) {
-        insert_bi_op(bi_op_type, nid, &mut split, sorts, nodes)?;
+    if let Ok(op_type) = BiOpType::try_from(second) {
+        let result_sort = parse_sort(&mut split, sorts)?;
+        let a = parse_flippable_nid(&mut split)?;
+        let b = parse_flippable_nid(&mut split)?;
+
+        nodes.insert(
+            nid,
+            Node {
+                result_sort: result_sort.clone(),
+                node_type: NodeType::BiOp(BiOp::try_new(&result_sort, op_type, a, b)?),
+            },
+        );
+        return Ok(());
+    }
+
+    // ternary operations
+    if let Ok(op_type) = TriOpType::try_from(second) {
+        let result_sort = parse_sort(&mut split, sorts)?;
+        let a = parse_flippable_nid(&mut split)?;
+        let b = parse_flippable_nid(&mut split)?;
+        let c = parse_flippable_nid(&mut split)?;
+
+        nodes.insert(
+            nid,
+            Node {
+                result_sort: result_sort.clone(),
+                node_type: NodeType::TriOp(TriOp::try_new(&result_sort, op_type, a, b, c)?),
+            },
+        );
         return Ok(());
     }
 
@@ -234,27 +248,6 @@ fn parse_btor2_line(
                     node_type: NodeType::State(State {
                         init: None,
                         next: None,
-                    }),
-                },
-            );
-        }
-        // hard operations
-        "ite" => {
-            let result_sort = parse_sort(&mut split, sorts)?;
-
-            let condition = parse_flippable_nid(&mut split)?;
-            let then_branch = parse_flippable_nid(&mut split)?;
-            let else_branch = parse_flippable_nid(&mut split)?;
-
-            nodes.insert(
-                nid,
-                Node {
-                    result_sort,
-                    node_type: NodeType::TriOp(TriOp {
-                        op_type: TriOpType::Ite,
-                        a: condition,
-                        b: then_branch,
-                        c: else_branch,
                     }),
                 },
             );

@@ -154,16 +154,16 @@ impl<const N: u32, const M: u32> Sext<M> for MachineBitvector<N> {
     }
 }
 
-pub trait Lsl {
+pub trait Sll {
     type Output;
 
-    fn lsl(self, amount: Self) -> Self::Output;
+    fn sll(self, amount: Self) -> Self::Output;
 }
 
-impl<const N: u32> Lsl for MachineBitvector<N> {
+impl<const N: u32> Sll for MachineBitvector<N> {
     type Output = Self;
 
-    fn lsl(self, amount: Self) -> Self {
+    fn sll(self, amount: Self) -> Self {
         if amount.v.0 >= N as u64 {
             // zero if the shift is too big
             MachineBitvector::w_new(Wrapping(0))
@@ -173,16 +173,16 @@ impl<const N: u32> Lsl for MachineBitvector<N> {
     }
 }
 
-pub trait Lsr {
+pub trait Srl {
     type Output;
 
-    fn lsr(self, amount: Self) -> Self::Output;
+    fn srl(self, amount: Self) -> Self::Output;
 }
 
-impl<const N: u32> Lsr for MachineBitvector<N> {
+impl<const N: u32> Srl for MachineBitvector<N> {
     type Output = Self;
 
-    fn lsr(self, amount: Self) -> Self {
+    fn srl(self, amount: Self) -> Self {
         if amount.v.0 >= N as u64 {
             // zero if the shift is too big
             MachineBitvector::w_new(Wrapping(0))
@@ -192,16 +192,16 @@ impl<const N: u32> Lsr for MachineBitvector<N> {
     }
 }
 
-pub trait Asr {
+pub trait Sra {
     type Output;
 
-    fn asr(self, amount: Self) -> Self::Output;
+    fn sra(self, amount: Self) -> Self::Output;
 }
 
-impl<const N: u32> Asr for MachineBitvector<N> {
+impl<const N: u32> Sra for MachineBitvector<N> {
     type Output = Self;
 
-    fn asr(self, amount: Self) -> Self {
+    fn sra(self, amount: Self) -> Self {
         let sign_masked = self.v & (Wrapping(1u64) << (N - 1) as usize);
         if amount.v.0 >= N as u64 {
             // fill with sign bit if the shift is too big

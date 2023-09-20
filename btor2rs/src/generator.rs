@@ -4,73 +4,47 @@ use crate::btor2::{Btor2, node::NodeType, sort::Sort, op::{BiOpType, TriOpType}}
 use quote::quote;
 
 fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, anyhow::Error> {
-    let statements = btor2
-        .nodes
-        .iter()
-        .filter_map(|(result, node)| {
-            let result_ident = result.create_ident("node");
+    let mut statements = Vec::<TokenStream>::new();
+    for (result, node) in btor2.nodes.iter() {
+        let result_ident = result.create_ident("node");
             match &node.node_type {
                 NodeType::State(state) => {
                     if is_init {
                         if let Some(a) = &state.init {
                             let a_ident = a.create_ident("node");
-                            Some(quote!(let #result_ident = #a_ident;))
-                        } else {
-                            None
+                            statements.push(quote!(let #result_ident = #a_ident;));
                         }
                     } else {
                         let state_ident = result.create_ident("state");
-                        Some(quote!(let #result_ident = self.#state_ident;))
+                        statements.push(quote!(let #result_ident = self.#state_ident;));
                     }
                 }
                 NodeType::Const(const_value) => {
                     let Sort::Bitvec(bitvec_length) = node.result_sort;
                     let const_tokens = const_value.create_tokens(bitvec_length);
-                    Some(quote!(let #result_ident = #const_tokens;))
+                    statements.push(quote!(let #result_ident = #const_tokens;));
                 }
                 NodeType::Input => {
                     let input_ident = result.create_ident("input");
-                    Some(quote!(let #result_ident = input.#input_ident;))
+                    statements.push(quote!(let #result_ident = input.#input_ident;));
+                }
+                NodeType::UniOp(uni_op) => {
+                    let expression = uni_op.create_expression(&node.result_sort)?;
+                    statements.push(quote!(let #result_ident = #expression;));
                 }
                 NodeType::BiOp(bi_op) => {
-                    let a_ident = bi_op.a.create_tokens("node");
-                    let b_ident = bi_op.b.create_tokens("node");
-                    match bi_op.op_type {
-                        BiOpType::Implies => Some(quote!(let #result_ident = ::machine_check_types::TypedEq::typed_eq(#a_ident, #b_ident);)),
-                        BiOpType::Iff => Some(quote!(let #result_ident = !#a_ident | #b_ident)),
-                        BiOpType::And => Some(quote!(let #result_ident = #a_ident & #b_ident;)),
-                        BiOpType::Add => Some(quote!(let #result_ident = #a_ident + #b_ident;)),
-                        BiOpType::Eq =>
-                            Some(quote!(let #result_ident = ::machine_check_types::TypedEq::typed_eq(#a_ident, #b_ident);)),
-                        _ => todo!(),
-                    }
+                    let expression = bi_op.create_expression(&node.result_sort)?;
+                    statements.push(quote!(let #result_ident = #expression;));
                 }
                 NodeType::TriOp(tri_op) => {
-                    let a_ident = tri_op.a.create_tokens("node");
-                    let b_ident = tri_op.b.create_tokens("node");
-                    let c_ident = tri_op.c.create_tokens("node");
-                    match tri_op.op_type {
-                        TriOpType::Ite => {
-                            // to avoid control flow, convert condition to bitmask
-                            let then_branch = &tri_op.b;
-                            let Some(then_node) = btor2.nodes.get(&then_branch.nid) else {
-                                panic!("Unknown nid {} in ite nid {}", then_branch.nid, result);
-                            };
-                            let Sort::Bitvec(bitvec_length) = then_node.result_sort;
-                            let condition_mask = quote!(::machine_check_types::Sext::<#bitvec_length>::sext(#a_ident));
-                            let neg_condition_mask = quote!(::machine_check_types::Sext::<#bitvec_length>::sext(!#a_ident));
-
-                            Some(quote!(let #result_ident = (#b_ident & #condition_mask) | (#c_ident & #neg_condition_mask);))
-                            
-                        },
-                        TriOpType::Write => todo!()
-                    }
+                    let expression = tri_op.create_expression(&node.result_sort, &btor2.nodes)?;
+                    statements.push(quote!(let #result_ident = #expression;));
                 }
-                NodeType::Bad(_) => None,
+                NodeType::Bad(_) => {},
                 _ => todo!(),
             }
-        });
-    Ok(statements.collect())
+        }
+        Ok(statements)
 }
 
 pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {

@@ -15,11 +15,11 @@ impl MachineState {
         let node_5 = ::machine_check_types::MachineBitvector::<4u32>::new(0u64);
         let node_6 = node_5;
         let node_8 = ::machine_check_types::MachineBitvector::<4u32>::new(1u64);
-        let node_9 = node_6 + node_8;
+        let node_9 = (node_6) + (node_8);
         let node_10 = (node_9 & ::machine_check_types::Sext::<4u32>::sext(node_2))
-            | (node_6 & ::machine_check_types::Sext::<4u32>::sext(!node_2));
+            | (node_6 & ::machine_check_types::Sext::<4u32>::sext(!(node_2)));
         let node_11 = (node_5 & ::machine_check_types::Sext::<4u32>::sext(node_3))
-            | (node_10 & ::machine_check_types::Sext::<4u32>::sext(!node_3));
+            | (node_10 & ::machine_check_types::Sext::<4u32>::sext(!(node_3)));
         let node_13 = (-::machine_check_types::MachineBitvector::<4u32>::new(1u64));
         let node_14 = ::machine_check_types::TypedEq::typed_eq(node_6, node_13);
         MachineState {
@@ -33,11 +33,11 @@ impl MachineState {
         let node_5 = ::machine_check_types::MachineBitvector::<4u32>::new(0u64);
         let node_6 = self.state_6;
         let node_8 = ::machine_check_types::MachineBitvector::<4u32>::new(1u64);
-        let node_9 = node_6 + node_8;
+        let node_9 = (node_6) + (node_8);
         let node_10 = (node_9 & ::machine_check_types::Sext::<4u32>::sext(node_2))
-            | (node_6 & ::machine_check_types::Sext::<4u32>::sext(!node_2));
+            | (node_6 & ::machine_check_types::Sext::<4u32>::sext(!(node_2)));
         let node_11 = (node_5 & ::machine_check_types::Sext::<4u32>::sext(node_3))
-            | (node_10 & ::machine_check_types::Sext::<4u32>::sext(!node_3));
+            | (node_10 & ::machine_check_types::Sext::<4u32>::sext(!(node_3)));
         let node_13 = (-::machine_check_types::MachineBitvector::<4u32>::new(1u64));
         let node_14 = ::machine_check_types::TypedEq::typed_eq(node_6, node_13);
         MachineState {
