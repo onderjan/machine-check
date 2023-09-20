@@ -12,3 +12,4 @@ proc-macro2 = "1.0.67"
 quote = "1.0.33"
 strum = { version = "0.25", features = ["derive"] }
 syn = "2.0.37"
+walkdir = "2.4.0"

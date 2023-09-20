@@ -154,11 +154,11 @@ fn parse_btor2_line(
     }
 
     let mut split = line.split_whitespace();
-    print!("Line: ");
+    /*print!("Line: ");
     for element in split.clone() {
         print!("'{}' ", element);
     }
-    println!();
+    println!();*/
     let Some(id) = split.next() else {
         // empty line
         return Ok(());
@@ -338,7 +338,7 @@ pub fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
             .with_context(|| format!("Parse error on line {}", line_num))?;
     }
 
-    println!("Sorts: {:?}", sorts);
-    println!("Nodes: {:?}", nodes);
+    //println!("Sorts: {:?}", sorts);
+    //println!("Nodes: {:?}", nodes);
     Ok(Btor2 { sorts, nodes })
 }
