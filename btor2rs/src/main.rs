@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use btor2::{id::{Nid, FlippableNid, Sid}, ops::{Btor2UniOp, Btor2BiOp, Btor2TriOp, Btor2BiOpType, Btor2TriOpType}};
+use btor2::{id::{Nid, FlippableNid, Sid}, op::{Btor2UniOp, Btor2BiOp, Btor2TriOp, Btor2BiOpType, Btor2TriOpType}, sort::Btor2Sort, node::{Btor2Node, Btor2NodeType}};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use std::{
@@ -9,37 +9,12 @@ use std::{
     str::SplitWhitespace,
 };
 
+use crate::btor2::state::Btor2State;
+
 mod btor2;
 
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-enum Btor2Sort {
-    Bitvec(u32),
-    // TODO: array
-}
 
-#[derive(Debug, Clone)]
-struct Btor2State {
-    init: Option<Nid>,
-    next: Option<Nid>,
-}
 
-#[derive(Debug, Clone)]
-enum Btor2NodeType {
-    State(Btor2State),
-    Input,
-    Const(u64),
-    UniOp(Btor2UniOp),
-    BiOp(Btor2BiOp),
-    TriOp(Btor2TriOp),
-    Bad(Nid),
-}
-
-#[derive(Debug, Clone)]
-struct Btor2Node {
-    result_sort: Btor2Sort,
-    node_type: Btor2NodeType,
-}
 
 #[derive(Debug, Clone)]
 struct Btor2 {
