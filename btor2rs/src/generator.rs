@@ -43,17 +43,20 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                 statements.push(quote!(let #result_ident = input.#input_ident;));
             }
             NodeType::ExtOp(_) => todo!(),
-            NodeType::SliceOp(_) => todo!(),
-            NodeType::UniOp(uni_op) => {
-                let expression = uni_op.create_expression(&node.result.sort)?;
+            NodeType::SliceOp(op) => {
+                let expression = op.create_expression(&node.result.sort)?;
                 statements.push(quote!(let #result_ident = #expression;));
             }
-            NodeType::BiOp(bi_op) => {
-                let expression = bi_op.create_expression(&node.result.sort)?;
+            NodeType::UniOp(op) => {
+                let expression = op.create_expression(&node.result.sort)?;
                 statements.push(quote!(let #result_ident = #expression;));
             }
-            NodeType::TriOp(tri_op) => {
-                let statement = tri_op.create_statement(&node.result)?;
+            NodeType::BiOp(op) => {
+                let expression = op.create_expression(&node.result.sort)?;
+                statements.push(quote!(let #result_ident = #expression;));
+            }
+            NodeType::TriOp(op) => {
+                let statement = op.create_statement(&node.result)?;
                 statements.push(statement);
             }
             NodeType::Bad(_) => {}
@@ -160,8 +163,8 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
         quote!((#(#bad_results)|*) != ::machine_check_types::MachineBitvector::<1>::new(0))
     };
 
-    let init_statements = create_statements(&btor2, true).unwrap();
-    let noninit_statements = create_statements(&btor2, false).unwrap();
+    let init_statements = create_statements(&btor2, true)?;
+    let noninit_statements = create_statements(&btor2, false)?;
 
     let tokens = quote!(
         #[derive(Debug)]

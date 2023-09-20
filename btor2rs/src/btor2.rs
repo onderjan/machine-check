@@ -17,6 +17,7 @@ use std::{
 
 use self::lref::Lref;
 use self::node::NodeType;
+use self::op::indexed::SliceOp;
 use self::rref::Rref;
 use self::{id::FlippableNid, node::Node};
 use crate::btor2::node::Const;
@@ -41,6 +42,14 @@ pub struct Btor2 {
     pub nodes: BTreeMap<Nid, Node>,
 }
 
+fn parse_u32(split: &mut SplitWhitespace<'_>) -> Result<u32, anyhow::Error> {
+    let num = split.next().ok_or_else(|| anyhow!("Missing number"))?;
+    if let Ok(num) = num.parse() {
+        Ok(num)
+    } else {
+        Err(anyhow!("Cannot parse number '{}'", num))
+    }
+}
 fn parse_sid(split: &mut SplitWhitespace<'_>) -> Result<Sid, anyhow::Error> {
     let sid = split.next().ok_or_else(|| anyhow!("Missing sid"))?;
     Sid::try_from(sid)
@@ -144,7 +153,7 @@ fn insert_const(
 }
 
 fn parse_btor2_line(
-    line: String,
+    line: &str,
     sorts: &mut BTreeMap<Sid, Sort>,
     nodes: &mut BTreeMap<Nid, Node>,
 ) -> Result<(), anyhow::Error> {
@@ -238,6 +247,7 @@ fn parse_btor2_line(
 
     // other operations
     match second {
+        // constants
         "input" => {
             let result_sort = parse_sort(&mut split, sorts)?;
             insert_node(nodes, result_sort, nid, NodeType::Input);
@@ -266,12 +276,22 @@ fn parse_btor2_line(
         "consth" => {
             insert_const(nid, &mut split, sorts, nodes, 16)?;
         }
+        // special operations
+        "slice" => {
+            let result_sort = parse_sort(&mut split, sorts)?;
+            let a = parse_rref(&mut split, nodes)?;
+            let upper_bit = parse_u32(&mut split)?;
+            let lower_bit = parse_u32(&mut split)?;
+            let ntype = NodeType::SliceOp(SliceOp::new(a, upper_bit, lower_bit)?);
+            insert_node(nodes, result_sort, nid, ntype);
+        }
+
+        // states
         "state" => {
             let result_sort = parse_sort(&mut split, sorts)?;
             let ntype = NodeType::State(State::new());
             insert_node(nodes, result_sort, nid, ntype);
         }
-        // state manipulation
         "init" => {
             let _sid = parse_sid(&mut split)?;
             let state_rref = parse_lref(&mut split, nodes)?;
@@ -331,8 +351,9 @@ pub fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
     let mut sorts = BTreeMap::<Sid, Sort>::new();
     let mut nodes = BTreeMap::<Nid, Node>::new();
 
-    let lines = BufReader::new(file).lines().map(|l| l.unwrap());
-    for (zero_start_line_num, line) in lines.enumerate() {
+    let lines_result: Result<Vec<_>, _> = BufReader::new(file).lines().collect();
+    let lines: Vec<String> = lines_result?;
+    for (zero_start_line_num, line) in lines.iter().enumerate() {
         let line_num = zero_start_line_num + 1;
         parse_btor2_line(line, &mut sorts, &mut nodes)
             .with_context(|| format!("Parse error on line {}", line_num))?;

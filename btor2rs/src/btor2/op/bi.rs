@@ -124,20 +124,20 @@ impl BiOp {
             BiOpType::Srl => Ok(quote!(::machine_check_types::Srl::srl(#a_tokens, #b_tokens))),
             BiOpType::Add => Ok(quote!((#a_tokens) + (#b_tokens))),
             BiOpType::Mul => todo!(),
-            BiOpType::Sdiv => todo!(),
-            BiOpType::Udiv => todo!(),
-            BiOpType::Smod => todo!(),
-            BiOpType::Srem => todo!(),
-            BiOpType::Urem => todo!(),
+            BiOpType::Sdiv => Err(anyhow!("Signed division generation not implemented")),
+            BiOpType::Udiv => Err(anyhow!("Unsigned division generation not implemented")),
+            BiOpType::Smod => Err(anyhow!("Signed modulo generation not implemented")),
+            BiOpType::Srem => Err(anyhow!("Signed remainder generation not implemented")),
+            BiOpType::Urem => Err(anyhow!("Unsigned remainder generation not implemented")),
             BiOpType::Sub => Ok(quote!((#a_tokens) - (#b_tokens))),
-            BiOpType::Saddo => todo!(),
-            BiOpType::Uaddo => todo!(),
-            BiOpType::Sdivo => todo!(),
-            BiOpType::Udivo => todo!(),
-            BiOpType::Smulo => todo!(),
-            BiOpType::Umulo => todo!(),
-            BiOpType::Ssubo => todo!(),
-            BiOpType::Usubo => todo!(),
+            BiOpType::Saddo
+            | BiOpType::Uaddo
+            | BiOpType::Sdivo
+            | BiOpType::Udivo
+            | BiOpType::Smulo
+            | BiOpType::Umulo
+            | BiOpType::Ssubo
+            | BiOpType::Usubo => Err(anyhow!("Overflow operation generation not implemented")),
             BiOpType::Concat => {
                 // a is the higher, b is the lower
                 let Sort::Bitvec(result_sort) = result_sort else {
@@ -149,13 +149,13 @@ impl BiOp {
                 let a_uext = quote!(::machine_check_types::Uext::<#result_length>::uext(#a_tokens));
                 let b_uext = quote!(::machine_check_types::Uext::<#result_length>::uext(#b_tokens));
 
-                // shift a by length of b
+                // shift a left by length of b
                 let Sort::Bitvec(b_sort) = &self.b.sort else {
                     return Err(anyhow!("Expected bitvec second parameter, but have {}", self.b.sort));
                 };
                 let b_length = b_sort.length.get();
 
-                let sll_const = Const::new(false, b_length as u64);
+                let sll_const = Const::new(false, result_length as u64);
                 let sll_tokens = sll_const.create_tokens(result_sort);
                 let a_uext_sll = quote!(::machine_check_types::Sll::sll(#a_uext, #sll_tokens));
 

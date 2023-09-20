@@ -31,7 +31,6 @@ impl UniOp {
     pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
         let a_tokens = self.a.create_tokens("node");
         let Sort::Bitvec(bitvec) = result_sort else {
-            // just here to be sure, should not happen
             return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
         };
         match self.op_type {
