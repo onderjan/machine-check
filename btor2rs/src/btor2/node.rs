@@ -1,12 +1,14 @@
 use super::{
     id::Nid,
+    lref::Lref,
     op::{
         bi::BiOp,
         indexed::{ExtOp, SliceOp},
         tri::TriOp,
         uni::UniOp,
     },
-    sort::Sort,
+    rref::Rref,
+    sort::{BitvecSort, Sort},
     state::State,
 };
 use anyhow::anyhow;
@@ -37,8 +39,9 @@ impl Const {
         Ok(Const { negate, value })
     }
 
-    pub fn create_tokens(&self, bitvec_length: u32) -> TokenStream {
+    pub fn create_tokens(&self, sort: &BitvecSort) -> TokenStream {
         let value = self.value;
+        let bitvec_length = sort.length.get();
         if self.negate {
             quote!((-::machine_check_types::MachineBitvector::<#bitvec_length>::new(#value)))
         } else {
@@ -57,11 +60,11 @@ pub enum NodeType {
     UniOp(UniOp),
     BiOp(BiOp),
     TriOp(TriOp),
-    Bad(Nid),
+    Bad(Rref),
 }
 
 #[derive(Debug, Clone)]
 pub struct Node {
-    pub result_sort: Sort,
-    pub node_type: NodeType,
+    pub result: Lref,
+    pub ntype: NodeType,
 }

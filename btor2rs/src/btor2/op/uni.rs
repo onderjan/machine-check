@@ -1,4 +1,4 @@
-use crate::btor2::{id::FlippableNid, node::Const, sort::Sort};
+use crate::btor2::{node::Const, rref::Rref, sort::Sort};
 
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
@@ -20,14 +20,14 @@ pub enum UniOpType {
 #[derive(Debug, Clone)]
 pub struct UniOp {
     op_type: UniOpType,
-    a: FlippableNid,
+    a: Rref,
 }
 
 impl UniOp {
     pub fn try_new(
         result_sort: &Sort,
         op_type: UniOpType,
-        a: FlippableNid,
+        a: Rref,
     ) -> Result<UniOp, anyhow::Error> {
         // TODO: check operand types
         match op_type {
@@ -37,12 +37,9 @@ impl UniOp {
                 };
             }
             UniOpType::Redand | UniOpType::Redor | UniOpType::Redxor => {
-                let Sort::Bitvec(bitvec_length) = result_sort else {
+                if !result_sort.is_single_bit() {
                     return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
                 };
-                if *bitvec_length != 1 {
-                    return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
-                }
             }
         }
 
@@ -52,19 +49,19 @@ impl UniOp {
 
     pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
         let a_ident = self.a.create_tokens("node");
-        let Sort::Bitvec(bitvec_length) = result_sort else {
-            // should be already handled by sort
-            // TODO: handle by type system
-            panic!("Expected bitvector result, but have {}", result_sort);
+        let Sort::Bitvec(bitvec) = result_sort else {
+            // just here to be sure, should not happen
+            return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
         };
+        let bitvec_length = bitvec.length.get();
         match self.op_type {
             UniOpType::Not => Ok(quote!(!(#a_ident))),
             UniOpType::Inc => {
-                let one = Const::new(false, 1).create_tokens(*bitvec_length);
+                let one = Const::new(false, 1).create_tokens(bitvec);
                 Ok(quote!((#a_ident) + (#one)))
             }
             UniOpType::Dec => {
-                let one = Const::new(false, 1).create_tokens(*bitvec_length);
+                let one = Const::new(false, 1).create_tokens(bitvec);
                 Ok(quote!((#a_ident) - (#one)))
             }
             UniOpType::Neg => Ok(quote!(-(#a_ident))),

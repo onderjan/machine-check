@@ -1,10 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::btor2::{
-    id::{FlippableNid, Nid},
-    node::Node,
-    sort::Sort,
-};
+use crate::btor2::{id::Nid, node::Node, rref::Rref, sort::Sort};
 
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
@@ -21,29 +17,56 @@ pub enum TriOpType {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct TriOp {
     op_type: TriOpType,
-    a: FlippableNid,
-    b: FlippableNid,
-    c: FlippableNid,
+    a: Rref,
+    b: Rref,
+    c: Rref,
 }
 
 impl TriOp {
     pub fn try_new(
         result_sort: &Sort,
         op_type: TriOpType,
-        a: FlippableNid,
-        b: FlippableNid,
-        c: FlippableNid,
+        a: Rref,
+        b: Rref,
+        c: Rref,
     ) -> Result<TriOp, anyhow::Error> {
         // TODO: check operand types
         match op_type {
             TriOpType::Ite => {
                 // ite is only for bitvectors
-                let Sort::Bitvec(_) = result_sort else {
-                    return Err(anyhow!("Expected bitvector result, but have {}", result_sort));
+                // a must be single-bit
+                // result, b (then branch) and c (else branch) must be of the same length
+
+                let Sort::Bitvec(result_bitvec) = result_sort else {
+                    return Err(anyhow!(
+                        "Expected bitvector result, but have {}",
+                        result_sort
+                    ));
                 };
+                if !a.sort.is_single_bit() {
+                    return Err(anyhow!(
+                        "Expected single-bit condition, but have {}",
+                        a.sort
+                    ));
+                };
+                let Sort::Bitvec(b_bitvec) = &b.sort else {
+                    return Err(anyhow!("Expected bitvector then-branch, but have {}", b.sort));
+                };
+                let Sort::Bitvec(c_bitvec) = &c.sort else {
+                    return Err(anyhow!("Expected bitvector else-branch, but have {}", c.sort));
+                };
+                if result_bitvec.length != b_bitvec.length
+                    || result_bitvec.length != c_bitvec.length
+                {
+                    return Err(anyhow!(
+                        "Expected ite matching bitvectors lengths, but have {}, {}, {}",
+                        result_bitvec,
+                        b_bitvec,
+                        c_bitvec
+                    ));
+                }
             }
             TriOpType::Write => todo!(),
         }
@@ -61,14 +84,11 @@ impl TriOp {
         match self.op_type {
             TriOpType::Ite => {
                 // to avoid control flow, convert condition to bitmask
-                let then_branch = &self.b;
-                let Some(then_node) = nodes.get(&then_branch.nid) else {
-                    return Err(anyhow!("Unknown then branch nid {}", then_branch.nid));
-                };
-                let Sort::Bitvec(bitvec_length) = then_node.result_sort else {
-                    // TODO: handle by type system
+                let Sort::Bitvec(bitvec) = result_sort else {
+                    // just here to be sure, should not happen
                     return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
                 };
+                let bitvec_length = bitvec.length.get();
                 let condition_mask =
                     quote!(::machine_check_types::Sext::<#bitvec_length>::sext(#a_ident));
                 let neg_condition_mask =

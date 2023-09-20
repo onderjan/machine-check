@@ -1,4 +1,4 @@
-use crate::btor2::{id::FlippableNid, sort::Sort};
+use crate::btor2::{id::FlippableNid, rref::Rref, sort::Sort};
 
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
@@ -64,16 +64,16 @@ pub enum BiOpType {
 #[derive(Debug, Clone)]
 pub struct BiOp {
     op_type: BiOpType,
-    a: FlippableNid,
-    b: FlippableNid,
+    a: Rref,
+    b: Rref,
 }
 
 impl BiOp {
     pub fn try_new(
         result_sort: &Sort,
         op_type: BiOpType,
-        a: FlippableNid,
-        b: FlippableNid,
+        a: Rref,
+        b: Rref,
     ) -> Result<BiOp, anyhow::Error> {
         // check result type
         // TODO: check operand types
@@ -98,10 +98,10 @@ impl BiOp {
             | BiOpType::Umulo
             | BiOpType::Ssubo
             | BiOpType::Usubo => {
-                let Sort::Bitvec(bitvec_length) = result_sort else {
+                let Sort::Bitvec(bitvec) = result_sort else {
                     return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
                 };
-                if *bitvec_length != 1 {
+                if !bitvec.is_single_bit() {
                     return Err(anyhow!("Expected one-bit result, but have {}", result_sort));
                 }
             }
