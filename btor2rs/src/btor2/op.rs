@@ -2,7 +2,7 @@ use super::id::FlippableNid;
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct Btor2ExtOp {
+pub struct ExtOp {
     pub a: FlippableNid,
     pub extension_size: usize,
     pub signed: bool,
@@ -10,7 +10,7 @@ pub struct Btor2ExtOp {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct Btor2SliceOp {
+pub struct SliceOp {
     pub a: FlippableNid,
     pub low_bit: usize,
     pub high_bit: usize,
@@ -18,7 +18,7 @@ pub struct Btor2SliceOp {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub enum Btor2UniOpType {
+pub enum UniOpType {
     Not,
     Inc,
     Dec,
@@ -29,14 +29,14 @@ pub enum Btor2UniOpType {
 }
 
 #[derive(Debug, Clone)]
-pub struct Btor2UniOp {
-    pub op_type: Btor2UniOpType,
+pub struct UniOp {
+    pub op_type: UniOpType,
     pub a: FlippableNid,
 }
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub enum Btor2BiOpType {
+pub enum BiOpType {
     // Boolean
     Iff,
     Implies,
@@ -90,77 +90,77 @@ pub enum Btor2BiOpType {
     Read,
 }
 
-impl TryFrom<&str> for Btor2BiOpType {
+impl TryFrom<&str> for BiOpType {
     type Error = ();
 
     fn try_from(value: &str) -> Result<Self, ()> {
         match value {
             // Boolean
-            "iff" => Ok(Btor2BiOpType::Iff),
-            "implies" => Ok(Btor2BiOpType::Implies),
+            "iff" => Ok(BiOpType::Iff),
+            "implies" => Ok(BiOpType::Implies),
             // (dis)equality
-            "eq" => Ok(Btor2BiOpType::Eq),
-            "neq" => Ok(Btor2BiOpType::Neq),
+            "eq" => Ok(BiOpType::Eq),
+            "neq" => Ok(BiOpType::Neq),
             // (un)signed equality
-            "sgt" => Ok(Btor2BiOpType::Sgt),
-            "ugt" => Ok(Btor2BiOpType::Ugt),
-            "sgte" => Ok(Btor2BiOpType::Sgte),
-            "ugte" => Ok(Btor2BiOpType::Ugte),
-            "slt" => Ok(Btor2BiOpType::Slt),
-            "ult" => Ok(Btor2BiOpType::Ult),
-            "slte" => Ok(Btor2BiOpType::Slte),
-            "ulte" => Ok(Btor2BiOpType::Ulte),
+            "sgt" => Ok(BiOpType::Sgt),
+            "ugt" => Ok(BiOpType::Ugt),
+            "sgte" => Ok(BiOpType::Sgte),
+            "ugte" => Ok(BiOpType::Ugte),
+            "slt" => Ok(BiOpType::Slt),
+            "ult" => Ok(BiOpType::Ult),
+            "slte" => Ok(BiOpType::Slte),
+            "ulte" => Ok(BiOpType::Ulte),
             // bitwise
-            "and" => Ok(Btor2BiOpType::And),
-            "nand" => Ok(Btor2BiOpType::Nand),
-            "nor" => Ok(Btor2BiOpType::Nor),
-            "or" => Ok(Btor2BiOpType::Or),
-            "xnor" => Ok(Btor2BiOpType::Xnor),
-            "xor" => Ok(Btor2BiOpType::Xor),
+            "and" => Ok(BiOpType::And),
+            "nand" => Ok(BiOpType::Nand),
+            "nor" => Ok(BiOpType::Nor),
+            "or" => Ok(BiOpType::Or),
+            "xnor" => Ok(BiOpType::Xnor),
+            "xor" => Ok(BiOpType::Xor),
             // rotate
-            "rol" => Ok(Btor2BiOpType::Rol),
-            "ror" => Ok(Btor2BiOpType::Ror),
+            "rol" => Ok(BiOpType::Rol),
+            "ror" => Ok(BiOpType::Ror),
             // shift
-            "sll" => Ok(Btor2BiOpType::Sll),
-            "sra" => Ok(Btor2BiOpType::Sra),
-            "srl" => Ok(Btor2BiOpType::Srl),
+            "sll" => Ok(BiOpType::Sll),
+            "sra" => Ok(BiOpType::Sra),
+            "srl" => Ok(BiOpType::Srl),
             // arithmetic
-            "add" => Ok(Btor2BiOpType::Add),
-            "mul" => Ok(Btor2BiOpType::Mul),
-            "sdiv" => Ok(Btor2BiOpType::Sdiv),
-            "udiv" => Ok(Btor2BiOpType::Udiv),
-            "smod" => Ok(Btor2BiOpType::Smod),
-            "srem" => Ok(Btor2BiOpType::Srem),
-            "urem" => Ok(Btor2BiOpType::Urem),
-            "sub" => Ok(Btor2BiOpType::Sub),
+            "add" => Ok(BiOpType::Add),
+            "mul" => Ok(BiOpType::Mul),
+            "sdiv" => Ok(BiOpType::Sdiv),
+            "udiv" => Ok(BiOpType::Udiv),
+            "smod" => Ok(BiOpType::Smod),
+            "srem" => Ok(BiOpType::Srem),
+            "urem" => Ok(BiOpType::Urem),
+            "sub" => Ok(BiOpType::Sub),
             // overflow
-            "saddo" => Ok(Btor2BiOpType::Saddo),
-            "uaddo" => Ok(Btor2BiOpType::Uaddo),
-            "sdivo" => Ok(Btor2BiOpType::Sdivo),
-            "udivo" => Ok(Btor2BiOpType::Udivo),
-            "smulo" => Ok(Btor2BiOpType::Smulo),
-            "umulo" => Ok(Btor2BiOpType::Umulo),
-            "ssubo" => Ok(Btor2BiOpType::Ssubo),
-            "usubo" => Ok(Btor2BiOpType::Usubo),
+            "saddo" => Ok(BiOpType::Saddo),
+            "uaddo" => Ok(BiOpType::Uaddo),
+            "sdivo" => Ok(BiOpType::Sdivo),
+            "udivo" => Ok(BiOpType::Udivo),
+            "smulo" => Ok(BiOpType::Smulo),
+            "umulo" => Ok(BiOpType::Umulo),
+            "ssubo" => Ok(BiOpType::Ssubo),
+            "usubo" => Ok(BiOpType::Usubo),
             // concatenation
-            "concat" => Ok(Btor2BiOpType::Concat),
+            "concat" => Ok(BiOpType::Concat),
             // array read
-            "read" => Ok(Btor2BiOpType::Read),
+            "read" => Ok(BiOpType::Read),
             _ => Err(()),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Btor2BiOp {
-    pub op_type: Btor2BiOpType,
+pub struct BiOp {
+    pub op_type: BiOpType,
     pub a: FlippableNid,
     pub b: FlippableNid,
 }
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub enum Btor2TriOpType {
+pub enum TriOpType {
     // if-then-else
     Ite,
     // array write
@@ -169,8 +169,8 @@ pub enum Btor2TriOpType {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct Btor2TriOp {
-    pub op_type: Btor2TriOpType,
+pub struct TriOp {
+    pub op_type: TriOpType,
     pub a: FlippableNid,
     pub b: FlippableNid,
     pub c: FlippableNid,
