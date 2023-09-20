@@ -113,7 +113,7 @@ impl BiOp {
             }
             BiOpType::And => Ok(quote!((#a_tokens) & (#b_tokens))),
             BiOpType::Nand => Ok(quote!(!((#a_tokens) & (#b_tokens)))),
-            BiOpType::Nor => Ok(quote!(!((#a_tokens) & (#b_tokens)))),
+            BiOpType::Nor => Ok(quote!(!((#a_tokens) | (#b_tokens)))),
             BiOpType::Or => Ok(quote!((#a_tokens) | (#b_tokens))),
             BiOpType::Xnor => Ok(quote!(!((#a_tokens) ^ (#b_tokens)))),
             BiOpType::Xor => Ok(quote!((#a_tokens) ^ (#b_tokens))),
