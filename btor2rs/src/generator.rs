@@ -42,6 +42,9 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                 let input_ident = nid.create_ident("input");
                 statements.push(quote!(let #result_ident = input.#input_ident;));
             }
+            NodeType::Output(_) => {
+                // outputs are unimportant for verification
+            }
             NodeType::ExtOp(_) => todo!(),
             NodeType::SliceOp(op) => {
                 let expression = op.create_expression(&node.result.sort)?;
@@ -59,7 +62,9 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                 let statement = op.create_statement(&node.result)?;
                 statements.push(statement);
             }
-            NodeType::Bad(_) => {}
+            NodeType::Bad(_) => {
+                // bad is treated in its own function
+            }
         }
     }
     Ok(statements)

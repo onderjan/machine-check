@@ -53,6 +53,7 @@ impl Const {
 pub enum NodeType {
     State(State),
     Input,
+    Output(Rref),
     Const(Const),
     ExtOp(ExtOp),
     SliceOp(SliceOp),

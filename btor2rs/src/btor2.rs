@@ -247,11 +247,23 @@ fn parse_btor2_line(
 
     // other operations
     match second {
-        // constants
+        // I/O
         "input" => {
             let result_sort = parse_sort(&mut split, sorts)?;
             insert_node(nodes, result_sort, nid, NodeType::Input);
         }
+        "output" => {
+            // outputs do not contain sid, only the nid of output
+            let output_rref = parse_rref(&mut split, nodes)?;
+
+            insert_node(
+                nodes,
+                output_rref.sort.clone(),
+                nid,
+                NodeType::Output(output_rref),
+            );
+        }
+        // constants
         "one" => {
             let result_sort = parse_sort(&mut split, sorts)?;
             let ntype = NodeType::Const(Const::new(false, 1));
