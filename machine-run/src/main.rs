@@ -1,10 +1,14 @@
+use machine_check_types::{MachineArray, MachineBitvector};
+
 mod machine;
 
 fn main() {
     println!("Starting machine.");
     let input = machine::MachineInput {
-        input_2: ::machine_check_types::MachineBitvector::new(1),
-        input_3: ::machine_check_types::MachineBitvector::new(0),
+        //input_2: MachineBitvector::new(1),
+        //input_3: MachineBitvector::new(0),
+        input_9: MachineBitvector::new(1),
+        input_10: MachineArray::filled(MachineBitvector::new(0)),
     };
     let mut state = machine::MachineState::init(&input);
     let mut num = 0;

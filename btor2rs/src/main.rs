@@ -14,7 +14,7 @@ fn pretty(item: proc_macro2::TokenStream) -> String {
 }
 
 fn main() {
-    let file = File::open("examples/recount4.btor2").unwrap();
+    let file = File::open("examples/easy_zero_array.btor2").unwrap();
     let btor2 = parse_btor2(file).unwrap();
     let tokens = generator::generate(btor2).unwrap();
 

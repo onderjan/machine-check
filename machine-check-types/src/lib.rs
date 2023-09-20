@@ -4,7 +4,7 @@ use std::{
 };
 
 #[derive(Debug, Clone, Copy)]
-pub struct MachineBitvector<const N: u32> {
+pub struct MachineBitvector<const L: u32> {
     v: Wrapping<u64>,
 }
 
@@ -110,7 +110,66 @@ pub trait TypedEq {
 impl<const N: u32> TypedEq for MachineBitvector<N> {
     type Output = MachineBitvector<1>;
     fn typed_eq(self, rhs: Self) -> Self::Output {
-        MachineBitvector::<1>::w_new(Wrapping((self == rhs) as u64))
+        let result = self == rhs;
+        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+    }
+}
+
+pub trait TypedCmp {
+    type Output;
+
+    fn typed_sgt(self, rhs: Self) -> Self::Output;
+    fn typed_ugt(self, rhs: Self) -> Self::Output;
+    fn typed_sgte(self, rhs: Self) -> Self::Output;
+    fn typed_ugte(self, rhs: Self) -> Self::Output;
+
+    fn typed_slt(self, rhs: Self) -> Self::Output;
+    fn typed_ult(self, rhs: Self) -> Self::Output;
+    fn typed_slte(self, rhs: Self) -> Self::Output;
+    fn typed_ulte(self, rhs: Self) -> Self::Output;
+}
+
+impl<const N: u32> TypedCmp for MachineBitvector<N> {
+    type Output = MachineBitvector<1>;
+
+    fn typed_sgt(self, rhs: Self) -> Self::Output {
+        let result = self.v.0 as i64 > rhs.v.0 as i64;
+        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+    }
+
+    fn typed_ugt(self, rhs: Self) -> Self::Output {
+        let result = self.v.0 > rhs.v.0;
+        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+    }
+
+    fn typed_sgte(self, rhs: Self) -> Self::Output {
+        let result = self.v.0 as i64 >= rhs.v.0 as i64;
+        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+    }
+
+    fn typed_ugte(self, rhs: Self) -> Self::Output {
+        let result = self.v.0 >= rhs.v.0;
+        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+    }
+
+    fn typed_slt(self, rhs: Self) -> Self::Output {
+        let result = (self.v.0 as i64) < (rhs.v.0 as i64);
+        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+    }
+
+    fn typed_ult(self, rhs: Self) -> Self::Output {
+        let result = (self.v.0) < (rhs.v.0);
+        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+    }
+
+    fn typed_slte(self, rhs: Self) -> Self::Output {
+        let result = (self.v.0) as i64 <= (rhs.v.0 as i64);
+        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+    }
+
+    fn typed_ulte(self, rhs: Self) -> Self::Output {
+        let result = (self.v.0) <= (rhs.v.0);
+        MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 }
 
@@ -219,5 +278,32 @@ impl<const N: u32> Sra for MachineBitvector<N> {
 
             MachineBitvector::w_new(v)
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MachineArray<const L: u32, const N: usize, const I: u32> {
+    v: [MachineBitvector<L>; N],
+}
+
+impl<const E: u32, const N: usize, const I: u32> MachineArray<E, N, I> {
+    pub fn filled(fill_element: MachineBitvector<E>) -> Self {
+        MachineArray {
+            v: [fill_element; N],
+        }
+    }
+
+    pub fn read(&self, index: MachineBitvector<I>) -> MachineBitvector<E> {
+        self.v[index.v.0 as usize]
+    }
+
+    pub fn write(
+        &self,
+        index: MachineBitvector<I>,
+        element: MachineBitvector<E>,
+    ) -> MachineArray<E, N, I> {
+        let mut result = self.v;
+        result[index.v.0 as usize] = element;
+        MachineArray { v: result }
     }
 }

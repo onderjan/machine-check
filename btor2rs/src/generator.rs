@@ -6,18 +6,28 @@ use quote::quote;
 
 fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, anyhow::Error> {
     let mut statements = Vec::<TokenStream>::new();
-    for (result, node) in btor2.nodes.iter() {
-        let result_ident = result.create_ident("node");
+    for (nid, node) in btor2.nodes.iter() {
+        let result_ident = nid.create_ident("node");
         match &node.ntype {
             NodeType::State(state) => {
-                if is_init {
-                    if let Some(a) = state.init() {
-                        let a_tokens = a.create_tokens("node");
-                        statements.push(quote!(let #result_ident = #a_tokens;));
+                let treat_as_input = if is_init {
+                    if let Some(init) = state.init() {
+                        let init_tokens = init.create_tokens("node");
+                        statements.push(quote!(let #result_ident = #init_tokens;));
+                        false
+                    } else {
+                        true
                     }
-                } else {
-                    let state_ident = result.create_ident("state");
+                } else if state.next().is_some() {
+                    let state_ident = nid.create_ident("state");
                     statements.push(quote!(let #result_ident = self.#state_ident;));
+                    false
+                } else {
+                    true
+                };
+                if treat_as_input {
+                    let input_ident = nid.create_ident("input");
+                    statements.push(quote!(let #result_ident = input.#input_ident;));
                 }
             }
             NodeType::Const(const_value) => {
@@ -29,9 +39,11 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                 statements.push(quote!(let #result_ident = #const_tokens;));
             }
             NodeType::Input => {
-                let input_ident = result.create_ident("input");
+                let input_ident = nid.create_ident("input");
                 statements.push(quote!(let #result_ident = input.#input_ident;));
             }
+            NodeType::ExtOp(_) => todo!(),
+            NodeType::SliceOp(_) => todo!(),
             NodeType::UniOp(uni_op) => {
                 let expression = uni_op.create_expression(&node.result.sort)?;
                 statements.push(quote!(let #result_ident = #expression;));
@@ -41,11 +53,10 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                 statements.push(quote!(let #result_ident = #expression;));
             }
             NodeType::TriOp(tri_op) => {
-                let expression = tri_op.create_expression(&node.result.sort)?;
-                statements.push(quote!(let #result_ident = #expression;));
+                let statement = tri_op.create_statement(&node.result)?;
+                statements.push(statement);
             }
             NodeType::Bad(_) => {}
-            _ => todo!(),
         }
     }
     Ok(statements)
@@ -55,10 +66,13 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let mut state_tokens = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
         let result_type = node.result.sort.create_type_tokens()?;
-        match node.ntype {
-            NodeType::State(_) => {
-                let state_ident = nid.create_ident("state");
-                state_tokens.push(quote!(pub #state_ident: #result_type))
+        match &node.ntype {
+            NodeType::State(state) => {
+                // if state has no next, it is not remembered and is treated as input
+                if state.next().is_some() {
+                    let state_ident = nid.create_ident("state");
+                    state_tokens.push(quote!(pub #state_ident: #result_type))
+                }
             }
             NodeType::Bad(_) => {
                 let bad_ident = nid.create_ident("bad");
@@ -71,51 +85,61 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let mut input_tokens = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
         let result_type = node.result.sort.create_type_tokens()?;
-        if let NodeType::Input = node.ntype {
-            let input_ident = nid.create_ident("input");
-            input_tokens.push(quote!(pub #input_ident: #result_type))
+        match &node.ntype {
+            NodeType::Input => {
+                let input_ident = nid.create_ident("input");
+                input_tokens.push(quote!(pub #input_ident: #result_type));
+            }
+            NodeType::State(state) => {
+                // if state has no init or no next, it is treated as input sometime
+                if state.init().is_none() || state.next().is_none() {
+                    let input_ident = nid.create_ident("input");
+                    input_tokens.push(quote!(pub #input_ident: #result_type));
+                }
+            }
+            _ => (),
         }
     }
 
-    let init_result_tokens: Vec<_> = btor2
-        .nodes
-        .iter()
-        .filter_map(|(nid, node)| match &node.ntype {
-            NodeType::State(_) => {
-                let state_ident = nid.create_ident("state");
-                let node_ident = nid.create_ident("node");
-                Some(quote!(#state_ident: #node_ident))
+    let mut init_result_tokens = Vec::<TokenStream>::new();
+    for (nid, node) in &btor2.nodes {
+        match &node.ntype {
+            NodeType::State(state) => {
+                // if state has no next, it is not remembered and is treated as input
+                if state.next().is_some() {
+                    let state_ident = nid.create_ident("state");
+                    let node_ident = nid.create_ident("node");
+                    init_result_tokens.push(quote!(#state_ident: #node_ident))
+                }
             }
             NodeType::Bad(condition) => {
                 let bad_ident = nid.create_ident("bad");
                 let condition = condition.create_tokens("node");
-                Some(quote!(#bad_ident: #condition))
+                init_result_tokens.push(quote!(#bad_ident: #condition))
             }
-            _ => None,
-        })
-        .collect();
+            _ => (),
+        }
+    }
 
-    let next_result_tokens: Vec<_> = btor2
-        .nodes
-        .iter()
-        .filter_map(|(nid, node)| match &node.ntype {
+    let mut next_result_tokens = Vec::<TokenStream>::new();
+    for (nid, node) in &btor2.nodes {
+        match &node.ntype {
             NodeType::State(state) => {
+                // if state has no next, it is not remembered and is treated as input
                 if let Some(next) = state.next() {
                     let state_ident = nid.create_ident("state");
                     let next_tokens = next.create_tokens("node");
-                    Some(quote!(#state_ident: #next_tokens))
-                } else {
-                    None
+                    next_result_tokens.push(quote!(#state_ident: #next_tokens))
                 }
             }
             NodeType::Bad(condition) => {
                 let bad_ident = nid.create_ident("bad");
                 let condition_ident = condition.create_tokens("node");
-                Some(quote!(#bad_ident: #condition_ident))
+                next_result_tokens.push(quote!(#bad_ident: #condition_ident))
             }
-            _ => None,
-        })
-        .collect();
+            _ => (),
+        }
+    }
 
     let bad_results: Vec<_> = btor2
         .nodes

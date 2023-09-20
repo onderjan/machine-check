@@ -29,22 +29,22 @@ impl UniOp {
     }
 
     pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
-        let a_ident = self.a.create_tokens("node");
+        let a_tokens = self.a.create_tokens("node");
         let Sort::Bitvec(bitvec) = result_sort else {
             // just here to be sure, should not happen
             return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
         };
         match self.op_type {
-            UniOpType::Not => Ok(quote!(!(#a_ident))),
+            UniOpType::Not => Ok(quote!(!(#a_tokens))),
             UniOpType::Inc => {
                 let one = Const::new(false, 1).create_tokens(bitvec);
-                Ok(quote!((#a_ident) + (#one)))
+                Ok(quote!((#a_tokens) + (#one)))
             }
             UniOpType::Dec => {
                 let one = Const::new(false, 1).create_tokens(bitvec);
-                Ok(quote!((#a_ident) - (#one)))
+                Ok(quote!((#a_tokens) - (#one)))
             }
-            UniOpType::Neg => Ok(quote!(-(#a_ident))),
+            UniOpType::Neg => Ok(quote!(-(#a_tokens))),
             UniOpType::Redand => todo!(),
             UniOpType::Redor => todo!(),
             UniOpType::Redxor => todo!(),

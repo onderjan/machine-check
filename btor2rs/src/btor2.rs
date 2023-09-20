@@ -26,6 +26,7 @@ use crate::btor2::op::tri::TriOp;
 use crate::btor2::op::tri::TriOpType;
 use crate::btor2::op::uni::UniOp;
 use crate::btor2::op::uni::UniOpType;
+use crate::btor2::sort::ArraySort;
 use crate::btor2::sort::BitvecSort;
 use crate::btor2::state::State;
 
@@ -190,7 +191,11 @@ fn parse_btor2_line(
                 sorts.insert(sid, Sort::Bitvec(bitvec));
             }
             "array" => {
-                todo!();
+                let index_sort = parse_sort(&mut split, sorts)?;
+                let element_sort = parse_sort(&mut split, sorts)?;
+
+                let array = ArraySort::new(&index_sort, &element_sort);
+                sorts.insert(sid, Sort::Array(array));
             }
             _ => {
                 return Err(anyhow!("Unknown sort type"));

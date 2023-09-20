@@ -1,4 +1,4 @@
-use crate::btor2::{rref::Rref, sort::Sort};
+use crate::btor2::{lref::Lref, rref::Rref, sort::Sort};
 
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
@@ -27,25 +27,34 @@ impl TriOp {
         TriOp { op_type, a, b, c }
     }
 
-    pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
-        let a_ident = self.a.create_tokens("node");
-        let b_ident = self.b.create_tokens("node");
-        let c_ident = self.c.create_tokens("node");
+    pub fn create_statement(&self, result: &Lref) -> Result<TokenStream, anyhow::Error> {
+        let result_ident = result.create_ident("node");
+        let a_tokens = self.a.create_tokens("node");
+        let b_tokens = self.b.create_tokens("node");
+        let c_tokens = self.c.create_tokens("node");
         match self.op_type {
             TriOpType::Ite => {
+                // a = condition, b = then, c = else
                 // to avoid control flow, convert condition to bitmask
-                let Sort::Bitvec(bitvec) = result_sort else {
-                    return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
+                let Sort::Bitvec(bitvec) = &result.sort else {
+                    return Err(anyhow!("Expected bitvec result, but have {}", result.sort));
                 };
                 let bitvec_length = bitvec.length.get();
                 let condition_mask =
-                    quote!(::machine_check_types::Sext::<#bitvec_length>::sext(#a_ident));
+                    quote!(::machine_check_types::Sext::<#bitvec_length>::sext(#a_tokens));
                 let neg_condition_mask =
-                    quote!(::machine_check_types::Sext::<#bitvec_length>::sext(!(#a_ident)));
+                    quote!(::machine_check_types::Sext::<#bitvec_length>::sext(!(#a_tokens)));
 
-                Ok(quote!((#b_ident & #condition_mask) | (#c_ident & #neg_condition_mask)))
+                Ok(
+                    quote!(let #result_ident = ((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask));),
+                )
             }
-            TriOpType::Write => todo!(),
+            TriOpType::Write => {
+                // a = array, b = index, c = element to be stored
+                Ok(
+                    quote!(let #result_ident = ::machine_check_types::MachineArray::write(&(#a_tokens), #b_tokens, #c_tokens);),
+                )
+            }
         }
     }
 }
