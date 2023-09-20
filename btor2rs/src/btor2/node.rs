@@ -1,6 +1,11 @@
 use super::{
     id::Nid,
-    op::{BiOp, ExtOp, SliceOp, TriOp, UniOp},
+    op::{
+        bi::BiOp,
+        indexed::{ExtOp, SliceOp},
+        tri::TriOp,
+        uni::UniOp,
+    },
     sort::Sort,
     state::State,
 };

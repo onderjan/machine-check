@@ -12,19 +12,15 @@ use std::{
     str::SplitWhitespace,
 };
 
+use self::{id::FlippableNid, node::NodeType};
 use crate::btor2::node::Const;
-use crate::btor2::op::UniOpType;
-use crate::btor2::{
-    op::{TriOp, TriOpType},
-    state::State,
-};
-
-use self::op::UniOp;
-use self::{
-    id::FlippableNid,
-    node::NodeType,
-    op::{BiOp, BiOpType},
-};
+use crate::btor2::op::bi::BiOp;
+use crate::btor2::op::bi::BiOpType;
+use crate::btor2::op::tri::TriOp;
+use crate::btor2::op::tri::TriOpType;
+use crate::btor2::op::uni::UniOp;
+use crate::btor2::op::uni::UniOpType;
+use crate::btor2::state::State;
 
 use {
     id::{Nid, Sid},
