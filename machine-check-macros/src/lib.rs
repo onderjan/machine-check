@@ -32,7 +32,7 @@ pub fn derive_abstraction(input: proc_macro::TokenStream) -> proc_macro::TokenSt
         }
     };
 
-    let mut abstract_fields_named = fields.named.clone();
+    let mut abstract_fields_named = fields.named;
 
     for abstract_field in &mut abstract_fields_named {
         let ty = &abstract_field.ty;
@@ -52,7 +52,7 @@ pub fn derive_abstraction(input: proc_macro::TokenStream) -> proc_macro::TokenSt
             type AbstractType = #abstract_ident;
         }
     };
-    dbg!(expanded.clone().to_string());
+    dbg!(expanded.to_string());
 
     // Hand the output tokens back to the compiler
     proc_macro::TokenStream::from(expanded)

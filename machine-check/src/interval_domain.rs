@@ -51,7 +51,7 @@ where
             // halfopen interval size is representable in type, add 1
             let unsigned_one = <T as MachineCastToUnsigned>::Unsigned::one();
             let interval_size = result_halfopen_size.checked_add(&unsigned_one);
-            if let Some(_) = interval_size {
+            if interval_size.is_some() {
                 // interval size is representable in type, do not return anything
                 return None;
             }

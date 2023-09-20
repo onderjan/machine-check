@@ -6,11 +6,10 @@ mod btor2;
 mod generator;
 
 fn pretty(item: proc_macro2::TokenStream) -> String {
-    let item_clone = item.clone();
-    let Ok(file) = syn::parse_file(&item.to_string()) else {
-        return format!("UNPARSABLE: {}", item_clone);
+    let str = item.to_string();
+    let Ok(file) = syn::parse_file(&str) else {
+        return format!("/* Unparsable */ {}", item);
     };
-
     prettyplease::unparse(&file)
 }
 

@@ -14,9 +14,9 @@ impl TryFrom<&str> for Sid {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if let Ok(sid) = value.parse() {
-            Ok(Sid { 0: sid })
+            Ok(Sid(sid))
         } else {
-            return Err(anyhow!("Cannot parse sid '{}'", value));
+            Err(anyhow!("Cannot parse sid '{}'", value))
         }
     }
 }
@@ -41,9 +41,9 @@ impl TryFrom<&str> for Nid {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if let Ok(nid) = value.parse() {
-            Ok(Nid { 0: nid })
+            Ok(Nid(nid))
         } else {
-            return Err(anyhow!("Cannot parse nid '{}'", value));
+            Err(anyhow!("Cannot parse nid '{}'", value))
         }
     }
 }
@@ -64,15 +64,15 @@ impl TryFrom<&str> for FlippableNid {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let (flip, nid) = if value.starts_with("-") {
-            (true, &value[1..])
+        let (flip, nid) = if let Some(stripped_value) = value.strip_prefix('-') {
+            (true, stripped_value)
         } else {
-            (false, &value[..])
+            (false, value)
         };
 
         let nid = Nid::try_from(nid)?;
 
-        Ok(FlippableNid { flip, nid: nid })
+        Ok(FlippableNid { flip, nid })
     }
 }
 

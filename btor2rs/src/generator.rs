@@ -1,7 +1,6 @@
 use proc_macro2::{TokenStream, Ident, Span};
 
 use crate::btor2::{Btor2, node::NodeType, sort::Sort, op::{BiOpType, TriOpType}};
-use anyhow::anyhow;
 use quote::quote;
 
 fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, anyhow::Error> {
