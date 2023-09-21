@@ -155,6 +155,45 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         }
         Self::a_new(zeros, ones)
     }
+
+    fn minmax_compute(
+        self,
+        rhs: Self,
+        fn_min: fn(Self, Self, Wrapping<u64>) -> Wrapping<u64>,
+        fn_max: fn(Self, Self, Wrapping<u64>) -> Wrapping<u64>,
+    ) -> Self {
+        // from previous paper
+
+        // start with no possibilites
+        let mut ones = Wrapping(0);
+        let mut zeros = Wrapping(0);
+
+        // iterate over output bits
+        for k in 0..L as usize {
+            // prepare a mask that selects interval [0, k]
+            let mod_mask = (Wrapping(1u64) << (k + 1)) - Wrapping(1u64);
+
+            // compute h_k extremes
+            let h_k_min = fn_min(self, rhs, mod_mask);
+            let h_k_max = fn_max(self, rhs, mod_mask);
+
+            // discard bits below bit k
+            let zeta_k_min = h_k_min >> k;
+            let zeta_k_max = h_k_max >> k;
+
+            // see if minimum and maximum differs
+            if zeta_k_min != zeta_k_max {
+                // set result bit unknown
+                zeros |= Wrapping(1u64) << k;
+                ones |= Wrapping(1u64) << k;
+            } else {
+                // set value of bit k, converted to ones-zeros encoding
+                zeros |= (!zeta_k_min & Wrapping(1)) << k;
+                ones |= (zeta_k_min & Wrapping(1)) << k;
+            }
+        }
+        Self::a_new(zeros, ones)
+    }
 }
 
 impl<const L: u32> Neg for ThreeValuedBitvector<L> {
@@ -167,21 +206,37 @@ impl<const L: u32> Neg for ThreeValuedBitvector<L> {
     }
 }
 
+impl<const L: u32> ThreeValuedBitvector<L> {
+    fn add_min(self, rhs: Self, mod_mask: Wrapping<u64>) -> Wrapping<u64> {
+        (self.umin() & mod_mask) + (rhs.umin() & mod_mask)
+    }
+
+    fn add_max(self, rhs: Self, mod_mask: Wrapping<u64>) -> Wrapping<u64> {
+        (self.umax() & mod_mask) + (rhs.umax() & mod_mask)
+    }
+
+    fn sub_min(self, rhs: Self, mod_mask: Wrapping<u64>) -> Wrapping<u64> {
+        (self.umin() & mod_mask) - (rhs.umax() & mod_mask)
+    }
+
+    fn sub_max(self, rhs: Self, mod_mask: Wrapping<u64>) -> Wrapping<u64> {
+        (self.umax() & mod_mask) - (rhs.umin() & mod_mask)
+    }
+}
+
 impl<const L: u32> Add for ThreeValuedBitvector<L> {
     type Output = Self;
 
-    fn add(self, _rhs: Self) -> Self::Output {
-        // need to use the paper
-        todo!()
+    fn add(self, rhs: Self) -> Self::Output {
+        self.minmax_compute(rhs, Self::add_min, Self::add_max)
     }
 }
 
 impl<const L: u32> Sub for ThreeValuedBitvector<L> {
     type Output = Self;
 
-    fn sub(self, _rhs: Self) -> Self::Output {
-        // need to use the paper
-        todo!()
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.minmax_compute(rhs, Self::sub_min, Self::sub_max)
     }
 }
 
