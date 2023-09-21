@@ -3,7 +3,6 @@
 resolver = "2"
 members = [
     "mck",
-    "machine-check-traits",
     "machine-check-macros",
     "machine-check",
     "btor2rs",
