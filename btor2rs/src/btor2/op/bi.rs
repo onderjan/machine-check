@@ -119,9 +119,15 @@ impl BiOp {
             BiOpType::Xor => Ok(quote!((#a_tokens) ^ (#b_tokens))),
             BiOpType::Rol => Err(anyhow!("Left rotation generation not implemented")),
             BiOpType::Ror => Err(anyhow!("Right rotation generation not implemented")),
-            BiOpType::Sll => Ok(quote!(::machine_check_types::Sll::sll(#a_tokens, #b_tokens))),
-            BiOpType::Sra => Ok(quote!(::machine_check_types::Sra::sra(#a_tokens, #b_tokens))),
-            BiOpType::Srl => Ok(quote!(::machine_check_types::Srl::srl(#a_tokens, #b_tokens))),
+            BiOpType::Sll => {
+                Ok(quote!(::machine_check_types::MachineShift::sll(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Sra => {
+                Ok(quote!(::machine_check_types::MachineShift::sra(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Srl => {
+                Ok(quote!(::machine_check_types::MachineShift::srl(#a_tokens, #b_tokens)))
+            }
             BiOpType::Add => Ok(quote!((#a_tokens) + (#b_tokens))),
             BiOpType::Mul => Ok(quote!((#a_tokens) * (#b_tokens))),
             BiOpType::Sdiv => Err(anyhow!("Signed division generation not implemented")), // TODO: implement so 292 examples can be generated
@@ -146,8 +152,10 @@ impl BiOp {
                 let result_length = result_sort.length.get();
 
                 // do unsigned extension of both to result type
-                let a_uext = quote!(::machine_check_types::Uext::<#result_length>::uext(#a_tokens));
-                let b_uext = quote!(::machine_check_types::Uext::<#result_length>::uext(#b_tokens));
+                let a_uext =
+                    quote!(::machine_check_types::MachineExt::<#result_length>::uext(#a_tokens));
+                let b_uext =
+                    quote!(::machine_check_types::MachineExt::<#result_length>::uext(#b_tokens));
 
                 // shift a left by length of b
                 let Sort::Bitvec(b_sort) = &self.b.sort else {
@@ -157,7 +165,8 @@ impl BiOp {
 
                 let sll_const = Const::new(false, b_length as u64);
                 let sll_tokens = sll_const.create_tokens(result_sort);
-                let a_uext_sll = quote!(::machine_check_types::Sll::sll(#a_uext, #sll_tokens));
+                let a_uext_sll =
+                    quote!(::machine_check_types::MachineShift::sll(#a_uext, #sll_tokens));
 
                 // bit-or together
                 Ok(quote!((#a_uext_sll) | (#b_uext)))

@@ -3,7 +3,7 @@ use std::{
     ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub},
 };
 
-use crate::traits::{Sext, Sll, Sra, Srl, TypedCmp, TypedEq, Uext};
+use crate::traits::{MachineExt, MachineShift, TypedCmp, TypedEq};
 
 #[derive(Debug, Clone, Copy)]
 pub struct MachineBitvector<const L: u32> {
@@ -169,17 +169,13 @@ impl<const L: u32> TypedCmp for MachineBitvector<L> {
     }
 }
 
-impl<const L: u32, const X: u32> Uext<X> for MachineBitvector<L> {
+impl<const L: u32, const X: u32> MachineExt<X> for MachineBitvector<L> {
     type Output = MachineBitvector<X>;
 
     fn uext(self) -> Self::Output {
-        // only shorten if needed
+        // shorten if needed, lengthening is fine
         MachineBitvector::<X>::w_new(self.v & compute_mask(X))
     }
-}
-
-impl<const L: u32, const X: u32> Sext<X> for MachineBitvector<L> {
-    type Output = MachineBitvector<X>;
 
     fn sext(self) -> Self::Output {
         // shorten if needed
@@ -197,7 +193,7 @@ impl<const L: u32, const X: u32> Sext<X> for MachineBitvector<L> {
     }
 }
 
-impl<const L: u32> Sll for MachineBitvector<L> {
+impl<const L: u32> MachineShift for MachineBitvector<L> {
     type Output = Self;
 
     fn sll(self, amount: Self) -> Self {
@@ -208,10 +204,6 @@ impl<const L: u32> Sll for MachineBitvector<L> {
             MachineBitvector::w_new(self.v << amount.v.0 as usize)
         }
     }
-}
-
-impl<const L: u32> Srl for MachineBitvector<L> {
-    type Output = Self;
 
     fn srl(self, amount: Self) -> Self {
         if amount.v.0 >= L as u64 {
@@ -221,10 +213,6 @@ impl<const L: u32> Srl for MachineBitvector<L> {
             MachineBitvector::w_new(self.v >> amount.v.0 as usize)
         }
     }
-}
-
-impl<const L: u32> Sra for MachineBitvector<L> {
-    type Output = Self;
 
     fn sra(self, amount: Self) -> Self {
         let sign_masked = self.v & (Wrapping(1u64) << (L - 1) as usize);

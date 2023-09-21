@@ -18,32 +18,17 @@ pub trait TypedCmp {
     fn typed_ulte(self, rhs: Self) -> Self::Output;
 }
 
-pub trait Uext<const M: u32> {
+pub trait MachineExt<const M: u32> {
     type Output;
 
     fn uext(self) -> Self::Output;
-}
-
-pub trait Sext<const M: u32> {
-    type Output;
-
     fn sext(self) -> Self::Output;
 }
 
-pub trait Sll {
+pub trait MachineShift {
     type Output;
 
     fn sll(self, amount: Self) -> Self::Output;
-}
-
-pub trait Srl {
-    type Output;
-
     fn srl(self, amount: Self) -> Self::Output;
-}
-
-pub trait Sra {
-    type Output;
-
     fn sra(self, amount: Self) -> Self::Output;
 }

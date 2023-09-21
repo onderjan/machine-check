@@ -3,6 +3,7 @@ use std::{ffi::OsStr, fs::File, path::Path, time::Instant};
 use proc_macro2::TokenStream;
 use walkdir::WalkDir;
 
+#[allow(dead_code)]
 fn generate_complex_machines() {
     println!(
         "Current dir: {}",
@@ -61,15 +62,17 @@ fn pretty(item: TokenStream) -> String {
 }
 
 #[allow(dead_code)]
-fn generate_normal_machine() -> Result<(), anyhow::Error> {
-    let file = File::open(Path::new("btor2rs/examples/easy_zero_array.btor2"))?;
-    let tokens = btor2rs::translate_file(file)?;
+fn generate_normal_machine() {
+    let filename = "btor2rs/examples/recount4.btor2";
+    //let filename = "btor2rs/examples/easy_zero_array.btor2";
+    let file = File::open(Path::new(filename)).expect("Should be able to open Btor2 file");
+    let tokens = btor2rs::translate_file(file).expect("Should be able to translate Btor2 file");
     println!("Normal machine result:");
     println!();
     println!("{}", pretty(tokens));
-    Ok(())
 }
 
 fn main() {
-    generate_complex_machines();
+    //generate_complex_machines();
+    generate_normal_machine();
 }

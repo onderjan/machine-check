@@ -31,9 +31,9 @@ impl ExtOp {
         let result_length = a_length + self.extension_size;
 
         if self.signed {
-            Ok(quote!(::machine_check_types::Sext::<#result_length>::sext(#a_tokens)))
+            Ok(quote!(::machine_check_types::MachineExt::<#result_length>::sext(#a_tokens)))
         } else {
-            Ok(quote!(::machine_check_types::Uext::<#result_length>::uext(#a_tokens)))
+            Ok(quote!(::machine_check_types::MachineExt::<#result_length>::uext(#a_tokens)))
         }
     }
 }
@@ -71,11 +71,11 @@ impl SliceOp {
         // logical shift right to make the lower bit the zeroth bit
         let srl_const = Const::new(false, a_length as u64);
         let srl_tokens = srl_const.create_tokens(a_bitvec);
-        let a_srl = quote!(::machine_check_types::Srl::srl(#a_tokens, #srl_tokens));
+        let a_srl = quote!(::machine_check_types::MachineShift::srl(#a_tokens, #srl_tokens));
 
         // retain only the specified number of bits by unsigned extension
         let num_retained_bits = self.upper_bit - self.lower_bit + 1;
 
-        Ok(quote!(::machine_check_types::Uext::<#num_retained_bits>::uext(#a_srl)))
+        Ok(quote!(::machine_check_types::MachineExt::<#num_retained_bits>::uext(#a_srl)))
     }
 }

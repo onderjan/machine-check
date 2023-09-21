@@ -41,9 +41,9 @@ impl TriOp {
                 };
                 let bitvec_length = bitvec.length.get();
                 let condition_mask =
-                    quote!(::machine_check_types::Sext::<#bitvec_length>::sext(#a_tokens));
+                    quote!(::machine_check_types::MachineExt::<#bitvec_length>::sext(#a_tokens));
                 let neg_condition_mask =
-                    quote!(::machine_check_types::Sext::<#bitvec_length>::sext(!(#a_tokens)));
+                    quote!(::machine_check_types::MachineExt::<#bitvec_length>::sext(!(#a_tokens)));
 
                 Ok(
                     quote!(let #result_ident = ((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask));),
