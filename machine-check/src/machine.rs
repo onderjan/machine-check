@@ -3,7 +3,7 @@ pub struct MachineInput {
     pub input_2: ::mck::ThreeValuedBitvector<1u32>,
     pub input_3: ::mck::ThreeValuedBitvector<1u32>,
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct MachineState {
     pub state_6: ::mck::ThreeValuedBitvector<4u32>,
     pub bad_15: ::mck::ThreeValuedBitvector<1u32>,

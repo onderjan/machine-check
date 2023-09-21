@@ -12,7 +12,8 @@ use crate::{
 
 use super::Bitvector;
 
-#[derive(Clone, Copy)]
+// the normal equality compares abstract bitvectors
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ThreeValuedBitvector<const L: u32> {
     zeros: Wrapping<u64>,
     ones: Wrapping<u64>,
@@ -125,7 +126,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         Wrapping(extended_smax.0 as i64)
     }
 
-    fn can_contain(&self, a: Wrapping<u64>) -> bool {
+    pub fn can_contain(&self, a: Wrapping<u64>) -> bool {
         let mask = Self::get_mask();
         assert!(a <= mask);
         // value zeros must be within our zeros and value ones must be within our ones

@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bimap = "0.6.3"
 machine-check-macros = { path = "../machine-check-macros" }
 mck = { path = "../mck" }
+petgraph = "0.6.4"
