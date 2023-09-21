@@ -7,5 +7,6 @@ members = [
     "machine-check-macros",
     "machine-check",
     "btor2rs",
+    "btor2rs-bin",
     "machine-run",
 ]

@@ -8,12 +8,7 @@ pub mod state;
 use anyhow::anyhow;
 use anyhow::Context;
 use std::num::NonZeroU32;
-use std::{
-    collections::BTreeMap,
-    fs::File,
-    io::{BufRead, BufReader},
-    str::SplitWhitespace,
-};
+use std::{collections::BTreeMap, str::SplitWhitespace};
 
 use self::lref::Lref;
 use self::node::NodeType;
@@ -153,7 +148,7 @@ fn insert_const(
     Ok(())
 }
 
-fn parse_btor2_line(
+fn parse_line(
     line: &str,
     sorts: &mut BTreeMap<Sid, Sort>,
     nodes: &mut BTreeMap<Nid, Node>,
@@ -376,15 +371,13 @@ fn parse_btor2_line(
     Ok(())
 }
 
-pub fn parse_btor2(file: File) -> Result<Btor2, anyhow::Error> {
+pub fn parse<'a>(lines: impl Iterator<Item = &'a str>) -> Result<Btor2, anyhow::Error> {
     let mut sorts = BTreeMap::<Sid, Sort>::new();
     let mut nodes = BTreeMap::<Nid, Node>::new();
 
-    let lines_result: Result<Vec<_>, _> = BufReader::new(file).lines().collect();
-    let lines: Vec<String> = lines_result?;
-    for (zero_start_line_num, line) in lines.iter().enumerate() {
+    for (zero_start_line_num, line) in lines.enumerate() {
         let line_num = zero_start_line_num + 1;
-        parse_btor2_line(line, &mut sorts, &mut nodes)
+        parse_line(line, &mut sorts, &mut nodes)
             .with_context(|| format!("Parse error on line {}", line_num))?;
     }
 

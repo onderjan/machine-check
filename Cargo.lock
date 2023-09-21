@@ -19,10 +19,19 @@ name = "btor2rs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "prettyplease",
  "proc-macro2",
  "quote",
  "strum",
+]
+
+[[package]]
+name = "btor2rs-bin"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "btor2rs",
+ "prettyplease",
+ "proc-macro2",
  "syn",
  "walkdir",
 ]
