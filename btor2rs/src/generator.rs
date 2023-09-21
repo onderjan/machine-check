@@ -181,7 +181,7 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let mut bad_expression = if bad_results.is_empty() {
         quote!(false)
     } else {
-        quote!((#(#bad_results)|*) != ::mck::MachineBitvector::<1>::new(0))
+        quote!(#(#bad_results)|*)
     };
 
     if has_constraints {
@@ -202,8 +202,7 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
             .push(quote!(#constraint_ident: self.#constraint_ident | #(#constraints_tokens)|*));
 
         // change bad expression so that constraints are taken into account
-        bad_expression =
-            quote!(#bad_expression && #constraint_ident != ::mck::MachineBitvector::<1>::new(0));
+        bad_expression = quote!((#bad_expression) && (#constraint_ident));
     }
 
     let init_statements = create_statements(&btor2, true)?;
@@ -231,7 +230,7 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
                 MachineState{#(#next_result_tokens),*}
             }
 
-            pub fn bad(&self) -> bool {
+            pub fn bad(&self) -> ::mck::MachineBitvector<1u32> {
                 #bad_expression
             }
         }

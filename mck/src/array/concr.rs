@@ -13,7 +13,7 @@ impl<const E: u32, const N: usize, const I: u32> MachineArray<E, N, I> {
     }
 
     pub fn read(&self, index: MachineBitvector<I>) -> MachineBitvector<E> {
-        self.v[index.value().0 as usize]
+        self.v[index.concrete_value().0 as usize]
     }
 
     pub fn write(
@@ -22,7 +22,7 @@ impl<const E: u32, const N: usize, const I: u32> MachineArray<E, N, I> {
         element: MachineBitvector<E>,
     ) -> MachineArray<E, N, I> {
         let mut result = self.v;
-        result[index.value().0 as usize] = element;
+        result[index.concrete_value().0 as usize] = element;
         MachineArray { v: result }
     }
 }

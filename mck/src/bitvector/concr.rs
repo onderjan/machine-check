@@ -3,45 +3,45 @@ use std::{
     ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub},
 };
 
-use crate::traits::{MachineExt, MachineShift, TypedCmp, TypedEq};
+use crate::{
+    traits::{MachineExt, MachineShift, TypedCmp, TypedEq},
+    util::compute_mask,
+};
+
+use super::Bitvector;
 
 #[derive(Debug, Clone, Copy)]
 pub struct MachineBitvector<const L: u32> {
     v: Wrapping<u64>,
 }
 
-impl<const L: u32> MachineBitvector<L> {
-    pub fn value(&self) -> Wrapping<u64> {
-        self.v
-    }
-}
-
-const fn compute_mask(n: u32) -> Wrapping<u64> {
-    if n == u64::BITS {
-        return Wrapping(0u64.wrapping_sub(1u64));
-    }
-    let num_values = u64::checked_shl(1u64, n);
-    if let Some(num_values) = num_values {
-        Wrapping(num_values.wrapping_sub(1u64))
-    } else {
-        panic!("Too many bits for MachineU")
+impl<const L: u32> Bitvector<L> for MachineBitvector<L> {
+    fn new(value: u64) -> Self {
+        Self::w_new(Wrapping(value))
     }
 }
 
 impl<const L: u32> MachineBitvector<L> {
+    #[allow(dead_code)]
+    pub fn new(value: u64) -> Self {
+        <MachineBitvector<L> as Bitvector<L>>::new(value)
+    }
+
     fn w_new(value: Wrapping<u64>) -> Self {
         let mask = compute_mask(L);
         if (value & !mask) != Wrapping(0) {
-            panic!("MachineU value {} does not fit into {} bits", value, L);
+            panic!(
+                "Machine bitvector value {} does not fit into {} bits",
+                value, L
+            );
         }
 
-        //println!("New {}-bitvector (mask {}): {}", N, mask, value);
-
-        MachineBitvector { v: value }
+        Self { v: value }
     }
 
-    pub fn new(value: u64) -> Self {
-        Self::w_new(Wrapping(value))
+    // not for use where it may be replaced by abstraction
+    pub fn concrete_value(&self) -> Wrapping<u64> {
+        self.v
     }
 }
 
@@ -109,18 +109,10 @@ impl<const L: u32> BitXor for MachineBitvector<L> {
     }
 }
 
-impl<const L: u32> PartialEq for MachineBitvector<L> {
-    fn eq(&self, other: &Self) -> bool {
-        self.v == other.v
-    }
-}
-
-impl<const L: u32> Eq for MachineBitvector<L> {}
-
 impl<const L: u32> TypedEq for MachineBitvector<L> {
     type Output = MachineBitvector<1>;
     fn typed_eq(self, rhs: Self) -> Self::Output {
-        let result = self == rhs;
+        let result = self.v == rhs.v;
         MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 }
