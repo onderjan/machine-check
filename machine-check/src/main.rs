@@ -1,43 +1,25 @@
-#![feature(const_format_args)]
-#![feature(trace_macros)]
+use mck::ThreeValuedBitvector;
 
-use std::num::Wrapping;
-
-use machine_check_macros::Abstraction;
-use machine_check_traits::Abstraction;
-
-mod interval_domain;
-
-use interval_domain::w;
-
-use crate::interval_domain::IntervalDomain;
-
-#[derive(Abstraction)]
-struct Demo {
-    b: Wrapping<i8>,
-}
+mod machine;
 
 fn main() {
-    println!("Hello, world!");
-    let a = Demo { b: w(5) };
-    println!("{}", a.b);
-
-    type AbstractDemo = <Demo as Abstraction>::AbstractType;
-    let alpha: <Demo as Abstraction>::AbstractType = AbstractDemo {
-        b: IntervalDomain::from_interval(42, 56),
+    println!("Starting machine.");
+    let input = machine::MachineInput {
+        input_2: ThreeValuedBitvector::unknown(),
+        input_3: ThreeValuedBitvector::unknown(),
+        //input_9: MachineBitvector::new(1),
+        //input_10: MachineArray::filled(MachineBitvector::new(0)),
     };
-    println!("alpha: {:?}", alpha.b);
-
-    //let x = IntervalAbstraction::from_concrete(32 as u8);
-    let x = IntervalDomain::from_interval(32i8, 64);
-    let y = IntervalDomain::from_interval(41, 42);
-    let z = x + y;
-    println!("z: {:?}", z);
-    let w = x - y;
-    println!("w: {:?}", w);
-
-    //trace_macros!(true);
-    const_format_args!("Args");
-    //panic!("Test panic");
-    //trace_macros!(false);
+    let mut state = machine::MachineState::init(&input);
+    let mut num = 0;
+    loop {
+        println!("State #{}: {:?}", num, state);
+        println!("State bad: {}", state.bad());
+        /*println!("State bad: {}", state.bad().concrete_value());
+        if state.bad().concrete_value() != Wrapping(0) {
+            panic!("Machine is bad");
+        }*/
+        state = state.next(&input);
+        num += 1;
+    }
 }

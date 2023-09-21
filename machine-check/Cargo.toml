@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 machine-check-traits = { path = "../machine-check-traits" }
 machine-check-macros = { path = "../machine-check-macros" }
-num = "0.4.0"
+mck = { path = "../mck" }

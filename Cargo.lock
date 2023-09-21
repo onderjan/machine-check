@@ -48,7 +48,7 @@ version = "0.1.0"
 dependencies = [
  "machine-check-macros",
  "machine-check-traits",
- "num",
+ "mck",
 ]
 
 [[package]]
@@ -66,13 +66,6 @@ name = "machine-check-traits"
 version = "0.1.0"
 dependencies = [
  "num",
-]
-
-[[package]]
-name = "machine-run"
-version = "0.1.0"
-dependencies = [
- "mck",
 ]
 
 [[package]]
