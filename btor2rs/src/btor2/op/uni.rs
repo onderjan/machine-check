@@ -55,16 +55,14 @@ impl UniOp {
                 let all_ones_const = Const::new(true, 1);
                 let all_ones_tokens = all_ones_const.create_tokens(bitvec);
 
-                Ok(quote!(::machine_check_types::TypedEq::typed_eq(#a_tokens, #all_ones_tokens)))
+                Ok(quote!(::mck::TypedEq::typed_eq(#a_tokens, #all_ones_tokens)))
             }
             UniOpType::Redor => {
                 // inequality with all zeros
                 let all_zeros_const = Const::new(false, 0);
                 let all_zeros_tokens = all_zeros_const.create_tokens(bitvec);
 
-                Ok(
-                    quote!(!(::machine_check_types::TypedEq::typed_eq(#a_tokens, #all_zeros_tokens))),
-                )
+                Ok(quote!(!(::mck::TypedEq::typed_eq(#a_tokens, #all_zeros_tokens))))
             }
             UniOpType::Redxor => {
                 // naive version, just slice all relevant bits and xor them together

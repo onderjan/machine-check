@@ -42,9 +42,9 @@ impl Const {
         let value = self.value;
         let bitvec_length = sort.length.get();
         if self.negate {
-            quote!((-::machine_check_types::MachineBitvector::<#bitvec_length>::new(#value)))
+            quote!((-::mck::MachineBitvector::<#bitvec_length>::new(#value)))
         } else {
-            quote!(::machine_check_types::MachineBitvector::<#bitvec_length>::new(#value))
+            quote!(::mck::MachineBitvector::<#bitvec_length>::new(#value))
         }
     }
 }

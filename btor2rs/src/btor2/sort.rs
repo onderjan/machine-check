@@ -59,7 +59,7 @@ impl Sort {
         match self {
             Sort::Bitvec(bitvec) => {
                 let bitvec_length = bitvec.length.get();
-                Ok(quote!(::machine_check_types::MachineBitvector<#bitvec_length>))
+                Ok(quote!(::mck::MachineBitvector<#bitvec_length>))
             }
             Sort::Array(array) => {
                 let index_sort = array.index_sort.as_ref();
@@ -78,7 +78,7 @@ impl Sort {
                 let element_bitvec_length = element_bitvec.length.get();
 
                 Ok(
-                    quote!(::machine_check_types::MachineArray<#element_bitvec_length, #num_index_bitvec_values, #index_bitvec_length>),
+                    quote!(::mck::MachineArray<#element_bitvec_length, #num_index_bitvec_values, #index_bitvec_length>),
                 )
             }
         }

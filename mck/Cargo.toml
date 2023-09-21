@@ -1,5 +1,5 @@
 [package]
-name = "machine-check-types"
+name = "mck"
 version = "0.1.0"
 edition = "2021"
 

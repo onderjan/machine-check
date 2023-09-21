@@ -2,7 +2,7 @@
 
 resolver = "2"
 members = [
-    "machine-check-types",
+    "mck",
     "machine-check-traits",
     "machine-check-macros",
     "machine-check",

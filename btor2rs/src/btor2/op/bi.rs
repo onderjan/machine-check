@@ -77,40 +77,18 @@ impl BiOp {
         let a_tokens = self.a.create_tokens("node");
         let b_tokens = self.b.create_tokens("node");
         match self.op_type {
-            BiOpType::Iff => {
-                Ok(quote!(::machine_check_types::TypedEq::typed_eq(#a_tokens, #b_tokens)))
-            }
+            BiOpType::Iff => Ok(quote!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens))),
             BiOpType::Implies => Ok(quote!(!(#a_tokens) | (#b_tokens))),
-            BiOpType::Eq => {
-                Ok(quote!(::machine_check_types::TypedEq::typed_eq(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Neq => {
-                Ok(quote!(!(::machine_check_types::TypedEq::typed_eq(#a_tokens, #b_tokens))))
-            }
-            BiOpType::Sgt => {
-                Ok(quote!(::machine_check_types::TypedCmp::typed_sgt(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Ugt => {
-                Ok(quote!(::machine_check_types::TypedCmp::typed_ugt(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Sgte => {
-                Ok(quote!(::machine_check_types::TypedCmp::typed_sgte(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Ugte => {
-                Ok(quote!(::machine_check_types::TypedCmp::typed_ugte(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Slt => {
-                Ok(quote!(::machine_check_types::TypedCmp::typed_slt(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Ult => {
-                Ok(quote!(::machine_check_types::TypedCmp::typed_ult(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Slte => {
-                Ok(quote!(::machine_check_types::TypedCmp::typed_slte(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Ulte => {
-                Ok(quote!(::machine_check_types::TypedCmp::typed_ulte(#a_tokens, #b_tokens)))
-            }
+            BiOpType::Eq => Ok(quote!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens))),
+            BiOpType::Neq => Ok(quote!(!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens)))),
+            BiOpType::Sgt => Ok(quote!(::mck::TypedCmp::typed_sgt(#a_tokens, #b_tokens))),
+            BiOpType::Ugt => Ok(quote!(::mck::TypedCmp::typed_ugt(#a_tokens, #b_tokens))),
+            BiOpType::Sgte => Ok(quote!(::mck::TypedCmp::typed_sgte(#a_tokens, #b_tokens))),
+            BiOpType::Ugte => Ok(quote!(::mck::TypedCmp::typed_ugte(#a_tokens, #b_tokens))),
+            BiOpType::Slt => Ok(quote!(::mck::TypedCmp::typed_slt(#a_tokens, #b_tokens))),
+            BiOpType::Ult => Ok(quote!(::mck::TypedCmp::typed_ult(#a_tokens, #b_tokens))),
+            BiOpType::Slte => Ok(quote!(::mck::TypedCmp::typed_slte(#a_tokens, #b_tokens))),
+            BiOpType::Ulte => Ok(quote!(::mck::TypedCmp::typed_ulte(#a_tokens, #b_tokens))),
             BiOpType::And => Ok(quote!((#a_tokens) & (#b_tokens))),
             BiOpType::Nand => Ok(quote!(!((#a_tokens) & (#b_tokens)))),
             BiOpType::Nor => Ok(quote!(!((#a_tokens) | (#b_tokens)))),
@@ -119,15 +97,9 @@ impl BiOp {
             BiOpType::Xor => Ok(quote!((#a_tokens) ^ (#b_tokens))),
             BiOpType::Rol => Err(anyhow!("Left rotation generation not implemented")),
             BiOpType::Ror => Err(anyhow!("Right rotation generation not implemented")),
-            BiOpType::Sll => {
-                Ok(quote!(::machine_check_types::MachineShift::sll(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Sra => {
-                Ok(quote!(::machine_check_types::MachineShift::sra(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Srl => {
-                Ok(quote!(::machine_check_types::MachineShift::srl(#a_tokens, #b_tokens)))
-            }
+            BiOpType::Sll => Ok(quote!(::mck::MachineShift::sll(#a_tokens, #b_tokens))),
+            BiOpType::Sra => Ok(quote!(::mck::MachineShift::sra(#a_tokens, #b_tokens))),
+            BiOpType::Srl => Ok(quote!(::mck::MachineShift::srl(#a_tokens, #b_tokens))),
             BiOpType::Add => Ok(quote!((#a_tokens) + (#b_tokens))),
             BiOpType::Mul => Ok(quote!((#a_tokens) * (#b_tokens))),
             BiOpType::Sdiv => Err(anyhow!("Signed division generation not implemented")), // TODO: implement so 292 examples can be generated
@@ -152,10 +124,8 @@ impl BiOp {
                 let result_length = result_sort.length.get();
 
                 // do unsigned extension of both to result type
-                let a_uext =
-                    quote!(::machine_check_types::MachineExt::<#result_length>::uext(#a_tokens));
-                let b_uext =
-                    quote!(::machine_check_types::MachineExt::<#result_length>::uext(#b_tokens));
+                let a_uext = quote!(::mck::MachineExt::<#result_length>::uext(#a_tokens));
+                let b_uext = quote!(::mck::MachineExt::<#result_length>::uext(#b_tokens));
 
                 // shift a left by length of b
                 let Sort::Bitvec(b_sort) = &self.b.sort else {
@@ -165,15 +135,14 @@ impl BiOp {
 
                 let sll_const = Const::new(false, b_length as u64);
                 let sll_tokens = sll_const.create_tokens(result_sort);
-                let a_uext_sll =
-                    quote!(::machine_check_types::MachineShift::sll(#a_uext, #sll_tokens));
+                let a_uext_sll = quote!(::mck::MachineShift::sll(#a_uext, #sll_tokens));
 
                 // bit-or together
                 Ok(quote!((#a_uext_sll) | (#b_uext)))
             }
             BiOpType::Read => {
                 // a is the array, b is the index
-                Ok(quote!(::machine_check_types::MachineArray::read(&(#a_tokens), #b_tokens)))
+                Ok(quote!(::mck::MachineArray::read(&(#a_tokens), #b_tokens)))
             }
         }
     }

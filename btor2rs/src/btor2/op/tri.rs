@@ -40,10 +40,9 @@ impl TriOp {
                     return Err(anyhow!("Expected bitvec result, but have {}", result.sort));
                 };
                 let bitvec_length = bitvec.length.get();
-                let condition_mask =
-                    quote!(::machine_check_types::MachineExt::<#bitvec_length>::sext(#a_tokens));
+                let condition_mask = quote!(::mck::MachineExt::<#bitvec_length>::sext(#a_tokens));
                 let neg_condition_mask =
-                    quote!(::machine_check_types::MachineExt::<#bitvec_length>::sext(!(#a_tokens)));
+                    quote!(::mck::MachineExt::<#bitvec_length>::sext(!(#a_tokens)));
 
                 Ok(
                     quote!(let #result_ident = ((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask));),
@@ -52,7 +51,7 @@ impl TriOp {
             TriOpType::Write => {
                 // a = array, b = index, c = element to be stored
                 Ok(
-                    quote!(let #result_ident = ::machine_check_types::MachineArray::write(&(#a_tokens), #b_tokens, #c_tokens);),
+                    quote!(let #result_ident = ::mck::MachineArray::write(&(#a_tokens), #b_tokens, #c_tokens);),
                 )
             }
         }
