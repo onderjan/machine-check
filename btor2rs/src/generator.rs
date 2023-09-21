@@ -3,7 +3,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use crate::btor2::{
     node::NodeType,
     sort::{BitvecSort, Sort},
-    state, Btor2,
+    Btor2,
 };
 use anyhow::anyhow;
 use quote::quote;
@@ -84,7 +84,7 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let has_constraints = btor2
         .nodes
         .iter()
-        .any(|(nid, node)| matches!(node.ntype, NodeType::Constraint(_)));
+        .any(|(_, node)| matches!(node.ntype, NodeType::Constraint(_)));
     let constraint_ident = Ident::new("constraint", Span::call_site());
 
     let mut state_tokens = Vec::<TokenStream>::new();

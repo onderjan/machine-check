@@ -51,6 +51,7 @@ fn generate_complex_machines() {
     );
 }
 
+#[allow(dead_code)]
 fn pretty(item: TokenStream) -> String {
     let str = item.to_string();
     let Ok(file) = syn::parse_file(&str) else {
@@ -59,6 +60,7 @@ fn pretty(item: TokenStream) -> String {
     prettyplease::unparse(&file)
 }
 
+#[allow(dead_code)]
 fn generate_normal_machine() -> Result<(), anyhow::Error> {
     let file = File::open(Path::new("btor2rs/examples/easy_zero_array.btor2"))?;
     let tokens = btor2rs::translate_file(file)?;
