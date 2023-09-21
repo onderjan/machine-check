@@ -16,7 +16,7 @@ fn main() {
     let mut num = 0;
     loop {
         println!("State #{}: {:?}", num, state);
-        println!("State bad: {:?}", state.bad());
+        println!("State bad: {}", state.bad());
         /*println!("State bad: {}", state.bad().concrete_value());
         if state.bad().concrete_value() != Wrapping(0) {
             panic!("Machine is bad");

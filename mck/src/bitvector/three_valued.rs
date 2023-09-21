@@ -1,4 +1,6 @@
 use std::{
+    fmt::Debug,
+    fmt::Display,
     num::Wrapping,
     ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub},
 };
@@ -10,7 +12,7 @@ use crate::{
 
 use super::Bitvector;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct ThreeValuedBitvector<const L: u32> {
     zeros: Wrapping<u64>,
     ones: Wrapping<u64>,
@@ -177,9 +179,23 @@ impl<const L: u32> ThreeValuedBitvector<L> {
             let h_k_min = fn_min(self, rhs, mod_mask);
             let h_k_max = fn_max(self, rhs, mod_mask);
 
+            /*println!(
+                "h_{} min: {} max: {}",
+                k,
+                h_k_min & Self::get_mask(),
+                h_k_max & Self::get_mask()
+            );*/
+
             // discard bits below bit k
             let zeta_k_min = h_k_min >> k;
             let zeta_k_max = h_k_max >> k;
+
+            /*println!(
+                "zeta_{} min: {} max: {}",
+                k,
+                zeta_k_min & Self::get_mask(),
+                zeta_k_max & Self::get_mask()
+            );*/
 
             // see if minimum and maximum differs
             if zeta_k_min != zeta_k_max {
@@ -229,6 +245,7 @@ impl<const L: u32> Add for ThreeValuedBitvector<L> {
 
     fn add(self, rhs: Self) -> Self::Output {
         self.minmax_compute(rhs, Self::add_min, Self::add_max)
+        //println!("{:?} + {:?} = {:?}", self, rhs, result);
     }
 }
 
@@ -237,6 +254,7 @@ impl<const L: u32> Sub for ThreeValuedBitvector<L> {
 
     fn sub(self, rhs: Self) -> Self::Output {
         self.minmax_compute(rhs, Self::sub_min, Self::sub_max)
+        //println!("{:?} - {:?} = {:?}", self, rhs, result);
     }
 }
 
@@ -483,5 +501,30 @@ impl<const L: u32> MachineShift for ThreeValuedBitvector<L> {
         };
 
         self.shift(amount, sra_shift_fn, sra_shift_fn)
+    }
+}
+
+impl<const L: u32> Debug for ThreeValuedBitvector<L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"")?;
+        for little_k in 0..L {
+            let big_k = L - little_k - 1;
+            let zero = (self.zeros >> (big_k as usize)) & Wrapping(1) != Wrapping(0);
+            let one = (self.ones >> (big_k as usize)) & Wrapping(1) != Wrapping(0);
+            let c = match (zero, one) {
+                (true, true) => 'X',
+                (true, false) => '0',
+                (false, true) => '1',
+                (false, false) => 'V',
+            };
+            write!(f, "{}", c)?;
+        }
+        write!(f, "\"")
+    }
+}
+
+impl<const L: u32> Display for ThreeValuedBitvector<L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as Debug>::fmt(self, f)
     }
 }

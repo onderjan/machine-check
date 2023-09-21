@@ -34,6 +34,7 @@ impl MachineState {
         let node_6 = self.state_6;
         let node_8 = ::mck::ThreeValuedBitvector::<4u32>::new(1u64);
         let node_9 = (node_6) + (node_8);
+        let sext = ::mck::MachineExt::<4u32>::sext(node_2);
         let node_10 = ((node_9) & (::mck::MachineExt::<4u32>::sext(node_2)))
             | ((node_6) & (::mck::MachineExt::<4u32>::sext(!(node_2))));
         let node_11 = ((node_5) & (::mck::MachineExt::<4u32>::sext(node_3)))
