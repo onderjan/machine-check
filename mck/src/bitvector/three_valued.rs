@@ -30,6 +30,13 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         <ThreeValuedBitvector<L> as Bitvector<L>>::new(value)
     }
 
+    pub fn unknown() -> Self {
+        // all zeros and ones set within mask
+        let zeros = Self::get_mask();
+        let ones = Self::get_mask();
+        Self::a_new(zeros, ones)
+    }
+
     fn a_new(zeros: Wrapping<u64>, ones: Wrapping<u64>) -> Self {
         let mask = util::compute_mask(L);
         // the unused bits must be unset

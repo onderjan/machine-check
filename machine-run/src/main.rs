@@ -1,14 +1,12 @@
-use std::num::Wrapping;
-
-use mck::{MachineBitvector, ThreeValuedBitvector};
+use mck::ThreeValuedBitvector;
 
 mod machine;
 
 fn main() {
     println!("Starting machine.");
     let input = machine::MachineInput {
-        input_2: ThreeValuedBitvector::new(1),
-        input_3: ThreeValuedBitvector::new(0),
+        input_2: ThreeValuedBitvector::unknown(),
+        input_3: ThreeValuedBitvector::unknown(),
         //input_9: MachineBitvector::new(1),
         //input_10: MachineArray::filled(MachineBitvector::new(0)),
     };
