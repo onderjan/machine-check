@@ -74,10 +74,13 @@ dependencies = [
 name = "machine-check"
 version = "0.1.0"
 dependencies = [
- "bimap",
+ "anyhow",
+ "btor2rs",
  "machine-check-macros",
  "mck",
- "petgraph",
+ "prettyplease",
+ "proc-macro2",
+ "syn",
 ]
 
 [[package]]

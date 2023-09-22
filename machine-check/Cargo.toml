@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bimap = "0.6.3"
 machine-check-macros = { path = "../machine-check-macros" }
+btor2rs = { path = "../btor2rs" }
 mck = { path = "../mck" }
-petgraph = "0.6.4"
+anyhow = "1.0.75"
+proc-macro2 = "1.0.67"
+prettyplease = "0.2.15"
+syn = "2.0.37"
