@@ -81,6 +81,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "machine-check-exec"
+version = "0.1.0"
+dependencies = [
+ "bimap",
+ "mck",
+ "petgraph",
+]
+
+[[package]]
 name = "machine-check-macros"
 version = "0.1.0"
 dependencies = [
