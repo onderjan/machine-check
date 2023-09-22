@@ -10,7 +10,7 @@ use crate::{
 
 use super::Bitvector;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MachineBitvector<const L: u32> {
     v: Wrapping<u64>,
 }

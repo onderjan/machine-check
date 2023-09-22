@@ -9,5 +9,6 @@ btor2rs = { path = "../btor2rs" }
 mck = { path = "../mck" }
 anyhow = "1.0.75"
 proc-macro2 = "1.0.67"
+syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }
+quote = "1.0.28"
 prettyplease = "0.2.15"
-syn = "2.0.37"

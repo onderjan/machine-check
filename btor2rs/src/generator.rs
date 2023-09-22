@@ -210,24 +210,24 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
 
     let tokens = quote!(
         #[derive(Debug)]
-        pub struct MachineInput {
+        pub struct Input {
             #(#input_tokens),*
         }
 
-        #[derive(Debug)]
-        pub struct MachineState {
+        #[derive(Debug, PartialEq, Eq, Hash)]
+        pub struct State {
             #(#state_tokens),*
         }
 
-        impl MachineState {
-            pub fn init(input: &MachineInput) -> MachineState {
+        impl State {
+            pub fn init(input: &Input) -> State {
                 #(#init_statements)*
-                MachineState{#(#init_result_tokens),*}
+                State{#(#init_result_tokens),*}
             }
 
-            pub fn next(&self, input: &MachineInput) -> MachineState {
+            pub fn next(&self, input: &Input) -> State {
                 #(#noninit_statements)*
-                MachineState{#(#next_result_tokens),*}
+                State{#(#next_result_tokens),*}
             }
 
             pub fn bad(&self) -> ::mck::MachineBitvector<1u32> {

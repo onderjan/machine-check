@@ -1,15 +1,8 @@
 use anyhow::anyhow;
-use proc_macro2::TokenStream;
-use std::{env, fs::File, io::Write, path::Path};
+use std::{env, fs::File, path::Path};
 
-fn pretty_string(item: TokenStream) -> String {
-    let str = item.to_string();
-    if let Ok(file) = syn::parse_file(&str) {
-        return prettyplease::unparse(&file);
-    }
-    eprintln!("Warning: could not parse token stream to format it");
-    item.to_string()
-}
+mod forward;
+mod write;
 
 fn work() -> Result<(), anyhow::Error> {
     let mut args = env::args();
@@ -35,28 +28,19 @@ fn work() -> Result<(), anyhow::Error> {
 
     let concrete_machine = btor2rs::translate_file(btor2_file)?;
 
-    let concrete_machine_path = Path::new("machine-check-exec/src/machine/concrete.rs");
-    if !concrete_machine_path.exists() {
-        return Err(anyhow!(
-            "Concrete machine file to be replaced does not exist"
-        ));
-    }
-    let mut concrete_machine_file = match File::options()
-        .write(true)
-        .truncate(true)
-        .open(concrete_machine_path)
-    {
-        Ok(file) => file,
-        Err(err) => return Err(anyhow!("Cannot open concrete machine file: {}", err)),
-    };
+    write::write_machine(
+        "concrete",
+        &concrete_machine,
+        "machine-check-exec/src/machine/concrete.rs",
+    )?;
 
-    if let Err(err) = concrete_machine_file.write(pretty_string(concrete_machine).as_bytes()) {
-        return Err(anyhow!("Cannot write concrete machine to file: {}", err));
-    }
-    println!(
-        "Written concrete machine to {}",
-        concrete_machine_path.display()
-    );
+    let forward_machine = forward::transcribe(concrete_machine)?;
+
+    write::write_machine(
+        "forward",
+        &forward_machine,
+        "machine-check-exec/src/machine/forward.rs",
+    )?;
 
     Ok(())
 }
