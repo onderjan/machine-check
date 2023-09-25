@@ -3,6 +3,7 @@ use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub};
 use crate::{MachineExt, MachineShift, TypedCmp, TypedEq};
 
 pub mod concr;
+pub mod mark;
 pub mod three_valued;
 
 pub trait Bitvector<const L: u32>:

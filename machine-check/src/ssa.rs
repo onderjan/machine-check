@@ -20,7 +20,7 @@ use syn::{visit_mut::VisitMut, Block, Stmt};
 
 fn move_expression(expr: &mut Expr, transcribed_stmts: &mut Vec<Stmt>) {
     let tmp_ident = Ident::new(
-        format!("__ssa_tmp_{}", transcribed_stmts.len()).as_str(),
+        format!("__mck_tmp_{}", transcribed_stmts.len()).as_str(),
         Span::call_site(),
     );
     let mut tmp_ident_path_segments = Punctuated::<PathSegment, PathSep>::new();
@@ -69,8 +69,8 @@ fn force_move_expression(
     transcribe_expression(expr, transcribed_stmts)?;
 
     match expr {
-        syn::Expr::Path(_) => {
-            // do nothing, it is fine to leave path as-is
+        syn::Expr::Path(_) | syn::Expr::Lit(_) => {
+            // do nothing, it is fine to leave as-is
         }
         _ => {
             // move
@@ -129,8 +129,13 @@ fn transcribe_statement(
     transcribed_stmts: &mut Vec<Stmt>,
 ) -> Result<(), anyhow::Error> {
     let mut stmt = stmt;
-    if let Stmt::Expr(ref mut expr, _) = stmt {
-        transcribe_expression(expr, transcribed_stmts)?;
+    if let Stmt::Expr(ref mut expr, ref mut semi) = stmt {
+        if semi.is_none() {
+            // force movement from return expression for ease of use
+            force_move_expression(expr, transcribed_stmts)?;
+        } else {
+            transcribe_expression(expr, transcribed_stmts)?;
+        }
         transcribed_stmts.push(stmt);
         return Ok(());
     }

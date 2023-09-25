@@ -42,6 +42,7 @@ fn work() -> Result<(), anyhow::Error> {
 
     let mut forward_machine = concrete_machine.clone();
     forward::transcribe(&mut forward_machine)?;
+    mark::transcribe(&mut forward_machine)?;
 
     write::write_machine(
         "forward",
