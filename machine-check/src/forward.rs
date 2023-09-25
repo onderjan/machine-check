@@ -1,5 +1,3 @@
-use proc_macro2::TokenStream;
-use quote::ToTokens;
 use syn::visit_mut::VisitMut;
 use syn::Path;
 
@@ -53,15 +51,13 @@ impl VisitMut for Visitor {
     }
 }
 
-pub fn transcribe(concrete_machine: TokenStream) -> Result<TokenStream, anyhow::Error> {
-    let mut file: syn::File = syn::parse2(concrete_machine)?;
-
+pub fn transcribe(machine: &mut syn::File) -> Result<(), anyhow::Error> {
     let mut visitor = Visitor::new();
 
-    visitor.visit_file_mut(&mut file);
+    visitor.visit_file_mut(machine);
 
     if let Some(first_error) = visitor.first_error {
         return Err(first_error);
     }
-    Ok(file.to_token_stream())
+    Ok(())
 }

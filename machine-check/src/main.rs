@@ -3,6 +3,7 @@ use std::{env, fs::File, path::Path};
 
 mod forward;
 mod mark;
+mod opcall;
 mod ssa;
 mod write;
 
@@ -28,7 +29,10 @@ fn work() -> Result<(), anyhow::Error> {
         }
     };
 
-    let concrete_machine = ssa::transcribe(btor2rs::translate_file(btor2_file)?)?;
+    let mut concrete_machine: syn::File = syn::parse2(btor2rs::translate_file(btor2_file)?)?;
+
+    opcall::transcribe(&mut concrete_machine)?;
+    ssa::transcribe(&mut concrete_machine)?;
 
     write::write_machine(
         "concrete",
@@ -36,7 +40,8 @@ fn work() -> Result<(), anyhow::Error> {
         "machine-check-exec/src/machine/concrete.rs",
     )?;
 
-    let forward_machine = forward::transcribe(concrete_machine)?;
+    let mut forward_machine = concrete_machine.clone();
+    forward::transcribe(&mut forward_machine)?;
 
     write::write_machine(
         "forward",
