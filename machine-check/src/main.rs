@@ -2,6 +2,8 @@ use anyhow::anyhow;
 use std::{env, fs::File, path::Path};
 
 mod forward;
+mod mark;
+mod ssa;
 mod write;
 
 fn work() -> Result<(), anyhow::Error> {
@@ -26,7 +28,7 @@ fn work() -> Result<(), anyhow::Error> {
         }
     };
 
-    let concrete_machine = btor2rs::translate_file(btor2_file)?;
+    let concrete_machine = ssa::transcribe(btor2rs::translate_file(btor2_file)?)?;
 
     write::write_machine(
         "concrete",

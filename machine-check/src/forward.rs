@@ -31,17 +31,17 @@ fn transcribe_path(path: &mut Path) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-struct ForwardVisitor {
+struct Visitor {
     first_error: Option<anyhow::Error>,
 }
 
-impl ForwardVisitor {
-    fn new() -> ForwardVisitor {
-        ForwardVisitor { first_error: None }
+impl Visitor {
+    fn new() -> Visitor {
+        Visitor { first_error: None }
     }
 }
 
-impl VisitMut for ForwardVisitor {
+impl VisitMut for Visitor {
     fn visit_path_mut(&mut self, path: &mut syn::Path) {
         if let Err(err) = transcribe_path(path) {
             if self.first_error.is_none() {
@@ -56,7 +56,7 @@ impl VisitMut for ForwardVisitor {
 pub fn transcribe(concrete_machine: TokenStream) -> Result<TokenStream, anyhow::Error> {
     let mut file: syn::File = syn::parse2(concrete_machine)?;
 
-    let mut visitor = ForwardVisitor::new();
+    let mut visitor = Visitor::new();
 
     visitor.visit_file_mut(&mut file);
 
