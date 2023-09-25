@@ -25,227 +25,221 @@ impl<const L: u32> Default for MarkBitvector<L> {
     }
 }
 
-impl<const L: u32> TypedEq for MarkBitvector<L> {
+impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
+    type Output = ThreeValuedBitvector<1>;
+    type MarkEarlier = MarkBitvector<L>;
     type MarkLater = MarkBitvector<1>;
-    type NormalInput = ThreeValuedBitvector<L>;
-    type NormalOutput = ThreeValuedBitvector<1>;
 
     fn typed_eq(
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
         mark_later: Self::MarkLater,
-        normal_input: (Self::NormalInput, Self::NormalInput),
-        normal_output: Self::NormalOutput,
-    ) -> (Self, Self) {
+    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
     }
 }
 
-impl<const L: u32> Neg for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> Neg for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
 
-    fn neg(
-        mark_later: Self,
-        normal_input: (Self::Normal,),
-        normal_output: Self::Normal,
-    ) -> (Self,) {
+    fn neg(normal_input: (Self,), normal_output: Self, mark_later: Self::Mark) -> (Self::Mark,) {
         todo!()
     }
 }
 
-impl<const L: u32> Add for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> Add for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
 
     fn add(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 }
-impl<const L: u32> Sub for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> Sub for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
 
     fn sub(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 }
 
-impl<const L: u32> Mul for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> Mul for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
 
     fn mul(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 }
 
-impl<const L: u32> Not for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> Not for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
 
-    fn not(
-        mark_later: Self,
-        normal_input: (Self::Normal,),
-        normal_output: Self::Normal,
-    ) -> (Self,) {
+    fn not(normal_input: (Self,), normal_output: Self, mark_later: Self::Mark) -> (Self::Mark,) {
         todo!()
     }
 }
 
-impl<const L: u32> BitAnd for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> BitAnd for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
 
     fn bitand(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 }
-impl<const L: u32> BitOr for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> BitOr for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
 
     fn bitor(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 }
-impl<const L: u32> BitXor for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> BitXor for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
 
     fn bitxor(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 }
 
-impl<const L: u32> TypedCmp for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
+    type Output = ThreeValuedBitvector<1>;
+    type MarkEarlier = MarkBitvector<L>;
+    type MarkLater = MarkBitvector<1>;
 
     fn typed_sgt(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
     }
 
     fn typed_ugt(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
     }
 
     fn typed_sgte(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
     }
 
     fn typed_ugte(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
     }
 
     fn typed_slt(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
     }
 
     fn typed_ult(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
     }
 
     fn typed_slte(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
     }
 
     fn typed_ulte(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
     }
 }
 
-impl<const L: u32, const X: u32> MachineExt<X> for MarkBitvector<L> {
+impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
+    type Output = ThreeValuedBitvector<X>;
+    type MarkEarlier = MarkBitvector<L>;
     type MarkLater = MarkBitvector<X>;
-    type NormalInput = ThreeValuedBitvector<L>;
-    type NormalOutput = ThreeValuedBitvector<X>;
 
     fn uext(
+        normal_input: (Self,),
+        normal_output: Self::Output,
         mark_later: Self::MarkLater,
-        normal_input: (Self::NormalInput,),
-        normal_output: Self::NormalOutput,
-    ) -> Self {
+    ) -> (Self::MarkEarlier,) {
         todo!()
     }
 
     fn sext(
+        normal_input: (Self,),
+        normal_output: Self::Output,
         mark_later: Self::MarkLater,
-        normal_input: (Self::NormalInput,),
-        normal_output: Self::NormalOutput,
-    ) -> Self {
+    ) -> (Self::MarkEarlier,) {
         todo!()
     }
 }
 
-impl<const L: u32> MachineShift for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+impl<const L: u32> MachineShift for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
 
     fn sll(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 
     fn srl(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 
     fn sra(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self) {
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 }

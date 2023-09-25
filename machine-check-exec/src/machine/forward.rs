@@ -73,6 +73,8 @@ impl State {
     }
 }
 pub mod mark {
+    use mck::MarkBitvector;
+
     #[derive(Debug, Default)]
     pub struct Input {
         pub input_2: ::mck::MarkBitvector<1u32>,
@@ -121,71 +123,71 @@ pub mod mark {
                 bad_15: node_14,
             } = __mck_tmp_22;
             let (node_6, node_13) = ::mck::mark::TypedEq::typed_eq(
-                node_14,
                 (__mck_orig_node_6, __mck_orig_node_13),
                 __mck_orig_node_14,
+                node_14,
             );
             let __mck_tmp_19 = node_13;
-            let (__mck_tmp_18) =
-                ::mck::mark::Neg::neg(__mck_tmp_19, (__mck_orig_tmp_18,), __mck_orig_tmp_19);
+            let (__mck_tmp_18,) =
+                ::mck::mark::Neg::neg((__mck_orig_tmp_18,), __mck_orig_tmp_19, __mck_tmp_19);
             let (__mck_tmp_13, __mck_tmp_16) = ::mck::mark::BitOr::bitor(
-                node_11,
                 (__mck_orig_tmp_13, __mck_orig_tmp_16),
                 __mck_orig_node_11,
+                MarkBitvector::default(),
             );
             let (node_10, __mck_tmp_15) = ::mck::mark::BitAnd::bitand(
-                __mck_tmp_16,
                 (__mck_orig_node_10, __mck_orig_tmp_15),
                 __mck_orig_tmp_16,
+                __mck_tmp_16,
             );
-            let (__mck_tmp_14) = ::mck::mark::MachineExt::<4u32>::sext(
-                __mck_tmp_15,
+            let (__mck_tmp_14,) = ::mck::mark::MachineExt::<4u32>::sext(
                 (__mck_orig_tmp_14,),
                 __mck_orig_tmp_15,
+                __mck_tmp_15,
             );
-            let (node_3) =
-                ::mck::mark::Not::not(__mck_tmp_14, (__mck_orig_node_3,), __mck_orig_tmp_14);
+            let (node_3,) =
+                ::mck::mark::Not::not((__mck_orig_node_3,), __mck_orig_tmp_14, __mck_tmp_14);
             let (node_5, __mck_tmp_12) = ::mck::mark::BitAnd::bitand(
-                __mck_tmp_13,
                 (__mck_orig_node_5, __mck_orig_tmp_12),
                 __mck_orig_tmp_13,
+                __mck_tmp_13,
             );
-            let (node_3) = ::mck::mark::MachineExt::<4u32>::sext(
-                __mck_tmp_12,
+            let (node_3,) = ::mck::mark::MachineExt::<4u32>::sext(
                 (__mck_orig_node_3,),
                 __mck_orig_tmp_12,
+                __mck_tmp_12,
             );
             let (__mck_tmp_7, __mck_tmp_10) = ::mck::mark::BitOr::bitor(
-                node_10,
                 (__mck_orig_tmp_7, __mck_orig_tmp_10),
                 __mck_orig_node_10,
+                node_10,
             );
             let (node_6, __mck_tmp_9) = ::mck::mark::BitAnd::bitand(
-                __mck_tmp_10,
                 (__mck_orig_node_6, __mck_orig_tmp_9),
                 __mck_orig_tmp_10,
+                __mck_tmp_10,
             );
-            let (__mck_tmp_8) = ::mck::mark::MachineExt::<4u32>::sext(
-                __mck_tmp_9,
+            let (__mck_tmp_8,) = ::mck::mark::MachineExt::<4u32>::sext(
                 (__mck_orig_tmp_8,),
                 __mck_orig_tmp_9,
+                __mck_tmp_9,
             );
-            let (node_2) =
-                ::mck::mark::Not::not(__mck_tmp_8, (__mck_orig_node_2,), __mck_orig_tmp_8);
+            let (node_2,) =
+                ::mck::mark::Not::not((__mck_orig_node_2,), __mck_orig_tmp_8, __mck_tmp_8);
             let (node_9, __mck_tmp_6) = ::mck::mark::BitAnd::bitand(
-                __mck_tmp_7,
                 (__mck_orig_node_9, __mck_orig_tmp_6),
                 __mck_orig_tmp_7,
+                __mck_tmp_7,
             );
-            let (node_2) = ::mck::mark::MachineExt::<4u32>::sext(
-                __mck_tmp_6,
+            let (node_2,) = ::mck::mark::MachineExt::<4u32>::sext(
                 (__mck_orig_node_2,),
                 __mck_orig_tmp_6,
+                __mck_tmp_6,
             );
             let (node_6, node_8) = ::mck::mark::Add::add(
-                node_9,
                 (__mck_orig_node_6, __mck_orig_node_8),
                 __mck_orig_node_9,
+                node_9,
             );
             let node_5 = node_6;
             input.input_3 = node_3;
@@ -234,71 +236,71 @@ pub mod mark {
                 bad_15: node_14,
             } = __mck_tmp_22;
             let (node_6, node_13) = ::mck::mark::TypedEq::typed_eq(
-                node_14,
                 (__mck_orig_node_6, __mck_orig_node_13),
                 __mck_orig_node_14,
+                node_14,
             );
             let __mck_tmp_19 = node_13;
-            let (__mck_tmp_18) =
-                ::mck::mark::Neg::neg(__mck_tmp_19, (__mck_orig_tmp_18,), __mck_orig_tmp_19);
+            let (__mck_tmp_18,) =
+                ::mck::mark::Neg::neg((__mck_orig_tmp_18,), __mck_orig_tmp_19, __mck_tmp_19);
             let (__mck_tmp_13, __mck_tmp_16) = ::mck::mark::BitOr::bitor(
-                node_11,
                 (__mck_orig_tmp_13, __mck_orig_tmp_16),
                 __mck_orig_node_11,
+                node_11,
             );
             let (node_10, __mck_tmp_15) = ::mck::mark::BitAnd::bitand(
-                __mck_tmp_16,
                 (__mck_orig_node_10, __mck_orig_tmp_15),
                 __mck_orig_tmp_16,
+                __mck_tmp_16,
             );
-            let (__mck_tmp_14) = ::mck::mark::MachineExt::<4u32>::sext(
-                __mck_tmp_15,
+            let (__mck_tmp_14,) = ::mck::mark::MachineExt::<4u32>::sext(
                 (__mck_orig_tmp_14,),
                 __mck_orig_tmp_15,
+                __mck_tmp_15,
             );
-            let (node_3) =
-                ::mck::mark::Not::not(__mck_tmp_14, (__mck_orig_node_3,), __mck_orig_tmp_14);
+            let (node_3,) =
+                ::mck::mark::Not::not((__mck_orig_node_3,), __mck_orig_tmp_14, __mck_tmp_14);
             let (node_5, __mck_tmp_12) = ::mck::mark::BitAnd::bitand(
-                __mck_tmp_13,
                 (__mck_orig_node_5, __mck_orig_tmp_12),
                 __mck_orig_tmp_13,
+                __mck_tmp_13,
             );
-            let (node_3) = ::mck::mark::MachineExt::<4u32>::sext(
-                __mck_tmp_12,
+            let (node_3,) = ::mck::mark::MachineExt::<4u32>::sext(
                 (__mck_orig_node_3,),
                 __mck_orig_tmp_12,
+                __mck_tmp_12,
             );
             let (__mck_tmp_7, __mck_tmp_10) = ::mck::mark::BitOr::bitor(
-                node_10,
                 (__mck_orig_tmp_7, __mck_orig_tmp_10),
                 __mck_orig_node_10,
+                node_10,
             );
             let (node_6, __mck_tmp_9) = ::mck::mark::BitAnd::bitand(
-                __mck_tmp_10,
                 (__mck_orig_node_6, __mck_orig_tmp_9),
                 __mck_orig_tmp_10,
+                __mck_tmp_10,
             );
-            let (__mck_tmp_8) = ::mck::mark::MachineExt::<4u32>::sext(
-                __mck_tmp_9,
+            let (__mck_tmp_8,) = ::mck::mark::MachineExt::<4u32>::sext(
                 (__mck_orig_tmp_8,),
                 __mck_orig_tmp_9,
+                __mck_tmp_9,
             );
-            let (node_2) =
-                ::mck::mark::Not::not(__mck_tmp_8, (__mck_orig_node_2,), __mck_orig_tmp_8);
+            let (node_2,) =
+                ::mck::mark::Not::not((__mck_orig_node_2,), __mck_orig_tmp_8, __mck_tmp_8);
             let (node_9, __mck_tmp_6) = ::mck::mark::BitAnd::bitand(
-                __mck_tmp_7,
                 (__mck_orig_node_9, __mck_orig_tmp_6),
                 __mck_orig_tmp_7,
+                __mck_tmp_7,
             );
-            let (node_2) = ::mck::mark::MachineExt::<4u32>::sext(
-                __mck_tmp_6,
+            let (node_2,) = ::mck::mark::MachineExt::<4u32>::sext(
                 (__mck_orig_node_2,),
                 __mck_orig_tmp_6,
+                __mck_tmp_6,
             );
             let (node_6, node_8) = ::mck::mark::Add::add(
-                node_9,
                 (__mck_orig_node_6, __mck_orig_node_8),
                 __mck_orig_node_9,
+                node_9,
             );
             __mck_mark_self.state_6 = node_6;
             input.input_3 = node_3;

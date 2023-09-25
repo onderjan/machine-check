@@ -4,7 +4,7 @@ use std::fmt::Arguments;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use proc_macro2::Span;
+use proc_macro2::{Punct, Span};
 use syn::punctuated::Punctuated;
 use syn::token::{Brace, Bracket, Paren};
 use syn::visit_mut::VisitMut;
@@ -340,21 +340,26 @@ fn invert(
                 return Ok(None);
             }
 
+            let mut tuple_elems = Punctuated::from_iter(function_args);
+            if !tuple_elems.empty_or_trailing() {
+                tuple_elems.push_punct(Token![,](Span::call_site()));
+            }
+
             let new_left_pat = Pat::Tuple(PatTuple {
                 attrs: vec![],
                 paren_token: Paren::default(),
-                elems: Punctuated::from_iter(function_args),
+                elems: tuple_elems,
             });
 
             // create reversal function in new right expression
             let mut new_right_call_expr = right_call.clone();
             // change the function name
             invert_fn_expr(&mut new_right_call_expr.func)?;
-            // change the function parameters so that there is mark later first
-            // then normal input tuple and normal output
+            // change the function parameters so that there is
+            // the normal input tuple and normal output first
+            // then mark later
             new_right_call_expr.args.clear();
             let mark_input_arg = new_right_expr.clone();
-            new_right_call_expr.args.push(mark_input_arg);
             let normal_input_args = right_call
                 .args
                 .iter()
@@ -381,6 +386,8 @@ fn invert(
                 ident_visitor.transcribe_path(&mut expr_path.path);
             }
             new_right_call_expr.args.push(normal_output_arg);
+
+            new_right_call_expr.args.push(mark_input_arg);
 
             new_right_expr = Expr::Call(new_right_call_expr);
             new_left_pat
@@ -604,7 +611,7 @@ fn transcribe_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
             }
         }
 
-        // convert original output to mark input and insert it so it is first
+        // convert original output to mark input and insert it so it is last
         let ReturnType::Type(_, ref mut return_type) = mark_fn.sig.output else {
             return Err(anyhow!("Default return type not supported"));
         };

@@ -2,199 +2,199 @@ pub trait Neg
 where
     Self: Sized,
 {
-    type Normal;
+    type Mark;
 
-    fn neg(mark_later: Self, normal_input: (Self::Normal,), normal_output: Self::Normal)
-        -> (Self,);
+    fn neg(normal_input: (Self,), normal_output: Self, mark_later: Self::Mark) -> (Self::Mark,);
 }
 
 pub trait Add
 where
     Self: Sized,
 {
-    type Normal;
+    type Mark;
 
     fn add(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark);
 }
 pub trait Sub
 where
     Self: Sized,
 {
-    type Normal;
+    type Mark;
 
     fn sub(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark);
 }
 
 pub trait Mul
 where
     Self: Sized,
 {
-    type Normal;
+    type Mark;
 
     fn mul(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark);
 }
 
 pub trait Not
 where
     Self: Sized,
 {
-    type Normal;
+    type Mark;
 
-    fn not(mark_later: Self, normal_input: (Self::Normal,), normal_output: Self::Normal)
-        -> (Self,);
+    fn not(normal_input: (Self,), normal_output: Self, mark_later: Self::Mark) -> (Self::Mark,);
 }
 
 pub trait BitAnd
 where
     Self: Sized,
 {
-    type Normal;
+    type Mark;
 
     fn bitand(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark);
 }
 
 pub trait BitOr
 where
     Self: Sized,
 {
-    type Normal;
+    type Mark;
 
     fn bitor(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark);
 }
 
 pub trait BitXor
 where
     Self: Sized,
 {
-    type Normal;
+    type Mark;
 
     fn bitxor(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark);
 }
 
 pub trait TypedEq
 where
     Self: Sized,
 {
+    type Output;
+    type MarkEarlier;
     type MarkLater;
-    type NormalInput;
-    type NormalOutput;
 
     fn typed_eq(
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
         mark_later: Self::MarkLater,
-        normal_input: (Self::NormalInput, Self::NormalInput),
-        normal_output: Self::NormalOutput,
-    ) -> (Self, Self);
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
 }
 
 pub trait TypedCmp
 where
     Self: Sized,
 {
-    type Normal;
+    type Output;
+    type MarkEarlier;
+    type MarkLater;
 
     fn typed_sgt(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
     fn typed_ugt(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
     fn typed_sgte(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
     fn typed_ugte(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
 
     fn typed_slt(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
     fn typed_ult(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
     fn typed_slte(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
     fn typed_ulte(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self::Output,
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
 }
 
 pub trait MachineExt<const M: u32> {
+    type Output;
+    type MarkEarlier;
     type MarkLater;
-    type NormalInput;
-    type NormalOutput;
 
     fn uext(
+        normal_input: (Self,),
+        normal_output: Self::Output,
         mark_later: Self::MarkLater,
-        normal_input: (Self::NormalInput,),
-        normal_output: Self::NormalOutput,
-    ) -> Self;
+    ) -> (Self::MarkEarlier,);
     fn sext(
+        normal_input: (Self,),
+        normal_output: Self::Output,
         mark_later: Self::MarkLater,
-        normal_input: (Self::NormalInput,),
-        normal_output: Self::NormalOutput,
-    ) -> Self;
+    ) -> (Self::MarkEarlier,);
 }
 
 pub trait MachineShift
 where
     Self: Sized,
 {
-    type Normal;
+    type Mark;
 
     fn sll(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark);
     fn srl(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark);
     fn sra(
-        mark_later: Self,
-        normal_input: (Self::Normal, Self::Normal),
-        normal_output: Self::Normal,
-    ) -> (Self, Self);
+        normal_input: (Self, Self),
+        normal_output: Self,
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::Mark);
 }
