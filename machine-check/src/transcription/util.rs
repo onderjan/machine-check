@@ -1,3 +1,5 @@
+pub mod path_rule;
+
 use proc_macro2::TokenStream;
 use syn::{
     punctuated::Punctuated,
