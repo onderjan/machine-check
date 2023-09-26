@@ -1,6 +1,28 @@
 use syn::visit_mut::VisitMut;
 use syn::Path;
 
+pub fn transcribe(machine: &mut syn::File) -> Result<(), anyhow::Error> {
+    let mut visitor = Visitor { first_error: None };
+    visitor.visit_file_mut(machine);
+    visitor.first_error.map_or(Ok(()), Err)
+}
+
+struct Visitor {
+    first_error: Option<anyhow::Error>,
+}
+
+impl VisitMut for Visitor {
+    fn visit_path_mut(&mut self, path: &mut syn::Path) {
+        if let Err(err) = transcribe_path(path) {
+            if self.first_error.is_none() {
+                self.first_error = Some(err);
+            }
+        }
+        // delegate
+        syn::visit_mut::visit_path_mut(self, path);
+    }
+}
+
 fn transcribe_path(path: &mut Path) -> Result<(), anyhow::Error> {
     // only transcribe paths that start with leading colon
     if path.leading_colon.is_none() {
@@ -25,39 +47,6 @@ fn transcribe_path(path: &mut Path) -> Result<(), anyhow::Error> {
     // replace the type segment identifier
     if let Some(transcribed_type) = transcribed_type {
         type_segment.ident = syn::Ident::new(transcribed_type, type_segment.ident.span());
-    }
-    Ok(())
-}
-
-struct Visitor {
-    first_error: Option<anyhow::Error>,
-}
-
-impl Visitor {
-    fn new() -> Visitor {
-        Visitor { first_error: None }
-    }
-}
-
-impl VisitMut for Visitor {
-    fn visit_path_mut(&mut self, path: &mut syn::Path) {
-        if let Err(err) = transcribe_path(path) {
-            if self.first_error.is_none() {
-                self.first_error = Some(err);
-            }
-        }
-        // delegate
-        syn::visit_mut::visit_path_mut(self, path);
-    }
-}
-
-pub fn transcribe(machine: &mut syn::File) -> Result<(), anyhow::Error> {
-    let mut visitor = Visitor::new();
-
-    visitor.visit_file_mut(machine);
-
-    if let Some(first_error) = visitor.first_error {
-        return Err(first_error);
     }
     Ok(())
 }
