@@ -207,7 +207,7 @@ impl VisitMut for Visitor {
 
 pub fn transcribe(file: &mut syn::File) -> Result<(), anyhow::Error> {
     // transcribe operations to calls first
-    super::ops_to_calls::transcribe(file)?;
+    super::ops_to_calls::transcribe(file);
 
     let mut visitor = Visitor::new();
 
