@@ -88,7 +88,6 @@ impl BlockTranscriber {
     }
 
     fn transcribe_expression(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
-        println!("Transcribing {}", quote!(#expr));
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA
@@ -123,12 +122,10 @@ impl BlockTranscriber {
                 return Err(anyhow!("Expression type {:?} not supported", expr));
             }
         }
-        println!("Transcribed {}", quote!(#expr));
         Ok(())
     }
 
     fn move_expression_through_temporary(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
-        println!("Moving {}", quote!(#expr));
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA
