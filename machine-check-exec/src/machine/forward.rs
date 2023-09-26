@@ -1,9 +1,11 @@
 #[derive(Debug)]
+#[derive(Default)]
 pub struct Input {
     pub input_2: ::mck::ThreeValuedBitvector<1u32>,
     pub input_3: ::mck::ThreeValuedBitvector<1u32>,
 }
 #[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Default)]
 pub struct State {
     pub state_6: ::mck::ThreeValuedBitvector<4u32>,
     pub safe: ::mck::ThreeValuedBitvector<1u32>,

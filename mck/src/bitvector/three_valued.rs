@@ -19,6 +19,13 @@ pub struct ThreeValuedBitvector<const L: u32> {
     ones: Wrapping<u64>,
 }
 
+impl<const L: u32> Default for ThreeValuedBitvector<L> {
+    fn default() -> Self {
+        // default to fully unknown
+        Self::new_unknown()
+    }
+}
+
 impl<const L: u32> Bitvector<L> for ThreeValuedBitvector<L> {
     fn new(value: u64) -> Self {
         Self::w_new(Wrapping(value))

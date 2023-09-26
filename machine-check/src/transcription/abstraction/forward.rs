@@ -1,5 +1,8 @@
+use quote::quote;
 use syn::visit_mut::VisitMut;
 use syn::Path;
+
+use crate::transcription::util::generate_derive_attribute;
 
 pub fn transcribe(machine: &mut syn::File) -> Result<(), anyhow::Error> {
     let mut visitor = Visitor { first_error: None };
@@ -12,6 +15,13 @@ struct Visitor {
 }
 
 impl VisitMut for Visitor {
+    fn visit_item_struct_mut(&mut self, i: &mut syn::ItemStruct) {
+        // add Default derivation as abstract structs are default unknown
+        i.attrs.push(generate_derive_attribute(quote!(Default)));
+        // delegate
+        syn::visit_mut::visit_item_struct_mut(self, i);
+    }
+
     fn visit_path_mut(&mut self, path: &mut syn::Path) {
         if let Err(err) = transcribe_path(path) {
             if self.first_error.is_none() {
