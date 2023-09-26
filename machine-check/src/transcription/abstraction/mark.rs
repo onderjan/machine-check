@@ -1,7 +1,9 @@
 use proc_macro2::Span;
-use syn::{token::Brace, Ident, Item, ItemMod};
+use syn::{token::Brace, Ident, Item, ItemMod, ItemStruct};
 
-use self::{mark_impl::transcribe_impl, mark_type_path::TypePathVisitor};
+use crate::transcription::util::path_rule::{self, PathRule, PathRuleSegment};
+
+use self::mark_impl::transcribe_impl;
 
 mod mark_fn;
 mod mark_ident;
@@ -12,17 +14,14 @@ mod mark_type_path;
 pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
     let mut mark_file_items = Vec::<Item>::new();
     for item in &file.items {
-        match item {
-            Item::Struct(s) => {
-                let mut mark_s = s.clone();
-                TypePathVisitor::new().visit_struct(&mut mark_s);
-                mark_file_items.push(Item::Struct(mark_s));
-            }
-            Item::Impl(i) => mark_file_items.push(Item::Impl(transcribe_impl(i)?)),
+        let transcribed_item = match item {
+            Item::Struct(s) => Item::Struct(transcribe_item_struct(s)?),
+            Item::Impl(i) => Item::Impl(transcribe_impl(i)?),
             _ => {
                 return Err(anyhow::anyhow!("Item type {:?} not supported", item));
             }
-        }
+        };
+        mark_file_items.push(transcribed_item);
     }
 
     let mod_mark = Item::Mod(ItemMod {
@@ -36,4 +35,35 @@ pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
     });
     file.items.push(mod_mark);
     Ok(())
+}
+
+fn transcribe_item_struct(s: &ItemStruct) -> anyhow::Result<ItemStruct> {
+    let mut s = s.clone();
+    path_rule::transcribe_item_struct(&mut s, path_rules())?;
+    Ok(s)
+}
+
+fn path_rules() -> Vec<PathRule> {
+    vec![
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(
+                    String::from("ThreeValuedArray"),
+                    String::from("MarkArray"),
+                ),
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(
+                    String::from("ThreeValuedBitvector"),
+                    String::from("MarkBitvector"),
+                ),
+            ],
+        },
+    ]
 }

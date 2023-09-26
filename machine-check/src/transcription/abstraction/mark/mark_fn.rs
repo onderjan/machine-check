@@ -48,7 +48,7 @@ pub fn transcribe_impl_item_fn(mark_fn: &mut ImplItemFn, mark_ty: &Type) -> anyh
                 ));
 
                 // TODO: this loses reference
-                let orig_type = convert_type_to_original(mark_ty)?;
+                let orig_type = convert_type_to_original(&mark_ty)?;
 
                 *input = FnArg::Typed(PatType {
                     attrs: vec![],
