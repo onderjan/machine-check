@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     util::{self},
-    MachineExt, MachineShift, TypedCmp, TypedEq,
+    MachineBitvector, MachineExt, MachineShift, TypedCmp, TypedEq,
 };
 
 use super::Bitvector;
@@ -31,11 +31,29 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         <ThreeValuedBitvector<L> as Bitvector<L>>::new(value)
     }
 
-    pub fn unknown() -> Self {
+    pub fn new_unknown() -> Self {
         // all zeros and ones set within mask
         let zeros = Self::get_mask();
         let ones = Self::get_mask();
         Self::a_new(zeros, ones)
+    }
+
+    pub fn new_value_known(value: Wrapping<u64>, known: Wrapping<u64>) -> Self {
+        let zeros = (!value | !known) & Self::get_mask();
+        let ones = (value | !known) & Self::get_mask();
+        Self::a_new(zeros, ones)
+    }
+
+    pub fn get_unknown_bits(&self) -> MachineBitvector<L> {
+        MachineBitvector::new(self.zeros.0 & self.ones.0)
+    }
+
+    pub fn get_possibly_one_flags(&self) -> MachineBitvector<L> {
+        MachineBitvector::new(self.ones.0)
+    }
+
+    pub fn get_possibly_zero_flags(&self) -> MachineBitvector<L> {
+        MachineBitvector::new(self.zeros.0)
     }
 
     fn a_new(zeros: Wrapping<u64>, ones: Wrapping<u64>) -> Self {
@@ -73,13 +91,13 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         util::compute_sign_bit_mask(L)
     }
 
-    fn umin(&self) -> Wrapping<u64> {
+    pub fn umin(&self) -> Wrapping<u64> {
         // unsigned min value is value of bit-negated zeros (one only where it must be)
         // mask the unused bits afterwards
         (!self.zeros) & Self::get_mask()
     }
 
-    fn umax(&self) -> Wrapping<u64> {
+    pub fn umax(&self) -> Wrapping<u64> {
         // unsigned max value is value of ones (one everywhere it can be)
         self.ones
     }

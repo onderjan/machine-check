@@ -75,11 +75,34 @@ impl State {
 pub mod mark {
     use mck::MarkBitvector;
 
-    #[derive(Debug, Default)]
+    #[derive(Debug, PartialEq, Eq, Hash, Default)]
     pub struct Input {
         pub input_2: ::mck::MarkBitvector<1u32>,
         pub input_3: ::mck::MarkBitvector<1u32>,
     }
+
+    impl Input {
+        pub fn generate_possibilities(&self) -> Vec<super::Input> {
+            let mut result = Vec::new();
+            for i2 in self.input_2.possibility_iter() {
+                for i3 in self.input_3.possibility_iter() {
+                    result.push(super::Input {
+                        input_2: i2,
+                        input_3: i3,
+                    });
+                }
+            }
+            result
+        }
+
+        pub fn join(&self, rhs: &Self) -> Self {
+            Self {
+                input_2: self.input_2.join(rhs.input_2),
+                input_3: self.input_3.join(rhs.input_3),
+            }
+        }
+    }
+
     #[derive(Debug, PartialEq, Eq, Hash, Default)]
     pub struct State {
         pub state_6: ::mck::MarkBitvector<4u32>,

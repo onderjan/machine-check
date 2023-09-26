@@ -89,6 +89,7 @@ dependencies = [
 name = "machine-check-exec"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bimap",
  "mck",
  "petgraph",

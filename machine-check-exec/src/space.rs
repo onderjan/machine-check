@@ -1,10 +1,15 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    rc::Rc,
+};
 
 use bimap::BiMap;
 use mck::{MarkBitvector, ThreeValuedBitvector};
 use petgraph::{prelude::GraphMap, Directed};
 
 use crate::machine::forward::{mark, Input, State};
+
+use anyhow::anyhow;
 
 #[derive(Debug)]
 pub struct Culprit {
@@ -19,61 +24,81 @@ pub enum ModelCheckResult {
 }
 
 pub struct Space {
+    input_mark: mark::Input,
     initial_states: Vec<usize>,
-    state_map: BiMap<usize, State>,
+    state_map: BiMap<usize, Rc<State>>,
     state_graph: GraphMap<usize, (), Directed>,
 }
 
 impl Space {
     fn unknown_input() -> Input {
         Input {
-            input_2: ThreeValuedBitvector::unknown(),
-            input_3: ThreeValuedBitvector::unknown(),
+            input_2: ThreeValuedBitvector::new_unknown(),
+            input_3: ThreeValuedBitvector::new_unknown(),
         }
     }
 
-    pub fn generate() -> Self {
-        let unknown_input = Self::unknown_input();
-
+    pub fn new() -> Self {
         let mut space = Self {
+            input_mark: mark::Input::default(),
             initial_states: vec![],
             state_map: BiMap::new(),
             state_graph: GraphMap::new(),
         };
-
-        // generate initial state
-        let (initial_state_id, _) = space.add_state(State::init(&unknown_input));
-        space.initial_states.push(initial_state_id);
-
-        // construct state space by breadth-first search
-        let mut queue = VecDeque::<usize>::new();
-        queue.extend(space.initial_states.iter());
-
-        while let Some(state_index) = queue.pop_front() {
-            let state: &State = space.get_state_by_index(state_index);
-            println!("State #{}: {:?}", state_index, state);
-
-            // generate next state
-            let next_state = state.next(&unknown_input);
-
-            let (next_state_index, inserted) = space.add_state(next_state);
-
-            space.add_edge(state_index, next_state_index);
-
-            if inserted {
-                // add to queue
-                queue.push_back(next_state_index);
-            }
-        }
+        space.generate();
         space
     }
 
-    pub fn verify(&self) -> ModelCheckResult {
-        let model_check_result = self.model_check();
-        let ModelCheckResult::Unknown(culprit) = model_check_result else {
-            return model_check_result;
-        };
+    pub fn generate(&mut self) {
+        self.initial_states.clear();
+        self.state_map.clear();
+        self.state_graph.clear();
+        // generate initial states
+        for input in self.input_mark.generate_possibilities() {
+            let (initial_state_id, _) = self.add_state(Rc::new(State::init(&input)));
+            self.initial_states.push(initial_state_id);
+        }
 
+        // construct state space by breadth-first search
+        let mut queue = VecDeque::<usize>::new();
+        queue.extend(self.initial_states.iter());
+
+        while let Some(state_index) = queue.pop_front() {
+            let state = self.get_state_by_index(state_index);
+            println!("State #{}: {:?}", state_index, state);
+
+            // generate next states
+            for input in self.input_mark.generate_possibilities() {
+                let next_state = state.next(&input);
+
+                let (next_state_index, inserted) = self.add_state(Rc::new(next_state));
+
+                self.add_edge(state_index, next_state_index);
+
+                if inserted {
+                    // add to queue
+                    queue.push_back(next_state_index);
+                }
+            }
+        }
+    }
+
+    pub fn verify(&mut self) -> anyhow::Result<bool> {
+        loop {
+            let model_check_result = self.model_check();
+
+            let culprit = match model_check_result {
+                ModelCheckResult::True => return Ok(true),
+                ModelCheckResult::False => return Ok(false),
+                ModelCheckResult::Unknown(culprit) => culprit,
+            };
+
+            self.refine(culprit)?;
+            self.generate();
+        }
+    }
+
+    fn refine(&mut self, culprit: Culprit) -> anyhow::Result<()> {
         // compute marking
         let mut state_mark = mark::State {
             state_6: MarkBitvector::new_unmarked(),
@@ -84,19 +109,25 @@ impl Space {
 
         for state_index in culprit.path.iter().rev() {
             let state = self.get_state_by_index(*state_index);
-            let (new_state_mark, input_mark) = mark::State::next(state_mark, state, input);
+            let (new_state_mark, input_mark) = mark::State::next(state_mark, &state, input);
             println!(
                 "New state mark: {:?}, input mark: {:?}",
                 new_state_mark, input_mark
             );
+            let joined_mark = self.input_mark.join(&input_mark);
+            if joined_mark != self.input_mark {
+                println!("Refined to {:?}", joined_mark);
+                self.input_mark = joined_mark;
+                return Ok(());
+            }
+
             state_mark = new_state_mark;
         }
 
-        // TODO: mark
-        todo!();
+        Err(anyhow::anyhow!("Incomplete refinement"))
     }
 
-    pub fn model_check(&self) -> ModelCheckResult {
+    fn model_check(&self) -> ModelCheckResult {
         // check AG[!bad]
         // bfs from initial states
         let mut open = VecDeque::<usize>::new();
@@ -107,7 +138,7 @@ impl Space {
         became_open.extend(self.initial_states.iter());
 
         while let Some(state_index) = open.pop_front() {
-            let state: &State = &self.get_state_by_index(state_index);
+            let state = self.get_state_by_index(state_index);
 
             // check state
             let bad: ThreeValuedBitvector<1> = state.bad();
@@ -156,13 +187,15 @@ impl Space {
         self.state_map.len()
     }
 
-    fn get_state_by_index(&self, state_index: usize) -> &State {
-        self.state_map
-            .get_by_left(&state_index)
-            .expect("State in queue should be in state map")
+    fn get_state_by_index(&self, state_index: usize) -> Rc<State> {
+        Rc::clone(
+            self.state_map
+                .get_by_left(&state_index)
+                .expect("State in queue should be in state map"),
+        )
     }
 
-    fn add_state(&mut self, state: State) -> (usize, bool) {
+    fn add_state(&mut self, state: Rc<State>) -> (usize, bool) {
         if let Some(state_id) = self.state_map.get_by_right(&state) {
             // state already present, not inserted
             (*state_id, false)
