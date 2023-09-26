@@ -1,26 +1,26 @@
-use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::token::{Comma, Paren};
 use syn::visit_mut::VisitMut;
 use syn::{Expr, ExprCall, ExprPath, Path};
 use syn_path::path;
 
-fn convert_to_call(expr: &mut Expr, path: Path, args: Punctuated<Expr, Comma>) {
-    let func = Expr::Path(ExprPath {
-        attrs: vec![],
-        qself: None,
-        path,
-    });
-
-    *expr = Expr::Call(ExprCall {
-        attrs: vec![],
-        func: Box::new(func),
-        paren_token: Paren::default(),
-        args,
-    });
+pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
+    struct Visitor(anyhow::Result<()>);
+    impl VisitMut for Visitor {
+        fn visit_expr_mut(&mut self, expr: &mut Expr) {
+            if self.0.is_ok() {
+                self.0 = transcribe_expression(expr);
+            }
+            // delegate to transcribe nested expression
+            syn::visit_mut::visit_expr_mut(self, expr);
+        }
+    }
+    let mut visitor = Visitor(Ok(()));
+    visitor.visit_file_mut(file);
+    visitor.0
 }
 
-fn transcribe_expression(expr: &mut Expr) -> Result<(), anyhow::Error> {
+fn transcribe_expression(expr: &mut Expr) -> anyhow::Result<()> {
     match expr {
         syn::Expr::Binary(binary) => {
             let path = match binary.op {
@@ -64,37 +64,17 @@ fn transcribe_expression(expr: &mut Expr) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-struct Visitor {
-    first_error: Option<anyhow::Error>,
-}
+fn convert_to_call(expr: &mut Expr, path: Path, args: Punctuated<Expr, Comma>) {
+    let func = Expr::Path(ExprPath {
+        attrs: vec![],
+        qself: None,
+        path,
+    });
 
-impl Visitor {
-    fn new() -> Visitor {
-        Visitor { first_error: None }
-    }
-}
-
-impl VisitMut for Visitor {
-    fn visit_expr_mut(&mut self, expr: &mut Expr) {
-        if let Err(err) = transcribe_expression(expr) {
-            if self.first_error.is_none() {
-                self.first_error = Some(err.context(format!(
-                    "Error converting '{}' to operation-free representation",
-                    quote!(#expr)
-                )));
-            }
-        }
-        // delegate to transcribe nested expressions
-        syn::visit_mut::visit_expr_mut(self, expr);
-    }
-}
-
-pub fn transcribe(file: &mut syn::File) -> Result<(), anyhow::Error> {
-    let mut visitor = Visitor::new();
-    visitor.visit_file_mut(file);
-
-    if let Some(first_error) = visitor.first_error {
-        return Err(first_error);
-    }
-    Ok(())
+    *expr = Expr::Call(ExprCall {
+        attrs: vec![],
+        func: Box::new(func),
+        paren_token: Paren::default(),
+        args,
+    });
 }
