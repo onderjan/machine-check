@@ -1,11 +1,12 @@
 use anyhow::anyhow;
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Expr, ExprCall, ExprPath, ExprTuple, FnArg, Ident,
-    ImplItem, ItemImpl, Local, LocalInit, Pat, PatIdent, PatType, Path, PathArguments, PathSegment,
-    ReturnType, Stmt, Type, TypeTuple,
+    punctuated::Punctuated, visit_mut::VisitMut, Expr, ExprPath, ExprTuple, FnArg, Ident, ImplItem,
+    ItemImpl, Pat, PatIdent, PatType, Path, PathArguments, PathSegment, ReturnType, Stmt, Type,
+    TypeTuple,
 };
-use syn_path::path;
+
+use crate::transcription::util::generate_let_default_stmt;
 
 use super::{
     mark_ident::IdentVisitor,
@@ -18,40 +19,6 @@ fn strip_type_reference(ty: Type) -> Type {
         Type::Reference(reference) => *reference.elem,
         _ => ty,
     }
-}
-
-fn create_default_statement(ident: Ident, ty: Type) -> Stmt {
-    Stmt::Local(Local {
-        attrs: vec![],
-        let_token: Default::default(),
-        pat: Pat::Type(PatType {
-            attrs: vec![],
-            pat: Box::new(Pat::Ident(PatIdent {
-                attrs: vec![],
-                by_ref: None,
-                mutability: Some(Default::default()),
-                ident,
-                subpat: None,
-            })),
-            colon_token: Default::default(),
-            ty: Box::new(strip_type_reference(ty)),
-        }),
-        init: Some(LocalInit {
-            eq_token: Default::default(),
-            expr: Box::new(Expr::Call(ExprCall {
-                attrs: vec![],
-                func: Box::new(Expr::Path(ExprPath {
-                    attrs: vec![],
-                    qself: None,
-                    path: path!(::std::default::Default::default),
-                })),
-                paren_token: Default::default(),
-                args: Punctuated::default(),
-            })),
-            diverge: None,
-        }),
-        semi_token: Default::default(),
-    })
 }
 
 pub fn transcribe_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
@@ -93,9 +60,9 @@ pub fn transcribe_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
                     mark_ident_visitor
                         .rules
                         .insert("self".to_owned(), mark_self_ident_str.to_owned());
-                    input_default_stmt_vec.push(create_default_statement(
+                    input_default_stmt_vec.push(generate_let_default_stmt(
                         mark_self_ident,
-                        receiver.ty.as_ref().clone(),
+                        strip_type_reference(receiver.ty.as_ref().clone()),
                     ));
 
                     // TODO: this loses reference
@@ -113,9 +80,9 @@ pub fn transcribe_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
                     let Pat::Ident(ref mut pat_ident) = *typed.pat else {
                         return Err(anyhow!("Function argument pattern {:?} not supported", *typed.pat));
                     };
-                    input_default_stmt_vec.push(create_default_statement(
+                    input_default_stmt_vec.push(generate_let_default_stmt(
                         pat_ident.ident.clone(),
-                        typed.ty.as_ref().clone(),
+                        strip_type_reference(typed.ty.as_ref().clone()),
                     ));
                     input_ident_vec.push(pat_ident.ident.clone());
                     let ident_string = pat_ident.ident.to_string();

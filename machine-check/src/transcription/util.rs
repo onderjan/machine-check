@@ -1,7 +1,9 @@
 use proc_macro2::TokenStream;
 use syn::{
+    punctuated::Punctuated,
     token::{Bracket, Paren},
-    Attribute, MetaList,
+    Attribute, Expr, ExprCall, ExprPath, Ident, Local, LocalInit, MetaList, Pat, PatIdent, PatType,
+    Stmt, Type,
 };
 use syn_path::path;
 
@@ -16,4 +18,38 @@ pub fn generate_derive_attribute(tokens: TokenStream) -> Attribute {
             tokens,
         }),
     }
+}
+
+pub fn generate_let_default_stmt(ident: Ident, ty: Type) -> Stmt {
+    Stmt::Local(Local {
+        attrs: vec![],
+        let_token: Default::default(),
+        pat: Pat::Type(PatType {
+            attrs: vec![],
+            pat: Box::new(Pat::Ident(PatIdent {
+                attrs: vec![],
+                by_ref: None,
+                mutability: Some(Default::default()),
+                ident,
+                subpat: None,
+            })),
+            colon_token: Default::default(),
+            ty: Box::new(ty),
+        }),
+        init: Some(LocalInit {
+            eq_token: Default::default(),
+            expr: Box::new(Expr::Call(ExprCall {
+                attrs: vec![],
+                func: Box::new(Expr::Path(ExprPath {
+                    attrs: vec![],
+                    qself: None,
+                    path: path!(::std::default::Default::default),
+                })),
+                paren_token: Default::default(),
+                args: Punctuated::default(),
+            })),
+            diverge: None,
+        }),
+        semi_token: Default::default(),
+    })
 }
