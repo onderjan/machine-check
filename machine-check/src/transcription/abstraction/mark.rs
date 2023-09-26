@@ -1,12 +1,11 @@
 use proc_macro2::Span;
 use syn::{token::Brace, Ident, Item, ItemMod};
 
-use self::{mark_impl::transcribe_impl, mark_struct::transcribe_struct};
+use self::{mark_impl::transcribe_impl, mark_type_path::TypePathVisitor};
 
 mod mark_ident;
 mod mark_impl;
 mod mark_stmt;
-mod mark_struct;
 mod mark_type_path;
 
 pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
@@ -14,7 +13,9 @@ pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
     for item in &file.items {
         match item {
             Item::Struct(s) => {
-                mark_file_items.push(Item::Struct(transcribe_struct(s)?));
+                let mut mark_s = s.clone();
+                TypePathVisitor::new().visit_struct(&mut mark_s);
+                mark_file_items.push(Item::Struct(mark_s));
             }
             Item::Impl(i) => mark_file_items.push(Item::Impl(transcribe_impl(i)?)),
             _ => {
