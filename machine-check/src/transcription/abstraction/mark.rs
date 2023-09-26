@@ -1,18 +1,15 @@
+use anyhow::anyhow;
+use proc_macro2::Span;
 use quote::quote;
 use std::collections::HashMap;
-use std::fmt::Arguments;
-use std::sync::Arc;
-
-use anyhow::anyhow;
-use proc_macro2::{Punct, Span};
 use syn::punctuated::Punctuated;
 use syn::token::{Brace, Bracket, Paren};
 use syn::visit_mut::VisitMut;
 use syn::{
-    Attribute, Expr, ExprAssign, ExprCall, ExprInfer, ExprPath, ExprTuple, FieldPat, FnArg, Ident,
-    ImplItem, Item, ItemImpl, ItemMod, ItemStruct, Local, LocalInit, MetaList, Pat, PatIdent,
-    PatOr, PatStruct, PatTuple, PatType, PatWild, Path, PathArguments, PathSegment, ReturnType,
-    Stmt, Token, Type, TypePath, TypeTuple,
+    Attribute, Expr, ExprAssign, ExprCall, ExprPath, ExprTuple, FieldPat, FnArg, Ident, ImplItem,
+    Item, ItemImpl, ItemMod, ItemStruct, Local, LocalInit, MetaList, Pat, PatIdent, PatStruct,
+    PatTuple, PatType, PatWild, Path, PathArguments, PathSegment, ReturnType, Stmt, Token, Type,
+    TypePath, TypeTuple,
 };
 use syn_path::path;
 
@@ -66,11 +63,6 @@ impl VisitMut for TypePathVisitor {
     }
 }
 
-pub fn convert_type_ident(ident: &mut Ident) {
-    let mark_ident_str: String = format!("__MckMark{}", ident.to_string());
-    *ident = Ident::new(mark_ident_str.as_str(), Span::call_site());
-}
-
 pub fn transcribe_struct(s: &ItemStruct) -> anyhow::Result<ItemStruct> {
     let mut mark_s = s.clone();
     mark_s.attrs.push(Attribute {
@@ -115,7 +107,7 @@ fn convert_type_to_original(ty: &Type) -> anyhow::Result<Type> {
         return Ok(Type::Reference(result));
     }
 
-    let Type::Path(TypePath{qself: None, path: path}) = ty else {
+    let Type::Path(TypePath{qself: None, path}) = ty else {
         return Err(anyhow!("Conversion of type {:?} to super not supported", ty));
     };
 
@@ -126,7 +118,6 @@ fn convert_type_to_original(ty: &Type) -> anyhow::Result<Type> {
 }
 
 struct IdentVisitor {
-    first_error: Option<anyhow::Error>,
     rules: HashMap<String, String>,
     prefix_rule: Option<(String, String)>,
 }
@@ -134,7 +125,6 @@ struct IdentVisitor {
 impl IdentVisitor {
     fn new() -> Self {
         Self {
-            first_error: None,
             rules: HashMap::new(),
             prefix_rule: None,
         }
@@ -198,7 +188,7 @@ impl VisitMut for IdentVisitor {
         }
     }
 
-    fn visit_pat_type_mut(&mut self, i: &mut PatType) {
+    fn visit_pat_type_mut(&mut self, _: &mut PatType) {
         // do not delegate
     }
 }

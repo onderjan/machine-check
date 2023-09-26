@@ -1,10 +1,7 @@
 use anyhow::anyhow;
 use std::{env, fs::File, path::Path};
 
-mod forward;
-mod mark;
-mod opcall;
-mod ssa;
+mod transcription;
 mod write;
 
 fn work() -> Result<(), anyhow::Error> {
@@ -31,8 +28,7 @@ fn work() -> Result<(), anyhow::Error> {
 
     let mut concrete_machine: syn::File = syn::parse2(btor2rs::translate_file(btor2_file)?)?;
 
-    opcall::transcribe(&mut concrete_machine)?;
-    ssa::transcribe(&mut concrete_machine)?;
+    transcription::simplification::ssa::transcribe(&mut concrete_machine)?;
 
     write::write_machine(
         "concrete",
@@ -41,8 +37,8 @@ fn work() -> Result<(), anyhow::Error> {
     )?;
 
     let mut forward_machine = concrete_machine.clone();
-    forward::transcribe(&mut forward_machine)?;
-    mark::transcribe(&mut forward_machine)?;
+    transcription::abstraction::forward::transcribe(&mut forward_machine)?;
+    transcription::abstraction::mark::transcribe(&mut forward_machine)?;
 
     write::write_machine(
         "forward",

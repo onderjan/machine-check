@@ -205,10 +205,13 @@ impl VisitMut for Visitor {
     }
 }
 
-pub fn transcribe(machine: &mut syn::File) -> Result<(), anyhow::Error> {
+pub fn transcribe(file: &mut syn::File) -> Result<(), anyhow::Error> {
+    // transcribe operations to calls first
+    super::ops_to_calls::transcribe(file)?;
+
     let mut visitor = Visitor::new();
 
-    visitor.visit_file_mut(machine);
+    visitor.visit_file_mut(file);
 
     if let Some(first_error) = visitor.first_error {
         return Err(first_error);
