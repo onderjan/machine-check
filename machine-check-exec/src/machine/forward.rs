@@ -196,7 +196,7 @@ pub mod mark {
         }
         pub fn next(
             __mck_mark: State,
-            __mck_orig_self: super::State,
+            __mck_orig_self: &super::State,
             __mck_orig_input: &super::Input,
         ) -> (Self, Input) {
             let __mck_orig_node_2 = __mck_orig_input.input_2;
@@ -308,7 +308,7 @@ pub mod mark {
             (__mck_mark_self, input)
         }
         pub fn bad(
-            __mck_mark: ::mck::ThreeValuedBitvector<1u32>,
+            __mck_mark: ::mck::MarkBitvector<1u32>,
             __mck_orig_self: super::State,
         ) -> (Self,) {
             let __mck_orig_tmp_0 = __mck_orig_self.bad_15;
