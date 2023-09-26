@@ -1,4 +1,3 @@
-use quote::quote;
 use syn::visit_mut::VisitMut;
 use syn::{Ident, Path};
 
@@ -56,18 +55,15 @@ impl Visitor {
 
     fn transcribe_path(&mut self, path: &mut Path) -> Result<(), anyhow::Error> {
         // use the first rule that applies
-        println!("Matching path {:?}", path);
         'rule_loop: for rule in &self.rules {
             // only match rule if leading colon requirement matches
             if rule.has_leading_colon != path.leading_colon.is_some() {
                 continue;
             }
-            println!("Matched leading colon");
             let mut segments = path.segments.iter();
             for rule_segment in &rule.segments {
                 let Some(segment) = segments.next() else {
                     // the path is too short for the rule
-                    println!("Path too short");
                     continue 'rule_loop;
                 };
                 match rule_segment {
@@ -77,10 +73,6 @@ impl Visitor {
                         let ident_string = segment.ident.to_string();
 
                         if ident_string.as_str() != match_ident_string.as_str() {
-                            println!(
-                                "Strings not matching: '{}' != '{}'",
-                                ident_string, match_ident_string
-                            );
                             continue 'rule_loop;
                         }
                     }
@@ -89,7 +81,6 @@ impl Visitor {
                     }
                 }
             }
-            println!("Matched {:?}", quote!(#path));
             // all segments matched, transcribe and break
             let mut segments = path.segments.iter_mut();
             for rule_segment in &rule.segments {
