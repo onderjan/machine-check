@@ -1,10 +1,6 @@
 use proc_macro2::{Ident, Span, TokenStream};
 
-use crate::btor2::{
-    node::NodeType,
-    sort::{BitvecSort, Sort},
-    Btor2,
-};
+use crate::btor2::{node::NodeType, sort::Sort, Btor2};
 use anyhow::anyhow;
 use quote::quote;
 
@@ -81,44 +77,36 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
 }
 
 pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
-    let has_constraints = btor2
-        .nodes
-        .iter()
-        .any(|(_, node)| matches!(node.ntype, NodeType::Constraint(_)));
-    let constraint_ident = Ident::new("constraint", Span::call_site());
-
-    let mut state_tokens = Vec::<TokenStream>::new();
+    // construct state fields
+    let mut state_fields = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
         let result_type = node.result.sort.create_type_tokens()?;
-        match &node.ntype {
-            NodeType::State(state) => {
-                // if state has no next, it is not remembered and is treated as input
-                if state.next().is_some() {
-                    let state_ident = nid.create_ident("state");
-                    state_tokens.push(quote!(pub #state_ident: #result_type))
-                }
+        if let NodeType::State(state) = &node.ntype {
+            // if state has no next, it is not remembered and is treated as input
+            if state.next().is_some() {
+                let state_ident = nid.create_ident("state");
+                state_fields.push(quote!(pub #state_ident: #result_type))
             }
-            NodeType::Bad(_) => {
-                let bad_ident = nid.create_ident("bad");
-                state_tokens.push(quote!(pub #bad_ident: #result_type))
-            }
-            _ => (),
         }
     }
+    // add 'safe' field
+    let safe_ident = Ident::new("safe", Span::call_site());
+    let safe_type = Sort::single_bit_sort().create_type_tokens()?;
+    state_fields.push(quote!(pub #safe_ident: #safe_type));
 
-    let mut input_tokens = Vec::<TokenStream>::new();
+    let mut input_fields = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
         let result_type = node.result.sort.create_type_tokens()?;
         match &node.ntype {
             NodeType::Input => {
                 let input_ident = nid.create_ident("input");
-                input_tokens.push(quote!(pub #input_ident: #result_type));
+                input_fields.push(quote!(pub #input_ident: #result_type));
             }
             NodeType::State(state) => {
-                // if state has no init or no next, it is treated as input sometime
+                // if state has no init or no next, it can be treated as input
                 if state.init().is_none() || state.next().is_none() {
                     let input_ident = nid.create_ident("input");
-                    input_tokens.push(quote!(pub #input_ident: #result_type));
+                    input_fields.push(quote!(pub #input_ident: #result_type));
                 }
             }
             _ => (),
@@ -126,97 +114,60 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     }
 
     let mut init_result_tokens = Vec::<TokenStream>::new();
-    for (nid, node) in &btor2.nodes {
-        match &node.ntype {
-            NodeType::State(state) => {
-                // if state has no next, it is not remembered and is treated as input
-                if state.next().is_some() {
-                    let state_ident = nid.create_ident("state");
-                    let node_ident = nid.create_ident("node");
-                    init_result_tokens.push(quote!(#state_ident: #node_ident))
-                }
-            }
-            NodeType::Bad(condition) => {
-                let bad_ident = nid.create_ident("bad");
-                let condition = condition.create_tokens("node");
-                init_result_tokens.push(quote!(#bad_ident: #condition))
-            }
-            _ => (),
-        }
-    }
-
     let mut next_result_tokens = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
-        match &node.ntype {
-            NodeType::State(state) => {
-                // if state has no next, it is not remembered and is treated as input
-                if let Some(next) = state.next() {
-                    let state_ident = nid.create_ident("state");
-                    let next_tokens = next.create_tokens("node");
-                    next_result_tokens.push(quote!(#state_ident: #next_tokens))
-                }
+        if let NodeType::State(state) = &node.ntype {
+            // if state has no next, it is not remembered
+            if let Some(next) = state.next() {
+                let state_ident = nid.create_ident("state");
+                // the init result is for the state node
+                // the next result for the next node
+                let node_ident = nid.create_ident("node");
+                init_result_tokens.push(quote!(#state_ident: #node_ident));
+                let next_ident = next.create_tokens("node");
+                next_result_tokens.push(quote!(#state_ident: #next_ident));
             }
-            NodeType::Bad(condition) => {
-                let bad_ident = nid.create_ident("bad");
-                let condition_ident = condition.create_tokens("node");
-                next_result_tokens.push(quote!(#bad_ident: #condition_ident))
+        }
+    }
+
+    // result is safe exactly when no bad holds or at least one constraint is violated
+    // i.e. (!bad_1 && !bad_2 && ...) || (!constraint_3 || !constraint_4 || ...)
+    let mut not_bad_tokens = Vec::<TokenStream>::new();
+    let mut constraint_tokens = Vec::<TokenStream>::new();
+    for node in btor2.nodes.values() {
+        match &node.ntype {
+            NodeType::Bad(bad_ref) => {
+                let bad_ref_node = bad_ref.create_tokens("node");
+                not_bad_tokens.push(quote!(!#bad_ref_node));
+            }
+            NodeType::Constraint(constraint_ref) => {
+                let constraint_ref_node = constraint_ref.create_tokens("node");
+                constraint_tokens.push(quote!(#constraint_ref_node));
             }
             _ => (),
         }
     }
 
-    let bad_results: Vec<_> = btor2
-        .nodes
-        .iter()
-        .filter_map(|(nid, node)| {
-            if let NodeType::Bad(_) = node.ntype {
-                let bad_ident = nid.create_ident("bad");
-                Some(quote!(self.#bad_ident))
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    let mut bad_expression = if bad_results.is_empty() {
-        quote!(false)
-    } else {
-        quote!(#(#bad_results)|*)
+    let safe_field_expr = match (!not_bad_tokens.is_empty(), !constraint_tokens.is_empty()) {
+        (true, true) => quote!(#safe_ident: (#(#not_bad_tokens)&*) | (#(#constraint_tokens)|*) ),
+        (true, false) => quote!(#safe_ident: (#(#not_bad_tokens)&*) ),
+        (false, _) => quote!(#safe_ident: #safe_type::new(1) ),
     };
-
-    if has_constraints {
-        let single_bit_sort = Sort::Bitvec(BitvecSort::single_bit()).create_type_tokens()?;
-        state_tokens.push(quote!(constraint: #single_bit_sort));
-        let mut constraints_tokens = Vec::<TokenStream>::new();
-
-        for node in btor2.nodes.values() {
-            if let NodeType::Constraint(constraint) = &node.ntype {
-                constraints_tokens.push(constraint.create_tokens("node"));
-            }
-        }
-
-        // that is for the init constraints, OR them together
-        init_result_tokens.push(quote!(#constraint_ident: #(#constraints_tokens)|*));
-        // for non-init constraints, also OR the constraints from previously
-        next_result_tokens
-            .push(quote!(#constraint_ident: self.#constraint_ident | #(#constraints_tokens)|*));
-
-        // change bad expression so that constraints are taken into account
-        bad_expression = quote!((#bad_expression) && (#constraint_ident));
-    }
+    init_result_tokens.push(safe_field_expr.clone());
+    next_result_tokens.push(safe_field_expr);
 
     let init_statements = create_statements(&btor2, true)?;
-    let noninit_statements = create_statements(&btor2, false)?;
+    let next_statements = create_statements(&btor2, false)?;
 
     let tokens = quote!(
         #[derive(Debug)]
         pub struct Input {
-            #(#input_tokens),*
+            #(#input_fields),*
         }
 
         #[derive(Debug, PartialEq, Eq, Hash)]
         pub struct State {
-            #(#state_tokens),*
+            #(#state_fields),*
         }
 
         impl State {
@@ -226,12 +177,8 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
             }
 
             pub fn next(&self, input: &Input) -> State {
-                #(#noninit_statements)*
+                #(#next_statements)*
                 State{#(#next_result_tokens),*}
-            }
-
-            pub fn bad(&self) -> ::mck::MachineBitvector<1u32> {
-                #bad_expression
             }
         }
     );

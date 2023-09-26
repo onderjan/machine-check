@@ -83,6 +83,10 @@ impl Sort {
             }
         }
     }
+
+    pub fn single_bit_sort() -> Sort {
+        Sort::Bitvec(BitvecSort::single_bit())
+    }
 }
 
 impl Display for Sort {
