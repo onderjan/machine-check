@@ -1,13 +1,13 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use syn::{
     token::{Bracket, Paren},
-    Attribute, MetaList, Token,
+    Attribute, MetaList,
 };
 use syn_path::path;
 
 pub fn generate_derive_attribute(tokens: TokenStream) -> Attribute {
     Attribute {
-        pound_token: Token![#](Span::call_site()),
+        pound_token: Default::default(),
         style: syn::AttrStyle::Outer,
         bracket_token: Bracket::default(),
         meta: syn::Meta::List(MetaList {

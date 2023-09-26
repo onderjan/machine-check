@@ -1,9 +1,9 @@
 use anyhow::anyhow;
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, token::Paren, visit_mut::VisitMut, Expr, ExprCall, ExprPath, ExprTuple,
-    FnArg, Ident, ImplItem, ItemImpl, Local, LocalInit, Pat, PatIdent, PatType, Path,
-    PathArguments, PathSegment, ReturnType, Stmt, Token, Type, TypeTuple,
+    punctuated::Punctuated, visit_mut::VisitMut, Expr, ExprCall, ExprPath, ExprTuple, FnArg, Ident,
+    ImplItem, ItemImpl, Local, LocalInit, Pat, PatIdent, PatType, Path, PathArguments, PathSegment,
+    ReturnType, Stmt, Type, TypeTuple,
 };
 use syn_path::path;
 
@@ -23,21 +23,21 @@ fn strip_type_reference(ty: Type) -> Type {
 fn create_default_statement(ident: Ident, ty: Type) -> Stmt {
     Stmt::Local(Local {
         attrs: vec![],
-        let_token: Token![let](Span::call_site()),
+        let_token: Default::default(),
         pat: Pat::Type(PatType {
             attrs: vec![],
             pat: Box::new(Pat::Ident(PatIdent {
                 attrs: vec![],
                 by_ref: None,
-                mutability: Some(Token![mut](Span::call_site())),
+                mutability: Some(Default::default()),
                 ident,
                 subpat: None,
             })),
-            colon_token: Token![:](Span::call_site()),
+            colon_token: Default::default(),
             ty: Box::new(strip_type_reference(ty)),
         }),
         init: Some(LocalInit {
-            eq_token: Token![=](Span::call_site()),
+            eq_token: Default::default(),
             expr: Box::new(Expr::Call(ExprCall {
                 attrs: vec![],
                 func: Box::new(Expr::Path(ExprPath {
@@ -45,12 +45,12 @@ fn create_default_statement(ident: Ident, ty: Type) -> Stmt {
                     qself: None,
                     path: path!(::std::default::Default::default),
                 })),
-                paren_token: Paren::default(),
+                paren_token: Default::default(),
                 args: Punctuated::default(),
             })),
             diverge: None,
         }),
-        semi_token: Token![;](Span::call_site()),
+        semi_token: Default::default(),
     })
 }
 
@@ -104,9 +104,7 @@ pub fn transcribe_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
                     *input = FnArg::Typed(PatType {
                         attrs: vec![],
                         pat: Box::new(Pat::Ident(pat_ident)),
-                        colon_token: receiver
-                            .colon_token
-                            .unwrap_or_else(|| Token![:](Span::call_site())),
+                        colon_token: Default::default(),
                         ty: Box::new(orig_type.clone()),
                     });
                 }
@@ -146,13 +144,13 @@ pub fn transcribe_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
         let mark_input = FnArg::Typed(PatType {
             attrs: vec![],
             pat: Box::new(mark_input_pat),
-            colon_token: Token![:](Span::call_site()),
+            colon_token: Default::default(),
             ty: mark_input_type,
         });
         mark_fn.sig.inputs.insert(0, mark_input);
         // change the return type to earlier mut
         *return_type = Box::new(Type::Tuple(TypeTuple {
-            paren_token: Paren::default(),
+            paren_token: Default::default(),
             elems: Punctuated::from_iter(input_type_vec.into_iter().map(strip_type_reference)),
         }));
 
@@ -197,7 +195,7 @@ pub fn transcribe_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
         let result_stmt = Stmt::Expr(
             Expr::Tuple(ExprTuple {
                 attrs: vec![],
-                paren_token: Paren::default(),
+                paren_token: Default::default(),
                 elems: Punctuated::from_iter(input_ident_vec.into_iter().map(|ident| {
                     Expr::Path(ExprPath {
                         attrs: vec![],

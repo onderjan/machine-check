@@ -1,9 +1,8 @@
 use anyhow::anyhow;
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, token::Paren, Expr, ExprAssign, ExprPath, ExprTuple, FieldPat, Ident,
-    Local, LocalInit, Pat, PatStruct, PatTuple, PatWild, Path, PathArguments, PathSegment, Stmt,
-    Token,
+    punctuated::Punctuated, Expr, ExprAssign, ExprPath, ExprTuple, FieldPat, Ident, Local,
+    LocalInit, Pat, PatStruct, PatTuple, PatWild, Path, PathArguments, PathSegment, Stmt,
 };
 
 use super::mark_ident::IdentVisitor;
@@ -14,7 +13,7 @@ pub fn convert_to_let_binding(bind_ident: Ident, stmt: &mut Stmt) -> anyhow::Res
     };
 
     let local_init = LocalInit {
-        eq_token: Token![=](Span::call_site()),
+        eq_token: Default::default(),
         expr: Box::new(Expr::Path(ExprPath {
             attrs: vec![],
             qself: None,
@@ -25,10 +24,10 @@ pub fn convert_to_let_binding(bind_ident: Ident, stmt: &mut Stmt) -> anyhow::Res
 
     *stmt = Stmt::Local(Local {
         attrs: vec![],
-        let_token: Token![let](Span::call_site()),
+        let_token: Default::default(),
         pat: Pat::Path(expr_path.clone()),
         init: Some(local_init),
-        semi_token: Token![;](Span::call_site()),
+        semi_token: Default::default(),
     });
     Ok(())
 }
@@ -130,7 +129,7 @@ fn invert(
                     }
                     Expr::Lit(_) => Pat::Wild(PatWild {
                         attrs: vec![],
-                        underscore_token: Token![_](Span::call_site()),
+                        underscore_token: Default::default(),
                     }),
                     _ => {
                         return Err(anyhow!(
@@ -147,12 +146,12 @@ fn invert(
 
             let mut tuple_elems = Punctuated::from_iter(function_args);
             if !tuple_elems.empty_or_trailing() {
-                tuple_elems.push_punct(Token![,](Span::call_site()));
+                tuple_elems.push_punct(Default::default());
             }
 
             let new_left_pat = Pat::Tuple(PatTuple {
                 attrs: vec![],
-                paren_token: Paren::default(),
+                paren_token: Default::default(),
                 elems: tuple_elems,
             });
 
@@ -181,7 +180,7 @@ fn invert(
 
             let normal_input_arg = Expr::Tuple(ExprTuple {
                 attrs: vec![],
-                paren_token: Paren::default(),
+                paren_token: Default::default(),
                 elems: normal_input_args,
             });
             new_right_call_expr.args.push(normal_input_arg);
@@ -283,10 +282,10 @@ pub fn invert_statement(
                     Expr::Assign(ExprAssign {
                         attrs: local.attrs.clone(),
                         left: Box::new(left),
-                        eq_token: Token![=](Span::call_site()),
+                        eq_token: Default::default(),
                         right: Box::new(right),
                     }),
-                    Some(Token![;](Span::call_site())),
+                    Some(Default::default()),
                 ),
             }
         }

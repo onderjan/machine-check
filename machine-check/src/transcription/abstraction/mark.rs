@@ -1,5 +1,5 @@
 use proc_macro2::Span;
-use syn::{token::Brace, Ident, Item, ItemMod, Token};
+use syn::{token::Brace, Ident, Item, ItemMod};
 
 use self::{mark_impl::transcribe_impl, mark_struct::transcribe_struct};
 
@@ -25,9 +25,9 @@ pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
 
     let mod_mark = Item::Mod(ItemMod {
         attrs: vec![],
-        vis: syn::Visibility::Public(Token![pub](Span::call_site())),
+        vis: syn::Visibility::Public(Default::default()),
         unsafety: None,
-        mod_token: Token![mod](Span::call_site()),
+        mod_token: Default::default(),
         ident: Ident::new("mark", Span::call_site()),
         content: Some((Brace::default(), mark_file_items)),
         semi: None,
