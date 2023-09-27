@@ -7,16 +7,15 @@ use syn::{
     PathSegment, Stmt,
 };
 
-pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
-    // transcribe operations to calls first
-    super::ops_to_calls::transcribe(file);
+pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
+    // apply transcription to operations to calls first
+    super::ops_to_calls::apply(file);
 
-    // transcribe each block using a visitor
+    // apply transcription to each block using a visitor
     struct Visitor(anyhow::Result<()>);
     impl VisitMut for Visitor {
         fn visit_block_mut(&mut self, block: &mut Block) {
-            // transcribe
-            let result = BlockTranscriber::transcribe_block(block);
+            let result = apply_to_block(block);
             if self.0.is_ok() {
                 self.0 = result;
             }
@@ -29,37 +28,36 @@ pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
     visitor.0
 }
 
+fn apply_to_block(block: &mut Block) -> anyhow::Result<()> {
+    let mut transcriber = BlockTranscriber {
+        transcribed_stmts: Vec::new(),
+    };
+    // apply transcription to statements one by one
+    for stmt in &block.stmts {
+        if let Err(err) = transcriber.apply_transcription_to_stmt(stmt.clone()) {
+            return Err(err.context(format!(
+                "Error transcribing statement to SSA: {}",
+                quote!(#stmt)
+            )));
+        }
+    }
+    block.stmts = transcriber.transcribed_stmts;
+    Ok(())
+}
 struct BlockTranscriber {
     transcribed_stmts: Vec<Stmt>,
 }
 
 impl BlockTranscriber {
-    fn transcribe_block(block: &mut Block) -> anyhow::Result<()> {
-        let mut transcriber = BlockTranscriber {
-            transcribed_stmts: Vec::new(),
-        };
-        // transcribe statements one by one
-        for stmt in &block.stmts {
-            if let Err(err) = transcriber.transcribe_stmt(stmt.clone()) {
-                return Err(err.context(format!(
-                    "Error transcribing statement to SSA: {}",
-                    quote!(#stmt)
-                )));
-            }
-        }
-        block.stmts = transcriber.transcribed_stmts;
-        Ok(())
-    }
-
-    fn transcribe_stmt(&mut self, mut stmt: Stmt) -> anyhow::Result<()> {
+    fn apply_transcription_to_stmt(&mut self, mut stmt: Stmt) -> anyhow::Result<()> {
         match stmt {
             Stmt::Expr(ref mut expr, semi) => {
                 if semi.is_none() {
                     // force movement from return expression for ease of use
                     self.move_expression_through_temporary(expr)?;
                 } else {
-                    // transcribe expression, but do not force movement
-                    self.transcribe_expression(expr)?;
+                    // apply transcription to expression without forced movement
+                    self.apply_transcription_to_expression(expr)?;
                 }
             }
             Stmt::Local(ref mut local) => {
@@ -77,8 +75,8 @@ impl BlockTranscriber {
                         return Err(anyhow!("Local let with diverging else not supported"));
                     }
 
-                    // transcribe expression, but do not force movement
-                    self.transcribe_expression(init.expr.as_mut())?;
+                    // apply transcription to expression without forced movement
+                    self.apply_transcription_to_expression(init.expr.as_mut())?;
                 }
             }
             _ => return Err(anyhow!("Statement type {:?} not supported", stmt)),
@@ -87,7 +85,7 @@ impl BlockTranscriber {
         Ok(())
     }
 
-    fn transcribe_expression(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
+    fn apply_transcription_to_expression(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA
@@ -141,8 +139,9 @@ impl BlockTranscriber {
             _ => (),
         }
 
-        // transcribe expression again to solve recursion
-        self.transcribe_expression(expr)?;
+        // apply transcription to expression
+        // so that nested expressions are properly converted to SSA
+        self.apply_transcription_to_expression(expr)?;
 
         // create a temporary variable
         let tmp_ident = Ident::new(

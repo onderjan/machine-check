@@ -28,7 +28,7 @@ fn work() -> Result<(), anyhow::Error> {
 
     let mut concrete_machine: syn::File = syn::parse2(btor2rs::translate_file(btor2_file)?)?;
 
-    transcription::simplification::ssa::transcribe(&mut concrete_machine)?;
+    transcription::simplification::ssa::apply(&mut concrete_machine)?;
 
     write::write_machine(
         "concrete",
@@ -37,8 +37,8 @@ fn work() -> Result<(), anyhow::Error> {
     )?;
 
     let mut forward_machine = concrete_machine.clone();
-    transcription::abstraction::forward::transcribe(&mut forward_machine)?;
-    transcription::abstraction::mark::transcribe(&mut forward_machine)?;
+    transcription::abstraction::forward::apply(&mut forward_machine)?;
+    transcription::abstraction::mark::apply(&mut forward_machine)?;
 
     write::write_machine(
         "forward",

@@ -13,13 +13,13 @@ pub struct PathRule {
     pub segments: Vec<PathRuleSegment>,
 }
 
-pub fn transcribe(file: &mut syn::File, rules: Vec<PathRule>) -> Result<(), anyhow::Error> {
+pub fn apply(file: &mut syn::File, rules: Vec<PathRule>) -> Result<(), anyhow::Error> {
     let mut visitor = Visitor::new(rules);
     visitor.visit_file_mut(file);
     visitor.first_error.map_or(Ok(()), Err)
 }
 
-pub fn transcribe_item_struct(
+pub fn apply_to_item_struct(
     s: &mut syn::ItemStruct,
     rules: Vec<PathRule>,
 ) -> Result<(), anyhow::Error> {
@@ -35,7 +35,7 @@ struct Visitor {
 
 impl VisitMut for Visitor {
     fn visit_path_mut(&mut self, path: &mut syn::Path) {
-        if let Err(err) = self.transcribe_path(path) {
+        if let Err(err) = self.apply_to_path(path) {
             if self.first_error.is_none() {
                 self.first_error = Some(err);
             }
@@ -53,7 +53,7 @@ impl Visitor {
         }
     }
 
-    fn transcribe_path(&mut self, path: &mut Path) -> Result<(), anyhow::Error> {
+    fn apply_to_path(&mut self, path: &mut Path) -> Result<(), anyhow::Error> {
         // use the first rule that applies
         'rule_loop: for rule in &self.rules {
             // only match rule if leading colon requirement matches
@@ -81,7 +81,7 @@ impl Visitor {
                     }
                 }
             }
-            // all segments matched, transcribe and break
+            // all segments matched, replace appropriate segment identifier strings and break
             let mut segments = path.segments.iter_mut();
             for rule_segment in &rule.segments {
                 let Some(segment) = segments.next() else {

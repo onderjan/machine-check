@@ -170,7 +170,7 @@ fn invert(
                 .map(|arg| {
                     if let Expr::Path(expr_path) = arg {
                         let mut path = expr_path.clone();
-                        ident_visitor.transcribe_path(&mut path.path);
+                        ident_visitor.apply_transcription_to_path(&mut path.path);
                         Expr::Path(path)
                     } else {
                         arg.clone()
@@ -187,7 +187,7 @@ fn invert(
 
             let mut normal_output_arg = new_right_expr;
             if let Expr::Path(expr_path) = &mut normal_output_arg {
-                ident_visitor.transcribe_path(&mut expr_path.path);
+                ident_visitor.apply_transcription_to_path(&mut expr_path.path);
             }
             new_right_call_expr.args.push(normal_output_arg);
 
@@ -230,7 +230,7 @@ fn invert(
             let Expr::Path(ref mut expr_path) = *field.base else {
                 return Err(anyhow!("Non-path field base not supported"));
             };
-            mark_ident_visitor.transcribe_path(&mut expr_path.path);
+            mark_ident_visitor.apply_transcription_to_path(&mut expr_path.path);
 
             let new_left_expr = Expr::Field(field);
             return Ok(Some((PatOrExpr::Expr(new_left_expr), new_right_expr)));

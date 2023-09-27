@@ -3,19 +3,20 @@ use syn::visit_mut::VisitMut;
 use syn::{Expr, ExprCall, ExprPath};
 use syn_path::path;
 
-pub fn transcribe(file: &mut syn::File) {
+pub fn apply(file: &mut syn::File) {
     struct Visitor();
     impl VisitMut for Visitor {
         fn visit_expr_mut(&mut self, expr: &mut Expr) {
-            // transcribe and delegate to transcribe nested expression
-            transcribe_expression(expr);
+            // apply transcription
+            apply_to_expression(expr);
+            // delegate to also apply transcription to nested expressions
             syn::visit_mut::visit_expr_mut(self, expr);
         }
     }
     Visitor().visit_file_mut(file);
 }
 
-fn transcribe_expression(expr: &mut Expr) {
+fn apply_to_expression(expr: &mut Expr) {
     let (path, args) = match expr {
         syn::Expr::Binary(binary) => {
             let path = match binary.op {

@@ -17,7 +17,7 @@ impl IdentVisitor {
         }
     }
 
-    pub fn transcribe_ident(&self, ident: &mut Ident) {
+    pub fn apply_transcription_to_ident(&self, ident: &mut Ident) {
         if let Some(replacement_string) = self.rules.get(&ident.to_string()) {
             *ident = Ident::new(replacement_string, ident.span());
         }
@@ -32,8 +32,9 @@ impl IdentVisitor {
         }
     }
 
-    pub fn transcribe_path(&self, path: &mut Path) {
-        // only transcribe idents, those do not start with leading colon and have exactly one segment
+    pub fn apply_transcription_to_path(&self, path: &mut Path) {
+        // only apply transcription to idents
+        // those do not start with leading colon and have exactly one segment
         if path.leading_colon.is_some() {
             return;
         }
@@ -46,19 +47,19 @@ impl IdentVisitor {
         };
 
         let ident = &mut ident_segment.ident;
-        self.transcribe_ident(ident);
+        self.apply_transcription_to_ident(ident);
     }
 }
 
 impl VisitMut for IdentVisitor {
     fn visit_path_mut(&mut self, path: &mut syn::Path) {
-        self.transcribe_path(path);
+        self.apply_transcription_to_path(path);
         // do not delegate to idents
         //syn::visit_mut::visit_path_mut(self, path);
     }
 
     fn visit_ident_mut(&mut self, i: &mut Ident) {
-        self.transcribe_ident(i);
+        self.apply_transcription_to_ident(i);
         // delegate
         syn::visit_mut::visit_ident_mut(self, i);
     }

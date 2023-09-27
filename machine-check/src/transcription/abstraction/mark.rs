@@ -12,7 +12,7 @@ mod mark_ident;
 mod mark_stmt;
 mod mark_type_path;
 
-pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
+pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
     let mut mark_file_items = Vec::<Item>::new();
     for item in &file.items {
         let transcribed_item = match item {
@@ -40,7 +40,7 @@ pub fn transcribe(file: &mut syn::File) -> anyhow::Result<()> {
 
 fn transcribe_item_struct(s: &ItemStruct) -> anyhow::Result<ItemStruct> {
     let mut s = s.clone();
-    path_rule::transcribe_item_struct(&mut s, path_rules())?;
+    path_rule::apply_to_item_struct(&mut s, path_rules())?;
     Ok(s)
 }
 
@@ -50,8 +50,7 @@ fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
 
     for item in i.items {
         if let ImplItem::Fn(item_fn) = item {
-            let mut mark_fn = item_fn.clone();
-            transcribe_impl_item_fn(&mut mark_fn, i.self_ty.as_ref())?;
+            let mark_fn = transcribe_impl_item_fn(&item_fn, i.self_ty.as_ref())?;
             items.push(ImplItem::Fn(mark_fn));
         } else {
             return Err(anyhow!("Impl item type {:?} not supported", item));

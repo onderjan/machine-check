@@ -7,9 +7,9 @@ use crate::transcription::util::{
 
 use quote::quote;
 
-pub fn transcribe(machine: &mut syn::File) -> Result<(), anyhow::Error> {
-    // transcribe types using path rule transcriptor
-    path_rule::transcribe(machine, path_rules())?;
+pub fn apply(machine: &mut syn::File) -> Result<(), anyhow::Error> {
+    // apply transcription to types using path rule transcriptor
+    path_rule::apply(machine, path_rules())?;
 
     // add Default derivation to structs as abstract structs are default unknown
     struct Visitor();

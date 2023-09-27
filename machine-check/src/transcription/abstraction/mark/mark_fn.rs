@@ -14,7 +14,36 @@ use super::{
     mark_type_path::convert_type_to_original,
 };
 
-pub fn transcribe_impl_item_fn(mark_fn: &mut ImplItemFn, mark_ty: &Type) -> anyhow::Result<()> {
+pub fn transcribe_impl_item_fn(
+    abstract_fn: &ImplItemFn,
+    abstract_ty: &Type,
+) -> anyhow::Result<ImplItemFn> {
+    // to transcribe function with signature (inputs) -> output and linear SSA block
+    // we must the following steps
+    // 1. set mark function signature to (later_mark, abstract_inputs) -> (earlier_marks)
+    // 2. clear mark block
+    // 3. add original block statements excluding result that has local variables (including inputs)
+    //        changed to abstract naming scheme (no other variables should be present)
+    // 4. initialize all local mark variables including earlier_marks to no marking
+    // 5. add statement "let init_mark = later_mark;" where init_mark is changed from result expression
+    //        to a pattern with local variables changed to mark naming scheme
+    // 6. in reverse order of mark statements, add mark-computation statements
+    //        i.e. instead of "let a = call(b);"
+    //        add "mark_b.apply_join(mark_call(mark_a, b))"
+    // 7. add result expression for earlier_marks
+
+    let mut mark_fn = abstract_fn.clone();
+
+    // step 1: set signature
+    // TODO
+
+    // step 2: clear mark block
+    mark_fn.block.stmts.clear();
+
+    Ok(mark_fn)
+}
+
+/*pub fn transcribe_impl_item_fn(mark_fn: &mut ImplItemFn, mark_ty: &Type) -> anyhow::Result<()> {
     let mut orig_ident_visitor = IdentVisitor::new();
     let mut mark_ident_visitor = IdentVisitor::new();
 
@@ -173,4 +202,4 @@ fn strip_type_reference(ty: Type) -> Type {
         Type::Reference(reference) => *reference.elem,
         _ => ty,
     }
-}
+}*/
