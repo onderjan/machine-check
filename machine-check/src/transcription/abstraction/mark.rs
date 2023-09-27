@@ -49,11 +49,11 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
 
 fn transcribe_item_struct(s: &ItemStruct) -> anyhow::Result<ItemStruct> {
     let mut s = s.clone();
-    path_rule::apply_to_item_struct(&mut s, path_rules())?;
+    path_rule::apply_to_item_struct(&mut s, mark_path_rules())?;
     Ok(s)
 }
 
-fn path_rules() -> Vec<PathRule> {
+pub fn mark_path_rules() -> Vec<PathRule> {
     vec![
         PathRule {
             has_leading_colon: true,

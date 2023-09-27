@@ -28,6 +28,12 @@ pub fn apply_to_item_struct(
     visitor.first_error.map_or(Ok(()), Err)
 }
 
+pub fn apply_to_stmt(s: &mut syn::Stmt, rules: Vec<PathRule>) -> Result<(), anyhow::Error> {
+    let mut visitor = Visitor::new(rules);
+    visitor.visit_stmt_mut(s);
+    visitor.first_error.map_or(Ok(()), Err)
+}
+
 struct Visitor {
     first_error: Option<anyhow::Error>,
     rules: Vec<PathRule>,
