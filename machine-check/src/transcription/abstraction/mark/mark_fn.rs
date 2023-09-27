@@ -1,12 +1,15 @@
+use std::path;
+
 use anyhow::anyhow;
 use proc_macro2::Span;
+use quote::quote;
 use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Expr, ExprPath, ExprTuple, FnArg, Ident,
-    ImplItemFn, Pat, PatIdent, PatType, Path, PathArguments, PathSegment, ReturnType, Stmt, Type,
-    TypeTuple,
+    punctuated::Punctuated, token::Comma, visit_mut::VisitMut, Expr, ExprPath, ExprTuple, FnArg,
+    Ident, ImplItem, ImplItemFn, ItemImpl, Pat, PatIdent, PatType, Path, PathArguments,
+    PathSegment, ReturnType, Signature, Stmt, Type, TypeInfer, TypePath, TypeSlice, TypeTuple,
 };
 
-use crate::transcription::util::generate_let_default_stmt;
+use crate::transcription::util::{generate_let_default_stmt, path_rule::PathRuleSegment};
 
 use super::{
     mark_ident::IdentVisitor,
@@ -14,34 +17,216 @@ use super::{
     mark_type_path::convert_type_to_original,
 };
 
-pub fn transcribe_impl_item_fn(
-    abstract_fn: &ImplItemFn,
-    abstract_ty: &Type,
-) -> anyhow::Result<ImplItemFn> {
-    // to transcribe function with signature (inputs) -> output and linear SSA block
-    // we must the following steps
-    // 1. set mark function signature to (later_mark, abstract_inputs) -> (earlier_marks)
-    // 2. clear mark block
-    // 3. add original block statements excluding result that has local variables (including inputs)
-    //        changed to abstract naming scheme (no other variables should be present)
-    // 4. initialize all local mark variables including earlier_marks to no marking
-    // 5. add statement "let init_mark = later_mark;" where init_mark is changed from result expression
-    //        to a pattern with local variables changed to mark naming scheme
-    // 6. in reverse order of mark statements, add mark-computation statements
-    //        i.e. instead of "let a = call(b);"
-    //        add "mark_b.apply_join(mark_call(mark_a, b))"
-    // 7. add result expression for earlier_marks
+pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
+    let mut i = i.clone();
+    let mut items = Vec::<ImplItem>::new();
 
-    let mut mark_fn = abstract_fn.clone();
+    let self_ty = i.self_ty.as_ref();
 
-    // step 1: set signature
-    // TODO
+    let Type::Path(self_ty) = self_ty else {
+        return Err(anyhow!("Non-path impl type '{}' not supported", quote!(#self_ty)));
+    };
 
-    // step 2: clear mark block
-    mark_fn.block.stmts.clear();
+    let Some(self_ty_ident) = self_ty.path.get_ident() else {
+        return Err(anyhow!("Non-ident impl type '{}' not supported", quote!(#self_ty)));
+    };
 
-    Ok(mark_fn)
+    let converter = MarkConverter {
+        self_ident_string: self_ty_ident.to_string(),
+    };
+
+    for item in &i.items {
+        if let ImplItem::Fn(item_fn) = item {
+            let mark_fn = converter.transcribe_impl_item_fn(item_fn)?;
+            items.push(ImplItem::Fn(mark_fn));
+        } else {
+            return Err(anyhow!("Impl item type {:?} not supported", item));
+        };
+    }
+
+    i.items = items;
+    Ok(i)
 }
+struct MarkConverter {
+    pub self_ident_string: String,
+}
+
+impl MarkConverter {
+    fn transcribe_impl_item_fn(&self, orig_fn: &ImplItemFn) -> anyhow::Result<ImplItemFn> {
+        // to transcribe function with signature (inputs) -> output and linear SSA block
+        // we must the following steps
+        // 1. set mark function signature to (abstract_inputs, later_mark) -> (earlier_marks)
+        //        where later_mark corresponds to original output and earlier_marks to original inputs
+        // 2. clear mark block
+        // 3. add original block statements excluding result that has local variables (including inputs)
+        //        changed to abstract naming scheme (no other variables should be present)
+        // 4. initialize all local mark variables including earlier_marks to no marking
+        // 5. add statement "let init_mark = later_mark;" where init_mark is changed from result expression
+        //        to a pattern with local variables changed to mark naming scheme
+        // 6. in reverse order of mark statements, add mark-computation statements
+        //        i.e. instead of "let a = call(b);"
+        //        add "mark_b.apply_join(mark_call(b, mark_a))"
+        // 7. add result expression for earlier_marks
+
+        let mut mark_fn = orig_fn.clone();
+
+        let orig_sig = &orig_fn.sig;
+
+        let abstract_input = self.generate_abstract_input(orig_sig)?;
+        let later_mark = self.generate_later_mark(orig_sig)?;
+        let earlier_mark = self.generate_earlier_mark(orig_sig)?;
+
+        // step 1: set signature
+
+        mark_fn.sig.inputs = Punctuated::from_iter(vec![abstract_input, later_mark]);
+        mark_fn.sig.output = earlier_mark;
+        // TODO
+
+        // step 2: clear mark block
+        mark_fn.block.stmts.clear();
+
+        Ok(mark_fn)
+    }
+
+    fn generate_abstract_input(&self, orig_sig: &Signature) -> anyhow::Result<FnArg> {
+        let mut types = Punctuated::new();
+        for r in create_input_name_type_iter(orig_sig) {
+            let (orig_name, orig_type) = r?;
+            types.push(self.convert_to_abstract_type(orig_type)?);
+        }
+        let ty = create_tuple(types);
+        let arg = create_typed_arg("__mck_input_abstr", ty);
+        Ok(arg)
+    }
+
+    fn generate_earlier_mark(&self, orig_sig: &Signature) -> anyhow::Result<ReturnType> {
+        let mut types = Punctuated::new();
+        for r in create_input_name_type_iter(orig_sig) {
+            let (orig_name, orig_type) = r?;
+            types.push(self.convert_to_mark_type(orig_type)?);
+        }
+        let ty = create_tuple(types);
+        let return_type = ReturnType::Type(Default::default(), Box::new(ty));
+        Ok(return_type)
+    }
+
+    fn generate_later_mark(&self, orig_sig: &Signature) -> anyhow::Result<FnArg> {
+        // just use the original output type, now in marking structure context
+        let name = "__mck_input_later_mark";
+        let ty = convert_return_type_to_type(&orig_sig.output);
+        let arg = create_typed_arg(name, ty);
+        Ok(arg)
+    }
+
+    fn convert_to_mark_type(&self, orig_type: &Type) -> anyhow::Result<Type> {
+        // do not change mark type from original type, as the mark structure now stands for the original
+        Ok(orig_type.clone())
+    }
+
+    fn convert_to_abstract_type(&self, orig_type: &Type) -> anyhow::Result<Type> {
+        if let Type::Reference(ty) = orig_type {
+            let mut result = ty.clone();
+            result.elem = Box::new(self.convert_to_abstract_type(ty.elem.as_ref())?);
+            return Ok(Type::Reference(result));
+        }
+
+        let Type::Path(ty) = orig_type else {
+            return Err(anyhow!("Non-path type '{}' not supported", quote!(#orig_type)));
+        };
+
+        if ty.qself.is_some() {
+            return Err(anyhow!(
+                "Qualified-path type '{}' not supported",
+                quote!(#ty)
+            ));
+        }
+        if ty.path.leading_colon.is_some() {
+            return Err(anyhow!("Global-path type '{}' not supported", quote!(#ty)));
+        }
+        let mut path_segments = ty.path.segments.clone();
+        // replace Self by type name
+        for path_segment in path_segments.iter_mut() {
+            if path_segment.ident == "Self" {
+                path_segment.ident =
+                    Ident::new(self.self_ident_string.as_str(), path_segment.ident.span());
+            }
+        }
+
+        // TODO: select leading part of global path instead of super
+        path_segments.insert(
+            0,
+            PathSegment {
+                ident: Ident::new("super", Span::call_site()),
+                arguments: syn::PathArguments::None,
+            },
+        );
+
+        let path = Path {
+            leading_colon: None,
+            segments: path_segments,
+        };
+
+        Ok(Type::Path(TypePath { qself: None, path }))
+    }
+}
+
+fn convert_return_type_to_type(return_type: &ReturnType) -> Type {
+    match return_type {
+        ReturnType::Default => Type::Tuple(TypeTuple {
+            paren_token: Default::default(),
+            elems: Punctuated::new(),
+        }),
+        ReturnType::Type(_, ty) => *ty.clone(),
+    }
+}
+
+fn create_input_name_type_iter(
+    sig: &Signature,
+) -> impl Iterator<Item = anyhow::Result<(String, &Type)>> {
+    sig.inputs.iter().map(|input| match input {
+        FnArg::Receiver(receiver) => {
+            let ty = receiver.ty.as_ref();
+            Ok((String::from("self"), ty))
+        }
+        FnArg::Typed(typed) => {
+            let ty = typed.ty.as_ref();
+            let Pat::Ident(ref pat_ident) = *typed.pat else {
+                return Err(anyhow!("Non-identifier patterns are not supported"));
+            };
+            if pat_ident.by_ref.is_some()
+                || pat_ident.mutability.is_some()
+                || pat_ident.subpat.is_some()
+            {
+                return Err(anyhow!("Impure identifier patterns are not supported"));
+            }
+            Ok((pat_ident.ident.to_string().to_string(), ty))
+        }
+    })
+}
+
+fn create_typed_arg(name: &str, ty: Type) -> FnArg {
+    FnArg::Typed(PatType {
+        attrs: vec![],
+        pat: Box::new(Pat::Ident(PatIdent {
+            attrs: vec![],
+            by_ref: None,
+            mutability: None,
+            ident: Ident::new(name, Span::call_site()),
+            subpat: None,
+        })),
+        colon_token: Default::default(),
+        ty: Box::new(ty),
+    })
+}
+
+fn create_tuple(types: Punctuated<Type, Comma>) -> Type {
+    Type::Tuple(TypeTuple {
+        paren_token: Default::default(),
+        elems: types,
+    })
+}
+
+fn create_decomposition_stmt(name: &str) {}
 
 /*pub fn transcribe_impl_item_fn(mark_fn: &mut ImplItemFn, mark_ty: &Type) -> anyhow::Result<()> {
     let mut orig_ident_visitor = IdentVisitor::new();

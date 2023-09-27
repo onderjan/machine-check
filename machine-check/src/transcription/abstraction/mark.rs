@@ -1,11 +1,16 @@
 use proc_macro2::Span;
-use syn::{token::Brace, Ident, ImplItem, Item, ItemImpl, ItemMod, ItemStruct};
+use syn::{
+    token::Brace, Ident, ImplItem, Item, ItemImpl, ItemMod, ItemStruct, Path, PathSegment, Type,
+    TypePath,
+};
 
 use crate::transcription::util::path_rule::{self, PathRule, PathRuleSegment};
 
 use anyhow::anyhow;
 
-use self::mark_fn::transcribe_impl_item_fn;
+use quote::quote;
+
+use self::mark_fn::transcribe_item_impl;
 
 mod mark_fn;
 mod mark_ident;
@@ -13,6 +18,9 @@ mod mark_stmt;
 mod mark_type_path;
 
 pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
+    // the mark will be in a new module under the abstract
+
+    // create items to add to the module
     let mut mark_file_items = Vec::<Item>::new();
     for item in &file.items {
         let transcribed_item = match item {
@@ -24,6 +32,7 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
         };
         mark_file_items.push(transcribed_item);
     }
+    // create new module at the end of the file that will contain the mark
 
     let mod_mark = Item::Mod(ItemMod {
         attrs: vec![],
@@ -42,23 +51,6 @@ fn transcribe_item_struct(s: &ItemStruct) -> anyhow::Result<ItemStruct> {
     let mut s = s.clone();
     path_rule::apply_to_item_struct(&mut s, path_rules())?;
     Ok(s)
-}
-
-fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
-    let mut i = i.clone();
-    let mut items = Vec::<ImplItem>::new();
-
-    for item in i.items {
-        if let ImplItem::Fn(item_fn) = item {
-            let mark_fn = transcribe_impl_item_fn(&item_fn, i.self_ty.as_ref())?;
-            items.push(ImplItem::Fn(mark_fn));
-        } else {
-            return Err(anyhow!("Impl item type {:?} not supported", item));
-        };
-    }
-
-    i.items = items;
-    Ok(i)
 }
 
 fn path_rules() -> Vec<PathRule> {
