@@ -245,13 +245,13 @@ fn invert(
     Ok(Some((PatOrExpr::Pat(new_left_pat), new_right_expr)))
 }
 
-pub fn invert_statement(
+pub fn invert_stmt(
     stmt: &Stmt,
     ident_visitor: &IdentVisitor,
     mark_ident_visitor: &IdentVisitor,
 ) -> anyhow::Result<Option<Stmt>> {
     let mut stmt = stmt.clone();
-    Ok(Some(match stmt {
+    Ok(match stmt {
         Stmt::Local(ref mut local) => {
             let Some(ref mut init) = local.init else {
                 return Ok(Some(stmt));
@@ -272,7 +272,7 @@ pub fn invert_statement(
             let Some((left, right)) = inverted else {
                 return Ok(None);
             };
-            match left {
+            Some(match left {
                 PatOrExpr::Pat(left) => {
                     local.pat = left;
                     *init.expr = right;
@@ -287,7 +287,11 @@ pub fn invert_statement(
                     }),
                     Some(Default::default()),
                 ),
-            }
+            })
+        }
+        Stmt::Expr(Expr::Path(_), _) => {
+            // no side effects, just lose
+            None
         }
         Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => {
             return Err(anyhow!(
@@ -295,5 +299,5 @@ pub fn invert_statement(
                 stmt
             ));
         }
-    }))
+    })
 }

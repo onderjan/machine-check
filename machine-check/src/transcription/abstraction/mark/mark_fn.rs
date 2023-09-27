@@ -15,12 +15,13 @@ use syn::{
 use crate::transcription::util::{
     generate_let_default_stmt,
     path_rule::{self, PathRuleSegment},
+    scheme::ConversionScheme,
 };
 
 use super::{
     mark_ident::IdentVisitor,
     mark_path_rules,
-    mark_stmt::{convert_to_let_binding, invert_statement},
+    mark_stmt::{self, convert_to_let_binding, invert_stmt},
     mark_type_path::convert_type_to_original,
 };
 
@@ -40,20 +41,18 @@ pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
     let self_name = self_ty_ident.to_string();
 
     let mut converter = MarkConverter {
-        abstract_scheme: Scheme {
-            result: Ok(()),
-            prefix: String::from("__mck_"),
-            scheme: String::from("abstr"),
-            self_name: self_name.clone(),
-            convert_type_to_super: true,
-        },
-        mark_scheme: Scheme {
-            result: Ok(()),
-            prefix: String::from("__mck_"),
-            scheme: String::from("mark"),
-            self_name,
-            convert_type_to_super: false,
-        },
+        abstract_scheme: ConversionScheme::new(
+            String::from("__mck_"),
+            String::from("abstr"),
+            self_name.clone(),
+            true,
+        ),
+        mark_scheme: ConversionScheme::new(
+            String::from("__mck_"),
+            String::from("mark"),
+            self_name.clone(),
+            false,
+        ),
     };
 
     for item in &i.items {
@@ -65,15 +64,12 @@ pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
         };
     }
 
-    converter.abstract_scheme.result?;
-    converter.mark_scheme.result?;
-
     i.items = items;
     Ok(i)
 }
 struct MarkConverter {
-    pub abstract_scheme: Scheme,
-    pub mark_scheme: Scheme,
+    pub abstract_scheme: ConversionScheme,
+    pub mark_scheme: ConversionScheme,
 }
 
 impl MarkConverter {
@@ -118,7 +114,7 @@ impl MarkConverter {
 
         for orig_stmt in &orig_fn.block.stmts {
             let mut stmt = orig_stmt.clone();
-            self.abstract_scheme.visit_stmt_mut(&mut stmt);
+            self.abstract_scheme.apply_to_stmt(&mut stmt)?;
             if let Stmt::Expr(_, ref mut semi) = stmt {
                 // add semicolon to result
                 semi.get_or_insert_with(Default::default);
@@ -130,15 +126,21 @@ impl MarkConverter {
         stmts.push(later_mark.1);
 
         // step 6: add mark-computation statements in reverse order of original statements
+        let abstr_visitor = IdentVisitor::new();
+        let mark_visitor = IdentVisitor::new();
+
         for orig_stmt in orig_fn.block.stmts.iter().rev() {
             let mut stmt = orig_stmt.clone();
-            self.mark_scheme.visit_stmt_mut(&mut stmt);
+            self.mark_scheme.apply_to_stmt(&mut stmt)?;
+            if let Stmt::Expr(_, ref mut semi) = stmt {
+                // add semicolon to result
+                semi.get_or_insert_with(Default::default);
+            }
 
-            stmts.push(stmt);
+            if let Some(stmt) = invert_stmt(&stmt, &abstr_visitor, &mark_visitor)? {
+                stmts.push(stmt);
+            }
         }
-
-        mem::replace(&mut self.abstract_scheme.result, Ok(()))?;
-        mem::replace(&mut self.mark_scheme.result, Ok(()))?;
 
         Ok(mark_fn)
     }
@@ -233,177 +235,6 @@ fn create_let_stmt(left_ident: Ident, right_expr: Expr) -> Stmt {
         }),
         semi_token: Default::default(),
     })
-}
-
-struct Scheme {
-    prefix: String,
-    scheme: String,
-    self_name: String,
-    convert_type_to_super: bool,
-    result: Result<(), anyhow::Error>,
-}
-
-impl VisitMut for Scheme {
-    fn visit_pat_struct_mut(&mut self, node: &mut syn::PatStruct) {
-        for it in &mut node.attrs {
-            self.visit_attribute_mut(it);
-        }
-        if let Some(it) = &mut node.qself {
-            self.visit_qself_mut(it);
-        }
-        // treat specially by considering struct path to be a type
-        node.path = self.convert_type_path(&node.path);
-        for mut el in Punctuated::pairs_mut(&mut node.fields) {
-            let it = el.value_mut();
-            self.visit_field_pat_mut(it);
-        }
-        if let Some(it) = &mut node.rest {
-            self.visit_pat_rest_mut(it);
-        }
-    }
-
-    fn visit_expr_struct_mut(&mut self, node: &mut syn::ExprStruct) {
-        for it in &mut node.attrs {
-            self.visit_attribute_mut(it);
-        }
-        if let Some(it) = &mut node.qself {
-            self.visit_qself_mut(it);
-        }
-        // treat specially by considering struct path to be a type
-        node.path = self.convert_type_path(&node.path);
-        for mut el in Punctuated::pairs_mut(&mut node.fields) {
-            let it = el.value_mut();
-            self.visit_field_value_mut(it);
-        }
-        if let Some(it) = &mut node.rest {
-            self.visit_expr_mut(it);
-        }
-    }
-
-    fn visit_field_mut(&mut self, node: &mut syn::Field) {
-        for it in &mut node.attrs {
-            self.visit_attribute_mut(it);
-        }
-        self.visit_visibility_mut(&mut node.vis);
-        self.visit_field_mutability_mut(&mut node.mutability);
-        // treat specially by not going into field
-        self.visit_type_mut(&mut node.ty);
-    }
-
-    fn visit_member_mut(&mut self, _: &mut Member) {
-        // do not go into the member
-    }
-
-    fn visit_type_mut(&mut self, i: &mut Type) {
-        match self.convert_type(i) {
-            Ok(ok) => *i = ok,
-            Err(err) => {
-                if self.result.is_ok() {
-                    self.result = Err(err);
-                }
-            }
-        }
-        // do not propagate
-    }
-    fn visit_ident_mut(&mut self, i: &mut Ident) {
-        *i = self.convert_ident(i);
-        // do not propagate
-    }
-    fn visit_path_mut(&mut self, i: &mut Path) {
-        match self.convert_normal_path(i) {
-            Ok(ok) => *i = ok,
-            Err(err) => {
-                if self.result.is_ok() {
-                    self.result = Err(err);
-                }
-            }
-        }
-        // do not propagate
-    }
-}
-
-impl Scheme {
-    fn convert_type(&self, ty: &Type) -> anyhow::Result<Type> {
-        if !self.convert_type_to_super {
-            return Ok(ty.clone());
-        }
-
-        if let Type::Reference(ty) = ty {
-            let mut ty = ty.clone();
-            *ty.elem = self.convert_type(&ty.elem)?;
-            return Ok(Type::Reference(ty));
-        }
-
-        let Type::Path(ty) = ty else {
-            return Err(anyhow!("Non-path type '{}' not supported", quote!(#ty)));
-        };
-
-        if ty.qself.is_some() {
-            return Err(anyhow!(
-                "Qualified-path type '{}' not supported",
-                quote!(#ty)
-            ));
-        }
-
-        let mut ty = ty.clone();
-        ty.path = self.convert_type_path(&ty.path);
-
-        Ok(Type::Path(ty))
-    }
-
-    fn convert_type_path(&self, path: &Path) -> Path {
-        let mut path = path.clone();
-        if path.leading_colon.is_some() {
-            // do not convert
-            return path;
-        }
-
-        let path_segments = &mut path.segments;
-        // replace Self by type name
-        for path_segment in path_segments.iter_mut() {
-            if path_segment.ident == "Self" {
-                path_segment.ident = Ident::new(self.self_name.as_str(), path_segment.ident.span());
-            }
-        }
-
-        // TODO: select leading part of global path instead of hardcoded super
-        path_segments.insert(
-            0,
-            PathSegment {
-                ident: Ident::new("super", Span::call_site()),
-                arguments: syn::PathArguments::None,
-            },
-        );
-        path
-    }
-
-    fn convert_name(&self, name: &str) -> String {
-        let name = name.strip_prefix(&self.prefix).unwrap_or(&name);
-        format!("{}{}_{}", &self.prefix, &self.scheme, &name)
-    }
-
-    fn convert_ident(&self, ident: &Ident) -> Ident {
-        Ident::new(
-            self.convert_name(ident.to_string().as_str()).as_str(),
-            ident.span(),
-        )
-    }
-
-    fn convert_normal_path(&self, path: &Path) -> anyhow::Result<Path> {
-        // only change idents
-        if let Some(ident) = path.get_ident() {
-            Ok(Path::from(self.convert_ident(ident)))
-        } else {
-            // the path must be global
-            if path.leading_colon.is_none() {
-                return Err(anyhow!(
-                    "Non-ident local path '{}' not supported",
-                    quote!(#path),
-                ));
-            }
-            Ok(path.clone())
-        }
-    }
 }
 
 fn get_path_ident_mut(path: &mut Path) -> Option<&mut Ident> {

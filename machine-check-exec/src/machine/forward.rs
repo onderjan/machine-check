@@ -1,11 +1,9 @@
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Input {
     pub input_2: ::mck::ThreeValuedBitvector<1u32>,
     pub input_3: ::mck::ThreeValuedBitvector<1u32>,
 }
-#[derive(Debug, PartialEq, Eq, Hash)]
-#[derive(Default)]
+#[derive(Debug, PartialEq, Eq, Hash, Default)]
 pub struct State {
     pub state_6: ::mck::ThreeValuedBitvector<4u32>,
     pub safe: ::mck::ThreeValuedBitvector<1u32>,
@@ -73,14 +71,12 @@ impl State {
     }
 }
 pub mod mark {
-    #[derive(Debug)]
-    #[derive(Default)]
+    #[derive(Debug, Default)]
     pub struct Input {
         pub input_2: ::mck::MarkBitvector<1u32>,
         pub input_3: ::mck::MarkBitvector<1u32>,
     }
-    #[derive(Debug, PartialEq, Eq, Hash)]
-    #[derive(Default)]
+    #[derive(Debug, PartialEq, Eq, Hash, Default)]
     pub struct State {
         pub state_6: ::mck::MarkBitvector<4u32>,
         pub safe: ::mck::MarkBitvector<1u32>,
@@ -96,47 +92,30 @@ pub mod mark {
             let __mck_abstr_node_5 = ::mck::ThreeValuedBitvector::<4u32>::new(0u64);
             let __mck_abstr_node_6 = __mck_abstr_node_5;
             let __mck_abstr_node_8 = ::mck::ThreeValuedBitvector::<4u32>::new(1u64);
-            let __mck_abstr_node_9 = ::std::ops::Add::add(
-                __mck_abstr_node_6,
-                __mck_abstr_node_8,
-            );
+            let __mck_abstr_node_9 = ::std::ops::Add::add(__mck_abstr_node_6, __mck_abstr_node_8);
             let __mck_abstr_tmp_6 = ::mck::MachineExt::<4u32>::sext(__mck_abstr_node_2);
-            let __mck_abstr_tmp_7 = ::std::ops::BitAnd::bitand(
-                __mck_abstr_node_9,
-                __mck_abstr_tmp_6,
-            );
+            let __mck_abstr_tmp_7 =
+                ::std::ops::BitAnd::bitand(__mck_abstr_node_9, __mck_abstr_tmp_6);
             let __mck_abstr_tmp_8 = ::std::ops::Not::not(__mck_abstr_node_2);
             let __mck_abstr_tmp_9 = ::mck::MachineExt::<4u32>::sext(__mck_abstr_tmp_8);
-            let __mck_abstr_tmp_10 = ::std::ops::BitAnd::bitand(
-                __mck_abstr_node_6,
-                __mck_abstr_tmp_9,
-            );
-            let __mck_abstr_node_10 = ::std::ops::BitOr::bitor(
-                __mck_abstr_tmp_7,
-                __mck_abstr_tmp_10,
-            );
+            let __mck_abstr_tmp_10 =
+                ::std::ops::BitAnd::bitand(__mck_abstr_node_6, __mck_abstr_tmp_9);
+            let __mck_abstr_node_10 =
+                ::std::ops::BitOr::bitor(__mck_abstr_tmp_7, __mck_abstr_tmp_10);
             let __mck_abstr_tmp_12 = ::mck::MachineExt::<4u32>::sext(__mck_abstr_node_3);
-            let __mck_abstr_tmp_13 = ::std::ops::BitAnd::bitand(
-                __mck_abstr_node_5,
-                __mck_abstr_tmp_12,
-            );
+            let __mck_abstr_tmp_13 =
+                ::std::ops::BitAnd::bitand(__mck_abstr_node_5, __mck_abstr_tmp_12);
             let __mck_abstr_tmp_14 = ::std::ops::Not::not(__mck_abstr_node_3);
             let __mck_abstr_tmp_15 = ::mck::MachineExt::<4u32>::sext(__mck_abstr_tmp_14);
-            let __mck_abstr_tmp_16 = ::std::ops::BitAnd::bitand(
-                __mck_abstr_node_10,
-                __mck_abstr_tmp_15,
-            );
-            let __mck_abstr_node_11 = ::std::ops::BitOr::bitor(
-                __mck_abstr_tmp_13,
-                __mck_abstr_tmp_16,
-            );
+            let __mck_abstr_tmp_16 =
+                ::std::ops::BitAnd::bitand(__mck_abstr_node_10, __mck_abstr_tmp_15);
+            let __mck_abstr_node_11 =
+                ::std::ops::BitOr::bitor(__mck_abstr_tmp_13, __mck_abstr_tmp_16);
             let __mck_abstr_tmp_18 = ::mck::ThreeValuedBitvector::<4u32>::new(1u64);
             let __mck_abstr_tmp_19 = ::std::ops::Neg::neg(__mck_abstr_tmp_18);
             let __mck_abstr_node_13 = __mck_abstr_tmp_19;
-            let __mck_abstr_node_14 = ::mck::TypedEq::typed_eq(
-                __mck_abstr_node_6,
-                __mck_abstr_node_13,
-            );
+            let __mck_abstr_node_14 =
+                ::mck::TypedEq::typed_eq(__mck_abstr_node_6, __mck_abstr_node_13);
             let __mck_abstr_tmp_22 = ::std::ops::Not::not(__mck_abstr_node_14);
             let __mck_abstr_tmp_23 = super::State {
                 state_6: __mck_abstr_node_6,
@@ -144,58 +123,82 @@ pub mod mark {
             };
             __mck_abstr_tmp_23;
             let __mck_mark_tmp_23 = __mck_input_later_mark;
-            __mck_mark_tmp_23
-            let __mck_mark_tmp_23 = super::State {
+            let State {
                 state_6: __mck_mark_node_6,
                 safe: __mck_mark_tmp_22,
-            };
-            let __mck_mark_tmp_22 = ::std::ops::Not::not(__mck_mark_node_14);
-            let __mck_mark_node_14 = ::mck::TypedEq::typed_eq(
-                __mck_mark_node_6,
-                __mck_mark_node_13,
+            } = __mck_mark_tmp_23;
+            let (__mck_mark_node_14,) =
+                ::mck::mark::Not::not((__mck_mark_node_14,), __mck_mark_tmp_22, __mck_mark_tmp_22);
+            let (__mck_mark_node_6, __mck_mark_node_13) = ::mck::mark::TypedEq::typed_eq(
+                (__mck_mark_node_6, __mck_mark_node_13),
+                __mck_mark_node_14,
+                __mck_mark_node_14,
             );
-            let __mck_mark_node_13 = __mck_mark_tmp_19;
-            let __mck_mark_tmp_19 = ::std::ops::Neg::neg(__mck_mark_tmp_18);
-            let __mck_mark_tmp_18 = ::mck::ThreeValuedBitvector::<4u32>::new(1u64);
-            let __mck_mark_node_11 = ::std::ops::BitOr::bitor(
-                __mck_mark_tmp_13,
+            let __mck_mark_tmp_19 = __mck_mark_node_13;
+            let (__mck_mark_tmp_18,) =
+                ::mck::mark::Neg::neg((__mck_mark_tmp_18,), __mck_mark_tmp_19, __mck_mark_tmp_19);
+            let (__mck_mark_tmp_13, __mck_mark_tmp_16) = ::mck::mark::BitOr::bitor(
+                (__mck_mark_tmp_13, __mck_mark_tmp_16),
+                __mck_mark_node_11,
+                __mck_mark_node_11,
+            );
+            let (__mck_mark_node_10, __mck_mark_tmp_15) = ::mck::mark::BitAnd::bitand(
+                (__mck_mark_node_10, __mck_mark_tmp_15),
+                __mck_mark_tmp_16,
                 __mck_mark_tmp_16,
             );
-            let __mck_mark_tmp_16 = ::std::ops::BitAnd::bitand(
-                __mck_mark_node_10,
+            let (__mck_mark_tmp_14,) = ::mck::mark::MachineExt::<4u32>::sext(
+                (__mck_mark_tmp_14,),
+                __mck_mark_tmp_15,
                 __mck_mark_tmp_15,
             );
-            let __mck_mark_tmp_15 = ::mck::MachineExt::<4u32>::sext(__mck_mark_tmp_14);
-            let __mck_mark_tmp_14 = ::std::ops::Not::not(__mck_mark_node_3);
-            let __mck_mark_tmp_13 = ::std::ops::BitAnd::bitand(
-                __mck_mark_node_5,
+            let (__mck_mark_node_3,) =
+                ::mck::mark::Not::not((__mck_mark_node_3,), __mck_mark_tmp_14, __mck_mark_tmp_14);
+            let (__mck_mark_node_5, __mck_mark_tmp_12) = ::mck::mark::BitAnd::bitand(
+                (__mck_mark_node_5, __mck_mark_tmp_12),
+                __mck_mark_tmp_13,
+                __mck_mark_tmp_13,
+            );
+            let (__mck_mark_node_3,) = ::mck::mark::MachineExt::<4u32>::sext(
+                (__mck_mark_node_3,),
+                __mck_mark_tmp_12,
                 __mck_mark_tmp_12,
             );
-            let __mck_mark_tmp_12 = ::mck::MachineExt::<4u32>::sext(__mck_mark_node_3);
-            let __mck_mark_node_10 = ::std::ops::BitOr::bitor(
-                __mck_mark_tmp_7,
+            let (__mck_mark_tmp_7, __mck_mark_tmp_10) = ::mck::mark::BitOr::bitor(
+                (__mck_mark_tmp_7, __mck_mark_tmp_10),
+                __mck_mark_node_10,
+                __mck_mark_node_10,
+            );
+            let (__mck_mark_node_6, __mck_mark_tmp_9) = ::mck::mark::BitAnd::bitand(
+                (__mck_mark_node_6, __mck_mark_tmp_9),
+                __mck_mark_tmp_10,
                 __mck_mark_tmp_10,
             );
-            let __mck_mark_tmp_10 = ::std::ops::BitAnd::bitand(
-                __mck_mark_node_6,
+            let (__mck_mark_tmp_8,) = ::mck::mark::MachineExt::<4u32>::sext(
+                (__mck_mark_tmp_8,),
+                __mck_mark_tmp_9,
                 __mck_mark_tmp_9,
             );
-            let __mck_mark_tmp_9 = ::mck::MachineExt::<4u32>::sext(__mck_mark_tmp_8);
-            let __mck_mark_tmp_8 = ::std::ops::Not::not(__mck_mark_node_2);
-            let __mck_mark_tmp_7 = ::std::ops::BitAnd::bitand(
-                __mck_mark_node_9,
+            let (__mck_mark_node_2,) =
+                ::mck::mark::Not::not((__mck_mark_node_2,), __mck_mark_tmp_8, __mck_mark_tmp_8);
+            let (__mck_mark_node_9, __mck_mark_tmp_6) = ::mck::mark::BitAnd::bitand(
+                (__mck_mark_node_9, __mck_mark_tmp_6),
+                __mck_mark_tmp_7,
+                __mck_mark_tmp_7,
+            );
+            let (__mck_mark_node_2,) = ::mck::mark::MachineExt::<4u32>::sext(
+                (__mck_mark_node_2,),
+                __mck_mark_tmp_6,
                 __mck_mark_tmp_6,
             );
-            let __mck_mark_tmp_6 = ::mck::MachineExt::<4u32>::sext(__mck_mark_node_2);
-            let __mck_mark_node_9 = ::std::ops::Add::add(
-                __mck_mark_node_6,
-                __mck_mark_node_8,
+            let (__mck_mark_node_6, __mck_mark_node_8) = ::mck::mark::Add::add(
+                (__mck_mark_node_6, __mck_mark_node_8),
+                __mck_mark_node_9,
+                __mck_mark_node_9,
             );
-            let __mck_mark_node_8 = ::mck::ThreeValuedBitvector::<4u32>::new(1u64);
-            let __mck_mark_node_6 = __mck_mark_node_5;
-            let __mck_mark_node_5 = ::mck::ThreeValuedBitvector::<4u32>::new(0u64);
-            let __mck_mark_node_3 = __mck_mark_input.input_3;
-            let __mck_mark_node_2 = __mck_mark_input.input_2;
+            let __mck_mark_node_5 = __mck_mark_node_6;
+            __mck_mark_input.input_3 = __mck_mark_node_3;
+            __mck_mark_input.input_2 = __mck_mark_node_2;
         }
         pub fn next(
             __mck_input_abstr: (&super::State, &super::Input),
@@ -208,47 +211,30 @@ pub mod mark {
             let __mck_abstr_node_5 = ::mck::ThreeValuedBitvector::<4u32>::new(0u64);
             let __mck_abstr_node_6 = __mck_abstr_self.state_6;
             let __mck_abstr_node_8 = ::mck::ThreeValuedBitvector::<4u32>::new(1u64);
-            let __mck_abstr_node_9 = ::std::ops::Add::add(
-                __mck_abstr_node_6,
-                __mck_abstr_node_8,
-            );
+            let __mck_abstr_node_9 = ::std::ops::Add::add(__mck_abstr_node_6, __mck_abstr_node_8);
             let __mck_abstr_tmp_6 = ::mck::MachineExt::<4u32>::sext(__mck_abstr_node_2);
-            let __mck_abstr_tmp_7 = ::std::ops::BitAnd::bitand(
-                __mck_abstr_node_9,
-                __mck_abstr_tmp_6,
-            );
+            let __mck_abstr_tmp_7 =
+                ::std::ops::BitAnd::bitand(__mck_abstr_node_9, __mck_abstr_tmp_6);
             let __mck_abstr_tmp_8 = ::std::ops::Not::not(__mck_abstr_node_2);
             let __mck_abstr_tmp_9 = ::mck::MachineExt::<4u32>::sext(__mck_abstr_tmp_8);
-            let __mck_abstr_tmp_10 = ::std::ops::BitAnd::bitand(
-                __mck_abstr_node_6,
-                __mck_abstr_tmp_9,
-            );
-            let __mck_abstr_node_10 = ::std::ops::BitOr::bitor(
-                __mck_abstr_tmp_7,
-                __mck_abstr_tmp_10,
-            );
+            let __mck_abstr_tmp_10 =
+                ::std::ops::BitAnd::bitand(__mck_abstr_node_6, __mck_abstr_tmp_9);
+            let __mck_abstr_node_10 =
+                ::std::ops::BitOr::bitor(__mck_abstr_tmp_7, __mck_abstr_tmp_10);
             let __mck_abstr_tmp_12 = ::mck::MachineExt::<4u32>::sext(__mck_abstr_node_3);
-            let __mck_abstr_tmp_13 = ::std::ops::BitAnd::bitand(
-                __mck_abstr_node_5,
-                __mck_abstr_tmp_12,
-            );
+            let __mck_abstr_tmp_13 =
+                ::std::ops::BitAnd::bitand(__mck_abstr_node_5, __mck_abstr_tmp_12);
             let __mck_abstr_tmp_14 = ::std::ops::Not::not(__mck_abstr_node_3);
             let __mck_abstr_tmp_15 = ::mck::MachineExt::<4u32>::sext(__mck_abstr_tmp_14);
-            let __mck_abstr_tmp_16 = ::std::ops::BitAnd::bitand(
-                __mck_abstr_node_10,
-                __mck_abstr_tmp_15,
-            );
-            let __mck_abstr_node_11 = ::std::ops::BitOr::bitor(
-                __mck_abstr_tmp_13,
-                __mck_abstr_tmp_16,
-            );
+            let __mck_abstr_tmp_16 =
+                ::std::ops::BitAnd::bitand(__mck_abstr_node_10, __mck_abstr_tmp_15);
+            let __mck_abstr_node_11 =
+                ::std::ops::BitOr::bitor(__mck_abstr_tmp_13, __mck_abstr_tmp_16);
             let __mck_abstr_tmp_18 = ::mck::ThreeValuedBitvector::<4u32>::new(1u64);
             let __mck_abstr_tmp_19 = ::std::ops::Neg::neg(__mck_abstr_tmp_18);
             let __mck_abstr_node_13 = __mck_abstr_tmp_19;
-            let __mck_abstr_node_14 = ::mck::TypedEq::typed_eq(
-                __mck_abstr_node_6,
-                __mck_abstr_node_13,
-            );
+            let __mck_abstr_node_14 =
+                ::mck::TypedEq::typed_eq(__mck_abstr_node_6, __mck_abstr_node_13);
             let __mck_abstr_tmp_22 = ::std::ops::Not::not(__mck_abstr_node_14);
             let __mck_abstr_tmp_23 = super::State {
                 state_6: __mck_abstr_node_11,
@@ -256,58 +242,82 @@ pub mod mark {
             };
             __mck_abstr_tmp_23;
             let __mck_mark_tmp_23 = __mck_input_later_mark;
-            __mck_mark_tmp_23
-            let __mck_mark_tmp_23 = super::State {
+            let State {
                 state_6: __mck_mark_node_11,
                 safe: __mck_mark_tmp_22,
-            };
-            let __mck_mark_tmp_22 = ::std::ops::Not::not(__mck_mark_node_14);
-            let __mck_mark_node_14 = ::mck::TypedEq::typed_eq(
-                __mck_mark_node_6,
-                __mck_mark_node_13,
+            } = __mck_mark_tmp_23;
+            let (__mck_mark_node_14,) =
+                ::mck::mark::Not::not((__mck_mark_node_14,), __mck_mark_tmp_22, __mck_mark_tmp_22);
+            let (__mck_mark_node_6, __mck_mark_node_13) = ::mck::mark::TypedEq::typed_eq(
+                (__mck_mark_node_6, __mck_mark_node_13),
+                __mck_mark_node_14,
+                __mck_mark_node_14,
             );
-            let __mck_mark_node_13 = __mck_mark_tmp_19;
-            let __mck_mark_tmp_19 = ::std::ops::Neg::neg(__mck_mark_tmp_18);
-            let __mck_mark_tmp_18 = ::mck::ThreeValuedBitvector::<4u32>::new(1u64);
-            let __mck_mark_node_11 = ::std::ops::BitOr::bitor(
-                __mck_mark_tmp_13,
+            let __mck_mark_tmp_19 = __mck_mark_node_13;
+            let (__mck_mark_tmp_18,) =
+                ::mck::mark::Neg::neg((__mck_mark_tmp_18,), __mck_mark_tmp_19, __mck_mark_tmp_19);
+            let (__mck_mark_tmp_13, __mck_mark_tmp_16) = ::mck::mark::BitOr::bitor(
+                (__mck_mark_tmp_13, __mck_mark_tmp_16),
+                __mck_mark_node_11,
+                __mck_mark_node_11,
+            );
+            let (__mck_mark_node_10, __mck_mark_tmp_15) = ::mck::mark::BitAnd::bitand(
+                (__mck_mark_node_10, __mck_mark_tmp_15),
+                __mck_mark_tmp_16,
                 __mck_mark_tmp_16,
             );
-            let __mck_mark_tmp_16 = ::std::ops::BitAnd::bitand(
-                __mck_mark_node_10,
+            let (__mck_mark_tmp_14,) = ::mck::mark::MachineExt::<4u32>::sext(
+                (__mck_mark_tmp_14,),
+                __mck_mark_tmp_15,
                 __mck_mark_tmp_15,
             );
-            let __mck_mark_tmp_15 = ::mck::MachineExt::<4u32>::sext(__mck_mark_tmp_14);
-            let __mck_mark_tmp_14 = ::std::ops::Not::not(__mck_mark_node_3);
-            let __mck_mark_tmp_13 = ::std::ops::BitAnd::bitand(
-                __mck_mark_node_5,
+            let (__mck_mark_node_3,) =
+                ::mck::mark::Not::not((__mck_mark_node_3,), __mck_mark_tmp_14, __mck_mark_tmp_14);
+            let (__mck_mark_node_5, __mck_mark_tmp_12) = ::mck::mark::BitAnd::bitand(
+                (__mck_mark_node_5, __mck_mark_tmp_12),
+                __mck_mark_tmp_13,
+                __mck_mark_tmp_13,
+            );
+            let (__mck_mark_node_3,) = ::mck::mark::MachineExt::<4u32>::sext(
+                (__mck_mark_node_3,),
+                __mck_mark_tmp_12,
                 __mck_mark_tmp_12,
             );
-            let __mck_mark_tmp_12 = ::mck::MachineExt::<4u32>::sext(__mck_mark_node_3);
-            let __mck_mark_node_10 = ::std::ops::BitOr::bitor(
-                __mck_mark_tmp_7,
+            let (__mck_mark_tmp_7, __mck_mark_tmp_10) = ::mck::mark::BitOr::bitor(
+                (__mck_mark_tmp_7, __mck_mark_tmp_10),
+                __mck_mark_node_10,
+                __mck_mark_node_10,
+            );
+            let (__mck_mark_node_6, __mck_mark_tmp_9) = ::mck::mark::BitAnd::bitand(
+                (__mck_mark_node_6, __mck_mark_tmp_9),
+                __mck_mark_tmp_10,
                 __mck_mark_tmp_10,
             );
-            let __mck_mark_tmp_10 = ::std::ops::BitAnd::bitand(
-                __mck_mark_node_6,
+            let (__mck_mark_tmp_8,) = ::mck::mark::MachineExt::<4u32>::sext(
+                (__mck_mark_tmp_8,),
+                __mck_mark_tmp_9,
                 __mck_mark_tmp_9,
             );
-            let __mck_mark_tmp_9 = ::mck::MachineExt::<4u32>::sext(__mck_mark_tmp_8);
-            let __mck_mark_tmp_8 = ::std::ops::Not::not(__mck_mark_node_2);
-            let __mck_mark_tmp_7 = ::std::ops::BitAnd::bitand(
-                __mck_mark_node_9,
+            let (__mck_mark_node_2,) =
+                ::mck::mark::Not::not((__mck_mark_node_2,), __mck_mark_tmp_8, __mck_mark_tmp_8);
+            let (__mck_mark_node_9, __mck_mark_tmp_6) = ::mck::mark::BitAnd::bitand(
+                (__mck_mark_node_9, __mck_mark_tmp_6),
+                __mck_mark_tmp_7,
+                __mck_mark_tmp_7,
+            );
+            let (__mck_mark_node_2,) = ::mck::mark::MachineExt::<4u32>::sext(
+                (__mck_mark_node_2,),
+                __mck_mark_tmp_6,
                 __mck_mark_tmp_6,
             );
-            let __mck_mark_tmp_6 = ::mck::MachineExt::<4u32>::sext(__mck_mark_node_2);
-            let __mck_mark_node_9 = ::std::ops::Add::add(
-                __mck_mark_node_6,
-                __mck_mark_node_8,
+            let (__mck_mark_node_6, __mck_mark_node_8) = ::mck::mark::Add::add(
+                (__mck_mark_node_6, __mck_mark_node_8),
+                __mck_mark_node_9,
+                __mck_mark_node_9,
             );
-            let __mck_mark_node_8 = ::mck::ThreeValuedBitvector::<4u32>::new(1u64);
-            let __mck_mark_node_6 = __mck_mark_self.state_6;
-            let __mck_mark_node_5 = ::mck::ThreeValuedBitvector::<4u32>::new(0u64);
-            let __mck_mark_node_3 = __mck_mark_input.input_3;
-            let __mck_mark_node_2 = __mck_mark_input.input_2;
+            __mck_mark_self.state_6 = __mck_mark_node_6;
+            __mck_mark_input.input_3 = __mck_mark_node_3;
+            __mck_mark_input.input_2 = __mck_mark_node_2;
         }
     }
 }

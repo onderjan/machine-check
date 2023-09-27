@@ -1,4 +1,5 @@
 pub mod path_rule;
+pub mod scheme;
 
 use proc_macro2::TokenStream;
 use syn::{
