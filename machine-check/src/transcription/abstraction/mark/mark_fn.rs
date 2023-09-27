@@ -6,7 +6,8 @@ use quote::quote;
 use syn::{
     punctuated::Punctuated, token::Comma, visit_mut::VisitMut, Expr, ExprPath, ExprTuple, FnArg,
     Ident, ImplItem, ImplItemFn, ItemImpl, Pat, PatIdent, PatType, Path, PathArguments,
-    PathSegment, ReturnType, Signature, Stmt, Type, TypeInfer, TypePath, TypeSlice, TypeTuple,
+    PathSegment, ReturnType, Signature, Stmt, Type, TypeInfer, TypePath, TypeReference, TypeSlice,
+    TypeTuple,
 };
 
 use crate::transcription::util::{generate_let_default_stmt, path_rule::PathRuleSegment};
@@ -92,7 +93,10 @@ impl MarkConverter {
         let mut types = Punctuated::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
-            types.push(self.convert_to_abstract_type(orig_type)?);
+            // convert to abstract type and add reference for speed
+            let ty = self.convert_to_abstract_type(orig_type)?;
+            let ty = convert_type_to_reference(ty)?;
+            types.push(ty);
         }
         let ty = create_tuple(types);
         let arg = create_typed_arg("__mck_input_abstr", ty);
@@ -103,7 +107,10 @@ impl MarkConverter {
         let mut types = Punctuated::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
-            types.push(self.convert_to_mark_type(orig_type)?);
+            // convert to mark type and remove reference as it will serve as return type
+            let ty = self.convert_to_mark_type(orig_type)?;
+            let ty = convert_type_to_path(ty)?;
+            types.push(ty);
         }
         let ty = create_tuple(types);
         let return_type = ReturnType::Type(Default::default(), Box::new(ty));
@@ -114,6 +121,8 @@ impl MarkConverter {
         // just use the original output type, now in marking structure context
         let name = "__mck_input_later_mark";
         let ty = convert_return_type_to_type(&orig_sig.output);
+        // add reference for speed
+        let ty = convert_type_to_reference(ty)?;
         let arg = create_typed_arg(name, ty);
         Ok(arg)
     }
@@ -168,6 +177,38 @@ impl MarkConverter {
 
         Ok(Type::Path(TypePath { qself: None, path }))
     }
+}
+
+fn convert_type_to_reference(ty: Type) -> anyhow::Result<Type> {
+    match ty {
+        Type::Reference(_) => Ok(ty),
+        Type::Path(_) => Ok(Type::Reference(TypeReference {
+            and_token: Default::default(),
+            lifetime: None,
+            mutability: None,
+            elem: Box::new(ty),
+        })),
+        _ => Err(anyhow!(
+            "Conversion of '{}' to reference type not supported",
+            quote!(#ty)
+        )),
+    }
+}
+
+fn convert_type_to_path(ty: Type) -> anyhow::Result<Type> {
+    match ty {
+        Type::Path(_) => return Ok(ty),
+        Type::Reference(ref reference) => {
+            if let Type::Path(ref path) = *reference.elem {
+                return Ok(Type::Path(path.clone()));
+            }
+        }
+        _ => (),
+    }
+    Err(anyhow!(
+        "Conversion of '{}' to path type not supported",
+        quote!(#ty)
+    ))
 }
 
 fn convert_return_type_to_type(return_type: &ReturnType) -> Type {

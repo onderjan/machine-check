@@ -84,13 +84,13 @@ pub mod mark {
     impl State {
         pub fn init(
             __mck_input_abstr: (&super::Input,),
-            __mck_input_later_mark: State,
-        ) -> (&Input,) {
+            __mck_input_later_mark: &State,
+        ) -> (Input,) {
         }
         pub fn next(
             __mck_input_abstr: (&super::State, &super::Input),
-            __mck_input_later_mark: State,
-        ) -> (&Self, &Input) {
+            __mck_input_later_mark: &State,
+        ) -> (Self, Input) {
         }
     }
 }
