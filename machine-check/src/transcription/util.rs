@@ -5,8 +5,9 @@ use proc_macro2::{Span, TokenStream};
 use syn::{
     punctuated::Punctuated,
     token::{Bracket, Comma, Paren},
-    Attribute, Expr, ExprAssign, ExprCall, ExprPath, ExprTuple, Ident, Local, LocalInit, MetaList,
-    Pat, PatIdent, PatTuple, PatType, Path, Stmt, Type,
+    Attribute, Expr, ExprAssign, ExprCall, ExprField, ExprPath, ExprTuple, Field, Ident, Index,
+    Local, LocalInit, Member, MetaList, Pat, PatIdent, PatTuple, PatType, Path, Stmt, Type,
+    TypePath,
 };
 use syn_path::path;
 
@@ -49,8 +50,39 @@ pub fn create_ident(name: &str) -> Ident {
     Ident::new(name, Span::call_site())
 }
 
-pub fn create_ident_path(name: &str) -> Path {
-    Path::from(create_ident(name))
+pub fn create_path_from_ident(ident: Ident) -> Path {
+    Path::from(ident)
+}
+
+pub fn create_path_from_name(name: &str) -> Path {
+    create_path_from_ident(create_ident(name))
+}
+
+pub fn create_pat_ident(ident: Ident) -> PatIdent {
+    PatIdent {
+        attrs: vec![],
+        by_ref: None,
+        mutability: None,
+        ident,
+        subpat: None,
+    }
+}
+
+pub fn create_expr_field(base: Expr, index: usize, field: &Field) -> ExprField {
+    let member = match &field.ident {
+        Some(ident) => Member::Named(ident.clone()),
+        None => Member::Unnamed(Index {
+            index: index as u32,
+            span: Span::call_site(),
+        }),
+    };
+
+    ExprField {
+        attrs: vec![],
+        base: Box::new(base),
+        dot_token: Default::default(),
+        member,
+    }
 }
 
 pub fn create_expr_call(func: Expr, args: Punctuated<Expr, Comma>) -> ExprCall {
@@ -68,6 +100,10 @@ pub fn create_expr_path(path: Path) -> ExprPath {
         qself: None,
         path,
     }
+}
+
+pub fn create_type_path(path: Path) -> TypePath {
+    TypePath { qself: None, path }
 }
 
 pub fn create_let_stmt_from_ident_expr(left_ident: Ident, right_expr: Expr) -> Stmt {

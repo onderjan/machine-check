@@ -9,7 +9,7 @@ use syn_path::path;
 
 use crate::transcription::util::{
     create_assign_stmt, create_expr_call, create_expr_path, create_expr_tuple, create_ident,
-    create_ident_path, create_let_stmt_from_ident_expr, create_let_stmt_from_pat_expr,
+    create_let_stmt_from_ident_expr, create_let_stmt_from_pat_expr, create_path_from_name,
 };
 
 fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
