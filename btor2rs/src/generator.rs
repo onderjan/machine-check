@@ -160,12 +160,12 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let next_statements = create_statements(&btor2, false)?;
 
     let tokens = quote!(
-        #[derive(Debug)]
+        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
         pub struct Input {
             #(#input_fields),*
         }
 
-        #[derive(Debug, PartialEq, Eq, Hash)]
+        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
         pub struct State {
             #(#state_fields),*
         }

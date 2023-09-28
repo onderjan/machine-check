@@ -1,9 +1,9 @@
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Input {
     pub input_2: ::mck::ThreeValuedBitvector<1u32>,
     pub input_3: ::mck::ThreeValuedBitvector<1u32>,
 }
-#[derive(Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct State {
     pub state_6: ::mck::ThreeValuedBitvector<4u32>,
     pub safe: ::mck::ThreeValuedBitvector<1u32>,
@@ -33,11 +33,10 @@ impl State {
         let node_13 = __mck_tmp_19;
         let node_14 = ::mck::TypedEq::typed_eq(node_6, node_13);
         let __mck_tmp_22 = ::std::ops::Not::not(node_14);
-        let __mck_tmp_23 = State {
+        State {
             state_6: node_6,
             safe: __mck_tmp_22,
-        };
-        __mck_tmp_23
+        }
     }
     pub fn next(&self, input: &Input) -> State {
         let node_2 = input.input_2;
@@ -63,20 +62,33 @@ impl State {
         let node_13 = __mck_tmp_19;
         let node_14 = ::mck::TypedEq::typed_eq(node_6, node_13);
         let __mck_tmp_22 = ::std::ops::Not::not(node_14);
-        let __mck_tmp_23 = State {
+        State {
             state_6: node_11,
             safe: __mck_tmp_22,
-        };
-        __mck_tmp_23
+        }
     }
 }
 pub mod mark {
-    #[derive(Debug, Default)]
+    #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
     pub struct Input {
         pub input_2: ::mck::MarkBitvector<1u32>,
         pub input_3: ::mck::MarkBitvector<1u32>,
     }
-    #[derive(Debug, PartialEq, Eq, Hash, Default)]
+    impl Input {
+        pub fn generate_possibilities(&self) -> Vec<super::Input> {
+            let mut result = Vec::new();
+            for i2 in self.input_2.possibility_iter() {
+                for i3 in self.input_3.possibility_iter() {
+                    result.push(super::Input {
+                        input_2: i2,
+                        input_3: i3,
+                    });
+                }
+            }
+            result
+        }
+    }
+    #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
     pub struct State {
         pub state_6: ::mck::MarkBitvector<4u32>,
         pub safe: ::mck::MarkBitvector<1u32>,
@@ -84,7 +96,7 @@ pub mod mark {
     impl State {
         pub fn init(
             __mck_input_abstr: (&super::Input,),
-            __mck_input_later_mark: &State,
+            __mck_input_later_mark: State,
         ) -> (Input,) {
             let __mck_abstr_input = __mck_input_abstr.0;
             let __mck_abstr_node_2 = __mck_abstr_input.input_2;
@@ -117,92 +129,111 @@ pub mod mark {
             let __mck_abstr_node_14 =
                 ::mck::TypedEq::typed_eq(__mck_abstr_node_6, __mck_abstr_node_13);
             let __mck_abstr_tmp_22 = ::std::ops::Not::not(__mck_abstr_node_14);
-            let __mck_abstr_tmp_23 = super::State {
+            super::State {
                 state_6: __mck_abstr_node_6,
                 safe: __mck_abstr_tmp_22,
             };
-            __mck_abstr_tmp_23;
-            let __mck_mark_tmp_23 = __mck_input_later_mark;
-            let State {
-                state_6: __mck_mark_node_6,
-                safe: __mck_mark_tmp_22,
-            } = __mck_mark_tmp_23;
-            let (__mck_mark_node_14,) =
-                ::mck::mark::Not::not((__mck_mark_node_14,), __mck_mark_tmp_22, __mck_mark_tmp_22);
-            let (__mck_mark_node_6, __mck_mark_node_13) = ::mck::mark::TypedEq::typed_eq(
-                (__mck_mark_node_6, __mck_mark_node_13),
+            let mut __mck_mark_input: Input = ::std::default::Default::default();
+            let mut __mck_mark_tmp_10 = ::std::default::Default::default();
+            let mut __mck_mark_node_5 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_12 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_13 = ::std::default::Default::default();
+            let mut __mck_mark_node_2 = ::std::default::Default::default();
+            let mut __mck_mark_node_3 = ::std::default::Default::default();
+            let mut __mck_mark_node_9 = ::std::default::Default::default();
+            let mut __mck_mark_node_10 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_22 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_7 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_14 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_15 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_6 = ::std::default::Default::default();
+            let mut __mck_mark_node_8 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_19 = ::std::default::Default::default();
+            let mut __mck_mark_node_14 = ::std::default::Default::default();
+            let mut __mck_mark_node_6 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_9 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_18 = ::std::default::Default::default();
+            let mut __mck_mark_node_13 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_8 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_16 = ::std::default::Default::default();
+            let mut __mck_mark_node_11 = ::std::default::Default::default();
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_6, __mck_input_later_mark.state_6);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_22, __mck_input_later_mark.safe);
+            let __mck_tmp_51 = ::mck::mark::Not::not((__mck_abstr_node_14,), __mck_mark_tmp_22);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_14, __mck_tmp_51.0);
+            let __mck_tmp_53 = ::mck::mark::TypedEq::typed_eq(
+                (__mck_abstr_node_6, __mck_abstr_node_13),
                 __mck_mark_node_14,
-                __mck_mark_node_14,
             );
-            let __mck_mark_tmp_19 = __mck_mark_node_13;
-            let (__mck_mark_tmp_18,) =
-                ::mck::mark::Neg::neg((__mck_mark_tmp_18,), __mck_mark_tmp_19, __mck_mark_tmp_19);
-            let (__mck_mark_tmp_13, __mck_mark_tmp_16) = ::mck::mark::BitOr::bitor(
-                (__mck_mark_tmp_13, __mck_mark_tmp_16),
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_6, __mck_tmp_53.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_13, __mck_tmp_53.1);
+            __mck_mark_tmp_19 = __mck_mark_node_13;
+            let __mck_tmp_57 = ::mck::mark::Neg::neg((__mck_abstr_tmp_18,), __mck_mark_tmp_19);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_18, __mck_tmp_57.0);
+            let __mck_tmp_59 = ::mck::mark::BitOr::bitor(
+                (__mck_abstr_tmp_13, __mck_abstr_tmp_16),
                 __mck_mark_node_11,
-                __mck_mark_node_11,
             );
-            let (__mck_mark_node_10, __mck_mark_tmp_15) = ::mck::mark::BitAnd::bitand(
-                (__mck_mark_node_10, __mck_mark_tmp_15),
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_13, __mck_tmp_59.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_16, __mck_tmp_59.1);
+            let __mck_tmp_62 = ::mck::mark::BitAnd::bitand(
+                (__mck_abstr_node_10, __mck_abstr_tmp_15),
                 __mck_mark_tmp_16,
-                __mck_mark_tmp_16,
             );
-            let (__mck_mark_tmp_14,) = ::mck::mark::MachineExt::<4u32>::sext(
-                (__mck_mark_tmp_14,),
-                __mck_mark_tmp_15,
-                __mck_mark_tmp_15,
-            );
-            let (__mck_mark_node_3,) =
-                ::mck::mark::Not::not((__mck_mark_node_3,), __mck_mark_tmp_14, __mck_mark_tmp_14);
-            let (__mck_mark_node_5, __mck_mark_tmp_12) = ::mck::mark::BitAnd::bitand(
-                (__mck_mark_node_5, __mck_mark_tmp_12),
-                __mck_mark_tmp_13,
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_10, __mck_tmp_62.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_15, __mck_tmp_62.1);
+            let __mck_tmp_65 =
+                ::mck::mark::MachineExt::<4u32>::sext((__mck_abstr_tmp_14,), __mck_mark_tmp_15);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_14, __mck_tmp_65.0);
+            let __mck_tmp_67 = ::mck::mark::Not::not((__mck_abstr_node_3,), __mck_mark_tmp_14);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_3, __mck_tmp_67.0);
+            let __mck_tmp_69 = ::mck::mark::BitAnd::bitand(
+                (__mck_abstr_node_5, __mck_abstr_tmp_12),
                 __mck_mark_tmp_13,
             );
-            let (__mck_mark_node_3,) = ::mck::mark::MachineExt::<4u32>::sext(
-                (__mck_mark_node_3,),
-                __mck_mark_tmp_12,
-                __mck_mark_tmp_12,
-            );
-            let (__mck_mark_tmp_7, __mck_mark_tmp_10) = ::mck::mark::BitOr::bitor(
-                (__mck_mark_tmp_7, __mck_mark_tmp_10),
-                __mck_mark_node_10,
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_5, __mck_tmp_69.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_12, __mck_tmp_69.1);
+            let __mck_tmp_72 =
+                ::mck::mark::MachineExt::<4u32>::sext((__mck_abstr_node_3,), __mck_mark_tmp_12);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_3, __mck_tmp_72.0);
+            let __mck_tmp_74 = ::mck::mark::BitOr::bitor(
+                (__mck_abstr_tmp_7, __mck_abstr_tmp_10),
                 __mck_mark_node_10,
             );
-            let (__mck_mark_node_6, __mck_mark_tmp_9) = ::mck::mark::BitAnd::bitand(
-                (__mck_mark_node_6, __mck_mark_tmp_9),
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_7, __mck_tmp_74.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_10, __mck_tmp_74.1);
+            let __mck_tmp_77 = ::mck::mark::BitAnd::bitand(
+                (__mck_abstr_node_6, __mck_abstr_tmp_9),
                 __mck_mark_tmp_10,
-                __mck_mark_tmp_10,
             );
-            let (__mck_mark_tmp_8,) = ::mck::mark::MachineExt::<4u32>::sext(
-                (__mck_mark_tmp_8,),
-                __mck_mark_tmp_9,
-                __mck_mark_tmp_9,
-            );
-            let (__mck_mark_node_2,) =
-                ::mck::mark::Not::not((__mck_mark_node_2,), __mck_mark_tmp_8, __mck_mark_tmp_8);
-            let (__mck_mark_node_9, __mck_mark_tmp_6) = ::mck::mark::BitAnd::bitand(
-                (__mck_mark_node_9, __mck_mark_tmp_6),
-                __mck_mark_tmp_7,
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_6, __mck_tmp_77.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_9, __mck_tmp_77.1);
+            let __mck_tmp_80 =
+                ::mck::mark::MachineExt::<4u32>::sext((__mck_abstr_tmp_8,), __mck_mark_tmp_9);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_8, __mck_tmp_80.0);
+            let __mck_tmp_82 = ::mck::mark::Not::not((__mck_abstr_node_2,), __mck_mark_tmp_8);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_2, __mck_tmp_82.0);
+            let __mck_tmp_84 = ::mck::mark::BitAnd::bitand(
+                (__mck_abstr_node_9, __mck_abstr_tmp_6),
                 __mck_mark_tmp_7,
             );
-            let (__mck_mark_node_2,) = ::mck::mark::MachineExt::<4u32>::sext(
-                (__mck_mark_node_2,),
-                __mck_mark_tmp_6,
-                __mck_mark_tmp_6,
-            );
-            let (__mck_mark_node_6, __mck_mark_node_8) = ::mck::mark::Add::add(
-                (__mck_mark_node_6, __mck_mark_node_8),
-                __mck_mark_node_9,
-                __mck_mark_node_9,
-            );
-            let __mck_mark_node_5 = __mck_mark_node_6;
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_9, __mck_tmp_84.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_6, __mck_tmp_84.1);
+            let __mck_tmp_87 =
+                ::mck::mark::MachineExt::<4u32>::sext((__mck_abstr_node_2,), __mck_mark_tmp_6);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_2, __mck_tmp_87.0);
+            let __mck_tmp_89 =
+                ::mck::mark::Add::add((__mck_abstr_node_6, __mck_abstr_node_8), __mck_mark_node_9);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_6, __mck_tmp_89.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_8, __mck_tmp_89.1);
+            __mck_mark_node_5 = __mck_mark_node_6;
             __mck_mark_input.input_3 = __mck_mark_node_3;
             __mck_mark_input.input_2 = __mck_mark_node_2;
+            (__mck_mark_input,)
         }
         pub fn next(
             __mck_input_abstr: (&super::State, &super::Input),
-            __mck_input_later_mark: &State,
+            __mck_input_later_mark: State,
         ) -> (Self, Input) {
             let __mck_abstr_self = __mck_input_abstr.0;
             let __mck_abstr_input = __mck_input_abstr.1;
@@ -236,88 +267,108 @@ pub mod mark {
             let __mck_abstr_node_14 =
                 ::mck::TypedEq::typed_eq(__mck_abstr_node_6, __mck_abstr_node_13);
             let __mck_abstr_tmp_22 = ::std::ops::Not::not(__mck_abstr_node_14);
-            let __mck_abstr_tmp_23 = super::State {
+            super::State {
                 state_6: __mck_abstr_node_11,
                 safe: __mck_abstr_tmp_22,
             };
-            __mck_abstr_tmp_23;
-            let __mck_mark_tmp_23 = __mck_input_later_mark;
-            let State {
-                state_6: __mck_mark_node_11,
-                safe: __mck_mark_tmp_22,
-            } = __mck_mark_tmp_23;
-            let (__mck_mark_node_14,) =
-                ::mck::mark::Not::not((__mck_mark_node_14,), __mck_mark_tmp_22, __mck_mark_tmp_22);
-            let (__mck_mark_node_6, __mck_mark_node_13) = ::mck::mark::TypedEq::typed_eq(
-                (__mck_mark_node_6, __mck_mark_node_13),
+            let mut __mck_mark_self: Self = ::std::default::Default::default();
+            let mut __mck_mark_input: Input = ::std::default::Default::default();
+            let mut __mck_mark_tmp_9 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_22 = ::std::default::Default::default();
+            let mut __mck_mark_node_3 = ::std::default::Default::default();
+            let mut __mck_mark_node_6 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_8 = ::std::default::Default::default();
+            let mut __mck_mark_node_9 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_6 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_13 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_19 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_7 = ::std::default::Default::default();
+            let mut __mck_mark_node_14 = ::std::default::Default::default();
+            let mut __mck_mark_node_5 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_14 = ::std::default::Default::default();
+            let mut __mck_mark_node_8 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_16 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_18 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_12 = ::std::default::Default::default();
+            let mut __mck_mark_node_10 = ::std::default::Default::default();
+            let mut __mck_mark_node_11 = ::std::default::Default::default();
+            let mut __mck_mark_node_13 = ::std::default::Default::default();
+            let mut __mck_mark_node_2 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_10 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_15 = ::std::default::Default::default();
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_11, __mck_input_later_mark.state_6);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_22, __mck_input_later_mark.safe);
+            let __mck_tmp_53 = ::mck::mark::Not::not((__mck_abstr_node_14,), __mck_mark_tmp_22);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_14, __mck_tmp_53.0);
+            let __mck_tmp_55 = ::mck::mark::TypedEq::typed_eq(
+                (__mck_abstr_node_6, __mck_abstr_node_13),
                 __mck_mark_node_14,
-                __mck_mark_node_14,
             );
-            let __mck_mark_tmp_19 = __mck_mark_node_13;
-            let (__mck_mark_tmp_18,) =
-                ::mck::mark::Neg::neg((__mck_mark_tmp_18,), __mck_mark_tmp_19, __mck_mark_tmp_19);
-            let (__mck_mark_tmp_13, __mck_mark_tmp_16) = ::mck::mark::BitOr::bitor(
-                (__mck_mark_tmp_13, __mck_mark_tmp_16),
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_6, __mck_tmp_55.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_13, __mck_tmp_55.1);
+            __mck_mark_tmp_19 = __mck_mark_node_13;
+            let __mck_tmp_59 = ::mck::mark::Neg::neg((__mck_abstr_tmp_18,), __mck_mark_tmp_19);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_18, __mck_tmp_59.0);
+            let __mck_tmp_61 = ::mck::mark::BitOr::bitor(
+                (__mck_abstr_tmp_13, __mck_abstr_tmp_16),
                 __mck_mark_node_11,
-                __mck_mark_node_11,
             );
-            let (__mck_mark_node_10, __mck_mark_tmp_15) = ::mck::mark::BitAnd::bitand(
-                (__mck_mark_node_10, __mck_mark_tmp_15),
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_13, __mck_tmp_61.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_16, __mck_tmp_61.1);
+            let __mck_tmp_64 = ::mck::mark::BitAnd::bitand(
+                (__mck_abstr_node_10, __mck_abstr_tmp_15),
                 __mck_mark_tmp_16,
-                __mck_mark_tmp_16,
             );
-            let (__mck_mark_tmp_14,) = ::mck::mark::MachineExt::<4u32>::sext(
-                (__mck_mark_tmp_14,),
-                __mck_mark_tmp_15,
-                __mck_mark_tmp_15,
-            );
-            let (__mck_mark_node_3,) =
-                ::mck::mark::Not::not((__mck_mark_node_3,), __mck_mark_tmp_14, __mck_mark_tmp_14);
-            let (__mck_mark_node_5, __mck_mark_tmp_12) = ::mck::mark::BitAnd::bitand(
-                (__mck_mark_node_5, __mck_mark_tmp_12),
-                __mck_mark_tmp_13,
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_10, __mck_tmp_64.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_15, __mck_tmp_64.1);
+            let __mck_tmp_67 =
+                ::mck::mark::MachineExt::<4u32>::sext((__mck_abstr_tmp_14,), __mck_mark_tmp_15);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_14, __mck_tmp_67.0);
+            let __mck_tmp_69 = ::mck::mark::Not::not((__mck_abstr_node_3,), __mck_mark_tmp_14);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_3, __mck_tmp_69.0);
+            let __mck_tmp_71 = ::mck::mark::BitAnd::bitand(
+                (__mck_abstr_node_5, __mck_abstr_tmp_12),
                 __mck_mark_tmp_13,
             );
-            let (__mck_mark_node_3,) = ::mck::mark::MachineExt::<4u32>::sext(
-                (__mck_mark_node_3,),
-                __mck_mark_tmp_12,
-                __mck_mark_tmp_12,
-            );
-            let (__mck_mark_tmp_7, __mck_mark_tmp_10) = ::mck::mark::BitOr::bitor(
-                (__mck_mark_tmp_7, __mck_mark_tmp_10),
-                __mck_mark_node_10,
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_5, __mck_tmp_71.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_12, __mck_tmp_71.1);
+            let __mck_tmp_74 =
+                ::mck::mark::MachineExt::<4u32>::sext((__mck_abstr_node_3,), __mck_mark_tmp_12);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_3, __mck_tmp_74.0);
+            let __mck_tmp_76 = ::mck::mark::BitOr::bitor(
+                (__mck_abstr_tmp_7, __mck_abstr_tmp_10),
                 __mck_mark_node_10,
             );
-            let (__mck_mark_node_6, __mck_mark_tmp_9) = ::mck::mark::BitAnd::bitand(
-                (__mck_mark_node_6, __mck_mark_tmp_9),
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_7, __mck_tmp_76.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_10, __mck_tmp_76.1);
+            let __mck_tmp_79 = ::mck::mark::BitAnd::bitand(
+                (__mck_abstr_node_6, __mck_abstr_tmp_9),
                 __mck_mark_tmp_10,
-                __mck_mark_tmp_10,
             );
-            let (__mck_mark_tmp_8,) = ::mck::mark::MachineExt::<4u32>::sext(
-                (__mck_mark_tmp_8,),
-                __mck_mark_tmp_9,
-                __mck_mark_tmp_9,
-            );
-            let (__mck_mark_node_2,) =
-                ::mck::mark::Not::not((__mck_mark_node_2,), __mck_mark_tmp_8, __mck_mark_tmp_8);
-            let (__mck_mark_node_9, __mck_mark_tmp_6) = ::mck::mark::BitAnd::bitand(
-                (__mck_mark_node_9, __mck_mark_tmp_6),
-                __mck_mark_tmp_7,
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_6, __mck_tmp_79.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_9, __mck_tmp_79.1);
+            let __mck_tmp_82 =
+                ::mck::mark::MachineExt::<4u32>::sext((__mck_abstr_tmp_8,), __mck_mark_tmp_9);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_8, __mck_tmp_82.0);
+            let __mck_tmp_84 = ::mck::mark::Not::not((__mck_abstr_node_2,), __mck_mark_tmp_8);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_2, __mck_tmp_84.0);
+            let __mck_tmp_86 = ::mck::mark::BitAnd::bitand(
+                (__mck_abstr_node_9, __mck_abstr_tmp_6),
                 __mck_mark_tmp_7,
             );
-            let (__mck_mark_node_2,) = ::mck::mark::MachineExt::<4u32>::sext(
-                (__mck_mark_node_2,),
-                __mck_mark_tmp_6,
-                __mck_mark_tmp_6,
-            );
-            let (__mck_mark_node_6, __mck_mark_node_8) = ::mck::mark::Add::add(
-                (__mck_mark_node_6, __mck_mark_node_8),
-                __mck_mark_node_9,
-                __mck_mark_node_9,
-            );
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_9, __mck_tmp_86.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_6, __mck_tmp_86.1);
+            let __mck_tmp_89 =
+                ::mck::mark::MachineExt::<4u32>::sext((__mck_abstr_node_2,), __mck_mark_tmp_6);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_2, __mck_tmp_89.0);
+            let __mck_tmp_91 =
+                ::mck::mark::Add::add((__mck_abstr_node_6, __mck_abstr_node_8), __mck_mark_node_9);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_6, __mck_tmp_91.0);
+            ::mck::mark::Join::apply_join(&mut __mck_mark_node_8, __mck_tmp_91.1);
             __mck_mark_self.state_6 = __mck_mark_node_6;
             __mck_mark_input.input_3 = __mck_mark_node_3;
             __mck_mark_input.input_2 = __mck_mark_node_2;
+            (__mck_mark_self, __mck_mark_input)
         }
     }
 }

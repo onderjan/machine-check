@@ -51,14 +51,9 @@ struct BlockTranscriber {
 impl BlockTranscriber {
     fn apply_transcription_to_stmt(&mut self, mut stmt: Stmt) -> anyhow::Result<()> {
         match stmt {
-            Stmt::Expr(ref mut expr, semi) => {
-                if semi.is_none() {
-                    // force movement from return expression for ease of use
-                    self.move_expression_through_temporary(expr)?;
-                } else {
-                    // apply transcription to expression without forced movement
-                    self.apply_transcription_to_expression(expr)?;
-                }
+            Stmt::Expr(ref mut expr, _) => {
+                // apply transcription to expression without forced movement
+                self.apply_transcription_to_expression(expr)?;
             }
             Stmt::Local(ref mut local) => {
                 let Pat::Ident(ident) = &local.pat else {

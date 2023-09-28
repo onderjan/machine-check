@@ -13,9 +13,7 @@ use quote::quote;
 use self::mark_fn::transcribe_item_impl;
 
 mod mark_fn;
-mod mark_ident;
 mod mark_stmt;
-mod mark_type_path;
 
 pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
     // the mark will be in a new module under the abstract

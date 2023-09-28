@@ -1,36 +1,16 @@
 use anyhow::anyhow;
-use proc_macro2::Span;
+use proc_macro2::{Punct, Span};
 use syn::{
-    punctuated::Punctuated, Expr, ExprAssign, ExprPath, ExprTuple, FieldPat, Ident, Local,
-    LocalInit, Pat, PatStruct, PatTuple, PatWild, Path, PathArguments, PathSegment, Stmt,
+    punctuated::Punctuated, token::Comma, Expr, ExprAssign, ExprCall, ExprField, ExprPath,
+    ExprReference, ExprTuple, FieldPat, Ident, Index, Local, Member, Pat, PatStruct, PatTuple,
+    PatWild, Path, PathArguments, PathSegment, Stmt,
 };
+use syn_path::path;
 
-use super::mark_ident::IdentVisitor;
-
-pub fn convert_to_let_binding(bind_ident: Ident, stmt: &mut Stmt) -> anyhow::Result<()> {
-    let Stmt::Expr(Expr::Path(expr_path), None) = stmt else {
-        return Err(anyhow!("Functions without end result expression not supported"));
-    };
-
-    let local_init = LocalInit {
-        eq_token: Default::default(),
-        expr: Box::new(Expr::Path(ExprPath {
-            attrs: vec![],
-            qself: None,
-            path: Path::from(bind_ident),
-        })),
-        diverge: None,
-    };
-
-    *stmt = Stmt::Local(Local {
-        attrs: vec![],
-        let_token: Default::default(),
-        pat: Pat::Path(expr_path.clone()),
-        init: Some(local_init),
-        semi_token: Default::default(),
-    });
-    Ok(())
-}
+use crate::transcription::util::{
+    create_assign_stmt, create_expr_call, create_expr_path, create_expr_tuple, create_ident,
+    create_ident_path, create_let_stmt_from_ident_expr, create_let_stmt_from_pat_expr,
+};
 
 fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
     let Expr::Path(fn_path) = fn_expr else {
@@ -83,221 +63,193 @@ fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
     Ok(())
 }
 
-enum PatOrExpr {
-    Pat(Pat),
-    Expr(Expr),
-}
-
-fn invert(
-    left: &Pat,
-    right: &Expr,
-    ident_visitor: &IdentVisitor,
-    mark_ident_visitor: &IdentVisitor,
-) -> anyhow::Result<Option<(PatOrExpr, Expr)>> {
-    let mut new_right_expr = match left {
-        Pat::Ident(left_pat_ident) => {
-            let left_path = ExprPath {
+pub fn create_join_stmt(left: Expr, right: Expr) -> Stmt {
+    let left_mut_ref_expr = Expr::Reference(ExprReference {
+        attrs: vec![],
+        and_token: Default::default(),
+        mutability: Some(Default::default()),
+        expr: Box::new(left),
+    });
+    Stmt::Expr(
+        Expr::Call(ExprCall {
+            attrs: vec![],
+            func: Box::new(Expr::Path(ExprPath {
                 attrs: vec![],
                 qself: None,
-                path: Path {
-                    leading_colon: None,
-                    segments: Punctuated::from_iter(vec![PathSegment {
-                        ident: left_pat_ident.ident.clone(),
-                        arguments: syn::PathArguments::None,
-                    }]),
-                },
-            };
-            Expr::Path(left_path)
+                path: path!(::mck::mark::Join::apply_join),
+            })),
+            paren_token: Default::default(),
+            args: Punctuated::from_iter(vec![left_mut_ref_expr, right]),
+        }),
+        Some(Default::default()),
+    )
+}
+
+fn invert_call(stmts: &mut Vec<Stmt>, later_mark: ExprPath, call: &ExprCall) -> anyhow::Result<()> {
+    // move function arguments to left
+    let mut function_args = Punctuated::<Pat, Comma>::new();
+    let mut all_args_wild = true;
+    for arg in &call.args {
+        let pat = match arg {
+            Expr::Path(path) => {
+                all_args_wild = false;
+                Pat::Path(path.clone())
+            }
+            Expr::Lit(_) => Pat::Wild(PatWild {
+                attrs: vec![],
+                underscore_token: Default::default(),
+            }),
+            _ => {
+                return Err(anyhow!(
+                    "Inversion not implemented for function argument type {:?}",
+                    arg
+                ));
+            }
+        };
+        function_args.push(pat);
+    }
+    if all_args_wild {
+        // TODO: do not return here
+        return Ok(());
+    }
+
+    let mut tuple_elems = Punctuated::from_iter(function_args);
+    if !tuple_elems.empty_or_trailing() {
+        tuple_elems.push_punct(Default::default());
+    }
+
+    let new_left_pat = Pat::Tuple(PatTuple {
+        attrs: vec![],
+        paren_token: Default::default(),
+        elems: tuple_elems,
+    });
+
+    // change the function name
+    let mut inverted_call = call.clone();
+    invert_fn_expr(&mut inverted_call.func)?;
+    // change the function parameters so that there is
+    // the normal input tuple and normal output first
+    // then mark later
+    inverted_call.args.clear();
+    let mut earlier_marks = Vec::new();
+    let mut abstr_input_args = Punctuated::new();
+
+    for arg in &call.args {
+        if let Expr::Path(expr_path) = arg {
+            earlier_marks.push(expr_path.clone());
+            let mut abstr_path = expr_path.clone();
+            change_path_to_abstr(&mut abstr_path.path);
+            abstr_input_args.push(Expr::Path(abstr_path));
+        } else {
+            return Err(anyhow!(
+                "Inversion not implemented for function argument type {:?}",
+                arg
+            ));
         }
-        Pat::Path(left_path) => Expr::Path(left_path.clone()),
+    }
+
+    let abstr_input_arg = create_expr_tuple(abstr_input_args);
+    inverted_call.args.push(abstr_input_arg);
+    inverted_call.args.push(Expr::Path(later_mark));
+
+    // construct the call statement and join each of earlier marks
+    let tmp_name = format!("__mck_tmp_{}", stmts.len());
+    let tmp_ident = create_ident(&tmp_name);
+
+    stmts.push(create_let_stmt_from_ident_expr(
+        tmp_ident.clone(),
+        Expr::Call(inverted_call),
+    ));
+
+    for (index, arg) in call.args.iter().enumerate() {
+        if let Expr::Path(expr_path) = arg {
+            let left_path_expr = Expr::Path(expr_path.clone());
+            let right_path_expr = Expr::Path(create_expr_path(Path::from(tmp_ident.clone())));
+            let right_field_expr = Expr::Field(ExprField {
+                attrs: vec![],
+                base: Box::new(right_path_expr),
+                dot_token: Default::default(),
+                member: Member::Unnamed(Index {
+                    index: index as u32,
+                    span: Span::call_site(),
+                }),
+            });
+            // join instead of assigning to correctly remember values
+            let stmt = create_join_stmt(left_path_expr, right_field_expr);
+
+            stmts.push(stmt);
+        } else {
+            return Err(anyhow!(
+                "Inversion assignment not implemented for function argument type {:?}",
+                arg
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn change_path_to_abstr(path: &mut Path) {
+    if path.leading_colon.is_none()
+        && path.segments.len() == 1
+        && path.segments[0].arguments.is_none()
+    {
+        let ident = &mut path.segments[0].ident;
+        if let Some(stripped_name) = ident.to_string().strip_prefix("__mck_mark_") {
+            let abstr_name = format!("__mck_abstr_{}", stripped_name);
+            *ident = Ident::new(&abstr_name, ident.span());
+        }
+    }
+}
+
+pub fn invert_simple_let(
+    inverted_stmts: &mut Vec<Stmt>,
+    left: &Pat,
+    right: &Expr,
+) -> anyhow::Result<()> {
+    let later_mark = match left {
+        Pat::Ident(left_pat_ident) => create_expr_path(Path::from(left_pat_ident.ident.clone())),
+        Pat::Path(left_path) => left_path.clone(),
         _ => {
             return Err(anyhow!("Inversion not implemented for pattern {:?}", left));
         }
     };
 
-    let new_left_pat = match right {
-        Expr::Path(right_path) => Pat::Path(right_path.clone()),
-        Expr::Call(right_call) => {
-            // move function arguments to left
-            let mut function_args = Vec::<Pat>::new();
-            let mut all_args_wild = true;
-            for arg in &right_call.args {
-                let pat = match arg {
-                    Expr::Path(path) => {
-                        all_args_wild = false;
-                        Pat::Path(path.clone())
-                    }
-                    Expr::Lit(_) => Pat::Wild(PatWild {
-                        attrs: vec![],
-                        underscore_token: Default::default(),
-                    }),
-                    _ => {
-                        return Err(anyhow!(
-                            "Inversion not implemented for non-path function argument {:?}",
-                            arg
-                        ));
-                    }
-                };
-                function_args.push(pat);
-            }
-            if all_args_wild {
-                return Ok(None);
-            }
-
-            let mut tuple_elems = Punctuated::from_iter(function_args);
-            if !tuple_elems.empty_or_trailing() {
-                tuple_elems.push_punct(Default::default());
-            }
-
-            let new_left_pat = Pat::Tuple(PatTuple {
-                attrs: vec![],
-                paren_token: Default::default(),
-                elems: tuple_elems,
-            });
-
-            // create reversal function in new right expression
-            let mut new_right_call_expr = right_call.clone();
-            // change the function name
-            invert_fn_expr(&mut new_right_call_expr.func)?;
-            // change the function parameters so that there is
-            // the normal input tuple and normal output first
-            // then mark later
-            new_right_call_expr.args.clear();
-            let mark_input_arg = new_right_expr.clone();
-            let normal_input_args = right_call
-                .args
-                .iter()
-                .map(|arg| {
-                    if let Expr::Path(expr_path) = arg {
-                        let mut path = expr_path.clone();
-                        ident_visitor.apply_transcription_to_path(&mut path.path);
-                        Expr::Path(path)
-                    } else {
-                        arg.clone()
-                    }
-                })
-                .collect();
-
-            let normal_input_arg = Expr::Tuple(ExprTuple {
-                attrs: vec![],
-                paren_token: Default::default(),
-                elems: normal_input_args,
-            });
-            new_right_call_expr.args.push(normal_input_arg);
-
-            let mut normal_output_arg = new_right_expr;
-            if let Expr::Path(expr_path) = &mut normal_output_arg {
-                ident_visitor.apply_transcription_to_path(&mut expr_path.path);
-            }
-            new_right_call_expr.args.push(normal_output_arg);
-
-            new_right_call_expr.args.push(mark_input_arg);
-
-            new_right_expr = Expr::Call(new_right_call_expr);
-            new_left_pat
+    match right {
+        Expr::Path(_) | Expr::Field(_) | Expr::Struct(_) => {
+            let earlier_mark = right.clone();
+            inverted_stmts.push(create_assign_stmt(earlier_mark, Expr::Path(later_mark)));
+            Ok(())
         }
-        Expr::Struct(expr_struct) => {
-            if expr_struct.rest.is_some() {
-                return Err(anyhow!("Rest not supported"));
-            }
-
-            let mut field_pats = Vec::<FieldPat>::new();
-            for field in &expr_struct.fields {
-                let Expr::Path(expr_path) = &field.expr else {
-                    return Err(anyhow!("Non-path field values not supported"));
-                };
-
-                let field_pat = FieldPat {
-                    attrs: field.attrs.clone(),
-                    member: field.member.clone(),
-                    colon_token: field.colon_token,
-                    pat: Box::new(Pat::Path(expr_path.clone())),
-                };
-                field_pats.push(field_pat);
-            }
-
-            Pat::Struct(PatStruct {
-                attrs: expr_struct.attrs.clone(),
-                qself: expr_struct.qself.clone(),
-                path: expr_struct.path.clone(),
-                brace_token: expr_struct.brace_token,
-                fields: Punctuated::from_iter(field_pats),
-                rest: None,
-            })
-        }
-        Expr::Field(field) => {
-            let mut field = field.clone();
-            let Expr::Path(ref mut expr_path) = *field.base else {
-                return Err(anyhow!("Non-path field base not supported"));
-            };
-            mark_ident_visitor.apply_transcription_to_path(&mut expr_path.path);
-
-            let new_left_expr = Expr::Field(field);
-            return Ok(Some((PatOrExpr::Expr(new_left_expr), new_right_expr)));
-        }
-        _ => {
-            return Err(anyhow!(
-                "Inversion not implemented for expression {:?}",
-                right
-            ));
-        }
-    };
-    Ok(Some((PatOrExpr::Pat(new_left_pat), new_right_expr)))
+        Expr::Call(expr_call) => invert_call(inverted_stmts, later_mark, expr_call),
+        _ => Err(anyhow!(
+            "Inversion not implemented for expression {:?}",
+            right
+        )),
+    }
 }
 
-pub fn invert_stmt(
-    stmt: &Stmt,
-    ident_visitor: &IdentVisitor,
-    mark_ident_visitor: &IdentVisitor,
-) -> anyhow::Result<Option<Stmt>> {
+pub fn invert_stmt(inverted_stmts: &mut Vec<Stmt>, stmt: &Stmt) -> anyhow::Result<()> {
     let mut stmt = stmt.clone();
-    Ok(match stmt {
+    match stmt {
         Stmt::Local(ref mut local) => {
             let Some(ref mut init) = local.init else {
-                return Ok(Some(stmt));
+                return Err(anyhow!("Inversion of non-initialized let is not supported"));
             };
             if init.diverge.is_some() {
-                return Err(anyhow!(
-                    "Inversion of diverging let-statement not supported"
-                ));
+                return Err(anyhow!("Inversion of diverging let not supported"));
             }
-            let original_left = &local.pat;
-            let original_right = init.expr.as_ref();
-            let inverted = invert(
-                original_left,
-                original_right,
-                ident_visitor,
-                mark_ident_visitor,
-            )?;
-            let Some((left, right)) = inverted else {
-                return Ok(None);
-            };
-            Some(match left {
-                PatOrExpr::Pat(left) => {
-                    local.pat = left;
-                    *init.expr = right;
-                    stmt
-                }
-                PatOrExpr::Expr(left) => Stmt::Expr(
-                    Expr::Assign(ExprAssign {
-                        attrs: local.attrs.clone(),
-                        left: Box::new(left),
-                        eq_token: Default::default(),
-                        right: Box::new(right),
-                    }),
-                    Some(Default::default()),
-                ),
-            })
+            let left = &local.pat;
+            let right = init.expr.as_ref();
+            invert_simple_let(inverted_stmts, left, right)
         }
-        Stmt::Expr(Expr::Path(_), _) => {
-            // no side effects, just lose
-            None
+        Stmt::Expr(Expr::Path(_), Some(_)) | Stmt::Expr(Expr::Struct(_), Some(_)) => {
+            // no side effects, do not convert
+            Ok(())
         }
-        Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => {
-            return Err(anyhow!(
-                "Inversion of statement type {:?} not supported",
-                stmt
-            ));
-        }
-    })
+        Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(anyhow!(
+            "Inversion of statement type {:?} not supported",
+            stmt
+        )),
+    }
 }

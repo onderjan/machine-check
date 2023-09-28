@@ -1,28 +1,30 @@
-use std::{char::ToLowercase, mem, path};
+use std::{char::ToLowercase, collections::HashSet, mem, path};
 
 use anyhow::anyhow;
+use mck::mark;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
     punctuated::Punctuated,
     token::{Comma, Let},
     visit_mut::VisitMut,
-    Block, Expr, ExprField, ExprPath, ExprTuple, FnArg, Ident, ImplItem, ImplItemFn, Index,
-    ItemImpl, Local, LocalInit, Member, Pat, PatIdent, PatType, Path, PathArguments, PathSegment,
-    ReturnType, Signature, Stmt, Type, TypeInfer, TypePath, TypeReference, TypeSlice, TypeTuple,
+    Block, Expr, ExprCall, ExprField, ExprPath, ExprTuple, FnArg, Ident, ImplItem, ImplItemFn,
+    Index, ItemImpl, Local, LocalInit, Member, Pat, PatIdent, PatTuple, PatType, Path,
+    PathArguments, PathSegment, ReturnType, Signature, Stmt, Type, TypeInfer, TypePath,
+    TypeReference, TypeSlice, TypeTuple,
 };
+use syn_path::path;
 
 use crate::transcription::util::{
-    generate_let_default_stmt,
+    create_expr_call, create_expr_path, create_ident, create_let_stmt_from_ident_expr,
+    create_let_stmt_from_pat_expr, create_unit_expr, generate_let_default_stmt,
     path_rule::{self, PathRuleSegment},
     scheme::ConversionScheme,
 };
 
 use super::{
-    mark_ident::IdentVisitor,
     mark_path_rules,
-    mark_stmt::{self, convert_to_let_binding, invert_stmt},
-    mark_type_path::convert_type_to_original,
+    mark_stmt::{self, create_join_stmt, invert_stmt},
 };
 
 pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
@@ -82,12 +84,13 @@ impl MarkConverter {
         // 3. add original block statements excluding result that has local variables (including inputs)
         //        changed to abstract naming scheme (no other variables should be present)
         // 4. initialize all local mark variables including earlier_marks to no marking
-        // 5. add statement "let init_mark = later_mark;" where init_mark is changed from result expression
+        // 5. add initialization of local mark variables
+        // 6. add "init_mark.apply_join(later_mark);" where init_mark is changed from result expression
         //        to a pattern with local variables changed to mark naming scheme
-        // 6. add mark-computation statements in reverse order of original statements
+        // 7. add mark-computation statements in reverse order of original statements
         //        i.e. instead of "let a = call(b);"
         //        add "mark_b.apply_join(mark_call(b, mark_a))"
-        // 7. add result expression for earlier_marks
+        // 8. add result expression for earlier_marks
 
         let orig_sig = &orig_fn.sig;
 
@@ -99,16 +102,16 @@ impl MarkConverter {
 
         let mut mark_fn = orig_fn.clone();
         mark_fn.sig.inputs = Punctuated::from_iter(vec![abstract_input.0, later_mark.0]);
-        mark_fn.sig.output = earlier_mark;
+        mark_fn.sig.output = earlier_mark.0;
         // TODO
 
-        let stmts = &mut mark_fn.block.stmts;
+        let result_stmts = &mut mark_fn.block.stmts;
 
         // step 2: clear mark block
-        stmts.clear();
+        result_stmts.clear();
 
         // step 3: detuple abstract input
-        stmts.extend(abstract_input.1.into_iter());
+        result_stmts.extend(abstract_input.1.into_iter());
 
         // step 4: add original block statement with abstract scheme
 
@@ -119,28 +122,91 @@ impl MarkConverter {
                 // add semicolon to result
                 semi.get_or_insert_with(Default::default);
             }
-            stmts.push(stmt);
+            result_stmts.push(stmt);
         }
 
-        // step 5: de-result later mark
-        stmts.push(later_mark.1);
+        // step 6: add initialization of local mark variables
+        for (ident, ty) in earlier_mark.1 {
+            let init_stmt = create_let_stmt_from_pat_expr(
+                Pat::Type(PatType {
+                    attrs: vec![],
+                    pat: Box::new(Pat::Ident(PatIdent {
+                        attrs: vec![],
+                        by_ref: None,
+                        mutability: Some(Default::default()),
+                        ident,
+                        subpat: None,
+                    })),
+                    colon_token: Default::default(),
+                    ty: Box::new(ty),
+                }),
+                Expr::Call(create_expr_call(
+                    Expr::Path(create_expr_path(path!(::std::default::Default::default))),
+                    Punctuated::new(),
+                )),
+            );
+            result_stmts.push(init_stmt);
+        }
 
-        // step 6: add mark-computation statements in reverse order of original statements
-        let abstr_visitor = IdentVisitor::new();
-        let mark_visitor = IdentVisitor::new();
+        let mut local_visitor = LocalVisitor {
+            local_names: HashSet::new(),
+        };
+        let mut mark_stmts = orig_fn.block.stmts.clone();
+        for stmt in &mut mark_stmts {
+            self.mark_scheme.apply_to_stmt(stmt)?;
+            local_visitor.visit_stmt_mut(stmt);
+        }
 
-        for orig_stmt in orig_fn.block.stmts.iter().rev() {
-            let mut stmt = orig_stmt.clone();
-            self.mark_scheme.apply_to_stmt(&mut stmt)?;
+        /*
+           impl Input {
+               pub fn generate_possibilities(&self) -> Vec<super::Input> {
+                   let mut result = Vec::new();
+                   for i2 in self.input_2.possibility_iter() {
+                       for i3 in self.input_3.possibility_iter() {
+                           result.push(super::Input {
+                               input_2: i2,
+                               input_3: i3,
+                           });
+                       }
+                   }
+                   result
+               }
+           }
+        */
+        for local_name in local_visitor.local_names {
+            let ident = create_ident(&local_name);
+            let right_expr = Expr::Call(create_expr_call(
+                Expr::Path(create_expr_path(path!(::std::default::Default::default))),
+                Punctuated::new(),
+            ));
+            let init_stmt = create_let_stmt_from_pat_expr(
+                Pat::Ident(PatIdent {
+                    attrs: vec![],
+                    by_ref: None,
+                    mutability: Some(Default::default()),
+                    ident,
+                    subpat: None,
+                }),
+                right_expr,
+            );
+            result_stmts.push(init_stmt);
+        }
+
+        // step 6: de-result later mark
+        result_stmts.extend(later_mark.1);
+
+        // step 7: add mark-computation statements in reverse order of original statements
+
+        for mut stmt in mark_stmts.into_iter().rev() {
             if let Stmt::Expr(_, ref mut semi) = stmt {
                 // add semicolon to result
                 semi.get_or_insert_with(Default::default);
             }
 
-            if let Some(stmt) = invert_stmt(&stmt, &abstr_visitor, &mark_visitor)? {
-                stmts.push(stmt);
-            }
+            invert_stmt(result_stmts, &stmt)?
         }
+        // 8. add result expression
+        result_stmts.push(earlier_mark.2);
 
         Ok(mark_fn)
     }
@@ -151,9 +217,8 @@ impl MarkConverter {
         let mut detuple_stmts = Vec::new();
         for (index, r) in create_input_name_type_iter(orig_sig).enumerate() {
             let (orig_name, orig_type) = r?;
-            // convert to abstract type and add reference for speed
-            let ty = self.abstract_scheme.convert_type(orig_type)?;
-            let ty = convert_type_to_reference(ty)?;
+            // convert to abstract type and to reference so we do not consume original abstract output
+            let ty = convert_type_to_reference(self.abstract_scheme.convert_type(orig_type)?)?;
             types.push(ty);
             let abstr_name = self.abstract_scheme.convert_name(&orig_name);
             let detuple_stmt = create_detuple_stmt(&abstr_name, arg_name, index as u32);
@@ -164,77 +229,95 @@ impl MarkConverter {
         Ok((arg, detuple_stmts))
     }
 
-    fn generate_earlier_mark(&self, orig_sig: &Signature) -> anyhow::Result<ReturnType> {
+    fn generate_earlier_mark(
+        &self,
+        orig_sig: &Signature,
+    ) -> anyhow::Result<(ReturnType, Vec<(Ident, Type)>, Stmt)> {
         // create return type
         let mut types = Punctuated::new();
+        let mut partials = Vec::new();
+        let mut partial_exprs = Punctuated::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
             // convert to mark type and remove reference as it will serve as return type
-            let ty = self.convert_to_mark_type(orig_type)?;
-            let ty = convert_type_to_path(ty)?;
-            types.push(ty);
+            let ty = convert_type_to_path(self.convert_to_mark_type(orig_type)?)?;
+            types.push(ty.clone());
+            // add expression to result tuple
+            let mark_name = self.mark_scheme.convert_name(&orig_name);
+            let partial_ident = Ident::new(&mark_name, Span::call_site());
+            let partial_expr = Expr::Path(ExprPath {
+                attrs: vec![],
+                qself: None,
+                path: Path::from(partial_ident.clone()),
+            });
+            partials.push((partial_ident, ty));
+            partial_exprs.push(partial_expr);
         }
         let ty = create_tuple_type(types);
         let return_type = ReturnType::Type(Default::default(), Box::new(ty));
-        Ok(return_type)
+
+        let tuple_expr = Expr::Tuple(ExprTuple {
+            attrs: vec![],
+            paren_token: Default::default(),
+            elems: partial_exprs,
+        });
+
+        Ok((return_type, partials, Stmt::Expr(tuple_expr, None)))
     }
 
     fn generate_later_mark(
         &self,
         orig_sig: &Signature,
         orig_result_expr: &Expr,
-    ) -> anyhow::Result<(FnArg, Stmt)> {
+    ) -> anyhow::Result<(FnArg, Vec<Stmt>)> {
         // just use the original output type, now in marking structure context
         let name = "__mck_input_later_mark";
         let ty = convert_return_type_to_type(&orig_sig.output);
-        // add reference for speed
-        let ty = convert_type_to_reference(ty)?;
+        // do not convert to reference, consuming mark is better
         let arg = create_typed_arg(name, ty);
         // create let statement from original result expression
-        let Expr::Path(orig_result_expr_path) = orig_result_expr else {
-            return Err(anyhow!("Non-path result not supported"));
+        let Expr::Struct(orig_result_struct) = orig_result_expr else {
+            return Err(anyhow!("Non-struct result {} not supported", quote!(#orig_result_expr)));
         };
-        let Some(orig_result_ident) = orig_result_expr_path.path.get_ident() else {
-            return Err(anyhow!("Non-ident result not supported"));
-        };
-        let mark_result_name = self
-            .mark_scheme
-            .convert_name(&orig_result_ident.to_string());
-        let mark_result_ident = Ident::new(&mark_result_name, Span::call_site());
-        let right_expr = Expr::Path(ExprPath {
-            attrs: vec![],
-            qself: None,
-            path: Path::from(Ident::new(name, Span::call_site())),
-        });
-        let stmt = create_let_stmt(mark_result_ident, right_expr);
 
-        Ok((arg, stmt))
+        let mut stmts = Vec::new();
+
+        for field in &orig_result_struct.fields {
+            let Expr::Path(field_path) = &field.expr else {
+                return Err(anyhow!("Non-path field expression not supported"));
+            };
+            let Some(field_ident) = field_path.path.get_ident() else {
+                return Err(anyhow!("Non-ident field expression not supported"));
+            };
+            let Member::Named(member_ident) = &field.member else {
+                return Err(anyhow!("Unnamed field member not supported"));
+            };
+
+            let mark_name = self.mark_scheme.convert_name(&field_ident.to_string());
+            let mark_ident = Ident::new(&mark_name, Span::call_site());
+            let left_expr = Expr::Path(create_expr_path(Path::from(mark_ident)));
+            let right_expr = Expr::Field(ExprField {
+                attrs: vec![],
+                base: Box::new(Expr::Path(ExprPath {
+                    attrs: vec![],
+                    qself: None,
+                    path: Path::from(Ident::new(name, Span::call_site())),
+                })),
+                dot_token: Default::default(),
+                member: Member::Named(member_ident.clone()),
+            });
+
+            // generate join statement
+            stmts.push(create_join_stmt(left_expr, right_expr));
+        }
+
+        Ok((arg, stmts))
     }
 
     fn convert_to_mark_type(&self, orig_type: &Type) -> anyhow::Result<Type> {
         // do not change mark type from original type, as the mark structure now stands for the original
         Ok(orig_type.clone())
     }
-}
-
-fn create_let_stmt(left_ident: Ident, right_expr: Expr) -> Stmt {
-    Stmt::Local(Local {
-        attrs: vec![],
-        let_token: Default::default(),
-        pat: Pat::Ident(PatIdent {
-            attrs: vec![],
-            by_ref: None,
-            mutability: None,
-            ident: left_ident,
-            subpat: None,
-        }),
-        init: Some(LocalInit {
-            eq_token: Default::default(),
-            expr: Box::new(right_expr),
-            diverge: None,
-        }),
-        semi_token: Default::default(),
-    })
 }
 
 fn get_path_ident_mut(path: &mut Path) -> Option<&mut Ident> {
@@ -296,14 +379,6 @@ fn get_result_expr(block: &Block) -> Expr {
     } else {
         create_unit_expr()
     }
-}
-
-fn create_unit_expr() -> Expr {
-    Expr::Tuple(ExprTuple {
-        attrs: vec![],
-        paren_token: Default::default(),
-        elems: Punctuated::new(),
-    })
 }
 
 fn create_input_name_type_iter(
@@ -372,166 +447,15 @@ fn create_detuple_stmt(left_name: &str, tuple_name: &str, index: u32) -> Stmt {
             span: Span::call_site(),
         }),
     });
-    create_let_stmt(Ident::new(left_name, Span::call_site()), right_expr)
+    create_let_stmt_from_ident_expr(Ident::new(left_name, Span::call_site()), right_expr)
 }
 
-/*pub fn transcribe_impl_item_fn(mark_fn: &mut ImplItemFn, mark_ty: &Type) -> anyhow::Result<()> {
-    let mut orig_ident_visitor = IdentVisitor::new();
-    let mut mark_ident_visitor = IdentVisitor::new();
-
-    // remember input types and convert inputs
-    let mut input_ident_vec = Vec::<Ident>::new();
-    let mut input_type_vec = Vec::<Type>::new();
-    let mut input_default_stmt_vec = Vec::<Stmt>::new();
-
-    for input in &mut mark_fn.sig.inputs {
-        match input {
-            syn::FnArg::Receiver(receiver) => {
-                input_type_vec.push((*receiver.ty).clone());
-                let orig_self_ident_string = "__mck_orig_self".to_owned();
-                let orig_self_ident = Ident::new(&orig_self_ident_string, Span::call_site());
-                let pat_ident = PatIdent {
-                    attrs: vec![],
-                    by_ref: None,
-                    mutability: receiver.mutability,
-                    ident: orig_self_ident,
-                    subpat: None,
-                };
-                let mark_self_ident_str = "__mck_mark_self";
-                let mark_self_ident = Ident::new(mark_self_ident_str, Span::call_site());
-                input_ident_vec.push(mark_self_ident.clone());
-                mark_ident_visitor
-                    .rules
-                    .insert("self".to_owned(), mark_self_ident_str.to_owned());
-                input_default_stmt_vec.push(generate_let_default_stmt(
-                    mark_self_ident,
-                    strip_type_reference(receiver.ty.as_ref().clone()),
-                ));
-
-                // TODO: this loses reference
-                let orig_type = convert_type_to_original(mark_ty)?;
-
-                *input = FnArg::Typed(PatType {
-                    attrs: vec![],
-                    pat: Box::new(Pat::Ident(pat_ident)),
-                    colon_token: Default::default(),
-                    ty: Box::new(orig_type.clone()),
-                });
-            }
-            syn::FnArg::Typed(typed) => {
-                input_type_vec.push((*typed.ty).clone());
-                let Pat::Ident(ref mut pat_ident) = *typed.pat else {
-                    return Err(anyhow!("Function argument pattern {:?} not supported", *typed.pat));
-                };
-                input_default_stmt_vec.push(generate_let_default_stmt(
-                    pat_ident.ident.clone(),
-                    strip_type_reference(typed.ty.as_ref().clone()),
-                ));
-                input_ident_vec.push(pat_ident.ident.clone());
-                let ident_string = pat_ident.ident.to_string();
-                pat_ident.ident = Ident::new(
-                    format!("__mck_orig_{}", ident_string).as_str(),
-                    pat_ident.ident.span(),
-                );
-                typed.ty = Box::new(convert_type_to_original(&typed.ty)?);
-            }
-        }
-    }
-
-    // convert original output to mark input and insert it so it is last
-    let ReturnType::Type(_, ref mut return_type) = mark_fn.sig.output else {
-        return Err(anyhow!("Default return type not supported"));
-    };
-    let mark_input_ident = Ident::new("__mck_mark", Span::call_site());
-    let mark_input_pat = Pat::Ident(PatIdent {
-        attrs: vec![],
-        by_ref: None,
-        mutability: None,
-        ident: mark_input_ident.clone(),
-        subpat: None,
-    });
-    let mark_input_type = return_type.clone();
-    let mark_input = FnArg::Typed(PatType {
-        attrs: vec![],
-        pat: Box::new(mark_input_pat),
-        colon_token: Default::default(),
-        ty: mark_input_type,
-    });
-    mark_fn.sig.inputs.insert(0, mark_input);
-    // change the return type to earlier mut
-    *return_type = Box::new(Type::Tuple(TypeTuple {
-        paren_token: Default::default(),
-        elems: Punctuated::from_iter(input_type_vec.into_iter().map(strip_type_reference)),
-    }));
-
-    let orig_block = &mut mark_fn.block;
-
-    // convert end result statement to let binding from __mck_mark
-    let Some(mut last_stmt) = orig_block.stmts.pop() else {
-        return Err(anyhow!("Functions without statements not supported"));
-    };
-
-    let temp_block = orig_block.clone();
-
-    convert_to_let_binding(mark_input_ident, &mut last_stmt)?;
-
-    // visit the forward marker to convert idents to orig idents
-    orig_ident_visitor.prefix_rule = Some(("__mck_".to_owned(), "__mck_orig_".to_owned()));
-    orig_ident_visitor.visit_block_mut(orig_block);
-
-    mark_ident_visitor
-        .rules
-        .insert("self".to_owned(), "__mck_mark_self".to_owned());
-
-    // add last statement to block
-    orig_block.stmts.push(last_stmt);
-
-    let mut mark_block = temp_block.clone();
-    mark_block.stmts.clear();
-
-    // add default initialization of mark outputs to block
-    mark_block.stmts.append(&mut input_default_stmt_vec);
-
-    // add mark statements to block
-    for stmt in temp_block.stmts.into_iter().rev() {
-        let inverted_option = invert_statement(&stmt, &orig_ident_visitor, &mark_ident_visitor)?;
-        if let Some(inverted_stmt) = inverted_option {
-            mark_block.stmts.push(inverted_stmt);
-        }
-    }
-
-    // add result statement to block
-    let result_stmt = Stmt::Expr(
-        Expr::Tuple(ExprTuple {
-            attrs: vec![],
-            paren_token: Default::default(),
-            elems: Punctuated::from_iter(input_ident_vec.into_iter().map(|ident| {
-                Expr::Path(ExprPath {
-                    attrs: vec![],
-                    path: Path {
-                        leading_colon: None,
-                        segments: Punctuated::from_iter(vec![PathSegment {
-                            ident,
-                            arguments: PathArguments::None,
-                        }]),
-                    },
-                    qself: None,
-                })
-            })),
-        }),
-        None,
-    );
-    mark_block.stmts.push(result_stmt);
-
-    //mark_ident_visitor.prefix_rule = Some(("__mck_".to_owned(), "__mck_mark_".to_owned()));
-    //orig_ident_visitor.visit_block_mut(&mut mark_block);
-    orig_block.stmts.append(&mut mark_block.stmts);
-    Ok(())
+struct LocalVisitor {
+    local_names: HashSet<String>,
 }
 
-fn strip_type_reference(ty: Type) -> Type {
-    match ty {
-        Type::Reference(reference) => *reference.elem,
-        _ => ty,
+impl VisitMut for LocalVisitor {
+    fn visit_pat_ident_mut(&mut self, i: &mut PatIdent) {
+        self.local_names.insert(i.ident.to_string());
     }
-}*/
+}

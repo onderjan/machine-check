@@ -2,8 +2,8 @@ use std::num::Wrapping;
 
 use crate::{
     mark::{
-        self, Add, BitAnd, BitOr, BitXor, MachineExt, MachineShift, Mul, Neg, Not, Sub, TypedCmp,
-        TypedEq,
+        self, Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Mul, Neg, Not, Sub,
+        TypedCmp, TypedEq,
     },
     MachineBitvector, ThreeValuedBitvector,
 };
@@ -26,9 +26,11 @@ impl<const L: u32> MarkBitvector<L> {
     fn limit(&self, abstract_bitvec: ThreeValuedBitvector<L>) -> MarkBitvector<L> {
         MarkBitvector(self.0 & abstract_bitvec.get_unknown_bits())
     }
+}
 
-    pub fn join(self, rhs: Self) -> Self {
-        MarkBitvector(self.0 | rhs.0)
+impl<const L: u32> Join for MarkBitvector<L> {
+    fn apply_join(&mut self, other: Self) {
+        self.0 = self.0 | other.0;
     }
 }
 
@@ -100,13 +102,11 @@ impl<const L: u32> Default for MarkBitvector<L> {
 }
 
 impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
-    type Output = ThreeValuedBitvector<1>;
     type MarkEarlier = MarkBitvector<L>;
     type MarkLater = MarkBitvector<1>;
 
     fn typed_eq(
         normal_input: (Self, Self),
-        _: Self::Output,
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         // every unknown bit may be responsible
@@ -122,7 +122,7 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
 impl<const L: u32> Neg for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn neg(normal_input: (Self,), _: Self, mark_later: Self::Mark) -> (Self::Mark,) {
+    fn neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         // TODO: improve, just mark everything for now
 
         //(Self::Mark::new_marked().limit(normal_input.0),)
@@ -133,11 +133,7 @@ impl<const L: u32> Neg for ThreeValuedBitvector<L> {
 impl<const L: u32> Add for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn add(
-        normal_input: (Self, Self),
-        _: Self,
-        mark_later: Self::Mark,
-    ) -> (Self::Mark, Self::Mark) {
+    fn add(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // TODO: improve, just mark everything for now
 
         /*(
@@ -150,11 +146,7 @@ impl<const L: u32> Add for ThreeValuedBitvector<L> {
 impl<const L: u32> Sub for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn sub(
-        normal_input: (Self, Self),
-        _: Self,
-        mark_later: Self::Mark,
-    ) -> (Self::Mark, Self::Mark) {
+    fn sub(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // TODO: improve, just mark everything for now
 
         /*(
@@ -169,11 +161,7 @@ impl<const L: u32> Sub for ThreeValuedBitvector<L> {
 impl<const L: u32> Mul for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn mul(
-        normal_input: (Self, Self),
-        _: Self,
-        mark_later: Self::Mark,
-    ) -> (Self::Mark, Self::Mark) {
+    fn mul(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // TODO: improve, just mark everything for now
         /*(
             Self::Mark::new_marked().limit(normal_input.0),
@@ -186,7 +174,7 @@ impl<const L: u32> Mul for ThreeValuedBitvector<L> {
 impl<const L: u32> Not for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn not(normal_input: (Self,), _: Self, mark_later: Self::Mark) -> (Self::Mark,) {
+    fn not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         // propagate marking of given bits with limitation
         //(mark_later.limit(normal_input.0),)
         (mark_later,)
@@ -196,11 +184,7 @@ impl<const L: u32> Not for ThreeValuedBitvector<L> {
 impl<const L: u32> BitAnd for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn bitand(
-        normal_input: (Self, Self),
-        _: Self,
-        mark_later: Self::Mark,
-    ) -> (Self::Mark, Self::Mark) {
+    fn bitand(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // propagate marking of given bits with limitation
         /*(
             mark_later.limit(normal_input.0),
@@ -212,11 +196,7 @@ impl<const L: u32> BitAnd for ThreeValuedBitvector<L> {
 impl<const L: u32> BitOr for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn bitor(
-        normal_input: (Self, Self),
-        _: Self,
-        mark_later: Self::Mark,
-    ) -> (Self::Mark, Self::Mark) {
+    fn bitor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // propagate marking of given bits with limitation
         let result = (
             mark_later.limit(normal_input.0),
@@ -231,11 +211,7 @@ impl<const L: u32> BitOr for ThreeValuedBitvector<L> {
 impl<const L: u32> BitXor for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn bitxor(
-        normal_input: (Self, Self),
-        normal_output: Self,
-        mark_later: Self::Mark,
-    ) -> (Self::Mark, Self::Mark) {
+    fn bitxor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // propagate marking of given bits with limitation
         /*(
             mark_later.limit(normal_input.0),
@@ -246,13 +222,11 @@ impl<const L: u32> BitXor for ThreeValuedBitvector<L> {
 }
 
 impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
-    type Output = ThreeValuedBitvector<1>;
     type MarkEarlier = MarkBitvector<L>;
     type MarkLater = MarkBitvector<1>;
 
     fn typed_sgt(
         normal_input: (Self, Self),
-        normal_output: Self::Output,
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
@@ -260,7 +234,6 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn typed_ugt(
         normal_input: (Self, Self),
-        normal_output: Self::Output,
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
@@ -268,7 +241,6 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn typed_sgte(
         normal_input: (Self, Self),
-        normal_output: Self::Output,
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
@@ -276,7 +248,6 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn typed_ugte(
         normal_input: (Self, Self),
-        normal_output: Self::Output,
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
@@ -284,7 +255,6 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn typed_slt(
         normal_input: (Self, Self),
-        normal_output: Self::Output,
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
@@ -292,7 +262,6 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn typed_ult(
         normal_input: (Self, Self),
-        normal_output: Self::Output,
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
@@ -300,7 +269,6 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn typed_slte(
         normal_input: (Self, Self),
-        normal_output: Self::Output,
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
@@ -308,7 +276,6 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn typed_ulte(
         normal_input: (Self, Self),
-        normal_output: Self::Output,
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         todo!()
@@ -316,15 +283,10 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 }
 
 impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
-    type Output = ThreeValuedBitvector<X>;
     type MarkEarlier = MarkBitvector<L>;
     type MarkLater = MarkBitvector<X>;
 
-    fn uext(
-        normal_input: (Self,),
-        normal_output: Self::Output,
-        mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier,) {
+    fn uext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
         // unsigned extension does not add any bit
         // propagate marking of given bits with limitation
         let extended = MarkBitvector(crate::MachineExt::uext(mark_later.0));
@@ -332,11 +294,7 @@ impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
         (extended,)
     }
 
-    fn sext(
-        normal_input: (Self,),
-        normal_output: Self::Output,
-        mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier,) {
+    fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
         // signed extension copies high bit
         // copy it in marking with signed extension
         let extended = MarkBitvector(crate::MachineExt::sext(mark_later.0));
@@ -348,27 +306,15 @@ impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
 impl<const L: u32> MachineShift for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn sll(
-        normal_input: (Self, Self),
-        normal_output: Self,
-        mark_later: Self::Mark,
-    ) -> (Self::Mark, Self::Mark) {
+    fn sll(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 
-    fn srl(
-        normal_input: (Self, Self),
-        normal_output: Self,
-        mark_later: Self::Mark,
-    ) -> (Self::Mark, Self::Mark) {
+    fn srl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 
-    fn sra(
-        normal_input: (Self, Self),
-        normal_output: Self,
-        mark_later: Self::Mark,
-    ) -> (Self::Mark, Self::Mark) {
+    fn sra(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 }

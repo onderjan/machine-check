@@ -1,9 +1,9 @@
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Input {
     pub input_2: ::mck::MachineBitvector<1u32>,
     pub input_3: ::mck::MachineBitvector<1u32>,
 }
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct State {
     pub state_6: ::mck::MachineBitvector<4u32>,
     pub safe: ::mck::MachineBitvector<1u32>,
@@ -33,11 +33,10 @@ impl State {
         let node_13 = __mck_tmp_19;
         let node_14 = ::mck::TypedEq::typed_eq(node_6, node_13);
         let __mck_tmp_22 = ::std::ops::Not::not(node_14);
-        let __mck_tmp_23 = State {
+        State {
             state_6: node_6,
             safe: __mck_tmp_22,
-        };
-        __mck_tmp_23
+        }
     }
     pub fn next(&self, input: &Input) -> State {
         let node_2 = input.input_2;
@@ -63,10 +62,9 @@ impl State {
         let node_13 = __mck_tmp_19;
         let node_14 = ::mck::TypedEq::typed_eq(node_6, node_13);
         let __mck_tmp_22 = ::std::ops::Not::not(node_14);
-        let __mck_tmp_23 = State {
+        State {
             state_6: node_11,
             safe: __mck_tmp_22,
-        };
-        __mck_tmp_23
+        }
     }
 }

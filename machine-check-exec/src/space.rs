@@ -3,11 +3,11 @@ use std::{
     rc::Rc,
 };
 
+use crate::machine::forward::{mark, Input, State};
 use bimap::BiMap;
+use mck::mark::Join;
 use mck::{MarkBitvector, ThreeValuedBitvector};
 use petgraph::{prelude::GraphMap, Directed};
-
-use crate::machine::forward::{mark, Input, State};
 
 use anyhow::anyhow;
 
@@ -100,24 +100,25 @@ impl Space {
 
     fn refine(&mut self, culprit: Culprit) -> anyhow::Result<()> {
         // compute marking
-        let mut state_mark = mark::State {
-            state_6: MarkBitvector::new_unmarked(),
-            bad_15: MarkBitvector::new_marked(),
-        };
+        let mut state_mark: mark::State = Default::default();
+        state_mark.safe = MarkBitvector::new_marked();
         println!("State mark: {:?}", state_mark);
         let input = &Self::unknown_input();
 
         for state_index in culprit.path.iter().rev() {
             let state = self.get_state_by_index(*state_index);
-            let (new_state_mark, input_mark) = mark::State::next(state_mark, &state, input);
+            let (new_state_mark, input_mark) =
+                mark::State::next((state.as_ref(), input), state_mark);
             println!(
                 "New state mark: {:?}, input mark: {:?}",
                 new_state_mark, input_mark
             );
-            let joined_mark = self.input_mark.join(&input_mark);
+            let mut joined_mark = input_mark.clone();
+            joined_mark.input_2.apply_join(input_mark.input_2);
+            joined_mark.input_3.apply_join(input_mark.input_3);
             if joined_mark != self.input_mark {
-                println!("Refined to {:?}", joined_mark);
                 self.input_mark = joined_mark;
+                println!("Refined to {:?}", self.input_mark);
                 return Ok(());
             }
 
@@ -141,17 +142,17 @@ impl Space {
             let state = self.get_state_by_index(state_index);
 
             // check state
-            let bad: ThreeValuedBitvector<1> = state.bad();
+            let safe: ThreeValuedBitvector<1> = state.safe;
             let true_bitvector = ThreeValuedBitvector::<1>::new(1);
             let false_bitvector = ThreeValuedBitvector::<1>::new(0);
             println!(
-                "Bad: {:?}, true: {:?}, false: {:?}",
-                bad, true_bitvector, false_bitvector
+                "Safe: {:?}, true: {:?}, false: {:?}",
+                safe, true_bitvector, false_bitvector
             );
 
-            if bad == false_bitvector {
+            if safe == true_bitvector {
                 // OK, continue
-            } else if bad == true_bitvector {
+            } else if safe == false_bitvector {
                 // definitely not OK
                 return ModelCheckResult::False;
             } else {
