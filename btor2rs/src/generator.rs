@@ -160,6 +160,8 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let next_statements = create_statements(&btor2, false)?;
 
     let tokens = quote!(
+        #![allow(dead_code, unused_variables, clippy::no_effect)]
+
         #[derive(Clone, Debug, PartialEq, Eq, Hash)]
         pub struct Input {
             #(#input_fields),*
