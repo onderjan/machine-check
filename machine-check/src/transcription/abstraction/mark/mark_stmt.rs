@@ -3,7 +3,7 @@ use proc_macro2::Span;
 use quote::quote;
 use syn::{
     punctuated::Punctuated, token::Comma, Expr, ExprCall, ExprField, ExprPath, ExprReference,
-    Ident, Index, Member, Pat, PatTuple, PatWild, Path, PathArguments, PathSegment, Stmt,
+    Ident, Index, Member, Pat, PatWild, Path, PathArguments, PathSegment, Stmt,
 };
 use syn_path::path;
 

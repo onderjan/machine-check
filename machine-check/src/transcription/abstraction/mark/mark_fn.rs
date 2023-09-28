@@ -1,17 +1,13 @@
-use std::{collections::HashSet};
+use std::collections::HashSet;
 
 use anyhow::anyhow;
 
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated,
-    token::{Comma},
-    visit_mut::VisitMut,
-    Block, Expr, ExprField, ExprPath, ExprReference, ExprTuple, FnArg, Ident, ImplItem,
-    ImplItemFn, Index, ItemImpl, Member, Pat, PatIdent, PatType, Path,
-    PathArguments, PathSegment, ReturnType, Signature, Stmt, Type,
-    TypeReference, TypeTuple,
+    punctuated::Punctuated, visit_mut::VisitMut, Block, Expr, ExprField, ExprPath, ExprReference,
+    ExprTuple, FnArg, Ident, ImplItem, ImplItemFn, Index, ItemImpl, Member, Pat, PatIdent, PatType,
+    Path, PathArguments, PathSegment, ReturnType, Signature, Stmt, Type, TypeReference, TypeTuple,
 };
 use syn_path::path;
 
@@ -21,9 +17,7 @@ use crate::transcription::util::{
     scheme::ConversionScheme,
 };
 
-use super::{
-    mark_stmt::{create_join_stmt, invert_stmt},
-};
+use super::mark_stmt::{create_join_stmt, invert_stmt};
 
 pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
     let mut i = i.clone();
@@ -124,7 +118,7 @@ impl MarkConverter {
         }
 
         // step 6: add initialization of local mark variables
-        for (ident, _) in earlier_mark.1 {
+        for ident in earlier_mark.1 {
             result_stmts.push(create_mark_init_stmt(ident, false));
         }
 
@@ -182,10 +176,10 @@ impl MarkConverter {
     fn generate_earlier_mark(
         &self,
         orig_sig: &Signature,
-    ) -> anyhow::Result<(ReturnType, Vec<(Ident, Type)>, Stmt)> {
+    ) -> anyhow::Result<(ReturnType, Vec<Ident>, Stmt)> {
         // create return type
         let mut types = Punctuated::new();
-        let mut partials = Vec::new();
+        let mut partial_idents = Vec::new();
         let mut partial_exprs = Punctuated::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
@@ -200,7 +194,7 @@ impl MarkConverter {
                 qself: None,
                 path: Path::from(partial_ident.clone()),
             });
-            partials.push((partial_ident, ty));
+            partial_idents.push(partial_ident);
             partial_exprs.push(partial_expr);
         }
         let ty = create_tuple_type(types);
@@ -212,7 +206,7 @@ impl MarkConverter {
             elems: partial_exprs,
         });
 
-        Ok((return_type, partials, Stmt::Expr(tuple_expr, None)))
+        Ok((return_type, partial_idents, Stmt::Expr(tuple_expr, None)))
     }
 
     fn generate_later_mark(
@@ -306,17 +300,6 @@ fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
     )
 }
 
-fn get_path_ident_mut(path: &mut Path) -> Option<&mut Ident> {
-    if path.leading_colon.is_none()
-        && path.segments.len() == 1
-        && path.segments[0].arguments.is_none()
-    {
-        Some(&mut path.segments[0].ident)
-    } else {
-        None
-    }
-}
-
 fn convert_type_to_reference(ty: Type) -> anyhow::Result<Type> {
     match ty {
         Type::Reference(_) => Ok(ty),
@@ -406,7 +389,7 @@ fn create_typed_arg(name: &str, ty: Type) -> FnArg {
     })
 }
 
-fn create_tuple_type(types: Punctuated<Type, Comma>) -> Type {
+fn create_tuple_type(types: Punctuated<Type, syn::token::Comma>) -> Type {
     Type::Tuple(TypeTuple {
         paren_token: Default::default(),
         elems: types,

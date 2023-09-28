@@ -112,8 +112,10 @@ impl Space {
 
     fn refine(&mut self, culprit: Culprit) -> anyhow::Result<()> {
         // compute marking
-        let mut state_mark: mark::State = Default::default();
-        state_mark.safe = MarkBitvector::new_marked();
+        let mut state_mark: mark::State = mark::State {
+            safe: MarkBitvector::new_marked(),
+            ..Default::default()
+        };
         println!("State mark: {:?}", state_mark);
         let input = &Self::unknown_input();
 
@@ -224,5 +226,3 @@ impl Space {
         self.state_graph.add_edge(from, to, ());
     }
 }
-
-fn find_culprit() {}

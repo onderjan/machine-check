@@ -6,8 +6,7 @@ use syn::{
     punctuated::Punctuated,
     token::{Bracket, Comma, Paren},
     Attribute, Expr, ExprAssign, ExprCall, ExprField, ExprPath, ExprTuple, Field, FieldValue,
-    Ident, Index, Local, LocalInit, Member, MetaList, Pat, PatIdent, PatTuple, PatType, Path, Stmt,
-    Type, TypePath,
+    Ident, Index, Local, LocalInit, Member, MetaList, Pat, PatIdent, Path, Stmt, TypePath,
 };
 use syn_path::path;
 
@@ -16,14 +15,6 @@ pub fn create_unit_expr() -> Expr {
         attrs: vec![],
         paren_token: Default::default(),
         elems: Punctuated::new(),
-    })
-}
-
-pub fn create_pat_tuple(expressions: Punctuated<Pat, Comma>) -> Pat {
-    Pat::Tuple(PatTuple {
-        attrs: vec![],
-        paren_token: Default::default(),
-        elems: expressions,
     })
 }
 
@@ -153,38 +144,4 @@ pub fn generate_derive_attribute(tokens: TokenStream) -> Attribute {
             tokens,
         }),
     }
-}
-
-pub fn generate_let_default_stmt(ident: Ident, ty: Type) -> Stmt {
-    Stmt::Local(Local {
-        attrs: vec![],
-        let_token: Default::default(),
-        pat: Pat::Type(PatType {
-            attrs: vec![],
-            pat: Box::new(Pat::Ident(PatIdent {
-                attrs: vec![],
-                by_ref: None,
-                mutability: Some(Default::default()),
-                ident,
-                subpat: None,
-            })),
-            colon_token: Default::default(),
-            ty: Box::new(ty),
-        }),
-        init: Some(LocalInit {
-            eq_token: Default::default(),
-            expr: Box::new(Expr::Call(ExprCall {
-                attrs: vec![],
-                func: Box::new(Expr::Path(ExprPath {
-                    attrs: vec![],
-                    qself: None,
-                    path: path!(::std::default::Default::default),
-                })),
-                paren_token: Default::default(),
-                args: Punctuated::default(),
-            })),
-            diverge: None,
-        }),
-        semi_token: Default::default(),
-    })
 }
