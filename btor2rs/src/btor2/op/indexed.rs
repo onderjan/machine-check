@@ -66,10 +66,9 @@ impl SliceOp {
         let Sort::Bitvec(a_bitvec) = &self.a.sort else {
             return Err(anyhow!("Expected bitvec operand, but have {}", result_sort));
         };
-        let a_length = a_bitvec.length.get();
 
         // logical shift right to make the lower bit the zeroth bit
-        let srl_const = Const::new(false, a_length as u64);
+        let srl_const = Const::new(false, self.lower_bit as u64);
         let srl_tokens = srl_const.create_tokens(a_bitvec);
         let a_srl = quote!(::mck::MachineShift::srl(#a_tokens, #srl_tokens));
 
