@@ -2,8 +2,8 @@ use std::num::Wrapping;
 
 use crate::{
     mark::{
-        Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Markable, Mul, Neg, Not, Sub,
-        TypedCmp, TypedEq,
+        self, Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Markable, Mul, Neg, Not,
+        Sub, TypedCmp, TypedEq,
     },
     MachineBitvector, Possibility, ThreeValuedBitvector,
 };
@@ -290,18 +290,59 @@ impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
     }
 }
 
+fn shift<const L: u32>(
+    normal_input: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
+    mark_later: MarkBitvector<L>,
+    shift_fn: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<L>,
+) -> (MarkBitvector<L>, MarkBitvector<L>) {
+    if L == 0 {
+        // avoid problems with zero-width bitvectors
+        return (MarkBitvector::new_marked(), MarkBitvector::new_marked());
+    }
+
+    // for now, only do detailed marking of value to be shifted, not the shift amount
+    let amount_input = normal_input.1;
+
+    // the shift amount is also three-valued, which poses problems
+    // if the shift amount is L or more, no bits are retained
+    // so consider only lesser amounts one by one
+
+    let min_shift = amount_input.umin().0.min((L - 1) as u64);
+    let max_shift = amount_input.umax().0.max((L - 1) as u64);
+    // join the shifted marks iteratively
+    let mut shifted_mark_earlier = MarkBitvector::new_unmarked();
+    for i in min_shift..=max_shift {
+        if amount_input.can_contain(Wrapping(i)) {
+            // shift the mark
+            let machine_i = MachineBitvector::new(i);
+            let shifted_mark = shift_fn(mark_later.0, machine_i);
+            shifted_mark_earlier.apply_join(MarkBitvector(shifted_mark));
+        }
+    }
+    (
+        shifted_mark_earlier.limit(normal_input.0),
+        MarkBitvector::new_marked().limit(normal_input.1),
+    )
+}
+
 impl<const L: u32> MachineShift for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn sll(_normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        todo!()
+    fn sll(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        shift(normal_input, mark_later, |a, b| {
+            crate::MachineShift::sll(a, b)
+        })
     }
 
-    fn srl(_normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        todo!()
+    fn srl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        shift(normal_input, mark_later, |a, b| {
+            crate::MachineShift::srl(a, b)
+        })
     }
 
-    fn sra(_normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        todo!()
+    fn sra(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        shift(normal_input, mark_later, |a, b| {
+            crate::MachineShift::sra(a, b)
+        })
     }
 }

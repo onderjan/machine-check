@@ -193,7 +193,9 @@ impl<const L: u32> MachineShift for MachineBitvector<L> {
             // zero if the shift is too big
             MachineBitvector::w_new(Wrapping(0))
         } else {
-            MachineBitvector::w_new(self.v << amount.v.0 as usize)
+            // apply mask after shifting
+            let res = self.v << (amount.v.0 as usize);
+            MachineBitvector::w_new(res & compute_mask(L))
         }
     }
 
