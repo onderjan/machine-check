@@ -213,31 +213,47 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
     type MarkLater = MarkBitvector<1>;
 
     fn typed_slt(
-        _normal_input: (Self, Self),
+        normal_input: (Self, Self),
         _mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        todo!()
+        // just mark aggressively for now
+        (
+            Self::MarkEarlier::new_marked().limit(normal_input.0),
+            Self::MarkEarlier::new_marked().limit(normal_input.1),
+        )
     }
 
     fn typed_ult(
-        _normal_input: (Self, Self),
+        normal_input: (Self, Self),
         _mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        todo!()
+        // just mark aggressively for now
+        (
+            Self::MarkEarlier::new_marked().limit(normal_input.0),
+            Self::MarkEarlier::new_marked().limit(normal_input.1),
+        )
     }
 
     fn typed_slte(
-        _normal_input: (Self, Self),
+        normal_input: (Self, Self),
         _mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        todo!()
+        // just mark aggressively for now
+        (
+            Self::MarkEarlier::new_marked().limit(normal_input.0),
+            Self::MarkEarlier::new_marked().limit(normal_input.1),
+        )
     }
 
     fn typed_ulte(
-        _normal_input: (Self, Self),
+        normal_input: (Self, Self),
         _mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        todo!()
+        // just mark aggressively for now
+        (
+            Self::MarkEarlier::new_marked().limit(normal_input.0),
+            Self::MarkEarlier::new_marked().limit(normal_input.1),
+        )
     }
 }
 
