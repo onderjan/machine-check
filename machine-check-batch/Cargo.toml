@@ -1,0 +1,12 @@
+[package]
+name = "machine-check-batch"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.75"
+walkdir = "2.4.0"
+yaml-rust = "0.4"
+wait-timeout = "0.2.0"

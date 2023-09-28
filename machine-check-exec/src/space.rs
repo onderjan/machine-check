@@ -26,10 +26,12 @@ pub enum ModelCheckResult {
 
 pub struct Space {
     init_precision: mark::Input,
-    initial_nodes: Vec<usize>,
+    initial_states: Vec<usize>,
     state_graph: GraphMap<usize, (), Directed>,
     state_map: BiMap<usize, Rc<State>>,
     next_precision_map: HashMap<usize, mark::Input>,
+    pub num_init_refinements: usize,
+    pub num_step_refinements: usize,
 }
 
 impl Space {
@@ -40,34 +42,48 @@ impl Space {
     pub fn new() -> Self {
         let mut space = Self {
             init_precision: mark::Input::default(),
-            initial_nodes: vec![],
+            initial_states: vec![],
             state_graph: GraphMap::new(),
             state_map: BiMap::new(),
             next_precision_map: HashMap::new(),
+            num_init_refinements: 0,
+            num_step_refinements: 0,
         };
-        space.generate();
+        space.regenerate_init();
         space
     }
 
-    pub fn generate(&mut self) {
-        println!("Generating state space...");
-        // clear initial nodes and graph but leave map and precision as-is
-        self.initial_nodes.clear();
-        self.state_graph.clear();
-        // generate initial states
+    pub fn regenerate_init(&mut self) {
+        self.num_init_refinements += 1;
+        //println!("Regenerating initial states...");
+        // clear initial states
+        self.initial_states.clear();
+
+        // regenerate them using init function with init precision
+        // remember the states that were actually added
+        let mut added_states_queue = VecDeque::new();
         let mut input = Possibility::first_possibility(&self.init_precision);
         loop {
-            let (initial_state_id, _) = self.add_state(Rc::new(State::init(&input)));
-            self.initial_nodes.push(initial_state_id);
+            let (initial_state_id, added) = self.add_state(Rc::new(State::init(&input)));
+            self.initial_states.push(initial_state_id);
+            if added {
+                added_states_queue.push_back(initial_state_id);
+            }
+
             if !Possibility::increment_possibility(&self.init_precision, &mut input) {
                 break;
             }
         }
+        //println!("Initial states regenerated.");
 
+        // generate every state that was added
+        self.regenerate_step(added_states_queue);
+    }
+
+    pub fn regenerate_step(&mut self, mut queue: VecDeque<usize>) {
+        self.num_step_refinements += 1;
+        //println!("Regenerating steps for {} states...", queue.len());
         // construct state space by breadth-first search
-        let mut queue = VecDeque::<usize>::new();
-        queue.extend(self.initial_nodes.iter());
-
         while let Some(state_index) = queue.pop_front() {
             let state = self.get_state_by_index(state_index);
             let next_precision = self
@@ -78,7 +94,18 @@ impl Space {
 
             //println!("State #{}: {:?}", state_index, state);
 
-            // generate next states
+            // remove outgoing edges
+            // use a temporary vector to avoid race conditions
+            let direct_successor_indices: Vec<_> = self
+                .state_graph
+                .neighbors_directed(state_index, petgraph::Direction::Outgoing)
+                .collect();
+            for direct_successor_index in direct_successor_indices {
+                self.state_graph
+                    .remove_edge(state_index, direct_successor_index);
+            }
+
+            // generate direct successors
             let mut input = Possibility::first_possibility(&next_precision);
             loop {
                 let next_state = state.next(&input);
@@ -97,10 +124,7 @@ impl Space {
                 }
             }
         }
-        println!(
-            "Generated state space with {} states.",
-            self.state_map.len()
-        );
+        //println!("Steps regenerated.");
     }
 
     pub fn verify(&mut self) -> anyhow::Result<bool> {
@@ -114,12 +138,11 @@ impl Space {
             };
 
             self.refine(culprit)?;
-            self.generate();
         }
     }
 
     fn refine(&mut self, culprit: Culprit) -> anyhow::Result<()> {
-        println!("Refining...");
+        //println!("Refining...");
         // compute marking
         let mut state_mark: mark::State = mark::State {
             safe: MarkBitvector::new_marked(),
@@ -148,11 +171,11 @@ impl Space {
             joined_precision.apply_join(input_mark);
             if state_next_precision != &joined_precision {
                 *state_next_precision = joined_precision;
-                println!("Refined step precision.");
-                /*println!(
-                    "Refined next precision of state {:?} to {:?}",
-                    *state, *state_next_precision
-                );*/
+                //println!("Refined step precision.");
+                // regenerate step from the state
+                let mut queue = VecDeque::new();
+                queue.push_back(*state_index);
+                self.regenerate_step(queue);
                 return Ok(());
             }
 
@@ -165,8 +188,9 @@ impl Space {
         joined_precision.apply_join(input_mark);
         if self.init_precision != joined_precision {
             self.init_precision = joined_precision;
-            //println!("Refined init precision to {:?}", self.init_precision);
-            println!("Refined init precision.");
+            //println!("Refined init precision.");
+            // regenerate init
+            self.regenerate_init();
             return Ok(());
         }
 
@@ -181,8 +205,8 @@ impl Space {
         let mut became_open = HashSet::<usize>::new();
         let mut backtrack_map = HashMap::<usize, usize>::new();
 
-        open.extend(self.initial_nodes.iter());
-        became_open.extend(self.initial_nodes.iter());
+        open.extend(self.initial_states.iter());
+        became_open.extend(self.initial_states.iter());
 
         while let Some(state_index) = open.pop_front() {
             let state = self.get_state_by_index(state_index);

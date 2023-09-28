@@ -121,7 +121,7 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
 impl<const L: u32> Neg for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
+    fn neg(normal_input: (Self,), _mark_later: Self::Mark) -> (Self::Mark,) {
         // TODO: improve, just mark everything for now
 
         (Self::Mark::new_marked().limit(normal_input.0),)
