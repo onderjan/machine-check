@@ -4,8 +4,6 @@ mod machine;
 mod space;
 
 fn run() -> anyhow::Result<()> {
-    let mark = MarkBitvector::<4>::new_from_flag(MachineBitvector::new(15));
-
     println!("Starting state graph generation.");
 
     let mut space = space::Space::new();

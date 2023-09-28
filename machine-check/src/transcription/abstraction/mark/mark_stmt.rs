@@ -1,16 +1,15 @@
 use anyhow::anyhow;
-use proc_macro2::{Punct, Span};
+use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated, token::Comma, Expr, ExprAssign, ExprCall, ExprField, ExprPath,
-    ExprReference, ExprTuple, FieldPat, Ident, Index, Local, Member, Pat, PatStruct, PatTuple,
-    PatWild, Path, PathArguments, PathSegment, Stmt,
+    punctuated::Punctuated, token::Comma, Expr, ExprCall, ExprField, ExprPath, ExprReference,
+    Ident, Index, Member, Pat, PatTuple, PatWild, Path, PathArguments, PathSegment, Stmt,
 };
 use syn_path::path;
 
 use crate::transcription::util::{
-    create_assign_stmt, create_expr_call, create_expr_path, create_expr_tuple, create_ident,
-    create_let_stmt_from_ident_expr, create_let_stmt_from_pat_expr, create_path_from_name,
+    create_assign_stmt, create_expr_path, create_expr_tuple, create_ident,
+    create_let_stmt_from_ident_expr,
 };
 
 fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
@@ -109,17 +108,6 @@ fn invert_call(stmts: &mut Vec<Stmt>, later_mark: ExprPath, call: &ExprCall) -> 
         // no effect
         return Ok(());
     }
-
-    let mut tuple_elems = Punctuated::from_iter(function_args);
-    if !tuple_elems.empty_or_trailing() {
-        tuple_elems.push_punct(Default::default());
-    }
-
-    let new_left_pat = Pat::Tuple(PatTuple {
-        attrs: vec![],
-        paren_token: Default::default(),
-        elems: tuple_elems,
-    });
 
     // change the function name
     let mut inverted_call = call.clone();

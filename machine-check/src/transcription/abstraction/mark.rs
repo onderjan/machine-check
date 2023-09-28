@@ -1,12 +1,9 @@
-use std::result;
-
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprCall, ExprField,
-    ExprReference, ExprStruct, FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn,
-    ImplItemType, Item, ItemFn, ItemImpl, ItemMod, ItemStruct, ItemType, Member, Pat, PatIdent,
-    PatReference, PatType, Path, PathArguments, PathSegment, Receiver, ReturnType, Signature, Stmt,
-    Type, TypePath, TypeReference, Visibility,
+    punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprReference,
+    ExprStruct, FnArg, Generics, Ident, ImplItem, ImplItemFn, ImplItemType, Item, ItemImpl,
+    ItemMod, ItemStruct, Pat, PatType, Path, PathArguments, PathSegment, Receiver, ReturnType,
+    Signature, Stmt, Type, TypeReference, Visibility,
 };
 use syn_path::path;
 
@@ -15,10 +12,6 @@ use crate::transcription::util::{
     create_pat_ident, create_path_from_ident, create_path_from_name, create_type_path,
     path_rule::{self, PathRule, PathRuleSegment},
 };
-
-use anyhow::anyhow;
-
-use quote::quote;
 
 use self::{mark_fn::transcribe_item_impl, mark_stmt::create_join_stmt};
 
@@ -352,7 +345,7 @@ fn generate_possibility_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
             and_token: Default::default(),
             lifetime: Default::default(),
             mutability: Default::default(),
-            elem: Box::new(self_type.clone()),
+            elem: Box::new(self_type),
         })),
     });
 
@@ -381,7 +374,7 @@ fn generate_possibility_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
 fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     let mark_path = Path::from(s.ident.clone());
     let mark_type = Type::Path(create_type_path(mark_path.clone()));
-    let mut abstr_path = mark_path.clone();
+    let mut abstr_path = mark_path;
     abstr_path.segments.insert(
         0,
         PathSegment {

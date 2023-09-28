@@ -1,31 +1,28 @@
-use std::{char::ToLowercase, collections::HashSet, mem, path};
+use std::{collections::HashSet};
 
 use anyhow::anyhow;
-use mck::mark;
+
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
     punctuated::Punctuated,
-    token::{Comma, Let},
+    token::{Comma},
     visit_mut::VisitMut,
-    Block, Expr, ExprCall, ExprField, ExprPath, ExprReference, ExprTuple, FnArg, Ident, ImplItem,
-    ImplItemFn, Index, ItemImpl, Local, LocalInit, Member, Pat, PatIdent, PatTuple, PatType, Path,
-    PathArguments, PathSegment, ReturnType, Signature, Stmt, Type, TypeInfer, TypePath,
-    TypeReference, TypeSlice, TypeTuple,
+    Block, Expr, ExprField, ExprPath, ExprReference, ExprTuple, FnArg, Ident, ImplItem,
+    ImplItemFn, Index, ItemImpl, Member, Pat, PatIdent, PatType, Path,
+    PathArguments, PathSegment, ReturnType, Signature, Stmt, Type,
+    TypeReference, TypeTuple,
 };
 use syn_path::path;
 
 use crate::transcription::util::{
     create_expr_call, create_expr_path, create_ident, create_let_stmt_from_ident_expr,
-    create_let_stmt_from_pat_expr, create_path_from_ident, create_path_from_name, create_unit_expr,
-    generate_let_default_stmt,
-    path_rule::{self, PathRuleSegment},
+    create_let_stmt_from_pat_expr, create_path_from_name, create_unit_expr,
     scheme::ConversionScheme,
 };
 
 use super::{
-    mark_path_rules,
-    mark_stmt::{self, create_join_stmt, invert_stmt},
+    mark_stmt::{create_join_stmt, invert_stmt},
 };
 
 pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
@@ -53,7 +50,7 @@ pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
         mark_scheme: ConversionScheme::new(
             String::from("__mck_"),
             String::from("mark"),
-            self_name.clone(),
+            self_name,
             false,
         ),
     };
@@ -389,7 +386,7 @@ fn create_input_name_type_iter(
             {
                 return Err(anyhow!("Impure identifier patterns are not supported"));
             }
-            Ok((pat_ident.ident.to_string().to_string(), ty))
+            Ok((pat_ident.ident.to_string(), ty))
         }
     })
 }

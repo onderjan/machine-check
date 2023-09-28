@@ -91,7 +91,7 @@ impl ConversionScheme {
     }
 
     pub fn convert_name(&self, name: &str) -> String {
-        let name = name.strip_prefix(&self.prefix).unwrap_or(&name);
+        let name = name.strip_prefix(&self.prefix).unwrap_or(name);
         format!("{}{}_{}", &self.prefix, &self.scheme, &name)
     }
 
