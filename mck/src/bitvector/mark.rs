@@ -29,7 +29,7 @@ impl<const L: u32> MarkBitvector<L> {
 }
 
 impl<const L: u32> Possibility for MarkBitvector<L> {
-    type Normal = ThreeValuedBitvector<L>;
+    type Possibility = ThreeValuedBitvector<L>;
 
     fn first_possibility(&self) -> ThreeValuedBitvector<L> {
         // all known bits are 0

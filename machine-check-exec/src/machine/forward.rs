@@ -69,7 +69,6 @@ impl State {
     }
 }
 pub mod mark {
-
     #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
     pub struct Input {
         pub input_2: ::mck::MarkBitvector<1u32>,
@@ -82,17 +81,19 @@ pub mod mark {
         }
     }
     impl ::mck::Possibility for Input {
-        type Normal = super::Input;
-        fn first_possibility(&self) -> super::Input {
-            super::Input {
-                input_2: self.input_2.first_possibility(),
-                input_3: self.input_3.first_possibility(),
+        type Possibility = super::Input;
+        fn first_possibility(&self) -> Self::Possibility {
+            Self::Possibility {
+                input_2: ::mck::Possibility::first_possibility(&self.input_2),
+                input_3: ::mck::Possibility::first_possibility(&self.input_3),
             }
         }
-
-        fn increment_possibility(&self, possibility: &mut super::Input) -> bool {
+        fn increment_possibility(&self, possibility: &mut Self::Possibility) -> bool {
             ::mck::Possibility::increment_possibility(&self.input_2, &mut possibility.input_2)
-                || self.input_3.increment_possibility(&mut possibility.input_3)
+                || ::mck::Possibility::increment_possibility(
+                    &self.input_3,
+                    &mut possibility.input_3,
+                )
         }
     }
     #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
@@ -104,6 +105,19 @@ pub mod mark {
         fn apply_join(&mut self, other: Self) {
             ::mck::mark::Join::apply_join(&mut self.state_6, other.state_6);
             ::mck::mark::Join::apply_join(&mut self.safe, other.safe);
+        }
+    }
+    impl ::mck::Possibility for State {
+        type Possibility = super::State;
+        fn first_possibility(&self) -> Self::Possibility {
+            Self::Possibility {
+                state_6: ::mck::Possibility::first_possibility(&self.state_6),
+                safe: ::mck::Possibility::first_possibility(&self.safe),
+            }
+        }
+        fn increment_possibility(&self, possibility: &mut Self::Possibility) -> bool {
+            ::mck::Possibility::increment_possibility(&self.state_6, &mut possibility.state_6)
+                || ::mck::Possibility::increment_possibility(&self.safe, &mut possibility.safe)
         }
     }
     impl State {
@@ -147,29 +161,29 @@ pub mod mark {
                 safe: __mck_abstr_tmp_22,
             };
             let mut __mck_mark_input: Input = ::std::default::Default::default();
-            let mut __mck_mark_tmp_6 = ::std::default::Default::default();
-            let mut __mck_mark_node_6 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_12 = ::std::default::Default::default();
-            let mut __mck_mark_node_5 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_15 = ::std::default::Default::default();
             let mut __mck_mark_tmp_10 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_9 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_13 = ::std::default::Default::default();
+            let mut __mck_mark_node_11 = ::std::default::Default::default();
             let mut __mck_mark_tmp_19 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_14 = ::std::default::Default::default();
             let mut __mck_mark_tmp_7 = ::std::default::Default::default();
+            let mut __mck_mark_node_14 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_14 = ::std::default::Default::default();
+            let mut __mck_mark_node_9 = ::std::default::Default::default();
+            let mut __mck_mark_node_13 = ::std::default::Default::default();
+            let mut __mck_mark_node_10 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_22 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_13 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_15 = ::std::default::Default::default();
             let mut __mck_mark_tmp_8 = ::std::default::Default::default();
-            let mut __mck_mark_node_3 = ::std::default::Default::default();
             let mut __mck_mark_node_8 = ::std::default::Default::default();
+            let mut __mck_mark_node_2 = ::std::default::Default::default();
+            let mut __mck_mark_node_5 = ::std::default::Default::default();
+            let mut __mck_mark_node_3 = ::std::default::Default::default();
+            let mut __mck_mark_node_6 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_9 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_12 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_6 = ::std::default::Default::default();
             let mut __mck_mark_tmp_16 = ::std::default::Default::default();
             let mut __mck_mark_tmp_18 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_22 = ::std::default::Default::default();
-            let mut __mck_mark_node_14 = ::std::default::Default::default();
-            let mut __mck_mark_node_9 = ::std::default::Default::default();
-            let mut __mck_mark_node_10 = ::std::default::Default::default();
-            let mut __mck_mark_node_13 = ::std::default::Default::default();
-            let mut __mck_mark_node_2 = ::std::default::Default::default();
-            let mut __mck_mark_node_11 = ::std::default::Default::default();
             ::mck::mark::Join::apply_join(&mut __mck_mark_node_6, __mck_input_later_mark.state_6);
             ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_22, __mck_input_later_mark.safe);
             let __mck_tmp_51 = ::mck::mark::Not::not((__mck_abstr_node_14,), __mck_mark_tmp_22);
@@ -286,29 +300,29 @@ pub mod mark {
             };
             let mut __mck_mark_self: Self = ::std::default::Default::default();
             let mut __mck_mark_input: Input = ::std::default::Default::default();
-            let mut __mck_mark_tmp_9 = ::std::default::Default::default();
-            let mut __mck_mark_node_10 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_18 = ::std::default::Default::default();
             let mut __mck_mark_node_9 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_6 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_13 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_22 = ::std::default::Default::default();
-            let mut __mck_mark_node_3 = ::std::default::Default::default();
-            let mut __mck_mark_node_13 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_12 = ::std::default::Default::default();
-            let mut __mck_mark_node_5 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_10 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_9 = ::std::default::Default::default();
             let mut __mck_mark_node_8 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_19 = ::std::default::Default::default();
-            let mut __mck_mark_node_6 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_18 = ::std::default::Default::default();
             let mut __mck_mark_tmp_8 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_16 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_15 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_13 = ::std::default::Default::default();
             let mut __mck_mark_node_2 = ::std::default::Default::default();
             let mut __mck_mark_tmp_14 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_15 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_10 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_22 = ::std::default::Default::default();
+            let mut __mck_mark_node_6 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_6 = ::std::default::Default::default();
+            let mut __mck_mark_node_10 = ::std::default::Default::default();
+            let mut __mck_mark_node_3 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_12 = ::std::default::Default::default();
+            let mut __mck_mark_tmp_19 = ::std::default::Default::default();
+            let mut __mck_mark_node_13 = ::std::default::Default::default();
+            let mut __mck_mark_node_5 = ::std::default::Default::default();
             let mut __mck_mark_tmp_7 = ::std::default::Default::default();
-            let mut __mck_mark_tmp_16 = ::std::default::Default::default();
-            let mut __mck_mark_node_11 = ::std::default::Default::default();
             let mut __mck_mark_node_14 = ::std::default::Default::default();
+            let mut __mck_mark_node_11 = ::std::default::Default::default();
             ::mck::mark::Join::apply_join(&mut __mck_mark_node_11, __mck_input_later_mark.state_6);
             ::mck::mark::Join::apply_join(&mut __mck_mark_tmp_22, __mck_input_later_mark.safe);
             let __mck_tmp_53 = ::mck::mark::Not::not((__mck_abstr_node_14,), __mck_mark_tmp_22);

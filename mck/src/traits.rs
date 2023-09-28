@@ -34,7 +34,7 @@ pub trait MachineShift {
 }
 
 pub trait Possibility {
-    type Normal;
-    fn first_possibility(&self) -> Self::Normal;
-    fn increment_possibility(&self, possibility: &mut Self::Normal) -> bool;
+    type Possibility;
+    fn first_possibility(&self) -> Self::Possibility;
+    fn increment_possibility(&self, possibility: &mut Self::Possibility) -> bool;
 }

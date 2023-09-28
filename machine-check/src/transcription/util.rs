@@ -5,9 +5,9 @@ use proc_macro2::{Span, TokenStream};
 use syn::{
     punctuated::Punctuated,
     token::{Bracket, Comma, Paren},
-    Attribute, Expr, ExprAssign, ExprCall, ExprField, ExprPath, ExprTuple, Field, Ident, Index,
-    Local, LocalInit, Member, MetaList, Pat, PatIdent, PatTuple, PatType, Path, Stmt, Type,
-    TypePath,
+    Attribute, Expr, ExprAssign, ExprCall, ExprField, ExprPath, ExprTuple, Field, FieldValue,
+    Ident, Index, Local, LocalInit, Member, MetaList, Pat, PatIdent, PatTuple, PatType, Path, Stmt,
+    Type, TypePath,
 };
 use syn_path::path;
 
@@ -68,20 +68,31 @@ pub fn create_pat_ident(ident: Ident) -> PatIdent {
     }
 }
 
-pub fn create_expr_field(base: Expr, index: usize, field: &Field) -> ExprField {
-    let member = match &field.ident {
+pub fn get_field_member(index: usize, field: &Field) -> Member {
+    match &field.ident {
         Some(ident) => Member::Named(ident.clone()),
         None => Member::Unnamed(Index {
             index: index as u32,
             span: Span::call_site(),
         }),
-    };
+    }
+}
 
+pub fn create_expr_field(base: Expr, index: usize, field: &Field) -> ExprField {
     ExprField {
         attrs: vec![],
         base: Box::new(base),
         dot_token: Default::default(),
-        member,
+        member: get_field_member(index, field),
+    }
+}
+
+pub fn create_field_value(index: usize, field: &Field, init_expr: Expr) -> FieldValue {
+    FieldValue {
+        attrs: vec![],
+        member: get_field_member(index, field),
+        colon_token: Some(Default::default()),
+        expr: init_expr,
     }
 }
 
