@@ -32,3 +32,9 @@ pub trait MachineShift {
     fn srl(self, amount: Self) -> Self::Output;
     fn sra(self, amount: Self) -> Self::Output;
 }
+
+pub trait Possibility {
+    type Normal;
+    fn first_possibility(&self) -> Self::Normal;
+    fn increment_possibility(&self, possibility: &mut Self::Normal) -> bool;
+}

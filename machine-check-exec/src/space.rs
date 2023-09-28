@@ -3,13 +3,14 @@ use std::{
     rc::Rc,
 };
 
-use crate::machine::forward::{mark, Input, State};
+use crate::machine::forward::{
+    mark::{self},
+    Input, State,
+};
 use bimap::BiMap;
-use mck::mark::Join;
+use mck::{mark::Join, Possibility};
 use mck::{MarkBitvector, ThreeValuedBitvector};
 use petgraph::{prelude::GraphMap, Directed};
-
-use anyhow::anyhow;
 
 #[derive(Debug)]
 pub struct Culprit {
@@ -54,9 +55,13 @@ impl Space {
         self.state_map.clear();
         self.state_graph.clear();
         // generate initial states
-        for input in self.input_mark.generate_possibilities() {
+        let mut input = Possibility::first_possibility(&self.input_mark);
+        loop {
             let (initial_state_id, _) = self.add_state(Rc::new(State::init(&input)));
             self.initial_states.push(initial_state_id);
+            if !Possibility::increment_possibility(&self.input_mark, &mut input) {
+                break;
+            }
         }
 
         // construct state space by breadth-first search
@@ -68,7 +73,8 @@ impl Space {
             println!("State #{}: {:?}", state_index, state);
 
             // generate next states
-            for input in self.input_mark.generate_possibilities() {
+            let mut input = Possibility::first_possibility(&self.input_mark);
+            loop {
                 let next_state = state.next(&input);
 
                 let (next_state_index, inserted) = self.add_state(Rc::new(next_state));
@@ -78,6 +84,10 @@ impl Space {
                 if inserted {
                     // add to queue
                     queue.push_back(next_state_index);
+                }
+
+                if !Possibility::increment_possibility(&self.input_mark, &mut input) {
+                    break;
                 }
             }
         }

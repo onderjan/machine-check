@@ -1,15 +1,10 @@
 use mck::{MachineBitvector, MarkBitvector};
 
-use crate::machine::forward::mark;
-
 mod machine;
 mod space;
 
 fn run() -> anyhow::Result<()> {
     let mark = MarkBitvector::<4>::new_from_flag(MachineBitvector::new(15));
-    for possibility in mark.possibility_iter() {
-        println!("Possibility for {:?}: {:?}", mark, possibility);
-    }
 
     println!("Starting state graph generation.");
 

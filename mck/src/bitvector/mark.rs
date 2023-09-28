@@ -5,7 +5,7 @@ use crate::{
         self, Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Mul, Neg, Not, Sub,
         TypedCmp, TypedEq,
     },
-    MachineBitvector, ThreeValuedBitvector,
+    MachineBitvector, Possibility, ThreeValuedBitvector,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -28,70 +28,62 @@ impl<const L: u32> MarkBitvector<L> {
     }
 }
 
-impl<const L: u32> Join for MarkBitvector<L> {
-    fn apply_join(&mut self, other: Self) {
-        self.0 = self.0 | other.0;
+impl<const L: u32> Possibility for MarkBitvector<L> {
+    type Normal = ThreeValuedBitvector<L>;
+
+    fn first_possibility(&self) -> ThreeValuedBitvector<L> {
+        // all known bits are 0
+        let known_bits = self.0.concrete_value();
+        ThreeValuedBitvector::new_value_known(Wrapping(0), known_bits)
     }
-}
 
-pub struct PossibilityIter<const L: u32> {
-    mark: MarkBitvector<L>,
-    current: Option<Wrapping<u64>>,
-}
+    fn increment_possibility(&self, possibility: &mut ThreeValuedBitvector<L>) -> bool {
+        // the marked bits should be split into possibilities
+        let known_bits = self.0.concrete_value();
 
-impl<const L: u32> Iterator for PossibilityIter<L> {
-    type Item = ThreeValuedBitvector<L>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut current = match self.current {
-            Some(current) => current,
-            None => return None,
-        };
+        if known_bits == Wrapping(0) {
+            // if full-unknown, stop immediately after first to avoid shl overflow
+            return false;
+        }
 
         // manual addition-style updates: only update marked positions
         // start with lowest marked position
         // if it is 0 within current, update it to 1 and end
         // if it is 1, update it to 0, temporarily forget mark and update next
-        // end iterator if we overflow
+        // end if we overflow
 
-        let known_bits = self.mark.0.concrete_value();
-
-        if known_bits == Wrapping(0) {
-            self.current = None;
-            return Some(ThreeValuedBitvector::new_unknown());
-        }
-
-        let result = ThreeValuedBitvector::new_value_known(current, known_bits);
-
+        // work with bitvector of only values, the unknowns do not change
+        let mut current = possibility.umin();
         let mut considered_bits = known_bits;
 
         loop {
             let one_pos = considered_bits.0.trailing_zeros();
             let one_mask = Wrapping(1u64 << one_pos);
             if current & one_mask == Wrapping(0) {
-                // if it is 0 within current, update it to 1 and end
-                self.current = Some(current | one_mask);
-                return Some(result);
+                // if considered bit is 0 within current, update it to 1 and end
+                current |= one_mask;
+                let result = ThreeValuedBitvector::new_value_known(current, known_bits);
+
+                *possibility = result;
+                return true;
             }
             // if it is 1, update it to 0, temporarily do not consider it and update next
-            current = current & !one_mask;
-            considered_bits = considered_bits & !one_mask;
+            current &= !one_mask;
+            considered_bits &= !one_mask;
 
-            // end iterator if we overflow
+            // end if we overflow
+            // reset possibility to allow for cycling
             if considered_bits == Wrapping(0) {
-                self.current = None;
-                return Some(result);
+                *possibility = self.first_possibility();
+                return false;
             }
         }
     }
 }
 
-impl<const L: u32> MarkBitvector<L> {
-    pub fn possibility_iter(&self) -> impl Iterator<Item = ThreeValuedBitvector<L>> {
-        PossibilityIter {
-            mark: *self,
-            current: Some(Wrapping(0)),
-        }
+impl<const L: u32> Join for MarkBitvector<L> {
+    fn apply_join(&mut self, other: Self) {
+        self.0 = self.0 | other.0;
     }
 }
 

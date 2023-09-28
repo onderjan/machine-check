@@ -69,6 +69,7 @@ impl State {
     }
 }
 pub mod mark {
+
     #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
     pub struct Input {
         pub input_2: ::mck::MarkBitvector<1u32>,
@@ -80,18 +81,18 @@ pub mod mark {
             ::mck::mark::Join::apply_join(&mut self.input_3, other.input_3);
         }
     }
-    impl Input {
-        pub fn generate_possibilities(&self) -> Vec<super::Input> {
-            let mut result = Vec::new();
-            for i2 in self.input_2.possibility_iter() {
-                for i3 in self.input_3.possibility_iter() {
-                    result.push(super::Input {
-                        input_2: i2,
-                        input_3: i3,
-                    });
-                }
+    impl ::mck::Possibility for Input {
+        type Normal = super::Input;
+        fn first_possibility(&self) -> super::Input {
+            super::Input {
+                input_2: self.input_2.first_possibility(),
+                input_3: self.input_3.first_possibility(),
             }
-            result
+        }
+
+        fn increment_possibility(&self, possibility: &mut super::Input) -> bool {
+            ::mck::Possibility::increment_possibility(&self.input_2, &mut possibility.input_2)
+                || self.input_3.increment_possibility(&mut possibility.input_3)
         }
     }
     #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
