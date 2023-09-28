@@ -36,37 +36,42 @@ impl UniOp {
 
     pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
         let a_tokens = self.a.create_tokens("node");
-        let Sort::Bitvec(bitvec) = result_sort else {
+        let Sort::Bitvec(result_bitvec) = result_sort else {
             return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
+        };
+        let Sort::Bitvec(a_bitvec) = &self.a.sort else {
+            return Err(anyhow!("Expected bitvec operand, but have {}", self.a.sort));
         };
         match self.op_type {
             UniOpType::Not => Ok(quote!(!(#a_tokens))),
             UniOpType::Inc => {
-                let one = Const::new(false, 1).create_tokens(bitvec);
+                let one = Const::new(false, 1).create_tokens(result_bitvec);
                 Ok(quote!((#a_tokens) + (#one)))
             }
             UniOpType::Dec => {
-                let one = Const::new(false, 1).create_tokens(bitvec);
+                let one = Const::new(false, 1).create_tokens(result_bitvec);
                 Ok(quote!((#a_tokens) - (#one)))
             }
             UniOpType::Neg => Ok(quote!(-(#a_tokens))),
             UniOpType::Redand => {
                 // equality with all ones
+                // sort for constant is taken from the operand, not result
                 let all_ones_const = Const::new(true, 1);
-                let all_ones_tokens = all_ones_const.create_tokens(bitvec);
+                let all_ones_tokens = all_ones_const.create_tokens(a_bitvec);
 
                 Ok(quote!(::mck::TypedEq::typed_eq(#a_tokens, #all_ones_tokens)))
             }
             UniOpType::Redor => {
                 // inequality with all zeros
+                // sort for constant is taken from the operand, not result
                 let all_zeros_const = Const::new(false, 0);
-                let all_zeros_tokens = all_zeros_const.create_tokens(bitvec);
+                let all_zeros_tokens = all_zeros_const.create_tokens(a_bitvec);
 
                 Ok(quote!(!(::mck::TypedEq::typed_eq(#a_tokens, #all_zeros_tokens))))
             }
             UniOpType::Redxor => {
                 // naive version, just slice all relevant bits and xor them together
-                let bitvec_length = bitvec.length.get();
+                let bitvec_length = result_bitvec.length.get();
                 let mut slice_expressions = Vec::<TokenStream>::new();
                 let single_bit_sort = Sort::Bitvec(BitvecSort::single_bit());
                 for i in 0..bitvec_length {

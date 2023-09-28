@@ -2,8 +2,8 @@ use std::num::Wrapping;
 
 use crate::{
     mark::{
-        self, Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Markable, Mul, Neg, Not,
-        Sub, TypedCmp, TypedEq,
+        Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Markable, Mul, Neg, Not, Sub,
+        TypedCmp, TypedEq,
     },
     MachineBitvector, Possibility, ThreeValuedBitvector,
 };
