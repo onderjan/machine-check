@@ -106,91 +106,83 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
     type MarkLater = MarkBitvector<1>;
 
     fn typed_eq(
-        _normal_input: (Self, Self),
+        normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         // every unknown bit may be responsible
         let extended = MarkBitvector(crate::MachineExt::sext(mark_later.0));
-        /*(
+        (
             extended.limit(normal_input.0),
             extended.limit(normal_input.1),
-        )*/
-        (extended, extended)
+        )
     }
 }
 
 impl<const L: u32> Neg for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn neg(_normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
+    fn neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         // TODO: improve, just mark everything for now
 
-        //(Self::Mark::new_marked().limit(normal_input.0),)
-        (mark_later,)
+        (Self::Mark::new_marked().limit(normal_input.0),)
     }
 }
 
 impl<const L: u32> Add for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn add(_normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+    fn add(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // TODO: improve, just mark everything for now
 
-        /*(
+        (
             Self::Mark::new_marked().limit(normal_input.0),
             Self::Mark::new_marked().limit(normal_input.1),
-        )*/
-        (Self::Mark::new_marked(), Self::Mark::new_marked())
+        )
     }
 }
 impl<const L: u32> Sub for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn sub(_normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+    fn sub(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // TODO: improve, just mark everything for now
 
-        /*(
+        (
             Self::Mark::new_marked().limit(normal_input.0),
             Self::Mark::new_marked().limit(normal_input.1),
-        )*/
-
-        (Self::Mark::new_marked(), Self::Mark::new_marked())
+        )
     }
 }
 
 impl<const L: u32> Mul for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn mul(_normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+    fn mul(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // TODO: improve, just mark everything for now
-        /*(
+        (
             Self::Mark::new_marked().limit(normal_input.0),
             Self::Mark::new_marked().limit(normal_input.1),
-        )*/
-        (Self::Mark::new_marked(), Self::Mark::new_marked())
+        )
     }
 }
 
 impl<const L: u32> Not for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn not(_normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
+    fn not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         // propagate marking of given bits with limitation
-        //(mark_later.limit(normal_input.0),)
-        (mark_later,)
+        (mark_later.limit(normal_input.0),)
     }
 }
 
 impl<const L: u32> BitAnd for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn bitand(_normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+    fn bitand(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // propagate marking of given bits with limitation
-        /*(
+        (
             mark_later.limit(normal_input.0),
             mark_later.limit(normal_input.1),
-        )*/
-        (mark_later, mark_later)
+        )
     }
 }
 impl<const L: u32> BitOr for ThreeValuedBitvector<L> {
@@ -198,26 +190,21 @@ impl<const L: u32> BitOr for ThreeValuedBitvector<L> {
 
     fn bitor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // propagate marking of given bits with limitation
-        let result = (
+        (
             mark_later.limit(normal_input.0),
             mark_later.limit(normal_input.1),
-        );
-        println!("Bitor {:?}, {:?}: {:?}", normal_input, mark_later, result);
-        result
-
-        //(mark_later, mark_later)
+        )
     }
 }
 impl<const L: u32> BitXor for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn bitxor(_normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+    fn bitxor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // propagate marking of given bits with limitation
-        /*(
+        (
             mark_later.limit(normal_input.0),
             mark_later.limit(normal_input.1),
-        )*/
-        (mark_later, mark_later)
+        )
     }
 }
 
