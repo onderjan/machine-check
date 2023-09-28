@@ -101,23 +101,6 @@ where
     type MarkEarlier;
     type MarkLater;
 
-    fn typed_sgt(
-        normal_input: (Self, Self),
-        mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier, Self::MarkEarlier);
-    fn typed_ugt(
-        normal_input: (Self, Self),
-        mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier, Self::MarkEarlier);
-    fn typed_sgte(
-        normal_input: (Self, Self),
-        mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier, Self::MarkEarlier);
-    fn typed_ugte(
-        normal_input: (Self, Self),
-        mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier, Self::MarkEarlier);
-
     fn typed_slt(
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,

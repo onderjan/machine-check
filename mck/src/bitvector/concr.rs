@@ -120,26 +120,6 @@ impl<const L: u32> TypedEq for MachineBitvector<L> {
 impl<const L: u32> TypedCmp for MachineBitvector<L> {
     type Output = MachineBitvector<1>;
 
-    fn typed_sgt(self, rhs: Self) -> Self::Output {
-        let result = self.v.0 as i64 > rhs.v.0 as i64;
-        MachineBitvector::<1>::w_new(Wrapping(result as u64))
-    }
-
-    fn typed_ugt(self, rhs: Self) -> Self::Output {
-        let result = self.v.0 > rhs.v.0;
-        MachineBitvector::<1>::w_new(Wrapping(result as u64))
-    }
-
-    fn typed_sgte(self, rhs: Self) -> Self::Output {
-        let result = self.v.0 as i64 >= rhs.v.0 as i64;
-        MachineBitvector::<1>::w_new(Wrapping(result as u64))
-    }
-
-    fn typed_ugte(self, rhs: Self) -> Self::Output {
-        let result = self.v.0 >= rhs.v.0;
-        MachineBitvector::<1>::w_new(Wrapping(result as u64))
-    }
-
     fn typed_slt(self, rhs: Self) -> Self::Output {
         let result = (self.v.0 as i64) < (rhs.v.0 as i64);
         MachineBitvector::<1>::w_new(Wrapping(result as u64))

@@ -7,11 +7,6 @@ pub trait TypedEq {
 pub trait TypedCmp {
     type Output;
 
-    fn typed_sgt(self, rhs: Self) -> Self::Output;
-    fn typed_ugt(self, rhs: Self) -> Self::Output;
-    fn typed_sgte(self, rhs: Self) -> Self::Output;
-    fn typed_ugte(self, rhs: Self) -> Self::Output;
-
     fn typed_slt(self, rhs: Self) -> Self::Output;
     fn typed_ult(self, rhs: Self) -> Self::Output;
     fn typed_slte(self, rhs: Self) -> Self::Output;

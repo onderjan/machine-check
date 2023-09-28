@@ -373,76 +373,60 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
 impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
     type Output = ThreeValuedBitvector<1>;
 
-    fn typed_sgt(self, rhs: Self) -> Self::Output {
-        // for lhs to be never greater than rhs,
-        // max value of lhs must be lesser or equal than max value of rhs
-        let result_can_be_zero = self.smax() <= rhs.smax();
-        // for lhs to be always greater than rhs,
-        // min value of lhs must be greater than max value of rhs
-        let result_can_be_one = self.smin() > rhs.smax();
-
-        Self::Output::a_new(
-            Wrapping(result_can_be_zero as u64),
-            Wrapping(result_can_be_one as u64),
-        )
-    }
-
-    fn typed_ugt(self, rhs: Self) -> Self::Output {
-        // for lhs to be never greater than rhs,
-        // max value of lhs must be lesser or equal than max value of rhs
-        let result_can_be_zero = self.umax() <= rhs.umax();
-        // for lhs to be always greater than rhs,
-        // min value of lhs must be greater than max value of rhs
-        let result_can_be_one = self.umin() > rhs.umax();
-
-        Self::Output::a_new(
-            Wrapping(result_can_be_zero as u64),
-            Wrapping(result_can_be_one as u64),
-        )
-    }
-
-    fn typed_sgte(self, rhs: Self) -> Self::Output {
-        // for lhs to be never greater or equal to rhs,
-        // max value of lhs must be lesser than max value of rhs
-        let result_can_be_zero = self.smax() < rhs.smax();
-        // for lhs to be always greater or equal to rhs,
-        // min value of lhs must be greater or equal than max value of rhs
-        let result_can_be_one = self.smin() >= rhs.smax();
-
-        Self::Output::a_new(
-            Wrapping(result_can_be_zero as u64),
-            Wrapping(result_can_be_one as u64),
-        )
-    }
-
-    fn typed_ugte(self, rhs: Self) -> Self::Output {
-        // for lhs to be never greater or equal to rhs,
-        // max value of lhs must be lesser than max value of rhs
-        let result_can_be_zero = self.umax() < rhs.umax();
-        // for lhs to be always greater or equal to rhs,
-        // min value of lhs must be greater or equal than max value of rhs
-        let result_can_be_one = self.umin() >= rhs.umax();
-
-        Self::Output::a_new(
-            Wrapping(result_can_be_zero as u64),
-            Wrapping(result_can_be_one as u64),
-        )
-    }
-
     fn typed_slt(self, rhs: Self) -> Self::Output {
-        !Self::typed_sgte(self, rhs)
+        // for lhs to be never lesser than rhs,
+        // max value of lhs must be greater or equal than max value of rhs
+        let result_can_be_zero = self.smax() >= rhs.smax();
+        // for lhs to be always lesser than rhs,
+        // min value of lhs must be lesser than max value of rhs
+        let result_can_be_one = self.smin() < rhs.smax();
+
+        Self::Output::a_new(
+            Wrapping(result_can_be_zero as u64),
+            Wrapping(result_can_be_one as u64),
+        )
     }
 
     fn typed_ult(self, rhs: Self) -> Self::Output {
-        !Self::typed_ugte(self, rhs)
+        // for lhs to be never lesser than rhs,
+        // max value of lhs must be greater or equal than max value of rhs
+        let result_can_be_zero = self.umax() >= rhs.umax();
+        // for lhs to be always lesser than rhs,
+        // min value of lhs must be lesser than max value of rhs
+        let result_can_be_one = self.umin() < rhs.umax();
+
+        Self::Output::a_new(
+            Wrapping(result_can_be_zero as u64),
+            Wrapping(result_can_be_one as u64),
+        )
     }
 
     fn typed_slte(self, rhs: Self) -> Self::Output {
-        !Self::typed_sgt(self, rhs)
+        // for lhs to be never lesser or equal to rhs,
+        // max value of lhs must be greater than max value of rhs
+        let result_can_be_zero = self.smax() > rhs.smax();
+        // for lhs to be always lesser or equal to rhs,
+        // min value of lhs must be lesser or equal than max value of rhs
+        let result_can_be_one = self.smin() <= rhs.smax();
+
+        Self::Output::a_new(
+            Wrapping(result_can_be_zero as u64),
+            Wrapping(result_can_be_one as u64),
+        )
     }
 
     fn typed_ulte(self, rhs: Self) -> Self::Output {
-        !Self::typed_ugt(self, rhs)
+        // for lhs to be never lesser or equal to rhs,
+        // max value of lhs must be greater than max value of rhs
+        let result_can_be_zero = self.umax() > rhs.umax();
+        // for lhs to be always lesser or equal to rhs,
+        // min value of lhs must be lesser or equal than max value of rhs
+        let result_can_be_one = self.umin() <= rhs.umax();
+
+        Self::Output::a_new(
+            Wrapping(result_can_be_zero as u64),
+            Wrapping(result_can_be_one as u64),
+        )
     }
 }
 

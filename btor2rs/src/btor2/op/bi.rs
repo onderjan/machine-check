@@ -81,10 +81,12 @@ impl BiOp {
             BiOpType::Implies => Ok(quote!(!(#a_tokens) | (#b_tokens))),
             BiOpType::Eq => Ok(quote!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens))),
             BiOpType::Neq => Ok(quote!(!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens)))),
-            BiOpType::Sgt => Ok(quote!(::mck::TypedCmp::typed_sgt(#a_tokens, #b_tokens))),
-            BiOpType::Ugt => Ok(quote!(::mck::TypedCmp::typed_ugt(#a_tokens, #b_tokens))),
-            BiOpType::Sgte => Ok(quote!(::mck::TypedCmp::typed_sgte(#a_tokens, #b_tokens))),
-            BiOpType::Ugte => Ok(quote!(::mck::TypedCmp::typed_ugte(#a_tokens, #b_tokens))),
+            // implement greater using lesser by flipping the operands
+            BiOpType::Sgt => Ok(quote!(::mck::TypedCmp::typed_slt(#b_tokens, #a_tokens))),
+            BiOpType::Ugt => Ok(quote!(::mck::TypedCmp::typed_ult(#b_tokens, #a_tokens))),
+            BiOpType::Sgte => Ok(quote!(::mck::TypedCmp::typed_slte(#b_tokens, #a_tokens))),
+            BiOpType::Ugte => Ok(quote!(::mck::TypedCmp::typed_ulte(#b_tokens, #a_tokens))),
+            // lesser is implemented
             BiOpType::Slt => Ok(quote!(::mck::TypedCmp::typed_slt(#a_tokens, #b_tokens))),
             BiOpType::Ult => Ok(quote!(::mck::TypedCmp::typed_ult(#a_tokens, #b_tokens))),
             BiOpType::Slte => Ok(quote!(::mck::TypedCmp::typed_slte(#a_tokens, #b_tokens))),

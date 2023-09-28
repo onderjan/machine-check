@@ -212,34 +212,6 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
     type MarkEarlier = MarkBitvector<L>;
     type MarkLater = MarkBitvector<1>;
 
-    fn typed_sgt(
-        _normal_input: (Self, Self),
-        _mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        todo!()
-    }
-
-    fn typed_ugt(
-        _normal_input: (Self, Self),
-        _mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        todo!()
-    }
-
-    fn typed_sgte(
-        _normal_input: (Self, Self),
-        _mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        todo!()
-    }
-
-    fn typed_ugte(
-        _normal_input: (Self, Self),
-        _mark_later: Self::MarkLater,
-    ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        todo!()
-    }
-
     fn typed_slt(
         _normal_input: (Self, Self),
         _mark_later: Self::MarkLater,
