@@ -5,6 +5,7 @@ use crate::{
         Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Markable, Mul, Neg, Not, Sub,
         TypedCmp, TypedEq,
     },
+    util::compute_sign_bit_mask,
     MachineBitvector, Possibility, ThreeValuedBitvector,
 };
 
@@ -33,6 +34,7 @@ impl<const L: u32> MarkBitvector<L> {
     }
     fn limit(&self, abstract_bitvec: ThreeValuedBitvector<L>) -> MarkBitvector<L> {
         MarkBitvector(self.0 & abstract_bitvec.get_unknown_bits())
+        //MarkBitvector(self.0)
     }
 }
 
@@ -261,20 +263,38 @@ impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
     type MarkEarlier = MarkBitvector<L>;
     type MarkLater = MarkBitvector<X>;
 
-    fn uext(_normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
-        // unsigned extension does not add any bit
+    fn uext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
+        // we are going in reverse
+        // but unsigned extension does not transport any unknown bit
         // propagate marking of given bits with limitation
         let extended = MarkBitvector(crate::MachineExt::uext(mark_later.0));
-        //(extended.limit(normal_input.0),)
-        (extended,)
+        (extended.limit(normal_input.0),)
     }
 
-    fn sext(_normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
-        // signed extension copies high bit
-        // copy it in marking with signed extension
-        let extended = MarkBitvector(crate::MachineExt::sext(mark_later.0));
-        //(extended.limit(normal_input.0),)
-        (extended,)
+    fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
+        // we are going in reverse
+
+        // in case forward signed extension cut the bitvector or did not do anything,
+        // the there was no transport of any unknown bit
+
+        // in case forward signed extension really extended the bitvector, new high bits were added
+        // as a copy of the sign bit, propagate marking from these high bits back to the sign bit
+
+        // do unsigned extension and then treat the potential high bits specially
+
+        let mut extended = crate::MachineExt::<L>::uext(mark_later.0);
+
+        if X > L {
+            let back = MarkBitvector(crate::MachineExt::<X>::uext(extended));
+            if mark_later != back {
+                // propagate marking to the sign bit
+                extended = extended | MachineBitvector::new(compute_sign_bit_mask(L).0);
+            }
+        }
+
+        let extended = MarkBitvector(extended);
+
+        (extended.limit(normal_input.0),)
     }
 }
 
@@ -317,20 +337,37 @@ impl<const L: u32> MachineShift for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
     fn sll(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        shift(normal_input, mark_later, |a, b| {
-            crate::MachineShift::sll(a, b)
-        })
-    }
-
-    fn srl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        // we have to reverse the shift direction, as we are going from later to earlier mark
+        // use srl
         shift(normal_input, mark_later, |a, b| {
             crate::MachineShift::srl(a, b)
         })
     }
 
-    fn sra(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+    fn srl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        // we have to reverse the shift direction, as we are going from later to earlier mark
+        // use sll
         shift(normal_input, mark_later, |a, b| {
-            crate::MachineShift::sra(a, b)
+            crate::MachineShift::sll(a, b)
+        })
+    }
+
+    fn sra(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        if L == 0 {
+            // avoid problems with zero-width bitvectors
+            return (MarkBitvector::new_marked(), MarkBitvector::new_marked());
+        }
+
+        // we have to reverse the shift direction, as we are going from later to earlier mark
+        // use sll and then manually set the sign bit if some left-shifted-out bit was marked
+        shift(normal_input, mark_later, |a, b| {
+            let mut result = crate::MachineShift::sll(a, b);
+            let back = crate::MachineShift::srl(result, b);
+            if a != back {
+                // mark the sign bit of result
+                result = result | MachineBitvector::new(compute_sign_bit_mask(L).0);
+            }
+            result
         })
     }
 }
