@@ -1,3 +1,8 @@
+pub trait Markable {
+    type Mark;
+    fn create_clean_mark(&self) -> Self::Mark;
+}
+
 pub trait Join
 where
     Self: Sized,

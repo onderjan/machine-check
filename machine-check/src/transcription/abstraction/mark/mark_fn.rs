@@ -8,8 +8,8 @@ use syn::{
     punctuated::Punctuated,
     token::{Comma, Let},
     visit_mut::VisitMut,
-    Block, Expr, ExprCall, ExprField, ExprPath, ExprTuple, FnArg, Ident, ImplItem, ImplItemFn,
-    Index, ItemImpl, Local, LocalInit, Member, Pat, PatIdent, PatTuple, PatType, Path,
+    Block, Expr, ExprCall, ExprField, ExprPath, ExprReference, ExprTuple, FnArg, Ident, ImplItem,
+    ImplItemFn, Index, ItemImpl, Local, LocalInit, Member, Pat, PatIdent, PatTuple, PatType, Path,
     PathArguments, PathSegment, ReturnType, Signature, Stmt, Type, TypeInfer, TypePath,
     TypeReference, TypeSlice, TypeTuple,
 };
@@ -17,7 +17,8 @@ use syn_path::path;
 
 use crate::transcription::util::{
     create_expr_call, create_expr_path, create_ident, create_let_stmt_from_ident_expr,
-    create_let_stmt_from_pat_expr, create_unit_expr, generate_let_default_stmt,
+    create_let_stmt_from_pat_expr, create_path_from_ident, create_path_from_name, create_unit_expr,
+    generate_let_default_stmt,
     path_rule::{self, PathRuleSegment},
     scheme::ConversionScheme,
 };
@@ -126,26 +127,8 @@ impl MarkConverter {
         }
 
         // step 6: add initialization of local mark variables
-        for (ident, ty) in earlier_mark.1 {
-            let init_stmt = create_let_stmt_from_pat_expr(
-                Pat::Type(PatType {
-                    attrs: vec![],
-                    pat: Box::new(Pat::Ident(PatIdent {
-                        attrs: vec![],
-                        by_ref: None,
-                        mutability: Some(Default::default()),
-                        ident,
-                        subpat: None,
-                    })),
-                    colon_token: Default::default(),
-                    ty: Box::new(ty),
-                }),
-                Expr::Call(create_expr_call(
-                    Expr::Path(create_expr_path(path!(::std::default::Default::default))),
-                    Punctuated::new(),
-                )),
-            );
-            result_stmts.push(init_stmt);
+        for (ident, _) in earlier_mark.1 {
+            result_stmts.push(create_mark_init_stmt(ident, false));
         }
 
         let mut local_visitor = LocalVisitor {
@@ -157,39 +140,9 @@ impl MarkConverter {
             local_visitor.visit_stmt_mut(stmt);
         }
 
-        /*
-           impl Input {
-               pub fn generate_possibilities(&self) -> Vec<super::Input> {
-                   let mut result = Vec::new();
-                   for i2 in self.input_2.possibility_iter() {
-                       for i3 in self.input_3.possibility_iter() {
-                           result.push(super::Input {
-                               input_2: i2,
-                               input_3: i3,
-                           });
-                       }
-                   }
-                   result
-               }
-           }
-        */
         for local_name in local_visitor.local_names {
             let ident = create_ident(&local_name);
-            let right_expr = Expr::Call(create_expr_call(
-                Expr::Path(create_expr_path(path!(::std::default::Default::default))),
-                Punctuated::new(),
-            ));
-            let init_stmt = create_let_stmt_from_pat_expr(
-                Pat::Ident(PatIdent {
-                    attrs: vec![],
-                    by_ref: None,
-                    mutability: Some(Default::default()),
-                    ident,
-                    subpat: None,
-                }),
-                right_expr,
-            );
-            result_stmts.push(init_stmt);
+            result_stmts.push(create_mark_init_stmt(ident, true));
         }
 
         // step 6: de-result later mark
@@ -318,6 +271,42 @@ impl MarkConverter {
         // do not change mark type from original type, as the mark structure now stands for the original
         Ok(orig_type.clone())
     }
+}
+
+fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
+    // TODO: move somewhat
+    let abstr_name = format!(
+        "__mck_abstr_{}",
+        mark_ident.to_string().strip_prefix("__mck_mark_").unwrap()
+    );
+
+    let param = Expr::Path(create_expr_path(create_path_from_name(&abstr_name)));
+    let param = if reference {
+        Expr::Reference(ExprReference {
+            attrs: vec![],
+            and_token: Default::default(),
+            mutability: None,
+            expr: Box::new(param),
+        })
+    } else {
+        param
+    };
+
+    create_let_stmt_from_pat_expr(
+        Pat::Ident(PatIdent {
+            attrs: vec![],
+            by_ref: None,
+            mutability: Some(Default::default()),
+            ident: mark_ident,
+            subpat: None,
+        }),
+        Expr::Call(create_expr_call(
+            Expr::Path(create_expr_path(path!(
+                ::mck::mark::Markable::create_clean_mark
+            ))),
+            Punctuated::from_iter(vec![param]),
+        )),
+    )
 }
 
 fn get_path_ident_mut(path: &mut Path) -> Option<&mut Ident> {

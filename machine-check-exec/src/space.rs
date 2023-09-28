@@ -33,10 +33,7 @@ pub struct Space {
 
 impl Space {
     fn unknown_input() -> Input {
-        Input {
-            input_2: ThreeValuedBitvector::new_unknown(),
-            input_3: ThreeValuedBitvector::new_unknown(),
-        }
+        Input::default()
     }
 
     pub fn new() -> Self {
@@ -51,6 +48,7 @@ impl Space {
     }
 
     pub fn generate(&mut self) {
+        println!("Generating state space...");
         self.initial_states.clear();
         self.state_map.clear();
         self.state_graph.clear();
@@ -70,7 +68,7 @@ impl Space {
 
         while let Some(state_index) = queue.pop_front() {
             let state = self.get_state_by_index(state_index);
-            println!("State #{}: {:?}", state_index, state);
+            //println!("State #{}: {:?}", state_index, state);
 
             // generate next states
             let mut input = Possibility::first_possibility(&self.input_mark);
@@ -91,6 +89,10 @@ impl Space {
                 }
             }
         }
+        println!(
+            "Generated state space with {} states.",
+            self.state_map.len()
+        );
     }
 
     pub fn verify(&mut self) -> anyhow::Result<bool> {
@@ -124,8 +126,7 @@ impl Space {
                 new_state_mark, input_mark
             );
             let mut joined_mark = input_mark.clone();
-            joined_mark.input_2.apply_join(input_mark.input_2);
-            joined_mark.input_3.apply_join(input_mark.input_3);
+            joined_mark.apply_join(input_mark);
             if joined_mark != self.input_mark {
                 self.input_mark = joined_mark;
                 println!("Refined to {:?}", self.input_mark);

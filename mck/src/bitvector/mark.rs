@@ -2,7 +2,7 @@ use std::num::Wrapping;
 
 use crate::{
     mark::{
-        self, Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Mul, Neg, Not, Sub,
+        Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Markable, Mul, Neg, Not, Sub,
         TypedCmp, TypedEq,
     },
     MachineBitvector, Possibility, ThreeValuedBitvector,
@@ -10,6 +10,14 @@ use crate::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MarkBitvector<const L: u32>(MachineBitvector<L>);
+
+impl<const L: u32> Markable for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
+
+    fn create_clean_mark(&self) -> Self::Mark {
+        MarkBitvector::new_unmarked()
+    }
+}
 
 impl<const L: u32> MarkBitvector<L> {
     pub fn new_unmarked() -> Self {

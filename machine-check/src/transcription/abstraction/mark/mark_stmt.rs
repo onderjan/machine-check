@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use proc_macro2::{Punct, Span};
+use quote::quote;
 use syn::{
     punctuated::Punctuated, token::Comma, Expr, ExprAssign, ExprCall, ExprField, ExprPath,
     ExprReference, ExprTuple, FieldPat, Ident, Index, Local, Member, Pat, PatStruct, PatTuple,
@@ -23,44 +24,39 @@ fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
     }
 
     let mut segments_iter = fn_path.path.segments.iter_mut();
-    let add_mark_segment = match segments_iter.next() {
-        Some(PathSegment {
-            ident: ref mut crate_ident,
-            arguments: PathArguments::None,
-        }) => {
-            let crate_ident_string = crate_ident.to_string();
-            match crate_ident_string.as_str() {
-                "std" => {
-                    let Some(PathSegment {
-                        ident: second_ident,
-                        arguments: PathArguments::None,
-                    }) = segments_iter.next() else {
-                        return Err(anyhow!("Inversion fail"));
-                    };
-                    *crate_ident = Ident::new("mck", crate_ident.span());
-                    *second_ident = Ident::new("mark", second_ident.span());
-                    false
-                }
-                "mck" => true,
-                _ => return Err(anyhow!("Inversion fail")),
+
+    if let Some(crate_segment) = segments_iter.next() {
+        let crate_ident = &mut crate_segment.ident;
+        match crate_ident.to_string().as_str() {
+            "std" => {
+                let Some(PathSegment {
+                    ident: second_ident,
+                    arguments: PathArguments::None,
+                }) = segments_iter.next() else {
+                    return Err(anyhow!("Inversion fail"));
+                };
+                *crate_ident = Ident::new("mck", crate_ident.span());
+                *second_ident = Ident::new("mark", second_ident.span());
+                return Ok(());
             }
+            "mck" => {
+                // add mark segment
+                fn_path.path.segments.insert(
+                    1,
+                    PathSegment {
+                        ident: Ident::new("mark", Span::call_site()),
+                        arguments: PathArguments::None,
+                    },
+                );
+                return Ok(());
+            }
+            _ => (),
         }
-        _ => {
-            return Err(anyhow!("Inversion fail"));
-        }
-    };
-
-    if add_mark_segment {
-        fn_path.path.segments.insert(
-            1,
-            PathSegment {
-                ident: Ident::new("mark", Span::call_site()),
-                arguments: PathArguments::None,
-            },
-        );
     }
-
-    Ok(())
+    Err(anyhow!(
+        "Failed to invert function expression {}",
+        quote!(#fn_expr)
+    ))
 }
 
 pub fn create_join_stmt(left: Expr, right: Expr) -> Stmt {
@@ -108,8 +104,9 @@ fn invert_call(stmts: &mut Vec<Stmt>, later_mark: ExprPath, call: &ExprCall) -> 
         };
         function_args.push(pat);
     }
+
     if all_args_wild {
-        // TODO: do not return here
+        // no effect
         return Ok(());
     }
 
@@ -131,20 +128,25 @@ fn invert_call(stmts: &mut Vec<Stmt>, later_mark: ExprPath, call: &ExprCall) -> 
     // the normal input tuple and normal output first
     // then mark later
     inverted_call.args.clear();
-    let mut earlier_marks = Vec::new();
     let mut abstr_input_args = Punctuated::new();
 
     for arg in &call.args {
-        if let Expr::Path(expr_path) = arg {
-            earlier_marks.push(expr_path.clone());
-            let mut abstr_path = expr_path.clone();
-            change_path_to_abstr(&mut abstr_path.path);
-            abstr_input_args.push(Expr::Path(abstr_path));
-        } else {
-            return Err(anyhow!(
-                "Inversion not implemented for function argument type {:?}",
-                arg
-            ));
+        match arg {
+            Expr::Path(expr_path) => {
+                let mut abstr_path = expr_path.clone();
+                change_path_to_abstr(&mut abstr_path.path);
+                abstr_input_args.push(Expr::Path(abstr_path))
+            }
+            Expr::Lit(_) => {
+                // literal is passed unchanged
+                abstr_input_args.push(arg.clone())
+            }
+            _ => {
+                return Err(anyhow!(
+                    "Inversion not implemented for function argument type {:?}",
+                    arg
+                ))
+            }
         }
     }
 
@@ -162,27 +164,33 @@ fn invert_call(stmts: &mut Vec<Stmt>, later_mark: ExprPath, call: &ExprCall) -> 
     ));
 
     for (index, arg) in call.args.iter().enumerate() {
-        if let Expr::Path(expr_path) = arg {
-            let left_path_expr = Expr::Path(expr_path.clone());
-            let right_path_expr = Expr::Path(create_expr_path(Path::from(tmp_ident.clone())));
-            let right_field_expr = Expr::Field(ExprField {
-                attrs: vec![],
-                base: Box::new(right_path_expr),
-                dot_token: Default::default(),
-                member: Member::Unnamed(Index {
-                    index: index as u32,
-                    span: Span::call_site(),
-                }),
-            });
-            // join instead of assigning to correctly remember values
-            let stmt = create_join_stmt(left_path_expr, right_field_expr);
+        match arg {
+            Expr::Path(expr_path) => {
+                let left_path_expr = Expr::Path(expr_path.clone());
+                let right_path_expr = Expr::Path(create_expr_path(Path::from(tmp_ident.clone())));
+                let right_field_expr = Expr::Field(ExprField {
+                    attrs: vec![],
+                    base: Box::new(right_path_expr),
+                    dot_token: Default::default(),
+                    member: Member::Unnamed(Index {
+                        index: index as u32,
+                        span: Span::call_site(),
+                    }),
+                });
+                // join instead of assigning to correctly remember values
+                let stmt = create_join_stmt(left_path_expr, right_field_expr);
 
-            stmts.push(stmt);
-        } else {
-            return Err(anyhow!(
-                "Inversion assignment not implemented for function argument type {:?}",
-                arg
-            ));
+                stmts.push(stmt);
+            }
+            Expr::Lit(_) => {
+                // do nothing
+            }
+            _ => {
+                return Err(anyhow!(
+                    "Inversion assignment not implemented for function argument type {:?}",
+                    arg
+                ))
+            }
         }
     }
 

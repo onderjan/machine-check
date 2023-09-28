@@ -2,11 +2,11 @@ use std::result;
 
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprField, ExprReference,
-    ExprStruct, FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn, ImplItemType, Item,
-    ItemFn, ItemImpl, ItemMod, ItemStruct, Member, Pat, PatIdent, PatReference, PatType, Path,
-    PathArguments, PathSegment, Receiver, ReturnType, Signature, Stmt, Type, TypePath,
-    TypeReference,
+    punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprCall, ExprField,
+    ExprReference, ExprStruct, FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn,
+    ImplItemType, Item, ItemFn, ItemImpl, ItemMod, ItemStruct, ItemType, Member, Pat, PatIdent,
+    PatReference, PatType, Path, PathArguments, PathSegment, Receiver, ReturnType, Signature, Stmt,
+    Type, TypePath, TypeReference, Visibility,
 };
 use syn_path::path;
 
@@ -64,11 +64,13 @@ fn apply_transcribed_item_struct(items: &mut Vec<Item>, s: &ItemStruct) -> anyho
     path_rule::apply_to_item_struct(&mut s, mark_path_rules())?;
     let join_impl = generate_join_impl(&s)?;
     let possibility_impl = generate_possibility_impl(&s)?;
+    let markable_impl = generate_markable_impl(&s)?;
     // add struct
     items.push(Item::Struct(s));
-    // add implementations of join and possibility
+    // add implementations of join, possibility, and markable
     items.push(Item::Impl(join_impl));
     items.push(Item::Impl(possibility_impl));
+    items.push(Item::Impl(markable_impl));
 
     Ok(())
 }
@@ -374,6 +376,100 @@ fn generate_possibility_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
             ImplItem::Fn(next_possibility_fn),
         ],
     })
+}
+
+fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
+    let mark_path = Path::from(s.ident.clone());
+    let mark_type = Type::Path(create_type_path(mark_path.clone()));
+    let mut abstr_path = mark_path.clone();
+    abstr_path.segments.insert(
+        0,
+        PathSegment {
+            ident: create_ident("super"),
+            arguments: PathArguments::None,
+        },
+    );
+
+    let markable_item_type = ImplItemType {
+        attrs: vec![],
+        vis: Visibility::Inherited,
+        defaultness: None,
+        type_token: Default::default(),
+        ident: create_ident("Mark"),
+        generics: Default::default(),
+        eq_token: Default::default(),
+        ty: mark_type.clone(),
+        semi_token: Default::default(),
+    };
+
+    let abstr_ref_type = Type::Reference(TypeReference {
+        and_token: Default::default(),
+        lifetime: None,
+        mutability: None,
+        elem: Box::new(Type::Path(create_type_path(create_path_from_name("Self")))),
+    });
+
+    let abstr_self_arg = FnArg::Receiver(Receiver {
+        attrs: vec![],
+        reference: Some((Default::default(), None)),
+        mutability: None,
+        self_token: Default::default(),
+        colon_token: None,
+        ty: Box::new(abstr_ref_type),
+    });
+
+    let expr = Expr::Call(create_expr_call(
+        Expr::Path(create_expr_path(path!(::std::default::Default::default))),
+        Punctuated::new(),
+    ));
+
+    let create_clean_mark_fn = ImplItemFn {
+        attrs: vec![],
+        vis: syn::Visibility::Inherited,
+        defaultness: None,
+        sig: Signature {
+            constness: None,
+            asyncness: None,
+            unsafety: None,
+            abi: None,
+            fn_token: Default::default(),
+            ident: create_ident("create_clean_mark"),
+            generics: Default::default(),
+            paren_token: Default::default(),
+            inputs: Punctuated::from_iter(vec![abstr_self_arg]),
+            variadic: None,
+            output: ReturnType::Type(Default::default(), Box::new(mark_type)),
+        },
+        block: Block {
+            brace_token: Default::default(),
+            stmts: vec![Stmt::Expr(expr, None)],
+        },
+    };
+
+    let struct_type = Type::Path(create_type_path(abstr_path));
+    let impl_trait = (None, path!(::mck::mark::Markable), Default::default());
+    Ok(ItemImpl {
+        attrs: vec![],
+        defaultness: None,
+        unsafety: None,
+        impl_token: Default::default(),
+        generics: Generics::default(),
+        trait_: Some(impl_trait),
+        self_ty: Box::new(struct_type),
+        brace_token: Default::default(),
+        items: vec![
+            ImplItem::Type(markable_item_type),
+            ImplItem::Fn(create_clean_mark_fn),
+        ],
+    })
+
+    /*impl ::mck::mark::Markable for super::State {
+        type Mark = State;
+
+        fn create_clean_mark(&self) -> Self::Mark {
+            Default::default()
+        }
+    }*/
 }
 
 pub fn mark_path_rules() -> Vec<PathRule> {
