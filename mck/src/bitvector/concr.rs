@@ -3,6 +3,9 @@ use std::{
     ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub},
 };
 
+use std::fmt::Debug;
+use std::fmt::Display;
+
 use crate::{
     traits::{MachineExt, MachineShift, TypedCmp, TypedEq},
     util::{compute_mask, compute_sign_bit_mask, is_highest_bit_set},
@@ -10,7 +13,7 @@ use crate::{
 
 use super::Bitvector;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MachineBitvector<const L: u32> {
     v: Wrapping<u64>,
 }
@@ -40,11 +43,11 @@ impl<const L: u32> MachineBitvector<L> {
     }
 
     // not for use where it may be replaced by abstraction
-    pub fn concrete_unsigned(&self) -> Wrapping<u64> {
+    pub fn as_unsigned(&self) -> Wrapping<u64> {
         self.v
     }
 
-    pub fn concrete_signed(&self) -> Wrapping<i64> {
+    pub fn as_signed(&self) -> Wrapping<i64> {
         let mut result = self.v;
         if (result & compute_sign_bit_mask(L)) != Wrapping(0) {
             // add signed extension
@@ -55,6 +58,24 @@ impl<const L: u32> MachineBitvector<L> {
 
     fn is_sign_bit_set(&self) -> bool {
         is_highest_bit_set(self.v, L)
+    }
+}
+
+impl<const L: u32> Debug for MachineBitvector<L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "'")?;
+        for little_k in 0..L {
+            let big_k = L - little_k - 1;
+            let bit = (self.v >> (big_k as usize)) & Wrapping(1);
+            write!(f, "{}", bit)?;
+        }
+        write!(f, "'")
+    }
+}
+
+impl<const L: u32> Display for MachineBitvector<L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as Debug>::fmt(self, f)
     }
 }
 
@@ -134,22 +155,22 @@ impl<const L: u32> TypedCmp for MachineBitvector<L> {
     type Output = MachineBitvector<1>;
 
     fn typed_slt(self, rhs: Self) -> Self::Output {
-        let result = self.concrete_signed() < rhs.concrete_signed();
+        let result = self.as_signed() < rhs.as_signed();
         MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 
     fn typed_ult(self, rhs: Self) -> Self::Output {
-        let result = self.concrete_unsigned() < rhs.concrete_unsigned();
+        let result = self.as_unsigned() < rhs.as_unsigned();
         MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 
     fn typed_slte(self, rhs: Self) -> Self::Output {
-        let result = self.concrete_signed() <= rhs.concrete_signed();
+        let result = self.as_signed() <= rhs.as_signed();
         MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 
     fn typed_ulte(self, rhs: Self) -> Self::Output {
-        let result = self.concrete_unsigned() <= rhs.concrete_unsigned();
+        let result = self.as_unsigned() <= rhs.as_unsigned();
         MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 }

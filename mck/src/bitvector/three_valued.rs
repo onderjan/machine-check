@@ -70,7 +70,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         Some(MachineBitvector::new(self.ones.0))
     }
 
-    fn a_new(zeros: Wrapping<u64>, ones: Wrapping<u64>) -> Self {
+    pub fn a_new(zeros: Wrapping<u64>, ones: Wrapping<u64>) -> Self {
         let mask = util::compute_mask(L);
         // the unused bits must be unset
         assert_eq!(zeros & !mask, Wrapping(0));
@@ -90,7 +90,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     fn b_new(value: MachineBitvector<L>) -> Self {
-        Self::w_new(value.concrete_unsigned())
+        Self::w_new(value.as_unsigned())
     }
 
     const fn get_mask() -> Wrapping<u64> {
@@ -622,8 +622,8 @@ mod tests {
             }
             let a = MachineBitvector::<L>::new(a);
             let concr_result = concr_func(a);
-            zeros |= !concr_result.concrete_unsigned() & x_mask;
-            ones |= concr_result.concrete_unsigned();
+            zeros |= !concr_result.as_unsigned() & x_mask;
+            ones |= concr_result.as_unsigned();
         }
         ThreeValuedBitvector::a_new(zeros, ones)
     }
@@ -704,8 +704,8 @@ mod tests {
                 let b = MachineBitvector::<L>::new(b);
 
                 let concr_result = concr_func(a, b);
-                zeros |= !concr_result.concrete_unsigned() & x_mask;
-                ones |= concr_result.concrete_unsigned();
+                zeros |= !concr_result.as_unsigned() & x_mask;
+                ones |= concr_result.as_unsigned();
             }
         }
         ThreeValuedBitvector::a_new(zeros, ones)
