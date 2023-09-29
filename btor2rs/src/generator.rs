@@ -155,8 +155,8 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let constrained_next_expr = quote!(#constrained_ident: #next_constraint);
     next_result_tokens.push(constrained_next_expr);
 
-    // result is safe exactly when it is constrained and there is no bad result
-    // i.e. constrained & (!bad_1 & !bad_2 & ...)
+    // result is safe exactly when it is either not constrained or there is no bad result
+    // i.e. !constrained | (!bad_1 & !bad_2 & ...)
     let mut not_bad_tokens = Vec::<TokenStream>::new();
     for node in btor2.nodes.values() {
         if let NodeType::Bad(bad_ref) = &node.ntype {
@@ -166,9 +166,9 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     }
     let not_bad_and = quote!((#(#not_bad_tokens)&*));
 
-    let safe_init_expr = quote!(#safe_ident: #init_constraint & #not_bad_and);
+    let safe_init_expr = quote!(#safe_ident: !(#init_constraint) | (#not_bad_and));
     init_result_tokens.push(safe_init_expr);
-    let safe_next_expr = quote!(#safe_ident: #next_constraint & #not_bad_and);
+    let safe_next_expr = quote!(#safe_ident: !(#next_constraint) | (#not_bad_and));
     next_result_tokens.push(safe_next_expr);
 
     let init_statements = create_statements(&btor2, true)?;
