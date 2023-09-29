@@ -1,4 +1,4 @@
-use std::num::Wrapping;
+use std::{io::WriterPanicked, num::Wrapping};
 
 pub const fn compute_mask(length: u32) -> Wrapping<u64> {
     if length == u64::BITS {
@@ -15,6 +15,10 @@ pub const fn compute_mask(length: u32) -> Wrapping<u64> {
 }
 
 pub const fn compute_sign_bit_mask(length: u32) -> Wrapping<u64> {
+    if length == 0 {
+        // return zero
+        return Wrapping(0);
+    }
     // the highest bit within mask (unless length is 0)
     Wrapping(1u64.wrapping_shl(length - 1))
 }

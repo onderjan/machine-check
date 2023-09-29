@@ -581,9 +581,7 @@ impl<const L: u32> Display for ThreeValuedBitvector<L> {
 mod tests {
     use super::*;
 
-    const L: u32 = 4;
-
-    fn join_concr_uni<const X: u32>(
+    fn join_concr_uni<const L: u32, const X: u32>(
         abstr_a: ThreeValuedBitvector<L>,
         concr_func: fn(MachineBitvector<L>) -> MachineBitvector<X>,
     ) -> ThreeValuedBitvector<X> {
@@ -602,7 +600,7 @@ mod tests {
         ThreeValuedBitvector::a_new(zeros, ones)
     }
 
-    fn exec_uni_check<const X: u32>(
+    fn exec_uni_check<const L: u32, const X: u32>(
         abstr_func: fn(ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
         concr_func: fn(MachineBitvector<L>) -> MachineBitvector<X>,
     ) {
@@ -630,28 +628,35 @@ mod tests {
 
     macro_rules! uni_op_test {
         ($op:tt) => {
+            seq_macro::seq!(L in 0..=8 {
+
             #[test]
-            pub fn $op() {
+            pub fn $op~L() {
                 let abstr_func = |a: ThreeValuedBitvector<L>| a.$op();
                 let concr_func = |a: MachineBitvector<L>| a.$op();
                 exec_uni_check(abstr_func, concr_func);
             }
+        });
         };
     }
 
     macro_rules! ext_op_test {
-        ($name:tt, $op:tt, $len:tt) => {
-            #[test]
-            pub fn $name() {
-                let abstr_func =
-                    |a: ThreeValuedBitvector<L>| -> ThreeValuedBitvector<$len> { a.$op() };
-                let concr_func = |a: MachineBitvector<L>| -> MachineBitvector<$len> { a.$op() };
-                exec_uni_check(abstr_func, concr_func);
-            }
+        ($op:tt) => {
+            seq_macro::seq!(L in 0..=6 {
+                seq_macro::seq!(X in 0..=6 {
+                    #[test]
+                    pub fn $op~L~X() {
+                        let abstr_func =
+                            |a: ThreeValuedBitvector<L>| -> ThreeValuedBitvector<X> { a.$op() };
+                        let concr_func = |a: MachineBitvector<L>| -> MachineBitvector<X> { a.$op() };
+                        exec_uni_check(abstr_func, concr_func);
+                    }
+                });
+            });
         };
     }
 
-    fn join_concr_bi<const X: u32>(
+    fn join_concr_bi<const L: u32, const X: u32>(
         abstr_a: ThreeValuedBitvector<L>,
         abstr_b: ThreeValuedBitvector<L>,
         concr_func: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<X>,
@@ -678,7 +683,7 @@ mod tests {
         ThreeValuedBitvector::a_new(zeros, ones)
     }
 
-    fn exec_bi_check<const X: u32>(
+    fn exec_bi_check<const L: u32, const X: u32>(
         abstr_func: fn(ThreeValuedBitvector<L>, ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
         concr_func: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<X>,
     ) {
@@ -717,12 +722,16 @@ mod tests {
 
     macro_rules! bi_op_test {
         ($op:tt) => {
+
+            seq_macro::seq!(L in 0..=6 {
+
             #[test]
-            pub fn $op() {
+            pub fn $op~L() {
                 let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b);
                 let concr_func = |a: MachineBitvector<L>, b: MachineBitvector<L>| a.$op(b);
                 exec_bi_check(abstr_func, concr_func);
             }
+        });
         };
     }
 
@@ -760,23 +769,7 @@ mod tests {
 
     // --- EXTENSION TESTS ---
 
-    // unsigned
-    ext_op_test!(uext_1, uext, 1);
-    ext_op_test!(uext_2, uext, 2);
-    ext_op_test!(uext_3, uext, 3);
-    ext_op_test!(uext_4, uext, 4);
-    ext_op_test!(uext_5, uext, 5);
-    ext_op_test!(uext_6, uext, 6);
-    ext_op_test!(uext_7, uext, 7);
-    ext_op_test!(uext_8, uext, 8);
-
-    // signed
-    ext_op_test!(sext_1, sext, 1);
-    ext_op_test!(sext_2, sext, 2);
-    ext_op_test!(sext_3, sext, 3);
-    ext_op_test!(sext_4, sext, 4);
-    ext_op_test!(sext_5, sext, 5);
-    ext_op_test!(sext_6, sext, 6);
-    ext_op_test!(sext_7, sext, 7);
-    ext_op_test!(sext_8, sext, 8);
+    // extension tests
+    ext_op_test!(uext);
+    ext_op_test!(sext);
 }
