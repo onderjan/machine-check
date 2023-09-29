@@ -63,6 +63,13 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         MachineBitvector::new(self.zeros.0)
     }
 
+    pub fn concrete_value(&self) -> Option<MachineBitvector<L>> {
+        if (!(self.ones ^ self.zeros)) != Wrapping(0) {
+            return None;
+        }
+        Some(MachineBitvector::new(self.ones.0))
+    }
+
     fn a_new(zeros: Wrapping<u64>, ones: Wrapping<u64>) -> Self {
         let mask = util::compute_mask(L);
         // the unused bits must be unset
@@ -80,6 +87,10 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         // leave as-is for ones
         let ones = value;
         Self::a_new(zeros, ones)
+    }
+
+    fn b_new(value: MachineBitvector<L>) -> Self {
+        Self::w_new(value.concrete_unsigned())
     }
 
     const fn get_mask() -> Wrapping<u64> {
@@ -111,44 +122,36 @@ impl<const L: u32> ThreeValuedBitvector<L> {
 
     fn smin(&self) -> Wrapping<i64> {
         // take the unsigned minimum
-        let umin = self.umin();
+        let mut result = self.umin();
         // but the signed value is smaller when the sign bit is one
         // if it is possible to set it to one, set it
-        let smin = if self.is_ones_sign_bit_set() {
-            umin | self.get_sign_bit_mask()
-        } else {
-            umin
-        };
+        if self.is_ones_sign_bit_set() {
+            result |= self.get_sign_bit_mask()
+        }
 
         // convert to signed
         // if the sign bit is set, extend it to upper bits
-        let extended_smin = if smin & self.get_sign_bit_mask() != Wrapping(0) {
-            smin | !Self::get_mask()
-        } else {
-            smin
+        if (result & self.get_sign_bit_mask()) != Wrapping(0) {
+            result |= !Self::get_mask();
         };
-        Wrapping(extended_smin.0 as i64)
+        Wrapping(result.0 as i64)
     }
 
     fn smax(&self) -> Wrapping<i64> {
         // take the unsigned maximum
-        let umax = self.umax();
-        // but the signed value is larger when the sign bit is zero
-        // if it is possible to set it to zero, do it
-        let smax = if self.is_zeros_sign_bit_set() {
-            umax | self.get_sign_bit_mask()
-        } else {
-            umax
-        };
+        let mut result = self.umax();
+        // but the signed value is smaller when the sign bit is zero
+        // if it is possible to set it to zero, set it
+        if self.is_zeros_sign_bit_set() {
+            result &= !self.get_sign_bit_mask()
+        }
 
         // convert to signed
         // if the sign bit is set, extend it to upper bits
-        let extended_smax = if smax & self.get_sign_bit_mask() != Wrapping(0) {
-            smax | !Self::get_mask()
-        } else {
-            smax
+        if (result & self.get_sign_bit_mask()) != Wrapping(0) {
+            result |= !Self::get_mask();
         };
-        Wrapping(extended_smax.0 as i64)
+        Wrapping(result.0 as i64)
     }
 
     pub fn can_contain(&self, a: Wrapping<u64>) -> bool {

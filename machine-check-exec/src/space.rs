@@ -14,7 +14,7 @@ use petgraph::{prelude::GraphMap, Directed};
 
 #[derive(Debug)]
 pub struct Culprit {
-    path: VecDeque<usize>,
+    pub path: VecDeque<usize>,
 }
 
 #[derive(Debug)]
@@ -26,7 +26,7 @@ pub enum ModelCheckResult {
 
 pub enum VerificationInfo {
     Completed(bool),
-    Incomplete,
+    Incomplete(Vec<Rc<State>>),
 }
 pub struct Space {
     init_precision: mark::Input,
@@ -141,13 +141,17 @@ impl Space {
                 ModelCheckResult::Unknown(culprit) => culprit,
             };
 
-            if !self.refine(culprit)? {
-                return Ok(VerificationInfo::Incomplete);
+            if !self.refine(&culprit)? {
+                let mut culprit_states = Vec::new();
+                for state_index in &culprit.path {
+                    culprit_states.push(self.get_state_by_index(*state_index));
+                }
+                return Ok(VerificationInfo::Incomplete(culprit_states));
             }
         }
     }
 
-    fn refine(&mut self, culprit: Culprit) -> anyhow::Result<bool> {
+    fn refine(&mut self, culprit: &Culprit) -> anyhow::Result<bool> {
         //println!("Refining...");
         // compute marking
         let mut state_mark: mark::State = mark::State {

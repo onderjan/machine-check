@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     traits::{MachineExt, MachineShift, TypedCmp, TypedEq},
-    util::compute_mask,
+    util::{compute_mask, compute_sign_bit_mask},
 };
 
 use super::Bitvector;
@@ -40,8 +40,17 @@ impl<const L: u32> MachineBitvector<L> {
     }
 
     // not for use where it may be replaced by abstraction
-    pub fn concrete_value(&self) -> Wrapping<u64> {
+    pub fn concrete_unsigned(&self) -> Wrapping<u64> {
         self.v
+    }
+
+    pub fn concrete_signed(&self) -> Wrapping<i64> {
+        let mut result = self.v;
+        if (result & compute_sign_bit_mask(L)) != Wrapping(0) {
+            // add signed extension
+            result |= !compute_mask(L);
+        }
+        Wrapping(result.0 as i64)
     }
 }
 
@@ -121,22 +130,22 @@ impl<const L: u32> TypedCmp for MachineBitvector<L> {
     type Output = MachineBitvector<1>;
 
     fn typed_slt(self, rhs: Self) -> Self::Output {
-        let result = (self.v.0 as i64) < (rhs.v.0 as i64);
+        let result = self.concrete_signed() < rhs.concrete_signed();
         MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 
     fn typed_ult(self, rhs: Self) -> Self::Output {
-        let result = (self.v.0) < (rhs.v.0);
+        let result = self.concrete_unsigned() < rhs.concrete_unsigned();
         MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 
     fn typed_slte(self, rhs: Self) -> Self::Output {
-        let result = (self.v.0) as i64 <= (rhs.v.0 as i64);
+        let result = self.concrete_signed() <= rhs.concrete_signed();
         MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 
     fn typed_ulte(self, rhs: Self) -> Self::Output {
-        let result = (self.v.0) <= (rhs.v.0);
+        let result = self.concrete_unsigned() <= rhs.concrete_unsigned();
         MachineBitvector::<1>::w_new(Wrapping(result as u64))
     }
 }

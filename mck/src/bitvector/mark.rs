@@ -43,13 +43,13 @@ impl<const L: u32> Possibility for MarkBitvector<L> {
 
     fn first_possibility(&self) -> ThreeValuedBitvector<L> {
         // all known bits are 0
-        let known_bits = self.0.concrete_value();
+        let known_bits = self.0.concrete_unsigned();
         ThreeValuedBitvector::new_value_known(Wrapping(0), known_bits)
     }
 
     fn increment_possibility(&self, possibility: &mut ThreeValuedBitvector<L>) -> bool {
         // the marked bits should be split into possibilities
-        let known_bits = self.0.concrete_value();
+        let known_bits = self.0.concrete_unsigned();
 
         if known_bits == Wrapping(0) {
             // if full-unknown, stop immediately after first to avoid shl overflow
@@ -218,7 +218,6 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
         normal_input: (Self, Self),
         _mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        // just mark aggressively for now
         (
             Self::MarkEarlier::new_marked().limit(normal_input.0),
             Self::MarkEarlier::new_marked().limit(normal_input.1),
@@ -264,14 +263,21 @@ impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
     type MarkLater = MarkBitvector<X>;
 
     fn uext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
+        // just mark aggressively for now
+        (Self::MarkEarlier::new_marked(),)
+        /*
         // we are going in reverse
         // but unsigned extension does not transport any unknown bit
         // propagate marking of given bits with limitation
         let extended = MarkBitvector(crate::MachineExt::uext(mark_later.0));
         (extended.limit(normal_input.0),)
+        */
     }
 
     fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
+        // just mark aggressively for now
+        (Self::MarkEarlier::new_marked(),)
+        /*
         // we are going in reverse
 
         // in case forward signed extension cut the bitvector or did not do anything,
@@ -295,6 +301,7 @@ impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
         let extended = MarkBitvector(extended);
 
         (extended.limit(normal_input.0),)
+        */
     }
 }
 

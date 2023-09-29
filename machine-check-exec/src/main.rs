@@ -15,15 +15,19 @@ fn run(batch: bool) -> anyhow::Result<()> {
     if batch {
         match verification_result {
             space::VerificationInfo::Completed(safe) => println!("Safe: {}", safe),
-            space::VerificationInfo::Incomplete => println!("Incomplete"),
+            space::VerificationInfo::Incomplete(_) => println!("Incomplete"),
         }
     } else {
         match verification_result {
             space::VerificationInfo::Completed(safe) => {
                 println!("Space verification result: {}", safe)
             }
-            space::VerificationInfo::Incomplete => {
-                println!("Space verification failed due to incomplete refinement.")
+            space::VerificationInfo::Incomplete(culprit_states) => {
+                println!("Space verification failed due to incomplete refinement.");
+                println!("Culprit path:");
+                for culprit_state in culprit_states {
+                    println!("\t {:?}", culprit_state);
+                }
             }
         }
         println!("Used {} states.", space.num_states());
