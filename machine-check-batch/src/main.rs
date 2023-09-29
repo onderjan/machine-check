@@ -58,6 +58,8 @@ fn check(path: &Path) -> anyhow::Result<CheckResult> {
         .arg("--manifest-path")
         .arg(machine_check_exec_toml)
         .arg("--release")
+        .arg("--")
+        .arg("-b")
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()

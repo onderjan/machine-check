@@ -36,9 +36,15 @@ fn run(batch: bool) -> anyhow::Result<()> {
 }
 
 fn main() {
-    let batch = true;
+    let mut batch = false;
+    if let Some(arg) = std::env::args().next() {
+        if arg.as_str() == "-b" {
+            batch = true;
+        }
+    }
+
     let start = Instant::now();
-    if let Err(err) = run(true) {
+    if let Err(err) = run(batch) {
         eprintln!("Fatal error: {:#}", err);
     }
     let elapsed = start.elapsed();
