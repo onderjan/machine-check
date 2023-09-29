@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::{
+    traits::MachineDiv,
     util::{self, compute_mask},
     MachineBitvector, MachineExt, MachineShift, TypedCmp, TypedEq,
 };
@@ -316,6 +317,136 @@ impl<const L: u32> Mul for ThreeValuedBitvector<L> {
     fn mul(self, rhs: Self) -> Self::Output {
         // use the minmax algorithm for now
         self.minmax_compute(rhs, Self::mul_min, Self::mul_max)
+    }
+}
+
+impl<const L: u32> MachineDiv for ThreeValuedBitvector<L> {
+    fn sdiv(self, rhs: Self) -> Self {
+        let mask = Self::get_mask().0;
+        let dividend_min = MachineBitvector::<L>::new(self.smin().0 as u64 & mask);
+        let dividend_max = MachineBitvector::<L>::new(self.smax().0 as u64 & mask);
+        let divisor_min = MachineBitvector::<L>::new(rhs.smin().0 as u64 & mask);
+        let divisor_max = MachineBitvector::<L>::new(rhs.smax().0 as u64 & mask);
+        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
+
+        // make highest different bit and all after it unknown
+        let different = !(min_division_result ^ max_division_result);
+        if different == Wrapping(0) {
+            // both are the same
+            return ThreeValuedBitvector::new(min_division_result.0);
+        }
+
+        let highest_different_bit_pos = different.0.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_division_result, !unknown_mask)
+    }
+
+    fn udiv(self, rhs: Self) -> Self {
+        let dividend_min = MachineBitvector::<L>::new(self.umin().0);
+        let dividend_max = MachineBitvector::<L>::new(self.umax().0);
+        let divisor_min = MachineBitvector::<L>::new(rhs.umin().0);
+        let divisor_max = MachineBitvector::<L>::new(rhs.umax().0);
+        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
+
+        // make highest different bit and all after it unknown
+        let different = !(min_division_result ^ max_division_result);
+        if different == Wrapping(0) {
+            // both are the same
+            return ThreeValuedBitvector::new(min_division_result.0);
+        }
+
+        let highest_different_bit_pos = different.0.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_division_result, !unknown_mask)
+    }
+
+    fn smod(self, rhs: Self) -> Self {
+        let dividend_min = MachineBitvector::<L>::new(self.umin().0);
+        let dividend_max = MachineBitvector::<L>::new(self.umax().0);
+        let divisor_min = MachineBitvector::<L>::new(rhs.umin().0);
+        let divisor_max = MachineBitvector::<L>::new(rhs.umax().0);
+        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
+
+        if min_division_result != max_division_result {
+            // division results are different, return fully unknown
+            return ThreeValuedBitvector::new_unknown();
+        }
+
+        // division results are the same, return operation result
+        let min_result = dividend_min.smod(divisor_max).as_unsigned();
+        let max_result = dividend_max.smod(divisor_min).as_unsigned();
+
+        // make highest different bit and all after it unknown
+        let different = !(min_result ^ max_result);
+        if different == Wrapping(0) {
+            // both are the same
+            return ThreeValuedBitvector::new(min_result.0);
+        }
+
+        let highest_different_bit_pos = different.0.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
+    }
+
+    fn srem(self, rhs: Self) -> Self {
+        let dividend_min = MachineBitvector::<L>::new(self.umin().0);
+        let dividend_max = MachineBitvector::<L>::new(self.umax().0);
+        let divisor_min = MachineBitvector::<L>::new(rhs.umin().0);
+        let divisor_max = MachineBitvector::<L>::new(rhs.umax().0);
+        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
+
+        if min_division_result != max_division_result {
+            // division results are different, return fully unknown
+            return ThreeValuedBitvector::new_unknown();
+        }
+
+        // division results are the same, return operation result
+        let min_result = dividend_min.srem(divisor_max).as_unsigned();
+        let max_result = dividend_max.srem(divisor_min).as_unsigned();
+
+        // make highest different bit and all after it unknown
+        let different = !(min_result ^ max_result);
+        if different == Wrapping(0) {
+            // both are the same
+            return ThreeValuedBitvector::new(min_result.0);
+        }
+
+        let highest_different_bit_pos = different.0.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
+    }
+
+    fn urem(self, rhs: Self) -> Self {
+        let dividend_min = MachineBitvector::<L>::new(self.umin().0);
+        let dividend_max = MachineBitvector::<L>::new(self.umax().0);
+        let divisor_min = MachineBitvector::<L>::new(rhs.umin().0);
+        let divisor_max = MachineBitvector::<L>::new(rhs.umax().0);
+        let min_division_result = dividend_min.udiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.udiv(divisor_min).as_unsigned();
+
+        if min_division_result != max_division_result {
+            // division results are different, return fully unknown
+            return ThreeValuedBitvector::new_unknown();
+        }
+
+        // division results are the same, return operation result
+        let min_result = dividend_min.urem(divisor_max).as_unsigned();
+        let max_result = dividend_max.urem(divisor_min).as_unsigned();
+
+        // make highest different bit and all after it unknown
+        let different = !(min_result ^ max_result);
+        if different == Wrapping(0) {
+            // both are the same
+            return ThreeValuedBitvector::new(min_result.0);
+        }
+
+        let highest_different_bit_pos = different.0.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
     }
 }
 
@@ -793,8 +924,12 @@ mod tests {
     // arithmetic tests
     bi_op_test!(add, true);
     bi_op_test!(sub, true);
-    // not implemented yet
     bi_op_test!(mul, false);
+    bi_op_test!(sdiv, false);
+    bi_op_test!(udiv, false);
+    bi_op_test!(smod, false);
+    bi_op_test!(srem, false);
+    bi_op_test!(urem, false);
 
     // bitwise tests
     bi_op_test!(bitand, true);

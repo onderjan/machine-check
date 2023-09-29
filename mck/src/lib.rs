@@ -10,6 +10,7 @@ pub use bitvector::mark::MarkBitvector;
 pub use bitvector::three_valued::ThreeValuedBitvector;
 pub use bitvector::Bitvector;
 
+pub use traits::MachineDiv;
 pub use traits::MachineExt;
 pub use traits::MachineShift;
 pub use traits::Possibility;

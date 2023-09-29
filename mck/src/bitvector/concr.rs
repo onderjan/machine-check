@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use crate::{
-    traits::{MachineExt, MachineShift, TypedCmp, TypedEq},
+    traits::{MachineDiv, MachineExt, MachineShift, TypedCmp, TypedEq},
     util::{compute_mask, compute_sign_bit_mask, is_highest_bit_set},
 };
 
@@ -30,7 +30,7 @@ impl<const L: u32> MachineBitvector<L> {
         <MachineBitvector<L> as Bitvector<L>>::new(value)
     }
 
-    fn w_new(value: Wrapping<u64>) -> Self {
+    pub fn w_new(value: Wrapping<u64>) -> Self {
         let mask = compute_mask(L);
         if (value & !mask) != Wrapping(0) {
             panic!(
@@ -238,5 +238,56 @@ impl<const L: u32> MachineShift for MachineBitvector<L> {
             result |= sign_bit_copy_mask;
         }
         MachineBitvector::w_new(result)
+    }
+}
+
+impl<const L: u32> MachineDiv for MachineBitvector<L> {
+    fn sdiv(self, rhs: Self) -> Self {
+        // result of division by zero is the mask
+        let dividend = self.as_signed().0;
+        let divisor = rhs.as_signed().0;
+        let result = dividend
+            .checked_div(divisor)
+            .map(|r| r as u64)
+            .unwrap_or(compute_mask(L).0);
+        Self::w_new(Wrapping(result) & compute_mask(L))
+    }
+
+    fn udiv(self, rhs: Self) -> Self {
+        // result of division by zero is the mask
+        // see https://github.com/Boolector/btor2tools/blob/037f1fa88fb439dca6f648ad48a3463256d69d8b/src/btorsim/btorsimbv.c#L1819
+
+        let dividend = self.as_unsigned().0;
+        let divisor = rhs.as_unsigned().0;
+        let result = dividend.checked_div(divisor).unwrap_or(compute_mask(L).0);
+        Self::w_new(Wrapping(result) & compute_mask(L))
+    }
+
+    fn smod(self, rhs: Self) -> Self {
+        // result of modulo (Euclidean remainder) by zero is the dividend
+
+        let dividend = self.as_signed().0;
+        let divisor = rhs.as_signed().0;
+        let result = dividend.checked_rem_euclid(divisor).unwrap_or(dividend);
+        Self::w_new(Wrapping(result as u64) & compute_mask(L))
+    }
+
+    fn srem(self, rhs: Self) -> Self {
+        // result of remainder by zero is the dividend
+
+        let dividend = self.as_signed().0;
+        let divisor = rhs.as_signed().0;
+        let result = dividend.checked_rem(divisor).unwrap_or(dividend);
+        Self::w_new(Wrapping(result as u64) & compute_mask(L))
+    }
+
+    fn urem(self, rhs: Self) -> Self {
+        // result of division by zero is the dividend
+        // see https://github.com/Boolector/btor2tools/blob/037f1fa88fb439dca6f648ad48a3463256d69d8b/src/btorsim/btorsimbv.c#L1818
+
+        let dividend = self.as_unsigned().0;
+        let divisor = rhs.as_unsigned().0;
+        let result = dividend.checked_rem(divisor).unwrap_or(dividend);
+        Self::w_new(Wrapping(result) & compute_mask(L))
     }
 }

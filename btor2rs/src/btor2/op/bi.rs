@@ -104,11 +104,11 @@ impl BiOp {
             BiOpType::Srl => Ok(quote!(::mck::MachineShift::srl(#a_tokens, #b_tokens))),
             BiOpType::Add => Ok(quote!((#a_tokens) + (#b_tokens))),
             BiOpType::Mul => Ok(quote!((#a_tokens) * (#b_tokens))),
-            BiOpType::Sdiv => Err(anyhow!("Signed division generation not implemented")), // TODO: implement so 292 examples can be generated
-            BiOpType::Udiv => Err(anyhow!("Unsigned division generation not implemented")),
-            BiOpType::Smod => Err(anyhow!("Signed modulo generation not implemented")),
-            BiOpType::Srem => Err(anyhow!("Signed remainder generation not implemented")), // TODO: implement so 292 examples can be generated
-            BiOpType::Urem => Err(anyhow!("Unsigned remainder generation not implemented")),
+            BiOpType::Sdiv => Ok(quote!(::mck::MachineDiv::sdiv(#a_tokens, #b_tokens))),
+            BiOpType::Udiv => Ok(quote!(::mck::MachineDiv::udiv(#a_tokens, #b_tokens))),
+            BiOpType::Smod => Ok(quote!(::mck::MachineDiv::smod(#a_tokens, #b_tokens))),
+            BiOpType::Srem => Ok(quote!(::mck::MachineDiv::srem(#a_tokens, #b_tokens))),
+            BiOpType::Urem => Ok(quote!(::mck::MachineDiv::urem(#a_tokens, #b_tokens))),
             BiOpType::Sub => Ok(quote!((#a_tokens) - (#b_tokens))),
             BiOpType::Saddo
             | BiOpType::Uaddo

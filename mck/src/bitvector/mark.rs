@@ -2,8 +2,8 @@ use std::num::Wrapping;
 
 use crate::{
     mark::{
-        Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Markable, Mul, Neg, Not, Sub,
-        TypedCmp, TypedEq,
+        Add, BitAnd, BitOr, BitXor, Join, MachineDiv, MachineExt, MachineShift, Markable, Mul, Neg,
+        Not, Sub, TypedCmp, TypedEq,
     },
     util::compute_sign_bit_mask,
     MachineBitvector, Possibility, ThreeValuedBitvector,
@@ -209,6 +209,50 @@ impl<const L: u32> BitXor for ThreeValuedBitvector<L> {
         (
             mark_later.limit(normal_input.0),
             mark_later.limit(normal_input.1),
+        )
+    }
+}
+
+impl<const L: u32> MachineDiv for ThreeValuedBitvector<L> {
+    type Mark = MarkBitvector<L>;
+
+    fn sdiv(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        // TODO: improve, just mark everything for now
+        (
+            Self::Mark::new_marked().limit(normal_input.0),
+            Self::Mark::new_marked().limit(normal_input.1),
+        )
+    }
+
+    fn udiv(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        // TODO: improve, just mark everything for now
+        (
+            Self::Mark::new_marked().limit(normal_input.0),
+            Self::Mark::new_marked().limit(normal_input.1),
+        )
+    }
+
+    fn smod(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        // TODO: improve, just mark everything for now
+        (
+            Self::Mark::new_marked().limit(normal_input.0),
+            Self::Mark::new_marked().limit(normal_input.1),
+        )
+    }
+
+    fn srem(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        // TODO: improve, just mark everything for now
+        (
+            Self::Mark::new_marked().limit(normal_input.0),
+            Self::Mark::new_marked().limit(normal_input.1),
+        )
+    }
+
+    fn urem(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        // TODO: improve, just mark everything for now
+        (
+            Self::Mark::new_marked().limit(normal_input.0),
+            Self::Mark::new_marked().limit(normal_input.1),
         )
     }
 }
@@ -684,13 +728,16 @@ mod tests {
     std_bi_op_test!(Add, add, false);
     std_bi_op_test!(Sub, sub, false);
     std_bi_op_test!(Mul, mul, false);
+    trait_bi_op_test!(MachineDiv, sdiv, false);
+    trait_bi_op_test!(MachineDiv, udiv, false);
+    trait_bi_op_test!(MachineDiv, smod, false);
+    trait_bi_op_test!(MachineDiv, srem, false);
+    trait_bi_op_test!(MachineDiv, urem, false);
 
     // bitwise tests
     std_bi_op_test!(BitAnd, bitand, false);
     std_bi_op_test!(BitOr, bitor, false);
     std_bi_op_test!(BitXor, bitxor, false);
-
-    // TODO
 
     // equality and comparison tests
     trait_bi_op_test!(TypedEq, typed_eq, false);

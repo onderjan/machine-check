@@ -1,3 +1,14 @@
+pub trait MachineDiv
+where
+    Self: Sized,
+{
+    fn sdiv(self, rhs: Self) -> Self;
+    fn udiv(self, rhs: Self) -> Self;
+    fn smod(self, rhs: Self) -> Self;
+    fn srem(self, rhs: Self) -> Self;
+    fn urem(self, rhs: Self) -> Self;
+}
+
 pub trait TypedEq {
     type Output;
 
