@@ -377,12 +377,19 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
     type Output = ThreeValuedBitvector<1>;
 
     fn typed_slt(self, rhs: Self) -> Self::Output {
-        // for lhs to be never lesser than rhs,
-        // max value of lhs must be greater or equal than max value of rhs
-        let result_can_be_zero = self.smax() >= rhs.smax();
-        // for lhs to be always lesser than rhs,
-        // min value of lhs must be lesser than max value of rhs
-        let result_can_be_one = self.smin() < rhs.smax();
+        // use signed versions
+        let lhs_min = self.smin();
+        let lhs_max = self.smax();
+        let rhs_min = rhs.smin();
+        let rhs_max = rhs.smax();
+
+        // can be zero if lhs can be greater or equal to rhs
+        // this is only possible if lhs max can be greater or equal to rhs min
+        let result_can_be_zero = lhs_max >= rhs_min;
+
+        // can be one if lhs can be lesser than rhs
+        // this is only possible if lhs min can be lesser than rhs max
+        let result_can_be_one = lhs_min < rhs_max;
 
         Self::Output::a_new(
             Wrapping(result_can_be_zero as u64),
@@ -391,12 +398,19 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
     }
 
     fn typed_ult(self, rhs: Self) -> Self::Output {
-        // for lhs to be never lesser than rhs,
-        // max value of lhs must be greater or equal than max value of rhs
-        let result_can_be_zero = self.umax() >= rhs.umax();
-        // for lhs to be always lesser than rhs,
-        // min value of lhs must be lesser than max value of rhs
-        let result_can_be_one = self.umin() < rhs.umax();
+        // use unsigned versions
+        let lhs_min = self.umin();
+        let lhs_max = self.umax();
+        let rhs_min = rhs.umin();
+        let rhs_max = rhs.umax();
+
+        // can be zero if lhs can be greater or equal to rhs
+        // this is only possible if lhs max can be greater or equal to rhs min
+        let result_can_be_zero = lhs_max >= rhs_min;
+
+        // can be one if lhs can be lesser than rhs
+        // this is only possible if lhs min can be lesser than rhs max
+        let result_can_be_one = lhs_min < rhs_max;
 
         Self::Output::a_new(
             Wrapping(result_can_be_zero as u64),
@@ -405,12 +419,19 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
     }
 
     fn typed_slte(self, rhs: Self) -> Self::Output {
-        // for lhs to be never lesser or equal to rhs,
-        // max value of lhs must be greater than max value of rhs
-        let result_can_be_zero = self.smax() > rhs.smax();
-        // for lhs to be always lesser or equal to rhs,
-        // min value of lhs must be lesser or equal than max value of rhs
-        let result_can_be_one = self.smin() <= rhs.smax();
+        // use signed versions
+        let lhs_min = self.smin();
+        let lhs_max = self.smax();
+        let rhs_min = rhs.smin();
+        let rhs_max = rhs.smax();
+
+        // can be zero if lhs can be greater than rhs
+        // this is only possible if lhs max can be greater to rhs min
+        let result_can_be_zero = lhs_max > rhs_min;
+
+        // can be one if lhs can be lesser or equal to rhs
+        // this is only possible if lhs min can be lesser or equal to rhs max
+        let result_can_be_one = lhs_min <= rhs_max;
 
         Self::Output::a_new(
             Wrapping(result_can_be_zero as u64),
@@ -419,12 +440,19 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
     }
 
     fn typed_ulte(self, rhs: Self) -> Self::Output {
-        // for lhs to be never lesser or equal to rhs,
-        // max value of lhs must be greater than max value of rhs
-        let result_can_be_zero = self.umax() > rhs.umax();
-        // for lhs to be always lesser or equal to rhs,
-        // min value of lhs must be lesser or equal than max value of rhs
-        let result_can_be_one = self.umin() <= rhs.umax();
+        // use unsigned versions
+        let lhs_min = self.umin();
+        let lhs_max = self.umax();
+        let rhs_min = rhs.umin();
+        let rhs_max = rhs.umax();
+
+        // can be zero if lhs can be greater than rhs
+        // this is only possible if lhs max can be greater to rhs min
+        let result_can_be_zero = lhs_max > rhs_min;
+
+        // can be one if lhs can be lesser or equal to rhs
+        // this is only possible if lhs min can be lesser or equal to rhs max
+        let result_can_be_one = lhs_min <= rhs_max;
 
         Self::Output::a_new(
             Wrapping(result_can_be_zero as u64),
@@ -547,4 +575,208 @@ impl<const L: u32> Display for ThreeValuedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const L: u32 = 4;
+
+    fn join_concr_uni<const X: u32>(
+        abstr_a: ThreeValuedBitvector<L>,
+        concr_func: fn(MachineBitvector<L>) -> MachineBitvector<X>,
+    ) -> ThreeValuedBitvector<X> {
+        let x_mask = util::compute_mask(X);
+        let mut zeros = Wrapping(0);
+        let mut ones = Wrapping(0);
+        for a in 0..(1 << L) {
+            if !abstr_a.can_contain(Wrapping(a)) {
+                continue;
+            }
+            let a = MachineBitvector::<L>::new(a);
+            let concr_result = concr_func(a);
+            zeros |= !concr_result.concrete_unsigned() & x_mask;
+            ones |= concr_result.concrete_unsigned();
+        }
+        ThreeValuedBitvector::a_new(zeros, ones)
+    }
+
+    fn exec_uni_check<const X: u32>(
+        abstr_func: fn(ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
+        concr_func: fn(MachineBitvector<L>) -> MachineBitvector<X>,
+    ) {
+        let mask = util::compute_mask(L);
+        for a_zeros in 0..(1 << L) {
+            let a_zeros = Wrapping(a_zeros);
+            for a_ones in 0..(1 << L) {
+                let a_ones = Wrapping(a_ones);
+                if (a_zeros | a_ones) & mask != mask {
+                    continue;
+                }
+                let a = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+
+                let abstr_result = abstr_func(a);
+                let equiv_result = join_concr_uni(a, concr_func);
+                if abstr_result != equiv_result {
+                    panic!(
+                        "Wrong result with parameter {}, expected {}, got {}",
+                        a, equiv_result, abstr_result
+                    );
+                }
+            }
+        }
+    }
+
+    macro_rules! uni_op_test {
+        ($op:tt) => {
+            #[test]
+            pub fn $op() {
+                let abstr_func = |a: ThreeValuedBitvector<L>| a.$op();
+                let concr_func = |a: MachineBitvector<L>| a.$op();
+                exec_uni_check(abstr_func, concr_func);
+            }
+        };
+    }
+
+    macro_rules! ext_op_test {
+        ($name:tt, $op:tt, $len:tt) => {
+            #[test]
+            pub fn $name() {
+                let abstr_func =
+                    |a: ThreeValuedBitvector<L>| -> ThreeValuedBitvector<$len> { a.$op() };
+                let concr_func = |a: MachineBitvector<L>| -> MachineBitvector<$len> { a.$op() };
+                exec_uni_check(abstr_func, concr_func);
+            }
+        };
+    }
+
+    fn join_concr_bi<const X: u32>(
+        abstr_a: ThreeValuedBitvector<L>,
+        abstr_b: ThreeValuedBitvector<L>,
+        concr_func: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<X>,
+    ) -> ThreeValuedBitvector<X> {
+        let x_mask = util::compute_mask(X);
+        let mut zeros = Wrapping(0);
+        let mut ones = Wrapping(0);
+        for a in 0..(1 << L) {
+            if !abstr_a.can_contain(Wrapping(a)) {
+                continue;
+            }
+            let a = MachineBitvector::<L>::new(a);
+            for b in 0..(1 << L) {
+                if !abstr_b.can_contain(Wrapping(b)) {
+                    continue;
+                }
+                let b = MachineBitvector::<L>::new(b);
+
+                let concr_result = concr_func(a, b);
+                zeros |= !concr_result.concrete_unsigned() & x_mask;
+                ones |= concr_result.concrete_unsigned();
+            }
+        }
+        ThreeValuedBitvector::a_new(zeros, ones)
+    }
+
+    fn exec_bi_check<const X: u32>(
+        abstr_func: fn(ThreeValuedBitvector<L>, ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
+        concr_func: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<X>,
+    ) {
+        let mask = util::compute_mask(L);
+        for a_zeros in 0..(1 << L) {
+            let a_zeros = Wrapping(a_zeros);
+            for a_ones in 0..(1 << L) {
+                let a_ones = Wrapping(a_ones);
+                if (a_zeros | a_ones) & mask != mask {
+                    continue;
+                }
+                let a = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+
+                for b_zeros in 0..(1 << L) {
+                    let b_zeros = Wrapping(b_zeros);
+                    for b_ones in 0..(1 << L) {
+                        let b_ones = Wrapping(b_ones);
+                        if (b_zeros | b_ones) & mask != mask {
+                            continue;
+                        }
+                        let b = ThreeValuedBitvector::<L>::a_new(b_zeros, b_ones);
+
+                        let abstr_result = abstr_func(a, b);
+                        let equiv_result = join_concr_bi(a, b, concr_func);
+                        if abstr_result != equiv_result {
+                            panic!(
+                                "Wrong result with parameters {}, {}, expected {}, got {}",
+                                a, b, equiv_result, abstr_result
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    macro_rules! bi_op_test {
+        ($op:tt) => {
+            #[test]
+            pub fn $op() {
+                let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b);
+                let concr_func = |a: MachineBitvector<L>, b: MachineBitvector<L>| a.$op(b);
+                exec_bi_check(abstr_func, concr_func);
+            }
+        };
+    }
+
+    // --- UNARY TESTS ---
+
+    // not and neg
+    uni_op_test!(not);
+
+    uni_op_test!(neg);
+
+    // --- BINARY TESTS ---
+
+    // arithmetic tests
+    bi_op_test!(add);
+    bi_op_test!(sub);
+    // not implemented yet
+    //bi_op_test!(mul);
+
+    // bitwise tests
+    bi_op_test!(bitand);
+    bi_op_test!(bitor);
+    bi_op_test!(bitxor);
+
+    // equality and comparison tests
+    bi_op_test!(typed_eq);
+    bi_op_test!(typed_slt);
+    bi_op_test!(typed_slte);
+    bi_op_test!(typed_ult);
+    bi_op_test!(typed_ulte);
+
+    // shift tests
+    bi_op_test!(sll);
+    bi_op_test!(srl);
+    bi_op_test!(sra);
+
+    // --- EXTENSION TESTS ---
+
+    // unsigned
+    ext_op_test!(uext_1, uext, 1);
+    ext_op_test!(uext_2, uext, 2);
+    ext_op_test!(uext_3, uext, 3);
+    ext_op_test!(uext_4, uext, 4);
+    ext_op_test!(uext_5, uext, 5);
+    ext_op_test!(uext_6, uext, 6);
+    ext_op_test!(uext_7, uext, 7);
+    ext_op_test!(uext_8, uext, 8);
+
+    // signed
+    ext_op_test!(sext_1, sext, 1);
+    ext_op_test!(sext_2, sext, 2);
+    ext_op_test!(sext_3, sext, 3);
+    ext_op_test!(sext_4, sext, 4);
+    ext_op_test!(sext_5, sext, 5);
+    ext_op_test!(sext_6, sext, 6);
+    ext_op_test!(sext_7, sext, 7);
+    ext_op_test!(sext_8, sext, 8);
 }

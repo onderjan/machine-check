@@ -263,21 +263,14 @@ impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
     type MarkLater = MarkBitvector<X>;
 
     fn uext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
-        // just mark aggressively for now
-        (Self::MarkEarlier::new_marked(),)
-        /*
         // we are going in reverse
         // but unsigned extension does not transport any unknown bit
         // propagate marking of given bits with limitation
         let extended = MarkBitvector(crate::MachineExt::uext(mark_later.0));
         (extended.limit(normal_input.0),)
-        */
     }
 
     fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
-        // just mark aggressively for now
-        (Self::MarkEarlier::new_marked(),)
-        /*
         // we are going in reverse
 
         // in case forward signed extension cut the bitvector or did not do anything,
@@ -301,7 +294,6 @@ impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
         let extended = MarkBitvector(extended);
 
         (extended.limit(normal_input.0),)
-        */
     }
 }
 
