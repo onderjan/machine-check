@@ -41,9 +41,13 @@ fn run(batch: bool) -> anyhow::Result<()> {
 
 fn main() {
     let mut batch = false;
-    if let Some(arg) = std::env::args().next() {
-        if arg.as_str() == "-b" {
-            batch = true;
+    let mut args = std::env::args();
+    // skip executable name argument
+    if args.next().is_some() {
+        if let Some(arg) = args.next() {
+            if arg.as_str() == "-b" {
+                batch = true;
+            }
         }
     }
 
