@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     traits::{MachineExt, MachineShift, TypedCmp, TypedEq},
-    util::{compute_mask, compute_sign_bit_mask},
+    util::{compute_mask, compute_sign_bit_mask, is_sign_bit_set},
 };
 
 use super::Bitvector;
@@ -51,6 +51,10 @@ impl<const L: u32> MachineBitvector<L> {
             result |= !compute_mask(L);
         }
         Wrapping(result.0 as i64)
+    }
+
+    fn is_sign_bit_set(&self) -> bool {
+        is_sign_bit_set(self.v, L)
     }
 }
 
@@ -161,15 +165,13 @@ impl<const L: u32, const X: u32> MachineExt<X> for MachineBitvector<L> {
     fn sext(self) -> Self::Output {
         // shorten if needed
         let mut v = self.v & compute_mask(X);
-        // copy sign bit where necessary
-        if X > L {
-            let num_sign_extend = X - L;
-            let sign_masked = self.v & (Wrapping(1u64) << (L - 1) as usize);
-            for i in 1..num_sign_extend + 1 {
-                v |= sign_masked << i as usize;
-            }
+        // copy sign bit if necessary
+        if self.is_sign_bit_set() {
+            let old_mask = compute_mask(L);
+            let new_mask = compute_mask(X);
+            let lengthening_mask = !old_mask & new_mask;
+            v |= lengthening_mask;
         }
-
         MachineBitvector::<X>::w_new(v)
     }
 }
@@ -198,22 +200,22 @@ impl<const L: u32> MachineShift for MachineBitvector<L> {
     }
 
     fn sra(self, amount: Self) -> Self {
-        let sign_masked = self.v & (Wrapping(1u64) << (L - 1) as usize);
         if amount.v.0 >= L as u64 {
             // fill with sign bit if the shift is too big
-            if sign_masked != Wrapping(0) {
-                MachineBitvector::w_new(compute_mask(L))
-            } else {
-                MachineBitvector::w_new(Wrapping(0))
+            if self.is_sign_bit_set() {
+                return MachineBitvector::w_new(compute_mask(L));
             }
-        } else {
-            // copy sign bit where necessary
-            let mut v = self.v >> amount.v.0 as usize;
-            for i in 0..amount.v.0 {
-                v |= sign_masked >> i as usize;
-            }
+            return MachineBitvector::w_new(Wrapping(0));
+        };
 
-            MachineBitvector::w_new(v)
+        let mut result = self.v >> amount.v.0 as usize;
+        // copy sign bit if necessary
+        if self.is_sign_bit_set() {
+            let old_mask = compute_mask(L);
+            let new_mask = old_mask >> amount.v.0 as usize;
+            let sign_bit_copy_mask = !old_mask & new_mask;
+            result |= sign_bit_copy_mask;
         }
+        MachineBitvector::w_new(result)
     }
 }

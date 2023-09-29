@@ -485,6 +485,11 @@ impl<const L: u32, const X: u32> MachineExt<X> for ThreeValuedBitvector<L> {
     }
 
     fn sext(self) -> Self::Output {
+        if L == 0 {
+            // no zeros nor ones, handle specially by returning zero
+            return Self::Output::new(0);
+        }
+
         let old_mask = Self::get_mask();
         let new_mask = util::compute_mask(X);
 

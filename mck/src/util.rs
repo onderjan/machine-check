@@ -1,6 +1,9 @@
-use std::{io::WriterPanicked, num::Wrapping};
+use std::num::Wrapping;
 
 pub const fn compute_mask(length: u32) -> Wrapping<u64> {
+    if length == 0 {
+        return Wrapping(0);
+    }
     if length == u64::BITS {
         // this would fail in checked shl,
         // but the mask is just full of ones
