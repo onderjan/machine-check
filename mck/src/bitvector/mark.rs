@@ -1,4 +1,4 @@
-use std::num::Wrapping;
+use std::{default, num::Wrapping};
 
 use crate::{
     mark::{
@@ -123,50 +123,57 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
     }
 }
 
+fn default_uni_mark<const L: u32, const X: u32>(
+    normal_input: (ThreeValuedBitvector<L>,),
+    mark_later: MarkBitvector<X>,
+) -> (MarkBitvector<L>,) {
+    if mark_later == MarkBitvector::new_unmarked() {
+        return (MarkBitvector::new_unmarked(),);
+    }
+    (MarkBitvector::new_marked().limit(normal_input.0),)
+}
+
+fn default_bi_mark<const L: u32, const X: u32>(
+    normal_input: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
+    mark_later: MarkBitvector<X>,
+) -> (MarkBitvector<L>, MarkBitvector<L>) {
+    if mark_later == MarkBitvector::new_unmarked() {
+        return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
+    }
+    (
+        MarkBitvector::new_marked().limit(normal_input.0),
+        MarkBitvector::new_marked().limit(normal_input.1),
+    )
+}
+
 impl<const L: u32> Neg for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn neg(normal_input: (Self,), _mark_later: Self::Mark) -> (Self::Mark,) {
-        // TODO: improve, just mark everything for now
-
-        (Self::Mark::new_marked().limit(normal_input.0),)
+    fn neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
+        default_uni_mark(normal_input, mark_later)
     }
 }
 
 impl<const L: u32> Add for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn add(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        // TODO: improve, just mark everything for now
-
-        (
-            Self::Mark::new_marked().limit(normal_input.0),
-            Self::Mark::new_marked().limit(normal_input.1),
-        )
+    fn add(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        default_bi_mark(normal_input, mark_later)
     }
 }
 impl<const L: u32> Sub for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn sub(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        // TODO: improve, just mark everything for now
-
-        (
-            Self::Mark::new_marked().limit(normal_input.0),
-            Self::Mark::new_marked().limit(normal_input.1),
-        )
+    fn sub(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        default_bi_mark(normal_input, mark_later)
     }
 }
 
 impl<const L: u32> Mul for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn mul(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        // TODO: improve, just mark everything for now
-        (
-            Self::Mark::new_marked().limit(normal_input.0),
-            Self::Mark::new_marked().limit(normal_input.1),
-        )
+    fn mul(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        default_bi_mark(normal_input, mark_later)
     }
 }
 
@@ -216,44 +223,24 @@ impl<const L: u32> BitXor for ThreeValuedBitvector<L> {
 impl<const L: u32> MachineDiv for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn sdiv(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        // TODO: improve, just mark everything for now
-        (
-            Self::Mark::new_marked().limit(normal_input.0),
-            Self::Mark::new_marked().limit(normal_input.1),
-        )
+    fn sdiv(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        default_bi_mark(normal_input, mark_later)
     }
 
-    fn udiv(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        // TODO: improve, just mark everything for now
-        (
-            Self::Mark::new_marked().limit(normal_input.0),
-            Self::Mark::new_marked().limit(normal_input.1),
-        )
+    fn udiv(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        default_bi_mark(normal_input, mark_later)
     }
 
-    fn smod(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        // TODO: improve, just mark everything for now
-        (
-            Self::Mark::new_marked().limit(normal_input.0),
-            Self::Mark::new_marked().limit(normal_input.1),
-        )
+    fn smod(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        default_bi_mark(normal_input, mark_later)
     }
 
-    fn srem(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        // TODO: improve, just mark everything for now
-        (
-            Self::Mark::new_marked().limit(normal_input.0),
-            Self::Mark::new_marked().limit(normal_input.1),
-        )
+    fn srem(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        default_bi_mark(normal_input, mark_later)
     }
 
-    fn urem(normal_input: (Self, Self), _mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        // TODO: improve, just mark everything for now
-        (
-            Self::Mark::new_marked().limit(normal_input.0),
-            Self::Mark::new_marked().limit(normal_input.1),
-        )
+    fn urem(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        default_bi_mark(normal_input, mark_later)
     }
 }
 
@@ -263,45 +250,30 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn typed_slt(
         normal_input: (Self, Self),
-        _mark_later: Self::MarkLater,
+        mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        (
-            Self::MarkEarlier::new_marked().limit(normal_input.0),
-            Self::MarkEarlier::new_marked().limit(normal_input.1),
-        )
+        default_bi_mark(normal_input, mark_later)
     }
 
     fn typed_ult(
         normal_input: (Self, Self),
-        _mark_later: Self::MarkLater,
+        mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        // just mark aggressively for now
-        (
-            Self::MarkEarlier::new_marked().limit(normal_input.0),
-            Self::MarkEarlier::new_marked().limit(normal_input.1),
-        )
+        default_bi_mark(normal_input, mark_later)
     }
 
     fn typed_slte(
         normal_input: (Self, Self),
-        _mark_later: Self::MarkLater,
+        mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        // just mark aggressively for now
-        (
-            Self::MarkEarlier::new_marked().limit(normal_input.0),
-            Self::MarkEarlier::new_marked().limit(normal_input.1),
-        )
+        default_bi_mark(normal_input, mark_later)
     }
 
     fn typed_ulte(
         normal_input: (Self, Self),
-        _mark_later: Self::MarkLater,
+        mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        // just mark aggressively for now
-        (
-            Self::MarkEarlier::new_marked().limit(normal_input.0),
-            Self::MarkEarlier::new_marked().limit(normal_input.1),
-        )
+        default_bi_mark(normal_input, mark_later)
     }
 }
 
@@ -349,6 +321,10 @@ fn shift<const L: u32>(
     mark_later: MarkBitvector<L>,
     shift_fn: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<L>,
 ) -> (MarkBitvector<L>, MarkBitvector<L>) {
+    if mark_later == MarkBitvector::new_unmarked() {
+        // avoid spurious marking of shift amount
+        return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
+    }
     if L == 0 {
         // avoid problems with zero-width bitvectors
         return (MarkBitvector::new_marked(), MarkBitvector::new_marked());
@@ -501,6 +477,26 @@ mod tests {
                         }
                         // TODO: test for spurious marking when no later mark was passed
                     }
+                }
+            }
+        }
+        // test unprovoked marking
+
+        for a_zeros in 0..(1 << L) {
+            let a_zeros = Wrapping(a_zeros);
+            for a_ones in 0..(1 << L) {
+                let a_ones = Wrapping(a_ones);
+                if (a_zeros | a_ones) & mask != mask {
+                    continue;
+                }
+                let a_abstr = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+                let a_mark = MarkBitvector::new_unmarked();
+                let our_earlier_mark = mark_func(a_abstr, a_mark);
+                if our_earlier_mark != MarkBitvector::new_unmarked() {
+                    panic!(
+                        "Unprovoked marking with inputs {}, got mark {}",
+                        a_abstr, our_earlier_mark.0
+                    );
                 }
             }
         }
@@ -675,7 +671,6 @@ mod tests {
                                         a_abstr, b_abstr, a_mark.0, exact_earlier_mark.0.0, exact_earlier_mark.1.0, our_earlier_mark.0.0, our_earlier_mark.1.0
                                     );
                                 }
-                                // TODO: test for spurious marking when no later mark was passed
                             }
                         }
                     }
@@ -683,6 +678,39 @@ mod tests {
             }
         }
         // TODO: other way for marks
+
+        // test unprovoked marking
+
+        for a_zeros in 0..(1 << L) {
+            let a_zeros = Wrapping(a_zeros);
+            for a_ones in 0..(1 << L) {
+                let a_ones = Wrapping(a_ones);
+                if (a_zeros | a_ones) & mask != mask {
+                    continue;
+                }
+                let a_abstr = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+                for b_zeros in 0..(1 << L) {
+                    let b_zeros = Wrapping(b_zeros);
+                    for b_ones in 0..(1 << L) {
+                        let b_ones = Wrapping(b_ones);
+                        if (b_zeros | b_ones) & mask != mask {
+                            continue;
+                        }
+                        let b_abstr = ThreeValuedBitvector::<L>::a_new(b_zeros, b_ones);
+                        let a_mark = MarkBitvector::new_unmarked();
+                        let our_earlier_mark = mark_func((a_abstr, b_abstr), a_mark);
+                        if our_earlier_mark.0 != MarkBitvector::new_unmarked()
+                            || our_earlier_mark.1 != MarkBitvector::new_unmarked()
+                        {
+                            panic!(
+                                "Unprovoked marking with inputs ({}, {}), got mark ({}, {})",
+                                a_abstr, b_abstr, our_earlier_mark.0 .0, our_earlier_mark.1 .0
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     macro_rules! std_bi_op_test {
