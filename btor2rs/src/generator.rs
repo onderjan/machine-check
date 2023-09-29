@@ -1,6 +1,10 @@
 use proc_macro2::{Ident, Span, TokenStream};
 
-use crate::btor2::{node::NodeType, sort::Sort, Btor2};
+use crate::btor2::{
+    node::{Const, NodeType},
+    sort::{BitvecSort, Sort},
+    Btor2,
+};
 use anyhow::anyhow;
 use quote::quote;
 
@@ -146,7 +150,7 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
         quote!((#(#constraint_tokens)&*))
     } else {
         // default to true
-        quote!(#bit_type::new(1))
+        Const::new(false, 1).create_tokens(&BitvecSort::single_bit())
     };
     let init_constraint = quote!(#constraint_and);
     let constrained_init_expr = quote!(#constrained_ident: #init_constraint);
