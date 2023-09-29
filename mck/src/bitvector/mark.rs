@@ -5,7 +5,7 @@ use crate::{
         Add, BitAnd, BitOr, BitXor, Join, MachineExt, MachineShift, Markable, Mul, Neg, Not, Sub,
         TypedCmp, TypedEq,
     },
-    util::{self, compute_sign_bit_mask},
+    util::compute_sign_bit_mask,
     MachineBitvector, Possibility, ThreeValuedBitvector,
 };
 
@@ -376,7 +376,8 @@ impl<const L: u32> MachineShift for ThreeValuedBitvector<L> {
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Not;
+
+    use crate::util::compute_mask;
 
     use super::*;
     fn exact_uni_mark<const L: u32, const X: u32>(
@@ -420,7 +421,7 @@ mod tests {
         // a mark bit is necessary if changing the input bit can impact the output
         // test this for all concretizations of the input
 
-        let mask = util::compute_mask(L);
+        let mask = compute_mask(L);
         for a_mark in 0..(1 << X) {
             let a_mark = MarkBitvector(MachineBitvector::new(a_mark));
 
@@ -503,7 +504,6 @@ mod tests {
     ext_op_test!(MachineExt, uext, false);
     ext_op_test!(MachineExt, sext, false);
 
-    use super::*;
     fn exact_bi_mark<const L: u32, const X: u32>(
         abstr: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
         mark: MarkBitvector<X>,
@@ -586,7 +586,7 @@ mod tests {
         // a mark bit is necessary if changing the input bit can impact the output
         // test this for all concretizations of the input
 
-        let mask = util::compute_mask(L);
+        let mask = compute_mask(L);
         for a_mark in 0..(1 << X) {
             let a_mark = MarkBitvector(MachineBitvector::new(a_mark));
 
@@ -683,8 +683,7 @@ mod tests {
     // arithmetic tests
     std_bi_op_test!(Add, add, false);
     std_bi_op_test!(Sub, sub, false);
-    // not implemented yet
-    //bi_op_test!(mul);
+    std_bi_op_test!(Mul, mul, false);
 
     // bitwise tests
     std_bi_op_test!(BitAnd, bitand, false);

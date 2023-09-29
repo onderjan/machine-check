@@ -89,10 +89,6 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         Self::a_new(zeros, ones)
     }
 
-    fn b_new(value: MachineBitvector<L>) -> Self {
-        Self::w_new(value.as_unsigned())
-    }
-
     const fn get_mask() -> Wrapping<u64> {
         util::compute_mask(L)
     }
@@ -152,6 +148,12 @@ impl<const L: u32> ThreeValuedBitvector<L> {
             result |= !Self::get_mask();
         };
         Wrapping(result.0 as i64)
+    }
+
+    pub fn contains(&self, rhs: &Self) -> bool {
+        let mask = Self::get_mask();
+        // rhs zeros must be within our zeros and rhs ones must be within our ones
+        (((rhs.zeros & self.zeros) | (rhs.ones & self.ones)) & mask) == mask
     }
 
     pub fn can_contain(&self, a: Wrapping<u64>) -> bool {
@@ -280,6 +282,14 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     fn sub_max(self, rhs: Self, mod_mask: Wrapping<u64>) -> Wrapping<u64> {
         (self.umax() & mod_mask) - (rhs.umin() & mod_mask)
     }
+
+    fn mul_min(self, rhs: Self, mod_mask: Wrapping<u64>) -> Wrapping<u64> {
+        (self.umin() & mod_mask) * (rhs.umin() & mod_mask)
+    }
+
+    fn mul_max(self, rhs: Self, mod_mask: Wrapping<u64>) -> Wrapping<u64> {
+        (self.umax() & mod_mask) * (rhs.umax() & mod_mask)
+    }
 }
 
 impl<const L: u32> Add for ThreeValuedBitvector<L> {
@@ -303,9 +313,9 @@ impl<const L: u32> Sub for ThreeValuedBitvector<L> {
 impl<const L: u32> Mul for ThreeValuedBitvector<L> {
     type Output = Self;
 
-    fn mul(self, _rhs: Self) -> Self::Output {
-        // need to use the paper
-        todo!()
+    fn mul(self, rhs: Self) -> Self::Output {
+        // use the minmax algorithm for now
+        self.minmax_compute(rhs, Self::mul_min, Self::mul_max)
     }
 }
 
@@ -714,6 +724,7 @@ mod tests {
     fn exec_bi_check<const L: u32, const X: u32>(
         abstr_func: fn(ThreeValuedBitvector<L>, ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
         concr_func: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<X>,
+        exact: bool,
     ) {
         let mask = util::compute_mask(L);
         for a_zeros in 0..(1 << L) {
@@ -736,9 +747,16 @@ mod tests {
 
                         let abstr_result = abstr_func(a, b);
                         let equiv_result = join_concr_bi(a, b, concr_func);
-                        if abstr_result != equiv_result {
+                        if exact {
+                            if abstr_result != equiv_result {
+                                panic!(
+                                    "Non-exact result with parameters {}, {}, expected {}, got {}",
+                                    a, b, equiv_result, abstr_result
+                                );
+                            }
+                        } else if !abstr_result.contains(&equiv_result) {
                             panic!(
-                                "Wrong result with parameters {}, {}, expected {}, got {}",
+                                "Unsound result with parameters {}, {}, expected {}, got {}",
                                 a, b, equiv_result, abstr_result
                             );
                         }
@@ -749,7 +767,7 @@ mod tests {
     }
 
     macro_rules! bi_op_test {
-        ($op:tt) => {
+        ($op:tt,$exact:tt) => {
 
             seq_macro::seq!(L in 0..=6 {
 
@@ -757,7 +775,7 @@ mod tests {
             pub fn $op~L() {
                 let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b);
                 let concr_func = |a: MachineBitvector<L>, b: MachineBitvector<L>| a.$op(b);
-                exec_bi_check(abstr_func, concr_func);
+                exec_bi_check(abstr_func, concr_func, $exact);
             }
         });
         };
@@ -773,27 +791,27 @@ mod tests {
     // --- BINARY TESTS ---
 
     // arithmetic tests
-    bi_op_test!(add);
-    bi_op_test!(sub);
+    bi_op_test!(add, true);
+    bi_op_test!(sub, true);
     // not implemented yet
-    //bi_op_test!(mul);
+    bi_op_test!(mul, false);
 
     // bitwise tests
-    bi_op_test!(bitand);
-    bi_op_test!(bitor);
-    bi_op_test!(bitxor);
+    bi_op_test!(bitand, true);
+    bi_op_test!(bitor, true);
+    bi_op_test!(bitxor, true);
 
     // equality and comparison tests
-    bi_op_test!(typed_eq);
-    bi_op_test!(typed_slt);
-    bi_op_test!(typed_slte);
-    bi_op_test!(typed_ult);
-    bi_op_test!(typed_ulte);
+    bi_op_test!(typed_eq, true);
+    bi_op_test!(typed_slt, true);
+    bi_op_test!(typed_slte, true);
+    bi_op_test!(typed_ult, true);
+    bi_op_test!(typed_ulte, true);
 
     // shift tests
-    bi_op_test!(sll);
-    bi_op_test!(srl);
-    bi_op_test!(sra);
+    bi_op_test!(sll, true);
+    bi_op_test!(srl, true);
+    bi_op_test!(sra, true);
 
     // --- EXTENSION TESTS ---
 
