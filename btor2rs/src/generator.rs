@@ -89,10 +89,13 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
             }
         }
     }
+    let bit_type = Sort::single_bit_sort().create_type_tokens()?;
+    // add 'constrained' field
+    let constrained_ident = Ident::new("constrained", Span::call_site());
+    state_fields.push(quote!(pub #constrained_ident: #bit_type));
     // add 'safe' field
     let safe_ident = Ident::new("safe", Span::call_site());
-    let safe_type = Sort::single_bit_sort().create_type_tokens()?;
-    state_fields.push(quote!(pub #safe_ident: #safe_type));
+    state_fields.push(quote!(pub #safe_ident: #bit_type));
 
     let mut input_fields = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
@@ -130,31 +133,43 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
         }
     }
 
-    // result is safe exactly when no bad holds or at least one constraint is violated
-    // i.e. (!bad_1 && !bad_2 && ...) || (!constraint_3 || !constraint_4 || ...)
-    let mut not_bad_tokens = Vec::<TokenStream>::new();
+    // result is constrained exactly when it was constrained previously and all constraints hold
+    // i.e. constraint_1 & constraint2 & ...
     let mut constraint_tokens = Vec::<TokenStream>::new();
     for node in btor2.nodes.values() {
-        match &node.ntype {
-            NodeType::Bad(bad_ref) => {
-                let bad_ref_node = bad_ref.create_tokens("node");
-                not_bad_tokens.push(quote!(!#bad_ref_node));
-            }
-            NodeType::Constraint(constraint_ref) => {
-                let constraint_ref_node = constraint_ref.create_tokens("node");
-                constraint_tokens.push(quote!(#constraint_ref_node));
-            }
-            _ => (),
+        if let NodeType::Constraint(constraint_ref) = &node.ntype {
+            let constraint_ref_node = constraint_ref.create_tokens("node");
+            constraint_tokens.push(quote!(#constraint_ref_node));
         }
     }
-
-    let safe_field_expr = match (!not_bad_tokens.is_empty(), !constraint_tokens.is_empty()) {
-        (true, true) => quote!(#safe_ident: (#(#not_bad_tokens)&*) | (#(#constraint_tokens)|*) ),
-        (true, false) => quote!(#safe_ident: (#(#not_bad_tokens)&*) ),
-        (false, _) => quote!(#safe_ident: #safe_type::new(1) ),
+    let constraint_and = if !constraint_tokens.is_empty() {
+        quote!((#(#constraint_tokens)&*))
+    } else {
+        // default to true
+        quote!(#bit_type::new(1))
     };
-    init_result_tokens.push(safe_field_expr.clone());
-    next_result_tokens.push(safe_field_expr);
+    let init_constraint = quote!(#constraint_and);
+    let constrained_init_expr = quote!(#constrained_ident: #init_constraint);
+    init_result_tokens.push(constrained_init_expr);
+    let next_constraint = quote!(self.#constrained_ident & #constraint_and);
+    let constrained_next_expr = quote!(#constrained_ident: #next_constraint);
+    next_result_tokens.push(constrained_next_expr);
+
+    // result is safe exactly when it is constrained and there is no bad result
+    // i.e. constrained & (!bad_1 & !bad_2 & ...)
+    let mut not_bad_tokens = Vec::<TokenStream>::new();
+    for node in btor2.nodes.values() {
+        if let NodeType::Bad(bad_ref) = &node.ntype {
+            let bad_ref_node = bad_ref.create_tokens("node");
+            not_bad_tokens.push(quote!(!#bad_ref_node));
+        }
+    }
+    let not_bad_and = quote!((#(#not_bad_tokens)&*));
+
+    let safe_init_expr = quote!(#safe_ident: #init_constraint & #not_bad_and);
+    init_result_tokens.push(safe_init_expr);
+    let safe_next_expr = quote!(#safe_ident: #next_constraint & #not_bad_and);
+    next_result_tokens.push(safe_next_expr);
 
     let init_statements = create_statements(&btor2, true)?;
     let next_statements = create_statements(&btor2, false)?;
