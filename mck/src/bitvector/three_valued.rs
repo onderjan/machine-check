@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    util::{self},
+    util::{self, compute_mask},
     MachineBitvector, MachineExt, MachineShift, TypedCmp, TypedEq,
 };
 
@@ -98,11 +98,11 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     fn is_zeros_sign_bit_set(&self) -> bool {
-        util::is_sign_bit_set(self.zeros, L)
+        util::is_highest_bit_set(self.zeros, L)
     }
 
     fn is_ones_sign_bit_set(&self) -> bool {
-        util::is_sign_bit_set(self.ones, L)
+        util::is_highest_bit_set(self.ones, L)
     }
 
     const fn get_sign_bit_mask(self) -> Wrapping<u64> {
@@ -166,6 +166,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         amount: Self,
         zeros_shift_fn: impl Fn(Wrapping<u64>, usize) -> Wrapping<u64>,
         ones_shift_fn: impl Fn(Wrapping<u64>, usize) -> Wrapping<u64>,
+        overflow_value: Self,
     ) -> Self {
         if L == 0 {
             // avoid problems with zero-width bitvectors
@@ -174,15 +175,20 @@ impl<const L: u32> ThreeValuedBitvector<L> {
 
         let mask = Self::get_mask();
 
-        // the shift amount is also three-valued, which poses problems
-        // first, if it can be shifted by L or larger value, start with all zeros
-        let shift_overflow = amount.umax() >= Wrapping(L as u64);
-        let mut zeros = if shift_overflow { mask } else { Wrapping(0) };
+        let mut zeros = Wrapping(0);
         let mut ones = Wrapping(0);
+
+        // the shift amount is also three-valued, which poses problems
+        // first, if it can be shifted by L or larger value, join by overflow value
+        let shift_overflow = amount.umax() >= Wrapping(L as u64);
+        if shift_overflow {
+            zeros |= overflow_value.zeros;
+            ones |= overflow_value.ones;
+        }
 
         let min_shift = amount.umin().0.min((L - 1) as u64);
         let max_shift = amount.umax().0.max((L - 1) as u64);
-        // unionize the other shifts iteratively
+        // join by the other shifts iteratively
         for i in min_shift..=max_shift {
             if amount.can_contain(Wrapping(i)) {
                 let shifted_zeros = zeros_shift_fn(self.zeros, i as usize);
@@ -526,34 +532,51 @@ impl<const L: u32> MachineShift for ThreeValuedBitvector<L> {
         let zeros_shift_fn = |value, amount| (value << amount) | util::compute_mask(amount as u32);
         let ones_shift_fn = |value, amount| value << amount;
 
-        self.shift(amount, zeros_shift_fn, ones_shift_fn)
+        self.shift(amount, zeros_shift_fn, ones_shift_fn, Self::new(0))
     }
 
     fn srl(self, amount: Self) -> Self {
-        // shifting right logically, we need to shift out zeros from left
+        // shifting right logically, we need to shift in zeros from left
         let zeros_shift_fn = |value, amount| {
-            let amount_mask = util::compute_mask(amount as u32);
-            let left_mask = amount_mask << (L as usize - amount);
-            (value >> amount) | left_mask
+            let shifted_value = value >> amount;
+            let mask = compute_mask(L);
+            let shifted_mask: Wrapping<u64> = mask >> amount;
+            let fill_mask = mask & !shifted_mask;
+            shifted_value | fill_mask
         };
         let ones_shift_fn = |value, amount| value >> amount;
 
-        self.shift(amount, zeros_shift_fn, ones_shift_fn)
+        self.shift(amount, zeros_shift_fn, ones_shift_fn, Self::new(0))
     }
 
     fn sra(self, amount: Self) -> Self {
-        // shifting right arithmetically, we need to shift out whatever the sign bit might be from left
+        // shifting right arithmetically, we need to shift in the sign bit from left
         let sra_shift_fn = |value, amount| {
-            if (util::compute_sign_bit_mask(L) & value) != Wrapping(0) {
-                let amount_mask = util::compute_mask(amount as u32);
-                let left_mask = amount_mask << (L as usize - amount);
-                (value >> amount) | left_mask
-            } else {
-                value >> amount
+            let mut shifted_value = value >> amount;
+            if util::is_highest_bit_set(value, L) {
+                let mask = compute_mask(L);
+                let shifted_mask: Wrapping<u64> = mask >> amount;
+                let fill_mask = mask & !shifted_mask;
+                shifted_value |= fill_mask;
             }
+            shifted_value
         };
 
-        self.shift(amount, sra_shift_fn, sra_shift_fn)
+        // the overflow value is determined by sign bit
+        let overflow_zeros = if self.is_zeros_sign_bit_set() {
+            compute_mask(L)
+        } else {
+            Wrapping(0)
+        };
+
+        let overflow_ones = if self.is_ones_sign_bit_set() {
+            compute_mask(L)
+        } else {
+            Wrapping(0)
+        };
+        let overflow_value = Self::a_new(overflow_zeros, overflow_ones);
+
+        self.shift(amount, sra_shift_fn, sra_shift_fn, overflow_value)
     }
 }
 

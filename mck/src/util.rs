@@ -26,6 +26,6 @@ pub const fn compute_sign_bit_mask(length: u32) -> Wrapping<u64> {
     Wrapping(1u64.wrapping_shl(length - 1))
 }
 
-pub fn is_sign_bit_set(value: Wrapping<u64>, length: u32) -> bool {
+pub fn is_highest_bit_set(value: Wrapping<u64>, length: u32) -> bool {
     value & compute_sign_bit_mask(length) != Wrapping(0)
 }

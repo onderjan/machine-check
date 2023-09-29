@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     traits::{MachineExt, MachineShift, TypedCmp, TypedEq},
-    util::{compute_mask, compute_sign_bit_mask, is_sign_bit_set},
+    util::{compute_mask, compute_sign_bit_mask, is_highest_bit_set},
 };
 
 use super::Bitvector;
@@ -54,7 +54,7 @@ impl<const L: u32> MachineBitvector<L> {
     }
 
     fn is_sign_bit_set(&self) -> bool {
-        is_sign_bit_set(self.v, L)
+        is_highest_bit_set(self.v, L)
     }
 }
 
@@ -213,7 +213,7 @@ impl<const L: u32> MachineShift for MachineBitvector<L> {
         if self.is_sign_bit_set() {
             let old_mask = compute_mask(L);
             let new_mask = old_mask >> amount.v.0 as usize;
-            let sign_bit_copy_mask = !old_mask & new_mask;
+            let sign_bit_copy_mask = old_mask & !new_mask;
             result |= sign_bit_copy_mask;
         }
         MachineBitvector::w_new(result)
