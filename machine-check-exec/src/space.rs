@@ -24,6 +24,10 @@ pub enum ModelCheckResult {
     Unknown(Culprit),
 }
 
+pub enum VerificationInfo {
+    Completed(bool),
+    Incomplete,
+}
 pub struct Space {
     init_precision: mark::Input,
     initial_states: Vec<usize>,
@@ -127,21 +131,23 @@ impl Space {
         //println!("Steps regenerated.");
     }
 
-    pub fn verify(&mut self) -> anyhow::Result<bool> {
+    pub fn verify(&mut self) -> anyhow::Result<VerificationInfo> {
         loop {
             let model_check_result = self.model_check();
 
             let culprit = match model_check_result {
-                ModelCheckResult::True => return Ok(true),
-                ModelCheckResult::False => return Ok(false),
+                ModelCheckResult::True => return Ok(VerificationInfo::Completed(true)),
+                ModelCheckResult::False => return Ok(VerificationInfo::Completed(false)),
                 ModelCheckResult::Unknown(culprit) => culprit,
             };
 
-            self.refine(culprit)?;
+            if !self.refine(culprit)? {
+                return Ok(VerificationInfo::Incomplete);
+            }
         }
     }
 
-    fn refine(&mut self, culprit: Culprit) -> anyhow::Result<()> {
+    fn refine(&mut self, culprit: Culprit) -> anyhow::Result<bool> {
         //println!("Refining...");
         // compute marking
         let mut state_mark: mark::State = mark::State {
@@ -176,7 +182,7 @@ impl Space {
                 let mut queue = VecDeque::new();
                 queue.push_back(*state_index);
                 self.regenerate_step(queue);
-                return Ok(());
+                return Ok(true);
             }
 
             state_mark = new_state_mark;
@@ -191,11 +197,11 @@ impl Space {
             //println!("Refined init precision.");
             // regenerate init
             self.regenerate_init();
-            return Ok(());
+            return Ok(true);
         }
 
         // no joy
-        Err(anyhow::anyhow!("Incomplete refinement"))
+        Ok(false)
     }
 
     fn model_check(&self) -> ModelCheckResult {

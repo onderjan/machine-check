@@ -13,9 +13,19 @@ fn run(batch: bool) -> anyhow::Result<()> {
     let verification_result = space.verify()?;
 
     if batch {
-        println!("Safe: {}", verification_result);
+        match verification_result {
+            space::VerificationInfo::Completed(safe) => println!("Safe: {}", safe),
+            space::VerificationInfo::Incomplete => println!("Incomplete"),
+        }
     } else {
-        println!("Space verification result: {}.", verification_result);
+        match verification_result {
+            space::VerificationInfo::Completed(safe) => {
+                println!("Space verification result: {}", safe)
+            }
+            space::VerificationInfo::Incomplete => {
+                println!("Space verification failed due to incomplete refinement.")
+            }
+        }
         println!("Used {} states.", space.num_states());
         println!(
             "Used {} init and {} step refinements",

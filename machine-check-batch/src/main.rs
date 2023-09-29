@@ -3,7 +3,7 @@ use std::{
     env,
     ffi::OsStr,
     fs, io,
-    io::{Read, Stderr, Write},
+    io::{Read, Write},
     path::Path,
     process::{Command, Stdio},
     time::{Duration, Instant},
@@ -12,22 +12,41 @@ use wait_timeout::ChildExt;
 use walkdir::WalkDir;
 use yaml_rust::YamlLoader;
 
-fn check(path: &Path) -> anyhow::Result<Option<bool>> {
+enum CheckResult {
+    Completed(bool),
+    Incomplete,
+    BuildTimeout,
+    ExecTimeout,
+}
+
+fn check(path: &Path) -> anyhow::Result<CheckResult> {
     let machine_check_toml = "./machine-check/Cargo.toml";
     let machine_check_exec_toml = "./machine-check-exec/Cargo.toml";
-    let machine_check_output = Command::new("cargo")
+    let mut building_child = Command::new("cargo")
         .arg("run")
         .arg("--manifest-path")
         .arg(machine_check_toml)
         .arg("--")
         .arg(path)
         .arg("--release")
-        .output()?;
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
 
-    if !machine_check_output.status.success() {
+    let secs = Duration::from_secs(10);
+    let building_status = match building_child.wait_timeout(secs).unwrap() {
+        Some(status) => status,
+        None => {
+            building_child.kill().unwrap();
+            return Ok(CheckResult::BuildTimeout);
+        }
+    };
+
+    if !building_status.success() {
         return Err(anyhow!(
             "Non-success on machine-check, exit code {:?}",
-            machine_check_output.status.code()
+            building_status.code()
         ));
     }
 
@@ -49,7 +68,7 @@ fn check(path: &Path) -> anyhow::Result<Option<bool>> {
         Some(status) => status,
         None => {
             child.kill().unwrap();
-            return Ok(None);
+            return Ok(CheckResult::ExecTimeout);
         }
     };
 
@@ -67,8 +86,9 @@ fn check(path: &Path) -> anyhow::Result<Option<bool>> {
         .read_to_string(&mut exec_stdout)
         .unwrap();
     match exec_stdout.as_str() {
-        "Safe: true\n" => Ok(Some(true)),
-        "Safe: false\n" => Ok(Some(false)),
+        "Safe: true\n" => Ok(CheckResult::Completed(true)),
+        "Safe: false\n" => Ok(CheckResult::Completed(false)),
+        "Incomplete\n" => Ok(CheckResult::Incomplete),
         _ => Err(anyhow!("Unexpected stdout")),
     }
 }
@@ -78,8 +98,10 @@ fn run(dir: &Path) -> anyhow::Result<()> {
     let mut num_correct_false: usize = 0;
     let mut num_wrong_true: usize = 0;
     let mut num_wrong_false: usize = 0;
+    let mut num_build_timeout: usize = 0;
+    let mut num_exec_timeout: usize = 0;
+    let mut num_incomplete: usize = 0;
     let mut num_err: usize = 0;
-    let mut num_timeout: usize = 0;
     for entry in WalkDir::new(dir) {
         let entry = entry.expect("Should be able to walk");
         let path = entry.path();
@@ -116,8 +138,8 @@ fn run(dir: &Path) -> anyhow::Result<()> {
             print!("\t{}: ", btor2_path.display());
             io::stdout().flush()?;
             match check(btor2_path) {
-                Ok(result) => {
-                    if let Some(result) = result {
+                Ok(result) => match result {
+                    CheckResult::Completed(result) => {
                         if result {
                             if safety_verdict {
                                 num_correct_true += 1;
@@ -133,11 +155,20 @@ fn run(dir: &Path) -> anyhow::Result<()> {
                             num_correct_false += 1;
                             println!("false")
                         }
-                    } else {
-                        num_timeout += 1;
-                        println!("TIMEOUT");
                     }
-                }
+                    CheckResult::Incomplete => {
+                        println!("INCOMPLETE");
+                        num_incomplete += 1;
+                    }
+                    CheckResult::BuildTimeout => {
+                        num_build_timeout += 1;
+                        println!("build timeout");
+                    }
+                    CheckResult::ExecTimeout => {
+                        num_exec_timeout += 1;
+                        println!("exec timeout");
+                    }
+                },
                 Err(_) => {
                     num_err += 1;
                     println!("ERROR");
@@ -146,8 +177,8 @@ fn run(dir: &Path) -> anyhow::Result<()> {
         }
     }
     println!(
-        "Batch execution ended, {} correct true, {} correct false, {} wrong true, {} wrong false, {} errors, {} timeouts.",
-        num_correct_true, num_correct_false, num_wrong_true, num_wrong_false, num_err, num_timeout
+        "Batch execution ended, {} correct true, {} correct false, {} wrong true, {} wrong false, {} build timeouts, {} exec timeouts, {} incomplete, {} errors.",
+        num_correct_true, num_correct_false, num_wrong_true, num_wrong_false, num_build_timeout, num_exec_timeout, num_incomplete, num_err
     );
     Ok(())
 }
