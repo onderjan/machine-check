@@ -80,7 +80,7 @@ impl UniOp {
                         i_slice.create_expression(&single_bit_sort)?;
                     slice_expressions.push(quote!((#i_unparenthesised_expression)));
                 }
-                Ok(quote!("#(#slices)^*"))
+                Ok(quote!(#(#slice_expressions)^*))
             }
         }
     }
