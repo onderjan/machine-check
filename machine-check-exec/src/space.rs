@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    hash::Hash,
     rc::Rc,
 };
 
@@ -45,10 +44,6 @@ pub struct Space {
 }
 
 impl Space {
-    fn unknown_input() -> Input {
-        Input::default()
-    }
-
     pub fn new() -> Self {
         let mut space = Self {
             init_precision: mark::Input::default(),
@@ -65,7 +60,6 @@ impl Space {
 
     pub fn regenerate_init(&mut self) {
         self.num_init_refinements += 1;
-        //println!("Regenerating initial states...");
         // clear initial states
         self.initial_states.clear();
 
@@ -76,12 +70,11 @@ impl Space {
         loop {
             let (initial_state_id, added) = self.add_state(Rc::new(State::init(&input)));
             if !self.initial_states.contains_key(&initial_state_id) {
-                self.initial_states.insert(
-                    initial_state_id,
-                    SpaceEdge {
+                self.initial_states
+                    .entry(initial_state_id)
+                    .or_insert_with(|| SpaceEdge {
                         first_input: input.clone(),
-                    },
-                );
+                    });
             }
             if added {
                 added_states_queue.push_back(initial_state_id);
@@ -92,19 +85,12 @@ impl Space {
             }
         }
 
-        println!("Initial states regenerated.");
-        for initial_state_index in self.initial_states.keys() {
-            let initial_state = self.get_state_by_index(*initial_state_index);
-            println!("Initial state: {:?}", initial_state);
-        }
-
         // generate every state that was added
         self.regenerate_step(added_states_queue);
     }
 
     pub fn regenerate_step(&mut self, mut queue: VecDeque<usize>) {
         self.num_step_refinements += 1;
-        //println!("Regenerating steps for {} states...", queue.len());
         // construct state space by breadth-first search
         while let Some(state_index) = queue.pop_front() {
             let state = self.get_state_by_index(state_index);
@@ -113,8 +99,6 @@ impl Space {
                 .get(&state_index)
                 .expect("Indexed state should have next precision")
                 .clone();
-
-            //println!("State #{}: {:?}", state_index, state);
 
             // remove outgoing edges
             // use a temporary vector to avoid race conditions
@@ -146,7 +130,6 @@ impl Space {
                 }
             }
         }
-        //println!("Steps regenerated.");
     }
 
     pub fn verify(&mut self) -> anyhow::Result<VerificationInfo> {
@@ -174,14 +157,11 @@ impl Space {
         assert!(self
             .initial_states
             .contains_key(culprit.path.front().unwrap()));
-        //println!("Refining...");
         // compute marking
         let mut current_state_mark: mark::State = mark::State {
             safe: MarkBitvector::new_marked(),
             ..Default::default()
         };
-        //println!("State mark: {:?}", state_mark);
-        //let input = &Self::unknown_input();
 
         // try increasing precision of the state preceding current mark
         let previous_state_iter = culprit.path.iter().rev().skip(1);
@@ -192,25 +172,15 @@ impl Space {
             assert_ne!(current_state_mark, mark::State::default());
 
             let previous_state = self.get_state_by_index(*previous_state_index);
-            let current_state = self.get_state_by_index(*current_state_index);
-            println!(
-                "Previous state: {:?}, current state: {:?}",
-                previous_state, current_state
-            );
 
             let input = &self
                 .state_graph
                 .edge_weight(*previous_state_index, *current_state_index)
                 .unwrap()
                 .first_input;
-            println!("Input: {:?}, current mark: {:?}", input, current_state_mark);
             // step using the previous state as input
             let (new_state_mark, input_mark) =
                 mark::State::next((previous_state.as_ref(), input), current_state_mark);
-            println!(
-                "New state mark: {:?}, input mark: {:?}",
-                new_state_mark, input_mark
-            );
 
             let previous_state_precision = self
                 .next_precision_map
@@ -231,34 +201,22 @@ impl Space {
             current_state_mark = new_state_mark;
         }
 
-        println!("Trying to increase init precision");
-
         let init_input = &self
             .initial_states
             .get(culprit.path.front().unwrap())
             .unwrap()
             .first_input;
 
-        println!("Current mark: {:?}", current_state_mark);
         // increasing state precision failed, try increasing init precision
         let (input_mark,) = mark::State::init((init_input,), current_state_mark);
 
-        println!("Input mark: {:?}", input_mark);
         let mut joined_precision = self.init_precision.clone();
         joined_precision.apply_join(input_mark);
         if self.init_precision != joined_precision {
             self.init_precision = joined_precision;
-            //println!("Refined init precision.");
             // regenerate init
             self.regenerate_init();
             return Ok(true);
-        }
-
-        println!("No joy");
-
-        for initial_state_index in self.initial_states.keys() {
-            let initial_state = self.get_state_by_index(*initial_state_index);
-            println!("Initial state: {:?}", initial_state);
         }
 
         // no joy
@@ -282,10 +240,6 @@ impl Space {
             let safe: ThreeValuedBitvector<1> = state.safe;
             let true_bitvector = ThreeValuedBitvector::<1>::new(1);
             let false_bitvector = ThreeValuedBitvector::<1>::new(0);
-            /*println!(
-                "Safe: {:?}, true: {:?}, false: {:?}",
-                safe, true_bitvector, false_bitvector
-            );*/
 
             if safe == true_bitvector {
                 // OK, continue

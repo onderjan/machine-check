@@ -5,8 +5,8 @@ use proc_macro2::{Span, TokenStream};
 use syn::{
     punctuated::Punctuated,
     token::{Bracket, Comma, Paren},
-    Attribute, Expr, ExprAssign, ExprCall, ExprField, ExprPath, ExprTuple, Field, FieldValue,
-    Ident, Index, Local, LocalInit, Member, MetaList, Pat, PatIdent, Path, Stmt, TypePath,
+    Attribute, Expr, ExprCall, ExprField, ExprPath, ExprTuple, Field, FieldValue, Ident, Index,
+    Local, LocalInit, Member, MetaList, Pat, PatIdent, Path, Stmt, TypePath,
 };
 use syn_path::path;
 
@@ -24,17 +24,6 @@ pub fn create_expr_tuple(expressions: Punctuated<Expr, Comma>) -> Expr {
         paren_token: Default::default(),
         elems: expressions,
     })
-}
-pub fn create_assign_stmt(left: Expr, right: Expr) -> Stmt {
-    Stmt::Expr(
-        Expr::Assign(ExprAssign {
-            attrs: vec![],
-            left: Box::new(left),
-            eq_token: Default::default(),
-            right: Box::new(right),
-        }),
-        Some(Default::default()),
-    )
 }
 
 pub fn create_ident(name: &str) -> Ident {
