@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-machine-check-macros = { path = "../machine-check-macros" }
 btor2rs = { path = "../btor2rs" }
 mck = { path = "../mck" }
 anyhow = "1.0.75"

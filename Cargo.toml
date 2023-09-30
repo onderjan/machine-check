@@ -4,7 +4,6 @@ resolver = "2"
 members = [
     "mck",
     "machine-check-batch",
-    "machine-check-macros",
     "machine-check-exec",
     "machine-check",
     "btor2rs",

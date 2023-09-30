@@ -88,7 +88,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "btor2rs",
- "machine-check-macros",
  "mck",
  "prettyplease",
  "proc-macro2",
@@ -115,15 +114,6 @@ dependencies = [
  "bimap",
  "mck",
  "petgraph",
-]
-
-[[package]]
-name = "machine-check-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
