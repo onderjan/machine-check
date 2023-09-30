@@ -144,7 +144,8 @@ impl Space {
             if !self.refine(&culprit)? {
                 let mut culprit_states = Vec::new();
                 for state_index in &culprit.path {
-                    culprit_states.push(self.get_state_by_index(*state_index));
+                    let state = self.get_state_by_index(*state_index);
+                    culprit_states.push(state);
                 }
                 return Ok(VerificationInfo::Incomplete(culprit_states));
             }
@@ -154,46 +155,43 @@ impl Space {
     fn refine(&mut self, culprit: &Culprit) -> anyhow::Result<bool> {
         //println!("Refining...");
         // compute marking
-        let mut state_mark: mark::State = mark::State {
+        let mut current_mark: mark::State = mark::State {
             safe: MarkBitvector::new_marked(),
             ..Default::default()
         };
         //println!("State mark: {:?}", state_mark);
         let input = &Self::unknown_input();
 
-        // try increasing next precision
+        // try increasing precision of the state preceding current mark
+        let previous_state_iter = culprit.path.iter().rev().skip(1);
 
-        for state_index in culprit.path.iter().rev() {
-            let state = self.get_state_by_index(*state_index);
+        for previous_state_index in previous_state_iter {
+            let previous_state = self.get_state_by_index(*previous_state_index);
+            // step using the previous state as input
             let (new_state_mark, input_mark) =
-                mark::State::next((state.as_ref(), input), state_mark);
-            /*println!(
-                "New state mark: {:?}, input mark: {:?}",
-                new_state_mark, input_mark
-            );*/
+                mark::State::next((previous_state.as_ref(), input), current_mark);
 
-            let state_next_precision = self
+            let previous_state_precision = self
                 .next_precision_map
-                .get_mut(state_index)
-                .expect("Indexed state should have next precision");
+                .get_mut(previous_state_index)
+                .expect("Indexed state should have precision");
 
-            let mut joined_precision = state_next_precision.clone();
+            let mut joined_precision = previous_state_precision.clone();
             joined_precision.apply_join(input_mark);
-            if state_next_precision != &joined_precision {
-                *state_next_precision = joined_precision;
-                //println!("Refined step precision.");
+            if previous_state_precision != &joined_precision {
+                *previous_state_precision = joined_precision;
                 // regenerate step from the state
                 let mut queue = VecDeque::new();
-                queue.push_back(*state_index);
+                queue.push_back(*previous_state_index);
                 self.regenerate_step(queue);
                 return Ok(true);
             }
 
-            state_mark = new_state_mark;
+            current_mark = new_state_mark;
         }
 
-        // try increasing init precision
-        let (input_mark,) = mark::State::init((input,), state_mark);
+        // increasing state precision failed, try increasing init precision
+        let (input_mark,) = mark::State::init((input,), current_mark);
         let mut joined_precision = self.init_precision.clone();
         joined_precision.apply_join(input_mark);
         if self.init_precision != joined_precision {
