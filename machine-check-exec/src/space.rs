@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    hash::Hash,
     rc::Rc,
 };
 
@@ -28,10 +29,15 @@ pub enum VerificationInfo {
     Completed(bool),
     Incomplete(Vec<Rc<State>>),
 }
+
+pub struct SpaceEdge {
+    pub first_input: Input,
+}
+
 pub struct Space {
     init_precision: mark::Input,
-    initial_states: Vec<usize>,
-    state_graph: GraphMap<usize, (), Directed>,
+    initial_states: HashMap<usize, SpaceEdge>,
+    state_graph: GraphMap<usize, SpaceEdge, Directed>,
     state_map: BiMap<usize, Rc<State>>,
     next_precision_map: HashMap<usize, mark::Input>,
     pub num_init_refinements: usize,
@@ -46,7 +52,7 @@ impl Space {
     pub fn new() -> Self {
         let mut space = Self {
             init_precision: mark::Input::default(),
-            initial_states: vec![],
+            initial_states: HashMap::new(),
             state_graph: GraphMap::new(),
             state_map: BiMap::new(),
             next_precision_map: HashMap::new(),
@@ -69,7 +75,14 @@ impl Space {
         let mut input = Possibility::first_possibility(&self.init_precision);
         loop {
             let (initial_state_id, added) = self.add_state(Rc::new(State::init(&input)));
-            self.initial_states.push(initial_state_id);
+            if !self.initial_states.contains_key(&initial_state_id) {
+                self.initial_states.insert(
+                    initial_state_id,
+                    SpaceEdge {
+                        first_input: input.clone(),
+                    },
+                );
+            }
             if added {
                 added_states_queue.push_back(initial_state_id);
             }
@@ -78,7 +91,12 @@ impl Space {
                 break;
             }
         }
-        //println!("Initial states regenerated.");
+
+        println!("Initial states regenerated.");
+        for initial_state_index in self.initial_states.keys() {
+            let initial_state = self.get_state_by_index(*initial_state_index);
+            println!("Initial state: {:?}", initial_state);
+        }
 
         // generate every state that was added
         self.regenerate_step(added_states_queue);
@@ -116,7 +134,7 @@ impl Space {
 
                 let (next_state_index, inserted) = self.add_state(Rc::new(next_state));
 
-                self.add_edge(state_index, next_state_index);
+                self.add_edge(state_index, next_state_index, &input);
 
                 if inserted {
                     // add to queue
@@ -153,23 +171,46 @@ impl Space {
     }
 
     fn refine(&mut self, culprit: &Culprit) -> anyhow::Result<bool> {
+        assert!(self
+            .initial_states
+            .contains_key(culprit.path.front().unwrap()));
         //println!("Refining...");
         // compute marking
-        let mut current_mark: mark::State = mark::State {
+        let mut current_state_mark: mark::State = mark::State {
             safe: MarkBitvector::new_marked(),
             ..Default::default()
         };
         //println!("State mark: {:?}", state_mark);
-        let input = &Self::unknown_input();
+        //let input = &Self::unknown_input();
 
         // try increasing precision of the state preceding current mark
         let previous_state_iter = culprit.path.iter().rev().skip(1);
+        let current_state_iter = culprit.path.iter().rev();
+        let iter = previous_state_iter.zip(current_state_iter);
 
-        for previous_state_index in previous_state_iter {
+        for (previous_state_index, current_state_index) in iter {
+            assert_ne!(current_state_mark, mark::State::default());
+
             let previous_state = self.get_state_by_index(*previous_state_index);
+            let current_state = self.get_state_by_index(*current_state_index);
+            println!(
+                "Previous state: {:?}, current state: {:?}",
+                previous_state, current_state
+            );
+
+            let input = &self
+                .state_graph
+                .edge_weight(*previous_state_index, *current_state_index)
+                .unwrap()
+                .first_input;
+            println!("Input: {:?}, current mark: {:?}", input, current_state_mark);
             // step using the previous state as input
             let (new_state_mark, input_mark) =
-                mark::State::next((previous_state.as_ref(), input), current_mark);
+                mark::State::next((previous_state.as_ref(), input), current_state_mark);
+            println!(
+                "New state mark: {:?}, input mark: {:?}",
+                new_state_mark, input_mark
+            );
 
             let previous_state_precision = self
                 .next_precision_map
@@ -187,11 +228,22 @@ impl Space {
                 return Ok(true);
             }
 
-            current_mark = new_state_mark;
+            current_state_mark = new_state_mark;
         }
 
+        println!("Trying to increase init precision");
+
+        let init_input = &self
+            .initial_states
+            .get(culprit.path.front().unwrap())
+            .unwrap()
+            .first_input;
+
+        println!("Current mark: {:?}", current_state_mark);
         // increasing state precision failed, try increasing init precision
-        let (input_mark,) = mark::State::init((input,), current_mark);
+        let (input_mark,) = mark::State::init((init_input,), current_state_mark);
+
+        println!("Input mark: {:?}", input_mark);
         let mut joined_precision = self.init_precision.clone();
         joined_precision.apply_join(input_mark);
         if self.init_precision != joined_precision {
@@ -200,6 +252,13 @@ impl Space {
             // regenerate init
             self.regenerate_init();
             return Ok(true);
+        }
+
+        println!("No joy");
+
+        for initial_state_index in self.initial_states.keys() {
+            let initial_state = self.get_state_by_index(*initial_state_index);
+            println!("Initial state: {:?}", initial_state);
         }
 
         // no joy
@@ -213,8 +272,8 @@ impl Space {
         let mut became_open = HashSet::<usize>::new();
         let mut backtrack_map = HashMap::<usize, usize>::new();
 
-        open.extend(self.initial_states.iter());
-        became_open.extend(self.initial_states.iter());
+        open.extend(self.initial_states.keys());
+        became_open.extend(self.initial_states.keys());
 
         while let Some(state_index) = open.pop_front() {
             let state = self.get_state_by_index(state_index);
@@ -242,6 +301,7 @@ impl Space {
                     current_index = *prev_index;
                     path.push_front(current_index);
                 }
+                assert!(self.initial_states.contains_key(&current_index));
 
                 return ModelCheckResult::Unknown(Culprit { path });
             }
@@ -299,7 +359,17 @@ impl Space {
         }
     }
 
-    fn add_edge(&mut self, from: usize, to: usize) {
-        self.state_graph.add_edge(from, to, ());
+    fn add_edge(&mut self, from: usize, to: usize, input: &Input) {
+        if self.state_graph.contains_edge(from, to) {
+            // do nothing
+            return;
+        }
+        self.state_graph.add_edge(
+            from,
+            to,
+            SpaceEdge {
+                first_input: input.clone(),
+            },
+        );
     }
 }

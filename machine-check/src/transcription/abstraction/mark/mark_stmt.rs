@@ -8,8 +8,7 @@ use syn::{
 use syn_path::path;
 
 use crate::transcription::util::{
-    create_assign_stmt, create_expr_path, create_expr_tuple, create_ident,
-    create_let_stmt_from_ident_expr,
+    create_expr_path, create_expr_tuple, create_ident, create_let_stmt_from_ident_expr,
 };
 
 fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
@@ -214,7 +213,8 @@ pub fn invert_simple_let(
     match right {
         Expr::Path(_) | Expr::Field(_) | Expr::Struct(_) => {
             let earlier_mark = right.clone();
-            inverted_stmts.push(create_assign_stmt(earlier_mark, Expr::Path(later_mark)));
+            // join instead of assigning to preserve marking
+            inverted_stmts.push(create_join_stmt(earlier_mark, Expr::Path(later_mark)));
             Ok(())
         }
         Expr::Call(expr_call) => invert_call(inverted_stmts, later_mark, expr_call),
