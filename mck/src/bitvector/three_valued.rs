@@ -65,7 +65,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     pub fn concrete_value(&self) -> Option<MachineBitvector<L>> {
-        if (!(self.ones ^ self.zeros)) != Wrapping(0) {
+        if (!(self.ones ^ self.zeros)) & Self::get_mask() != Wrapping(0) {
             return None;
         }
         Some(MachineBitvector::new(self.ones.0))
@@ -331,13 +331,13 @@ impl<const L: u32> MachineDiv for ThreeValuedBitvector<L> {
         let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
 
         // make highest different bit and all after it unknown
-        let different = !(min_division_result ^ max_division_result);
-        if different == Wrapping(0) {
+        let different = (min_division_result ^ max_division_result).0;
+        if different == 0 {
             // both are the same
             return ThreeValuedBitvector::new(min_division_result.0);
         }
 
-        let highest_different_bit_pos = different.0.ilog2();
+        let highest_different_bit_pos = different.ilog2();
         let unknown_mask = compute_mask(highest_different_bit_pos);
         ThreeValuedBitvector::new_value_known(min_division_result, !unknown_mask)
     }
@@ -347,17 +347,17 @@ impl<const L: u32> MachineDiv for ThreeValuedBitvector<L> {
         let dividend_max = MachineBitvector::<L>::new(self.umax().0);
         let divisor_min = MachineBitvector::<L>::new(rhs.umin().0);
         let divisor_max = MachineBitvector::<L>::new(rhs.umax().0);
-        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
-        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
+        let min_division_result = dividend_min.udiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.udiv(divisor_min).as_unsigned();
 
         // make highest different bit and all after it unknown
-        let different = !(min_division_result ^ max_division_result);
-        if different == Wrapping(0) {
+        let different = (min_division_result ^ max_division_result).0;
+        if different == 0 {
             // both are the same
             return ThreeValuedBitvector::new(min_division_result.0);
         }
 
-        let highest_different_bit_pos = different.0.ilog2();
+        let highest_different_bit_pos = different.ilog2();
         let unknown_mask = compute_mask(highest_different_bit_pos);
         ThreeValuedBitvector::new_value_known(min_division_result, !unknown_mask)
     }
@@ -380,13 +380,13 @@ impl<const L: u32> MachineDiv for ThreeValuedBitvector<L> {
         let max_result = dividend_max.smod(divisor_min).as_unsigned();
 
         // make highest different bit and all after it unknown
-        let different = !(min_result ^ max_result);
-        if different == Wrapping(0) {
+        let different = (min_result ^ max_result).0;
+        if different == 0 {
             // both are the same
             return ThreeValuedBitvector::new(min_result.0);
         }
 
-        let highest_different_bit_pos = different.0.ilog2();
+        let highest_different_bit_pos = different.ilog2();
         let unknown_mask = compute_mask(highest_different_bit_pos);
         ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
     }
@@ -409,13 +409,13 @@ impl<const L: u32> MachineDiv for ThreeValuedBitvector<L> {
         let max_result = dividend_max.srem(divisor_min).as_unsigned();
 
         // make highest different bit and all after it unknown
-        let different = !(min_result ^ max_result);
-        if different == Wrapping(0) {
+        let different = (min_result ^ max_result).0;
+        if different == 0 {
             // both are the same
             return ThreeValuedBitvector::new(min_result.0);
         }
 
-        let highest_different_bit_pos = different.0.ilog2();
+        let highest_different_bit_pos = different.ilog2();
         let unknown_mask = compute_mask(highest_different_bit_pos);
         ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
     }
@@ -438,13 +438,13 @@ impl<const L: u32> MachineDiv for ThreeValuedBitvector<L> {
         let max_result = dividend_max.urem(divisor_min).as_unsigned();
 
         // make highest different bit and all after it unknown
-        let different = !(min_result ^ max_result);
-        if different == Wrapping(0) {
+        let different = (min_result ^ max_result).0;
+        if different == 0 {
             // both are the same
             return ThreeValuedBitvector::new(min_result.0);
         }
 
-        let highest_different_bit_pos = different.0.ilog2();
+        let highest_different_bit_pos = different.ilog2();
         let unknown_mask = compute_mask(highest_different_bit_pos);
         ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
     }
@@ -748,6 +748,7 @@ impl<const L: u32> Display for ThreeValuedBitvector<L> {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     fn join_concr_uni<const L: u32, const X: u32>(
@@ -878,7 +879,7 @@ mod tests {
 
                         let abstr_result = abstr_func(a, b);
                         let equiv_result = join_concr_bi(a, b, concr_func);
-                        if exact || (a.concrete_value().is_some() && b.concrete_value().is_some()) {
+                        if exact {
                             if abstr_result != equiv_result {
                                 panic!(
                                     "Non-exact result with parameters {}, {}, expected {}, got {}",
@@ -888,6 +889,15 @@ mod tests {
                         } else if !abstr_result.contains(&equiv_result) {
                             panic!(
                                 "Unsound result with parameters {}, {}, expected {}, got {}",
+                                a, b, equiv_result, abstr_result
+                            );
+                        }
+                        if a.concrete_value().is_some()
+                            && b.concrete_value().is_some()
+                            && abstr_result.concrete_value().is_none()
+                        {
+                            panic!(
+                                "Non-concrete-value result with concrete-value parameters {}, {}, expected {}, got {}",
                                 a, b, equiv_result, abstr_result
                             );
                         }

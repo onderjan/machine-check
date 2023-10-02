@@ -28,12 +28,12 @@ pub fn write_machine(
 
     println!("Converting to token stream");
     // do not use prettyplease as it can overflow the stack
-    //let unparsed = prettyplease::unparse(machine);
-    let token_stream = machine.to_token_stream();
+    let unparsed = prettyplease::unparse(machine);
+    //let token_stream = machine.to_token_stream();
 
     println!("Writing to file");
     let mut writer = BufWriter::new(&machine_file);
-    if let Err(err) = write!(writer, "{}", token_stream) {
+    if let Err(err) = write!(writer, "{}", unparsed) {
         return Err(anyhow!(
             "Cannot write {} machine to file '{}': {}",
             machine_type,

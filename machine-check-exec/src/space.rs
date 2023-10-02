@@ -154,6 +154,17 @@ impl Space {
     }
 
     fn refine(&mut self, culprit: &Culprit) -> anyhow::Result<bool> {
+        /*println!("Refining culprit with {} states", culprit.path.len());
+        println!("Init precision: {:?}", self.init_precision);
+        for state_index in &culprit.path {
+            let state = self.get_state_by_index(*state_index);
+            println!("Culprit state {}: {:?}", state_index, state);
+            let precision = self
+                .next_precision_map
+                .get_mut(state_index)
+                .expect("Indexed state should have precision");
+            println!("Culprit precision: {:?}", precision);
+        }*/
         assert!(self
             .initial_states
             .contains_key(culprit.path.front().unwrap()));
@@ -170,9 +181,9 @@ impl Space {
 
         for (previous_state_index, current_state_index) in iter {
             //println!("{} -> {}", previous_state_index, current_state_index);
-            /*if *previous_state_index == 2798 && *current_state_index == 4920 {
-                println!("We are here");
-            }*/
+            if *previous_state_index == 2798 && *current_state_index == 4920 {
+                //println!("We are here");
+            }
             let previous_state = self.get_state_by_index(*previous_state_index);
             //println!("Previous state: {:?}", previous_state);
 
@@ -181,28 +192,35 @@ impl Space {
                 .edge_weight(*previous_state_index, *current_state_index)
                 .unwrap()
                 .first_input;
-            //println!("Later mark: {:?}", current_state_mark);
+            /*let current_state = self.get_state_by_index(*current_state_index);
+            let expected_state = previous_state.next(input);
+            println!("Current state: {:?}", current_state);
+            println!("Expected state: {:?}", expected_state);
+
+            println!("First input: {:?}", input);
+            println!("Later mark: {:?}", current_state_mark);*/
             // step using the previous state as input
             let (new_state_mark, input_mark) =
                 mark::State::next((previous_state.as_ref(), input), current_state_mark);
-            //println!("Earlier mark: {:?}", new_state_mark);
-
+            /*println!("Earlier mark: {:?}", new_state_mark);
+            println!("Input mark: {:?}", input_mark);*/
             let previous_state_precision = self
                 .next_precision_map
                 .get_mut(previous_state_index)
                 .expect("Indexed state should have precision");
+            //println!("Previous precision: {:?}", previous_state_precision);
 
             let mut joined_precision = previous_state_precision.clone();
             joined_precision.apply_join(input_mark);
             if previous_state_precision != &joined_precision {
                 *previous_state_precision = joined_precision;
+                //println!("Updated precision for state {}", previous_state_index);
                 // regenerate step from the state
                 let mut queue = VecDeque::new();
                 queue.push_back(*previous_state_index);
                 self.regenerate_step(queue);
                 return Ok(true);
             }
-            assert_ne!(new_state_mark, mark::State::default());
 
             current_state_mark = new_state_mark;
         }
