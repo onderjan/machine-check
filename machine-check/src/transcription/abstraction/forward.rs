@@ -23,26 +23,14 @@ pub fn apply(machine: &mut syn::File) -> Result<(), anyhow::Error> {
 }
 
 fn path_rules() -> Vec<PathRule> {
-    vec![
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
-                PathRuleSegment::Convert(
-                    String::from("MachineArray"),
-                    String::from("ThreeValuedArray"),
-                ),
-            ],
-        },
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
-                PathRuleSegment::Convert(
-                    String::from("MachineBitvector"),
-                    String::from("ThreeValuedBitvector"),
-                ),
-            ],
-        },
-    ]
+    vec![PathRule {
+        has_leading_colon: true,
+        segments: vec![
+            PathRuleSegment::Ident(String::from("mck")),
+            PathRuleSegment::Convert(
+                String::from("MachineBitvector"),
+                String::from("ThreeValuedBitvector"),
+            ),
+        ],
+    }]
 }

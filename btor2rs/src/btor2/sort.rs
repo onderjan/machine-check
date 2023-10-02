@@ -61,26 +61,7 @@ impl Sort {
                 let bitvec_length = bitvec.length.get();
                 Ok(quote!(::mck::MachineBitvector<#bitvec_length>))
             }
-            Sort::Array(array) => {
-                let index_sort = array.index_sort.as_ref();
-                let Sort::Bitvec(index_bitvec) = index_sort else {
-                    return Err(anyhow!("Generating arrays with array indices not supported"));
-                };
-                let index_bitvec_length = index_bitvec.length.get();
-                let Some(num_index_bitvec_values) = 1usize.checked_shl(index_bitvec_length) else {
-                    return Err(anyhow!("Cannot generate array with index bitvector length {}, cannot represent number of values", index_bitvec_length));
-                };
-
-                let element_sort = array.element_sort.as_ref();
-                let Sort::Bitvec(element_bitvec) = element_sort else {
-                    return Err(anyhow!("Generating arrays with array elements not supported"));
-                };
-                let element_bitvec_length = element_bitvec.length.get();
-
-                Ok(
-                    quote!(::mck::MachineArray<#element_bitvec_length, #num_index_bitvec_values, #index_bitvec_length>),
-                )
-            }
+            Sort::Array(_) => Err(anyhow!("Generating arrays not supported")),
         }
     }
 

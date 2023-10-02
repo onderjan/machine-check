@@ -50,9 +50,7 @@ impl TriOp {
             }
             TriOpType::Write => {
                 // a = array, b = index, c = element to be stored
-                Ok(
-                    quote!(let #result_ident = ::mck::MachineArray::write(&(#a_tokens), #b_tokens, #c_tokens);),
-                )
+                Err(anyhow!("Generating arrays not supported"))
             }
         }
     }

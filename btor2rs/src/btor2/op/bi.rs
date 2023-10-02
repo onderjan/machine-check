@@ -142,10 +142,7 @@ impl BiOp {
                 // bit-or together
                 Ok(quote!((#a_uext_sll) | (#b_uext)))
             }
-            BiOpType::Read => {
-                // a is the array, b is the index
-                Ok(quote!(::mck::MachineArray::read(&(#a_tokens), #b_tokens)))
-            }
+            BiOpType::Read => Err(anyhow!("Generating arrays not supported")),
         }
     }
 }

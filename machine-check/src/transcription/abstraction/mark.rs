@@ -466,26 +466,14 @@ fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
 }
 
 pub fn mark_path_rules() -> Vec<PathRule> {
-    vec![
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
-                PathRuleSegment::Convert(
-                    String::from("ThreeValuedArray"),
-                    String::from("MarkArray"),
-                ),
-            ],
-        },
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
-                PathRuleSegment::Convert(
-                    String::from("ThreeValuedBitvector"),
-                    String::from("MarkBitvector"),
-                ),
-            ],
-        },
-    ]
+    vec![PathRule {
+        has_leading_colon: true,
+        segments: vec![
+            PathRuleSegment::Ident(String::from("mck")),
+            PathRuleSegment::Convert(
+                String::from("ThreeValuedBitvector"),
+                String::from("MarkBitvector"),
+            ),
+        ],
+    }]
 }
