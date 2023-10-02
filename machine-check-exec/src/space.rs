@@ -169,18 +169,23 @@ impl Space {
         let iter = previous_state_iter.zip(current_state_iter);
 
         for (previous_state_index, current_state_index) in iter {
-            assert_ne!(current_state_mark, mark::State::default());
-
+            //println!("{} -> {}", previous_state_index, current_state_index);
+            /*if *previous_state_index == 2798 && *current_state_index == 4920 {
+                println!("We are here");
+            }*/
             let previous_state = self.get_state_by_index(*previous_state_index);
+            //println!("Previous state: {:?}", previous_state);
 
             let input = &self
                 .state_graph
                 .edge_weight(*previous_state_index, *current_state_index)
                 .unwrap()
                 .first_input;
+            //println!("Later mark: {:?}", current_state_mark);
             // step using the previous state as input
             let (new_state_mark, input_mark) =
                 mark::State::next((previous_state.as_ref(), input), current_state_mark);
+            //println!("Earlier mark: {:?}", new_state_mark);
 
             let previous_state_precision = self
                 .next_precision_map
@@ -197,6 +202,7 @@ impl Space {
                 self.regenerate_step(queue);
                 return Ok(true);
             }
+            assert_ne!(new_state_mark, mark::State::default());
 
             current_state_mark = new_state_mark;
         }

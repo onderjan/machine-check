@@ -878,7 +878,7 @@ mod tests {
 
                         let abstr_result = abstr_func(a, b);
                         let equiv_result = join_concr_bi(a, b, concr_func);
-                        if exact {
+                        if exact || (a.concrete_value().is_some() && b.concrete_value().is_some()) {
                             if abstr_result != equiv_result {
                                 panic!(
                                     "Non-exact result with parameters {}, {}, expected {}, got {}",
