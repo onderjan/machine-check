@@ -1,6 +1,8 @@
 use anyhow::anyhow;
-use std::io::Write;
+use quote::ToTokens;
+use std::io::{BufWriter, Write};
 use std::{fs::File, path::Path};
+use syn::token;
 
 pub fn write_machine(
     machine_type: &str,
@@ -24,7 +26,22 @@ pub fn write_machine(
         }
     };
 
-    if let Err(err) = machine_file.write(prettyplease::unparse(machine).as_bytes()) {
+    println!("Converting to token stream");
+    // do not use prettyplease as it can overflow the stack
+    //let unparsed = prettyplease::unparse(machine);
+    let token_stream = machine.to_token_stream();
+
+    println!("Writing to file");
+    let mut writer = BufWriter::new(&machine_file);
+    if let Err(err) = write!(writer, "{}", token_stream) {
+        return Err(anyhow!(
+            "Cannot write {} machine to file '{}': {}",
+            machine_type,
+            filename,
+            err
+        ));
+    }
+    if let Err(err) = writer.flush() {
         return Err(anyhow!(
             "Cannot write {} machine to file '{}': {}",
             machine_type,
