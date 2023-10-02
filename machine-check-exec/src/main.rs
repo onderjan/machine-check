@@ -1,39 +1,34 @@
 use std::time::Instant;
 
+use framework::Error;
+
+mod framework;
 mod machine;
-mod space;
 
 fn run(batch: bool) -> anyhow::Result<()> {
     if !batch {
         println!("Starting verification.");
     }
 
-    let mut space = space::Space::new();
-
-    let verification_result = space.verify()?;
+    let (result, info) = framework::verify();
 
     if batch {
-        match verification_result {
-            space::VerificationInfo::Completed(safe) => println!("Safe: {}", safe),
-            space::VerificationInfo::Incomplete(_) => println!("Incomplete"),
+        match result {
+            Ok(conclusion) => println!("Safe: {}", conclusion),
+            Err(Error::Incomplete) => println!("Incomplete"),
         }
     } else {
-        match verification_result {
-            space::VerificationInfo::Completed(safe) => {
-                println!("Space verification result: {}", safe)
+        match result {
+            Ok(conclusion) => {
+                println!("Space verification result: {}", conclusion)
             }
-            space::VerificationInfo::Incomplete(culprit_states) => {
+            Err(Error::Incomplete) => {
                 println!("Space verification failed due to incomplete refinement.");
-                println!("Culprit path:");
-                for culprit_state in culprit_states {
-                    println!("\t {:?}", culprit_state);
-                }
             }
         }
-        println!("Used {} states.", space.num_states());
         println!(
-            "Used {} init and {} step refinements",
-            space.num_init_refinements, space.num_step_refinements
+            "Used {} states and {} refinements.",
+            info.num_states, info.num_refinements
         );
     }
     Ok(())
