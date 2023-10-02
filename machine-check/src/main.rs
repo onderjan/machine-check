@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use std::{env, fs::File, path::Path};
+use std::{env, fs::File, path::Path, thread};
 
 mod transcription;
 mod write;
@@ -50,7 +50,16 @@ fn work() -> Result<(), anyhow::Error> {
 }
 
 fn main() {
-    if let Err(err) = work() {
-        eprintln!("Error: {:#}", err);
-    }
+    // increase stack size by introducing a child thread
+    // normal stack size is not enough for large token trees
+    thread::Builder::new()
+        .stack_size(32 * 1024 * 1024)
+        .spawn(move || {
+            if let Err(err) = work() {
+                eprintln!("Error: {:#}", err);
+            }
+        })
+        .unwrap()
+        .join()
+        .unwrap();
 }
