@@ -11,23 +11,15 @@ use crate::{
     util::{compute_mask, compute_sign_bit_mask, is_highest_bit_set},
 };
 
-use super::Bitvector;
-
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MachineBitvector<const L: u32> {
     v: Wrapping<u64>,
 }
 
-impl<const L: u32> Bitvector<L> for MachineBitvector<L> {
-    fn new(value: u64) -> Self {
-        Self::w_new(Wrapping(value))
-    }
-}
-
 impl<const L: u32> MachineBitvector<L> {
     #[allow(dead_code)]
     pub fn new(value: u64) -> Self {
-        <MachineBitvector<L> as Bitvector<L>>::new(value)
+        Self::w_new(Wrapping(value))
     }
 
     pub fn w_new(value: Wrapping<u64>) -> Self {

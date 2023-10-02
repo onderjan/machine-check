@@ -14,8 +14,6 @@ use crate::{
     MachineBitvector, MachineExt, MachineShift, TypedCmp, TypedEq,
 };
 
-use super::Bitvector;
-
 // the normal equality compares abstract bitvectors
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ThreeValuedBitvector<const L: u32> {
@@ -30,16 +28,9 @@ impl<const L: u32> Default for ThreeValuedBitvector<L> {
     }
 }
 
-impl<const L: u32> Bitvector<L> for ThreeValuedBitvector<L> {
-    fn new(value: u64) -> Self {
-        Self::w_new(Wrapping(value))
-    }
-}
-
 impl<const L: u32> ThreeValuedBitvector<L> {
-    #[allow(dead_code)]
     pub fn new(value: u64) -> Self {
-        <ThreeValuedBitvector<L> as Bitvector<L>>::new(value)
+        Self::w_new(Wrapping(value))
     }
 
     pub fn new_unknown() -> Self {
