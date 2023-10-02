@@ -7,6 +7,9 @@ pub use bitvector::concr::MachineBitvector;
 pub use bitvector::mark::MarkBitvector;
 pub use bitvector::three_valued::ThreeValuedBitvector;
 
+pub use traits::AbstractInput;
+pub use traits::AbstractMachine;
+pub use traits::AbstractState;
 pub use traits::MachineDiv;
 pub use traits::MachineExt;
 pub use traits::MachineShift;

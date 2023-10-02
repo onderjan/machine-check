@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use mck::ThreeValuedBitvector;
+use mck::{AbstractMachine, AbstractState, ThreeValuedBitvector};
 
 use super::space::Space;
 
@@ -9,7 +9,7 @@ pub struct Culprit {
     pub path: VecDeque<usize>,
 }
 
-pub fn check_safety(space: &Space) -> Result<bool, Culprit> {
+pub fn check_safety<AM: AbstractMachine>(space: &Space<AM>) -> Result<bool, Culprit> {
     // check AG[!bad]
     // bfs from initial states
     let mut open = VecDeque::<usize>::new();
@@ -23,7 +23,7 @@ pub fn check_safety(space: &Space) -> Result<bool, Culprit> {
         let state = space.get_state_by_index(state_index);
 
         // check state
-        let safe: ThreeValuedBitvector<1> = state.safe;
+        let safe: ThreeValuedBitvector<1> = state.get_safe();
         let true_bitvector = ThreeValuedBitvector::<1>::new(1);
         let false_bitvector = ThreeValuedBitvector::<1>::new(0);
 

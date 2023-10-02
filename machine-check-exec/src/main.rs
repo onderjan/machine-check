@@ -10,7 +10,7 @@ fn run(is_batch: bool) {
         println!("Starting verification.");
     }
 
-    let (result, info) = verification::verify();
+    let (result, info) = verification::verify::<machine::mark::Machine>();
 
     if is_batch {
         match result {

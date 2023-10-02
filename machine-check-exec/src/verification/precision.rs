@@ -1,37 +1,40 @@
 use std::collections::HashMap;
 
-use crate::machine::mark::Input;
+use mck::mark::MarkInput;
+use mck::mark::MarkMachine;
 
-pub struct Precision {
-    init: Input,
-    step: HashMap<usize, Input>,
+pub struct Precision<M: MarkMachine> {
+    init: M::MarkInput,
+    step: HashMap<usize, M::MarkInput>,
 }
 
-impl Precision {
+impl<MM: MarkMachine> Precision<MM> {
     pub fn new() -> Self {
         Precision {
-            init: Input::default(),
+            init: MM::MarkInput::new_unmarked(),
             step: HashMap::new(),
         }
     }
 
-    pub fn init(&self) -> &Input {
+    pub fn get_init(&self) -> &MM::MarkInput {
         &self.init
     }
 
-    pub fn init_mut(&mut self) -> &mut Input {
+    pub fn get_init_mut(&mut self) -> &mut MM::MarkInput {
         &mut self.init
     }
 
-    pub fn for_state(&self, state_index: usize) -> Input {
+    pub fn get_for_state(&self, state_index: usize) -> MM::MarkInput {
         let result = self.step.get(&state_index);
         match result {
             Some(result) => result.clone(),
-            None => Default::default(),
+            None => MM::MarkInput::new_unmarked(),
         }
     }
 
-    pub fn for_state_mut(&mut self, state_index: usize) -> &mut Input {
-        self.step.entry(state_index).or_insert_with(Input::default)
+    pub fn get_for_state_mut(&mut self, state_index: usize) -> &mut MM::MarkInput {
+        self.step
+            .entry(state_index)
+            .or_insert_with(MM::MarkInput::new_unmarked)
     }
 }

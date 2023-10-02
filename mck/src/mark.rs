@@ -1,3 +1,38 @@
+use crate::{AbstractMachine, Possibility};
+
+use std::hash::Hash;
+
+pub trait MarkInput: PartialEq + Eq + Hash + Clone + Possibility + Join {
+    fn new_unmarked() -> Self;
+}
+
+pub trait MarkState: PartialEq + Eq + Hash + Clone + Possibility + Join {
+    fn new_unmarked() -> Self;
+    fn mark_safe(&mut self);
+}
+
+pub trait MarkMachine {
+    type Abstract: AbstractMachine;
+    type MarkInput: MarkInput;
+    type MarkState: MarkState;
+
+    type InputIter: Iterator<Item = <Self::Abstract as AbstractMachine>::Input>;
+
+    fn input_precision_iter(precision: &Self::MarkInput) -> Self::InputIter;
+
+    fn init(
+        abstr_args: (&<Self::Abstract as AbstractMachine>::Input,),
+        later_mark: Self::MarkState,
+    ) -> (Self::MarkInput,);
+    fn next(
+        abstr_args: (
+            &<Self::Abstract as AbstractMachine>::State,
+            &<Self::Abstract as AbstractMachine>::Input,
+        ),
+        later_mark: Self::MarkState,
+    ) -> (Self::MarkState, Self::MarkInput);
+}
+
 pub trait Markable {
     type Mark;
     fn create_clean_mark(&self) -> Self::Mark;

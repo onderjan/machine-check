@@ -1,21 +1,20 @@
 use std::{collections::HashMap, rc::Rc};
 
 use bimap::BiMap;
+use mck::AbstractMachine;
 use petgraph::{prelude::GraphMap, Directed};
 
-use crate::machine::{Input, State};
-
-pub struct Edge {
-    pub representative_input: Input,
+pub struct Edge<AI> {
+    pub representative_input: AI,
 }
 
-pub struct Space {
-    initial_states: HashMap<usize, Edge>,
-    state_graph: GraphMap<usize, Edge, Directed>,
-    state_map: BiMap<usize, Rc<State>>,
+pub struct Space<AM: AbstractMachine> {
+    initial_states: HashMap<usize, Edge<AM::Input>>,
+    state_graph: GraphMap<usize, Edge<AM::Input>, Directed>,
+    state_map: BiMap<usize, Rc<AM::State>>,
 }
 
-impl Space {
+impl<AM: AbstractMachine> Space<AM> {
     pub fn new() -> Self {
         Self {
             initial_states: HashMap::new(),
@@ -24,7 +23,7 @@ impl Space {
         }
     }
 
-    pub fn get_state_by_index(&self, state_index: usize) -> &State {
+    pub fn get_state_by_index(&self, state_index: usize) -> &AM::State {
         self.state_map
             .get_by_left(&state_index)
             .expect("Indexed state should be in state map")
@@ -48,8 +47,8 @@ impl Space {
 
     pub fn add_initial_state(
         &mut self,
-        state: State,
-        representative_input: &Input,
+        state: AM::State,
+        representative_input: &AM::Input,
     ) -> (usize, bool) {
         let (initial_state_id, added) = self.add_state(state);
         if !self.initial_states.contains_key(&initial_state_id) {
@@ -65,15 +64,15 @@ impl Space {
     pub fn add_step(
         &mut self,
         current_state_index: usize,
-        next_state: State,
-        representative_input: &Input,
+        next_state: AM::State,
+        representative_input: &AM::Input,
     ) -> (usize, bool) {
         let (next_state_index, inserted) = self.add_state(next_state);
         self.add_edge(current_state_index, next_state_index, representative_input);
         (next_state_index, inserted)
     }
 
-    fn add_state(&mut self, state: State) -> (usize, bool) {
+    fn add_state(&mut self, state: AM::State) -> (usize, bool) {
         let state = Rc::new(state);
         let state_id = if let Some(state_id) = self.state_map.get_by_right(&state) {
             // state already present in state map and consequentially next precision map
@@ -97,7 +96,7 @@ impl Space {
         }
     }
 
-    fn add_edge(&mut self, from: usize, to: usize, input: &Input) {
+    fn add_edge(&mut self, from: usize, to: usize, input: &AM::Input) {
         if self.state_graph.contains_edge(from, to) {
             // do nothing
             return;
@@ -111,7 +110,7 @@ impl Space {
         );
     }
 
-    pub fn get_representative_step_input(&self, head: usize, tail: usize) -> &Input {
+    pub fn get_representative_step_input(&self, head: usize, tail: usize) -> &AM::Input {
         &self
             .state_graph
             .edge_weight(head, tail)
@@ -119,7 +118,7 @@ impl Space {
             .representative_input
     }
 
-    pub fn get_representative_init_input(&self, init_state: usize) -> &Input {
+    pub fn get_representative_init_input(&self, init_state: usize) -> &AM::Input {
         &self
             .initial_states
             .get(&init_state)

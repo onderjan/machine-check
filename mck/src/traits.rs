@@ -1,3 +1,7 @@
+use std::hash::Hash;
+
+use crate::ThreeValuedBitvector;
+
 pub trait MachineDiv
 where
     Self: Sized,
@@ -43,4 +47,21 @@ pub trait Possibility {
     type Possibility;
     fn first_possibility(&self) -> Self::Possibility;
     fn increment_possibility(&self, possibility: &mut Self::Possibility) -> bool;
+}
+
+pub trait AbstractMachine {
+    type Input: AbstractInput;
+    type State: AbstractState;
+
+    fn init(input: &Self::Input) -> Self::State;
+    fn next(state: &Self::State, input: &Self::Input) -> Self::State;
+}
+
+pub trait AbstractState: PartialEq + Eq + Hash + Clone {
+    fn new_unknown() -> Self;
+    fn get_safe(&self) -> ThreeValuedBitvector<1>;
+}
+
+pub trait AbstractInput: PartialEq + Eq + Hash + Clone {
+    fn new_unknown() -> Self;
 }

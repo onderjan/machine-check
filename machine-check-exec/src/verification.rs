@@ -4,10 +4,11 @@ mod space;
 
 use std::collections::VecDeque;
 
-use mck::{mark::Join, MarkBitvector, Possibility};
+use mck::{
+    mark::{Join, MarkMachine, MarkState},
+    AbstractMachine,
+};
 use thiserror::Error;
-
-use crate::machine::{mark, State};
 
 use self::{model_check::Culprit, precision::Precision, space::Space};
 
@@ -22,8 +23,8 @@ pub struct Info {
     pub num_refinements: usize,
 }
 
-pub fn verify() -> (Result<bool, Error>, Info) {
-    let mut refinery = Refinery::new();
+pub fn verify<M: MarkMachine>() -> (Result<bool, Error>, Info) {
+    let mut refinery = Refinery::<M>::new();
     loop {
         let result = model_check::check_safety(&refinery.space);
         let culprit = match result {
@@ -36,13 +37,13 @@ pub fn verify() -> (Result<bool, Error>, Info) {
     }
 }
 
-pub struct Refinery {
-    precision: Precision,
-    space: Space,
+struct Refinery<M: MarkMachine> {
+    precision: Precision<M>,
+    space: Space<M::Abstract>,
     num_refinements: usize,
 }
 
-impl Refinery {
+impl<M: MarkMachine> Refinery<M> {
     fn new() -> Self {
         let mut refinery = Refinery {
             precision: Precision::new(),
@@ -57,10 +58,12 @@ impl Refinery {
     fn refine(&mut self, culprit: &Culprit) -> Result<(), Error> {
         self.num_refinements += 1;
         // compute marking
-        let mut current_state_mark: mark::State = mark::State {
+        let mut current_state_mark = M::MarkState::new_unmarked();
+        current_state_mark.mark_safe();
+        /* {
             safe: MarkBitvector::new_marked(),
             ..Default::default()
-        };
+        }; */
 
         // try increasing precision of the state preceding current mark
         let previous_state_iter = culprit.path.iter().cloned().rev().skip(1);
@@ -76,10 +79,10 @@ impl Refinery {
 
             // step using the previous state as input
             let (new_state_mark, input_mark) =
-                mark::State::next((previous_state, input), current_state_mark);
-            let previous_state_precision = self.precision.for_state_mut(previous_state_index);
+                <M as MarkMachine>::next((previous_state, input), current_state_mark);
+            let previous_state_precision = self.precision.get_for_state_mut(previous_state_index);
 
-            let mut joined_precision = previous_state_precision.clone();
+            let mut joined_precision: M::MarkInput = previous_state_precision.clone();
             Join::apply_join(&mut joined_precision, input_mark);
             if previous_state_precision != &joined_precision {
                 *previous_state_precision = joined_precision;
@@ -98,10 +101,10 @@ impl Refinery {
         let init_input = self.space.get_representative_init_input(*initial_state);
 
         // increasing state precision failed, try increasing init precision
-        let (input_mark,) = mark::State::init((init_input,), current_state_mark);
+        let (input_mark,) = <M as MarkMachine>::init((init_input,), current_state_mark);
 
-        let init_precision = self.precision.init_mut();
-        let mut joined_precision = init_precision.clone();
+        let init_precision = self.precision.get_init_mut();
+        let mut joined_precision: M::MarkInput = init_precision.clone();
         Join::apply_join(&mut joined_precision, input_mark);
         if *init_precision != joined_precision {
             *init_precision = joined_precision;
@@ -121,16 +124,14 @@ impl Refinery {
         // regenerate them using init function with init precision
         // remember the states that were actually added
         let mut added_states_queue = VecDeque::new();
-        let mut input = Possibility::first_possibility(self.precision.init());
-        loop {
-            let (initial_state_id, added) =
-                self.space.add_initial_state(State::init(&input), &input);
+
+        let initial_precision = self.precision.get_init();
+        for input in M::input_precision_iter(initial_precision) {
+            let (initial_state_id, added) = self
+                .space
+                .add_initial_state(M::Abstract::init(&input), &input);
             if added {
                 added_states_queue.push_back(initial_state_id);
-            }
-
-            if !Possibility::increment_possibility(self.precision.init(), &mut input) {
-                break;
             }
         }
 
@@ -146,12 +147,11 @@ impl Refinery {
 
             // prepare state and precision
             let state = self.space.get_state_by_index(current_state_index).clone();
-            let step_precision = self.precision.for_state(current_state_index);
+            let step_precision = self.precision.get_for_state(current_state_index);
 
             // generate direct successors
-            let mut input = Possibility::first_possibility(&step_precision);
-            loop {
-                let next_state = state.next(&input);
+            for input in M::input_precision_iter(&step_precision) {
+                let next_state = M::Abstract::next(&state, &input);
 
                 let (next_state_index, added) =
                     self.space.add_step(current_state_index, next_state, &input);
@@ -159,10 +159,6 @@ impl Refinery {
                 if added {
                     // add to queue
                     queue.push_back(next_state_index);
-                }
-
-                if !Possibility::increment_possibility(&step_precision, &mut input) {
-                    break;
                 }
             }
         }
