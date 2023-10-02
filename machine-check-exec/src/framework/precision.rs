@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::machine::forward::mark::Input;
+use crate::machine::mark::Input;
 
 pub struct Precision {
     init: Input,

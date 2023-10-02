@@ -3,7 +3,7 @@ use std::{collections::HashMap, rc::Rc};
 use bimap::BiMap;
 use petgraph::{prelude::GraphMap, Directed};
 
-use crate::machine::forward::{Input, State};
+use crate::machine::{Input, State};
 
 pub struct Edge {
     pub representative_input: Input,

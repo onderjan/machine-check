@@ -7,7 +7,7 @@ use std::collections::VecDeque;
 use mck::{mark::Join, MarkBitvector, Possibility};
 use thiserror::Error;
 
-use crate::machine::forward::{mark, State};
+use crate::machine::{mark, State};
 
 use self::{model_check::Culprit, precision::Precision, space::Space};
 

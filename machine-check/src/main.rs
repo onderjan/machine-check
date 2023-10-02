@@ -1,8 +1,6 @@
 use anyhow::anyhow;
+use machine_check_lib::{create_abstract_machine, write_machine};
 use std::{env, fs::File, path::Path, thread};
-
-mod transcription;
-mod write;
 
 fn work() -> Result<(), anyhow::Error> {
     let mut args = env::args();
@@ -26,24 +24,13 @@ fn work() -> Result<(), anyhow::Error> {
         }
     };
 
-    let mut concrete_machine: syn::File = syn::parse2(btor2rs::translate_file(btor2_file)?)?;
+    let concrete_machine: syn::File = syn::parse2(btor2rs::translate_file(btor2_file)?)?;
+    let abstract_machine = create_abstract_machine(&concrete_machine)?;
 
-    transcription::simplification::ssa::apply(&mut concrete_machine)?;
-
-    write::write_machine(
-        "concrete",
-        &concrete_machine,
-        "machine-check-exec/src/machine/concrete.rs",
-    )?;
-
-    let mut forward_machine = concrete_machine.clone();
-    transcription::abstraction::forward::apply(&mut forward_machine)?;
-    transcription::abstraction::mark::apply(&mut forward_machine)?;
-
-    write::write_machine(
-        "forward",
-        &forward_machine,
-        "machine-check-exec/src/machine/forward.rs",
+    write_machine(
+        "abstract",
+        &abstract_machine,
+        "machine-check-exec/src/machine.rs",
     )?;
 
     Ok(())

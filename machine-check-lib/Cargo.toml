@@ -1,12 +1,11 @@
 [package]
-name = "machine-check"
+name = "machine-check-lib"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
 btor2rs = { path = "../btor2rs" }
-machine-check-lib = { path = "../machine-check-lib" }
 mck = { path = "../mck" }
 anyhow = "1.0.75"
 proc-macro2 = "1.0.67"
