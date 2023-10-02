@@ -1,16 +1,16 @@
 use std::time::Instant;
 
-use framework::Error;
+use verification::Error;
 
-mod framework;
 mod machine;
+mod verification;
 
 fn run(is_batch: bool) {
     if !is_batch {
         println!("Starting verification.");
     }
 
-    let (result, info) = framework::verify();
+    let (result, info) = verification::verify();
 
     if is_batch {
         match result {
