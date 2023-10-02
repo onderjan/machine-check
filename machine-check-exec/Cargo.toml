@@ -6,7 +6,6 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 mck = { path = "../mck" }
-anyhow = "1.0.75"
 thiserror = "1.0.49"
 bimap = "0.6.3"
 petgraph = "0.6.4"

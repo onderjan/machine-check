@@ -5,14 +5,14 @@ use framework::Error;
 mod framework;
 mod machine;
 
-fn run(batch: bool) -> anyhow::Result<()> {
-    if !batch {
+fn run(is_batch: bool) {
+    if !is_batch {
         println!("Starting verification.");
     }
 
     let (result, info) = framework::verify();
 
-    if batch {
+    if is_batch {
         match result {
             Ok(conclusion) => println!("Safe: {}", conclusion),
             Err(Error::Incomplete) => println!("Incomplete"),
@@ -31,27 +31,24 @@ fn run(batch: bool) -> anyhow::Result<()> {
             info.num_states, info.num_refinements
         );
     }
-    Ok(())
 }
 
 fn main() {
-    let mut batch = false;
+    let mut is_batch = false;
     let mut args = std::env::args();
     // skip executable name argument
     if args.next().is_some() {
         if let Some(arg) = args.next() {
             if arg.as_str() == "-b" {
-                batch = true;
+                is_batch = true;
             }
         }
     }
 
     let start = Instant::now();
-    if let Err(err) = run(batch) {
-        eprintln!("Fatal error: {:#}", err);
-    }
+    run(is_batch);
     let elapsed = start.elapsed();
-    if !batch {
+    if !is_batch {
         println!("Execution took {:.3} s", elapsed.as_secs_f64());
     }
 }
