@@ -6,6 +6,7 @@ members = [
     "mck-macro",
     "machine-check-lib",
     "machine-check",
+    "machine-check-exec-lib",
     "machine-check-exec",
     "machine-check-batch",
     "btor2rs",

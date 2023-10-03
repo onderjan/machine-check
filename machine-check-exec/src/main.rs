@@ -1,16 +1,15 @@
 use std::time::Instant;
 
-use verification::Error;
+use machine_check_exec_lib::Error;
 
 mod machine;
-mod verification;
 
 fn run(is_batch: bool) {
     if !is_batch {
         println!("Starting verification.");
     }
 
-    let (result, info) = verification::verify::<machine::mark::Machine>();
+    let (result, info) = machine_check_exec_lib::verify::<machine::mark::Machine>();
 
     if is_batch {
         match result {
