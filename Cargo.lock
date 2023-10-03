@@ -111,12 +111,9 @@ dependencies = [
 name = "machine-check-exec"
 version = "0.1.0"
 dependencies = [
- "bimap",
  "machine-check-exec-lib",
  "mck",
  "mck-macro",
- "petgraph",
- "thiserror",
 ]
 
 [[package]]
