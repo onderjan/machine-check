@@ -113,6 +113,7 @@ version = "0.1.0"
 dependencies = [
  "bimap",
  "mck",
+ "mck-macro",
  "petgraph",
  "thiserror",
 ]
@@ -136,6 +137,15 @@ name = "mck"
 version = "0.1.0"
 dependencies = [
  "seq-macro",
+]
+
+[[package]]
+name = "mck-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

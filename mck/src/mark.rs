@@ -1,36 +1,43 @@
-use crate::{AbstractMachine, Fabricator};
+use crate::{AbstractMachine, Fabricator, FieldManipulate, MarkBitvector};
 
 use std::hash::Hash;
 
-pub trait MarkInput: PartialEq + Eq + Hash + Clone + Fabricator + Join {
-    fn new_unmarked() -> Self;
+pub trait MarkInput:
+    PartialEq + Eq + Hash + Clone + Fabricator + Join + Default + FieldManipulate<MarkBitvector<1>>
+{
+    fn new_unmarked() -> Self {
+        Default::default()
+    }
 }
 
-pub trait MarkState: PartialEq + Eq + Hash + Clone + Join {
-    fn new_unmarked() -> Self;
-    fn mark_safe(&mut self);
+pub trait MarkState:
+    PartialEq + Eq + Hash + Clone + Join + Default + FieldManipulate<MarkBitvector<1>>
+{
+    fn new_unmarked() -> Self {
+        Default::default()
+    }
 }
 
 pub trait MarkMachine {
     type Abstract: AbstractMachine;
-    type MarkInput: MarkInput;
-    type MarkState: MarkState;
+    type Input: MarkInput;
+    type State: MarkState;
 
     type InputIter: Iterator<Item = <Self::Abstract as AbstractMachine>::Input>;
 
-    fn input_precision_iter(precision: &Self::MarkInput) -> Self::InputIter;
+    fn input_precision_iter(precision: &Self::Input) -> Self::InputIter;
 
     fn init(
         abstr_args: (&<Self::Abstract as AbstractMachine>::Input,),
-        later_mark: Self::MarkState,
-    ) -> (Self::MarkInput,);
+        later_mark: Self::State,
+    ) -> (Self::Input,);
     fn next(
         abstr_args: (
             &<Self::Abstract as AbstractMachine>::State,
             &<Self::Abstract as AbstractMachine>::Input,
         ),
-        later_mark: Self::MarkState,
-    ) -> (Self::MarkState, Self::MarkInput);
+        later_mark: Self::State,
+    ) -> (Self::State, Self::Input);
 }
 
 pub trait Markable {

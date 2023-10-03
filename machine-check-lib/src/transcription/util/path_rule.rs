@@ -28,6 +28,21 @@ pub fn apply_to_item_struct(
     visitor.first_error.map_or(Ok(()), Err)
 }
 
+pub fn apply_to_item_impl(
+    i: &mut syn::ItemImpl,
+    rules: Vec<PathRule>,
+) -> Result<(), anyhow::Error> {
+    let mut visitor = Visitor::new(rules);
+    visitor.visit_item_impl_mut(i);
+    visitor.first_error.map_or(Ok(()), Err)
+}
+
+pub fn apply_to_path(p: &mut syn::Path, rules: Vec<PathRule>) -> Result<(), anyhow::Error> {
+    let mut visitor = Visitor::new(rules);
+    visitor.apply_to_path(p);
+    visitor.first_error.map_or(Ok(()), Err)
+}
+
 struct Visitor {
     first_error: Option<anyhow::Error>,
     rules: Vec<PathRule>,

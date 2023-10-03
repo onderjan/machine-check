@@ -1,3 +1,4 @@
+use mck::mark;
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprReference,
@@ -29,7 +30,38 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
                 apply_transcribed_item_struct(&mut mark_file_items, s)?;
             }
             Item::Impl(i) => {
-                mark_file_items.push(Item::Impl(transcribe_item_impl(i)?));
+                let mut transcribed = transcribe_item_impl(i)?;
+                if let Some(trait_) = &mut transcribed.trait_ {
+                    path_rule::apply_to_path(&mut trait_.1, mark_path_rules())?;
+                }
+
+                if let Type::Path(type_path) = transcribed.self_ty.as_ref() {
+                    if let Some(ident) = type_path.path.get_ident() {
+                        if ident == "Machine" {
+                            // TODO: resolve this more elegantly instead of hard-coding
+                            let abstract_type: ImplItem = syn::parse_quote!(
+                                type Abstract = super::Machine;
+                            );
+                            let input_iter_type: ImplItem = syn::parse_quote!(
+                                type InputIter = ::mck::FabricatedIterator<Input>;
+                            );
+                            let input_precision_iter_fn: ImplItem = syn::parse_quote!(
+                                fn input_precision_iter(
+                                    precision: &Self::Input,
+                                ) -> Self::InputIter {
+                                    return ::mck::Fabricator::into_fabricated_iter(
+                                        precision.clone(),
+                                    );
+                                }
+                            );
+                            transcribed.items.push(abstract_type);
+                            transcribed.items.push(input_iter_type);
+                            transcribed.items.push(input_precision_iter_fn);
+                        }
+                    }
+                }
+
+                mark_file_items.push(Item::Impl(transcribed));
             }
             _ => {
                 return Err(anyhow::anyhow!("Item type {:?} not supported", item));
@@ -55,15 +87,23 @@ fn apply_transcribed_item_struct(items: &mut Vec<Item>, s: &ItemStruct) -> anyho
     // apply path rules and push struct
     let mut s = s.clone();
     path_rule::apply_to_item_struct(&mut s, mark_path_rules())?;
-    let join_impl = generate_join_impl(&s)?;
-    let possibility_impl = generate_possibility_impl(&s)?;
-    let markable_impl = generate_markable_impl(&s)?;
-    // add struct
-    items.push(Item::Struct(s));
-    // add implementations of join, possibility, and markable
-    items.push(Item::Impl(join_impl));
-    items.push(Item::Impl(possibility_impl));
-    items.push(Item::Impl(markable_impl));
+    let ident_string = s.ident.to_string();
+
+    // TODO: add the implementations only for state and input according to traits
+    if ident_string.as_str() != "Machine" {
+        let join_impl = generate_join_impl(&s)?;
+        let fabricator_impl = generate_fabricator_impl(&s)?;
+        let markable_impl = generate_markable_impl(&s)?;
+        // add struct
+        items.push(Item::Struct(s));
+        // add implementations of join, fabricator, and markable
+        items.push(Item::Impl(join_impl));
+        items.push(Item::Impl(fabricator_impl));
+        items.push(Item::Impl(markable_impl));
+    } else {
+        // add struct
+        items.push(Item::Struct(s));
+    }
 
     Ok(())
 }
@@ -140,11 +180,11 @@ fn generate_join_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     })
 }
 
-fn generate_first_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
-    let possibility_path = path!(Self::Possibility);
+fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
+    let fabricated_type = path!(Self::Fabricated);
     let return_type = ReturnType::Type(
         Default::default(),
-        Box::new(Type::Path(create_type_path(possibility_path.clone()))),
+        Box::new(Type::Path(create_type_path(fabricated_type.clone()))),
     );
 
     let mut struct_expr_fields = Punctuated::new();
@@ -163,9 +203,7 @@ fn generate_first_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemF
         });
 
         let init_expr = Expr::Call(create_expr_call(
-            Expr::Path(create_expr_path(path!(
-                ::mck::Possibility::first_possibility
-            ))),
+            Expr::Path(create_expr_path(path!(::mck::Fabricator::fabricate_first))),
             Punctuated::from_iter(vec![self_ref_expr]),
         ));
 
@@ -177,7 +215,7 @@ fn generate_first_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemF
     let struct_expr = Expr::Struct(ExprStruct {
         attrs: vec![],
         qself: None,
-        path: possibility_path,
+        path: fabricated_type,
         brace_token: Default::default(),
         fields: struct_expr_fields,
         dot2_token: None,
@@ -194,7 +232,7 @@ fn generate_first_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemF
             unsafety: None,
             abi: None,
             fn_token: Default::default(),
-            ident: create_ident("first_possibility"),
+            ident: create_ident("fabricate_first"),
             generics: Default::default(),
             paren_token: Default::default(),
             inputs: Punctuated::from_iter(vec![self_input]),
@@ -208,18 +246,18 @@ fn generate_first_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemF
     }
 }
 
-fn generate_increment_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
-    let possibility_ident = create_ident("possibility");
-    let possibility_type = Type::Path(create_type_path(path!(Self::Possibility)));
-    let possibility_input = FnArg::Typed(PatType {
+fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
+    let fabricated_ident = create_ident("fabricated");
+    let fabricated_type = Type::Path(create_type_path(path!(Self::Fabricated)));
+    let fabricated_input = FnArg::Typed(PatType {
         attrs: vec![],
-        pat: Box::new(Pat::Ident(create_pat_ident(possibility_ident.clone()))),
+        pat: Box::new(Pat::Ident(create_pat_ident(fabricated_ident.clone()))),
         colon_token: Default::default(),
         ty: Box::new(Type::Reference(TypeReference {
             and_token: Default::default(),
             lifetime: None,
             mutability: Some(Default::default()),
-            elem: Box::new(possibility_type),
+            elem: Box::new(fabricated_type),
         })),
     });
 
@@ -230,17 +268,10 @@ fn generate_increment_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplI
 
     let mut result_expr = None;
 
-    /*
-            fn increment_possibility(&self, possibility: &mut super::Input) -> bool {
-                ::mck::Possibility::increment_possibility(&self.input_2, &mut possibility.input_2)
-                    || self.input_3.increment_possibility(&mut possibility.input_3)
-            }
-    */
-
     for (index, field) in s.fields.iter().enumerate() {
         let self_expr_path = create_expr_path(path!(self));
-        let possibility_expr_path =
-            create_expr_path(create_path_from_ident(possibility_ident.clone()));
+        let fabricated_expr_path =
+            create_expr_path(create_path_from_ident(fabricated_ident.clone()));
 
         let self_expr = Expr::Reference(ExprReference {
             attrs: vec![],
@@ -252,22 +283,22 @@ fn generate_increment_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplI
                 field,
             ))),
         });
-        let possibility_expr = Expr::Reference(ExprReference {
+        let fabricated_expr = Expr::Reference(ExprReference {
             attrs: vec![],
             and_token: Default::default(),
             mutability: Some(Default::default()),
             expr: Box::new(Expr::Field(create_expr_field(
-                Expr::Path(possibility_expr_path),
+                Expr::Path(fabricated_expr_path),
                 index,
                 field,
             ))),
         });
         let func_expr = Expr::Path(create_expr_path(path!(
-            ::mck::Possibility::increment_possibility
+            ::mck::Fabricator::increment_fabricated
         )));
         let expr = Expr::Call(create_expr_call(
             func_expr,
-            Punctuated::from_iter(vec![self_expr, possibility_expr]),
+            Punctuated::from_iter(vec![self_expr, fabricated_expr]),
         ));
         if let Some(previous_expr) = result_expr.take() {
             // short-circuiting or for simplicity
@@ -295,10 +326,10 @@ fn generate_increment_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplI
             unsafety: None,
             abi: None,
             fn_token: Default::default(),
-            ident: create_ident("increment_possibility"),
+            ident: create_ident("increment_fabricated"),
             generics: Default::default(),
             paren_token: Default::default(),
-            inputs: Punctuated::from_iter(vec![self_input, possibility_input]),
+            inputs: Punctuated::from_iter(vec![self_input, fabricated_input]),
             variadic: None,
             output: return_type,
         },
@@ -309,7 +340,7 @@ fn generate_increment_possibility_fn(s: &ItemStruct, self_input: FnArg) -> ImplI
     }
 }
 
-fn generate_possibility_impl_item_type(s: &ItemStruct) -> ImplItemType {
+fn generate_fabricated_impl_item_type(s: &ItemStruct) -> ImplItemType {
     let mut path = create_path_from_ident(s.ident.clone());
     path.segments.insert(
         0,
@@ -323,7 +354,7 @@ fn generate_possibility_impl_item_type(s: &ItemStruct) -> ImplItemType {
         vis: syn::Visibility::Inherited,
         defaultness: Default::default(),
         type_token: Default::default(),
-        ident: create_ident("Possibility"),
+        ident: create_ident("Fabricated"),
         generics: Default::default(),
         eq_token: Default::default(),
         ty: Type::Path(create_type_path(path)),
@@ -331,9 +362,9 @@ fn generate_possibility_impl_item_type(s: &ItemStruct) -> ImplItemType {
     }
 }
 
-fn generate_possibility_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
+fn generate_fabricator_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
-    let impl_trait = (None, path!(::mck::Possibility), Default::default());
+    let impl_trait = (None, path!(::mck::Fabricator), Default::default());
     let self_type = Type::Path(create_type_path(path!(Self)));
     let self_input = FnArg::Receiver(Receiver {
         attrs: vec![],
@@ -349,10 +380,10 @@ fn generate_possibility_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         })),
     });
 
-    let possibility_item_type = generate_possibility_impl_item_type(s);
+    let item_type = generate_fabricated_impl_item_type(s);
 
-    let first_possibility_fn = generate_first_possibility_fn(s, self_input.clone());
-    let next_possibility_fn = generate_increment_possibility_fn(s, self_input);
+    let first_fn = fabricate_first_fn(s, self_input.clone());
+    let increment_fn = increment_fabricated_fn(s, self_input);
 
     Ok(ItemImpl {
         attrs: vec![],
@@ -364,9 +395,9 @@ fn generate_possibility_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         self_ty: Box::new(struct_type),
         brace_token: Default::default(),
         items: vec![
-            ImplItem::Type(possibility_item_type),
-            ImplItem::Fn(first_possibility_fn),
-            ImplItem::Fn(next_possibility_fn),
+            ImplItem::Type(item_type),
+            ImplItem::Fn(first_fn),
+            ImplItem::Fn(increment_fn),
         ],
     })
 }
@@ -466,14 +497,41 @@ fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
 }
 
 pub fn mark_path_rules() -> Vec<PathRule> {
-    vec![PathRule {
-        has_leading_colon: true,
-        segments: vec![
-            PathRuleSegment::Ident(String::from("mck")),
-            PathRuleSegment::Convert(
-                String::from("ThreeValuedBitvector"),
-                String::from("MarkBitvector"),
-            ),
-        ],
-    }]
+    // TODO: do this more elegantly using traits
+    vec![
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(
+                    String::from("ThreeValuedBitvector"),
+                    String::from("MarkBitvector"),
+                ),
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(String::from("AbstractInput"), String::from("MarkInput")),
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(String::from("AbstractState"), String::from("MarkState")),
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(
+                    String::from("AbstractMachine"),
+                    String::from("MarkMachine"),
+                ),
+            ],
+        },
+    ]
 }

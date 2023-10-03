@@ -6,16 +6,25 @@ use std::collections::VecDeque;
 
 use mck::{
     mark::{Join, MarkMachine, MarkState},
-    AbstractMachine,
+    AbstractMachine, MarkBitvector,
 };
 use thiserror::Error;
 
-use self::{model_check::Culprit, precision::Precision, space::Space};
+use self::{precision::Precision, space::Space};
+
+use mck::FieldManipulate;
 
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("incomplete verification")]
-    Incomplete,
+    Incomplete(Culprit),
+    #[error("field '{0}' of bit type not found")]
+    FieldNotFound(String),
+}
+
+#[derive(Debug)]
+pub struct Culprit {
+    pub path: VecDeque<usize>,
 }
 
 pub struct Info {
@@ -29,10 +38,13 @@ pub fn verify<M: MarkMachine>() -> (Result<bool, Error>, Info) {
         let result = model_check::check_safety(&refinery.space);
         let culprit = match result {
             Ok(conclusion) => return (Ok(conclusion), refinery.info()),
-            Err(culprit) => culprit,
+            Err(error) => match error {
+                Error::Incomplete(culprit) => culprit,
+                _ => return (Err(error), refinery.info()),
+            },
         };
-        if let Err(err) = refinery.refine(&culprit) {
-            return (Err(err), refinery.info());
+        if !refinery.refine(&culprit) {
+            return (Err(Error::Incomplete(culprit)), refinery.info());
         }
     }
 }
@@ -55,15 +67,14 @@ impl<M: MarkMachine> Refinery<M> {
         refinery
     }
 
-    fn refine(&mut self, culprit: &Culprit) -> Result<(), Error> {
+    fn refine(&mut self, culprit: &Culprit) -> bool {
+        let safe_str = "safe";
+
         self.num_refinements += 1;
         // compute marking
-        let mut current_state_mark = M::MarkState::new_unmarked();
-        current_state_mark.mark_safe();
-        /* {
-            safe: MarkBitvector::new_marked(),
-            ..Default::default()
-        }; */
+        let mut current_state_mark = M::State::new_unmarked();
+        let mark_bit = current_state_mark.get_mut(safe_str).unwrap();
+        *mark_bit = MarkBitvector::new_marked();
 
         // try increasing precision of the state preceding current mark
         let previous_state_iter = culprit.path.iter().cloned().rev().skip(1);
@@ -82,7 +93,7 @@ impl<M: MarkMachine> Refinery<M> {
                 <M as MarkMachine>::next((previous_state, input), current_state_mark);
             let previous_state_precision = self.precision.get_for_state_mut(previous_state_index);
 
-            let mut joined_precision: M::MarkInput = previous_state_precision.clone();
+            let mut joined_precision: M::Input = previous_state_precision.clone();
             Join::apply_join(&mut joined_precision, input_mark);
             if previous_state_precision != &joined_precision {
                 *previous_state_precision = joined_precision;
@@ -90,7 +101,7 @@ impl<M: MarkMachine> Refinery<M> {
                 let mut queue = VecDeque::new();
                 queue.push_back(previous_state_index);
                 self.regenerate_step(queue);
-                return Ok(());
+                return true;
             }
 
             current_state_mark = new_state_mark;
@@ -104,17 +115,17 @@ impl<M: MarkMachine> Refinery<M> {
         let (input_mark,) = <M as MarkMachine>::init((init_input,), current_state_mark);
 
         let init_precision = self.precision.get_init_mut();
-        let mut joined_precision: M::MarkInput = init_precision.clone();
+        let mut joined_precision: M::Input = init_precision.clone();
         Join::apply_join(&mut joined_precision, input_mark);
         if *init_precision != joined_precision {
             *init_precision = joined_precision;
             // regenerate init
             self.regenerate_init();
-            return Ok(());
+            return true;
         }
 
         // incomplete
-        Err(Error::Incomplete)
+        false
     }
 
     pub fn regenerate_init(&mut self) {

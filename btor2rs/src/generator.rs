@@ -24,7 +24,7 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
                     }
                 } else if state.next().is_some() {
                     let state_ident = nid.create_ident("state");
-                    statements.push(quote!(let #result_ident = self.#state_ident;));
+                    statements.push(quote!(let #result_ident = state.#state_ident;));
                     false
                 } else {
                     true
@@ -155,7 +155,7 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let init_constraint = quote!(#constraint_and);
     let constrained_init_expr = quote!(#constrained_ident: #init_constraint);
     init_result_tokens.push(constrained_init_expr);
-    let next_constraint = quote!(self.#constrained_ident & #constraint_and);
+    let next_constraint = quote!(state.#constrained_ident & #constraint_and);
     let constrained_next_expr = quote!(#constrained_ident: #next_constraint);
     next_result_tokens.push(constrained_next_expr);
 
@@ -181,23 +181,31 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let tokens = quote!(
         #![allow(dead_code, unused_variables, clippy::all)]
 
-        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+        #[derive(Clone, Debug, PartialEq, Eq, Hash, ::mck_macro::FieldManipulate)]
         pub struct Input {
             #(#input_fields),*
         }
 
-        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+        impl ::mck::ConcreteInput for Input {}
+
+        #[derive(Clone, Debug, PartialEq, Eq, Hash, ::mck_macro::FieldManipulate)]
         pub struct State {
             #(#state_fields),*
         }
 
-        impl State {
-            pub fn init(input: &Input) -> State {
+        impl ::mck::ConcreteState for State {}
+
+        pub struct Machine;
+
+        impl ::mck::ConcreteMachine for Machine {
+            type Input = Input;
+            type State = State;
+            fn init(input: &Input) -> State {
                 #(#init_statements)*
                 State{#(#init_result_tokens),*}
             }
 
-            pub fn next(&self, input: &Input) -> State {
+            fn next(state: &State, input: &Input) -> State {
                 #(#next_statements)*
                 State{#(#next_result_tokens),*}
             }

@@ -50,12 +50,17 @@ pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
     };
 
     for item in &i.items {
-        if let ImplItem::Fn(item_fn) = item {
-            let mark_fn = converter.transcribe_impl_item_fn(item_fn)?;
-            items.push(ImplItem::Fn(mark_fn));
-        } else {
-            return Err(anyhow!("Impl item type {:?} not supported", item));
-        };
+        match item {
+            ImplItem::Fn(item_fn) => {
+                let mark_fn = converter.transcribe_impl_item_fn(item_fn)?;
+                items.push(ImplItem::Fn(mark_fn));
+            }
+            ImplItem::Type(item_type) => {
+                // just clone for now
+                items.push(ImplItem::Type(item_type.clone()));
+            }
+            _ => return Err(anyhow!("Impl item type {:?} not supported", item)),
+        }
     }
 
     i.items = items;

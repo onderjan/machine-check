@@ -1,15 +1,12 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use mck::{AbstractMachine, AbstractState, ThreeValuedBitvector};
+use mck::{AbstractMachine, FieldManipulate, ThreeValuedBitvector};
 
-use super::space::Space;
+use super::{space::Space, Culprit, Error};
 
-#[derive(Debug)]
-pub struct Culprit {
-    pub path: VecDeque<usize>,
-}
+pub fn check_safety<AM: AbstractMachine>(space: &Space<AM>) -> Result<bool, Error> {
+    let safe_str = "safe";
 
-pub fn check_safety<AM: AbstractMachine>(space: &Space<AM>) -> Result<bool, Culprit> {
     // check AG[!bad]
     // bfs from initial states
     let mut open = VecDeque::<usize>::new();
@@ -23,7 +20,9 @@ pub fn check_safety<AM: AbstractMachine>(space: &Space<AM>) -> Result<bool, Culp
         let state = space.get_state_by_index(state_index);
 
         // check state
-        let safe: ThreeValuedBitvector<1> = state.get_safe();
+        let Some(safe) = state.get(safe_str) else {
+            return Err(Error::FieldNotFound(String::from(safe_str)));
+        };
         let true_bitvector = ThreeValuedBitvector::<1>::new(1);
         let false_bitvector = ThreeValuedBitvector::<1>::new(0);
 
@@ -42,7 +41,7 @@ pub fn check_safety<AM: AbstractMachine>(space: &Space<AM>) -> Result<bool, Culp
                 path.push_front(current_index);
             }
 
-            return Err(Culprit { path });
+            return Err(Error::Incomplete(Culprit { path }));
         }
 
         for direct_successor_index in space.direct_successor_indices_iter(state_index) {

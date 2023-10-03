@@ -80,11 +80,17 @@ pub trait AbstractMachine {
     fn next(state: &Self::State, input: &Self::Input) -> Self::State;
 }
 
-pub trait AbstractState: PartialEq + Eq + Hash + Clone {
-    fn new_unknown() -> Self;
-    fn get_safe(&self) -> ThreeValuedBitvector<1>;
+pub trait AbstractState:
+    PartialEq + Eq + Hash + Clone + FieldManipulate<ThreeValuedBitvector<1>>
+{
 }
 
-pub trait AbstractInput: PartialEq + Eq + Hash + Clone {
-    fn new_unknown() -> Self;
+pub trait AbstractInput:
+    PartialEq + Eq + Hash + Clone + FieldManipulate<ThreeValuedBitvector<1>>
+{
+}
+
+pub trait FieldManipulate<T> {
+    fn get(&self, name: &str) -> Option<T>;
+    fn get_mut(&mut self, name: &str) -> Option<&mut T>;
 }

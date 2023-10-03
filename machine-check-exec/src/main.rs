@@ -15,15 +15,18 @@ fn run(is_batch: bool) {
     if is_batch {
         match result {
             Ok(conclusion) => println!("Safe: {}", conclusion),
-            Err(Error::Incomplete) => println!("Incomplete"),
+            Err(error) => match error {
+                Error::Incomplete(_) => println!("Incomplete"),
+                _ => println!("{}", error),
+            },
         }
     } else {
         match result {
             Ok(conclusion) => {
                 println!("Space verification result: {}", conclusion)
             }
-            Err(Error::Incomplete) => {
-                println!("Space verification failed due to incomplete refinement.");
+            Err(error) => {
+                println!("Space verification failed: {}", error);
             }
         }
         println!(

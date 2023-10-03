@@ -23,14 +23,46 @@ pub fn apply(machine: &mut syn::File) -> Result<(), anyhow::Error> {
 }
 
 fn path_rules() -> Vec<PathRule> {
-    vec![PathRule {
-        has_leading_colon: true,
-        segments: vec![
-            PathRuleSegment::Ident(String::from("mck")),
-            PathRuleSegment::Convert(
-                String::from("MachineBitvector"),
-                String::from("ThreeValuedBitvector"),
-            ),
-        ],
-    }]
+    vec![
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(
+                    String::from("MachineBitvector"),
+                    String::from("ThreeValuedBitvector"),
+                ),
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(
+                    String::from("ConcreteInput"),
+                    String::from("AbstractInput"),
+                ),
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(
+                    String::from("ConcreteState"),
+                    String::from("AbstractState"),
+                ),
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(
+                    String::from("ConcreteMachine"),
+                    String::from("AbstractMachine"),
+                ),
+            ],
+        },
+    ]
 }
