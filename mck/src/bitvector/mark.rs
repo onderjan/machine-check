@@ -9,7 +9,7 @@ use crate::{
         Not, Sub, TypedCmp, TypedEq,
     },
     util::compute_sign_bit_mask,
-    MachineBitvector, Possibility, ThreeValuedBitvector,
+    Fabricator, MachineBitvector, ThreeValuedBitvector,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -44,16 +44,16 @@ impl<const L: u32> MarkBitvector<L> {
     }
 }
 
-impl<const L: u32> Possibility for MarkBitvector<L> {
-    type Possibility = ThreeValuedBitvector<L>;
+impl<const L: u32> Fabricator for MarkBitvector<L> {
+    type Fabricated = ThreeValuedBitvector<L>;
 
-    fn first_possibility(&self) -> ThreeValuedBitvector<L> {
+    fn fabricate_first(&self) -> ThreeValuedBitvector<L> {
         // all known bits are 0
         let known_bits = self.0.as_unsigned();
         ThreeValuedBitvector::new_value_known(Wrapping(0), known_bits)
     }
 
-    fn increment_possibility(&self, possibility: &mut ThreeValuedBitvector<L>) -> bool {
+    fn increment_fabricated(&self, fabricated: &mut ThreeValuedBitvector<L>) -> bool {
         // the marked bits should be split into possibilities
         let known_bits = self.0.as_unsigned();
 
@@ -69,7 +69,7 @@ impl<const L: u32> Possibility for MarkBitvector<L> {
         // end if we overflow
 
         // work with bitvector of only values, the unknowns do not change
-        let mut current = possibility.umin();
+        let mut current = fabricated.umin();
         let mut considered_bits = known_bits;
 
         loop {
@@ -80,7 +80,7 @@ impl<const L: u32> Possibility for MarkBitvector<L> {
                 current |= one_mask;
                 let result = ThreeValuedBitvector::new_value_known(current, known_bits);
 
-                *possibility = result;
+                *fabricated = result;
                 return true;
             }
             // if it is 1, update it to 0, temporarily do not consider it and update next
@@ -90,7 +90,7 @@ impl<const L: u32> Possibility for MarkBitvector<L> {
             // end if we overflow
             // reset possibility to allow for cycling
             if considered_bits == Wrapping(0) {
-                *possibility = self.first_possibility();
+                *fabricated = self.fabricate_first();
                 return false;
             }
         }

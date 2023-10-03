@@ -78,7 +78,7 @@ impl AbstractMachine for Machine {
     }
 }
 pub mod mark {
-    use mck::MarkBitvector;
+    use mck::{Fabricator, MarkBitvector};
 
     pub struct InputIterator(Input, Option<super::Input>);
 
@@ -90,7 +90,7 @@ pub mod mark {
                 return None;
             };
             let result = current.clone();
-            let could_increment = ::mck::Possibility::increment_possibility(&mut self.0, current);
+            let could_increment = ::mck::Fabricator::increment_fabricated(&mut self.0, current);
             if !could_increment {
                 self.1 = None;
             }
@@ -107,13 +107,10 @@ pub mod mark {
 
         type MarkState = State;
 
-        type InputIter = InputIterator;
+        type InputIter = ::mck::FabricatedIterator<Input>;
 
         fn input_precision_iter(precision: &Self::MarkInput) -> Self::InputIter {
-            InputIterator(
-                precision.clone(),
-                Some(::mck::Possibility::first_possibility(precision)),
-            )
+            precision.clone().into_fabricated_iter()
         }
 
         fn init(__mck_input_abstr: (&super::Input,), __mck_input_later_mark: State) -> (Input,) {
@@ -310,12 +307,12 @@ pub mod mark {
     impl ::mck::mark::Join for Input {
         fn apply_join(&mut self, other: Self) {}
     }
-    impl ::mck::Possibility for Input {
-        type Possibility = super::Input;
-        fn first_possibility(&self) -> Self::Possibility {
-            Self::Possibility {}
+    impl ::mck::Fabricator for Input {
+        type Fabricated = super::Input;
+        fn fabricate_first(&self) -> Self::Fabricated {
+            Self::Fabricated {}
         }
-        fn increment_possibility(&self, possibility: &mut Self::Possibility) -> bool {
+        fn increment_fabricated(&self, fabricated: &mut Self::Fabricated) -> bool {
             false
         }
     }
@@ -344,22 +341,22 @@ pub mod mark {
             ::mck::mark::Join::apply_join(&mut self.safe, other.safe);
         }
     }
-    impl ::mck::Possibility for State {
-        type Possibility = super::State;
-        fn first_possibility(&self) -> Self::Possibility {
-            Self::Possibility {
-                state_3: ::mck::Possibility::first_possibility(&self.state_3),
-                constrained: ::mck::Possibility::first_possibility(&self.constrained),
-                safe: ::mck::Possibility::first_possibility(&self.safe),
+    impl ::mck::Fabricator for State {
+        type Fabricated = super::State;
+        fn fabricate_first(&self) -> Self::Fabricated {
+            Self::Fabricated {
+                state_3: ::mck::Fabricator::fabricate_first(&self.state_3),
+                constrained: ::mck::Fabricator::fabricate_first(&self.constrained),
+                safe: ::mck::Fabricator::fabricate_first(&self.safe),
             }
         }
-        fn increment_possibility(&self, possibility: &mut Self::Possibility) -> bool {
-            ::mck::Possibility::increment_possibility(&self.state_3, &mut possibility.state_3)
-                || ::mck::Possibility::increment_possibility(
+        fn increment_fabricated(&self, fabricated: &mut Self::Fabricated) -> bool {
+            ::mck::Fabricator::increment_fabricated(&self.state_3, &mut fabricated.state_3)
+                || ::mck::Fabricator::increment_fabricated(
                     &self.constrained,
-                    &mut possibility.constrained,
+                    &mut fabricated.constrained,
                 )
-                || ::mck::Possibility::increment_possibility(&self.safe, &mut possibility.safe)
+                || ::mck::Fabricator::increment_fabricated(&self.safe, &mut fabricated.safe)
         }
     }
     impl ::mck::mark::Markable for super::State {

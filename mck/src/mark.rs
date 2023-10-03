@@ -1,12 +1,12 @@
-use crate::{AbstractMachine, Possibility};
+use crate::{AbstractMachine, Fabricator};
 
 use std::hash::Hash;
 
-pub trait MarkInput: PartialEq + Eq + Hash + Clone + Possibility + Join {
+pub trait MarkInput: PartialEq + Eq + Hash + Clone + Fabricator + Join {
     fn new_unmarked() -> Self;
 }
 
-pub trait MarkState: PartialEq + Eq + Hash + Clone + Possibility + Join {
+pub trait MarkState: PartialEq + Eq + Hash + Clone + Join {
     fn new_unmarked() -> Self;
     fn mark_safe(&mut self);
 }
