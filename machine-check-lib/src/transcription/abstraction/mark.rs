@@ -1,4 +1,3 @@
-use mck::mark;
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprReference,
