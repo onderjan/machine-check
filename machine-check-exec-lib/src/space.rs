@@ -1,4 +1,7 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::{BTreeSet, HashMap},
+    rc::Rc,
+};
 
 use bimap::BiMap;
 use mck::{AbstractMachine, FieldManipulate, MachineBitvector};
@@ -130,6 +133,14 @@ impl<AM: AbstractMachine> Space<AM> {
         self.initial_states.keys().cloned()
     }
 
+    pub fn direct_predecessor_index_iter(
+        &self,
+        state_index: usize,
+    ) -> impl Iterator<Item = usize> + '_ {
+        self.state_graph
+            .neighbors_directed(state_index, petgraph::Direction::Incoming)
+    }
+
     pub fn direct_successor_index_iter(
         &self,
         state_index: usize,
@@ -186,5 +197,32 @@ impl<AM: AbstractMachine> Space<AM> {
     pub fn parents_iter(&self, state_index: usize) -> impl Iterator<Item = usize> + '_ {
         self.state_graph
             .neighbors_directed(state_index, petgraph::Direction::Incoming)
+    }
+
+    pub fn labelled_nontrivial_scc_indices(&self, labelled: &BTreeSet<usize>) -> BTreeSet<usize> {
+        // construct a new state graph that only contains labelled vertices and transitions between them
+        let mut labelled_graph = GraphMap::<usize, (), Directed>::new();
+
+        for labelled_index in labelled.iter().cloned() {
+            labelled_graph.add_node(labelled_index);
+            for direct_successor_index in self.direct_successor_index_iter(labelled_index) {
+                labelled_graph.add_edge(labelled_index, direct_successor_index, ());
+            }
+        }
+
+        // get out the indices in trivial SCC
+        let sccs = petgraph::algo::tarjan_scc(&self.state_graph);
+        let mut result = BTreeSet::new();
+        for scc in sccs {
+            if scc.len() == 1 {
+                let state_index = scc[0];
+                if !self.state_graph.contains_edge(state_index, state_index) {
+                    // trivial SCC, do not add to result
+                    break;
+                }
+            }
+            result.extend(scc);
+        }
+        result
     }
 }
