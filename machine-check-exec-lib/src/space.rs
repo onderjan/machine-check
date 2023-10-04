@@ -1,7 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
 use bimap::BiMap;
-use mck::AbstractMachine;
+use mck::{AbstractMachine, FieldManipulate, MachineBitvector};
 use petgraph::{prelude::GraphMap, Directed};
 
 pub struct Edge<AI> {
@@ -126,11 +126,11 @@ impl<AM: AbstractMachine> Space<AM> {
             .representative_input
     }
 
-    pub fn initial_state_indices_iter(&self) -> impl Iterator<Item = usize> + '_ {
+    pub fn initial_index_iter(&self) -> impl Iterator<Item = usize> + '_ {
         self.initial_states.keys().cloned()
     }
 
-    pub fn direct_successor_indices_iter(
+    pub fn direct_successor_index_iter(
         &self,
         state_index: usize,
     ) -> impl Iterator<Item = usize> + '_ {
@@ -138,7 +138,53 @@ impl<AM: AbstractMachine> Space<AM> {
             .neighbors_directed(state_index, petgraph::Direction::Outgoing)
     }
 
-    pub(crate) fn num_states(&self) -> usize {
+    pub fn num_states(&self) -> usize {
         self.state_map.len()
+    }
+
+    pub fn index_iter(&self) -> impl Iterator<Item = usize> + '_ {
+        self.state_map.left_values().cloned()
+    }
+
+    pub fn labelled_index_iter<'a>(
+        &'a self,
+        name: &'a str,
+        complementary: bool,
+        optimistic: bool,
+    ) -> impl Iterator<Item = Result<usize, ()>> + 'a {
+        self.state_map
+            .iter()
+            .filter_map(move |(state_index, state)| {
+                if let Some(labelling) = state.get(name) {
+                    let labelled = match labelling.concrete_value() {
+                        Some(concrete_value) => {
+                            // negate if necessary
+                            let is_true = concrete_value != MachineBitvector::new(0);
+                            if complementary {
+                                !is_true
+                            } else {
+                                is_true
+                            }
+                        }
+                        None => {
+                            // never negate here, just consider if it is optimistic
+                            // see https://patricegodefroid.github.io/public_psfiles/marktoberdorf2013.pdf
+                            optimistic
+                        }
+                    };
+                    if labelled {
+                        Some(Ok(*state_index))
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(Err(()))
+                }
+            })
+    }
+
+    pub fn parents_iter(&self, state_index: usize) -> impl Iterator<Item = usize> + '_ {
+        self.state_graph
+            .neighbors_directed(state_index, petgraph::Direction::Incoming)
     }
 }

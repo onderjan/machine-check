@@ -25,6 +25,7 @@ pub enum Error {
 #[derive(Debug)]
 pub struct Culprit {
     pub path: VecDeque<usize>,
+    pub name: String,
 }
 
 pub struct Info {
@@ -43,6 +44,7 @@ pub fn verify<M: MarkMachine>() -> (Result<bool, Error>, Info) {
                 _ => return (Err(error), refinery.info()),
             },
         };
+        //println!("Culprit: {:?}", culprit);
         if !refinery.refine(&culprit) {
             return (Err(Error::Incomplete(culprit)), refinery.info());
         }
@@ -107,7 +109,10 @@ impl<M: MarkMachine> Refinery<M> {
             current_state_mark = new_state_mark;
         }
 
-        let initial_state = culprit.path.front().unwrap();
+        let initial_state = culprit
+            .path
+            .front()
+            .expect("culprit should have an initial state");
 
         let init_input = self.space.get_representative_init_input(*initial_state);
 

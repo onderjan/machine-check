@@ -13,7 +13,9 @@ pub fn field_manipulate(input: TokenStream) -> TokenStream {
     let derive_ident = derive_input.ident;
 
     let mut abstract_field_arms = Vec::<proc_macro2::TokenStream>::new();
+    let mut abstract_field_mut_arms = Vec::<proc_macro2::TokenStream>::new();
     let mut mark_field_arms = Vec::<proc_macro2::TokenStream>::new();
+    let mut mark_field_mut_arms = Vec::<proc_macro2::TokenStream>::new();
 
     for field in data_struct.fields {
         let field_ident = field.ident.unwrap();
@@ -63,10 +65,17 @@ pub fn field_manipulate(input: TokenStream) -> TokenStream {
 
         let field_name = field_ident.to_string();
         let field_arm = quote!(#field_name => Some(self.#field_ident),);
+        let field_arm_mut = quote!(#field_name => Some(&mut self.#field_ident),);
 
         match type_segment.ident.to_string().as_str() {
-            "ThreeValuedBitvector" => abstract_field_arms.push(field_arm),
-            "MarkBitvector" => mark_field_arms.push(field_arm),
+            "ThreeValuedBitvector" => {
+                abstract_field_arms.push(field_arm);
+                abstract_field_mut_arms.push(field_arm_mut);
+            }
+            "MarkBitvector" => {
+                mark_field_arms.push(field_arm);
+                mark_field_mut_arms.push(field_arm_mut);
+            }
             _ => (),
         }
     }
@@ -83,6 +92,7 @@ pub fn field_manipulate(input: TokenStream) -> TokenStream {
 
             fn get_mut(&mut self, name: &str) -> ::std::option::Option<&mut ::mck::ThreeValuedBitvector<1>> {
                 match name {
+                    #(#abstract_field_mut_arms)*
                     _ => ::std::option::Option::None
                 }
             }
@@ -98,6 +108,7 @@ pub fn field_manipulate(input: TokenStream) -> TokenStream {
 
             fn get_mut(&mut self, name: &str) -> ::std::option::Option<&mut ::mck::MarkBitvector<1>> {
                 match name {
+                    #(#mark_field_mut_arms)*
                     _ => ::std::option::Option::None
                 }
             }
