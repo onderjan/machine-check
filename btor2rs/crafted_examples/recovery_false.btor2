@@ -1,0 +1,34 @@
+; 
+
+1 sort bitvec 1 ; bit type
+2 sort bitvec 16 ; machine word type
+
+10 zero 1 ; bit zero
+11 one 1 ; bit one
+20 zero 2 ; machine-word zero
+
+100 input 1 ; reset
+101 input 2 ; input register A
+102 input 2 ; input register B
+
+130 state 2 ; state: addition result
+131 init 2 130 20 ; init to all zeros
+
+140 state 2 ; state: running maximum
+141 init 2 140 20 ; init to all zeros
+
+145 eq 1 140 20 ; is running maximum zero?
+
+150 state 1 ; state: is running maximum zero?
+151 init 1 150 145 ; init
+152 next 1 150 145 ; next
+
+200 add 2 101 102 ; A + B
+201 ugt 2 200 140 ; A + B > running_maximum
+202 ite 2 201 200 140 ; (A + B > running_maximum) ? (A + B) : running_maximum
+203 ite 2 100 20 202 ; if reset, zero running maximum, otherwise updated running maximum
+
+332 next 2 130 200 ; update addition result state
+342 next 2 140 202 ; update running maximum state, DO NOT APPLY RESET
+
+1000 bad 10 ; never bad
