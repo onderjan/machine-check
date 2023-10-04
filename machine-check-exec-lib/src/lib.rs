@@ -8,10 +8,12 @@ use mck::{
     mark::{Join, MarkMachine, MarkState},
     AbstractMachine, MarkBitvector,
 };
+use model_check::{safety_proposition, Proposition};
 use thiserror::Error;
 
 use self::{precision::Precision, space::Space};
 
+use clap::Parser;
 use mck::FieldManipulate;
 
 #[derive(Error, Debug)]
@@ -20,6 +22,10 @@ pub enum Error {
     Incomplete(Culprit),
     #[error("field '{0}' of bit type not found")]
     FieldNotFound(String),
+    #[error("property '{0}' part '{1}' could not be lexed")]
+    PropertyNotLexable(String, String),
+    #[error("property '{0}' could not be parsed")]
+    PropertyNotParseable(String),
 }
 
 #[derive(Debug)]
@@ -33,36 +39,34 @@ pub struct Info {
     pub num_refinements: usize,
 }
 
-pub fn run<M: MarkMachine>() {
-    let mut is_batch = false;
-    let mut args = std::env::args();
-    // skip executable name argument
-    if args.next().is_some() {
-        if let Some(arg) = args.next() {
-            if arg.as_str() == "-b" {
-                is_batch = true;
-            }
-        }
-    }
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(short, long)]
+    batch: bool,
 
-    let start = Instant::now();
-    run_configured::<M>(is_batch);
-    let elapsed = start.elapsed();
-    if !is_batch {
-        println!("Execution took {:.3} s", elapsed.as_secs_f64());
-    }
+    #[arg(long)]
+    ctl: Option<String>,
 }
 
-pub fn run_configured<M: MarkMachine>(is_batch: bool) {
+pub fn run<M: MarkMachine>() {
+    let start = Instant::now();
+    let args = Args::parse();
+    let is_batch = args.batch;
     if !is_batch {
         println!("Starting verification.");
     }
 
-    let (result, info) = verify::<M>();
+    let (result, info) = verify::<M>(args.ctl.as_ref());
 
     if is_batch {
         match result {
-            Ok(conclusion) => println!("Safe: {}", conclusion),
+            Ok(conclusion) => {
+                if args.ctl.is_some() {
+                    println!("Conclusion: {}", conclusion);
+                } else {
+                    println!("Safe: {}", conclusion);
+                }
+            }
             Err(error) => match error {
                 Error::Incomplete(_) => println!("Incomplete"),
                 _ => println!("{}", error),
@@ -82,12 +86,24 @@ pub fn run_configured<M: MarkMachine>(is_batch: bool) {
             info.num_states, info.num_refinements
         );
     }
+    let elapsed = start.elapsed();
+    if !args.batch {
+        println!("Execution took {:.3} s", elapsed.as_secs_f64());
+    }
 }
 
-fn verify<M: MarkMachine>() -> (Result<bool, Error>, Info) {
+fn verify<M: MarkMachine>(property: Option<&String>) -> (Result<bool, Error>, Info) {
     let mut refinery = Refinery::<M>::new();
+    let proposition = if let Some(property_str) = property {
+        match Proposition::parse(property_str) {
+            Ok(prop) => prop,
+            Err(err) => return (Err(err), refinery.info()),
+        }
+    } else {
+        safety_proposition()
+    };
     loop {
-        let result = model_check::check_safety(&refinery.space);
+        let result = model_check::check_prop(&refinery.space, &proposition);
         let culprit = match result {
             Ok(conclusion) => return (Ok(conclusion), refinery.info()),
             Err(error) => match error {
@@ -121,12 +137,10 @@ impl<M: MarkMachine> Refinery<M> {
     }
 
     fn refine(&mut self, culprit: &Culprit) -> bool {
-        let safe_str = "safe";
-
         self.num_refinements += 1;
         // compute marking
         let mut current_state_mark = M::State::new_unmarked();
-        let mark_bit = current_state_mark.get_mut(safe_str).unwrap();
+        let mark_bit = current_state_mark.get_mut(&culprit.name).unwrap();
         *mark_bit = MarkBitvector::new_marked();
 
         // try increasing precision of the state preceding current mark

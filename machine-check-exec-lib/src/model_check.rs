@@ -4,11 +4,11 @@ use mck::AbstractMachine;
 
 use super::{space::Space, Culprit, Error};
 
-pub fn check_safety<AM: AbstractMachine>(space: &Space<AM>) -> Result<bool, Error> {
+pub fn safety_proposition() -> Proposition {
     // check AG[safe]
     // no complementary literal
     // in two-valued checking, transform to !E[true U !safe]
-    let prop = Proposition::Negation(Box::new(Proposition::EU(PropositionU {
+    Proposition::Negation(Box::new(Proposition::EU(PropositionU {
         hold: Box::new(Proposition::Const(true)),
         until: Box::new(Proposition::Negation(Box::new(Proposition::Literal(
             Literal {
@@ -16,59 +16,15 @@ pub fn check_safety<AM: AbstractMachine>(space: &Space<AM>) -> Result<bool, Erro
                 name: String::from("safe"),
             },
         )))),
-    })));
+    })))
+}
 
+pub fn check_prop<AM: AbstractMachine>(
+    space: &Space<AM>,
+    prop: &Proposition,
+) -> Result<bool, Error> {
     let mut checker = ThreeValuedChecker::new(space);
     checker.check_prop(prop)
-
-    /*
-    // check AG[!bad]
-    // bfs from initial states
-    let mut open = VecDeque::<usize>::new();
-    let mut became_open = HashSet::<usize>::new();
-    let mut backtrack_map = HashMap::<usize, usize>::new();
-
-    open.extend(space.initial_state_indices_iter());
-    became_open.extend(space.initial_state_indices_iter());
-
-    while let Some(state_index) = open.pop_front() {
-        let state = space.get_state_by_index(state_index);
-
-        // check state
-        let Some(safe) = state.get(safe_str) else {
-            return Err(Error::FieldNotFound(String::from(safe_str)));
-        };
-        let true_bitvector = ThreeValuedBitvector::<1>::new(1);
-        let false_bitvector = ThreeValuedBitvector::<1>::new(0);
-
-        if safe == true_bitvector {
-            // alright
-        } else if safe == false_bitvector {
-            // definitely false
-            return Ok(false);
-        } else {
-            // unknown, put together culprit path
-            let mut path = VecDeque::<usize>::new();
-            path.push_front(state_index);
-            let mut current_index = state_index;
-            while let Some(prev_index) = backtrack_map.get(&current_index) {
-                current_index = *prev_index;
-                path.push_front(current_index);
-            }
-
-            return Err(Error::Incomplete(Culprit { path }));
-        }
-
-        for direct_successor_index in space.direct_successor_indices_iter(state_index) {
-            let inserted = became_open.insert(direct_successor_index);
-            if inserted {
-                backtrack_map.insert(direct_successor_index, state_index);
-                open.push_back(direct_successor_index);
-            }
-        }
-    }
-    // if no bad result was found, the result is true
-    Ok(true)*/
 }
 
 struct ThreeValuedChecker<'a, AM: AbstractMachine> {
@@ -86,7 +42,8 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
         }
     }
 
-    fn check_prop(&mut self, mut prop: Proposition) -> Result<bool, Error> {
+    fn check_prop(&mut self, prop: &Proposition) -> Result<bool, Error> {
+        let mut prop = prop.clone();
         // transform to positive normal form to move negations to literals
         prop.pnf();
         // transform to existential normal form to be able to verify
@@ -229,7 +186,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                         }
                     }
                 }
-                panic!("no EU culprit found");
+                panic!("no EG culprit found");
             }
             Proposition::EU(eu) => {
                 // breadth-first search to find the hold or until that is incomplete
@@ -308,20 +265,20 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-struct Literal {
+pub struct Literal {
     complementary: bool,
     name: String,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-struct PropositionU {
+pub struct PropositionU {
     hold: Box<Proposition>,
     until: Box<Proposition>,
 }
 
 #[allow(dead_code)]
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-enum Proposition {
+pub enum Proposition {
     Const(bool),
     Literal(Literal),
     Negation(Box<Proposition>),
@@ -329,14 +286,14 @@ enum Proposition {
     And(Box<Proposition>, Box<Proposition>),
     EX(Box<Proposition>),
     AX(Box<Proposition>),
-    AF(Box<Proposition>),
     EF(Box<Proposition>),
+    AF(Box<Proposition>),
+    EG(Box<Proposition>),
+    AG(Box<Proposition>),
     EU(PropositionU),
     AU(PropositionU),
     ER(PropositionU),
     AR(PropositionU),
-    EG(Box<Proposition>),
-    AG(Box<Proposition>),
 }
 
 impl Proposition {
@@ -466,7 +423,11 @@ impl Proposition {
                 inner.enf();
                 return;
             }
-            Proposition::Or(_, _) => (),
+            Proposition::Or(p, q) => {
+                p.enf();
+                q.enf();
+                return;
+            }
             Proposition::And(p, q) => {
                 // p and q = !(!p or !q)
                 *self = Proposition::Negation(Box::new(Proposition::Or(
@@ -497,7 +458,7 @@ impl Proposition {
                     until: Box::clone(inner),
                 });
             }
-            Proposition::EG(_) => (),
+            Proposition::EG(_) => return,
             Proposition::AG(inner) => {
                 // AG[p] = !EF[!p] = !E[true U !p]
                 *self = Proposition::Negation(Box::new(Proposition::EU(PropositionU {
@@ -547,6 +508,130 @@ impl Proposition {
         }
         // minimize the new expression
         self.enf();
+    }
+
+    pub fn parse(prop_str: &str) -> Result<Proposition, Error> {
+        PropositionParser::parse(prop_str)
+    }
+}
+
+#[derive(Debug)]
+pub enum PropositionLexItem {
+    Comma,
+    OpeningParen(char),
+    ClosingParen(char),
+    Ident(String),
+}
+
+struct PropositionParser {
+    input: String,
+    lex_items: VecDeque<PropositionLexItem>,
+}
+
+impl PropositionParser {
+    fn parse(input: &str) -> Result<Proposition, Error> {
+        let mut parser = PropositionParser {
+            input: String::from(input),
+            lex_items: Self::lex(input)?,
+        };
+        parser.parse_proposition()
+    }
+
+    fn parse_uni(&mut self) -> Result<Box<Proposition>, Error> {
+        let Some(PropositionLexItem::OpeningParen(_)) = self.lex_items.pop_front() else {
+            return Err(Error::PropertyNotParseable(self.input.clone()));
+        };
+        let result = self.parse_proposition()?;
+        let Some(PropositionLexItem::ClosingParen(_)) = self.lex_items.pop_front() else {
+            return Err(Error::PropertyNotParseable(self.input.clone()));
+        };
+        Ok(Box::new(result))
+    }
+
+    fn parse_u(&mut self) -> Result<PropositionU, Error> {
+        let Some(PropositionLexItem::OpeningParen(_)) = self.lex_items.pop_front() else {
+            return Err(Error::PropertyNotParseable(self.input.clone()));
+        };
+        let hold = self.parse_proposition()?;
+        let Some(PropositionLexItem::Comma) = self.lex_items.pop_front() else {
+            return Err(Error::PropertyNotParseable(self.input.clone()));
+        };
+        let until = self.parse_proposition()?;
+        let Some(PropositionLexItem::ClosingParen(_)) = self.lex_items.pop_front() else {
+            return Err(Error::PropertyNotParseable(self.input.clone()));
+        };
+        Ok(PropositionU {
+            hold: Box::new(hold),
+            until: Box::new(until),
+        })
+    }
+
+    fn parse_proposition(&mut self) -> Result<Proposition, Error> {
+        let Some(lex_item) = self.lex_items.pop_front() else {
+            return Err(Error::PropertyNotParseable(self.input.clone()));
+        };
+
+        Ok(match lex_item {
+            PropositionLexItem::Ident(ident) => match ident.as_ref() {
+                "EX" => Proposition::EX(self.parse_uni()?),
+                "AX" => Proposition::AX(self.parse_uni()?),
+                "EF" => Proposition::EF(self.parse_uni()?),
+                "AF" => Proposition::AF(self.parse_uni()?),
+                "EG" => Proposition::EG(self.parse_uni()?),
+                "AG" => Proposition::AG(self.parse_uni()?),
+                "EU" => Proposition::EU(self.parse_u()?),
+                "AU" => Proposition::AU(self.parse_u()?),
+                _ => {
+                    // truly an ident
+                    Proposition::Literal(Literal {
+                        complementary: false,
+                        name: ident,
+                    })
+                }
+            },
+            _ => {
+                // not allowed for now
+                return Err(Error::PropertyNotParseable(self.input.clone()));
+            }
+        })
+    }
+
+    fn lex(input: &str) -> Result<VecDeque<PropositionLexItem>, Error> {
+        let mut result = VecDeque::new();
+
+        let mut it = input.chars().peekable();
+        while let Some(&c) = it.peek() {
+            match c {
+                ',' => {
+                    result.push_back(PropositionLexItem::Comma);
+                    it.next();
+                }
+                '(' | '[' | '{' => {
+                    result.push_back(PropositionLexItem::OpeningParen(c));
+                    it.next();
+                }
+                ')' | ']' | '}' => {
+                    result.push_back(PropositionLexItem::ClosingParen(c));
+                    it.next();
+                }
+                'A'..='Z' | 'a'..='z' | '_' => {
+                    let mut ident = String::from(c);
+                    it.next();
+                    while let Some(&c) = it.peek() {
+                        match c {
+                            'A'..='Z' | 'a'..='z' | '_' | '0'..='9' => {
+                                it.next();
+                                ident.push(c);
+                            }
+                            _ => break,
+                        }
+                    }
+                    result.push_back(PropositionLexItem::Ident(ident));
+                }
+                _ => return Err(Error::PropertyNotParseable(String::from(input))),
+            }
+        }
+        Ok(result)
     }
 }
 

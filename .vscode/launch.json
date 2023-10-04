@@ -63,6 +63,27 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug executable 'machine-check-exec'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=machine-check-exec",
+                    "--package=machine-check-exec"
+                ],
+                "filter": {
+                    "name": "machine-check-exec",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "--ctl",
+                "EG[node_150]"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug unit tests in executable 'machine-check'",
             "cargo": {
                 "args": [
