@@ -2,7 +2,7 @@ mod model_check;
 mod precision;
 mod space;
 
-use std::collections::VecDeque;
+use std::{collections::VecDeque, time::Instant};
 
 use mck::{
     mark::{Join, MarkMachine, MarkState},
@@ -33,7 +33,58 @@ pub struct Info {
     pub num_refinements: usize,
 }
 
-pub fn verify<M: MarkMachine>() -> (Result<bool, Error>, Info) {
+pub fn run<M: MarkMachine>() {
+    let mut is_batch = false;
+    let mut args = std::env::args();
+    // skip executable name argument
+    if args.next().is_some() {
+        if let Some(arg) = args.next() {
+            if arg.as_str() == "-b" {
+                is_batch = true;
+            }
+        }
+    }
+
+    let start = Instant::now();
+    run_configured::<M>(is_batch);
+    let elapsed = start.elapsed();
+    if !is_batch {
+        println!("Execution took {:.3} s", elapsed.as_secs_f64());
+    }
+}
+
+pub fn run_configured<M: MarkMachine>(is_batch: bool) {
+    if !is_batch {
+        println!("Starting verification.");
+    }
+
+    let (result, info) = verify::<M>();
+
+    if is_batch {
+        match result {
+            Ok(conclusion) => println!("Safe: {}", conclusion),
+            Err(error) => match error {
+                Error::Incomplete(_) => println!("Incomplete"),
+                _ => println!("{}", error),
+            },
+        }
+    } else {
+        match result {
+            Ok(conclusion) => {
+                println!("Space verification result: {}", conclusion)
+            }
+            Err(error) => {
+                println!("Space verification failed: {}", error);
+            }
+        }
+        println!(
+            "Used {} states and {} refinements.",
+            info.num_states, info.num_refinements
+        );
+    }
+}
+
+fn verify<M: MarkMachine>() -> (Result<bool, Error>, Info) {
     let mut refinery = Refinery::<M>::new();
     loop {
         let result = model_check::check_safety(&refinery.space);

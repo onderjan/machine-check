@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use machine_check_lib::{create_abstract_machine, write_machine};
 use std::{env, fs::File, path::Path, thread};
+use syn::{parse_quote, Item, ItemFn};
 
 fn work() -> Result<(), anyhow::Error> {
     let mut args = env::args();
@@ -25,12 +26,21 @@ fn work() -> Result<(), anyhow::Error> {
     };
 
     let concrete_machine: syn::File = syn::parse2(btor2rs::translate_file(btor2_file)?)?;
-    let abstract_machine = create_abstract_machine(&concrete_machine)?;
+    let mut abstract_machine = create_abstract_machine(&concrete_machine)?;
+
+    // add main function
+
+    let main_fn: ItemFn = parse_quote!(
+        fn main() {
+            ::machine_check_exec_lib::run::<mark::Machine>()
+        }
+    );
+    abstract_machine.items.push(Item::Fn(main_fn));
 
     write_machine(
         "abstract",
         &abstract_machine,
-        "machine-check-exec/src/machine.rs",
+        "machine-check-exec/src/main.rs",
     )?;
 
     Ok(())
