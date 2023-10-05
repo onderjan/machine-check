@@ -10,5 +10,4 @@ members = [
     "machine-check-exec",
     "machine-check-batch",
     "btor2rs",
-    "btor2rs-bin",
 ]

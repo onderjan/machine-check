@@ -73,18 +73,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "btor2rs-bin"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "btor2rs",
- "prettyplease",
- "proc-macro2",
- "syn",
- "walkdir",
-]
-
-[[package]]
 name = "clap"
 version = "4.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
