@@ -1,7 +1,7 @@
 ; 
 
 1 sort bitvec 1 ; bit type
-2 sort bitvec 4 ; machine word type
+2 sort bitvec 5 ; machine word type
 
 10 zero 1 ; bit zero
 11 one 1 ; bit one

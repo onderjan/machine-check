@@ -77,7 +77,7 @@
             },
             "args": [
                 "--ctl",
-                "EG[node_150]"
+                "AG[EF[state_150]]"
             ],
             "cwd": "${workspaceFolder}"
         },

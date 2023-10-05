@@ -88,17 +88,15 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
         prop: &Proposition,
         path: &VecDeque<usize>,
     ) -> Result<Culprit, Error> {
+        assert!(self
+            .get_interpretation(prop, *path.back().unwrap())
+            .is_none());
         match prop {
             Proposition::Const(_) => {
                 // never ends in const
-                panic!("should never consider const as labelling culprit")
+                panic!("const should never be the labelling culprit")
             }
             Proposition::Literal(literal) => {
-                assert!(
-                    self.get_interpretation(prop, *path.back().unwrap())
-                        .is_none(),
-                    "literal labelling culprit should be unknown"
-                );
                 // culprit ends here
                 Ok(Culprit {
                     path: path.clone(),
@@ -237,6 +235,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                     return if hold_interpretation.is_none() {
                         self.compute_labelling_culprit(&eu.hold, &path)
                     } else {
+                        assert!(until_interpretation.is_none());
                         self.compute_labelling_culprit(&eu.until, &path)
                     };
                 }
@@ -707,11 +706,12 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         let prop = prop.clone();
 
         let hold_labelling = self.get_labelling(&prop.hold);
+        let until_labelling = self.get_labelling(&prop.until);
 
         // the working set holds all states labeled "until" at the start
-        let mut working = self.get_labelling(&prop.until).clone();
+        let mut working = until_labelling.clone();
         // make all states in working set labelled EU(f,g)
-        let mut eu_labelling = BTreeSet::new();
+        let mut eu_labelling = working.clone();
 
         // choose and process states from working set until empty
         while let Some(state_index) = working.pop_first() {
