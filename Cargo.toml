@@ -3,7 +3,6 @@
 resolver = "2"
 members = [
     "mck",
-    "mck-macro",
     "machine-check-lib",
     "machine-check",
     "machine-check-exec-lib",

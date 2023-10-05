@@ -181,14 +181,14 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let tokens = quote!(
         #![allow(dead_code, unused_variables, clippy::all)]
 
-        #[derive(Clone, Debug, PartialEq, Eq, Hash, ::mck_macro::FieldManipulate)]
+        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
         pub struct Input {
             #(#input_fields),*
         }
 
         impl ::mck::ConcreteInput for Input {}
 
-        #[derive(Clone, Debug, PartialEq, Eq, Hash, ::mck_macro::FieldManipulate)]
+        #[derive(Clone, Debug, PartialEq, Eq, Hash)]
         pub struct State {
             #(#state_fields),*
         }

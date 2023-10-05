@@ -6,5 +6,4 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 mck = { path = "../mck" }
-mck-macro = { path = "../mck-macro" }
 machine-check-exec-lib = { path = "../machine-check-exec-lib" }

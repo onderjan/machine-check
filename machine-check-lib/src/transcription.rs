@@ -1,3 +1,3 @@
 pub mod abstraction;
-pub mod simplification;
+pub mod manipulation;
 pub mod util;
