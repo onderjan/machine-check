@@ -21,7 +21,7 @@ enum CheckResult {
 
 fn check(path: &Path) -> anyhow::Result<CheckResult> {
     let machine_check_toml = "./machine-check/Cargo.toml";
-    let machine_check_exec_toml = "./machine-check-exec/Cargo.toml";
+    let target_toml = "./machine-check-exec-target/Cargo.toml";
     let mut building_child = Command::new("cargo")
         .arg("run")
         .arg("--manifest-path")
@@ -56,7 +56,7 @@ fn check(path: &Path) -> anyhow::Result<CheckResult> {
     let mut child = Command::new("cargo")
         .arg("run")
         .arg("--manifest-path")
-        .arg(machine_check_exec_toml)
+        .arg(target_toml)
         .arg("--release")
         .arg("--")
         .arg("-b")
@@ -77,7 +77,7 @@ fn check(path: &Path) -> anyhow::Result<CheckResult> {
     print!("[executed] ");
     if !status.success() {
         return Err(anyhow!(
-            "Non-success on machine-check-exec, exit code {:?}",
+            "Non-success on target exec, exit code {:?}",
             status.code()
         ));
     }

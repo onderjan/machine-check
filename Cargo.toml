@@ -5,8 +5,9 @@ members = [
     "mck",
     "machine-check-lib",
     "machine-check",
-    "machine-check-exec-lib",
     "machine-check-exec",
+    "machine-check-exec-target",
+    "machine-check-exec-prepare",
     "machine-check-batch",
     "btor2rs",
 ]

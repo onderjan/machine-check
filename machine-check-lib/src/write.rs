@@ -34,6 +34,5 @@ pub fn write_machine(
             err
         ));
     }
-    println!("Written {} machine", machine_type);
     Ok(())
 }

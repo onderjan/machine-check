@@ -58,6 +58,8 @@ pub fn run<M: MarkMachine>() {
 
     let (result, info) = verify::<M>(args.ctl.as_ref());
 
+    let is_error = result.is_err();
+
     if is_batch {
         match result {
             Ok(conclusion) => {
@@ -89,6 +91,10 @@ pub fn run<M: MarkMachine>() {
     let elapsed = start.elapsed();
     if !args.batch {
         println!("Execution took {:.3} s", elapsed.as_secs_f64());
+    }
+    if is_error {
+        // terminate with non-success code
+        std::process::exit(-1);
     }
 }
 

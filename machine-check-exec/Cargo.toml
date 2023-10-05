@@ -6,4 +6,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 mck = { path = "../mck" }
-machine-check-exec-lib = { path = "../machine-check-exec-lib" }
+thiserror = "1.0.49"
+bimap = "0.6.3"
+petgraph = "0.6.4"
+clap = { version = "4.4.6", features = ["derive"] }
