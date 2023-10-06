@@ -5,25 +5,28 @@ use machine_check_lib::{create_abstract_machine, write_machine};
 use std::{
     collections::HashMap,
     env,
-    fs::File,
-    path::Path,
+    fs::{self, File},
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     thread,
 };
 use syn::{parse_quote, Item, ItemFn};
+use tempdir::TempDir;
 
-fn execute_machine() -> Result<(), anyhow::Error> {
-    println!("Building the machine.");
-
+fn build_machine(
+    machine_package_dir_path: &Path,
+    main_path: &Path,
+) -> Result<PathBuf, anyhow::Error> {
     let preparation_string =
         match std::fs::read_to_string("./resources/exec-build/preparation.json") {
             Ok(s) => s,
             Err(err) => return Err(anyhow!("Could not read preparation file: {:#?}", err)),
         };
+    let out_dir_path = machine_package_dir_path.join("out");
+    fs::create_dir_all(&out_dir_path)?;
 
     let preparation: Preparation = serde_json::from_str(preparation_string.as_str())?;
-    let mut args = vec![
-        String::from("machine-check-exec-target/src/main.rs"),
+    let mut string_args = vec![
         String::from("--edition=2021"),
         String::from("--error-format=json"),
         String::from("--json=artifacts"),
@@ -35,19 +38,28 @@ fn execute_machine() -> Result<(), anyhow::Error> {
         String::from("embed-bitcode=no"),
         String::from("-C"),
         String::from("strip=symbols"),
-        String::from("--out-dir"),
-        String::from("./gen_build"),
     ];
-    args.extend(preparation.target_build_args);
+    string_args.extend(preparation.target_build_args);
 
     let build_output = Command::new("rustc")
-        .args(args)
+        .arg(main_path)
+        .args(string_args)
+        .arg("--out-dir")
+        .arg(out_dir_path)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .output()
         .unwrap();
 
     if !build_output.status.success() {
+        println!(
+            "Build stdout:\n{}\n",
+            String::from_utf8(build_output.stdout)?
+        );
+        println!(
+            "Build stderr:\n{}\n",
+            String::from_utf8(build_output.stderr)?
+        );
         return Err(anyhow!("Build was not successful"));
     }
 
@@ -65,10 +77,10 @@ fn execute_machine() -> Result<(), anyhow::Error> {
     let Some(artifact_path) = artifact_path else {
         panic!("Build generated no artifact");
     };
+    Ok(PathBuf::from(artifact_path))
+}
 
-    // run the artifact
-    println!("Executing the machine.");
-
+fn execute_machine(artifact_path: &Path) -> Result<(), anyhow::Error> {
     let exec_output = Command::new(artifact_path)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -78,7 +90,6 @@ fn execute_machine() -> Result<(), anyhow::Error> {
     if !exec_output.status.success() {
         return Err(anyhow!("Execution was not successful"));
     }
-
     Ok(())
 }
 
@@ -91,9 +102,11 @@ fn work() -> Result<(), anyhow::Error> {
         return Err(anyhow!("Input filename not specified"));
     };
 
-    println!("Creating a machine for Btor2 file '{}'.", btor2_filename);
+    let btor2_path = Path::new(&btor2_filename);
 
-    let btor2_file = match File::open(Path::new(&btor2_filename)) {
+    println!("Creating a machine for Btor2 file {:?}.", btor2_path);
+
+    let btor2_file = match File::open(btor2_path) {
         Ok(file) => file,
         Err(err) => {
             return Err(anyhow!(
@@ -116,13 +129,21 @@ fn work() -> Result<(), anyhow::Error> {
     );
     abstract_machine.items.push(Item::Fn(main_fn));
 
-    write_machine(
-        "abstract",
-        &abstract_machine,
-        "machine-check-exec-target/src/main.rs",
-    )?;
+    let machine_package_dir = TempDir::new("machine_check_machine_").unwrap();
+    let machine_package_dir_path = machine_package_dir.path();
+    let src_dir_path = machine_package_dir.path().join("src");
+    fs::create_dir_all(&src_dir_path)?;
+    let main_path = src_dir_path.join("main.rs");
 
-    execute_machine()?;
+    println!("Writing the machine to file {:?}.", main_path);
+    write_machine("abstract", &abstract_machine, main_path.as_path())?;
+
+    println!("Building the machine.");
+    let artifact_path = build_machine(machine_package_dir_path, main_path.as_path())?;
+
+    println!("Executing the machine.");
+
+    execute_machine(&artifact_path)?;
 
     Ok(())
 }
