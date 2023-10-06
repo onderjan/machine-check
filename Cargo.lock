@@ -313,8 +313,6 @@ dependencies = [
  "env_logger",
  "log",
  "machine-check-common",
- "machine-check-exec-prepare",
- "machine-check-lib",
  "mck",
  "prettyplease",
  "proc-macro2",
@@ -362,36 +360,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "machine-check-exec-prepare"
-version = "0.1.0"
-dependencies = [
- "cargo_metadata",
- "serde",
- "serde_json",
- "walkdir",
-]
-
-[[package]]
 name = "machine-check-exec-target"
 version = "0.1.0"
 dependencies = [
  "machine-check-exec",
  "mck",
-]
-
-[[package]]
-name = "machine-check-lib"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "btor2rs",
- "camino",
- "mck",
- "prettyplease",
- "proc-macro2",
- "quote",
- "syn",
- "syn-path",
 ]
 
 [[package]]

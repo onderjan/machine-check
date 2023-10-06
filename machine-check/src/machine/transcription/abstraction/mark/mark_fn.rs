@@ -11,7 +11,7 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::transcription::util::{
+use crate::machine::transcription::util::{
     create_expr_call, create_expr_path, create_ident, create_let_stmt_from_ident_expr,
     create_let_stmt_from_pat_expr, create_path_from_name, create_unit_expr,
     scheme::ConversionScheme,

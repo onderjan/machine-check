@@ -4,7 +4,6 @@ resolver = "2"
 members = [
     "mck",
     "machine-check-common",
-    "machine-check-lib",
     "machine-check",
     "machine-check-exec",
     "machine-check-exec-target",

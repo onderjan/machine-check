@@ -7,8 +7,6 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 mck = { path = "../mck" }
 machine-check-common = { path = "../machine-check-common" }
-machine-check-lib = { path = "../machine-check-lib" }
-machine-check-exec-prepare = { path = "../machine-check-exec-prepare" }
 btor2rs = { path = "../btor2rs" }
 anyhow = "1.0.75"
 proc-macro2 = "1.0.67"

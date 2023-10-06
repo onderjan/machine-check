@@ -2,6 +2,7 @@ use camino::Utf8PathBuf;
 use clap::{Args, Parser, Subcommand};
 use log::error;
 use std::thread;
+mod machine;
 mod prepare;
 mod verify;
 

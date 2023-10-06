@@ -1,6 +1,6 @@
 use syn::{visit_mut::VisitMut, ItemStruct};
 
-use crate::transcription::util::{
+use crate::machine::transcription::util::{
     generate_derive_attribute,
     path_rule::{self, PathRule, PathRuleSegment},
 };

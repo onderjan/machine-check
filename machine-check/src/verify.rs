@@ -3,7 +3,6 @@ use camino::Utf8Path;
 use cargo_metadata::camino::Utf8PathBuf;
 use log::{debug, info, warn};
 use machine_check_common::ExecResult;
-use machine_check_lib::{create_abstract_machine, write_machine};
 use std::{
     collections::HashMap,
     fs::{self, File},
@@ -14,6 +13,7 @@ use syn::{parse_quote, Item, ItemFn};
 use tempdir::TempDir;
 
 use crate::{
+    machine::{create_abstract_machine, write_machine},
     prepare::{self, Preparation},
     Cli, VerifyCli,
 };

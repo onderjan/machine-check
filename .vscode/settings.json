@@ -1,7 +1,3 @@
 {
-    "rust-analyzer.linkedProjects": [
-        ".\\machine-check-lib\\Cargo.toml",
-        ".\\machine-check-exec-prepare\\Cargo.toml",
-        ".\\machine-check-exec-prepare\\Cargo.toml"
-    ]
+    "rust-analyzer.linkedProjects": []
 }

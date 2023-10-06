@@ -7,7 +7,7 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::transcription::util::{
+use crate::machine::transcription::util::{
     create_expr_path, create_expr_tuple, create_ident, create_let_stmt_from_ident_expr,
 };
 
