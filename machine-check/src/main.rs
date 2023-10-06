@@ -18,7 +18,16 @@ struct Args {
     property: Option<String>,
 
     #[arg(long)]
-    property_file: Option<PathBuf>,
+    output_path: Option<PathBuf>,
+
+    #[arg(long)]
+    machine_path: Option<PathBuf>,
+
+    #[arg(long)]
+    preparation_path: Option<PathBuf>,
+    // TODO: add specification path checking
+    //#[arg(long)]
+    //specification_path: Option<PathBuf>,
 }
 
 fn main() {

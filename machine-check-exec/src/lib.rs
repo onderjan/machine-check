@@ -45,7 +45,7 @@ struct Args {
     batch: bool,
 
     #[arg(long)]
-    ctl: Option<String>,
+    property: Option<String>,
 }
 
 pub fn run<M: MarkMachine>() {
@@ -56,14 +56,14 @@ pub fn run<M: MarkMachine>() {
         println!("Starting verification.");
     }
 
-    let (result, info) = verify::<M>(args.ctl.as_ref());
+    let (result, info) = verify::<M>(args.property.as_ref());
 
     let is_error = result.is_err();
 
     if is_batch {
         match result {
             Ok(conclusion) => {
-                if args.ctl.is_some() {
+                if args.property.is_some() {
                     println!("Conclusion: {}", conclusion);
                 } else {
                     println!("Safe: {}", conclusion);

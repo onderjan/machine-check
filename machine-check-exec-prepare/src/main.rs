@@ -93,7 +93,19 @@ fn main() {
     // create directory for the resources
     let exec_build_dir = Utf8Path::new("./resources/exec-build");
 
-    let mut target_build_args = Vec::<String>::new();
+    let mut target_build_args = vec![
+        String::from("--edition=2021"),
+        String::from("--error-format=json"),
+        String::from("--json=artifacts"),
+        String::from("--crate-type"),
+        String::from("bin"),
+        String::from("-C"),
+        String::from("opt-level=3"),
+        String::from("-C"),
+        String::from("embed-bitcode=no"),
+        String::from("-C"),
+        String::from("strip=symbols"),
+    ];
 
     // add linked dependency which is in target
     target_build_args.push(String::from("-L"));
