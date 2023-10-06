@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::anyhow;
+use cargo_metadata::camino::Utf8PathBuf;
 use log::{debug, info, warn};
 use machine_check_exec_prepare::Preparation;
 use machine_check_lib::{create_abstract_machine, write_machine};
@@ -65,7 +66,7 @@ impl Runner {
         write_machine("abstract", &abstract_machine, main_path.as_path())?;
 
         info!("Building a machine verifier.");
-        let artifact_path = self.build_machine(&machine_package_dir_path, main_path.as_path())?;
+        let artifact_path = self.build_machine(&machine_package_dir_path)?;
 
         info!("Executing the machine verifier.");
 
@@ -73,6 +74,7 @@ impl Runner {
 
         // warn on error to close the temporary directory, it is not critical
         if let Some(temp_dir) = machine_package_temp_dir {
+            debug!("Deleting temporary directory {:?}", temp_dir.path());
             if let Err(err) = temp_dir.close() {
                 warn!(
                     "Could not close temporary directory for machine: {:#?}",
@@ -84,45 +86,71 @@ impl Runner {
         Ok(())
     }
 
-    fn build_machine(
-        &self,
-        machine_package_dir_path: &Path,
-        main_path: &Path,
-    ) -> Result<PathBuf, anyhow::Error> {
-        let machine_out_dir_path = machine_package_dir_path.join("out");
-        fs::create_dir_all(&machine_out_dir_path)?;
+    fn build_machine(&self, machine_package_dir_path: &Path) -> Result<PathBuf, anyhow::Error> {
+        fs::create_dir_all(machine_package_dir_path)?;
+        let machine_target_dir_path = machine_package_dir_path.join("build-target");
+        fs::create_dir_all(&machine_target_dir_path)?;
 
         // use rustc if there is preparation, use cargo if there is no preparation
-        let (is_rustc, mut command) = match &self.args.preparation_path {
+        let (is_rustc, mut build_command) = match &self.args.preparation_path {
             Some(preparation_path) => {
                 // read the preparation definition file
                 let preparation_file_path = preparation_path.join("preparation.json");
                 debug!(
-                    "Reading preparation definition file {:?}.",
+                    "Reading preparation definition from {:?}.",
                     preparation_file_path
                 );
                 let preparation_string = std::fs::read_to_string(preparation_file_path)?;
                 let preparation: Preparation = serde_json::from_str(preparation_string.as_str())?;
 
-                let mut command = Command::new("rustc");
-                command
+                // main is located in package/src/main.rs for compatibility with cargo
+                let mut main_path = machine_package_dir_path.to_path_buf();
+                main_path.push("src");
+                main_path.push("main.rs");
+
+                // compose the build command
+                let mut build_command = Command::new("rustc");
+                build_command
                     .arg(main_path)
                     .arg("--out-dir")
-                    .arg(machine_out_dir_path)
+                    .arg(machine_target_dir_path)
                     .args(preparation.target_build_args);
-                (true, command)
+                (true, build_command)
             }
             None => {
-                todo!();
+                // add package Cargo.toml and build as normal Cargo release binary
+                let machine_package_cargo_toml = include_str!("../resources/Target_Cargo.toml");
+                let machine_package_cargo_toml_path = machine_package_dir_path.join("Cargo.toml");
+                debug!(
+                    "Writing machine package Cargo.toml to {:?}.",
+                    machine_package_cargo_toml_path
+                );
+                fs::write(&machine_package_cargo_toml_path, machine_package_cargo_toml)?;
+
+                // compose the build command
+                let mut build_command = Command::new("cargo");
+                build_command
+                    .arg("build")
+                    .arg("--message-format=json-diagnostic-short")
+                    .arg("--manifest-path")
+                    .arg(machine_package_cargo_toml_path)
+                    .arg("--target-dir")
+                    .arg(machine_target_dir_path)
+                    .arg("--bin")
+                    .arg("machine-check-exec-target")
+                    .arg("--release");
+                (false, build_command)
             }
         };
-        debug!("Executing build command {:?}.", command);
+        debug!("Executing build command {:?}.", build_command);
 
         // build with piped
-        let build_output = command
+        let build_output = build_command
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()?;
+
+        debug!("Build command status: {:?}.", build_command.status());
 
         if !build_output.status.success() {
             info!(
@@ -136,9 +164,13 @@ impl Runner {
             return Err(anyhow!("Build was not successful"));
         }
 
-        let mut executable_path: Option<String> = None;
+        debug!("Determining executable path.");
+
+        let mut executable_path: Option<Utf8PathBuf> = None;
         // parse output
         if is_rustc {
+            // simple lines of JSON, find a line that contains the artifact
+            // rustc prints the messages to stderrr
             let stderr = String::from_utf8(build_output.stderr)?;
             for line in stderr.lines() {
                 let hash_map: HashMap<String, String> = serde_json::from_str(line)?;
@@ -147,17 +179,34 @@ impl Runner {
                 {
                     if emit == "link" {
                         // this is the executable
-                        executable_path = Some(artifact.clone());
+                        if executable_path.is_some() {
+                            return Err(anyhow!("Multiple executables were built"));
+                        }
+                        executable_path = Some(artifact.into());
                     }
                 }
             }
         } else {
-            todo!();
+            // parse with the cargo metadata crate
+            // cargo prints the messages to stdout
+            let bytes: &[u8] = &build_output.stdout;
+            for message in cargo_metadata::Message::parse_stream(bytes) {
+                let message = message?;
+                if let cargo_metadata::Message::CompilerArtifact(artifact) = message {
+                    if let Some(artifact_executable_path) = artifact.executable {
+                        if executable_path.is_some() {
+                            return Err(anyhow!("Multiple executables were built"));
+                        }
+                        executable_path = Some(artifact_executable_path);
+                    }
+                }
+            }
         }
-        let Some(artifact_path) = executable_path else {
+        let Some(executable_path) = executable_path else {
             return Err(anyhow!("Build generated no executable"));
         };
-        Ok(PathBuf::from(artifact_path))
+        debug!("Built machine-verifier executable {:?}.", executable_path);
+        Ok(PathBuf::from(executable_path))
     }
 
     fn execute_machine(&self, artifact_path: &Path) -> Result<(), anyhow::Error> {

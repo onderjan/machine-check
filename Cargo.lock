@@ -307,6 +307,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "btor2rs",
+ "cargo_metadata",
  "clap",
  "env_logger",
  "log",
