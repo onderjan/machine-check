@@ -1,9 +1,6 @@
-use cargo_metadata::{
-    camino::{Utf8Path, Utf8PathBuf},
-    Message,
-};
-use machine_check_exec_prepare::Preparation;
-
+use anyhow::anyhow;
+use cargo_metadata::{camino::Utf8PathBuf, Message};
+use log::info;
 use std::{collections::BTreeSet, io::Write};
 use std::{
     fs::File,
@@ -17,12 +14,41 @@ struct Rdep {
     paths: Vec<Utf8PathBuf>,
 }
 
-fn main() {
-    let exec_build_dir = Utf8Path::new("./resources/exec-build");
-    let home_dir = exec_build_dir.join("home");
-    std::fs::create_dir_all(&home_dir).expect("Exec build home dir should be created");
-    let target_dir = exec_build_dir.join("target");
-    std::fs::create_dir_all(&target_dir).expect("Exec build target dir should be created");
+use serde::{Deserialize, Serialize};
+
+use crate::{Cli, PrepareCli};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Preparation {
+    pub target_build_args: Vec<String>,
+}
+
+pub(super) fn default_preparation_dir() -> Result<Utf8PathBuf, anyhow::Error> {
+    // directory 'preparation' under the executable
+    let mut path = std::env::current_exe()?;
+    path.pop();
+    let path = Utf8PathBuf::try_from(path)?;
+    Ok(path.join("preparation"))
+}
+
+pub(super) fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), anyhow::Error> {
+    let preparation_dir = match prepare.preparation_path {
+        Some(preparation_path) => preparation_path,
+        None => {
+            // use the default directory
+            default_preparation_dir()?
+        }
+    };
+
+    info!(
+        "Preparing sub-artifacts for machine executable building into {:?}.",
+        preparation_dir
+    );
+
+    let home_dir = preparation_dir.join("home");
+    std::fs::create_dir_all(&home_dir)?;
+    let target_dir = preparation_dir.join("target");
+    std::fs::create_dir_all(&target_dir)?;
     let profile = String::from("release");
 
     // cargo build machine_check_exec and copy the dependencies to a separate directory
@@ -39,24 +65,26 @@ fn main() {
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .env("CARGO_HOME", &home_dir)
-        .spawn()
-        .unwrap();
+        .spawn()?;
 
-    let output = command.wait().expect("Couldn't get cargo's exit status");
+    let output = command.wait()?;
     if !output.success() {
-        eprintln!("Cargo build was not successful");
-        std::process::exit(-1);
+        return Err(anyhow!("Build was not successful"));
     }
-    let reader = std::io::BufReader::new(command.stdout.take().unwrap());
+    let reader = std::io::BufReader::new(
+        command
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow!("Could not take build stdout"))?,
+    );
 
     let mut linked_paths = BTreeSet::new();
 
     // get a list of paths to rlibs
     let mut rlibs = Vec::<Rdep>::new();
     for message in cargo_metadata::Message::parse_stream(reader) {
-        let unwrapped = message.unwrap();
-        println!("Message: {:?}", unwrapped);
-        let artifact = match unwrapped {
+        let message = message?;
+        let artifact = match message {
             Message::BuildScriptExecuted(build_script) => {
                 // add linked paths
                 linked_paths.extend(build_script.linked_paths);
@@ -73,7 +101,7 @@ fn main() {
                 continue;
             }
             _ => {
-                panic!("Unknown cargo message: {:?}", unwrapped);
+                return Err(anyhow!("Unknown cargo message: {:?}", message));
             }
         };
 
@@ -90,9 +118,6 @@ fn main() {
         }
     }
 
-    // create directory for the resources
-    let exec_build_dir = Utf8Path::new("./resources/exec-build");
-
     let mut target_build_args = vec![
         String::from("--edition=2021"),
         String::from("--error-format=json"),
@@ -108,14 +133,16 @@ fn main() {
     ];
 
     // add linked dependency which is in target
+    let deps_dir = target_dir.join(profile).join("deps");
+
     target_build_args.push(String::from("-L"));
-    target_build_args.push(format!("dependency={}/{}/deps", target_dir, profile));
+    target_build_args.push(format!("dependency={}", deps_dir));
 
     // add extern
     for rlib in rlibs {
         // copy path-specified to exec build dir
         for original_path in rlib.paths {
-            // TODO: base addition of extern on Cargo.toml
+            // TODO: base addition of extern on Target_Cargo.toml
             if matches!(rlib.target_name.as_str(), "mck" | "machine-check-exec") {
                 // add extern to args
                 // replace hyphens with underscores for rustc
@@ -128,16 +155,18 @@ fn main() {
 
     // add linked paths
     for linked_path in linked_paths {
-        println!("Linked path: {}", linked_path);
         target_build_args.push(String::from("-L"));
         target_build_args.push(linked_path.to_string());
     }
 
     let preparation = Preparation { target_build_args };
 
-    let preparation_path = exec_build_dir.join("preparation.json");
-    let file = File::create(preparation_path).unwrap();
+    let preparation_path = preparation_dir.join("preparation.json");
+    let file = File::create(preparation_path)?;
     let mut writer = BufWriter::new(file);
-    serde_json::to_writer(&mut writer, &preparation).unwrap();
-    writer.flush().unwrap();
+    serde_json::to_writer(&mut writer, &preparation)?;
+    writer.flush()?;
+
+    info!("Preparation complete.");
+    Ok(())
 }

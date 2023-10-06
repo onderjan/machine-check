@@ -8,7 +8,6 @@ members = [
     "machine-check",
     "machine-check-exec",
     "machine-check-exec-target",
-    "machine-check-exec-prepare",
     "machine-check-batch",
     "btor2rs",
 ]

@@ -1,8 +1,8 @@
 use anyhow::anyhow;
+use camino::Utf8Path;
 use cargo_metadata::camino::Utf8PathBuf;
 use log::{debug, info, warn};
 use machine_check_common::ExecResult;
-use machine_check_exec_prepare::Preparation;
 use machine_check_lib::{create_abstract_machine, write_machine};
 use std::{
     collections::HashMap,
@@ -13,17 +13,23 @@ use std::{
 use syn::{parse_quote, Item, ItemFn};
 use tempdir::TempDir;
 
-pub(super) fn run(args: super::Args) -> Result<(), anyhow::Error> {
-    Runner { args }.work()
+use crate::{
+    prepare::{self, Preparation},
+    Cli, VerifyCli,
+};
+
+pub(super) fn run(args: Cli, verify_args: VerifyCli) -> Result<(), anyhow::Error> {
+    Verify { args, verify_args }.work()
 }
 
-struct Runner {
-    args: super::Args,
+struct Verify {
+    args: Cli,
+    verify_args: VerifyCli,
 }
 
-impl Runner {
+impl Verify {
     fn work(&self) -> Result<(), anyhow::Error> {
-        let system_path = Path::new(&self.args.system_path);
+        let system_path = Path::new(&self.verify_args.system_path);
 
         info!("Transcribing the system into a machine.");
         let cwd = std::env::current_dir()?;
@@ -50,13 +56,15 @@ impl Runner {
         // the machine package directory path can be given
         // we will write the machine into a temporary directory if it is not given
         // do not drop temporary directory too early
-        let (machine_package_dir_path, machine_package_temp_dir) = match &self.args.machine_path {
-            Some(path) => (path.clone(), None),
-            None => {
-                let temp_dir = TempDir::new("machine_check_machine_")?;
-                (temp_dir.path().to_path_buf(), Some(temp_dir))
-            }
-        };
+        let (machine_package_dir_path, machine_package_temp_dir) =
+            match &self.verify_args.machine_path {
+                Some(path) => (path.clone(), None),
+                None => {
+                    let temp_dir = TempDir::new("machine_check_machine_")?;
+                    let temp_dir_path = Utf8PathBuf::try_from(temp_dir.path().to_path_buf())?;
+                    (temp_dir_path, Some(temp_dir))
+                }
+            };
 
         let src_dir_path = machine_package_dir_path.join("src");
         fs::create_dir_all(&src_dir_path)?;
@@ -86,13 +94,26 @@ impl Runner {
         Ok(())
     }
 
-    fn build_machine(&self, machine_package_dir_path: &Path) -> Result<PathBuf, anyhow::Error> {
+    fn build_machine(&self, machine_package_dir_path: &Utf8Path) -> Result<PathBuf, anyhow::Error> {
         fs::create_dir_all(machine_package_dir_path)?;
         let machine_target_dir_path = machine_package_dir_path.join("build-target");
         fs::create_dir_all(&machine_target_dir_path)?;
 
+        // use the default preparation directory if it exists
+        let preparation_path = match &self.verify_args.preparation_path {
+            Some(path) => Some(path.clone()),
+            None => {
+                let default_path = prepare::default_preparation_dir()?;
+                if default_path.exists() {
+                    Some(default_path)
+                } else {
+                    None
+                }
+            }
+        };
+
         // use rustc if there is preparation, use cargo if there is no preparation
-        let (is_rustc, mut build_command) = match &self.args.preparation_path {
+        let (is_rustc, mut build_command) = match preparation_path {
             Some(preparation_path) => {
                 // read the preparation definition file
                 let preparation_file_path = preparation_path.join("preparation.json");
@@ -118,6 +139,9 @@ impl Runner {
                 (true, build_command)
             }
             None => {
+                warn!(
+                    "Prepared artifacts not found, use the prepare subcommand to speed up builds"
+                );
                 // add package Cargo.toml and build as normal Cargo release binary
                 let machine_package_cargo_toml = include_str!("../resources/Target_Cargo.toml");
                 let machine_package_cargo_toml_path = machine_package_dir_path.join("Cargo.toml");
@@ -220,7 +244,7 @@ impl Runner {
             command.arg("--batch");
         }
         // forward property
-        if let Some(property) = &self.args.property {
+        if let Some(property) = &self.verify_args.property {
             command.arg("--property").arg(property);
         }
 

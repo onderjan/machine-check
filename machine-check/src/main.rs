@@ -1,37 +1,62 @@
-use clap::Parser;
+use camino::Utf8PathBuf;
+use clap::{Args, Parser, Subcommand};
 use log::error;
-use std::{path::PathBuf, thread};
-mod run;
+use std::thread;
+mod prepare;
+mod verify;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Clone, Debug)]
 #[command(author, version, about, long_about = None)]
-struct Args {
-    system_path: PathBuf,
-
-    #[arg(short, long)]
+struct Cli {
+    #[arg(global = true, short, long)]
     batch: bool,
-
-    #[arg(short, long, action = clap::ArgAction::Count)]
+    #[arg(global = true, short, long, action = clap::ArgAction::Count)]
     verbose: u8,
+    #[command(subcommand)]
+    command: CliSubcommand,
+}
 
+#[derive(Debug, Clone, Args)]
+struct VerifyCli {
     #[arg(long)]
     property: Option<String>,
 
     #[arg(long)]
-    output_path: Option<PathBuf>,
+    output_path: Option<Utf8PathBuf>,
 
     #[arg(long)]
-    machine_path: Option<PathBuf>,
+    machine_path: Option<Utf8PathBuf>,
 
     #[arg(long)]
-    preparation_path: Option<PathBuf>,
+    preparation_path: Option<Utf8PathBuf>,
     // TODO: add specification path checking
     //#[arg(long)]
-    //specification_path: Option<PathBuf>,
+    //specification_path: Option<Utf8PathBuf>,
+    system_path: Utf8PathBuf,
+}
+
+#[derive(Debug, Clone, Args)]
+struct PrepareCli {
+    #[arg(long)]
+    preparation_path: Option<Utf8PathBuf>,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+enum CliSubcommand {
+    Prepare(PrepareCli),
+    Verify(VerifyCli),
+}
+
+fn run(args: Cli) -> Result<(), anyhow::Error> {
+    let command = args.command.clone();
+    match command {
+        CliSubcommand::Prepare(prepare) => prepare::prepare(args, prepare),
+        CliSubcommand::Verify(verify) => verify::run(args, verify),
+    }
 }
 
 fn main() {
-    let args = Args::parse();
+    let args = Cli::parse();
 
     // if not run in batch mode, log to stderr with env_logger
     if !args.batch {
@@ -56,7 +81,7 @@ fn main() {
     // normal stack size is not enough for large token trees
     let result = thread::Builder::new()
         .stack_size(32 * 1024 * 1024)
-        .spawn(|| run::run(args))
+        .spawn(|| run(args))
         .unwrap()
         .join()
         .unwrap();

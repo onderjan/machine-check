@@ -1,11 +1,12 @@
 use anyhow::anyhow;
+use camino::Utf8Path;
+use std::fs::File;
 use std::io::Write;
-use std::{fs::File, path::Path};
 
 pub fn write_machine(
     machine_type: &str,
     machine: &syn::File,
-    filename: &Path,
+    filename: &Utf8Path,
 ) -> Result<(), anyhow::Error> {
     let mut machine_file = match File::create(filename) {
         Ok(file) => file,
