@@ -311,6 +311,7 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
+ "machine-check-common",
  "machine-check-exec-prepare",
  "machine-check-lib",
  "mck",
@@ -335,13 +336,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "machine-check-common"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "machine-check-exec"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bimap",
  "clap",
+ "env_logger",
+ "log",
+ "machine-check-common",
  "mck",
  "petgraph",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

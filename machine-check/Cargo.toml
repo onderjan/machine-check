@@ -5,10 +5,11 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-btor2rs = { path = "../btor2rs" }
+mck = { path = "../mck" }
+machine-check-common = { path = "../machine-check-common" }
 machine-check-lib = { path = "../machine-check-lib" }
 machine-check-exec-prepare = { path = "../machine-check-exec-prepare" }
-mck = { path = "../mck" }
+btor2rs = { path = "../btor2rs" }
 anyhow = "1.0.75"
 proc-macro2 = "1.0.67"
 syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }

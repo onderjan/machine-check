@@ -1,8 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
+use machine_check_common::{Culprit, Error};
 use mck::AbstractMachine;
 
-use super::{space::Space, Culprit, Error};
+use super::space::Space;
 
 pub fn safety_proposition() -> Proposition {
     // check AG[safe]
@@ -52,11 +53,6 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
         // compute optimistic and pessimistic interpretation
         let pessimistic_interpretation = self.pessimistic.compute_interpretation(&prop)?;
         let optimistic_interpretation = self.optimistic.compute_interpretation(&prop)?;
-
-        /*println!(
-            "Pessimistic: {}, optimistic: {}",
-            pessimistic_interpretation, optimistic_interpretation
-        );*/
 
         match (pessimistic_interpretation, optimistic_interpretation) {
             (false, false) => Ok(false),
@@ -780,11 +776,6 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
             _ => panic!("expected {:?} to be minimized", prop),
         };
 
-        /*println!(
-            "({}) Computed labelling of {:?}: {:?}",
-            self.optimistic, prop, computed_labelling
-        );*/
-
         // insert the labelling to labelling map for future reference
         self.labelling_map.insert(prop.clone(), computed_labelling);
 
@@ -803,11 +794,9 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         // conventionally, the property must hold in all initial states
         for initial_index in self.space.initial_index_iter() {
             if !labelling.contains(&initial_index) {
-                //println!("({}) false", self.optimistic);
                 return Ok(false);
             }
         }
-        //println!("({}) true", self.optimistic);
         Ok(true)
     }
 }

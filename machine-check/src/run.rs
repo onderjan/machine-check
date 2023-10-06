@@ -1,15 +1,15 @@
+use anyhow::anyhow;
+use cargo_metadata::camino::Utf8PathBuf;
+use log::{debug, info, warn};
+use machine_check_common::ExecResult;
+use machine_check_exec_prepare::Preparation;
+use machine_check_lib::{create_abstract_machine, write_machine};
 use std::{
     collections::HashMap,
     fs::{self, File},
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
-
-use anyhow::anyhow;
-use cargo_metadata::camino::Utf8PathBuf;
-use log::{debug, info, warn};
-use machine_check_exec_prepare::Preparation;
-use machine_check_lib::{create_abstract_machine, write_machine};
 use syn::{parse_quote, Item, ItemFn};
 use tempdir::TempDir;
 
@@ -153,15 +153,18 @@ impl Runner {
         debug!("Build command status: {:?}.", build_command.status());
 
         if !build_output.status.success() {
-            info!(
-                "Build stdout:\n{}\n",
-                String::from_utf8(build_output.stdout)?
-            );
-            info!(
-                "Build stderr:\n{}\n",
-                String::from_utf8(build_output.stderr)?
-            );
-            return Err(anyhow!("Build was not successful"));
+            // TODO: get the errors from JSON
+            let human_output = if is_rustc {
+                // rustc prints human-readable to stdout
+                build_output.stdout
+            } else {
+                // cargo prints human-readable to stderr
+                build_output.stderr
+            };
+            return Err(anyhow!(
+                "Build was not successful:\n{}",
+                String::from_utf8(human_output)?
+            ));
         }
 
         debug!("Determining executable path.");
@@ -170,7 +173,7 @@ impl Runner {
         // parse output
         if is_rustc {
             // simple lines of JSON, find a line that contains the artifact
-            // rustc prints the messages to stderrr
+            // rustc prints the messages to stderr
             let stderr = String::from_utf8(build_output.stderr)?;
             for line in stderr.lines() {
                 let hash_map: HashMap<String, String> = serde_json::from_str(line)?;
@@ -221,6 +224,11 @@ impl Runner {
             command.arg("--property").arg(property);
         }
 
+        // forward verbose
+        for _ in 0..self.args.verbose {
+            command.arg("--verbose");
+        }
+
         // the machine executable logs on stderr and gives us the result on stdout
         // pipe stdout and inherit stderr
         command.stdout(Stdio::piped()).stderr(Stdio::inherit());
@@ -231,7 +239,23 @@ impl Runner {
             return Err(anyhow!("Execution was not successful"));
         }
 
-        // TODO: parse stdout to determine the result
+        let exec_result: ExecResult = serde_json::from_slice(&exec_output.stdout)?;
+        if self.args.batch {
+            // serialize the result after determining it is JSON-parsable by deserialization
+            serde_json::to_writer(std::io::stdout(), &exec_result)?;
+        } else {
+            // print interesting facts
+            info!(
+                "Used {} states and {} refinements.",
+                exec_result.info.num_states, exec_result.info.num_refinements
+            );
+            match exec_result.conclusion {
+                Ok(conclusion) => {
+                    info!("Conclusion: {}", conclusion);
+                }
+                Err(err) => return Err(err.into()),
+            }
+        }
 
         Ok(())
     }

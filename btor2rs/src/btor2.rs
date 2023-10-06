@@ -159,11 +159,6 @@ fn parse_line(
     }
 
     let mut split = line.split_whitespace();
-    /*print!("Line: ");
-    for element in split.clone() {
-        print!("'{}' ", element);
-    }
-    println!();*/
     let Some(id) = split.next() else {
         // empty line
         return Ok(());
@@ -381,7 +376,5 @@ pub fn parse<'a>(lines: impl Iterator<Item = &'a str>) -> Result<Btor2, anyhow::
             .with_context(|| format!("Parse error on line {}", line_num))?;
     }
 
-    //println!("Sorts: {:?}", sorts);
-    //println!("Nodes: {:?}", nodes);
     Ok(Btor2 { sorts, nodes })
 }

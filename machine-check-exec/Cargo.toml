@@ -6,7 +6,13 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 mck = { path = "../mck" }
+machine-check-common = { path = "../machine-check-common" }
 thiserror = "1.0.49"
+anyhow = "1.0.75"
 bimap = "0.6.3"
 petgraph = "0.6.4"
 clap = { version = "4.4.6", features = ["derive"] }
+log = "0.4.20"
+env_logger = "0.10.0"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"

@@ -2,124 +2,113 @@ mod model_check;
 mod precision;
 mod space;
 
-use std::{collections::VecDeque, time::Instant};
+use std::collections::VecDeque;
 
+use log::{error, info, log_enabled};
+use machine_check_common::{Culprit, Error, ExecResult, Info};
 use mck::{
     mark::{Join, MarkMachine, MarkState},
     AbstractMachine, MarkBitvector,
 };
 use model_check::{safety_proposition, Proposition};
-use thiserror::Error;
 
 use self::{precision::Precision, space::Space};
 
 use clap::Parser;
 use mck::FieldManipulate;
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("incomplete verification")]
-    Incomplete(Culprit),
-    #[error("field '{0}' of bit type not found")]
-    FieldNotFound(String),
-    #[error("property '{0}' part '{1}' could not be lexed")]
-    PropertyNotLexable(String, String),
-    #[error("property '{0}' could not be parsed")]
-    PropertyNotParseable(String),
-}
-
-#[derive(Debug)]
-pub struct Culprit {
-    pub path: VecDeque<usize>,
-    pub name: String,
-}
-
-pub struct Info {
-    pub num_states: usize,
-    pub num_refinements: usize,
-}
-
 #[derive(Parser, Debug)]
 struct Args {
     #[arg(short, long)]
     batch: bool,
+
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
 
     #[arg(long)]
     property: Option<String>,
 }
 
 pub fn run<M: MarkMachine>() {
-    let start = Instant::now();
-    let args = Args::parse();
-    let is_batch = args.batch;
-    if !is_batch {
-        println!("Starting verification.");
-    }
-
-    let (result, info) = verify::<M>(args.property.as_ref());
-
-    let is_error = result.is_err();
-
-    if is_batch {
-        match result {
-            Ok(conclusion) => {
-                if args.property.is_some() {
-                    println!("Conclusion: {}", conclusion);
-                } else {
-                    println!("Safe: {}", conclusion);
-                }
-            }
-            Err(error) => match error {
-                Error::Incomplete(_) => println!("Incomplete"),
-                _ => println!("{}", error),
-            },
-        }
-    } else {
-        match result {
-            Ok(conclusion) => {
-                println!("Space verification result: {}", conclusion)
-            }
-            Err(error) => {
-                println!("Space verification failed: {}", error);
-            }
-        }
-        println!(
-            "Used {} states and {} refinements.",
-            info.num_states, info.num_refinements
-        );
-    }
-    let elapsed = start.elapsed();
-    if !args.batch {
-        println!("Execution took {:.3} s", elapsed.as_secs_f64());
-    }
-    if is_error {
+    if let Err(err) = run_inner::<M>() {
+        // log root error
+        error!("{:#?}", err);
         // terminate with non-success code
         std::process::exit(-1);
     }
+    // terminate successfully, the information is in stdout
 }
 
-fn verify<M: MarkMachine>(property: Option<&String>) -> (Result<bool, Error>, Info) {
+fn run_inner<M: MarkMachine>() -> Result<ExecResult, anyhow::Error> {
+    // if not run in batch mode, log to stderr with env_logger
+    let args = Args::parse();
+    if !args.batch {
+        let filter_level = match args.verbose {
+            0 => log::LevelFilter::Info,
+            1 => log::LevelFilter::Debug,
+            _ => log::LevelFilter::Trace,
+        };
+
+        env_logger::builder().filter_level(filter_level).init();
+    }
+    info!("Starting verification.");
+
+    let verification_result = verify::<M>(args.property.as_ref());
+
+    if log_enabled!(log::Level::Info) {
+        // the result will be propagated, just inform that we ended somehow
+        match verification_result.conclusion {
+            Ok(_) => info!("Verification ended."),
+            Err(_) => error!("Verification failed."),
+        }
+    }
+
+    // serialize the verification result to stdout
+    serde_json::to_writer(std::io::stdout(), &verification_result)?;
+    Ok(verification_result)
+}
+
+fn verify<M: MarkMachine>(property: Option<&String>) -> ExecResult {
     let mut refinery = Refinery::<M>::new();
     let proposition = if let Some(property_str) = property {
         match Proposition::parse(property_str) {
             Ok(prop) => prop,
-            Err(err) => return (Err(err), refinery.info()),
+            Err(err) => {
+                return ExecResult {
+                    conclusion: Err(err),
+                    info: refinery.info(),
+                }
+            }
         }
     } else {
         safety_proposition()
     };
     loop {
         let result = model_check::check_prop(&refinery.space, &proposition);
+        // if verification was incomplete, try to refine the culprit
         let culprit = match result {
-            Ok(conclusion) => return (Ok(conclusion), refinery.info()),
-            Err(error) => match error {
+            Ok(conclusion) => {
+                return ExecResult {
+                    conclusion: Ok(conclusion),
+                    info: refinery.info(),
+                }
+            }
+            Err(err) => match err {
                 Error::Incomplete(culprit) => culprit,
-                _ => return (Err(error), refinery.info()),
+                _ => {
+                    return ExecResult {
+                        conclusion: Err(err),
+                        info: refinery.info(),
+                    }
+                }
             },
         };
-        //println!("Culprit: {:?}", culprit);
         if !refinery.refine(&culprit) {
-            return (Err(Error::Incomplete(culprit)), refinery.info());
+            // it really is incomplete
+            return ExecResult {
+                conclusion: Err(Error::Incomplete(culprit)),
+                info: refinery.info(),
+            };
         }
     }
 }
