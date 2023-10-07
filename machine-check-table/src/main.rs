@@ -4,7 +4,7 @@ use machine_check::VerifyResult;
 
 fn main() {
     let spec = std::fs::read_to_string("examples/bv64-tasks.set").unwrap();
-    let exec_outputs_dir = Path::new("exec/18171957/tests");
+    let exec_outputs_dir = Path::new("exec/18172383/tests");
     let mut num_tests = 0;
     let mut num_outputs = 0;
     let mut num_errors = 0;
