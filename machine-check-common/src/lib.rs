@@ -5,8 +5,8 @@ use std::collections::VecDeque;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Error, Debug, Serialize, Deserialize)]
-pub enum Error {
+#[derive(Error, Debug, Serialize, Deserialize, Clone)]
+pub enum ExecError {
     #[error("incomplete verification")]
     Incomplete(Culprit),
     #[error("field '{0}' of bit type not found")]
@@ -17,20 +17,20 @@ pub enum Error {
     PropertyNotParseable(String),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Culprit {
     pub path: VecDeque<usize>,
     pub name: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Info {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ExecStats {
     pub num_states: usize,
     pub num_refinements: usize,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExecResult {
-    pub conclusion: Result<bool, Error>,
-    pub info: Info,
+    pub result: Result<bool, ExecError>,
+    pub stats: ExecStats,
 }

@@ -22,3 +22,4 @@ env_logger = "0.10.0"
 clap = { version = "4.4.6", features = ["derive"] }
 camino = "1.1.6"
 cargo_metadata = "0.18.0"
+thiserror = "1.0.49"

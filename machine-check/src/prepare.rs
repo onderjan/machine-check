@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use cargo_metadata::{camino::Utf8PathBuf, Message};
 use log::info;
 use std::{collections::BTreeSet, io::Write};
@@ -8,30 +7,26 @@ use std::{
     process::{Command, Stdio},
 };
 
-#[derive(Debug)]
-struct Rdep {
-    target_name: String,
-    paths: Vec<Utf8PathBuf>,
-}
-
 use serde::{Deserialize, Serialize};
 
-use crate::{Cli, PrepareCli};
+use crate::util::log_process_output;
+use crate::{CheckError, Cli, PrepareCli};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Preparation {
     pub target_build_args: Vec<String>,
 }
 
-pub(super) fn default_preparation_dir() -> Result<Utf8PathBuf, anyhow::Error> {
+pub(super) fn default_preparation_dir() -> Result<Utf8PathBuf, CheckError> {
     // directory 'preparation' under the executable
-    let mut path = std::env::current_exe()?;
+    let mut path = std::env::current_exe().map_err(CheckError::CurrentExe)?;
     path.pop();
-    let path = Utf8PathBuf::try_from(path)?;
+    let path =
+        Utf8PathBuf::try_from(path.clone()).map_err(|err| CheckError::PathToUtf8(path, err))?;
     Ok(path.join("preparation"))
 }
 
-pub(super) fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), anyhow::Error> {
+pub(super) fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), CheckError> {
     let preparation_dir = match prepare.preparation_path {
         Some(preparation_path) => preparation_path,
         None => {
@@ -46,13 +41,15 @@ pub(super) fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), anyhow::Error> 
     );
 
     let home_dir = preparation_dir.join("home");
-    std::fs::create_dir_all(&home_dir)?;
+    std::fs::create_dir_all(&home_dir)
+        .map_err(|err| CheckError::CreateDir(home_dir.clone(), err))?;
     let target_dir = preparation_dir.join("target");
-    std::fs::create_dir_all(&target_dir)?;
+    std::fs::create_dir_all(&target_dir)
+        .map_err(|err| CheckError::CreateDir(target_dir.clone(), err))?;
     let profile = String::from("release");
 
     // cargo build machine_check_exec and copy the dependencies to a separate directory
-    let mut command = Command::new("cargo")
+    let build_output = Command::new("cargo")
         .arg("build")
         .arg("--package")
         .arg("machine-check-exec")
@@ -63,60 +60,18 @@ pub(super) fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), anyhow::Error> 
         .arg("--target-dir")
         .arg(&target_dir)
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .env("CARGO_HOME", &home_dir)
-        .spawn()?;
+        .output()
+        .map_err(CheckError::BuildRun)?;
 
-    let output = command.wait()?;
-    if !output.success() {
-        return Err(anyhow!("Build was not successful"));
+    log_process_output(&build_output);
+
+    if !build_output.status.success() {
+        return Err(CheckError::BuildStatus(build_output.status));
     }
-    let reader = std::io::BufReader::new(
-        command
-            .stdout
-            .take()
-            .ok_or_else(|| anyhow!("Could not take build stdout"))?,
-    );
 
     let mut linked_paths = BTreeSet::new();
-
-    // get a list of paths to rlibs
-    let mut rlibs = Vec::<Rdep>::new();
-    for message in cargo_metadata::Message::parse_stream(reader) {
-        let message = message?;
-        let artifact = match message {
-            Message::BuildScriptExecuted(build_script) => {
-                // add linked paths
-                linked_paths.extend(build_script.linked_paths);
-                continue;
-            }
-            Message::CompilerArtifact(artifact) => artifact,
-            Message::CompilerMessage(_) => {
-                // we do not care
-                continue;
-            }
-            Message::BuildFinished(finished) => {
-                // should never have successful exit status if build was unsuccessful
-                assert!(finished.success);
-                continue;
-            }
-            _ => {
-                return Err(anyhow!("Unknown cargo message: {:?}", message));
-            }
-        };
-
-        for file_path in &artifact.filenames {
-            let Some(extension) = file_path.extension() else {
-                continue;
-            };
-            if extension == "rlib" {
-                rlibs.push(Rdep {
-                    target_name: artifact.target.name.clone(),
-                    paths: artifact.filenames.clone(),
-                });
-            }
-        }
-    }
 
     let mut target_build_args = vec![
         String::from("--edition=2021"),
@@ -138,19 +93,33 @@ pub(super) fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), anyhow::Error> 
     target_build_args.push(String::from("-L"));
     target_build_args.push(format!("dependency={}", deps_dir));
 
-    // add extern
-    for rlib in rlibs {
-        // copy path-specified to exec build dir
-        for original_path in rlib.paths {
-            // TODO: base addition of extern on Target_Cargo.toml
-            if matches!(rlib.target_name.as_str(), "mck" | "machine-check-exec") {
-                // add extern to args
-                // replace hyphens with underscores for rustc
-                let extern_target_name = rlib.target_name.replace('-', "_");
-                target_build_args.push(String::from("--extern"));
-                target_build_args.push(format!("{}={}", extern_target_name, original_path));
+    // get a list of paths to rlibs
+    let bytes: &[u8] = &build_output.stdout;
+    for message in cargo_metadata::Message::parse_stream(bytes) {
+        let message = message.map_err(CheckError::CargoParse)?;
+        match message {
+            Message::BuildScriptExecuted(build_script) => {
+                // add linked paths
+                linked_paths.extend(build_script.linked_paths);
             }
-        }
+            Message::CompilerArtifact(artifact) => {
+                if matches!(artifact.target.name.as_str(), "mck" | "machine-check-exec") {
+                    for original_path in artifact.filenames {
+                        // TODO: base addition of extern on Target_Cargo.toml
+                        // add extern to args
+                        // replace hyphens with underscores for rustc
+                        let extern_target_name = artifact.target.name.replace('-', "_");
+                        target_build_args.push(String::from("--extern"));
+                        target_build_args.push(format!("{}={}", extern_target_name, original_path));
+                    }
+                }
+            }
+            Message::BuildFinished(finished) => {
+                // should never have successful exit status if build was unsuccessful
+                assert!(finished.success);
+            }
+            _ => (),
+        };
     }
 
     // add linked paths
@@ -162,10 +131,13 @@ pub(super) fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), anyhow::Error> 
     let preparation = Preparation { target_build_args };
 
     let preparation_path = preparation_dir.join("preparation.json");
-    let file = File::create(preparation_path)?;
+    let file = File::create(&preparation_path)
+        .map_err(|err| CheckError::CreateFile(preparation_path.clone(), err))?;
     let mut writer = BufWriter::new(file);
     serde_json::to_writer(&mut writer, &preparation)?;
-    writer.flush()?;
+    writer
+        .flush()
+        .map_err(|err| CheckError::Flush(preparation_path, err))?;
 
     info!("Preparation complete.");
     Ok(())

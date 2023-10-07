@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
-use machine_check_common::{Culprit, Error};
+use machine_check_common::{Culprit, ExecError};
 use mck::AbstractMachine;
 
 use super::space::Space;
@@ -23,7 +23,7 @@ pub fn safety_proposition() -> Proposition {
 pub fn check_prop<AM: AbstractMachine>(
     space: &Space<AM>,
     prop: &Proposition,
-) -> Result<bool, Error> {
+) -> Result<bool, ExecError> {
     let mut checker = ThreeValuedChecker::new(space);
     checker.check_prop(prop)
 }
@@ -43,7 +43,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
         }
     }
 
-    fn check_prop(&mut self, prop: &Proposition) -> Result<bool, Error> {
+    fn check_prop(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
         let mut prop = prop.clone();
         // transform to positive normal form to move negations to literals
         prop.pnf();
@@ -56,7 +56,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
 
         match (pessimistic_interpretation, optimistic_interpretation) {
             (false, false) => Ok(false),
-            (false, true) => Err(Error::Incomplete(
+            (false, true) => Err(ExecError::Incomplete(
                 self.compute_interpretation_culprit(&prop)?,
             )),
             (true, true) => Ok(true),
@@ -64,7 +64,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
         }
     }
 
-    fn compute_interpretation_culprit(&self, prop: &Proposition) -> Result<Culprit, Error> {
+    fn compute_interpretation_culprit(&self, prop: &Proposition) -> Result<Culprit, ExecError> {
         // incomplete, compute culprit
         // it must start with one of the initial states
         for initial_index in self.space.initial_index_iter() {
@@ -83,7 +83,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
         &self,
         prop: &Proposition,
         path: &VecDeque<usize>,
-    ) -> Result<Culprit, Error> {
+    ) -> Result<Culprit, ExecError> {
         assert!(self
             .get_interpretation(prop, *path.back().unwrap())
             .is_none());
@@ -505,7 +505,7 @@ impl Proposition {
         self.enf();
     }
 
-    pub fn parse(prop_str: &str) -> Result<Proposition, Error> {
+    pub fn parse(prop_str: &str) -> Result<Proposition, ExecError> {
         PropositionParser::parse(prop_str)
     }
 }
@@ -524,7 +524,7 @@ struct PropositionParser {
 }
 
 impl PropositionParser {
-    fn parse(input: &str) -> Result<Proposition, Error> {
+    fn parse(input: &str) -> Result<Proposition, ExecError> {
         let mut parser = PropositionParser {
             input: String::from(input),
             lex_items: Self::lex(input)?,
@@ -532,28 +532,28 @@ impl PropositionParser {
         parser.parse_proposition()
     }
 
-    fn parse_uni(&mut self) -> Result<Box<Proposition>, Error> {
+    fn parse_uni(&mut self) -> Result<Box<Proposition>, ExecError> {
         let Some(PropositionLexItem::OpeningParen(_)) = self.lex_items.pop_front() else {
-            return Err(Error::PropertyNotParseable(self.input.clone()));
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         let result = self.parse_proposition()?;
         let Some(PropositionLexItem::ClosingParen(_)) = self.lex_items.pop_front() else {
-            return Err(Error::PropertyNotParseable(self.input.clone()));
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         Ok(Box::new(result))
     }
 
-    fn parse_u(&mut self) -> Result<PropositionU, Error> {
+    fn parse_u(&mut self) -> Result<PropositionU, ExecError> {
         let Some(PropositionLexItem::OpeningParen(_)) = self.lex_items.pop_front() else {
-            return Err(Error::PropertyNotParseable(self.input.clone()));
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         let hold = self.parse_proposition()?;
         let Some(PropositionLexItem::Comma) = self.lex_items.pop_front() else {
-            return Err(Error::PropertyNotParseable(self.input.clone()));
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         let until = self.parse_proposition()?;
         let Some(PropositionLexItem::ClosingParen(_)) = self.lex_items.pop_front() else {
-            return Err(Error::PropertyNotParseable(self.input.clone()));
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         Ok(PropositionU {
             hold: Box::new(hold),
@@ -561,9 +561,9 @@ impl PropositionParser {
         })
     }
 
-    fn parse_proposition(&mut self) -> Result<Proposition, Error> {
+    fn parse_proposition(&mut self) -> Result<Proposition, ExecError> {
         let Some(lex_item) = self.lex_items.pop_front() else {
-            return Err(Error::PropertyNotParseable(self.input.clone()));
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
 
         Ok(match lex_item {
@@ -586,12 +586,12 @@ impl PropositionParser {
             },
             _ => {
                 // not allowed for now
-                return Err(Error::PropertyNotParseable(self.input.clone()));
+                return Err(ExecError::PropertyNotParseable(self.input.clone()));
             }
         })
     }
 
-    fn lex(input: &str) -> Result<VecDeque<PropositionLexItem>, Error> {
+    fn lex(input: &str) -> Result<VecDeque<PropositionLexItem>, ExecError> {
         let mut result = VecDeque::new();
 
         let mut it = input.chars().peekable();
@@ -623,7 +623,7 @@ impl PropositionParser {
                     }
                     result.push_back(PropositionLexItem::Ident(ident));
                 }
-                _ => return Err(Error::PropertyNotParseable(String::from(input))),
+                _ => return Err(ExecError::PropertyNotParseable(String::from(input))),
             }
         }
         Ok(result)
@@ -648,7 +648,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         }
     }
 
-    fn compute_ex_labelling(&mut self, inner: &Proposition) -> Result<BTreeSet<usize>, Error> {
+    fn compute_ex_labelling(&mut self, inner: &Proposition) -> Result<BTreeSet<usize>, ExecError> {
         self.compute_labelling(inner)?;
         let inner_labelling = self.get_labelling(inner);
         let mut result = BTreeSet::new();
@@ -661,7 +661,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         Ok(result)
     }
 
-    fn compute_eg_labelling(&mut self, inner: &Proposition) -> Result<BTreeSet<usize>, Error> {
+    fn compute_eg_labelling(&mut self, inner: &Proposition) -> Result<BTreeSet<usize>, ExecError> {
         // Boolean SCC-based labelling procedure CheckEG from Model Checking 1999 by Clarke et al.
 
         // compute inner labelling
@@ -693,7 +693,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         Ok(eg_labelling)
     }
 
-    fn compute_eu_labelling(&mut self, prop: &PropositionU) -> Result<BTreeSet<usize>, Error> {
+    fn compute_eu_labelling(&mut self, prop: &PropositionU) -> Result<BTreeSet<usize>, ExecError> {
         // worklist-based labelling procedure CheckEU from Model Checking 1999 by Clarke et al.
 
         self.compute_labelling(&prop.hold)?;
@@ -726,7 +726,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         Ok(eu_labelling)
     }
 
-    fn compute_labelling(&mut self, prop: &Proposition) -> Result<(), Error> {
+    fn compute_labelling(&mut self, prop: &Proposition) -> Result<(), ExecError> {
         if self.labelling_map.contains_key(prop) {
             // already contained
             return Ok(());
@@ -750,7 +750,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
                     .collect();
                 match labelled {
                     Ok(labelled) => labelled,
-                    Err(_) => return Err(Error::FieldNotFound(literal.name.clone())),
+                    Err(_) => return Err(ExecError::FieldNotFound(literal.name.clone())),
                 }
             }
             Proposition::Negation(inner) => {
@@ -788,7 +788,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
             .expect("labelling should be present")
     }
 
-    fn compute_interpretation(&mut self, prop: &Proposition) -> Result<bool, Error> {
+    fn compute_interpretation(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
         self.compute_labelling(prop)?;
         let labelling = self.get_labelling(prop);
         // conventionally, the property must hold in all initial states

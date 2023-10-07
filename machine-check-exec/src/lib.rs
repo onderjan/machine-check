@@ -4,8 +4,8 @@ mod space;
 
 use std::collections::VecDeque;
 
-use log::{error, info, log_enabled};
-use machine_check_common::{Culprit, Error, ExecResult, Info};
+use log::{error, info, log_enabled, trace};
+use machine_check_common::{Culprit, ExecError, ExecResult, ExecStats};
 use mck::{
     mark::{Join, MarkMachine, MarkState},
     AbstractMachine, MarkBitvector,
@@ -55,9 +55,13 @@ fn run_inner<M: MarkMachine>() -> Result<ExecResult, anyhow::Error> {
 
     let verification_result = verify::<M>(args.property.as_ref());
 
+    if log_enabled!(log::Level::Trace) {
+        trace!("Verification result: {:?}", verification_result);
+    }
+
     if log_enabled!(log::Level::Info) {
         // the result will be propagated, just inform that we ended somehow
-        match verification_result.conclusion {
+        match verification_result.result {
             Ok(_) => info!("Verification ended."),
             Err(_) => error!("Verification failed."),
         }
@@ -70,46 +74,23 @@ fn run_inner<M: MarkMachine>() -> Result<ExecResult, anyhow::Error> {
 
 fn verify<M: MarkMachine>(property: Option<&String>) -> ExecResult {
     let mut refinery = Refinery::<M>::new();
-    let proposition = if let Some(property_str) = property {
-        match Proposition::parse(property_str) {
-            Ok(prop) => prop,
-            Err(err) => {
-                return ExecResult {
-                    conclusion: Err(err),
-                    info: refinery.info(),
-                }
-            }
-        }
-    } else {
-        safety_proposition()
+    let proposition = select_proposition(property);
+    let result = match proposition {
+        Ok(proposition) => refinery.verify(&proposition),
+        Err(err) => Err(err),
     };
-    loop {
-        let result = model_check::check_prop(&refinery.space, &proposition);
-        // if verification was incomplete, try to refine the culprit
-        let culprit = match result {
-            Ok(conclusion) => {
-                return ExecResult {
-                    conclusion: Ok(conclusion),
-                    info: refinery.info(),
-                }
-            }
-            Err(err) => match err {
-                Error::Incomplete(culprit) => culprit,
-                _ => {
-                    return ExecResult {
-                        conclusion: Err(err),
-                        info: refinery.info(),
-                    }
-                }
-            },
-        };
-        if !refinery.refine(&culprit) {
-            // it really is incomplete
-            return ExecResult {
-                conclusion: Err(Error::Incomplete(culprit)),
-                info: refinery.info(),
-            };
-        }
+
+    ExecResult {
+        result,
+        stats: refinery.info(),
+    }
+}
+
+fn select_proposition(property: Option<&String>) -> Result<Proposition, ExecError> {
+    if let Some(property_str) = property {
+        Proposition::parse(property_str)
+    } else {
+        Ok(safety_proposition())
     }
 }
 
@@ -129,6 +110,25 @@ impl<M: MarkMachine> Refinery<M> {
         // generate first space
         refinery.regenerate_init();
         refinery
+    }
+
+    fn verify(&mut self, proposition: &Proposition) -> Result<bool, ExecError> {
+        // main refinement loop
+        loop {
+            let result = model_check::check_prop(&self.space, proposition);
+            // if verification was incomplete, try to refine the culprit
+            let culprit = match result {
+                Ok(conclusion) => return Ok(conclusion),
+                Err(err) => match err {
+                    ExecError::Incomplete(culprit) => culprit,
+                    _ => return Err(err),
+                },
+            };
+            if !self.refine(&culprit) {
+                // it really is incomplete
+                return Err(ExecError::Incomplete(culprit));
+            }
+        }
     }
 
     fn refine(&mut self, culprit: &Culprit) -> bool {
@@ -240,8 +240,8 @@ impl<M: MarkMachine> Refinery<M> {
         }
     }
 
-    pub fn info(&self) -> Info {
-        Info {
+    pub fn info(&self) -> ExecStats {
+        ExecStats {
             num_states: self.space.num_states(),
             num_refinements: self.num_refinements,
         }
