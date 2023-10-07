@@ -17,6 +17,7 @@ pub struct Space<AM: AbstractMachine> {
     state_graph: GraphMap<usize, Edge<AM::Input>, Directed>,
     state_map: BiMap<usize, Rc<AM::State>>,
     num_states_for_sweep: usize,
+    next_state_id: usize,
 }
 
 impl<AM: AbstractMachine> Space<AM> {
@@ -26,6 +27,7 @@ impl<AM: AbstractMachine> Space<AM> {
             state_graph: GraphMap::new(),
             state_map: BiMap::new(),
             num_states_for_sweep: 32,
+            next_state_id: 0,
         }
     }
 
@@ -86,8 +88,13 @@ impl<AM: AbstractMachine> Space<AM> {
             *state_id
         } else {
             // add state to map
-            let state_id = self.state_map.len();
+            // since we can remove states, use separate next state id
+            let state_id = self.next_state_id;
             self.state_map.insert(state_id, state);
+            match self.next_state_id.checked_add(1) {
+                Some(result) => self.next_state_id = result,
+                None => panic!("Number of state does not fit in usize"),
+            }
             state_id
         };
 
