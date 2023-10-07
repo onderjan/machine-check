@@ -1,9 +1,8 @@
 use std::collections::VecDeque;
 
-use log::{debug, log_enabled};
 use machine_check_common::ExecStats;
 use machine_check_common::{Culprit, ExecError};
-use mck::mark::{Join, MarkSingle};
+use mck::mark::MarkSingle;
 use mck::FieldManipulate;
 use mck::MarkMachine;
 use mck::MarkState;
@@ -49,6 +48,7 @@ impl<M: MarkMachine> Refinery<M> {
                 // it really is incomplete
                 return Err(ExecError::Incomplete(culprit));
             }
+            self.space.garbage_collect();
         }
     }
 

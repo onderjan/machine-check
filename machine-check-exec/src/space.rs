@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeSet, HashMap},
+    ops::Shr,
     rc::Rc,
 };
 
@@ -15,6 +16,7 @@ pub struct Space<AM: AbstractMachine> {
     initial_states: HashMap<usize, Edge<AM::Input>>,
     state_graph: GraphMap<usize, Edge<AM::Input>, Directed>,
     state_map: BiMap<usize, Rc<AM::State>>,
+    num_states_for_sweep: usize,
 }
 
 impl<AM: AbstractMachine> Space<AM> {
@@ -23,6 +25,7 @@ impl<AM: AbstractMachine> Space<AM> {
             initial_states: HashMap::new(),
             state_graph: GraphMap::new(),
             state_map: BiMap::new(),
+            num_states_for_sweep: 32,
         }
     }
 
@@ -224,5 +227,33 @@ impl<AM: AbstractMachine> Space<AM> {
             result.extend(scc);
         }
         result
+    }
+
+    pub fn garbage_collect(&mut self) {
+        if self.state_map.len() >= self.num_states_for_sweep {
+            self.mark_and_sweep();
+        }
+    }
+
+    fn mark_and_sweep(&mut self) {
+        // construct a map containing all of the nodes
+        let mut unmarked = BTreeSet::from_iter(self.state_map.left_values().cloned());
+        // remove all of the reachable nodes by depth-first search
+        let mut stack = Vec::from_iter(self.initial_states.keys().cloned());
+        while let Some(state_index) = stack.pop() {
+            if unmarked.remove(&state_index) {
+                // we marked it, go on to direct successors
+                for direct_successor_index in self.direct_successor_index_iter(state_index) {
+                    stack.push(direct_successor_index);
+                }
+            }
+        }
+        // only unreachable nodes are unmarked, remove them from state map and graph
+        for unmarked_index in unmarked {
+            self.state_map.remove_by_left(&unmarked_index);
+            self.state_graph.remove_node(unmarked_index);
+        }
+        // update the number of states for sweep as 3/2 of current number of states and at least 32
+        self.num_states_for_sweep = self.state_map.len().saturating_mul(3).shr(1usize).max(32);
     }
 }
