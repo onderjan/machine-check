@@ -5,8 +5,8 @@ use std::num::Wrapping;
 
 use crate::{
     mark::{
-        Add, BitAnd, BitOr, BitXor, Join, MachineDiv, MachineExt, MachineShift, Markable, Mul, Neg,
-        Not, Sub, TypedCmp, TypedEq,
+        Add, BitAnd, BitOr, BitXor, Join, MachineDiv, MachineExt, MachineShift, MarkSingle,
+        Markable, Mul, Neg, Not, Sub, TypedCmp, TypedEq,
     },
     util::compute_sign_bit_mask,
     Fabricator, MachineBitvector, ThreeValuedBitvector,
@@ -100,6 +100,21 @@ impl<const L: u32> Fabricator for MarkBitvector<L> {
 impl<const L: u32> Join for MarkBitvector<L> {
     fn apply_join(&mut self, other: Self) {
         self.0 = self.0 | other.0;
+    }
+}
+
+impl<const L: u32> MarkSingle for MarkBitvector<L> {
+    fn apply_single_mark(&mut self, offer: Self) -> bool {
+        // find the highest bit that is marked in offer but unmarked in ours
+        let applicants = offer.0 & !self.0;
+        let mark_mask = 1u64.checked_shl(applicants.as_unsigned().0.trailing_zeros());
+        let Some(mark_mask) = mark_mask else {
+            // no such bit found
+            return false;
+        };
+        // apply the mark
+        self.0 = self.0 | MachineBitvector::new(mark_mask);
+        true
     }
 }
 

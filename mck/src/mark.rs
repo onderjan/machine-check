@@ -1,9 +1,23 @@
 use crate::{AbstractMachine, Fabricator, FieldManipulate, MarkBitvector};
 
+use std::fmt::Debug;
 use std::hash::Hash;
 
+pub trait MarkSingle {
+    fn apply_single_mark(&mut self, offer: Self) -> bool;
+}
+
 pub trait MarkInput:
-    PartialEq + Eq + Hash + Clone + Fabricator + Join + Default + FieldManipulate<MarkBitvector<1>>
+    Debug
+    + PartialEq
+    + Eq
+    + Hash
+    + Clone
+    + Fabricator
+    + Join
+    + Default
+    + FieldManipulate<MarkBitvector<1>>
+    + MarkSingle
 {
     fn new_unmarked() -> Self {
         Default::default()
@@ -11,7 +25,7 @@ pub trait MarkInput:
 }
 
 pub trait MarkState:
-    PartialEq + Eq + Hash + Clone + Join + Default + FieldManipulate<MarkBitvector<1>>
+    Debug + PartialEq + Eq + Hash + Clone + Join + Default + FieldManipulate<MarkBitvector<1>>
 {
     fn new_unmarked() -> Self {
         Default::default()

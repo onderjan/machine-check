@@ -1,6 +1,7 @@
 use std::hash::Hash;
 
 use crate::ThreeValuedBitvector;
+use std::fmt::Debug;
 
 pub trait MachineDiv
 where
@@ -81,12 +82,12 @@ pub trait AbstractMachine {
 }
 
 pub trait AbstractState:
-    PartialEq + Eq + Hash + Clone + FieldManipulate<ThreeValuedBitvector<1>>
+    Debug + PartialEq + Eq + Hash + Clone + FieldManipulate<ThreeValuedBitvector<1>>
 {
 }
 
 pub trait AbstractInput:
-    PartialEq + Eq + Hash + Clone + FieldManipulate<ThreeValuedBitvector<1>>
+    Debug + PartialEq + Eq + Hash + Clone + FieldManipulate<ThreeValuedBitvector<1>>
 {
 }
 

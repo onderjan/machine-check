@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
 
+use log::{debug, log_enabled};
 use machine_check_common::ExecStats;
 use machine_check_common::{Culprit, ExecError};
-use mck::mark::Join;
+use mck::mark::{Join, MarkSingle};
 use mck::FieldManipulate;
 use mck::MarkMachine;
 use mck::MarkState;
@@ -73,12 +74,10 @@ impl<M: MarkMachine> Refinery<M> {
             // step using the previous state as input
             let (new_state_mark, input_mark) =
                 <M as MarkMachine>::next((previous_state, input), current_state_mark);
-            let previous_state_precision = self.precision.get_for_state_mut(previous_state_index);
+            let state_precision = self.precision.get_for_state_mut(previous_state_index);
 
-            let mut joined_precision: M::Input = previous_state_precision.clone();
-            Join::apply_join(&mut joined_precision, input_mark);
-            if previous_state_precision != &joined_precision {
-                *previous_state_precision = joined_precision;
+            if MarkSingle::apply_single_mark(state_precision, input_mark) {
+                // single mark applied
                 // regenerate step from the state
                 let mut queue = VecDeque::new();
                 queue.push_back(previous_state_index);
@@ -100,10 +99,8 @@ impl<M: MarkMachine> Refinery<M> {
         let (input_mark,) = <M as MarkMachine>::init((init_input,), current_state_mark);
 
         let init_precision = self.precision.get_init_mut();
-        let mut joined_precision: M::Input = init_precision.clone();
-        Join::apply_join(&mut joined_precision, input_mark);
-        if *init_precision != joined_precision {
-            *init_precision = joined_precision;
+        if MarkSingle::apply_single_mark(init_precision, input_mark) {
+            // single mark applied
             // regenerate init
             self.regenerate_init();
             return true;

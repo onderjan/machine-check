@@ -91,12 +91,14 @@ fn apply_transcribed_item_struct(items: &mut Vec<Item>, s: &ItemStruct) -> anyho
     // TODO: add the implementations only for state and input according to traits
     if ident_string.as_str() != "Machine" {
         let join_impl = generate_join_impl(&s)?;
+        let mark_single_impl = generate_mark_single_impl(&s)?;
         let fabricator_impl = generate_fabricator_impl(&s)?;
         let markable_impl = generate_markable_impl(&s)?;
         // add struct
         items.push(Item::Struct(s));
-        // add implementations of join, fabricator, and markable
+        // add implementations
         items.push(Item::Impl(join_impl));
+        items.push(Item::Impl(mark_single_impl));
         items.push(Item::Impl(fabricator_impl));
         items.push(Item::Impl(markable_impl));
     } else {
@@ -176,6 +178,110 @@ fn generate_join_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         self_ty: Box::new(struct_type),
         brace_token: Default::default(),
         items: vec![ImplItem::Fn(join_fn)],
+    })
+}
+
+fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
+    let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
+    let mark_single_trait = (None, path!(::mck::mark::MarkSingle), Default::default());
+    let self_type = Type::Path(create_type_path(path!(Self)));
+    let self_input = FnArg::Receiver(Receiver {
+        attrs: vec![],
+        reference: Some((Default::default(), None)),
+        mutability: Some(Default::default()),
+        self_token: Default::default(),
+        colon_token: None,
+        ty: Box::new(Type::Reference(TypeReference {
+            and_token: Default::default(),
+            lifetime: Default::default(),
+            mutability: Some(Default::default()),
+            elem: Box::new(self_type.clone()),
+        })),
+    });
+    let offer_ident = create_ident("offer");
+    let offer_input = FnArg::Typed(PatType {
+        attrs: vec![],
+        pat: Box::new(Pat::Ident(create_pat_ident(offer_ident.clone()))),
+        colon_token: Default::default(),
+        ty: Box::new(self_type),
+    });
+
+    let mut result_expr: Option<Expr> = None;
+    for (index, field) in s.fields.iter().enumerate() {
+        let self_expr_path = create_expr_path(path!(self));
+        let other_expr_path = create_expr_path(create_path_from_ident(offer_ident.clone()));
+
+        let left = Expr::Field(create_expr_field(Expr::Path(self_expr_path), index, field));
+        let left = Expr::Reference(ExprReference {
+            attrs: vec![],
+            and_token: Default::default(),
+            mutability: Some(Default::default()),
+            expr: Box::new(left),
+        });
+        let right = Expr::Field(create_expr_field(Expr::Path(other_expr_path), index, field));
+
+        let func_expr = Expr::Path(create_expr_path(path!(
+            ::mck::mark::MarkSingle::apply_single_mark
+        )));
+        let expr = Expr::Call(create_expr_call(
+            func_expr,
+            Punctuated::from_iter(vec![left, right]),
+        ));
+
+        if let Some(previous_expr) = result_expr.take() {
+            // short-circuiting or for simplicity
+            result_expr = Some(Expr::Binary(ExprBinary {
+                attrs: vec![],
+                left: Box::new(previous_expr),
+                op: BinOp::Or(Default::default()),
+                right: Box::new(expr),
+            }))
+        } else {
+            result_expr = Some(expr);
+        }
+    }
+
+    // if there are no fields, return false
+    let result_expr = result_expr.unwrap_or(Expr::Path(create_expr_path(path!(false))));
+
+    let return_type = ReturnType::Type(
+        Default::default(),
+        Box::new(Type::Path(create_type_path(path!(bool)))),
+    );
+
+    let apply_fn = ImplItemFn {
+        attrs: vec![],
+        vis: syn::Visibility::Inherited,
+        defaultness: None,
+        sig: Signature {
+            constness: None,
+            asyncness: None,
+            unsafety: None,
+            abi: None,
+            fn_token: Default::default(),
+            ident: create_ident("apply_single_mark"),
+            generics: Default::default(),
+            paren_token: Default::default(),
+            inputs: Punctuated::from_iter(vec![self_input, offer_input]),
+            variadic: None,
+            output: return_type,
+        },
+        block: Block {
+            brace_token: Default::default(),
+            stmts: vec![Stmt::Expr(result_expr, None)],
+        },
+    };
+
+    Ok(ItemImpl {
+        attrs: vec![],
+        defaultness: None,
+        unsafety: None,
+        impl_token: Default::default(),
+        generics: Generics::default(),
+        trait_: Some(mark_single_trait),
+        self_ty: Box::new(struct_type),
+        brace_token: Default::default(),
+        items: vec![ImplItem::Fn(apply_fn)],
     })
 }
 
