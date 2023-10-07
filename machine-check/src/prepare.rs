@@ -26,7 +26,7 @@ pub(super) fn default_preparation_dir() -> Result<Utf8PathBuf, CheckError> {
     Ok(path.join("preparation"))
 }
 
-pub(super) fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), CheckError> {
+pub fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), CheckError> {
     let preparation_dir = match prepare.preparation_path {
         Some(preparation_path) => preparation_path,
         None => {

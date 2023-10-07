@@ -34,7 +34,7 @@ pub struct VerifyResult {
     pub stats: VerifyStats,
 }
 
-pub(super) fn run(args: Cli, verify_args: VerifyCli) -> Result<(), CheckError> {
+pub fn run(args: Cli, verify_args: VerifyCli) -> Result<(), CheckError> {
     let mut verify = Verify {
         args,
         verify_args,
