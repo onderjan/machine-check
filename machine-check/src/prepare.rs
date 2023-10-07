@@ -60,7 +60,7 @@ pub(super) fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), CheckError> {
         .arg("--target-dir")
         .arg(&target_dir)
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::inherit())
         .env("CARGO_HOME", &home_dir)
         .output()
         .map_err(CheckError::BuildRun)?;
