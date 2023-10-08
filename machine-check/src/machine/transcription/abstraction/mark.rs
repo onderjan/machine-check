@@ -1,6 +1,7 @@
+use anyhow::anyhow;
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprReference,
+    punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprPath, ExprReference,
     ExprStruct, FnArg, Generics, Ident, ImplItem, ImplItemFn, ImplItemType, Item, ItemImpl,
     ItemMod, ItemStruct, Pat, PatType, Path, PathArguments, PathSegment, Receiver, ReturnType,
     Signature, Stmt, Type, TypeReference, Visibility,
@@ -23,10 +24,14 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
 
     // create items to add to the module
     let mut mark_file_items = Vec::<Item>::new();
+    let mut force_decay_fn = None;
     for item in &file.items {
         match item {
             Item::Struct(s) => {
                 apply_transcribed_item_struct(&mut mark_file_items, s)?;
+                if s.ident == "State" {
+                    force_decay_fn = Some(generate_force_decay_fn(s)?);
+                }
             }
             Item::Impl(i) => {
                 let mut transcribed = transcribe_item_impl(i)?;
@@ -56,6 +61,10 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
                             transcribed.items.push(abstract_type);
                             transcribed.items.push(input_iter_type);
                             transcribed.items.push(input_precision_iter_fn);
+                            let force_decay_fn = force_decay_fn
+                                .clone()
+                                .ok_or(anyhow!("Force decay function could not be generated"))?;
+                            transcribed.items.push(ImplItem::Fn(force_decay_fn));
                         }
                     }
                 }
@@ -181,6 +190,96 @@ fn generate_join_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     })
 }
 
+fn generate_force_decay_fn(state_struct: &ItemStruct) -> anyhow::Result<ImplItemFn> {
+    let mark_state_type = Type::Reference(TypeReference {
+        and_token: Default::default(),
+        lifetime: None,
+        mutability: None,
+        elem: Box::new(Type::Path(create_type_path(path!(State)))),
+    });
+    let abstract_state_type = Type::Reference(TypeReference {
+        and_token: Default::default(),
+        lifetime: None,
+        mutability: Some(Default::default()),
+        elem: Box::new(Type::Path(create_type_path(path!(super::State)))),
+    });
+
+    let decay_ident = create_ident("decay");
+    let decay_input = FnArg::Typed(PatType {
+        attrs: vec![],
+        pat: Box::new(Pat::Ident(create_pat_ident(decay_ident.clone()))),
+        colon_token: Default::default(),
+        ty: Box::new(mark_state_type),
+    });
+    let target_ident = create_ident("target");
+    let target_input = FnArg::Typed(PatType {
+        attrs: vec![],
+        pat: Box::new(Pat::Ident(create_pat_ident(target_ident.clone()))),
+        colon_token: Default::default(),
+        ty: Box::new(abstract_state_type),
+    });
+
+    let mut stmts = Vec::new();
+    for (index, field) in state_struct.fields.iter().enumerate() {
+        let decay_expr_path = create_expr_path(create_path_from_ident(decay_ident.clone()));
+        let target_expr_path = create_expr_path(create_path_from_ident(target_ident.clone()));
+
+        let decay_field = Expr::Field(create_expr_field(Expr::Path(decay_expr_path), index, field));
+        let decay_ref = Expr::Reference(ExprReference {
+            attrs: vec![],
+            and_token: Default::default(),
+            mutability: None,
+            expr: Box::new(decay_field),
+        });
+        let target_field = Expr::Field(create_expr_field(
+            Expr::Path(target_expr_path),
+            index,
+            field,
+        ));
+        let target_ref = Expr::Reference(ExprReference {
+            attrs: vec![],
+            and_token: Default::default(),
+            mutability: Some(Default::default()),
+            expr: Box::new(target_field),
+        });
+        let stmt = Stmt::Expr(
+            Expr::Call(create_expr_call(
+                Expr::Path(ExprPath {
+                    attrs: vec![],
+                    qself: None,
+                    path: path!(::mck::mark::Decay::force_decay),
+                }),
+                Punctuated::from_iter(vec![decay_ref, target_ref]),
+            )),
+            Some(Default::default()),
+        );
+        stmts.push(stmt);
+    }
+
+    Ok(ImplItemFn {
+        attrs: vec![],
+        vis: syn::Visibility::Inherited,
+        defaultness: None,
+        sig: Signature {
+            constness: None,
+            asyncness: None,
+            unsafety: None,
+            abi: None,
+            fn_token: Default::default(),
+            ident: create_ident("force_decay"),
+            generics: Default::default(),
+            paren_token: Default::default(),
+            inputs: Punctuated::from_iter(vec![decay_input, target_input]),
+            variadic: None,
+            output: ReturnType::Default,
+        },
+        block: Block {
+            brace_token: Default::default(),
+            stmts,
+        },
+    })
+}
+
 fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
     let mark_single_trait = (None, path!(::mck::mark::MarkSingle), Default::default());
@@ -203,7 +302,12 @@ fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         attrs: vec![],
         pat: Box::new(Pat::Ident(create_pat_ident(offer_ident.clone()))),
         colon_token: Default::default(),
-        ty: Box::new(self_type),
+        ty: Box::new(Type::Reference(TypeReference {
+            and_token: Default::default(),
+            lifetime: Default::default(),
+            mutability: None,
+            elem: Box::new(self_type),
+        })),
     });
 
     let mut result_expr: Option<Expr> = None;
@@ -219,6 +323,12 @@ fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
             expr: Box::new(left),
         });
         let right = Expr::Field(create_expr_field(Expr::Path(other_expr_path), index, field));
+        let right = Expr::Reference(ExprReference {
+            attrs: vec![],
+            and_token: Default::default(),
+            mutability: None,
+            expr: Box::new(right),
+        });
 
         let func_expr = Expr::Path(create_expr_path(path!(
             ::mck::mark::MarkSingle::apply_single_mark

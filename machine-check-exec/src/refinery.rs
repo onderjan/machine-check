@@ -65,6 +65,17 @@ impl<M: MarkMachine> Refinery<M> {
         let iter = previous_state_iter.zip(current_state_iter);
 
         for (previous_state_index, current_state_index) in iter {
+            // decay is applied last, test if decay is marked
+            let step_decay = self.precision.get_step_decay_mut(previous_state_index);
+            if MarkSingle::apply_single_mark(step_decay, &current_state_mark) {
+                // single mark applied to step decay
+                // regenerate step from the state
+                let mut queue = VecDeque::new();
+                queue.push_back(previous_state_index);
+                self.regenerate_step(queue);
+                return true;
+            }
+
             let previous_state = self.space.get_state_by_index(previous_state_index);
 
             let input = &self
@@ -74,9 +85,9 @@ impl<M: MarkMachine> Refinery<M> {
             // step using the previous state as input
             let (new_state_mark, input_mark) =
                 <M as MarkMachine>::next((previous_state, input), current_state_mark);
-            let state_precision = self.precision.get_for_state_mut(previous_state_index);
+            let state_precision = self.precision.get_step_mut(previous_state_index);
 
-            if MarkSingle::apply_single_mark(state_precision, input_mark) {
+            if MarkSingle::apply_single_mark(state_precision, &input_mark) {
                 // single mark applied
                 // regenerate step from the state
                 let mut queue = VecDeque::new();
@@ -86,6 +97,14 @@ impl<M: MarkMachine> Refinery<M> {
             }
 
             current_state_mark = new_state_mark;
+        }
+
+        let init_decay = self.precision.get_init_decay_mut();
+        if MarkSingle::apply_single_mark(init_decay, &current_state_mark) {
+            // single mark applied
+            // regenerate init
+            self.regenerate_init();
+            return true;
         }
 
         let initial_state = culprit
@@ -99,7 +118,7 @@ impl<M: MarkMachine> Refinery<M> {
         let (input_mark,) = <M as MarkMachine>::init((init_input,), current_state_mark);
 
         let init_precision = self.precision.get_init_mut();
-        if MarkSingle::apply_single_mark(init_precision, input_mark) {
+        if MarkSingle::apply_single_mark(init_precision, &input_mark) {
             // single mark applied
             // regenerate init
             self.regenerate_init();
@@ -120,9 +139,12 @@ impl<M: MarkMachine> Refinery<M> {
 
         let initial_precision = self.precision.get_init();
         for input in M::input_precision_iter(initial_precision) {
-            let (initial_state_id, added) = self
-                .space
-                .add_initial_state(M::Abstract::init(&input), &input);
+            // decay the state first
+            let mut init_state = M::Abstract::init(&input);
+            let init_decay = self.precision.get_init_decay();
+            M::force_decay(init_decay, &mut init_state);
+
+            let (initial_state_id, added) = self.space.add_initial_state(init_state, &input);
             if added {
                 added_states_queue.push_back(initial_state_id);
             }
@@ -139,12 +161,14 @@ impl<M: MarkMachine> Refinery<M> {
             self.space.remove_outgoing_edges(current_state_index);
 
             // prepare state and precision
-            let state = self.space.get_state_by_index(current_state_index).clone();
-            let step_precision = self.precision.get_for_state(current_state_index);
+            let current_state = self.space.get_state_by_index(current_state_index).clone();
+            let step_precision = self.precision.get_step(current_state_index);
+            let step_decay = self.precision.get_step_decay(current_state_index);
 
             // generate direct successors
             for input in M::input_precision_iter(&step_precision) {
-                let next_state = M::Abstract::next(&state, &input);
+                let mut next_state = M::Abstract::next(&current_state, &input);
+                M::force_decay(&step_decay, &mut next_state);
 
                 let (next_state_index, added) =
                     self.space.add_step(current_state_index, next_state, &input);

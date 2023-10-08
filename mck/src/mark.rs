@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 pub trait MarkSingle {
-    fn apply_single_mark(&mut self, offer: Self) -> bool;
+    fn apply_single_mark(&mut self, offer: &Self) -> bool;
 }
 
 pub trait MarkInput:
@@ -25,7 +25,15 @@ pub trait MarkInput:
 }
 
 pub trait MarkState:
-    Debug + PartialEq + Eq + Hash + Clone + Join + Default + FieldManipulate<MarkBitvector<1>>
+    Debug
+    + PartialEq
+    + Eq
+    + Hash
+    + Clone
+    + Join
+    + Default
+    + FieldManipulate<MarkBitvector<1>>
+    + MarkSingle
 {
     fn new_unmarked() -> Self {
         Default::default()
@@ -52,6 +60,8 @@ pub trait MarkMachine {
         ),
         later_mark: Self::State,
     ) -> (Self::State, Self::Input);
+
+    fn force_decay(decay: &Self::State, state: &mut <Self::Abstract as AbstractMachine>::State);
 }
 
 pub trait Markable {
@@ -64,6 +74,14 @@ where
     Self: Sized,
 {
     fn apply_join(&mut self, other: Self);
+}
+
+pub trait Decay
+where
+    Self: Sized,
+{
+    type Abstract;
+    fn force_decay(&self, target: &mut Self::Abstract);
 }
 
 pub trait Neg

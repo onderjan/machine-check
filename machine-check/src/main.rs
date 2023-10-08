@@ -40,6 +40,6 @@ fn main() {
         .unwrap();
 
     if let Err(err) = result {
-        error!("{:#}", err);
+        error!("Error: {:#}", err);
     }
 }

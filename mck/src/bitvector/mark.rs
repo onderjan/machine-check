@@ -5,10 +5,10 @@ use std::num::Wrapping;
 
 use crate::{
     mark::{
-        Add, BitAnd, BitOr, BitXor, Join, MachineDiv, MachineExt, MachineShift, MarkSingle,
+        Add, BitAnd, BitOr, BitXor, Decay, Join, MachineDiv, MachineExt, MachineShift, MarkSingle,
         Markable, Mul, Neg, Not, Sub, TypedCmp, TypedEq,
     },
-    util::compute_sign_bit_mask,
+    util::{compute_mask, compute_sign_bit_mask},
     Fabricator, MachineBitvector, ThreeValuedBitvector,
 };
 
@@ -103,8 +103,19 @@ impl<const L: u32> Join for MarkBitvector<L> {
     }
 }
 
+impl<const L: u32> Decay for MarkBitvector<L> {
+    type Abstract = ThreeValuedBitvector<L>;
+    fn force_decay(&self, target: &mut Self::Abstract) {
+        // unmarked fields become unknown
+        let forced_unknown = !self.0.as_unsigned() & compute_mask(L);
+        let zeros = target.get_possibly_zero_flags().as_unsigned() | forced_unknown;
+        let ones = target.get_possibly_one_flags().as_unsigned() | forced_unknown;
+        *target = ThreeValuedBitvector::a_new(zeros, ones);
+    }
+}
+
 impl<const L: u32> MarkSingle for MarkBitvector<L> {
-    fn apply_single_mark(&mut self, offer: Self) -> bool {
+    fn apply_single_mark(&mut self, offer: &Self) -> bool {
         // find the highest bit that is marked in offer but unmarked in ours
         let applicants = offer.0 & !self.0;
         let mark_mask = 1u64.checked_shl(applicants.as_unsigned().0.trailing_zeros());

@@ -53,7 +53,7 @@ pub enum CheckError {
     ExecRun(#[source] std::io::Error),
     #[error("execution failed with status {0}")]
     ExecStatus(ExitStatus),
-    #[error("machine execution error")]
+    #[error("machine execution error: {0}")]
     ExecError(#[from] ExecError),
     #[error("instead of one executable, {0} built")]
     BuildAmount(usize),
