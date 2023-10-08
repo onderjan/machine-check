@@ -331,6 +331,11 @@ impl Verify {
             command.arg("--verbose");
         }
 
+        // forward use-decay
+        if self.verify_args.use_decay {
+            command.arg("--use-decay");
+        }
+
         // the machine executable logs on stderr and gives us the result on stdout
         // pipe stdout and inherit stderr
         command.stdout(Stdio::piped()).stderr(Stdio::inherit());

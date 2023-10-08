@@ -85,6 +85,9 @@ pub struct VerifyCli {
     pub preparation_path: Option<Utf8PathBuf>,
 
     pub system_path: Utf8PathBuf,
+
+    #[arg(long)]
+    pub use_decay: bool,
 }
 
 #[derive(Debug, Clone, Args)]

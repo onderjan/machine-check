@@ -21,6 +21,9 @@ struct Args {
 
     #[arg(long)]
     property: Option<String>,
+
+    #[arg(long)]
+    use_decay: bool,
 }
 
 pub fn run<M: MarkMachine>() {
@@ -45,7 +48,7 @@ fn run_inner<M: MarkMachine>() -> Result<ExecResult, anyhow::Error> {
 
     info!("Starting verification.");
 
-    let verification_result = verify::<M>(args.property.as_ref());
+    let verification_result = verify::<M>(args.property.as_ref(), args.use_decay);
 
     if log_enabled!(log::Level::Trace) {
         trace!("Verification result: {:?}", verification_result);
@@ -64,8 +67,8 @@ fn run_inner<M: MarkMachine>() -> Result<ExecResult, anyhow::Error> {
     Ok(verification_result)
 }
 
-fn verify<M: MarkMachine>(property: Option<&String>) -> ExecResult {
-    let mut refinery = Refinery::<M>::new();
+fn verify<M: MarkMachine>(property: Option<&String>, use_decay: bool) -> ExecResult {
+    let mut refinery = Refinery::<M>::new(use_decay);
     let proposition = select_proposition(property);
     let result = match proposition {
         Ok(proposition) => refinery.verify(&proposition),

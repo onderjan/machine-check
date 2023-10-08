@@ -18,14 +18,16 @@ pub struct Refinery<M: MarkMachine> {
     precision: Precision<M>,
     space: Space<M::Abstract>,
     num_refinements: usize,
+    use_decay: bool,
 }
 
 impl<M: MarkMachine> Refinery<M> {
-    pub fn new() -> Self {
+    pub fn new(use_decay: bool) -> Self {
         let mut refinery = Refinery {
             precision: Precision::new(),
             space: Space::new(),
             num_refinements: 0,
+            use_decay,
         };
         // generate first space
         refinery.regenerate_init();
@@ -68,15 +70,17 @@ impl<M: MarkMachine> Refinery<M> {
         let iter = previous_state_iter.zip(current_state_iter);
 
         for (previous_state_index, current_state_index) in iter {
-            // decay is applied last, test if decay is marked
-            let step_decay = self.precision.get_step_decay_mut(previous_state_index);
-            if MarkSingle::apply_single_mark(step_decay, &current_state_mark) {
-                // single mark applied to step decay
-                // regenerate step from the state
-                let mut queue = VecDeque::new();
-                queue.push_back(previous_state_index);
-                self.regenerate_step(queue);
-                return true;
+            if self.use_decay {
+                // decay is applied last, test if decay is marked
+                let step_decay = self.precision.get_step_decay_mut(previous_state_index);
+                if MarkSingle::apply_single_mark(step_decay, &current_state_mark) {
+                    // single mark applied to step decay
+                    // regenerate step from the state
+                    let mut queue = VecDeque::new();
+                    queue.push_back(previous_state_index);
+                    self.regenerate_step(queue);
+                    return true;
+                }
             }
 
             let previous_state = self.space.get_state_by_index(previous_state_index);
@@ -102,12 +106,14 @@ impl<M: MarkMachine> Refinery<M> {
             current_state_mark = new_state_mark;
         }
 
-        let init_decay = self.precision.get_init_decay_mut();
-        if MarkSingle::apply_single_mark(init_decay, &current_state_mark) {
-            // single mark applied
-            // regenerate init
-            self.regenerate_init();
-            return true;
+        if self.use_decay {
+            let init_decay = self.precision.get_init_decay_mut();
+            if MarkSingle::apply_single_mark(init_decay, &current_state_mark) {
+                // single mark applied
+                // regenerate init
+                self.regenerate_init();
+                return true;
+            }
         }
 
         let initial_state = culprit
@@ -142,10 +148,12 @@ impl<M: MarkMachine> Refinery<M> {
 
         let initial_precision = self.precision.get_init();
         for input in M::input_precision_iter(initial_precision) {
-            // decay the state first
             let mut init_state = M::Abstract::init(&input);
-            let init_decay = self.precision.get_init_decay();
-            M::force_decay(init_decay, &mut init_state);
+            if self.use_decay {
+                // decay the state first
+                let init_decay = self.precision.get_init_decay();
+                M::force_decay(init_decay, &mut init_state);
+            }
 
             let (initial_state_id, added) = self.space.add_initial_state(init_state, &input);
             if added {
@@ -171,7 +179,9 @@ impl<M: MarkMachine> Refinery<M> {
             // generate direct successors
             for input in M::input_precision_iter(&step_precision) {
                 let mut next_state = M::Abstract::next(&current_state, &input);
-                M::force_decay(&step_decay, &mut next_state);
+                if self.use_decay {
+                    M::force_decay(&step_decay, &mut next_state);
+                }
 
                 let (next_state_index, added) =
                     self.space.add_step(current_state_index, next_state, &input);
