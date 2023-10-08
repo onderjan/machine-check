@@ -34,17 +34,15 @@ pub fn run<M: MarkMachine>() {
 }
 
 fn run_inner<M: MarkMachine>() -> Result<ExecResult, anyhow::Error> {
-    // if not run in batch mode, log to stderr with env_logger
     let args = Args::parse();
-    if !args.batch {
-        let filter_level = match args.verbose {
-            0 => log::LevelFilter::Info,
-            1 => log::LevelFilter::Debug,
-            _ => log::LevelFilter::Trace,
-        };
+    // logging to stderr, stdout will contain the result in batch mode
+    let filter_level = match args.verbose {
+        0 => log::LevelFilter::Info,
+        1 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
+    env_logger::builder().filter_level(filter_level).init();
 
-        env_logger::builder().filter_level(filter_level).init();
-    }
     info!("Starting verification.");
 
     let verification_result = verify::<M>(args.property.as_ref());

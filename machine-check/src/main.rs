@@ -14,16 +14,13 @@ fn run(args: Cli) -> Result<(), CheckError> {
 fn main() {
     let args = Cli::parse();
 
-    // if not run in batch mode, log to stderr with env_logger
-    if !args.batch {
-        let filter_level = match args.verbose {
-            0 => log::LevelFilter::Info,
-            1 => log::LevelFilter::Debug,
-            _ => log::LevelFilter::Trace,
-        };
-
-        env_logger::builder().filter_level(filter_level).init();
-    }
+    // logging to stderr, stdout will contain the result in batch mode
+    let filter_level = match args.verbose {
+        0 => log::LevelFilter::Info,
+        1 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
+    env_logger::builder().filter_level(filter_level).init();
 
     // hook panic to propagate child panic
     let orig_hook = std::panic::take_hook();
