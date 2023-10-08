@@ -63,4 +63,11 @@ impl<M: MarkMachine> Precision<M> {
             .entry(from_state_index)
             .or_insert_with(M::State::new_unmarked)
     }
+
+    pub fn retain_indices<F>(&mut self, predicate: F)
+    where
+        F: Fn(usize) -> bool,
+    {
+        self.step.retain(|k, _| predicate(*k));
+    }
 }

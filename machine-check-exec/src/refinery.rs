@@ -48,7 +48,10 @@ impl<M: MarkMachine> Refinery<M> {
                 // it really is incomplete
                 return Err(ExecError::Incomplete(culprit));
             }
-            self.space.garbage_collect();
+            if self.space.garbage_collect() {
+                self.precision
+                    .retain_indices(|index| self.space.contains_state_index(index));
+            }
         }
     }
 

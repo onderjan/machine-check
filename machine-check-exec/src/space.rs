@@ -236,10 +236,12 @@ impl<AM: AbstractMachine> Space<AM> {
         result
     }
 
-    pub fn garbage_collect(&mut self) {
+    pub fn garbage_collect(&mut self) -> bool {
         if self.state_map.len() >= self.num_states_for_sweep {
             self.mark_and_sweep();
+            return true;
         }
+        false
     }
 
     fn mark_and_sweep(&mut self) {
@@ -267,5 +269,9 @@ impl<AM: AbstractMachine> Space<AM> {
             .saturating_mul(3)
             .shr(1usize)
             .max(self.num_states_for_sweep);
+    }
+
+    pub fn contains_state_index(&self, index: usize) -> bool {
+        self.state_map.contains_left(&index)
     }
 }
