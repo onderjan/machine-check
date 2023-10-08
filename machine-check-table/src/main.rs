@@ -4,7 +4,7 @@ use machine_check::VerifyResult;
 
 fn main() {
     let spec = std::fs::read_to_string("examples/bv64-tasks.set").unwrap();
-    let exec_outputs_dir = Path::new("exec/18173216-partial/tests");
+    let exec_outputs_dir = Path::new("exec/18173236/tests");
     let mut num_tests = 0;
     let mut num_outputs = 0;
     let mut num_errors = 0;
@@ -87,5 +87,12 @@ fn main() {
     println!(
         "Num execution failures: {}, other failures: {}",
         num_execution_failures, num_other_failures
+    );
+    let total_correct = num_correct_false + num_correct_true;
+    let total_wrong = num_wrong_false + num_wrong_true;
+    let total_undetermined = num_tests - total_correct - total_wrong;
+    println!(
+        "Total correct: {}, wrong: {}, undetermined: {}",
+        total_correct, total_wrong, total_undetermined
     );
 }

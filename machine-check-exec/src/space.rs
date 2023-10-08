@@ -260,7 +260,12 @@ impl<AM: AbstractMachine> Space<AM> {
             self.state_map.remove_by_left(&unmarked_index);
             self.state_graph.remove_node(unmarked_index);
         }
-        // update the number of states for sweep as 3/2 of current number of states and at least 32
-        self.num_states_for_sweep = self.state_map.len().saturating_mul(3).shr(1usize).max(32);
+        // update the number of states for sweep as 3/2 of current number of states and at least the previous amount
+        self.num_states_for_sweep = self
+            .state_map
+            .len()
+            .saturating_mul(3)
+            .shr(1usize)
+            .max(self.num_states_for_sweep);
     }
 }
