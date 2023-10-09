@@ -1,43 +1,53 @@
 use anyhow::anyhow;
 use btor2rs::{
-    BiOp, BiOpType, Btor2, Const, ExtOp, Lref, Nid, Node, NodeType, Rref, SliceOp, Sort, TriOp,
-    TriOpType, UniOp, UniOpType,
+    BiOp, BiOpType, Bitvec, Btor2, Const, DrainType, ExtOp, Nid, Node, Rref, Sid, SliceOp, Sort,
+    SourceType, TriOp, TriOpType, UniOp, UniOpType,
 };
 use proc_macro2::Span;
 use syn::{parse_quote, Expr, Ident, Type};
 
-pub fn transcribe(btor2: &Btor2, for_init: bool) -> Result<Vec<syn::Stmt>, anyhow::Error> {
-    let mut transcription = Transcription {
+use super::Transcriber;
+
+pub(super) fn transcribe(
+    transcriber: &Transcriber,
+    for_init: bool,
+) -> Result<Vec<syn::Stmt>, anyhow::Error> {
+    let mut transcription = StmtTranscriber {
+        transcriber,
         stmts: Vec::new(),
         for_init,
     };
-    for (nid, node) in btor2.nodes.iter() {
-        transcription.transcribe_node(nid, node)?;
+    for (nid, node) in transcriber.btor2.nodes.iter() {
+        transcription.transcribe_node(*nid, node)?;
     }
     Ok(transcription.stmts)
 }
 
-struct Transcription {
+struct StmtTranscriber<'a> {
+    transcriber: &'a Transcriber,
     stmts: Vec<syn::Stmt>,
     for_init: bool,
 }
 
-impl Transcription {
-    pub fn transcribe_node(&mut self, nid: &Nid, node: &Node) -> Result<(), anyhow::Error> {
-        let result_ident = create_nid_ident(nid, "node");
-        match &node.ntype {
-            NodeType::State(state) => {
+impl<'a> StmtTranscriber<'a> {
+    pub fn transcribe_node(&mut self, nid: Nid, node: &Node) -> Result<(), anyhow::Error> {
+        let result_ident = create_nid_ident(nid);
+        match node {
+            Node::State(_) => {
+                // the state info should definitely be present for the state
+                let state_info = self.transcriber.state_info_map.get(&nid).unwrap();
+
                 let treat_as_input = if self.for_init {
-                    if let Some(init) = state.init() {
-                        let init_tokens = create_rref_expr(init, "node");
+                    if let Some(init) = state_info.init {
+                        let init_tokens = create_nid_ident(init);
                         self.stmts
                             .push(parse_quote!(let #result_ident = #init_tokens;));
                         false
                     } else {
                         true
                     }
-                } else if state.next().is_some() {
-                    let state_ident = create_nid_ident(nid, "state");
+                } else if state_info.next.is_some() {
+                    let state_ident = create_nid_ident(nid);
                     self.stmts
                         .push(parse_quote!(let #result_ident = state.#state_ident;));
                     false
@@ -45,130 +55,144 @@ impl Transcription {
                     true
                 };
                 if treat_as_input {
-                    let input_ident = create_nid_ident(nid, "input");
+                    let input_ident = create_nid_ident(nid);
                     self.stmts
                         .push(parse_quote!(let #result_ident = input.#input_ident;));
                 }
             }
-            NodeType::Const(const_value) => {
-                let const_tokens = create_const_expr(const_value, &node.result.sort)?;
+            Node::Const(const_value) => {
+                let const_tokens = self.const_expr(const_value)?;
                 self.stmts
                     .push(parse_quote!(let #result_ident = #const_tokens;));
             }
-            NodeType::Input => {
-                let input_ident = create_nid_ident(nid, "input");
-                self.stmts
-                    .push(parse_quote!(let #result_ident = input.#input_ident;));
+            Node::Drain(drain) => {
+                match drain.ty {
+                    DrainType::Output | DrainType::Bad | DrainType::Constraint => {
+                        // outputs are unimportant
+                        // bad and constraint are treated on their own
+                    }
+                    DrainType::Fair => {
+                        return Err(anyhow!("Fairness constraints not supported"));
+                    }
+                }
             }
-            NodeType::Output(_) => {
-                // outputs are unimportant for verification
-            }
-            NodeType::ExtOp(op) => {
-                let expression = self.ext_op_expr(op, &node.result.sort)?;
-                self.stmts
-                    .push(parse_quote!(let #result_ident = #expression;));
-            }
-            NodeType::SliceOp(op) => {
-                let expression = self.slice_op_expr(op, &node.result.sort)?;
+            Node::ExtOp(op) => {
+                let expression = self.ext_op_expr(op)?;
                 self.stmts
                     .push(parse_quote!(let #result_ident = #expression;));
             }
-            NodeType::UniOp(op) => {
-                let expression = self.uni_op_expr(op, &node.result.sort)?;
+            Node::SliceOp(op) => {
+                let expression = self.slice_op_expr(op)?;
                 self.stmts
                     .push(parse_quote!(let #result_ident = #expression;));
             }
-            NodeType::BiOp(op) => {
-                let expression = self.bi_op_expr(op, &node.result.sort)?;
+            Node::UniOp(op) => {
+                let expression = self.uni_op_expr(op)?;
                 self.stmts
                     .push(parse_quote!(let #result_ident = #expression;));
             }
-            NodeType::TriOp(op) => {
-                let statement = self.tri_op_expr(op, &node.result)?;
-                self.stmts.push(statement);
+            Node::BiOp(op) => {
+                let expression = self.bi_op_expr(op)?;
+                self.stmts
+                    .push(parse_quote!(let #result_ident = #expression;));
             }
-            NodeType::Bad(_) => {
-                // bad is treated in its own function
+            Node::TriOp(op) => {
+                let expression = self.tri_op_expr(op)?;
+                self.stmts
+                    .push(parse_quote!(let #result_ident = #expression;));
             }
-            NodeType::Constraint(_) => {
-                // constraints are treated at the end
+            Node::Source(source) => match source.ty {
+                SourceType::Input => {
+                    // move from input
+                    let input_ident = create_nid_ident(nid);
+                    self.stmts
+                        .push(parse_quote!(let #result_ident = input.#input_ident;));
+                }
+                SourceType::One => {
+                    let expr = create_const_one(self.to_bitvec(self.get_nid_sort(nid)?)?);
+                    self.stmts.push(parse_quote!(let #result_ident = #expr;));
+                }
+                SourceType::Ones => {
+                    // negate one
+                    let expr = create_const_one(self.to_bitvec(self.get_nid_sort(nid)?)?);
+                    self.stmts.push(parse_quote!(let #result_ident = -#expr;));
+                }
+                SourceType::Zero => {
+                    let expr = create_const_zero(self.to_bitvec(self.get_nid_sort(nid)?)?);
+                    self.stmts.push(parse_quote!(let #result_ident = #expr;));
+                }
+            },
+            Node::Temporal(_) => {
+                // not handled here
             }
+            Node::Justice(_) => return Err(anyhow!("Justice not implemented")),
         }
         Ok(())
     }
 
-    pub fn uni_op_expr(&self, op: &UniOp, result_sort: &Sort) -> Result<syn::Expr, anyhow::Error> {
-        let a_tokens = create_rref_expr(&op.a, "node");
-        let Sort::Bitvec(result_bitvec) = result_sort else {
-            return Err(anyhow!("Expected bitvec result, but have {:?}", result_sort));
-        };
-        let Sort::Bitvec(_) = &op.a.sort else {
-            return Err(anyhow!("Expected bitvec operand, but have {:?}", op.a.sort));
-        };
-        match op.op_type {
+    pub fn uni_op_expr(&self, op: &UniOp) -> Result<syn::Expr, anyhow::Error> {
+        let result_bitvec = self.to_bitvec(self.get_sort(op.sid)?)?;
+        let a_bitvec = self.to_bitvec(self.get_nid_sort(op.a.nid)?)?;
+
+        let a_tokens = create_rref_expr(&op.a);
+        match op.ty {
             UniOpType::Not => Ok(parse_quote!(!(#a_tokens))),
             UniOpType::Inc => {
-                let one = create_const_one(result_sort)?;
+                let one = create_const_one(result_bitvec);
                 Ok(parse_quote!((#a_tokens) + (#one)))
             }
             UniOpType::Dec => {
-                let one = create_const_one(result_sort)?;
+                let one = create_const_one(result_bitvec);
                 Ok(parse_quote!((#a_tokens) - (#one)))
             }
             UniOpType::Neg => Ok(parse_quote!(-(#a_tokens))),
             UniOpType::Redand => {
                 // equality with all ones
                 // sort for constant is taken from the operand, not result
-                let all_ones = create_const_all_ones(result_sort)?;
-
-                Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, #all_ones)))
+                let one = create_const_one(result_bitvec);
+                Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, -#one)))
             }
             UniOpType::Redor => {
                 // inequality with all zeros
                 // sort for constant is taken from the operand, not result
-                let zero = create_const_zero(result_sort)?;
+                let zero = create_const_zero(result_bitvec);
                 Ok(parse_quote!(!(::mck::TypedEq::typed_eq(#a_tokens, #zero))))
             }
             UniOpType::Redxor => {
                 // naive version, just slice all relevant bits and xor them together
-                let bitvec_length = result_bitvec.length.get();
+                let a_length = a_bitvec.length.get();
                 let mut slice_expressions = Vec::<syn::Expr>::new();
-                let single_bit_sort = Sort::single_bit_sort();
-                for i in 0..bitvec_length {
-                    let i_slice = SliceOp {
-                        a: op.a.clone(),
-                        lower_bit: i,
-                        upper_bit: i,
-                    };
-                    let i_unparenthesised_expression =
-                        self.slice_op_expr(&i_slice, &single_bit_sort)?;
-                    slice_expressions.push(parse_quote!((#i_unparenthesised_expression)));
+                let a_tokens = create_rref_expr(&op.a);
+                for i in 0..a_length {
+                    // logical shift right to make the i the zeroth bit
+                    let shift_length_expr = create_value_expr(i.into(), a_bitvec);
+                    let a_srl: Expr =
+                        parse_quote!(::mck::MachineShift::srl(#a_tokens, #shift_length_expr));
+                    slice_expressions.push(parse_quote!(::mck::MachineExt::<1>::uext(#a_srl)));
                 }
                 Ok(parse_quote!(#(#slice_expressions)^*))
             }
         }
     }
 
-    pub fn tri_op_expr(&self, op: &TriOp, result: &Lref) -> Result<syn::Stmt, anyhow::Error> {
-        let result_ident = create_lref_ident(result, "node");
-        let a_tokens = create_rref_expr(&op.a, "node");
-        let b_tokens = create_rref_expr(&op.b, "node");
-        let c_tokens = create_rref_expr(&op.c, "node");
-        match op.op_type {
+    pub fn tri_op_expr(&self, op: &TriOp) -> Result<syn::Expr, anyhow::Error> {
+        let a_tokens = create_rref_expr(&op.a);
+        let b_tokens = create_rref_expr(&op.b);
+        let c_tokens = create_rref_expr(&op.c);
+        match op.ty {
             TriOpType::Ite => {
                 // a = condition, b = then, c = else
                 // to avoid control flow, convert condition to bitmask
-                let Sort::Bitvec(bitvec) = &result.sort else {
-                    return Err(anyhow!("Expected bitvec result, but have {:?}", result.sort));
-                };
-                let bitvec_length = bitvec.length.get();
+
+                let result_sort = self.to_bitvec(self.get_sort(op.sid)?)?;
+                let result_length = result_sort.length.get();
                 let condition_mask: Expr =
-                    parse_quote!(::mck::MachineExt::<#bitvec_length>::sext(#a_tokens));
+                    parse_quote!(::mck::MachineExt::<#result_length>::sext(#a_tokens));
                 let neg_condition_mask: Expr =
-                    parse_quote!(::mck::MachineExt::<#bitvec_length>::sext(!(#a_tokens)));
+                    parse_quote!(::mck::MachineExt::<#result_length>::sext(!(#a_tokens)));
 
                 Ok(
-                    parse_quote!(let #result_ident = ((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask));),
+                    parse_quote!(((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask))),
                 )
             }
             TriOpType::Write => {
@@ -178,10 +202,10 @@ impl Transcription {
         }
     }
 
-    pub fn bi_op_expr(&self, op: &BiOp, result_sort: &Sort) -> Result<syn::Expr, anyhow::Error> {
-        let a_tokens = create_rref_expr(&op.a, "node");
-        let b_tokens = create_rref_expr(&op.b, "node");
-        match op.op_type {
+    pub fn bi_op_expr(&self, op: &BiOp) -> Result<syn::Expr, anyhow::Error> {
+        let a_tokens = create_rref_expr(&op.a);
+        let b_tokens = create_rref_expr(&op.b);
+        match op.ty {
             BiOpType::Iff => Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens))),
             BiOpType::Implies => Ok(parse_quote!(!(#a_tokens) | (#b_tokens))),
             BiOpType::Eq => Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens))),
@@ -225,10 +249,8 @@ impl Transcription {
             | BiOpType::Usubo => Err(anyhow!("Overflow operation generation not implemented")),
             BiOpType::Concat => {
                 // a is the higher, b is the lower
-                let Sort::Bitvec(bitvec_sort) = result_sort else {
-                return Err(anyhow!("Expected bitvec result, but have {:?}", result_sort));
-            };
-                let result_length = bitvec_sort.length.get();
+                let result_sort: &Bitvec = self.to_bitvec(self.get_sort(op.sid)?)?;
+                let result_length = result_sort.length.get();
 
                 // do unsigned extension of both to result type
                 let a_uext: Expr =
@@ -237,17 +259,9 @@ impl Transcription {
                     parse_quote!(::mck::MachineExt::<#result_length>::uext(#b_tokens));
 
                 // shift a left by length of b
-                let Sort::Bitvec(b_sort) = &op.b.sort else {
-                return Err(anyhow!("Expected bitvec second parameter, but have {:?}", op.b.sort));
-            };
+                let b_sort: &Bitvec = self.to_bitvec(self.get_nid_sort(op.b.nid)?)?;
                 let b_length = b_sort.length.get();
-                let shift_length_expr = create_const_expr(
-                    &Const {
-                        ty: btor2rs::ConstType::Decimal,
-                        string: b_length.to_string(),
-                    },
-                    result_sort,
-                )?;
+                let shift_length_expr = create_value_expr(b_length.into(), result_sort);
                 let a_uext_sll: Expr =
                     parse_quote!(::mck::MachineShift::sll(#a_uext, #shift_length_expr));
 
@@ -258,42 +272,30 @@ impl Transcription {
         }
     }
 
-    pub fn ext_op_expr(&self, op: &ExtOp, result_sort: &Sort) -> Result<syn::Expr, anyhow::Error> {
-        let a_tokens = create_rref_expr(&op.a, "node");
+    pub fn ext_op_expr(&self, op: &ExtOp) -> Result<syn::Expr, anyhow::Error> {
+        let a_tokens = create_rref_expr(&op.a);
 
         // just compute the new number of bits and perform the extension
-        let Sort::Bitvec(a_bitvec) = &op.a.sort else {
-            return Err(anyhow!("Expected bitvec operand, but have {:?}", result_sort));
-        };
+        let a_bitvec = self.to_bitvec(self.get_nid_sort(op.a.nid)?)?;
         let a_length = a_bitvec.length.get();
+        let result_length = a_length + op.length;
 
-        let result_length = a_length + op.extension_size;
-
-        if op.signed {
-            Ok(parse_quote!(::mck::MachineExt::<#result_length>::sext(#a_tokens)))
-        } else {
-            Ok(parse_quote!(::mck::MachineExt::<#result_length>::uext(#a_tokens)))
+        match op.ty {
+            btor2rs::ExtOpType::Sext => {
+                Ok(parse_quote!(::mck::MachineExt::<#result_length>::sext(#a_tokens)))
+            }
+            btor2rs::ExtOpType::Uext => {
+                Ok(parse_quote!(::mck::MachineExt::<#result_length>::uext(#a_tokens)))
+            }
         }
     }
 
-    pub fn slice_op_expr(
-        &self,
-        op: &SliceOp,
-        result_sort: &Sort,
-    ) -> Result<syn::Expr, anyhow::Error> {
-        let a_tokens = create_rref_expr(&op.a, "node");
-        let Sort::Bitvec(_) = &op.a.sort else {
-            return Err(anyhow!("Expected bitvec operand, but have {:?}", result_sort));
-        };
+    pub fn slice_op_expr(&self, op: &SliceOp) -> Result<syn::Expr, anyhow::Error> {
+        let result_sort: &Bitvec = self.to_bitvec(self.get_sort(op.sid)?)?;
+        let a_tokens = create_rref_expr(&op.a);
 
         // logical shift right to make the lower bit the zeroth bit
-        let shift_length_expr = create_const_expr(
-            &Const {
-                ty: btor2rs::ConstType::Decimal,
-                string: op.lower_bit.to_string(),
-            },
-            result_sort,
-        )?;
+        let shift_length_expr = create_value_expr(op.lower_bit.into(), result_sort);
         let a_srl: Expr = parse_quote!(::mck::MachineShift::srl(#a_tokens, #shift_length_expr));
 
         // retain only the specified number of bits by unsigned extension
@@ -301,18 +303,61 @@ impl Transcription {
 
         Ok(parse_quote!(::mck::MachineExt::<#num_retained_bits>::uext(#a_srl)))
     }
+
+    fn const_expr(&self, value: &Const) -> Result<Expr, anyhow::Error> {
+        let result_sort = self.to_bitvec(self.get_sort(value.sid)?)?;
+        // parse the value first to disallow hijinks
+        // convert negation to negation of resulting bitvector
+        let (negate, str) = if let Some(str) = value.string.strip_prefix('-') {
+            (true, str)
+        } else {
+            (false, value.string.as_str())
+        };
+
+        let value = u64::from_str_radix(str, value.ty.clone() as u32)?;
+        let bitvec_length = result_sort.length.get();
+        Ok(if negate {
+            parse_quote!((-::mck::MachineBitvector::<#bitvec_length>::new(#value)))
+        } else {
+            parse_quote!(::mck::MachineBitvector::<#bitvec_length>::new(#value))
+        })
+    }
+
+    fn get_nid_sort(&self, nid: Nid) -> Result<&Sort, anyhow::Error> {
+        let node = self
+            .transcriber
+            .btor2
+            .nodes
+            .get(&nid)
+            .ok_or_else(|| anyhow!("Unknown node"))?;
+        let sid = node
+            .get_sid()
+            .ok_or_else(|| anyhow!("Expected node with sid"))?;
+        self.get_sort(sid)
+    }
+
+    fn get_sort(&self, sid: Sid) -> Result<&Sort, anyhow::Error> {
+        self.transcriber
+            .btor2
+            .sorts
+            .get(&sid)
+            .ok_or_else(|| anyhow!("Unknown sort"))
+    }
+
+    fn to_bitvec<'b>(&self, sort: &'b Sort) -> Result<&'b Bitvec, anyhow::Error> {
+        let Sort::Bitvec(bitvec) = sort else {
+            return Err(anyhow!("Expected bitvec sort"));
+        };
+        Ok(bitvec)
+    }
 }
 
-pub fn create_nid_ident(nid: &Nid, flavor: &str) -> Ident {
-    Ident::new(&format!("{}_{}", flavor, nid.0), Span::call_site())
+pub fn create_nid_ident(nid: Nid) -> Ident {
+    Ident::new(&format!("node_{}", nid.0), Span::call_site())
 }
 
-pub fn create_lref_ident(lref: &Lref, flavor: &str) -> Ident {
-    create_nid_ident(&lref.nid, flavor)
-}
-
-pub fn create_rref_expr(rref: &Rref, flavor: &str) -> Expr {
-    let ident = create_nid_ident(&rref.nid, flavor);
+pub fn create_rref_expr(rref: &Rref) -> Expr {
+    let ident = create_nid_ident(rref.nid);
     if rref.not {
         parse_quote!((!#ident))
     } else {
@@ -320,37 +365,28 @@ pub fn create_rref_expr(rref: &Rref, flavor: &str) -> Expr {
     }
 }
 
-pub fn create_const_expr(value: &Const, sort: &Sort) -> Result<Expr, anyhow::Error> {
-    // parse the value first to disallow hijinks
-    // convert negation to negation of resulting bitvector
-    let (negate, str) = if let Some(str) = value.string.strip_prefix('-') {
-        (true, str)
-    } else {
-        (false, value.string.as_str())
-    };
-
-    let value = u64::from_str_radix(str, value.ty.clone() as u32)?;
-    let Sort::Bitvec(sort) = sort else {
-        return Err(anyhow!("Cannot generate constant with array sort"));
-    };
-    let bitvec_length = sort.length.get();
-    Ok(if negate {
-        parse_quote!((-::mck::MachineBitvector::<#bitvec_length>::new(#value)))
-    } else {
-        parse_quote!(::mck::MachineBitvector::<#bitvec_length>::new(#value))
-    })
+pub fn create_value_expr(value: u64, bitvec: &Bitvec) -> Expr {
+    let bitvec_length = bitvec.length.get();
+    parse_quote!(::mck::MachineBitvector::<#bitvec_length>::new(#value))
 }
 
-pub fn create_const_zero(sort: &Sort) -> Result<Expr, anyhow::Error> {
-    create_const_expr(&Const::zero(), sort)
+pub fn create_const_zero(bitvec: &Bitvec) -> Expr {
+    let bitvec_length = bitvec.length.get();
+    parse_quote!((-::mck::MachineBitvector::<#bitvec_length>::new(0)))
 }
 
-pub fn create_const_one(sort: &Sort) -> Result<Expr, anyhow::Error> {
-    create_const_expr(&Const::one(), sort)
+pub fn create_const_one(bitvec: &Bitvec) -> Expr {
+    let bitvec_length = bitvec.length.get();
+    parse_quote!((-::mck::MachineBitvector::<#bitvec_length>::new(0)))
 }
 
-pub fn create_const_all_ones(sort: &Sort) -> Result<Expr, anyhow::Error> {
-    create_const_expr(&Const::ones(), sort)
+pub fn create_sid_type(btor2: &Btor2, sid: Sid) -> Result<Type, anyhow::Error> {
+    create_sort_type(
+        btor2
+            .sorts
+            .get(&sid)
+            .ok_or_else(|| anyhow!("Unknown sid"))?,
+    )
 }
 
 pub fn create_sort_type(sort: &Sort) -> Result<Type, anyhow::Error> {
@@ -361,4 +397,8 @@ pub fn create_sort_type(sort: &Sort) -> Result<Type, anyhow::Error> {
         }
         Sort::Array(_) => Err(anyhow!("Generating arrays not supported")),
     }
+}
+
+pub fn create_single_bit_type() -> Type {
+    parse_quote!(::mck::MachineBitvector<1>)
 }

@@ -1,59 +1,250 @@
-use crate::{BiOp, ExtOp, SliceOp, TriOp, UniOp};
+use crate::{
+    parse_nid, parse_sid, parse_u32, BiOp, BiOpType, ExtOp, ExtOpType, Nid, Sid, SliceOp, TriOp,
+    TriOpType, UniOp, UniOpType,
+};
+use anyhow::anyhow;
 
-use super::{refs::Lref, refs::Rref, state::State};
+use super::refs::Rref;
 
 #[derive(Debug, Clone)]
 pub struct Const {
     pub ty: ConstType,
+    pub sid: Sid,
     pub string: String,
 }
 
-impl Const {
-    pub fn zero() -> Const {
-        Const {
-            ty: ConstType::Binary,
-            string: String::from("0"),
-        }
-    }
-    pub fn one() -> Const {
-        Const {
-            ty: ConstType::Binary,
-            string: String::from("1"),
-        }
-    }
-    pub fn ones() -> Const {
-        // as Btor2 is wrapping, equal to minus one
-        Const {
-            ty: ConstType::Binary,
-            string: String::from("-1"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "lowercase")]
 pub enum ConstType {
-    Binary = 2,
-    Decimal = 10,
-    Hexadecimal = 16,
+    Const = 2,
+    Constd = 10,
+    Consth = 16,
 }
 
 #[derive(Debug, Clone)]
-pub enum NodeType {
-    State(State),
-    Input,
+pub enum OpType {
     Output(Rref),
     Const(Const),
+    Bad(Rref),
+    Constraint(Rref),
+}
+
+#[derive(Debug, Clone, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+pub enum DrainType {
+    Bad,
+    Constraint,
+    Fair,
+    Output,
+}
+
+#[derive(Debug, Clone)]
+pub struct Drain {
+    pub ty: DrainType,
+    pub nid: Nid,
+}
+
+#[derive(Debug, Clone, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+pub enum TemporalType {
+    Init,
+    Next,
+}
+
+#[derive(Debug, Clone)]
+pub struct Temporal {
+    pub ty: TemporalType,
+    pub sid: Sid,
+    pub state: Nid,
+    pub value: Nid,
+}
+
+#[derive(Debug, Clone, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+pub enum SourceType {
+    Input,
+    One,
+    Ones,
+    Zero,
+}
+#[derive(Debug, Clone)]
+pub struct Source {
+    pub ty: SourceType,
+    pub sid: Sid,
+}
+
+#[derive(Debug, Clone)]
+pub struct State {
+    pub sid: Sid,
+}
+
+#[derive(Debug, Clone)]
+pub enum Node {
+    Source(Source),
+    Const(Const),
+    State(State),
     ExtOp(ExtOp),
     SliceOp(SliceOp),
     UniOp(UniOp),
     BiOp(BiOp),
     TriOp(TriOp),
-    Bad(Rref),
-    Constraint(Rref),
+    Temporal(Temporal),
+    Drain(Drain),
+    Justice(Vec<Nid>),
 }
 
-#[derive(Debug, Clone)]
-pub struct Node {
-    pub result: Lref,
-    pub ntype: NodeType,
+impl Node {
+    pub fn get_sid(&self) -> Option<Sid> {
+        Some(match self {
+            Node::Source(n) => n.sid,
+            Node::Const(n) => n.sid,
+            Node::State(n) => n.sid,
+            Node::ExtOp(n) => n.sid,
+            Node::SliceOp(n) => n.sid,
+            Node::UniOp(n) => n.sid,
+            Node::BiOp(n) => n.sid,
+            Node::TriOp(n) => n.sid,
+            Node::Temporal(n) => n.sid,
+            Node::Drain(_) => return None,
+            Node::Justice(_) => return None,
+        })
+    }
+
+    pub(crate) fn try_parse<'a>(
+        second: &str,
+        mut split: impl Iterator<Item = &'a str>,
+    ) -> Result<Option<Node>, anyhow::Error> {
+        // const
+        if let Ok(ty) = ConstType::try_from(second) {
+            let node = parse_const_node(ty, &mut split)?;
+            return Ok(Some(node));
+        }
+
+        // source
+        if let Ok(ty) = SourceType::try_from(second) {
+            let sid = parse_sid(&mut split)?;
+            return Ok(Some(Node::Source(Source { ty, sid })));
+        }
+
+        // drain
+        if let Ok(ty) = DrainType::try_from(second) {
+            let nid = parse_nid(&mut split)?;
+            return Ok(Some(Node::Drain(Drain { ty, nid })));
+        }
+
+        // temporal
+        if let Ok(ty) = TemporalType::try_from(second) {
+            let sid = parse_sid(&mut split)?;
+            let state = parse_nid(&mut split)?;
+            let value = parse_nid(&mut split)?;
+            return Ok(Some(Node::Temporal(Temporal {
+                ty,
+                sid,
+                state,
+                value,
+            })));
+        }
+
+        // unary operations
+        if let Ok(ty) = UniOpType::try_from(second) {
+            let sid = parse_sid(&mut split)?;
+            let a = parse_rref(&mut split)?;
+            return Ok(Some(Node::UniOp(UniOp { sid, ty, a })));
+        }
+
+        // binary operations
+        if let Ok(ty) = BiOpType::try_from(second) {
+            let sid = parse_sid(&mut split)?;
+            let a = parse_rref(&mut split)?;
+            let b = parse_rref(&mut split)?;
+            return Ok(Some(Node::BiOp(BiOp { sid, ty, a, b })));
+        }
+
+        // ternary operations
+        if let Ok(ty) = TriOpType::try_from(second) {
+            let sid = parse_sid(&mut split)?;
+            let a = parse_rref(&mut split)?;
+            let b = parse_rref(&mut split)?;
+            let c = parse_rref(&mut split)?;
+            return Ok(Some(Node::TriOp(TriOp { sid, ty, a, b, c })));
+        }
+
+        // extension
+        if let Ok(ty) = ExtOpType::try_from(second) {
+            let sid = parse_sid(&mut split)?;
+            let a = parse_rref(&mut split)?;
+            let length = parse_u32(&mut split)?;
+            return Ok(Some(Node::ExtOp(ExtOp { sid, ty, a, length })));
+        }
+
+        // other operations
+        Ok(Some(match second {
+            // special operations
+            "slice" => {
+                let sid = parse_sid(&mut split)?;
+                let a = parse_rref(&mut split)?;
+                let upper_bit = parse_u32(&mut split)?;
+                let lower_bit = parse_u32(&mut split)?;
+
+                if upper_bit < lower_bit {
+                    return Err(anyhow!(
+                        "Upper bit {} cannot be lower than lower bit {}",
+                        upper_bit,
+                        lower_bit
+                    ));
+                }
+                Node::SliceOp(SliceOp {
+                    sid,
+                    a,
+                    upper_bit,
+                    lower_bit,
+                })
+            }
+            "state" => {
+                let sid = parse_sid(&mut split)?;
+                Node::State(State { sid })
+            }
+            "justice" => {
+                let num = parse_u32(&mut split)?;
+                let mut vec = Vec::new();
+                for _ in 0..num {
+                    vec.push(parse_nid(&mut split)?);
+                }
+                Node::Justice(vec)
+            }
+            _ => {
+                return Ok(None);
+            }
+        }))
+    }
+}
+
+fn parse_const_node<'a>(
+    ty: ConstType,
+    split: &mut impl Iterator<Item = &'a str>,
+) -> Result<Node, anyhow::Error> {
+    let sid = parse_sid(split)?;
+    let str = split
+        .next()
+        .ok_or_else(|| anyhow!("Expected the constant"))?;
+    Ok(Node::Const(Const {
+        ty,
+        sid,
+        string: String::from(str),
+    }))
+}
+
+fn parse_rref<'a>(split: &mut impl Iterator<Item = &'a str>) -> Result<Rref, anyhow::Error> {
+    // on the right side, '-' can be used on nids to perform bitwise negation
+    let str = split.next().ok_or_else(|| anyhow!("Missing nid"))?;
+
+    let (not, nid) = if let Some(stripped_value) = str.strip_prefix('-') {
+        (true, stripped_value)
+    } else {
+        (false, str)
+    };
+
+    let nid = Nid::try_from(nid)?;
+
+    Ok(Rref { nid, not })
 }
