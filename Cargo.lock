@@ -88,10 +88,7 @@ name = "btor2rs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "proc-macro2",
- "quote",
  "strum",
- "syn",
 ]
 
 [[package]]

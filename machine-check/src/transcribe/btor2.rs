@@ -1,15 +1,17 @@
 mod node;
 
-use std::{fs, io::BufReader, num::NonZeroU32};
+use std::{fs, io::BufReader};
 
-use btor2rs::{Bitvec, Btor2, Const, NodeType, Sort};
+use btor2rs::{Btor2, Const, NodeType, Sort};
 use camino::Utf8Path;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use std::io::BufRead;
-use syn::parse_quote;
+use syn::{parse_quote, Expr};
 
 use crate::CheckError;
+
+use self::node::{create_const_expr, create_nid_ident, create_rref_expr, create_sort_type};
 
 pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
     let file = fs::File::open(system_path)
@@ -31,16 +33,16 @@ pub fn generate(btor2: Btor2) -> Result<syn::File, anyhow::Error> {
     // construct state fields
     let mut state_fields = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
-        let result_type = node.result.sort.create_type_tokens()?;
+        let result_type = create_sort_type(&node.result.sort)?;
         if let NodeType::State(state) = &node.ntype {
             // if state has no next, it is not remembered and is treated as input
             if state.next().is_some() {
-                let state_ident = nid.create_ident("state");
+                let state_ident = create_nid_ident(nid, "state");
                 state_fields.push(quote!(pub #state_ident: #result_type))
             }
         }
     }
-    let bit_type = Sort::single_bit_sort().create_type_tokens()?;
+    let bit_type = create_sort_type(&Sort::single_bit_sort())?;
     // add 'constrained' field
     let constrained_ident = Ident::new("constrained", Span::call_site());
     state_fields.push(quote!(pub #constrained_ident: #bit_type));
@@ -50,16 +52,16 @@ pub fn generate(btor2: Btor2) -> Result<syn::File, anyhow::Error> {
 
     let mut input_fields = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
-        let result_type = node.result.sort.create_type_tokens()?;
+        let result_type = create_sort_type(&node.result.sort)?;
         match &node.ntype {
             NodeType::Input => {
-                let input_ident = nid.create_ident("input");
+                let input_ident = create_nid_ident(nid, "input");
                 input_fields.push(quote!(pub #input_ident: #result_type));
             }
             NodeType::State(state) => {
                 // if state has no init or no next, it can be treated as input
                 if state.init().is_none() || state.next().is_none() {
-                    let input_ident = nid.create_ident("input");
+                    let input_ident = create_nid_ident(nid, "input");
                     input_fields.push(quote!(pub #input_ident: #result_type));
                 }
             }
@@ -73,13 +75,13 @@ pub fn generate(btor2: Btor2) -> Result<syn::File, anyhow::Error> {
         if let NodeType::State(state) = &node.ntype {
             // if state has no next, it is not remembered
             if let Some(next) = state.next() {
-                let state_ident = nid.create_ident("state");
+                let state_ident = create_nid_ident(nid, "state");
                 // the init result is for the state node
                 // the next result for the next node
-                let node_ident = nid.create_ident("node");
-                init_result_tokens.push(quote!(#state_ident: #node_ident));
-                let next_ident = next.create_tokens("node");
-                next_result_tokens.push(quote!(#state_ident: #next_ident));
+                let node_ident = create_nid_ident(nid, "node");
+                init_result_tokens.push(parse_quote!(#state_ident: #node_ident));
+                let next_expr = create_rref_expr(next, "node");
+                next_result_tokens.push(parse_quote!(#state_ident: #next_expr));
             }
         }
     }
@@ -89,23 +91,27 @@ pub fn generate(btor2: Btor2) -> Result<syn::File, anyhow::Error> {
     let mut constraint_tokens = Vec::<TokenStream>::new();
     for node in btor2.nodes.values() {
         if let NodeType::Constraint(constraint_ref) = &node.ntype {
-            let constraint_ref_node = constraint_ref.create_tokens("node");
-            constraint_tokens.push(quote!(#constraint_ref_node));
+            let constraint_ref_node = create_rref_expr(constraint_ref, "node");
+            constraint_tokens.push(parse_quote!(#constraint_ref_node));
         }
     }
     let constraint_and = if !constraint_tokens.is_empty() {
-        quote!((#(#constraint_tokens)&*))
+        parse_quote!((#(#constraint_tokens)&*))
     } else {
         // default to true
-        Const::new(false, 1).create_tokens(&Bitvec {
-            length: NonZeroU32::MIN,
-        })
+        create_const_expr(
+            &Const {
+                ty: btor2rs::ConstType::Binary,
+                string: String::from("1"),
+            },
+            &Sort::single_bit_sort(),
+        )?
     };
-    let init_constraint = quote!(#constraint_and);
-    let constrained_init_expr = quote!(#constrained_ident: #init_constraint);
+    let init_constraint = constraint_and.clone();
+    let constrained_init_expr = parse_quote!(#constrained_ident: #init_constraint);
     init_result_tokens.push(constrained_init_expr);
-    let next_constraint = quote!(state.#constrained_ident & #constraint_and);
-    let constrained_next_expr = quote!(#constrained_ident: #next_constraint);
+    let next_constraint: Expr = parse_quote!(state.#constrained_ident & #constraint_and);
+    let constrained_next_expr = parse_quote!(#constrained_ident: #next_constraint);
     next_result_tokens.push(constrained_next_expr);
 
     // result is safe exactly when it is either not constrained or there is no bad result
@@ -113,15 +119,15 @@ pub fn generate(btor2: Btor2) -> Result<syn::File, anyhow::Error> {
     let mut not_bad_tokens = Vec::<TokenStream>::new();
     for node in btor2.nodes.values() {
         if let NodeType::Bad(bad_ref) = &node.ntype {
-            let bad_ref_node = bad_ref.create_tokens("node");
-            not_bad_tokens.push(quote!(!#bad_ref_node));
+            let bad_ref_node = create_rref_expr(bad_ref, "node");
+            not_bad_tokens.push(parse_quote!(!#bad_ref_node));
         }
     }
-    let not_bad_and = quote!((#(#not_bad_tokens)&*));
+    let not_bad_and: Expr = parse_quote!((#(#not_bad_tokens)&*));
 
-    let safe_init_expr = quote!(#safe_ident: !(#init_constraint) | (#not_bad_and));
+    let safe_init_expr = parse_quote!(#safe_ident: !(#init_constraint) | (#not_bad_and));
     init_result_tokens.push(safe_init_expr);
-    let safe_next_expr = quote!(#safe_ident: !(#next_constraint) | (#not_bad_and));
+    let safe_next_expr = parse_quote!(#safe_ident: !(#next_constraint) | (#not_bad_and));
     next_result_tokens.push(safe_next_expr);
 
     let init_statements = create_statements(&btor2, true)?;

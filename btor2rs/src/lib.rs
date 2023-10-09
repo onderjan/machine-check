@@ -84,7 +84,7 @@ fn create_rref(
         Ok(Rref {
             sort: node.result.sort.clone(),
             nid,
-            flip: flippable_nid.flip,
+            not: flippable_nid.flip,
         })
     } else {
         Err(anyhow!("Cannot find node with nid {:?}", nid))
@@ -121,15 +121,22 @@ fn insert_const(
     split: &mut SplitWhitespace<'_>,
     sorts: &BTreeMap<Sid, Sort>,
     nodes: &mut BTreeMap<Nid, Node>,
-    radix: u32,
+    ty: ConstType,
 ) -> Result<(), anyhow::Error> {
     let result_sort = parse_sort(split, sorts)?;
 
-    let Some(value) = split.next() else {
+    let Some(str) = split.next() else {
         return Err(anyhow!("Missing const value"));
     };
-    let const_value = Const::try_from_radix(value, radix)?;
-    insert_node(nodes, result_sort, nid, NodeType::Const(const_value));
+    insert_node(
+        nodes,
+        result_sort,
+        nid,
+        NodeType::Const(Const {
+            ty,
+            string: String::from(str),
+        }),
+    );
     Ok(())
 }
 
@@ -242,27 +249,37 @@ fn parse_line(
         // constants
         "one" => {
             let result_sort = parse_sort(&mut split, sorts)?;
-            let ntype = NodeType::Const(Const::new(false, 1));
+            let ntype = NodeType::Const(Const {
+                ty: ConstType::Binary,
+                string: String::from("1"),
+            });
             insert_node(nodes, result_sort, nid, ntype);
         }
         "ones" => {
             let result_sort = parse_sort(&mut split, sorts)?;
-            let ntype = NodeType::Const(Const::new(true, 1));
+            // wrapping -1 is same as all-ones
+            let ntype = NodeType::Const(Const {
+                ty: ConstType::Binary,
+                string: String::from("-1"),
+            });
             insert_node(nodes, result_sort, nid, ntype);
         }
         "zero" => {
             let result_sort = parse_sort(&mut split, sorts)?;
-            let ntype = NodeType::Const(Const::new(false, 0));
+            let ntype = NodeType::Const(Const {
+                ty: ConstType::Binary,
+                string: String::from("0"),
+            });
             insert_node(nodes, result_sort, nid, ntype);
         }
         "const" => {
-            insert_const(nid, &mut split, sorts, nodes, 2)?;
+            insert_const(nid, &mut split, sorts, nodes, ConstType::Binary)?;
         }
         "constd" => {
-            insert_const(nid, &mut split, sorts, nodes, 10)?;
+            insert_const(nid, &mut split, sorts, nodes, ConstType::Decimal)?;
         }
         "consth" => {
-            insert_const(nid, &mut split, sorts, nodes, 16)?;
+            insert_const(nid, &mut split, sorts, nodes, ConstType::Hexadecimal)?;
         }
         // special operations
         "sext" => {

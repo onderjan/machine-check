@@ -1,8 +1,7 @@
 use anyhow::anyhow;
-use proc_macro2::{Ident, Span};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Sid(usize);
+pub struct Sid(pub usize);
 
 impl Sid {}
 
@@ -19,13 +18,7 @@ impl TryFrom<&str> for Sid {
 }
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Nid(usize);
-
-impl Nid {
-    pub fn create_ident(&self, flavor: &str) -> Ident {
-        Ident::new(&format!("{}_{}", flavor, self.0), Span::call_site())
-    }
-}
+pub struct Nid(pub usize);
 
 impl TryFrom<&str> for Nid {
     type Error = anyhow::Error;

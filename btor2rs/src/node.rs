@@ -1,43 +1,40 @@
 use crate::{BiOp, ExtOp, SliceOp, TriOp, UniOp};
 
-use super::{refs::Lref, refs::Rref, sort::Bitvec, state::State};
-use anyhow::anyhow;
-use proc_macro2::TokenStream;
-use quote::quote;
+use super::{refs::Lref, refs::Rref, state::State};
 
 #[derive(Debug, Clone)]
 pub struct Const {
-    negate: bool,
-    value: u64,
+    pub ty: ConstType,
+    pub string: String,
 }
 
 impl Const {
-    pub fn new(negate: bool, value: u64) -> Const {
-        Const { negate, value }
-    }
-
-    pub fn try_from_radix(value: &str, radix: u32) -> Result<Self, anyhow::Error> {
-        let (negate, value) = if let Some(stripped_value) = value.strip_prefix('-') {
-            (true, stripped_value)
-        } else {
-            (false, value)
-        };
-
-        let Ok(value) = u64::from_str_radix(value, radix) else {
-            return Err(anyhow!("Cannot parse const value '{}'", value));
-        };
-        Ok(Const { negate, value })
-    }
-
-    pub fn create_tokens(&self, sort: &Bitvec) -> TokenStream {
-        let value = self.value;
-        let bitvec_length = sort.length.get();
-        if self.negate {
-            quote!((-::mck::MachineBitvector::<#bitvec_length>::new(#value)))
-        } else {
-            quote!(::mck::MachineBitvector::<#bitvec_length>::new(#value))
+    pub fn zero() -> Const {
+        Const {
+            ty: ConstType::Binary,
+            string: String::from("0"),
         }
     }
+    pub fn one() -> Const {
+        Const {
+            ty: ConstType::Binary,
+            string: String::from("1"),
+        }
+    }
+    pub fn ones() -> Const {
+        // as Btor2 is wrapping, equal to minus one
+        Const {
+            ty: ConstType::Binary,
+            string: String::from("-1"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ConstType {
+    Binary = 2,
+    Decimal = 10,
+    Hexadecimal = 16,
 }
 
 #[derive(Debug, Clone)]
