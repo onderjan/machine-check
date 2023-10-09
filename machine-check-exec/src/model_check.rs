@@ -43,9 +43,8 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
     }
 
     fn check_prop(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
-        let mut prop = prop.clone();
         // transform to positive normal form to move negations to literals
-        prop.apply_pnf_complementation();
+        let prop = prop.pnf();
         // transform to existential normal form to be able to verify
         let prop = prop.enf();
 

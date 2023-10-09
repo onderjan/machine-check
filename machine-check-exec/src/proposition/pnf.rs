@@ -1,139 +1,202 @@
-use super::{PropBi, PropR, PropU, Proposition};
+use super::{PropBi, PropR, PropU, PropUni, Proposition};
 
 impl Proposition {
-    pub fn apply_pnf_complementation(&mut self) {
-        self.apply_pnf_complementation_inner(false)
+    #[must_use]
+    pub fn pnf(&self) -> Self {
+        self.pnf_inner(false)
     }
 
-    fn apply_pnf_complementation_inner(&mut self, complement: bool) {
-        // propagate negations into the literals
+    #[must_use]
+    fn pnf_inner(&self, complement: bool) -> Self {
+        // propagate negations into the literals / constants
         match self {
             Proposition::Const(value) => {
                 if complement {
-                    *value = !*value;
+                    Proposition::Const(!value)
+                } else {
+                    self.clone()
                 }
             }
             Proposition::Literal(lit) => {
                 if complement {
-                    lit.complementary = !lit.complementary;
+                    let mut lit = lit.clone();
+                    if complement {
+                        lit.complementary = !lit.complementary;
+                    }
+                    Proposition::Literal(lit)
+                } else {
+                    self.clone()
                 }
             }
             Proposition::Negation(inner) => {
-                // flip complement
-                inner.0.apply_pnf_complementation_inner(!complement);
-                // remove negation
-                *self = *inner.0.clone();
+                // remove this negation and flip complement
+                inner.0.pnf_inner(!complement)
             }
-            Proposition::Or(PropBi { a, b }) => {
-                a.apply_pnf_complementation_inner(complement);
-                b.apply_pnf_complementation_inner(complement);
+            Proposition::Or(inner) => {
+                let inner = inner.pnf_inner(complement);
                 if complement {
                     // !(p or q) = (!p and !q)
-                    // but we retain complement, so they will be flipped
-                    *self = Proposition::And(PropBi {
-                        a: a.clone(),
-                        b: b.clone(),
-                    })
+                    Proposition::And(inner)
+                } else {
+                    Proposition::Or(inner)
                 }
             }
-            Proposition::And(PropBi { a, b }) => {
-                a.apply_pnf_complementation_inner(complement);
-                b.apply_pnf_complementation_inner(complement);
+            Proposition::And(inner) => {
+                let inner = inner.pnf_inner(complement);
                 if complement {
                     // !(p and q) = (!p or !q)
-                    // but we retain complement, so they will be flipped
-                    *self = Proposition::Or(PropBi {
-                        a: a.clone(),
-                        b: b.clone(),
-                    })
+                    Proposition::Or(inner)
+                } else {
+                    Proposition::And(inner)
                 }
             }
             Proposition::EX(inner) => {
-                // !EX[p] = AX[!p], we retain complement
-                inner.0.apply_pnf_complementation_inner(complement);
+                // !EX[p] = AX[!p]
+                let inner = inner.pnf_inner(complement);
                 if complement {
-                    *self = Proposition::AX(inner.clone());
+                    Proposition::AX(inner)
+                } else {
+                    Proposition::EX(inner)
                 }
             }
             Proposition::AX(inner) => {
-                // !AX[p] = EX[!p], we retain complement
-                inner.0.apply_pnf_complementation_inner(complement);
+                // !AX[p] = EX[!p]
+                let inner = inner.pnf_inner(complement);
                 if complement {
-                    *self = Proposition::EX(inner.clone());
+                    Proposition::EX(inner)
+                } else {
+                    Proposition::AX(inner)
                 }
             }
             Proposition::AF(inner) => {
-                // !EF[p] = AG[!p], we retain complement
-                inner.0.apply_pnf_complementation_inner(complement);
+                // !AF[p] = EG[!p]
+                let inner = inner.pnf_inner(complement);
                 if complement {
-                    *self = Proposition::AG(inner.clone());
+                    Proposition::EG(inner)
+                } else {
+                    Proposition::AF(inner)
                 }
             }
             Proposition::EF(inner) => {
-                // !EF[p] = AG[!p], we retain complement
-                inner.0.apply_pnf_complementation_inner(complement);
+                // !EF[p] = AG[!p]
+                let inner = inner.pnf_inner(complement);
                 if complement {
-                    *self = Proposition::EG(inner.clone());
+                    Proposition::AG(inner)
+                } else {
+                    Proposition::EF(inner)
                 }
             }
             Proposition::EG(inner) => {
-                // !EG[p] = AF[!p], we retain complement
-                inner.0.apply_pnf_complementation_inner(complement);
+                // !EG[p] = AF[!p]
+                let inner = inner.pnf_inner(complement);
                 if complement {
-                    *self = Proposition::AF(inner.clone());
+                    Proposition::AF(inner)
+                } else {
+                    Proposition::EG(inner)
                 }
             }
             Proposition::AG(inner) => {
-                // !AG[p] = EF[!p], we retain complement
-                inner.0.apply_pnf_complementation_inner(complement);
+                // !AG[p] = EF[!p]
+                let inner = inner.pnf_inner(complement);
                 if complement {
-                    *self = Proposition::EF(inner.clone());
+                    Proposition::EF(inner)
+                } else {
+                    Proposition::AG(inner)
                 }
             }
             Proposition::EU(inner) => {
-                // !E[p U q] = A[!p R !q], we retain complement
-                inner.hold.apply_pnf_complementation_inner(complement);
-                inner.until.apply_pnf_complementation_inner(complement);
+                // !E[p U q] = A[!p R !q]
                 if complement {
-                    *self = Proposition::AR(PropR {
-                        hold: inner.hold.clone(),
-                        release: inner.until.clone(),
-                    });
+                    let inner = inner.pnf_with_complement();
+                    Proposition::AR(inner)
+                } else {
+                    let inner = inner.pnf_no_complement();
+                    Proposition::EU(inner)
                 }
             }
             Proposition::AU(inner) => {
                 // !A[p U q] = E[!p R !q], we retain complement
-                inner.hold.apply_pnf_complementation_inner(complement);
-                inner.until.apply_pnf_complementation_inner(complement);
                 if complement {
-                    *self = Proposition::ER(PropR {
-                        hold: inner.hold.clone(),
-                        release: inner.until.clone(),
-                    });
+                    let inner = inner.pnf_with_complement();
+                    Proposition::ER(inner)
+                } else {
+                    let inner = inner.pnf_no_complement();
+                    Proposition::AU(inner)
                 }
             }
             Proposition::ER(inner) => {
                 // E[p R q] = !A[!p U !q], we retain complement
-                inner.hold.apply_pnf_complementation_inner(complement);
-                inner.release.apply_pnf_complementation_inner(complement);
                 if complement {
-                    *self = Proposition::AU(PropU {
-                        hold: inner.hold.clone(),
-                        until: inner.release.clone(),
-                    });
+                    let inner = inner.pnf_with_complement();
+                    Proposition::AU(inner)
+                } else {
+                    let inner = inner.pnf_no_complement();
+                    Proposition::ER(inner)
                 }
             }
             Proposition::AR(inner) => {
                 // A[p R q] = !E[!p U !q], we retain complement
-                inner.hold.apply_pnf_complementation_inner(complement);
-                inner.release.apply_pnf_complementation_inner(complement);
                 if complement {
-                    *self = Proposition::EU(PropU {
-                        hold: inner.hold.clone(),
-                        until: inner.release.clone(),
-                    });
+                    let inner = inner.pnf_with_complement();
+                    Proposition::EU(inner)
+                } else {
+                    let inner = inner.pnf_no_complement();
+                    Proposition::AR(inner)
                 }
             }
+        }
+    }
+}
+
+impl PropUni {
+    #[must_use]
+    pub fn pnf_inner(&self, complement: bool) -> Self {
+        PropUni(Box::new(self.0.pnf_inner(complement)))
+    }
+}
+
+impl PropBi {
+    #[must_use]
+    pub fn pnf_inner(&self, complement: bool) -> Self {
+        PropBi {
+            a: Box::new(self.a.pnf_inner(complement)),
+            b: Box::new(self.b.pnf_inner(complement)),
+        }
+    }
+}
+
+impl PropU {
+    #[must_use]
+    pub fn pnf_with_complement(&self) -> PropR {
+        PropR {
+            hold: Box::new(self.hold.pnf_inner(true)),
+            release: Box::new(self.until.pnf_inner(true)),
+        }
+    }
+
+    #[must_use]
+    pub fn pnf_no_complement(&self) -> Self {
+        PropU {
+            hold: Box::new(self.hold.pnf_inner(false)),
+            until: Box::new(self.until.pnf_inner(false)),
+        }
+    }
+}
+
+impl PropR {
+    #[must_use]
+    pub fn pnf_with_complement(&self) -> PropU {
+        PropU {
+            hold: Box::new(self.hold.pnf_inner(true)),
+            until: Box::new(self.release.pnf_inner(true)),
+        }
+    }
+
+    #[must_use]
+    pub fn pnf_no_complement(&self) -> Self {
+        PropR {
+            hold: Box::new(self.hold.pnf_inner(false)),
+            release: Box::new(self.release.pnf_inner(false)),
         }
     }
 }
