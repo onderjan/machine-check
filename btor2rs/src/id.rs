@@ -31,25 +31,3 @@ impl TryFrom<&str> for Nid {
         }
     }
 }
-
-#[derive(Debug, Clone, Copy)]
-pub struct FlippableNid {
-    pub flip: bool,
-    pub nid: Nid,
-}
-
-impl TryFrom<&str> for FlippableNid {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let (flip, nid) = if let Some(stripped_value) = value.strip_prefix('-') {
-            (true, stripped_value)
-        } else {
-            (false, value)
-        };
-
-        let nid = Nid::try_from(nid)?;
-
-        Ok(FlippableNid { flip, nid })
-    }
-}

@@ -41,11 +41,6 @@ fn parse_nid(split: &mut SplitWhitespace<'_>) -> Result<Nid, anyhow::Error> {
     Nid::try_from(nid)
 }
 
-fn parse_flippable_nid(split: &mut SplitWhitespace<'_>) -> Result<FlippableNid, anyhow::Error> {
-    let flippable_nid = split.next().ok_or_else(|| anyhow!("Missing nid"))?;
-    FlippableNid::try_from(flippable_nid)
-}
-
 fn parse_sort(
     split: &mut SplitWhitespace<'_>,
     sorts: &BTreeMap<Sid, Sort>,
@@ -75,27 +70,30 @@ fn parse_lref(
     create_lref(nodes, parse_nid(split)?)
 }
 
-fn create_rref(
-    nodes: &mut BTreeMap<Nid, Node>,
-    flippable_nid: FlippableNid,
-) -> Result<Rref, anyhow::Error> {
-    let nid = flippable_nid.nid;
-    if let Some(node) = nodes.get(&nid) {
-        Ok(Rref {
-            sort: node.result.sort.clone(),
-            nid,
-            not: flippable_nid.flip,
-        })
-    } else {
-        Err(anyhow!("Cannot find node with nid {:?}", nid))
-    }
-}
-
 fn parse_rref(
     split: &mut SplitWhitespace<'_>,
     nodes: &mut BTreeMap<Nid, Node>,
 ) -> Result<Rref, anyhow::Error> {
-    create_rref(nodes, parse_flippable_nid(split)?)
+    // on the right side, '-' can be used on nids to perform bitwise negation
+    let str = split.next().ok_or_else(|| anyhow!("Missing nid"))?;
+
+    let (not, nid) = if let Some(stripped_value) = str.strip_prefix('-') {
+        (true, stripped_value)
+    } else {
+        (false, str)
+    };
+
+    let nid = Nid::try_from(nid)?;
+
+    if let Some(node) = nodes.get(&nid) {
+        Ok(Rref {
+            sort: node.result.sort.clone(),
+            nid,
+            not,
+        })
+    } else {
+        Err(anyhow!("Cannot find node with nid {:?}", nid))
+    }
 }
 
 fn insert_node(
