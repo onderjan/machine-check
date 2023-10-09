@@ -1,4 +1,5 @@
 mod node;
+mod util;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -14,7 +15,7 @@ use proc_macro2::{Ident, Span, TokenStream};
 use std::io::BufRead;
 use syn::{parse_quote, Expr, Field, FieldValue, Type};
 
-use self::node::{create_nid_ident, create_sid_type, create_single_bit_type, create_value_expr};
+use self::util::{create_nid_ident, create_sid_type, create_single_bit_type, create_value_expr};
 
 pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
     let file = fs::File::open(system_path)

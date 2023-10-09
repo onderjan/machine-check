@@ -1,12 +1,14 @@
 use anyhow::anyhow;
 use btor2rs::{
-    BiOp, BiOpType, Bitvec, Btor2, Const, DrainType, ExtOp, Nid, Node, Rref, Sid, SliceOp, Sort,
-    SourceType, TriOp, TriOpType, UniOp, UniOpType,
+    BiOp, BiOpType, Bitvec, Const, DrainType, ExtOp, Nid, Node, Sid, SliceOp, Sort, SourceType,
+    TriOp, TriOpType, UniOp, UniOpType,
 };
-use proc_macro2::Span;
-use syn::{parse_quote, Expr, Ident, Type};
+use syn::{parse_quote, Expr};
 
-use super::Transcriber;
+use super::{
+    util::{create_nid_ident, create_rref_expr, create_value_expr},
+    Transcriber,
+};
 
 pub(super) fn transcribe(
     transcriber: &Transcriber,
@@ -109,16 +111,16 @@ impl<'a> StmtTranscriber<'a> {
                         .push(parse_quote!(let #result_ident = input.#input_ident;));
                 }
                 SourceType::One => {
-                    let expr = create_const_one(self.to_bitvec(self.get_nid_sort(nid)?)?);
+                    let expr = create_value_expr(1, self.get_nid_bitvec(nid)?);
                     self.stmts.push(parse_quote!(let #result_ident = #expr;));
                 }
                 SourceType::Ones => {
                     // negate one
-                    let expr = create_const_one(self.to_bitvec(self.get_nid_sort(nid)?)?);
+                    let expr = create_value_expr(1, self.get_nid_bitvec(nid)?);
                     self.stmts.push(parse_quote!(let #result_ident = -#expr;));
                 }
                 SourceType::Zero => {
-                    let expr = create_const_zero(self.to_bitvec(self.get_nid_sort(nid)?)?);
+                    let expr = create_value_expr(0, self.get_nid_bitvec(nid)?);
                     self.stmts.push(parse_quote!(let #result_ident = #expr;));
                 }
             },
@@ -131,31 +133,31 @@ impl<'a> StmtTranscriber<'a> {
     }
 
     pub fn uni_op_expr(&self, op: &UniOp) -> Result<syn::Expr, anyhow::Error> {
-        let result_bitvec = self.to_bitvec(self.get_sort(op.sid)?)?;
-        let a_bitvec = self.to_bitvec(self.get_nid_sort(op.a.nid)?)?;
+        let result_bitvec = self.get_bitvec(op.sid)?;
+        let a_bitvec = self.get_nid_bitvec(op.a.nid)?;
 
         let a_tokens = create_rref_expr(&op.a);
         match op.ty {
             UniOpType::Not => Ok(parse_quote!(!(#a_tokens))),
             UniOpType::Inc => {
-                let one = create_const_one(result_bitvec);
+                let one = create_value_expr(1, result_bitvec);
                 Ok(parse_quote!((#a_tokens) + (#one)))
             }
             UniOpType::Dec => {
-                let one = create_const_one(result_bitvec);
+                let one = create_value_expr(1, result_bitvec);
                 Ok(parse_quote!((#a_tokens) - (#one)))
             }
             UniOpType::Neg => Ok(parse_quote!(-(#a_tokens))),
             UniOpType::Redand => {
                 // equality with all ones
                 // sort for constant is taken from the operand, not result
-                let one = create_const_one(result_bitvec);
+                let one = create_value_expr(1, result_bitvec);
                 Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, -#one)))
             }
             UniOpType::Redor => {
                 // inequality with all zeros
                 // sort for constant is taken from the operand, not result
-                let zero = create_const_zero(result_bitvec);
+                let zero = create_value_expr(0, result_bitvec);
                 Ok(parse_quote!(!(::mck::TypedEq::typed_eq(#a_tokens, #zero))))
             }
             UniOpType::Redxor => {
@@ -184,7 +186,7 @@ impl<'a> StmtTranscriber<'a> {
                 // a = condition, b = then, c = else
                 // to avoid control flow, convert condition to bitmask
 
-                let result_sort = self.to_bitvec(self.get_sort(op.sid)?)?;
+                let result_sort = self.get_bitvec(op.sid)?;
                 let result_length = result_sort.length.get();
                 let condition_mask: Expr =
                     parse_quote!(::mck::MachineExt::<#result_length>::sext(#a_tokens));
@@ -249,7 +251,7 @@ impl<'a> StmtTranscriber<'a> {
             | BiOpType::Usubo => Err(anyhow!("Overflow operation generation not implemented")),
             BiOpType::Concat => {
                 // a is the higher, b is the lower
-                let result_sort: &Bitvec = self.to_bitvec(self.get_sort(op.sid)?)?;
+                let result_sort: &Bitvec = self.get_bitvec(op.sid)?;
                 let result_length = result_sort.length.get();
 
                 // do unsigned extension of both to result type
@@ -259,7 +261,7 @@ impl<'a> StmtTranscriber<'a> {
                     parse_quote!(::mck::MachineExt::<#result_length>::uext(#b_tokens));
 
                 // shift a left by length of b
-                let b_sort: &Bitvec = self.to_bitvec(self.get_nid_sort(op.b.nid)?)?;
+                let b_sort: &Bitvec = self.get_nid_bitvec(op.b.nid)?;
                 let b_length = b_sort.length.get();
                 let shift_length_expr = create_value_expr(b_length.into(), result_sort);
                 let a_uext_sll: Expr =
@@ -276,7 +278,7 @@ impl<'a> StmtTranscriber<'a> {
         let a_tokens = create_rref_expr(&op.a);
 
         // just compute the new number of bits and perform the extension
-        let a_bitvec = self.to_bitvec(self.get_nid_sort(op.a.nid)?)?;
+        let a_bitvec = self.get_nid_bitvec(op.a.nid)?;
         let a_length = a_bitvec.length.get();
         let result_length = a_length + op.length;
 
@@ -291,7 +293,7 @@ impl<'a> StmtTranscriber<'a> {
     }
 
     pub fn slice_op_expr(&self, op: &SliceOp) -> Result<syn::Expr, anyhow::Error> {
-        let result_sort: &Bitvec = self.to_bitvec(self.get_sort(op.sid)?)?;
+        let result_sort: &Bitvec = self.get_bitvec(op.sid)?;
         let a_tokens = create_rref_expr(&op.a);
 
         // logical shift right to make the lower bit the zeroth bit
@@ -305,7 +307,7 @@ impl<'a> StmtTranscriber<'a> {
     }
 
     fn const_expr(&self, value: &Const) -> Result<Expr, anyhow::Error> {
-        let result_sort = self.to_bitvec(self.get_sort(value.sid)?)?;
+        let result_sort = self.get_bitvec(value.sid)?;
         // parse the value first to disallow hijinks
         // convert negation to negation of resulting bitvector
         let (negate, str) = if let Some(str) = value.string.strip_prefix('-') {
@@ -323,7 +325,23 @@ impl<'a> StmtTranscriber<'a> {
         })
     }
 
-    fn get_nid_sort(&self, nid: Nid) -> Result<&Sort, anyhow::Error> {
+    fn get_sort(&self, sid: Sid) -> Result<&Sort, anyhow::Error> {
+        self.transcriber
+            .btor2
+            .sorts
+            .get(&sid)
+            .ok_or_else(|| anyhow!("Unknown sort"))
+    }
+
+    fn get_bitvec(&self, sid: Sid) -> Result<&Bitvec, anyhow::Error> {
+        let sort = self.get_sort(sid)?;
+        let Sort::Bitvec(bitvec) = sort else {
+            return Err(anyhow!("Expected bitvec sort"));
+        };
+        Ok(bitvec)
+    }
+
+    fn get_nid_bitvec(&self, nid: Nid) -> Result<&Bitvec, anyhow::Error> {
         let node = self
             .transcriber
             .btor2
@@ -333,72 +351,6 @@ impl<'a> StmtTranscriber<'a> {
         let sid = node
             .get_sid()
             .ok_or_else(|| anyhow!("Expected node with sid"))?;
-        self.get_sort(sid)
+        self.get_bitvec(sid)
     }
-
-    fn get_sort(&self, sid: Sid) -> Result<&Sort, anyhow::Error> {
-        self.transcriber
-            .btor2
-            .sorts
-            .get(&sid)
-            .ok_or_else(|| anyhow!("Unknown sort"))
-    }
-
-    fn to_bitvec<'b>(&self, sort: &'b Sort) -> Result<&'b Bitvec, anyhow::Error> {
-        let Sort::Bitvec(bitvec) = sort else {
-            return Err(anyhow!("Expected bitvec sort"));
-        };
-        Ok(bitvec)
-    }
-}
-
-pub fn create_nid_ident(nid: Nid) -> Ident {
-    Ident::new(&format!("node_{}", nid.0), Span::call_site())
-}
-
-pub fn create_rref_expr(rref: &Rref) -> Expr {
-    let ident = create_nid_ident(rref.nid);
-    if rref.not {
-        parse_quote!((!#ident))
-    } else {
-        parse_quote!(#ident)
-    }
-}
-
-pub fn create_value_expr(value: u64, bitvec: &Bitvec) -> Expr {
-    let bitvec_length = bitvec.length.get();
-    parse_quote!(::mck::MachineBitvector::<#bitvec_length>::new(#value))
-}
-
-pub fn create_const_zero(bitvec: &Bitvec) -> Expr {
-    let bitvec_length = bitvec.length.get();
-    parse_quote!((-::mck::MachineBitvector::<#bitvec_length>::new(0)))
-}
-
-pub fn create_const_one(bitvec: &Bitvec) -> Expr {
-    let bitvec_length = bitvec.length.get();
-    parse_quote!((-::mck::MachineBitvector::<#bitvec_length>::new(0)))
-}
-
-pub fn create_sid_type(btor2: &Btor2, sid: Sid) -> Result<Type, anyhow::Error> {
-    create_sort_type(
-        btor2
-            .sorts
-            .get(&sid)
-            .ok_or_else(|| anyhow!("Unknown sid"))?,
-    )
-}
-
-pub fn create_sort_type(sort: &Sort) -> Result<Type, anyhow::Error> {
-    match sort {
-        Sort::Bitvec(bitvec) => {
-            let bitvec_length = bitvec.length.get();
-            Ok(parse_quote!(::mck::MachineBitvector<#bitvec_length>))
-        }
-        Sort::Array(_) => Err(anyhow!("Generating arrays not supported")),
-    }
-}
-
-pub fn create_single_bit_type() -> Type {
-    parse_quote!(::mck::MachineBitvector<1>)
 }
