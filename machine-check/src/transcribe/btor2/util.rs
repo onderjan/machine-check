@@ -7,7 +7,7 @@ pub fn create_nid_ident(nid: Nid) -> Ident {
     Ident::new(&format!("node_{}", nid.get()), Span::call_site())
 }
 
-pub fn create_rnid_ident(rref: &Rnid) -> Expr {
+pub fn create_rnid_expr(rref: Rnid) -> Expr {
     let ident = create_nid_ident(rref.nid());
     if rref.is_not() {
         parse_quote!((!#ident))

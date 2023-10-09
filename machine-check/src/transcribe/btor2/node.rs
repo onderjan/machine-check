@@ -6,7 +6,7 @@ use btor2rs::{
 use syn::{parse_quote, Expr};
 
 use super::{
-    util::{create_nid_ident, create_rnid_ident, create_value_expr},
+    util::{create_nid_ident, create_rnid_expr, create_value_expr},
     Transcriber,
 };
 
@@ -41,9 +41,9 @@ impl<'a> StmtTranscriber<'a> {
 
                 let treat_as_input = if self.for_init {
                     if let Some(init) = state_info.init {
-                        let init_tokens = create_nid_ident(init);
+                        let init_expr = create_rnid_expr(init);
                         self.stmts
-                            .push(parse_quote!(let #result_ident = #init_tokens;));
+                            .push(parse_quote!(let #result_ident = #init_expr;));
                         false
                     } else {
                         true
@@ -136,7 +136,7 @@ impl<'a> StmtTranscriber<'a> {
         let result_bitvec = self.get_bitvec(op.sid)?;
         let a_bitvec = self.get_nid_bitvec(op.a.nid())?;
 
-        let a_tokens = create_rnid_ident(&op.a);
+        let a_tokens = create_rnid_expr(op.a);
         match op.ty {
             UniOpType::Not => Ok(parse_quote!(!(#a_tokens))),
             UniOpType::Inc => {
@@ -164,7 +164,7 @@ impl<'a> StmtTranscriber<'a> {
                 // naive version, just slice all relevant bits and xor them together
                 let a_length = a_bitvec.length.get();
                 let mut slice_expressions = Vec::<syn::Expr>::new();
-                let a_tokens = create_rnid_ident(&op.a);
+                let a_tokens = create_rnid_expr(op.a);
                 for i in 0..a_length {
                     // logical shift right to make the i the zeroth bit
                     let shift_length_expr = create_value_expr(i.into(), a_bitvec);
@@ -178,9 +178,9 @@ impl<'a> StmtTranscriber<'a> {
     }
 
     pub fn tri_op_expr(&self, op: &TriOp) -> Result<syn::Expr, anyhow::Error> {
-        let a_tokens = create_rnid_ident(&op.a);
-        let b_tokens = create_rnid_ident(&op.b);
-        let c_tokens = create_rnid_ident(&op.c);
+        let a_tokens = create_rnid_expr(op.a);
+        let b_tokens = create_rnid_expr(op.b);
+        let c_tokens = create_rnid_expr(op.c);
         match op.ty {
             TriOpType::Ite => {
                 // a = condition, b = then, c = else
@@ -205,8 +205,8 @@ impl<'a> StmtTranscriber<'a> {
     }
 
     pub fn bi_op_expr(&self, op: &BiOp) -> Result<syn::Expr, anyhow::Error> {
-        let a_tokens = create_rnid_ident(&op.a);
-        let b_tokens = create_rnid_ident(&op.b);
+        let a_tokens = create_rnid_expr(op.a);
+        let b_tokens = create_rnid_expr(op.b);
         match op.ty {
             BiOpType::Iff => Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens))),
             BiOpType::Implies => Ok(parse_quote!(!(#a_tokens) | (#b_tokens))),
@@ -275,7 +275,7 @@ impl<'a> StmtTranscriber<'a> {
     }
 
     pub fn ext_op_expr(&self, op: &ExtOp) -> Result<syn::Expr, anyhow::Error> {
-        let a_tokens = create_rnid_ident(&op.a);
+        let a_tokens = create_rnid_expr(op.a);
 
         // just compute the new number of bits and perform the extension
         let a_bitvec = self.get_nid_bitvec(op.a.nid())?;
@@ -294,7 +294,7 @@ impl<'a> StmtTranscriber<'a> {
 
     pub fn slice_op_expr(&self, op: &SliceOp) -> Result<syn::Expr, anyhow::Error> {
         let a_sort = self.get_nid_bitvec(op.a.nid())?;
-        let a_tokens = create_rnid_ident(&op.a);
+        let a_tokens = create_rnid_expr(op.a);
 
         // logical shift right to make the lower bit the zeroth bit
         let shift_length_expr = create_value_expr(op.lower_bit.into(), a_sort);

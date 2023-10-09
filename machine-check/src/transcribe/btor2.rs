@@ -1,21 +1,19 @@
 mod node;
 mod util;
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs,
-    io::BufReader,
-};
+use std::{collections::BTreeMap, fs, io::BufReader};
 
 use crate::CheckError;
 use anyhow::anyhow;
-use btor2rs::{Bitvec, Btor2, DrainType, Nid, Node, Sid, Source, SourceType};
+use btor2rs::{Bitvec, Btor2, DrainType, Nid, Node, Rnid, Sid, Source, SourceType};
 use camino::Utf8Path;
 use proc_macro2::{Ident, Span, TokenStream};
 use std::io::BufRead;
 use syn::{parse_quote, Expr, Field, FieldValue, Type};
 
-use self::util::{create_nid_ident, create_sid_type, create_single_bit_type, create_value_expr};
+use self::util::{
+    create_nid_ident, create_rnid_expr, create_sid_type, create_single_bit_type, create_value_expr,
+};
 
 pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
     let file = fs::File::open(system_path)
@@ -35,22 +33,22 @@ pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
 
 struct StateInfo {
     sid: Sid,
-    init: Option<Nid>,
-    next: Option<Nid>,
+    init: Option<Rnid>,
+    next: Option<Rnid>,
 }
 
 struct Transcriber {
     btor2: Btor2,
     state_info_map: BTreeMap<Nid, StateInfo>,
-    constraints: BTreeSet<Nid>,
-    bads: BTreeSet<Nid>,
+    constraints: Vec<Rnid>,
+    bads: Vec<Rnid>,
 }
 
 impl Transcriber {
     fn new(btor2: Btor2) -> Result<Transcriber, anyhow::Error> {
         let mut state_info_map = BTreeMap::new();
-        let mut constraints = BTreeSet::new();
-        let mut bads = BTreeSet::new();
+        let mut constraints = Vec::new();
+        let mut bads = Vec::new();
         for (nid, node) in &btor2.nodes {
             match node {
                 Node::State(state) => {
@@ -78,10 +76,10 @@ impl Transcriber {
                 }
                 Node::Drain(drain) => match drain.ty {
                     DrainType::Bad => {
-                        bads.insert(drain.nid);
+                        bads.push(drain.rnid);
                     }
                     DrainType::Constraint => {
-                        constraints.insert(drain.nid);
+                        constraints.push(drain.rnid);
                     }
                     DrainType::Fair => return Err(anyhow!("Fairness constraints not supported")),
                     DrainType::Output => {}
@@ -212,9 +210,10 @@ impl Transcriber {
                 // for init, the value of state node is returned
                 // for non-init, the next value is returned
                 let returned_ident = if is_init {
-                    create_nid_ident(*nid)
+                    let ident = create_nid_ident(*nid);
+                    parse_quote!(#ident)
                 } else {
-                    create_nid_ident(next)
+                    create_rnid_expr(next)
                 };
                 field_values.push(parse_quote!(#state_ident: #returned_ident));
             }
@@ -238,14 +237,14 @@ impl Transcriber {
     fn add_drain_field_values(&self, is_init: bool, field_values: &mut Vec<FieldValue>) {
         // result is constrained exactly when it was constrained previously and all constraints hold
         // i.e. constraint_1 & constraint_2 & ...
-        let constraint_idents: Vec<_> = self
+        let constraint_exprs: Vec<_> = self
             .constraints
             .iter()
-            .map(|nid| create_nid_ident(*nid))
+            .map(|nid| create_rnid_expr(*nid))
             .collect();
 
-        let mut constraint = if !constraint_idents.is_empty() {
-            parse_quote!((#(#constraint_idents)&*))
+        let mut constraint = if !constraint_exprs.is_empty() {
+            parse_quote!((#(#constraint_exprs)&*))
         } else {
             // default to true
             create_value_expr(1, &Bitvec::single_bit())
@@ -258,12 +257,12 @@ impl Transcriber {
 
         // result is safe exactly when it is either not constrained or there is no bad result
         // i.e. !constrained | (!bad_1 & !bad_2 & ...)
-        let mut not_bad_idents = Vec::<TokenStream>::new();
+        let mut not_bad_exprs = Vec::<TokenStream>::new();
         for bad in &self.bads {
-            let bad_ident = create_nid_ident(*bad);
-            not_bad_idents.push(parse_quote!(!#bad_ident));
+            let bad_ident = create_rnid_expr(*bad);
+            not_bad_exprs.push(parse_quote!(!#bad_ident));
         }
-        let not_bad: Expr = parse_quote!((#(#not_bad_idents)&*));
+        let not_bad: Expr = parse_quote!((#(#not_bad_exprs)&*));
 
         // the constraint must hold up to this state
         field_values.push(parse_quote!(safe: !(#constraint) | (#not_bad)));

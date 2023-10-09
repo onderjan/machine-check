@@ -39,7 +39,7 @@ pub enum DrainType {
 #[derive(Debug, Clone)]
 pub struct Drain {
     pub ty: DrainType,
-    pub nid: Nid,
+    pub rnid: Rnid,
 }
 
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -54,7 +54,7 @@ pub struct Temporal {
     pub ty: TemporalType,
     pub sid: Sid,
     pub state: Nid,
-    pub value: Nid,
+    pub value: Rnid,
 }
 
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -88,7 +88,7 @@ pub enum Node {
     TriOp(TriOp),
     Temporal(Temporal),
     Drain(Drain),
-    Justice(Vec<Nid>),
+    Justice(Vec<Rnid>),
 }
 
 impl Node {
@@ -126,15 +126,15 @@ impl Node {
 
         // drain
         if let Ok(ty) = DrainType::try_from(second) {
-            let nid = parse_nid(&mut split)?;
-            return Ok(Some(Node::Drain(Drain { ty, nid })));
+            let rnid = parse_rnid(&mut split)?;
+            return Ok(Some(Node::Drain(Drain { ty, rnid })));
         }
 
         // temporal
         if let Ok(ty) = TemporalType::try_from(second) {
             let sid = parse_sid(&mut split)?;
             let state = parse_nid(&mut split)?;
-            let value = parse_nid(&mut split)?;
+            let value = parse_rnid(&mut split)?;
             return Ok(Some(Node::Temporal(Temporal {
                 ty,
                 sid,
@@ -206,7 +206,7 @@ impl Node {
                 let num = parse_u32(&mut split)?;
                 let mut vec = Vec::new();
                 for _ in 0..num {
-                    vec.push(parse_nid(&mut split)?);
+                    vec.push(parse_rnid(&mut split)?);
                 }
                 Node::Justice(vec)
             }

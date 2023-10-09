@@ -46,7 +46,7 @@ impl TryFrom<&str> for Nid {
 }
 
 // on the right side, '-' can be used on nids to perform bitwise negation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Hash)]
 pub struct Rnid(NonZeroI32);
 
 impl TryFrom<&str> for Rnid {
