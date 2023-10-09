@@ -18,9 +18,9 @@ pub enum CheckError {
     Serialize(#[from] serde_json::Error),
     #[error("could not convert token stream to syntax tree")]
     SyntaxTree(#[source] syn::Error),
-    #[error("could not translate from Btor2")]
+    #[error("could not translate from Btor2: {0:#?}")]
     TranslateFromBtor2(#[source] anyhow::Error),
-    #[error("could not abstract machine")]
+    #[error("could not abstract machine: {0}")]
     AbstractMachine(#[source] anyhow::Error),
     #[error("could not flush to file {0}")]
     Flush(Utf8PathBuf, #[source] std::io::Error),

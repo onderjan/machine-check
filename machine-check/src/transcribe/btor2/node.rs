@@ -293,11 +293,11 @@ impl<'a> StmtTranscriber<'a> {
     }
 
     pub fn slice_op_expr(&self, op: &SliceOp) -> Result<syn::Expr, anyhow::Error> {
-        let result_sort: &Bitvec = self.get_bitvec(op.sid)?;
+        let a_sort = self.get_nid_bitvec(op.a.nid)?;
         let a_tokens = create_rref_expr(&op.a);
 
         // logical shift right to make the lower bit the zeroth bit
-        let shift_length_expr = create_value_expr(op.lower_bit.into(), result_sort);
+        let shift_length_expr = create_value_expr(op.lower_bit.into(), a_sort);
         let a_srl: Expr = parse_quote!(::mck::MachineShift::srl(#a_tokens, #shift_length_expr));
 
         // retain only the specified number of bits by unsigned extension
