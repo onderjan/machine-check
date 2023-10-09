@@ -1,6 +1,6 @@
 use crate::{BiOp, ExtOp, SliceOp, TriOp, UniOp};
 
-use super::{refs::Lref, refs::Rref, sort::BitvecSort, state::State};
+use super::{refs::Lref, refs::Rref, sort::Bitvec, state::State};
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -29,7 +29,7 @@ impl Const {
         Ok(Const { negate, value })
     }
 
-    pub fn create_tokens(&self, sort: &BitvecSort) -> TokenStream {
+    pub fn create_tokens(&self, sort: &Bitvec) -> TokenStream {
         let value = self.value;
         let bitvec_length = sort.length.get();
         if self.negate {

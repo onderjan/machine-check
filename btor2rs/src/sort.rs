@@ -5,27 +5,19 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BitvecSort {
+pub struct Bitvec {
     pub length: NonZeroU32,
 }
 
-impl BitvecSort {
-    pub fn single_bit() -> BitvecSort {
-        BitvecSort {
-            length: NonZeroU32::MIN,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ArraySort {
+pub struct Array {
     pub index_sort: Box<Sort>,
     pub element_sort: Box<Sort>,
 }
 
-impl ArraySort {
+impl Array {
     pub fn new(index_sort: &Sort, element_sort: &Sort) -> Self {
-        ArraySort {
+        Array {
             index_sort: Box::new(index_sort.clone()),
             element_sort: Box::new(element_sort.clone()),
         }
@@ -34,8 +26,8 @@ impl ArraySort {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Sort {
-    Bitvec(BitvecSort),
-    Array(ArraySort),
+    Bitvec(Bitvec),
+    Array(Array),
 }
 
 impl Sort {
@@ -50,6 +42,8 @@ impl Sort {
     }
 
     pub fn single_bit_sort() -> Sort {
-        Sort::Bitvec(BitvecSort::single_bit())
+        Sort::Bitvec(Bitvec {
+            length: NonZeroU32::MIN,
+        })
     }
 }

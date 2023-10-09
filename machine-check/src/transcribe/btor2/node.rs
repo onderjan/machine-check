@@ -1,10 +1,7 @@
 use anyhow::anyhow;
 use btor2rs::{
-    id::Nid,
-    node::{Const, Node, NodeType},
-    refs::Lref,
-    sort::Sort,
-    BiOp, BiOpType, Btor2, ExtOp, SliceOp, TriOp, TriOpType, UniOp, UniOpType,
+    BiOp, BiOpType, Btor2, Const, ExtOp, Lref, Nid, Node, NodeType, SliceOp, Sort, TriOp,
+    TriOpType, UniOp, UniOpType,
 };
 use syn::{parse_quote, Expr};
 

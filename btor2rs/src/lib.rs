@@ -1,30 +1,21 @@
-pub mod id;
-pub mod node;
+mod id;
+mod node;
 mod op;
-pub mod refs;
-pub mod sort;
-pub mod state;
+mod refs;
+mod sort;
+mod state;
 
+pub use id::*;
+pub use node::*;
 pub use op::*;
+pub use refs::*;
+pub use sort::*;
+pub use state::*;
 
 use anyhow::anyhow;
 use anyhow::Context;
 use std::num::NonZeroU32;
 use std::{collections::BTreeMap, str::SplitWhitespace};
-
-use self::node::NodeType;
-use self::refs::Lref;
-use self::refs::Rref;
-use self::{id::FlippableNid, node::Node};
-use node::Const;
-use sort::ArraySort;
-use sort::BitvecSort;
-use state::State;
-
-use {
-    id::{Nid, Sid},
-    sort::Sort,
-};
 
 #[derive(Debug, Clone)]
 pub struct Btor2 {
@@ -179,7 +170,7 @@ fn parse_line(
                 let Some(bitvec_length) = NonZeroU32::new(bitvec_length) else {
                     return Err(anyhow!("Invalid zero bitvec length"));
                 };
-                let bitvec = BitvecSort {
+                let bitvec = Bitvec {
                     length: bitvec_length,
                 };
                 sorts.insert(sid, Sort::Bitvec(bitvec));
@@ -188,7 +179,7 @@ fn parse_line(
                 let index_sort = parse_sort(&mut split, sorts)?;
                 let element_sort = parse_sort(&mut split, sorts)?;
 
-                let array = ArraySort::new(&index_sort, &element_sort);
+                let array = Array::new(&index_sort, &element_sort);
                 sorts.insert(sid, Sort::Array(array));
             }
             _ => {
@@ -364,12 +355,12 @@ fn parse_line(
         }
         // properties
         "bad" => {
-            let result_sort = Sort::Bitvec(BitvecSort::single_bit());
+            let result_sort = Sort::single_bit_sort();
             let a = parse_rref(&mut split, nodes)?;
             insert_node(nodes, result_sort, nid, NodeType::Bad(a));
         }
         "constraint" => {
-            let result_sort = Sort::Bitvec(BitvecSort::single_bit());
+            let result_sort = Sort::single_bit_sort();
             let a = parse_rref(&mut split, nodes)?;
             insert_node(nodes, result_sort, nid, NodeType::Constraint(a));
         }

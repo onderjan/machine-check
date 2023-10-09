@@ -1,12 +1,8 @@
 mod node;
 
-use std::{fs, io::BufReader};
+use std::{fs, io::BufReader, num::NonZeroU32};
 
-use btor2rs::{
-    node::{Const, NodeType},
-    sort::{BitvecSort, Sort},
-    Btor2,
-};
+use btor2rs::{Bitvec, Btor2, Const, NodeType, Sort};
 use camino::Utf8Path;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -101,7 +97,9 @@ pub fn generate(btor2: Btor2) -> Result<syn::File, anyhow::Error> {
         quote!((#(#constraint_tokens)&*))
     } else {
         // default to true
-        Const::new(false, 1).create_tokens(&BitvecSort::single_bit())
+        Const::new(false, 1).create_tokens(&Bitvec {
+            length: NonZeroU32::MIN,
+        })
     };
     let init_constraint = quote!(#constraint_and);
     let constrained_init_expr = quote!(#constrained_ident: #init_constraint);

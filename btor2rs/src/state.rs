@@ -8,7 +8,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         State {
             init: None,
             next: None,
