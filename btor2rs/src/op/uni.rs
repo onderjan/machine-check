@@ -18,9 +18,3 @@ pub struct UniOp {
     pub op_type: UniOpType,
     pub a: Rref,
 }
-
-impl UniOp {
-    pub fn new(op_type: UniOpType, a: Rref) -> UniOp {
-        UniOp { op_type, a }
-    }
-}

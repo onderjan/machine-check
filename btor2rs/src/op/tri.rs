@@ -1,7 +1,4 @@
-use crate::{lref::Lref, rref::Rref, sort::Sort};
-
-use anyhow::anyhow;
-use syn::{parse_quote, Expr};
+use crate::rref::Rref;
 
 // derive Btor2 string representations, which are lower-case
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -15,43 +12,8 @@ pub enum TriOpType {
 
 #[derive(Debug, Clone)]
 pub struct TriOp {
-    op_type: TriOpType,
-    a: Rref,
-    b: Rref,
-    c: Rref,
-}
-
-impl TriOp {
-    pub fn new(op_type: TriOpType, a: Rref, b: Rref, c: Rref) -> TriOp {
-        TriOp { op_type, a, b, c }
-    }
-
-    pub fn create_statement(&self, result: &Lref) -> Result<syn::Stmt, anyhow::Error> {
-        let result_ident = result.create_ident("node");
-        let a_tokens = self.a.create_tokens("node");
-        let b_tokens = self.b.create_tokens("node");
-        let c_tokens = self.c.create_tokens("node");
-        match self.op_type {
-            TriOpType::Ite => {
-                // a = condition, b = then, c = else
-                // to avoid control flow, convert condition to bitmask
-                let Sort::Bitvec(bitvec) = &result.sort else {
-                    return Err(anyhow!("Expected bitvec result, but have {:?}", result.sort));
-                };
-                let bitvec_length = bitvec.length.get();
-                let condition_mask: Expr =
-                    parse_quote!(::mck::MachineExt::<#bitvec_length>::sext(#a_tokens));
-                let neg_condition_mask: Expr =
-                    parse_quote!(::mck::MachineExt::<#bitvec_length>::sext(!(#a_tokens)));
-
-                Ok(
-                    parse_quote!(let #result_ident = ((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask));),
-                )
-            }
-            TriOpType::Write => {
-                // a = array, b = index, c = element to be stored
-                Err(anyhow!("Generating arrays not supported"))
-            }
-        }
-    }
+    pub op_type: TriOpType,
+    pub a: Rref,
+    pub b: Rref,
+    pub c: Rref,
 }

@@ -63,9 +63,3 @@ pub struct BiOp {
     pub a: Rref,
     pub b: Rref,
 }
-
-impl BiOp {
-    pub fn new(op_type: BiOpType, a: Rref, b: Rref) -> BiOp {
-        BiOp { op_type, a, b }
-    }
-}

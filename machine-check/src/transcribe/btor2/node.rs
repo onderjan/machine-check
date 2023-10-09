@@ -1,10 +1,12 @@
 use anyhow::anyhow;
 use btor2rs::{
     id::Nid,
+    lref::Lref,
     node::{Const, Node, NodeType},
     op::{
         bi::{BiOp, BiOpType},
         indexed::{ExtOp, SliceOp},
+        tri::{TriOp, TriOpType},
         uni::{UniOp, UniOpType},
     },
     sort::Sort,
@@ -94,7 +96,7 @@ impl Transcription {
                     .push(parse_quote!(let #result_ident = #expression;));
             }
             NodeType::TriOp(op) => {
-                let statement = op.create_statement(&node.result)?;
+                let statement = self.tri_op_expr(op, &node.result)?;
                 self.stmts.push(statement);
             }
             NodeType::Bad(_) => {
@@ -148,12 +150,45 @@ impl Transcription {
                 let mut slice_expressions = Vec::<syn::Expr>::new();
                 let single_bit_sort = Sort::single_bit_sort();
                 for i in 0..bitvec_length {
-                    let i_slice = SliceOp::new(op.a.clone(), i, i)?;
+                    let i_slice = SliceOp {
+                        a: op.a.clone(),
+                        lower_bit: i,
+                        upper_bit: i,
+                    };
                     let i_unparenthesised_expression =
                         self.slice_op_expr(&i_slice, &single_bit_sort)?;
                     slice_expressions.push(parse_quote!((#i_unparenthesised_expression)));
                 }
                 Ok(parse_quote!(#(#slice_expressions)^*))
+            }
+        }
+    }
+
+    pub fn tri_op_expr(&self, op: &TriOp, result: &Lref) -> Result<syn::Stmt, anyhow::Error> {
+        let result_ident = result.create_ident("node");
+        let a_tokens = op.a.create_tokens("node");
+        let b_tokens = op.b.create_tokens("node");
+        let c_tokens = op.c.create_tokens("node");
+        match op.op_type {
+            TriOpType::Ite => {
+                // a = condition, b = then, c = else
+                // to avoid control flow, convert condition to bitmask
+                let Sort::Bitvec(bitvec) = &result.sort else {
+                    return Err(anyhow!("Expected bitvec result, but have {:?}", result.sort));
+                };
+                let bitvec_length = bitvec.length.get();
+                let condition_mask: Expr =
+                    parse_quote!(::mck::MachineExt::<#bitvec_length>::sext(#a_tokens));
+                let neg_condition_mask: Expr =
+                    parse_quote!(::mck::MachineExt::<#bitvec_length>::sext(!(#a_tokens)));
+
+                Ok(
+                    parse_quote!(let #result_ident = ((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask));),
+                )
+            }
+            TriOpType::Write => {
+                // a = array, b = index, c = element to be stored
+                Err(anyhow!("Generating arrays not supported"))
             }
         }
     }

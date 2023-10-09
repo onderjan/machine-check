@@ -211,7 +211,7 @@ fn parse_line(
     if let Ok(op_type) = UniOpType::try_from(second) {
         let result_sort = parse_sort(&mut split, sorts)?;
         let a = parse_rref(&mut split, nodes)?;
-        let ntype = NodeType::UniOp(UniOp::new(op_type, a));
+        let ntype = NodeType::UniOp(UniOp { op_type, a });
         insert_node(nodes, result_sort, nid, ntype);
         return Ok(());
     }
@@ -221,7 +221,7 @@ fn parse_line(
         let result_sort = parse_sort(&mut split, sorts)?;
         let a = parse_rref(&mut split, nodes)?;
         let b = parse_rref(&mut split, nodes)?;
-        let ntype = NodeType::BiOp(BiOp::new(op_type, a, b));
+        let ntype = NodeType::BiOp(BiOp { op_type, a, b });
         insert_node(nodes, result_sort, nid, ntype);
         return Ok(());
     }
@@ -232,7 +232,7 @@ fn parse_line(
         let a = parse_rref(&mut split, nodes)?;
         let b = parse_rref(&mut split, nodes)?;
         let c = parse_rref(&mut split, nodes)?;
-        let ntype = NodeType::TriOp(TriOp::new(op_type, a, b, c));
+        let ntype = NodeType::TriOp(TriOp { op_type, a, b, c });
         insert_node(nodes, result_sort, nid, ntype);
         return Ok(());
     }
@@ -285,14 +285,22 @@ fn parse_line(
             let result_sort = parse_sort(&mut split, sorts)?;
             let a = parse_rref(&mut split, nodes)?;
             let extension_size = parse_u32(&mut split)?;
-            let ntype = NodeType::ExtOp(ExtOp::new(true, a, extension_size)?);
+            let ntype = NodeType::ExtOp(ExtOp {
+                signed: true,
+                a,
+                extension_size,
+            });
             insert_node(nodes, result_sort, nid, ntype);
         }
         "uext" => {
             let result_sort = parse_sort(&mut split, sorts)?;
             let a = parse_rref(&mut split, nodes)?;
             let extension_size = parse_u32(&mut split)?;
-            let ntype = NodeType::ExtOp(ExtOp::new(false, a, extension_size)?);
+            let ntype = NodeType::ExtOp(ExtOp {
+                signed: false,
+                a,
+                extension_size,
+            });
             insert_node(nodes, result_sort, nid, ntype);
         }
         "slice" => {
@@ -300,7 +308,19 @@ fn parse_line(
             let a = parse_rref(&mut split, nodes)?;
             let upper_bit = parse_u32(&mut split)?;
             let lower_bit = parse_u32(&mut split)?;
-            let ntype = NodeType::SliceOp(SliceOp::new(a, upper_bit, lower_bit)?);
+
+            if upper_bit < lower_bit {
+                return Err(anyhow!(
+                    "Upper bit {} cannot be lower than lower bit {}",
+                    upper_bit,
+                    lower_bit
+                ));
+            }
+            let ntype = NodeType::SliceOp(SliceOp {
+                a,
+                upper_bit,
+                lower_bit,
+            });
             insert_node(nodes, result_sort, nid, ntype);
         }
         // states
