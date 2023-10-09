@@ -7,7 +7,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 mck = { path = "../mck" }
 machine-check-common = { path = "../machine-check-common" }
-machine-check-transcribe-btor2 = { path = "../machine-check-transcribe-btor2" }
+btor2rs = { path = "../btor2rs" }
 anyhow = "1.0.75"
 proc-macro2 = "1.0.67"
 syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }

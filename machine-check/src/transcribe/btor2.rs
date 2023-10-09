@@ -2,37 +2,29 @@ use std::{fs, io::BufReader};
 
 use camino::Utf8Path;
 use proc_macro2::{Ident, Span, TokenStream};
-use std::io::BufRead;
 
 use anyhow::anyhow;
-use machine_check_transcribe_btor2::{
+use btor2rs::{
     node::{Const, NodeType},
     sort::{BitvecSort, Sort},
     Btor2,
 };
 use quote::quote;
+use std::io::BufRead;
+use syn::parse_quote;
 
 use crate::CheckError;
 
 pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
-    let btor2_file = fs::File::open(system_path)
+    let file = fs::File::open(system_path)
         .map_err(|err| CheckError::OpenFile(system_path.to_path_buf(), err))?;
 
-    let token_stream = translate_file(btor2_file).map_err(CheckError::TranslateFromBtor2)?;
-    syn::parse2(token_stream).map_err(CheckError::SyntaxTree)
-}
-
-pub fn translate_iter<'a>(
-    lines: impl Iterator<Item = &'a str>,
-) -> Result<TokenStream, anyhow::Error> {
-    let btor2 = machine_check_transcribe_btor2::parse(lines)?;
-    generate(btor2)
-}
-
-pub fn translate_file(file: fs::File) -> Result<TokenStream, anyhow::Error> {
     let lines_result: Result<Vec<_>, _> = BufReader::new(file).lines().collect();
-    let lines: Vec<String> = lines_result?;
-    translate_iter(lines.iter().map(|l| l.as_ref()))
+    let lines: Vec<String> =
+        lines_result.map_err(|err| CheckError::ReadFile(system_path.to_path_buf(), err))?;
+    let btor2 = btor2rs::parse(lines.iter().map(|str| str.as_ref()))
+        .map_err(CheckError::TranslateFromBtor2)?;
+    generate(btor2).map_err(CheckError::TranslateFromBtor2)
 }
 
 fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, anyhow::Error> {
@@ -107,7 +99,7 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
     Ok(statements)
 }
 
-pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
+pub fn generate(btor2: Btor2) -> Result<syn::File, anyhow::Error> {
     // construct state fields
     let mut state_fields = Vec::<TokenStream>::new();
     for (nid, node) in &btor2.nodes {
@@ -205,7 +197,7 @@ pub fn generate(btor2: Btor2) -> Result<TokenStream, anyhow::Error> {
     let init_statements = create_statements(&btor2, true)?;
     let next_statements = create_statements(&btor2, false)?;
 
-    let tokens = quote!(
+    let tokens = parse_quote!(
         #![allow(dead_code, unused_variables, clippy::all)]
 
         #[derive(Clone, Debug, PartialEq, Eq, Hash)]
