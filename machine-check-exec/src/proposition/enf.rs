@@ -1,98 +1,113 @@
-use super::{PropBi, PropU, Proposition};
+use super::{PropBi, PropU, PropUni, Proposition};
+
+impl PropUni {
+    #[must_use]
+    pub fn enf(&self) -> Self {
+        PropUni(Box::new(self.0.enf()))
+    }
+
+    pub fn new(prop: Proposition) -> Self {
+        PropUni(Box::new(prop))
+    }
+}
+
+impl PropBi {
+    #[must_use]
+    pub fn enf(&self) -> Self {
+        PropBi {
+            a: Box::new(self.a.enf()),
+            b: Box::new(self.b.enf()),
+        }
+    }
+}
+
+impl PropU {
+    #[must_use]
+    pub fn enf(&self) -> Self {
+        PropU {
+            hold: Box::new(self.hold.enf()),
+            until: Box::new(self.until.enf()),
+        }
+    }
+}
 
 impl Proposition {
-    pub fn apply_enf(&mut self) {
+    #[must_use]
+    pub fn enf(&self) -> Self {
         match self {
-            Proposition::Const(_) => return,
-            Proposition::Literal(_) => return,
-            Proposition::Negation(inner) => {
-                inner.apply_enf();
-                return;
-            }
-            Proposition::Or(PropBi { a, b }) => {
-                a.apply_enf();
-                b.apply_enf();
-                return;
-            }
-            Proposition::And(PropBi { a, b }) => {
-                // p and q = !(!p or !q)
-                *self = Proposition::Negation(Box::new(Proposition::Or(PropBi {
-                    a: Box::new(Proposition::Negation(Box::clone(a))),
-                    b: Box::new(Proposition::Negation(Box::clone(b))),
-                })));
-            }
-            Proposition::EX(inner) => {
-                inner.apply_enf();
-                return;
+            Proposition::Const(_) => self.clone(),
+            Proposition::Literal(_) => self.clone(),
+            Proposition::Negation(inner) => Proposition::Negation(inner.enf()),
+            Proposition::Or(v) => Proposition::Or(v.enf()),
+            Proposition::And(v) => Proposition::And(v.enf()),
+            Proposition::EX(inner) => Proposition::EX(inner.enf()),
+            Proposition::EG(inner) => Proposition::EG(inner.enf()),
+            Proposition::EU(inner) => Proposition::EU(inner.enf()),
+            Proposition::EF(inner) => {
+                // EF[p] = E[true U p]
+                Proposition::EU(PropU {
+                    hold: Box::new(Proposition::Const(true)),
+                    until: Box::new(inner.0.enf()),
+                })
             }
             Proposition::AX(inner) => {
                 // AX[p] = !EX[!p]
-                *self = Proposition::Negation(Box::new(Proposition::EX(Box::new(
-                    Proposition::Negation(Box::clone(inner)),
-                ))));
+                Proposition::Negation(PropUni::new(Proposition::EX(PropUni::new(
+                    Proposition::Negation(inner.enf()),
+                ))))
             }
             Proposition::AF(inner) => {
-                // AF[p] = A[true U p] = !EG[!p]
-                *self = Proposition::Negation(Box::new(Proposition::EG(Box::new(
-                    Proposition::Negation(Box::clone(inner)),
-                ))));
+                // AF[p] = !EG[!p]
+                Proposition::Negation(PropUni::new(Proposition::EG(PropUni::new(
+                    Proposition::Negation(inner.enf()),
+                ))))
             }
-            Proposition::EF(inner) => {
-                // EF[p] = E[true U p]
-                *self = Proposition::EU(PropU {
-                    hold: Box::new(Proposition::Const(true)),
-                    until: Box::clone(inner),
-                });
-            }
-            Proposition::EG(_) => return,
             Proposition::AG(inner) => {
                 // AG[p] = !EF[!p] = !E[true U !p]
-                *self = Proposition::Negation(Box::new(Proposition::EU(PropU {
+                Proposition::Negation(PropUni::new(Proposition::EU(PropU {
                     hold: Box::new(Proposition::Const(true)),
-                    until: Box::new(Proposition::Negation(Box::clone(inner))),
-                })));
-            }
-            Proposition::EU(inner) => {
-                inner.hold.apply_enf();
-                inner.until.apply_enf();
-                return;
+                    until: Box::new(Proposition::Negation(inner.enf())),
+                })))
             }
             Proposition::AU(inner) => {
+                let hold_enf = inner.hold.enf();
+                let until_enf = inner.until.enf();
+
                 // A[p U q] = !(E[!q U !(p or q)] or EG[!q])
                 let eu_part = Proposition::EU(PropU {
-                    hold: Box::new(Proposition::Negation(Box::clone(&inner.until))),
-                    until: Box::new(Proposition::Negation(Box::new(Proposition::Or(PropBi {
-                        a: Box::clone(&inner.hold),
-                        b: Box::clone(&inner.until),
-                    })))),
+                    hold: Box::new(Proposition::Negation(PropUni::new(until_enf.clone()))),
+                    until: Box::new(Proposition::Negation(PropUni::new(Proposition::Or(
+                        PropBi {
+                            a: Box::new(hold_enf),
+                            b: Box::new(until_enf.clone()),
+                        },
+                    )))),
                 });
                 let eg_part =
-                    Proposition::EG(Box::new(Proposition::Negation(Box::clone(&inner.until))));
-                *self = Proposition::Negation(Box::new(Proposition::Or(PropBi {
+                    Proposition::EG(PropUni::new(Proposition::Negation(PropUni::new(until_enf))));
+                Proposition::Negation(PropUni::new(Proposition::Or(PropBi {
                     a: Box::new(eu_part),
                     b: Box::new(eg_part),
-                })));
+                })))
             }
             Proposition::ER(inner) => {
                 // E[p R q] = !A[!p U !q]
-                let neg_hold = Proposition::Negation(inner.hold.clone());
-                let neg_release = Proposition::Negation(inner.release.clone());
-                *self = Proposition::Negation(Box::new(Proposition::AU(PropU {
-                    hold: Box::new(neg_hold),
-                    until: Box::new(neg_release),
-                })));
+                let neg_hold_enf = Proposition::Negation(PropUni::new(inner.hold.enf()));
+                let neg_release_enf = Proposition::Negation(PropUni::new(inner.release.enf()));
+                Proposition::Negation(PropUni::new(Proposition::AU(PropU {
+                    hold: Box::new(neg_hold_enf),
+                    until: Box::new(neg_release_enf),
+                })))
             }
             Proposition::AR(inner) => {
                 // A[p R q] = !E[!p U !q]
-                let neg_hold = Proposition::Negation(inner.hold.clone());
-                let neg_release = Proposition::Negation(inner.release.clone());
-                *self = Proposition::Negation(Box::new(Proposition::EU(PropU {
-                    hold: Box::new(neg_hold),
-                    until: Box::new(neg_release),
-                })));
+                let neg_hold_enf = Proposition::Negation(PropUni::new(inner.hold.enf()));
+                let neg_release_enf = Proposition::Negation(PropUni::new(inner.release.enf()));
+                Proposition::Negation(PropUni::new(Proposition::EU(PropU {
+                    hold: Box::new(neg_hold_enf),
+                    until: Box::new(neg_release_enf),
+                })))
             }
         }
-        // minimize the new expression
-        self.apply_enf();
     }
 }

@@ -9,15 +9,15 @@ mod pnf;
 pub enum Proposition {
     Const(bool),
     Literal(Literal),
-    Negation(Box<Proposition>),
+    Negation(PropUni),
     Or(PropBi),
     And(PropBi),
-    EX(Box<Proposition>),
-    AX(Box<Proposition>),
-    EF(Box<Proposition>),
-    AF(Box<Proposition>),
-    EG(Box<Proposition>),
-    AG(Box<Proposition>),
+    EX(PropUni),
+    AX(PropUni),
+    EF(PropUni),
+    AF(PropUni),
+    EG(PropUni),
+    AG(PropUni),
     EU(PropU),
     AU(PropU),
     ER(PropR),
@@ -52,6 +52,9 @@ impl Literal {
         self.complementary
     }
 }
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct PropUni(pub Box<Proposition>);
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct PropBi {

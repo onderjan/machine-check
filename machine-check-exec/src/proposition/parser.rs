@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use machine_check_common::ExecError;
 
-use super::{Literal, PropBi, PropU, Proposition};
+use super::{Literal, PropBi, PropU, PropUni, Proposition};
 
 pub fn parse(input: &str) -> Result<Proposition, ExecError> {
     let mut parser = PropositionParser {
@@ -26,7 +26,7 @@ pub enum PropositionLexItem {
 }
 
 impl PropositionParser {
-    fn parse_uni(&mut self) -> Result<Box<Proposition>, ExecError> {
+    fn parse_uni(&mut self) -> Result<PropUni, ExecError> {
         let Some(PropositionLexItem::OpeningParen(opening)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
@@ -37,7 +37,7 @@ impl PropositionParser {
         if corresponding_closing(opening) != closing {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         }
-        Ok(Box::new(result))
+        Ok(PropUni(Box::new(result)))
     }
 
     fn parse_bi(&mut self) -> Result<PropBi, ExecError> {

@@ -20,9 +20,9 @@ impl Proposition {
             }
             Proposition::Negation(inner) => {
                 // flip complement
-                inner.apply_pnf_complementation_inner(!complement);
+                inner.0.apply_pnf_complementation_inner(!complement);
                 // remove negation
-                *self = *inner.clone();
+                *self = *inner.0.clone();
             }
             Proposition::Or(PropBi { a, b }) => {
                 a.apply_pnf_complementation_inner(complement);
@@ -50,42 +50,42 @@ impl Proposition {
             }
             Proposition::EX(inner) => {
                 // !EX[p] = AX[!p], we retain complement
-                inner.apply_pnf_complementation_inner(complement);
+                inner.0.apply_pnf_complementation_inner(complement);
                 if complement {
                     *self = Proposition::AX(inner.clone());
                 }
             }
             Proposition::AX(inner) => {
                 // !AX[p] = EX[!p], we retain complement
-                inner.apply_pnf_complementation_inner(complement);
+                inner.0.apply_pnf_complementation_inner(complement);
                 if complement {
                     *self = Proposition::EX(inner.clone());
                 }
             }
             Proposition::AF(inner) => {
                 // !EF[p] = AG[!p], we retain complement
-                inner.apply_pnf_complementation_inner(complement);
+                inner.0.apply_pnf_complementation_inner(complement);
                 if complement {
                     *self = Proposition::AG(inner.clone());
                 }
             }
             Proposition::EF(inner) => {
                 // !EF[p] = AG[!p], we retain complement
-                inner.apply_pnf_complementation_inner(complement);
+                inner.0.apply_pnf_complementation_inner(complement);
                 if complement {
                     *self = Proposition::EG(inner.clone());
                 }
             }
             Proposition::EG(inner) => {
                 // !EG[p] = AF[!p], we retain complement
-                inner.apply_pnf_complementation_inner(complement);
+                inner.0.apply_pnf_complementation_inner(complement);
                 if complement {
                     *self = Proposition::AF(inner.clone());
                 }
             }
             Proposition::AG(inner) => {
                 // !AG[p] = EF[!p], we retain complement
-                inner.apply_pnf_complementation_inner(complement);
+                inner.0.apply_pnf_complementation_inner(complement);
                 if complement {
                     *self = Proposition::EF(inner.clone());
                 }

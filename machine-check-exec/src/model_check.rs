@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use machine_check_common::{Culprit, ExecError, StateId};
 use mck::AbstractMachine;
 
-use crate::proposition::{Literal, PropBi, PropU, Proposition};
+use crate::proposition::{Literal, PropBi, PropU, PropUni, Proposition};
 
 use super::space::Space;
 
@@ -11,9 +11,9 @@ pub fn safety_proposition() -> Proposition {
     // check AG[safe]
     // no complementary literal
     // in two-valued checking, transform to !E[true U !safe]
-    Proposition::Negation(Box::new(Proposition::EU(PropU {
+    Proposition::Negation(PropUni::new(Proposition::EU(PropU {
         hold: Box::new(Proposition::Const(true)),
-        until: Box::new(Proposition::Negation(Box::new(Proposition::Literal(
+        until: Box::new(Proposition::Negation(PropUni::new(Proposition::Literal(
             Literal::new(String::from("safe")),
         )))),
     })))
@@ -47,7 +47,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
         // transform to positive normal form to move negations to literals
         prop.apply_pnf_complementation();
         // transform to existential normal form to be able to verify
-        prop.apply_enf();
+        let prop = prop.enf();
 
         // compute optimistic and pessimistic interpretation
         let pessimistic_interpretation = self.pessimistic.compute_interpretation(&prop)?;
@@ -100,7 +100,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
             }
             Proposition::Negation(inner) => {
                 // propagate to inner
-                self.compute_labelling_culprit(inner, path)
+                self.compute_labelling_culprit(&inner.0, path)
             }
             Proposition::Or(PropBi { a, b }) => {
                 // the state should be unknown in p or q
@@ -121,12 +121,12 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                     self.space.direct_successor_iter(path_back_index.into())
                 {
                     let direct_successor_interpretation =
-                        self.get_interpretation(inner.as_ref(), direct_successor_index);
+                        self.get_interpretation(inner.0.as_ref(), direct_successor_index);
                     if direct_successor_interpretation.is_none() {
                         // add to path
                         let mut path = path.clone();
                         path.push_back(direct_successor_index);
-                        return self.compute_labelling_culprit(inner, &path);
+                        return self.compute_labelling_culprit(&inner.0, &path);
                     }
                 }
                 panic!("no EX culprit found")
@@ -140,7 +140,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                 queue.push_back(path_back_index);
                 backtrack_map.insert(path_back_index, path_back_index);
                 while let Some(state_index) = queue.pop_front() {
-                    let inner_interpretation = self.get_interpretation(inner, state_index);
+                    let inner_interpretation = self.get_interpretation(&inner.0, state_index);
                     match inner_interpretation {
                         Some(true) => {
                             // continue down this path
@@ -175,7 +175,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                             let mut path = path.clone();
                             path.append(&mut suffix);
 
-                            return self.compute_labelling_culprit(inner, &path);
+                            return self.compute_labelling_culprit(&inner.0, &path);
                         }
                     }
                 }
@@ -398,8 +398,8 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
             Proposition::Negation(inner) => {
                 // complement
                 let full_labelling = BTreeSet::from_iter(self.space.state_id_iter());
-                self.compute_labelling(inner)?;
-                let inner_labelling = self.get_labelling(inner);
+                self.compute_labelling(&inner.0)?;
+                let inner_labelling = self.get_labelling(&inner.0);
                 full_labelling
                     .difference(inner_labelling)
                     .cloned()
@@ -412,9 +412,9 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
                 let b_labelling = self.get_labelling(b);
                 a_labelling.union(b_labelling).cloned().collect()
             }
-            Proposition::EX(inner) => self.compute_ex_labelling(inner)?,
+            Proposition::EX(inner) => self.compute_ex_labelling(&inner.0)?,
             Proposition::EU(eu) => self.compute_eu_labelling(eu)?,
-            Proposition::EG(inner) => self.compute_eg_labelling(inner)?,
+            Proposition::EG(inner) => self.compute_eg_labelling(&inner.0)?,
             _ => panic!("expected {:?} to be minimized", prop),
         };
 
