@@ -148,8 +148,8 @@ impl Verify {
             .map_err(|err| CheckError::CreateDir(src_dir_path.clone(), err))?;
         let main_path = src_dir_path.join("main.rs");
 
-        let translation =
-            btor2rs::translate_file(btor2_file).map_err(CheckError::TranslateFromBtor2)?;
+        let translation = machine_check_transcribe_btor2::translate_file(btor2_file)
+            .map_err(CheckError::TranslateFromBtor2)?;
         let concrete_machine: syn::File =
             syn::parse2(translation).map_err(CheckError::SyntaxTree)?;
         let mut abstract_machine =

@@ -1,4 +1,4 @@
 [workspace]
 
 resolver = "2"
-members = ["mck", "machine-check", "machine-check-*", "btor2rs"]
+members = ["mck", "machine-check", "machine-check-*"]
