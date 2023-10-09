@@ -58,6 +58,8 @@ pub enum CheckError {
     ExecError(#[from] ExecError),
     #[error("instead of one executable, {0} built")]
     BuildAmount(usize),
+    #[error("unknown system type: {0}")]
+    SystemType(String),
 }
 
 #[derive(Parser, Clone, Debug)]
