@@ -1,10 +1,8 @@
 use crate::{
-    parse_nid, parse_sid, parse_u32, BiOp, BiOpType, ExtOp, ExtOpType, Nid, Sid, SliceOp, TriOp,
-    TriOpType, UniOp, UniOpType,
+    parse_nid, parse_sid, parse_u32, BiOp, BiOpType, ExtOp, ExtOpType, Nid, Rnid, Sid, SliceOp,
+    TriOp, TriOpType, UniOp, UniOpType,
 };
 use anyhow::anyhow;
-
-use super::refs::Rref;
 
 #[derive(Debug, Clone)]
 pub struct Const {
@@ -23,10 +21,10 @@ pub enum ConstType {
 
 #[derive(Debug, Clone)]
 pub enum OpType {
-    Output(Rref),
+    Output(Rnid),
     Const(Const),
-    Bad(Rref),
-    Constraint(Rref),
+    Bad(Rnid),
+    Constraint(Rnid),
 }
 
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -148,31 +146,31 @@ impl Node {
         // unary operations
         if let Ok(ty) = UniOpType::try_from(second) {
             let sid = parse_sid(&mut split)?;
-            let a = parse_rref(&mut split)?;
+            let a = parse_rnid(&mut split)?;
             return Ok(Some(Node::UniOp(UniOp { sid, ty, a })));
         }
 
         // binary operations
         if let Ok(ty) = BiOpType::try_from(second) {
             let sid = parse_sid(&mut split)?;
-            let a = parse_rref(&mut split)?;
-            let b = parse_rref(&mut split)?;
+            let a = parse_rnid(&mut split)?;
+            let b = parse_rnid(&mut split)?;
             return Ok(Some(Node::BiOp(BiOp { sid, ty, a, b })));
         }
 
         // ternary operations
         if let Ok(ty) = TriOpType::try_from(second) {
             let sid = parse_sid(&mut split)?;
-            let a = parse_rref(&mut split)?;
-            let b = parse_rref(&mut split)?;
-            let c = parse_rref(&mut split)?;
+            let a = parse_rnid(&mut split)?;
+            let b = parse_rnid(&mut split)?;
+            let c = parse_rnid(&mut split)?;
             return Ok(Some(Node::TriOp(TriOp { sid, ty, a, b, c })));
         }
 
         // extension
         if let Ok(ty) = ExtOpType::try_from(second) {
             let sid = parse_sid(&mut split)?;
-            let a = parse_rref(&mut split)?;
+            let a = parse_rnid(&mut split)?;
             let length = parse_u32(&mut split)?;
             return Ok(Some(Node::ExtOp(ExtOp { sid, ty, a, length })));
         }
@@ -182,7 +180,7 @@ impl Node {
             // special operations
             "slice" => {
                 let sid = parse_sid(&mut split)?;
-                let a = parse_rref(&mut split)?;
+                let a = parse_rnid(&mut split)?;
                 let upper_bit = parse_u32(&mut split)?;
                 let lower_bit = parse_u32(&mut split)?;
 
@@ -234,7 +232,7 @@ fn parse_const_node<'a>(
     }))
 }
 
-fn parse_rref<'a>(split: &mut impl Iterator<Item = &'a str>) -> Result<Rref, anyhow::Error> {
+fn parse_rnid<'a>(split: &mut impl Iterator<Item = &'a str>) -> Result<Rnid, anyhow::Error> {
     // on the right side, '-' can be used on nids to perform bitwise negation
     let str = split.next().ok_or_else(|| anyhow!("Missing nid"))?;
 
@@ -246,5 +244,5 @@ fn parse_rref<'a>(split: &mut impl Iterator<Item = &'a str>) -> Result<Rref, any
 
     let nid = Nid::try_from(nid)?;
 
-    Ok(Rref { nid, not })
+    Ok(Rnid { nid, not })
 }

@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use btor2rs::{Bitvec, Btor2, Nid, Rref, Sid, Sort};
+use btor2rs::{Bitvec, Btor2, Nid, Rnid, Sid, Sort};
 use proc_macro2::Span;
 use syn::{parse_quote, Expr, Ident, Type};
 
@@ -7,7 +7,7 @@ pub fn create_nid_ident(nid: Nid) -> Ident {
     Ident::new(&format!("node_{}", nid.0), Span::call_site())
 }
 
-pub fn create_rref_expr(rref: &Rref) -> Expr {
+pub fn create_rref_expr(rref: &Rnid) -> Expr {
     let ident = create_nid_ident(rref.nid);
     if rref.not {
         parse_quote!((!#ident))

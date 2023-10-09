@@ -31,3 +31,9 @@ impl TryFrom<&str> for Nid {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct Rnid {
+    pub nid: Nid,
+    pub not: bool,
+}

@@ -1,4 +1,5 @@
-use crate::{refs::Rref, Sid};
+use crate::Rnid;
+use crate::Sid;
 
 // derive Btor2 string representations, which are lower-case
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -17,7 +18,7 @@ pub enum UniOpType {
 pub struct UniOp {
     pub sid: Sid,
     pub ty: UniOpType,
-    pub a: Rref,
+    pub a: Rnid,
 }
 
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -80,8 +81,8 @@ pub enum BiOpType {
 pub struct BiOp {
     pub sid: Sid,
     pub ty: BiOpType,
-    pub a: Rref,
-    pub b: Rref,
+    pub a: Rnid,
+    pub b: Rnid,
 }
 
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -97,9 +98,9 @@ pub enum TriOpType {
 pub struct TriOp {
     pub sid: Sid,
     pub ty: TriOpType,
-    pub a: Rref,
-    pub b: Rref,
-    pub c: Rref,
+    pub a: Rnid,
+    pub b: Rnid,
+    pub c: Rnid,
 }
 
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -113,14 +114,14 @@ pub enum ExtOpType {
 pub struct ExtOp {
     pub sid: Sid,
     pub ty: ExtOpType,
-    pub a: Rref,
+    pub a: Rnid,
     pub length: u32,
 }
 
 #[derive(Debug, Clone)]
 pub struct SliceOp {
     pub sid: Sid,
-    pub a: Rref,
+    pub a: Rnid,
     pub upper_bit: u32,
     pub lower_bit: u32,
 }
