@@ -233,16 +233,6 @@ fn parse_const_node<'a>(
 }
 
 fn parse_rnid<'a>(split: &mut impl Iterator<Item = &'a str>) -> Result<Rnid, anyhow::Error> {
-    // on the right side, '-' can be used on nids to perform bitwise negation
     let str = split.next().ok_or_else(|| anyhow!("Missing nid"))?;
-
-    let (not, nid) = if let Some(stripped_value) = str.strip_prefix('-') {
-        (true, stripped_value)
-    } else {
-        (false, str)
-    };
-
-    let nid = Nid::try_from(nid)?;
-
-    Ok(Rnid { nid, not })
+    Rnid::try_from(str)
 }

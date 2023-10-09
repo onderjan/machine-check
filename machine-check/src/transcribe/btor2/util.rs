@@ -4,12 +4,12 @@ use proc_macro2::Span;
 use syn::{parse_quote, Expr, Ident, Type};
 
 pub fn create_nid_ident(nid: Nid) -> Ident {
-    Ident::new(&format!("node_{}", nid.0), Span::call_site())
+    Ident::new(&format!("node_{}", nid.get()), Span::call_site())
 }
 
-pub fn create_rref_expr(rref: &Rnid) -> Expr {
-    let ident = create_nid_ident(rref.nid);
-    if rref.not {
+pub fn create_rnid_ident(rref: &Rnid) -> Expr {
+    let ident = create_nid_ident(rref.nid());
+    if rref.is_not() {
         parse_quote!((!#ident))
     } else {
         parse_quote!(#ident)
