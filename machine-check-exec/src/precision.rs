@@ -25,16 +25,8 @@ impl<M: MarkMachine> Precision<M> {
         &self.init
     }
 
-    pub fn get_init_mut(&mut self) -> &mut M::Input {
-        &mut self.init
-    }
-
-    pub fn get_init_decay(&self) -> &M::State {
+    pub fn init_decay(&self) -> &M::State {
         &self.init_decay
-    }
-
-    pub fn get_init_decay_mut(&mut self) -> &mut M::State {
-        &mut self.init_decay
     }
 
     pub fn get_step(&self, state_index: usize) -> M::Input {
@@ -45,23 +37,31 @@ impl<M: MarkMachine> Precision<M> {
         }
     }
 
-    pub fn get_step_mut(&mut self, state_index: usize) -> &mut M::Input {
-        self.step
-            .entry(state_index)
-            .or_insert_with(M::Input::new_unmarked)
+    pub fn precision_mut(&mut self, state_index: Option<&usize>) -> &mut M::Input {
+        if let Some(state_index) = state_index {
+            self.step
+                .entry(*state_index)
+                .or_insert_with(M::Input::new_unmarked)
+        } else {
+            &mut self.init
+        }
     }
 
-    pub fn get_step_decay(&self, from_state_index: usize) -> M::State {
+    pub fn step_decay(&self, from_state_index: usize) -> M::State {
         match self.step_decay.get(&from_state_index) {
             Some(result) => result.clone(),
             None => M::State::new_unmarked(),
         }
     }
 
-    pub fn get_step_decay_mut(&mut self, from_state_index: usize) -> &mut M::State {
-        self.step_decay
-            .entry(from_state_index)
-            .or_insert_with(M::State::new_unmarked)
+    pub fn decay_mut(&mut self, state_index: Option<&usize>) -> &mut M::State {
+        if let Some(state_index) = state_index {
+            self.step_decay
+                .entry(*state_index)
+                .or_insert_with(M::State::new_unmarked)
+        } else {
+            &mut self.init_decay
+        }
     }
 
     pub fn retain_indices<F>(&mut self, predicate: F)

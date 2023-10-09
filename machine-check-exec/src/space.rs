@@ -123,20 +123,20 @@ impl<AM: AbstractMachine> Space<AM> {
         );
     }
 
-    pub fn get_representative_step_input(&self, head: usize, tail: usize) -> &AM::Input {
-        &self
-            .state_graph
-            .edge_weight(head, tail)
-            .expect("Edge should be present in graph")
-            .representative_input
-    }
-
-    pub fn get_representative_init_input(&self, init_state: usize) -> &AM::Input {
-        &self
-            .initial_states
-            .get(&init_state)
-            .expect("State should be present in initial states")
-            .representative_input
+    pub fn get_representative_input(&self, head: Option<&usize>, tail: usize) -> &AM::Input {
+        if let Some(head) = head {
+            &self
+                .state_graph
+                .edge_weight(*head, tail)
+                .expect("Edge should be present in graph")
+                .representative_input
+        } else {
+            &self
+                .initial_states
+                .get(&tail)
+                .expect("State should be present in initial states")
+                .representative_input
+        }
     }
 
     pub fn initial_index_iter(&self) -> impl Iterator<Item = usize> + '_ {
