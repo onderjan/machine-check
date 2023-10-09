@@ -68,7 +68,7 @@ fn parse_sort(
 ) -> Result<Sort, anyhow::Error> {
     let sid = parse_sid(split)?;
     let Some(sort) = sorts.get(&sid) else {
-        return Err(anyhow!("Unknown sid {}", sid));
+        return Err(anyhow!("Unknown sid {:?}", sid));
     };
     Ok(sort.clone())
 }
@@ -80,7 +80,7 @@ fn create_lref(nodes: &mut BTreeMap<Nid, Node>, nid: Nid) -> Result<Lref, anyhow
             nid,
         })
     } else {
-        Err(anyhow!("Cannot find node with nid {}", nid))
+        Err(anyhow!("Cannot find node with nid {:?}", nid))
     }
 }
 
@@ -103,7 +103,7 @@ fn create_rref(
             flip: flippable_nid.flip,
         })
     } else {
-        Err(anyhow!("Cannot find node with nid {}", nid))
+        Err(anyhow!("Cannot find node with nid {:?}", nid))
     }
 }
 
@@ -325,7 +325,7 @@ fn parse_line(
                         None
                     }
                 })
-                .ok_or_else(|| anyhow!("Invalid state nid {}", state_nid))?;
+                .ok_or_else(|| anyhow!("Invalid state nid {:?}", state_nid))?;
 
             state.supply_init(state_rref, init_rref)?;
         }
@@ -345,7 +345,7 @@ fn parse_line(
                         None
                     }
                 })
-                .ok_or_else(|| anyhow!("Invalid state nid {}", state_nid))?;
+                .ok_or_else(|| anyhow!("Invalid state nid {:?}", state_nid))?;
 
             state.supply_next(state_lref, next_rref)?;
         }

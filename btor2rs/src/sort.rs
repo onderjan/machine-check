@@ -1,4 +1,4 @@
-use std::{fmt::Display, num::NonZeroU32};
+use std::num::NonZeroU32;
 
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
@@ -17,12 +17,6 @@ impl BitvecSort {
     }
 }
 
-impl Display for BitvecSort {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "bitvec(length: {})", self.length)
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArraySort {
     pub index_sort: Box<Sort>,
@@ -35,16 +29,6 @@ impl ArraySort {
             index_sort: Box::new(index_sort.clone()),
             element_sort: Box::new(element_sort.clone()),
         }
-    }
-}
-
-impl Display for ArraySort {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "array(index: {}, element: {})",
-            self.index_sort, self.element_sort,
-        )
     }
 }
 
@@ -67,18 +51,5 @@ impl Sort {
 
     pub fn single_bit_sort() -> Sort {
         Sort::Bitvec(BitvecSort::single_bit())
-    }
-}
-
-impl Display for Sort {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Sort::Bitvec(bitvec) => write!(f, "{}", bitvec),
-            Sort::Array(array) => write!(
-                f,
-                "array(index: {}, element: {})",
-                array.index_sort, array.element_sort
-            ),
-        }
     }
 }

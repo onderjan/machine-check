@@ -56,7 +56,7 @@ fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, a
             NodeType::Const(const_value) => {
                 let Sort::Bitvec(bitvec) = &node.result.sort else {
                     // just here to be sure, should not happen
-                    return Err(anyhow!("Expected bitvec const value, but have {}", node.result.sort));
+                    return Err(anyhow!("Expected bitvec const value, but have {:?}", node.result.sort));
                 };
                 let const_tokens = const_value.create_tokens(bitvec);
                 statements.push(quote!(let #result_ident = #const_tokens;));

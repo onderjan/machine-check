@@ -37,7 +37,7 @@ impl TriOp {
                 // a = condition, b = then, c = else
                 // to avoid control flow, convert condition to bitmask
                 let Sort::Bitvec(bitvec) = &result.sort else {
-                    return Err(anyhow!("Expected bitvec result, but have {}", result.sort));
+                    return Err(anyhow!("Expected bitvec result, but have {:?}", result.sort));
                 };
                 let bitvec_length = bitvec.length.get();
                 let condition_mask = quote!(::mck::MachineExt::<#bitvec_length>::sext(#a_tokens));

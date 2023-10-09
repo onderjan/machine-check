@@ -21,7 +21,7 @@ impl State {
             Ok(())
         } else {
             Err(anyhow!(
-                "State sort {} is different from init sort {}",
+                "State sort {:?} is different from init sort {:?}",
                 state.sort,
                 init.sort
             ))
@@ -34,7 +34,7 @@ impl State {
             Ok(())
         } else {
             Err(anyhow!(
-                "State sort {} is different from next sort {}",
+                "State sort {:?} is different from next sort {:?}",
                 state.sort,
                 next.sort
             ))

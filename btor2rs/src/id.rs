@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use anyhow::anyhow;
 use proc_macro2::{Ident, Span};
 
@@ -17,12 +15,6 @@ impl TryFrom<&str> for Sid {
         } else {
             Err(anyhow!("Cannot parse sid '{}'", value))
         }
-    }
-}
-
-impl Display for Sid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
     }
 }
 
@@ -47,12 +39,6 @@ impl TryFrom<&str> for Nid {
     }
 }
 
-impl Display for Nid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct FlippableNid {
     pub flip: bool,
@@ -72,12 +58,5 @@ impl TryFrom<&str> for FlippableNid {
         let nid = Nid::try_from(nid)?;
 
         Ok(FlippableNid { flip, nid })
-    }
-}
-
-impl Display for FlippableNid {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let sign = if self.flip { "-" } else { "" };
-        write!(f, "{}{}", sign, self.nid)
     }
 }

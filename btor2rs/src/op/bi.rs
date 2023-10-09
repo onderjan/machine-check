@@ -121,7 +121,7 @@ impl BiOp {
             BiOpType::Concat => {
                 // a is the higher, b is the lower
                 let Sort::Bitvec(result_sort) = result_sort else {
-                    return Err(anyhow!("Expected bitvec result, but have {}", result_sort));
+                    return Err(anyhow!("Expected bitvec result, but have {:?}", result_sort));
                 };
                 let result_length = result_sort.length.get();
 
@@ -131,7 +131,7 @@ impl BiOp {
 
                 // shift a left by length of b
                 let Sort::Bitvec(b_sort) = &self.b.sort else {
-                    return Err(anyhow!("Expected bitvec second parameter, but have {}", self.b.sort));
+                    return Err(anyhow!("Expected bitvec second parameter, but have {:?}", self.b.sort));
                 };
                 let b_length = b_sort.length.get();
 

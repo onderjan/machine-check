@@ -24,7 +24,7 @@ impl ExtOp {
 
         // just compute the new number of bits and perform the extension
         let Sort::Bitvec(a_bitvec) = &self.a.sort else {
-            return Err(anyhow!("Expected bitvec operand, but have {}", result_sort));
+            return Err(anyhow!("Expected bitvec operand, but have {:?}", result_sort));
         };
         let a_length = a_bitvec.length.get();
 
@@ -64,7 +64,7 @@ impl SliceOp {
     pub fn create_expression(&self, result_sort: &Sort) -> Result<TokenStream, anyhow::Error> {
         let a_tokens = self.a.create_tokens("node");
         let Sort::Bitvec(a_bitvec) = &self.a.sort else {
-            return Err(anyhow!("Expected bitvec operand, but have {}", result_sort));
+            return Err(anyhow!("Expected bitvec operand, but have {:?}", result_sort));
         };
 
         // logical shift right to make the lower bit the zeroth bit
