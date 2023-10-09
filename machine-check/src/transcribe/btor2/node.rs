@@ -1,16 +1,10 @@
 use anyhow::anyhow;
 use btor2rs::{
     id::Nid,
-    lref::Lref,
     node::{Const, Node, NodeType},
-    op::{
-        bi::{BiOp, BiOpType},
-        indexed::{ExtOp, SliceOp},
-        tri::{TriOp, TriOpType},
-        uni::{UniOp, UniOpType},
-    },
+    refs::Lref,
     sort::Sort,
-    Btor2,
+    BiOp, BiOpType, Btor2, ExtOp, SliceOp, TriOp, TriOpType, UniOp, UniOpType,
 };
 use syn::{parse_quote, Expr};
 

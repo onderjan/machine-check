@@ -1,29 +1,22 @@
 pub mod id;
-pub mod lref;
 pub mod node;
-pub mod op;
-pub mod rref;
+mod op;
+pub mod refs;
 pub mod sort;
 pub mod state;
+
+pub use op::*;
 
 use anyhow::anyhow;
 use anyhow::Context;
 use std::num::NonZeroU32;
 use std::{collections::BTreeMap, str::SplitWhitespace};
 
-use self::lref::Lref;
 use self::node::NodeType;
-use self::op::indexed::ExtOp;
-use self::op::indexed::SliceOp;
-use self::rref::Rref;
+use self::refs::Lref;
+use self::refs::Rref;
 use self::{id::FlippableNid, node::Node};
 use node::Const;
-use op::bi::BiOp;
-use op::bi::BiOpType;
-use op::tri::TriOp;
-use op::tri::TriOpType;
-use op::uni::UniOp;
-use op::uni::UniOpType;
 use sort::ArraySort;
 use sort::BitvecSort;
 use state::State;

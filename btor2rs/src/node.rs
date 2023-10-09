@@ -1,15 +1,6 @@
-use super::{
-    lref::Lref,
-    op::{
-        bi::BiOp,
-        indexed::{ExtOp, SliceOp},
-        tri::TriOp,
-        uni::UniOp,
-    },
-    rref::Rref,
-    sort::BitvecSort,
-    state::State,
-};
+use crate::{BiOp, ExtOp, SliceOp, TriOp, UniOp};
+
+use super::{refs::Lref, refs::Rref, sort::BitvecSort, state::State};
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
 use quote::quote;
