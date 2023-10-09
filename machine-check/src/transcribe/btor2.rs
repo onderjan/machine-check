@@ -1,14 +1,14 @@
+mod node;
+
 use std::{fs, io::BufReader};
 
-use camino::Utf8Path;
-use proc_macro2::{Ident, Span, TokenStream};
-
-use anyhow::anyhow;
 use btor2rs::{
     node::{Const, NodeType},
     sort::{BitvecSort, Sort},
     Btor2,
 };
+use camino::Utf8Path;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use std::io::BufRead;
 use syn::parse_quote;
@@ -27,76 +27,12 @@ pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
     generate(btor2).map_err(CheckError::TranslateFromBtor2)
 }
 
-fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, anyhow::Error> {
-    let mut statements = Vec::<TokenStream>::new();
+fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<syn::Stmt>, anyhow::Error> {
+    let mut stmts = Vec::<syn::Stmt>::new();
     for (nid, node) in btor2.nodes.iter() {
-        let result_ident = nid.create_ident("node");
-        match &node.ntype {
-            NodeType::State(state) => {
-                let treat_as_input = if is_init {
-                    if let Some(init) = state.init() {
-                        let init_tokens = init.create_tokens("node");
-                        statements.push(quote!(let #result_ident = #init_tokens;));
-                        false
-                    } else {
-                        true
-                    }
-                } else if state.next().is_some() {
-                    let state_ident = nid.create_ident("state");
-                    statements.push(quote!(let #result_ident = state.#state_ident;));
-                    false
-                } else {
-                    true
-                };
-                if treat_as_input {
-                    let input_ident = nid.create_ident("input");
-                    statements.push(quote!(let #result_ident = input.#input_ident;));
-                }
-            }
-            NodeType::Const(const_value) => {
-                let Sort::Bitvec(bitvec) = &node.result.sort else {
-                    // just here to be sure, should not happen
-                    return Err(anyhow!("Expected bitvec const value, but have {:?}", node.result.sort));
-                };
-                let const_tokens = const_value.create_tokens(bitvec);
-                statements.push(quote!(let #result_ident = #const_tokens;));
-            }
-            NodeType::Input => {
-                let input_ident = nid.create_ident("input");
-                statements.push(quote!(let #result_ident = input.#input_ident;));
-            }
-            NodeType::Output(_) => {
-                // outputs are unimportant for verification
-            }
-            NodeType::ExtOp(op) => {
-                let expression = op.create_expression(&node.result.sort)?;
-                statements.push(quote!(let #result_ident = #expression;));
-            }
-            NodeType::SliceOp(op) => {
-                let expression = op.create_expression(&node.result.sort)?;
-                statements.push(quote!(let #result_ident = #expression;));
-            }
-            NodeType::UniOp(op) => {
-                let expression = op.create_expression(&node.result.sort)?;
-                statements.push(quote!(let #result_ident = #expression;));
-            }
-            NodeType::BiOp(op) => {
-                let expression = op.create_expression(&node.result.sort)?;
-                statements.push(quote!(let #result_ident = #expression;));
-            }
-            NodeType::TriOp(op) => {
-                let statement = op.create_statement(&node.result)?;
-                statements.push(statement);
-            }
-            NodeType::Bad(_) => {
-                // bad is treated in its own function
-            }
-            NodeType::Constraint(_) => {
-                // constraints are treated at the end
-            }
-        }
+        node::transcribe(&mut stmts, is_init, nid, node)?;
     }
-    Ok(statements)
+    Ok(stmts)
 }
 
 pub fn generate(btor2: Btor2) -> Result<syn::File, anyhow::Error> {

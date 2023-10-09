@@ -1,8 +1,7 @@
 use crate::{lref::Lref, rref::Rref, sort::Sort};
 
 use anyhow::anyhow;
-use proc_macro2::TokenStream;
-use quote::quote;
+use syn::{parse_quote, Expr};
 
 // derive Btor2 string representations, which are lower-case
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
@@ -27,7 +26,7 @@ impl TriOp {
         TriOp { op_type, a, b, c }
     }
 
-    pub fn create_statement(&self, result: &Lref) -> Result<TokenStream, anyhow::Error> {
+    pub fn create_statement(&self, result: &Lref) -> Result<syn::Stmt, anyhow::Error> {
         let result_ident = result.create_ident("node");
         let a_tokens = self.a.create_tokens("node");
         let b_tokens = self.b.create_tokens("node");
@@ -40,12 +39,13 @@ impl TriOp {
                     return Err(anyhow!("Expected bitvec result, but have {:?}", result.sort));
                 };
                 let bitvec_length = bitvec.length.get();
-                let condition_mask = quote!(::mck::MachineExt::<#bitvec_length>::sext(#a_tokens));
-                let neg_condition_mask =
-                    quote!(::mck::MachineExt::<#bitvec_length>::sext(!(#a_tokens)));
+                let condition_mask: Expr =
+                    parse_quote!(::mck::MachineExt::<#bitvec_length>::sext(#a_tokens));
+                let neg_condition_mask: Expr =
+                    parse_quote!(::mck::MachineExt::<#bitvec_length>::sext(!(#a_tokens)));
 
                 Ok(
-                    quote!(let #result_ident = ((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask));),
+                    parse_quote!(let #result_ident = ((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask));),
                 )
             }
             TriOpType::Write => {
