@@ -8,9 +8,10 @@ use mck::MarkMachine;
 use mck::MarkState;
 use mck::{AbstractMachine, MarkBitvector};
 
+use crate::proposition::Proposition;
 use crate::space::NodeId;
 use crate::{
-    model_check::{self, Proposition},
+    model_check::{self},
     precision::Precision,
     space::Space,
 };

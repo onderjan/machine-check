@@ -3,6 +3,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use machine_check_common::{Culprit, ExecError, StateId};
 use mck::AbstractMachine;
 
+use crate::proposition::{Literal, Proposition, PropositionU};
+
 use super::space::Space;
 
 pub fn safety_proposition() -> Proposition {
@@ -12,10 +14,7 @@ pub fn safety_proposition() -> Proposition {
     Proposition::Negation(Box::new(Proposition::EU(PropositionU {
         hold: Box::new(Proposition::Const(true)),
         until: Box::new(Proposition::Negation(Box::new(Proposition::Literal(
-            Literal {
-                complementary: false,
-                name: String::from("safe"),
-            },
+            Literal::new(String::from("safe")),
         )))),
     })))
 }
@@ -46,9 +45,9 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
     fn check_prop(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
         let mut prop = prop.clone();
         // transform to positive normal form to move negations to literals
-        prop.pnf();
+        prop.apply_pnf_complementation();
         // transform to existential normal form to be able to verify
-        prop.enf();
+        prop.apply_enf();
 
         // compute optimistic and pessimistic interpretation
         let pessimistic_interpretation = self.pessimistic.compute_interpretation(&prop)?;
@@ -96,7 +95,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                 // culprit ends here
                 Ok(Culprit {
                     path: path.clone(),
-                    name: literal.name.clone(),
+                    name: String::from(literal.name()),
                 })
             }
             Proposition::Negation(inner) => {
@@ -259,377 +258,6 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct Literal {
-    complementary: bool,
-    name: String,
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct PropositionU {
-    hold: Box<Proposition>,
-    until: Box<Proposition>,
-}
-
-#[allow(dead_code)]
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum Proposition {
-    Const(bool),
-    Literal(Literal),
-    Negation(Box<Proposition>),
-    Or(Box<Proposition>, Box<Proposition>),
-    And(Box<Proposition>, Box<Proposition>),
-    EX(Box<Proposition>),
-    AX(Box<Proposition>),
-    EF(Box<Proposition>),
-    AF(Box<Proposition>),
-    EG(Box<Proposition>),
-    AG(Box<Proposition>),
-    EU(PropositionU),
-    AU(PropositionU),
-    ER(PropositionU),
-    AR(PropositionU),
-}
-
-impl Proposition {
-    fn pnf(&mut self) {
-        self.pnf_inner(false)
-    }
-
-    fn pnf_inner(&mut self, complement: bool) {
-        // propagate negations into the literals
-        match self {
-            Proposition::Const(value) => {
-                if complement {
-                    *value = !*value;
-                }
-            }
-            Proposition::Literal(lit) => {
-                if complement {
-                    lit.complementary = !lit.complementary;
-                }
-            }
-            Proposition::Negation(inner) => {
-                // flip complement
-                inner.pnf_inner(!complement);
-                // remove negation
-                *self = *inner.clone();
-            }
-            Proposition::Or(p, q) => {
-                p.pnf_inner(complement);
-                q.pnf_inner(complement);
-                if complement {
-                    // !(p or q) = (!p and !q)
-                    // but we retain complement, so they will be flipped
-                    *self = Proposition::And(p.clone(), q.clone())
-                }
-            }
-            Proposition::And(p, q) => {
-                p.pnf_inner(complement);
-                q.pnf_inner(complement);
-                if complement {
-                    // !(p and q) = (!p or !q)
-                    // but we retain complement, so they will be flipped
-                    *self = Proposition::Or(p.clone(), q.clone())
-                }
-            }
-            Proposition::EX(inner) => {
-                // !EX[p] = AX[!p], we retain complement
-                inner.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::AX(inner.clone());
-                }
-            }
-            Proposition::AX(inner) => {
-                // !AX[p] = EX[!p], we retain complement
-                inner.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::EX(inner.clone());
-                }
-            }
-            Proposition::AF(inner) => {
-                // !EF[p] = AG[!p], we retain complement
-                inner.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::AG(inner.clone());
-                }
-            }
-            Proposition::EF(inner) => {
-                // !EF[p] = AG[!p], we retain complement
-                inner.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::EG(inner.clone());
-                }
-            }
-            Proposition::EG(inner) => {
-                // !EG[p] = AF[!p], we retain complement
-                inner.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::AF(inner.clone());
-                }
-            }
-            Proposition::AG(inner) => {
-                // !AG[p] = EF[!p], we retain complement
-                inner.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::EF(inner.clone());
-                }
-            }
-            Proposition::EU(inner) => {
-                // !E[p U q] = A[!p R !q], we retain complement
-                inner.hold.pnf_inner(complement);
-                inner.until.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::AR(inner.clone());
-                }
-            }
-            Proposition::AU(inner) => {
-                // !A[p U q] = E[!p R !q], we retain complement
-                inner.hold.pnf_inner(complement);
-                inner.until.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::ER(inner.clone());
-                }
-            }
-            Proposition::ER(inner) => {
-                // E[p R q] = !A[!p U !q], we retain complement
-                inner.hold.pnf_inner(complement);
-                inner.until.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::AR(inner.clone());
-                }
-            }
-            Proposition::AR(inner) => {
-                // A[p R q] = !E[!p U !q], we retain complement
-                inner.hold.pnf_inner(complement);
-                inner.until.pnf_inner(complement);
-                if complement {
-                    *self = Proposition::ER(inner.clone());
-                }
-            }
-        }
-    }
-
-    fn enf(&mut self) {
-        match self {
-            Proposition::Const(_) => return,
-            Proposition::Literal(_) => return,
-            Proposition::Negation(inner) => {
-                inner.enf();
-                return;
-            }
-            Proposition::Or(p, q) => {
-                p.enf();
-                q.enf();
-                return;
-            }
-            Proposition::And(p, q) => {
-                // p and q = !(!p or !q)
-                *self = Proposition::Negation(Box::new(Proposition::Or(
-                    Box::new(Proposition::Negation(Box::clone(p))),
-                    Box::new(Proposition::Negation(Box::clone(q))),
-                )));
-            }
-            Proposition::EX(inner) => {
-                inner.enf();
-                return;
-            }
-            Proposition::AX(inner) => {
-                // AX[p] = !EX[!p]
-                *self = Proposition::Negation(Box::new(Proposition::EX(Box::new(
-                    Proposition::Negation(Box::clone(inner)),
-                ))));
-            }
-            Proposition::AF(inner) => {
-                // AF[p] = A[true U p] = !EG[!p]
-                *self = Proposition::Negation(Box::new(Proposition::EG(Box::new(
-                    Proposition::Negation(Box::clone(inner)),
-                ))));
-            }
-            Proposition::EF(inner) => {
-                // EF[p] = E[true U p]
-                *self = Proposition::EU(PropositionU {
-                    hold: Box::new(Proposition::Const(true)),
-                    until: Box::clone(inner),
-                });
-            }
-            Proposition::EG(_) => return,
-            Proposition::AG(inner) => {
-                // AG[p] = !EF[!p] = !E[true U !p]
-                *self = Proposition::Negation(Box::new(Proposition::EU(PropositionU {
-                    hold: Box::new(Proposition::Const(true)),
-                    until: Box::new(Proposition::Negation(Box::clone(inner))),
-                })));
-            }
-            Proposition::EU(inner) => {
-                inner.hold.enf();
-                inner.until.enf();
-                return;
-            }
-            Proposition::AU(inner) => {
-                // A[p U q] = !(E[!q U !(p or q)] or EG[!q])
-                let eu_part = Proposition::EU(PropositionU {
-                    hold: Box::new(Proposition::Negation(Box::clone(&inner.until))),
-                    until: Box::new(Proposition::Negation(Box::new(Proposition::Or(
-                        Box::clone(&inner.hold),
-                        Box::clone(&inner.until),
-                    )))),
-                });
-                let eg_part =
-                    Proposition::EG(Box::new(Proposition::Negation(Box::clone(&inner.until))));
-                *self = Proposition::Negation(Box::new(Proposition::Or(
-                    Box::new(eu_part),
-                    Box::new(eg_part),
-                )));
-            }
-            Proposition::ER(inner) => {
-                // E[p R q] = !A[!p U !q]
-                let neg_hold = Proposition::Negation(inner.hold.clone());
-                let neg_until = Proposition::Negation(inner.until.clone());
-                *self = Proposition::Negation(Box::new(Proposition::AU(PropositionU {
-                    hold: Box::new(neg_hold),
-                    until: Box::new(neg_until),
-                })));
-            }
-            Proposition::AR(inner) => {
-                // A[p R q] = !E[!p U !q]
-                let neg_hold = Proposition::Negation(inner.hold.clone());
-                let neg_until = Proposition::Negation(inner.until.clone());
-                *self = Proposition::Negation(Box::new(Proposition::EU(PropositionU {
-                    hold: Box::new(neg_hold),
-                    until: Box::new(neg_until),
-                })));
-            }
-        }
-        // minimize the new expression
-        self.enf();
-    }
-
-    pub fn parse(prop_str: &str) -> Result<Proposition, ExecError> {
-        PropositionParser::parse(prop_str)
-    }
-}
-
-#[derive(Debug)]
-pub enum PropositionLexItem {
-    Comma,
-    OpeningParen(char),
-    ClosingParen(char),
-    Ident(String),
-}
-
-struct PropositionParser {
-    input: String,
-    lex_items: VecDeque<PropositionLexItem>,
-}
-
-impl PropositionParser {
-    fn parse(input: &str) -> Result<Proposition, ExecError> {
-        let mut parser = PropositionParser {
-            input: String::from(input),
-            lex_items: Self::lex(input)?,
-        };
-        parser.parse_proposition()
-    }
-
-    fn parse_uni(&mut self) -> Result<Box<Proposition>, ExecError> {
-        let Some(PropositionLexItem::OpeningParen(_)) = self.lex_items.pop_front() else {
-            return Err(ExecError::PropertyNotParseable(self.input.clone()));
-        };
-        let result = self.parse_proposition()?;
-        let Some(PropositionLexItem::ClosingParen(_)) = self.lex_items.pop_front() else {
-            return Err(ExecError::PropertyNotParseable(self.input.clone()));
-        };
-        Ok(Box::new(result))
-    }
-
-    fn parse_u(&mut self) -> Result<PropositionU, ExecError> {
-        let Some(PropositionLexItem::OpeningParen(_)) = self.lex_items.pop_front() else {
-            return Err(ExecError::PropertyNotParseable(self.input.clone()));
-        };
-        let hold = self.parse_proposition()?;
-        let Some(PropositionLexItem::Comma) = self.lex_items.pop_front() else {
-            return Err(ExecError::PropertyNotParseable(self.input.clone()));
-        };
-        let until = self.parse_proposition()?;
-        let Some(PropositionLexItem::ClosingParen(_)) = self.lex_items.pop_front() else {
-            return Err(ExecError::PropertyNotParseable(self.input.clone()));
-        };
-        Ok(PropositionU {
-            hold: Box::new(hold),
-            until: Box::new(until),
-        })
-    }
-
-    fn parse_proposition(&mut self) -> Result<Proposition, ExecError> {
-        let Some(lex_item) = self.lex_items.pop_front() else {
-            return Err(ExecError::PropertyNotParseable(self.input.clone()));
-        };
-
-        Ok(match lex_item {
-            PropositionLexItem::Ident(ident) => match ident.as_ref() {
-                "EX" => Proposition::EX(self.parse_uni()?),
-                "AX" => Proposition::AX(self.parse_uni()?),
-                "EF" => Proposition::EF(self.parse_uni()?),
-                "AF" => Proposition::AF(self.parse_uni()?),
-                "EG" => Proposition::EG(self.parse_uni()?),
-                "AG" => Proposition::AG(self.parse_uni()?),
-                "EU" => Proposition::EU(self.parse_u()?),
-                "AU" => Proposition::AU(self.parse_u()?),
-                _ => {
-                    // truly an ident
-                    Proposition::Literal(Literal {
-                        complementary: false,
-                        name: ident,
-                    })
-                }
-            },
-            _ => {
-                // not allowed for now
-                return Err(ExecError::PropertyNotParseable(self.input.clone()));
-            }
-        })
-    }
-
-    fn lex(input: &str) -> Result<VecDeque<PropositionLexItem>, ExecError> {
-        let mut result = VecDeque::new();
-
-        let mut it = input.chars().peekable();
-        while let Some(&c) = it.peek() {
-            match c {
-                ',' => {
-                    result.push_back(PropositionLexItem::Comma);
-                    it.next();
-                }
-                '(' | '[' | '{' => {
-                    result.push_back(PropositionLexItem::OpeningParen(c));
-                    it.next();
-                }
-                ')' | ']' | '}' => {
-                    result.push_back(PropositionLexItem::ClosingParen(c));
-                    it.next();
-                }
-                'A'..='Z' | 'a'..='z' | '_' => {
-                    let mut ident = String::from(c);
-                    it.next();
-                    while let Some(&c) = it.peek() {
-                        match c {
-                            'A'..='Z' | 'a'..='z' | '_' | '0'..='9' => {
-                                it.next();
-                                ident.push(c);
-                            }
-                            _ => break,
-                        }
-                    }
-                    result.push_back(PropositionLexItem::Ident(ident));
-                }
-                _ => return Err(ExecError::PropertyNotParseable(String::from(input))),
-            }
-        }
-        Ok(result)
-    }
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 struct Index(usize);
 
@@ -763,11 +391,11 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
                 // get from space
                 let labelled: Result<BTreeSet<_>, ()> = self
                     .space
-                    .labelled_iter(&literal.name, literal.complementary, self.optimistic)
+                    .labelled_iter(literal.name(), literal.is_complementary(), self.optimistic)
                     .collect();
                 match labelled {
                     Ok(labelled) => labelled,
-                    Err(_) => return Err(ExecError::FieldNotFound(literal.name.clone())),
+                    Err(_) => return Err(ExecError::FieldNotFound(String::from(literal.name()))),
                 }
             }
             Proposition::Negation(inner) => {

@@ -111,7 +111,7 @@ fn main() {
     // TODO: give task log on command line and read task set and maximum cpu time
     let max_cpu_time = 14. * 60.;
     let spec = std::fs::read_to_string("examples/bv64-tasks.set").unwrap();
-    let exec_outputs_dir = Path::new("exec/18173236");
+    let exec_outputs_dir = Path::new("exec/18200409");
     let exec_tests_dir = exec_outputs_dir.join("tests");
     let mut num_tests = 0;
     let mut num_outputs = 0;
