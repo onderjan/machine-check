@@ -8,6 +8,7 @@ pub use verify::VerifyResult;
 
 mod machine;
 pub mod prepare;
+mod transcribe;
 mod util;
 pub mod verify;
 

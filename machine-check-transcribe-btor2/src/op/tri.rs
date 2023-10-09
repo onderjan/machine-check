@@ -1,4 +1,4 @@
-use crate::btor2::{lref::Lref, rref::Rref, sort::Sort};
+use crate::{lref::Lref, rref::Rref, sort::Sort};
 
 use anyhow::anyhow;
 use proc_macro2::TokenStream;

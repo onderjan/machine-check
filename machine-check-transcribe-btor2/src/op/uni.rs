@@ -1,4 +1,4 @@
-use crate::btor2::{
+use crate::{
     node::Const,
     rref::Rref,
     sort::{BitvecSort, Sort},

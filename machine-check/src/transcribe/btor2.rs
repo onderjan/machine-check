@@ -1,12 +1,39 @@
-use proc_macro2::{Ident, Span, TokenStream};
+use std::{fs, io::BufReader};
 
-use crate::btor2::{
+use camino::Utf8Path;
+use proc_macro2::{Ident, Span, TokenStream};
+use std::io::BufRead;
+
+use anyhow::anyhow;
+use machine_check_transcribe_btor2::{
     node::{Const, NodeType},
     sort::{BitvecSort, Sort},
     Btor2,
 };
-use anyhow::anyhow;
 use quote::quote;
+
+use crate::CheckError;
+
+pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
+    let btor2_file = fs::File::open(system_path)
+        .map_err(|err| CheckError::OpenFile(system_path.to_path_buf(), err))?;
+
+    let token_stream = translate_file(btor2_file).map_err(CheckError::TranslateFromBtor2)?;
+    syn::parse2(token_stream).map_err(CheckError::SyntaxTree)
+}
+
+pub fn translate_iter<'a>(
+    lines: impl Iterator<Item = &'a str>,
+) -> Result<TokenStream, anyhow::Error> {
+    let btor2 = machine_check_transcribe_btor2::parse(lines)?;
+    generate(btor2)
+}
+
+pub fn translate_file(file: fs::File) -> Result<TokenStream, anyhow::Error> {
+    let lines_result: Result<Vec<_>, _> = BufReader::new(file).lines().collect();
+    let lines: Vec<String> = lines_result?;
+    translate_iter(lines.iter().map(|l| l.as_ref()))
+}
 
 fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<TokenStream>, anyhow::Error> {
     let mut statements = Vec::<TokenStream>::new();

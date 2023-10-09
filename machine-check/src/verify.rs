@@ -5,7 +5,7 @@ use machine_check_common::ExecResult;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    fs::{self, File},
+    fs::{self},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     time::Instant,
@@ -16,6 +16,7 @@ use tempdir::TempDir;
 use crate::{
     machine::{create_abstract_machine, write_machine},
     prepare::{self, Preparation},
+    transcribe,
     util::log_process_output,
     CheckError, Cli, VerifyCli,
 };
@@ -124,9 +125,6 @@ impl Verify {
     }
 
     fn transcribe_machine(&self) -> Result<(Utf8PathBuf, Option<TempDir>), CheckError> {
-        let btor2_file = File::open(&self.verify_args.system_path)
-            .map_err(|err| CheckError::OpenFile(self.verify_args.system_path.clone(), err))?;
-
         // the machine package directory path can be given
         // we will write the machine into a temporary directory if it is not given
         // do not drop temporary directory too early
@@ -148,10 +146,7 @@ impl Verify {
             .map_err(|err| CheckError::CreateDir(src_dir_path.clone(), err))?;
         let main_path = src_dir_path.join("main.rs");
 
-        let translation = machine_check_transcribe_btor2::translate_file(btor2_file)
-            .map_err(CheckError::TranslateFromBtor2)?;
-        let concrete_machine: syn::File =
-            syn::parse2(translation).map_err(CheckError::SyntaxTree)?;
+        let concrete_machine: syn::File = transcribe::transcribe(&self.verify_args.system_path)?;
         let mut abstract_machine =
             create_abstract_machine(&concrete_machine).map_err(CheckError::AbstractMachine)?;
 

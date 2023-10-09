@@ -1,4 +1,4 @@
-use crate::btor2::{node::Const, rref::Rref, sort::Sort};
+use crate::{node::Const, rref::Rref, sort::Sort};
 use anyhow::anyhow;
 use proc_macro2::TokenStream;
 use quote::quote;
