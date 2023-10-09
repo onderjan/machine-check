@@ -1,13 +1,14 @@
 use std::collections::VecDeque;
 
-use machine_check_common::ExecStats;
 use machine_check_common::{Culprit, ExecError};
+use machine_check_common::{ExecStats, StateId};
 use mck::mark::MarkSingle;
 use mck::FieldManipulate;
 use mck::MarkMachine;
 use mck::MarkState;
 use mck::{AbstractMachine, MarkBitvector};
 
+use crate::space::NodeId;
 use crate::{
     model_check::{self, Proposition},
     precision::Precision,
@@ -30,7 +31,7 @@ impl<M: MarkMachine> Refinery<M> {
             use_decay,
         };
         // generate first space
-        refinery.regenerate_init();
+        refinery.regenerate(NodeId::START);
         refinery
     }
 
@@ -51,8 +52,15 @@ impl<M: MarkMachine> Refinery<M> {
                 return Err(ExecError::Incomplete(culprit));
             }
             if self.space.garbage_collect() {
-                self.precision
-                    .retain_indices(|index| self.space.contains_state_index(index));
+                self.precision.retain_indices(|node_id| {
+                    if let Ok(state_id) = StateId::try_from(node_id) {
+                        // only retain those states that are contained
+                        self.space.contains_state_id(state_id)
+                    } else {
+                        // always retain start precision
+                        true
+                    }
+                });
             }
         }
     }
@@ -67,45 +75,49 @@ impl<M: MarkMachine> Refinery<M> {
         // try increasing precision of the state preceding current mark
         let mut iter = culprit.path.iter().cloned().rev().peekable();
 
-        while let Some(current_state_index) = iter.next() {
-            let previous_state_index = iter.peek();
+        while let Some(current_state_id) = iter.next() {
+            let previous_state_id = iter.peek();
+            let previous_node_id = match previous_state_id {
+                Some(previous_state_id) => (*previous_state_id).into(),
+                None => NodeId::START,
+            };
 
             if self.use_decay {
                 // decay is applied last in forward direction, so we will apply it first
-                let decay = self.precision.decay_mut(previous_state_index);
-                if MarkSingle::apply_single_mark(decay, &current_state_mark) {
-                    // single mark applied to step decay, regenerate
-                    self.regenerate_changed(previous_state_index);
+                let decay_precision = self.precision.mut_decay(previous_node_id);
+                if MarkSingle::apply_single_mark(decay_precision, &current_state_mark) {
+                    // single mark applied to decay, regenerate
+                    self.regenerate(previous_node_id);
                     return true;
                 }
             }
 
             let input = &self
                 .space
-                .get_representative_input(previous_state_index, current_state_index);
+                .get_representative_input(previous_node_id, current_state_id);
 
-            let (input_mark, new_state_mark) =
-                if let Some(previous_state_index) = previous_state_index {
-                    // use step function
-                    let previous_state = self.space.get_state_by_index(*previous_state_index);
+            let (input_mark, new_state_mark) = if let Some(previous_state_index) = previous_state_id
+            {
+                // use step function
+                let previous_state = self.space.get_state_by_id(*previous_state_index);
 
-                    let (new_state_mark, input_mark) =
-                        <M as MarkMachine>::next((previous_state, input), current_state_mark);
+                let (new_state_mark, input_mark) =
+                    <M as MarkMachine>::next((previous_state, input), current_state_mark);
 
-                    (input_mark, Some(new_state_mark))
-                } else {
-                    // use init function
+                (input_mark, Some(new_state_mark))
+            } else {
+                // use init function
 
-                    // increasing state precision failed, try increasing init precision
-                    let (input_mark,) = <M as MarkMachine>::init((input,), current_state_mark);
-                    (input_mark, None)
-                };
+                // increasing state precision failed, try increasing init precision
+                let (input_mark,) = <M as MarkMachine>::init((input,), current_state_mark);
+                (input_mark, None)
+            };
 
-            let input_precision = self.precision.precision_mut(previous_state_index);
+            let input_precision = self.precision.mut_input(previous_node_id);
 
             if MarkSingle::apply_single_mark(input_precision, &input_mark) {
                 // single mark applied, regenerate
-                self.regenerate_changed(previous_state_index);
+                self.regenerate(previous_node_id);
                 return true;
             }
             // mark not applied, continue iteration
@@ -123,67 +135,43 @@ impl<M: MarkMachine> Refinery<M> {
         false
     }
 
-    fn regenerate_changed(&mut self, changed_state_index: Option<&usize>) {
-        if let Some(changed_state_index) = changed_state_index {
-            let mut queue = VecDeque::new();
-            queue.push_back(*changed_state_index);
-            self.regenerate_step(queue);
-        } else {
-            self.regenerate_init();
-        }
-    }
-
-    pub fn regenerate_init(&mut self) {
-        // remove initial states
-        self.space.remove_initial_states();
-
-        // regenerate them using init function with init precision
-        // remember the states that were actually added
-        let mut added_states_queue = VecDeque::new();
-
-        let initial_precision = self.precision.get_init();
-        for input in M::input_precision_iter(initial_precision) {
-            let mut init_state = M::Abstract::init(&input);
-            if self.use_decay {
-                // decay the state first
-                let init_decay = self.precision.init_decay();
-                M::force_decay(init_decay, &mut init_state);
-            }
-
-            let (initial_state_id, added) = self.space.add_initial_state(init_state, &input);
-            if added {
-                added_states_queue.push_back(initial_state_id);
-            }
-        }
-
-        // generate every state that was added
-        self.regenerate_step(added_states_queue);
-    }
-
-    pub fn regenerate_step(&mut self, mut queue: VecDeque<usize>) {
+    pub fn regenerate(&mut self, from_node_id: NodeId) {
+        let mut queue = VecDeque::new();
+        queue.push_back(from_node_id);
         // construct state space by breadth-first search
-        while let Some(current_state_index) = queue.pop_front() {
+        while let Some(node_id) = queue.pop_front() {
             // remove outgoing edges
-            self.space.remove_outgoing_edges(current_state_index);
+            self.space.remove_outgoing_edges(node_id);
 
-            // prepare state and precision
-            let current_state = self.space.get_state_by_index(current_state_index).clone();
-            let step_precision = self.precision.get_step(current_state_index);
-            let step_decay = self.precision.step_decay(current_state_index);
+            // prepare precision
+            let input_precision = self.precision.get_input(node_id);
+            let decay_precision = self.precision.get_decay(node_id);
+
+            // get current state, none if we are at start node
+            let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
+                Some(self.space.get_state_by_id(state_id).clone())
+            } else {
+                None
+            };
 
             // generate direct successors
-            for input in M::input_precision_iter(&step_precision) {
-                let mut next_state = M::Abstract::next(&current_state, &input);
+            for input in M::input_precision_iter(&input_precision) {
+                let mut next_state = {
+                    if let Some(current_state) = &current_state {
+                        M::Abstract::next(current_state, &input)
+                    } else {
+                        M::Abstract::init(&input)
+                    }
+                };
                 if self.use_decay {
-                    M::force_decay(&step_decay, &mut next_state);
+                    M::force_decay(&decay_precision, &mut next_state);
                 }
 
-                let (next_state_index, added) =
-                    self.space.add_step(current_state_index, next_state, &input);
+                let (next_state_index, added) = self.space.add_step(node_id, next_state, &input);
 
                 if added {
                     // add to queue
-                    queue.push_back(next_state_index);
+                    queue.push_back(next_state_index.into());
                 }
             }
         }

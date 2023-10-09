@@ -1,6 +1,6 @@
 // structures used for communication from the machine executable to model-check
 
-use std::collections::VecDeque;
+use std::{collections::VecDeque, num::NonZeroUsize};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -17,9 +17,12 @@ pub enum ExecError {
     PropertyNotParseable(String),
 }
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct StateId(pub NonZeroUsize);
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Culprit {
-    pub path: VecDeque<usize>,
+    pub path: VecDeque<StateId>,
     pub name: String,
 }
 

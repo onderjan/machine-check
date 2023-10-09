@@ -1,73 +1,55 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use mck::mark::MarkInput;
 use mck::mark::MarkMachine;
 use mck::mark::MarkState;
 
+use crate::space::NodeId;
+
 pub struct Precision<M: MarkMachine> {
-    init: M::Input,
-    init_decay: M::State,
-    step: HashMap<usize, M::Input>,
-    step_decay: HashMap<usize, M::State>,
+    input: BTreeMap<NodeId, M::Input>,
+    decay: BTreeMap<NodeId, M::State>,
 }
 
 impl<M: MarkMachine> Precision<M> {
     pub fn new() -> Self {
         Precision {
-            init: M::Input::new_unmarked(),
-            init_decay: M::State::new_unmarked(),
-            step: HashMap::new(),
-            step_decay: HashMap::new(),
+            input: BTreeMap::new(),
+            decay: BTreeMap::new(),
         }
     }
 
-    pub fn get_init(&self) -> &M::Input {
-        &self.init
-    }
-
-    pub fn init_decay(&self) -> &M::State {
-        &self.init_decay
-    }
-
-    pub fn get_step(&self, state_index: usize) -> M::Input {
-        let result = self.step.get(&state_index);
-        match result {
-            Some(result) => result.clone(),
+    pub fn get_input(&self, node_id: NodeId) -> M::Input {
+        match self.input.get(&node_id) {
+            Some(input) => input.clone(),
             None => M::Input::new_unmarked(),
         }
     }
 
-    pub fn precision_mut(&mut self, state_index: Option<&usize>) -> &mut M::Input {
-        if let Some(state_index) = state_index {
-            self.step
-                .entry(*state_index)
-                .or_insert_with(M::Input::new_unmarked)
-        } else {
-            &mut self.init
-        }
+    pub fn mut_input(&mut self, node_id: NodeId) -> &mut M::Input {
+        self.input
+            .entry(node_id)
+            .or_insert_with(M::Input::new_unmarked)
     }
 
-    pub fn step_decay(&self, from_state_index: usize) -> M::State {
-        match self.step_decay.get(&from_state_index) {
-            Some(result) => result.clone(),
+    pub fn get_decay(&self, node_id: NodeId) -> M::State {
+        match self.decay.get(&node_id) {
+            Some(decay) => decay.clone(),
             None => M::State::new_unmarked(),
         }
     }
 
-    pub fn decay_mut(&mut self, state_index: Option<&usize>) -> &mut M::State {
-        if let Some(state_index) = state_index {
-            self.step_decay
-                .entry(*state_index)
-                .or_insert_with(M::State::new_unmarked)
-        } else {
-            &mut self.init_decay
-        }
+    pub fn mut_decay(&mut self, node_id: NodeId) -> &mut M::State {
+        self.decay
+            .entry(node_id)
+            .or_insert_with(M::State::new_unmarked)
     }
 
     pub fn retain_indices<F>(&mut self, predicate: F)
     where
-        F: Fn(usize) -> bool,
+        F: Fn(NodeId) -> bool,
     {
-        self.step.retain(|k, _| predicate(*k));
+        self.input.retain(|k, _| predicate(*k));
+        self.decay.retain(|k, _| predicate(*k));
     }
 }

@@ -1,10 +1,7 @@
-use std::{
-    collections::{BTreeSet, HashMap},
-    ops::Shr,
-    rc::Rc,
-};
+use std::{collections::BTreeSet, num::NonZeroUsize, ops::Shr, rc::Rc};
 
 use bimap::BiMap;
+use machine_check_common::StateId;
 use mck::{AbstractMachine, FieldManipulate, MachineBitvector};
 use petgraph::{prelude::GraphMap, Directed};
 
@@ -12,75 +9,76 @@ pub struct Edge<AI> {
     pub representative_input: AI,
 }
 
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NodeId(Option<NonZeroUsize>);
+
+impl NodeId {
+    pub const START: NodeId = NodeId(None);
+}
+
+impl From<StateId> for NodeId {
+    fn from(state_id: StateId) -> Self {
+        NodeId(Some(state_id.0))
+    }
+}
+
+impl TryFrom<NodeId> for StateId {
+    type Error = ();
+
+    fn try_from(value: NodeId) -> Result<Self, ()> {
+        match value.0 {
+            Some(id) => Ok(StateId(id)),
+            None => Err(()),
+        }
+    }
+}
+
 pub struct Space<AM: AbstractMachine> {
-    initial_states: HashMap<usize, Edge<AM::Input>>,
-    state_graph: GraphMap<usize, Edge<AM::Input>, Directed>,
-    state_map: BiMap<usize, Rc<AM::State>>,
+    node_graph: GraphMap<NodeId, Edge<AM::Input>, Directed>,
+    state_map: BiMap<StateId, Rc<AM::State>>,
     num_states_for_sweep: usize,
-    next_state_id: usize,
+    next_state_id: StateId,
 }
 
 impl<AM: AbstractMachine> Space<AM> {
     pub fn new() -> Self {
         Self {
-            initial_states: HashMap::new(),
-            state_graph: GraphMap::new(),
+            node_graph: GraphMap::new(),
             state_map: BiMap::new(),
             num_states_for_sweep: 32,
-            next_state_id: 0,
+            next_state_id: StateId(NonZeroUsize::MIN),
         }
     }
 
-    pub fn get_state_by_index(&self, state_index: usize) -> &AM::State {
+    pub fn get_state_by_id(&self, state_id: StateId) -> &AM::State {
         self.state_map
-            .get_by_left(&state_index)
-            .expect("Indexed state should be in state map")
+            .get_by_left(&state_id)
+            .expect("State should be in state map")
             .as_ref()
     }
 
-    pub fn remove_initial_states(&mut self) {
-        self.initial_states.clear();
-    }
-
-    pub fn remove_outgoing_edges(&mut self, state_index: usize) {
+    pub fn remove_outgoing_edges(&mut self, node_id: NodeId) {
         let direct_successor_indices: Vec<_> = self
-            .state_graph
-            .neighbors_directed(state_index, petgraph::Direction::Outgoing)
+            .node_graph
+            .neighbors_directed(node_id, petgraph::Direction::Outgoing)
             .collect();
-        for direct_successor_index in direct_successor_indices {
-            self.state_graph
-                .remove_edge(state_index, direct_successor_index);
+        for direct_successor_id in direct_successor_indices {
+            self.node_graph.remove_edge(node_id, direct_successor_id);
         }
-    }
-
-    pub fn add_initial_state(
-        &mut self,
-        state: AM::State,
-        representative_input: &AM::Input,
-    ) -> (usize, bool) {
-        let (initial_state_id, added) = self.add_state(state);
-        if !self.initial_states.contains_key(&initial_state_id) {
-            self.initial_states
-                .entry(initial_state_id)
-                .or_insert_with(|| Edge {
-                    representative_input: representative_input.clone(),
-                });
-        }
-        (initial_state_id, added)
     }
 
     pub fn add_step(
         &mut self,
-        current_state_index: usize,
+        current_node: NodeId,
         next_state: AM::State,
         representative_input: &AM::Input,
-    ) -> (usize, bool) {
-        let (next_state_index, inserted) = self.add_state(next_state);
-        self.add_edge(current_state_index, next_state_index, representative_input);
-        (next_state_index, inserted)
+    ) -> (StateId, bool) {
+        let (next_state_id, inserted) = self.add_state(next_state);
+        self.add_edge(current_node, next_state_id.into(), representative_input);
+        (next_state_id, inserted)
     }
 
-    fn add_state(&mut self, state: AM::State) -> (usize, bool) {
+    fn add_state(&mut self, state: AM::State) -> (StateId, bool) {
         let state = Rc::new(state);
         let state_id = if let Some(state_id) = self.state_map.get_by_right(&state) {
             // state already present in state map and consequentially next precision map
@@ -91,16 +89,16 @@ impl<AM: AbstractMachine> Space<AM> {
             // since we can remove states, use separate next state id
             let state_id = self.next_state_id;
             self.state_map.insert(state_id, state);
-            match self.next_state_id.checked_add(1) {
-                Some(result) => self.next_state_id = result,
-                None => panic!("Number of state does not fit in usize"),
+            match self.next_state_id.0.checked_add(1) {
+                Some(result) => self.next_state_id.0 = result,
+                None => panic!("Number of states does not fit in usize"),
             }
             state_id
         };
 
-        if !self.state_graph.contains_node(state_id) {
+        if !self.node_graph.contains_node(state_id.into()) {
             // insert to graph
-            self.state_graph.add_node(state_id);
+            self.node_graph.add_node(state_id.into());
             // state inserted
             (state_id, true)
         } else {
@@ -109,12 +107,12 @@ impl<AM: AbstractMachine> Space<AM> {
         }
     }
 
-    fn add_edge(&mut self, from: usize, to: usize, input: &AM::Input) {
-        if self.state_graph.contains_edge(from, to) {
+    fn add_edge(&mut self, from: NodeId, to: NodeId, input: &AM::Input) {
+        if self.node_graph.contains_edge(from, to) {
             // do nothing
             return;
         }
-        self.state_graph.add_edge(
+        self.node_graph.add_edge(
             from,
             to,
             Edge {
@@ -123,115 +121,100 @@ impl<AM: AbstractMachine> Space<AM> {
         );
     }
 
-    pub fn get_representative_input(&self, head: Option<&usize>, tail: usize) -> &AM::Input {
-        if let Some(head) = head {
-            &self
-                .state_graph
-                .edge_weight(*head, tail)
-                .expect("Edge should be present in graph")
-                .representative_input
-        } else {
-            &self
-                .initial_states
-                .get(&tail)
-                .expect("State should be present in initial states")
-                .representative_input
-        }
+    pub fn get_representative_input(&self, head: NodeId, tail: StateId) -> &AM::Input {
+        &self
+            .node_graph
+            .edge_weight(head, tail.into())
+            .expect("Edge should be present in graph")
+            .representative_input
     }
 
-    pub fn initial_index_iter(&self) -> impl Iterator<Item = usize> + '_ {
-        self.initial_states.keys().cloned()
+    pub fn direct_predecessor_iter(&self, node_id: NodeId) -> impl Iterator<Item = NodeId> + '_ {
+        self.node_graph
+            .neighbors_directed(node_id, petgraph::Direction::Incoming)
     }
 
-    pub fn direct_predecessor_index_iter(
-        &self,
-        state_index: usize,
-    ) -> impl Iterator<Item = usize> + '_ {
-        self.state_graph
-            .neighbors_directed(state_index, petgraph::Direction::Incoming)
+    pub fn direct_successor_iter(&self, node_id: NodeId) -> impl Iterator<Item = StateId> + '_ {
+        // successors are always states
+        self.node_graph
+            .neighbors_directed(node_id, petgraph::Direction::Outgoing)
+            .map(|successor_id| StateId::try_from(successor_id).unwrap())
     }
 
-    pub fn direct_successor_index_iter(
-        &self,
-        state_index: usize,
-    ) -> impl Iterator<Item = usize> + '_ {
-        self.state_graph
-            .neighbors_directed(state_index, petgraph::Direction::Outgoing)
+    pub fn initial_iter(&self) -> impl Iterator<Item = StateId> + '_ {
+        self.direct_successor_iter(NodeId::START)
     }
 
     pub fn num_states(&self) -> usize {
         self.state_map.len()
     }
 
-    pub fn index_iter(&self) -> impl Iterator<Item = usize> + '_ {
+    pub fn state_id_iter(&self) -> impl Iterator<Item = StateId> + '_ {
         self.state_map.left_values().cloned()
     }
 
-    pub fn labelled_index_iter<'a>(
+    pub fn labelled_iter<'a>(
         &'a self,
         name: &'a str,
         complementary: bool,
         optimistic: bool,
-    ) -> impl Iterator<Item = Result<usize, ()>> + 'a {
-        self.state_map
-            .iter()
-            .filter_map(move |(state_index, state)| {
-                if let Some(labelling) = state.get(name) {
-                    let labelled = match labelling.concrete_value() {
-                        Some(concrete_value) => {
-                            // negate if necessary
-                            let is_true = concrete_value != MachineBitvector::new(0);
-                            if complementary {
-                                !is_true
-                            } else {
-                                is_true
-                            }
+    ) -> impl Iterator<Item = Result<StateId, ()>> + 'a {
+        self.state_map.iter().filter_map(move |(state_id, state)| {
+            if let Some(labelling) = state.get(name) {
+                let labelled = match labelling.concrete_value() {
+                    Some(concrete_value) => {
+                        // negate if necessary
+                        let is_true = concrete_value != MachineBitvector::new(0);
+                        if complementary {
+                            !is_true
+                        } else {
+                            is_true
                         }
-                        None => {
-                            // never negate here, just consider if it is optimistic
-                            // see https://patricegodefroid.github.io/public_psfiles/marktoberdorf2013.pdf
-                            optimistic
-                        }
-                    };
-                    if labelled {
-                        Some(Ok(*state_index))
-                    } else {
-                        None
                     }
+                    None => {
+                        // never negate here, just consider if it is optimistic
+                        // see https://patricegodefroid.github.io/public_psfiles/marktoberdorf2013.pdf
+                        optimistic
+                    }
+                };
+                if labelled {
+                    Some(Ok(*state_id))
                 } else {
-                    Some(Err(()))
+                    None
                 }
-            })
+            } else {
+                Some(Err(()))
+            }
+        })
     }
 
-    pub fn parents_iter(&self, state_index: usize) -> impl Iterator<Item = usize> + '_ {
-        self.state_graph
-            .neighbors_directed(state_index, petgraph::Direction::Incoming)
-    }
-
-    pub fn labelled_nontrivial_scc_indices(&self, labelled: &BTreeSet<usize>) -> BTreeSet<usize> {
+    pub fn labelled_nontrivial_scc_indices(
+        &self,
+        labelled: &BTreeSet<StateId>,
+    ) -> BTreeSet<StateId> {
         // construct a new state graph that only contains labelled vertices and transitions between them
-        let mut labelled_graph = GraphMap::<usize, (), Directed>::new();
+        let mut labelled_graph = GraphMap::<StateId, (), Directed>::new();
 
-        for labelled_index in labelled.iter().cloned() {
-            labelled_graph.add_node(labelled_index);
-            for direct_successor_index in self.direct_successor_index_iter(labelled_index) {
-                labelled_graph.add_edge(labelled_index, direct_successor_index, ());
+        for labelled_id in labelled.iter().cloned() {
+            labelled_graph.add_node(labelled_id);
+            for direct_successor_id in self.direct_successor_iter(labelled_id.into()) {
+                labelled_graph.add_edge(labelled_id, direct_successor_id, ());
             }
         }
 
         // get out the indices in trivial SCC
-        let sccs = petgraph::algo::tarjan_scc(&self.state_graph);
+        let sccs = petgraph::algo::tarjan_scc(&labelled_graph);
         let mut result = BTreeSet::new();
         for scc in sccs {
             if scc.len() == 1 {
-                let state_index = scc[0];
-                if !self.state_graph.contains_edge(state_index, state_index) {
+                let state_id = scc[0];
+                if !labelled_graph.contains_edge(state_id, state_id) {
                     // trivial SCC, do not add to result
                     break;
                 }
             }
-            result.extend(scc);
+            // we only labelled states, so they must be
+            result.extend(scc.into_iter());
         }
         result
     }
@@ -248,19 +231,24 @@ impl<AM: AbstractMachine> Space<AM> {
         // construct a map containing all of the nodes
         let mut unmarked = BTreeSet::from_iter(self.state_map.left_values().cloned());
         // remove all of the reachable nodes by depth-first search
-        let mut stack = Vec::from_iter(self.initial_states.keys().cloned());
-        while let Some(state_index) = stack.pop() {
-            if unmarked.remove(&state_index) {
-                // we marked it, go on to direct successors
-                for direct_successor_index in self.direct_successor_index_iter(state_index) {
-                    stack.push(direct_successor_index);
+        let mut stack = Vec::<NodeId>::new();
+        stack.push(NodeId::START);
+        while let Some(node_id) = stack.pop() {
+            if let Ok(state_id) = StateId::try_from(node_id) {
+                if !unmarked.remove(&state_id) {
+                    // already was unmarked
+                    continue;
                 }
+            }
+            // go on to direct successors
+            for direct_successor_id in self.direct_successor_iter(node_id) {
+                stack.push(direct_successor_id.into());
             }
         }
         // only unreachable nodes are unmarked, remove them from state map and graph
-        for unmarked_index in unmarked {
-            self.state_map.remove_by_left(&unmarked_index);
-            self.state_graph.remove_node(unmarked_index);
+        for unmarked_id in unmarked {
+            self.state_map.remove_by_left(&unmarked_id);
+            self.node_graph.remove_node(unmarked_id.into());
         }
         // update the number of states for sweep as 3/2 of current number of states and at least the previous amount
         self.num_states_for_sweep = self
@@ -271,7 +259,7 @@ impl<AM: AbstractMachine> Space<AM> {
             .max(self.num_states_for_sweep);
     }
 
-    pub fn contains_state_index(&self, index: usize) -> bool {
-        self.state_map.contains_left(&index)
+    pub fn contains_state_id(&self, id: StateId) -> bool {
+        self.state_map.contains_left(&id)
     }
 }

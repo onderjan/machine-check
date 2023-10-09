@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
-use machine_check_common::{Culprit, ExecError};
+use machine_check_common::{Culprit, ExecError, StateId};
 use mck::AbstractMachine;
 
 use super::space::Space;
@@ -67,7 +67,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
     fn compute_interpretation_culprit(&self, prop: &Proposition) -> Result<Culprit, ExecError> {
         // incomplete, compute culprit
         // it must start with one of the initial states
-        for initial_index in self.space.initial_index_iter() {
+        for initial_index in self.space.initial_iter() {
             if self.get_interpretation(prop, initial_index).is_none() {
                 // unknown initial state, compute culprit from it
                 let mut path = VecDeque::new();
@@ -82,7 +82,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
     fn compute_labelling_culprit(
         &self,
         prop: &Proposition,
-        path: &VecDeque<usize>,
+        path: &VecDeque<StateId>,
     ) -> Result<Culprit, ExecError> {
         assert!(self
             .get_interpretation(prop, *path.back().unwrap())
@@ -119,7 +119,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                 // lengthen by direct successor with unknown inner
                 let path_back_index = *path.back().unwrap();
                 for direct_successor_index in
-                    self.space.direct_successor_index_iter(path_back_index)
+                    self.space.direct_successor_iter(path_back_index.into())
                 {
                     let direct_successor_interpretation =
                         self.get_interpretation(inner.as_ref(), direct_successor_index);
@@ -146,7 +146,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                         Some(true) => {
                             // continue down this path
                             for direct_successor in
-                                self.space.direct_successor_index_iter(state_index)
+                                self.space.direct_successor_iter(state_index.into())
                             {
                                 backtrack_map.entry(direct_successor).or_insert_with(|| {
                                     queue.push_back(direct_successor);
@@ -201,7 +201,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                     }
                     if hold_interpretation.is_some() && until_interpretation.is_some() {
                         // continue down the path
-                        for direct_successor in self.space.direct_successor_index_iter(state_index)
+                        for direct_successor in self.space.direct_successor_iter(state_index.into())
                         {
                             backtrack_map.entry(direct_successor).or_insert_with(|| {
                                 queue.push_back(direct_successor);
@@ -243,7 +243,7 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
         }
     }
 
-    fn get_interpretation(&self, prop: &Proposition, state_index: usize) -> Option<bool> {
+    fn get_interpretation(&self, prop: &Proposition, state_index: StateId) -> Option<bool> {
         let pessimistic_interpretation =
             self.pessimistic.get_labelling(prop).contains(&state_index);
         let optimistic_interpretation = self.optimistic.get_labelling(prop).contains(&state_index);
@@ -636,7 +636,7 @@ struct Index(usize);
 pub struct BooleanChecker<'a, AM: AbstractMachine> {
     space: &'a Space<AM>,
     optimistic: bool,
-    labelling_map: HashMap<Proposition, BTreeSet<usize>>,
+    labelling_map: HashMap<Proposition, BTreeSet<StateId>>,
 }
 
 impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
@@ -648,20 +648,29 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         }
     }
 
-    fn compute_ex_labelling(&mut self, inner: &Proposition) -> Result<BTreeSet<usize>, ExecError> {
+    fn compute_ex_labelling(
+        &mut self,
+        inner: &Proposition,
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         self.compute_labelling(inner)?;
         let inner_labelling = self.get_labelling(inner);
         let mut result = BTreeSet::new();
         // for each state labelled by p, mark the preceding states EX[p]
-        for state_index in inner_labelling {
-            for direct_predecessor_index in self.space.direct_predecessor_index_iter(*state_index) {
-                result.insert(direct_predecessor_index);
+        for state_id in inner_labelling {
+            for direct_predecessor_id in self.space.direct_predecessor_iter((*state_id).into()) {
+                // ignore start node
+                if let Ok(direct_predecessor_id) = StateId::try_from(direct_predecessor_id) {
+                    result.insert(direct_predecessor_id);
+                }
             }
         }
         Ok(result)
     }
 
-    fn compute_eg_labelling(&mut self, inner: &Proposition) -> Result<BTreeSet<usize>, ExecError> {
+    fn compute_eg_labelling(
+        &mut self,
+        inner: &Proposition,
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         // Boolean SCC-based labelling procedure CheckEG from Model Checking 1999 by Clarke et al.
 
         // compute inner labelling
@@ -675,15 +684,17 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         let mut eg_labelling = working_set.clone();
 
         // choose and process states from working set until empty
-        while let Some(state_index) = working_set.pop_first() {
+        while let Some(state_id) = working_set.pop_first() {
             // for every directed predecessor of the chosen state which is labelled (f) but not EG(f) yet,
             // label it EG f and add to the working set
-            for directed_predecessor_index in self.space.direct_predecessor_index_iter(state_index)
-            {
-                if inner_labelling.contains(&directed_predecessor_index) {
-                    let inserted = eg_labelling.insert(directed_predecessor_index);
-                    if inserted {
-                        working_set.insert(directed_predecessor_index);
+            for previous_id in self.space.direct_predecessor_iter(state_id.into()) {
+                // ignore start node
+                if let Ok(previous_id) = StateId::try_from(previous_id) {
+                    if inner_labelling.contains(&previous_id) {
+                        let inserted = eg_labelling.insert(previous_id);
+                        if inserted {
+                            working_set.insert(previous_id);
+                        }
                     }
                 }
             }
@@ -693,7 +704,10 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         Ok(eg_labelling)
     }
 
-    fn compute_eu_labelling(&mut self, prop: &PropositionU) -> Result<BTreeSet<usize>, ExecError> {
+    fn compute_eu_labelling(
+        &mut self,
+        prop: &PropositionU,
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         // worklist-based labelling procedure CheckEU from Model Checking 1999 by Clarke et al.
 
         self.compute_labelling(&prop.hold)?;
@@ -713,11 +727,14 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         while let Some(state_index) = working.pop_first() {
             // for every parent of the chosen state which is labeled (f) but not EU(f,g) yet,
             // label it EU(f,g) and add to the working set
-            for parent in self.space.parents_iter(state_index) {
-                if hold_labelling.contains(&parent) {
-                    let inserted = eu_labelling.insert(parent);
-                    if inserted {
-                        working.insert(parent);
+            for previous_id in self.space.direct_predecessor_iter(state_index.into()) {
+                // ignore start node
+                if let Ok(previous_id) = StateId::try_from(previous_id) {
+                    if hold_labelling.contains(&previous_id) {
+                        let inserted = eu_labelling.insert(previous_id);
+                        if inserted {
+                            working.insert(previous_id);
+                        }
                     }
                 }
             }
@@ -736,7 +753,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
             Proposition::Const(c) => {
                 if *c {
                     // holds in all state indices
-                    BTreeSet::from_iter(self.space.index_iter())
+                    BTreeSet::from_iter(self.space.state_id_iter())
                 } else {
                     // holds nowhere
                     BTreeSet::new()
@@ -744,9 +761,9 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
             }
             Proposition::Literal(literal) => {
                 // get from space
-                let labelled: Result<BTreeSet<usize>, ()> = self
+                let labelled: Result<BTreeSet<_>, ()> = self
                     .space
-                    .labelled_index_iter(&literal.name, literal.complementary, self.optimistic)
+                    .labelled_iter(&literal.name, literal.complementary, self.optimistic)
                     .collect();
                 match labelled {
                     Ok(labelled) => labelled,
@@ -755,7 +772,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
             }
             Proposition::Negation(inner) => {
                 // complement
-                let full_labelling = BTreeSet::from_iter(self.space.index_iter());
+                let full_labelling = BTreeSet::from_iter(self.space.state_id_iter());
                 self.compute_labelling(inner)?;
                 let inner_labelling = self.get_labelling(inner);
                 full_labelling
@@ -782,7 +799,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         Ok(())
     }
 
-    fn get_labelling(&self, prop: &Proposition) -> &BTreeSet<usize> {
+    fn get_labelling(&self, prop: &Proposition) -> &BTreeSet<StateId> {
         self.labelling_map
             .get(prop)
             .expect("labelling should be present")
@@ -792,7 +809,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         self.compute_labelling(prop)?;
         let labelling = self.get_labelling(prop);
         // conventionally, the property must hold in all initial states
-        for initial_index in self.space.initial_index_iter() {
+        for initial_index in self.space.initial_iter() {
             if !labelling.contains(&initial_index) {
                 return Ok(false);
             }
