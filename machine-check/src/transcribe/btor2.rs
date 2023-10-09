@@ -28,11 +28,7 @@ pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
 }
 
 fn create_statements(btor2: &Btor2, is_init: bool) -> Result<Vec<syn::Stmt>, anyhow::Error> {
-    let mut stmts = Vec::<syn::Stmt>::new();
-    for (nid, node) in btor2.nodes.iter() {
-        node::transcribe(&mut stmts, is_init, nid, node)?;
-    }
-    Ok(stmts)
+    node::transcribe(btor2, is_init)
 }
 
 pub fn generate(btor2: Btor2) -> Result<syn::File, anyhow::Error> {
