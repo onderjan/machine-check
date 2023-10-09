@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use machine_check_common::ExecError;
 
-use super::{Literal, Proposition, PropositionU};
+use super::{Literal, PropBi, PropU, Proposition};
 
 pub fn parse(input: &str) -> Result<Proposition, ExecError> {
     let mut parser = PropositionParser {
@@ -40,25 +40,32 @@ impl PropositionParser {
         Ok(Box::new(result))
     }
 
-    fn parse_u(&mut self) -> Result<PropositionU, ExecError> {
+    fn parse_bi(&mut self) -> Result<PropBi, ExecError> {
         let Some(PropositionLexItem::OpeningParen(opening)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        let hold = self.parse_proposition()?;
+        let a = self.parse_proposition()?;
         let Some(PropositionLexItem::Comma) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        let until = self.parse_proposition()?;
+        let b = self.parse_proposition()?;
         let Some(PropositionLexItem::ClosingParen(closing)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         if corresponding_closing(opening) != closing {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         }
+        Ok(PropBi {
+            a: Box::new(a),
+            b: Box::new(b),
+        })
+    }
 
-        Ok(PropositionU {
-            hold: Box::new(hold),
-            until: Box::new(until),
+    fn parse_u(&mut self) -> Result<PropU, ExecError> {
+        let bi = self.parse_bi()?;
+        Ok(PropU {
+            hold: bi.a,
+            until: bi.b,
         })
     }
 
@@ -77,6 +84,9 @@ impl PropositionParser {
                 "AG" => Proposition::AG(self.parse_uni()?),
                 "EU" => Proposition::EU(self.parse_u()?),
                 "AU" => Proposition::AU(self.parse_u()?),
+                "and" => Proposition::And(self.parse_bi()?),
+                "or" => Proposition::Or(self.parse_bi()?),
+                "not" => Proposition::Negation(self.parse_uni()?),
                 _ => {
                     // truly an ident
                     Proposition::Literal(Literal {

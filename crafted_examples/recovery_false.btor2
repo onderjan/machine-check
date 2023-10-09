@@ -6,6 +6,7 @@
 10 zero 1 ; bit zero
 11 one 1 ; bit one
 20 zero 2 ; machine-word zero
+21 one 2 ; machine-word one
 
 100 input 1 ; reset
 101 input 2 ; input register A
@@ -32,3 +33,9 @@
 342 next 2 140 202 ; update running maximum state, DO NOT APPLY RESET
 
 1000 bad 10 ; never bad
+
+
+1145 ulte 1 140 21 ; is running maximum at most 1?
+1150 state 1 ; state: is running maximum at most 1?
+1151 init 1 1150 1145 ; init
+1152 next 1 1150 1145 ; next

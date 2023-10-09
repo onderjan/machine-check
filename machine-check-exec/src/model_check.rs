@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use machine_check_common::{Culprit, ExecError, StateId};
 use mck::AbstractMachine;
 
-use crate::proposition::{Literal, Proposition, PropositionU};
+use crate::proposition::{Literal, PropBi, PropU, Proposition};
 
 use super::space::Space;
 
@@ -11,7 +11,7 @@ pub fn safety_proposition() -> Proposition {
     // check AG[safe]
     // no complementary literal
     // in two-valued checking, transform to !E[true U !safe]
-    Proposition::Negation(Box::new(Proposition::EU(PropositionU {
+    Proposition::Negation(Box::new(Proposition::EU(PropU {
         hold: Box::new(Proposition::Const(true)),
         until: Box::new(Proposition::Negation(Box::new(Proposition::Literal(
             Literal::new(String::from("safe")),
@@ -102,16 +102,16 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                 // propagate to inner
                 self.compute_labelling_culprit(inner, path)
             }
-            Proposition::Or(p, q) => {
+            Proposition::Or(PropBi { a, b }) => {
                 // the state should be unknown in p or q
                 let state_index = *path.back().unwrap();
-                let p_interpretation = self.get_interpretation(p.as_ref(), state_index);
-                if p_interpretation.is_none() {
-                    self.compute_labelling_culprit(p, path)
+                let a_interpretation = self.get_interpretation(a.as_ref(), state_index);
+                if a_interpretation.is_none() {
+                    self.compute_labelling_culprit(a, path)
                 } else {
-                    let q_interpretation = self.get_interpretation(q.as_ref(), state_index);
-                    assert!(q_interpretation.is_none());
-                    self.compute_labelling_culprit(q.as_ref(), path)
+                    let b_interpretation = self.get_interpretation(b.as_ref(), state_index);
+                    assert!(b_interpretation.is_none());
+                    self.compute_labelling_culprit(b.as_ref(), path)
                 }
             }
             Proposition::EX(inner) => {
@@ -332,10 +332,7 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         Ok(eg_labelling)
     }
 
-    fn compute_eu_labelling(
-        &mut self,
-        prop: &PropositionU,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
+    fn compute_eu_labelling(&mut self, prop: &PropU) -> Result<BTreeSet<StateId>, ExecError> {
         // worklist-based labelling procedure CheckEU from Model Checking 1999 by Clarke et al.
 
         self.compute_labelling(&prop.hold)?;
@@ -408,12 +405,12 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
                     .cloned()
                     .collect()
             }
-            Proposition::Or(p, q) => {
-                self.compute_labelling(p)?;
-                self.compute_labelling(q)?;
-                let p_labelling = self.get_labelling(p);
-                let q_labelling = self.get_labelling(q);
-                p_labelling.union(q_labelling).cloned().collect()
+            Proposition::Or(PropBi { a, b }) => {
+                self.compute_labelling(a)?;
+                self.compute_labelling(b)?;
+                let a_labelling = self.get_labelling(a);
+                let b_labelling = self.get_labelling(b);
+                a_labelling.union(b_labelling).cloned().collect()
             }
             Proposition::EX(inner) => self.compute_ex_labelling(inner)?,
             Proposition::EU(eu) => self.compute_eu_labelling(eu)?,
