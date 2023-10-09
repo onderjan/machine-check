@@ -1,5 +1,5 @@
 [package]
-name = "machine-check-transcribe-btor2"
+name = "btor2rs"
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
