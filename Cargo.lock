@@ -383,6 +383,8 @@ name = "machine-check-table"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "camino",
+ "clap",
  "machine-check",
  "serde",
  "serde_json",
