@@ -183,8 +183,9 @@ impl<const L: u32> ThreeValuedBitvector<L> {
             ones |= overflow_value.ones;
         }
 
+        // only consider the amounts smaller than L afterwards
         let min_shift = amount.umin().0.min((L - 1) as u64);
-        let max_shift = amount.umax().0.max((L - 1) as u64);
+        let max_shift = amount.umax().0.min((L - 1) as u64);
         // join by the other shifts iteratively
         for i in min_shift..=max_shift {
             if amount.can_contain(Wrapping(i)) {

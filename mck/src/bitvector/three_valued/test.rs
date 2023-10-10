@@ -212,3 +212,23 @@ bi_op_test!(sra, true);
 // extension tests
 ext_op_test!(uext);
 ext_op_test!(sext);
+
+// misc tests
+
+#[test]
+fn shift_test() {
+    let a = ThreeValuedBitvector::<64>::a_new(Wrapping(u64::MAX), Wrapping(u64::MAX));
+    let b = ThreeValuedBitvector::<64>::a_new(Wrapping(u64::MAX), Wrapping(u64::MAX));
+    a.shift(
+        b,
+        |x, y| {
+            assert!(y < u64::BITS as usize);
+            x
+        },
+        |x, y| {
+            assert!(y < u64::BITS as usize);
+            x
+        },
+        b,
+    );
+}
