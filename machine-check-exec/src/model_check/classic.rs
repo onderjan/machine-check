@@ -23,12 +23,6 @@ impl<'a, AM: AbstractMachine> ClassicChecker<'a, AM> {
         }
     }
 
-    pub fn get_labelling(&self, prop: &Proposition) -> &BTreeSet<StateId> {
-        self.labelling_map
-            .get(prop)
-            .expect("labelling should be present")
-    }
-
     pub fn compute_interpretation(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
         self.compute_labelling(prop)?;
         let labelling = self.get_labelling(prop);
@@ -39,6 +33,76 @@ impl<'a, AM: AbstractMachine> ClassicChecker<'a, AM> {
             }
         }
         Ok(true)
+    }
+
+    pub fn get_labelling(&self, prop: &Proposition) -> &BTreeSet<StateId> {
+        self.labelling_map
+            .get(prop)
+            .expect("labelling should be present")
+    }
+
+    fn compute_labelling(&mut self, prop: &Proposition) -> Result<(), ExecError> {
+        if self.labelling_map.contains_key(prop) {
+            // already contained
+            return Ok(());
+        }
+
+        let computed_labelling = match prop {
+            Proposition::Const(c) => {
+                if *c {
+                    // holds in all state indices
+                    BTreeSet::from_iter(self.space.state_id_iter())
+                } else {
+                    // holds nowhere
+                    BTreeSet::new()
+                }
+            }
+            Proposition::Literal(literal) => {
+                // get from space
+                let labelled: Result<BTreeSet<_>, ()> = self
+                    .space
+                    .labelled_iter(literal.name(), literal.is_complementary(), self.optimistic)
+                    .collect();
+                match labelled {
+                    Ok(labelled) => labelled,
+                    Err(_) => return Err(ExecError::FieldNotFound(String::from(literal.name()))),
+                }
+            }
+            Proposition::Negation(inner) => {
+                // complement
+                let full_labelling = BTreeSet::from_iter(self.space.state_id_iter());
+                self.compute_labelling(&inner.0)?;
+                let inner_labelling = self.get_labelling(&inner.0);
+                full_labelling
+                    .difference(inner_labelling)
+                    .cloned()
+                    .collect()
+            }
+            Proposition::Or(PropBi { a, b }) => {
+                self.compute_labelling(a)?;
+                self.compute_labelling(b)?;
+                let a_labelling = self.get_labelling(a);
+                let b_labelling = self.get_labelling(b);
+                a_labelling.union(b_labelling).cloned().collect()
+            }
+            Proposition::E(prop_temp) => match prop_temp {
+                PropTemp::X(inner) => self.compute_ex_labelling(inner)?,
+                PropTemp::G(inner) => self.compute_eg_labelling(inner)?,
+                PropTemp::U(inner) => self.compute_eu_labelling(inner)?,
+                _ => {
+                    panic!(
+                        "expected {:?} to have only X, G, U temporal operators",
+                        prop
+                    );
+                }
+            },
+            _ => panic!("expected {:?} to be minimized", prop),
+        };
+
+        // insert the labelling to labelling map for future reference
+        self.labelling_map.insert(prop.clone(), computed_labelling);
+
+        Ok(())
     }
 
     fn compute_ex_labelling(&mut self, inner: &PropUni) -> Result<BTreeSet<StateId>, ExecError> {
@@ -125,69 +189,5 @@ impl<'a, AM: AbstractMachine> ClassicChecker<'a, AM> {
         }
 
         Ok(eu_labelling)
-    }
-
-    fn compute_labelling(&mut self, prop: &Proposition) -> Result<(), ExecError> {
-        if self.labelling_map.contains_key(prop) {
-            // already contained
-            return Ok(());
-        }
-
-        let computed_labelling = match prop {
-            Proposition::Const(c) => {
-                if *c {
-                    // holds in all state indices
-                    BTreeSet::from_iter(self.space.state_id_iter())
-                } else {
-                    // holds nowhere
-                    BTreeSet::new()
-                }
-            }
-            Proposition::Literal(literal) => {
-                // get from space
-                let labelled: Result<BTreeSet<_>, ()> = self
-                    .space
-                    .labelled_iter(literal.name(), literal.is_complementary(), self.optimistic)
-                    .collect();
-                match labelled {
-                    Ok(labelled) => labelled,
-                    Err(_) => return Err(ExecError::FieldNotFound(String::from(literal.name()))),
-                }
-            }
-            Proposition::Negation(inner) => {
-                // complement
-                let full_labelling = BTreeSet::from_iter(self.space.state_id_iter());
-                self.compute_labelling(&inner.0)?;
-                let inner_labelling = self.get_labelling(&inner.0);
-                full_labelling
-                    .difference(inner_labelling)
-                    .cloned()
-                    .collect()
-            }
-            Proposition::Or(PropBi { a, b }) => {
-                self.compute_labelling(a)?;
-                self.compute_labelling(b)?;
-                let a_labelling = self.get_labelling(a);
-                let b_labelling = self.get_labelling(b);
-                a_labelling.union(b_labelling).cloned().collect()
-            }
-            Proposition::E(prop_temp) => match prop_temp {
-                PropTemp::X(inner) => self.compute_ex_labelling(inner)?,
-                PropTemp::G(inner) => self.compute_eg_labelling(inner)?,
-                PropTemp::U(inner) => self.compute_eu_labelling(inner)?,
-                _ => {
-                    panic!(
-                        "expected {:?} to have only X, G, U temporal operators",
-                        prop
-                    );
-                }
-            },
-            _ => panic!("expected {:?} to be minimized", prop),
-        };
-
-        // insert the labelling to labelling map for future reference
-        self.labelling_map.insert(prop.clone(), computed_labelling);
-
-        Ok(())
     }
 }
