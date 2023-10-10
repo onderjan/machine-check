@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use machine_check_common::ExecError;
 
-use super::{Literal, PropBi, PropU, PropUni, Proposition};
+use super::{Literal, PropBi, PropF, PropG, PropR, PropTemp, PropU, PropUni, Proposition};
 
 pub fn parse(input: &str) -> Result<Proposition, ExecError> {
     let mut parser = PropositionParser {
@@ -69,6 +69,14 @@ impl PropositionParser {
         })
     }
 
+    fn parse_r(&mut self) -> Result<PropR, ExecError> {
+        let bi = self.parse_bi()?;
+        Ok(PropR {
+            hold: bi.a,
+            release: bi.b,
+        })
+    }
+
     fn parse_proposition(&mut self) -> Result<Proposition, ExecError> {
         let Some(lex_item) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
@@ -76,18 +84,31 @@ impl PropositionParser {
 
         Ok(match lex_item {
             PropositionLexItem::Ident(ident) => match ident.as_ref() {
-                "EX" => Proposition::EX(self.parse_uni()?),
-                "AX" => Proposition::AX(self.parse_uni()?),
-                "EF" => Proposition::EF(self.parse_uni()?),
-                "AF" => Proposition::AF(self.parse_uni()?),
-                "EG" => Proposition::EG(self.parse_uni()?),
-                "AG" => Proposition::AG(self.parse_uni()?),
-                "EU" => Proposition::EU(self.parse_u()?),
-                "AU" => Proposition::AU(self.parse_u()?),
                 "and" => Proposition::And(self.parse_bi()?),
                 "or" => Proposition::Or(self.parse_bi()?),
                 "not" => Proposition::Negation(self.parse_uni()?),
                 _ => {
+                    if ident.len() == 2
+                        && matches!(ident.as_bytes()[0], b'A' | b'E')
+                        && matches!(ident.as_bytes()[1], b'X' | b'F' | b'G' | b'U' | b'R')
+                    {
+                        // temporal operator
+                        let prop_temp = match ident.as_bytes()[1] {
+                            b'X' => PropTemp::X(self.parse_uni()?),
+                            b'F' => PropTemp::F(PropF(self.parse_uni()?.0)),
+                            b'G' => PropTemp::G(PropG(self.parse_uni()?.0)),
+                            b'U' => PropTemp::U(self.parse_u()?),
+                            b'R' => PropTemp::R(self.parse_r()?),
+                            _ => panic!("temporal operator match should be exhaustive"),
+                        };
+
+                        return Ok(match ident.as_bytes()[0] {
+                            b'A' => Proposition::A(prop_temp),
+                            b'E' => Proposition::E(prop_temp),
+                            _ => panic!("quantifier match should be exhaustive"),
+                        });
+                    }
+
                     // truly an ident
                     Proposition::Literal(Literal {
                         complementary: false,

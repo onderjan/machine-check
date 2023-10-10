@@ -1,4 +1,4 @@
-use super::{PropBi, PropR, PropU, PropUni, Proposition};
+use super::{PropBi, PropF, PropG, PropR, PropTemp, PropU, PropUni, Proposition};
 
 impl Proposition {
     #[must_use]
@@ -50,98 +50,65 @@ impl Proposition {
                     Proposition::And(inner)
                 }
             }
-            Proposition::EX(inner) => {
-                // !EX[p] = AX[!p]
-                let inner = inner.pnf_inner(complement);
-                if complement {
-                    Proposition::AX(inner)
-                } else {
-                    Proposition::EX(inner)
-                }
+            Proposition::E(inner) => {
+                // !E[t] = A[!t]
+                Proposition::A(inner.pnf_inner(complement))
             }
-            Proposition::AX(inner) => {
-                // !AX[p] = EX[!p]
-                let inner = inner.pnf_inner(complement);
-                if complement {
-                    Proposition::EX(inner)
-                } else {
-                    Proposition::AX(inner)
-                }
+            Proposition::A(inner) => {
+                // !A[t] = E[!t]
+                Proposition::E(inner.pnf_inner(complement))
             }
-            Proposition::AF(inner) => {
-                // !AF[p] = EG[!p]
+        }
+    }
+}
+
+impl PropTemp {
+    #[must_use]
+    pub fn pnf_inner(&self, complement: bool) -> Self {
+        match self {
+            PropTemp::X(inner) => {
+                // !X[p] = X[!p]
                 let inner = inner.pnf_inner(complement);
-                if complement {
-                    Proposition::EG(inner)
-                } else {
-                    Proposition::AF(inner)
-                }
+                PropTemp::X(inner)
             }
-            Proposition::EF(inner) => {
-                // !EF[p] = AG[!p]
-                let inner = inner.pnf_inner(complement);
-                if complement {
-                    Proposition::AG(inner)
-                } else {
-                    Proposition::EF(inner)
-                }
-            }
-            Proposition::EG(inner) => {
-                // !EG[p] = AF[!p]
-                let inner = inner.pnf_inner(complement);
-                if complement {
-                    Proposition::AF(inner)
-                } else {
-                    Proposition::EG(inner)
-                }
-            }
-            Proposition::AG(inner) => {
-                // !AG[p] = EF[!p]
-                let inner = inner.pnf_inner(complement);
-                if complement {
-                    Proposition::EF(inner)
-                } else {
-                    Proposition::AG(inner)
-                }
-            }
-            Proposition::EU(inner) => {
-                // !E[p U q] = A[!p R !q]
+            PropTemp::F(inner) => {
+                // !F[p] = G[!p]
                 if complement {
                     let inner = inner.pnf_with_complement();
-                    Proposition::AR(inner)
+                    PropTemp::G(inner)
                 } else {
                     let inner = inner.pnf_no_complement();
-                    Proposition::EU(inner)
+                    PropTemp::F(inner)
                 }
             }
-            Proposition::AU(inner) => {
-                // !A[p U q] = E[!p R !q], we retain complement
+            PropTemp::G(inner) => {
+                // !G[p] = F[!p]
                 if complement {
                     let inner = inner.pnf_with_complement();
-                    Proposition::ER(inner)
+                    PropTemp::F(inner)
                 } else {
                     let inner = inner.pnf_no_complement();
-                    Proposition::AU(inner)
+                    PropTemp::G(inner)
                 }
             }
-            Proposition::ER(inner) => {
-                // E[p R q] = !A[!p U !q], we retain complement
+            PropTemp::U(inner) => {
+                // ![p U q] = [!p R !q]
                 if complement {
                     let inner = inner.pnf_with_complement();
-                    Proposition::AU(inner)
+                    PropTemp::R(inner)
                 } else {
                     let inner = inner.pnf_no_complement();
-                    Proposition::ER(inner)
+                    PropTemp::U(inner)
                 }
             }
-            Proposition::AR(inner) => {
-                // A[p R q] = !E[!p U !q], we retain complement
+            PropTemp::R(inner) => {
+                // ![p R q] = [!p U !q]
                 if complement {
                     let inner = inner.pnf_with_complement();
-                    Proposition::EU(inner)
+                    PropTemp::U(inner)
                 } else {
                     let inner = inner.pnf_no_complement();
-                    Proposition::AR(inner)
+                    PropTemp::R(inner)
                 }
             }
         }
@@ -162,6 +129,30 @@ impl PropBi {
             a: Box::new(self.a.pnf_inner(complement)),
             b: Box::new(self.b.pnf_inner(complement)),
         }
+    }
+}
+
+impl PropF {
+    #[must_use]
+    pub fn pnf_with_complement(&self) -> PropG {
+        PropG(Box::new(self.0.pnf_inner(true)))
+    }
+
+    #[must_use]
+    pub fn pnf_no_complement(&self) -> Self {
+        PropF(Box::new(self.0.pnf_inner(false)))
+    }
+}
+
+impl PropG {
+    #[must_use]
+    pub fn pnf_with_complement(&self) -> PropF {
+        PropF(Box::new(self.0.pnf_inner(true)))
+    }
+
+    #[must_use]
+    pub fn pnf_no_complement(&self) -> Self {
+        PropG(Box::new(self.0.pnf_inner(false)))
     }
 }
 

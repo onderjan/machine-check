@@ -3,20 +3,18 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use machine_check_common::{Culprit, ExecError, StateId};
 use mck::AbstractMachine;
 
-use crate::proposition::{Literal, PropBi, PropU, PropUni, Proposition};
+use crate::proposition::{Literal, PropBi, PropG, PropTemp, PropU, PropUni, Proposition};
 
 use super::space::Space;
 
 pub fn safety_proposition() -> Proposition {
     // check AG[safe]
-    // no complementary literal
-    // in two-valued checking, transform to !E[true U !safe]
-    Proposition::Negation(PropUni::new(Proposition::EU(PropU {
+    Proposition::Negation(PropUni::new(Proposition::E(PropTemp::U(PropU {
         hold: Box::new(Proposition::Const(true)),
         until: Box::new(Proposition::Negation(PropUni::new(Proposition::Literal(
             Literal::new(String::from("safe")),
         )))),
-    })))
+    }))))
 }
 
 pub fn check_prop<AM: AbstractMachine>(
@@ -113,101 +111,71 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                     self.compute_labelling_culprit(b.as_ref(), path)
                 }
             }
-            Proposition::EX(inner) => {
-                // lengthen by direct successor with unknown inner
-                let path_back_index = *path.back().unwrap();
-                for direct_successor_index in
-                    self.space.direct_successor_iter(path_back_index.into())
-                {
-                    let direct_successor_interpretation =
-                        self.get_interpretation(inner.0.as_ref(), direct_successor_index);
-                    if direct_successor_interpretation.is_none() {
-                        // add to path
-                        let mut path = path.clone();
-                        path.push_back(direct_successor_index);
-                        return self.compute_labelling_culprit(&inner.0, &path);
+            Proposition::E(prop_temp) => match prop_temp {
+                PropTemp::X(inner) => self.compute_labelling_culprit_ex(path, inner),
+                PropTemp::G(inner) => self.compute_labelling_culprit_eg(path, inner),
+                PropTemp::U(inner) => self.compute_labelling_culprit_eu(path, inner),
+                _ => {
+                    panic!(
+                        "expected {:?} to have only X, G, U temporal operators",
+                        prop
+                    );
+                }
+            },
+            _ => {
+                panic!("expected {:?} to be minimized", prop);
+            }
+        }
+    }
+
+    fn compute_labelling_culprit_ex(
+        &self,
+        path: &VecDeque<StateId>,
+        inner: &PropUni,
+    ) -> Result<Culprit, ExecError> {
+        // lengthen by direct successor with unknown inner
+        let path_back_index = *path.back().unwrap();
+        for direct_successor_index in self.space.direct_successor_iter(path_back_index.into()) {
+            let direct_successor_interpretation =
+                self.get_interpretation(inner.0.as_ref(), direct_successor_index);
+            if direct_successor_interpretation.is_none() {
+                // add to path
+                let mut path = path.clone();
+                path.push_back(direct_successor_index);
+                return self.compute_labelling_culprit(&inner.0, &path);
+            }
+        }
+        panic!("no EX culprit found")
+    }
+
+    fn compute_labelling_culprit_eg(
+        &self,
+        path: &VecDeque<StateId>,
+        inner: &PropG,
+    ) -> Result<Culprit, ExecError> {
+        // breadth-first search to find incomplete inner
+        // if inner becomes false, we do not inspect the state or successors further
+        let mut queue = VecDeque::new();
+        let mut backtrack_map = BTreeMap::new();
+        let path_back_index = *path.back().unwrap();
+        queue.push_back(path_back_index);
+        backtrack_map.insert(path_back_index, path_back_index);
+        while let Some(state_index) = queue.pop_front() {
+            let inner_interpretation = self.get_interpretation(&inner.0, state_index);
+            match inner_interpretation {
+                Some(true) => {
+                    // continue down this path
+                    for direct_successor in self.space.direct_successor_iter(state_index.into()) {
+                        backtrack_map.entry(direct_successor).or_insert_with(|| {
+                            queue.push_back(direct_successor);
+                            state_index
+                        });
                     }
                 }
-                panic!("no EX culprit found")
-            }
-            Proposition::EG(inner) => {
-                // breadth-first search to find incomplete inner
-                // if inner becomes false, we do not inspect the state or successors further
-                let mut queue = VecDeque::new();
-                let mut backtrack_map = BTreeMap::new();
-                let path_back_index = *path.back().unwrap();
-                queue.push_back(path_back_index);
-                backtrack_map.insert(path_back_index, path_back_index);
-                while let Some(state_index) = queue.pop_front() {
-                    let inner_interpretation = self.get_interpretation(&inner.0, state_index);
-                    match inner_interpretation {
-                        Some(true) => {
-                            // continue down this path
-                            for direct_successor in
-                                self.space.direct_successor_iter(state_index.into())
-                            {
-                                backtrack_map.entry(direct_successor).or_insert_with(|| {
-                                    queue.push_back(direct_successor);
-                                    state_index
-                                });
-                            }
-                        }
-                        Some(false) => {
-                            // do not continue down this path, nothing can change that EG definitely does not hold here
-                        }
-                        None => {
-                            // reconstruct the path to the state
-                            let mut suffix = VecDeque::new();
-                            let mut backtrack_state_index = state_index;
-                            loop {
-                                let predecessor_state_index =
-                                    *backtrack_map.get(&backtrack_state_index).unwrap();
-                                if predecessor_state_index == backtrack_state_index {
-                                    // we are already at the start index
-                                    break;
-                                }
-
-                                suffix.push_front(backtrack_state_index);
-                                backtrack_state_index = predecessor_state_index;
-                            }
-
-                            let mut path = path.clone();
-                            path.append(&mut suffix);
-
-                            return self.compute_labelling_culprit(&inner.0, &path);
-                        }
-                    }
+                Some(false) => {
+                    // do not continue down this path, nothing can change that EG definitely does not hold here
                 }
-                panic!("no EG culprit found");
-            }
-            Proposition::EU(eu) => {
-                // breadth-first search to find the hold or until that is incomplete
-                // if the hold becomes false or until becomes true, we do not inspect the state or successors further
-                let mut queue = VecDeque::new();
-                let mut backtrack_map = BTreeMap::new();
-                let path_back_index = *path.back().unwrap();
-                queue.push_back(path_back_index);
-                backtrack_map.insert(path_back_index, path_back_index);
-                while let Some(state_index) = queue.pop_front() {
-                    let hold_interpretation = self.get_interpretation(&eu.hold, state_index);
-                    let until_interpretation = self.get_interpretation(&eu.until, state_index);
-                    if let Some(false) = hold_interpretation {
-                        continue;
-                    }
-                    if let Some(true) = until_interpretation {
-                        continue;
-                    }
-                    if hold_interpretation.is_some() && until_interpretation.is_some() {
-                        // continue down the path
-                        for direct_successor in self.space.direct_successor_iter(state_index.into())
-                        {
-                            backtrack_map.entry(direct_successor).or_insert_with(|| {
-                                queue.push_back(direct_successor);
-                                state_index
-                            });
-                        }
-                        continue;
-                    }
+                None => {
                     // reconstruct the path to the state
                     let mut suffix = VecDeque::new();
                     let mut backtrack_state_index = state_index;
@@ -226,19 +194,69 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
                     let mut path = path.clone();
                     path.append(&mut suffix);
 
-                    return if hold_interpretation.is_none() {
-                        self.compute_labelling_culprit(&eu.hold, &path)
-                    } else {
-                        assert!(until_interpretation.is_none());
-                        self.compute_labelling_culprit(&eu.until, &path)
-                    };
+                    return self.compute_labelling_culprit(&inner.0, &path);
                 }
-                panic!("no EU culprit found");
-            }
-            _ => {
-                panic!("expected {:?} to be minimized", prop);
             }
         }
+        panic!("no EG culprit found");
+    }
+
+    fn compute_labelling_culprit_eu(
+        &self,
+        path: &VecDeque<StateId>,
+        inner: &PropU,
+    ) -> Result<Culprit, ExecError> {
+        // breadth-first search to find the hold or until that is incomplete
+        // if the hold becomes false or until becomes true, we do not inspect the state or successors further
+        let mut queue = VecDeque::new();
+        let mut backtrack_map = BTreeMap::new();
+        let path_back_index = *path.back().unwrap();
+        queue.push_back(path_back_index);
+        backtrack_map.insert(path_back_index, path_back_index);
+        while let Some(state_index) = queue.pop_front() {
+            let hold_interpretation = self.get_interpretation(&inner.hold, state_index);
+            let until_interpretation = self.get_interpretation(&inner.until, state_index);
+            if let Some(false) = hold_interpretation {
+                continue;
+            }
+            if let Some(true) = until_interpretation {
+                continue;
+            }
+            if hold_interpretation.is_some() && until_interpretation.is_some() {
+                // continue down the path
+                for direct_successor in self.space.direct_successor_iter(state_index.into()) {
+                    backtrack_map.entry(direct_successor).or_insert_with(|| {
+                        queue.push_back(direct_successor);
+                        state_index
+                    });
+                }
+                continue;
+            }
+            // reconstruct the path to the state
+            let mut suffix = VecDeque::new();
+            let mut backtrack_state_index = state_index;
+            loop {
+                let predecessor_state_index = *backtrack_map.get(&backtrack_state_index).unwrap();
+                if predecessor_state_index == backtrack_state_index {
+                    // we are already at the start index
+                    break;
+                }
+
+                suffix.push_front(backtrack_state_index);
+                backtrack_state_index = predecessor_state_index;
+            }
+
+            let mut path = path.clone();
+            path.append(&mut suffix);
+
+            return if hold_interpretation.is_none() {
+                self.compute_labelling_culprit(&inner.hold, &path)
+            } else {
+                assert!(until_interpretation.is_none());
+                self.compute_labelling_culprit(&inner.until, &path)
+            };
+        }
+        panic!("no EU culprit found");
     }
 
     fn get_interpretation(&self, prop: &Proposition, state_index: StateId) -> Option<bool> {
@@ -275,12 +293,9 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         }
     }
 
-    fn compute_ex_labelling(
-        &mut self,
-        inner: &Proposition,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
-        self.compute_labelling(inner)?;
-        let inner_labelling = self.get_labelling(inner);
+    fn compute_ex_labelling(&mut self, inner: &PropUni) -> Result<BTreeSet<StateId>, ExecError> {
+        self.compute_labelling(&inner.0)?;
+        let inner_labelling = self.get_labelling(&inner.0);
         let mut result = BTreeSet::new();
         // for each state labelled by p, mark the preceding states EX[p]
         for state_id in inner_labelling {
@@ -294,15 +309,12 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
         Ok(result)
     }
 
-    fn compute_eg_labelling(
-        &mut self,
-        inner: &Proposition,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
+    fn compute_eg_labelling(&mut self, inner: &PropG) -> Result<BTreeSet<StateId>, ExecError> {
         // Boolean SCC-based labelling procedure CheckEG from Model Checking 1999 by Clarke et al.
 
         // compute inner labelling
-        self.compute_labelling(inner)?;
-        let inner_labelling = self.get_labelling(inner);
+        self.compute_labelling(&inner.0)?;
+        let inner_labelling = self.get_labelling(&inner.0);
 
         // compute states of nontrivial strongly connected components of labelled and insert them into working set
         let mut working_set = self.space.labelled_nontrivial_scc_indices(inner_labelling);
@@ -411,9 +423,17 @@ impl<'a, AM: AbstractMachine> BooleanChecker<'a, AM> {
                 let b_labelling = self.get_labelling(b);
                 a_labelling.union(b_labelling).cloned().collect()
             }
-            Proposition::EX(inner) => self.compute_ex_labelling(&inner.0)?,
-            Proposition::EU(eu) => self.compute_eu_labelling(eu)?,
-            Proposition::EG(inner) => self.compute_eg_labelling(&inner.0)?,
+            Proposition::E(prop_temp) => match prop_temp {
+                PropTemp::X(inner) => self.compute_ex_labelling(inner)?,
+                PropTemp::G(inner) => self.compute_eg_labelling(inner)?,
+                PropTemp::U(inner) => self.compute_eu_labelling(inner)?,
+                _ => {
+                    panic!(
+                        "expected {:?} to have only X, G, U temporal operators",
+                        prop
+                    );
+                }
+            },
             _ => panic!("expected {:?} to be minimized", prop),
         };
 

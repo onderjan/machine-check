@@ -4,7 +4,6 @@ mod enf;
 mod parser;
 mod pnf;
 
-#[allow(dead_code)]
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Proposition {
     Const(bool),
@@ -12,16 +11,17 @@ pub enum Proposition {
     Negation(PropUni),
     Or(PropBi),
     And(PropBi),
-    EX(PropUni),
-    AX(PropUni),
-    EF(PropUni),
-    AF(PropUni),
-    EG(PropUni),
-    AG(PropUni),
-    EU(PropU),
-    AU(PropU),
-    ER(PropR),
-    AR(PropR),
+    E(PropTemp),
+    A(PropTemp),
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum PropTemp {
+    X(PropUni),
+    F(PropF),
+    G(PropG),
+    U(PropU),
+    R(PropR),
 }
 
 impl Proposition {
@@ -56,11 +56,23 @@ impl Literal {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct PropUni(pub Box<Proposition>);
 
+impl PropUni {
+    pub fn new(prop: Proposition) -> Self {
+        PropUni(Box::new(prop))
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct PropBi {
     pub a: Box<Proposition>,
     pub b: Box<Proposition>,
 }
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct PropF(pub Box<Proposition>);
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct PropG(pub Box<Proposition>);
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct PropU {
