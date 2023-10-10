@@ -4,21 +4,11 @@ mod deduce;
 use machine_check_common::{ExecError, StateId};
 use mck::AbstractMachine;
 
-use crate::proposition::{Literal, PropTemp, PropU, PropUni, Proposition};
+use crate::proposition::Proposition;
 
 use self::{classic::ClassicChecker, deduce::deduce_culprit};
 
 use super::space::Space;
-
-pub fn safety_proposition() -> Proposition {
-    // check AG[safe]
-    Proposition::Negation(PropUni::new(Proposition::E(PropTemp::U(PropU {
-        hold: Box::new(Proposition::Const(true)),
-        until: Box::new(Proposition::Negation(PropUni::new(Proposition::Literal(
-            Literal::new(String::from("safe")),
-        )))),
-    }))))
-}
 
 pub fn check_prop<AM: AbstractMachine>(
     space: &Space<AM>,
@@ -76,6 +66,3 @@ impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
         }
     }
 }
-
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct Index(usize);

@@ -7,10 +7,9 @@ mod space;
 use log::{error, info, log_enabled, trace};
 use machine_check_common::{ExecError, ExecResult};
 use mck::mark::MarkMachine;
-use model_check::safety_proposition;
 
 use clap::Parser;
-use proposition::Proposition;
+use proposition::{Literal, PropTemp, PropU, PropUni, Proposition};
 use refinery::Refinery;
 
 #[derive(Parser, Debug)]
@@ -87,6 +86,14 @@ fn select_proposition(property: Option<&String>) -> Result<Proposition, ExecErro
     if let Some(property_str) = property {
         Proposition::parse(property_str)
     } else {
-        Ok(safety_proposition())
+        // check AG[safe]
+        Ok(Proposition::Negation(PropUni::new(Proposition::E(
+            PropTemp::U(PropU {
+                hold: Box::new(Proposition::Const(true)),
+                until: Box::new(Proposition::Negation(PropUni::new(Proposition::Literal(
+                    Literal::new(String::from("safe")),
+                )))),
+            }),
+        ))))
     }
 }
