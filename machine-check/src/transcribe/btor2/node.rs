@@ -149,15 +149,15 @@ impl<'a> StmtTranscriber<'a> {
             }
             UniOpType::Neg => Ok(parse_quote!(-(#a_tokens))),
             UniOpType::Redand => {
-                // equality with all ones
+                // equality with all ones (equivalent to wrapping minus one)
                 // sort for constant is taken from the operand, not result
-                let one = create_value_expr(1, result_bitvec);
+                let one = create_value_expr(1, a_bitvec);
                 Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, -#one)))
             }
             UniOpType::Redor => {
                 // inequality with all zeros
                 // sort for constant is taken from the operand, not result
-                let zero = create_value_expr(0, result_bitvec);
+                let zero = create_value_expr(0, a_bitvec);
                 Ok(parse_quote!(!(::mck::TypedEq::typed_eq(#a_tokens, #zero))))
             }
             UniOpType::Redxor => {
