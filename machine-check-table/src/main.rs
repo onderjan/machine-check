@@ -66,8 +66,8 @@ fn generate_run(task_stats: TaskStats, run_stats: RunStats, max_memory: u64) -> 
 
     if let Some(memory) = run_stats.memory {
         if status == "ERROR" {
-            // determine yet undetermined errors to be OOM if memory was above 99% of permitted
-            let conservative_memory = max_memory / 100 * 99;
+            // determine yet undetermined errors to be OOM if memory was above 95% of permitted
+            let conservative_memory = max_memory / 100 * 95;
             if memory > conservative_memory {
                 status = String::from("OUT OF MEMORY");
             }
