@@ -361,6 +361,7 @@ fn main() {
         total_correct, total_wrong, total_undetermined
     );
 
-    let file = File::create(exec_outputs_dir.join(format!("{}.xml", tool_name))).unwrap();
+    let file =
+        File::create(exec_outputs_dir.join(format!("{}.xml", tool_name.to_lowercase()))).unwrap();
     xml_result.write(file).unwrap();
 }
