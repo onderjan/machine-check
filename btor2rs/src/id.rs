@@ -69,6 +69,6 @@ impl Rnid {
     }
 
     pub fn is_not(&self) -> bool {
-        self.0.is_negative()
+        self.0.get() < 0
     }
 }
