@@ -9,9 +9,8 @@ use std::{
 };
 
 use crate::{
-    traits::MachineDiv,
     util::{self, compute_mask},
-    MachineBitvector, MachineExt, MachineShift, TypedCmp, TypedEq,
+    MachineBitvector, MachineDiv, MachineExt, MachineShift, TypedCmp, TypedEq,
 };
 
 // the normal equality compares abstract bitvectors

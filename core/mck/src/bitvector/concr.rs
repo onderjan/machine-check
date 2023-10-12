@@ -7,8 +7,9 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use crate::{
-    traits::{MachineDiv, MachineExt, MachineShift, TypedCmp, TypedEq},
+    traits::{MachineDiv, MachineExt, MachineShift},
     util::{compute_mask, compute_sign_bit_mask, is_highest_bit_set},
+    TypedCmp, TypedEq,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
