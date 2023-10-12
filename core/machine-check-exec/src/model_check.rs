@@ -2,7 +2,7 @@ mod classic;
 mod deduce;
 
 use machine_check_common::{ExecError, StateId};
-use mck::AbstractMachine;
+use mck::abstr;
 
 use crate::proposition::Proposition;
 
@@ -10,7 +10,7 @@ use self::{classic::ClassicChecker, deduce::deduce_culprit};
 
 use super::space::Space;
 
-pub fn check_prop<AM: AbstractMachine>(
+pub fn check_prop<AM: abstr::Machine>(
     space: &Space<AM>,
     prop: &Proposition,
 ) -> Result<bool, ExecError> {
@@ -18,13 +18,13 @@ pub fn check_prop<AM: AbstractMachine>(
     checker.check_prop(prop)
 }
 
-struct ThreeValuedChecker<'a, AM: AbstractMachine> {
+struct ThreeValuedChecker<'a, AM: abstr::Machine> {
     space: &'a Space<AM>,
     pessimistic: ClassicChecker<'a, AM>,
     optimistic: ClassicChecker<'a, AM>,
 }
 
-impl<'a, AM: AbstractMachine> ThreeValuedChecker<'a, AM> {
+impl<'a, AM: abstr::Machine> ThreeValuedChecker<'a, AM> {
     fn new(space: &'a Space<AM>) -> Self {
         Self {
             space,

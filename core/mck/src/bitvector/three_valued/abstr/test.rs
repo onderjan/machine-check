@@ -2,7 +2,7 @@ use super::*;
 
 fn join_concr_uni<const L: u32, const X: u32>(
     abstr_a: ThreeValuedBitvector<L>,
-    concr_func: fn(MachineBitvector<L>) -> MachineBitvector<X>,
+    concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) -> ThreeValuedBitvector<X> {
     let x_mask = util::compute_mask(X);
     let mut zeros = Wrapping(0);
@@ -11,7 +11,7 @@ fn join_concr_uni<const L: u32, const X: u32>(
         if !abstr_a.can_contain(Wrapping(a)) {
             continue;
         }
-        let a = MachineBitvector::<L>::new(a);
+        let a = concr::Bitvector::<L>::new(a);
         let concr_result = concr_func(a);
         zeros |= !concr_result.as_unsigned() & x_mask;
         ones |= concr_result.as_unsigned();
@@ -21,7 +21,7 @@ fn join_concr_uni<const L: u32, const X: u32>(
 
 fn exec_uni_check<const L: u32, const X: u32>(
     abstr_func: fn(ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
-    concr_func: fn(MachineBitvector<L>) -> MachineBitvector<X>,
+    concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) {
     let mask = util::compute_mask(L);
     for a_zeros in 0..(1 << L) {
@@ -52,7 +52,7 @@ macro_rules! uni_op_test {
         #[test]
         pub fn $op~L() {
             let abstr_func = |a: ThreeValuedBitvector<L>| a.$op();
-            let concr_func = |a: MachineBitvector<L>| a.$op();
+            let concr_func = |a: concr::Bitvector<L>| a.$op();
             exec_uni_check(abstr_func, concr_func);
         }
     });
@@ -67,7 +67,7 @@ macro_rules! ext_op_test {
                 pub fn $op~L~X() {
                     let abstr_func =
                         |a: ThreeValuedBitvector<L>| -> ThreeValuedBitvector<X> { a.$op() };
-                    let concr_func = |a: MachineBitvector<L>| -> MachineBitvector<X> { a.$op() };
+                    let concr_func = |a: concr::Bitvector<L>| -> concr::Bitvector<X> { a.$op() };
                     exec_uni_check(abstr_func, concr_func);
                 }
             });
@@ -78,7 +78,7 @@ macro_rules! ext_op_test {
 fn join_concr_bi<const L: u32, const X: u32>(
     abstr_a: ThreeValuedBitvector<L>,
     abstr_b: ThreeValuedBitvector<L>,
-    concr_func: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<X>,
+    concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) -> ThreeValuedBitvector<X> {
     let x_mask = util::compute_mask(X);
     let mut zeros = Wrapping(0);
@@ -87,12 +87,12 @@ fn join_concr_bi<const L: u32, const X: u32>(
         if !abstr_a.can_contain(Wrapping(a)) {
             continue;
         }
-        let a = MachineBitvector::<L>::new(a);
+        let a = concr::Bitvector::<L>::new(a);
         for b in 0..(1 << L) {
             if !abstr_b.can_contain(Wrapping(b)) {
                 continue;
             }
-            let b = MachineBitvector::<L>::new(b);
+            let b = concr::Bitvector::<L>::new(b);
 
             let concr_result = concr_func(a, b);
             zeros |= !concr_result.as_unsigned() & x_mask;
@@ -104,7 +104,7 @@ fn join_concr_bi<const L: u32, const X: u32>(
 
 fn exec_bi_check<const L: u32, const X: u32>(
     abstr_func: fn(ThreeValuedBitvector<L>, ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
-    concr_func: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<X>,
+    concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
     exact: bool,
 ) {
     let mask = util::compute_mask(L);
@@ -164,7 +164,7 @@ macro_rules! bi_op_test {
         #[test]
         pub fn $op~L() {
             let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b);
-            let concr_func = |a: MachineBitvector<L>, b: MachineBitvector<L>| a.$op(b);
+            let concr_func = |a: concr::Bitvector<L>, b: concr::Bitvector<L>| a.$op(b);
             exec_bi_check(abstr_func, concr_func, $exact);
         }
     });
@@ -187,7 +187,7 @@ bi_op_test!(mul, false);
 bi_op_test!(sdiv, false);
 bi_op_test!(udiv, false);
 bi_op_test!(smod, false);
-bi_op_test!(srem, false);
+bi_op_test!(seuc, false);
 bi_op_test!(urem, false);
 
 // bitwise tests
@@ -203,9 +203,9 @@ bi_op_test!(typed_ult, true);
 bi_op_test!(typed_ulte, true);
 
 // shift tests
-bi_op_test!(sll, true);
-bi_op_test!(srl, true);
-bi_op_test!(sra, true);
+bi_op_test!(logic_shl, true);
+bi_op_test!(logic_shr, true);
+bi_op_test!(arith_shr, true);
 
 // --- EXTENSION TESTS ---
 

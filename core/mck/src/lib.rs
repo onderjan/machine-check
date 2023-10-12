@@ -1,13 +1,19 @@
 mod bitvector;
-pub mod mark;
 mod traits;
-mod util;
 
-pub use bitvector::concr::MachineBitvector;
-pub use bitvector::mark::MarkBitvector;
-pub use bitvector::three_valued::ThreeValuedBitvector;
-
-pub use traits::mark::MarkInput;
-pub use traits::mark::MarkMachine;
-pub use traits::mark::MarkState;
 pub use traits::*;
+
+pub mod concr {
+    pub use super::bitvector::concr::*;
+    pub use super::traits::concr::*;
+}
+
+pub mod abstr {
+    pub use super::bitvector::abstr::*;
+    pub use super::traits::abstr::*;
+}
+
+pub mod refin {
+    pub use super::bitvector::refin::*;
+    pub use super::traits::refin::*;
+}

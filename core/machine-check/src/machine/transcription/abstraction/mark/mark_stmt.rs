@@ -26,26 +26,15 @@ fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
     if let Some(crate_segment) = segments_iter.next() {
         let crate_ident = &mut crate_segment.ident;
         match crate_ident.to_string().as_str() {
-            "std" => {
+            "std" => {}
+            "mck" => {
                 let Some(PathSegment {
                     ident: second_ident,
                     arguments: PathArguments::None,
                 }) = segments_iter.next() else {
                     return Err(anyhow!("Inversion fail"));
                 };
-                *crate_ident = Ident::new("mck", crate_ident.span());
-                *second_ident = Ident::new("mark", second_ident.span());
-                return Ok(());
-            }
-            "mck" => {
-                // add mark segment
-                fn_path.path.segments.insert(
-                    1,
-                    PathSegment {
-                        ident: Ident::new("mark", Span::call_site()),
-                        arguments: PathArguments::None,
-                    },
-                );
+                *second_ident = Ident::new("refin", second_ident.span());
                 return Ok(());
             }
             _ => (),
@@ -70,7 +59,7 @@ pub fn create_join_stmt(left: Expr, right: Expr) -> Stmt {
             func: Box::new(Expr::Path(ExprPath {
                 attrs: vec![],
                 qself: None,
-                path: path!(::mck::mark::Join::apply_join),
+                path: path!(::mck::refin::Join::apply_join),
             })),
             paren_token: Default::default(),
             args: Punctuated::from_iter(vec![left_mut_ref_expr, right]),

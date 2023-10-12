@@ -298,7 +298,7 @@ fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
         }),
         Expr::Call(create_expr_call(
             Expr::Path(create_expr_path(path!(
-                ::mck::mark::Markable::create_clean_mark
+                ::mck::refin::Markable::create_clean_mark
             ))),
             Punctuated::from_iter(vec![param]),
         )),

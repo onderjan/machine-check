@@ -1,23 +1,23 @@
-use std::{
-    num::Wrapping,
-    ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub},
-};
+use std::num::Wrapping;
 
 use std::fmt::Debug;
 use std::fmt::Display;
 
 use crate::{
-    traits::{MachineDiv, MachineExt, MachineShift},
-    util::{compute_mask, compute_sign_bit_mask, is_highest_bit_set},
-    TypedCmp, TypedEq,
+    abstr::Bitwise,
+    concr::{Ext, HwShift, TypedCmp, TypedEq},
+};
+use crate::{
+    abstr::HwArith,
+    bitvector::util::{compute_mask, compute_sign_bit_mask, is_highest_bit_set},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct MachineBitvector<const L: u32> {
+pub struct Bitvector<const L: u32> {
     v: Wrapping<u64>,
 }
 
-impl<const L: u32> MachineBitvector<L> {
+impl<const L: u32> Bitvector<L> {
     #[allow(dead_code)]
     pub fn new(value: u64) -> Self {
         Self::w_new(Wrapping(value))
@@ -54,7 +54,7 @@ impl<const L: u32> MachineBitvector<L> {
     }
 }
 
-impl<const L: u32> Debug for MachineBitvector<L> {
+impl<const L: u32> Debug for Bitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "'")?;
         for little_k in 0..L {
@@ -66,114 +66,65 @@ impl<const L: u32> Debug for MachineBitvector<L> {
     }
 }
 
-impl<const L: u32> Display for MachineBitvector<L> {
+impl<const L: u32> Display for Bitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
     }
 }
 
-impl<const L: u32> Neg for MachineBitvector<L> {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self::w_new((-self.v) & compute_mask(L))
-    }
-}
-
-impl<const L: u32> Add for MachineBitvector<L> {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self::w_new((self.v + rhs.v) & compute_mask(L))
-    }
-}
-
-impl<const L: u32> Sub for MachineBitvector<L> {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self::w_new((self.v - rhs.v) & compute_mask(L))
-    }
-}
-
-impl<const L: u32> Mul for MachineBitvector<L> {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        Self::w_new((self.v * rhs.v) & compute_mask(L))
-    }
-}
-
-impl<const L: u32> Not for MachineBitvector<L> {
-    type Output = Self;
-
-    fn not(self) -> Self::Output {
+impl<const L: u32> Bitwise for Bitvector<L> {
+    fn not(self) -> Self {
         Self::w_new((!self.v) & compute_mask(L))
     }
-}
-
-impl<const L: u32> BitAnd for MachineBitvector<L> {
-    type Output = Self;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
+    fn bitand(self, rhs: Self) -> Self {
         Self::w_new((self.v & rhs.v) & compute_mask(L))
     }
-}
-
-impl<const L: u32> BitOr for MachineBitvector<L> {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
+    fn bitor(self, rhs: Self) -> Self {
         Self::w_new((self.v | rhs.v) & compute_mask(L))
     }
-}
-
-impl<const L: u32> BitXor for MachineBitvector<L> {
-    type Output = Self;
-
-    fn bitxor(self, rhs: Self) -> Self::Output {
+    fn bitxor(self, rhs: Self) -> Self {
         Self::w_new((self.v ^ rhs.v) & compute_mask(L))
     }
 }
 
-impl<const L: u32> TypedEq for MachineBitvector<L> {
-    type Output = MachineBitvector<1>;
+impl<const L: u32> TypedEq for Bitvector<L> {
+    type Output = Bitvector<1>;
     fn typed_eq(self, rhs: Self) -> Self::Output {
         let result = self.v == rhs.v;
-        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+        Bitvector::<1>::w_new(Wrapping(result as u64))
     }
 }
 
-impl<const L: u32> TypedCmp for MachineBitvector<L> {
-    type Output = MachineBitvector<1>;
+impl<const L: u32> TypedCmp for Bitvector<L> {
+    type Output = Bitvector<1>;
 
     fn typed_slt(self, rhs: Self) -> Self::Output {
         let result = self.as_signed() < rhs.as_signed();
-        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+        Bitvector::<1>::w_new(Wrapping(result as u64))
     }
 
     fn typed_ult(self, rhs: Self) -> Self::Output {
         let result = self.as_unsigned() < rhs.as_unsigned();
-        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+        Bitvector::<1>::w_new(Wrapping(result as u64))
     }
 
     fn typed_slte(self, rhs: Self) -> Self::Output {
         let result = self.as_signed() <= rhs.as_signed();
-        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+        Bitvector::<1>::w_new(Wrapping(result as u64))
     }
 
     fn typed_ulte(self, rhs: Self) -> Self::Output {
         let result = self.as_unsigned() <= rhs.as_unsigned();
-        MachineBitvector::<1>::w_new(Wrapping(result as u64))
+        Bitvector::<1>::w_new(Wrapping(result as u64))
     }
 }
 
-impl<const L: u32, const X: u32> MachineExt<X> for MachineBitvector<L> {
-    type Output = MachineBitvector<X>;
+impl<const L: u32, const X: u32> Ext<X> for Bitvector<L> {
+    type Output = Bitvector<X>;
 
     fn uext(self) -> Self::Output {
         // shorten if needed, lengthening is fine
-        MachineBitvector::<X>::w_new(self.v & compute_mask(X))
+        Bitvector::<X>::w_new(self.v & compute_mask(X))
     }
 
     fn sext(self) -> Self::Output {
@@ -186,40 +137,40 @@ impl<const L: u32, const X: u32> MachineExt<X> for MachineBitvector<L> {
             let lengthening_mask = !old_mask & new_mask;
             v |= lengthening_mask;
         }
-        MachineBitvector::<X>::w_new(v)
+        Bitvector::<X>::w_new(v)
     }
 }
 
-impl<const L: u32> MachineShift for MachineBitvector<L> {
+impl<const L: u32> HwShift for Bitvector<L> {
     type Output = Self;
 
-    fn sll(self, amount: Self) -> Self {
+    fn logic_shl(self, amount: Self) -> Self {
         if amount.v.0 >= L as u64 {
             // zero if the shift is too big
-            MachineBitvector::w_new(Wrapping(0))
+            Bitvector::w_new(Wrapping(0))
         } else {
             // apply mask after shifting
             let res = self.v << (amount.v.0 as usize);
-            MachineBitvector::w_new(res & compute_mask(L))
+            Bitvector::w_new(res & compute_mask(L))
         }
     }
 
-    fn srl(self, amount: Self) -> Self {
+    fn logic_shr(self, amount: Self) -> Self {
         if amount.v.0 >= L as u64 {
             // zero if the shift is too big
-            MachineBitvector::w_new(Wrapping(0))
+            Bitvector::w_new(Wrapping(0))
         } else {
-            MachineBitvector::w_new(self.v >> amount.v.0 as usize)
+            Bitvector::w_new(self.v >> amount.v.0 as usize)
         }
     }
 
-    fn sra(self, amount: Self) -> Self {
+    fn arith_shr(self, amount: Self) -> Self {
         if amount.v.0 >= L as u64 {
             // fill with sign bit if the shift is too big
             if self.is_sign_bit_set() {
-                return MachineBitvector::w_new(compute_mask(L));
+                return Bitvector::w_new(compute_mask(L));
             }
-            return MachineBitvector::w_new(Wrapping(0));
+            return Bitvector::w_new(Wrapping(0));
         };
 
         let mut result = self.v >> amount.v.0 as usize;
@@ -230,11 +181,27 @@ impl<const L: u32> MachineShift for MachineBitvector<L> {
             let sign_bit_copy_mask = old_mask & !new_mask;
             result |= sign_bit_copy_mask;
         }
-        MachineBitvector::w_new(result)
+        Bitvector::w_new(result)
     }
 }
 
-impl<const L: u32> MachineDiv for MachineBitvector<L> {
+impl<const L: u32> HwArith for Bitvector<L> {
+    fn neg(self) -> Self {
+        Self::w_new((-self.v) & compute_mask(L))
+    }
+
+    fn add(self, rhs: Self) -> Self {
+        Self::w_new((self.v + rhs.v) & compute_mask(L))
+    }
+
+    fn sub(self, rhs: Self) -> Self {
+        Self::w_new((self.v - rhs.v) & compute_mask(L))
+    }
+
+    fn mul(self, rhs: Self) -> Self {
+        Self::w_new((self.v * rhs.v) & compute_mask(L))
+    }
+
     fn sdiv(self, rhs: Self) -> Self {
         // result of division by zero is the mask
         let dividend = self.as_signed().0;
@@ -265,7 +232,7 @@ impl<const L: u32> MachineDiv for MachineBitvector<L> {
         Self::w_new(Wrapping(result as u64) & compute_mask(L))
     }
 
-    fn srem(self, rhs: Self) -> Self {
+    fn seuc(self, rhs: Self) -> Self {
         // result of remainder by zero is the dividend
 
         let dividend = self.as_signed().0;

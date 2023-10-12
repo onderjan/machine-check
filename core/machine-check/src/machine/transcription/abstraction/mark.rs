@@ -120,7 +120,7 @@ fn apply_transcribed_item_struct(items: &mut Vec<Item>, s: &ItemStruct) -> anyho
 
 fn generate_join_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
-    let join_impl_trait = (None, path!(::mck::mark::Join), Default::default());
+    let join_impl_trait = (None, path!(::mck::refin::Join), Default::default());
     let self_type = Type::Path(create_type_path(path!(Self)));
     let self_input = FnArg::Receiver(Receiver {
         attrs: vec![],
@@ -247,7 +247,7 @@ fn generate_force_decay_fn(state_struct: &ItemStruct) -> anyhow::Result<ImplItem
                 Expr::Path(ExprPath {
                     attrs: vec![],
                     qself: None,
-                    path: path!(::mck::mark::Decay::force_decay),
+                    path: path!(::mck::refin::Decay::force_decay),
                 }),
                 Punctuated::from_iter(vec![decay_ref, target_ref]),
             )),
@@ -282,7 +282,7 @@ fn generate_force_decay_fn(state_struct: &ItemStruct) -> anyhow::Result<ImplItem
 
 fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
-    let mark_single_trait = (None, path!(::mck::mark::MarkSingle), Default::default());
+    let mark_single_trait = (None, path!(::mck::refin::MarkSingle), Default::default());
     let self_type = Type::Path(create_type_path(path!(Self)));
     let self_input = FnArg::Receiver(Receiver {
         attrs: vec![],
@@ -331,7 +331,7 @@ fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         });
 
         let func_expr = Expr::Path(create_expr_path(path!(
-            ::mck::mark::MarkSingle::apply_single_mark
+            ::mck::refin::MarkSingle::apply_single_mark
         )));
         let expr = Expr::Call(create_expr_call(
             func_expr,
@@ -686,7 +686,7 @@ fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     };
 
     let struct_type = Type::Path(create_type_path(abstr_path));
-    let impl_trait = (None, path!(::mck::mark::Markable), Default::default());
+    let impl_trait = (None, path!(::mck::refin::Markable), Default::default());
     Ok(ItemImpl {
         attrs: vec![],
         defaultness: None,
@@ -701,52 +701,15 @@ fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
             ImplItem::Fn(create_clean_mark_fn),
         ],
     })
-
-    /*impl ::mck::mark::Markable for super::State {
-        type Mark = State;
-
-        fn create_clean_mark(&self) -> Self::Mark {
-            Default::default()
-        }
-    }*/
 }
 
 pub fn mark_path_rules() -> Vec<PathRule> {
-    // TODO: do this more elegantly using traits
-    vec![
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
-                PathRuleSegment::Convert(
-                    String::from("ThreeValuedBitvector"),
-                    String::from("MarkBitvector"),
-                ),
-            ],
-        },
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
-                PathRuleSegment::Convert(String::from("AbstractInput"), String::from("MarkInput")),
-            ],
-        },
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
-                PathRuleSegment::Convert(String::from("AbstractState"), String::from("MarkState")),
-            ],
-        },
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
-                PathRuleSegment::Convert(
-                    String::from("AbstractMachine"),
-                    String::from("MarkMachine"),
-                ),
-            ],
-        },
-    ]
+    vec![PathRule {
+        has_leading_colon: true,
+        segments: vec![
+            PathRuleSegment::Ident(String::from("mck")),
+            PathRuleSegment::Convert(String::from("abstr"), String::from("refin")),
+            PathRuleSegment::Wildcard,
+        ],
+    }]
 }

@@ -117,7 +117,8 @@ impl<'a> StmtTranscriber<'a> {
                 SourceType::Ones => {
                     // negate one
                     let expr = create_value_expr(1, self.get_nid_bitvec(nid)?);
-                    self.stmts.push(parse_quote!(let #result_ident = -#expr;));
+                    self.stmts
+                        .push(parse_quote!(let #result_ident = ::mck::concr::HwArith::neg(#expr);));
                 }
                 SourceType::Zero => {
                     let expr = create_value_expr(0, self.get_nid_bitvec(nid)?);
@@ -141,24 +142,26 @@ impl<'a> StmtTranscriber<'a> {
             UniOpType::Not => Ok(parse_quote!(!(#a_tokens))),
             UniOpType::Inc => {
                 let one = create_value_expr(1, result_bitvec);
-                Ok(parse_quote!((#a_tokens) + (#one)))
+                Ok(parse_quote!((::mck::concr::HwArith::add(#a_tokens,#one))))
             }
             UniOpType::Dec => {
                 let one = create_value_expr(1, result_bitvec);
-                Ok(parse_quote!((#a_tokens) - (#one)))
+                Ok(parse_quote!(::mck::concr::HwArith::sub(#a_tokens, #one)))
             }
-            UniOpType::Neg => Ok(parse_quote!(-(#a_tokens))),
+            UniOpType::Neg => Ok(parse_quote!(::mck::concr::HwArith::neg(#a_tokens))),
             UniOpType::Redand => {
                 // equality with all ones (equivalent to wrapping minus one)
                 // sort for constant is taken from the operand, not result
                 let one = create_value_expr(1, a_bitvec);
-                Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, -#one)))
+                Ok(
+                    parse_quote!(::mck::concr::TypedEq::typed_eq(#a_tokens, ::mck::concr::HwArith::neg(#one))),
+                )
             }
             UniOpType::Redor => {
                 // inequality with all zeros
                 // sort for constant is taken from the operand, not result
                 let zero = create_value_expr(0, a_bitvec);
-                Ok(parse_quote!(!(::mck::TypedEq::typed_eq(#a_tokens, #zero))))
+                Ok(parse_quote!(!(::mck::concr::TypedEq::typed_eq(#a_tokens, #zero))))
             }
             UniOpType::Redxor => {
                 // naive version, just slice all relevant bits and xor them together
@@ -168,9 +171,8 @@ impl<'a> StmtTranscriber<'a> {
                 for i in 0..a_length {
                     // logical shift right to make the i the zeroth bit
                     let shift_length_expr = create_value_expr(i.into(), a_bitvec);
-                    let a_srl: Expr =
-                        parse_quote!(::mck::MachineShift::srl(#a_tokens, #shift_length_expr));
-                    slice_expressions.push(parse_quote!(::mck::MachineExt::<1>::uext(#a_srl)));
+                    let a_srl: Expr = parse_quote!(::mck::concr::HwShift::logic_shr(#a_tokens, #shift_length_expr));
+                    slice_expressions.push(parse_quote!(::mck::concr::Ext::<1>::uext(#a_srl)));
                 }
                 Ok(parse_quote!(#(#slice_expressions)^*))
             }
@@ -189,13 +191,14 @@ impl<'a> StmtTranscriber<'a> {
                 let result_sort = self.get_bitvec(op.sid)?;
                 let result_length = result_sort.length.get();
                 let condition_mask: Expr =
-                    parse_quote!(::mck::MachineExt::<#result_length>::sext(#a_tokens));
-                let neg_condition_mask: Expr =
-                    parse_quote!(::mck::MachineExt::<#result_length>::sext(!(#a_tokens)));
+                    parse_quote!(::mck::concr::Ext::<#result_length>::sext(#a_tokens));
+                let not_condition_mask: Expr = parse_quote!(::mck::concr::Ext::<#result_length>::sext(::mck::concr::Bitwise::not(#a_tokens)));
 
-                Ok(
-                    parse_quote!(((#b_tokens) & (#condition_mask)) | ((#c_tokens) & (#neg_condition_mask))),
-                )
+                let then_result: Expr =
+                    parse_quote!(::mck::concr::Bitwise::bitand(#b_tokens, #condition_mask));
+                let else_result: Expr =
+                    parse_quote!(::mck::concr::Bitwise::bitand(#c_tokens, #not_condition_mask));
+                Ok(parse_quote!(::mck::concr::Bitwise::bitor(#then_result, #else_result)))
             }
             TriOpType::Write => {
                 // a = array, b = index, c = element to be stored
@@ -208,39 +211,88 @@ impl<'a> StmtTranscriber<'a> {
         let a_tokens = create_rnid_expr(op.a);
         let b_tokens = create_rnid_expr(op.b);
         match op.ty {
-            BiOpType::Iff => Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens))),
-            BiOpType::Implies => Ok(parse_quote!(!(#a_tokens) | (#b_tokens))),
-            BiOpType::Eq => Ok(parse_quote!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens))),
-            BiOpType::Neq => Ok(parse_quote!(!(::mck::TypedEq::typed_eq(#a_tokens, #b_tokens)))),
+            BiOpType::Iff => {
+                Ok(parse_quote!(::mck::concr::TypedEq::typed_eq(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Implies => {
+                // a implies b = !a | b
+                let not_a: Expr = parse_quote!(::mck::concr::Bitwise::not(#a_tokens));
+                Ok(parse_quote!(::mck::concr::Bitwise::bitor(#not_a, #b_tokens)))
+            }
+            BiOpType::Eq => Ok(parse_quote!(::mck::concr::TypedEq::typed_eq(#a_tokens, #b_tokens))),
+            BiOpType::Neq => {
+                Ok(parse_quote!(!(::mck::concr::TypedEq::typed_eq(#a_tokens, #b_tokens))))
+            }
             // implement greater using lesser by flipping the operands
-            BiOpType::Sgt => Ok(parse_quote!(::mck::TypedCmp::typed_slt(#b_tokens, #a_tokens))),
-            BiOpType::Ugt => Ok(parse_quote!(::mck::TypedCmp::typed_ult(#b_tokens, #a_tokens))),
-            BiOpType::Sgte => Ok(parse_quote!(::mck::TypedCmp::typed_slte(#b_tokens, #a_tokens))),
-            BiOpType::Ugte => Ok(parse_quote!(::mck::TypedCmp::typed_ulte(#b_tokens, #a_tokens))),
+            BiOpType::Sgt => {
+                Ok(parse_quote!(::mck::concr::TypedCmp::typed_slt(#b_tokens, #a_tokens)))
+            }
+            BiOpType::Ugt => {
+                Ok(parse_quote!(::mck::concr::TypedCmp::typed_ult(#b_tokens, #a_tokens)))
+            }
+            BiOpType::Sgte => {
+                Ok(parse_quote!(::mck::concr::TypedCmp::typed_slte(#b_tokens, #a_tokens)))
+            }
+            BiOpType::Ugte => {
+                Ok(parse_quote!(::mck::concr::TypedCmp::typed_ulte(#b_tokens, #a_tokens)))
+            }
             // lesser is implemented
-            BiOpType::Slt => Ok(parse_quote!(::mck::TypedCmp::typed_slt(#a_tokens, #b_tokens))),
-            BiOpType::Ult => Ok(parse_quote!(::mck::TypedCmp::typed_ult(#a_tokens, #b_tokens))),
-            BiOpType::Slte => Ok(parse_quote!(::mck::TypedCmp::typed_slte(#a_tokens, #b_tokens))),
-            BiOpType::Ulte => Ok(parse_quote!(::mck::TypedCmp::typed_ulte(#a_tokens, #b_tokens))),
-            BiOpType::And => Ok(parse_quote!((#a_tokens) & (#b_tokens))),
-            BiOpType::Nand => Ok(parse_quote!(!((#a_tokens) & (#b_tokens)))),
-            BiOpType::Nor => Ok(parse_quote!(!((#a_tokens) | (#b_tokens)))),
-            BiOpType::Or => Ok(parse_quote!((#a_tokens) | (#b_tokens))),
-            BiOpType::Xnor => Ok(parse_quote!(!((#a_tokens) ^ (#b_tokens)))),
-            BiOpType::Xor => Ok(parse_quote!((#a_tokens) ^ (#b_tokens))),
+            BiOpType::Slt => {
+                Ok(parse_quote!(::mck::concr::TypedCmp::typed_slt(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Ult => {
+                Ok(parse_quote!(::mck::concr::TypedCmp::typed_ult(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Slte => {
+                Ok(parse_quote!(::mck::concr::TypedCmp::typed_slte(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Ulte => {
+                Ok(parse_quote!(::mck::concr::TypedCmp::typed_ulte(#a_tokens, #b_tokens)))
+            }
+            BiOpType::And => Ok(parse_quote!(::mck::concr::Bitwise::bitand(#a_tokens, #b_tokens))),
+            BiOpType::Nand => {
+                let pos: Expr = parse_quote!(::mck::concr::Bitwise::bitand(#a_tokens, #b_tokens));
+                Ok(parse_quote!(::mck::concr::Bitwise::not(#pos)))
+            }
+            BiOpType::Or => Ok(parse_quote!(::mck::concr::Bitwise::bitor(#a_tokens, #b_tokens))),
+            BiOpType::Nor => {
+                let pos: Expr = parse_quote!(::mck::concr::Bitwise::bitor(#a_tokens, #b_tokens));
+                Ok(parse_quote!(::mck::concr::Bitwise::not(#pos)))
+            }
+            BiOpType::Xor => Ok(parse_quote!(::mck::concr::Bitwise::bitxor(#a_tokens, #b_tokens))),
+            BiOpType::Xnor => {
+                let pos: Expr = parse_quote!(::mck::concr::Bitwise::bitxor(#a_tokens, #b_tokens));
+                Ok(parse_quote!(::mck::concr::Bitwise::not(#pos)))
+            }
             BiOpType::Rol => Err(anyhow!("Left rotation generation not implemented")),
             BiOpType::Ror => Err(anyhow!("Right rotation generation not implemented")),
-            BiOpType::Sll => Ok(parse_quote!(::mck::MachineShift::sll(#a_tokens, #b_tokens))),
-            BiOpType::Sra => Ok(parse_quote!(::mck::MachineShift::sra(#a_tokens, #b_tokens))),
-            BiOpType::Srl => Ok(parse_quote!(::mck::MachineShift::srl(#a_tokens, #b_tokens))),
-            BiOpType::Add => Ok(parse_quote!((#a_tokens) + (#b_tokens))),
-            BiOpType::Mul => Ok(parse_quote!((#a_tokens) * (#b_tokens))),
-            BiOpType::Sdiv => Ok(parse_quote!(::mck::MachineDiv::sdiv(#a_tokens, #b_tokens))),
-            BiOpType::Udiv => Ok(parse_quote!(::mck::MachineDiv::udiv(#a_tokens, #b_tokens))),
-            BiOpType::Smod => Ok(parse_quote!(::mck::MachineDiv::smod(#a_tokens, #b_tokens))),
-            BiOpType::Srem => Ok(parse_quote!(::mck::MachineDiv::srem(#a_tokens, #b_tokens))),
-            BiOpType::Urem => Ok(parse_quote!(::mck::MachineDiv::urem(#a_tokens, #b_tokens))),
-            BiOpType::Sub => Ok(parse_quote!((#a_tokens) - (#b_tokens))),
+            BiOpType::Sll => {
+                Ok(parse_quote!(::mck::concr::Shift::hw_logic_shl(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Sra => {
+                Ok(parse_quote!(::mck::concr::Shift::hw_arith_shr(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Srl => {
+                Ok(parse_quote!(::mck::concr::Shift::hw_logic_shr(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Add => Ok(parse_quote!(::mck::concr::HwArith::add(#a_tokens, #b_tokens))),
+            BiOpType::Sub => Ok(parse_quote!(::mck::concr::HwArith::sub(#a_tokens, #b_tokens))),
+            BiOpType::Mul => Ok(parse_quote!(::mck::concr::HwArith::mul(#a_tokens, #b_tokens))),
+            BiOpType::Sdiv => {
+                Ok(parse_quote!(::mck::concr::DivModRem::hw_sdiv(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Udiv => {
+                Ok(parse_quote!(::mck::concr::DivModRem::hw_udiv(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Smod => {
+                Ok(parse_quote!(::mck::concr::DivModRem::hw_smod(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Srem => {
+                Ok(parse_quote!(::mck::concr::DivModRem::hw_srem(#a_tokens, #b_tokens)))
+            }
+            BiOpType::Urem => {
+                Ok(parse_quote!(::mck::concr::DivModRem::hw_urem(#a_tokens, #b_tokens)))
+            }
             BiOpType::Saddo
             | BiOpType::Uaddo
             | BiOpType::Sdivo
@@ -256,19 +308,19 @@ impl<'a> StmtTranscriber<'a> {
 
                 // do unsigned extension of both to result type
                 let a_uext: Expr =
-                    parse_quote!(::mck::MachineExt::<#result_length>::uext(#a_tokens));
+                    parse_quote!(::mck::concr::Ext::<#result_length>::uext(#a_tokens));
                 let b_uext: Expr =
-                    parse_quote!(::mck::MachineExt::<#result_length>::uext(#b_tokens));
+                    parse_quote!(::mck::concr::Ext::<#result_length>::uext(#b_tokens));
 
                 // shift a left by length of b
                 let b_sort: &Bitvec = self.get_nid_bitvec(op.b.nid())?;
                 let b_length = b_sort.length.get();
                 let shift_length_expr = create_value_expr(b_length.into(), result_sort);
                 let a_uext_sll: Expr =
-                    parse_quote!(::mck::MachineShift::sll(#a_uext, #shift_length_expr));
+                    parse_quote!(::mck::concr::Shift::hw_logic_shl(#a_uext, #shift_length_expr));
 
                 // bit-or together
-                Ok(parse_quote!((#a_uext_sll) | (#b_uext)))
+                Ok(parse_quote!(::mck::concr::Bitwise::bitor(#a_uext_sll, #b_uext)))
             }
             BiOpType::Read => Err(anyhow!("Generating arrays not supported")),
         }
@@ -284,10 +336,10 @@ impl<'a> StmtTranscriber<'a> {
 
         match op.ty {
             btor2rs::ExtOpType::Sext => {
-                Ok(parse_quote!(::mck::MachineExt::<#result_length>::sext(#a_tokens)))
+                Ok(parse_quote!(::mck::concr::Ext::<#result_length>::sext(#a_tokens)))
             }
             btor2rs::ExtOpType::Uext => {
-                Ok(parse_quote!(::mck::MachineExt::<#result_length>::uext(#a_tokens)))
+                Ok(parse_quote!(::mck::concr::Ext::<#result_length>::uext(#a_tokens)))
             }
         }
     }
@@ -298,12 +350,13 @@ impl<'a> StmtTranscriber<'a> {
 
         // logical shift right to make the lower bit the zeroth bit
         let shift_length_expr = create_value_expr(op.lower_bit.into(), a_sort);
-        let a_srl: Expr = parse_quote!(::mck::MachineShift::srl(#a_tokens, #shift_length_expr));
+        let a_srl: Expr =
+            parse_quote!(::mck::concr::Shift::hw_logic_shr(#a_tokens, #shift_length_expr));
 
         // retain only the specified number of bits by unsigned extension
         let num_retained_bits = op.upper_bit - op.lower_bit + 1;
 
-        Ok(parse_quote!(::mck::MachineExt::<#num_retained_bits>::uext(#a_srl)))
+        Ok(parse_quote!(::mck::concr::Ext::<#num_retained_bits>::uext(#a_srl)))
     }
 
     fn const_expr(&self, value: &Const) -> Result<Expr, anyhow::Error> {
@@ -319,9 +372,9 @@ impl<'a> StmtTranscriber<'a> {
         let value = u64::from_str_radix(str, value.ty.clone() as u32)?;
         let bitvec_length = result_sort.length.get();
         Ok(if negate {
-            parse_quote!((-::mck::MachineBitvector::<#bitvec_length>::new(#value)))
+            parse_quote!((::mck::concr::HwArith::neg(::mck::concr::Bitvector::<#bitvec_length>::new(#value))))
         } else {
-            parse_quote!(::mck::MachineBitvector::<#bitvec_length>::new(#value))
+            parse_quote!(::mck::concr::Bitvector::<#bitvec_length>::new(#value))
         })
     }
 

@@ -8,9 +8,6 @@ use syn::{
 };
 
 pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
-    // apply transcription to operations to calls first
-    super::ops_to_calls::apply(file);
-
     // apply transcription to each block using a visitor
     struct Visitor(anyhow::Result<()>);
     impl VisitMut for Visitor {

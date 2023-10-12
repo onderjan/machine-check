@@ -6,7 +6,7 @@ mod space;
 
 use log::{error, info, log_enabled, trace};
 use machine_check_common::{ExecError, ExecResult};
-use mck::mark::MarkMachine;
+use mck::refin::Machine;
 
 use clap::Parser;
 use proposition::{Literal, PropTemp, PropU, PropUni, Proposition};
@@ -27,7 +27,7 @@ struct Args {
     use_decay: bool,
 }
 
-pub fn run<M: MarkMachine>() {
+pub fn run<M: Machine>() {
     if let Err(err) = run_inner::<M>() {
         // log root error
         error!("{:#?}", err);
@@ -37,7 +37,7 @@ pub fn run<M: MarkMachine>() {
     // terminate successfully, the information is in stdout
 }
 
-fn run_inner<M: MarkMachine>() -> Result<ExecResult, anyhow::Error> {
+fn run_inner<M: Machine>() -> Result<ExecResult, anyhow::Error> {
     let args = Args::parse();
     // logging to stderr, stdout will contain the result in batch mode
     let filter_level = match args.verbose {
@@ -68,7 +68,7 @@ fn run_inner<M: MarkMachine>() -> Result<ExecResult, anyhow::Error> {
     Ok(verification_result)
 }
 
-fn verify<M: MarkMachine>(property: Option<&String>, use_decay: bool) -> ExecResult {
+fn verify<M: Machine>(property: Option<&String>, use_decay: bool) -> ExecResult {
     let mut refinery = Refinery::<M>::new(use_decay);
     let proposition = select_proposition(property);
     let result = match proposition {

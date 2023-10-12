@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, num::NonZeroUsize, ops::Shr, rc::Rc};
 
 use bimap::BiMap;
 use machine_check_common::StateId;
-use mck::{AbstractMachine, FieldManipulate, MachineBitvector};
+use mck::{abstr, concr, FieldManipulate};
 use petgraph::{prelude::GraphMap, Directed};
 
 pub struct Edge<AI> {
@@ -33,14 +33,14 @@ impl TryFrom<NodeId> for StateId {
     }
 }
 
-pub struct Space<AM: AbstractMachine> {
+pub struct Space<AM: abstr::Machine> {
     node_graph: GraphMap<NodeId, Edge<AM::Input>, Directed>,
     state_map: BiMap<StateId, Rc<AM::State>>,
     num_states_for_sweep: usize,
     next_state_id: StateId,
 }
 
-impl<AM: AbstractMachine> Space<AM> {
+impl<AM: abstr::Machine> Space<AM> {
     pub fn new() -> Self {
         Self {
             node_graph: GraphMap::new(),
@@ -164,7 +164,7 @@ impl<AM: AbstractMachine> Space<AM> {
                 let labelled = match labelling.concrete_value() {
                     Some(concrete_value) => {
                         // negate if necessary
-                        let is_true = concrete_value != MachineBitvector::new(0);
+                        let is_true = concrete_value != concr::Bitvector::new(0);
                         if complementary {
                             !is_true
                         } else {

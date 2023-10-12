@@ -7,7 +7,7 @@ use crate::CheckError;
 use anyhow::anyhow;
 use btor2rs::{Bitvec, Btor2, DrainType, Nid, Node, Rnid, Sid, Source, SourceType};
 use camino::Utf8Path;
-use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro2::{Ident, Span};
 use std::io::BufRead;
 use syn::{parse_quote, Expr, Field, FieldValue, Type};
 
@@ -116,18 +116,18 @@ impl Transcriber {
                 #(#input_fields),*
             }
 
-            impl ::mck::ConcreteInput for Input {}
+            impl ::mck::concr::Input for Input {}
 
             #[derive(Clone, Debug, PartialEq, Eq, Hash)]
             pub struct State {
                 #(#state_fields),*
             }
 
-            impl ::mck::ConcreteState for State {}
+            impl ::mck::concr::State for State {}
 
             pub struct Machine;
 
-            impl ::mck::ConcreteMachine for Machine {
+            impl ::mck::concr::Machine for Machine {
                 type Input = Input;
                 type State = State;
                 fn init(input: &Input) -> State {
@@ -237,34 +237,46 @@ impl Transcriber {
     fn add_drain_field_values(&self, is_init: bool, field_values: &mut Vec<FieldValue>) {
         // result is constrained exactly when it was constrained previously and all constraints hold
         // i.e. constraint_1 & constraint_2 & ...
-        let constraint_exprs: Vec<_> = self
-            .constraints
-            .iter()
-            .map(|nid| create_rnid_expr(*nid))
-            .collect();
 
-        let mut constraint = if !constraint_exprs.is_empty() {
-            parse_quote!((#(#constraint_exprs)&*))
-        } else {
-            // default to true
-            create_value_expr(1, &Bitvec::single_bit())
-        };
+        let mut full_constraint_expr = None;
+        for constraint in &self.constraints {
+            let constraint_expr = create_rnid_expr(*constraint);
+            full_constraint_expr = if let Some(prev) = full_constraint_expr {
+                Some(parse_quote!(::mck::concr::Bitwise::bitand(#prev, #constraint_expr)))
+            } else {
+                Some(constraint_expr)
+            }
+        }
+        // default to true
+        let mut full_constraint_expr =
+            full_constraint_expr.unwrap_or_else(|| create_value_expr(1, &Bitvec::single_bit()));
         if !is_init {
             // make sure it is still constrained from previous
-            constraint = parse_quote!(state.constrained & #constraint);
+            full_constraint_expr = parse_quote!(::mck::concr::Bitwise::bitand(state.constrained, #full_constraint_expr));
         }
-        field_values.push(parse_quote!(constrained: #constraint));
+
+        field_values.push(parse_quote!(constrained: #full_constraint_expr));
 
         // result is safe exactly when it is either not constrained or there is no bad result
         // i.e. !constrained | (!bad_1 & !bad_2 & ...)
-        let mut not_bad_exprs = Vec::<TokenStream>::new();
+        let mut full_not_bad_expr = None;
         for bad in &self.bads {
-            let bad_ident = create_rnid_expr(*bad);
-            not_bad_exprs.push(parse_quote!(!#bad_ident));
+            let bad_expr: Expr = create_rnid_expr(*bad);
+            let not_bad_expr = parse_quote!(::mck::concr::Bitwise::not(#bad_expr));
+            full_not_bad_expr = if let Some(prev) = full_not_bad_expr {
+                Some(parse_quote!(::mck::concr::Bitwise::bitand(#prev, #not_bad_expr)))
+            } else {
+                Some(not_bad_expr)
+            };
         }
-        let not_bad: Expr = parse_quote!((#(#not_bad_exprs)&*));
+        // default to true
+        let full_not_bad_expr =
+            full_not_bad_expr.unwrap_or_else(|| create_value_expr(1, &Bitvec::single_bit()));
 
         // the constraint must hold up to this state
-        field_values.push(parse_quote!(safe: !(#constraint) | (#not_bad)));
+        let not_full_constraint_expr: Expr =
+            parse_quote!(::mck::concr::Bitwise::not(#full_constraint_expr));
+
+        field_values.push(parse_quote!(safe: ::mck::concr::Bitwise::bitor(#not_full_constraint_expr, #full_not_bad_expr)));
     }
 }

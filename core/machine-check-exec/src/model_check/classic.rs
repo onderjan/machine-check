@@ -1,20 +1,20 @@
 use std::collections::{BTreeSet, HashMap};
 
 use machine_check_common::{ExecError, StateId};
-use mck::AbstractMachine;
+use mck::abstr;
 
 use crate::{
     proposition::{PropBi, PropG, PropTemp, PropU, PropUni, Proposition},
     space::Space,
 };
 
-pub struct ClassicChecker<'a, AM: AbstractMachine> {
+pub struct ClassicChecker<'a, AM: abstr::Machine> {
     space: &'a Space<AM>,
     optimistic: bool,
     labelling_map: HashMap<Proposition, BTreeSet<StateId>>,
 }
 
-impl<'a, AM: AbstractMachine> ClassicChecker<'a, AM> {
+impl<'a, AM: abstr::Machine> ClassicChecker<'a, AM> {
     pub fn new(space: &'a Space<AM>, optimistic: bool) -> Self {
         ClassicChecker {
             space,

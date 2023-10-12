@@ -1,17 +1,17 @@
 use std::collections::BTreeMap;
 
-use mck::mark::MarkInput;
-use mck::mark::MarkMachine;
-use mck::mark::MarkState;
+use mck::refin::Input;
+use mck::refin::Machine;
+use mck::refin::State;
 
 use crate::space::NodeId;
 
-pub struct Precision<M: MarkMachine> {
+pub struct Precision<M: Machine> {
     input: BTreeMap<NodeId, M::Input>,
     decay: BTreeMap<NodeId, M::State>,
 }
 
-impl<M: MarkMachine> Precision<M> {
+impl<M: Machine> Precision<M> {
     pub fn new() -> Self {
         Precision {
             input: BTreeMap::new(),

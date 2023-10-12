@@ -1,10 +1,10 @@
-use crate::util::compute_mask;
+use crate::bitvector::{refin, three_valued::abstr::ThreeValuedBitvector, util::compute_mask};
 
 use super::*;
 fn exact_uni_mark<const L: u32, const X: u32>(
-    a_abstr: ThreeValuedBitvector<L>,
-    a_mark: MarkBitvector<X>,
-    concr_func: fn(MachineBitvector<L>) -> MachineBitvector<X>,
+    a_abstr: abstr::Bitvector<L>,
+    a_mark: refin::Bitvector<X>,
+    concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) -> MarkBitvector<L> {
     // the result marks exactly those bits of input which, if changed in operation input,
     // can change bits masked by mark_a in the operation result
@@ -22,8 +22,8 @@ fn exact_uni_mark<const L: u32, const X: u32>(
             if !a_abstr.can_contain(Wrapping(a | (1 << i))) {
                 continue;
             }
-            let with_zero = MachineBitvector::new(a);
-            let with_one = MachineBitvector::new(a | (1 << i));
+            let with_zero = concr::Bitvector::new(a);
+            let with_one = concr::Bitvector::new(a | (1 << i));
             if concr_func(with_zero).as_unsigned() & mark_mask
                 != concr_func(with_one).as_unsigned() & mark_mask
             {
@@ -31,12 +31,12 @@ fn exact_uni_mark<const L: u32, const X: u32>(
             }
         }
     }
-    MarkBitvector(MachineBitvector::new(result))
+    MarkBitvector(concr::Bitvector::new(result))
 }
 
 fn exec_uni_check<const L: u32, const X: u32>(
     mark_func: fn(ThreeValuedBitvector<L>, MarkBitvector<X>) -> MarkBitvector<L>,
-    concr_func: fn(MachineBitvector<L>) -> MachineBitvector<X>,
+    concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
     want_exact: bool,
 ) {
     // a mark bit is necessary if changing the input bit can impact the output
@@ -44,7 +44,7 @@ fn exec_uni_check<const L: u32, const X: u32>(
 
     let mask = compute_mask(L);
     for a_mark in 0..(1 << X) {
-        let a_mark = MarkBitvector(MachineBitvector::new(a_mark));
+        let a_mark = MarkBitvector(concr::Bitvector::new(a_mark));
 
         for a_zeros in 0..(1 << L) {
             let a_zeros = Wrapping(a_zeros);
@@ -112,7 +112,7 @@ macro_rules! std_uni_op_test {
         pub fn $op~L() {
             let mark_func = |a: ThreeValuedBitvector<L>,
                                 a_mark: MarkBitvector<L>|
-                -> MarkBitvector<L> { crate::mark::$ty::$op((a,), a_mark).0 };
+                -> MarkBitvector<L> { crate::refin::$ty::$op((a,), a_mark).0 };
             let concr_func = ::std::ops::$ty::$op;
             exec_uni_check(mark_func, concr_func, $exact);
         }
@@ -130,7 +130,7 @@ macro_rules! ext_op_test {
             pub fn $op~L~X() {
                 let mark_func = |a: ThreeValuedBitvector<L>,
                                 a_mark: MarkBitvector<X>|
-                -> MarkBitvector<L> { crate::mark::$ty::$op((a,), a_mark).0 };
+                -> MarkBitvector<L> { crate::refin::$ty::$op((a,), a_mark).0 };
                 let concr_func = crate::$ty::$op;
                 exec_uni_check(mark_func, concr_func, $exact);
             }
@@ -142,7 +142,7 @@ macro_rules! ext_op_test {
 fn exact_bi_mark<const L: u32, const X: u32>(
     abstr: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
     mark: MarkBitvector<X>,
-    concr_func: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<X>,
+    concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) -> (MarkBitvector<L>, MarkBitvector<L>) {
     let a_abstr = abstr.0;
     let b_abstr = abstr.1;
@@ -167,9 +167,9 @@ fn exact_bi_mark<const L: u32, const X: u32>(
                 if !b_abstr.can_contain(Wrapping(other)) {
                     continue;
                 }
-                let with_zero = MachineBitvector::new(our);
-                let with_one = MachineBitvector::new(our | (1 << i));
-                let other = MachineBitvector::new(other);
+                let with_zero = concr::Bitvector::new(our);
+                let with_one = concr::Bitvector::new(our | (1 << i));
+                let other = concr::Bitvector::new(other);
                 if concr_func(with_zero, other).as_unsigned() & mark_mask
                     != concr_func(with_one, other).as_unsigned() & mark_mask
                 {
@@ -193,9 +193,9 @@ fn exact_bi_mark<const L: u32, const X: u32>(
                 if !a_abstr.can_contain(Wrapping(other)) {
                     continue;
                 }
-                let with_zero = MachineBitvector::new(our);
-                let with_one = MachineBitvector::new(our | (1 << i));
-                let other = MachineBitvector::new(other);
+                let with_zero = concr::Bitvector::new(our);
+                let with_one = concr::Bitvector::new(our | (1 << i));
+                let other = concr::Bitvector::new(other);
                 if concr_func(other, with_zero).as_unsigned() & mark_mask
                     != concr_func(other, with_one).as_unsigned() & mark_mask
                 {
@@ -205,8 +205,8 @@ fn exact_bi_mark<const L: u32, const X: u32>(
         }
     }
     (
-        MarkBitvector(MachineBitvector::new(a_result)),
-        MarkBitvector(MachineBitvector::new(b_result)),
+        MarkBitvector(concr::Bitvector::new(a_result)),
+        MarkBitvector(concr::Bitvector::new(b_result)),
     )
 }
 
@@ -215,7 +215,7 @@ fn exec_bi_check<const L: u32, const X: u32>(
         (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
         MarkBitvector<X>,
     ) -> (MarkBitvector<L>, MarkBitvector<L>),
-    concr_func: fn(MachineBitvector<L>, MachineBitvector<L>) -> MachineBitvector<X>,
+    concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
     want_exact: bool,
 ) {
     // a mark bit is necessary if changing the input bit can impact the output
@@ -223,7 +223,7 @@ fn exec_bi_check<const L: u32, const X: u32>(
 
     let mask = compute_mask(L);
     for a_mark in 0..(1 << X) {
-        let a_mark = MarkBitvector(MachineBitvector::new(a_mark));
+        let a_mark = MarkBitvector(concr::Bitvector::new(a_mark));
 
         for a_zeros in 0..(1 << L) {
             let a_zeros = Wrapping(a_zeros);
@@ -318,7 +318,7 @@ macro_rules! std_bi_op_test {
             let mark_func = |inputs: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
                                 mark: MarkBitvector<L>|
                 -> (MarkBitvector<L>, MarkBitvector<L>) {
-                crate::mark::$ty::$op(inputs, mark)
+                crate::refin::$ty::$op(inputs, mark)
             };
             let concr_func = ::std::ops::$ty::$op;
             exec_bi_check(mark_func, concr_func, $exact);
@@ -336,9 +336,9 @@ macro_rules! trait_bi_op_test {
         pub fn $op~L() {
             let mark_func = |inputs: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
                                 mark| {
-                crate::mark::$ty::$op(inputs, mark)
+                crate::refin::$ty::$op(inputs, mark)
             };
-            let concr_func = crate::$ty::$op;
+            let concr_func = crate::concr::$ty::$op;
             exec_bi_check(mark_func, concr_func, $exact);
         }
     });
@@ -356,11 +356,11 @@ std_uni_op_test!(Neg, neg, false);
 std_bi_op_test!(Add, add, false);
 std_bi_op_test!(Sub, sub, false);
 std_bi_op_test!(Mul, mul, false);
-trait_bi_op_test!(MachineDiv, sdiv, false);
-trait_bi_op_test!(MachineDiv, udiv, false);
-trait_bi_op_test!(MachineDiv, smod, false);
-trait_bi_op_test!(MachineDiv, srem, false);
-trait_bi_op_test!(MachineDiv, urem, false);
+trait_bi_op_test!(DivModRem, sdiv, false);
+trait_bi_op_test!(DivModRem, udiv, false);
+trait_bi_op_test!(DivModRem, smod, false);
+trait_bi_op_test!(DivModRem, srem, false);
+trait_bi_op_test!(DivModRem, urem, false);
 
 // bitwise tests
 std_bi_op_test!(BitAnd, bitand, false);
@@ -375,9 +375,9 @@ trait_bi_op_test!(TypedCmp, typed_ult, false);
 trait_bi_op_test!(TypedCmp, typed_ulte, false);
 
 // shift tests
-trait_bi_op_test!(MachineShift, sll, false);
-trait_bi_op_test!(MachineShift, srl, false);
-trait_bi_op_test!(MachineShift, sra, false);
+trait_bi_op_test!(Shift, sll, false);
+trait_bi_op_test!(Shift, srl, false);
+trait_bi_op_test!(Shift, sra, false);
 
 // --- EXTENSION TESTS ---
 

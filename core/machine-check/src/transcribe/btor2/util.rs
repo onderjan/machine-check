@@ -27,19 +27,19 @@ pub fn create_sid_type(btor2: &Btor2, sid: Sid) -> Result<Type, anyhow::Error> {
 
 pub fn create_value_expr(value: u64, bitvec: &Bitvec) -> Expr {
     let bitvec_length = bitvec.length.get();
-    parse_quote!(::mck::MachineBitvector::<#bitvec_length>::new(#value))
+    parse_quote!(::mck::concr::Bitvector::<#bitvec_length>::new(#value))
 }
 
 pub fn create_sort_type(sort: &Sort) -> Result<Type, anyhow::Error> {
     match sort {
         Sort::Bitvec(bitvec) => {
             let bitvec_length = bitvec.length.get();
-            Ok(parse_quote!(::mck::MachineBitvector<#bitvec_length>))
+            Ok(parse_quote!(::mck::concr::Bitvector<#bitvec_length>))
         }
         Sort::Array(_) => Err(anyhow!("Generating arrays not supported")),
     }
 }
 
 pub fn create_single_bit_type() -> Type {
-    parse_quote!(::mck::MachineBitvector<1>)
+    parse_quote!(::mck::concr::Bitvector<1>)
 }
