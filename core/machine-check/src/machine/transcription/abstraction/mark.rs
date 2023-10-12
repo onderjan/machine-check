@@ -54,7 +54,7 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
                                     precision: &Self::Input,
                                 ) -> Self::InputIter {
                                     return ::mck::Fabricator::into_fabricated_iter(
-                                        precision.clone(),
+                                        ::std::clone::Clone::clone(precision),
                                     );
                                 }
                             );

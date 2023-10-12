@@ -115,8 +115,10 @@ pub fn create_field_manipulate_impls(item_struct: &ItemStruct) -> Vec<ItemImpl> 
         }
 
         let field_name = field_ident.to_string();
-        let field_arm: Arm = parse_quote!(#field_name => Some(self.#field_ident),);
-        let field_arm_mut: Arm = parse_quote!(#field_name => Some(&mut self.#field_ident),);
+        let field_arm: Arm =
+            parse_quote!(#field_name => ::std::option::Option::Some(self.#field_ident),);
+        let field_arm_mut: Arm =
+            parse_quote!(#field_name => ::std::option::Option::Some(&mut self.#field_ident),);
 
         match flavour_segment.ident.to_string().as_str() {
             "abstr" => {

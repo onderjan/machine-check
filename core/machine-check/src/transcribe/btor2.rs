@@ -109,6 +109,7 @@ impl Transcriber {
         let next_result = self.create_result(false)?;
 
         Ok(parse_quote!(
+            #![no_implicit_prelude]
             #![allow(dead_code, unused_variables, clippy::all)]
 
             #[derive(Clone, Debug, PartialEq, Eq, Hash)]
