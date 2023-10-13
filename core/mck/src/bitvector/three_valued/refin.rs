@@ -10,20 +10,17 @@ use crate::{
     bitvector::concr,
     bitvector::util::{compute_mask, compute_sign_bit_mask},
     forward,
-    refin::Join,
-    traits::{
-        misc::Meta,
-        refin::{Decay, MarkSingle, Markable},
-    },
+    refin::Refinable,
+    traits::{misc::Meta, refin::Refine},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MarkBitvector<const L: u32>(concr::Bitvector<L>);
 
-impl<const L: u32> Markable for abstr::Bitvector<L> {
-    type Mark = MarkBitvector<L>;
+impl<const L: u32> Refinable for abstr::Bitvector<L> {
+    type Refin = MarkBitvector<L>;
 
-    fn create_clean_mark(&self) -> Self::Mark {
+    fn clean_refin(&self) -> Self::Refin {
         MarkBitvector::new_unmarked()
     }
 }
@@ -103,24 +100,12 @@ impl<const L: u32> Meta<abstr::Bitvector<L>> for MarkBitvector<L> {
     }
 }
 
-impl<const L: u32> Join for MarkBitvector<L> {
-    fn apply_join(&mut self, other: Self) {
+impl<const L: u32> Refine<abstr::Bitvector<L>> for MarkBitvector<L> {
+    fn apply_join(&mut self, other: &Self) {
         self.0 = forward::Bitwise::bitor(self.0, other.0);
     }
-}
 
-impl<const L: u32> Decay<abstr::Bitvector<L>> for MarkBitvector<L> {
-    fn force_decay(&self, target: &mut abstr::Bitvector<L>) {
-        // unmarked fields become unknown
-        let forced_unknown = !self.0.as_unsigned() & compute_mask(L);
-        let zeros = target.get_possibly_zero_flags().as_unsigned() | forced_unknown;
-        let ones = target.get_possibly_one_flags().as_unsigned() | forced_unknown;
-        *target = abstr::Bitvector::a_new(zeros, ones);
-    }
-}
-
-impl<const L: u32> MarkSingle for MarkBitvector<L> {
-    fn apply_single_mark(&mut self, offer: &Self) -> bool {
+    fn apply_refin(&mut self, offer: &Self) -> bool {
         // find the highest bit that is marked in offer but unmarked in ours
         let applicants = forward::Bitwise::bitand(offer.0, forward::Bitwise::not(self.0));
         let mark_mask = 1u64.checked_shl(applicants.as_unsigned().0.trailing_zeros());
@@ -131,6 +116,14 @@ impl<const L: u32> MarkSingle for MarkBitvector<L> {
         // apply the mark
         self.0 = forward::Bitwise::bitor(self.0, concr::Bitvector::new(mark_mask));
         true
+    }
+
+    fn force_decay(&self, target: &mut abstr::Bitvector<L>) {
+        // unmarked fields become unknown
+        let forced_unknown = !self.0.as_unsigned() & compute_mask(L);
+        let zeros = target.get_possibly_zero_flags().as_unsigned() | forced_unknown;
+        let ones = target.get_possibly_one_flags().as_unsigned() | forced_unknown;
+        *target = abstr::Bitvector::a_new(zeros, ones);
     }
 }
 
@@ -358,7 +351,7 @@ fn shift<const L: u32>(
             // shift the mark
             let machine_i = concr::Bitvector::new(i);
             let shifted_mark = shift_fn(mark_later.0, machine_i);
-            shifted_mark_earlier.apply_join(MarkBitvector(shifted_mark));
+            shifted_mark_earlier.apply_join(&MarkBitvector(shifted_mark));
         }
     }
     (

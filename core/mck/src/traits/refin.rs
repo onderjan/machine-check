@@ -7,8 +7,19 @@ use std::hash::Hash;
 use super::abstr;
 use super::misc::Meta;
 
-pub trait MarkSingle {
-    fn apply_single_mark(&mut self, offer: &Self) -> bool;
+pub trait Refine<A>
+where
+    Self: Sized,
+{
+    #[must_use]
+    fn apply_refin(&mut self, offer: &Self) -> bool;
+    fn apply_join(&mut self, other: &Self);
+    fn force_decay(&self, target: &mut A);
+}
+
+pub trait Refinable {
+    type Refin;
+    fn clean_refin(&self) -> Self::Refin;
 }
 
 pub trait Input:
@@ -17,17 +28,12 @@ pub trait Input:
     + Eq
     + Hash
     + Clone
-    + Meta<<Self as Input>::Abstract>
-    + Join
     + Default
+    + Meta<<Self as Input>::Abstract>
+    + Refine<<Self as Input>::Abstract>
     + FieldManipulate<refin::Bitvector<1>>
-    + MarkSingle
 {
     type Abstract: abstr::Input;
-
-    fn new_unmarked() -> Self {
-        Default::default()
-    }
 }
 
 pub trait State:
@@ -36,17 +42,12 @@ pub trait State:
     + Eq
     + Hash
     + Clone
-    + Meta<<Self as State>::Abstract>
-    + Join
     + Default
+    + Refine<<Self as State>::Abstract>
+    + Meta<<Self as State>::Abstract>
     + FieldManipulate<refin::Bitvector<1>>
-    + MarkSingle
-    + Decay<<Self as State>::Abstract>
 {
     type Abstract: abstr::State;
-    fn new_unmarked() -> Self {
-        Default::default()
-    }
 }
 
 pub trait Machine<I: Input, S: State> {
@@ -57,23 +58,4 @@ pub trait Machine<I: Input, S: State> {
         abstr_args: (&<S as State>::Abstract, &<I as Input>::Abstract),
         later_mark: S,
     ) -> (S, I);
-}
-
-pub trait Markable {
-    type Mark;
-    fn create_clean_mark(&self) -> Self::Mark;
-}
-
-pub trait Join
-where
-    Self: Sized,
-{
-    fn apply_join(&mut self, other: Self);
-}
-
-pub trait Decay<A>
-where
-    Self: Sized,
-{
-    fn force_decay(&self, target: &mut A);
 }

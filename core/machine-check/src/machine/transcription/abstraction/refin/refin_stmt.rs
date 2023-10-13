@@ -54,16 +54,22 @@ pub fn create_join_stmt(left: Expr, right: Expr) -> Stmt {
         mutability: Some(Default::default()),
         expr: Box::new(left),
     });
+    let right_ref_expr = Expr::Reference(ExprReference {
+        attrs: vec![],
+        and_token: Default::default(),
+        mutability: None,
+        expr: Box::new(right),
+    });
     Stmt::Expr(
         Expr::Call(ExprCall {
             attrs: vec![],
             func: Box::new(Expr::Path(ExprPath {
                 attrs: vec![],
                 qself: None,
-                path: path!(::mck::refin::Join::apply_join),
+                path: path!(::mck::refin::Refine::apply_join),
             })),
             paren_token: Default::default(),
-            args: Punctuated::from_iter(vec![left_mut_ref_expr, right]),
+            args: Punctuated::from_iter(vec![left_mut_ref_expr, right_ref_expr]),
         }),
         Some(Default::default()),
     )

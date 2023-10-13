@@ -30,20 +30,26 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
 
                 if s.ident == "Input" || s.ident == "State" {
                     let s_ident = &s.ident;
+                    let refin_fn = generate_mark_single_fn(s)?;
+                    let join_fn = generate_join_fn(s)?;
                     let decay_fn = generate_force_decay_fn(s)?;
-                    let decay_trait: Path = parse_quote!(::mck::refin::Decay<super::#s_ident>);
+                    let refine_trait: Path = parse_quote!(::mck::refin::Refine<super::#s_ident>);
                     mark_file_items.push(Item::Impl(ItemImpl {
                         attrs: vec![],
                         defaultness: None,
                         unsafety: None,
                         impl_token: Default::default(),
                         generics: Generics::default(),
-                        trait_: Some((None, decay_trait, Default::default())),
+                        trait_: Some((None, refine_trait, Default::default())),
                         self_ty: Box::new(Type::Path(create_type_path(create_path_from_ident(
                             s.ident.clone(),
                         )))),
                         brace_token: Default::default(),
-                        items: vec![ImplItem::Fn(decay_fn)],
+                        items: vec![
+                            ImplItem::Fn(refin_fn),
+                            ImplItem::Fn(join_fn),
+                            ImplItem::Fn(decay_fn),
+                        ],
                     }))
                 }
             }
@@ -117,15 +123,11 @@ fn apply_transcribed_item_struct(items: &mut Vec<Item>, s: &ItemStruct) -> anyho
 
     // TODO: add the implementations only for state and input according to traits
     if ident_string.as_str() != "Machine" {
-        let join_impl = generate_join_impl(&s)?;
-        let mark_single_impl = generate_mark_single_impl(&s)?;
         let fabricator_impl = generate_fabricator_impl(&s)?;
         let markable_impl = generate_markable_impl(&s)?;
         // add struct
         items.push(Item::Struct(s));
         // add implementations
-        items.push(Item::Impl(join_impl));
-        items.push(Item::Impl(mark_single_impl));
         items.push(Item::Impl(fabricator_impl));
         items.push(Item::Impl(markable_impl));
     } else {
@@ -136,9 +138,7 @@ fn apply_transcribed_item_struct(items: &mut Vec<Item>, s: &ItemStruct) -> anyho
     Ok(())
 }
 
-fn generate_join_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
-    let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
-    let join_impl_trait = (None, path!(::mck::refin::Join), Default::default());
+fn generate_join_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
     let self_type = Type::Path(create_type_path(path!(Self)));
     let self_input = FnArg::Receiver(Receiver {
         attrs: vec![],
@@ -158,7 +158,12 @@ fn generate_join_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         attrs: vec![],
         pat: Box::new(Pat::Ident(create_pat_ident(other_ident.clone()))),
         colon_token: Default::default(),
-        ty: Box::new(self_type),
+        ty: Box::new(Type::Reference(TypeReference {
+            and_token: Default::default(),
+            lifetime: Default::default(),
+            mutability: None,
+            elem: Box::new(self_type),
+        })),
     });
 
     let mut join_stmts = Vec::new();
@@ -172,7 +177,7 @@ fn generate_join_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         join_stmts.push(join_stmt);
     }
 
-    let join_fn = ImplItemFn {
+    Ok(ImplItemFn {
         attrs: vec![],
         vis: syn::Visibility::Inherited,
         defaultness: None,
@@ -193,18 +198,6 @@ fn generate_join_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
             brace_token: Default::default(),
             stmts: join_stmts,
         },
-    };
-
-    Ok(ItemImpl {
-        attrs: vec![],
-        defaultness: None,
-        unsafety: None,
-        impl_token: Default::default(),
-        generics: Generics::default(),
-        trait_: Some(join_impl_trait),
-        self_ty: Box::new(struct_type),
-        brace_token: Default::default(),
-        items: vec![ImplItem::Fn(join_fn)],
     })
 }
 
@@ -267,7 +260,7 @@ fn generate_force_decay_fn(state_struct: &ItemStruct) -> anyhow::Result<ImplItem
                 Expr::Path(ExprPath {
                     attrs: vec![],
                     qself: None,
-                    path: path!(::mck::refin::Decay::force_decay),
+                    path: path!(::mck::refin::Refine::force_decay),
                 }),
                 Punctuated::from_iter(vec![decay_ref, target_ref]),
             )),
@@ -300,9 +293,7 @@ fn generate_force_decay_fn(state_struct: &ItemStruct) -> anyhow::Result<ImplItem
     })
 }
 
-fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
-    let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
-    let mark_single_trait = (None, path!(::mck::refin::MarkSingle), Default::default());
+fn generate_mark_single_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
     let self_type = Type::Path(create_type_path(path!(Self)));
     let self_input = FnArg::Receiver(Receiver {
         attrs: vec![],
@@ -350,9 +341,7 @@ fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
             expr: Box::new(right),
         });
 
-        let func_expr = Expr::Path(create_expr_path(path!(
-            ::mck::refin::MarkSingle::apply_single_mark
-        )));
+        let func_expr = Expr::Path(create_expr_path(path!(::mck::refin::Refine::apply_refin)));
         let expr = Expr::Call(create_expr_call(
             func_expr,
             Punctuated::from_iter(vec![left, right]),
@@ -379,7 +368,7 @@ fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         Box::new(Type::Path(create_type_path(path!(bool)))),
     );
 
-    let apply_fn = ImplItemFn {
+    Ok(ImplItemFn {
         attrs: vec![],
         vis: syn::Visibility::Inherited,
         defaultness: None,
@@ -389,7 +378,7 @@ fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
             unsafety: None,
             abi: None,
             fn_token: Default::default(),
-            ident: create_ident("apply_single_mark"),
+            ident: create_ident("apply_refin"),
             generics: Default::default(),
             paren_token: Default::default(),
             inputs: Punctuated::from_iter(vec![self_input, offer_input]),
@@ -400,18 +389,6 @@ fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
             brace_token: Default::default(),
             stmts: vec![Stmt::Expr(result_expr, None)],
         },
-    };
-
-    Ok(ItemImpl {
-        attrs: vec![],
-        defaultness: None,
-        unsafety: None,
-        impl_token: Default::default(),
-        generics: Generics::default(),
-        trait_: Some(mark_single_trait),
-        self_ty: Box::new(struct_type),
-        brace_token: Default::default(),
-        items: vec![ImplItem::Fn(apply_fn)],
     })
 }
 
@@ -628,7 +605,7 @@ fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         vis: Visibility::Inherited,
         defaultness: None,
         type_token: Default::default(),
-        ident: create_ident("Mark"),
+        ident: create_ident("Refin"),
         generics: Default::default(),
         eq_token: Default::default(),
         ty: mark_type.clone(),
@@ -666,7 +643,7 @@ fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
             unsafety: None,
             abi: None,
             fn_token: Default::default(),
-            ident: create_ident("create_clean_mark"),
+            ident: create_ident("clean_refin"),
             generics: Default::default(),
             paren_token: Default::default(),
             inputs: Punctuated::from_iter(vec![abstr_self_arg]),
@@ -680,7 +657,7 @@ fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     };
 
     let struct_type = Type::Path(create_type_path(abstr_path));
-    let impl_trait = (None, path!(::mck::refin::Markable), Default::default());
+    let impl_trait = (None, path!(::mck::refin::Refinable), Default::default());
     Ok(ItemImpl {
         attrs: vec![],
         defaultness: None,

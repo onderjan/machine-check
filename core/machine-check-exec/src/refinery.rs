@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use machine_check_common::{Culprit, ExecError};
 use machine_check_common::{ExecStats, StateId};
 use mck::abstr;
-use mck::refin::{self, MarkSingle};
+use mck::refin::{self};
 
 use crate::proposition::Proposition;
 use crate::space::NodeId;
@@ -69,7 +69,7 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
     fn refine(&mut self, culprit: &Culprit) -> bool {
         self.num_refinements += 1;
         // compute marking
-        let mut current_state_mark = <S as refin::State>::new_unmarked();
+        let mut current_state_mark = S::default();
         let mark_bit = current_state_mark.get_mut(&culprit.name).unwrap();
         *mark_bit = refin::Bitvector::new_marked();
 
@@ -86,7 +86,7 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
             if self.use_decay {
                 // decay is applied last in forward direction, so we will apply it first
                 let decay_precision = self.precision.mut_decay(previous_node_id);
-                if MarkSingle::apply_single_mark(decay_precision, &current_state_mark) {
+                if decay_precision.apply_refin(&current_state_mark) {
                     // single mark applied to decay, regenerate
                     self.regenerate(previous_node_id);
                     return true;
@@ -116,7 +116,7 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
 
             let input_precision = self.precision.mut_input(previous_node_id);
 
-            if MarkSingle::apply_single_mark(input_precision, &input_mark) {
+            if input_precision.apply_refin(&input_mark) {
                 // single mark applied, regenerate
                 self.regenerate(previous_node_id);
                 return true;
