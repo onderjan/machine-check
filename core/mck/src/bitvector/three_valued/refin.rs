@@ -1,6 +1,5 @@
-// TODO reenable
-/*#[cfg(test)]
-mod test;*/
+#[cfg(test)]
+mod test;
 
 use crate::{
     backward::{self, Bitwise, Ext, HwArith, TypedCmp, TypedEq},
@@ -241,11 +240,7 @@ impl<const L: u32> HwArith for abstr::Bitvector<L> {
         default_bi_mark(normal_input, mark_later)
     }
 
-    fn smod(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        default_bi_mark(normal_input, mark_later)
-    }
-
-    fn seuc(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+    fn srem(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         default_bi_mark(normal_input, mark_later)
     }
 }

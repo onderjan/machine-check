@@ -1,4 +1,4 @@
-use crate::bitvector::{refin, three_valued::abstr::ThreeValuedBitvector, util::compute_mask};
+use crate::bitvector::{refin, three_valued::abstr::ThreeValuedBitvector, util};
 
 use super::*;
 fn exact_uni_mark<const L: u32, const X: u32>(
@@ -16,14 +16,11 @@ fn exact_uni_mark<const L: u32, const X: u32>(
             if a & (1 << i) != 0 {
                 continue;
             }
-            if !a_abstr.can_contain(Wrapping(a)) {
-                continue;
-            }
-            if !a_abstr.can_contain(Wrapping(a | (1 << i))) {
-                continue;
-            }
             let with_zero = concr::Bitvector::new(a);
             let with_one = concr::Bitvector::new(a | (1 << i));
+            if !a_abstr.can_contain(with_zero) || !a_abstr.can_contain(with_one) {
+                continue;
+            }
             if concr_func(with_zero).as_unsigned() & mark_mask
                 != concr_func(with_one).as_unsigned() & mark_mask
             {
@@ -42,18 +39,18 @@ fn exec_uni_check<const L: u32, const X: u32>(
     // a mark bit is necessary if changing the input bit can impact the output
     // test this for all concretizations of the input
 
-    let mask = compute_mask(L);
+    let mask = util::compute_u64_mask(L);
     for a_mark in 0..(1 << X) {
         let a_mark = MarkBitvector(concr::Bitvector::new(a_mark));
 
         for a_zeros in 0..(1 << L) {
-            let a_zeros = Wrapping(a_zeros);
             for a_ones in 0..(1 << L) {
-                let a_ones = Wrapping(a_ones);
                 if (a_zeros | a_ones) & mask != mask {
                     continue;
                 }
-                let a_abstr = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+                let a_zeros = concr::Bitvector::new(a_zeros);
+                let a_ones = concr::Bitvector::new(a_ones);
+                let a_abstr = ThreeValuedBitvector::<L>::from_zeros_ones(a_zeros, a_ones);
                 let exact_earlier_mark = exact_uni_mark(a_abstr, a_mark, concr_func);
                 let our_earlier_mark = mark_func(a_abstr, a_mark);
 
@@ -84,13 +81,13 @@ fn exec_uni_check<const L: u32, const X: u32>(
     // test unprovoked marking
 
     for a_zeros in 0..(1 << L) {
-        let a_zeros = Wrapping(a_zeros);
         for a_ones in 0..(1 << L) {
-            let a_ones = Wrapping(a_ones);
             if (a_zeros | a_ones) & mask != mask {
                 continue;
             }
-            let a_abstr = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+            let a_zeros = concr::Bitvector::new(a_zeros);
+            let a_ones = concr::Bitvector::new(a_ones);
+            let a_abstr = ThreeValuedBitvector::<L>::from_zeros_ones(a_zeros, a_ones);
             let a_mark = MarkBitvector::new_unmarked();
             let our_earlier_mark = mark_func(a_abstr, a_mark);
             if our_earlier_mark != MarkBitvector::new_unmarked() {
@@ -103,7 +100,7 @@ fn exec_uni_check<const L: u32, const X: u32>(
     }
 }
 
-macro_rules! std_uni_op_test {
+macro_rules! uni_op_test {
     ($ty:tt, $op:tt, $exact:tt) => {
 
         seq_macro::seq!(L in 0..=6 {
@@ -112,8 +109,8 @@ macro_rules! std_uni_op_test {
         pub fn $op~L() {
             let mark_func = |a: ThreeValuedBitvector<L>,
                                 a_mark: MarkBitvector<L>|
-                -> MarkBitvector<L> { crate::refin::$ty::$op((a,), a_mark).0 };
-            let concr_func = ::std::ops::$ty::$op;
+                -> MarkBitvector<L> { crate::backward::$ty::$op((a,), a_mark).0 };
+            let concr_func = crate::forward::$ty::$op;
             exec_uni_check(mark_func, concr_func, $exact);
         }
     });
@@ -130,8 +127,8 @@ macro_rules! ext_op_test {
             pub fn $op~L~X() {
                 let mark_func = |a: ThreeValuedBitvector<L>,
                                 a_mark: MarkBitvector<X>|
-                -> MarkBitvector<L> { crate::refin::$ty::$op((a,), a_mark).0 };
-                let concr_func = crate::$ty::$op;
+                -> MarkBitvector<L> { crate::backward::$ty::$op((a,), a_mark).0 };
+                let concr_func = crate::forward::$ty::$op;
                 exec_uni_check(mark_func, concr_func, $exact);
             }
             });
@@ -157,18 +154,15 @@ fn exact_bi_mark<const L: u32, const X: u32>(
             if our & (1 << i) != 0 {
                 continue;
             }
-            if !a_abstr.can_contain(Wrapping(our)) {
-                continue;
-            }
-            if !a_abstr.can_contain(Wrapping(our | (1 << i))) {
+            let with_zero = concr::Bitvector::new(our);
+            let with_one = concr::Bitvector::new(our | (1 << i));
+            if !a_abstr.can_contain(with_zero) || !a_abstr.can_contain(with_one) {
                 continue;
             }
             for other in 0..(1 << L) {
-                if !b_abstr.can_contain(Wrapping(other)) {
+                if !b_abstr.can_contain(concr::Bitvector::new(other)) {
                     continue;
                 }
-                let with_zero = concr::Bitvector::new(our);
-                let with_one = concr::Bitvector::new(our | (1 << i));
                 let other = concr::Bitvector::new(other);
                 if concr_func(with_zero, other).as_unsigned() & mark_mask
                     != concr_func(with_one, other).as_unsigned() & mark_mask
@@ -183,19 +177,16 @@ fn exact_bi_mark<const L: u32, const X: u32>(
             if our & (1 << i) != 0 {
                 continue;
             }
-            if !b_abstr.can_contain(Wrapping(our)) {
-                continue;
-            }
-            if !b_abstr.can_contain(Wrapping(our | (1 << i))) {
+            let with_zero = concr::Bitvector::new(our);
+            let with_one = concr::Bitvector::new(our | (1 << i));
+            if !b_abstr.can_contain(with_zero) || !b_abstr.can_contain(with_one) {
                 continue;
             }
             for other in 0..(1 << L) {
-                if !a_abstr.can_contain(Wrapping(other)) {
+                let other = concr::Bitvector::new(other);
+                if !a_abstr.can_contain(other) {
                     continue;
                 }
-                let with_zero = concr::Bitvector::new(our);
-                let with_one = concr::Bitvector::new(our | (1 << i));
-                let other = concr::Bitvector::new(other);
                 if concr_func(other, with_zero).as_unsigned() & mark_mask
                     != concr_func(other, with_one).as_unsigned() & mark_mask
                 {
@@ -221,26 +212,26 @@ fn exec_bi_check<const L: u32, const X: u32>(
     // a mark bit is necessary if changing the input bit can impact the output
     // test this for all concretizations of the input
 
-    let mask = compute_mask(L);
+    let mask = util::compute_u64_mask(L);
     for a_mark in 0..(1 << X) {
         let a_mark = MarkBitvector(concr::Bitvector::new(a_mark));
 
         for a_zeros in 0..(1 << L) {
-            let a_zeros = Wrapping(a_zeros);
             for a_ones in 0..(1 << L) {
-                let a_ones = Wrapping(a_ones);
                 if (a_zeros | a_ones) & mask != mask {
                     continue;
                 }
-                let a_abstr = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+                let a_zeros = concr::Bitvector::new(a_zeros);
+                let a_ones = concr::Bitvector::new(a_ones);
+                let a_abstr = ThreeValuedBitvector::<L>::from_zeros_ones(a_zeros, a_ones);
                 for b_zeros in 0..(1 << L) {
-                    let b_zeros = Wrapping(b_zeros);
                     for b_ones in 0..(1 << L) {
-                        let b_ones = Wrapping(b_ones);
                         if (b_zeros | b_ones) & mask != mask {
                             continue;
                         }
-                        let b_abstr = ThreeValuedBitvector::<L>::a_new(b_zeros, b_ones);
+                        let b_zeros = concr::Bitvector::new(b_zeros);
+                        let b_ones = concr::Bitvector::new(b_ones);
+                        let b_abstr = ThreeValuedBitvector::<L>::from_zeros_ones(b_zeros, b_ones);
                         let exact_earlier_mark =
                             exact_bi_mark((a_abstr, b_abstr), a_mark, concr_func);
                         let our_earlier_mark = mark_func((a_abstr, b_abstr), a_mark);
@@ -277,21 +268,21 @@ fn exec_bi_check<const L: u32, const X: u32>(
     // test unprovoked marking
 
     for a_zeros in 0..(1 << L) {
-        let a_zeros = Wrapping(a_zeros);
         for a_ones in 0..(1 << L) {
-            let a_ones = Wrapping(a_ones);
             if (a_zeros | a_ones) & mask != mask {
                 continue;
             }
-            let a_abstr = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+            let a_zeros = concr::Bitvector::new(a_zeros);
+            let a_ones = concr::Bitvector::new(a_ones);
+            let a_abstr = ThreeValuedBitvector::<L>::from_zeros_ones(a_zeros, a_ones);
             for b_zeros in 0..(1 << L) {
-                let b_zeros = Wrapping(b_zeros);
                 for b_ones in 0..(1 << L) {
-                    let b_ones = Wrapping(b_ones);
                     if (b_zeros | b_ones) & mask != mask {
                         continue;
                     }
-                    let b_abstr = ThreeValuedBitvector::<L>::a_new(b_zeros, b_ones);
+                    let b_zeros = concr::Bitvector::new(b_zeros);
+                    let b_ones = concr::Bitvector::new(b_ones);
+                    let b_abstr = ThreeValuedBitvector::<L>::from_zeros_ones(b_zeros, b_ones);
                     let a_mark = MarkBitvector::new_unmarked();
                     let our_earlier_mark = mark_func((a_abstr, b_abstr), a_mark);
                     if our_earlier_mark.0 != MarkBitvector::new_unmarked()
@@ -308,26 +299,7 @@ fn exec_bi_check<const L: u32, const X: u32>(
     }
 }
 
-macro_rules! std_bi_op_test {
-    ($ty:tt, $op:tt, $exact:tt) => {
-
-        seq_macro::seq!(L in 0..=4 {
-
-        #[test]
-        pub fn $op~L() {
-            let mark_func = |inputs: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
-                                mark: MarkBitvector<L>|
-                -> (MarkBitvector<L>, MarkBitvector<L>) {
-                crate::refin::$ty::$op(inputs, mark)
-            };
-            let concr_func = ::std::ops::$ty::$op;
-            exec_bi_check(mark_func, concr_func, $exact);
-        }
-    });
-    };
-}
-
-macro_rules! trait_bi_op_test {
+macro_rules! bi_op_test {
     ($ty:tt, $op:tt, $exact:tt) => {
 
         seq_macro::seq!(L in 0..=3 {
@@ -336,9 +308,9 @@ macro_rules! trait_bi_op_test {
         pub fn $op~L() {
             let mark_func = |inputs: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
                                 mark| {
-                crate::refin::$ty::$op(inputs, mark)
+                crate::backward::$ty::$op(inputs, mark)
             };
-            let concr_func = crate::concr::$ty::$op;
+            let concr_func = crate::forward::$ty::$op;
             exec_bi_check(mark_func, concr_func, $exact);
         }
     });
@@ -347,40 +319,39 @@ macro_rules! trait_bi_op_test {
 
 // --- UNARY TESTS ---
 
-std_uni_op_test!(Not, not, true);
-std_uni_op_test!(Neg, neg, false);
+uni_op_test!(Bitwise, not, true);
+uni_op_test!(HwArith, neg, false);
 
 // --- BINARY TESTS ---
 
 // arithmetic tests
-std_bi_op_test!(Add, add, false);
-std_bi_op_test!(Sub, sub, false);
-std_bi_op_test!(Mul, mul, false);
-trait_bi_op_test!(DivModRem, sdiv, false);
-trait_bi_op_test!(DivModRem, udiv, false);
-trait_bi_op_test!(DivModRem, smod, false);
-trait_bi_op_test!(DivModRem, srem, false);
-trait_bi_op_test!(DivModRem, urem, false);
+bi_op_test!(HwArith, add, false);
+bi_op_test!(HwArith, sub, false);
+bi_op_test!(HwArith, mul, false);
+bi_op_test!(HwArith, sdiv, false);
+bi_op_test!(HwArith, udiv, false);
+bi_op_test!(HwArith, srem, false);
+bi_op_test!(HwArith, urem, false);
 
 // bitwise tests
-std_bi_op_test!(BitAnd, bitand, false);
-std_bi_op_test!(BitOr, bitor, false);
-std_bi_op_test!(BitXor, bitxor, false);
+bi_op_test!(Bitwise, bitand, false);
+bi_op_test!(Bitwise, bitor, false);
+bi_op_test!(Bitwise, bitxor, false);
 
 // equality and comparison tests
-trait_bi_op_test!(TypedEq, typed_eq, false);
-trait_bi_op_test!(TypedCmp, typed_slt, false);
-trait_bi_op_test!(TypedCmp, typed_slte, false);
-trait_bi_op_test!(TypedCmp, typed_ult, false);
-trait_bi_op_test!(TypedCmp, typed_ulte, false);
+bi_op_test!(TypedEq, typed_eq, false);
+bi_op_test!(TypedCmp, typed_slt, false);
+bi_op_test!(TypedCmp, typed_slte, false);
+bi_op_test!(TypedCmp, typed_ult, false);
+bi_op_test!(TypedCmp, typed_ulte, false);
 
 // shift tests
-trait_bi_op_test!(Shift, sll, false);
-trait_bi_op_test!(Shift, srl, false);
-trait_bi_op_test!(Shift, sra, false);
+bi_op_test!(HwShift, logic_shl, false);
+bi_op_test!(HwShift, logic_shr, false);
+bi_op_test!(HwShift, arith_shr, false);
 
 // --- EXTENSION TESTS ---
 
 // extension tests
-ext_op_test!(MachineExt, uext, false);
-ext_op_test!(MachineExt, sext, false);
+ext_op_test!(Ext, uext, false);
+ext_op_test!(Ext, sext, false);
