@@ -1,5 +1,5 @@
-mod fabricate;
 mod manipulate;
+mod meta;
 
-pub use fabricate::*;
 pub use manipulate::*;
+pub use meta::*;

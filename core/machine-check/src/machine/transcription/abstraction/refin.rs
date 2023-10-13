@@ -47,13 +47,13 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
                                 type Abstract = super::Machine;
                             );
                             let input_iter_type: ImplItem = syn::parse_quote!(
-                                type InputIter = ::mck::misc::FabricatedIterator<Input>;
+                                type InputIter = ::mck::misc::ProtoIterator<Input>;
                             );
                             let input_precision_iter_fn: ImplItem = syn::parse_quote!(
                                 fn input_precision_iter(
                                     precision: &Self::Input,
                                 ) -> Self::InputIter {
-                                    return ::mck::misc::Fabricator::into_fabricated_iter(
+                                    return ::mck::misc::Meta::into_proto_iter(
                                         ::std::clone::Clone::clone(precision),
                                     );
                                 }
@@ -396,7 +396,7 @@ fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
 }
 
 fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
-    let fabricated_type = path!(Self::Fabricated);
+    let fabricated_type = path!(Self::Proto);
     let return_type = ReturnType::Type(
         Default::default(),
         Box::new(Type::Path(create_type_path(fabricated_type.clone()))),
@@ -418,9 +418,7 @@ fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
         });
 
         let init_expr = Expr::Call(create_expr_call(
-            Expr::Path(create_expr_path(path!(
-                ::mck::misc::Fabricator::fabricate_first
-            ))),
+            Expr::Path(create_expr_path(path!(::mck::misc::Meta::proto_first))),
             Punctuated::from_iter(vec![self_ref_expr]),
         ));
 
@@ -449,7 +447,7 @@ fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
             unsafety: None,
             abi: None,
             fn_token: Default::default(),
-            ident: create_ident("fabricate_first"),
+            ident: create_ident("proto_first"),
             generics: Default::default(),
             paren_token: Default::default(),
             inputs: Punctuated::from_iter(vec![self_input]),
@@ -464,8 +462,8 @@ fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
 }
 
 fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
-    let fabricated_ident = create_ident("fabricated");
-    let fabricated_type = Type::Path(create_type_path(path!(Self::Fabricated)));
+    let fabricated_ident = create_ident("proto");
+    let fabricated_type = Type::Path(create_type_path(path!(Self::Proto)));
     let fabricated_input = FnArg::Typed(PatType {
         attrs: vec![],
         pat: Box::new(Pat::Ident(create_pat_ident(fabricated_ident.clone()))),
@@ -510,9 +508,7 @@ fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
                 field,
             ))),
         });
-        let func_expr = Expr::Path(create_expr_path(path!(
-            ::mck::misc::Fabricator::increment_fabricated
-        )));
+        let func_expr = Expr::Path(create_expr_path(path!(::mck::misc::Meta::proto_increment)));
         let expr = Expr::Call(create_expr_call(
             func_expr,
             Punctuated::from_iter(vec![self_expr, fabricated_expr]),
@@ -543,7 +539,7 @@ fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
             unsafety: None,
             abi: None,
             fn_token: Default::default(),
-            ident: create_ident("increment_fabricated"),
+            ident: create_ident("proto_increment"),
             generics: Default::default(),
             paren_token: Default::default(),
             inputs: Punctuated::from_iter(vec![self_input, fabricated_input]),
@@ -571,7 +567,7 @@ fn generate_fabricated_impl_item_type(s: &ItemStruct) -> ImplItemType {
         vis: syn::Visibility::Inherited,
         defaultness: Default::default(),
         type_token: Default::default(),
-        ident: create_ident("Fabricated"),
+        ident: create_ident("Proto"),
         generics: Default::default(),
         eq_token: Default::default(),
         ty: Type::Path(create_type_path(path)),
@@ -581,7 +577,7 @@ fn generate_fabricated_impl_item_type(s: &ItemStruct) -> ImplItemType {
 
 fn generate_fabricator_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
-    let impl_trait = (None, path!(::mck::misc::Fabricator), Default::default());
+    let impl_trait = (None, path!(::mck::misc::Meta), Default::default());
     let self_type = Type::Path(create_type_path(path!(Self)));
     let self_input = FnArg::Receiver(Receiver {
         attrs: vec![],

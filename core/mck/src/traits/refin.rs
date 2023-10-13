@@ -1,10 +1,11 @@
 use crate::bitvector::refin;
-use crate::misc::{Fabricator, FieldManipulate};
+use crate::misc::FieldManipulate;
 
 use std::fmt::Debug;
 use std::hash::Hash;
 
 use super::abstr;
+use super::misc::Meta;
 
 pub trait MarkSingle {
     fn apply_single_mark(&mut self, offer: &Self) -> bool;
@@ -16,7 +17,7 @@ pub trait Input:
     + Eq
     + Hash
     + Clone
-    + Fabricator
+    + Meta
     + Join
     + Default
     + FieldManipulate<refin::Bitvector<1>>

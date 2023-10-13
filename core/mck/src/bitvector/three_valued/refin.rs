@@ -10,9 +10,11 @@ use crate::{
     bitvector::concr,
     bitvector::util::{compute_mask, compute_sign_bit_mask},
     forward,
-    misc::Fabricator,
     refin::Join,
-    traits::refin::{Decay, MarkSingle, Markable},
+    traits::{
+        misc::Meta,
+        refin::{Decay, MarkSingle, Markable},
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -50,16 +52,16 @@ impl<const L: u32> MarkBitvector<L> {
     }
 }
 
-impl<const L: u32> Fabricator for MarkBitvector<L> {
-    type Fabricated = abstr::Bitvector<L>;
+impl<const L: u32> Meta for MarkBitvector<L> {
+    type Proto = abstr::Bitvector<L>;
 
-    fn fabricate_first(&self) -> abstr::Bitvector<L> {
+    fn proto_first(&self) -> Self::Proto {
         // all known bits are 0
         let known_bits = self.0.as_unsigned();
         abstr::Bitvector::new_value_known(Wrapping(0), known_bits)
     }
 
-    fn increment_fabricated(&self, fabricated: &mut abstr::Bitvector<L>) -> bool {
+    fn proto_increment(&self, proto: &mut Self::Proto) -> bool {
         // the marked bits should be split into possibilities
         let known_bits = self.0.as_unsigned();
 
@@ -75,7 +77,7 @@ impl<const L: u32> Fabricator for MarkBitvector<L> {
         // end if we overflow
 
         // work with bitvector of only values, the unknowns do not change
-        let mut current = fabricated.umin();
+        let mut current = proto.umin();
         let mut considered_bits = known_bits;
 
         loop {
@@ -86,7 +88,7 @@ impl<const L: u32> Fabricator for MarkBitvector<L> {
                 current |= one_mask;
                 let result = abstr::Bitvector::new_value_known(current, known_bits);
 
-                *fabricated = result;
+                *proto = result;
                 return true;
             }
             // if it is 1, update it to 0, temporarily do not consider it and update next
@@ -96,7 +98,7 @@ impl<const L: u32> Fabricator for MarkBitvector<L> {
             // end if we overflow
             // reset possibility to allow for cycling
             if considered_bits == Wrapping(0) {
-                *fabricated = self.fabricate_first();
+                *proto = self.proto_first();
                 return false;
             }
         }
