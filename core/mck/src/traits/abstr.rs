@@ -13,10 +13,7 @@ pub trait State:
 {
 }
 
-pub trait Machine {
-    type Input: Input;
-    type State: State;
-
-    fn init(input: &Self::Input) -> Self::State;
-    fn next(state: &Self::State, input: &Self::Input) -> Self::State;
+pub trait Machine<I: Input, S: State> {
+    fn init(&self, input: &I) -> S;
+    fn next(&self, state: &S, input: &I) -> S;
 }

@@ -3,13 +3,11 @@ pub trait FieldManipulate<T> {
     fn get_mut(&mut self, name: &str) -> Option<&mut T>;
 }
 
-pub trait Meta: Sized {
-    type Proto: Clone;
+pub trait Meta<P: Clone>: Sized {
+    fn proto_first(&self) -> P;
+    fn proto_increment(&self, proto: &mut P) -> bool;
 
-    fn proto_first(&self) -> Self::Proto;
-    fn proto_increment(&self, proto: &mut Self::Proto) -> bool;
-
-    fn into_proto_iter(self) -> ProtoIterator<Self> {
+    fn into_proto_iter(self) -> ProtoIterator<Self, P> {
         ProtoIterator {
             meta: self,
             current_proto: None,
@@ -17,15 +15,15 @@ pub trait Meta: Sized {
     }
 }
 
-pub struct ProtoIterator<M: Meta> {
+pub struct ProtoIterator<M: Meta<P>, P: Clone> {
     meta: M,
-    current_proto: Option<M::Proto>,
+    current_proto: Option<P>,
 }
 
-impl<M: Meta> Iterator for ProtoIterator<M> {
-    type Item = M::Proto;
+impl<M: Meta<P>, P: Clone> Iterator for ProtoIterator<M, P> {
+    type Item = P;
 
-    fn next(&mut self) -> Option<M::Proto> {
+    fn next(&mut self) -> Option<P> {
         let current = self.current_proto.take();
         self.current_proto = if let Some(mut current) = current {
             if self.meta.proto_increment(&mut current) {

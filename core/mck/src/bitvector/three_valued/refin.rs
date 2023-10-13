@@ -52,16 +52,14 @@ impl<const L: u32> MarkBitvector<L> {
     }
 }
 
-impl<const L: u32> Meta for MarkBitvector<L> {
-    type Proto = abstr::Bitvector<L>;
-
-    fn proto_first(&self) -> Self::Proto {
+impl<const L: u32> Meta<abstr::Bitvector<L>> for MarkBitvector<L> {
+    fn proto_first(&self) -> abstr::Bitvector<L> {
         // all known bits are 0
         let known_bits = self.0.as_unsigned();
         abstr::Bitvector::new_value_known(Wrapping(0), known_bits)
     }
 
-    fn proto_increment(&self, proto: &mut Self::Proto) -> bool {
+    fn proto_increment(&self, proto: &mut abstr::Bitvector<L>) -> bool {
         // the marked bits should be split into possibilities
         let known_bits = self.0.as_unsigned();
 
@@ -111,9 +109,8 @@ impl<const L: u32> Join for MarkBitvector<L> {
     }
 }
 
-impl<const L: u32> Decay for MarkBitvector<L> {
-    type Abstract = abstr::Bitvector<L>;
-    fn force_decay(&self, target: &mut Self::Abstract) {
+impl<const L: u32> Decay<abstr::Bitvector<L>> for MarkBitvector<L> {
+    fn force_decay(&self, target: &mut abstr::Bitvector<L>) {
         // unmarked fields become unknown
         let forced_unknown = !self.0.as_unsigned() & compute_mask(L);
         let zeros = target.get_possibly_zero_flags().as_unsigned() | forced_unknown;

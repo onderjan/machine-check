@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 
 use machine_check_common::{Culprit, ExecError};
 use machine_check_common::{ExecStats, StateId};
+use mck::abstr;
 use mck::refin::{self, MarkSingle};
-use mck::{abstr, misc::FieldManipulate};
 
 use crate::proposition::Proposition;
 use crate::space::NodeId;
@@ -13,16 +13,18 @@ use crate::{
     space::Space,
 };
 
-pub struct Refinery<M: refin::Machine> {
-    precision: Precision<M>,
-    space: Space<M::Abstract>,
+pub struct Refinery<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> {
+    machine: M,
+    precision: Precision<I, S>,
+    space: Space<I::Abstract, S::Abstract>,
     num_refinements: usize,
     use_decay: bool,
 }
 
-impl<M: refin::Machine> Refinery<M> {
-    pub fn new(use_decay: bool) -> Self {
+impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M> {
+    pub fn new(machine: M, use_decay: bool) -> Self {
         let mut refinery = Refinery {
+            machine,
             precision: Precision::new(),
             space: Space::new(),
             num_refinements: 0,
@@ -66,7 +68,7 @@ impl<M: refin::Machine> Refinery<M> {
     fn refine(&mut self, culprit: &Culprit) -> bool {
         self.num_refinements += 1;
         // compute marking
-        let mut current_state_mark = <M::State as refin::State>::new_unmarked();
+        let mut current_state_mark = <S as refin::State>::new_unmarked();
         let mark_bit = current_state_mark.get_mut(&culprit.name).unwrap();
         *mark_bit = refin::Bitvector::new_marked();
 
@@ -99,15 +101,16 @@ impl<M: refin::Machine> Refinery<M> {
                 // use step function
                 let previous_state = self.space.get_state_by_id(*previous_state_index);
 
-                let (new_state_mark, input_mark) =
-                    <M as refin::Machine>::next((previous_state, input), current_state_mark);
+                let (new_state_mark, input_mark) = self
+                    .machine
+                    .next((previous_state, input), current_state_mark);
 
                 (input_mark, Some(new_state_mark))
             } else {
                 // use init function
 
                 // increasing state precision failed, try increasing init precision
-                let (input_mark,) = <M as refin::Machine>::init((input,), current_state_mark);
+                let (input_mark,) = self.machine.init((input,), current_state_mark);
                 (input_mark, None)
             };
 
@@ -153,16 +156,16 @@ impl<M: refin::Machine> Refinery<M> {
             };
 
             // generate direct successors
-            for input in M::input_precision_iter(&input_precision) {
+            for input in input_precision.into_proto_iter() {
                 let mut next_state = {
                     if let Some(current_state) = &current_state {
-                        <M::Abstract as abstr::Machine>::next(current_state, &input)
+                        abstr::Machine::next(self.machine.abstr(), current_state, &input)
                     } else {
-                        <M::Abstract as abstr::Machine>::init(&input)
+                        abstr::Machine::init(self.machine.abstr(), &input)
                     }
                 };
                 if self.use_decay {
-                    M::force_decay(&decay_precision, &mut next_state);
+                    decay_precision.force_decay(&mut next_state);
                 }
 
                 let (next_state_index, added) = self.space.add_step(node_id, next_state, &input);

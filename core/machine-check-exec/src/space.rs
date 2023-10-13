@@ -2,7 +2,10 @@ use std::{collections::BTreeSet, num::NonZeroUsize, ops::Shr, rc::Rc};
 
 use bimap::BiMap;
 use machine_check_common::StateId;
-use mck::{abstr, concr, misc::FieldManipulate};
+use mck::{
+    abstr::{Input, State},
+    concr,
+};
 use petgraph::{prelude::GraphMap, Directed};
 
 pub struct Edge<AI> {
@@ -33,14 +36,14 @@ impl TryFrom<NodeId> for StateId {
     }
 }
 
-pub struct Space<AM: abstr::Machine> {
-    node_graph: GraphMap<NodeId, Edge<AM::Input>, Directed>,
-    state_map: BiMap<StateId, Rc<AM::State>>,
+pub struct Space<I: Input, S: State> {
+    node_graph: GraphMap<NodeId, Edge<I>, Directed>,
+    state_map: BiMap<StateId, Rc<S>>,
     num_states_for_sweep: usize,
     next_state_id: StateId,
 }
 
-impl<AM: abstr::Machine> Space<AM> {
+impl<I: Input, S: State> Space<I, S> {
     pub fn new() -> Self {
         Self {
             node_graph: GraphMap::new(),
@@ -50,7 +53,7 @@ impl<AM: abstr::Machine> Space<AM> {
         }
     }
 
-    pub fn get_state_by_id(&self, state_id: StateId) -> &AM::State {
+    pub fn get_state_by_id(&self, state_id: StateId) -> &S {
         self.state_map
             .get_by_left(&state_id)
             .expect("State should be in state map")
@@ -70,15 +73,15 @@ impl<AM: abstr::Machine> Space<AM> {
     pub fn add_step(
         &mut self,
         current_node: NodeId,
-        next_state: AM::State,
-        representative_input: &AM::Input,
+        next_state: S,
+        representative_input: &I,
     ) -> (StateId, bool) {
         let (next_state_id, inserted) = self.add_state(next_state);
         self.add_edge(current_node, next_state_id.into(), representative_input);
         (next_state_id, inserted)
     }
 
-    fn add_state(&mut self, state: AM::State) -> (StateId, bool) {
+    fn add_state(&mut self, state: S) -> (StateId, bool) {
         let state = Rc::new(state);
         let state_id = if let Some(state_id) = self.state_map.get_by_right(&state) {
             // state already present in state map and consequentially next precision map
@@ -107,7 +110,7 @@ impl<AM: abstr::Machine> Space<AM> {
         }
     }
 
-    fn add_edge(&mut self, from: NodeId, to: NodeId, input: &AM::Input) {
+    fn add_edge(&mut self, from: NodeId, to: NodeId, input: &I) {
         if self.node_graph.contains_edge(from, to) {
             // do nothing
             return;
@@ -121,7 +124,7 @@ impl<AM: abstr::Machine> Space<AM> {
         );
     }
 
-    pub fn get_representative_input(&self, head: NodeId, tail: StateId) -> &AM::Input {
+    pub fn get_representative_input(&self, head: NodeId, tail: StateId) -> &I {
         &self
             .node_graph
             .edge_weight(head, tail.into())

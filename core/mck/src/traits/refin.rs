@@ -17,12 +17,14 @@ pub trait Input:
     + Eq
     + Hash
     + Clone
-    + Meta
+    + Meta<<Self as Input>::Abstract>
     + Join
     + Default
     + FieldManipulate<refin::Bitvector<1>>
     + MarkSingle
 {
+    type Abstract: abstr::Input;
+
     fn new_unmarked() -> Self {
         Default::default()
     }
@@ -34,38 +36,30 @@ pub trait State:
     + Eq
     + Hash
     + Clone
+    + Meta<<Self as State>::Abstract>
     + Join
     + Default
     + FieldManipulate<refin::Bitvector<1>>
     + MarkSingle
+    + Decay<<Self as State>::Abstract>
 {
+    type Abstract: abstr::State;
     fn new_unmarked() -> Self {
         Default::default()
     }
 }
 
-pub trait Machine {
-    type Abstract: abstr::Machine;
-    type Input: Input;
-    type State: State;
+pub trait Machine<I: Input, S: State> {
+    type Abstract: abstr::Machine<<I as Input>::Abstract, <S as State>::Abstract>;
 
-    type InputIter: Iterator<Item = <Self::Abstract as abstr::Machine>::Input>;
+    fn abstr(&self) -> &Self::Abstract;
 
-    fn input_precision_iter(precision: &Self::Input) -> Self::InputIter;
-
-    fn init(
-        abstr_args: (&<Self::Abstract as abstr::Machine>::Input,),
-        later_mark: Self::State,
-    ) -> (Self::Input,);
+    fn init(&self, abstr_args: (&<I as Input>::Abstract,), later_mark: S) -> (I,);
     fn next(
-        abstr_args: (
-            &<Self::Abstract as abstr::Machine>::State,
-            &<Self::Abstract as abstr::Machine>::Input,
-        ),
-        later_mark: Self::State,
-    ) -> (Self::State, Self::Input);
-
-    fn force_decay(decay: &Self::State, state: &mut <Self::Abstract as abstr::Machine>::State);
+        &self,
+        abstr_args: (&<S as State>::Abstract, &<I as Input>::Abstract),
+        later_mark: S,
+    ) -> (S, I);
 }
 
 pub trait Markable {
@@ -80,10 +74,9 @@ where
     fn apply_join(&mut self, other: Self);
 }
 
-pub trait Decay
+pub trait Decay<A>
 where
     Self: Sized,
 {
-    type Abstract;
-    fn force_decay(&self, target: &mut Self::Abstract);
+    fn force_decay(&self, target: &mut A);
 }
