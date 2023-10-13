@@ -135,18 +135,28 @@ impl<const L: u32> HwArith for Bitvector<L> {
     }
 
     fn udiv(self, rhs: Self) -> Self {
-        // result of division by zero is the mask
         let dividend = self.as_unsigned();
         let divisor = rhs.as_unsigned();
-        let result = dividend.checked_div(divisor).unwrap_or(Self::bit_mask().0);
+        if divisor == 0 {
+            // result of division by zero is all-ones
+            return Self::bit_mask();
+        }
+        let result = dividend
+            .checked_div(divisor)
+            .expect("Unsigned division should only return none on zero divisor");
         Self::new(result & Self::bit_mask().0)
     }
 
     fn urem(self, rhs: Self) -> Self {
-        // result of division by zero is the dividend
         let dividend = self.as_unsigned();
         let divisor = rhs.as_unsigned();
-        let result = dividend.checked_rem(divisor).unwrap_or(dividend);
+        if divisor == 0 {
+            // result of division by zero is the dividend
+            return rhs;
+        }
+        let result = dividend
+            .checked_rem(divisor)
+            .expect("Unsigned remainder should only return none on zero divisor");
         Self::new(result & Self::bit_mask().0)
     }
 
@@ -154,27 +164,41 @@ impl<const L: u32> HwArith for Bitvector<L> {
         let dividend = self.as_signed();
         let divisor = rhs.as_signed();
         if divisor == 0 {
-            // result of division by zero is the mask
+            // result of division by zero is all-ones
             return Self::bit_mask();
+        }
+        let signed_minus_one = Self::bit_mask();
+        let signed_minimum = Self::sign_bit_mask();
+        if self == signed_minimum && rhs == signed_minus_one {
+            // result of overflow is dividend
+            return self;
         }
 
         // result of overflow is dividend
         let result = dividend
             .checked_div(divisor)
             .map(|r| r as u64)
-            .unwrap_or(dividend as u64);
+            .expect("Signed division should only return none on zero divisor or overflow");
         Self::new(result & Self::bit_mask().0)
     }
 
     fn srem(self, rhs: Self) -> Self {
         let dividend = self.as_signed();
         let divisor = rhs.as_signed();
-        // result of modulo with zero divisor is the dividend
         if divisor == 0 {
-            return self;
+            // result of zero divisor is the dividend
+            return rhs;
+        }
+        let signed_minus_one = Self::bit_mask();
+        let signed_minimum = Self::sign_bit_mask();
+        if self == signed_minimum && rhs == signed_minus_one {
+            // result of overflow is zero
+            return Self::new(0);
         }
         // result after division overflow is zero
-        let result = dividend.checked_rem(divisor).unwrap_or(0);
+        let result = dividend
+            .checked_rem(divisor)
+            .expect("Signed remainder should only return none on zero divisor or overflow");
         Self::new(result as u64 & Self::bit_mask().0)
     }
 }
