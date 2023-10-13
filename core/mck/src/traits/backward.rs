@@ -1,15 +1,3 @@
-pub trait Bitwise
-where
-    Self: Sized,
-{
-    type Mark;
-
-    fn not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,);
-    fn bitand(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
-    fn bitor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
-    fn bitxor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
-}
-
 pub trait TypedEq
 where
     Self: Sized,
@@ -48,24 +36,18 @@ where
     ) -> (Self::MarkEarlier, Self::MarkEarlier);
 }
 
-pub trait Ext<const M: u32> {
-    type MarkEarlier;
-    type MarkLater;
-
-    fn uext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,);
-    fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,);
-}
-
-pub trait HwShift
+pub trait Bitwise
 where
     Self: Sized,
 {
     type Mark;
 
-    fn logic_shl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
-    fn logic_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
-    fn arith_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,);
+    fn bitand(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn bitor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn bitxor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
 }
+
 pub trait HwArith
 where
     Self: Sized,
@@ -78,9 +60,29 @@ where
     fn sub(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
     fn mul(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
 
-    fn sdiv(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
     fn udiv(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
-    fn smod(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
-    fn srem(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn sdiv(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+
     fn urem(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn smod(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn seuc(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+}
+
+pub trait HwShift
+where
+    Self: Sized,
+{
+    type Mark;
+
+    fn logic_shl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn logic_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn arith_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+}
+
+pub trait Ext<const M: u32> {
+    type MarkEarlier;
+    type MarkLater;
+
+    fn uext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,);
+    fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,);
 }

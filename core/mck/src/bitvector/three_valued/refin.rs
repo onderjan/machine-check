@@ -233,11 +233,15 @@ impl<const L: u32> HwArith for abstr::Bitvector<L> {
         default_bi_mark(normal_input, mark_later)
     }
 
+    fn udiv(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        default_bi_mark(normal_input, mark_later)
+    }
+
     fn sdiv(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         default_bi_mark(normal_input, mark_later)
     }
 
-    fn udiv(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+    fn urem(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         default_bi_mark(normal_input, mark_later)
     }
 
@@ -245,11 +249,7 @@ impl<const L: u32> HwArith for abstr::Bitvector<L> {
         default_bi_mark(normal_input, mark_later)
     }
 
-    fn srem(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        default_bi_mark(normal_input, mark_later)
-    }
-
-    fn urem(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+    fn seuc(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         default_bi_mark(normal_input, mark_later)
     }
 }

@@ -261,205 +261,6 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 }
 
-impl<const L: u32> HwArith for ThreeValuedBitvector<L> {
-    fn neg(self) -> Self {
-        // arithmetic negation
-        // since we use wrapping arithmetic, same as subtracting the value from 0
-        HwArith::sub(Self::w_new(Wrapping(0)), self)
-    }
-    fn add(self, rhs: Self) -> Self {
-        self.minmax_compute(rhs, Self::add_min, Self::add_max)
-    }
-    fn sub(self, rhs: Self) -> Self {
-        self.minmax_compute(rhs, Self::sub_min, Self::sub_max)
-    }
-    fn mul(self, rhs: Self) -> Self {
-        // use the minmax algorithm for now
-        self.minmax_compute(rhs, Self::mul_min, Self::mul_max)
-    }
-
-    fn sdiv(self, rhs: Self) -> Self {
-        let mask = Self::get_mask().0;
-        let dividend_min = concr::Bitvector::<L>::new(self.smin().0 as u64 & mask);
-        let dividend_max = concr::Bitvector::<L>::new(self.smax().0 as u64 & mask);
-        let divisor_min = concr::Bitvector::<L>::new(rhs.smin().0 as u64 & mask);
-        let divisor_max = concr::Bitvector::<L>::new(rhs.smax().0 as u64 & mask);
-        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
-        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
-
-        // make highest different bit and all after it unknown
-        let different = (min_division_result ^ max_division_result).0;
-        if different == 0 {
-            // both are the same
-            return ThreeValuedBitvector::new(min_division_result.0);
-        }
-
-        let highest_different_bit_pos = different.ilog2();
-        let unknown_mask = compute_mask(highest_different_bit_pos);
-        ThreeValuedBitvector::new_value_known(min_division_result, !unknown_mask)
-    }
-
-    fn udiv(self, rhs: Self) -> Self {
-        let dividend_min = concr::Bitvector::<L>::new(self.umin().0);
-        let dividend_max = concr::Bitvector::<L>::new(self.umax().0);
-        let divisor_min = concr::Bitvector::<L>::new(rhs.umin().0);
-        let divisor_max = concr::Bitvector::<L>::new(rhs.umax().0);
-        let min_division_result = dividend_min.udiv(divisor_max).as_unsigned();
-        let max_division_result = dividend_max.udiv(divisor_min).as_unsigned();
-
-        // make highest different bit and all after it unknown
-        let different = (min_division_result ^ max_division_result).0;
-        if different == 0 {
-            // both are the same
-            return ThreeValuedBitvector::new(min_division_result.0);
-        }
-
-        let highest_different_bit_pos = different.ilog2();
-        let unknown_mask = compute_mask(highest_different_bit_pos);
-        ThreeValuedBitvector::new_value_known(min_division_result, !unknown_mask)
-    }
-
-    fn smod(self, rhs: Self) -> Self {
-        let dividend_min = concr::Bitvector::<L>::new(self.umin().0);
-        let dividend_max = concr::Bitvector::<L>::new(self.umax().0);
-        let divisor_min = concr::Bitvector::<L>::new(rhs.umin().0);
-        let divisor_max = concr::Bitvector::<L>::new(rhs.umax().0);
-        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
-        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
-
-        if min_division_result != max_division_result {
-            // division results are different, return fully unknown
-            return ThreeValuedBitvector::new_unknown();
-        }
-
-        // division results are the same, return operation result
-        let min_result = dividend_min.smod(divisor_max).as_unsigned();
-        let max_result = dividend_max.smod(divisor_min).as_unsigned();
-
-        // make highest different bit and all after it unknown
-        let different = (min_result ^ max_result).0;
-        if different == 0 {
-            // both are the same
-            return ThreeValuedBitvector::new(min_result.0);
-        }
-
-        let highest_different_bit_pos = different.ilog2();
-        let unknown_mask = compute_mask(highest_different_bit_pos);
-        ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
-    }
-
-    fn seuc(self, rhs: Self) -> Self {
-        let dividend_min = concr::Bitvector::<L>::new(self.umin().0);
-        let dividend_max = concr::Bitvector::<L>::new(self.umax().0);
-        let divisor_min = concr::Bitvector::<L>::new(rhs.umin().0);
-        let divisor_max = concr::Bitvector::<L>::new(rhs.umax().0);
-        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
-        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
-
-        if min_division_result != max_division_result {
-            // division results are different, return fully unknown
-            return ThreeValuedBitvector::new_unknown();
-        }
-
-        // division results are the same, return operation result
-        let min_result = dividend_min.seuc(divisor_max).as_unsigned();
-        let max_result = dividend_max.seuc(divisor_min).as_unsigned();
-
-        // make highest different bit and all after it unknown
-        let different = (min_result ^ max_result).0;
-        if different == 0 {
-            // both are the same
-            return ThreeValuedBitvector::new(min_result.0);
-        }
-
-        let highest_different_bit_pos = different.ilog2();
-        let unknown_mask = compute_mask(highest_different_bit_pos);
-        ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
-    }
-
-    fn urem(self, rhs: Self) -> Self {
-        let dividend_min = concr::Bitvector::<L>::new(self.umin().0);
-        let dividend_max = concr::Bitvector::<L>::new(self.umax().0);
-        let divisor_min = concr::Bitvector::<L>::new(rhs.umin().0);
-        let divisor_max = concr::Bitvector::<L>::new(rhs.umax().0);
-        let min_division_result = dividend_min.udiv(divisor_max).as_unsigned();
-        let max_division_result = dividend_max.udiv(divisor_min).as_unsigned();
-
-        if min_division_result != max_division_result {
-            // division results are different, return fully unknown
-            return ThreeValuedBitvector::new_unknown();
-        }
-
-        // division results are the same, return operation result
-        let min_result = dividend_min.urem(divisor_max).as_unsigned();
-        let max_result = dividend_max.urem(divisor_min).as_unsigned();
-
-        // make highest different bit and all after it unknown
-        let different = (min_result ^ max_result).0;
-        if different == 0 {
-            // both are the same
-            return ThreeValuedBitvector::new(min_result.0);
-        }
-
-        let highest_different_bit_pos = different.ilog2();
-        let unknown_mask = compute_mask(highest_different_bit_pos);
-        ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
-    }
-}
-
-impl<const L: u32> Bitwise for ThreeValuedBitvector<L> {
-    fn not(self) -> Self {
-        // logical negation
-        // swap zeros and ones
-        let zeros = self.ones;
-        let ones = self.zeros;
-        Self::a_new(zeros, ones)
-    }
-    fn bitand(self, rhs: Self) -> Self {
-        // logical AND
-        // zeros ... if zeros of either are set
-        // ones ... only if ones of both are set
-        let zeros = self.zeros | rhs.zeros;
-        let ones = self.ones & rhs.ones;
-        Self::a_new(zeros, ones)
-    }
-    fn bitor(self, rhs: Self) -> Self {
-        // logical OR
-        // zeros ... only if zeros of both are set
-        // ones ... if ones of either are set
-        let zeros = self.zeros & rhs.zeros;
-        let ones = self.ones | rhs.ones;
-        Self::a_new(zeros, ones)
-    }
-    fn bitxor(self, rhs: Self) -> Self {
-        // logical XOR
-        // zeros ... if exactly zero or exactly two can be set (both zeros set or both ones set)
-        // ones ... if exactly one can be set (lhs zero set and rhs one set or rhs zero set and lhs one set)
-        let zeros = (self.zeros & rhs.zeros) | (self.ones & rhs.ones);
-        let ones = (self.zeros & rhs.ones) | (self.ones & rhs.zeros);
-        Self::a_new(zeros, ones)
-    }
-}
-
-impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
-    type Output = ThreeValuedBitvector<1>;
-    fn typed_eq(self, rhs: Self) -> Self::Output {
-        // result can be true if all bits can be the same
-        // result can be false if at least one bit can be different
-
-        let can_be_same_bits = (self.zeros & rhs.zeros) | (self.ones & rhs.ones);
-        let can_be_different_bits = (self.zeros & rhs.ones) | (self.ones & rhs.zeros);
-
-        let can_be_same = can_be_same_bits == Self::get_mask();
-        let can_be_different = can_be_different_bits != Wrapping(0);
-
-        Self::Output::a_new(
-            Wrapping(can_be_different as u64),
-            Wrapping(can_be_same as u64),
-        )
-    }
-}
-
 impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
     type Output = ThreeValuedBitvector<1>;
 
@@ -548,60 +349,202 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
     }
 }
 
-impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
-    type Output = ThreeValuedBitvector<X>;
+impl<const L: u32> Bitwise for ThreeValuedBitvector<L> {
+    fn not(self) -> Self {
+        // logical negation
+        // swap zeros and ones
+        let zeros = self.ones;
+        let ones = self.zeros;
+        Self::a_new(zeros, ones)
+    }
+    fn bitand(self, rhs: Self) -> Self {
+        // logical AND
+        // zeros ... if zeros of either are set
+        // ones ... only if ones of both are set
+        let zeros = self.zeros | rhs.zeros;
+        let ones = self.ones & rhs.ones;
+        Self::a_new(zeros, ones)
+    }
+    fn bitor(self, rhs: Self) -> Self {
+        // logical OR
+        // zeros ... only if zeros of both are set
+        // ones ... if ones of either are set
+        let zeros = self.zeros & rhs.zeros;
+        let ones = self.ones | rhs.ones;
+        Self::a_new(zeros, ones)
+    }
+    fn bitxor(self, rhs: Self) -> Self {
+        // logical XOR
+        // zeros ... if exactly zero or exactly two can be set (both zeros set or both ones set)
+        // ones ... if exactly one can be set (lhs zero set and rhs one set or rhs zero set and lhs one set)
+        let zeros = (self.zeros & rhs.zeros) | (self.ones & rhs.ones);
+        let ones = (self.zeros & rhs.ones) | (self.ones & rhs.zeros);
+        Self::a_new(zeros, ones)
+    }
+}
 
-    fn uext(self) -> Self::Output {
-        let old_mask = Self::get_mask();
-        let new_mask = util::compute_mask(X);
-
-        // shorten if needed
-        let shortened_zeros = self.zeros & new_mask;
-        let shortened_ones = self.ones & new_mask;
-
-        // the mask for lengthening is comprised of bits
-        // that were not in the old mask but are in the new mask
-        let lengthening_mask = !old_mask & new_mask;
-
-        // for lengthening, we need to add zeros
-        let zeros = shortened_zeros | lengthening_mask;
-        let ones = shortened_ones;
-
-        // shorten if needed, lengthening is fine
-        Self::Output::a_new(zeros, ones)
+impl<const L: u32> HwArith for ThreeValuedBitvector<L> {
+    fn neg(self) -> Self {
+        // arithmetic negation
+        // since we use wrapping arithmetic, same as subtracting the value from 0
+        HwArith::sub(Self::w_new(Wrapping(0)), self)
+    }
+    fn add(self, rhs: Self) -> Self {
+        self.minmax_compute(rhs, Self::add_min, Self::add_max)
+    }
+    fn sub(self, rhs: Self) -> Self {
+        self.minmax_compute(rhs, Self::sub_min, Self::sub_max)
+    }
+    fn mul(self, rhs: Self) -> Self {
+        // use the minmax algorithm for now
+        self.minmax_compute(rhs, Self::mul_min, Self::mul_max)
     }
 
-    fn sext(self) -> Self::Output {
-        if L == 0 {
-            // no zeros nor ones, handle specially by returning zero
-            return Self::Output::new(0);
+    fn udiv(self, rhs: Self) -> Self {
+        let dividend_min = concr::Bitvector::<L>::new(self.umin().0);
+        let dividend_max = concr::Bitvector::<L>::new(self.umax().0);
+        let divisor_min = concr::Bitvector::<L>::new(rhs.umin().0);
+        let divisor_max = concr::Bitvector::<L>::new(rhs.umax().0);
+        let min_division_result = dividend_min.udiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.udiv(divisor_min).as_unsigned();
+
+        // make highest different bit and all after it unknown
+        let different = (min_division_result ^ max_division_result).0;
+        if different == 0 {
+            // both are the same
+            return ThreeValuedBitvector::new(min_division_result.0);
         }
 
-        let old_mask = Self::get_mask();
-        let new_mask = util::compute_mask(X);
+        let highest_different_bit_pos = different.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_division_result, !unknown_mask)
+    }
 
-        // shorten if needed
-        let shortened_zeros = self.zeros & new_mask;
-        let shortened_ones = self.ones & new_mask;
+    fn sdiv(self, rhs: Self) -> Self {
+        let mask = Self::get_mask().0;
+        let dividend_min = concr::Bitvector::<L>::new(self.smin().0 as u64 & mask);
+        let dividend_max = concr::Bitvector::<L>::new(self.smax().0 as u64 & mask);
+        let divisor_min = concr::Bitvector::<L>::new(rhs.smin().0 as u64 & mask);
+        let divisor_max = concr::Bitvector::<L>::new(rhs.smax().0 as u64 & mask);
+        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
 
-        // the mask for lengthening is comprised of bits
-        // that were not in the old mask but are in the new mask
-        let lengthening_mask = !old_mask & new_mask;
+        // make highest different bit and all after it unknown
+        let different = (min_division_result ^ max_division_result).0;
+        if different == 0 {
+            // both are the same
+            return ThreeValuedBitvector::new(min_division_result.0);
+        }
 
-        // for lengthening, we need to extend whatever may be in the sign bit
-        let zeros = if self.is_zeros_sign_bit_set() {
-            shortened_zeros | lengthening_mask
-        } else {
-            shortened_zeros
-        };
+        let highest_different_bit_pos = different.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_division_result, !unknown_mask)
+    }
 
-        let ones = if self.is_ones_sign_bit_set() {
-            shortened_ones | lengthening_mask
-        } else {
-            shortened_ones
-        };
+    fn urem(self, rhs: Self) -> Self {
+        let dividend_min = concr::Bitvector::<L>::new(self.umin().0);
+        let dividend_max = concr::Bitvector::<L>::new(self.umax().0);
+        let divisor_min = concr::Bitvector::<L>::new(rhs.umin().0);
+        let divisor_max = concr::Bitvector::<L>::new(rhs.umax().0);
+        let min_division_result = dividend_min.udiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.udiv(divisor_min).as_unsigned();
 
-        Self::Output::a_new(zeros, ones)
+        if min_division_result != max_division_result {
+            // division results are different, return fully unknown
+            return ThreeValuedBitvector::new_unknown();
+        }
+
+        // division results are the same, return operation result
+        let min_result = dividend_min.urem(divisor_max).as_unsigned();
+        let max_result = dividend_max.urem(divisor_min).as_unsigned();
+
+        // make highest different bit and all after it unknown
+        let different = (min_result ^ max_result).0;
+        if different == 0 {
+            // both are the same
+            return ThreeValuedBitvector::new(min_result.0);
+        }
+
+        let highest_different_bit_pos = different.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
+    }
+
+    fn smod(self, rhs: Self) -> Self {
+        let dividend_min = concr::Bitvector::<L>::new(self.umin().0);
+        let dividend_max = concr::Bitvector::<L>::new(self.umax().0);
+        let divisor_min = concr::Bitvector::<L>::new(rhs.umin().0);
+        let divisor_max = concr::Bitvector::<L>::new(rhs.umax().0);
+        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
+
+        if min_division_result != max_division_result {
+            // division results are different, return fully unknown
+            return ThreeValuedBitvector::new_unknown();
+        }
+
+        // division results are the same, return operation result
+        let min_result = dividend_min.smod(divisor_max).as_unsigned();
+        let max_result = dividend_max.smod(divisor_min).as_unsigned();
+
+        // make highest different bit and all after it unknown
+        let different = (min_result ^ max_result).0;
+        if different == 0 {
+            // both are the same
+            return ThreeValuedBitvector::new(min_result.0);
+        }
+
+        let highest_different_bit_pos = different.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
+    }
+
+    fn seuc(self, rhs: Self) -> Self {
+        let dividend_min = concr::Bitvector::<L>::new(self.umin().0);
+        let dividend_max = concr::Bitvector::<L>::new(self.umax().0);
+        let divisor_min = concr::Bitvector::<L>::new(rhs.umin().0);
+        let divisor_max = concr::Bitvector::<L>::new(rhs.umax().0);
+        let min_division_result = dividend_min.sdiv(divisor_max).as_unsigned();
+        let max_division_result = dividend_max.sdiv(divisor_min).as_unsigned();
+
+        if min_division_result != max_division_result {
+            // division results are different, return fully unknown
+            return ThreeValuedBitvector::new_unknown();
+        }
+
+        // division results are the same, return operation result
+        let min_result = dividend_min.seuc(divisor_max).as_unsigned();
+        let max_result = dividend_max.seuc(divisor_min).as_unsigned();
+
+        // make highest different bit and all after it unknown
+        let different = (min_result ^ max_result).0;
+        if different == 0 {
+            // both are the same
+            return ThreeValuedBitvector::new(min_result.0);
+        }
+
+        let highest_different_bit_pos = different.ilog2();
+        let unknown_mask = compute_mask(highest_different_bit_pos);
+        ThreeValuedBitvector::new_value_known(min_result, !unknown_mask)
+    }
+}
+
+impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
+    type Output = ThreeValuedBitvector<1>;
+    fn typed_eq(self, rhs: Self) -> Self::Output {
+        // result can be true if all bits can be the same
+        // result can be false if at least one bit can be different
+
+        let can_be_same_bits = (self.zeros & rhs.zeros) | (self.ones & rhs.ones);
+        let can_be_different_bits = (self.zeros & rhs.ones) | (self.ones & rhs.zeros);
+
+        let can_be_same = can_be_same_bits == Self::get_mask();
+        let can_be_different = can_be_different_bits != Wrapping(0);
+
+        Self::Output::a_new(
+            Wrapping(can_be_different as u64),
+            Wrapping(can_be_same as u64),
+        )
     }
 }
 
@@ -658,6 +601,63 @@ impl<const L: u32> HwShift for ThreeValuedBitvector<L> {
         let overflow_value = Self::a_new(overflow_zeros, overflow_ones);
 
         self.shift(amount, sra_shift_fn, sra_shift_fn, overflow_value)
+    }
+}
+
+impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
+    type Output = ThreeValuedBitvector<X>;
+
+    fn uext(self) -> Self::Output {
+        let old_mask = Self::get_mask();
+        let new_mask = util::compute_mask(X);
+
+        // shorten if needed
+        let shortened_zeros = self.zeros & new_mask;
+        let shortened_ones = self.ones & new_mask;
+
+        // the mask for lengthening is comprised of bits
+        // that were not in the old mask but are in the new mask
+        let lengthening_mask = !old_mask & new_mask;
+
+        // for lengthening, we need to add zeros
+        let zeros = shortened_zeros | lengthening_mask;
+        let ones = shortened_ones;
+
+        // shorten if needed, lengthening is fine
+        Self::Output::a_new(zeros, ones)
+    }
+
+    fn sext(self) -> Self::Output {
+        if L == 0 {
+            // no zeros nor ones, handle specially by returning zero
+            return Self::Output::new(0);
+        }
+
+        let old_mask = Self::get_mask();
+        let new_mask = util::compute_mask(X);
+
+        // shorten if needed
+        let shortened_zeros = self.zeros & new_mask;
+        let shortened_ones = self.ones & new_mask;
+
+        // the mask for lengthening is comprised of bits
+        // that were not in the old mask but are in the new mask
+        let lengthening_mask = !old_mask & new_mask;
+
+        // for lengthening, we need to extend whatever may be in the sign bit
+        let zeros = if self.is_zeros_sign_bit_set() {
+            shortened_zeros | lengthening_mask
+        } else {
+            shortened_zeros
+        };
+
+        let ones = if self.is_ones_sign_bit_set() {
+            shortened_ones | lengthening_mask
+        } else {
+            shortened_ones
+        };
+
+        Self::Output::a_new(zeros, ones)
     }
 }
 

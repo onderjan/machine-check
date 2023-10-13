@@ -71,21 +71,6 @@ impl<const L: u32> Display for Bitvector<L> {
     }
 }
 
-impl<const L: u32> Bitwise for Bitvector<L> {
-    fn not(self) -> Self {
-        Self::w_new((!self.v) & compute_mask(L))
-    }
-    fn bitand(self, rhs: Self) -> Self {
-        Self::w_new((self.v & rhs.v) & compute_mask(L))
-    }
-    fn bitor(self, rhs: Self) -> Self {
-        Self::w_new((self.v | rhs.v) & compute_mask(L))
-    }
-    fn bitxor(self, rhs: Self) -> Self {
-        Self::w_new((self.v ^ rhs.v) & compute_mask(L))
-    }
-}
-
 impl<const L: u32> TypedEq for Bitvector<L> {
     type Output = Bitvector<1>;
     fn typed_eq(self, rhs: Self) -> Self::Output {
@@ -118,69 +103,18 @@ impl<const L: u32> TypedCmp for Bitvector<L> {
     }
 }
 
-impl<const L: u32, const X: u32> Ext<X> for Bitvector<L> {
-    type Output = Bitvector<X>;
-
-    fn uext(self) -> Self::Output {
-        // shorten if needed, lengthening is fine
-        Bitvector::<X>::w_new(self.v & compute_mask(X))
+impl<const L: u32> Bitwise for Bitvector<L> {
+    fn not(self) -> Self {
+        Self::w_new((!self.v) & compute_mask(L))
     }
-
-    fn sext(self) -> Self::Output {
-        // shorten if needed
-        let mut v = self.v & compute_mask(X);
-        // copy sign bit if necessary
-        if self.is_sign_bit_set() {
-            let old_mask = compute_mask(L);
-            let new_mask = compute_mask(X);
-            let lengthening_mask = !old_mask & new_mask;
-            v |= lengthening_mask;
-        }
-        Bitvector::<X>::w_new(v)
+    fn bitand(self, rhs: Self) -> Self {
+        Self::w_new((self.v & rhs.v) & compute_mask(L))
     }
-}
-
-impl<const L: u32> HwShift for Bitvector<L> {
-    type Output = Self;
-
-    fn logic_shl(self, amount: Self) -> Self {
-        if amount.v.0 >= L as u64 {
-            // zero if the shift is too big
-            Bitvector::w_new(Wrapping(0))
-        } else {
-            // apply mask after shifting
-            let res = self.v << (amount.v.0 as usize);
-            Bitvector::w_new(res & compute_mask(L))
-        }
+    fn bitor(self, rhs: Self) -> Self {
+        Self::w_new((self.v | rhs.v) & compute_mask(L))
     }
-
-    fn logic_shr(self, amount: Self) -> Self {
-        if amount.v.0 >= L as u64 {
-            // zero if the shift is too big
-            Bitvector::w_new(Wrapping(0))
-        } else {
-            Bitvector::w_new(self.v >> amount.v.0 as usize)
-        }
-    }
-
-    fn arith_shr(self, amount: Self) -> Self {
-        if amount.v.0 >= L as u64 {
-            // fill with sign bit if the shift is too big
-            if self.is_sign_bit_set() {
-                return Bitvector::w_new(compute_mask(L));
-            }
-            return Bitvector::w_new(Wrapping(0));
-        };
-
-        let mut result = self.v >> amount.v.0 as usize;
-        // copy sign bit if necessary
-        if self.is_sign_bit_set() {
-            let old_mask = compute_mask(L);
-            let new_mask = old_mask >> amount.v.0 as usize;
-            let sign_bit_copy_mask = old_mask & !new_mask;
-            result |= sign_bit_copy_mask;
-        }
-        Bitvector::w_new(result)
+    fn bitxor(self, rhs: Self) -> Self {
+        Self::w_new((self.v ^ rhs.v) & compute_mask(L))
     }
 }
 
@@ -248,5 +182,71 @@ impl<const L: u32> HwArith for Bitvector<L> {
         let divisor = rhs.as_unsigned().0;
         let result = dividend.checked_rem(divisor).unwrap_or(dividend);
         Self::w_new(Wrapping(result) & compute_mask(L))
+    }
+}
+
+impl<const L: u32> HwShift for Bitvector<L> {
+    type Output = Self;
+
+    fn logic_shl(self, amount: Self) -> Self {
+        if amount.v.0 >= L as u64 {
+            // zero if the shift is too big
+            Bitvector::w_new(Wrapping(0))
+        } else {
+            // apply mask after shifting
+            let res = self.v << (amount.v.0 as usize);
+            Bitvector::w_new(res & compute_mask(L))
+        }
+    }
+
+    fn logic_shr(self, amount: Self) -> Self {
+        if amount.v.0 >= L as u64 {
+            // zero if the shift is too big
+            Bitvector::w_new(Wrapping(0))
+        } else {
+            Bitvector::w_new(self.v >> amount.v.0 as usize)
+        }
+    }
+
+    fn arith_shr(self, amount: Self) -> Self {
+        if amount.v.0 >= L as u64 {
+            // fill with sign bit if the shift is too big
+            if self.is_sign_bit_set() {
+                return Bitvector::w_new(compute_mask(L));
+            }
+            return Bitvector::w_new(Wrapping(0));
+        };
+
+        let mut result = self.v >> amount.v.0 as usize;
+        // copy sign bit if necessary
+        if self.is_sign_bit_set() {
+            let old_mask = compute_mask(L);
+            let new_mask = old_mask >> amount.v.0 as usize;
+            let sign_bit_copy_mask = old_mask & !new_mask;
+            result |= sign_bit_copy_mask;
+        }
+        Bitvector::w_new(result)
+    }
+}
+
+impl<const L: u32, const X: u32> Ext<X> for Bitvector<L> {
+    type Output = Bitvector<X>;
+
+    fn uext(self) -> Self::Output {
+        // shorten if needed, lengthening is fine
+        Bitvector::<X>::w_new(self.v & compute_mask(X))
+    }
+
+    fn sext(self) -> Self::Output {
+        // shorten if needed
+        let mut v = self.v & compute_mask(X);
+        // copy sign bit if necessary
+        if self.is_sign_bit_set() {
+            let old_mask = compute_mask(L);
+            let new_mask = compute_mask(X);
+            let lengthening_mask = !old_mask & new_mask;
+            v |= lengthening_mask;
+        }
+        Bitvector::<X>::w_new(v)
     }
 }

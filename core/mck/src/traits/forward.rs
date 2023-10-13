@@ -13,11 +13,6 @@ pub trait TypedCmp {
     fn typed_ulte(self, rhs: Self) -> Self::Output;
 }
 
-pub use std::ops::BitAnd;
-pub use std::ops::BitOr;
-pub use std::ops::BitXor;
-pub use std::ops::Not;
-
 pub trait Bitwise
 where
     Self: Sized,
@@ -38,18 +33,12 @@ where
     fn sub(self, rhs: Self) -> Self;
     fn mul(self, rhs: Self) -> Self;
 
-    fn sdiv(self, rhs: Self) -> Self;
     fn udiv(self, rhs: Self) -> Self;
+    fn sdiv(self, rhs: Self) -> Self;
+
+    fn urem(self, rhs: Self) -> Self;
     fn smod(self, rhs: Self) -> Self;
     fn seuc(self, rhs: Self) -> Self;
-    fn urem(self, rhs: Self) -> Self;
-}
-
-pub trait Ext<const M: u32> {
-    type Output;
-
-    fn uext(self) -> Self::Output;
-    fn sext(self) -> Self::Output;
 }
 
 pub trait HwShift {
@@ -58,4 +47,11 @@ pub trait HwShift {
     fn logic_shl(self, amount: Self) -> Self::Output;
     fn logic_shr(self, amount: Self) -> Self::Output;
     fn arith_shr(self, amount: Self) -> Self::Output;
+}
+
+pub trait Ext<const M: u32> {
+    type Output;
+
+    fn uext(self) -> Self::Output;
+    fn sext(self) -> Self::Output;
 }
