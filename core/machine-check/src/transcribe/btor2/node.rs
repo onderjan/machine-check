@@ -276,13 +276,13 @@ impl<'a> StmtTranscriber<'a> {
             BiOpType::Rol => Err(anyhow!("Left rotation generation not implemented")),
             BiOpType::Ror => Err(anyhow!("Right rotation generation not implemented")),
             BiOpType::Sll => {
-                Ok(parse_quote!(::mck::forward::Shift::hw_logic_shl(#a_tokens, #b_tokens)))
+                Ok(parse_quote!(::mck::forward::HwShift::logic_shl(#a_tokens, #b_tokens)))
             }
             BiOpType::Sra => {
-                Ok(parse_quote!(::mck::forward::Shift::hw_arith_shr(#a_tokens, #b_tokens)))
+                Ok(parse_quote!(::mck::forward::HwShift::arith_shr(#a_tokens, #b_tokens)))
             }
             BiOpType::Srl => {
-                Ok(parse_quote!(::mck::forward::Shift::hw_logic_shr(#a_tokens, #b_tokens)))
+                Ok(parse_quote!(::mck::forward::HwShift::logic_shr(#a_tokens, #b_tokens)))
             }
             BiOpType::Add => Ok(parse_quote!(::mck::forward::HwArith::add(#a_tokens, #b_tokens))),
             BiOpType::Sub => Ok(parse_quote!(::mck::forward::HwArith::sub(#a_tokens, #b_tokens))),
@@ -324,7 +324,7 @@ impl<'a> StmtTranscriber<'a> {
                 let b_length = b_sort.length.get();
                 let shift_length_expr = create_value_expr(b_length.into(), result_sort);
                 let a_uext_sll: Expr =
-                    parse_quote!(::mck::forward::Shift::hw_logic_shl(#a_uext, #shift_length_expr));
+                    parse_quote!(::mck::forward::HwShift::logic_shl(#a_uext, #shift_length_expr));
 
                 // bit-or together
                 Ok(parse_quote!(::mck::forward::Bitwise::bitor(#a_uext_sll, #b_uext)))
@@ -358,7 +358,7 @@ impl<'a> StmtTranscriber<'a> {
         // logical shift right to make the lower bit the zeroth bit
         let shift_length_expr = create_value_expr(op.lower_bit.into(), a_sort);
         let a_srl: Expr =
-            parse_quote!(::mck::forward::Shift::hw_logic_shr(#a_tokens, #shift_length_expr));
+            parse_quote!(::mck::forward::HwShift::logic_shr(#a_tokens, #shift_length_expr));
 
         // retain only the specified number of bits by unsigned extension
         let num_retained_bits = op.upper_bit - op.lower_bit + 1;
@@ -379,9 +379,9 @@ impl<'a> StmtTranscriber<'a> {
         let value = u64::from_str_radix(str, value.ty.clone() as u32)?;
         let bitvec_length = result_sort.length.get();
         Ok(if negate {
-            parse_quote!((::mck::forward::HwArith::neg(::mck::forward::Bitvector::<#bitvec_length>::new(#value))))
+            parse_quote!((::mck::forward::HwArith::neg(::mck::concr::Bitvector::<#bitvec_length>::new(#value))))
         } else {
-            parse_quote!(::mck::forward::Bitvector::<#bitvec_length>::new(#value))
+            parse_quote!(::mck::concr::Bitvector::<#bitvec_length>::new(#value))
         })
     }
 
