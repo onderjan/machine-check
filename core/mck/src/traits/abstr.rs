@@ -1,5 +1,5 @@
 use crate::abstr;
-use crate::FieldManipulate;
+use crate::misc::FieldManipulate;
 use std::fmt::Debug;
 use std::hash::Hash;
 

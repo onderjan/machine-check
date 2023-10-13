@@ -1,8 +1,6 @@
 mod bitvector;
 mod traits;
 
-pub use traits::*;
-
 pub mod concr {
     pub use super::bitvector::concr::*;
     pub use super::traits::concr::*;
@@ -24,4 +22,8 @@ pub mod forward {
 
 pub mod backward {
     pub use super::traits::backward::*;
+}
+
+pub mod misc {
+    pub use super::traits::misc::*;
 }

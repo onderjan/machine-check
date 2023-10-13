@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use machine_check_common::{Culprit, ExecError};
 use machine_check_common::{ExecStats, StateId};
 use mck::refin::{self, MarkSingle};
-use mck::{abstr, FieldManipulate};
+use mck::{abstr, misc::FieldManipulate};
 
 use crate::proposition::Proposition;
 use crate::space::NodeId;

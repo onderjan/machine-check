@@ -47,13 +47,13 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
                                 type Abstract = super::Machine;
                             );
                             let input_iter_type: ImplItem = syn::parse_quote!(
-                                type InputIter = ::mck::FabricatedIterator<Input>;
+                                type InputIter = ::mck::misc::FabricatedIterator<Input>;
                             );
                             let input_precision_iter_fn: ImplItem = syn::parse_quote!(
                                 fn input_precision_iter(
                                     precision: &Self::Input,
                                 ) -> Self::InputIter {
-                                    return ::mck::Fabricator::into_fabricated_iter(
+                                    return ::mck::misc::Fabricator::into_fabricated_iter(
                                         ::std::clone::Clone::clone(precision),
                                     );
                                 }
@@ -418,7 +418,9 @@ fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
         });
 
         let init_expr = Expr::Call(create_expr_call(
-            Expr::Path(create_expr_path(path!(::mck::Fabricator::fabricate_first))),
+            Expr::Path(create_expr_path(path!(
+                ::mck::misc::Fabricator::fabricate_first
+            ))),
             Punctuated::from_iter(vec![self_ref_expr]),
         ));
 
@@ -509,7 +511,7 @@ fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
             ))),
         });
         let func_expr = Expr::Path(create_expr_path(path!(
-            ::mck::Fabricator::increment_fabricated
+            ::mck::misc::Fabricator::increment_fabricated
         )));
         let expr = Expr::Call(create_expr_call(
             func_expr,
@@ -579,7 +581,7 @@ fn generate_fabricated_impl_item_type(s: &ItemStruct) -> ImplItemType {
 
 fn generate_fabricator_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
-    let impl_trait = (None, path!(::mck::Fabricator), Default::default());
+    let impl_trait = (None, path!(::mck::misc::Fabricator), Default::default());
     let self_type = Type::Path(create_type_path(path!(Self)));
     let self_input = FnArg::Receiver(Receiver {
         attrs: vec![],

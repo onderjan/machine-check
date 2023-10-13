@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, num::NonZeroUsize, ops::Shr, rc::Rc};
 
 use bimap::BiMap;
 use machine_check_common::StateId;
-use mck::{abstr, concr, FieldManipulate};
+use mck::{abstr, concr, misc::FieldManipulate};
 use petgraph::{prelude::GraphMap, Directed};
 
 pub struct Edge<AI> {

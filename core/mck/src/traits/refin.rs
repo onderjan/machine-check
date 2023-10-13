@@ -1,5 +1,5 @@
 use crate::bitvector::refin;
-use crate::{Fabricator, FieldManipulate};
+use crate::misc::{Fabricator, FieldManipulate};
 
 use std::fmt::Debug;
 use std::hash::Hash;

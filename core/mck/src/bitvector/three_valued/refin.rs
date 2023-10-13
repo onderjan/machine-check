@@ -10,9 +10,9 @@ use crate::{
     bitvector::concr,
     bitvector::util::{compute_mask, compute_sign_bit_mask},
     forward,
+    misc::Fabricator,
     refin::Join,
     traits::refin::{Decay, MarkSingle, Markable},
-    Fabricator,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
