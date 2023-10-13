@@ -1,37 +1,42 @@
+use crate::bitvector::util;
+
+use crate::forward::*;
+
 use super::*;
 
 fn join_concr_uni<const L: u32, const X: u32>(
     abstr_a: ThreeValuedBitvector<L>,
     concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) -> ThreeValuedBitvector<X> {
-    let x_mask = util::compute_mask(X);
-    let mut zeros = Wrapping(0);
-    let mut ones = Wrapping(0);
+    let x_mask = util::compute_u64_mask(X);
+    let mut zeros = 0;
+    let mut ones = 0;
     for a in 0..(1 << L) {
-        if !abstr_a.can_contain(Wrapping(a)) {
+        let a = concr::Bitvector::<L>::new(a);
+        if !abstr_a.can_contain(a) {
             continue;
         }
-        let a = concr::Bitvector::<L>::new(a);
         let concr_result = concr_func(a);
         zeros |= !concr_result.as_unsigned() & x_mask;
         ones |= concr_result.as_unsigned();
     }
-    ThreeValuedBitvector::a_new(zeros, ones)
+    ThreeValuedBitvector::from_zeros_ones(concr::Bitvector::new(zeros), concr::Bitvector::new(ones))
 }
 
 fn exec_uni_check<const L: u32, const X: u32>(
     abstr_func: fn(ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
     concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) {
-    let mask = util::compute_mask(L);
+    let mask = util::compute_u64_mask(L);
     for a_zeros in 0..(1 << L) {
-        let a_zeros = Wrapping(a_zeros);
         for a_ones in 0..(1 << L) {
-            let a_ones = Wrapping(a_ones);
             if (a_zeros | a_ones) & mask != mask {
                 continue;
             }
-            let a = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+            let a = ThreeValuedBitvector::<L>::from_zeros_ones(
+                concr::Bitvector::new(a_zeros),
+                concr::Bitvector::new(a_ones),
+            );
 
             let abstr_result = abstr_func(a);
             let equiv_result = join_concr_uni(a, concr_func);
@@ -80,26 +85,26 @@ fn join_concr_bi<const L: u32, const X: u32>(
     abstr_b: ThreeValuedBitvector<L>,
     concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) -> ThreeValuedBitvector<X> {
-    let x_mask = util::compute_mask(X);
-    let mut zeros = Wrapping(0);
-    let mut ones = Wrapping(0);
+    let x_mask = util::compute_u64_mask(X);
+    let mut zeros = 0;
+    let mut ones = 0;
     for a in 0..(1 << L) {
-        if !abstr_a.can_contain(Wrapping(a)) {
+        let a = concr::Bitvector::<L>::new(a);
+        if !abstr_a.can_contain(a) {
             continue;
         }
-        let a = concr::Bitvector::<L>::new(a);
         for b in 0..(1 << L) {
-            if !abstr_b.can_contain(Wrapping(b)) {
+            let b = concr::Bitvector::<L>::new(b);
+            if !abstr_b.can_contain(b) {
                 continue;
             }
-            let b = concr::Bitvector::<L>::new(b);
 
             let concr_result = concr_func(a, b);
             zeros |= !concr_result.as_unsigned() & x_mask;
             ones |= concr_result.as_unsigned();
         }
     }
-    ThreeValuedBitvector::a_new(zeros, ones)
+    ThreeValuedBitvector::from_zeros_ones(concr::Bitvector::new(zeros), concr::Bitvector::new(ones))
 }
 
 fn exec_bi_check<const L: u32, const X: u32>(
@@ -107,24 +112,26 @@ fn exec_bi_check<const L: u32, const X: u32>(
     concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
     exact: bool,
 ) {
-    let mask = util::compute_mask(L);
+    let mask = util::compute_u64_mask(L);
     for a_zeros in 0..(1 << L) {
-        let a_zeros = Wrapping(a_zeros);
         for a_ones in 0..(1 << L) {
-            let a_ones = Wrapping(a_ones);
             if (a_zeros | a_ones) & mask != mask {
                 continue;
             }
-            let a = ThreeValuedBitvector::<L>::a_new(a_zeros, a_ones);
+            let a = ThreeValuedBitvector::<L>::from_zeros_ones(
+                concr::Bitvector::new(a_zeros),
+                concr::Bitvector::new(a_ones),
+            );
 
             for b_zeros in 0..(1 << L) {
-                let b_zeros = Wrapping(b_zeros);
                 for b_ones in 0..(1 << L) {
-                    let b_ones = Wrapping(b_ones);
                     if (b_zeros | b_ones) & mask != mask {
                         continue;
                     }
-                    let b = ThreeValuedBitvector::<L>::a_new(b_zeros, b_ones);
+                    let b = ThreeValuedBitvector::<L>::from_zeros_ones(
+                        concr::Bitvector::new(b_zeros),
+                        concr::Bitvector::new(b_ones),
+                    );
 
                     let abstr_result = abstr_func(a, b);
                     let equiv_result = join_concr_bi(a, b, concr_func);
@@ -184,11 +191,10 @@ uni_op_test!(neg);
 bi_op_test!(add, true);
 bi_op_test!(sub, true);
 bi_op_test!(mul, false);
-bi_op_test!(sdiv, false);
 bi_op_test!(udiv, false);
-bi_op_test!(smod, false);
-bi_op_test!(seuc, false);
+bi_op_test!(sdiv, false);
 bi_op_test!(urem, false);
+bi_op_test!(srem, false);
 
 // bitwise tests
 bi_op_test!(bitand, true);
@@ -212,23 +218,3 @@ bi_op_test!(arith_shr, true);
 // extension tests
 ext_op_test!(uext);
 ext_op_test!(sext);
-
-// misc tests
-
-#[test]
-fn shift_test() {
-    let a = ThreeValuedBitvector::<64>::a_new(Wrapping(u64::MAX), Wrapping(u64::MAX));
-    let b = ThreeValuedBitvector::<64>::a_new(Wrapping(u64::MAX), Wrapping(u64::MAX));
-    a.shift(
-        b,
-        |x, y| {
-            assert!(y < u64::BITS as usize);
-            x
-        },
-        |x, y| {
-            assert!(y < u64::BITS as usize);
-            x
-        },
-        b,
-    );
-}

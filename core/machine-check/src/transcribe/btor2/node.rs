@@ -291,9 +291,7 @@ impl<'a> StmtTranscriber<'a> {
             BiOpType::Udiv => {
                 Ok(parse_quote!(::mck::forward::DivModRem::hw_udiv(#a_tokens, #b_tokens)))
             }
-            BiOpType::Smod => {
-                Ok(parse_quote!(::mck::forward::DivModRem::hw_smod(#a_tokens, #b_tokens)))
-            }
+            BiOpType::Smod => Err(anyhow!("Smod operation generation not implemented")),
             BiOpType::Srem => {
                 Ok(parse_quote!(::mck::forward::DivModRem::hw_srem(#a_tokens, #b_tokens)))
             }

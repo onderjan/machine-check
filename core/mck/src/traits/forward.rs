@@ -37,8 +37,7 @@ where
     fn sdiv(self, rhs: Self) -> Self;
 
     fn urem(self, rhs: Self) -> Self;
-    fn smod(self, rhs: Self) -> Self;
-    fn seuc(self, rhs: Self) -> Self;
+    fn srem(self, rhs: Self) -> Self;
 }
 
 pub trait HwShift {

@@ -2,14 +2,12 @@
 /*#[cfg(test)]
 mod test;*/
 
-use std::num::Wrapping;
-
 use crate::{
     backward::{self, Bitwise, Ext, HwArith, TypedCmp, TypedEq},
     bitvector::abstr,
     bitvector::concr,
-    bitvector::util::{compute_mask, compute_sign_bit_mask},
-    forward,
+    bitvector::util::compute_u64_sign_bit_mask,
+    forward::{self},
     refin::Refinable,
     traits::{misc::Meta, refin::Refine},
 };
@@ -53,14 +51,17 @@ impl<const L: u32> Meta<abstr::Bitvector<L>> for MarkBitvector<L> {
     fn proto_first(&self) -> abstr::Bitvector<L> {
         // all known bits are 0
         let known_bits = self.0.as_unsigned();
-        abstr::Bitvector::new_value_known(Wrapping(0), known_bits)
+        abstr::Bitvector::new_value_known(
+            concr::Bitvector::new(0),
+            concr::Bitvector::new(known_bits),
+        )
     }
 
     fn proto_increment(&self, proto: &mut abstr::Bitvector<L>) -> bool {
         // the marked bits should be split into possibilities
         let known_bits = self.0.as_unsigned();
 
-        if known_bits == Wrapping(0) {
+        if known_bits == 0 {
             // if full-unknown, stop immediately after first to avoid shl overflow
             return false;
         }
@@ -72,16 +73,19 @@ impl<const L: u32> Meta<abstr::Bitvector<L>> for MarkBitvector<L> {
         // end if we overflow
 
         // work with bitvector of only values, the unknowns do not change
-        let mut current = proto.umin();
+        let mut current = proto.umin().as_unsigned();
         let mut considered_bits = known_bits;
 
         loop {
-            let one_pos = considered_bits.0.trailing_zeros();
-            let one_mask = Wrapping(1u64 << one_pos);
-            if current & one_mask == Wrapping(0) {
+            let one_pos = considered_bits.trailing_zeros();
+            let one_mask = 1u64 << one_pos;
+            if current & one_mask == 0 {
                 // if considered bit is 0 within current, update it to 1 and end
                 current |= one_mask;
-                let result = abstr::Bitvector::new_value_known(current, known_bits);
+                let result = abstr::Bitvector::new_value_known(
+                    concr::Bitvector::new(current),
+                    concr::Bitvector::new(known_bits),
+                );
 
                 *proto = result;
                 return true;
@@ -92,7 +96,7 @@ impl<const L: u32> Meta<abstr::Bitvector<L>> for MarkBitvector<L> {
 
             // end if we overflow
             // reset possibility to allow for cycling
-            if considered_bits == Wrapping(0) {
+            if considered_bits == 0 {
                 *proto = self.proto_first();
                 return false;
             }
@@ -108,7 +112,7 @@ impl<const L: u32> Refine<abstr::Bitvector<L>> for MarkBitvector<L> {
     fn apply_refin(&mut self, offer: &Self) -> bool {
         // find the highest bit that is marked in offer but unmarked in ours
         let applicants = forward::Bitwise::bitand(offer.0, forward::Bitwise::not(self.0));
-        let mark_mask = 1u64.checked_shl(applicants.as_unsigned().0.trailing_zeros());
+        let mark_mask = 1u64.checked_shl(applicants.as_unsigned().trailing_zeros());
         let Some(mark_mask) = mark_mask else {
             // no such bit found
             return false;
@@ -120,10 +124,10 @@ impl<const L: u32> Refine<abstr::Bitvector<L>> for MarkBitvector<L> {
 
     fn force_decay(&self, target: &mut abstr::Bitvector<L>) {
         // unmarked fields become unknown
-        let forced_unknown = !self.0.as_unsigned() & compute_mask(L);
-        let zeros = target.get_possibly_zero_flags().as_unsigned() | forced_unknown;
-        let ones = target.get_possibly_one_flags().as_unsigned() | forced_unknown;
-        *target = abstr::Bitvector::a_new(zeros, ones);
+        let forced_unknown = forward::HwArith::neg(self.0);
+        let zeros = forward::Bitwise::bitor(target.get_possibly_zero_flags(), forced_unknown);
+        let ones = forward::Bitwise::bitor(target.get_possibly_one_flags(), forced_unknown);
+        *target = abstr::Bitvector::from_zeros_ones(zeros, ones);
     }
 }
 
@@ -310,7 +314,7 @@ impl<const L: u32, const X: u32> Ext<X> for abstr::Bitvector<L> {
                 // propagate marking to the sign bit
                 extended = crate::forward::Bitwise::bitor(
                     extended,
-                    concr::Bitvector::new(compute_sign_bit_mask(L).0),
+                    concr::Bitvector::new(compute_u64_sign_bit_mask(L)),
                 );
             }
         }
@@ -342,14 +346,14 @@ fn shift<const L: u32>(
     // if the shift amount is L or more, no bits are retained
     // so consider only lesser amounts one by one
 
-    let min_shift = amount_input.umin().0.min((L - 1) as u64);
-    let max_shift = amount_input.umax().0.max((L - 1) as u64);
+    let min_shift = amount_input.umin().as_unsigned().min((L - 1) as u64);
+    let max_shift = amount_input.umax().as_unsigned().max((L - 1) as u64);
     // join the shifted marks iteratively
     let mut shifted_mark_earlier = MarkBitvector::new_unmarked();
     for i in min_shift..=max_shift {
-        if amount_input.can_contain(Wrapping(i)) {
+        let machine_i = concr::Bitvector::new(i);
+        if amount_input.can_contain(machine_i) {
             // shift the mark
-            let machine_i = concr::Bitvector::new(i);
             let shifted_mark = shift_fn(mark_later.0, machine_i);
             shifted_mark_earlier.apply_join(&MarkBitvector(shifted_mark));
         }
@@ -394,7 +398,7 @@ impl<const L: u32> backward::HwShift for abstr::Bitvector<L> {
                 // mark the sign bit of result
                 result = forward::Bitwise::bitor(
                     result,
-                    concr::Bitvector::new(compute_sign_bit_mask(L).0),
+                    concr::Bitvector::new(compute_u64_sign_bit_mask(L)),
                 );
             }
             result
