@@ -16,6 +16,6 @@ pub trait State:
 }
 
 pub trait Machine<I: Input, S: State> {
-    fn init(&self, input: &I) -> S;
-    fn next(&self, state: &S, input: &I) -> S;
+    fn init(input: &I) -> S;
+    fn next(state: &S, input: &I) -> S;
 }

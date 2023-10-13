@@ -52,11 +52,8 @@ pub trait State:
 pub trait Machine<I: Input, S: State> {
     type Abstract: abstr::Machine<<I as Input>::Abstract, <S as State>::Abstract>;
 
-    fn abstr(&self) -> &Self::Abstract;
-
-    fn init(&self, abstr_args: (&<I as Input>::Abstract,), later_mark: S) -> (I,);
+    fn init(abstr_args: (&<I as Input>::Abstract,), later_mark: S) -> (I,);
     fn next(
-        &self,
         abstr_args: (&<S as State>::Abstract, &<I as Input>::Abstract),
         later_mark: S,
     ) -> (S, I);

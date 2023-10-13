@@ -1,10 +1,9 @@
-use anyhow::anyhow;
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprPath, ExprReference,
-    ExprStruct, FnArg, Generics, Ident, ImplItem, ImplItemFn, ImplItemType, Item, ItemImpl,
-    ItemMod, ItemStruct, Pat, PatType, Path, PathArguments, PathSegment, Receiver, ReturnType,
-    Signature, Stmt, Type, TypeReference, Visibility,
+    parse_quote, punctuated::Punctuated, token::Brace, BinOp, Block, Expr, ExprBinary, ExprPath,
+    ExprReference, ExprStruct, FnArg, Generics, Ident, ImplItem, ImplItemFn, ImplItemType, Item,
+    ItemImpl, ItemMod, ItemStruct, Pat, PatType, Path, PathArguments, PathSegment, Receiver,
+    ReturnType, Signature, Stmt, Type, TypeReference, Visibility,
 };
 use syn_path::path;
 
@@ -24,13 +23,28 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
 
     // create items to add to the module
     let mut mark_file_items = Vec::<Item>::new();
-    let mut force_decay_fn = None;
     for item in &file.items {
         match item {
             Item::Struct(s) => {
                 apply_transcribed_item_struct(&mut mark_file_items, s)?;
-                if s.ident == "State" {
-                    force_decay_fn = Some(generate_force_decay_fn(s)?);
+
+                if s.ident == "Input" || s.ident == "State" {
+                    let s_ident = &s.ident;
+                    let decay_fn = generate_force_decay_fn(s)?;
+                    let decay_trait: Path = parse_quote!(::mck::refin::Decay<super::#s_ident>);
+                    mark_file_items.push(Item::Impl(ItemImpl {
+                        attrs: vec![],
+                        defaultness: None,
+                        unsafety: None,
+                        impl_token: Default::default(),
+                        generics: Generics::default(),
+                        trait_: Some((None, decay_trait, Default::default())),
+                        self_ty: Box::new(Type::Path(create_type_path(create_path_from_ident(
+                            s.ident.clone(),
+                        )))),
+                        brace_token: Default::default(),
+                        items: vec![ImplItem::Fn(decay_fn)],
+                    }))
                 }
             }
             Item::Impl(i) => {
@@ -39,32 +53,36 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
                     path_rule::apply_to_path(&mut trait_.1, mark_path_rules())?;
                 }
 
-                if let Type::Path(type_path) = transcribed.self_ty.as_ref() {
-                    if let Some(ident) = type_path.path.get_ident() {
-                        if ident == "Machine" {
-                            // TODO: resolve this more elegantly instead of hard-coding
-                            let abstract_type: ImplItem = syn::parse_quote!(
-                                type Abstract = super::Machine;
-                            );
-                            let input_iter_type: ImplItem = syn::parse_quote!(
-                                type InputIter = ::mck::misc::ProtoIterator<Input>;
-                            );
-                            let input_precision_iter_fn: ImplItem = syn::parse_quote!(
-                                fn input_precision_iter(
-                                    precision: &Self::Input,
-                                ) -> Self::InputIter {
-                                    return ::mck::misc::Meta::into_proto_iter(
-                                        ::std::clone::Clone::clone(precision),
-                                    );
+                if let Some((None, trait_path, _)) = &i.trait_ {
+                    if trait_path.leading_colon.is_some() {
+                        let mut iter = trait_path.segments.iter();
+                        if let Some(crate_seg) = iter.next() {
+                            if let Some(flavour_seg) = iter.next() {
+                                if let Some(type_seg) = iter.next() {
+                                    if crate_seg.ident == "mck"
+                                        && flavour_seg.ident == "abstr"
+                                        && (type_seg.ident == "Input"
+                                            || type_seg.ident == "State"
+                                            || type_seg.ident == "Machine")
+                                    {
+                                        let s_ty = i.self_ty.as_ref();
+                                        // add abstract type
+                                        transcribed.items.push(ImplItem::Type(ImplItemType {
+                                            attrs: vec![],
+                                            vis: Visibility::Inherited,
+                                            defaultness: None,
+                                            type_token: Default::default(),
+                                            ident: create_ident("Abstract"),
+                                            generics: Generics::default(),
+                                            eq_token: Default::default(),
+                                            ty: Type::Path(create_type_path(
+                                                parse_quote!(super::#s_ty),
+                                            )),
+                                            semi_token: Default::default(),
+                                        }));
+                                    }
                                 }
-                            );
-                            transcribed.items.push(abstract_type);
-                            transcribed.items.push(input_iter_type);
-                            transcribed.items.push(input_precision_iter_fn);
-                            let force_decay_fn = force_decay_fn
-                                .clone()
-                                .ok_or(anyhow!("Force decay function could not be generated"))?;
-                            transcribed.items.push(ImplItem::Fn(force_decay_fn));
+                            }
                         }
                     }
                 }
@@ -83,7 +101,7 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
         vis: syn::Visibility::Public(Default::default()),
         unsafety: None,
         mod_token: Default::default(),
-        ident: Ident::new("mark", Span::call_site()),
+        ident: Ident::new("refin", Span::call_site()),
         content: Some((Brace::default(), mark_file_items)),
         semi: None,
     });
@@ -191,37 +209,39 @@ fn generate_join_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
 }
 
 fn generate_force_decay_fn(state_struct: &ItemStruct) -> anyhow::Result<ImplItemFn> {
-    let mark_state_type = Type::Reference(TypeReference {
+    let mark_type = Type::Reference(TypeReference {
         and_token: Default::default(),
         lifetime: None,
         mutability: None,
-        elem: Box::new(Type::Path(create_type_path(path!(State)))),
+        elem: Box::new(Type::Path(create_type_path(path!(Self)))),
     });
-    let abstract_state_type = Type::Reference(TypeReference {
+    let s_ident = &state_struct.ident;
+    let abstract_type = Type::Reference(TypeReference {
         and_token: Default::default(),
         lifetime: None,
         mutability: Some(Default::default()),
-        elem: Box::new(Type::Path(create_type_path(path!(super::State)))),
+        elem: Box::new(Type::Path(create_type_path(parse_quote!(super::#s_ident)))),
     });
 
-    let decay_ident = create_ident("decay");
-    let decay_input = FnArg::Typed(PatType {
+    let decay_input = FnArg::Receiver(Receiver {
         attrs: vec![],
-        pat: Box::new(Pat::Ident(create_pat_ident(decay_ident.clone()))),
-        colon_token: Default::default(),
-        ty: Box::new(mark_state_type),
+        reference: Some((Default::default(), None)),
+        mutability: None,
+        self_token: Default::default(),
+        colon_token: None,
+        ty: Box::new(mark_type),
     });
     let target_ident = create_ident("target");
     let target_input = FnArg::Typed(PatType {
         attrs: vec![],
         pat: Box::new(Pat::Ident(create_pat_ident(target_ident.clone()))),
         colon_token: Default::default(),
-        ty: Box::new(abstract_state_type),
+        ty: Box::new(abstract_type),
     });
 
     let mut stmts = Vec::new();
     for (index, field) in state_struct.fields.iter().enumerate() {
-        let decay_expr_path = create_expr_path(create_path_from_ident(decay_ident.clone()));
+        let decay_expr_path = create_expr_path(path!(self));
         let target_expr_path = create_expr_path(create_path_from_ident(target_ident.clone()));
 
         let decay_field = Expr::Field(create_expr_field(Expr::Path(decay_expr_path), index, field));
@@ -396,7 +416,8 @@ fn generate_mark_single_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
 }
 
 fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
-    let fabricated_type = path!(Self::Proto);
+    let s_ident = s.ident.clone();
+    let fabricated_type: Path = parse_quote!(super::#s_ident);
     let return_type = ReturnType::Type(
         Default::default(),
         Box::new(Type::Path(create_type_path(fabricated_type.clone()))),
@@ -463,7 +484,8 @@ fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
 
 fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
     let fabricated_ident = create_ident("proto");
-    let fabricated_type = Type::Path(create_type_path(path!(Self::Proto)));
+    let s_ident = s.ident.clone();
+    let fabricated_type: Path = parse_quote!(super::#s_ident);
     let fabricated_input = FnArg::Typed(PatType {
         attrs: vec![],
         pat: Box::new(Pat::Ident(create_pat_ident(fabricated_ident.clone()))),
@@ -472,7 +494,7 @@ fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
             and_token: Default::default(),
             lifetime: None,
             mutability: Some(Default::default()),
-            elem: Box::new(fabricated_type),
+            elem: Box::new(Type::Path(create_type_path(fabricated_type))),
         })),
     });
 
@@ -553,31 +575,11 @@ fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
     }
 }
 
-fn generate_fabricated_impl_item_type(s: &ItemStruct) -> ImplItemType {
-    let mut path = create_path_from_ident(s.ident.clone());
-    path.segments.insert(
-        0,
-        PathSegment {
-            ident: create_ident("super"),
-            arguments: PathArguments::None,
-        },
-    );
-    ImplItemType {
-        attrs: vec![],
-        vis: syn::Visibility::Inherited,
-        defaultness: Default::default(),
-        type_token: Default::default(),
-        ident: create_ident("Proto"),
-        generics: Default::default(),
-        eq_token: Default::default(),
-        ty: Type::Path(create_type_path(path)),
-        semi_token: Default::default(),
-    }
-}
-
 fn generate_fabricator_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
+    let s_ident = s.ident.clone();
     let struct_type = Type::Path(create_type_path(Path::from(s.ident.clone())));
-    let impl_trait = (None, path!(::mck::misc::Meta), Default::default());
+    let impl_path: Path = parse_quote!(::mck::misc::Meta::<super::#s_ident>);
+    let impl_trait = (None, impl_path, Default::default());
     let self_type = Type::Path(create_type_path(path!(Self)));
     let self_input = FnArg::Receiver(Receiver {
         attrs: vec![],
@@ -593,8 +595,6 @@ fn generate_fabricator_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         })),
     });
 
-    let item_type = generate_fabricated_impl_item_type(s);
-
     let first_fn = fabricate_first_fn(s, self_input.clone());
     let increment_fn = increment_fabricated_fn(s, self_input);
 
@@ -607,11 +607,7 @@ fn generate_fabricator_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         trait_: Some(impl_trait),
         self_ty: Box::new(struct_type),
         brace_token: Default::default(),
-        items: vec![
-            ImplItem::Type(item_type),
-            ImplItem::Fn(first_fn),
-            ImplItem::Fn(increment_fn),
-        ],
+        items: vec![ImplItem::Fn(first_fn), ImplItem::Fn(increment_fn)],
     })
 }
 

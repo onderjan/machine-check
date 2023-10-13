@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::marker::PhantomData;
 
 use machine_check_common::{Culprit, ExecError};
 use machine_check_common::{ExecStats, StateId};
@@ -14,7 +15,7 @@ use crate::{
 };
 
 pub struct Refinery<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> {
-    machine: M,
+    machine: PhantomData<M>,
     precision: Precision<I, S>,
     space: Space<I::Abstract, S::Abstract>,
     num_refinements: usize,
@@ -22,9 +23,9 @@ pub struct Refinery<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> {
 }
 
 impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M> {
-    pub fn new(machine: M, use_decay: bool) -> Self {
+    pub fn new(use_decay: bool) -> Self {
         let mut refinery = Refinery {
-            machine,
+            machine: PhantomData,
             precision: Precision::new(),
             space: Space::new(),
             num_refinements: 0,
@@ -92,7 +93,7 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
                 }
             }
 
-            let input = &self
+            let input = self
                 .space
                 .get_representative_input(previous_node_id, current_state_id);
 
@@ -101,16 +102,15 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
                 // use step function
                 let previous_state = self.space.get_state_by_id(*previous_state_index);
 
-                let (new_state_mark, input_mark) = self
-                    .machine
-                    .next((previous_state, input), current_state_mark);
+                let (new_state_mark, input_mark) =
+                    M::next((previous_state, input), current_state_mark);
 
                 (input_mark, Some(new_state_mark))
             } else {
                 // use init function
 
                 // increasing state precision failed, try increasing init precision
-                let (input_mark,) = self.machine.init((input,), current_state_mark);
+                let (input_mark,) = M::init((input,), current_state_mark);
                 (input_mark, None)
             };
 
@@ -159,9 +159,15 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
             for input in input_precision.into_proto_iter() {
                 let mut next_state = {
                     if let Some(current_state) = &current_state {
-                        abstr::Machine::next(self.machine.abstr(), current_state, &input)
+                        <<M as refin::Machine<I, S>>::Abstract as abstr::Machine<
+                            I::Abstract,
+                            S::Abstract,
+                        >>::next(current_state, &input)
                     } else {
-                        abstr::Machine::init(self.machine.abstr(), &input)
+                        <<M as refin::Machine<I, S>>::Abstract as abstr::Machine<
+                            I::Abstract,
+                            S::Abstract,
+                        >>::init(&input)
                     }
                 };
                 if self.use_decay {

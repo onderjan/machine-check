@@ -154,7 +154,7 @@ impl Verify {
 
         let main_fn: ItemFn = parse_quote!(
             fn main() {
-                ::machine_check_exec::run::<mark::Machine>()
+                ::machine_check_exec::run::<refin::Input, refin::State, refin::Machine>()
             }
         );
         abstract_machine.items.push(Item::Fn(main_fn));

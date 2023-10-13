@@ -27,8 +27,8 @@ struct Args {
     use_decay: bool,
 }
 
-pub fn run<I: Input, S: State, M: Machine<I, S>>(machine: M) {
-    if let Err(err) = run_inner(machine) {
+pub fn run<I: Input, S: State, M: Machine<I, S>>() {
+    if let Err(err) = run_inner::<I, S, M>() {
         // log root error
         error!("{:#?}", err);
         // terminate with non-success code
@@ -37,9 +37,7 @@ pub fn run<I: Input, S: State, M: Machine<I, S>>(machine: M) {
     // terminate successfully, the information is in stdout
 }
 
-fn run_inner<I: Input, S: State, M: Machine<I, S>>(
-    machine: M,
-) -> Result<ExecResult, anyhow::Error> {
+fn run_inner<I: Input, S: State, M: Machine<I, S>>() -> Result<ExecResult, anyhow::Error> {
     let args = Args::parse();
     // logging to stderr, stdout will contain the result in batch mode
     let filter_level = match args.verbose {
@@ -51,7 +49,7 @@ fn run_inner<I: Input, S: State, M: Machine<I, S>>(
 
     info!("Starting verification.");
 
-    let verification_result = verify(machine, args.property.as_ref(), args.use_decay);
+    let verification_result = verify::<I, S, M>(args.property.as_ref(), args.use_decay);
 
     if log_enabled!(log::Level::Trace) {
         trace!("Verification result: {:?}", verification_result);
@@ -71,11 +69,10 @@ fn run_inner<I: Input, S: State, M: Machine<I, S>>(
 }
 
 fn verify<I: Input, S: State, M: Machine<I, S>>(
-    machine: M,
     property: Option<&String>,
     use_decay: bool,
 ) -> ExecResult {
-    let mut refinery = Refinery::new(machine, use_decay);
+    let mut refinery = Refinery::<I, S, M>::new(use_decay);
     let proposition = select_proposition(property);
     let result = match proposition {
         Ok(proposition) => refinery.verify(&proposition),

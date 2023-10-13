@@ -128,9 +128,7 @@ impl Transcriber {
 
             pub struct Machine;
 
-            impl ::mck::concr::Machine for Machine {
-                type Input = Input;
-                type State = State;
+            impl ::mck::concr::Machine<Input, State> for Machine {
                 fn init(input: &Input) -> State {
                     #(#init_statements)*
                     #init_result
