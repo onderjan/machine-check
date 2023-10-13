@@ -123,7 +123,7 @@ impl<const L: u32> Refine<abstr::Bitvector<L>> for MarkBitvector<L> {
 
     fn force_decay(&self, target: &mut abstr::Bitvector<L>) {
         // unmarked fields become unknown
-        let forced_unknown = forward::HwArith::neg(self.0);
+        let forced_unknown = forward::Bitwise::not(self.0);
         let zeros = forward::Bitwise::bitor(target.get_possibly_zero_flags(), forced_unknown);
         let ones = forward::Bitwise::bitor(target.get_possibly_one_flags(), forced_unknown);
         *target = abstr::Bitvector::from_zeros_ones(zeros, ones);
