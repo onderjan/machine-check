@@ -5,7 +5,6 @@ use syn::File;
 use crate::CheckError;
 
 mod transcription;
-mod write;
 
 pub(crate) fn create_abstract_machine(concrete_machine: &File) -> anyhow::Result<File> {
     let mut abstract_machine = concrete_machine.clone();
