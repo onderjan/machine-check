@@ -10,7 +10,7 @@ pub fn create_nid_ident(nid: Nid) -> Ident {
 pub fn create_rnid_expr(rref: Rnid) -> Expr {
     let ident = create_nid_ident(rref.nid());
     if rref.is_not() {
-        parse_quote!((!#ident))
+        parse_quote!(::mck::forward::Bitwise::not(#ident))
     } else {
         parse_quote!(#ident)
     }

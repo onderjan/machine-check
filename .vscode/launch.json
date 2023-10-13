@@ -63,21 +63,20 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'machine-check-exec'",
+            "name": "Debug executable 'machine-check-exec-target'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=machine-check-exec",
-                    "--package=machine-check-exec"
+                    "--bin=machine-check-exec-target",
+                    "--package=machine-check-exec-target"
                 ],
                 "filter": {
-                    "name": "machine-check-exec",
+                    "name": "machine-check-exec-target",
                     "kind": "bin"
                 }
             },
             "args": [
-                "--ctl",
-                "AG[EF[state_150]]"
+                "--use-decay"
             ],
             "cwd": "${workspaceFolder}"
         },

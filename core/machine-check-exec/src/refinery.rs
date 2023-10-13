@@ -68,6 +68,7 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
 
     fn refine(&mut self, culprit: &Culprit) -> bool {
         self.num_refinements += 1;
+        //info!("Refinement number: {}", self.num_refinements);
         // compute marking
         let mut current_state_mark = S::default();
         let mark_bit = current_state_mark.get_mut(&culprit.name).unwrap();
@@ -77,6 +78,9 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
         let mut iter = culprit.path.iter().cloned().rev().peekable();
 
         while let Some(current_state_id) = iter.next() {
+            //info!("State mark: {:?}", current_state_mark);
+            //assert_ne!(current_state_mark, S::default());
+
             let previous_state_id = iter.peek();
             let previous_node_id = match previous_state_id {
                 Some(previous_state_id) => (*previous_state_id).into(),
@@ -86,6 +90,7 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
             if self.use_decay {
                 // decay is applied last in forward direction, so we will apply it first
                 let decay_precision = self.precision.mut_decay(previous_node_id);
+                //info!("Decay prec: {:?}", decay_precision);
                 if decay_precision.apply_refin(&current_state_mark) {
                     // single mark applied to decay, regenerate
                     self.regenerate(previous_node_id);
@@ -102,12 +107,19 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
                 // use step function
                 let previous_state = self.space.get_state_by_id(*previous_state_index);
 
+                /*info!("Previous state: {:?}", previous_state);
+                info!("Step cur state mark: {:?}", current_state_mark);
+                if self.num_refinements == 22 && i == 4 {
+                    info!("HERE");
+                }*/
                 let (new_state_mark, input_mark) =
                     M::next((previous_state, input), current_state_mark);
+                //info!("Step new state mark: {:?}", new_state_mark);
 
                 (input_mark, Some(new_state_mark))
             } else {
                 // use init function
+                //info!("Init");
 
                 // increasing state precision failed, try increasing init precision
                 let (input_mark,) = M::init((input,), current_state_mark);
@@ -116,6 +128,8 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
 
             let input_precision = self.precision.mut_input(previous_node_id);
 
+            //info!("Input mark: {:?}", input_mark);
+            //info!("Input prec: {:?}", input_precision);
             if input_precision.apply_refin(&input_mark) {
                 // single mark applied, regenerate
                 self.regenerate(previous_node_id);

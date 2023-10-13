@@ -140,7 +140,7 @@ impl<'a> StmtTranscriber<'a> {
 
         let a_tokens = create_rnid_expr(op.a);
         match op.ty {
-            UniOpType::Not => Ok(parse_quote!(!(#a_tokens))),
+            UniOpType::Not => Ok(parse_quote!(::mck::forward::Bitwise::not(#a_tokens))),
             UniOpType::Inc => {
                 let one = create_value_expr(1, result_bitvec);
                 Ok(parse_quote!((::mck::forward::HwArith::add(#a_tokens,#one))))
@@ -162,7 +162,9 @@ impl<'a> StmtTranscriber<'a> {
                 // inequality with all zeros
                 // sort for constant is taken from the operand, not result
                 let zero = create_value_expr(0, a_bitvec);
-                Ok(parse_quote!(!(::mck::forward::TypedEq::typed_eq(#a_tokens, #zero))))
+                Ok(
+                    parse_quote!(::mck::forward::Bitwise::not(::mck::forward::TypedEq::typed_eq(#a_tokens, #zero))),
+                )
             }
             UniOpType::Redxor => {
                 // naive version, just slice all relevant bits and xor them together
@@ -223,9 +225,9 @@ impl<'a> StmtTranscriber<'a> {
             BiOpType::Eq => {
                 Ok(parse_quote!(::mck::forward::TypedEq::typed_eq(#a_tokens, #b_tokens)))
             }
-            BiOpType::Neq => {
-                Ok(parse_quote!(!(::mck::forward::TypedEq::typed_eq(#a_tokens, #b_tokens))))
-            }
+            BiOpType::Neq => Ok(
+                parse_quote!(::mck::forward::Bitwise::not(::mck::forward::TypedEq::typed_eq(#a_tokens, #b_tokens))),
+            ),
             // implement greater using lesser by flipping the operands
             BiOpType::Sgt => {
                 Ok(parse_quote!(::mck::forward::TypedCmp::typed_slt(#b_tokens, #a_tokens)))
