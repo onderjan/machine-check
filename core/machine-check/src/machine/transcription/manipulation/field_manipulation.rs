@@ -116,7 +116,7 @@ pub fn create_field_manipulate_impls(item_struct: &ItemStruct) -> Vec<ItemImpl> 
 
         let field_name = field_ident.to_string();
         let field_arm: Arm =
-            parse_quote!(#field_name => ::std::option::Option::Some(self.#field_ident),);
+            parse_quote!(#field_name => ::std::option::Option::Some(&self.#field_ident),);
         let field_arm_mut: Arm =
             parse_quote!(#field_name => ::std::option::Option::Some(&mut self.#field_ident),);
 
@@ -135,7 +135,7 @@ pub fn create_field_manipulate_impls(item_struct: &ItemStruct) -> Vec<ItemImpl> 
 
     let impl_for_abstract: ItemImpl = parse_quote! {
         impl ::mck::misc::FieldManipulate<::mck::abstr::Bitvector<1>> for #struct_ident  {
-            fn get(&self, name: &str) -> ::std::option::Option<::mck::abstr::Bitvector<1>> {
+            fn get(&self, name: &str) -> ::std::option::Option<&::mck::abstr::Bitvector<1>> {
                 match name {
                     #(#abstract_field_arms)*
                     _ => ::std::option::Option::None
@@ -152,7 +152,7 @@ pub fn create_field_manipulate_impls(item_struct: &ItemStruct) -> Vec<ItemImpl> 
     };
     let impl_for_mark: ItemImpl = parse_quote! {
         impl ::mck::misc::FieldManipulate<::mck::refin::Bitvector<1>> for #struct_ident  {
-            fn get(&self, name: &str) -> ::std::option::Option<::mck::refin::Bitvector<1>> {
+            fn get(&self, name: &str) -> ::std::option::Option<&::mck::refin::Bitvector<1>> {
                 match name {
                     #(#mark_field_arms)*
                     _ => ::std::option::Option::None

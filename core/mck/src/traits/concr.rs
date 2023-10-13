@@ -1,9 +1,19 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub trait Input: Debug + PartialEq + Eq + Hash + Clone {}
+use crate::concr;
 
-pub trait State: Debug + PartialEq + Eq + Hash + Clone {}
+use super::misc::FieldManipulate;
+
+pub trait Input:
+    Debug + PartialEq + Eq + Hash + Clone + FieldManipulate<concr::Bitvector<1>>
+{
+}
+
+pub trait State:
+    Debug + PartialEq + Eq + Hash + Clone + FieldManipulate<concr::Bitvector<1>>
+{
+}
 
 pub trait Machine {
     type Input: Input;
