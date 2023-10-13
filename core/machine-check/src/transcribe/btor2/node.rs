@@ -287,19 +287,11 @@ impl<'a> StmtTranscriber<'a> {
             BiOpType::Add => Ok(parse_quote!(::mck::forward::HwArith::add(#a_tokens, #b_tokens))),
             BiOpType::Sub => Ok(parse_quote!(::mck::forward::HwArith::sub(#a_tokens, #b_tokens))),
             BiOpType::Mul => Ok(parse_quote!(::mck::forward::HwArith::mul(#a_tokens, #b_tokens))),
-            BiOpType::Sdiv => {
-                Ok(parse_quote!(::mck::forward::DivModRem::hw_sdiv(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Udiv => {
-                Ok(parse_quote!(::mck::forward::DivModRem::hw_udiv(#a_tokens, #b_tokens)))
-            }
+            BiOpType::Sdiv => Ok(parse_quote!(::mck::forward::HwArith::sdiv(#a_tokens, #b_tokens))),
+            BiOpType::Udiv => Ok(parse_quote!(::mck::forward::HwArith::udiv(#a_tokens, #b_tokens))),
             BiOpType::Smod => Err(anyhow!("Smod operation generation not implemented")),
-            BiOpType::Srem => {
-                Ok(parse_quote!(::mck::forward::DivModRem::hw_srem(#a_tokens, #b_tokens)))
-            }
-            BiOpType::Urem => {
-                Ok(parse_quote!(::mck::forward::DivModRem::hw_urem(#a_tokens, #b_tokens)))
-            }
+            BiOpType::Srem => Ok(parse_quote!(::mck::forward::HwArith::srem(#a_tokens, #b_tokens))),
+            BiOpType::Urem => Ok(parse_quote!(::mck::forward::HwArith::urem(#a_tokens, #b_tokens))),
             BiOpType::Saddo
             | BiOpType::Uaddo
             | BiOpType::Sdivo
