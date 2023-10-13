@@ -25,19 +25,20 @@ fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
 
     if let Some(crate_segment) = segments_iter.next() {
         let crate_ident = &mut crate_segment.ident;
-        match crate_ident.to_string().as_str() {
-            "std" => {}
-            "mck" => {
-                let Some(PathSegment {
+        if crate_ident == "mck" {
+            let Some(PathSegment {
                     ident: second_ident,
                     arguments: PathArguments::None,
                 }) = segments_iter.next() else {
                     return Err(anyhow!("Inversion fail"));
                 };
+            if second_ident == "forward" {
+                *second_ident = Ident::new("backward", second_ident.span());
+                return Ok(());
+            } else if second_ident == "abstr" {
                 *second_ident = Ident::new("refin", second_ident.span());
                 return Ok(());
             }
-            _ => (),
         }
     }
     Err(anyhow!(
@@ -179,7 +180,7 @@ fn change_path_to_abstr(path: &mut Path) {
         && path.segments[0].arguments.is_none()
     {
         let ident = &mut path.segments[0].ident;
-        if let Some(stripped_name) = ident.to_string().strip_prefix("__mck_mark_") {
+        if let Some(stripped_name) = ident.to_string().strip_prefix("__mck_refin_") {
             let abstr_name = format!("__mck_abstr_{}", stripped_name);
             *ident = Ident::new(&abstr_name, ident.span());
         }

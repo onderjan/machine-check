@@ -5,12 +5,13 @@ mod test;*/
 use std::num::Wrapping;
 
 use crate::{
+    backward::{self, Bitwise, Ext, HwArith, TypedCmp, TypedEq},
     bitvector::abstr,
     bitvector::concr,
     bitvector::util::{compute_mask, compute_sign_bit_mask},
-    traits::refin::{
-        Bitwise, Decay, Ext, HwArith, HwShift, Join, MarkSingle, Markable, TypedCmp, TypedEq,
-    },
+    forward,
+    refin::Join,
+    traits::refin::{Decay, MarkSingle, Markable},
     Fabricator,
 };
 
@@ -35,13 +36,13 @@ impl<const L: u32> MarkBitvector<L> {
         }
         let zero = concr::Bitvector::new(0);
         let one = concr::Bitvector::new(1);
-        MarkBitvector(crate::concr::HwArith::sub(zero, one))
+        MarkBitvector(forward::HwArith::sub(zero, one))
     }
     pub fn new_from_flag(marked_flag: concr::Bitvector<L>) -> Self {
         MarkBitvector(marked_flag)
     }
     fn limit(&self, abstract_bitvec: abstr::Bitvector<L>) -> MarkBitvector<L> {
-        MarkBitvector(crate::concr::Bitwise::bitand(
+        MarkBitvector(forward::Bitwise::bitand(
             self.0,
             abstract_bitvec.get_unknown_bits(),
         ))
@@ -104,7 +105,7 @@ impl<const L: u32> Fabricator for MarkBitvector<L> {
 
 impl<const L: u32> Join for MarkBitvector<L> {
     fn apply_join(&mut self, other: Self) {
-        self.0 = crate::concr::Bitwise::bitor(self.0, other.0);
+        self.0 = forward::Bitwise::bitor(self.0, other.0);
     }
 }
 
@@ -122,14 +123,14 @@ impl<const L: u32> Decay for MarkBitvector<L> {
 impl<const L: u32> MarkSingle for MarkBitvector<L> {
     fn apply_single_mark(&mut self, offer: &Self) -> bool {
         // find the highest bit that is marked in offer but unmarked in ours
-        let applicants = crate::concr::Bitwise::bitand(offer.0, crate::concr::Bitwise::not(self.0));
+        let applicants = forward::Bitwise::bitand(offer.0, forward::Bitwise::not(self.0));
         let mark_mask = 1u64.checked_shl(applicants.as_unsigned().0.trailing_zeros());
         let Some(mark_mask) = mark_mask else {
             // no such bit found
             return false;
         };
         // apply the mark
-        self.0 = crate::concr::Bitwise::bitor(self.0, concr::Bitvector::new(mark_mask));
+        self.0 = forward::Bitwise::bitor(self.0, concr::Bitvector::new(mark_mask));
         true
     }
 }
@@ -149,7 +150,7 @@ impl<const L: u32> TypedEq for abstr::Bitvector<L> {
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         // every unknown bit may be responsible
-        let extended = MarkBitvector(crate::concr::Ext::sext(mark_later.0));
+        let extended = MarkBitvector(forward::Ext::sext(mark_later.0));
         (
             extended.limit(normal_input.0),
             extended.limit(normal_input.1),
@@ -294,7 +295,7 @@ impl<const L: u32, const X: u32> Ext<X> for abstr::Bitvector<L> {
         // we are going in reverse
         // but unsigned extension does not transport any unknown bit
         // propagate marking of given bits with limitation
-        let extended = MarkBitvector(crate::concr::Ext::uext(mark_later.0));
+        let extended = MarkBitvector(crate::forward::Ext::uext(mark_later.0));
         (extended.limit(normal_input.0),)
     }
 
@@ -309,13 +310,13 @@ impl<const L: u32, const X: u32> Ext<X> for abstr::Bitvector<L> {
 
         // do unsigned extension and then treat the potential high bits specially
 
-        let mut extended = crate::concr::Ext::<L>::uext(mark_later.0);
+        let mut extended = crate::forward::Ext::<L>::uext(mark_later.0);
 
         if X > L {
-            let back = MarkBitvector(crate::concr::Ext::<X>::uext(extended));
+            let back = MarkBitvector(crate::forward::Ext::<X>::uext(extended));
             if mark_later != back {
                 // propagate marking to the sign bit
-                extended = crate::concr::Bitwise::bitor(
+                extended = crate::forward::Bitwise::bitor(
                     extended,
                     concr::Bitvector::new(compute_sign_bit_mask(L).0),
                 );
@@ -367,14 +368,14 @@ fn shift<const L: u32>(
     )
 }
 
-impl<const L: u32> HwShift for abstr::Bitvector<L> {
+impl<const L: u32> backward::HwShift for abstr::Bitvector<L> {
     type Mark = MarkBitvector<L>;
 
     fn logic_shl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         // we have to reverse the shift direction, as we are going from later to earlier mark
         // use srl
         shift(normal_input, mark_later, |a, b| {
-            crate::concr::HwShift::logic_shr(a, b)
+            forward::HwShift::logic_shr(a, b)
         })
     }
 
@@ -382,7 +383,7 @@ impl<const L: u32> HwShift for abstr::Bitvector<L> {
         // we have to reverse the shift direction, as we are going from later to earlier mark
         // use sll
         shift(normal_input, mark_later, |a, b| {
-            crate::concr::HwShift::logic_shl(a, b)
+            forward::HwShift::logic_shl(a, b)
         })
     }
 
@@ -395,11 +396,11 @@ impl<const L: u32> HwShift for abstr::Bitvector<L> {
         // we have to reverse the shift direction, as we are going from later to earlier mark
         // use sll and then manually set the sign bit if some left-shifted-out bit was marked
         shift(normal_input, mark_later, |a, b| {
-            let mut result = crate::concr::HwShift::logic_shl(a, b);
-            let back = crate::concr::HwShift::logic_shr(result, b);
+            let mut result = forward::HwShift::logic_shl(a, b);
+            let back = forward::HwShift::logic_shr(result, b);
             if a != back {
                 // mark the sign bit of result
-                result = crate::concr::Bitwise::bitor(
+                result = forward::Bitwise::bitor(
                     result,
                     concr::Bitvector::new(compute_sign_bit_mask(L).0),
                 );

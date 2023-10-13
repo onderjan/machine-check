@@ -17,7 +17,7 @@ use crate::machine::transcription::util::{
     scheme::ConversionScheme,
 };
 
-use super::mark_stmt::{create_join_stmt, invert_stmt};
+use super::refin_stmt::{create_join_stmt, invert_stmt};
 
 pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
     let mut i = i.clone();
@@ -43,7 +43,7 @@ pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
         ),
         mark_scheme: ConversionScheme::new(
             String::from("__mck_"),
-            String::from("mark"),
+            String::from("refin"),
             self_name,
             false,
         ),
@@ -273,7 +273,7 @@ fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
     // TODO: move somewhat
     let abstr_name = format!(
         "__mck_abstr_{}",
-        mark_ident.to_string().strip_prefix("__mck_mark_").unwrap()
+        mark_ident.to_string().strip_prefix("__mck_refin_").unwrap()
     );
 
     let param = Expr::Path(create_expr_path(create_path_from_name(&abstr_name)));

@@ -3,14 +3,13 @@ use std::num::Wrapping;
 use std::fmt::Debug;
 use std::fmt::Display;
 
-use crate::{
-    abstr::Bitwise,
-    concr::{Ext, HwShift, TypedCmp, TypedEq},
-};
-use crate::{
-    abstr::HwArith,
-    bitvector::util::{compute_mask, compute_sign_bit_mask, is_highest_bit_set},
-};
+use crate::bitvector::util::{compute_mask, compute_sign_bit_mask, is_highest_bit_set};
+use crate::forward::Bitwise;
+use crate::forward::Ext;
+use crate::forward::HwArith;
+use crate::forward::HwShift;
+use crate::forward::TypedCmp;
+use crate::forward::TypedEq;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Bitvector<const L: u32> {

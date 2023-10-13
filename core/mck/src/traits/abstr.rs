@@ -3,8 +3,6 @@ use crate::FieldManipulate;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub use super::forward::*;
-
 pub trait Input:
     Debug + PartialEq + Eq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>>
 {

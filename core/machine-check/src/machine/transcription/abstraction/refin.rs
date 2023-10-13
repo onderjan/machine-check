@@ -14,10 +14,10 @@ use crate::machine::transcription::util::{
     path_rule::{self, PathRule, PathRuleSegment},
 };
 
-use self::{mark_fn::transcribe_item_impl, mark_stmt::create_join_stmt};
+use self::{refin_fn::transcribe_item_impl, refin_stmt::create_join_stmt};
 
-mod mark_fn;
-mod mark_stmt;
+mod refin_fn;
+mod refin_stmt;
 
 pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
     // the mark will be in a new module under the abstract

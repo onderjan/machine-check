@@ -1,6 +1,7 @@
 pub mod abstr;
+pub mod backward;
 pub mod concr;
-mod forward;
+pub mod forward;
 mod misc;
 pub mod refin;
 

@@ -4,11 +4,11 @@ mod test;
 use std::{fmt::Debug, fmt::Display, num::Wrapping};
 
 use crate::{
-    abstr::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq},
     bitvector::{
         concr,
         util::{self, compute_mask},
     },
+    forward::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq},
 };
 
 // the normal equality compares abstract bitvectors
