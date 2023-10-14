@@ -8,7 +8,7 @@ use syn::{
 };
 
 pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
-    // apply transcription to each block using a visitor
+    // apply linear SSA to each block using a visitor
     struct Visitor(anyhow::Result<()>);
     impl VisitMut for Visitor {
         fn visit_block_mut(&mut self, block: &mut Block) {
@@ -17,7 +17,7 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
                 self.0 = result;
             }
             // do not delegate, the representation should not contain
-            // any nested blocks anyway after transcription
+            // any nested blocks anyway after translation
         }
     }
     let mut visitor = Visitor(Ok(()));
@@ -26,31 +26,31 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
 }
 
 fn apply_to_block(block: &mut Block) -> anyhow::Result<()> {
-    let mut transcriber = BlockTranscriber {
-        transcribed_stmts: Vec::new(),
+    let mut translator = BlockTranslator {
+        translated_stmts: Vec::new(),
     };
-    // apply transcription to statements one by one
+    // apply linear SSA to statements one by one
     for stmt in &block.stmts {
-        if let Err(err) = transcriber.apply_transcription_to_stmt(stmt.clone()) {
+        if let Err(err) = translator.apply_to_stmt(stmt.clone()) {
             return Err(err.context(format!(
                 "Error transcribing statement to SSA: {}",
                 quote!(#stmt)
             )));
         }
     }
-    block.stmts = transcriber.transcribed_stmts;
+    block.stmts = translator.translated_stmts;
     Ok(())
 }
-struct BlockTranscriber {
-    transcribed_stmts: Vec<Stmt>,
+struct BlockTranslator {
+    translated_stmts: Vec<Stmt>,
 }
 
-impl BlockTranscriber {
-    fn apply_transcription_to_stmt(&mut self, mut stmt: Stmt) -> anyhow::Result<()> {
+impl BlockTranslator {
+    fn apply_to_stmt(&mut self, mut stmt: Stmt) -> anyhow::Result<()> {
         match stmt {
             Stmt::Expr(ref mut expr, _) => {
-                // apply transcription to expression without forced movement
-                self.apply_transcription_to_expression(expr)?;
+                // apply translation to expression without forced movement
+                self.apply_to_expr(expr)?;
             }
             Stmt::Local(ref mut local) => {
                 let Pat::Ident(ident) = &local.pat else {
@@ -67,45 +67,45 @@ impl BlockTranscriber {
                         return Err(anyhow!("Local let with diverging else not supported"));
                     }
 
-                    // apply transcription to expression without forced movement
-                    self.apply_transcription_to_expression(init.expr.as_mut())?;
+                    // apply translation to expression without forced movement
+                    self.apply_to_expr(init.expr.as_mut())?;
                 }
             }
             _ => return Err(anyhow!("Statement type {:?} not supported", stmt)),
         }
-        self.transcribed_stmts.push(stmt);
+        self.translated_stmts.push(stmt);
         Ok(())
     }
 
-    fn apply_transcription_to_expression(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
+    fn apply_to_expr(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA
             }
             syn::Expr::Field(field) => {
                 // move base
-                self.move_expression_through_temporary(&mut field.base)?;
+                self.move_through_temp(&mut field.base)?;
             }
             syn::Expr::Paren(paren) => {
                 // move statement in parentheses
-                self.move_expression_through_temporary(&mut paren.expr)?;
+                self.move_through_temp(&mut paren.expr)?;
                 // remove parentheses
                 *expr = (*paren.expr).clone();
             }
             syn::Expr::Call(call) => {
                 // move call function expression and arguments
-                self.move_expression_through_temporary(&mut call.func)?;
+                self.move_through_temp(&mut call.func)?;
                 for arg in &mut call.args {
-                    self.move_expression_through_temporary(arg)?;
+                    self.move_through_temp(arg)?;
                 }
             }
             syn::Expr::Struct(expr_struct) => {
                 // move field values and rest
                 for field in &mut expr_struct.fields {
-                    self.move_expression_through_temporary(&mut field.expr)?;
+                    self.move_through_temp(&mut field.expr)?;
                 }
                 if let Some(ref mut rest) = expr_struct.rest {
-                    self.move_expression_through_temporary(rest)?;
+                    self.move_through_temp(rest)?;
                 }
             }
             _ => {
@@ -115,7 +115,7 @@ impl BlockTranscriber {
         Ok(())
     }
 
-    fn move_expression_through_temporary(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
+    fn move_through_temp(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA
@@ -123,7 +123,7 @@ impl BlockTranscriber {
             }
             syn::Expr::Paren(paren) => {
                 // move statement in parentheses
-                self.move_expression_through_temporary(&mut paren.expr)?;
+                self.move_through_temp(&mut paren.expr)?;
                 // remove parentheses
                 *expr = (*paren.expr).clone();
                 return Ok(());
@@ -131,17 +131,17 @@ impl BlockTranscriber {
             _ => (),
         }
 
-        // apply transcription to expression
+        // apply translation to expression
         // so that nested expressions are properly converted to SSA
-        self.apply_transcription_to_expression(expr)?;
+        self.apply_to_expr(expr)?;
 
         // create a temporary variable
         let tmp_ident = Ident::new(
-            format!("__mck_tmp_{}", self.transcribed_stmts.len()).as_str(),
+            format!("__mck_tmp_{}", self.translated_stmts.len()).as_str(),
             Span::call_site(),
         );
 
-        // add new let statement to transcribed statements
+        // add new let statement to translated statements
         // i.e. let tmp = expr;
         let let_stmt = Stmt::Local(Local {
             attrs: vec![],
@@ -160,7 +160,7 @@ impl BlockTranscriber {
             }),
             semi_token: Default::default(),
         });
-        self.transcribed_stmts.push(let_stmt);
+        self.translated_stmts.push(let_stmt);
 
         // change expr to the temporary variable path
         *expr = Expr::Path(ExprPath {
