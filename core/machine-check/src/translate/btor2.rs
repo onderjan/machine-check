@@ -1,19 +1,16 @@
+mod fields;
 mod node;
+mod results;
 mod util;
 
 use std::{collections::BTreeMap, fs, io::BufReader};
 
 use crate::CheckError;
 use anyhow::anyhow;
-use btor2rs::{Btor2, DrainType, Nid, Node, Rnid, Sid, Source, SourceType};
+use btor2rs::{Btor2, DrainType, Nid, Node, Rnid, Sid};
 use camino::Utf8Path;
-use proc_macro2::{Ident, Span};
 use std::io::BufRead;
-use syn::{parse_quote, Expr, Field, FieldValue, Type};
-
-use self::util::{
-    create_nid_ident, create_rnid_expr, create_sid_type, create_single_bit_type, single_bits_and,
-};
+use syn::parse_quote;
 
 pub fn translate(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
     let file = fs::File::open(system_path)
@@ -140,134 +137,5 @@ impl Translator {
                 }
             }
         ))
-    }
-
-    fn create_nid_field(&self, nid: Nid, sid: Sid) -> Result<Field, anyhow::Error> {
-        let ident = create_nid_ident(nid);
-        let ty = create_sid_type(&self.btor2, sid)?;
-        Ok(Field {
-            attrs: vec![],
-            vis: syn::Visibility::Public(Default::default()),
-            mutability: syn::FieldMutability::None,
-            ident: Some(ident),
-            colon_token: Some(Default::default()),
-            ty,
-        })
-    }
-
-    fn create_field(&self, ident: Ident, ty: Type) -> Field {
-        Field {
-            attrs: vec![],
-            vis: syn::Visibility::Public(Default::default()),
-            mutability: syn::FieldMutability::None,
-            ident: Some(ident),
-            colon_token: Some(Default::default()),
-            ty,
-        }
-    }
-
-    fn create_input_fields(&self) -> Result<Vec<Field>, anyhow::Error> {
-        // add inputs and states without init or next to input fields
-        let mut fields = Vec::new();
-        for (nid, node) in &self.btor2.nodes {
-            if let Node::Source(Source {
-                ty: SourceType::Input,
-                sid,
-            }) = node
-            {
-                fields.push(self.create_nid_field(*nid, *sid)?);
-            }
-        }
-
-        for (nid, state_info) in &self.state_info_map {
-            // if state has no init or no next, it can be treated as input
-            if state_info.init.is_none() || state_info.next.is_none() {
-                fields.push(self.create_nid_field(*nid, state_info.sid)?);
-            }
-        }
-        Ok(fields)
-    }
-
-    fn create_state_fields(&self) -> Result<Vec<Field>, anyhow::Error> {
-        let mut fields = Vec::new();
-        for (nid, state_info) in &self.state_info_map {
-            // if state has next, it is a field
-            if state_info.next.is_some() {
-                fields.push(self.create_nid_field(*nid, state_info.sid)?);
-            }
-        }
-        self.add_drain_fields(&mut fields);
-        Ok(fields)
-    }
-
-    fn create_result(&self, is_init: bool) -> Result<Expr, anyhow::Error> {
-        let mut field_values = Vec::new();
-        for (nid, state_info) in &self.state_info_map {
-            // if state has no next, it is not remembered
-            if let Some(next) = state_info.next {
-                let state_ident = create_nid_ident(*nid);
-                // for init, the value of state node is returned
-                // for non-init, the next value is returned
-                let returned_ident = if is_init {
-                    let ident = create_nid_ident(*nid);
-                    parse_quote!(#ident)
-                } else {
-                    create_rnid_expr(next)
-                };
-                field_values.push(parse_quote!(#state_ident: #returned_ident));
-            }
-        }
-        // add drain
-        self.add_drain_field_values(is_init, &mut field_values);
-        // put everything together
-        Ok(parse_quote!(State{#(#field_values),*}))
-    }
-
-    fn add_drain_fields(&self, state_fields: &mut Vec<Field>) {
-        let bit_type = create_single_bit_type();
-        // add 'constrained' state field
-        let constrained_ident = Ident::new("constrained", Span::call_site());
-        state_fields.push(self.create_field(constrained_ident, bit_type.clone()));
-        // add 'safe' state field
-        let safe_ident = Ident::new("safe", Span::call_site());
-        state_fields.push(self.create_field(safe_ident, bit_type));
-    }
-
-    fn add_drain_field_values(&self, is_init: bool, field_values: &mut Vec<FieldValue>) {
-        // result is constrained exactly when it was constrained previously and all constraints hold
-        // i.e. (constraint_1 & constraint_2 & ...) & previous_constrained
-
-        let constraint_exprs = self
-            .constraints
-            .iter()
-            .map(|constraint| -> Expr { create_rnid_expr(*constraint) });
-        let constraint_expr = single_bits_and(constraint_exprs);
-        // make sure it is still constrained from previous
-        let constraint_expr = if !is_init {
-            parse_quote!(::mck::forward::Bitwise::bit_and(state.constrained, #constraint_expr))
-        } else {
-            constraint_expr
-        };
-
-        field_values.push(parse_quote!(constrained: #constraint_expr));
-
-        // result is safe exactly when it is either not constrained or there is no bad result
-        // i.e. !constrained | (!bad_1 & !bad_2 & ...)
-
-        // create the (!bad_1 & !bad_2 & ...)
-        let not_bad_exprs = self.bads.iter().map(|bad| -> Expr {
-            let bad_expr: Expr = create_rnid_expr(*bad);
-            parse_quote!(::mck::forward::Bitwise::bit_not(#bad_expr))
-        });
-        let not_bad_expr = single_bits_and(not_bad_exprs);
-
-        // create the !constrained, the constraint must hold up to this state
-        let not_constraint_expr: Expr =
-            parse_quote!(::mck::forward::Bitwise::bit_not(#constraint_expr));
-
-        // combine and add to field values
-        field_values.push(
-            parse_quote!(safe: ::mck::forward::Bitwise::bit_or(#not_constraint_expr, #not_bad_expr)),
-        );
     }
 }
