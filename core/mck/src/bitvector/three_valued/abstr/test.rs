@@ -74,7 +74,7 @@ pub fn support() {
     );
 
     assert_eq!(
-        ThreeValuedBitvector::<8>::all_of_length_iter().count(),
+        ThreeValuedBitvector::<8>::all_with_length_iter().count(),
         3usize.pow(8)
     );
 }
@@ -192,10 +192,10 @@ fn exec_uni_check<const L: u32, const X: u32>(
     abstr_func: fn(ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
     concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) {
-    for a in ThreeValuedBitvector::<L>::all_of_length_iter() {
+    for a in ThreeValuedBitvector::<L>::all_with_length_iter() {
         let abstr_result = abstr_func(a);
         let equiv_result = join_concr_iter(
-            concr::Bitvector::<L>::all_of_length_iter()
+            concr::Bitvector::<L>::all_with_length_iter()
                 .filter(|c| a.contains_concr(c))
                 .map(concr_func),
         );
@@ -213,14 +213,14 @@ fn exec_bi_check<const L: u32, const X: u32>(
     concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
     exact: bool,
 ) {
-    for a in ThreeValuedBitvector::<L>::all_of_length_iter() {
-        for b in ThreeValuedBitvector::<L>::all_of_length_iter() {
+    for a in ThreeValuedBitvector::<L>::all_with_length_iter() {
+        for b in ThreeValuedBitvector::<L>::all_with_length_iter() {
             let abstr_result = abstr_func(a, b);
 
             let a_concr_iter =
-                concr::Bitvector::<L>::all_of_length_iter().filter(|c| a.contains_concr(c));
+                concr::Bitvector::<L>::all_with_length_iter().filter(|c| a.contains_concr(c));
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                concr::Bitvector::<L>::all_of_length_iter()
+                concr::Bitvector::<L>::all_with_length_iter()
                     .filter(|c| b.contains_concr(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr))
             }));

@@ -65,7 +65,7 @@ impl<const L: u32> Bitvector<L> {
         Bitvector(util::compute_u64_mask(L))
     }
 
-    pub fn all_of_length_iter() -> impl Iterator<Item = Self> {
+    pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
         (0..=Self::bit_mask().as_unsigned()).map(Self)
     }
 }

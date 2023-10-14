@@ -169,10 +169,10 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         Self::from_zeros_ones(zeros, ones)
     }
 
-    pub fn all_of_length_iter() -> impl Iterator<Item = Self> {
-        let zeros_iter = concr::Bitvector::<L>::all_of_length_iter();
+    pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
+        let zeros_iter = concr::Bitvector::<L>::all_with_length_iter();
         zeros_iter.flat_map(|zeros| {
-            let ones_iter = concr::Bitvector::<L>::all_of_length_iter();
+            let ones_iter = concr::Bitvector::<L>::all_with_length_iter();
             ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
         })
     }
