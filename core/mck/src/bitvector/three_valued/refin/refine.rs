@@ -1,5 +1,7 @@
 use crate::{
-    bitvector::{concr, three_valued::abstr::ThreeValuedBitvector},
+    bitvector::{
+        concr, three_valued::abstr::ThreeValuedBitvector, util::compute_u64_sign_bit_mask,
+    },
     forward,
     refin::{Refinable, Refine},
 };
@@ -14,13 +16,17 @@ impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
     fn apply_refin(&mut self, offer: &Self) -> bool {
         // find the highest bit that is marked in offer but unmarked in ours
         let applicants = forward::Bitwise::bitand(offer.0, forward::Bitwise::not(self.0));
-        let mark_mask = 1u64.checked_shl(applicants.as_unsigned().trailing_zeros());
-        let Some(mark_mask) = mark_mask else {
+        if applicants.is_zero() {
             // no such bit found
             return false;
-        };
+        }
+
+        let highest_applicant_pos = applicants.as_unsigned().ilog2();
+        let highest_applicant =
+            concr::Bitvector::new(compute_u64_sign_bit_mask(highest_applicant_pos + 1));
+
         // apply the mark
-        self.0 = forward::Bitwise::bitor(self.0, concr::Bitvector::new(mark_mask));
+        self.0 = forward::Bitwise::bitor(self.0, highest_applicant);
         true
     }
 

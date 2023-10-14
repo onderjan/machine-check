@@ -102,7 +102,7 @@ pub fn invalid_zeros_ones() {
     );
 }
 
-// === EXHAUSTIVE TESTS ===
+// === SMALL-LENGTH-EXHAUSTIVE TESTS ===
 
 // --- UNARY TESTS ---
 
