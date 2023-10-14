@@ -4,15 +4,16 @@ use syn::File;
 
 use crate::CheckError;
 
-mod abstraction;
+mod abstr;
 mod manipulation;
+mod refin;
 mod util;
 
 pub(crate) fn create_abstract_machine(concrete_machine: &File) -> anyhow::Result<File> {
     let mut abstract_machine = concrete_machine.clone();
     manipulation::ssa::apply(&mut abstract_machine)?;
-    abstraction::abstr::apply(&mut abstract_machine)?;
-    abstraction::refin::apply(&mut abstract_machine)?;
+    abstr::apply(&mut abstract_machine)?;
+    refin::apply(&mut abstract_machine)?;
     manipulation::field_manipulation::apply(&mut abstract_machine)?;
     Ok(abstract_machine)
 }
