@@ -31,6 +31,10 @@ pub fn create_value_expr(value: u64, bitvec: &Bitvec) -> Expr {
     parse_quote!(::mck::concr::Bitvector::<#bitvec_length>::new(#value))
 }
 
+pub fn create_arith_neg_expr(inner: Expr) -> Expr {
+    parse_quote!(::mck::forward::HwArith::arith_neg(#inner))
+}
+
 pub fn create_sort_type(sort: &Sort) -> Result<Type, anyhow::Error> {
     match sort {
         Sort::Bitvec(bitvec) => {
