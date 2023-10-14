@@ -48,13 +48,13 @@ where
     type Mark;
 
     #[must_use]
-    fn not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,);
+    fn bit_not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,);
     #[must_use]
-    fn bitand(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn bit_and(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
     #[must_use]
-    fn bitor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn bit_or(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
     #[must_use]
-    fn bitxor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
+    fn bit_xor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
 }
 
 pub trait HwArith
@@ -64,7 +64,7 @@ where
     type Mark;
 
     #[must_use]
-    fn neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,);
+    fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,);
 
     #[must_use]
     fn add(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);

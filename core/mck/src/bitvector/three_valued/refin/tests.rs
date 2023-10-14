@@ -113,8 +113,8 @@ pub fn refine() {
 
 // --- UNARY TESTS ---
 
-uni_op_test!(Bitwise, not, true);
-uni_op_test!(HwArith, neg, false);
+uni_op_test!(Bitwise, bit_not, true);
+uni_op_test!(HwArith, arith_neg, false);
 
 // --- BINARY TESTS ---
 
@@ -128,9 +128,9 @@ bi_op_test!(HwArith, srem, false);
 bi_op_test!(HwArith, urem, false);
 
 // bitwise tests
-bi_op_test!(Bitwise, bitand, false);
-bi_op_test!(Bitwise, bitor, false);
-bi_op_test!(Bitwise, bitxor, false);
+bi_op_test!(Bitwise, bit_and, false);
+bi_op_test!(Bitwise, bit_or, false);
+bi_op_test!(Bitwise, bit_xor, false);
 
 // equality and comparison tests
 bi_op_test!(TypedEq, typed_eq, false);

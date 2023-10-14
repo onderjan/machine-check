@@ -30,7 +30,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     ) -> Result<Self, ()> {
         let mask = Self::get_mask();
         // the used bits must be set in zeros, ones, or both
-        if Bitwise::bitor(zeros, ones) != mask {
+        if Bitwise::bit_or(zeros, ones) != mask {
             return Err(());
         }
         Ok(Self { zeros, ones })
@@ -39,7 +39,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     #[must_use]
     pub fn from_concrete(value: ConcreteBitvector<L>) -> Self {
         // bit-negate for zeros
-        let zeros = Bitwise::not(value);
+        let zeros = Bitwise::bit_not(value);
         // leave as-is for ones
         let ones = value;
 
@@ -56,20 +56,20 @@ impl<const L: u32> ThreeValuedBitvector<L> {
 
     #[must_use]
     pub fn new_value_known(value: ConcreteBitvector<L>, known: ConcreteBitvector<L>) -> Self {
-        let unknown = Bitwise::not(known);
+        let unknown = Bitwise::bit_not(known);
         Self::new_value_unknown(value, unknown)
     }
 
     #[must_use]
     pub fn new_value_unknown(value: ConcreteBitvector<L>, unknown: ConcreteBitvector<L>) -> Self {
-        let zeros = Bitwise::bitor(Bitwise::not(value), unknown);
-        let ones = Bitwise::bitor(value, unknown);
+        let zeros = Bitwise::bit_or(Bitwise::bit_not(value), unknown);
+        let ones = Bitwise::bit_or(value, unknown);
         Self::from_zeros_ones(zeros, ones)
     }
 
     #[must_use]
     pub fn get_unknown_bits(&self) -> ConcreteBitvector<L> {
-        Bitwise::bitand(self.zeros, self.ones)
+        Bitwise::bit_and(self.zeros, self.ones)
     }
 
     #[must_use]
@@ -85,7 +85,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     #[must_use]
     pub fn concrete_value(&self) -> Option<ConcreteBitvector<L>> {
         // all bits must be equal
-        let nxor = Bitwise::not(Bitwise::bitxor(self.ones, self.zeros));
+        let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones, self.zeros));
         if !nxor.is_zero() {
             return None;
         }
@@ -111,7 +111,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     #[must_use]
     pub fn umin(&self) -> ConcreteBitvector<L> {
         // unsigned min value is value of bit-negated zeros (one only where it must be)
-        Bitwise::not(self.zeros)
+        Bitwise::bit_not(self.zeros)
     }
 
     #[must_use]
@@ -128,7 +128,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         // but the signed value is smaller when the sign bit is one
         // if it is possible to set it to one, set it
         if self.is_ones_sign_bit_set() {
-            result = result.bitor(sign_bit_mask)
+            result = result.bit_or(sign_bit_mask)
         }
         result
     }
@@ -141,7 +141,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         // but the signed value is bigger when the sign bit is zero
         // if it is possible to set it to zero, set it
         if self.is_zeros_sign_bit_set() {
-            result = result.bitand(sign_bit_mask.not());
+            result = result.bit_and(sign_bit_mask.bit_not());
         }
         result
     }
@@ -149,23 +149,23 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     #[must_use]
     pub fn contains(&self, rhs: &Self) -> bool {
         // rhs zeros must be within our zeros and rhs ones must be within our ones
-        let excessive_rhs_zeros = rhs.zeros.bitand(self.zeros.not());
-        let excessive_rhs_ones = rhs.ones.bitand(self.ones.not());
+        let excessive_rhs_zeros = rhs.zeros.bit_and(self.zeros.bit_not());
+        let excessive_rhs_ones = rhs.ones.bit_and(self.ones.bit_not());
         excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
     }
 
     #[must_use]
     pub fn contains_concr(&self, a: &ConcreteBitvector<L>) -> bool {
         // value zeros must be within our zeros and value ones must be within our ones
-        let excessive_rhs_zeros = a.not().bitand(self.zeros.not());
-        let excessive_rhs_ones = a.bitand(self.ones.not());
+        let excessive_rhs_zeros = a.bit_not().bit_and(self.zeros.bit_not());
+        let excessive_rhs_ones = a.bit_and(self.ones.bit_not());
         excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
     }
 
     #[must_use]
     pub fn concrete_join(&self, concrete: ConcreteBitvector<L>) -> Self {
-        let zeros = self.zeros.bitor(concrete.not());
-        let ones = self.ones.bitor(concrete);
+        let zeros = self.zeros.bit_or(concrete.bit_not());
+        let ones = self.ones.bit_or(concrete);
         Self::from_zeros_ones(zeros, ones)
     }
 

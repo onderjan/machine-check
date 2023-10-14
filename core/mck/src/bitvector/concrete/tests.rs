@@ -91,12 +91,12 @@ fn bitwise() {
     let b = ConcreteBitvector::<16>::new(0x1337);
 
     // compare results to calculated values
-    assert_eq!(a.not().as_unsigned(), 0x3501);
-    assert_eq!(b.not().as_unsigned(), 0xECC8);
+    assert_eq!(a.bit_not().as_unsigned(), 0x3501);
+    assert_eq!(b.bit_not().as_unsigned(), 0xECC8);
 
-    assert_eq!(a.bitand(b).as_unsigned(), 0x0236);
-    assert_eq!(a.bitor(b).as_unsigned(), 0xDBFF);
-    assert_eq!(a.bitxor(b).as_unsigned(), 0xD9C9);
+    assert_eq!(a.bit_and(b).as_unsigned(), 0x0236);
+    assert_eq!(a.bit_or(b).as_unsigned(), 0xDBFF);
+    assert_eq!(a.bit_xor(b).as_unsigned(), 0xD9C9);
 }
 
 #[test]

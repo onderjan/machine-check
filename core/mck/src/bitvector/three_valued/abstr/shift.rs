@@ -12,7 +12,7 @@ impl<const L: u32> HwShift for ThreeValuedBitvector<L> {
         // shifting left logically, we need to shift in zeros from right
         let zeros_shift_fn = |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| {
             let shifted_mask = ConcreteBitvector::<L>::bit_mask().logic_shl(amount);
-            Bitwise::bitor(value.logic_shl(amount), shifted_mask.not())
+            Bitwise::bit_or(value.logic_shl(amount), shifted_mask.bit_not())
         };
         let ones_shift_fn =
             |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| value.logic_shl(amount);
@@ -24,7 +24,7 @@ impl<const L: u32> HwShift for ThreeValuedBitvector<L> {
         // shifting right logically, we need to shift in zeros from left
         let zeros_shift_fn = |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| {
             let shifted_mask = ConcreteBitvector::<L>::bit_mask().logic_shr(amount);
-            Bitwise::bitor(value.logic_shr(amount), shifted_mask.not())
+            Bitwise::bit_or(value.logic_shr(amount), shifted_mask.bit_not())
         };
         let ones_shift_fn =
             |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| value.logic_shr(amount);
@@ -37,7 +37,7 @@ impl<const L: u32> HwShift for ThreeValuedBitvector<L> {
         let sra_shift_fn = |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| {
             if value.is_sign_bit_set() {
                 let shifted_mask = ConcreteBitvector::<L>::bit_mask().logic_shr(amount);
-                Bitwise::bitor(value.logic_shr(amount), shifted_mask.not())
+                Bitwise::bit_or(value.logic_shr(amount), shifted_mask.bit_not())
             } else {
                 value.logic_shr(amount)
             }
@@ -80,8 +80,8 @@ fn shift<const L: u32>(
     // first, if it can be shifted by L or larger value, join by overflow value
     let shift_overflow = amount.umax().as_unsigned() >= L as u64;
     if shift_overflow {
-        zeros = zeros.bitor(overflow_value.zeros);
-        ones = ones.bitor(overflow_value.ones);
+        zeros = zeros.bit_or(overflow_value.zeros);
+        ones = ones.bit_or(overflow_value.ones);
     }
 
     // only consider the amounts smaller than L afterwards
@@ -93,8 +93,8 @@ fn shift<const L: u32>(
         if amount.contains_concr(&bi) {
             let shifted_zeros = zeros_shift_fn(value.zeros, bi);
             let shifted_ones = ones_shift_fn(value.ones, bi);
-            zeros = zeros.bitor(shifted_zeros);
-            ones = ones.bitor(shifted_ones);
+            zeros = zeros.bit_or(shifted_zeros);
+            ones = ones.bit_or(shifted_ones);
         }
     }
     ThreeValuedBitvector::from_zeros_ones(zeros, ones)

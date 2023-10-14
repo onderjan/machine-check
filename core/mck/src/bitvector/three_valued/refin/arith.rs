@@ -8,7 +8,7 @@ use super::{
 impl<const L: u32> HwArith for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
-    fn neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
+    fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         default_uni_mark(normal_input, mark_later)
     }
 

@@ -42,7 +42,7 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
             let back = forward::HwShift::logic_shr(result, b);
             if a != back {
                 // mark the sign bit of result
-                result = forward::Bitwise::bitor(
+                result = forward::Bitwise::bit_or(
                     result,
                     ConcreteBitvector::new(compute_u64_sign_bit_mask(L)),
                 );

@@ -10,7 +10,8 @@ pub fn create_nid_ident(nid: Nid) -> Ident {
 pub fn create_rnid_expr(rref: Rnid) -> Expr {
     let ident = create_nid_ident(rref.nid());
     if rref.is_not() {
-        parse_quote!(::mck::forward::Bitwise::not(#ident))
+        // means bitwise not
+        parse_quote!(::mck::forward::Bitwise::bit_not(#ident))
     } else {
         parse_quote!(#ident)
     }
@@ -48,7 +49,7 @@ pub fn single_bits_and(exprs: impl Iterator<Item = Expr>) -> Expr {
     let mut full_expr = None;
     for expr in exprs {
         full_expr = if let Some(prev) = full_expr {
-            Some(parse_quote!(::mck::forward::Bitwise::bitand(#prev, #expr)))
+            Some(parse_quote!(::mck::forward::Bitwise::bit_and(#prev, #expr)))
         } else {
             Some(expr)
         };
@@ -63,7 +64,7 @@ pub fn single_bits_or(exprs: impl Iterator<Item = Expr>) -> Expr {
     let mut full_expr = None;
     for expr in exprs {
         full_expr = if let Some(prev) = full_expr {
-            Some(parse_quote!(::mck::forward::Bitwise::bitor(#prev, #expr)))
+            Some(parse_quote!(::mck::forward::Bitwise::bit_or(#prev, #expr)))
         } else {
             Some(expr)
         };
@@ -76,7 +77,7 @@ pub fn single_bits_xor(exprs: impl Iterator<Item = Expr>) -> Expr {
     let mut full_expr = None;
     for expr in exprs {
         full_expr = if let Some(prev) = full_expr {
-            Some(parse_quote!(::mck::forward::Bitwise::bitxor(#prev, #expr)))
+            Some(parse_quote!(::mck::forward::Bitwise::bit_xor(#prev, #expr)))
         } else {
             Some(expr)
         };

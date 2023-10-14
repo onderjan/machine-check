@@ -110,9 +110,9 @@ pub fn invalid_zeros_ones() {
 // --- UNARY TESTS ---
 
 // not and neg
-uni_op_test!(not);
+uni_op_test!(bit_not);
 
-uni_op_test!(neg);
+uni_op_test!(arith_neg);
 
 // --- BINARY TESTS ---
 
@@ -126,9 +126,9 @@ bi_op_test!(urem, false);
 bi_op_test!(srem, false);
 
 // bitwise tests
-bi_op_test!(bitand, true);
-bi_op_test!(bitor, true);
-bi_op_test!(bitxor, true);
+bi_op_test!(bit_and, true);
+bi_op_test!(bit_or, true);
+bi_op_test!(bit_xor, true);
 
 // equality and comparison tests
 bi_op_test!(typed_eq, true);

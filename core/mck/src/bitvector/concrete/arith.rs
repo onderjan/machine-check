@@ -3,7 +3,7 @@ use crate::forward::HwArith;
 use super::ConcreteBitvector;
 
 impl<const L: u32> HwArith for ConcreteBitvector<L> {
-    fn neg(self) -> Self {
+    fn arith_neg(self) -> Self {
         let result = self.0.wrapping_neg();
         Self::new(result & Self::bit_mask().0)
     }

@@ -23,13 +23,13 @@ where
     Self: Sized,
 {
     #[must_use]
-    fn not(self) -> Self;
+    fn bit_not(self) -> Self;
     #[must_use]
-    fn bitand(self, rhs: Self) -> Self;
+    fn bit_and(self, rhs: Self) -> Self;
     #[must_use]
-    fn bitor(self, rhs: Self) -> Self;
+    fn bit_or(self, rhs: Self) -> Self;
     #[must_use]
-    fn bitxor(self, rhs: Self) -> Self;
+    fn bit_xor(self, rhs: Self) -> Self;
 }
 
 pub trait HwArith
@@ -37,7 +37,7 @@ where
     Self: Sized,
 {
     #[must_use]
-    fn neg(self) -> Self;
+    fn arith_neg(self) -> Self;
 
     #[must_use]
     fn add(self, rhs: Self) -> Self;

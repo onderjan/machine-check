@@ -11,12 +11,12 @@ use super::MarkBitvector;
 
 impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
     fn apply_join(&mut self, other: &Self) {
-        self.0 = forward::Bitwise::bitor(self.0, other.0);
+        self.0 = forward::Bitwise::bit_or(self.0, other.0);
     }
 
     fn apply_refin(&mut self, offer: &Self) -> bool {
         // find the highest bit that is marked in offer but unmarked in ours
-        let applicants = forward::Bitwise::bitand(offer.0, forward::Bitwise::not(self.0));
+        let applicants = forward::Bitwise::bit_and(offer.0, forward::Bitwise::bit_not(self.0));
         if applicants.is_zero() {
             // no such bit found
             return false;
@@ -27,15 +27,15 @@ impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
             ConcreteBitvector::new(compute_u64_sign_bit_mask(highest_applicant_pos + 1));
 
         // apply the mark
-        self.0 = forward::Bitwise::bitor(self.0, highest_applicant);
+        self.0 = forward::Bitwise::bit_or(self.0, highest_applicant);
         true
     }
 
     fn force_decay(&self, target: &mut ThreeValuedBitvector<L>) {
         // unmarked fields become unknown
-        let forced_unknown = forward::Bitwise::not(self.0);
-        let zeros = forward::Bitwise::bitor(target.get_possibly_zero_flags(), forced_unknown);
-        let ones = forward::Bitwise::bitor(target.get_possibly_one_flags(), forced_unknown);
+        let forced_unknown = forward::Bitwise::bit_not(self.0);
+        let zeros = forward::Bitwise::bit_or(target.get_possibly_zero_flags(), forced_unknown);
+        let ones = forward::Bitwise::bit_or(target.get_possibly_one_flags(), forced_unknown);
         *target = ThreeValuedBitvector::from_zeros_ones(zeros, ones);
     }
 }

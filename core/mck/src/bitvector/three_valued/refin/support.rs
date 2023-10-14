@@ -21,7 +21,7 @@ impl<const L: u32> MarkBitvector<L> {
         MarkBitvector(marked_flag)
     }
     pub(super) fn limit(&self, abstract_bitvec: ThreeValuedBitvector<L>) -> MarkBitvector<L> {
-        MarkBitvector(forward::Bitwise::bitand(
+        MarkBitvector(forward::Bitwise::bit_and(
             self.0,
             abstract_bitvec.get_unknown_bits(),
         ))

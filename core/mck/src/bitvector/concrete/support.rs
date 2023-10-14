@@ -27,7 +27,7 @@ impl<const L: u32> ConcreteBitvector<L> {
 
     pub fn as_signed(&self) -> i64 {
         let mut result = self.0;
-        if self.bitand(Self::sign_bit_mask()).is_nonzero() {
+        if self.bit_and(Self::sign_bit_mask()).is_nonzero() {
             // add signed extension
             result |= !Self::bit_mask().0;
         }

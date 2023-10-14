@@ -118,7 +118,7 @@ impl<'a> StmtTranslator<'a> {
                     // negate one
                     let expr = create_value_expr(1, self.get_nid_bitvec(nid)?);
                     self.stmts.push(
-                        parse_quote!(let #result_ident = ::mck::forward::HwArith::neg(#expr);),
+                        parse_quote!(let #result_ident = ::mck::forward::HwArith::arith_neg(#expr);),
                     );
                 }
                 SourceType::Zero => {
@@ -140,7 +140,7 @@ impl<'a> StmtTranslator<'a> {
 
         let a_tokens = create_rnid_expr(op.a);
         match op.ty {
-            UniOpType::Not => Ok(parse_quote!(::mck::forward::Bitwise::not(#a_tokens))),
+            UniOpType::Not => Ok(parse_quote!(::mck::forward::Bitwise::bit_not(#a_tokens))),
             UniOpType::Inc => {
                 let one = create_value_expr(1, result_bitvec);
                 Ok(parse_quote!((::mck::forward::HwArith::add(#a_tokens,#one))))
@@ -149,13 +149,13 @@ impl<'a> StmtTranslator<'a> {
                 let one = create_value_expr(1, result_bitvec);
                 Ok(parse_quote!(::mck::forward::HwArith::sub(#a_tokens, #one)))
             }
-            UniOpType::Neg => Ok(parse_quote!(::mck::forward::HwArith::neg(#a_tokens))),
+            UniOpType::Neg => Ok(parse_quote!(::mck::forward::HwArith::arith_neg(#a_tokens))),
             UniOpType::Redand => {
                 // equality with all ones (equivalent to wrapping minus one)
                 // sort for constant is taken from the operand, not result
                 let one = create_value_expr(1, a_bitvec);
                 Ok(
-                    parse_quote!(::mck::forward::TypedEq::typed_eq(#a_tokens, ::mck::forward::HwArith::neg(#one))),
+                    parse_quote!(::mck::forward::TypedEq::typed_eq(#a_tokens, ::mck::forward::HwArith::arith_neg(#one))),
                 )
             }
             UniOpType::Redor => {
@@ -163,7 +163,7 @@ impl<'a> StmtTranslator<'a> {
                 // sort for constant is taken from the operand, not result
                 let zero = create_value_expr(0, a_bitvec);
                 Ok(
-                    parse_quote!(::mck::forward::Bitwise::not(::mck::forward::TypedEq::typed_eq(#a_tokens, #zero))),
+                    parse_quote!(::mck::forward::Bitwise::bit_not(::mck::forward::TypedEq::typed_eq(#a_tokens, #zero))),
                 )
             }
             UniOpType::Redxor => {
@@ -198,13 +198,13 @@ impl<'a> StmtTranslator<'a> {
                 let result_length = result_sort.length.get();
                 let condition_mask: Expr =
                     parse_quote!(::mck::forward::Ext::<#result_length>::sext(#a_tokens));
-                let not_condition_mask: Expr = parse_quote!(::mck::forward::Ext::<#result_length>::sext(::mck::forward::Bitwise::not(#a_tokens)));
+                let not_condition_mask: Expr = parse_quote!(::mck::forward::Ext::<#result_length>::sext(::mck::forward::Bitwise::bit_not(#a_tokens)));
 
                 let then_result: Expr =
-                    parse_quote!(::mck::forward::Bitwise::bitand(#b_tokens, #condition_mask));
+                    parse_quote!(::mck::forward::Bitwise::bit_and(#b_tokens, #condition_mask));
                 let else_result: Expr =
-                    parse_quote!(::mck::forward::Bitwise::bitand(#c_tokens, #not_condition_mask));
-                Ok(parse_quote!(::mck::forward::Bitwise::bitor(#then_result, #else_result)))
+                    parse_quote!(::mck::forward::Bitwise::bit_and(#c_tokens, #not_condition_mask));
+                Ok(parse_quote!(::mck::forward::Bitwise::bit_or(#then_result, #else_result)))
             }
             TriOpType::Write => {
                 // a = array, b = index, c = element to be stored
@@ -222,14 +222,14 @@ impl<'a> StmtTranslator<'a> {
             }
             BiOpType::Implies => {
                 // a implies b = !a | b
-                let not_a: Expr = parse_quote!(::mck::forward::Bitwise::not(#a_tokens));
-                Ok(parse_quote!(::mck::forward::Bitwise::bitor(#not_a, #b_tokens)))
+                let not_a: Expr = parse_quote!(::mck::forward::Bitwise::bit_not(#a_tokens));
+                Ok(parse_quote!(::mck::forward::Bitwise::bit_or(#not_a, #b_tokens)))
             }
             BiOpType::Eq => {
                 Ok(parse_quote!(::mck::forward::TypedEq::typed_eq(#a_tokens, #b_tokens)))
             }
             BiOpType::Neq => Ok(
-                parse_quote!(::mck::forward::Bitwise::not(::mck::forward::TypedEq::typed_eq(#a_tokens, #b_tokens))),
+                parse_quote!(::mck::forward::Bitwise::bit_not(::mck::forward::TypedEq::typed_eq(#a_tokens, #b_tokens))),
             ),
             // implement greater using lesser by flipping the operands
             BiOpType::Sgt => {
@@ -258,23 +258,25 @@ impl<'a> StmtTranslator<'a> {
                 Ok(parse_quote!(::mck::forward::TypedCmp::typed_ulte(#a_tokens, #b_tokens)))
             }
             BiOpType::And => {
-                Ok(parse_quote!(::mck::forward::Bitwise::bitand(#a_tokens, #b_tokens)))
+                Ok(parse_quote!(::mck::forward::Bitwise::bit_and(#a_tokens, #b_tokens)))
             }
             BiOpType::Nand => {
-                let pos: Expr = parse_quote!(::mck::forward::Bitwise::bitand(#a_tokens, #b_tokens));
-                Ok(parse_quote!(::mck::forward::Bitwise::not(#pos)))
+                let pos: Expr =
+                    parse_quote!(::mck::forward::Bitwise::bit_and(#a_tokens, #b_tokens));
+                Ok(parse_quote!(::mck::forward::Bitwise::bit_not(#pos)))
             }
-            BiOpType::Or => Ok(parse_quote!(::mck::forward::Bitwise::bitor(#a_tokens, #b_tokens))),
+            BiOpType::Or => Ok(parse_quote!(::mck::forward::Bitwise::bit_or(#a_tokens, #b_tokens))),
             BiOpType::Nor => {
-                let pos: Expr = parse_quote!(::mck::forward::Bitwise::bitor(#a_tokens, #b_tokens));
-                Ok(parse_quote!(::mck::forward::Bitwise::not(#pos)))
+                let pos: Expr = parse_quote!(::mck::forward::Bitwise::bit_or(#a_tokens, #b_tokens));
+                Ok(parse_quote!(::mck::forward::Bitwise::bit_not(#pos)))
             }
             BiOpType::Xor => {
-                Ok(parse_quote!(::mck::forward::Bitwise::bitxor(#a_tokens, #b_tokens)))
+                Ok(parse_quote!(::mck::forward::Bitwise::bit_xor(#a_tokens, #b_tokens)))
             }
             BiOpType::Xnor => {
-                let pos: Expr = parse_quote!(::mck::forward::Bitwise::bitxor(#a_tokens, #b_tokens));
-                Ok(parse_quote!(::mck::forward::Bitwise::not(#pos)))
+                let pos: Expr =
+                    parse_quote!(::mck::forward::Bitwise::bit_xor(#a_tokens, #b_tokens));
+                Ok(parse_quote!(::mck::forward::Bitwise::bit_not(#pos)))
             }
             BiOpType::Rol => Err(anyhow!("Left rotation generation not implemented")),
             BiOpType::Ror => Err(anyhow!("Right rotation generation not implemented")),
@@ -322,7 +324,7 @@ impl<'a> StmtTranslator<'a> {
                     parse_quote!(::mck::forward::HwShift::logic_shl(#a_uext, #shift_length_expr));
 
                 // bit-or together
-                Ok(parse_quote!(::mck::forward::Bitwise::bitor(#a_uext_sll, #b_uext)))
+                Ok(parse_quote!(::mck::forward::Bitwise::bit_or(#a_uext_sll, #b_uext)))
             }
             BiOpType::Read => Err(anyhow!("Generating arrays not supported")),
         }
@@ -374,7 +376,7 @@ impl<'a> StmtTranslator<'a> {
         let value = u64::from_str_radix(str, value.ty.clone() as u32)?;
         let bitvec_length = result_sort.length.get();
         Ok(if negate {
-            parse_quote!((::mck::forward::HwArith::neg(::mck::concr::Bitvector::<#bitvec_length>::new(#value))))
+            parse_quote!((::mck::forward::HwArith::arith_neg(::mck::concr::Bitvector::<#bitvec_length>::new(#value))))
         } else {
             parse_quote!(::mck::concr::Bitvector::<#bitvec_length>::new(#value))
         })

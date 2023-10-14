@@ -3,16 +3,16 @@ use crate::forward::Bitwise;
 use super::ConcreteBitvector;
 
 impl<const L: u32> Bitwise for ConcreteBitvector<L> {
-    fn not(self) -> Self {
+    fn bit_not(self) -> Self {
         Self::new((!self.0) & Self::bit_mask().0)
     }
-    fn bitand(self, rhs: Self) -> Self {
+    fn bit_and(self, rhs: Self) -> Self {
         Self::new((self.0 & rhs.0) & Self::bit_mask().0)
     }
-    fn bitor(self, rhs: Self) -> Self {
+    fn bit_or(self, rhs: Self) -> Self {
         Self::new((self.0 | rhs.0) & Self::bit_mask().0)
     }
-    fn bitxor(self, rhs: Self) -> Self {
+    fn bit_xor(self, rhs: Self) -> Self {
         Self::new((self.0 ^ rhs.0) & Self::bit_mask().0)
     }
 }

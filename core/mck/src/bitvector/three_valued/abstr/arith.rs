@@ -4,7 +4,7 @@ use crate::bitvector::util;
 use crate::forward::HwArith;
 
 impl<const L: u32> HwArith for ThreeValuedBitvector<L> {
-    fn neg(self) -> Self {
+    fn arith_neg(self) -> Self {
         // arithmetic negation
         // since we use wrapping arithmetic, same as subtracting the value from 0
         HwArith::sub(Self::new(0), self)
@@ -263,7 +263,7 @@ fn compute_sdivrem<const L: u32>(
         let divisor_max = if divisor_max.as_signed() < -1 {
             divisor_max
         } else {
-            ConcreteBitvector::new(2).neg()
+            ConcreteBitvector::new(2).arith_neg()
         };
 
         apply_signed_op(

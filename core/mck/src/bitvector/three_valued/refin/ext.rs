@@ -34,7 +34,7 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
             let back = MarkBitvector(crate::forward::Ext::<X>::uext(extended));
             if mark_later != back {
                 // propagate marking to the sign bit
-                extended = crate::forward::Bitwise::bitor(extended, ConcreteBitvector::bit_mask());
+                extended = crate::forward::Bitwise::bit_or(extended, ConcreteBitvector::bit_mask());
             }
         }
 
