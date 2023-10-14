@@ -1,14 +1,13 @@
 use anyhow::anyhow;
-use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated, token::Comma, Expr, ExprCall, ExprField, ExprPath, ExprReference,
-    Ident, Index, Member, Pat, PatWild, Path, PathArguments, PathSegment, Stmt,
+    punctuated::Punctuated, token::Comma, Expr, ExprCall, Ident, Pat, PatWild, Path, PathArguments,
+    PathSegment, Stmt,
 };
-use syn_path::path;
 
 use crate::machine::util::{
-    create_expr_path, create_expr_tuple, create_ident, create_let_stmt_from_ident_expr,
+    create_expr_field_unnamed, create_expr_path, create_expr_tuple, create_ident,
+    create_let_stmt_from_ident_expr, create_refine_join_stmt,
 };
 
 fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
@@ -45,34 +44,6 @@ fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
         "Failed to invert function expression {}",
         quote!(#fn_expr)
     ))
-}
-
-pub fn create_join_stmt(left: Expr, right: Expr) -> Stmt {
-    let left_mut_ref_expr = Expr::Reference(ExprReference {
-        attrs: vec![],
-        and_token: Default::default(),
-        mutability: Some(Default::default()),
-        expr: Box::new(left),
-    });
-    let right_ref_expr = Expr::Reference(ExprReference {
-        attrs: vec![],
-        and_token: Default::default(),
-        mutability: None,
-        expr: Box::new(right),
-    });
-    Stmt::Expr(
-        Expr::Call(ExprCall {
-            attrs: vec![],
-            func: Box::new(Expr::Path(ExprPath {
-                attrs: vec![],
-                qself: None,
-                path: path!(::mck::refin::Refine::apply_join),
-            })),
-            paren_token: Default::default(),
-            args: Punctuated::from_iter(vec![left_mut_ref_expr, right_ref_expr]),
-        }),
-        Some(Default::default()),
-    )
 }
 
 fn invert_call(stmts: &mut Vec<Stmt>, later_mark: Expr, call: &ExprCall) -> anyhow::Result<()> {
@@ -151,17 +122,9 @@ fn invert_call(stmts: &mut Vec<Stmt>, later_mark: Expr, call: &ExprCall) -> anyh
             Expr::Path(expr_path) => {
                 let left_path_expr = Expr::Path(expr_path.clone());
                 let right_path_expr = create_expr_path(Path::from(tmp_ident.clone()));
-                let right_field_expr = Expr::Field(ExprField {
-                    attrs: vec![],
-                    base: Box::new(right_path_expr),
-                    dot_token: Default::default(),
-                    member: Member::Unnamed(Index {
-                        index: index as u32,
-                        span: Span::call_site(),
-                    }),
-                });
+                let right_field_expr = create_expr_field_unnamed(right_path_expr, index);
                 // join instead of assigning to correctly remember values
-                let stmt = create_join_stmt(left_path_expr, right_field_expr);
+                let stmt = create_refine_join_stmt(left_path_expr, right_field_expr);
 
                 stmts.push(stmt);
             }
@@ -210,7 +173,7 @@ pub fn invert_simple_let(
         Expr::Path(_) | Expr::Field(_) | Expr::Struct(_) => {
             let earlier_mark = right.clone();
             // join instead of assigning to preserve marking
-            inverted_stmts.push(create_join_stmt(earlier_mark, later_mark));
+            inverted_stmts.push(create_refine_join_stmt(earlier_mark, later_mark));
             Ok(())
         }
         Expr::Call(expr_call) => invert_call(inverted_stmts, later_mark, expr_call),

@@ -1,13 +1,13 @@
 use syn::{
-    parse_quote, punctuated::Punctuated, BinOp, Block, Expr, ExprBinary, ExprReference, ExprStruct,
-    FnArg, Generics, ImplItem, ImplItemFn, ItemImpl, ItemStruct, Pat, PatType, Path, Receiver,
-    ReturnType, Signature, Stmt, Type, TypeReference,
+    parse_quote, punctuated::Punctuated, BinOp, Block, Expr, ExprBinary, ExprStruct, FnArg,
+    Generics, ImplItem, ImplItemFn, ItemImpl, ItemStruct, Pat, PatType, Path, Receiver, ReturnType,
+    Signature, Stmt, Type, TypeReference,
 };
 use syn_path::path;
 
 use crate::machine::util::{
     create_expr_call, create_expr_field, create_expr_path, create_field_value, create_ident,
-    create_pat_ident, create_path_from_ident, create_type_path,
+    create_pat_ident, create_path_from_ident, create_type_path, ArgType,
 };
 
 pub fn generate_fabricator_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
@@ -58,17 +58,11 @@ fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
 
     for (index, field) in s.fields.iter().enumerate() {
         let self_field_expr = create_expr_field(create_expr_path(path!(self)), index, field);
-        let self_ref_expr = Expr::Reference(ExprReference {
-            attrs: vec![],
-            and_token: Default::default(),
-            mutability: None,
-            expr: Box::new(self_field_expr),
-        });
 
-        let init_expr = Expr::Call(create_expr_call(
+        let init_expr = create_expr_call(
             create_expr_path(path!(::mck::misc::Meta::proto_first)),
-            vec![self_ref_expr],
-        ));
+            vec![(ArgType::Reference, self_field_expr)],
+        );
 
         let field_value = create_field_value(index, field, init_expr);
 
@@ -137,23 +131,16 @@ fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
         let fabricated_expr_path =
             create_expr_path(create_path_from_ident(fabricated_ident.clone()));
 
-        let self_expr = Expr::Reference(ExprReference {
-            attrs: vec![],
-            and_token: Default::default(),
-            mutability: None,
-            expr: Box::new(create_expr_field(self_expr_path, index, field)),
-        });
-        let fabricated_expr = Expr::Reference(ExprReference {
-            attrs: vec![],
-            and_token: Default::default(),
-            mutability: Some(Default::default()),
-            expr: Box::new(create_expr_field(fabricated_expr_path, index, field)),
-        });
+        let self_expr = create_expr_field(self_expr_path, index, field);
+        let fabricated_expr = create_expr_field(fabricated_expr_path, index, field);
         let func_expr = create_expr_path(path!(::mck::misc::Meta::proto_increment));
-        let expr = Expr::Call(create_expr_call(
+        let expr = create_expr_call(
             func_expr,
-            vec![self_expr, fabricated_expr],
-        ));
+            vec![
+                (ArgType::Reference, self_expr),
+                (ArgType::MutableReference, fabricated_expr),
+            ],
+        );
         if let Some(previous_expr) = result_expr.take() {
             // short-circuiting or for simplicity
             result_expr = Some(Expr::Binary(ExprBinary {

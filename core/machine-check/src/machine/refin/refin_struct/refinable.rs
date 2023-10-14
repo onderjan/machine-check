@@ -1,7 +1,7 @@
 use syn::{
-    punctuated::Punctuated, Block, Expr, FnArg, Generics, ImplItem, ImplItemFn, ImplItemType,
-    ItemImpl, ItemStruct, Path, PathArguments, PathSegment, Receiver, ReturnType, Signature, Stmt,
-    Type, TypeReference, Visibility,
+    punctuated::Punctuated, Block, FnArg, Generics, ImplItem, ImplItemFn, ImplItemType, ItemImpl,
+    ItemStruct, Path, PathArguments, PathSegment, Receiver, ReturnType, Signature, Stmt, Type,
+    TypeReference, Visibility,
 };
 use syn_path::path;
 
@@ -49,10 +49,10 @@ pub fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
         ty: Box::new(abstr_ref_type),
     });
 
-    let expr = Expr::Call(create_expr_call(
+    let expr = create_expr_call(
         create_expr_path(path!(::std::default::Default::default)),
         vec![],
-    ));
+    );
 
     let create_clean_mark_fn = ImplItemFn {
         attrs: vec![],

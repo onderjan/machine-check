@@ -5,19 +5,19 @@ use anyhow::anyhow;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Block, Expr, ExprField, ExprPath, ExprReference,
-    ExprTuple, FnArg, Ident, ImplItem, ImplItemFn, Index, ItemImpl, Member, Pat, PatIdent, PatType,
-    Path, PathArguments, PathSegment, ReturnType, Signature, Stmt, Type, TypeReference, TypeTuple,
+    punctuated::Punctuated, visit_mut::VisitMut, Block, Expr, ExprField, ExprPath, ExprTuple,
+    FnArg, Ident, ImplItem, ImplItemFn, Index, ItemImpl, Member, Pat, PatIdent, PatType, Path,
+    PathArguments, PathSegment, ReturnType, Signature, Stmt, Type, TypeReference, TypeTuple,
 };
 use syn_path::path;
 
 use crate::machine::util::{
     create_expr_call, create_expr_path, create_ident, create_let_stmt_from_ident_expr,
-    create_let_stmt_from_pat_expr, create_path_from_name, create_unit_expr,
-    scheme::ConversionScheme,
+    create_let_stmt_from_pat_expr, create_path_from_name, create_refine_join_stmt,
+    create_unit_expr, scheme::ConversionScheme, ArgType,
 };
 
-use super::refin_stmt::{create_join_stmt, invert_stmt};
+use super::refin_stmt::invert_stmt;
 
 pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
     let mut i = i.clone();
@@ -257,7 +257,7 @@ impl MarkConverter {
             });
 
             // generate join statement
-            stmts.push(create_join_stmt(left_expr, right_expr));
+            stmts.push(create_refine_join_stmt(left_expr, right_expr));
         }
 
         Ok((arg, stmts))
@@ -277,15 +277,10 @@ fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
     );
 
     let param = create_expr_path(create_path_from_name(&abstr_name));
-    let param = if reference {
-        Expr::Reference(ExprReference {
-            attrs: vec![],
-            and_token: Default::default(),
-            mutability: None,
-            expr: Box::new(param),
-        })
+    let arg_ty = if reference {
+        ArgType::Reference
     } else {
-        param
+        ArgType::Normal
     };
 
     create_let_stmt_from_pat_expr(
@@ -296,10 +291,10 @@ fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
             ident: mark_ident,
             subpat: None,
         }),
-        Expr::Call(create_expr_call(
+        create_expr_call(
             create_expr_path(path!(::mck::refin::Refinable::clean_refin)),
-            vec![param],
-        )),
+            vec![(arg_ty, param)],
+        ),
     )
 }
 

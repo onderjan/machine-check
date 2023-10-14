@@ -5,13 +5,13 @@ use syn_path::path;
 
 use crate::machine::util::{
     create_arg, create_expr_call, create_expr_field, create_expr_ident, create_expr_path,
-    create_expr_reference, create_ident, create_impl_item_fn, create_item_impl,
-    create_path_from_ident, create_self, create_self_arg, create_type_path, path_rule, ArgType,
+    create_ident, create_impl_item_fn, create_item_impl, create_path_from_ident,
+    create_refine_join_stmt, create_self, create_self_arg, create_type_path, path_rule, ArgType,
 };
 
 use self::{meta::generate_fabricator_impl, refinable::generate_markable_impl};
 
-use super::{mark_path_rules, refin_stmt::create_join_stmt};
+use super::mark_path_rules;
 
 mod meta;
 mod refinable;
@@ -71,7 +71,7 @@ fn generate_join_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
     for (index, field) in s.fields.iter().enumerate() {
         let left = create_expr_field(create_self(), index, field);
         let right = create_expr_field(create_expr_ident(other_ident.clone()), index, field);
-        let join_stmt = create_join_stmt(left, right);
+        let join_stmt = create_refine_join_stmt(left, right);
         join_stmts.push(join_stmt);
     }
 
@@ -99,17 +99,16 @@ fn generate_force_decay_fn(state_struct: &ItemStruct) -> anyhow::Result<ImplItem
 
     let mut stmts = Vec::new();
     for (index, field) in state_struct.fields.iter().enumerate() {
-        let decay_arg =
-            create_expr_reference(false, create_expr_field(create_self(), index, field));
-        let target_arg = create_expr_reference(
-            true,
-            create_expr_field(create_expr_ident(target_ident.clone()), index, field),
-        );
+        let decay_arg = create_expr_field(create_self(), index, field);
+        let target_arg = create_expr_field(create_expr_ident(target_ident.clone()), index, field);
         let stmt = Stmt::Expr(
-            Expr::Call(create_expr_call(
+            create_expr_call(
                 create_expr_path(path!(::mck::refin::Refine::force_decay)),
-                vec![decay_arg, target_arg],
-            )),
+                vec![
+                    (ArgType::Reference, decay_arg),
+                    (ArgType::MutableReference, target_arg),
+                ],
+            ),
             Some(Default::default()),
         );
         stmts.push(stmt);
@@ -132,16 +131,16 @@ fn generate_mark_single_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
 
     let mut result_expr: Option<Expr> = None;
     for (index, field) in s.fields.iter().enumerate() {
-        let left = create_expr_reference(true, create_expr_field(create_self(), index, field));
-        let right = create_expr_reference(
-            false,
-            create_expr_field(create_expr_ident(offer_ident.clone()), index, field),
-        );
+        let left = create_expr_field(create_self(), index, field);
+        let right = create_expr_field(create_expr_ident(offer_ident.clone()), index, field);
 
-        let expr = Expr::Call(create_expr_call(
+        let expr = create_expr_call(
             create_expr_path(path!(::mck::refin::Refine::apply_refin)),
-            vec![left, right],
-        ));
+            vec![
+                (ArgType::MutableReference, left),
+                (ArgType::Reference, right),
+            ],
+        );
 
         if let Some(previous_expr) = result_expr.take() {
             // short-circuiting or for simplicity

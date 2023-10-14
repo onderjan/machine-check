@@ -60,6 +60,18 @@ pub fn get_field_member(index: usize, field: &Field) -> Member {
     }
 }
 
+pub fn create_expr_field_unnamed(base: Expr, index: usize) -> Expr {
+    Expr::Field(ExprField {
+        attrs: vec![],
+        base: Box::new(base),
+        dot_token: Default::default(),
+        member: Member::Unnamed(Index {
+            index: index as u32,
+            span: Span::call_site(),
+        }),
+    })
+}
+
 pub fn create_expr_field(base: Expr, index: usize, field: &Field) -> Expr {
     Expr::Field(ExprField {
         attrs: vec![],
@@ -78,13 +90,19 @@ pub fn create_field_value(index: usize, field: &Field, init_expr: Expr) -> Field
     }
 }
 
-pub fn create_expr_call(func: Expr, args: Vec<Expr>) -> ExprCall {
-    ExprCall {
+pub fn create_expr_call(func: Expr, args: Vec<(ArgType, Expr)>) -> Expr {
+    let args_iter = args.into_iter().map(|(arg_ty, expr)| match arg_ty {
+        ArgType::Normal => expr,
+        ArgType::Reference => create_expr_reference(false, expr),
+        ArgType::MutableReference => create_expr_reference(true, expr),
+    });
+
+    Expr::Call(ExprCall {
         attrs: vec![],
         func: Box::new(func),
         paren_token: Default::default(),
-        args: Punctuated::from_iter(args.into_iter()),
-    }
+        args: Punctuated::from_iter(args_iter),
+    })
 }
 
 pub fn create_expr_path(path: Path) -> Expr {
@@ -289,4 +307,17 @@ pub fn create_expr_reference(mutable: bool, expr: Expr) -> Expr {
         mutability,
         expr: Box::new(expr),
     })
+}
+
+pub fn create_refine_join_stmt(left: Expr, right: Expr) -> Stmt {
+    Stmt::Expr(
+        create_expr_call(
+            create_expr_path(path!(::mck::refin::Refine::apply_join)),
+            vec![
+                (ArgType::MutableReference, left),
+                (ArgType::Reference, right),
+            ],
+        ),
+        Some(Default::default()),
+    )
 }
