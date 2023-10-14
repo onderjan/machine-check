@@ -125,6 +125,38 @@ fn minmax_compute<const L: u32>(
     )
 }
 
+fn addsub_zeta_k_fn<const L: u32>(
+    left_min: ConcreteBitvector<L>,
+    left_max: ConcreteBitvector<L>,
+    right_min: ConcreteBitvector<L>,
+    right_max: ConcreteBitvector<L>,
+    k: u32,
+    func: fn(u64, u64) -> (u64, bool),
+) -> (u64, u64) {
+    // prepare a mask that selects interval [0, k]
+    let mod_mask = util::compute_u64_mask(k + 1);
+
+    let left_min = left_min.as_unsigned() & mod_mask;
+    let left_max = left_max.as_unsigned() & mod_mask;
+    let right_min = right_min.as_unsigned() & mod_mask;
+    let right_max = right_max.as_unsigned() & mod_mask;
+
+    // shift right, using the overflow as well
+    let zeta_k_min = shr_overflowing(func(left_min, right_min), k);
+    let zeta_k_max = shr_overflowing(func(left_max, right_max), k);
+
+    (zeta_k_min, zeta_k_max)
+}
+
+fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
+    let mut result = overflowing_result.0 >> k;
+    if overflowing_result.1 && k > 0 {
+        let overflow_pos = u64::BITS - k;
+        result |= 1u64 << overflow_pos;
+    }
+    result
+}
+
 fn convert_uarith<const L: u32>(min: u64, max: u64) -> ThreeValuedBitvector<L> {
     // make highest different bit and all after it unknown
     let different = min ^ max;
@@ -251,15 +283,6 @@ fn compute_sdivrem<const L: u32>(
     )
 }
 
-fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
-    let mut result = overflowing_result.0 >> k;
-    if overflowing_result.1 && k > 0 {
-        let overflow_pos = u64::BITS - k;
-        result |= 1u64 << overflow_pos;
-    }
-    result
-}
-
 fn apply_signed_op<const L: u32>(
     zeros: &mut u64,
     ones: &mut u64,
@@ -296,27 +319,4 @@ fn apply_signed_op<const L: u32>(
 
     *zeros |= unknown_mask;
     *ones |= unknown_mask;
-}
-
-fn addsub_zeta_k_fn<const L: u32>(
-    left_min: ConcreteBitvector<L>,
-    left_max: ConcreteBitvector<L>,
-    right_min: ConcreteBitvector<L>,
-    right_max: ConcreteBitvector<L>,
-    k: u32,
-    func: fn(u64, u64) -> (u64, bool),
-) -> (u64, u64) {
-    // prepare a mask that selects interval [0, k]
-    let mod_mask = util::compute_u64_mask(k + 1);
-
-    let left_min = left_min.as_unsigned() & mod_mask;
-    let left_max = left_max.as_unsigned() & mod_mask;
-    let right_min = right_min.as_unsigned() & mod_mask;
-    let right_max = right_max.as_unsigned() & mod_mask;
-
-    // shift right, using the overflow as well
-    let zeta_k_min = shr_overflowing(func(left_min, right_min), k);
-    let zeta_k_max = shr_overflowing(func(left_max, right_max), k);
-
-    (zeta_k_min, zeta_k_max)
 }

@@ -1,4 +1,4 @@
-pub const fn compute_u64_mask(length: u32) -> u64 {
+pub(super) const fn compute_u64_mask(length: u32) -> u64 {
     if length == 0 {
         return 0;
     }
@@ -15,7 +15,7 @@ pub const fn compute_u64_mask(length: u32) -> u64 {
     }
 }
 
-pub const fn compute_u64_sign_bit_mask(length: u32) -> u64 {
+pub(super) const fn compute_u64_sign_bit_mask(length: u32) -> u64 {
     if length == 0 {
         return 0;
     }
@@ -28,6 +28,6 @@ pub const fn compute_u64_sign_bit_mask(length: u32) -> u64 {
     }
 }
 
-pub fn is_u64_highest_bit_set(value: u64, length: u32) -> bool {
+pub(super) fn is_u64_highest_bit_set(value: u64, length: u32) -> bool {
     value & compute_u64_sign_bit_mask(length) != 0
 }
