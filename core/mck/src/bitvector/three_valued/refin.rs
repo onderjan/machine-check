@@ -347,7 +347,7 @@ fn shift<const L: u32>(
     let mut shifted_mark_earlier = MarkBitvector::new_unmarked();
     for i in min_shift..=max_shift {
         let machine_i = concr::Bitvector::new(i);
-        if amount_input.can_contain(machine_i) {
+        if amount_input.contains_concr(&machine_i) {
             // shift the mark
             let shifted_mark = shift_fn(mark_later.0, machine_i);
             shifted_mark_earlier.apply_join(&MarkBitvector(shifted_mark));

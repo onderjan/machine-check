@@ -18,7 +18,7 @@ fn exact_uni_mark<const L: u32, const X: u32>(
             }
             let with_zero = concr::Bitvector::new(a);
             let with_one = concr::Bitvector::new(a | (1 << i));
-            if !a_abstr.can_contain(with_zero) || !a_abstr.can_contain(with_one) {
+            if !a_abstr.contains_concr(&with_zero) || !a_abstr.contains_concr(&with_one) {
                 continue;
             }
             if concr_func(with_zero).as_unsigned() & mark_mask
@@ -156,11 +156,11 @@ fn exact_bi_mark<const L: u32, const X: u32>(
             }
             let with_zero = concr::Bitvector::new(our);
             let with_one = concr::Bitvector::new(our | (1 << i));
-            if !a_abstr.can_contain(with_zero) || !a_abstr.can_contain(with_one) {
+            if !a_abstr.contains_concr(&with_zero) || !a_abstr.contains_concr(&with_one) {
                 continue;
             }
             for other in 0..(1 << L) {
-                if !b_abstr.can_contain(concr::Bitvector::new(other)) {
+                if !b_abstr.contains_concr(&concr::Bitvector::new(other)) {
                     continue;
                 }
                 let other = concr::Bitvector::new(other);
@@ -179,12 +179,12 @@ fn exact_bi_mark<const L: u32, const X: u32>(
             }
             let with_zero = concr::Bitvector::new(our);
             let with_one = concr::Bitvector::new(our | (1 << i));
-            if !b_abstr.can_contain(with_zero) || !b_abstr.can_contain(with_one) {
+            if !b_abstr.contains_concr(&with_zero) || !b_abstr.contains_concr(&with_one) {
                 continue;
             }
             for other in 0..(1 << L) {
                 let other = concr::Bitvector::new(other);
-                if !a_abstr.can_contain(other) {
+                if !a_abstr.contains_concr(&other) {
                     continue;
                 }
                 if concr_func(other, with_zero).as_unsigned() & mark_mask

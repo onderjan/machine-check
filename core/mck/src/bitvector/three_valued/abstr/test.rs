@@ -1,54 +1,106 @@
-use crate::bitvector::util;
-
 use crate::forward::*;
 
 use super::*;
 
-fn join_concr_uni<const L: u32, const X: u32>(
-    abstr_a: ThreeValuedBitvector<L>,
-    concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
-) -> ThreeValuedBitvector<X> {
-    let x_mask = util::compute_u64_mask(X);
-    let mut zeros = 0;
-    let mut ones = 0;
-    for a in 0..(1 << L) {
-        let a = concr::Bitvector::<L>::new(a);
-        if !abstr_a.can_contain(a) {
-            continue;
-        }
-        let concr_result = concr_func(a);
-        zeros |= !concr_result.as_unsigned() & x_mask;
-        ones |= concr_result.as_unsigned();
-    }
-    ThreeValuedBitvector::from_zeros_ones(concr::Bitvector::new(zeros), concr::Bitvector::new(ones))
+// --- ANECDOTAL TESTS ---
+
+#[test]
+pub fn support() {
+    let cafe = ThreeValuedBitvector::<16>::new(0xCAFE);
+    assert_eq!(
+        cafe.get_possibly_zero_flags(),
+        concr::Bitvector::new(0x3501)
+    );
+    assert_eq!(cafe.get_possibly_one_flags(), concr::Bitvector::new(0xCAFE));
+    assert_eq!(cafe.get_unknown_bits(), concr::Bitvector::new(0));
+    assert_eq!(cafe.concrete_value(), Some(concr::Bitvector::new(0xCAFE)));
+    assert!(cafe.contains_concr(&concr::Bitvector::new(0xCAFE)));
+    assert!(!cafe.contains_concr(&concr::Bitvector::new(0xCAFF)));
+
+    let unknown = ThreeValuedBitvector::<16>::new_unknown();
+    assert_eq!(
+        unknown.get_possibly_zero_flags(),
+        concr::Bitvector::<16>::new(0xFFFF)
+    );
+    assert_eq!(
+        unknown.get_possibly_one_flags(),
+        concr::Bitvector::<16>::new(0xFFFF)
+    );
+    assert_eq!(unknown.get_unknown_bits(), concr::Bitvector::new(0xFFFF));
+    assert_eq!(unknown.concrete_value(), None);
+    assert!(unknown.contains_concr(&concr::Bitvector::new(0xCAFE)));
+    assert!(unknown.contains_concr(&concr::Bitvector::new(0xCAFF)));
+
+    let partially_known = ThreeValuedBitvector::<16>::new_value_known(
+        concr::Bitvector::new(0x1337),
+        concr::Bitvector::new(0xF0F0),
+    );
+    assert_eq!(
+        partially_known.get_possibly_zero_flags(),
+        concr::Bitvector::<16>::new(0xEFCF)
+    );
+    assert_eq!(
+        partially_known.get_possibly_one_flags(),
+        concr::Bitvector::<16>::new(0x1F3F)
+    );
+    assert_eq!(
+        partially_known.get_unknown_bits(),
+        concr::Bitvector::new(0x0F0F)
+    );
+    assert_eq!(partially_known.concrete_value(), None);
+    assert!(partially_known.contains_concr(&concr::Bitvector::new(0x1337)));
+    assert!(partially_known.contains_concr(&concr::Bitvector::new(0x1D30)));
+    assert!(!partially_known.contains_concr(&concr::Bitvector::new(0xCAFE)));
+    assert!(!partially_known.contains_concr(&concr::Bitvector::new(0xCAFF)));
+
+    assert!(cafe.contains(&cafe));
+    assert!(!cafe.contains(&partially_known));
+    assert!(!cafe.contains(&unknown));
+
+    assert!(!partially_known.contains(&cafe));
+    assert!(partially_known.contains(&partially_known));
+    assert!(!partially_known.contains(&unknown));
+
+    assert!(unknown.contains(&cafe));
+    assert!(unknown.contains(&partially_known));
+    assert!(unknown.contains(&unknown));
+
+    assert_eq!(
+        cafe.concrete_join(concr::Bitvector::new(0x1337)),
+        ThreeValuedBitvector::from_zeros_ones(
+            concr::Bitvector::new(0xFDC9),
+            concr::Bitvector::new(0xDBFF)
+        )
+    );
+
+    assert_eq!(
+        ThreeValuedBitvector::<8>::all_of_length_iter().count(),
+        3usize.pow(8)
+    );
 }
 
-fn exec_uni_check<const L: u32, const X: u32>(
-    abstr_func: fn(ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
-    concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
-) {
-    let mask = util::compute_u64_mask(L);
-    for a_zeros in 0..(1 << L) {
-        for a_ones in 0..(1 << L) {
-            if (a_zeros | a_ones) & mask != mask {
-                continue;
-            }
-            let a = ThreeValuedBitvector::<L>::from_zeros_ones(
-                concr::Bitvector::new(a_zeros),
-                concr::Bitvector::new(a_ones),
-            );
-
-            let abstr_result = abstr_func(a);
-            let equiv_result = join_concr_uni(a, concr_func);
-            if abstr_result != equiv_result {
-                panic!(
-                    "Wrong result with parameter {}, expected {}, got {}",
-                    a, equiv_result, abstr_result
-                );
-            }
-        }
-    }
+#[test]
+#[should_panic]
+pub fn bitvec_too_large() {
+    let _ = ThreeValuedBitvector::<70>::new(0x0924);
 }
+
+#[test]
+#[should_panic]
+pub fn invalid_new() {
+    let _ = ThreeValuedBitvector::<3>::new(0x0924);
+}
+
+#[test]
+#[should_panic]
+pub fn invalid_zeros_ones() {
+    let _ = ThreeValuedBitvector::<8>::from_zeros_ones(
+        concr::Bitvector::new(0xFFEC),
+        concr::Bitvector::new(0xF34F),
+    );
+}
+
+// --- EXHAUSTIVE TESTS ---
 
 macro_rules! uni_op_test {
     ($op:tt) => {
@@ -78,89 +130,6 @@ macro_rules! ext_op_test {
             });
         });
     };
-}
-
-fn join_concr_bi<const L: u32, const X: u32>(
-    abstr_a: ThreeValuedBitvector<L>,
-    abstr_b: ThreeValuedBitvector<L>,
-    concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
-) -> ThreeValuedBitvector<X> {
-    let x_mask = util::compute_u64_mask(X);
-    let mut zeros = 0;
-    let mut ones = 0;
-    for a in 0..(1 << L) {
-        let a = concr::Bitvector::<L>::new(a);
-        if !abstr_a.can_contain(a) {
-            continue;
-        }
-        for b in 0..(1 << L) {
-            let b = concr::Bitvector::<L>::new(b);
-            if !abstr_b.can_contain(b) {
-                continue;
-            }
-
-            let concr_result = concr_func(a, b);
-            zeros |= !concr_result.as_unsigned() & x_mask;
-            ones |= concr_result.as_unsigned();
-        }
-    }
-    ThreeValuedBitvector::from_zeros_ones(concr::Bitvector::new(zeros), concr::Bitvector::new(ones))
-}
-
-fn exec_bi_check<const L: u32, const X: u32>(
-    abstr_func: fn(ThreeValuedBitvector<L>, ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
-    concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
-    exact: bool,
-) {
-    let mask = util::compute_u64_mask(L);
-    for a_zeros in 0..(1 << L) {
-        for a_ones in 0..(1 << L) {
-            if (a_zeros | a_ones) & mask != mask {
-                continue;
-            }
-            let a = ThreeValuedBitvector::<L>::from_zeros_ones(
-                concr::Bitvector::new(a_zeros),
-                concr::Bitvector::new(a_ones),
-            );
-
-            for b_zeros in 0..(1 << L) {
-                for b_ones in 0..(1 << L) {
-                    if (b_zeros | b_ones) & mask != mask {
-                        continue;
-                    }
-                    let b = ThreeValuedBitvector::<L>::from_zeros_ones(
-                        concr::Bitvector::new(b_zeros),
-                        concr::Bitvector::new(b_ones),
-                    );
-
-                    let abstr_result = abstr_func(a, b);
-                    let equiv_result = join_concr_bi(a, b, concr_func);
-                    if exact {
-                        if abstr_result != equiv_result {
-                            panic!(
-                                "Non-exact result with parameters {}, {}, expected {}, got {}",
-                                a, b, equiv_result, abstr_result
-                            );
-                        }
-                    } else if !abstr_result.contains(&equiv_result) {
-                        panic!(
-                            "Unsound result with parameters {}, {}, expected {}, got {}",
-                            a, b, equiv_result, abstr_result
-                        );
-                    }
-                    if a.concrete_value().is_some()
-                        && b.concrete_value().is_some()
-                        && abstr_result.concrete_value().is_none()
-                    {
-                        panic!(
-                            "Non-concrete-value result with concrete-value parameters {}, {}, expected {}, got {}",
-                            a, b, equiv_result, abstr_result
-                        );
-                    }
-                }
-            }
-        }
-    }
 }
 
 macro_rules! bi_op_test {
@@ -218,3 +187,85 @@ bi_op_test!(arith_shr, true);
 // extension tests
 ext_op_test!(uext);
 ext_op_test!(sext);
+
+fn exec_uni_check<const L: u32, const X: u32>(
+    abstr_func: fn(ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
+    concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
+) {
+    for a in ThreeValuedBitvector::<L>::all_of_length_iter() {
+        let abstr_result = abstr_func(a);
+        let equiv_result = join_concr_iter(
+            concr::Bitvector::<L>::all_of_length_iter()
+                .filter(|c| a.contains_concr(c))
+                .map(concr_func),
+        );
+        if abstr_result != equiv_result {
+            panic!(
+                "Wrong result with parameter {}, expected {}, got {}",
+                a, equiv_result, abstr_result
+            );
+        }
+    }
+}
+
+fn exec_bi_check<const L: u32, const X: u32>(
+    abstr_func: fn(ThreeValuedBitvector<L>, ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
+    concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
+    exact: bool,
+) {
+    for a in ThreeValuedBitvector::<L>::all_of_length_iter() {
+        for b in ThreeValuedBitvector::<L>::all_of_length_iter() {
+            let abstr_result = abstr_func(a, b);
+
+            let a_concr_iter =
+                concr::Bitvector::<L>::all_of_length_iter().filter(|c| a.contains_concr(c));
+            let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
+                concr::Bitvector::<L>::all_of_length_iter()
+                    .filter(|c| b.contains_concr(c))
+                    .map(move |b_concr| concr_func(a_concr, b_concr))
+            }));
+
+            if exact {
+                if abstr_result != equiv_result {
+                    panic!(
+                        "Non-exact result with parameters {}, {}, expected {}, got {}",
+                        a, b, equiv_result, abstr_result
+                    );
+                }
+            } else if !abstr_result.contains(&equiv_result) {
+                panic!(
+                    "Unsound result with parameters {}, {}, expected {}, got {}",
+                    a, b, equiv_result, abstr_result
+                );
+            }
+            if a.concrete_value().is_some()
+                && b.concrete_value().is_some()
+                && abstr_result.concrete_value().is_none()
+            {
+                panic!(
+                            "Non-concrete-value result with concrete-value parameters {}, {}, expected {}, got {}",
+                            a, b, equiv_result, abstr_result
+                        );
+            }
+        }
+    }
+}
+
+fn join_concr_iter<const L: u32>(
+    mut iter: impl Iterator<Item = concr::Bitvector<L>>,
+) -> ThreeValuedBitvector<L> {
+    if L == 0 {
+        return ThreeValuedBitvector::new_unknown();
+    }
+
+    let first_concrete = iter
+        .next()
+        .expect("Expected at least one concrete bitvector in iterator");
+
+    let mut result = ThreeValuedBitvector::from_concrete(first_concrete);
+
+    for c in iter {
+        result = result.concrete_join(c)
+    }
+    result
+}

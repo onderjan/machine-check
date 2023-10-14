@@ -8,17 +8,36 @@ use crate::{
 use super::ThreeValuedBitvector;
 
 impl<const L: u32> ThreeValuedBitvector<L> {
+    #[must_use]
     pub fn new(value: u64) -> Self {
         Self::from_concrete(concr::Bitvector::new(value))
     }
 
+    #[must_use]
     pub fn from_zeros_ones(zeros: concr::Bitvector<L>, ones: concr::Bitvector<L>) -> Self {
+        match Self::try_from_zeros_ones(zeros, ones) {
+            Ok(ok) => ok,
+            Err(_) => panic!(
+                "Invalid zeros-ones with some unset bits (length {}, zeros {}, ones {})",
+                L, zeros, ones
+            ),
+        }
+    }
+
+    pub fn try_from_zeros_ones(
+        zeros: concr::Bitvector<L>,
+        ones: concr::Bitvector<L>,
+    ) -> Result<Self, ()> {
         let mask = Self::get_mask();
         // the used bits must be set in zeros, ones, or both
-        assert_eq!(Bitwise::bitor(zeros, ones), mask);
-        Self { zeros, ones }
+        if Bitwise::bitor(zeros, ones) != mask {
+            return Err(());
+        }
+        Ok(Self { zeros, ones })
     }
-    fn from_concrete(value: concr::Bitvector<L>) -> Self {
+
+    #[must_use]
+    pub fn from_concrete(value: concr::Bitvector<L>) -> Self {
         // bit-negate for zeros
         let zeros = Bitwise::not(value);
         // leave as-is for ones
@@ -27,6 +46,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         Self::from_zeros_ones(zeros, ones)
     }
 
+    #[must_use]
     pub fn new_unknown() -> Self {
         // all zeros and ones set within mask
         let zeros = Self::get_mask();
@@ -34,29 +54,35 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         Self::from_zeros_ones(zeros, ones)
     }
 
+    #[must_use]
     pub fn new_value_known(value: concr::Bitvector<L>, known: concr::Bitvector<L>) -> Self {
         let unknown = Bitwise::not(known);
         Self::new_value_unknown(value, unknown)
     }
 
+    #[must_use]
     pub fn new_value_unknown(value: concr::Bitvector<L>, unknown: concr::Bitvector<L>) -> Self {
         let zeros = Bitwise::bitor(Bitwise::not(value), unknown);
         let ones = Bitwise::bitor(value, unknown);
         Self::from_zeros_ones(zeros, ones)
     }
 
+    #[must_use]
     pub fn get_unknown_bits(&self) -> concr::Bitvector<L> {
         Bitwise::bitand(self.zeros, self.ones)
     }
 
+    #[must_use]
     pub fn get_possibly_one_flags(&self) -> concr::Bitvector<L> {
         self.ones
     }
 
+    #[must_use]
     pub fn get_possibly_zero_flags(&self) -> concr::Bitvector<L> {
         self.zeros
     }
 
+    #[must_use]
     pub fn concrete_value(&self) -> Option<concr::Bitvector<L>> {
         // all bits must be equal
         let nxor = Bitwise::not(Bitwise::bitxor(self.ones, self.zeros));
@@ -67,28 +93,34 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         Some(self.ones)
     }
 
+    #[must_use]
     pub fn get_mask() -> concr::Bitvector<L> {
         concr::Bitvector::new(util::compute_u64_mask(L))
     }
 
+    #[must_use]
     pub fn is_zeros_sign_bit_set(&self) -> bool {
         self.zeros.is_sign_bit_set()
     }
 
+    #[must_use]
     pub fn is_ones_sign_bit_set(&self) -> bool {
         self.ones.is_sign_bit_set()
     }
 
+    #[must_use]
     pub fn umin(&self) -> concr::Bitvector<L> {
         // unsigned min value is value of bit-negated zeros (one only where it must be)
         Bitwise::not(self.zeros)
     }
 
+    #[must_use]
     pub fn umax(&self) -> concr::Bitvector<L> {
         // unsigned max value is value of ones (one everywhere it can be)
         self.ones
     }
 
+    #[must_use]
     pub fn smin(&self) -> concr::Bitvector<L> {
         let sign_bit_mask = concr::Bitvector::<L>::sign_bit_mask();
         // take the unsigned minimum
@@ -101,6 +133,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         result
     }
 
+    #[must_use]
     pub fn smax(&self) -> concr::Bitvector<L> {
         let sign_bit_mask = concr::Bitvector::<L>::sign_bit_mask();
         // take the unsigned maximum
@@ -113,6 +146,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         result
     }
 
+    #[must_use]
     pub fn contains(&self, rhs: &Self) -> bool {
         // rhs zeros must be within our zeros and rhs ones must be within our ones
         let excessive_rhs_zeros = rhs.zeros.bitand(self.zeros.not());
@@ -120,11 +154,27 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
     }
 
-    pub fn can_contain(&self, a: concr::Bitvector<L>) -> bool {
+    #[must_use]
+    pub fn contains_concr(&self, a: &concr::Bitvector<L>) -> bool {
         // value zeros must be within our zeros and value ones must be within our ones
         let excessive_rhs_zeros = a.not().bitand(self.zeros.not());
         let excessive_rhs_ones = a.bitand(self.ones.not());
         excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
+    }
+
+    #[must_use]
+    pub fn concrete_join(&self, concrete: concr::Bitvector<L>) -> Self {
+        let zeros = self.zeros.bitor(concrete.not());
+        let ones = self.ones.bitor(concrete);
+        Self::from_zeros_ones(zeros, ones)
+    }
+
+    pub fn all_of_length_iter() -> impl Iterator<Item = Self> {
+        let zeros_iter = concr::Bitvector::<L>::all_of_length_iter();
+        zeros_iter.flat_map(|zeros| {
+            let ones_iter = concr::Bitvector::<L>::all_of_length_iter();
+            ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
+        })
     }
 }
 

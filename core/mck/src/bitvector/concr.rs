@@ -64,6 +64,10 @@ impl<const L: u32> Bitvector<L> {
     pub fn bit_mask() -> Bitvector<L> {
         Bitvector(util::compute_u64_mask(L))
     }
+
+    pub fn all_of_length_iter() -> impl Iterator<Item = Self> {
+        (0..=Self::bit_mask().as_unsigned()).map(Self)
+    }
 }
 
 impl<const L: u32> TypedEq for Bitvector<L> {

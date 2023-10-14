@@ -90,7 +90,7 @@ fn shift<const L: u32>(
     // join by the other shifts iteratively
     for i in min_shift..=max_shift {
         let bi = concr::Bitvector::new(i);
-        if amount.can_contain(bi) {
+        if amount.contains_concr(&bi) {
             let shifted_zeros = zeros_shift_fn(value.zeros, bi);
             let shifted_ones = ones_shift_fn(value.ones, bi);
             zeros = zeros.bitor(shifted_zeros);
