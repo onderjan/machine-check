@@ -16,7 +16,8 @@ pub fn apply(machine: &mut syn::File) -> Result<(), anyhow::Error> {
     struct Visitor();
     impl VisitMut for Visitor {
         fn visit_item_struct_mut(&mut self, s: &mut ItemStruct) {
-            s.attrs.push(generate_derive_attribute(quote!(Default)));
+            s.attrs
+                .push(generate_derive_attribute(quote!(::std::default::Default)));
         }
     }
     Visitor().visit_file_mut(machine);

@@ -109,14 +109,14 @@ impl Translator {
             #![no_implicit_prelude]
             #![allow(dead_code, unused_variables, clippy::all)]
 
-            #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+            #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
             pub struct Input {
                 #(#input_fields),*
             }
 
             impl ::mck::concr::Input for Input {}
 
-            #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+            #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
             pub struct State {
                 #(#state_fields),*
             }
