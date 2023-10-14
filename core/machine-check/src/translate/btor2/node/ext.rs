@@ -3,9 +3,9 @@ use syn::parse_quote;
 
 use crate::translate::btor2::util::create_rnid_expr;
 
-use super::StmtTranslator;
+use super::NodeTranslator;
 
-impl<'a> StmtTranslator<'a> {
+impl<'a> NodeTranslator<'a> {
     pub fn ext_op_expr(&self, op: &ExtOp) -> Result<syn::Expr, anyhow::Error> {
         let a_tokens = create_rnid_expr(op.a);
 

@@ -1,9 +1,9 @@
 use btor2rs::Const;
 use syn::{parse_quote, Expr};
 
-use super::StmtTranslator;
+use super::NodeTranslator;
 
-impl<'a> StmtTranslator<'a> {
+impl<'a> NodeTranslator<'a> {
     pub fn const_expr(&self, value: &Const) -> Result<Expr, anyhow::Error> {
         let result_sort = self.get_bitvec(value.sid)?;
         // parse the value first to disallow hijinks

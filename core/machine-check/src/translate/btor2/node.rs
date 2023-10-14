@@ -19,24 +19,24 @@ pub(super) fn translate(
     translator: &Translator,
     for_init: bool,
 ) -> Result<Vec<syn::Stmt>, anyhow::Error> {
-    let mut transcription = StmtTranslator {
+    let mut node_translator = NodeTranslator {
         translator,
         stmts: Vec::new(),
         for_init,
     };
     for (nid, node) in translator.btor2.nodes.iter() {
-        transcription.translate_node(*nid, node)?;
+        node_translator.translate_node(*nid, node)?;
     }
-    Ok(transcription.stmts)
+    Ok(node_translator.stmts)
 }
 
-struct StmtTranslator<'a> {
+struct NodeTranslator<'a> {
     translator: &'a Translator,
     stmts: Vec<syn::Stmt>,
     for_init: bool,
 }
 
-impl<'a> StmtTranslator<'a> {
+impl<'a> NodeTranslator<'a> {
     pub fn translate_node(&mut self, nid: Nid, node: &Node) -> Result<(), anyhow::Error> {
         let result_ident = create_nid_ident(nid);
         match node {

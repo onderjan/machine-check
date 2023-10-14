@@ -3,9 +3,9 @@ use syn::{parse_quote, Expr};
 
 use crate::translate::btor2::util::{create_rnid_expr, create_value_expr, single_bits_xor};
 
-use super::StmtTranslator;
+use super::NodeTranslator;
 
-impl<'a> StmtTranslator<'a> {
+impl<'a> NodeTranslator<'a> {
     pub fn uni_op_expr(&self, op: &UniOp) -> Result<syn::Expr, anyhow::Error> {
         let result_bitvec = self.get_bitvec(op.sid)?;
         let a_bitvec = self.get_nid_bitvec(op.a.nid())?;

@@ -1,9 +1,9 @@
 use btor2rs::{Bitvec, Nid, Sid, Sort};
 
-use super::StmtTranslator;
+use super::NodeTranslator;
 use anyhow::anyhow;
 
-impl<'a> StmtTranslator<'a> {
+impl<'a> NodeTranslator<'a> {
     pub(super) fn get_sort(&self, sid: Sid) -> Result<&Sort, anyhow::Error> {
         self.translator
             .btor2

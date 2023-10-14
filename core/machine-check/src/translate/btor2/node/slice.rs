@@ -3,9 +3,9 @@ use syn::{parse_quote, Expr};
 
 use crate::translate::btor2::util::{create_rnid_expr, create_value_expr};
 
-use super::StmtTranslator;
+use super::NodeTranslator;
 
-impl<'a> StmtTranslator<'a> {
+impl<'a> NodeTranslator<'a> {
     pub fn slice_op_expr(&self, op: &SliceOp) -> Result<syn::Expr, anyhow::Error> {
         let a_sort = self.get_nid_bitvec(op.a.nid())?;
         let a_tokens = create_rnid_expr(op.a);

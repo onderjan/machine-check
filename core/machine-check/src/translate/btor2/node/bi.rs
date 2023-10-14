@@ -4,9 +4,9 @@ use syn::{parse_quote, Expr};
 
 use crate::translate::btor2::util::{create_rnid_expr, create_value_expr};
 
-use super::StmtTranslator;
+use super::NodeTranslator;
 
-impl<'a> StmtTranslator<'a> {
+impl<'a> NodeTranslator<'a> {
     pub fn bi_op_expr(&self, op: &BiOp) -> Result<syn::Expr, anyhow::Error> {
         let a_tokens = create_rnid_expr(op.a);
         let b_tokens = create_rnid_expr(op.b);
