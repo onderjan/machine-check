@@ -16,7 +16,7 @@ use tempdir::TempDir;
 use crate::{
     machine::{create_abstract_machine, write_machine},
     prepare::{self, Preparation},
-    transcribe,
+    translate,
     util::log_process_output,
     CheckError, Cli, VerifyCli,
 };
@@ -146,7 +146,7 @@ impl Verify {
             .map_err(|err| CheckError::CreateDir(src_dir_path.clone(), err))?;
         let main_path = src_dir_path.join("main.rs");
 
-        let concrete_machine: syn::File = transcribe::transcribe(&self.verify_args.system_path)?;
+        let concrete_machine: syn::File = translate::translate(&self.verify_args.system_path)?;
         let mut abstract_machine =
             create_abstract_machine(&concrete_machine).map_err(CheckError::AbstractMachine)?;
 

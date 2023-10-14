@@ -7,37 +7,37 @@ use syn::{parse_quote, Expr};
 
 use super::{
     util::{create_nid_ident, create_rnid_expr, create_value_expr, single_bits_xor},
-    Transcriber,
+    Translator,
 };
 
-pub(super) fn transcribe(
-    transcriber: &Transcriber,
+pub(super) fn translate(
+    translator: &Translator,
     for_init: bool,
 ) -> Result<Vec<syn::Stmt>, anyhow::Error> {
-    let mut transcription = StmtTranscriber {
-        transcriber,
+    let mut transcription = StmtTranslator {
+        translator,
         stmts: Vec::new(),
         for_init,
     };
-    for (nid, node) in transcriber.btor2.nodes.iter() {
-        transcription.transcribe_node(*nid, node)?;
+    for (nid, node) in translator.btor2.nodes.iter() {
+        transcription.translate_node(*nid, node)?;
     }
     Ok(transcription.stmts)
 }
 
-struct StmtTranscriber<'a> {
-    transcriber: &'a Transcriber,
+struct StmtTranslator<'a> {
+    translator: &'a Translator,
     stmts: Vec<syn::Stmt>,
     for_init: bool,
 }
 
-impl<'a> StmtTranscriber<'a> {
-    pub fn transcribe_node(&mut self, nid: Nid, node: &Node) -> Result<(), anyhow::Error> {
+impl<'a> StmtTranslator<'a> {
+    pub fn translate_node(&mut self, nid: Nid, node: &Node) -> Result<(), anyhow::Error> {
         let result_ident = create_nid_ident(nid);
         match node {
             Node::State(_) => {
                 // the state info should definitely be present for the state
-                let state_info = self.transcriber.state_info_map.get(&nid).unwrap();
+                let state_info = self.translator.state_info_map.get(&nid).unwrap();
 
                 let treat_as_input = if self.for_init {
                     if let Some(init) = state_info.init {
@@ -381,7 +381,7 @@ impl<'a> StmtTranscriber<'a> {
     }
 
     fn get_sort(&self, sid: Sid) -> Result<&Sort, anyhow::Error> {
-        self.transcriber
+        self.translator
             .btor2
             .sorts
             .get(&sid)
@@ -398,7 +398,7 @@ impl<'a> StmtTranscriber<'a> {
 
     fn get_nid_bitvec(&self, nid: Nid) -> Result<&Bitvec, anyhow::Error> {
         let node = self
-            .transcriber
+            .translator
             .btor2
             .nodes
             .get(&nid)

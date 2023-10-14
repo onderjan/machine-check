@@ -15,7 +15,7 @@ use self::util::{
     create_nid_ident, create_rnid_expr, create_sid_type, create_single_bit_type, single_bits_and,
 };
 
-pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
+pub fn translate(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
     let file = fs::File::open(system_path)
         .map_err(|err| CheckError::OpenFile(system_path.to_path_buf(), err))?;
 
@@ -24,10 +24,10 @@ pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
         lines_result.map_err(|err| CheckError::ReadFile(system_path.to_path_buf(), err))?;
     let btor2 = Btor2::parse(lines.iter().map(|str| str.as_ref()))
         .map_err(CheckError::TranslateFromBtor2)?;
-    let transcriber = Transcriber::new(btor2);
-    transcriber
+    let translator = Translator::new(btor2);
+    translator
         .map_err(CheckError::TranslateFromBtor2)?
-        .transcribe()
+        .translate()
         .map_err(CheckError::TranslateFromBtor2)
 }
 
@@ -37,15 +37,15 @@ struct StateInfo {
     next: Option<Rnid>,
 }
 
-struct Transcriber {
+struct Translator {
     btor2: Btor2,
     state_info_map: BTreeMap<Nid, StateInfo>,
     constraints: Vec<Rnid>,
     bads: Vec<Rnid>,
 }
 
-impl Transcriber {
-    fn new(btor2: Btor2) -> Result<Transcriber, anyhow::Error> {
+impl Translator {
+    fn new(btor2: Btor2) -> Result<Translator, anyhow::Error> {
         let mut state_info_map = BTreeMap::new();
         let mut constraints = Vec::new();
         let mut bads = Vec::new();
@@ -87,7 +87,7 @@ impl Transcriber {
                 _ => (),
             };
         }
-        Ok(Transcriber {
+        Ok(Translator {
             btor2,
             state_info_map,
             constraints,
@@ -95,14 +95,14 @@ impl Transcriber {
         })
     }
 
-    pub fn transcribe(&self) -> Result<syn::File, anyhow::Error> {
+    pub fn translate(&self) -> Result<syn::File, anyhow::Error> {
         // construct input and state fields
         let input_fields = self.create_input_fields()?;
         let state_fields = self.create_state_fields()?;
 
         // construct init and next statements
-        let init_statements = node::transcribe(self, true)?;
-        let next_statements = node::transcribe(self, false)?;
+        let init_statements = node::translate(self, true)?;
+        let next_statements = node::translate(self, false)?;
 
         // construct init and next results
         let init_result = self.create_result(true)?;
