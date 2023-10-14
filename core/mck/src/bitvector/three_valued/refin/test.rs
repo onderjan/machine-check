@@ -2,7 +2,7 @@ use crate::bitvector::{refin, three_valued::abstr::ThreeValuedBitvector, util};
 
 use super::*;
 fn exact_uni_mark<const L: u32, const X: u32>(
-    a_abstr: abstr::Bitvector<L>,
+    a_abstr: ThreeValuedBitvector<L>,
     a_mark: refin::Bitvector<X>,
     concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
 ) -> MarkBitvector<L> {
