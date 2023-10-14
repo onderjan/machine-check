@@ -3,6 +3,8 @@ use btor2rs::{Bitvec, Btor2, Nid, Rnid, Sid, Sort};
 use proc_macro2::Span;
 use syn::{parse_quote, Expr, Ident, Type};
 
+use super::node::constant::create_value_expr;
+
 pub fn create_nid_ident(nid: Nid) -> Ident {
     Ident::new(&format!("node_{}", nid.get()), Span::call_site())
 }
@@ -24,15 +26,6 @@ pub fn create_sid_type(btor2: &Btor2, sid: Sid) -> Result<Type, anyhow::Error> {
             .get(&sid)
             .ok_or_else(|| anyhow!("Unknown sid"))?,
     )
-}
-
-pub fn create_value_expr(value: u64, bitvec: &Bitvec) -> Expr {
-    let bitvec_length = bitvec.length.get();
-    parse_quote!(::mck::concr::Bitvector::<#bitvec_length>::new(#value))
-}
-
-pub fn create_arith_neg_expr(inner: Expr) -> Expr {
-    parse_quote!(::mck::forward::HwArith::arith_neg(#inner))
 }
 
 pub fn create_sort_type(sort: &Sort) -> Result<Type, anyhow::Error> {

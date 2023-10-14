@@ -2,18 +2,20 @@ use anyhow::anyhow;
 use btor2rs::{DrainType, Nid, Node, SourceType};
 use syn::parse_quote;
 
+use self::{constant::create_value_expr, uni::create_arith_neg_expr};
+
 use super::{
-    util::{create_arith_neg_expr, create_nid_ident, create_rnid_expr, create_value_expr},
+    util::{create_nid_ident, create_rnid_expr},
     Translator,
 };
 
-mod bi;
-mod constant;
-mod ext;
-mod slice;
+pub(super) mod bi;
+pub(super) mod constant;
+pub(super) mod ext;
+pub(super) mod slice;
 mod support;
 mod tri;
-mod uni;
+pub(super) mod uni;
 
 pub(super) fn translate(
     translator: &Translator,
