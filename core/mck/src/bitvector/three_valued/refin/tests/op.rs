@@ -14,7 +14,7 @@ macro_rules! uni_op_test {
                                 a_mark: MarkBitvector<L>|
                 -> MarkBitvector<L> { crate::backward::$ty::$op((a,), a_mark).0 };
             let concr_func = $crate::forward::$ty::$op;
-            $crate::bitvector::three_valued::refin::test::op::exec_uni_check(mark_func, concr_func, $exact);
+            $crate::bitvector::three_valued::refin::tests::op::exec_uni_check(mark_func, concr_func, $exact);
         }
     });
     };
@@ -32,7 +32,7 @@ macro_rules! ext_op_test {
                                 a_mark: MarkBitvector<X>|
                 -> MarkBitvector<L> { crate::backward::$ty::$op((a,), a_mark).0 };
                 let concr_func = crate::forward::$ty::$op;
-                $crate::bitvector::three_valued::refin::test::op::exec_uni_check(mark_func, concr_func, $exact);
+                $crate::bitvector::three_valued::refin::tests::op::exec_uni_check(mark_func, concr_func, $exact);
             }
             });
         });
@@ -52,7 +52,7 @@ macro_rules! bi_op_test {
                 crate::backward::$ty::$op(inputs, mark)
             };
             let concr_func = crate::forward::$ty::$op;
-            $crate::bitvector::three_valued::refin::test::op::exec_bi_check(mark_func, concr_func, $exact);
+            $crate::bitvector::three_valued::refin::tests::op::exec_bi_check(mark_func, concr_func, $exact);
         }
     });
     };

@@ -1,7 +1,7 @@
 use crate::concr;
 
 #[cfg(test)]
-mod test;
+mod tests;
 
 mod arith;
 mod bitwise;

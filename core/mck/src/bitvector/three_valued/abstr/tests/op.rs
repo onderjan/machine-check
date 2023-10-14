@@ -8,7 +8,7 @@ macro_rules! uni_op_test {
         pub fn $op~L() {
             let abstr_func = |a: ThreeValuedBitvector<L>| a.$op();
             let concr_func = |a: concr::Bitvector<L>| a.$op();
-            $crate::bitvector::three_valued::abstr::test::op::exec_uni_check(abstr_func, concr_func);
+            $crate::bitvector::three_valued::abstr::tests::op::exec_uni_check(abstr_func, concr_func);
         }
     });
     };
@@ -23,7 +23,7 @@ macro_rules! ext_op_test {
                     let abstr_func =
                         |a: ThreeValuedBitvector<L>| -> ThreeValuedBitvector<X> { a.$op() };
                     let concr_func = |a: concr::Bitvector<L>| -> concr::Bitvector<X> { a.$op() };
-                    $crate::bitvector::three_valued::abstr::test::op::exec_uni_check(abstr_func, concr_func);
+                    $crate::bitvector::three_valued::abstr::tests::op::exec_uni_check(abstr_func, concr_func);
                 }
             });
         });
@@ -39,7 +39,7 @@ macro_rules! bi_op_test {
         pub fn $op~L() {
             let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b);
             let concr_func = |a: concr::Bitvector<L>, b: concr::Bitvector<L>| a.$op(b);
-            $crate::bitvector::three_valued::abstr::test::op::exec_bi_check(abstr_func, concr_func, $exact);
+            $crate::bitvector::three_valued::abstr::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
         }
     });
     };
