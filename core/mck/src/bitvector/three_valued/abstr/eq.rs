@@ -1,5 +1,5 @@
 use crate::{
-    bitvector::concr,
+    bitvector::concrete::ConcreteBitvector,
     forward::{Bitwise, TypedEq},
 };
 
@@ -19,8 +19,8 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
         let can_be_different = can_be_different_bits.is_nonzero();
 
         Self::Output::from_zeros_ones(
-            concr::Bitvector::new(can_be_different as u64),
-            concr::Bitvector::new(can_be_same as u64),
+            ConcreteBitvector::new(can_be_different as u64),
+            ConcreteBitvector::new(can_be_same as u64),
         )
     }
 }

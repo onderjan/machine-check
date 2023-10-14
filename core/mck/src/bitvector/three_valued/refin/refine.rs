@@ -1,6 +1,7 @@
 use crate::{
     bitvector::{
-        concr, three_valued::abstr::ThreeValuedBitvector, util::compute_u64_sign_bit_mask,
+        concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector,
+        util::compute_u64_sign_bit_mask,
     },
     forward,
     refin::{Refinable, Refine},
@@ -23,7 +24,7 @@ impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
 
         let highest_applicant_pos = applicants.as_unsigned().ilog2();
         let highest_applicant =
-            concr::Bitvector::new(compute_u64_sign_bit_mask(highest_applicant_pos + 1));
+            ConcreteBitvector::new(compute_u64_sign_bit_mask(highest_applicant_pos + 1));
 
         // apply the mark
         self.0 = forward::Bitwise::bitor(self.0, highest_applicant);

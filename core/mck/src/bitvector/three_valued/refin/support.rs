@@ -1,5 +1,5 @@
 use crate::{
-    bitvector::{concr, three_valued::abstr::ThreeValuedBitvector},
+    bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
     forward,
 };
 
@@ -7,17 +7,17 @@ use super::MarkBitvector;
 
 impl<const L: u32> MarkBitvector<L> {
     pub fn new_unmarked() -> Self {
-        MarkBitvector(concr::Bitvector::new(0))
+        MarkBitvector(ConcreteBitvector::new(0))
     }
     pub fn new_marked() -> Self {
         if L == 0 {
-            return Self(concr::Bitvector::new(0));
+            return Self(ConcreteBitvector::new(0));
         }
-        let zero = concr::Bitvector::new(0);
-        let one = concr::Bitvector::new(1);
+        let zero = ConcreteBitvector::new(0);
+        let one = ConcreteBitvector::new(1);
         MarkBitvector(forward::HwArith::sub(zero, one))
     }
-    pub fn new_from_flag(marked_flag: concr::Bitvector<L>) -> Self {
+    pub fn new_from_flag(marked_flag: ConcreteBitvector<L>) -> Self {
         MarkBitvector(marked_flag)
     }
     pub(super) fn limit(&self, abstract_bitvec: ThreeValuedBitvector<L>) -> MarkBitvector<L> {

@@ -11,9 +11,9 @@ use crate::forward::TypedEq;
 use super::util;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Bitvector<const L: u32>(u64);
+pub struct ConcreteBitvector<const L: u32>(u64);
 
-impl<const L: u32> Bitvector<L> {
+impl<const L: u32> ConcreteBitvector<L> {
     #[allow(dead_code)]
     pub fn new(value: u64) -> Self {
         let mask: u64 = Self::bit_mask().0;
@@ -57,12 +57,12 @@ impl<const L: u32> Bitvector<L> {
         util::is_u64_highest_bit_set(self.0, L)
     }
 
-    pub fn sign_bit_mask() -> Bitvector<L> {
-        Bitvector(util::compute_u64_sign_bit_mask(L))
+    pub fn sign_bit_mask() -> ConcreteBitvector<L> {
+        ConcreteBitvector(util::compute_u64_sign_bit_mask(L))
     }
 
-    pub fn bit_mask() -> Bitvector<L> {
-        Bitvector(util::compute_u64_mask(L))
+    pub fn bit_mask() -> ConcreteBitvector<L> {
+        ConcreteBitvector(util::compute_u64_mask(L))
     }
 
     pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
@@ -70,39 +70,39 @@ impl<const L: u32> Bitvector<L> {
     }
 }
 
-impl<const L: u32> TypedEq for Bitvector<L> {
-    type Output = Bitvector<1>;
+impl<const L: u32> TypedEq for ConcreteBitvector<L> {
+    type Output = ConcreteBitvector<1>;
     fn typed_eq(self, rhs: Self) -> Self::Output {
         let result = self.0 == rhs.0;
-        Bitvector::<1>::new(result as u64)
+        ConcreteBitvector::<1>::new(result as u64)
     }
 }
 
-impl<const L: u32> TypedCmp for Bitvector<L> {
-    type Output = Bitvector<1>;
+impl<const L: u32> TypedCmp for ConcreteBitvector<L> {
+    type Output = ConcreteBitvector<1>;
 
     fn typed_slt(self, rhs: Self) -> Self::Output {
         let result = self.as_signed() < rhs.as_signed();
-        Bitvector::<1>::new(result as u64)
+        ConcreteBitvector::<1>::new(result as u64)
     }
 
     fn typed_ult(self, rhs: Self) -> Self::Output {
         let result = self.as_unsigned() < rhs.as_unsigned();
-        Bitvector::<1>::new(result as u64)
+        ConcreteBitvector::<1>::new(result as u64)
     }
 
     fn typed_slte(self, rhs: Self) -> Self::Output {
         let result = self.as_signed() <= rhs.as_signed();
-        Bitvector::<1>::new(result as u64)
+        ConcreteBitvector::<1>::new(result as u64)
     }
 
     fn typed_ulte(self, rhs: Self) -> Self::Output {
         let result = self.as_unsigned() <= rhs.as_unsigned();
-        Bitvector::<1>::new(result as u64)
+        ConcreteBitvector::<1>::new(result as u64)
     }
 }
 
-impl<const L: u32> Bitwise for Bitvector<L> {
+impl<const L: u32> Bitwise for ConcreteBitvector<L> {
     fn not(self) -> Self {
         Self::new((!self.0) & Self::bit_mask().0)
     }
@@ -117,7 +117,7 @@ impl<const L: u32> Bitwise for Bitvector<L> {
     }
 }
 
-impl<const L: u32> HwArith for Bitvector<L> {
+impl<const L: u32> HwArith for ConcreteBitvector<L> {
     fn neg(self) -> Self {
         let result = self.0.wrapping_neg();
         Self::new(result & Self::bit_mask().0)
@@ -207,26 +207,26 @@ impl<const L: u32> HwArith for Bitvector<L> {
     }
 }
 
-impl<const L: u32> HwShift for Bitvector<L> {
+impl<const L: u32> HwShift for ConcreteBitvector<L> {
     type Output = Self;
 
     fn logic_shl(self, amount: Self) -> Self {
         if amount.0 >= L as u64 {
             // zero if the shift is too big
-            Bitvector::new(0)
+            ConcreteBitvector::new(0)
         } else {
             // apply mask after shifting
             let res = self.0 << (amount.0);
-            Bitvector::new(res & Self::bit_mask().0)
+            ConcreteBitvector::new(res & Self::bit_mask().0)
         }
     }
 
     fn logic_shr(self, amount: Self) -> Self {
         if amount.0 >= L as u64 {
             // zero if the shift is too big
-            Bitvector::new(0)
+            ConcreteBitvector::new(0)
         } else {
-            Bitvector::new(self.0 >> amount.0)
+            ConcreteBitvector::new(self.0 >> amount.0)
         }
     }
 
@@ -234,9 +234,9 @@ impl<const L: u32> HwShift for Bitvector<L> {
         if amount.0 >= L as u64 {
             // fill with sign bit if the shift is too big
             if self.is_sign_bit_set() {
-                return Bitvector::new(Self::bit_mask().0);
+                return ConcreteBitvector::new(Self::bit_mask().0);
             }
-            return Bitvector::new(0);
+            return ConcreteBitvector::new(0);
         };
 
         let mut result = self.0 >> amount.0;
@@ -247,16 +247,16 @@ impl<const L: u32> HwShift for Bitvector<L> {
             let sign_bit_copy_mask = old_mask & !new_mask;
             result |= sign_bit_copy_mask;
         }
-        Bitvector::new(result)
+        ConcreteBitvector::new(result)
     }
 }
 
-impl<const L: u32, const X: u32> Ext<X> for Bitvector<L> {
-    type Output = Bitvector<X>;
+impl<const L: u32, const X: u32> Ext<X> for ConcreteBitvector<L> {
+    type Output = ConcreteBitvector<X>;
 
     fn uext(self) -> Self::Output {
         // shorten if needed, lengthening is fine
-        Bitvector::<X>::new(self.0 & util::compute_u64_mask(X))
+        ConcreteBitvector::<X>::new(self.0 & util::compute_u64_mask(X))
     }
 
     fn sext(self) -> Self::Output {
@@ -269,11 +269,11 @@ impl<const L: u32, const X: u32> Ext<X> for Bitvector<L> {
             let lengthening_mask = !old_mask & new_mask;
             v |= lengthening_mask;
         }
-        Bitvector::<X>::new(v)
+        ConcreteBitvector::<X>::new(v)
     }
 }
 
-impl<const L: u32> Debug for Bitvector<L> {
+impl<const L: u32> Debug for ConcreteBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "'")?;
         for little_k in 0..L {
@@ -285,7 +285,7 @@ impl<const L: u32> Debug for Bitvector<L> {
     }
 }
 
-impl<const L: u32> Display for Bitvector<L> {
+impl<const L: u32> Display for ConcreteBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
     }

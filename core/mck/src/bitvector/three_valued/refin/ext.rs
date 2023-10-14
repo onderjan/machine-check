@@ -1,6 +1,6 @@
 use crate::{
     backward::Ext,
-    bitvector::{concr, three_valued::abstr::ThreeValuedBitvector},
+    bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
 };
 
 use super::MarkBitvector;
@@ -34,7 +34,7 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
             let back = MarkBitvector(crate::forward::Ext::<X>::uext(extended));
             if mark_later != back {
                 // propagate marking to the sign bit
-                extended = crate::forward::Bitwise::bitor(extended, concr::Bitvector::bit_mask());
+                extended = crate::forward::Bitwise::bitor(extended, ConcreteBitvector::bit_mask());
             }
         }
 

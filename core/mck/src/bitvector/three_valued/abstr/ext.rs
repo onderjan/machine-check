@@ -1,5 +1,5 @@
 use crate::{
-    bitvector::{concr, util},
+    bitvector::{concrete::ConcreteBitvector, util},
     forward::Ext,
 };
 
@@ -25,7 +25,7 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
         let ones = shortened_ones;
 
         // shorten if needed, lengthening is fine
-        Self::Output::from_zeros_ones(concr::Bitvector::new(zeros), concr::Bitvector::new(ones))
+        Self::Output::from_zeros_ones(ConcreteBitvector::new(zeros), ConcreteBitvector::new(ones))
     }
 
     fn sext(self) -> Self::Output {
@@ -58,6 +58,6 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
             shortened_ones
         };
 
-        Self::Output::from_zeros_ones(concr::Bitvector::new(zeros), concr::Bitvector::new(ones))
+        Self::Output::from_zeros_ones(ConcreteBitvector::new(zeros), ConcreteBitvector::new(ones))
     }
 }

@@ -1,7 +1,8 @@
 use crate::{
     backward,
     bitvector::{
-        concr, three_valued::abstr::ThreeValuedBitvector, util::compute_u64_sign_bit_mask,
+        concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector,
+        util::compute_u64_sign_bit_mask,
     },
     forward,
     traits::refin::Refine,
@@ -43,7 +44,7 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
                 // mark the sign bit of result
                 result = forward::Bitwise::bitor(
                     result,
-                    concr::Bitvector::new(compute_u64_sign_bit_mask(L)),
+                    ConcreteBitvector::new(compute_u64_sign_bit_mask(L)),
                 );
             }
             result
@@ -54,7 +55,7 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
 fn shift<const L: u32>(
     normal_input: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
     mark_later: MarkBitvector<L>,
-    shift_fn: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<L>,
+    shift_fn: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<L>,
 ) -> (MarkBitvector<L>, MarkBitvector<L>) {
     if mark_later == MarkBitvector::new_unmarked() {
         // avoid spurious marking of shift amount
@@ -77,7 +78,7 @@ fn shift<const L: u32>(
     // join the shifted marks iteratively
     let mut shifted_mark_earlier = MarkBitvector::new_unmarked();
     for i in min_shift..=max_shift {
-        let machine_i = concr::Bitvector::new(i);
+        let machine_i = ConcreteBitvector::new(i);
         if amount_input.contains_concr(&machine_i) {
             // shift the mark
             let shifted_mark = shift_fn(mark_later.0, machine_i);

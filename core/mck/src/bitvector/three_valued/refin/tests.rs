@@ -12,13 +12,13 @@ use super::*;
 #[test]
 pub fn support() {
     let unmarked = MarkBitvector::<16>::new_unmarked();
-    assert_eq!(unmarked.0, concr::Bitvector::new(0x0000));
+    assert_eq!(unmarked.0, ConcreteBitvector::new(0x0000));
 
     let marked = MarkBitvector::<16>::new_marked();
-    assert_eq!(marked.0, concr::Bitvector::new(0xFFFF));
+    assert_eq!(marked.0, ConcreteBitvector::new(0xFFFF));
 
-    let cafe = MarkBitvector::<16>::new_from_flag(concr::Bitvector::new(0xCAFE));
-    assert_eq!(cafe.0, concr::Bitvector::new(0xCAFE));
+    let cafe = MarkBitvector::<16>::new_from_flag(ConcreteBitvector::new(0xCAFE));
+    assert_eq!(cafe.0, ConcreteBitvector::new(0xCAFE));
 
     let known = ThreeValuedBitvector::new(0xBABE);
     assert_eq!(unmarked.limit(known), unmarked);
@@ -26,32 +26,32 @@ pub fn support() {
     assert_eq!(cafe.limit(known), unmarked);
 
     let half_known = ThreeValuedBitvector::new_value_known(
-        concr::Bitvector::new(0xBABE),
-        concr::Bitvector::new(0xF000),
+        ConcreteBitvector::new(0xBABE),
+        ConcreteBitvector::new(0xF000),
     );
     assert_eq!(unmarked.limit(half_known), unmarked);
     assert_eq!(
         marked.limit(half_known),
-        MarkBitvector::new_from_flag(concr::Bitvector::new(0x0FFF))
+        MarkBitvector::new_from_flag(ConcreteBitvector::new(0x0FFF))
     );
     assert_eq!(
         cafe.limit(half_known),
-        MarkBitvector::new_from_flag(concr::Bitvector::new(0x0AFE))
+        MarkBitvector::new_from_flag(ConcreteBitvector::new(0x0AFE))
     );
 }
 
 #[test]
 pub fn meta() {
     // should represent two three-valued bitvectors "XX0X" and "XX1X"
-    let mark = MarkBitvector::<4>::new_from_flag(concr::Bitvector::new(0x2));
+    let mark = MarkBitvector::<4>::new_from_flag(ConcreteBitvector::new(0x2));
 
     let mut v = mark.proto_first();
     assert_eq!(
         v,
         // "XX0X"
         ThreeValuedBitvector::new_value_known(
-            concr::Bitvector::new(0x0),
-            concr::Bitvector::new(0x2)
+            ConcreteBitvector::new(0x0),
+            ConcreteBitvector::new(0x2)
         )
     );
     assert!(mark.proto_increment(&mut v));
@@ -59,8 +59,8 @@ pub fn meta() {
         v,
         // "XX1X"
         ThreeValuedBitvector::new_value_known(
-            concr::Bitvector::new(0x2),
-            concr::Bitvector::new(0x2)
+            ConcreteBitvector::new(0x2),
+            ConcreteBitvector::new(0x2)
         )
     );
     // returns false due to cycling, but v should contain the first proto again
@@ -69,30 +69,30 @@ pub fn meta() {
         v,
         // "XX0X"
         ThreeValuedBitvector::new_value_known(
-            concr::Bitvector::new(0x0),
-            concr::Bitvector::new(0x2)
+            ConcreteBitvector::new(0x0),
+            ConcreteBitvector::new(0x2)
         )
     );
 }
 
 #[test]
 pub fn refine() {
-    let mark_a = MarkBitvector::<4>::new_from_flag(concr::Bitvector::new(0x2));
-    let mut mark_b = MarkBitvector::<4>::new_from_flag(concr::Bitvector::new(0x4));
+    let mark_a = MarkBitvector::<4>::new_from_flag(ConcreteBitvector::new(0x2));
+    let mut mark_b = MarkBitvector::<4>::new_from_flag(ConcreteBitvector::new(0x4));
     mark_b.apply_join(&mark_a);
 
     // applies all bits
     assert_eq!(
         mark_b,
-        MarkBitvector::new_from_flag(concr::Bitvector::new(0x6))
+        MarkBitvector::new_from_flag(ConcreteBitvector::new(0x6))
     );
 
-    let mut mark_c = MarkBitvector::<4>::new_from_flag(concr::Bitvector::new(0x1));
+    let mut mark_c = MarkBitvector::<4>::new_from_flag(ConcreteBitvector::new(0x1));
     // applies only the highest bit
     assert!(mark_c.apply_refin(&mark_b));
     assert_eq!(
         mark_c,
-        MarkBitvector::new_from_flag(concr::Bitvector::new(0x5))
+        MarkBitvector::new_from_flag(ConcreteBitvector::new(0x5))
     );
 
     assert!(!mark_b.apply_refin(&mark_a));
@@ -103,8 +103,8 @@ pub fn refine() {
     assert_eq!(
         three_valued,
         ThreeValuedBitvector::from_zeros_ones(
-            concr::Bitvector::new(0xB),
-            concr::Bitvector::new(0xE)
+            ConcreteBitvector::new(0xB),
+            ConcreteBitvector::new(0xE)
         )
     )
 }

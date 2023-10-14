@@ -11,49 +11,52 @@ pub fn support() {
     let cafe = ThreeValuedBitvector::<16>::new(0xCAFE);
     assert_eq!(
         cafe.get_possibly_zero_flags(),
-        concr::Bitvector::new(0x3501)
+        ConcreteBitvector::new(0x3501)
     );
-    assert_eq!(cafe.get_possibly_one_flags(), concr::Bitvector::new(0xCAFE));
-    assert_eq!(cafe.get_unknown_bits(), concr::Bitvector::new(0));
-    assert_eq!(cafe.concrete_value(), Some(concr::Bitvector::new(0xCAFE)));
-    assert!(cafe.contains_concr(&concr::Bitvector::new(0xCAFE)));
-    assert!(!cafe.contains_concr(&concr::Bitvector::new(0xCAFF)));
+    assert_eq!(
+        cafe.get_possibly_one_flags(),
+        ConcreteBitvector::new(0xCAFE)
+    );
+    assert_eq!(cafe.get_unknown_bits(), ConcreteBitvector::new(0));
+    assert_eq!(cafe.concrete_value(), Some(ConcreteBitvector::new(0xCAFE)));
+    assert!(cafe.contains_concr(&ConcreteBitvector::new(0xCAFE)));
+    assert!(!cafe.contains_concr(&ConcreteBitvector::new(0xCAFF)));
 
     let unknown = ThreeValuedBitvector::<16>::new_unknown();
     assert_eq!(
         unknown.get_possibly_zero_flags(),
-        concr::Bitvector::<16>::new(0xFFFF)
+        ConcreteBitvector::<16>::new(0xFFFF)
     );
     assert_eq!(
         unknown.get_possibly_one_flags(),
-        concr::Bitvector::<16>::new(0xFFFF)
+        ConcreteBitvector::<16>::new(0xFFFF)
     );
-    assert_eq!(unknown.get_unknown_bits(), concr::Bitvector::new(0xFFFF));
+    assert_eq!(unknown.get_unknown_bits(), ConcreteBitvector::new(0xFFFF));
     assert_eq!(unknown.concrete_value(), None);
-    assert!(unknown.contains_concr(&concr::Bitvector::new(0xCAFE)));
-    assert!(unknown.contains_concr(&concr::Bitvector::new(0xCAFF)));
+    assert!(unknown.contains_concr(&ConcreteBitvector::new(0xCAFE)));
+    assert!(unknown.contains_concr(&ConcreteBitvector::new(0xCAFF)));
 
     let partially_known = ThreeValuedBitvector::<16>::new_value_known(
-        concr::Bitvector::new(0x1337),
-        concr::Bitvector::new(0xF0F0),
+        ConcreteBitvector::new(0x1337),
+        ConcreteBitvector::new(0xF0F0),
     );
     assert_eq!(
         partially_known.get_possibly_zero_flags(),
-        concr::Bitvector::<16>::new(0xEFCF)
+        ConcreteBitvector::<16>::new(0xEFCF)
     );
     assert_eq!(
         partially_known.get_possibly_one_flags(),
-        concr::Bitvector::<16>::new(0x1F3F)
+        ConcreteBitvector::<16>::new(0x1F3F)
     );
     assert_eq!(
         partially_known.get_unknown_bits(),
-        concr::Bitvector::new(0x0F0F)
+        ConcreteBitvector::new(0x0F0F)
     );
     assert_eq!(partially_known.concrete_value(), None);
-    assert!(partially_known.contains_concr(&concr::Bitvector::new(0x1337)));
-    assert!(partially_known.contains_concr(&concr::Bitvector::new(0x1D30)));
-    assert!(!partially_known.contains_concr(&concr::Bitvector::new(0xCAFE)));
-    assert!(!partially_known.contains_concr(&concr::Bitvector::new(0xCAFF)));
+    assert!(partially_known.contains_concr(&ConcreteBitvector::new(0x1337)));
+    assert!(partially_known.contains_concr(&ConcreteBitvector::new(0x1D30)));
+    assert!(!partially_known.contains_concr(&ConcreteBitvector::new(0xCAFE)));
+    assert!(!partially_known.contains_concr(&ConcreteBitvector::new(0xCAFF)));
 
     assert!(cafe.contains(&cafe));
     assert!(!cafe.contains(&partially_known));
@@ -68,10 +71,10 @@ pub fn support() {
     assert!(unknown.contains(&unknown));
 
     assert_eq!(
-        cafe.concrete_join(concr::Bitvector::new(0x1337)),
+        cafe.concrete_join(ConcreteBitvector::new(0x1337)),
         ThreeValuedBitvector::from_zeros_ones(
-            concr::Bitvector::new(0xFDC9),
-            concr::Bitvector::new(0xDBFF)
+            ConcreteBitvector::new(0xFDC9),
+            ConcreteBitvector::new(0xDBFF)
         )
     );
 
@@ -97,8 +100,8 @@ pub fn invalid_new() {
 #[should_panic]
 pub fn invalid_zeros_ones() {
     let _ = ThreeValuedBitvector::<8>::from_zeros_ones(
-        concr::Bitvector::new(0xFFEC),
-        concr::Bitvector::new(0xF34F),
+        ConcreteBitvector::new(0xFFEC),
+        ConcreteBitvector::new(0xF34F),
     );
 }
 

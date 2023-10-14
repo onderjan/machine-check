@@ -1,7 +1,10 @@
-pub mod concr;
+mod concrete;
 mod three_valued;
 mod util;
 
+pub mod concr {
+    pub type Bitvector<const L: u32> = super::concrete::ConcreteBitvector<L>;
+}
 pub mod abstr {
     pub type Bitvector<const L: u32> = super::three_valued::AbstractBitvector<L>;
 }

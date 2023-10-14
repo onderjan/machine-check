@@ -1,4 +1,4 @@
-use crate::concr;
+use crate::bitvector::concrete::ConcreteBitvector;
 
 #[cfg(test)]
 mod tests;
@@ -14,6 +14,6 @@ mod support;
 // the normal equality compares abstract bitvectors
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ThreeValuedBitvector<const L: u32> {
-    zeros: concr::Bitvector<L>,
-    ones: concr::Bitvector<L>,
+    zeros: ConcreteBitvector<L>,
+    ones: ConcreteBitvector<L>,
 }

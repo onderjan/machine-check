@@ -1,4 +1,4 @@
-use crate::bitvector::concr;
+use crate::bitvector::concrete::ConcreteBitvector;
 
 #[cfg(test)]
 mod tests;
@@ -14,4 +14,4 @@ mod shift;
 mod support;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct MarkBitvector<const L: u32>(concr::Bitvector<L>);
+pub struct MarkBitvector<const L: u32>(ConcreteBitvector<L>);

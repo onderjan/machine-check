@@ -1,6 +1,7 @@
 use super::ThreeValuedBitvector;
+use crate::bitvector::concrete::ConcreteBitvector;
 use crate::bitvector::util;
-use crate::{bitvector::concr, forward::HwArith};
+use crate::forward::HwArith;
 
 impl<const L: u32> HwArith for ThreeValuedBitvector<L> {
     fn neg(self) -> Self {
@@ -118,7 +119,10 @@ fn minmax_compute<const L: u32>(
             ones |= (zeta_k_min & 1) << k;
         }
     }
-    ThreeValuedBitvector::from_zeros_ones(concr::Bitvector::new(zeros), concr::Bitvector::new(ones))
+    ThreeValuedBitvector::from_zeros_ones(
+        ConcreteBitvector::new(zeros),
+        ConcreteBitvector::new(ones),
+    )
 }
 
 fn convert_uarith<const L: u32>(min: u64, max: u64) -> ThreeValuedBitvector<L> {
@@ -132,15 +136,15 @@ fn convert_uarith<const L: u32>(min: u64, max: u64) -> ThreeValuedBitvector<L> {
     let highest_different_bit_pos = different.ilog2();
     let unknown_mask = util::compute_u64_mask(highest_different_bit_pos + 1);
     ThreeValuedBitvector::new_value_unknown(
-        concr::Bitvector::new(min),
-        concr::Bitvector::new(unknown_mask),
+        ConcreteBitvector::new(min),
+        ConcreteBitvector::new(unknown_mask),
     )
 }
 
 fn compute_sdivrem<const L: u32>(
     dividend: ThreeValuedBitvector<L>,
     divisor: ThreeValuedBitvector<L>,
-    op_fn: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<L>,
+    op_fn: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<L>,
 ) -> ThreeValuedBitvector<L> {
     if L == 0 {
         // prevent problems
@@ -158,7 +162,7 @@ fn compute_sdivrem<const L: u32>(
         let divisor_min = if divisor_min.as_signed() > 1 {
             divisor_min
         } else {
-            concr::Bitvector::new(1)
+            ConcreteBitvector::new(1)
         };
 
         apply_signed_op(
@@ -180,8 +184,8 @@ fn compute_sdivrem<const L: u32>(
             &mut ones,
             dividend.smin(),
             dividend.smax(),
-            concr::Bitvector::new(0),
-            concr::Bitvector::new(0),
+            ConcreteBitvector::new(0),
+            ConcreteBitvector::new(0),
             op_fn,
         );
     }
@@ -190,12 +194,12 @@ fn compute_sdivrem<const L: u32>(
         // -1 divisor, causes overflow when the dividend is the most negative value, handle separately
         // handle separately
 
-        let minus_one = concr::Bitvector::bit_mask();
+        let minus_one = ConcreteBitvector::bit_mask();
 
         let mut dividend_min = dividend.smin();
         let dividend_max = dividend.smax();
 
-        if dividend_min == concr::Bitvector::sign_bit_mask() {
+        if dividend_min == ConcreteBitvector::sign_bit_mask() {
             // overflow
             apply_signed_op(
                 &mut zeros,
@@ -207,7 +211,7 @@ fn compute_sdivrem<const L: u32>(
                 op_fn,
             );
             if dividend_min != dividend_max {
-                dividend_min = dividend_min.add(concr::Bitvector::new(1));
+                dividend_min = dividend_min.add(ConcreteBitvector::new(1));
             }
         }
 
@@ -227,7 +231,7 @@ fn compute_sdivrem<const L: u32>(
         let divisor_max = if divisor_max.as_signed() < -1 {
             divisor_max
         } else {
-            concr::Bitvector::new(2).neg()
+            ConcreteBitvector::new(2).neg()
         };
 
         apply_signed_op(
@@ -241,7 +245,10 @@ fn compute_sdivrem<const L: u32>(
         );
     }
 
-    ThreeValuedBitvector::from_zeros_ones(concr::Bitvector::new(zeros), concr::Bitvector::new(ones))
+    ThreeValuedBitvector::from_zeros_ones(
+        ConcreteBitvector::new(zeros),
+        ConcreteBitvector::new(ones),
+    )
 }
 
 fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
@@ -256,11 +263,11 @@ fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
 fn apply_signed_op<const L: u32>(
     zeros: &mut u64,
     ones: &mut u64,
-    a_min: concr::Bitvector<L>,
-    a_max: concr::Bitvector<L>,
-    b_min: concr::Bitvector<L>,
-    b_max: concr::Bitvector<L>,
-    op_fn: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<L>,
+    a_min: ConcreteBitvector<L>,
+    a_max: ConcreteBitvector<L>,
+    b_min: ConcreteBitvector<L>,
+    b_max: ConcreteBitvector<L>,
+    op_fn: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<L>,
 ) {
     // apply all configurations
     let x = op_fn(a_min, b_min).as_unsigned();
@@ -292,10 +299,10 @@ fn apply_signed_op<const L: u32>(
 }
 
 fn addsub_zeta_k_fn<const L: u32>(
-    left_min: concr::Bitvector<L>,
-    left_max: concr::Bitvector<L>,
-    right_min: concr::Bitvector<L>,
-    right_max: concr::Bitvector<L>,
+    left_min: ConcreteBitvector<L>,
+    left_max: ConcreteBitvector<L>,
+    right_min: ConcreteBitvector<L>,
+    right_max: ConcreteBitvector<L>,
     k: u32,
     func: fn(u64, u64) -> (u64, bool),
 ) -> (u64, u64) {

@@ -1,4 +1,4 @@
-use crate::bitvector::{concr, three_valued::abstr::ThreeValuedBitvector};
+use crate::bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector};
 
 macro_rules! uni_op_test {
     ($op:tt) => {
@@ -7,7 +7,7 @@ macro_rules! uni_op_test {
         #[test]
         pub fn $op~L() {
             let abstr_func = |a: ThreeValuedBitvector<L>| a.$op();
-            let concr_func = |a: concr::Bitvector<L>| a.$op();
+            let concr_func = |a: ConcreteBitvector<L>| a.$op();
             $crate::bitvector::three_valued::abstr::tests::op::exec_uni_check(abstr_func, concr_func);
         }
     });
@@ -22,7 +22,7 @@ macro_rules! ext_op_test {
                 pub fn $op~L~X() {
                     let abstr_func =
                         |a: ThreeValuedBitvector<L>| -> ThreeValuedBitvector<X> { a.$op() };
-                    let concr_func = |a: concr::Bitvector<L>| -> concr::Bitvector<X> { a.$op() };
+                    let concr_func = |a: ConcreteBitvector<L>| -> ConcreteBitvector<X> { a.$op() };
                     $crate::bitvector::three_valued::abstr::tests::op::exec_uni_check(abstr_func, concr_func);
                 }
             });
@@ -38,7 +38,7 @@ macro_rules! bi_op_test {
         #[test]
         pub fn $op~L() {
             let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b);
-            let concr_func = |a: concr::Bitvector<L>, b: concr::Bitvector<L>| a.$op(b);
+            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| a.$op(b);
             $crate::bitvector::three_valued::abstr::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
         }
     });
@@ -47,12 +47,12 @@ macro_rules! bi_op_test {
 
 pub(super) fn exec_uni_check<const L: u32, const X: u32>(
     abstr_func: fn(ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
-    concr_func: fn(concr::Bitvector<L>) -> concr::Bitvector<X>,
+    concr_func: fn(ConcreteBitvector<L>) -> ConcreteBitvector<X>,
 ) {
     for a in ThreeValuedBitvector::<L>::all_with_length_iter() {
         let abstr_result = abstr_func(a);
         let equiv_result = join_concr_iter(
-            concr::Bitvector::<L>::all_with_length_iter()
+            ConcreteBitvector::<L>::all_with_length_iter()
                 .filter(|c| a.contains_concr(c))
                 .map(concr_func),
         );
@@ -67,7 +67,7 @@ pub(super) fn exec_uni_check<const L: u32, const X: u32>(
 
 pub(super) fn exec_bi_check<const L: u32, const X: u32>(
     abstr_func: fn(ThreeValuedBitvector<L>, ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
-    concr_func: fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<X>,
+    concr_func: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<X>,
     exact: bool,
 ) {
     for a in ThreeValuedBitvector::<L>::all_with_length_iter() {
@@ -75,9 +75,9 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
             let abstr_result = abstr_func(a, b);
 
             let a_concr_iter =
-                concr::Bitvector::<L>::all_with_length_iter().filter(|c| a.contains_concr(c));
+                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_concr(c));
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                concr::Bitvector::<L>::all_with_length_iter()
+                ConcreteBitvector::<L>::all_with_length_iter()
                     .filter(|c| b.contains_concr(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr))
             }));
@@ -109,7 +109,7 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
 }
 
 pub(super) fn join_concr_iter<const L: u32>(
-    mut iter: impl Iterator<Item = concr::Bitvector<L>>,
+    mut iter: impl Iterator<Item = ConcreteBitvector<L>>,
 ) -> ThreeValuedBitvector<L> {
     if L == 0 {
         return ThreeValuedBitvector::new_unknown();

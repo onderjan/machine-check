@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    bitvector::{concr, util},
+    bitvector::{concrete::ConcreteBitvector, util},
     forward::Bitwise,
 };
 
@@ -10,11 +10,11 @@ use super::ThreeValuedBitvector;
 impl<const L: u32> ThreeValuedBitvector<L> {
     #[must_use]
     pub fn new(value: u64) -> Self {
-        Self::from_concrete(concr::Bitvector::new(value))
+        Self::from_concrete(ConcreteBitvector::new(value))
     }
 
     #[must_use]
-    pub fn from_zeros_ones(zeros: concr::Bitvector<L>, ones: concr::Bitvector<L>) -> Self {
+    pub fn from_zeros_ones(zeros: ConcreteBitvector<L>, ones: ConcreteBitvector<L>) -> Self {
         match Self::try_from_zeros_ones(zeros, ones) {
             Ok(ok) => ok,
             Err(_) => panic!(
@@ -25,8 +25,8 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     pub fn try_from_zeros_ones(
-        zeros: concr::Bitvector<L>,
-        ones: concr::Bitvector<L>,
+        zeros: ConcreteBitvector<L>,
+        ones: ConcreteBitvector<L>,
     ) -> Result<Self, ()> {
         let mask = Self::get_mask();
         // the used bits must be set in zeros, ones, or both
@@ -37,7 +37,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn from_concrete(value: concr::Bitvector<L>) -> Self {
+    pub fn from_concrete(value: ConcreteBitvector<L>) -> Self {
         // bit-negate for zeros
         let zeros = Bitwise::not(value);
         // leave as-is for ones
@@ -55,35 +55,35 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn new_value_known(value: concr::Bitvector<L>, known: concr::Bitvector<L>) -> Self {
+    pub fn new_value_known(value: ConcreteBitvector<L>, known: ConcreteBitvector<L>) -> Self {
         let unknown = Bitwise::not(known);
         Self::new_value_unknown(value, unknown)
     }
 
     #[must_use]
-    pub fn new_value_unknown(value: concr::Bitvector<L>, unknown: concr::Bitvector<L>) -> Self {
+    pub fn new_value_unknown(value: ConcreteBitvector<L>, unknown: ConcreteBitvector<L>) -> Self {
         let zeros = Bitwise::bitor(Bitwise::not(value), unknown);
         let ones = Bitwise::bitor(value, unknown);
         Self::from_zeros_ones(zeros, ones)
     }
 
     #[must_use]
-    pub fn get_unknown_bits(&self) -> concr::Bitvector<L> {
+    pub fn get_unknown_bits(&self) -> ConcreteBitvector<L> {
         Bitwise::bitand(self.zeros, self.ones)
     }
 
     #[must_use]
-    pub fn get_possibly_one_flags(&self) -> concr::Bitvector<L> {
+    pub fn get_possibly_one_flags(&self) -> ConcreteBitvector<L> {
         self.ones
     }
 
     #[must_use]
-    pub fn get_possibly_zero_flags(&self) -> concr::Bitvector<L> {
+    pub fn get_possibly_zero_flags(&self) -> ConcreteBitvector<L> {
         self.zeros
     }
 
     #[must_use]
-    pub fn concrete_value(&self) -> Option<concr::Bitvector<L>> {
+    pub fn concrete_value(&self) -> Option<ConcreteBitvector<L>> {
         // all bits must be equal
         let nxor = Bitwise::not(Bitwise::bitxor(self.ones, self.zeros));
         if !nxor.is_zero() {
@@ -94,8 +94,8 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn get_mask() -> concr::Bitvector<L> {
-        concr::Bitvector::new(util::compute_u64_mask(L))
+    pub fn get_mask() -> ConcreteBitvector<L> {
+        ConcreteBitvector::new(util::compute_u64_mask(L))
     }
 
     #[must_use]
@@ -109,20 +109,20 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn umin(&self) -> concr::Bitvector<L> {
+    pub fn umin(&self) -> ConcreteBitvector<L> {
         // unsigned min value is value of bit-negated zeros (one only where it must be)
         Bitwise::not(self.zeros)
     }
 
     #[must_use]
-    pub fn umax(&self) -> concr::Bitvector<L> {
+    pub fn umax(&self) -> ConcreteBitvector<L> {
         // unsigned max value is value of ones (one everywhere it can be)
         self.ones
     }
 
     #[must_use]
-    pub fn smin(&self) -> concr::Bitvector<L> {
-        let sign_bit_mask = concr::Bitvector::<L>::sign_bit_mask();
+    pub fn smin(&self) -> ConcreteBitvector<L> {
+        let sign_bit_mask = ConcreteBitvector::<L>::sign_bit_mask();
         // take the unsigned minimum
         let mut result = self.umin();
         // but the signed value is smaller when the sign bit is one
@@ -134,8 +134,8 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn smax(&self) -> concr::Bitvector<L> {
-        let sign_bit_mask = concr::Bitvector::<L>::sign_bit_mask();
+    pub fn smax(&self) -> ConcreteBitvector<L> {
+        let sign_bit_mask = ConcreteBitvector::<L>::sign_bit_mask();
         // take the unsigned maximum
         let mut result = self.umax();
         // but the signed value is bigger when the sign bit is zero
@@ -155,7 +155,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn contains_concr(&self, a: &concr::Bitvector<L>) -> bool {
+    pub fn contains_concr(&self, a: &ConcreteBitvector<L>) -> bool {
         // value zeros must be within our zeros and value ones must be within our ones
         let excessive_rhs_zeros = a.not().bitand(self.zeros.not());
         let excessive_rhs_ones = a.bitand(self.ones.not());
@@ -163,16 +163,16 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn concrete_join(&self, concrete: concr::Bitvector<L>) -> Self {
+    pub fn concrete_join(&self, concrete: ConcreteBitvector<L>) -> Self {
         let zeros = self.zeros.bitor(concrete.not());
         let ones = self.ones.bitor(concrete);
         Self::from_zeros_ones(zeros, ones)
     }
 
     pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
-        let zeros_iter = concr::Bitvector::<L>::all_with_length_iter();
+        let zeros_iter = ConcreteBitvector::<L>::all_with_length_iter();
         zeros_iter.flat_map(|zeros| {
-            let ones_iter = concr::Bitvector::<L>::all_with_length_iter();
+            let ones_iter = ConcreteBitvector::<L>::all_with_length_iter();
             ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
         })
     }

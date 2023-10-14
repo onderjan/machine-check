@@ -1,5 +1,5 @@
 use crate::{
-    bitvector::{concr, three_valued::abstr::ThreeValuedBitvector},
+    bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
     traits::misc::Meta,
 };
 
@@ -10,8 +10,8 @@ impl<const L: u32> Meta<ThreeValuedBitvector<L>> for MarkBitvector<L> {
         // all known bits are 0
         let known_bits = self.0.as_unsigned();
         ThreeValuedBitvector::new_value_known(
-            concr::Bitvector::new(0),
-            concr::Bitvector::new(known_bits),
+            ConcreteBitvector::new(0),
+            ConcreteBitvector::new(known_bits),
         )
     }
 
@@ -41,8 +41,8 @@ impl<const L: u32> Meta<ThreeValuedBitvector<L>> for MarkBitvector<L> {
                 // if considered bit is 0 within current, update it to 1 and end
                 current |= one_mask;
                 let result = ThreeValuedBitvector::new_value_known(
-                    concr::Bitvector::new(current),
-                    concr::Bitvector::new(known_bits),
+                    ConcreteBitvector::new(current),
+                    ConcreteBitvector::new(known_bits),
                 );
 
                 *proto = result;

@@ -1,5 +1,5 @@
 use crate::{
-    bitvector::concr,
+    bitvector::concrete::ConcreteBitvector,
     forward::{Bitwise, HwShift},
 };
 
@@ -10,33 +10,33 @@ impl<const L: u32> HwShift for ThreeValuedBitvector<L> {
 
     fn logic_shl(self, amount: Self) -> Self {
         // shifting left logically, we need to shift in zeros from right
-        let zeros_shift_fn = |value: concr::Bitvector<L>, amount: concr::Bitvector<L>| {
-            let shifted_mask = concr::Bitvector::<L>::bit_mask().logic_shl(amount);
+        let zeros_shift_fn = |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| {
+            let shifted_mask = ConcreteBitvector::<L>::bit_mask().logic_shl(amount);
             Bitwise::bitor(value.logic_shl(amount), shifted_mask.not())
         };
         let ones_shift_fn =
-            |value: concr::Bitvector<L>, amount: concr::Bitvector<L>| value.logic_shl(amount);
+            |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| value.logic_shl(amount);
 
         shift(&self, &amount, zeros_shift_fn, ones_shift_fn, &Self::new(0))
     }
 
     fn logic_shr(self, amount: Self) -> Self {
         // shifting right logically, we need to shift in zeros from left
-        let zeros_shift_fn = |value: concr::Bitvector<L>, amount: concr::Bitvector<L>| {
-            let shifted_mask = concr::Bitvector::<L>::bit_mask().logic_shr(amount);
+        let zeros_shift_fn = |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| {
+            let shifted_mask = ConcreteBitvector::<L>::bit_mask().logic_shr(amount);
             Bitwise::bitor(value.logic_shr(amount), shifted_mask.not())
         };
         let ones_shift_fn =
-            |value: concr::Bitvector<L>, amount: concr::Bitvector<L>| value.logic_shr(amount);
+            |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| value.logic_shr(amount);
 
         shift(&self, &amount, zeros_shift_fn, ones_shift_fn, &Self::new(0))
     }
 
     fn arith_shr(self, amount: Self) -> Self {
         // shifting right arithmetically, we need to shift in the sign bit from left
-        let sra_shift_fn = |value: concr::Bitvector<L>, amount: concr::Bitvector<L>| {
+        let sra_shift_fn = |value: ConcreteBitvector<L>, amount: ConcreteBitvector<L>| {
             if value.is_sign_bit_set() {
-                let shifted_mask = concr::Bitvector::<L>::bit_mask().logic_shr(amount);
+                let shifted_mask = ConcreteBitvector::<L>::bit_mask().logic_shr(amount);
                 Bitwise::bitor(value.logic_shr(amount), shifted_mask.not())
             } else {
                 value.logic_shr(amount)
@@ -45,15 +45,15 @@ impl<const L: u32> HwShift for ThreeValuedBitvector<L> {
 
         // the overflow value is determined by sign bit
         let overflow_zeros = if self.is_zeros_sign_bit_set() {
-            concr::Bitvector::<L>::bit_mask()
+            ConcreteBitvector::<L>::bit_mask()
         } else {
-            concr::Bitvector::<L>::new(0)
+            ConcreteBitvector::<L>::new(0)
         };
 
         let overflow_ones = if self.is_ones_sign_bit_set() {
-            concr::Bitvector::<L>::bit_mask()
+            ConcreteBitvector::<L>::bit_mask()
         } else {
-            concr::Bitvector::<L>::new(0)
+            ConcreteBitvector::<L>::new(0)
         };
         let overflow_value = Self::from_zeros_ones(overflow_zeros, overflow_ones);
 
@@ -64,8 +64,8 @@ impl<const L: u32> HwShift for ThreeValuedBitvector<L> {
 fn shift<const L: u32>(
     value: &ThreeValuedBitvector<L>,
     amount: &ThreeValuedBitvector<L>,
-    zeros_shift_fn: impl Fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<L>,
-    ones_shift_fn: impl Fn(concr::Bitvector<L>, concr::Bitvector<L>) -> concr::Bitvector<L>,
+    zeros_shift_fn: impl Fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<L>,
+    ones_shift_fn: impl Fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<L>,
     overflow_value: &ThreeValuedBitvector<L>,
 ) -> ThreeValuedBitvector<L> {
     if L == 0 {
@@ -73,8 +73,8 @@ fn shift<const L: u32>(
         return *value;
     }
 
-    let mut zeros = concr::Bitvector::new(0);
-    let mut ones = concr::Bitvector::new(0);
+    let mut zeros = ConcreteBitvector::new(0);
+    let mut ones = ConcreteBitvector::new(0);
 
     // the shift amount is also three-valued, which poses problems
     // first, if it can be shifted by L or larger value, join by overflow value
@@ -89,7 +89,7 @@ fn shift<const L: u32>(
     let max_shift = amount.umax().as_unsigned().min((L - 1) as u64);
     // join by the other shifts iteratively
     for i in min_shift..=max_shift {
-        let bi = concr::Bitvector::new(i);
+        let bi = ConcreteBitvector::new(i);
         if amount.contains_concr(&bi) {
             let shifted_zeros = zeros_shift_fn(value.zeros, bi);
             let shifted_ones = ones_shift_fn(value.ones, bi);

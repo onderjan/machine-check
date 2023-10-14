@@ -1,4 +1,4 @@
-use crate::{bitvector::concr, forward::TypedCmp};
+use crate::{bitvector::concrete::ConcreteBitvector, forward::TypedCmp};
 
 use super::ThreeValuedBitvector;
 
@@ -21,8 +21,8 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
         let result_can_be_one = lhs_min < rhs_max;
 
         Self::Output::from_zeros_ones(
-            concr::Bitvector::new(result_can_be_zero as u64),
-            concr::Bitvector::new(result_can_be_one as u64),
+            ConcreteBitvector::new(result_can_be_zero as u64),
+            ConcreteBitvector::new(result_can_be_one as u64),
         )
     }
 
@@ -42,8 +42,8 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
         let result_can_be_one = lhs_min <= rhs_max;
 
         Self::Output::from_zeros_ones(
-            concr::Bitvector::new(result_can_be_zero as u64),
-            concr::Bitvector::new(result_can_be_one as u64),
+            ConcreteBitvector::new(result_can_be_zero as u64),
+            ConcreteBitvector::new(result_can_be_one as u64),
         )
     }
 
@@ -63,8 +63,8 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
         let result_can_be_one = lhs_min < rhs_max;
 
         Self::Output::from_zeros_ones(
-            concr::Bitvector::new(result_can_be_zero as u64),
-            concr::Bitvector::new(result_can_be_one as u64),
+            ConcreteBitvector::new(result_can_be_zero as u64),
+            ConcreteBitvector::new(result_can_be_one as u64),
         )
     }
 
@@ -84,8 +84,8 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
         let result_can_be_one = lhs_min <= rhs_max;
 
         Self::Output::from_zeros_ones(
-            concr::Bitvector::new(result_can_be_zero as u64),
-            concr::Bitvector::new(result_can_be_one as u64),
+            ConcreteBitvector::new(result_can_be_zero as u64),
+            ConcreteBitvector::new(result_can_be_one as u64),
         )
     }
 }
