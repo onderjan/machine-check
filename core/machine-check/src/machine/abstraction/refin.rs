@@ -7,7 +7,7 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::machine::transcription::util::{
+use crate::machine::util::{
     create_expr_call, create_expr_field, create_expr_path, create_field_value, create_ident,
     create_pat_ident, create_path_from_ident, create_path_from_name, create_type_path,
     path_rule::{self, PathRule, PathRuleSegment},
