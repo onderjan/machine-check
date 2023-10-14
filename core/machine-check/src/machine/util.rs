@@ -6,9 +6,9 @@ use syn::{
     punctuated::Punctuated,
     token::{Brace, Bracket, Comma, Paren},
     Attribute, Block, Expr, ExprCall, ExprField, ExprPath, ExprReference, ExprTuple, Field,
-    FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn, Index, Item, ItemImpl, ItemMod,
-    Local, LocalInit, Member, MetaList, Pat, PatIdent, PatType, Path, Receiver, ReturnType,
-    Signature, Stmt, Type, TypePath, TypeReference, Visibility,
+    FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn, ImplItemType, Index, Item, ItemImpl,
+    ItemMod, Local, LocalInit, Member, MetaList, Pat, PatIdent, PatType, Path, Receiver,
+    ReturnType, Signature, Stmt, Type, TypePath, TypeReference, Visibility,
 };
 use syn_path::path;
 
@@ -292,6 +292,20 @@ pub fn create_impl_item_fn(
             brace_token: Default::default(),
             stmts,
         },
+    }
+}
+
+pub fn create_impl_item_type(ident: Ident, ty: Type) -> ImplItemType {
+    ImplItemType {
+        attrs: vec![],
+        vis: Visibility::Inherited,
+        defaultness: None,
+        type_token: Default::default(),
+        ident,
+        generics: Generics::default(),
+        eq_token: Default::default(),
+        ty,
+        semi_token: Default::default(),
     }
 }
 

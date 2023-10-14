@@ -1,7 +1,7 @@
-use syn::{parse_quote, Generics, ImplItem, ImplItemType, Item, ItemImpl, Type, Visibility};
+use syn::{parse_quote, ImplItem, Item, ItemImpl, Type};
 
 use crate::machine::util::{
-    create_ident, create_type_path,
+    create_ident, create_impl_item_type, create_type_path,
     path_rule::{self},
 };
 
@@ -27,17 +27,13 @@ pub fn apply_to_impl(mark_file_items: &mut Vec<Item>, i: &ItemImpl) -> Result<()
                         {
                             let s_ty = i.self_ty.as_ref();
                             // add abstract type
-                            transcribed.items.push(ImplItem::Type(ImplItemType {
-                                attrs: vec![],
-                                vis: Visibility::Inherited,
-                                defaultness: None,
-                                type_token: Default::default(),
-                                ident: create_ident("Abstract"),
-                                generics: Generics::default(),
-                                eq_token: Default::default(),
-                                ty: Type::Path(create_type_path(parse_quote!(super::#s_ty))),
-                                semi_token: Default::default(),
-                            }));
+                            let type_ident = create_ident("Abstract");
+                            let type_assign =
+                                Type::Path(create_type_path(parse_quote!(super::#s_ty)));
+                            transcribed.items.push(ImplItem::Type(create_impl_item_type(
+                                type_ident,
+                                type_assign,
+                            )));
                         }
                     }
                 }
