@@ -41,7 +41,7 @@ impl<const L: u32> HwArith for ConcreteBitvector<L> {
         let divisor = rhs.as_unsigned();
         if divisor == 0 {
             // result of division by zero is the dividend
-            return rhs;
+            return self;
         }
         let result = dividend
             .checked_rem(divisor)
@@ -76,7 +76,7 @@ impl<const L: u32> HwArith for ConcreteBitvector<L> {
         let divisor = rhs.as_signed();
         if divisor == 0 {
             // result of zero divisor is the dividend
-            return rhs;
+            return self;
         }
         let signed_minus_one = Self::bit_mask();
         let signed_minimum = Self::sign_bit_mask();
