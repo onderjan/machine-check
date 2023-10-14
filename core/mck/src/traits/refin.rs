@@ -19,6 +19,7 @@ where
 
 pub trait Refinable {
     type Refin;
+    #[must_use]
     fn clean_refin(&self) -> Self::Refin;
 }
 
@@ -53,7 +54,9 @@ pub trait State:
 pub trait Machine<I: Input, S: State> {
     type Abstract: abstr::Machine<<I as Input>::Abstract, <S as State>::Abstract>;
 
+    #[must_use]
     fn init(abstr_args: (&<I as Input>::Abstract,), later_mark: S) -> (I,);
+    #[must_use]
     fn next(
         abstr_args: (&<S as State>::Abstract, &<I as Input>::Abstract),
         later_mark: S,

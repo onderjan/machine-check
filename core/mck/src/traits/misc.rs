@@ -1,5 +1,7 @@
 pub trait FieldManipulate<T> {
+    #[must_use]
     fn get(&self, name: &str) -> Option<&T>;
+    #[must_use]
     fn get_mut(&mut self, name: &str) -> Option<&mut T>;
 }
 
