@@ -6,7 +6,7 @@ use btor2rs::{
 use syn::{parse_quote, Expr};
 
 use super::{
-    util::{create_nid_ident, create_rnid_expr, create_value_expr},
+    util::{create_nid_ident, create_rnid_expr, create_value_expr, single_bits_xor},
     Transcriber,
 };
 
@@ -167,17 +167,20 @@ impl<'a> StmtTranscriber<'a> {
                 )
             }
             UniOpType::Redxor => {
-                // naive version, just slice all relevant bits and xor them together
+                // naive version, just slice all relevant bits and XOR them together
                 let a_length = a_bitvec.length.get();
-                let mut slice_expressions = Vec::<syn::Expr>::new();
                 let a_tokens = create_rnid_expr(op.a);
-                for i in 0..a_length {
+
+                let slice_exprs = (0..a_length).map(|i| {
                     // logical shift right to make the i the zeroth bit
                     let shift_length_expr = create_value_expr(i.into(), a_bitvec);
                     let a_srl: Expr = parse_quote!(::mck::forward::HwShift::logic_shr(#a_tokens, #shift_length_expr));
-                    slice_expressions.push(parse_quote!(::mck::forward::Ext::<1>::uext(#a_srl)));
-                }
-                Ok(parse_quote!(#(#slice_expressions)^*))
+                    // cut all other bits
+                    parse_quote!(::mck::forward::Ext::<1>::uext(#a_srl))
+                });
+
+                // XOR the bits together
+                Ok(single_bits_xor(slice_exprs))
             }
         }
     }

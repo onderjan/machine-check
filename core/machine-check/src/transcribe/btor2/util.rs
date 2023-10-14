@@ -43,3 +43,44 @@ pub fn create_sort_type(sort: &Sort) -> Result<Type, anyhow::Error> {
 pub fn create_single_bit_type() -> Type {
     parse_quote!(::mck::concr::Bitvector<1>)
 }
+
+pub fn single_bits_and(exprs: impl Iterator<Item = Expr>) -> Expr {
+    let mut full_expr = None;
+    for expr in exprs {
+        full_expr = if let Some(prev) = full_expr {
+            Some(parse_quote!(::mck::forward::Bitwise::bitand(#prev, #expr)))
+        } else {
+            Some(expr)
+        };
+    }
+
+    // default to true as it is consistent
+    full_expr.unwrap_or_else(|| create_value_expr(1, &Bitvec::single_bit()))
+}
+
+#[allow(dead_code)]
+pub fn single_bits_or(exprs: impl Iterator<Item = Expr>) -> Expr {
+    let mut full_expr = None;
+    for expr in exprs {
+        full_expr = if let Some(prev) = full_expr {
+            Some(parse_quote!(::mck::forward::Bitwise::bitor(#prev, #expr)))
+        } else {
+            Some(expr)
+        };
+    }
+    // default to false as it is consistent
+    full_expr.unwrap_or_else(|| create_value_expr(0, &Bitvec::single_bit()))
+}
+
+pub fn single_bits_xor(exprs: impl Iterator<Item = Expr>) -> Expr {
+    let mut full_expr = None;
+    for expr in exprs {
+        full_expr = if let Some(prev) = full_expr {
+            Some(parse_quote!(::mck::forward::Bitwise::bitxor(#prev, #expr)))
+        } else {
+            Some(expr)
+        };
+    }
+    // default to zero as it is consistent
+    full_expr.unwrap_or_else(|| create_value_expr(0, &Bitvec::single_bit()))
+}

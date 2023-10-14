@@ -5,14 +5,14 @@ use std::{collections::BTreeMap, fs, io::BufReader};
 
 use crate::CheckError;
 use anyhow::anyhow;
-use btor2rs::{Bitvec, Btor2, DrainType, Nid, Node, Rnid, Sid, Source, SourceType};
+use btor2rs::{Btor2, DrainType, Nid, Node, Rnid, Sid, Source, SourceType};
 use camino::Utf8Path;
 use proc_macro2::{Ident, Span};
 use std::io::BufRead;
 use syn::{parse_quote, Expr, Field, FieldValue, Type};
 
 use self::util::{
-    create_nid_ident, create_rnid_expr, create_sid_type, create_single_bit_type, create_value_expr,
+    create_nid_ident, create_rnid_expr, create_sid_type, create_single_bit_type, single_bits_and,
 };
 
 pub fn transcribe(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
@@ -235,47 +235,39 @@ impl Transcriber {
 
     fn add_drain_field_values(&self, is_init: bool, field_values: &mut Vec<FieldValue>) {
         // result is constrained exactly when it was constrained previously and all constraints hold
-        // i.e. constraint_1 & constraint_2 & ...
+        // i.e. (constraint_1 & constraint_2 & ...) & previous_constrained
 
-        let mut full_constraint_expr = None;
-        for constraint in &self.constraints {
-            let constraint_expr = create_rnid_expr(*constraint);
-            full_constraint_expr = if let Some(prev) = full_constraint_expr {
-                Some(parse_quote!(::mck::forward::Bitwise::bitand(#prev, #constraint_expr)))
-            } else {
-                Some(constraint_expr)
-            }
-        }
-        // default to true
-        let mut full_constraint_expr =
-            full_constraint_expr.unwrap_or_else(|| create_value_expr(1, &Bitvec::single_bit()));
-        if !is_init {
-            // make sure it is still constrained from previous
-            full_constraint_expr = parse_quote!(::mck::forward::Bitwise::bitand(state.constrained, #full_constraint_expr));
-        }
+        let constraint_exprs = self
+            .constraints
+            .iter()
+            .map(|constraint| -> Expr { create_rnid_expr(*constraint) });
+        let constraint_expr = single_bits_and(constraint_exprs);
+        // make sure it is still constrained from previous
+        let constraint_expr = if !is_init {
+            parse_quote!(::mck::forward::Bitwise::bitand(state.constrained, #constraint_expr))
+        } else {
+            constraint_expr
+        };
 
-        field_values.push(parse_quote!(constrained: #full_constraint_expr));
+        field_values.push(parse_quote!(constrained: #constraint_expr));
 
         // result is safe exactly when it is either not constrained or there is no bad result
         // i.e. !constrained | (!bad_1 & !bad_2 & ...)
-        let mut full_not_bad_expr = None;
-        for bad in &self.bads {
+
+        // create the (!bad_1 & !bad_2 & ...)
+        let not_bad_exprs = self.bads.iter().map(|bad| -> Expr {
             let bad_expr: Expr = create_rnid_expr(*bad);
-            let not_bad_expr = parse_quote!(::mck::forward::Bitwise::not(#bad_expr));
-            full_not_bad_expr = if let Some(prev) = full_not_bad_expr {
-                Some(parse_quote!(::mck::forward::Bitwise::bitand(#prev, #not_bad_expr)))
-            } else {
-                Some(not_bad_expr)
-            };
-        }
-        // default to true
-        let full_not_bad_expr =
-            full_not_bad_expr.unwrap_or_else(|| create_value_expr(1, &Bitvec::single_bit()));
+            parse_quote!(::mck::forward::Bitwise::not(#bad_expr))
+        });
+        let not_bad_expr = single_bits_and(not_bad_exprs);
 
-        // the constraint must hold up to this state
-        let not_full_constraint_expr: Expr =
-            parse_quote!(::mck::forward::Bitwise::not(#full_constraint_expr));
+        // create the !constrained, the constraint must hold up to this state
+        let not_constraint_expr: Expr =
+            parse_quote!(::mck::forward::Bitwise::not(#constraint_expr));
 
-        field_values.push(parse_quote!(safe: ::mck::forward::Bitwise::bitor(#not_full_constraint_expr, #full_not_bad_expr)));
+        // combine and add to field values
+        field_values.push(
+            parse_quote!(safe: ::mck::forward::Bitwise::bitor(#not_constraint_expr, #not_bad_expr)),
+        );
     }
 }
