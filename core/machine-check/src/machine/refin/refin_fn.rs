@@ -244,7 +244,7 @@ impl MarkConverter {
 
             let mark_name = self.mark_scheme.convert_name(&field_ident.to_string());
             let mark_ident = Ident::new(&mark_name, Span::call_site());
-            let left_expr = Expr::Path(create_expr_path(Path::from(mark_ident)));
+            let left_expr = create_expr_path(Path::from(mark_ident));
             let right_expr = Expr::Field(ExprField {
                 attrs: vec![],
                 base: Box::new(Expr::Path(ExprPath {
@@ -276,7 +276,7 @@ fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
         mark_ident.to_string().strip_prefix("__mck_refin_").unwrap()
     );
 
-    let param = Expr::Path(create_expr_path(create_path_from_name(&abstr_name)));
+    let param = create_expr_path(create_path_from_name(&abstr_name));
     let param = if reference {
         Expr::Reference(ExprReference {
             attrs: vec![],
@@ -297,10 +297,8 @@ fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
             subpat: None,
         }),
         Expr::Call(create_expr_call(
-            Expr::Path(create_expr_path(path!(
-                ::mck::refin::Refinable::clean_refin
-            ))),
-            Punctuated::from_iter(vec![param]),
+            create_expr_path(path!(::mck::refin::Refinable::clean_refin)),
+            vec![param],
         )),
     )
 }

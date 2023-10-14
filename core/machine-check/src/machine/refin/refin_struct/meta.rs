@@ -57,11 +57,7 @@ fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
     let mut struct_expr_fields = Punctuated::new();
 
     for (index, field) in s.fields.iter().enumerate() {
-        let self_field_expr = Expr::Field(create_expr_field(
-            Expr::Path(create_expr_path(path!(self))),
-            index,
-            field,
-        ));
+        let self_field_expr = create_expr_field(create_expr_path(path!(self)), index, field);
         let self_ref_expr = Expr::Reference(ExprReference {
             attrs: vec![],
             and_token: Default::default(),
@@ -70,8 +66,8 @@ fn fabricate_first_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
         });
 
         let init_expr = Expr::Call(create_expr_call(
-            Expr::Path(create_expr_path(path!(::mck::misc::Meta::proto_first))),
-            Punctuated::from_iter(vec![self_ref_expr]),
+            create_expr_path(path!(::mck::misc::Meta::proto_first)),
+            vec![self_ref_expr],
         ));
 
         let field_value = create_field_value(index, field, init_expr);
@@ -145,26 +141,18 @@ fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
             attrs: vec![],
             and_token: Default::default(),
             mutability: None,
-            expr: Box::new(Expr::Field(create_expr_field(
-                Expr::Path(self_expr_path),
-                index,
-                field,
-            ))),
+            expr: Box::new(create_expr_field(self_expr_path, index, field)),
         });
         let fabricated_expr = Expr::Reference(ExprReference {
             attrs: vec![],
             and_token: Default::default(),
             mutability: Some(Default::default()),
-            expr: Box::new(Expr::Field(create_expr_field(
-                Expr::Path(fabricated_expr_path),
-                index,
-                field,
-            ))),
+            expr: Box::new(create_expr_field(fabricated_expr_path, index, field)),
         });
-        let func_expr = Expr::Path(create_expr_path(path!(::mck::misc::Meta::proto_increment)));
+        let func_expr = create_expr_path(path!(::mck::misc::Meta::proto_increment));
         let expr = Expr::Call(create_expr_call(
             func_expr,
-            Punctuated::from_iter(vec![self_expr, fabricated_expr]),
+            vec![self_expr, fabricated_expr],
         ));
         if let Some(previous_expr) = result_expr.take() {
             // short-circuiting or for simplicity
@@ -180,7 +168,7 @@ fn increment_fabricated_fn(s: &ItemStruct, self_input: FnArg) -> ImplItemFn {
     }
 
     // if there are no fields, return false
-    let result_expr = result_expr.unwrap_or(Expr::Path(create_expr_path(path!(false))));
+    let result_expr = result_expr.unwrap_or(create_expr_path(path!(false)));
 
     ImplItemFn {
         attrs: vec![],

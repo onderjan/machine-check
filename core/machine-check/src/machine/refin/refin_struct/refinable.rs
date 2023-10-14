@@ -50,8 +50,8 @@ pub fn generate_markable_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     });
 
     let expr = Expr::Call(create_expr_call(
-        Expr::Path(create_expr_path(path!(::std::default::Default::default))),
-        Punctuated::new(),
+        create_expr_path(path!(::std::default::Default::default)),
+        vec![],
     ));
 
     let create_clean_mark_fn = ImplItemFn {

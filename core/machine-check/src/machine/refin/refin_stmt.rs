@@ -75,7 +75,7 @@ pub fn create_join_stmt(left: Expr, right: Expr) -> Stmt {
     )
 }
 
-fn invert_call(stmts: &mut Vec<Stmt>, later_mark: ExprPath, call: &ExprCall) -> anyhow::Result<()> {
+fn invert_call(stmts: &mut Vec<Stmt>, later_mark: Expr, call: &ExprCall) -> anyhow::Result<()> {
     // move function arguments to left
     let mut function_args = Punctuated::<Pat, Comma>::new();
     let mut all_args_wild = true;
@@ -135,7 +135,7 @@ fn invert_call(stmts: &mut Vec<Stmt>, later_mark: ExprPath, call: &ExprCall) -> 
 
     let abstr_input_arg = create_expr_tuple(abstr_input_args);
     inverted_call.args.push(abstr_input_arg);
-    inverted_call.args.push(Expr::Path(later_mark));
+    inverted_call.args.push(later_mark);
 
     // construct the call statement and join each of earlier marks
     let tmp_name = format!("__mck_tmp_{}", stmts.len());
@@ -150,7 +150,7 @@ fn invert_call(stmts: &mut Vec<Stmt>, later_mark: ExprPath, call: &ExprCall) -> 
         match arg {
             Expr::Path(expr_path) => {
                 let left_path_expr = Expr::Path(expr_path.clone());
-                let right_path_expr = Expr::Path(create_expr_path(Path::from(tmp_ident.clone())));
+                let right_path_expr = create_expr_path(Path::from(tmp_ident.clone()));
                 let right_field_expr = Expr::Field(ExprField {
                     attrs: vec![],
                     base: Box::new(right_path_expr),
@@ -200,7 +200,7 @@ pub fn invert_simple_let(
 ) -> anyhow::Result<()> {
     let later_mark = match left {
         Pat::Ident(left_pat_ident) => create_expr_path(Path::from(left_pat_ident.ident.clone())),
-        Pat::Path(left_path) => left_path.clone(),
+        Pat::Path(left_path) => Expr::Path(left_path.clone()),
         _ => {
             return Err(anyhow!("Inversion not implemented for pattern {:?}", left));
         }
@@ -210,7 +210,7 @@ pub fn invert_simple_let(
         Expr::Path(_) | Expr::Field(_) | Expr::Struct(_) => {
             let earlier_mark = right.clone();
             // join instead of assigning to preserve marking
-            inverted_stmts.push(create_join_stmt(earlier_mark, Expr::Path(later_mark)));
+            inverted_stmts.push(create_join_stmt(earlier_mark, later_mark));
             Ok(())
         }
         Expr::Call(expr_call) => invert_call(inverted_stmts, later_mark, expr_call),

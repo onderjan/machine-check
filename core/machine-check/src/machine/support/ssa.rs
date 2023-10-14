@@ -146,7 +146,7 @@ impl BlockTranslator {
         ));
 
         // change expr to the temporary variable path
-        *expr = Expr::Path(create_expr_path(tmp_ident.into()));
+        *expr = create_expr_path(tmp_ident.into());
         Ok(())
     }
 }
