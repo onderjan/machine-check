@@ -1,11 +1,9 @@
 use anyhow::anyhow;
 use proc_macro2::Span;
 use quote::quote;
-use syn::punctuated::Punctuated;
-use syn::{
-    visit_mut::VisitMut, Block, Expr, ExprPath, Ident, Local, LocalInit, Pat, PatIdent, Path,
-    PathSegment, Stmt,
-};
+use syn::{visit_mut::VisitMut, Block, Expr, Ident, Pat, Stmt};
+
+use crate::machine::util::{create_expr_path, create_let_stmt_from_pat_expr, create_pat_ident};
 
 pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
     // apply linear SSA to each block using a visitor
@@ -100,12 +98,12 @@ impl BlockTranslator {
                 }
             }
             syn::Expr::Struct(expr_struct) => {
-                // move field values and rest
+                // move field values
                 for field in &mut expr_struct.fields {
                     self.move_through_temp(&mut field.expr)?;
                 }
-                if let Some(ref mut rest) = expr_struct.rest {
-                    self.move_through_temp(rest)?;
+                if expr_struct.rest.is_some() {
+                    return Err(anyhow!("Struct rest not supported"));
                 }
             }
             _ => {
@@ -142,38 +140,13 @@ impl BlockTranslator {
         );
 
         // add new let statement to translated statements
-        // i.e. let tmp = expr;
-        let let_stmt = Stmt::Local(Local {
-            attrs: vec![],
-            let_token: Default::default(),
-            pat: Pat::Ident(PatIdent {
-                attrs: vec![],
-                by_ref: None,
-                mutability: None,
-                ident: tmp_ident.clone(),
-                subpat: None,
-            }),
-            init: Some(LocalInit {
-                eq_token: Default::default(),
-                expr: Box::new(expr.clone()),
-                diverge: None,
-            }),
-            semi_token: Default::default(),
-        });
-        self.translated_stmts.push(let_stmt);
+        self.translated_stmts.push(create_let_stmt_from_pat_expr(
+            Pat::Ident(create_pat_ident(tmp_ident.clone())),
+            expr.clone(),
+        ));
 
         // change expr to the temporary variable path
-        *expr = Expr::Path(ExprPath {
-            attrs: vec![],
-            qself: None,
-            path: Path {
-                leading_colon: None,
-                segments: Punctuated::from_iter(vec![PathSegment {
-                    ident: tmp_ident,
-                    arguments: syn::PathArguments::None,
-                }]),
-            },
-        });
+        *expr = Expr::Path(create_expr_path(tmp_ident.into()));
         Ok(())
     }
 }
