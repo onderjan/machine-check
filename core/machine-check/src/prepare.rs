@@ -9,7 +9,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::util::log_process_output;
+use crate::util::{log_process_error_log, log_process_output};
 use crate::{CheckError, Cli, PrepareCli};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -65,11 +65,12 @@ pub fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), CheckError> {
         .output()
         .map_err(CheckError::BuildRun)?;
 
-    log_process_output(&build_output);
-
     if !build_output.status.success() {
+        log_process_error_log("Preparation", &build_output.stderr);
         return Err(CheckError::BuildStatus(build_output.status));
     }
+
+    log_process_output("Preparation", &build_output);
 
     let mut linked_paths = BTreeSet::new();
 
