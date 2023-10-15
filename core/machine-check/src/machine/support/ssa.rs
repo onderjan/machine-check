@@ -3,7 +3,7 @@ use proc_macro2::Span;
 use quote::quote;
 use syn::{visit_mut::VisitMut, Block, Expr, Ident, Pat, Stmt};
 
-use crate::machine::util::{create_expr_path, create_let_stmt_from_pat_expr, create_pat_ident};
+use crate::machine::util::{create_expr_path, create_let};
 
 pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
     // apply linear SSA to each block using a visitor
@@ -140,10 +140,8 @@ impl BlockTranslator {
         );
 
         // add new let statement to translated statements
-        self.translated_stmts.push(create_let_stmt_from_pat_expr(
-            Pat::Ident(create_pat_ident(tmp_ident.clone())),
-            expr.clone(),
-        ));
+        self.translated_stmts
+            .push(create_let(tmp_ident.clone(), expr.clone()));
 
         // change expr to the temporary variable path
         *expr = create_expr_path(tmp_ident.into());

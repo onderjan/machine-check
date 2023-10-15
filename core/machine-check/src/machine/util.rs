@@ -8,7 +8,7 @@ use syn::{
     Attribute, Block, Expr, ExprCall, ExprField, ExprPath, ExprReference, ExprTuple, Field,
     FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn, ImplItemType, Index, Item, ItemImpl,
     ItemMod, Local, LocalInit, Member, MetaList, Pat, PatIdent, PatType, Path, Receiver,
-    ReturnType, Signature, Stmt, Type, TypePath, TypeReference, Visibility,
+    ReturnType, Signature, Stmt, Type, TypePath, TypeReference, TypeTuple, Visibility,
 };
 use syn_path::path;
 
@@ -72,6 +72,15 @@ pub fn create_expr_field_unnamed(base: Expr, index: usize) -> Expr {
     })
 }
 
+pub fn create_expr_field_named(base: Expr, ident: Ident) -> Expr {
+    Expr::Field(ExprField {
+        attrs: vec![],
+        base: Box::new(base),
+        dot_token: Default::default(),
+        member: Member::Named(ident),
+    })
+}
+
 pub fn create_expr_field(base: Expr, index: usize, field: &Field) -> Expr {
     Expr::Field(ExprField {
         attrs: vec![],
@@ -125,18 +134,19 @@ pub fn create_type_path(path: Path) -> TypePath {
     TypePath { qself: None, path }
 }
 
-pub fn create_let_stmt_from_ident_expr(left_ident: Ident, right_expr: Expr) -> Stmt {
+fn create_let_mut_choice(mutable: bool, left_ident: Ident, right_expr: Expr) -> Stmt {
+    let mutability = if mutable {
+        Some(Default::default())
+    } else {
+        None
+    };
     let left_pat = Pat::Ident(PatIdent {
         attrs: vec![],
         by_ref: None,
-        mutability: None,
+        mutability,
         ident: left_ident,
         subpat: None,
     });
-    create_let_stmt_from_pat_expr(left_pat, right_expr)
-}
-
-pub fn create_let_stmt_from_pat_expr(left_pat: Pat, right_expr: Expr) -> Stmt {
     Stmt::Local(Local {
         attrs: vec![],
         let_token: Default::default(),
@@ -148,6 +158,14 @@ pub fn create_let_stmt_from_pat_expr(left_pat: Pat, right_expr: Expr) -> Stmt {
         }),
         semi_token: Default::default(),
     })
+}
+
+pub fn create_let(left_ident: Ident, right_expr: Expr) -> Stmt {
+    create_let_mut_choice(false, left_ident, right_expr)
+}
+
+pub fn create_let_mut(left_ident: Ident, right_expr: Expr) -> Stmt {
+    create_let_mut_choice(true, left_ident, right_expr)
 }
 
 pub fn generate_derive_attribute(tokens: TokenStream) -> Attribute {
@@ -241,17 +259,21 @@ pub fn create_self_arg(arg_ty: ArgType) -> FnArg {
     })
 }
 
+pub fn create_converted_type(arg_ty: ArgType, ty: Type) -> Type {
+    match arg_ty {
+        ArgType::Normal => ty,
+        ArgType::Reference => create_type_reference(false, ty),
+        ArgType::MutableReference => create_type_reference(true, ty),
+    }
+}
+
 pub fn create_arg(arg_ty: ArgType, ident: Ident, ty: Option<Type>) -> FnArg {
     let ty = match ty {
         Some(ty) => ty,
         None => Type::Path(create_type_path(path!(Self))),
     };
 
-    let ty = match arg_ty {
-        ArgType::Normal => ty,
-        ArgType::Reference => create_type_reference(false, ty),
-        ArgType::MutableReference => create_type_reference(true, ty),
-    };
+    let ty = create_converted_type(arg_ty, ty);
     FnArg::Typed(PatType {
         attrs: vec![],
         pat: Box::new(Pat::Ident(create_pat_ident(ident))),
@@ -334,4 +356,19 @@ pub fn create_refine_join_stmt(left: Expr, right: Expr) -> Stmt {
         ),
         Some(Default::default()),
     )
+}
+
+pub fn create_tuple_expr(elems: Vec<Expr>) -> Expr {
+    Expr::Tuple(ExprTuple {
+        attrs: vec![],
+        paren_token: Default::default(),
+        elems: Punctuated::from_iter(elems.into_iter()),
+    })
+}
+
+pub fn create_tuple_type(types: Vec<Type>) -> Type {
+    Type::Tuple(TypeTuple {
+        paren_token: Default::default(),
+        elems: Punctuated::from_iter(types.into_iter()),
+    })
 }

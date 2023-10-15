@@ -6,8 +6,8 @@ use syn::{
 };
 
 use crate::machine::util::{
-    create_expr_field_unnamed, create_expr_path, create_expr_tuple, create_ident,
-    create_let_stmt_from_ident_expr, create_refine_join_stmt,
+    create_expr_field_unnamed, create_expr_path, create_expr_tuple, create_ident, create_let,
+    create_refine_join_stmt,
 };
 
 fn invert_fn_expr(fn_expr: &mut Expr) -> anyhow::Result<()> {
@@ -112,10 +112,7 @@ fn invert_call(stmts: &mut Vec<Stmt>, later_mark: Expr, call: &ExprCall) -> anyh
     let tmp_name = format!("__mck_tmp_{}", stmts.len());
     let tmp_ident = create_ident(&tmp_name);
 
-    stmts.push(create_let_stmt_from_ident_expr(
-        tmp_ident.clone(),
-        Expr::Call(inverted_call),
-    ));
+    stmts.push(create_let(tmp_ident.clone(), Expr::Call(inverted_call)));
 
     for (index, arg) in call.args.iter().enumerate() {
         match arg {

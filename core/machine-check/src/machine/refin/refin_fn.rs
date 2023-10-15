@@ -5,16 +5,16 @@ use anyhow::anyhow;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Block, Expr, ExprField, ExprPath, ExprTuple,
-    FnArg, Ident, ImplItem, ImplItemFn, Index, ItemImpl, Member, Pat, PatIdent, PatType, Path,
-    PathArguments, PathSegment, ReturnType, Signature, Stmt, Type, TypeReference, TypeTuple,
+    punctuated::Punctuated, visit_mut::VisitMut, Block, Expr, FnArg, Ident, ImplItem, ImplItemFn,
+    ItemImpl, Member, Pat, PatIdent, ReturnType, Signature, Stmt, Type, TypeTuple,
 };
 use syn_path::path;
 
 use crate::machine::util::{
-    create_expr_call, create_expr_path, create_ident, create_let_stmt_from_ident_expr,
-    create_let_stmt_from_pat_expr, create_path_from_name, create_refine_join_stmt,
-    create_unit_expr, scheme::ConversionScheme, ArgType,
+    create_arg, create_converted_type, create_expr_call, create_expr_field_named,
+    create_expr_field_unnamed, create_expr_ident, create_expr_path, create_ident, create_let,
+    create_let_mut, create_path_from_name, create_refine_join_stmt, create_tuple_expr,
+    create_tuple_type, create_unit_expr, scheme::ConversionScheme, ArgType,
 };
 
 use super::refin_stmt::invert_stmt;
@@ -162,19 +162,22 @@ impl MarkConverter {
 
     fn generate_abstract_input(&self, orig_sig: &Signature) -> anyhow::Result<(FnArg, Vec<Stmt>)> {
         let arg_name = "__mck_input_abstr";
-        let mut types = Punctuated::new();
+        let mut types = Vec::new();
         let mut detuple_stmts = Vec::new();
         for (index, r) in create_input_name_type_iter(orig_sig).enumerate() {
             let (orig_name, orig_type) = r?;
             // convert to abstract type and to reference so we do not consume original abstract output
-            let ty = convert_type_to_reference(self.abstract_scheme.convert_type(orig_type)?)?;
+            let ty = to_singular_reference(self.abstract_scheme.convert_type(orig_type)?);
             types.push(ty);
             let abstr_name = self.abstract_scheme.convert_name(&orig_name);
-            let detuple_stmt = create_detuple_stmt(&abstr_name, arg_name, index as u32);
+            let detuple_stmt = create_let(
+                create_ident(&abstr_name),
+                create_expr_field_unnamed(create_expr_path(create_path_from_name(arg_name)), index),
+            );
             detuple_stmts.push(detuple_stmt);
         }
         let ty = create_tuple_type(types);
-        let arg = create_typed_arg(arg_name, ty);
+        let arg = create_arg(ArgType::Normal, create_ident(arg_name), Some(ty));
         Ok((arg, detuple_stmts))
     }
 
@@ -183,9 +186,9 @@ impl MarkConverter {
         orig_sig: &Signature,
     ) -> anyhow::Result<(ReturnType, Vec<Ident>, Stmt)> {
         // create return type
-        let mut types = Punctuated::new();
+        let mut types = Vec::new();
         let mut partial_idents = Vec::new();
-        let mut partial_exprs = Punctuated::new();
+        let mut partial_exprs = Vec::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
             // convert to mark type and remove reference as it will serve as return type
@@ -194,22 +197,14 @@ impl MarkConverter {
             // add expression to result tuple
             let mark_name = self.mark_scheme.convert_name(&orig_name);
             let partial_ident = Ident::new(&mark_name, Span::call_site());
-            let partial_expr = Expr::Path(ExprPath {
-                attrs: vec![],
-                qself: None,
-                path: Path::from(partial_ident.clone()),
-            });
+            let partial_expr = create_expr_ident(partial_ident.clone());
             partial_idents.push(partial_ident);
             partial_exprs.push(partial_expr);
         }
         let ty = create_tuple_type(types);
         let return_type = ReturnType::Type(Default::default(), Box::new(ty));
 
-        let tuple_expr = Expr::Tuple(ExprTuple {
-            attrs: vec![],
-            paren_token: Default::default(),
-            elems: partial_exprs,
-        });
+        let tuple_expr = create_tuple_expr(partial_exprs);
 
         Ok((return_type, partial_idents, Stmt::Expr(tuple_expr, None)))
     }
@@ -223,7 +218,7 @@ impl MarkConverter {
         let name = "__mck_input_later_mark";
         let ty = convert_return_type_to_type(&orig_sig.output);
         // do not convert to reference, consuming mark is better
-        let arg = create_typed_arg(name, ty);
+        let arg = create_arg(ArgType::Normal, create_ident(name), Some(ty));
         // create let statement from original result expression
         let Expr::Struct(orig_result_struct) = orig_result_expr else {
             return Err(anyhow!("Non-struct result {} not supported", quote!(#orig_result_expr)));
@@ -243,18 +238,10 @@ impl MarkConverter {
             };
 
             let mark_name = self.mark_scheme.convert_name(&field_ident.to_string());
-            let mark_ident = Ident::new(&mark_name, Span::call_site());
-            let left_expr = create_expr_path(Path::from(mark_ident));
-            let right_expr = Expr::Field(ExprField {
-                attrs: vec![],
-                base: Box::new(Expr::Path(ExprPath {
-                    attrs: vec![],
-                    qself: None,
-                    path: Path::from(Ident::new(name, Span::call_site())),
-                })),
-                dot_token: Default::default(),
-                member: Member::Named(member_ident.clone()),
-            });
+            let mark_ident = create_ident(&mark_name);
+            let left_expr = create_expr_ident(mark_ident);
+            let right_base = create_expr_ident(create_ident(name));
+            let right_expr = create_expr_field_named(right_base, member_ident.clone());
 
             // generate join statement
             stmts.push(create_refine_join_stmt(left_expr, right_expr));
@@ -283,14 +270,8 @@ fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
         ArgType::Normal
     };
 
-    create_let_stmt_from_pat_expr(
-        Pat::Ident(PatIdent {
-            attrs: vec![],
-            by_ref: None,
-            mutability: Some(Default::default()),
-            ident: mark_ident,
-            subpat: None,
-        }),
+    create_let_mut(
+        mark_ident,
         create_expr_call(
             create_expr_path(path!(::mck::refin::Refinable::clean_refin)),
             vec![(arg_ty, param)],
@@ -298,19 +279,10 @@ fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
     )
 }
 
-fn convert_type_to_reference(ty: Type) -> anyhow::Result<Type> {
+fn to_singular_reference(ty: Type) -> Type {
     match ty {
-        Type::Reference(_) => Ok(ty),
-        Type::Path(_) => Ok(Type::Reference(TypeReference {
-            and_token: Default::default(),
-            lifetime: None,
-            mutability: None,
-            elem: Box::new(ty),
-        })),
-        _ => Err(anyhow!(
-            "Conversion of '{}' to reference type not supported",
-            quote!(#ty)
-        )),
+        Type::Reference(_) => ty,
+        _ => create_converted_type(ArgType::Reference, ty),
     }
 }
 
@@ -370,51 +342,6 @@ fn create_input_name_type_iter(
             Ok((pat_ident.ident.to_string(), ty))
         }
     })
-}
-
-fn create_typed_arg(name: &str, ty: Type) -> FnArg {
-    FnArg::Typed(PatType {
-        attrs: vec![],
-        pat: Box::new(Pat::Ident(PatIdent {
-            attrs: vec![],
-            by_ref: None,
-            mutability: None,
-            ident: Ident::new(name, Span::call_site()),
-            subpat: None,
-        })),
-        colon_token: Default::default(),
-        ty: Box::new(ty),
-    })
-}
-
-fn create_tuple_type(types: Punctuated<Type, syn::token::Comma>) -> Type {
-    Type::Tuple(TypeTuple {
-        paren_token: Default::default(),
-        elems: types,
-    })
-}
-
-fn create_detuple_stmt(left_name: &str, tuple_name: &str, index: u32) -> Stmt {
-    let right_expr = Expr::Field(ExprField {
-        attrs: vec![],
-        base: Box::new(Expr::Path(ExprPath {
-            attrs: vec![],
-            qself: None,
-            path: Path {
-                leading_colon: None,
-                segments: Punctuated::from_iter(vec![PathSegment {
-                    ident: Ident::new(tuple_name, Span::call_site()),
-                    arguments: PathArguments::None,
-                }]),
-            },
-        })),
-        dot_token: Default::default(),
-        member: Member::Unnamed(Index {
-            index,
-            span: Span::call_site(),
-        }),
-    });
-    create_let_stmt_from_ident_expr(Ident::new(left_name, Span::call_site()), right_expr)
 }
 
 struct LocalVisitor {
