@@ -1,6 +1,7 @@
 use machine_check_common::ExecError;
 
 mod enf;
+mod misc;
 mod parser;
 mod pnf;
 

@@ -3,7 +3,10 @@ use super::{PropBi, PropF, PropG, PropR, PropTemp, PropU, PropUni, Proposition};
 impl Proposition {
     #[must_use]
     pub fn pnf(&self) -> Self {
-        self.pnf_inner(false)
+        let result = self.pnf_inner(false);
+        // make sure that there are no negations outside literals
+        assert!(!result.contains_negation());
+        result
     }
 
     #[must_use]
