@@ -1,35 +1,34 @@
 use btor2rs::{Bitvec, Nid, Sid, Sort};
 
+use crate::translate::btor2::Error;
+
 use super::NodeTranslator;
-use anyhow::anyhow;
 
 impl<'a> NodeTranslator<'a> {
-    pub(super) fn get_sort(&self, sid: Sid) -> Result<&Sort, anyhow::Error> {
+    pub(super) fn get_sort(&self, sid: Sid) -> Result<&Sort, Error> {
         self.translator
             .btor2
             .sorts
             .get(&sid)
-            .ok_or_else(|| anyhow!("Unknown sort"))
+            .ok_or_else(|| Error::InvalidSort(sid))
     }
 
-    pub(super) fn get_bitvec(&self, sid: Sid) -> Result<&Bitvec, anyhow::Error> {
+    pub(super) fn get_bitvec(&self, sid: Sid) -> Result<&Bitvec, Error> {
         let sort = self.get_sort(sid)?;
         let Sort::Bitvec(bitvec) = sort else {
-        return Err(anyhow!("Expected bitvec sort"));
+        return Err(Error::ExpectBitvecSort(sid));
     };
         Ok(bitvec)
     }
 
-    pub(super) fn get_nid_bitvec(&self, nid: Nid) -> Result<&Bitvec, anyhow::Error> {
+    pub(super) fn get_nid_bitvec(&self, nid: Nid) -> Result<&Bitvec, Error> {
         let node = self
             .translator
             .btor2
             .nodes
             .get(&nid)
-            .ok_or_else(|| anyhow!("Unknown node"))?;
-        let sid = node
-            .get_sid()
-            .ok_or_else(|| anyhow!("Expected node with sid"))?;
+            .ok_or_else(|| Error::InvalidNode(nid))?;
+        let sid = node.get_sid().ok_or_else(|| Error::UnknownNodeSort(nid))?;
         self.get_bitvec(sid)
     }
 }

@@ -3,28 +3,24 @@ use syn::{ImplItem, Item, ItemImpl, Type};
 use crate::machine::{
     support::{special_trait::special_trait_impl, struct_rules::StructRules},
     util::{create_ident, create_impl_item_type},
+    Error,
 };
 
 mod args;
 mod item_impl_fn;
 mod local_visitor;
 
-use anyhow::anyhow;
-
 use super::rules;
 
-pub(super) fn apply(
-    refinement_items: &mut Vec<Item>,
-    item_impl: &ItemImpl,
-) -> Result<(), anyhow::Error> {
+pub(super) fn apply(refinement_items: &mut Vec<Item>, item_impl: &ItemImpl) -> Result<(), Error> {
     let self_ty = item_impl.self_ty.as_ref();
 
     let Type::Path(self_ty) = self_ty else {
-        return Err(anyhow!("Non-path impl type not supported"));
+        return Err(Error(String::from("Non-path impl type not supported")));
     };
 
     let Some(self_ty_ident) = self_ty.path.get_ident() else {
-        return Err(anyhow!("Non-ident impl type not supported"));
+        return Err(Error(String::from("Non-ident impl type not supported")));
     };
 
     let converter = ImplConverter {
@@ -51,7 +47,7 @@ pub struct ImplConverter {
 }
 
 impl ImplConverter {
-    fn convert(&self, item_impl: ItemImpl) -> Result<ItemImpl, anyhow::Error> {
+    fn convert(&self, item_impl: ItemImpl) -> Result<ItemImpl, Error> {
         let mut items = Vec::<ImplItem>::new();
         for item in &item_impl.items {
             match item {
@@ -62,7 +58,7 @@ impl ImplConverter {
                     // just clone to preserve pointed-to type, now in refinement module context
                     items.push(ImplItem::Type(item_type.clone()));
                 }
-                _ => return Err(anyhow!("Impl item type {:?} not supported", item)),
+                _ => return Err(Error(format!("Impl item type {:?} not supported", item))),
             }
         }
 

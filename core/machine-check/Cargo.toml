@@ -8,7 +8,6 @@ license = "MIT OR Apache-2.0"
 mck = { path = "../mck" }
 machine-check-common = { path = "../machine-check-common" }
 btor2rs = { path = "../btor2rs" }
-anyhow = "1.0.75"
 proc-macro2 = "1.0.67"
 syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }
 quote = "1.0.28"

@@ -1,9 +1,8 @@
-use anyhow::anyhow;
 use btor2rs::{Bitvec, Btor2, Nid, Rnid, Sid, Sort};
 use proc_macro2::Span;
 use syn::{parse_quote, Expr, Ident, Type};
 
-use super::node::constant::create_value_expr;
+use super::{node::constant::create_value_expr, Error};
 
 pub fn create_nid_ident(nid: Nid) -> Ident {
     Ident::new(&format!("node_{}", nid.get()), Span::call_site())
@@ -19,22 +18,22 @@ pub fn create_rnid_expr(rref: Rnid) -> Expr {
     }
 }
 
-pub fn create_sid_type(btor2: &Btor2, sid: Sid) -> Result<Type, anyhow::Error> {
+pub(crate) fn create_sid_type(btor2: &Btor2, sid: Sid) -> Result<Type, Error> {
     create_sort_type(
         btor2
             .sorts
             .get(&sid)
-            .ok_or_else(|| anyhow!("Unknown sid"))?,
+            .ok_or_else(|| Error::InvalidSort(sid))?,
     )
 }
 
-pub fn create_sort_type(sort: &Sort) -> Result<Type, anyhow::Error> {
+pub(crate) fn create_sort_type(sort: &Sort) -> Result<Type, Error> {
     match sort {
         Sort::Bitvec(bitvec) => {
             let bitvec_length = bitvec.length.get();
             Ok(parse_quote!(::mck::concr::Bitvector<#bitvec_length>))
         }
-        Sort::Array(_) => Err(anyhow!("Generating arrays not supported")),
+        Sort::Array(_) => Err(Error::ArrayNotSupported),
     }
 }
 

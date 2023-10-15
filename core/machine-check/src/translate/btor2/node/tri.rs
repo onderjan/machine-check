@@ -1,16 +1,16 @@
-use anyhow::anyhow;
 use btor2rs::{TriOp, TriOpType};
 use syn::Expr;
 
 use crate::translate::btor2::{
     node::{bi::create_bit_and, ext::create_sext},
     util::create_rnid_expr,
+    Error,
 };
 
 use super::{bi::create_bit_or, uni::create_bit_not, NodeTranslator};
 
 impl<'a> NodeTranslator<'a> {
-    pub fn tri_op_expr(&self, op: &TriOp) -> Result<syn::Expr, anyhow::Error> {
+    pub fn tri_op_expr(&self, op: &TriOp) -> Result<syn::Expr, Error> {
         let a_expr = create_rnid_expr(op.a);
         let b_expr = create_rnid_expr(op.b);
         let c_expr = create_rnid_expr(op.c);
@@ -30,7 +30,7 @@ impl<'a> NodeTranslator<'a> {
             }
             TriOpType::Write => {
                 // a = array, b = index, c = element to be stored
-                Err(anyhow!("Generating arrays not supported"))
+                Err(Error::NotImplemented(op.ty.to_string()))
             }
         }
     }

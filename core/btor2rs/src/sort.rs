@@ -1,7 +1,5 @@
-use crate::{parse_sid, Sid};
+use crate::{line::LineError, util::parse_sid, Sid};
 use std::num::NonZeroU32;
-
-use anyhow::anyhow;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bitvec {
@@ -33,19 +31,15 @@ impl Sort {
         Sort::Bitvec(Bitvec::single_bit())
     }
 
-    pub(crate) fn parse<'a>(
-        mut split: impl Iterator<Item = &'a str>,
-    ) -> Result<Sort, anyhow::Error> {
+    pub(crate) fn parse<'a>(mut split: impl Iterator<Item = &'a str>) -> Result<Sort, LineError> {
         // insert to sorts
-        let third = split.next().ok_or_else(|| anyhow!("Missing sort type"))?;
+        let third = split.next().ok_or(LineError::MissingSortType)?;
         match third {
             "bitvec" => {
-                let bitvec_length = split
-                    .next()
-                    .ok_or_else(|| anyhow!("Missing bitvec length"))?;
+                let bitvec_length = split.next().ok_or(LineError::MissingBitvecLength)?;
 
                 let Ok(length) = bitvec_length.parse::<NonZeroU32>() else {
-                    return Err(anyhow!("Cannot parse bitvec length"));
+                    return Err(LineError::InvalidBitvecLength);
                 };
                 Ok(Sort::Bitvec(Bitvec { length }))
             }
@@ -55,7 +49,7 @@ impl Sort {
 
                 Ok(Sort::Array(Array { index, element }))
             }
-            _ => Err(anyhow!("Unknown sort type")),
+            _ => Err(LineError::InvalidSortType),
         }
     }
 }

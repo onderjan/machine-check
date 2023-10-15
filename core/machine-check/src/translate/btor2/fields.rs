@@ -4,11 +4,11 @@ use syn::{Field, Ident, Type};
 
 use super::{
     util::{create_nid_ident, create_sid_type, create_single_bit_type},
-    Translator,
+    Error, Translator,
 };
 
 impl Translator {
-    pub(super) fn create_input_fields(&self) -> Result<Vec<Field>, anyhow::Error> {
+    pub(super) fn create_input_fields(&self) -> Result<Vec<Field>, Error> {
         // add inputs and states without init or next to input fields
         let mut fields = Vec::new();
         for (nid, node) in &self.btor2.nodes {
@@ -30,7 +30,7 @@ impl Translator {
         Ok(fields)
     }
 
-    pub(super) fn create_state_fields(&self) -> Result<Vec<Field>, anyhow::Error> {
+    pub(super) fn create_state_fields(&self) -> Result<Vec<Field>, Error> {
         let mut fields = Vec::new();
         for (nid, state_info) in &self.state_info_map {
             // if state has next, it is a field
@@ -52,7 +52,7 @@ impl Translator {
         state_fields.push(create_field(safe_ident, bit_type));
     }
 
-    fn create_nid_field(&self, nid: Nid, sid: Sid) -> Result<Field, anyhow::Error> {
+    fn create_nid_field(&self, nid: Nid, sid: Sid) -> Result<Field, Error> {
         let ident = create_nid_ident(nid);
         let ty = create_sid_type(&self.btor2, sid)?;
         Ok(Field {

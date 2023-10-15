@@ -1,5 +1,7 @@
 use syn::{Item, ItemStruct};
 
+use crate::machine::Error;
+
 use self::{meta::meta_impl, refinable::refinable_impl, refine::refine_impl};
 
 use super::SpecialTrait;
@@ -12,7 +14,7 @@ pub(super) fn add_special_impls(
     special_trait: SpecialTrait,
     refinement_items: &mut Vec<Item>,
     item_struct: &ItemStruct,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), Error> {
     match special_trait {
         SpecialTrait::Input | SpecialTrait::State => {
             // add Meta and Refinable implementations

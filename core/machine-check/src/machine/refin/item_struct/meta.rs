@@ -9,9 +9,10 @@ use crate::machine::{
         create_path_from_ident, create_path_with_last_generic_type, create_self, create_self_arg,
         create_struct_expr, create_type_path, ArgType,
     },
+    Error,
 };
 
-pub fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, anyhow::Error> {
+pub(crate) fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, Error> {
     let abstr_type_path =
         rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
 
@@ -29,7 +30,7 @@ pub fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, anyhow::Error> {
     ))
 }
 
-fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, anyhow::Error> {
+fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     let fn_ident = create_ident("proto_first");
 
     let self_arg = create_self_arg(ArgType::Reference);
@@ -58,7 +59,7 @@ fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, anyhow::Error> {
     ))
 }
 
-fn proto_increment_fn(s: &ItemStruct) -> Result<ImplItemFn, anyhow::Error> {
+fn proto_increment_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     let fn_ident = create_ident("proto_increment");
 
     let self_arg = create_self_arg(ArgType::Reference);

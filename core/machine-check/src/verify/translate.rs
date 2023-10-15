@@ -35,8 +35,8 @@ impl Verify {
         let main_path = src_dir_path.join("main.rs");
 
         let concrete_machine: syn::File = translate::translate(&self.verify_args.system_path)?;
-        let mut abstract_machine =
-            create_abstract_machine(&concrete_machine).map_err(CheckError::AbstractMachine)?;
+        let mut abstract_machine = create_abstract_machine(&concrete_machine)
+            .map_err(|err| CheckError::Machine(format!("{}", err)))?;
 
         // add main function
 

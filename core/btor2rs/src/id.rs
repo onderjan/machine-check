@@ -1,6 +1,9 @@
-use std::num::{NonZeroI32, NonZeroU32};
+use std::{
+    fmt::Display,
+    num::{NonZeroI32, NonZeroU32},
+};
 
-use anyhow::anyhow;
+use crate::line::LineError;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Sid(NonZeroU32);
@@ -9,16 +12,12 @@ impl Sid {
     pub fn get(&self) -> u32 {
         self.0.get()
     }
-}
 
-impl TryFrom<&str> for Sid {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    pub(crate) fn try_from_str(value: &str) -> Result<Self, LineError> {
         if let Ok(sid) = value.parse() {
             Ok(Sid(sid))
         } else {
-            Err(anyhow!("Cannot parse sid '{}'", value))
+            Err(LineError::InvalidSid(String::from(value)))
         }
     }
 }
@@ -30,37 +29,20 @@ impl Nid {
     pub fn get(&self) -> u32 {
         self.0.get()
     }
-}
 
-impl TryFrom<&str> for Nid {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    pub(crate) fn try_from_str(value: &str) -> Result<Self, LineError> {
         if let Ok(nid) = value.parse::<NonZeroU32>() {
             if nid.get() <= i32::MAX as u32 {
                 return Ok(Nid(nid));
             }
         }
-        Err(anyhow!("Cannot parse nid '{}'", value))
+        Err(LineError::InvalidNid(String::from(value)))
     }
 }
 
 // on the right side, '-' can be used on nids to perform bitwise negation
 #[derive(Debug, Clone, Copy, Hash)]
 pub struct Rnid(NonZeroI32);
-
-impl TryFrom<&str> for Rnid {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        if let Ok(rnid) = value.parse::<NonZeroI32>() {
-            if rnid.checked_abs().is_some() {
-                return Ok(Rnid(rnid));
-            }
-        }
-        Err(anyhow!("Cannot parse nid '{}'", value))
-    }
-}
 
 impl Rnid {
     pub fn nid(&self) -> Nid {
@@ -70,5 +52,26 @@ impl Rnid {
 
     pub fn is_not(&self) -> bool {
         self.0.get() < 0
+    }
+
+    pub(crate) fn try_from_str(value: &str) -> Result<Self, LineError> {
+        if let Ok(rnid) = value.parse::<NonZeroI32>() {
+            if rnid.checked_abs().is_some() {
+                return Ok(Rnid(rnid));
+            }
+        }
+        Err(LineError::InvalidRnid(String::from(value)))
+    }
+}
+
+impl Display for Sid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Display for Nid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

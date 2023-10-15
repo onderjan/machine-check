@@ -1,9 +1,11 @@
-use anyhow::anyhow;
 use syn::{Expr, ExprCall, Pat, Stmt};
 
-use crate::machine::util::{
-    create_expr_field_unnamed, create_expr_ident, create_expr_tuple, create_ident, create_let,
-    create_pat_wild, create_refine_join_stmt,
+use crate::machine::{
+    util::{
+        create_expr_field_unnamed, create_expr_ident, create_expr_tuple, create_ident, create_let,
+        create_pat_wild, create_refine_join_stmt,
+    },
+    Error,
 };
 
 use super::struct_rules::StructRules;
@@ -14,16 +16,20 @@ pub struct BackwardConverter {
 }
 
 impl BackwardConverter {
-    pub fn convert_stmt(&self, backward_stmts: &mut Vec<Stmt>, stmt: &Stmt) -> anyhow::Result<()> {
+    pub(crate) fn convert_stmt(
+        &self,
+        backward_stmts: &mut Vec<Stmt>,
+        stmt: &Stmt,
+    ) -> Result<(), Error> {
         // the statements should be in linear SSA form
         let mut stmt = stmt.clone();
         match stmt {
             Stmt::Local(ref mut local) => {
                 let Some(ref mut init) = local.init else {
-                return Err(anyhow!("Inversion of non-initialized let is not supported"));
+                return Err(Error(format!("Inversion of non-initialized let is not supported")));
             };
                 if init.diverge.is_some() {
-                    return Err(anyhow!("Inversion of diverging let not supported"));
+                    return Err(Error(format!("Inversion of diverging let not supported")));
                 }
                 let left = &local.pat;
                 let right = init.expr.as_ref();
@@ -33,23 +39,28 @@ impl BackwardConverter {
                 // no side effects, do not convert
                 Ok(())
             }
-            Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(anyhow!(
+            Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(Error(format!(
                 "Inversion of statement type {:?} not supported",
                 stmt
-            )),
+            ))),
         }
     }
 
-    pub fn convert_let(
+    pub(crate) fn convert_let(
         &self,
         inverted_stmts: &mut Vec<Stmt>,
         left: &Pat,
         right: &Expr,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), Error> {
         let mut backward_later = match left {
             Pat::Ident(left_pat_ident) => create_expr_ident(left_pat_ident.ident.clone()),
             Pat::Path(left_path) => Expr::Path(left_path.clone()),
-            _ => return Err(anyhow!("Inversion not implemented for pattern {:?}", left)),
+            _ => {
+                return Err(Error(format!(
+                    "Inversion not implemented for pattern {:?}",
+                    left
+                )))
+            }
         };
         self.backward_scheme.apply_to_expr(&mut backward_later)?;
 
@@ -62,10 +73,10 @@ impl BackwardConverter {
                 Ok(())
             }
             Expr::Call(call) => self.convert_call(inverted_stmts, backward_later, call),
-            _ => Err(anyhow!(
+            _ => Err(Error(format!(
                 "Inversion not implemented for expression {:?}",
                 right
-            )),
+            ))),
         }
     }
 
@@ -74,7 +85,7 @@ impl BackwardConverter {
         stmts: &mut Vec<Stmt>,
         backward_later: Expr,
         call: &ExprCall,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), Error> {
         // early arguments are forward function arguments converted to left-side pattern
         let mut early_args = Vec::new();
         let mut all_args_wild = true;
@@ -87,10 +98,10 @@ impl BackwardConverter {
                 }
                 Expr::Lit(_) => create_pat_wild(),
                 _ => {
-                    return Err(anyhow!(
+                    return Err(Error(format!(
                         "Inversion not implemented for function argument type {:?}",
                         arg
-                    ));
+                    )));
                 }
             });
         }
@@ -146,10 +157,10 @@ impl BackwardConverter {
                     // do nothing
                 }
                 _ => {
-                    return Err(anyhow!(
+                    return Err(Error(format!(
                         "Backward join not implemented for function argument {:?}",
                         backward_arg
-                    ))
+                    )))
                 }
             }
         }

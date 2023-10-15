@@ -8,9 +8,10 @@ use crate::machine::{
         create_impl_item_type, create_item_impl, create_path_from_ident, create_self_arg,
         create_type_path, ArgType,
     },
+    Error,
 };
 
-pub fn refinable_impl(s: &ItemStruct) -> Result<ItemImpl, anyhow::Error> {
+pub(crate) fn refinable_impl(s: &ItemStruct) -> Result<ItemImpl, Error> {
     let refine_type_path =
         rules::refinement_type().convert_path(create_path_from_ident(s.ident.clone()))?;
     let refine_type = create_type_path(refine_type_path);

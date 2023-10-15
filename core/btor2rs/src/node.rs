@@ -1,8 +1,7 @@
 use crate::{
-    parse_nid, parse_sid, parse_u32, BiOp, BiOpType, ExtOp, ExtOpType, Nid, Rnid, Sid, SliceOp,
-    TriOp, TriOpType, UniOp, UniOpType,
+    line::LineError, util::parse_nid, util::parse_sid, util::parse_u32, BiOp, BiOpType, ExtOp,
+    ExtOpType, Nid, Rnid, Sid, SliceOp, TriOp, TriOpType, UniOp, UniOpType,
 };
-use anyhow::anyhow;
 
 #[derive(Debug, Clone)]
 pub struct Const {
@@ -111,7 +110,7 @@ impl Node {
     pub(crate) fn try_parse<'a>(
         second: &str,
         mut split: impl Iterator<Item = &'a str>,
-    ) -> Result<Option<Node>, anyhow::Error> {
+    ) -> Result<Option<Node>, LineError> {
         // const
         if let Ok(ty) = ConstType::try_from(second) {
             let node = parse_const_node(ty, &mut split)?;
@@ -185,11 +184,7 @@ impl Node {
                 let lower_bit = parse_u32(&mut split)?;
 
                 if upper_bit < lower_bit {
-                    return Err(anyhow!(
-                        "Upper bit {} cannot be lower than lower bit {}",
-                        upper_bit,
-                        lower_bit
-                    ));
+                    return Err(LineError::InvalidSlice);
                 }
                 Node::SliceOp(SliceOp {
                     sid,
@@ -220,11 +215,9 @@ impl Node {
 fn parse_const_node<'a>(
     ty: ConstType,
     split: &mut impl Iterator<Item = &'a str>,
-) -> Result<Node, anyhow::Error> {
+) -> Result<Node, LineError> {
     let sid = parse_sid(split)?;
-    let str = split
-        .next()
-        .ok_or_else(|| anyhow!("Expected the constant"))?;
+    let str = split.next().ok_or(LineError::MissingConstant)?;
     Ok(Node::Const(Const {
         ty,
         sid,
@@ -232,7 +225,7 @@ fn parse_const_node<'a>(
     }))
 }
 
-fn parse_rnid<'a>(split: &mut impl Iterator<Item = &'a str>) -> Result<Rnid, anyhow::Error> {
-    let str = split.next().ok_or_else(|| anyhow!("Missing nid"))?;
-    Rnid::try_from(str)
+fn parse_rnid<'a>(split: &mut impl Iterator<Item = &'a str>) -> Result<Rnid, LineError> {
+    let str = split.next().ok_or(LineError::MissingRnid)?;
+    Rnid::try_from_str(str)
 }

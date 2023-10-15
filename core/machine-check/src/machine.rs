@@ -9,7 +9,7 @@ mod refin;
 mod support;
 mod util;
 
-pub(crate) fn create_abstract_machine(concrete_machine: &File) -> anyhow::Result<File> {
+pub(crate) fn create_abstract_machine(concrete_machine: &File) -> Result<File, Error> {
     let mut abstract_machine = concrete_machine.clone();
     support::ssa::apply(&mut abstract_machine)?;
     abstr::apply(&mut abstract_machine)?;
@@ -27,3 +27,7 @@ pub(crate) fn write_machine(machine: &syn::File, filename: &Utf8Path) -> Result<
         .write_all(pretty_machine.as_bytes())
         .map_err(|err| CheckError::WriteFile(filename.to_path_buf(), err))
 }
+
+#[derive(thiserror::Error, Debug, Clone)]
+#[error("{0}")]
+pub(crate) struct Error(pub(crate) String);

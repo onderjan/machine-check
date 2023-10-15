@@ -1,12 +1,12 @@
 use btor2rs::SliceOp;
 use syn::Expr;
 
-use crate::translate::btor2::{node::bi::create_logic_shr, util::create_rnid_expr};
+use crate::translate::btor2::{node::bi::create_logic_shr, util::create_rnid_expr, Error};
 
 use super::{constant::create_value_expr, ext::create_uext, NodeTranslator};
 
 impl<'a> NodeTranslator<'a> {
-    pub fn slice_op_expr(&self, op: &SliceOp) -> Result<syn::Expr, anyhow::Error> {
+    pub fn slice_op_expr(&self, op: &SliceOp) -> Result<syn::Expr, Error> {
         let a_sort = self.get_nid_bitvec(op.a.nid())?;
         let a_expr = create_rnid_expr(op.a);
 

@@ -1,10 +1,13 @@
 use proc_macro2::Span;
 use syn::{Expr, FnArg, Ident, Member, ReturnType, Signature, Stmt};
 
-use crate::machine::util::{
-    create_arg, create_expr_field_named, create_expr_field_unnamed, create_expr_ident,
-    create_expr_path, create_ident, create_let, create_path_from_name, create_refine_join_stmt,
-    create_tuple_expr, create_tuple_type, create_type_from_return_type, ArgType,
+use crate::machine::{
+    util::{
+        create_arg, create_expr_field_named, create_expr_field_unnamed, create_expr_ident,
+        create_expr_path, create_ident, create_let, create_path_from_name, create_refine_join_stmt,
+        create_tuple_expr, create_tuple_type, create_type_from_return_type, ArgType,
+    },
+    Error,
 };
 
 mod util;
@@ -13,13 +16,11 @@ use self::util::{convert_type_to_path, create_input_name_type_iter, to_singular_
 
 use super::ImplConverter;
 
-use anyhow::anyhow;
-
 impl ImplConverter {
-    pub fn generate_abstract_input(
+    pub(crate) fn generate_abstract_input(
         &self,
         orig_sig: &Signature,
-    ) -> anyhow::Result<(FnArg, Vec<Stmt>)> {
+    ) -> Result<(FnArg, Vec<Stmt>), Error> {
         let arg_name = "__mck_input_abstr";
         let mut types = Vec::new();
         let mut detuple_stmts = Vec::new();
@@ -42,10 +43,10 @@ impl ImplConverter {
         Ok((arg, detuple_stmts))
     }
 
-    pub fn generate_earlier(
+    pub(crate) fn generate_earlier(
         &self,
         orig_sig: &Signature,
-    ) -> anyhow::Result<(ReturnType, Vec<Ident>, Stmt)> {
+    ) -> Result<(ReturnType, Vec<Ident>, Stmt), Error> {
         // create return type
         let mut types = Vec::new();
         let mut partial_idents = Vec::new();
@@ -71,11 +72,11 @@ impl ImplConverter {
         Ok((return_type, partial_idents, Stmt::Expr(tuple_expr, None)))
     }
 
-    pub fn generate_later(
+    pub(crate) fn generate_later(
         &self,
         orig_sig: &Signature,
         orig_result_expr: &Expr,
-    ) -> anyhow::Result<(FnArg, Vec<Stmt>)> {
+    ) -> Result<(FnArg, Vec<Stmt>), Error> {
         // just use the original output type, now in refinement context
         let name = "__mck_input_later";
         let ty = create_type_from_return_type(&orig_sig.output);
@@ -83,20 +84,20 @@ impl ImplConverter {
         let arg = create_arg(ArgType::Normal, create_ident(name), Some(ty));
         // create let statement from original result expression
         let Expr::Struct(orig_result_struct) = orig_result_expr else {
-        return Err(anyhow!("Non-struct result not supported"));
+        return Err(Error(format!("Non-struct result not supported")));
     };
 
         let mut stmts = Vec::new();
 
         for field in &orig_result_struct.fields {
             let Expr::Path(field_path) = &field.expr else {
-            return Err(anyhow!("Non-path field expression not supported"));
+            return Err(Error(format!("Non-path field expression not supported")));
         };
             let Some(field_ident) = field_path.path.get_ident() else {
-            return Err(anyhow!("Non-ident field expression not supported"));
+            return Err(Error(format!("Non-ident field expression not supported")));
         };
             let Member::Named(member_ident) = &field.member else {
-            return Err(anyhow!("Unnamed field member not supported"));
+            return Err(Error(format!("Unnamed field member not supported")));
         };
 
             let refin_ident = self

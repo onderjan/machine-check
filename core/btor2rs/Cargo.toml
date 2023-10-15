@@ -5,5 +5,5 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-anyhow = "1.0.75"
+thiserror = "1.0.49"
 strum = { version = "0.25", features = ["derive"] }

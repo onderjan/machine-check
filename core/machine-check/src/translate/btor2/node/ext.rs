@@ -1,12 +1,12 @@
 use btor2rs::ExtOp;
 use syn::{parse_quote, Expr};
 
-use crate::translate::btor2::util::create_rnid_expr;
+use crate::translate::btor2::{util::create_rnid_expr, Error};
 
 use super::NodeTranslator;
 
 impl<'a> NodeTranslator<'a> {
-    pub fn ext_op_expr(&self, op: &ExtOp) -> Result<syn::Expr, anyhow::Error> {
+    pub fn ext_op_expr(&self, op: &ExtOp) -> Result<syn::Expr, Error> {
         let a_expr = create_rnid_expr(op.a);
 
         // just compute the new number of bits and perform the extension

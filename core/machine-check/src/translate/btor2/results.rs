@@ -2,11 +2,11 @@ use syn::{parse_quote, Expr, FieldValue};
 
 use super::{
     util::{create_nid_ident, create_rnid_expr, single_bits_and},
-    Translator,
+    Error, Translator,
 };
 
 impl Translator {
-    pub(super) fn create_result(&self, is_init: bool) -> Result<Expr, anyhow::Error> {
+    pub(super) fn create_result(&self, is_init: bool) -> Result<Expr, Error> {
         let mut field_values = Vec::new();
         for (nid, state_info) in &self.state_info_map {
             // if state has no next, it is not remembered

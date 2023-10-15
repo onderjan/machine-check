@@ -9,9 +9,10 @@ use crate::machine::{
         create_path_with_last_generic_type, create_refine_join_stmt, create_self, create_self_arg,
         create_type_path, ArgType,
     },
+    Error,
 };
 
-pub fn refine_impl(item_struct: &ItemStruct) -> Result<Item, anyhow::Error> {
+pub(crate) fn refine_impl(item_struct: &ItemStruct) -> Result<Item, Error> {
     let refin_fn = apply_refin_fn(item_struct)?;
     let join_fn = apply_join_fn(item_struct)?;
     let decay_fn = force_decay_fn(item_struct)?;
@@ -33,7 +34,7 @@ pub fn refine_impl(item_struct: &ItemStruct) -> Result<Item, anyhow::Error> {
     )))
 }
 
-fn apply_join_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
+fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     let fn_ident = create_ident("apply_join");
 
     let self_input = create_self_arg(ArgType::MutableReference);
@@ -56,7 +57,7 @@ fn apply_join_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
     ))
 }
 
-fn force_decay_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
+fn force_decay_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     let fn_ident = create_ident("force_decay");
 
     let self_arg = create_self_arg(ArgType::Reference);
@@ -96,7 +97,7 @@ fn force_decay_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
     ))
 }
 
-fn apply_refin_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
+fn apply_refin_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     let fn_ident = create_ident("apply_refin");
 
     let self_input = create_self_arg(ArgType::MutableReference);

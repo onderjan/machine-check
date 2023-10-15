@@ -1,10 +1,12 @@
 use btor2rs::{Bitvec, Const};
 use syn::{parse_quote, Expr};
 
+use crate::translate::btor2::Error;
+
 use super::{uni::create_arith_neg_expr, NodeTranslator};
 
 impl<'a> NodeTranslator<'a> {
-    pub fn const_expr(&self, value: &Const) -> Result<Expr, anyhow::Error> {
+    pub fn const_expr(&self, value: &Const) -> Result<Expr, Error> {
         let result_bitvec = self.get_bitvec(value.sid)?;
 
         // convert negation to negation of resulting bitvector
@@ -14,7 +16,8 @@ impl<'a> NodeTranslator<'a> {
             (false, value.string.as_str())
         };
 
-        let value = u64::from_str_radix(str, value.ty.clone() as u32)?;
+        let value = u64::from_str_radix(str, value.ty.clone() as u32)
+            .map_err(|_| Error::InvalidConstant(String::from(str)))?;
         // create value and optionally negate it
         let mut value = create_value_expr(value, result_bitvec);
         if negate {

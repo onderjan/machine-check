@@ -4,9 +4,12 @@ use crate::machine::util::generate_derive_attribute;
 
 use quote::quote;
 
-use super::support::path_rules::{PathRule, PathRuleSegment, PathRules};
+use super::{
+    support::path_rules::{PathRule, PathRuleSegment, PathRules},
+    Error,
+};
 
-pub fn apply(machine: &mut syn::File) -> Result<(), anyhow::Error> {
+pub(crate) fn apply(machine: &mut syn::File) -> Result<(), Error> {
     // apply transcription to types using path rule transcriptor
     path_rules().apply_to_file(machine)?;
 

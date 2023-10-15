@@ -8,16 +8,20 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::machine::util::{
-    create_arg, create_converted_type, create_expr_call, create_expr_field_named,
-    create_expr_ident, create_expr_path, create_ident, create_impl_item_fn, create_item_impl,
-    create_pat_wild, create_path_from_ident, create_path_from_name, create_path_segment,
-    create_path_with_last_generic_type, create_self, create_self_arg, create_type_path, ArgType,
+use crate::machine::{
+    util::{
+        create_arg, create_converted_type, create_expr_call, create_expr_field_named,
+        create_expr_ident, create_expr_path, create_ident, create_impl_item_fn, create_item_impl,
+        create_pat_wild, create_path_from_ident, create_path_from_name, create_path_segment,
+        create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
+        ArgType,
+    },
+    Error,
 };
 
 use super::special_trait::{special_trait_impl, SpecialTrait};
 
-pub fn apply_to_items(items: &mut Vec<Item>, flavour: &str) -> anyhow::Result<()> {
+pub(crate) fn apply_to_items(items: &mut Vec<Item>, flavour: &str) -> Result<(), Error> {
     let mut impls_to_add = Vec::new();
 
     let mut process_idents = HashSet::<Ident>::new();

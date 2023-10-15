@@ -1,12 +1,14 @@
-use anyhow::anyhow;
 use proc_macro2::Span;
 use syn::{visit_mut::VisitMut, Block, Expr, Ident, Pat, Stmt};
 
-use crate::machine::util::{create_expr_path, create_let};
+use crate::machine::{
+    util::{create_expr_path, create_let},
+    Error,
+};
 
-pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
+pub(crate) fn apply(file: &mut syn::File) -> Result<(), Error> {
     // apply linear SSA to each block using a visitor
-    struct Visitor(anyhow::Result<()>);
+    struct Visitor(Result<(), Error>);
     impl VisitMut for Visitor {
         fn visit_block_mut(&mut self, block: &mut Block) {
             let result = apply_to_block(block);
@@ -22,7 +24,7 @@ pub fn apply(file: &mut syn::File) -> anyhow::Result<()> {
     visitor.0
 }
 
-fn apply_to_block(block: &mut Block) -> anyhow::Result<()> {
+fn apply_to_block(block: &mut Block) -> Result<(), Error> {
     let mut translator = BlockTranslator {
         translated_stmts: Vec::new(),
     };
@@ -38,7 +40,7 @@ struct BlockTranslator {
 }
 
 impl BlockTranslator {
-    fn apply_to_stmt(&mut self, mut stmt: Stmt) -> anyhow::Result<()> {
+    fn apply_to_stmt(&mut self, mut stmt: Stmt) -> Result<(), Error> {
         match stmt {
             Stmt::Expr(ref mut expr, _) => {
                 // apply translation to expression without forced movement
@@ -46,30 +48,32 @@ impl BlockTranslator {
             }
             Stmt::Local(ref mut local) => {
                 let Pat::Ident(ident) = &local.pat else {
-                    return Err(anyhow!(
+                    return Err(Error(format!(
                         "Local let with non-ident pattern not supported"
-                    ));
+                    )));
                 };
                 if ident.by_ref.is_some() || ident.mutability.is_some() || ident.subpat.is_some() {
-                    return Err(anyhow!("Non-bare local let ident not supported"));
+                    return Err(Error(format!("Non-bare local let ident not supported")));
                 }
 
                 if let Some(ref mut init) = local.init {
                     if init.diverge.is_some() {
-                        return Err(anyhow!("Local let with diverging else not supported"));
+                        return Err(Error(format!(
+                            "Local let with diverging else not supported"
+                        )));
                     }
 
                     // apply translation to expression without forced movement
                     self.apply_to_expr(init.expr.as_mut())?;
                 }
             }
-            _ => return Err(anyhow!("Statement type {:?} not supported", stmt)),
+            _ => return Err(Error(format!("Statement type {:?} not supported", stmt))),
         }
         self.translated_stmts.push(stmt);
         Ok(())
     }
 
-    fn apply_to_expr(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
+    fn apply_to_expr(&mut self, expr: &mut Expr) -> Result<(), Error> {
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA
@@ -97,17 +101,17 @@ impl BlockTranslator {
                     self.move_through_temp(&mut field.expr)?;
                 }
                 if expr_struct.rest.is_some() {
-                    return Err(anyhow!("Struct rest not supported"));
+                    return Err(Error(format!("Struct rest not supported")));
                 }
             }
             _ => {
-                return Err(anyhow!("Expression type {:?} not supported", expr));
+                return Err(Error(format!("Expression type {:?} not supported", expr)));
             }
         }
         Ok(())
     }
 
-    fn move_through_temp(&mut self, expr: &mut Expr) -> anyhow::Result<()> {
+    fn move_through_temp(&mut self, expr: &mut Expr) -> Result<(), Error> {
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA

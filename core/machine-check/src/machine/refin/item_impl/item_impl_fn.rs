@@ -7,12 +7,16 @@ use crate::machine::{
         create_expr_call, create_expr_path, create_ident, create_let_mut, create_path_from_ident,
         get_block_result_expr, ArgType,
     },
+    Error,
 };
 
 use super::{local_visitor::LocalVisitor, ImplConverter};
 
 impl ImplConverter {
-    pub fn transcribe_impl_item_fn(&self, orig_fn: &ImplItemFn) -> anyhow::Result<ImplItemFn> {
+    pub(crate) fn transcribe_impl_item_fn(
+        &self,
+        orig_fn: &ImplItemFn,
+    ) -> Result<ImplItemFn, Error> {
         let backward_converter = BackwardConverter {
             forward_scheme: self.abstract_rules.clone(),
             backward_scheme: self.refinement_rules.clone(),

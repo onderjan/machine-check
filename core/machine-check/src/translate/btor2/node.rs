@@ -1,12 +1,11 @@
-use anyhow::anyhow;
-use btor2rs::{DrainType, Nid, Node, SourceType};
+use btor2rs::{Nid, Node, SourceType};
 use syn::parse_quote;
 
 use self::{constant::create_value_expr, uni::create_arith_neg_expr};
 
 use super::{
     util::{create_nid_ident, create_rnid_expr},
-    Translator,
+    Error, Translator,
 };
 
 pub(super) mod bi;
@@ -17,10 +16,7 @@ mod support;
 mod tri;
 pub(super) mod uni;
 
-pub(super) fn translate(
-    translator: &Translator,
-    for_init: bool,
-) -> Result<Vec<syn::Stmt>, anyhow::Error> {
+pub(super) fn translate(translator: &Translator, for_init: bool) -> Result<Vec<syn::Stmt>, Error> {
     let mut node_translator = NodeTranslator {
         translator,
         stmts: Vec::new(),
@@ -39,7 +35,7 @@ struct NodeTranslator<'a> {
 }
 
 impl<'a> NodeTranslator<'a> {
-    pub fn translate_node(&mut self, nid: Nid, node: &Node) -> Result<(), anyhow::Error> {
+    pub fn translate_node(&mut self, nid: Nid, node: &Node) -> Result<(), Error> {
         // most nodes return single expression to assign to result
         let result_expr = match node {
             Node::Const(const_value) => self.const_expr(const_value)?,
@@ -85,21 +81,15 @@ impl<'a> NodeTranslator<'a> {
                 }
                 SourceType::Zero => create_value_expr(0, self.get_nid_bitvec(nid)?),
             },
-            Node::Drain(drain) => {
-                match drain.ty {
-                    DrainType::Output | DrainType::Bad | DrainType::Constraint => {
-                        // outputs are unimportant
-                        // bad and constraint are treated on result level
-                        return Ok(());
-                    }
-                    DrainType::Fair => return Err(anyhow!("Fairness constraints not supported")),
-                }
+            Node::Drain(_) => {
+                // treated above
+                return Ok(());
             }
             Node::Temporal(_) => {
                 // init/next nodes are just information for state, ignore here
                 return Ok(());
             }
-            Node::Justice(_) => return Err(anyhow!("Justice not implemented")),
+            Node::Justice(_) => return Err(Error::JusticeNotSupported(nid)),
         };
         // assign the returned expression to result
         let result_ident = create_nid_ident(nid);

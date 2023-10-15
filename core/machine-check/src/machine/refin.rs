@@ -9,13 +9,14 @@ use super::{
         special_trait::{special_trait_impl, SpecialTrait},
     },
     util::create_item_mod,
+    Error,
 };
 
 mod item_impl;
 mod item_struct;
 mod rules;
 
-pub fn apply(abstract_machine_file: &mut syn::File) -> anyhow::Result<()> {
+pub(crate) fn apply(abstract_machine_file: &mut syn::File) -> Result<(), Error> {
     // the refinement machine will be in a new module at the end of the file
 
     // create items to add to the module
@@ -43,7 +44,7 @@ pub fn apply(abstract_machine_file: &mut syn::File) -> anyhow::Result<()> {
                 };
             }
             _ => {
-                return Err(anyhow::anyhow!("Item type {:?} not supported", item));
+                return Err(Error(format!("Item type {:?} not supported", item)));
             }
         };
     }

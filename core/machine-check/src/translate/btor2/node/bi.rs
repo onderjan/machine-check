@@ -1,13 +1,12 @@
-use anyhow::anyhow;
 use btor2rs::{BiOp, BiOpType};
 use syn::{parse_quote, Expr};
 
-use crate::translate::btor2::util::create_rnid_expr;
+use crate::translate::btor2::{util::create_rnid_expr, Error};
 
 use super::{constant::create_value_expr, ext::create_uext, uni::create_bit_not, NodeTranslator};
 
 impl<'a> NodeTranslator<'a> {
-    pub fn bi_op_expr(&self, op: &BiOp) -> Result<syn::Expr, anyhow::Error> {
+    pub fn bi_op_expr(&self, op: &BiOp) -> Result<syn::Expr, Error> {
         let a_expr = create_rnid_expr(op.a);
         let b_expr = create_rnid_expr(op.b);
         Ok(match op.ty {
@@ -35,8 +34,8 @@ impl<'a> NodeTranslator<'a> {
             BiOpType::Nor => create_bit_not(create_bit_or(a_expr, b_expr)),
             BiOpType::Xor => create_bit_xor(a_expr, b_expr),
             BiOpType::Xnor => create_bit_not(create_bit_xor(a_expr, b_expr)),
-            BiOpType::Rol => return Err(anyhow!("Left rotation generation not implemented")),
-            BiOpType::Ror => return Err(anyhow!("Right rotation generation not implemented")),
+            BiOpType::Rol => return Err(Error::NotImplemented(op.ty.to_string())),
+            BiOpType::Ror => return Err(Error::NotImplemented(op.ty.to_string())),
             BiOpType::Sll => create_logic_shl(a_expr, b_expr),
             BiOpType::Srl => create_logic_shr(a_expr, b_expr),
             BiOpType::Sra => create_arith_shr(a_expr, b_expr),
@@ -47,7 +46,7 @@ impl<'a> NodeTranslator<'a> {
             BiOpType::Urem => create_urem(a_expr, b_expr),
             BiOpType::Srem => create_srem(a_expr, b_expr),
             BiOpType::Sdiv => create_sdiv(a_expr, b_expr),
-            BiOpType::Smod => return Err(anyhow!("Smod operation generation not implemented")),
+            BiOpType::Smod => return Err(Error::NotImplemented(op.ty.to_string())),
             BiOpType::Saddo
             | BiOpType::Uaddo
             | BiOpType::Sdivo
@@ -55,15 +54,13 @@ impl<'a> NodeTranslator<'a> {
             | BiOpType::Smulo
             | BiOpType::Umulo
             | BiOpType::Ssubo
-            | BiOpType::Usubo => {
-                return Err(anyhow!("Overflow operation generation not implemented"))
-            }
+            | BiOpType::Usubo => return Err(Error::NotImplemented(op.ty.to_string())),
             BiOpType::Concat => self.concat_expr(op, a_expr, b_expr)?,
-            BiOpType::Read => return Err(anyhow!("Generating arrays not supported")),
+            BiOpType::Read => return Err(Error::NotImplemented(op.ty.to_string())),
         })
     }
 
-    fn concat_expr(&self, op: &BiOp, a_expr: Expr, b_expr: Expr) -> Result<Expr, anyhow::Error> {
+    fn concat_expr(&self, op: &BiOp, a_expr: Expr, b_expr: Expr) -> Result<Expr, Error> {
         // a is the higher, b is the lower
         let result_sort = self.get_bitvec(op.sid)?;
         let result_length = result_sort.length.get();

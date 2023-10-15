@@ -7,6 +7,7 @@ use crate::translate::btor2::{
         ext::create_uext,
     },
     util::{create_rnid_expr, single_bits_xor},
+    Error,
 };
 
 use super::{
@@ -16,7 +17,7 @@ use super::{
 };
 
 impl<'a> NodeTranslator<'a> {
-    pub fn uni_op_expr(&self, op: &UniOp) -> Result<syn::Expr, anyhow::Error> {
+    pub fn uni_op_expr(&self, op: &UniOp) -> Result<syn::Expr, Error> {
         let result_bitvec = self.get_bitvec(op.sid)?;
         let a_bitvec = self.get_nid_bitvec(op.a.nid())?;
 
