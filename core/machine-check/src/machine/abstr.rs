@@ -1,13 +1,10 @@
 use syn::{visit_mut::VisitMut, ItemStruct};
 
-use crate::machine::util::{
-    generate_derive_attribute,
-    path_rules::{PathRule, PathRuleSegment},
-};
+use crate::machine::util::generate_derive_attribute;
 
 use quote::quote;
 
-use super::util::path_rules::PathRules;
+use super::support::path_rules::{PathRule, PathRuleSegment, PathRules};
 
 pub fn apply(machine: &mut syn::File) -> Result<(), anyhow::Error> {
     // apply transcription to types using path rule transcriptor

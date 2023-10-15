@@ -3,7 +3,7 @@ use syn::Path;
 
 use anyhow::anyhow;
 
-use super::{create_ident, create_path_segment};
+use crate::machine::util::{create_ident, create_path_segment};
 
 #[derive(Clone)]
 pub enum PathRuleSegment {

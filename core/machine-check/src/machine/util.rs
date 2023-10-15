@@ -1,6 +1,3 @@
-pub mod path_rules;
-pub mod struct_rules;
-
 use proc_macro2::{Span, TokenStream};
 use syn::{
     punctuated::Punctuated,

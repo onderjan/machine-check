@@ -1,4 +1,4 @@
-use crate::machine::util::path_rules::{PathRule, PathRuleSegment, PathRules};
+use crate::machine::support::path_rules::{PathRule, PathRuleSegment, PathRules};
 
 pub fn refinement_normal() -> PathRules {
     PathRules::new(vec![

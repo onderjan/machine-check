@@ -1,6 +1,9 @@
 use syn::{visit_mut::VisitMut, ImplItem, Item, ItemImpl, Type};
 
-use crate::machine::util::{create_ident, create_impl_item_type, struct_rules::StructRules};
+use crate::machine::{
+    support::struct_rules::StructRules,
+    util::{create_ident, create_impl_item_type},
+};
 
 use syn::{punctuated::Punctuated, Ident, ImplItemFn, Stmt};
 use syn_path::path;

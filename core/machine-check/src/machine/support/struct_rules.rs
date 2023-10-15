@@ -1,7 +1,9 @@
 use anyhow::anyhow;
 use syn::{punctuated::Punctuated, visit_mut::VisitMut, Expr, Ident, Member, Path, Stmt, Type};
 
-use super::{create_path_from_ident, create_type_path, path_rules::PathRules};
+use crate::machine::util::{create_path_from_ident, create_type_path};
+
+use super::path_rules::PathRules;
 
 #[derive(Clone)]
 pub struct StructRules {
