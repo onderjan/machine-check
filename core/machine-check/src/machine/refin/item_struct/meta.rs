@@ -10,13 +10,13 @@ use crate::machine::{
         create_arg, create_expr_binary_or, create_expr_call, create_expr_field, create_expr_path,
         create_field_value, create_ident, create_impl_item_fn, create_item_impl,
         create_path_from_ident, create_self, create_self_arg, create_struct_expr, create_type_path,
-        path_rule, ArgType,
+        ArgType,
     },
 };
 
 pub fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, anyhow::Error> {
-    let mut abstr_type_path = create_path_from_ident(s.ident.clone());
-    path_rule::apply_to_path(&mut abstr_type_path, &rules::abstract_type())?;
+    let abstr_type_path =
+        rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
 
     let mut trait_path = path!(::mck::misc::Meta);
     // add generic with the abstract type
@@ -44,8 +44,8 @@ fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, anyhow::Error> {
     let fn_ident = create_ident("proto_first");
 
     let self_arg = create_self_arg(ArgType::Reference);
-    let mut return_type_path = create_path_from_ident(s.ident.clone());
-    path_rule::apply_to_path(&mut return_type_path, &rules::abstract_type())?;
+    let return_type_path =
+        rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
     let return_type = create_type_path(return_type_path.clone());
 
     let mut struct_expr_fields = Vec::new();
@@ -74,8 +74,8 @@ fn proto_increment_fn(s: &ItemStruct) -> Result<ImplItemFn, anyhow::Error> {
 
     let self_arg = create_self_arg(ArgType::Reference);
     let proto_ident = create_ident("proto");
-    let mut proto_type_path = create_path_from_ident(s.ident.clone());
-    path_rule::apply_to_path(&mut proto_type_path, &rules::abstract_type())?;
+    let proto_type_path =
+        rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
     let proto_type = create_type_path(proto_type_path);
     let proto_arg = create_arg(
         ArgType::MutableReference,

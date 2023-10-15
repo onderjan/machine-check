@@ -6,7 +6,7 @@ use syn_path::path;
 use crate::machine::util::{
     create_arg, create_expr_call, create_expr_field, create_expr_ident, create_expr_path,
     create_ident, create_impl_item_fn, create_item_impl, create_path_from_ident,
-    create_refine_join_stmt, create_self, create_self_arg, create_type_path, path_rule, ArgType,
+    create_refine_join_stmt, create_self, create_self_arg, create_type_path, ArgType,
 };
 
 use self::{meta::meta_impl, refinable::refinable_impl};
@@ -23,7 +23,7 @@ pub fn apply(
     {
         // apply path rules and push struct
         let mut refin_struct = abstr_struct.clone();
-        path_rule::apply_to_item_struct(&mut refin_struct, &rules::refinement_normal())?;
+        rules::refinement_normal().apply_to_item_struct(&mut refin_struct)?;
         let ident_string = refin_struct.ident.to_string();
 
         // TODO: add the implementations only for state and input according to traits

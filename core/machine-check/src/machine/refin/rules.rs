@@ -1,7 +1,7 @@
-use crate::machine::util::path_rule::{PathRule, PathRuleSegment};
+use crate::machine::util::path_rule::{PathRule, PathRuleSegment, PathRules};
 
-pub fn refinement_normal() -> Vec<PathRule> {
-    vec![
+pub fn refinement_normal() -> PathRules {
+    PathRules::new(vec![
         PathRule {
             has_leading_colon: true,
             segments: vec![
@@ -32,18 +32,18 @@ pub fn refinement_normal() -> Vec<PathRule> {
                 String::from("__mck_refin_"),
             )],
         },
-    ]
+    ])
 }
 
-pub fn refinement_type() -> Vec<PathRule> {
-    vec![PathRule {
+pub fn refinement_type() -> PathRules {
+    PathRules::new(vec![PathRule {
         has_leading_colon: false,
         segments: vec![PathRuleSegment::Wildcard],
-    }]
+    }])
 }
 
-pub fn abstract_normal() -> Vec<PathRule> {
-    vec![
+pub fn abstract_normal() -> PathRules {
+    PathRules::new(vec![
         PathRule {
             has_leading_colon: true,
             segments: vec![
@@ -74,15 +74,15 @@ pub fn abstract_normal() -> Vec<PathRule> {
                 String::from("__mck_abstr_"),
             )],
         },
-    ]
+    ])
 }
 
-pub fn abstract_type() -> Vec<PathRule> {
-    vec![PathRule {
+pub fn abstract_type() -> PathRules {
+    PathRules::new(vec![PathRule {
         has_leading_colon: false,
         segments: vec![
             PathRuleSegment::Insert(String::from("super")),
             PathRuleSegment::Wildcard,
         ],
-    }]
+    }])
 }

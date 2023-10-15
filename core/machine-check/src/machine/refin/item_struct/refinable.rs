@@ -6,16 +6,16 @@ use crate::machine::{
     util::{
         create_expr_call, create_expr_path, create_ident, create_impl_item_fn,
         create_impl_item_type, create_item_impl, create_path_from_ident, create_self_arg,
-        create_type_path, path_rule, ArgType,
+        create_type_path, ArgType,
     },
 };
 
 pub fn refinable_impl(s: &ItemStruct) -> Result<ItemImpl, anyhow::Error> {
-    let mut refine_type_path = create_path_from_ident(s.ident.clone());
-    path_rule::apply_to_path(&mut refine_type_path, &rules::refinement_type())?;
-    let refine_type = create_type_path(refine_type_path.clone());
-    let mut abstr_type_path = create_path_from_ident(s.ident.clone());
-    path_rule::apply_to_path(&mut abstr_type_path, &rules::abstract_type())?;
+    let refine_type_path =
+        rules::refinement_type().convert_path(create_path_from_ident(s.ident.clone()))?;
+    let refine_type = create_type_path(refine_type_path);
+    let abstr_type_path =
+        rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
 
     let refin_type = create_impl_item_type(create_ident("Refin"), refine_type.clone());
 

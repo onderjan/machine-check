@@ -21,25 +21,32 @@ pub struct PathRule {
     pub segments: Vec<PathRuleSegment>,
 }
 
-pub fn apply(file: &mut syn::File, rules: &Vec<PathRule>) -> Result<(), anyhow::Error> {
-    let mut visitor = Visitor::new(rules);
-    visitor.visit_file_mut(file);
-    visitor.first_error.map_or(Ok(()), Err)
-}
+#[derive(Clone)]
+pub struct PathRules(Vec<PathRule>);
 
-pub fn apply_to_item_struct(
-    s: &mut syn::ItemStruct,
-    rules: &Vec<PathRule>,
-) -> Result<(), anyhow::Error> {
-    let mut visitor = Visitor::new(rules);
-    visitor.visit_item_struct_mut(s);
-    visitor.first_error.map_or(Ok(()), Err)
-}
+impl PathRules {
+    pub fn new(rules: Vec<PathRule>) -> PathRules {
+        PathRules(rules)
+    }
 
-pub fn apply_to_path(p: &mut syn::Path, rules: &Vec<PathRule>) -> Result<(), anyhow::Error> {
-    let mut visitor = Visitor::new(rules);
-    visitor.apply_to_path(p)?;
-    visitor.first_error.map_or(Ok(()), Err)
+    pub fn apply_to_file(&self, file: &mut syn::File) -> Result<(), anyhow::Error> {
+        let mut visitor = Visitor::new(&self.0);
+        visitor.visit_file_mut(file);
+        visitor.first_error.map_or(Ok(()), Err)
+    }
+
+    pub fn apply_to_item_struct(&self, s: &mut syn::ItemStruct) -> Result<(), anyhow::Error> {
+        let mut visitor = Visitor::new(&self.0);
+        visitor.visit_item_struct_mut(s);
+        visitor.first_error.map_or(Ok(()), Err)
+    }
+
+    pub fn convert_path(&self, path: syn::Path) -> Result<syn::Path, anyhow::Error> {
+        let mut visitor = Visitor::new(&self.0);
+        let mut path = path;
+        visitor.apply_to_path(&mut path)?;
+        visitor.first_error.map_or(Ok(path), Err)
+    }
 }
 
 struct Visitor<'a> {

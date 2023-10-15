@@ -1,24 +1,17 @@
 use anyhow::anyhow;
 use syn::{punctuated::Punctuated, visit_mut::VisitMut, Expr, Ident, Member, Path, Stmt, Type};
 
-use super::{
-    create_path_from_ident, create_type_path,
-    path_rule::{self, PathRule},
-};
+use super::{create_path_from_ident, create_type_path, path_rule::PathRules};
 
 #[derive(Clone)]
 pub struct ConversionScheme {
     self_ty_ident: Ident,
-    normal_rules: Vec<PathRule>,
-    type_rules: Vec<PathRule>,
+    normal_rules: PathRules,
+    type_rules: PathRules,
 }
 
 impl ConversionScheme {
-    pub fn new(
-        self_ty_ident: Ident,
-        normal_rules: Vec<PathRule>,
-        type_rules: Vec<PathRule>,
-    ) -> Self {
+    pub fn new(self_ty_ident: Ident, normal_rules: PathRules, type_rules: PathRules) -> Self {
         ConversionScheme {
             self_ty_ident,
             normal_rules,
@@ -63,14 +56,12 @@ impl ConversionScheme {
     }
 
     fn convert_type_path(&self, path: &Path) -> anyhow::Result<Path> {
-        let mut path = path.clone();
         if path.leading_colon.is_some() {
             // just apply the rules
-            path_rule::apply_to_path(&mut path, &self.type_rules)?;
-            return Ok(path);
+            return self.type_rules.convert_path(path.clone());
         }
 
-        let path_segments = &mut path.segments;
+        let mut path_segments = path.segments.clone();
         // replace Self by type name
         for path_segment in path_segments.iter_mut() {
             if path_segment.ident == "Self" {
@@ -79,8 +70,7 @@ impl ConversionScheme {
         }
 
         // apply the rules
-        path_rule::apply_to_path(&mut path, &self.type_rules)?;
-        Ok(path)
+        self.type_rules.convert_path(path.clone())
     }
 
     pub fn convert_normal_ident(&self, ident: Ident) -> anyhow::Result<Ident> {
@@ -92,9 +82,7 @@ impl ConversionScheme {
     }
 
     pub fn convert_normal_path(&self, path: Path) -> anyhow::Result<Path> {
-        let mut path = path;
-        path_rule::apply_to_path(&mut path, &self.normal_rules)?;
-        Ok(path)
+        self.normal_rules.convert_path(path)
     }
 }
 

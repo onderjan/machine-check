@@ -2,14 +2,16 @@ use syn::{visit_mut::VisitMut, ItemStruct};
 
 use crate::machine::util::{
     generate_derive_attribute,
-    path_rule::{self, PathRule, PathRuleSegment},
+    path_rule::{PathRule, PathRuleSegment},
 };
 
 use quote::quote;
 
+use super::util::path_rule::PathRules;
+
 pub fn apply(machine: &mut syn::File) -> Result<(), anyhow::Error> {
     // apply transcription to types using path rule transcriptor
-    path_rule::apply(machine, &path_rules())?;
+    path_rules().apply_to_file(machine)?;
 
     // add default derive attributes to the structs
     // that easily allow us to make unknown inputs/states
@@ -24,8 +26,8 @@ pub fn apply(machine: &mut syn::File) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn path_rules() -> Vec<PathRule> {
-    vec![
+fn path_rules() -> PathRules {
+    PathRules::new(vec![
         PathRule {
             has_leading_colon: true,
             segments: vec![
@@ -46,5 +48,5 @@ fn path_rules() -> Vec<PathRule> {
             has_leading_colon: false,
             segments: vec![PathRuleSegment::Wildcard],
         },
-    ]
+    ])
 }
