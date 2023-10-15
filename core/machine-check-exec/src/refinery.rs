@@ -36,10 +36,15 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
         refinery
     }
 
-    pub fn verify(&mut self, proposition: &Proposition) -> Result<bool, ExecError> {
+    pub fn verify(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
+        // transform proposition to positive normal form to move negations to literals
+        let prop = prop.pnf();
+        // transform proposition to existential normal form to be able to verify
+        let prop = prop.enf();
+
         // main refinement loop
         loop {
-            let result = model_check::check_prop(&self.space, proposition);
+            let result = model_check::check_prop(&self.space, &prop);
             // if verification was incomplete, try to refine the culprit
             let culprit = match result {
                 Ok(conclusion) => return Ok(conclusion),

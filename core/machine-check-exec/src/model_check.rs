@@ -33,19 +33,14 @@ impl<'a, I: Input, S: State> ThreeValuedChecker<'a, I, S> {
         }
     }
 
-    fn check_prop(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
-        // transform to positive normal form to move negations to literals
-        let prop = prop.pnf();
-        // transform to existential normal form to be able to verify
-        let prop = prop.enf();
-
+    fn check_prop(&mut self, enf_prop: &Proposition) -> Result<bool, ExecError> {
         // compute optimistic and pessimistic interpretation
-        let pessimistic_interpretation = self.pessimistic.compute_interpretation(&prop)?;
-        let optimistic_interpretation = self.optimistic.compute_interpretation(&prop)?;
+        let pessimistic_interpretation = self.pessimistic.compute_interpretation(enf_prop)?;
+        let optimistic_interpretation = self.optimistic.compute_interpretation(enf_prop)?;
 
         match (pessimistic_interpretation, optimistic_interpretation) {
             (false, false) => Ok(false),
-            (false, true) => Err(ExecError::Incomplete(deduce_culprit(self, &prop)?)),
+            (false, true) => Err(ExecError::Incomplete(deduce_culprit(self, enf_prop)?)),
             (true, true) => Ok(true),
             (true, false) => panic!("optimistic interpretation should hold when pessimistic does"),
         }
