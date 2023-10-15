@@ -33,12 +33,47 @@ pub fn apply(abstract_machine_file: &mut syn::File) -> anyhow::Result<()> {
 }
 
 pub fn mark_path_rules() -> Vec<PathRule> {
-    vec![PathRule {
-        has_leading_colon: true,
-        segments: vec![
-            PathRuleSegment::Ident(String::from("mck")),
-            PathRuleSegment::Convert(String::from("abstr"), String::from("refin")),
-            PathRuleSegment::Wildcard,
-        ],
-    }]
+    vec![
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(String::from("abstr"), String::from("refin")),
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Convert(String::from("forward"), String::from("backward")),
+            ],
+        },
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![PathRuleSegment::Wildcard],
+        },
+    ]
+}
+
+pub fn abstract_path_rules() -> Vec<PathRule> {
+    vec![
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Ident(String::from("abstr")),
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Ident(String::from("forward")),
+            ],
+        },
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![PathRuleSegment::Wildcard],
+        },
+    ]
 }

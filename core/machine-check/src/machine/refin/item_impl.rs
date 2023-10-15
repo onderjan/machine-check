@@ -8,9 +8,10 @@ use crate::machine::util::{
 
 use self::convert::MarkConverter;
 
-use super::mark_path_rules;
 use anyhow::anyhow;
 use quote::quote;
+
+use super::{abstract_path_rules, mark_path_rules};
 
 mod convert;
 
@@ -72,12 +73,14 @@ pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
             String::from("abstr"),
             self_name.clone(),
             true,
+            abstract_path_rules(),
         ),
         mark_scheme: ConversionScheme::new(
             String::from("__mck_"),
             String::from("refin"),
             self_name,
             false,
+            mark_path_rules(),
         ),
     };
 

@@ -3,13 +3,14 @@ use syn::{Ident, Path};
 
 use anyhow::anyhow;
 
-#[allow(dead_code)]
+#[derive(Clone)]
 pub enum PathRuleSegment {
     Ident(String),
     Convert(String, String),
     Wildcard,
 }
 
+#[derive(Clone)]
 pub struct PathRule {
     pub has_leading_colon: bool,
     pub segments: Vec<PathRuleSegment>,

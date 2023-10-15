@@ -4,12 +4,12 @@ pub mod scheme;
 use proc_macro2::{Span, TokenStream};
 use syn::{
     punctuated::Punctuated,
-    token::{Brace, Bracket, Comma, Paren},
+    token::{Brace, Bracket, Paren},
     Attribute, BinOp, Block, Expr, ExprBinary, ExprCall, ExprField, ExprPath, ExprReference,
     ExprStruct, ExprTuple, Field, FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn,
     ImplItemType, Index, Item, ItemImpl, ItemMod, Local, LocalInit, Member, MetaList, Pat,
-    PatIdent, PatType, Path, Receiver, ReturnType, Signature, Stmt, Type, TypePath, TypeReference,
-    TypeTuple, Visibility,
+    PatIdent, PatType, PatWild, Path, Receiver, ReturnType, Signature, Stmt, Type, TypePath,
+    TypeReference, TypeTuple, Visibility,
 };
 use syn_path::path;
 
@@ -21,11 +21,11 @@ pub fn create_unit_expr() -> Expr {
     })
 }
 
-pub fn create_expr_tuple(expressions: Punctuated<Expr, Comma>) -> Expr {
+pub fn create_expr_tuple(expressions: Vec<Expr>) -> Expr {
     Expr::Tuple(ExprTuple {
         attrs: vec![],
         paren_token: Default::default(),
-        elems: expressions,
+        elems: Punctuated::from_iter(expressions.into_iter()),
     })
 }
 
@@ -392,5 +392,12 @@ pub fn create_tuple_type(types: Vec<Type>) -> Type {
     Type::Tuple(TypeTuple {
         paren_token: Default::default(),
         elems: Punctuated::from_iter(types.into_iter()),
+    })
+}
+
+pub fn create_pat_wild() -> Pat {
+    Pat::Wild(PatWild {
+        attrs: vec![],
+        underscore_token: Default::default(),
     })
 }

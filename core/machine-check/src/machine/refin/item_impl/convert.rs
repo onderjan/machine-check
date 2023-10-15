@@ -13,11 +13,13 @@ use syn_path::path;
 use crate::machine::util::{
     create_arg, create_converted_type, create_expr_call, create_expr_field_named,
     create_expr_field_unnamed, create_expr_ident, create_expr_path, create_ident, create_let,
-    create_let_mut, create_path_from_name, create_refine_join_stmt, create_tuple_expr,
-    create_tuple_type, create_unit_expr, scheme::ConversionScheme, ArgType,
+    create_let_mut, create_path_from_ident, create_path_from_name, create_refine_join_stmt,
+    create_tuple_expr, create_tuple_type, create_unit_expr, scheme::ConversionScheme, ArgType,
 };
 
-mod invert_stmt;
+use self::backward::BackwardConverter;
+
+mod backward;
 
 pub struct MarkConverter {
     pub abstract_scheme: ConversionScheme,
@@ -26,6 +28,11 @@ pub struct MarkConverter {
 
 impl MarkConverter {
     pub fn transcribe_impl_item_fn(&mut self, orig_fn: &ImplItemFn) -> anyhow::Result<ImplItemFn> {
+        let backward_converter = BackwardConverter {
+            forward_scheme: self.abstract_scheme.clone(),
+            backward_scheme: self.mark_scheme.clone(),
+        };
+
         // to transcribe function with signature (inputs) -> output and linear SSA block
         // we must the following steps
         // 1. set mark function signature to (abstract_inputs, later_mark) -> (earlier_marks)
@@ -75,9 +82,11 @@ impl MarkConverter {
             result_stmts.push(stmt);
         }
 
-        // step 6: add initialization of local mark variables
+        // step 5: add initialization of local mark variables
         for ident in earlier_mark.1 {
-            result_stmts.push(create_mark_init_stmt(ident, false));
+            let refin_ident = self.mark_scheme.convert_ident(&ident);
+            let abstract_ident = self.abstract_scheme.convert_ident(&ident);
+            result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, false));
         }
 
         let mut local_visitor = LocalVisitor {
@@ -85,13 +94,14 @@ impl MarkConverter {
         };
         let mut mark_stmts = orig_fn.block.stmts.clone();
         for stmt in &mut mark_stmts {
-            self.mark_scheme.apply_to_stmt(stmt)?;
             local_visitor.visit_stmt_mut(stmt);
         }
 
         for local_name in local_visitor.local_names {
-            let ident = create_ident(&local_name);
-            result_stmts.push(create_mark_init_stmt(ident, true));
+            let orig_ident = create_ident(&local_name);
+            let refin_ident = self.mark_scheme.convert_ident(&orig_ident);
+            let abstract_ident = self.abstract_scheme.convert_ident(&orig_ident);
+            result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, true));
         }
 
         // step 6: de-result later mark
@@ -105,7 +115,7 @@ impl MarkConverter {
                 semi.get_or_insert_with(Default::default);
             }
 
-            invert_stmt::invert(result_stmts, &stmt)?
+            backward_converter.convert_stmt(result_stmts, &stmt)?
         }
         // 8. add result expression
         result_stmts.push(earlier_mark.2);
@@ -141,23 +151,23 @@ impl MarkConverter {
         // create return type
         let mut types = Vec::new();
         let mut partial_idents = Vec::new();
-        let mut partial_exprs = Vec::new();
+        let mut refin_exprs = Vec::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
             // convert to mark type and remove reference as it will serve as return type
             let ty = convert_type_to_path(self.convert_to_mark_type(orig_type)?)?;
             types.push(ty.clone());
             // add expression to result tuple
-            let mark_name = self.mark_scheme.convert_name(&orig_name);
-            let partial_ident = Ident::new(&mark_name, Span::call_site());
-            let partial_expr = create_expr_ident(partial_ident.clone());
+            let partial_ident = Ident::new(&orig_name, Span::call_site());
+            let refin_ident = self.mark_scheme.convert_ident(&partial_ident);
+            let refin_expr = create_expr_ident(refin_ident.clone());
             partial_idents.push(partial_ident);
-            partial_exprs.push(partial_expr);
+            refin_exprs.push(refin_expr);
         }
         let ty = create_tuple_type(types);
         let return_type = ReturnType::Type(Default::default(), Box::new(ty));
 
-        let tuple_expr = create_tuple_expr(partial_exprs);
+        let tuple_expr = create_tuple_expr(refin_exprs);
 
         Ok((return_type, partial_idents, Stmt::Expr(tuple_expr, None)))
     }
@@ -207,29 +217,23 @@ impl MarkConverter {
         // do not change mark type from original type, as the mark structure now stands for the original
         Ok(orig_type.clone())
     }
-}
 
-fn create_mark_init_stmt(mark_ident: Ident, reference: bool) -> Stmt {
-    // TODO: move somewhat
-    let abstr_name = format!(
-        "__mck_abstr_{}",
-        mark_ident.to_string().strip_prefix("__mck_refin_").unwrap()
-    );
+    fn create_init_stmt(&self, ident: Ident, abstract_ident: Ident, reference: bool) -> Stmt {
+        let abstract_arg = create_expr_path(create_path_from_ident(abstract_ident));
+        let arg_ty = if reference {
+            ArgType::Reference
+        } else {
+            ArgType::Normal
+        };
 
-    let param = create_expr_path(create_path_from_name(&abstr_name));
-    let arg_ty = if reference {
-        ArgType::Reference
-    } else {
-        ArgType::Normal
-    };
-
-    create_let_mut(
-        mark_ident,
-        create_expr_call(
-            create_expr_path(path!(::mck::refin::Refinable::clean_refin)),
-            vec![(arg_ty, param)],
-        ),
-    )
+        create_let_mut(
+            ident,
+            create_expr_call(
+                create_expr_path(path!(::mck::refin::Refinable::clean_refin)),
+                vec![(arg_ty, abstract_arg)],
+            ),
+        )
+    }
 }
 
 fn to_singular_reference(ty: Type) -> Type {

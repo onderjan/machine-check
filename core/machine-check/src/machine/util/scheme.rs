@@ -2,14 +2,18 @@ use anyhow::anyhow;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Ident, Member, Path, PathSegment, Stmt, Type,
+    punctuated::Punctuated, visit_mut::VisitMut, Expr, Ident, Member, Path, PathSegment, Stmt, Type,
 };
 
+use super::path_rule::{self, PathRule};
+
+#[derive(Clone)]
 pub struct ConversionScheme {
     prefix: String,
     scheme: String,
     self_name: String,
     convert_type_to_super: bool,
+    path_rules: Vec<PathRule>,
 }
 
 impl ConversionScheme {
@@ -18,12 +22,14 @@ impl ConversionScheme {
         scheme: String,
         self_name: String,
         convert_type_to_super: bool,
+        path_rules: Vec<PathRule>,
     ) -> Self {
         ConversionScheme {
             prefix,
             scheme,
             self_name,
             convert_type_to_super,
+            path_rules,
         }
     }
 
@@ -33,6 +39,15 @@ impl ConversionScheme {
             result: Ok(()),
         };
         visitor.visit_stmt_mut(stmt);
+        visitor.result
+    }
+
+    pub fn apply_to_expr(&self, expr: &mut Expr) -> anyhow::Result<()> {
+        let mut visitor = ConversionVisitor {
+            scheme: self,
+            result: Ok(()),
+        };
+        visitor.visit_expr_mut(expr);
         visitor.result
     }
 
@@ -95,7 +110,7 @@ impl ConversionScheme {
         format!("{}{}_{}", &self.prefix, &self.scheme, &name)
     }
 
-    fn convert_ident(&self, ident: &Ident) -> Ident {
+    pub fn convert_ident(&self, ident: &Ident) -> Ident {
         Ident::new(
             self.convert_name(ident.to_string().as_str()).as_str(),
             ident.span(),
@@ -103,8 +118,11 @@ impl ConversionScheme {
     }
 
     fn convert_normal_path(&self, path: &Path) -> anyhow::Result<Path> {
+        let mut result = path.clone();
+        path_rule::apply_to_path(&mut result, self.path_rules.clone())?;
+
         // only change idents
-        if let Some(ident) = path.get_ident() {
+        if let Some(ident) = result.get_ident() {
             Ok(Path::from(self.convert_ident(ident)))
         } else {
             // the path must be global
@@ -114,7 +132,7 @@ impl ConversionScheme {
                     quote!(#path),
                 ));
             }
-            Ok(path.clone())
+            Ok(result)
         }
     }
 }
