@@ -14,7 +14,6 @@ pub(crate) fn create_abstract_machine(concrete_machine: &File) -> anyhow::Result
     support::ssa::apply(&mut abstract_machine)?;
     abstr::apply(&mut abstract_machine)?;
     refin::apply(&mut abstract_machine)?;
-    support::field_manipulate::apply(&mut abstract_machine)?;
     Ok(abstract_machine)
 }
 

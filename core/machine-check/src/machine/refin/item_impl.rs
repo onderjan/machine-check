@@ -1,8 +1,7 @@
-use syn::{ImplItem, Item, ItemImpl, Path, PathArguments, Type};
-use syn_path::path;
+use syn::{ImplItem, Item, ItemImpl, Type};
 
 use crate::machine::{
-    support::struct_rules::StructRules,
+    support::{special_trait::special_trait_impl, struct_rules::StructRules},
     util::{create_ident, create_impl_item_type},
 };
 
@@ -12,12 +11,12 @@ mod local_visitor;
 
 use anyhow::anyhow;
 
-use super::{rules, SpecialTrait};
+use super::rules;
 
 pub(super) fn apply(
     refinement_items: &mut Vec<Item>,
     item_impl: &ItemImpl,
-) -> Result<Option<SpecialTrait>, anyhow::Error> {
+) -> Result<(), anyhow::Error> {
     let self_ty = item_impl.self_ty.as_ref();
 
     let Type::Path(self_ty) = self_ty else {
@@ -41,9 +40,9 @@ pub(super) fn apply(
         ),
     };
 
-    let (converted_item_impl, special_trait) = converter.convert(item_impl.clone())?;
+    let converted_item_impl = converter.convert(item_impl.clone())?;
     refinement_items.push(Item::Impl(converted_item_impl));
-    Ok(special_trait)
+    Ok(())
 }
 
 pub struct ImplConverter {
@@ -52,10 +51,7 @@ pub struct ImplConverter {
 }
 
 impl ImplConverter {
-    fn convert(
-        &self,
-        item_impl: ItemImpl,
-    ) -> Result<(ItemImpl, Option<SpecialTrait>), anyhow::Error> {
+    fn convert(&self, item_impl: ItemImpl) -> Result<ItemImpl, anyhow::Error> {
         let mut items = Vec::<ImplItem>::new();
         for item in &item_impl.items {
             match item {
@@ -73,29 +69,16 @@ impl ImplConverter {
         let mut item_impl = item_impl;
         item_impl.items = items;
 
-        let mut special_trait = None;
-        if let Some((None, trait_path, _)) = &item_impl.trait_ {
-            special_trait = if is_abstr_input_trait(trait_path) {
-                Some(SpecialTrait::Input)
-            } else if is_abstr_state_trait(trait_path) {
-                Some(SpecialTrait::State)
-            } else if is_abstr_machine_trait(trait_path) {
-                Some(SpecialTrait::Machine)
-            } else {
-                None
-            };
-
-            if special_trait.is_some() {
-                // add abstract type
-                let type_ident = create_ident("Abstract");
-                let type_assign = self
-                    .abstract_rules
-                    .convert_type((*item_impl.self_ty).clone())?;
-                item_impl.items.push(ImplItem::Type(create_impl_item_type(
-                    type_ident,
-                    type_assign,
-                )));
-            }
+        if special_trait_impl(&item_impl, "abstr").is_some() {
+            // add abstract type
+            let type_ident = create_ident("Abstract");
+            let type_assign = self
+                .abstract_rules
+                .convert_type((*item_impl.self_ty).clone())?;
+            item_impl.items.push(ImplItem::Type(create_impl_item_type(
+                type_ident,
+                type_assign,
+            )));
         }
 
         if let Some(trait_) = &mut item_impl.trait_ {
@@ -104,24 +87,6 @@ impl ImplConverter {
                 .convert_normal_path(trait_.1.clone())?;
         }
 
-        Ok((item_impl, special_trait))
+        Ok(item_impl)
     }
-}
-
-fn is_abstr_input_trait(trait_path: &Path) -> bool {
-    trait_path == &path!(::mck::abstr::Input)
-}
-
-fn is_abstr_state_trait(trait_path: &Path) -> bool {
-    trait_path == &path!(::mck::abstr::State)
-}
-
-fn is_abstr_machine_trait(trait_path: &Path) -> bool {
-    // strip generics
-    let mut trait_path = trait_path.clone();
-    for seg in &mut trait_path.segments {
-        seg.arguments = PathArguments::None;
-    }
-
-    trait_path == path!(::mck::abstr::Machine)
 }

@@ -3,7 +3,7 @@ use syn_path::path;
 
 use super::{create_converted_type, create_pat_ident, create_type_path, create_type_reference};
 
-#[allow(dead_code)]
+#[derive(Clone)]
 pub enum ArgType {
     Normal,
     Reference,

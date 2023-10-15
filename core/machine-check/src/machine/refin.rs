@@ -3,7 +3,13 @@ use std::collections::HashMap;
 use proc_macro2::Span;
 use syn::{Ident, Item, Type};
 
-use super::util::create_item_mod;
+use super::{
+    support::{
+        field_manipulate,
+        special_trait::{special_trait_impl, SpecialTrait},
+    },
+    util::create_item_mod,
+};
 
 mod item_impl;
 mod item_struct;
@@ -19,17 +25,17 @@ pub fn apply(abstract_machine_file: &mut syn::File) -> anyhow::Result<()> {
     // first pass
     for item in &abstract_machine_file.items {
         match item {
-            Item::Struct(s) => {
+            Item::Struct(item_struct) => {
                 // apply path rules and push struct
-                let mut refin_struct = s.clone();
+                let mut refin_struct = item_struct.clone();
                 rules::refinement_normal().apply_to_item_struct(&mut refin_struct)?;
                 refinement_items.push(Item::Struct(refin_struct));
             }
-            Item::Impl(i) => {
+            Item::Impl(item_impl) => {
                 // look for special traits
-                let special_trait = item_impl::apply(&mut refinement_items, i)?;
-                if let Some(special_trait) = special_trait {
-                    if let Type::Path(ty) = i.self_ty.as_ref() {
+                item_impl::apply(&mut refinement_items, item_impl)?;
+                if let Some(special_trait) = special_trait_impl(item_impl, "abstr") {
+                    if let Type::Path(ty) = item_impl.self_ty.as_ref() {
                         if let Some(ident) = ty.path.get_ident() {
                             ident_special_traits.insert(ident.clone(), special_trait);
                         }
@@ -50,6 +56,10 @@ pub fn apply(abstract_machine_file: &mut syn::File) -> anyhow::Result<()> {
         }
     }
 
+    // add field manipulate
+    field_manipulate::apply_to_items(&mut refinement_items, "refin")?;
+    field_manipulate::apply_to_items(&mut abstract_machine_file.items, "abstr")?;
+
     // create new module at the end of the file that will contain the refinement
     let refinement_module = Item::Mod(create_item_mod(
         syn::Visibility::Public(Default::default()),
@@ -58,10 +68,4 @@ pub fn apply(abstract_machine_file: &mut syn::File) -> anyhow::Result<()> {
     ));
     abstract_machine_file.items.push(refinement_module);
     Ok(())
-}
-
-enum SpecialTrait {
-    Machine,
-    Input,
-    State,
 }
