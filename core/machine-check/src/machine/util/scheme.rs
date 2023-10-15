@@ -91,7 +91,7 @@ impl ConversionScheme {
             .clone())
     }
 
-    fn convert_normal_path(&self, path: Path) -> anyhow::Result<Path> {
+    pub fn convert_normal_path(&self, path: Path) -> anyhow::Result<Path> {
         let mut path = path;
         path_rule::apply_to_path(&mut path, &self.normal_rules)?;
         Ok(path)

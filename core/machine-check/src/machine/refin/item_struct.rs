@@ -11,7 +11,7 @@ use crate::machine::util::{
 
 use self::{meta::meta_impl, refinable::refinable_impl};
 
-use super::refinement_normal_rules;
+use super::rules;
 
 mod meta;
 mod refinable;
@@ -23,7 +23,7 @@ pub fn apply(
     {
         // apply path rules and push struct
         let mut refin_struct = abstr_struct.clone();
-        path_rule::apply_to_item_struct(&mut refin_struct, &refinement_normal_rules())?;
+        path_rule::apply_to_item_struct(&mut refin_struct, &rules::refinement_normal())?;
         let ident_string = refin_struct.ident.to_string();
 
         // TODO: add the implementations only for state and input according to traits

@@ -1,10 +1,6 @@
 use syn::{visit_mut::VisitMut, ImplItem, Item, ItemImpl, Type};
 
-use crate::machine::util::{
-    create_ident, create_impl_item_type,
-    path_rule::{self},
-    scheme::ConversionScheme,
-};
+use crate::machine::util::{create_ident, create_impl_item_type, scheme::ConversionScheme};
 
 use syn::{punctuated::Punctuated, Ident, ImplItemFn, Stmt};
 use syn_path::path;
@@ -24,9 +20,7 @@ use anyhow::anyhow;
 
 use self::local_visitor::LocalVisitor;
 
-use super::{
-    abstract_normal_rules, abstract_type_rules, refinement_normal_rules, refinement_type_rules,
-};
+use super::rules;
 
 pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyhow::Error> {
     let mut translated = i.clone();
@@ -45,13 +39,13 @@ pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyho
     let mut converter = Converter {
         abstract_scheme: ConversionScheme::new(
             self_ty_ident.clone(),
-            abstract_normal_rules(),
-            abstract_type_rules(),
+            rules::abstract_normal(),
+            rules::abstract_type(),
         ),
         refinement_scheme: ConversionScheme::new(
             self_ty_ident.clone(),
-            refinement_normal_rules(),
-            refinement_type_rules(),
+            rules::refinement_normal(),
+            rules::refinement_type(),
         ),
     };
 
@@ -71,7 +65,9 @@ pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyho
     translated.items = items;
 
     if let Some(trait_) = &mut translated.trait_ {
-        path_rule::apply_to_path(&mut trait_.1, &refinement_normal_rules())?;
+        trait_.1 = converter
+            .refinement_scheme
+            .convert_normal_path(trait_.1.clone())?;
     }
 
     if let Some((None, trait_path, _)) = &i.trait_ {
