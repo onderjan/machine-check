@@ -1,36 +1,33 @@
-use syn::{
-    ImplItem, ImplItemFn, ItemImpl, ItemStruct, Path, PathArguments, PathSegment, Stmt, Type,
-};
+use syn::{ImplItem, ImplItemFn, ItemImpl, ItemStruct, Stmt, Type};
 use syn_path::path;
 
-use crate::machine::util::{
-    create_expr_call, create_expr_path, create_ident, create_impl_item_fn, create_impl_item_type,
-    create_item_impl, create_self_arg, create_type_path, ArgType,
+use crate::machine::{
+    refin::{abstract_type_rules, refinement_type_rules},
+    util::{
+        create_expr_call, create_expr_path, create_ident, create_impl_item_fn,
+        create_impl_item_type, create_item_impl, create_path_from_ident, create_self_arg,
+        create_type_path, path_rule, ArgType,
+    },
 };
 
-pub fn refinable_impl(s: &ItemStruct) -> ItemImpl {
-    let refine_type_path = Path::from(s.ident.clone());
+pub fn refinable_impl(s: &ItemStruct) -> Result<ItemImpl, anyhow::Error> {
+    let mut refine_type_path = create_path_from_ident(s.ident.clone());
+    path_rule::apply_to_path(&mut refine_type_path, &refinement_type_rules())?;
     let refine_type = create_type_path(refine_type_path.clone());
-    let mut abstr_path = refine_type_path;
-    abstr_path.segments.insert(
-        0,
-        PathSegment {
-            ident: create_ident("super"),
-            arguments: PathArguments::None,
-        },
-    );
+    let mut abstr_type_path = create_path_from_ident(s.ident.clone());
+    path_rule::apply_to_path(&mut abstr_type_path, &abstract_type_rules())?;
 
     let refin_type = create_impl_item_type(create_ident("Refin"), refine_type.clone());
 
     let trait_path = path!(::mck::refin::Refinable);
-    create_item_impl(
+    Ok(create_item_impl(
         Some(trait_path),
-        abstr_path,
+        abstr_type_path,
         vec![
             ImplItem::Type(refin_type),
             ImplItem::Fn(clean_refin_fn(refine_type)),
         ],
-    )
+    ))
 }
 
 pub fn clean_refin_fn(refine_type: Type) -> ImplItemFn {

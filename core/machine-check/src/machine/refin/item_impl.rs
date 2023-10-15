@@ -1,7 +1,7 @@
-use syn::{parse_quote, visit_mut::VisitMut, ImplItem, Item, ItemImpl, Type};
+use syn::{visit_mut::VisitMut, ImplItem, Item, ItemImpl, Type};
 
 use crate::machine::util::{
-    create_ident, create_impl_item_type, create_type_path,
+    create_ident, create_impl_item_type,
     path_rule::{self},
     scheme::ConversionScheme,
 };
@@ -21,13 +21,11 @@ mod args;
 mod local_visitor;
 
 use anyhow::anyhow;
-use quote::quote;
 
 use self::local_visitor::LocalVisitor;
 
 use super::{
-    abstract_path_normal_rules, abstract_path_type_rules, refinement_normal_rules,
-    refinement_type_rules,
+    abstract_normal_rules, abstract_type_rules, refinement_normal_rules, refinement_type_rules,
 };
 
 pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyhow::Error> {
@@ -37,18 +35,18 @@ pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyho
     let self_ty = translated.self_ty.as_ref();
 
     let Type::Path(self_ty) = self_ty else {
-        return Err(anyhow!("Non-path impl type '{}' not supported", quote!(#self_ty)));
+        return Err(anyhow!("Non-path impl type not supported"));
     };
 
     let Some(self_ty_ident) = self_ty.path.get_ident() else {
-        return Err(anyhow!("Non-ident impl type '{}' not supported", quote!(#self_ty)));
+        return Err(anyhow!("Non-ident impl type not supported"));
     };
 
     let mut converter = Converter {
         abstract_scheme: ConversionScheme::new(
             self_ty_ident.clone(),
-            abstract_path_normal_rules(),
-            abstract_path_type_rules(),
+            abstract_normal_rules(),
+            abstract_type_rules(),
         ),
         refinement_scheme: ConversionScheme::new(
             self_ty_ident.clone(),
@@ -88,10 +86,11 @@ pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyho
                                 || type_seg.ident == "State"
                                 || type_seg.ident == "Machine")
                         {
-                            let s_ty = i.self_ty.as_ref();
                             // add abstract type
                             let type_ident = create_ident("Abstract");
-                            let type_assign = create_type_path(parse_quote!(super::#s_ty));
+                            let type_assign = converter
+                                .abstract_scheme
+                                .convert_type((*i.self_ty).clone())?;
                             translated.items.push(ImplItem::Type(create_impl_item_type(
                                 type_ident,
                                 type_assign,

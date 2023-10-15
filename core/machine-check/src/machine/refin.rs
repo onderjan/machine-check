@@ -74,7 +74,7 @@ pub fn refinement_type_rules() -> Vec<PathRule> {
     }]
 }
 
-pub fn abstract_path_normal_rules() -> Vec<PathRule> {
+pub fn abstract_normal_rules() -> Vec<PathRule> {
     vec![
         PathRule {
             has_leading_colon: true,
@@ -109,7 +109,7 @@ pub fn abstract_path_normal_rules() -> Vec<PathRule> {
     ]
 }
 
-pub fn abstract_path_type_rules() -> Vec<PathRule> {
+pub fn abstract_type_rules() -> Vec<PathRule> {
     vec![PathRule {
         has_leading_colon: false,
         segments: vec![

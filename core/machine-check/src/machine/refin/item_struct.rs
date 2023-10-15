@@ -28,8 +28,8 @@ pub fn apply(
 
         // TODO: add the implementations only for state and input according to traits
         if ident_string.as_str() != "Machine" {
-            let meta_impl = meta_impl(&refin_struct);
-            let refinable_impl = refinable_impl(&refin_struct);
+            let meta_impl = meta_impl(&refin_struct)?;
+            let refinable_impl = refinable_impl(&refin_struct)?;
             // add struct
             refinement_items.push(Item::Struct(refin_struct));
             // add implementations

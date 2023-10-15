@@ -1,6 +1,5 @@
 use anyhow::anyhow;
 use proc_macro2::Span;
-use quote::quote;
 use syn::{visit_mut::VisitMut, Block, Expr, Ident, Pat, Stmt};
 
 use crate::machine::util::{create_expr_path, create_let};
@@ -29,12 +28,7 @@ fn apply_to_block(block: &mut Block) -> anyhow::Result<()> {
     };
     // apply linear SSA to statements one by one
     for stmt in &block.stmts {
-        if let Err(err) = translator.apply_to_stmt(stmt.clone()) {
-            return Err(err.context(format!(
-                "Error transcribing statement to SSA: {}",
-                quote!(#stmt)
-            )));
-        }
+        translator.apply_to_stmt(stmt.clone())?;
     }
     block.stmts = translator.translated_stmts;
     Ok(())
