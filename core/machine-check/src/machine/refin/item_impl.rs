@@ -1,6 +1,6 @@
 use syn::{visit_mut::VisitMut, ImplItem, Item, ItemImpl, Type};
 
-use crate::machine::util::{create_ident, create_impl_item_type, scheme::ConversionScheme};
+use crate::machine::util::{create_ident, create_impl_item_type, struct_rules::StructRules};
 
 use syn::{punctuated::Punctuated, Ident, ImplItemFn, Stmt};
 use syn_path::path;
@@ -36,13 +36,13 @@ pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyho
         return Err(anyhow!("Non-ident impl type not supported"));
     };
 
-    let mut converter = Converter {
-        abstract_scheme: ConversionScheme::new(
+    let mut converter = ImplConverter {
+        abstract_rules: StructRules::new(
             self_ty_ident.clone(),
             rules::abstract_normal(),
             rules::abstract_type(),
         ),
-        refinement_scheme: ConversionScheme::new(
+        refinement_rules: StructRules::new(
             self_ty_ident.clone(),
             rules::refinement_normal(),
             rules::refinement_type(),
@@ -66,7 +66,7 @@ pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyho
 
     if let Some(trait_) = &mut translated.trait_ {
         trait_.1 = converter
-            .refinement_scheme
+            .refinement_rules
             .convert_normal_path(trait_.1.clone())?;
     }
 
@@ -85,7 +85,7 @@ pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyho
                             // add abstract type
                             let type_ident = create_ident("Abstract");
                             let type_assign = converter
-                                .abstract_scheme
+                                .abstract_rules
                                 .convert_type((*i.self_ty).clone())?;
                             translated.items.push(ImplItem::Type(create_impl_item_type(
                                 type_ident,
@@ -102,16 +102,16 @@ pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyho
     Ok(())
 }
 
-pub struct Converter {
-    pub abstract_scheme: ConversionScheme,
-    pub refinement_scheme: ConversionScheme,
+pub struct ImplConverter {
+    pub abstract_rules: StructRules,
+    pub refinement_rules: StructRules,
 }
 
-impl Converter {
+impl ImplConverter {
     pub fn transcribe_impl_item_fn(&mut self, orig_fn: &ImplItemFn) -> anyhow::Result<ImplItemFn> {
         let backward_converter = BackwardConverter {
-            forward_scheme: self.abstract_scheme.clone(),
-            backward_scheme: self.refinement_scheme.clone(),
+            forward_scheme: self.abstract_rules.clone(),
+            backward_scheme: self.refinement_rules.clone(),
         };
 
         // to transcribe function with signature (inputs) -> output and linear SSA block
@@ -153,7 +153,7 @@ impl Converter {
 
         for orig_stmt in &orig_fn.block.stmts {
             let mut stmt = orig_stmt.clone();
-            self.abstract_scheme.apply_to_stmt(&mut stmt)?;
+            self.abstract_rules.apply_to_stmt(&mut stmt)?;
             if let Stmt::Expr(_, ref mut semi) = stmt {
                 // add semicolon to result
                 semi.get_or_insert_with(Default::default);
@@ -163,8 +163,8 @@ impl Converter {
 
         // step 5: add initialization of local refin variables
         for ident in earlier.1 {
-            let refin_ident = self.refinement_scheme.convert_normal_ident(ident.clone())?;
-            let abstract_ident = self.abstract_scheme.convert_normal_ident(ident)?;
+            let refin_ident = self.refinement_rules.convert_normal_ident(ident.clone())?;
+            let abstract_ident = self.abstract_rules.convert_normal_ident(ident)?;
             result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, false));
         }
 
@@ -177,9 +177,9 @@ impl Converter {
         for local_name in local_visitor.local_names() {
             let orig_ident = create_ident(local_name);
             let refin_ident = self
-                .refinement_scheme
+                .refinement_rules
                 .convert_normal_ident(orig_ident.clone())?;
-            let abstract_ident = self.abstract_scheme.convert_normal_ident(orig_ident)?;
+            let abstract_ident = self.abstract_rules.convert_normal_ident(orig_ident)?;
             result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, true));
         }
 

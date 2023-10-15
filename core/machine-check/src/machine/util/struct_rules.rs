@@ -1,18 +1,18 @@
 use anyhow::anyhow;
 use syn::{punctuated::Punctuated, visit_mut::VisitMut, Expr, Ident, Member, Path, Stmt, Type};
 
-use super::{create_path_from_ident, create_type_path, path_rule::PathRules};
+use super::{create_path_from_ident, create_type_path, path_rules::PathRules};
 
 #[derive(Clone)]
-pub struct ConversionScheme {
+pub struct StructRules {
     self_ty_ident: Ident,
     normal_rules: PathRules,
     type_rules: PathRules,
 }
 
-impl ConversionScheme {
+impl StructRules {
     pub fn new(self_ty_ident: Ident, normal_rules: PathRules, type_rules: PathRules) -> Self {
-        ConversionScheme {
+        StructRules {
             self_ty_ident,
             normal_rules,
             type_rules,
@@ -87,7 +87,7 @@ impl ConversionScheme {
 }
 
 struct ConversionVisitor<'a> {
-    scheme: &'a ConversionScheme,
+    scheme: &'a StructRules,
     result: Result<(), anyhow::Error>,
 }
 

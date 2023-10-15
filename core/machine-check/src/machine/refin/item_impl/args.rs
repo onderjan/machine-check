@@ -11,11 +11,11 @@ mod util;
 
 use self::util::{convert_type_to_path, create_input_name_type_iter, to_singular_reference};
 
-use super::Converter;
+use super::ImplConverter;
 
 use anyhow::anyhow;
 
-impl Converter {
+impl ImplConverter {
     pub fn generate_abstract_input(
         &self,
         orig_sig: &Signature,
@@ -26,10 +26,10 @@ impl Converter {
         for (index, r) in create_input_name_type_iter(orig_sig).enumerate() {
             let (orig_name, orig_type) = r?;
             // convert to abstract type and to reference so we do not consume original abstract output
-            let ty = to_singular_reference(self.abstract_scheme.convert_type(orig_type)?);
+            let ty = to_singular_reference(self.abstract_rules.convert_type(orig_type)?);
             types.push(ty);
             let abstr_ident = self
-                .abstract_scheme
+                .abstract_rules
                 .convert_normal_ident(create_ident(&orig_name))?;
             let detuple_stmt = create_let(
                 abstr_ident,
@@ -57,7 +57,7 @@ impl Converter {
             // add expression to result tuple
             let partial_ident = Ident::new(&orig_name, Span::call_site());
             let refin_ident = self
-                .refinement_scheme
+                .refinement_rules
                 .convert_normal_ident(partial_ident.clone())?;
             let refin_expr = create_expr_ident(refin_ident);
             partial_idents.push(partial_ident);
@@ -100,7 +100,7 @@ impl Converter {
         };
 
             let refin_ident = self
-                .refinement_scheme
+                .refinement_rules
                 .convert_normal_ident(field_ident.clone())?;
             let left_expr = create_expr_ident(refin_ident);
             let right_base = create_expr_ident(create_ident(name));

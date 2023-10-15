@@ -3,12 +3,12 @@ use syn::{Expr, ExprCall, Pat, Stmt};
 
 use crate::machine::util::{
     create_expr_field_unnamed, create_expr_ident, create_expr_tuple, create_ident, create_let,
-    create_pat_wild, create_refine_join_stmt, scheme::ConversionScheme,
+    create_pat_wild, create_refine_join_stmt, struct_rules::StructRules,
 };
 
 pub struct BackwardConverter {
-    pub forward_scheme: ConversionScheme,
-    pub backward_scheme: ConversionScheme,
+    pub forward_scheme: StructRules,
+    pub backward_scheme: StructRules,
 }
 
 impl BackwardConverter {
