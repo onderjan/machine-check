@@ -48,18 +48,18 @@ impl BlockTranslator {
             }
             Stmt::Local(ref mut local) => {
                 let Pat::Ident(ident) = &local.pat else {
-                    return Err(Error(format!(
-                        "Local let with non-ident pattern not supported"
-                    )));
+                    return Err(Error(String::from("Local let with non-ident pattern not supported")));
                 };
                 if ident.by_ref.is_some() || ident.mutability.is_some() || ident.subpat.is_some() {
-                    return Err(Error(format!("Non-bare local let ident not supported")));
+                    return Err(Error(String::from(
+                        "Non-bare local let ident not supported",
+                    )));
                 }
 
                 if let Some(ref mut init) = local.init {
                     if init.diverge.is_some() {
-                        return Err(Error(format!(
-                            "Local let with diverging else not supported"
+                        return Err(Error(String::from(
+                            "Local let with diverging else not supported",
                         )));
                     }
 
@@ -101,7 +101,7 @@ impl BlockTranslator {
                     self.move_through_temp(&mut field.expr)?;
                 }
                 if expr_struct.rest.is_some() {
-                    return Err(Error(format!("Struct rest not supported")));
+                    return Err(Error("Struct rest not supported".to_string()));
                 }
             }
             _ => {

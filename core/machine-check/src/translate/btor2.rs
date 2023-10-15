@@ -87,7 +87,7 @@ impl Translator {
                 Node::Temporal(temporal) => {
                     let state_info = state_info_map
                         .get_mut(&temporal.state)
-                        .ok_or_else(|| Error::StateNotFound(*nid))?;
+                        .ok_or(Error::StateNotFound(*nid))?;
                     match temporal.ty {
                         btor2rs::TemporalType::Init => {
                             state_info.init = Some(temporal.value);

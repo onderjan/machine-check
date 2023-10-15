@@ -49,11 +49,11 @@ impl StructRules {
         }
 
         let Type::Path(ty) = ty else {
-            return Err(Error(format!("Non-path type not supported")));
+            return Err(Error(String::from("Non-path type not supported")));
         };
 
         if ty.qself.is_some() {
-            return Err(Error(format!("Qualified-path type not supported")));
+            return Err(Error(String::from("Qualified-path type not supported")));
         }
 
         Ok(create_type_path(self.convert_type_path(&ty.path)?))

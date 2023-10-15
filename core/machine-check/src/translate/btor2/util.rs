@@ -23,7 +23,7 @@ pub(crate) fn create_sid_type(btor2: &Btor2, sid: Sid) -> Result<Type, Error> {
         btor2
             .sorts
             .get(&sid)
-            .ok_or_else(|| Error::InvalidSort(sid))?,
+            .ok_or(Error::InvalidSort(sid))?,
     )
 }
 

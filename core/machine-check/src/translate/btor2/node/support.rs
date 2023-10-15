@@ -10,7 +10,7 @@ impl<'a> NodeTranslator<'a> {
             .btor2
             .sorts
             .get(&sid)
-            .ok_or_else(|| Error::InvalidSort(sid))
+            .ok_or(Error::InvalidSort(sid))
     }
 
     pub(super) fn get_bitvec(&self, sid: Sid) -> Result<&Bitvec, Error> {
@@ -27,8 +27,8 @@ impl<'a> NodeTranslator<'a> {
             .btor2
             .nodes
             .get(&nid)
-            .ok_or_else(|| Error::InvalidNode(nid))?;
-        let sid = node.get_sid().ok_or_else(|| Error::UnknownNodeSort(nid))?;
+            .ok_or(Error::InvalidNode(nid))?;
+        let sid = node.get_sid().ok_or(Error::UnknownNodeSort(nid))?;
         self.get_bitvec(sid)
     }
 }

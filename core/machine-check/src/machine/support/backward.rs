@@ -26,10 +26,12 @@ impl BackwardConverter {
         match stmt {
             Stmt::Local(ref mut local) => {
                 let Some(ref mut init) = local.init else {
-                return Err(Error(format!("Inversion of non-initialized let is not supported")));
+                return Err(Error(String::from("Inversion of non-initialized let is not supported")));
             };
                 if init.diverge.is_some() {
-                    return Err(Error(format!("Inversion of diverging let not supported")));
+                    return Err(Error(String::from(
+                        "Inversion of diverging let not supported",
+                    )));
                 }
                 let left = &local.pat;
                 let right = init.expr.as_ref();
