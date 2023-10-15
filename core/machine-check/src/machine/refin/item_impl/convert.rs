@@ -5,8 +5,8 @@ use anyhow::anyhow;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Block, Expr, FnArg, Ident, ImplItem, ImplItemFn,
-    ItemImpl, Member, Pat, PatIdent, ReturnType, Signature, Stmt, Type, TypeTuple,
+    punctuated::Punctuated, visit_mut::VisitMut, Block, Expr, FnArg, Ident, ImplItemFn, Member,
+    Pat, PatIdent, ReturnType, Signature, Stmt, Type, TypeTuple,
 };
 use syn_path::path;
 
@@ -17,62 +17,15 @@ use crate::machine::util::{
     create_tuple_type, create_unit_expr, scheme::ConversionScheme, ArgType,
 };
 
-use super::refin_stmt::invert_stmt;
+mod invert_stmt;
 
-pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
-    let mut i = i.clone();
-    let mut items = Vec::<ImplItem>::new();
-
-    let self_ty = i.self_ty.as_ref();
-
-    let Type::Path(self_ty) = self_ty else {
-        return Err(anyhow!("Non-path impl type '{}' not supported", quote!(#self_ty)));
-    };
-
-    let Some(self_ty_ident) = self_ty.path.get_ident() else {
-        return Err(anyhow!("Non-ident impl type '{}' not supported", quote!(#self_ty)));
-    };
-    let self_name = self_ty_ident.to_string();
-
-    let mut converter = MarkConverter {
-        abstract_scheme: ConversionScheme::new(
-            String::from("__mck_"),
-            String::from("abstr"),
-            self_name.clone(),
-            true,
-        ),
-        mark_scheme: ConversionScheme::new(
-            String::from("__mck_"),
-            String::from("refin"),
-            self_name,
-            false,
-        ),
-    };
-
-    for item in &i.items {
-        match item {
-            ImplItem::Fn(item_fn) => {
-                let mark_fn = converter.transcribe_impl_item_fn(item_fn)?;
-                items.push(ImplItem::Fn(mark_fn));
-            }
-            ImplItem::Type(item_type) => {
-                // just clone for now
-                items.push(ImplItem::Type(item_type.clone()));
-            }
-            _ => return Err(anyhow!("Impl item type {:?} not supported", item)),
-        }
-    }
-
-    i.items = items;
-    Ok(i)
-}
-struct MarkConverter {
+pub struct MarkConverter {
     pub abstract_scheme: ConversionScheme,
     pub mark_scheme: ConversionScheme,
 }
 
 impl MarkConverter {
-    fn transcribe_impl_item_fn(&mut self, orig_fn: &ImplItemFn) -> anyhow::Result<ImplItemFn> {
+    pub fn transcribe_impl_item_fn(&mut self, orig_fn: &ImplItemFn) -> anyhow::Result<ImplItemFn> {
         // to transcribe function with signature (inputs) -> output and linear SSA block
         // we must the following steps
         // 1. set mark function signature to (abstract_inputs, later_mark) -> (earlier_marks)
@@ -152,7 +105,7 @@ impl MarkConverter {
                 semi.get_or_insert_with(Default::default);
             }
 
-            invert_stmt(result_stmts, &stmt)?
+            invert_stmt::invert(result_stmts, &stmt)?
         }
         // 8. add result expression
         result_stmts.push(earlier_mark.2);

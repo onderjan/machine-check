@@ -16,10 +16,7 @@ use super::mark_path_rules;
 mod meta;
 mod refinable;
 
-pub fn apply_to_struct(
-    items: &mut Vec<Item>,
-    abstr_struct: &ItemStruct,
-) -> Result<(), anyhow::Error> {
+pub fn apply(items: &mut Vec<Item>, abstr_struct: &ItemStruct) -> Result<(), anyhow::Error> {
     {
         // apply path rules and push struct
         let mut refin_struct = abstr_struct.clone();

@@ -3,14 +3,10 @@ use syn::{Ident, Item};
 
 use crate::machine::util::path_rule::{PathRule, PathRuleSegment};
 
-use self::{refin_impl::apply_to_impl, refin_struct::apply_to_struct};
-
 use super::util::create_item_mod;
 
-mod refin_fn;
-mod refin_impl;
-mod refin_stmt;
-mod refin_struct;
+mod item_impl;
+mod item_struct;
 
 pub fn apply(abstract_machine_file: &mut syn::File) -> anyhow::Result<()> {
     // the refinement machine will be in a new module at the end of the file
@@ -19,8 +15,8 @@ pub fn apply(abstract_machine_file: &mut syn::File) -> anyhow::Result<()> {
     let mut mark_file_items = Vec::<Item>::new();
     for item in &abstract_machine_file.items {
         match item {
-            Item::Struct(s) => apply_to_struct(&mut mark_file_items, s)?,
-            Item::Impl(i) => apply_to_impl(&mut mark_file_items, i)?,
+            Item::Struct(s) => item_struct::apply(&mut mark_file_items, s)?,
+            Item::Impl(i) => item_impl::apply(&mut mark_file_items, i)?,
             _ => {
                 return Err(anyhow::anyhow!("Item type {:?} not supported", item));
             }

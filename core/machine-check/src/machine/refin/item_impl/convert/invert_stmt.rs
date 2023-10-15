@@ -181,7 +181,7 @@ pub fn invert_simple_let(
     }
 }
 
-pub fn invert_stmt(inverted_stmts: &mut Vec<Stmt>, stmt: &Stmt) -> anyhow::Result<()> {
+pub fn invert(inverted_stmts: &mut Vec<Stmt>, stmt: &Stmt) -> anyhow::Result<()> {
     let mut stmt = stmt.clone();
     match stmt {
         Stmt::Local(ref mut local) => {
