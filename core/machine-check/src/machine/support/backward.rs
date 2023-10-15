@@ -1,6 +1,4 @@
 use anyhow::anyhow;
-use log::info;
-use quote::quote;
 use syn::{Expr, ExprCall, Pat, Stmt};
 
 use crate::machine::util::{
@@ -129,8 +127,6 @@ impl BackwardConverter {
 
         // construct the backward statement, assigning to a temporary
         let tmp_ident = create_ident(&format!("__mck_backw_tmp_{}", stmts.len()));
-
-        info!("Converted to {}", quote!(#backward_call));
 
         stmts.push(create_let(tmp_ident.clone(), Expr::Call(backward_call)));
 

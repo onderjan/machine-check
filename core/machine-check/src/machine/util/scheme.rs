@@ -1,35 +1,28 @@
 use anyhow::anyhow;
-use proc_macro2::Span;
-use quote::quote;
-use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Expr, Ident, Member, Path, PathSegment, Stmt, Type,
-};
+use syn::{punctuated::Punctuated, visit_mut::VisitMut, Expr, Ident, Member, Path, Stmt, Type};
 
-use super::path_rule::{self, PathRule};
+use super::{
+    create_path_from_ident, create_type_path,
+    path_rule::{self, PathRule},
+};
 
 #[derive(Clone)]
 pub struct ConversionScheme {
-    prefix: String,
-    scheme: String,
-    self_name: String,
-    convert_type_to_super: bool,
-    path_rules: Vec<PathRule>,
+    self_ty_ident: Ident,
+    normal_rules: Vec<PathRule>,
+    type_rules: Vec<PathRule>,
 }
 
 impl ConversionScheme {
     pub fn new(
-        prefix: String,
-        scheme: String,
-        self_name: String,
-        convert_type_to_super: bool,
-        path_rules: Vec<PathRule>,
+        self_ty_ident: Ident,
+        normal_rules: Vec<PathRule>,
+        type_rules: Vec<PathRule>,
     ) -> Self {
         ConversionScheme {
-            prefix,
-            scheme,
-            self_name,
-            convert_type_to_super,
-            path_rules,
+            self_ty_ident,
+            normal_rules,
+            type_rules,
         }
     }
 
@@ -51,89 +44,57 @@ impl ConversionScheme {
         visitor.result
     }
 
-    pub fn convert_type(&self, ty: &Type) -> anyhow::Result<Type> {
+    pub fn convert_type(&self, ty: Type) -> anyhow::Result<Type> {
         if let Type::Reference(ty) = ty {
-            let mut ty = ty.clone();
-            *ty.elem = self.convert_type(&ty.elem)?;
+            let mut ty = ty;
+            *ty.elem = self.convert_type(*ty.elem)?;
             return Ok(Type::Reference(ty));
         }
 
         let Type::Path(ty) = ty else {
-            return Err(anyhow!("Non-path type '{}' not supported", quote!(#ty)));
+            return Err(anyhow!("Non-path type not supported"));
         };
 
         if ty.qself.is_some() {
-            return Err(anyhow!(
-                "Qualified-path type '{}' not supported",
-                quote!(#ty)
-            ));
+            return Err(anyhow!("Qualified-path type not supported"));
         }
 
-        let mut ty = ty.clone();
-        ty.path = self.convert_type_path(&ty.path);
-
-        Ok(Type::Path(ty))
+        Ok(create_type_path(self.convert_type_path(&ty.path)?))
     }
 
-    fn convert_type_path(&self, path: &Path) -> Path {
-        if !self.convert_type_to_super {
-            return path.clone();
-        }
-
+    fn convert_type_path(&self, path: &Path) -> anyhow::Result<Path> {
         let mut path = path.clone();
         if path.leading_colon.is_some() {
-            // do not convert
-            return path;
+            // just apply the rules
+            path_rule::apply_to_path(&mut path, &self.type_rules)?;
+            return Ok(path);
         }
 
         let path_segments = &mut path.segments;
         // replace Self by type name
         for path_segment in path_segments.iter_mut() {
             if path_segment.ident == "Self" {
-                path_segment.ident = Ident::new(self.self_name.as_str(), path_segment.ident.span());
+                path_segment.ident = self.self_ty_ident.clone();
             }
         }
 
-        // TODO: select leading part of global path instead of hardcoded super
-        path_segments.insert(
-            0,
-            PathSegment {
-                ident: Ident::new("super", Span::call_site()),
-                arguments: syn::PathArguments::None,
-            },
-        );
-        path
+        // apply the rules
+        path_rule::apply_to_path(&mut path, &self.type_rules)?;
+        Ok(path)
     }
 
-    pub fn convert_name(&self, name: &str) -> String {
-        let name = name.strip_prefix(&self.prefix).unwrap_or(name);
-        format!("{}{}_{}", &self.prefix, &self.scheme, &name)
+    pub fn convert_normal_ident(&self, ident: Ident) -> anyhow::Result<Ident> {
+        let path = self.convert_normal_path(create_path_from_ident(ident))?;
+        Ok(path
+            .get_ident()
+            .expect("Identifier should be converted to identifier")
+            .clone())
     }
 
-    pub fn convert_ident(&self, ident: &Ident) -> Ident {
-        Ident::new(
-            self.convert_name(ident.to_string().as_str()).as_str(),
-            ident.span(),
-        )
-    }
-
-    fn convert_normal_path(&self, path: &Path) -> anyhow::Result<Path> {
-        let mut result = path.clone();
-        path_rule::apply_to_path(&mut result, self.path_rules.clone())?;
-
-        // only change idents
-        if let Some(ident) = result.get_ident() {
-            Ok(Path::from(self.convert_ident(ident)))
-        } else {
-            // the path must be global
-            if path.leading_colon.is_none() {
-                return Err(anyhow!(
-                    "Non-ident local path '{}' not supported",
-                    quote!(#path),
-                ));
-            }
-            Ok(result)
-        }
+    fn convert_normal_path(&self, path: Path) -> anyhow::Result<Path> {
+        let mut path = path;
+        path_rule::apply_to_path(&mut path, &self.normal_rules)?;
+        Ok(path)
     }
 }
 
@@ -151,7 +112,14 @@ impl<'a> VisitMut for ConversionVisitor<'a> {
             self.visit_qself_mut(it);
         }
         // treat specially by considering struct path to be a type
-        node.path = self.scheme.convert_type_path(&node.path);
+        match self.scheme.convert_type_path(&node.path) {
+            Ok(ok) => node.path = ok,
+            Err(err) => {
+                if self.result.is_ok() {
+                    self.result = Err(err);
+                }
+            }
+        }
         for mut el in Punctuated::pairs_mut(&mut node.fields) {
             let it = el.value_mut();
             self.visit_field_pat_mut(it);
@@ -169,8 +137,15 @@ impl<'a> VisitMut for ConversionVisitor<'a> {
             self.visit_qself_mut(it);
         }
         // treat specially by considering struct path to be a type
-        node.path = self.scheme.convert_type_path(&node.path);
-        for mut el in Punctuated::pairs_mut(&mut node.fields) {
+        match self.scheme.convert_type_path(&node.path) {
+            Ok(ok) => node.path = ok,
+            Err(err) => {
+                if self.result.is_ok() {
+                    self.result = Err(err);
+                }
+            }
+        }
+        for mut el in node.fields.pairs_mut() {
             let it = el.value_mut();
             self.visit_field_value_mut(it);
         }
@@ -189,13 +164,10 @@ impl<'a> VisitMut for ConversionVisitor<'a> {
         self.visit_type_mut(&mut node.ty);
     }
 
-    fn visit_member_mut(&mut self, _: &mut Member) {
-        // do not go into the member
-    }
-
-    fn visit_type_mut(&mut self, i: &mut Type) {
-        match self.scheme.convert_type(i) {
-            Ok(ok) => *i = ok,
+    fn visit_type_mut(&mut self, ty: &mut Type) {
+        let result = self.scheme.convert_type(ty.clone());
+        match result {
+            Ok(ok) => *ty = ok,
             Err(err) => {
                 if self.result.is_ok() {
                     self.result = Err(err);
@@ -204,13 +176,27 @@ impl<'a> VisitMut for ConversionVisitor<'a> {
         }
         // do not propagate
     }
-    fn visit_ident_mut(&mut self, i: &mut Ident) {
-        *i = self.scheme.convert_ident(i);
+
+    fn visit_member_mut(&mut self, _: &mut Member) {
+        // do not go into the member
+    }
+
+    fn visit_ident_mut(&mut self, ident: &mut Ident) {
+        let result = self.scheme.convert_normal_ident(ident.clone());
+        match result {
+            Ok(ok) => *ident = ok,
+            Err(err) => {
+                if self.result.is_ok() {
+                    self.result = Err(err);
+                }
+            }
+        }
         // do not propagate
     }
-    fn visit_path_mut(&mut self, i: &mut Path) {
-        match self.scheme.convert_normal_path(i) {
-            Ok(ok) => *i = ok,
+    fn visit_path_mut(&mut self, path: &mut Path) {
+        let result = self.scheme.convert_normal_path(path.clone());
+        match result {
+            Ok(ok) => *path = ok,
             Err(err) => {
                 if self.result.is_ok() {
                     self.result = Err(err);

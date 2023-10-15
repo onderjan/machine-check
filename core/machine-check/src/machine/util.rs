@@ -8,8 +8,8 @@ use syn::{
     Attribute, BinOp, Block, Expr, ExprBinary, ExprCall, ExprField, ExprPath, ExprReference,
     ExprStruct, ExprTuple, Field, FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn,
     ImplItemType, Index, Item, ItemImpl, ItemMod, Local, LocalInit, Member, MetaList, Pat,
-    PatIdent, PatType, PatWild, Path, Receiver, ReturnType, Signature, Stmt, Type, TypePath,
-    TypeReference, TypeTuple, Visibility,
+    PatIdent, PatType, PatWild, Path, PathSegment, Receiver, ReturnType, Signature, Stmt, Type,
+    TypePath, TypeReference, TypeTuple, Visibility,
 };
 use syn_path::path;
 
@@ -417,5 +417,12 @@ pub fn get_block_result_expr(block: &Block) -> Expr {
         expr.clone()
     } else {
         create_unit_expr()
+    }
+}
+
+pub fn create_path_segment(ident: Ident) -> PathSegment {
+    PathSegment {
+        ident,
+        arguments: syn::PathArguments::None,
     }
 }

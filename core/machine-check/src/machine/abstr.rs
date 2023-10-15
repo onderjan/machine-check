@@ -9,7 +9,7 @@ use quote::quote;
 
 pub fn apply(machine: &mut syn::File) -> Result<(), anyhow::Error> {
     // apply transcription to types using path rule transcriptor
-    path_rule::apply(machine, path_rules())?;
+    path_rule::apply(machine, &path_rules())?;
 
     // add default derive attributes to the structs
     // that easily allow us to make unknown inputs/states
@@ -29,15 +29,17 @@ fn path_rules() -> Vec<PathRule> {
         PathRule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
+                PathRuleSegment::Match(String::from("mck")),
                 PathRuleSegment::Convert(String::from("concr"), String::from("abstr")),
+                PathRuleSegment::EndWildcard,
             ],
         },
         PathRule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Ident(String::from("mck")),
-                PathRuleSegment::Ident(String::from("forward")),
+                PathRuleSegment::Match(String::from("mck")),
+                PathRuleSegment::Match(String::from("forward")),
+                PathRuleSegment::EndWildcard,
             ],
         },
         PathRule {

@@ -11,7 +11,7 @@ use crate::machine::util::{
 
 use self::{meta::meta_impl, refinable::refinable_impl};
 
-use super::mark_path_rules;
+use super::mark_path_normal_rules;
 
 mod meta;
 mod refinable;
@@ -20,7 +20,7 @@ pub fn apply(items: &mut Vec<Item>, abstr_struct: &ItemStruct) -> Result<(), any
     {
         // apply path rules and push struct
         let mut refin_struct = abstr_struct.clone();
-        path_rule::apply_to_item_struct(&mut refin_struct, mark_path_rules())?;
+        path_rule::apply_to_item_struct(&mut refin_struct, &mark_path_normal_rules())?;
         let ident_string = refin_struct.ident.to_string();
 
         // TODO: add the implementations only for state and input according to traits

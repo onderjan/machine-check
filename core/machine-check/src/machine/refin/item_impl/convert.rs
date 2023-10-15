@@ -83,8 +83,8 @@ impl MarkConverter {
 
         // step 5: add initialization of local mark variables
         for ident in earlier_mark.1 {
-            let refin_ident = self.mark_scheme.convert_ident(&ident);
-            let abstract_ident = self.abstract_scheme.convert_ident(&ident);
+            let refin_ident = self.mark_scheme.convert_normal_ident(ident.clone())?;
+            let abstract_ident = self.abstract_scheme.convert_normal_ident(ident)?;
             result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, false));
         }
 
@@ -98,8 +98,8 @@ impl MarkConverter {
 
         for local_name in local_visitor.local_names {
             let orig_ident = create_ident(&local_name);
-            let refin_ident = self.mark_scheme.convert_ident(&orig_ident);
-            let abstract_ident = self.abstract_scheme.convert_ident(&orig_ident);
+            let refin_ident = self.mark_scheme.convert_normal_ident(orig_ident.clone())?;
+            let abstract_ident = self.abstract_scheme.convert_normal_ident(orig_ident)?;
             result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, true));
         }
 
@@ -131,9 +131,11 @@ impl MarkConverter {
             // convert to abstract type and to reference so we do not consume original abstract output
             let ty = to_singular_reference(self.abstract_scheme.convert_type(orig_type)?);
             types.push(ty);
-            let abstr_name = self.abstract_scheme.convert_name(&orig_name);
+            let abstr_ident = self
+                .abstract_scheme
+                .convert_normal_ident(create_ident(&orig_name))?;
             let detuple_stmt = create_let(
-                create_ident(&abstr_name),
+                abstr_ident,
                 create_expr_field_unnamed(create_expr_path(create_path_from_name(arg_name)), index),
             );
             detuple_stmts.push(detuple_stmt);
@@ -158,8 +160,10 @@ impl MarkConverter {
             types.push(ty.clone());
             // add expression to result tuple
             let partial_ident = Ident::new(&orig_name, Span::call_site());
-            let refin_ident = self.mark_scheme.convert_ident(&partial_ident);
-            let refin_expr = create_expr_ident(refin_ident.clone());
+            let refin_ident = self
+                .mark_scheme
+                .convert_normal_ident(partial_ident.clone())?;
+            let refin_expr = create_expr_ident(refin_ident);
             partial_idents.push(partial_ident);
             refin_exprs.push(refin_expr);
         }
@@ -199,8 +203,7 @@ impl MarkConverter {
                 return Err(anyhow!("Unnamed field member not supported"));
             };
 
-            let mark_name = self.mark_scheme.convert_name(&field_ident.to_string());
-            let mark_ident = create_ident(&mark_name);
+            let mark_ident = self.mark_scheme.convert_normal_ident(field_ident.clone())?;
             let left_expr = create_expr_ident(mark_ident);
             let right_base = create_expr_ident(create_ident(name));
             let right_expr = create_expr_field_named(right_base, member_ident.clone());
@@ -255,11 +258,11 @@ fn convert_type_to_path(ty: Type) -> anyhow::Result<Type> {
 
 fn create_input_name_type_iter(
     sig: &Signature,
-) -> impl Iterator<Item = anyhow::Result<(String, &Type)>> {
+) -> impl Iterator<Item = anyhow::Result<(String, Type)>> + '_ {
     sig.inputs.iter().map(|input| match input {
         FnArg::Receiver(receiver) => {
             let ty = receiver.ty.as_ref();
-            Ok((String::from("self"), ty))
+            Ok((String::from("self"), ty.clone()))
         }
         FnArg::Typed(typed) => {
             let ty = typed.ty.as_ref();
@@ -272,7 +275,7 @@ fn create_input_name_type_iter(
             {
                 return Err(anyhow!("Impure identifier patterns are not supported"));
             }
-            Ok((pat_ident.ident.to_string(), ty))
+            Ok((pat_ident.ident.to_string(), ty.clone()))
         }
     })
 }

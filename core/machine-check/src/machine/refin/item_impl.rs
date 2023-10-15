@@ -11,14 +11,17 @@ use self::convert::MarkConverter;
 use anyhow::anyhow;
 use quote::quote;
 
-use super::{abstract_path_rules, mark_path_rules};
+use super::{
+    abstract_path_normal_rules, abstract_path_type_rules, mark_path_normal_rules,
+    mark_path_type_rules,
+};
 
 mod convert;
 
 pub fn apply(mark_file_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyhow::Error> {
     let mut transcribed = transcribe_item_impl(i)?;
     if let Some(trait_) = &mut transcribed.trait_ {
-        path_rule::apply_to_path(&mut trait_.1, mark_path_rules())?;
+        path_rule::apply_to_path(&mut trait_.1, &mark_path_normal_rules())?;
     }
 
     if let Some((None, trait_path, _)) = &i.trait_ {
@@ -65,22 +68,17 @@ pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
     let Some(self_ty_ident) = self_ty.path.get_ident() else {
         return Err(anyhow!("Non-ident impl type '{}' not supported", quote!(#self_ty)));
     };
-    let self_name = self_ty_ident.to_string();
 
     let mut converter = MarkConverter {
         abstract_scheme: ConversionScheme::new(
-            String::from("__mck_"),
-            String::from("abstr"),
-            self_name.clone(),
-            true,
-            abstract_path_rules(),
+            self_ty_ident.clone(),
+            abstract_path_normal_rules(),
+            abstract_path_type_rules(),
         ),
         mark_scheme: ConversionScheme::new(
-            String::from("__mck_"),
-            String::from("refin"),
-            self_name,
-            false,
-            mark_path_rules(),
+            self_ty_ident.clone(),
+            mark_path_normal_rules(),
+            mark_path_type_rules(),
         ),
     };
 
