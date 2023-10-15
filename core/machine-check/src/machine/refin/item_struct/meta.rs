@@ -1,7 +1,4 @@
-use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, ImplItem, ImplItemFn,
-    ItemImpl, ItemStruct, Stmt,
-};
+use syn::{ImplItem, ImplItemFn, ItemImpl, ItemStruct, Stmt};
 use syn_path::path;
 
 use crate::machine::{
@@ -9,8 +6,8 @@ use crate::machine::{
     util::{
         create_arg, create_expr_binary_or, create_expr_call, create_expr_field, create_expr_path,
         create_field_value, create_ident, create_impl_item_fn, create_item_impl,
-        create_path_from_ident, create_self, create_self_arg, create_struct_expr, create_type_path,
-        ArgType,
+        create_path_from_ident, create_path_with_last_generic_type, create_self, create_self_arg,
+        create_struct_expr, create_type_path, ArgType,
     },
 };
 
@@ -18,17 +15,9 @@ pub fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, anyhow::Error> {
     let abstr_type_path =
         rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
 
-    let mut trait_path = path!(::mck::misc::Meta);
-    // add generic with the abstract type
-    trait_path.segments.last_mut().unwrap().arguments =
-        syn::PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-            colon2_token: Default::default(),
-            lt_token: Default::default(),
-            args: Punctuated::from_iter(
-                vec![GenericArgument::Type(create_type_path(abstr_type_path))].into_iter(),
-            ),
-            gt_token: Default::default(),
-        });
+    let trait_path = path!(::mck::misc::Meta);
+    let trait_path =
+        create_path_with_last_generic_type(trait_path, create_type_path(abstr_type_path));
 
     let first_fn = proto_first_fn(s)?;
     let increment_fn = proto_increment_fn(s)?;

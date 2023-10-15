@@ -1,20 +1,26 @@
-use syn::{
-    parse_quote, BinOp, Expr, ExprBinary, ImplItem, ImplItemFn, Item, ItemStruct, Path, Stmt,
-};
+use syn::{BinOp, Expr, ExprBinary, ImplItem, ImplItemFn, Item, ItemStruct, Path, Stmt};
 use syn_path::path;
 
-use crate::machine::util::{
-    create_arg, create_expr_call, create_expr_field, create_expr_ident, create_expr_path,
-    create_ident, create_impl_item_fn, create_item_impl, create_path_from_ident,
-    create_refine_join_stmt, create_self, create_self_arg, create_type_path, ArgType,
+use crate::machine::{
+    refin::rules,
+    util::{
+        create_arg, create_expr_call, create_expr_field, create_expr_ident, create_expr_path,
+        create_ident, create_impl_item_fn, create_item_impl, create_path_from_ident,
+        create_path_with_last_generic_type, create_refine_join_stmt, create_self, create_self_arg,
+        create_type_path, ArgType,
+    },
 };
 
 pub fn refine_impl(item_struct: &ItemStruct) -> Result<Item, anyhow::Error> {
-    let s_ident = &item_struct.ident;
     let refin_fn = apply_refin_fn(item_struct)?;
     let join_fn = apply_join_fn(item_struct)?;
     let decay_fn = force_decay_fn(item_struct)?;
-    let refine_trait: Path = parse_quote!(::mck::refin::Refine<super::#s_ident>);
+
+    let abstr_type_path =
+        rules::abstract_type().convert_path(create_path_from_ident(item_struct.ident.clone()))?;
+    let refine_trait: Path = path!(::mck::refin::Refine);
+    let refine_trait =
+        create_path_with_last_generic_type(refine_trait, create_type_path(abstr_type_path));
 
     Ok(Item::Impl(create_item_impl(
         Some(refine_trait),
@@ -56,8 +62,9 @@ fn force_decay_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
     let self_arg = create_self_arg(ArgType::Reference);
 
     let target_ident = create_ident("target");
-    let s_ident = &s.ident;
-    let target_type = create_type_path(parse_quote!(super::#s_ident));
+    let target_type = create_type_path(
+        rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?,
+    );
     let target_arg = create_arg(
         ArgType::MutableReference,
         target_ident.clone(),
