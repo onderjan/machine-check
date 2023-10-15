@@ -140,8 +140,8 @@ pub fn create_self() -> Expr {
     create_expr_path(path!(self))
 }
 
-pub fn create_type_path(path: Path) -> TypePath {
-    TypePath { qself: None, path }
+pub fn create_type_path(path: Path) -> Type {
+    Type::Path(TypePath { qself: None, path })
 }
 
 fn create_let_mut_choice(mutable: bool, left_ident: Ident, right_expr: Expr) -> Stmt {
@@ -217,7 +217,7 @@ pub fn create_item_impl(
         impl_token: Default::default(),
         generics: Generics::default(),
         trait_,
-        self_ty: Box::new(Type::Path(create_type_path(struct_path))),
+        self_ty: Box::new(create_type_path(struct_path)),
         brace_token: Default::default(),
         items,
     }
@@ -245,7 +245,7 @@ pub enum ArgType {
 }
 
 pub fn create_self_arg(arg_ty: ArgType) -> FnArg {
-    let ty = Type::Path(create_type_path(path!(Self)));
+    let ty = create_type_path(path!(Self));
     let (reference, mutability, ty) = match arg_ty {
         ArgType::Normal => (None, None, ty),
         ArgType::Reference => (
@@ -280,7 +280,7 @@ pub fn create_converted_type(arg_ty: ArgType, ty: Type) -> Type {
 pub fn create_arg(arg_ty: ArgType, ident: Ident, ty: Option<Type>) -> FnArg {
     let ty = match ty {
         Some(ty) => ty,
-        None => Type::Path(create_type_path(path!(Self))),
+        None => create_type_path(path!(Self)),
     };
 
     let ty = create_converted_type(arg_ty, ty);

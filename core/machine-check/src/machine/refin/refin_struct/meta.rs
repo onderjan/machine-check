@@ -1,4 +1,4 @@
-use syn::{parse_quote, ImplItem, ImplItemFn, ItemImpl, ItemStruct, Path, Stmt, Type};
+use syn::{parse_quote, ImplItem, ImplItemFn, ItemImpl, ItemStruct, Path, Stmt};
 use syn_path::path;
 
 use crate::machine::util::{
@@ -7,7 +7,7 @@ use crate::machine::util::{
     create_path_from_ident, create_self_arg, create_struct_expr, create_type_path, ArgType,
 };
 
-pub fn meta_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
+pub fn meta_impl(s: &ItemStruct) -> ItemImpl {
     let s_ident = s.ident.clone();
     let struct_path = Path::from(s.ident.clone());
     let impl_path: Path = parse_quote!(::mck::misc::Meta::<super::#s_ident>);
@@ -15,11 +15,11 @@ pub fn meta_impl(s: &ItemStruct) -> anyhow::Result<ItemImpl> {
     let first_fn = proto_first_fn(s);
     let increment_fn = proto_increment_fn(s);
 
-    Ok(create_item_impl(
+    create_item_impl(
         Some(impl_path),
         struct_path,
         vec![ImplItem::Fn(first_fn), ImplItem::Fn(increment_fn)],
-    ))
+    )
 }
 
 fn proto_first_fn(s: &ItemStruct) -> ImplItemFn {
@@ -28,7 +28,7 @@ fn proto_first_fn(s: &ItemStruct) -> ImplItemFn {
     let self_arg = create_self_arg(ArgType::Reference);
     let s_ident = s.ident.clone();
     let return_type_path: Path = parse_quote!(super::#s_ident);
-    let return_type = Type::Path(create_type_path(return_type_path.clone()));
+    let return_type = create_type_path(return_type_path.clone());
 
     let mut struct_expr_fields = Vec::new();
 
@@ -58,14 +58,14 @@ fn proto_increment_fn(s: &ItemStruct) -> ImplItemFn {
     let proto_ident = create_ident("proto");
     let s_ident = s.ident.clone();
     let proto_type_path = parse_quote!(super::#s_ident);
-    let proto_type = Type::Path(create_type_path(proto_type_path));
+    let proto_type = create_type_path(proto_type_path);
     let proto_arg = create_arg(
         ArgType::MutableReference,
         proto_ident.clone(),
         Some(proto_type),
     );
 
-    let return_type = Type::Path(create_type_path(path!(bool)));
+    let return_type = create_type_path(path!(bool));
 
     let mut result_expr = None;
 

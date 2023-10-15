@@ -1,5 +1,5 @@
 use syn::{
-    parse_quote, BinOp, Expr, ExprBinary, ImplItem, ImplItemFn, Item, ItemStruct, Path, Stmt, Type,
+    parse_quote, BinOp, Expr, ExprBinary, ImplItem, ImplItemFn, Item, ItemStruct, Path, Stmt,
 };
 use syn_path::path;
 
@@ -9,7 +9,7 @@ use crate::machine::util::{
     create_refine_join_stmt, create_self, create_self_arg, create_type_path, path_rule, ArgType,
 };
 
-use self::{meta::meta_impl, refinable::generate_markable_impl};
+use self::{meta::meta_impl, refinable::refinable_impl};
 
 use super::mark_path_rules;
 
@@ -28,13 +28,13 @@ pub fn apply_to_struct(
 
         // TODO: add the implementations only for state and input according to traits
         if ident_string.as_str() != "Machine" {
-            let fabricator_impl = meta_impl(&refin_struct)?;
-            let markable_impl = generate_markable_impl(&refin_struct)?;
+            let meta_impl = meta_impl(&refin_struct);
+            let refinable_impl = refinable_impl(&refin_struct);
             // add struct
             items.push(Item::Struct(refin_struct));
             // add implementations
-            items.push(Item::Impl(fabricator_impl));
-            items.push(Item::Impl(markable_impl));
+            items.push(Item::Impl(meta_impl));
+            items.push(Item::Impl(refinable_impl));
         } else {
             // add struct
             items.push(Item::Struct(refin_struct));
@@ -90,7 +90,7 @@ fn generate_force_decay_fn(state_struct: &ItemStruct) -> anyhow::Result<ImplItem
 
     let target_ident = create_ident("target");
     let s_ident = &state_struct.ident;
-    let target_type = Type::Path(create_type_path(parse_quote!(super::#s_ident)));
+    let target_type = create_type_path(parse_quote!(super::#s_ident));
     let target_arg = create_arg(
         ArgType::MutableReference,
         target_ident.clone(),
@@ -158,7 +158,7 @@ fn generate_mark_single_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
     // if there are no fields, return false
     let result_expr = result_expr.unwrap_or(create_expr_path(path!(false)));
 
-    let return_type = Type::Path(create_type_path(path!(bool)));
+    let return_type = create_type_path(path!(bool));
 
     Ok(create_impl_item_fn(
         fn_ident,

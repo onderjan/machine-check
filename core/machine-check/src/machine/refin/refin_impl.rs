@@ -1,4 +1,4 @@
-use syn::{parse_quote, ImplItem, Item, ItemImpl, Type};
+use syn::{parse_quote, ImplItem, Item, ItemImpl};
 
 use crate::machine::util::{
     create_ident, create_impl_item_type, create_type_path,
@@ -28,8 +28,7 @@ pub fn apply_to_impl(mark_file_items: &mut Vec<Item>, i: &ItemImpl) -> Result<()
                             let s_ty = i.self_ty.as_ref();
                             // add abstract type
                             let type_ident = create_ident("Abstract");
-                            let type_assign =
-                                Type::Path(create_type_path(parse_quote!(super::#s_ty)));
+                            let type_assign = create_type_path(parse_quote!(super::#s_ty));
                             transcribed.items.push(ImplItem::Type(create_impl_item_type(
                                 type_ident,
                                 type_assign,
