@@ -12,9 +12,12 @@ mod local_visitor;
 
 use anyhow::anyhow;
 
-use super::rules;
+use super::{rules, SpecialTrait};
 
-pub fn apply(refinement_items: &mut Vec<Item>, item_impl: &ItemImpl) -> Result<(), anyhow::Error> {
+pub(super) fn apply(
+    refinement_items: &mut Vec<Item>,
+    item_impl: &ItemImpl,
+) -> Result<Option<SpecialTrait>, anyhow::Error> {
     let self_ty = item_impl.self_ty.as_ref();
 
     let Type::Path(self_ty) = self_ty else {
@@ -38,9 +41,9 @@ pub fn apply(refinement_items: &mut Vec<Item>, item_impl: &ItemImpl) -> Result<(
         ),
     };
 
-    let converted_item_impl = Item::Impl(converter.convert(item_impl.clone())?);
-    refinement_items.push(converted_item_impl);
-    Ok(())
+    let (converted_item_impl, special_trait) = converter.convert(item_impl.clone())?;
+    refinement_items.push(Item::Impl(converted_item_impl));
+    Ok(special_trait)
 }
 
 pub struct ImplConverter {
@@ -49,7 +52,10 @@ pub struct ImplConverter {
 }
 
 impl ImplConverter {
-    fn convert(&self, item_impl: ItemImpl) -> Result<ItemImpl, anyhow::Error> {
+    fn convert(
+        &self,
+        item_impl: ItemImpl,
+    ) -> Result<(ItemImpl, Option<SpecialTrait>), anyhow::Error> {
         let mut items = Vec::<ImplItem>::new();
         for item in &item_impl.items {
             match item {
@@ -67,11 +73,19 @@ impl ImplConverter {
         let mut item_impl = item_impl;
         item_impl.items = items;
 
+        let mut special_trait = None;
         if let Some((None, trait_path, _)) = &item_impl.trait_ {
-            if is_abstr_input_trait(trait_path)
-                || is_abstr_state_trait(trait_path)
-                || is_abstr_machine_trait(trait_path)
-            {
+            special_trait = if is_abstr_input_trait(trait_path) {
+                Some(SpecialTrait::Input)
+            } else if is_abstr_state_trait(trait_path) {
+                Some(SpecialTrait::State)
+            } else if is_abstr_machine_trait(trait_path) {
+                Some(SpecialTrait::Machine)
+            } else {
+                None
+            };
+
+            if special_trait.is_some() {
                 // add abstract type
                 let type_ident = create_ident("Abstract");
                 let type_assign = self
@@ -90,7 +104,7 @@ impl ImplConverter {
                 .convert_normal_path(trait_.1.clone())?;
         }
 
-        Ok(item_impl)
+        Ok((item_impl, special_trait))
     }
 }
 
