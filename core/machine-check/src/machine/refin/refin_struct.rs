@@ -9,7 +9,7 @@ use crate::machine::util::{
     create_refine_join_stmt, create_self, create_self_arg, create_type_path, path_rule, ArgType,
 };
 
-use self::{meta::generate_fabricator_impl, refinable::generate_markable_impl};
+use self::{meta::meta_impl, refinable::generate_markable_impl};
 
 use super::mark_path_rules;
 
@@ -28,7 +28,7 @@ pub fn apply_to_struct(
 
         // TODO: add the implementations only for state and input according to traits
         if ident_string.as_str() != "Machine" {
-            let fabricator_impl = generate_fabricator_impl(&refin_struct)?;
+            let fabricator_impl = meta_impl(&refin_struct)?;
             let markable_impl = generate_markable_impl(&refin_struct)?;
             // add struct
             items.push(Item::Struct(refin_struct));

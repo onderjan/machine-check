@@ -5,10 +5,11 @@ use proc_macro2::{Span, TokenStream};
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Bracket, Comma, Paren},
-    Attribute, Block, Expr, ExprCall, ExprField, ExprPath, ExprReference, ExprTuple, Field,
-    FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn, ImplItemType, Index, Item, ItemImpl,
-    ItemMod, Local, LocalInit, Member, MetaList, Pat, PatIdent, PatType, Path, Receiver,
-    ReturnType, Signature, Stmt, Type, TypePath, TypeReference, TypeTuple, Visibility,
+    Attribute, BinOp, Block, Expr, ExprBinary, ExprCall, ExprField, ExprPath, ExprReference,
+    ExprStruct, ExprTuple, Field, FieldValue, FnArg, Generics, Ident, ImplItem, ImplItemFn,
+    ImplItemType, Index, Item, ItemImpl, ItemMod, Local, LocalInit, Member, MetaList, Pat,
+    PatIdent, PatType, Path, Receiver, ReturnType, Signature, Stmt, Type, TypePath, TypeReference,
+    TypeTuple, Visibility,
 };
 use syn_path::path;
 
@@ -97,6 +98,15 @@ pub fn create_field_value(index: usize, field: &Field, init_expr: Expr) -> Field
         colon_token: Some(Default::default()),
         expr: init_expr,
     }
+}
+
+pub fn create_expr_binary_or(left: Expr, right: Expr) -> Expr {
+    Expr::Binary(ExprBinary {
+        attrs: vec![],
+        left: Box::new(left),
+        op: BinOp::Or(Default::default()),
+        right: Box::new(right),
+    })
 }
 
 pub fn create_expr_call(func: Expr, args: Vec<(ArgType, Expr)>) -> Expr {
@@ -284,7 +294,7 @@ pub fn create_arg(arg_ty: ArgType, ident: Ident, ty: Option<Type>) -> FnArg {
 
 pub fn create_impl_item_fn(
     ident: Ident,
-    arguments: Vec<FnArg>,
+    parameters: Vec<FnArg>,
     return_type: Option<Type>,
     stmts: Vec<Stmt>,
 ) -> ImplItemFn {
@@ -306,7 +316,7 @@ pub fn create_impl_item_fn(
             ident,
             generics: Default::default(),
             paren_token: Default::default(),
-            inputs: Punctuated::from_iter(arguments.into_iter()),
+            inputs: Punctuated::from_iter(parameters.into_iter()),
             variadic: None,
             output: return_type,
         },
@@ -363,6 +373,18 @@ pub fn create_tuple_expr(elems: Vec<Expr>) -> Expr {
         attrs: vec![],
         paren_token: Default::default(),
         elems: Punctuated::from_iter(elems.into_iter()),
+    })
+}
+
+pub fn create_struct_expr(type_path: Path, fields: Vec<FieldValue>) -> Expr {
+    Expr::Struct(ExprStruct {
+        attrs: vec![],
+        qself: None,
+        path: type_path,
+        brace_token: Default::default(),
+        fields: Punctuated::from_iter(fields.into_iter()),
+        dot2_token: None,
+        rest: None,
     })
 }
 
