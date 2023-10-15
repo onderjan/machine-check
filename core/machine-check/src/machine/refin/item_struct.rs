@@ -11,16 +11,19 @@ use crate::machine::util::{
 
 use self::{meta::meta_impl, refinable::refinable_impl};
 
-use super::mark_path_normal_rules;
+use super::refinement_normal_rules;
 
 mod meta;
 mod refinable;
 
-pub fn apply(items: &mut Vec<Item>, abstr_struct: &ItemStruct) -> Result<(), anyhow::Error> {
+pub fn apply(
+    refinement_items: &mut Vec<Item>,
+    abstr_struct: &ItemStruct,
+) -> Result<(), anyhow::Error> {
     {
         // apply path rules and push struct
         let mut refin_struct = abstr_struct.clone();
-        path_rule::apply_to_item_struct(&mut refin_struct, &mark_path_normal_rules())?;
+        path_rule::apply_to_item_struct(&mut refin_struct, &refinement_normal_rules())?;
         let ident_string = refin_struct.ident.to_string();
 
         // TODO: add the implementations only for state and input according to traits
@@ -28,22 +31,22 @@ pub fn apply(items: &mut Vec<Item>, abstr_struct: &ItemStruct) -> Result<(), any
             let meta_impl = meta_impl(&refin_struct);
             let refinable_impl = refinable_impl(&refin_struct);
             // add struct
-            items.push(Item::Struct(refin_struct));
+            refinement_items.push(Item::Struct(refin_struct));
             // add implementations
-            items.push(Item::Impl(meta_impl));
-            items.push(Item::Impl(refinable_impl));
+            refinement_items.push(Item::Impl(meta_impl));
+            refinement_items.push(Item::Impl(refinable_impl));
         } else {
             // add struct
-            items.push(Item::Struct(refin_struct));
+            refinement_items.push(Item::Struct(refin_struct));
         }
 
         if abstr_struct.ident == "Input" || abstr_struct.ident == "State" {
             let s_ident = &abstr_struct.ident;
-            let refin_fn = generate_mark_single_fn(abstr_struct)?;
+            let refin_fn = generate_refin_single_fn(abstr_struct)?;
             let join_fn = generate_join_fn(abstr_struct)?;
             let decay_fn = generate_force_decay_fn(abstr_struct)?;
             let refine_trait: Path = parse_quote!(::mck::refin::Refine<super::#s_ident>);
-            items.push(Item::Impl(create_item_impl(
+            refinement_items.push(Item::Impl(create_item_impl(
                 Some(refine_trait),
                 create_path_from_ident(abstr_struct.ident.clone()),
                 vec![
@@ -119,7 +122,7 @@ fn generate_force_decay_fn(state_struct: &ItemStruct) -> anyhow::Result<ImplItem
     ))
 }
 
-fn generate_mark_single_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
+fn generate_refin_single_fn(s: &ItemStruct) -> anyhow::Result<ImplItemFn> {
     let fn_ident = create_ident("apply_refin");
 
     let self_input = create_self_arg(ArgType::MutableReference);

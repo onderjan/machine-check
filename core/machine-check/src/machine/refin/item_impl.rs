@@ -1,4 +1,4 @@
-use syn::{parse_quote, ImplItem, Item, ItemImpl, Type};
+use syn::{parse_quote, visit_mut::VisitMut, ImplItem, Item, ItemImpl, Type};
 
 use crate::machine::util::{
     create_ident, create_impl_item_type, create_type_path,
@@ -6,22 +6,74 @@ use crate::machine::util::{
     scheme::ConversionScheme,
 };
 
-use self::convert::MarkConverter;
+use syn::{punctuated::Punctuated, Ident, ImplItemFn, Stmt};
+use syn_path::path;
+
+use crate::machine::{
+    support::backward::BackwardConverter,
+    util::{
+        create_expr_call, create_expr_path, create_let_mut, create_path_from_ident,
+        get_block_result_expr, ArgType,
+    },
+};
+
+mod args;
+mod local_visitor;
 
 use anyhow::anyhow;
 use quote::quote;
 
+use self::local_visitor::LocalVisitor;
+
 use super::{
-    abstract_path_normal_rules, abstract_path_type_rules, mark_path_normal_rules,
-    mark_path_type_rules,
+    abstract_path_normal_rules, abstract_path_type_rules, refinement_normal_rules,
+    refinement_type_rules,
 };
 
-mod convert;
+pub fn apply(refinement_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyhow::Error> {
+    let mut translated = i.clone();
+    let mut items = Vec::<ImplItem>::new();
 
-pub fn apply(mark_file_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyhow::Error> {
-    let mut transcribed = transcribe_item_impl(i)?;
-    if let Some(trait_) = &mut transcribed.trait_ {
-        path_rule::apply_to_path(&mut trait_.1, &mark_path_normal_rules())?;
+    let self_ty = translated.self_ty.as_ref();
+
+    let Type::Path(self_ty) = self_ty else {
+        return Err(anyhow!("Non-path impl type '{}' not supported", quote!(#self_ty)));
+    };
+
+    let Some(self_ty_ident) = self_ty.path.get_ident() else {
+        return Err(anyhow!("Non-ident impl type '{}' not supported", quote!(#self_ty)));
+    };
+
+    let mut converter = Converter {
+        abstract_scheme: ConversionScheme::new(
+            self_ty_ident.clone(),
+            abstract_path_normal_rules(),
+            abstract_path_type_rules(),
+        ),
+        refinement_scheme: ConversionScheme::new(
+            self_ty_ident.clone(),
+            refinement_normal_rules(),
+            refinement_type_rules(),
+        ),
+    };
+
+    for item in &translated.items {
+        match item {
+            ImplItem::Fn(item_fn) => {
+                items.push(ImplItem::Fn(converter.transcribe_impl_item_fn(item_fn)?))
+            }
+            ImplItem::Type(item_type) => {
+                // just clone to preserve pointed-to type, now in refinement module context
+                items.push(ImplItem::Type(item_type.clone()));
+            }
+            _ => return Err(anyhow!("Impl item type {:?} not supported", item)),
+        }
+    }
+
+    translated.items = items;
+
+    if let Some(trait_) = &mut translated.trait_ {
+        path_rule::apply_to_path(&mut trait_.1, &refinement_normal_rules())?;
     }
 
     if let Some((None, trait_path, _)) = &i.trait_ {
@@ -40,7 +92,7 @@ pub fn apply(mark_file_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyhow
                             // add abstract type
                             let type_ident = create_ident("Abstract");
                             let type_assign = create_type_path(parse_quote!(super::#s_ty));
-                            transcribed.items.push(ImplItem::Type(create_impl_item_type(
+                            translated.items.push(ImplItem::Type(create_impl_item_type(
                                 type_ident,
                                 type_assign,
                             )));
@@ -51,51 +103,124 @@ pub fn apply(mark_file_items: &mut Vec<Item>, i: &ItemImpl) -> Result<(), anyhow
         }
     }
 
-    mark_file_items.push(Item::Impl(transcribed));
+    refinement_items.push(Item::Impl(translated));
     Ok(())
 }
 
-pub fn transcribe_item_impl(i: &ItemImpl) -> anyhow::Result<ItemImpl> {
-    let mut i = i.clone();
-    let mut items = Vec::<ImplItem>::new();
+pub struct Converter {
+    pub abstract_scheme: ConversionScheme,
+    pub refinement_scheme: ConversionScheme,
+}
 
-    let self_ty = i.self_ty.as_ref();
+impl Converter {
+    pub fn transcribe_impl_item_fn(&mut self, orig_fn: &ImplItemFn) -> anyhow::Result<ImplItemFn> {
+        let backward_converter = BackwardConverter {
+            forward_scheme: self.abstract_scheme.clone(),
+            backward_scheme: self.refinement_scheme.clone(),
+        };
 
-    let Type::Path(self_ty) = self_ty else {
-        return Err(anyhow!("Non-path impl type '{}' not supported", quote!(#self_ty)));
-    };
+        // to transcribe function with signature (inputs) -> output and linear SSA block
+        // we must the following steps
+        // 1. set refin function signature to (abstract_inputs, later) -> (earlier)
+        //        where later corresponds to original output and earlier to original inputs
+        // 2. clear refin function block
+        // 3. add original block statements excluding result that has local variables (including inputs)
+        //        changed to abstract naming scheme (no other variables should be present)
+        // 4. initialize all local refinement variables including earlier to default value
+        // 5. add initialization of local variables
+        // 6. add "init_refin.apply_join(later);" where init_refin is changed from result expression
+        //        to a pattern with local variables changed to refin naming scheme
+        // 7. add refin-computation statements in reverse order of original statements
+        //        i.e. instead of "let a = call(b);"
+        //        add "refin_b.apply_join(refin_call(abstr_b, refin_a))"
+        // 8. add result expression for earlier
 
-    let Some(self_ty_ident) = self_ty.path.get_ident() else {
-        return Err(anyhow!("Non-ident impl type '{}' not supported", quote!(#self_ty)));
-    };
+        let orig_sig = &orig_fn.sig;
 
-    let mut converter = MarkConverter {
-        abstract_scheme: ConversionScheme::new(
-            self_ty_ident.clone(),
-            abstract_path_normal_rules(),
-            abstract_path_type_rules(),
-        ),
-        mark_scheme: ConversionScheme::new(
-            self_ty_ident.clone(),
-            mark_path_normal_rules(),
-            mark_path_type_rules(),
-        ),
-    };
+        let abstract_input = self.generate_abstract_input(orig_sig)?;
+        let later = self.generate_later(orig_sig, &get_block_result_expr(&orig_fn.block))?;
+        let earlier = self.generate_earlier(orig_sig)?;
 
-    for item in &i.items {
-        match item {
-            ImplItem::Fn(item_fn) => {
-                let mark_fn = converter.transcribe_impl_item_fn(item_fn)?;
-                items.push(ImplItem::Fn(mark_fn));
+        // step 1: set signature
+
+        let mut refin_fn = orig_fn.clone();
+        refin_fn.sig.inputs = Punctuated::from_iter(vec![abstract_input.0, later.0]);
+        refin_fn.sig.output = earlier.0;
+
+        // step 2: clear refin block
+        let result_stmts = &mut refin_fn.block.stmts;
+        result_stmts.clear();
+
+        // step 3: detuple abstract input
+        result_stmts.extend(abstract_input.1.into_iter());
+
+        // step 4: add original block statement with abstract scheme
+
+        for orig_stmt in &orig_fn.block.stmts {
+            let mut stmt = orig_stmt.clone();
+            self.abstract_scheme.apply_to_stmt(&mut stmt)?;
+            if let Stmt::Expr(_, ref mut semi) = stmt {
+                // add semicolon to result
+                semi.get_or_insert_with(Default::default);
             }
-            ImplItem::Type(item_type) => {
-                // just clone for now
-                items.push(ImplItem::Type(item_type.clone()));
-            }
-            _ => return Err(anyhow!("Impl item type {:?} not supported", item)),
+            result_stmts.push(stmt);
         }
+
+        // step 5: add initialization of local refin variables
+        for ident in earlier.1 {
+            let refin_ident = self.refinement_scheme.convert_normal_ident(ident.clone())?;
+            let abstract_ident = self.abstract_scheme.convert_normal_ident(ident)?;
+            result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, false));
+        }
+
+        let mut local_visitor = LocalVisitor::new();
+        let mut refin_stmts = orig_fn.block.stmts.clone();
+        for stmt in &mut refin_stmts {
+            local_visitor.visit_stmt_mut(stmt);
+        }
+
+        for local_name in local_visitor.local_names() {
+            let orig_ident = create_ident(local_name);
+            let refin_ident = self
+                .refinement_scheme
+                .convert_normal_ident(orig_ident.clone())?;
+            let abstract_ident = self.abstract_scheme.convert_normal_ident(orig_ident)?;
+            result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, true));
+        }
+
+        // step 6: de-result later refin
+        result_stmts.extend(later.1);
+
+        // step 7: add refin-computation statements in reverse order of original statements
+
+        for mut stmt in refin_stmts.into_iter().rev() {
+            if let Stmt::Expr(_, ref mut semi) = stmt {
+                // add semicolon to result
+                semi.get_or_insert_with(Default::default);
+            }
+
+            backward_converter.convert_stmt(result_stmts, &stmt)?
+        }
+        // 8. add result expression
+        result_stmts.push(earlier.2);
+
+        Ok(refin_fn)
     }
 
-    i.items = items;
-    Ok(i)
+    fn create_init_stmt(&self, ident: Ident, abstract_ident: Ident, reference: bool) -> Stmt {
+        let abstract_arg = create_expr_path(create_path_from_ident(abstract_ident));
+        let arg_ty = if reference {
+            ArgType::Reference
+        } else {
+            ArgType::Normal
+        };
+
+        create_let_mut(
+            ident,
+            create_expr_call(
+                create_expr_path(path!(::mck::refin::Refinable::clean_refin)),
+                vec![(arg_ty, abstract_arg)],
+            ),
+        )
+    }
 }

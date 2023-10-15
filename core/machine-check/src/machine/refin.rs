@@ -12,27 +12,27 @@ pub fn apply(abstract_machine_file: &mut syn::File) -> anyhow::Result<()> {
     // the refinement machine will be in a new module at the end of the file
 
     // create items to add to the module
-    let mut mark_file_items = Vec::<Item>::new();
+    let mut refinement_items = Vec::<Item>::new();
     for item in &abstract_machine_file.items {
         match item {
-            Item::Struct(s) => item_struct::apply(&mut mark_file_items, s)?,
-            Item::Impl(i) => item_impl::apply(&mut mark_file_items, i)?,
+            Item::Struct(s) => item_struct::apply(&mut refinement_items, s)?,
+            Item::Impl(i) => item_impl::apply(&mut refinement_items, i)?,
             _ => {
                 return Err(anyhow::anyhow!("Item type {:?} not supported", item));
             }
         };
     }
     // create new module at the end of the file that will contain the refinement
-    let mod_mark = Item::Mod(create_item_mod(
+    let refinement_module = Item::Mod(create_item_mod(
         syn::Visibility::Public(Default::default()),
         Ident::new("refin", Span::call_site()),
-        mark_file_items,
+        refinement_items,
     ));
-    abstract_machine_file.items.push(mod_mark);
+    abstract_machine_file.items.push(refinement_module);
     Ok(())
 }
 
-pub fn mark_path_normal_rules() -> Vec<PathRule> {
+pub fn refinement_normal_rules() -> Vec<PathRule> {
     vec![
         PathRule {
             has_leading_colon: true,
@@ -67,7 +67,7 @@ pub fn mark_path_normal_rules() -> Vec<PathRule> {
     ]
 }
 
-pub fn mark_path_type_rules() -> Vec<PathRule> {
+pub fn refinement_type_rules() -> Vec<PathRule> {
     vec![PathRule {
         has_leading_colon: false,
         segments: vec![PathRuleSegment::Wildcard],
