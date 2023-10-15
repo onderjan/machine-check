@@ -401,3 +401,21 @@ pub fn create_pat_wild() -> Pat {
         underscore_token: Default::default(),
     })
 }
+
+pub fn create_type_from_return_type(return_type: &ReturnType) -> Type {
+    match return_type {
+        ReturnType::Default => Type::Tuple(TypeTuple {
+            paren_token: Default::default(),
+            elems: Punctuated::new(),
+        }),
+        ReturnType::Type(_, ty) => *ty.clone(),
+    }
+}
+
+pub fn get_block_result_expr(block: &Block) -> Expr {
+    if let Some(Stmt::Expr(expr, None)) = block.stmts.last() {
+        expr.clone()
+    } else {
+        create_unit_expr()
+    }
+}

@@ -5,21 +5,21 @@ use anyhow::anyhow;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Block, Expr, FnArg, Ident, ImplItemFn, Member,
-    Pat, PatIdent, ReturnType, Signature, Stmt, Type, TypeTuple,
+    punctuated::Punctuated, visit_mut::VisitMut, Expr, FnArg, Ident, ImplItemFn, Member, Pat,
+    PatIdent, ReturnType, Signature, Stmt, Type,
 };
 use syn_path::path;
 
-use crate::machine::util::{
-    create_arg, create_converted_type, create_expr_call, create_expr_field_named,
-    create_expr_field_unnamed, create_expr_ident, create_expr_path, create_ident, create_let,
-    create_let_mut, create_path_from_ident, create_path_from_name, create_refine_join_stmt,
-    create_tuple_expr, create_tuple_type, create_unit_expr, scheme::ConversionScheme, ArgType,
+use crate::machine::{
+    support::backward::BackwardConverter,
+    util::{
+        create_arg, create_converted_type, create_expr_call, create_expr_field_named,
+        create_expr_field_unnamed, create_expr_ident, create_expr_path, create_ident, create_let,
+        create_let_mut, create_path_from_ident, create_path_from_name, create_refine_join_stmt,
+        create_tuple_expr, create_tuple_type, create_type_from_return_type, get_block_result_expr,
+        scheme::ConversionScheme, ArgType,
+    },
 };
-
-use self::backward::BackwardConverter;
-
-mod backward;
 
 pub struct MarkConverter {
     pub abstract_scheme: ConversionScheme,
@@ -52,7 +52,8 @@ impl MarkConverter {
         let orig_sig = &orig_fn.sig;
 
         let abstract_input = self.generate_abstract_input(orig_sig)?;
-        let later_mark = self.generate_later_mark(orig_sig, &get_result_expr(&orig_fn.block))?;
+        let later_mark =
+            self.generate_later_mark(orig_sig, &get_block_result_expr(&orig_fn.block))?;
         let earlier_mark = self.generate_earlier_mark(orig_sig)?;
 
         // step 1: set signature
@@ -60,11 +61,9 @@ impl MarkConverter {
         let mut mark_fn = orig_fn.clone();
         mark_fn.sig.inputs = Punctuated::from_iter(vec![abstract_input.0, later_mark.0]);
         mark_fn.sig.output = earlier_mark.0;
-        // TODO
-
-        let result_stmts = &mut mark_fn.block.stmts;
 
         // step 2: clear mark block
+        let result_stmts = &mut mark_fn.block.stmts;
         result_stmts.clear();
 
         // step 3: detuple abstract input
@@ -154,8 +153,8 @@ impl MarkConverter {
         let mut refin_exprs = Vec::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
-            // convert to mark type and remove reference as it will serve as return type
-            let ty = convert_type_to_path(self.convert_to_mark_type(orig_type)?)?;
+            // convert to mark type
+            let ty = convert_type_to_path(orig_type.clone())?;
             types.push(ty.clone());
             // add expression to result tuple
             let partial_ident = Ident::new(&orig_name, Span::call_site());
@@ -179,7 +178,7 @@ impl MarkConverter {
     ) -> anyhow::Result<(FnArg, Vec<Stmt>)> {
         // just use the original output type, now in marking structure context
         let name = "__mck_input_later_mark";
-        let ty = convert_return_type_to_type(&orig_sig.output);
+        let ty = create_type_from_return_type(&orig_sig.output);
         // do not convert to reference, consuming mark is better
         let arg = create_arg(ArgType::Normal, create_ident(name), Some(ty));
         // create let statement from original result expression
@@ -211,11 +210,6 @@ impl MarkConverter {
         }
 
         Ok((arg, stmts))
-    }
-
-    fn convert_to_mark_type(&self, orig_type: &Type) -> anyhow::Result<Type> {
-        // do not change mark type from original type, as the mark structure now stands for the original
-        Ok(orig_type.clone())
     }
 
     fn create_init_stmt(&self, ident: Ident, abstract_ident: Ident, reference: bool) -> Stmt {
@@ -257,24 +251,6 @@ fn convert_type_to_path(ty: Type) -> anyhow::Result<Type> {
         "Conversion of '{}' to path type not supported",
         quote!(#ty)
     ))
-}
-
-fn convert_return_type_to_type(return_type: &ReturnType) -> Type {
-    match return_type {
-        ReturnType::Default => Type::Tuple(TypeTuple {
-            paren_token: Default::default(),
-            elems: Punctuated::new(),
-        }),
-        ReturnType::Type(_, ty) => *ty.clone(),
-    }
-}
-
-fn get_result_expr(block: &Block) -> Expr {
-    if let Some(Stmt::Expr(expr, None)) = block.stmts.last() {
-        expr.clone()
-    } else {
-        create_unit_expr()
-    }
 }
 
 fn create_input_name_type_iter(

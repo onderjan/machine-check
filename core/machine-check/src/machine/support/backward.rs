@@ -96,7 +96,7 @@ impl BackwardConverter {
         }
 
         if all_args_wild {
-            // no effect
+            // do not convert
             return Ok(());
         }
 
@@ -122,26 +122,6 @@ impl BackwardConverter {
             self.backward_scheme.apply_to_expr(&mut backward_arg)?;
             backward_args.push(backward_arg);
         }
-
-        /*for arg in &call.args {
-            abstr_input_args.push(match arg {
-                Expr::Path(expr_path) => {
-                    let mut abstr_path = expr_path.clone();
-                    change_path_to_abstr(&mut abstr_path.path);
-                    Expr::Path(abstr_path)
-                }
-                Expr::Lit(_) => {
-                    // literal is passed unchanged
-                    arg.clone()
-                }
-                _ => {
-                    return Err(anyhow!(
-                        "Inversion not implemented for function argument type {:?}",
-                        arg
-                    ))
-                }
-            })
-        }*/
 
         let forward_arg = create_expr_tuple(forward_args);
         backward_call.args.push(forward_arg);
@@ -178,53 +158,4 @@ impl BackwardConverter {
 
         Ok(())
     }
-
-    /*fn convert_expr(&self, expr: &mut Expr) -> anyhow::Result<()> {
-        let Expr::Path(fn_path) = expr else {
-        return Err(anyhow!("Inversion not implemented for called function expression {:?}", expr));
-    };
-        if fn_path.qself.is_some() || fn_path.path.leading_colon.is_none() {
-            return Err(anyhow!(
-            "Inversion is not implemented for non-global or non-bare called function expressions"
-        ));
-        }
-
-        let mut segments_iter = fn_path.path.segments.iter_mut();
-
-        if let Some(crate_segment) = segments_iter.next() {
-            let crate_ident = &mut crate_segment.ident;
-            if crate_ident == "mck" {
-                let Some(PathSegment {
-                    ident: second_ident,
-                    arguments: PathArguments::None,
-                }) = segments_iter.next() else {
-                    return Err(anyhow!("Inversion fail"));
-                };
-                if second_ident == "forward" {
-                    *second_ident = Ident::new("backward", second_ident.span());
-                    return Ok(());
-                } else if second_ident == "abstr" {
-                    *second_ident = Ident::new("refin", second_ident.span());
-                    return Ok(());
-                }
-            }
-        }
-        Err(anyhow!(
-            "Failed to invert function expression {}",
-            quote!(#expr)
-        ))
-    }
-
-    fn change_path_to_abstr(&self, path: &mut Path) {
-        if path.leading_colon.is_none()
-            && path.segments.len() == 1
-            && path.segments[0].arguments.is_none()
-        {
-            let ident = &mut path.segments[0].ident;
-            if let Some(stripped_name) = ident.to_string().strip_prefix("__mck_refin_") {
-                let abstr_name = format!("__mck_abstr_{}", stripped_name);
-                *ident = Ident::new(&abstr_name, ident.span());
-            }
-        }
-    }*/
 }
