@@ -51,12 +51,22 @@ impl Proposition {
                 }
             }
             Proposition::E(inner) => {
-                // !E[t] = A[!t]
-                Proposition::A(inner.pnf_inner(complement))
+                let inner = inner.pnf_inner(complement);
+                if complement {
+                    // !E[t] = A[!t]
+                    Proposition::A(inner)
+                } else {
+                    Proposition::E(inner)
+                }
             }
             Proposition::A(inner) => {
-                // !A[t] = E[!t]
-                Proposition::E(inner.pnf_inner(complement))
+                let inner = inner.pnf_inner(complement);
+                if complement {
+                    // !A[t] = E[!t]
+                    Proposition::E(inner)
+                } else {
+                    Proposition::A(inner)
+                }
             }
         }
     }
