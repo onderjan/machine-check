@@ -86,19 +86,19 @@ pub(super) fn create_eq(a_expr: Expr, b_expr: Expr) -> Expr {
 
 // comparison
 pub(super) fn create_ult(a_expr: Expr, b_expr: Expr) -> Expr {
-    parse_quote!(::mck::forward::TypedEq::typed_ult(#a_expr, #b_expr))
+    parse_quote!(::mck::forward::TypedCmp::typed_ult(#a_expr, #b_expr))
 }
 
 pub(super) fn create_ulte(a_expr: Expr, b_expr: Expr) -> Expr {
-    parse_quote!(::mck::forward::TypedEq::typed_ulte(#a_expr, #b_expr))
+    parse_quote!(::mck::forward::TypedCmp::typed_ulte(#a_expr, #b_expr))
 }
 
 pub(super) fn create_slt(a_expr: Expr, b_expr: Expr) -> Expr {
-    parse_quote!(::mck::forward::TypedEq::typed_slt(#a_expr, #b_expr))
+    parse_quote!(::mck::forward::TypedCmp::typed_slt(#a_expr, #b_expr))
 }
 
 pub(super) fn create_slte(a_expr: Expr, b_expr: Expr) -> Expr {
-    parse_quote!(::mck::forward::TypedEq::typed_slte(#a_expr, #b_expr))
+    parse_quote!(::mck::forward::TypedCmp::typed_slte(#a_expr, #b_expr))
 }
 
 // bitwise
