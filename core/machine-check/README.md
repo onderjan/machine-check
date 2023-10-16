@@ -1,8 +1,8 @@
-# machine-check - a formal verification tool for digital systems
+# machine-check: a formal verification tool for digital systems
 
-machine-check is a tool for formal verification of digital system properties, currently in a proof-of-concept stage. Currently, [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic) properties of hardware systems written in the [Btor2 language](https://doi.org/10.1007/978-3-319-96145-3_32) can be verified. In the future, support of more system descriptions is planned, such as machine-code (assembly) and source-code programs.
+Machine-check is a tool for formal verification of digital system properties, currently in a proof-of-concept stage. Currently, [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic) properties of hardware systems written in the [Btor2 language](https://doi.org/10.1007/978-3-319-96145-3_32) can be verified. In the future, support of more system descriptions is planned, such as machine-code (assembly) and source-code programs.
 
-**The tool is currently in a proof-of-concept stage, with poor performance compared to state-of-the-art tools. Use tools like [ABC](https://github.com/berkeley-abc/abc) or [AVR](https://github.com/aman-goel/avr) if you want to actually verify Btor2 systems.**
+**The tool is currently in a proof-of-concept stage, with poor performance compared to state-of-the-art tools. Use tools such as [ABC](https://github.com/berkeley-abc/abc) or [AVR](https://github.com/aman-goel/avr) if you want to actually verify Btor2 systems.**
 
 # Installation
 
@@ -11,7 +11,7 @@ To try out the tool, run
 $ cargo install machine-check
 ```
 
-The tool translates the system to a finite-state machine written in Rust, abstracts it (i.e. replacing variable types with types that represent sets of variable values), creates another machine for refinement of the abstraction, compiles the resulting machine using Cargo or rustc together with verification logic, and runs the executable. 
+The tool translates the system to a finite-state machine written in Rust, abstracts it (replacing variable types with types that represent sets of variable values), creates another machine for refinement of the abstraction, compiles the resulting machine using Cargo or rustc together with verification logic, and runs the executable. 
 
 To avoid downloading all of the libraries for every machine compilation, first run
 ```console
@@ -35,7 +35,7 @@ $ cargo machine-check verify ./recount4.btor2
 
 # CTL property verification
 
-Instead of verifying reachability properties in the file, you can verify custom Computation Tree Logic properties. In the property, you can use single-bit states as atomic labellings. For example, the following Btor2 file has three bead positions and a single input. If the input is 0, the beads stay in their positions, if it is 1, they move to the next position:
+Instead of verifying reachability properties in the file, we can verify custom Computation Tree Logic properties. In the property, we can use single-bit states as atomic labellings. For example, the following Btor2 file has three bead positions and a single input. If the input is 0, the beads stay in their positions, if it is 1, they move to the next position:
 ```
 1 sort bitvec 1 ; bit type
 
@@ -62,4 +62,78 @@ Instead of verifying reachability properties in the file, you can verify custom 
 3101 next 1 300 3100
 ```
 
+Saving the code snippet to file `beads.btor2`, we can now verify various properties. 
 
+*Note that the written meanings are not formally precise, they are written for a layperson to understand.*
+
+```console
+$ cargo machine-check verify ./beads.btor2 --property EG[node_200]
+(...)
+[2023-10-16T20:33:40Z INFO  machine_check::verify] Used 3 states and 0 refinements.
+[2023-10-16T20:33:40Z INFO  machine_check::verify] Reached conclusion: false
+```
+Meaning: there does not exist a path where the bead is always in the second position, as it is in the first position in the first state.
+
+```console
+$ cargo machine-check verify ./beads.btor2 --property EF[EG[node_200]]
+(...)
+[2023-10-16T20:36:53Z INFO  machine_check::verify] Used 7 states and 2 refinements.
+[2023-10-16T20:36:53Z INFO  machine_check::verify] Reached conclusion: true
+```
+Meaning: there exists a future where the bead moves to second position and then stays there. 
+
+```console
+$ cargo machine-check verify ./beads.btor2 --property AF[node_200]
+(...)
+[2023-10-16T20:34:13Z INFO  machine_check::verify] Used 5 states and 1 refinements.
+[2023-10-16T20:34:13Z INFO  machine_check::verify] Reached conclusion: false
+```
+Meaning: we cannot be sure that the bead will ever move to the second position.
+
+```console
+$ cargo machine-check verify ./beads.btor2 --property EU[node_100,node_200]
+(...)
+[2023-10-16T20:42:21Z INFO  machine_check::verify] Used 5 states and 1 refinements.
+[2023-10-16T20:42:21Z INFO  machine_check::verify] Reached conclusion: true
+```
+Meaning: there exists a path where the the bead is in the first position until it is in the second position, and the second position is reached.
+
+```console
+$ cargo machine-check verify ./beads.btor2 --property AU[node_100,node_200]
+(...)
+[2023-10-16T20:47:33Z INFO  machine_check::verify] Used 5 states and 1 refinements.
+[2023-10-16T20:47:33Z INFO  machine_check::verify] Reached conclusion: false
+```
+Meaning: the bead stops being in the first position before being in the second position (which we know is not possible), or the second position is never reached (which is possible if it stays in the first position forever).
+
+
+Logical connectives `not`, `or`, `and` are supported as well. Due to the currently simple parsing, they are written as if they were functions. You can use brackets, parentheses, or curly braces to visually differentiate the various nesting levels (subject to escaping their behaviour in your console). Spaces are not permitted. The CTL property format may (and probably will) change in the future.
+
+```console
+$ cargo machine-check verify ./beads.btor2 --property "AG[or(not(node_200),EX[node_300])]"
+(...)
+[2023-10-16T20:54:17Z INFO  machine_check::verify] Used 7 states and 4 refinements.
+[2023-10-16T20:54:17Z INFO  machine_check::verify] Reached conclusion: true
+
+$ cargo machine-check verify ./beads.btor2 --property "AG[or(not(node_200),EX[node_100])]"
+(...)
+[2023-10-16T20:55:32Z INFO  machine_check::verify] Used 5 states and 1 refinements.
+[2023-10-16T20:55:32Z INFO  machine_check::verify] Reached conclusion: false
+```
+Meaning: the bead being in the second position implies that the bead can move to the third position in the next state. However, it cannot move to the first position so quickly.
+
+# Verification strength and power
+
+The tool is intended to be sound and complete, i.e. give you the correct results in finite time. However, it may fail to do so in reasonable time or memory usage for larger systems. Absence of bugs is also not guaranteed. Proceed with caution.
+
+# Compatibility
+
+Machine-check still in an early stage of development and thus subject to drastic changes. SemVer compatibility will be on best-effort basis.
+
+# License
+
+This tool and its constituent crates [machine-check](https://crates.io/crates/machine-check), [mck](https://crates.io/crates/mck), [machine-check-common](https://crates.io/crates/machine-check-common), and [machine-check-exec](https://crates.io/crates/machine-check-exec) are licensed under Apache 2.0 License or MIT License at your discretion.
+
+# See also
+
+[btor2rs](https://crates.io/crates/btor2rs): Btor2 parsing library written for use in machine-check
