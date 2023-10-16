@@ -4,7 +4,7 @@
 //! and their Rust wrapper [btor2tools](https://docs.rs/btor2tools/latest/btor2tools/).
 //! Only safe Rust is used in this parser.
 //!
-//! # Example usage
+//! # Usage
 //! ```no_run
 //! use btor2rs::Btor2;
 //! let path = std::path::Path::new("example.btor2");
@@ -13,7 +13,7 @@
 //! println!("Parsed: {:?}", btor2);
 //! ````
 //!
-//! # Btor2 notes
+//! # Notes on Btor2
 //!
 //! The Btor2 format is (incompletely) documented in
 //! [Niemetz, A., Preiner, M., Wolf, C., Biere, A. (2018). BTOR2, BtorMC and Boolector 3.0. CAV 2018.
@@ -24,6 +24,9 @@
 //! Specifically, [right-side nodes can be immediately bit-inverted by using a minus sign](
 //! https://github.com/Boolector/btor2tools/issues/15), which is not present in the original paper.
 //!
+//! # License
+//!
+//! This crate is licensed under Apache 2.0 License or MIT License at your discretion.
 //!
 
 pub mod id;
