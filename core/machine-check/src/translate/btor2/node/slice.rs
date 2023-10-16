@@ -1,4 +1,4 @@
-use btor2rs::SliceOp;
+use btor2rs::op::SliceOp;
 use syn::Expr;
 
 use crate::translate::btor2::{node::bi::create_logic_shr, util::create_rnid_expr, Error};

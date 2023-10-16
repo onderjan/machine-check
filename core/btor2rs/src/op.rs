@@ -1,5 +1,4 @@
-use crate::Rnid;
-use crate::Sid;
+use crate::id::{Rnid, Sid};
 
 // derive Btor2 string representations, which are lower-case
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]

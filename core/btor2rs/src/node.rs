@@ -1,6 +1,10 @@
 use crate::{
-    line::LineError, util::parse_nid, util::parse_sid, util::parse_u32, BiOp, BiOpType, ExtOp,
-    ExtOpType, Nid, Rnid, Sid, SliceOp, TriOp, TriOpType, UniOp, UniOpType,
+    id::{Nid, Rnid, Sid},
+    line::LineError,
+    op::{BiOp, BiOpType, ExtOp, ExtOpType, SliceOp, TriOp, TriOpType, UniOp, UniOpType},
+    util::parse_nid,
+    util::parse_sid,
+    util::parse_u32,
 };
 
 #[derive(Debug, Clone)]

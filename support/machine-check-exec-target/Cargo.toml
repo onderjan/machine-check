@@ -1,10 +1,10 @@
 [package]
 name = "machine-check-exec-target"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 # internal artifact, do not publish
 publish = false
 
 [dependencies]
-mck = "0.1.0"
-machine-check-exec = "0.1.0"
+mck = "=0.1.0-alpha.1"
+machine-check-exec = "=0.1.0-alpha.1"

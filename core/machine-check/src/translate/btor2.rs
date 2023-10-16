@@ -6,7 +6,11 @@ mod util;
 use std::{collections::BTreeMap, fs, io::BufReader};
 
 use crate::CheckError;
-use btor2rs::{Btor2, DrainType, Nid, Node, Rnid, Sid};
+use btor2rs::{
+    id::{Nid, Rnid, Sid},
+    node::{DrainType, Node, TemporalType},
+    Btor2,
+};
 use camino::Utf8Path;
 use std::io::BufRead;
 use syn::parse_quote;
@@ -89,10 +93,10 @@ impl Translator {
                         .get_mut(&temporal.state)
                         .ok_or(Error::StateNotFound(*nid))?;
                     match temporal.ty {
-                        btor2rs::TemporalType::Init => {
+                        TemporalType::Init => {
                             state_info.init = Some(temporal.value);
                         }
-                        btor2rs::TemporalType::Next => {
+                        TemporalType::Next => {
                             state_info.next = Some(temporal.value);
                         }
                     };

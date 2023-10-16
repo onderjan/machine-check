@@ -1,4 +1,4 @@
-use btor2rs::{UniOp, UniOpType};
+use btor2rs::op::{UniOp, UniOpType};
 use syn::{parse_quote, Expr};
 
 use crate::translate::btor2::{

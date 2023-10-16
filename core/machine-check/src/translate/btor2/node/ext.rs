@@ -1,4 +1,4 @@
-use btor2rs::ExtOp;
+use btor2rs::op::{ExtOp, ExtOpType};
 use syn::{parse_quote, Expr};
 
 use crate::translate::btor2::{util::create_rnid_expr, Error};
@@ -15,8 +15,8 @@ impl<'a> NodeTranslator<'a> {
         let result_length = a_length + op.length;
 
         Ok(match op.ty {
-            btor2rs::ExtOpType::Sext => create_sext(a_expr, result_length),
-            btor2rs::ExtOpType::Uext => create_uext(a_expr, result_length),
+            ExtOpType::Sext => create_sext(a_expr, result_length),
+            ExtOpType::Uext => create_uext(a_expr, result_length),
         })
     }
 }

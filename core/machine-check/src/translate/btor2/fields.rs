@@ -1,4 +1,7 @@
-use btor2rs::{Nid, Node, Sid, Source, SourceType};
+use btor2rs::{
+    id::{Nid, Sid},
+    node::{Node, Source, SourceType},
+};
 use proc_macro2::Span;
 use syn::{Field, Ident, Type};
 

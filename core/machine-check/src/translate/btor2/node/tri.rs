@@ -1,4 +1,4 @@
-use btor2rs::{TriOp, TriOpType};
+use btor2rs::op::{TriOp, TriOpType};
 use syn::Expr;
 
 use crate::translate::btor2::{

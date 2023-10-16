@@ -1,4 +1,8 @@
-use btor2rs::{Bitvec, Btor2, Nid, Rnid, Sid, Sort};
+use btor2rs::{
+    id::{Nid, Rnid, Sid},
+    sort::{Bitvec, Sort},
+    Btor2,
+};
 use proc_macro2::Span;
 use syn::{parse_quote, Expr, Ident, Type};
 
@@ -19,12 +23,7 @@ pub fn create_rnid_expr(rref: Rnid) -> Expr {
 }
 
 pub(crate) fn create_sid_type(btor2: &Btor2, sid: Sid) -> Result<Type, Error> {
-    create_sort_type(
-        btor2
-            .sorts
-            .get(&sid)
-            .ok_or(Error::InvalidSort(sid))?,
-    )
+    create_sort_type(btor2.sorts.get(&sid).ok_or(Error::InvalidSort(sid))?)
 }
 
 pub(crate) fn create_sort_type(sort: &Sort) -> Result<Type, Error> {

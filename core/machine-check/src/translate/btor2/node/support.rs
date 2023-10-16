@@ -1,4 +1,7 @@
-use btor2rs::{Bitvec, Nid, Sid, Sort};
+use btor2rs::{
+    id::{Nid, Sid},
+    sort::{Bitvec, Sort},
+};
 
 use crate::translate::btor2::Error;
 

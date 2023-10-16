@@ -1,4 +1,7 @@
-use btor2rs::{Nid, Node, SourceType};
+use btor2rs::{
+    id::Nid,
+    node::{Node, SourceType},
+};
 use syn::parse_quote;
 
 use self::{constant::create_value_expr, uni::create_arith_neg_expr};

@@ -1,4 +1,4 @@
-use btor2rs::{Bitvec, Const};
+use btor2rs::{node::Const, sort::Bitvec};
 use syn::{parse_quote, Expr};
 
 use crate::translate::btor2::Error;

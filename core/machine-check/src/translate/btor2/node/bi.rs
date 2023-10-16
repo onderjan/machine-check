@@ -1,4 +1,4 @@
-use btor2rs::{BiOp, BiOpType};
+use btor2rs::op::{BiOp, BiOpType};
 use syn::{parse_quote, Expr};
 
 use crate::translate::btor2::{util::create_rnid_expr, Error};
