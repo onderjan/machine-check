@@ -11,3 +11,4 @@ mck = "=0.1.0-alpha.3"
 machine-check-exec = "=0.1.0-alpha.3"
 
 [workspace]
+# disallow workspace hijinks
