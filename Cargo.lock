@@ -85,7 +85,7 @@ checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
 
 [[package]]
 name = "btor2rs"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "strum",
  "thiserror",
@@ -303,7 +303,7 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "machine-check"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "btor2rs",
  "camino",
@@ -312,7 +312,7 @@ dependencies = [
  "env_logger",
  "log",
  "machine-check-common",
- "mck",
+ "mck 0.1.0-alpha.2",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -326,7 +326,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-common"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "serde",
  "thiserror",
@@ -335,6 +335,8 @@ dependencies = [
 [[package]]
 name = "machine-check-exec"
 version = "0.1.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12d6b011baa027ddf4f283f7d14cc771e80db0dd69b222dea77448da9dab4b58"
 dependencies = [
  "anyhow",
  "bimap",
@@ -342,7 +344,24 @@ dependencies = [
  "env_logger",
  "log",
  "machine-check-common",
- "mck",
+ "mck 0.1.0-alpha.2",
+ "petgraph",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "machine-check-exec"
+version = "0.1.0-alpha.2"
+dependencies = [
+ "anyhow",
+ "bimap",
+ "clap",
+ "env_logger",
+ "log",
+ "machine-check-common",
+ "mck 0.1.0-alpha.2",
  "petgraph",
  "serde",
  "serde_json",
@@ -353,13 +372,13 @@ dependencies = [
 name = "machine-check-exec-target"
 version = "0.1.0-alpha.1"
 dependencies = [
- "machine-check-exec",
- "mck",
+ "machine-check-exec 0.1.0-alpha.1",
+ "mck 0.1.0-alpha.1",
 ]
 
 [[package]]
 name = "machine-check-table"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "camino",
@@ -374,6 +393,15 @@ dependencies = [
 [[package]]
 name = "mck"
 version = "0.1.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d10d63b0252e4665cbd381773ea4057ce20dc60d359780d83a7d58726eb5797f"
+dependencies = [
+ "seq-macro",
+]
+
+[[package]]
+name = "mck"
+version = "0.1.0-alpha.2"
 dependencies = [
  "seq-macro",
 ]
