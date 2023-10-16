@@ -17,11 +17,13 @@ impl Sid {
     }
 
     pub(crate) fn try_from_str(value: &str) -> Result<Self, LineError> {
-        if let Ok(sid) = value.parse() {
-            Ok(Sid(sid))
-        } else {
-            Err(LineError::InvalidSid(String::from(value)))
+        // ensure it is positive and fits into i32 for compatibility with nids
+        if let Ok(sid) = value.parse::<NonZeroU32>() {
+            if sid.get() <= i32::MAX as u32 {
+                return Ok(Sid(sid));
+            }
         }
+        Err(LineError::InvalidSid(String::from(value)))
     }
 }
 
@@ -31,11 +33,12 @@ pub struct Nid(NonZeroU32);
 
 impl Nid {
     /// Get the actual identifier number.
-    pub fn get(&self) -> u32 {
-        self.0.get()
+    pub fn get(&self) -> NonZeroU32 {
+        self.0
     }
 
     pub(crate) fn try_from_str(value: &str) -> Result<Self, LineError> {
+        // ensure it is positive and fits into i32 for compatibility with rnids
         if let Ok(nid) = value.parse::<NonZeroU32>() {
             if nid.get() <= i32::MAX as u32 {
                 return Ok(Nid(nid));
@@ -57,7 +60,12 @@ pub struct Rnid(NonZeroI32);
 impl Rnid {
     /// Return the node identifier.
     pub fn nid(&self) -> Nid {
+        // convert to positive
+        // we cannot do checked_abs directly on NonZeroI32 in stable yet, so conversion
+        // to primitive i32 is necessary
+        // we know that checked_abs will not throw, as we already tested it in try_from_str
         let positive = self.0.get().checked_abs().unwrap();
+        // we know that creating nonzero will not throw
         Nid(NonZeroU32::new(positive as u32).unwrap())
     }
 
@@ -71,6 +79,8 @@ impl Rnid {
 
     pub(crate) fn try_from_str(value: &str) -> Result<Self, LineError> {
         if let Ok(rnid) = value.parse::<NonZeroI32>() {
+            // ensure that the absolute value exists
+            // this means i32::MIN cannot be stored
             if rnid.checked_abs().is_some() {
                 return Ok(Rnid(rnid));
             }
