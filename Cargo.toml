@@ -3,6 +3,7 @@
 resolver = "2"
 members = ["core/*", "support/*"]
 
+
 [patch.crates-io]
 btor2rs = { path = "./core/btor2rs" }
 machine-check-common = { path = "./core/machine-check-common" }

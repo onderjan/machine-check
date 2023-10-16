@@ -6,24 +6,33 @@ Machine-check is a tool for formal verification of digital system properties, cu
 
 # Installation
 
-To try out the tool, run
+To install the tool, execute
 ```console
 $ cargo install machine-check
 ```
 
-The tool translates the system to a finite-state machine written in Rust, abstracts it (replacing variable types with types that represent sets of variable values), creates another machine for refinement of the abstraction, compiles the resulting machine using Cargo or rustc together with verification logic, and runs the executable. 
+If it was correctly installed and added to your system path, execute
+```console
+$ machine-check --version
+```
+The next step is optional, but necessary for reasonable performance. The tool translates the system to a finite-state machine written in Rust, abstracts it (replacing variable types with types that represent sets of variable values), creates another machine for refinement of the abstraction, compiles the resulting machine using Cargo or rustc together with verification logic, and runs the executable. 
 
 To avoid downloading all of the libraries for every machine compilation, first run
 ```console
-$ cargo machine-check prepare
+$ machine-check prepare
 ```
 This will create a new directory `machine-check-preparation` in the executable installation directory, which contains all of the libraries and allows using only rustc for building, speeding up compilation and avoiding subsequent Internet downloads, allowing for offline verification.
+
+In case something goes wrong with preparation, you can revert back to no-preparation mode by running
+```console
+$ machine-check prepare --clean
+```
 
 # Reachability verification
 
 To actually verify something, obtain a simple Btor2 system, e.g. [recount4.btor2](https://gitlab.com/sosy-lab/research/data/word-level-hwmc-benchmarks/-/blob/991551e58cfc85358dc820fd98ecbd9a1e7e28f8/bv/btor2/btor2tools-examples/recount4.btor2). By pointing machine-check to a Btor2 file, it will by default verify reachability properties specified in that file:
 ```
-$ cargo machine-check verify ./recount4.btor2
+$ machine-check verify ./recount4.btor2
 [2023-10-16T19:18:41Z INFO  machine_check::verify::work] Transcribing the system into a machine.
 [2023-10-16T19:18:41Z INFO  machine_check::verify::work] Building a machine verifier.
 [2023-10-16T19:18:42Z INFO  machine_check::verify::work] Executing the machine verifier.
@@ -67,7 +76,7 @@ Saving the code snippet to file `beads.btor2`, we can now verify various propert
 *Note that the written meanings are not formally precise, they are written for a layperson to understand.*
 
 ```console
-$ cargo machine-check verify ./beads.btor2 --property EG[node_200]
+$ machine-check verify ./beads.btor2 --property EG[node_200]
 (...)
 [2023-10-16T20:33:40Z INFO  machine_check::verify] Used 3 states and 0 refinements.
 [2023-10-16T20:33:40Z INFO  machine_check::verify] Reached conclusion: false
@@ -75,7 +84,7 @@ $ cargo machine-check verify ./beads.btor2 --property EG[node_200]
 Meaning: there does not exist a path where the bead is always in the second position, as it is in the first position in the first state.
 
 ```console
-$ cargo machine-check verify ./beads.btor2 --property EF[EG[node_200]]
+$ machine-check verify ./beads.btor2 --property EF[EG[node_200]]
 (...)
 [2023-10-16T20:36:53Z INFO  machine_check::verify] Used 7 states and 2 refinements.
 [2023-10-16T20:36:53Z INFO  machine_check::verify] Reached conclusion: true
@@ -83,7 +92,7 @@ $ cargo machine-check verify ./beads.btor2 --property EF[EG[node_200]]
 Meaning: there exists a future where the bead moves to second position and then stays there. 
 
 ```console
-$ cargo machine-check verify ./beads.btor2 --property AF[node_200]
+$ machine-check verify ./beads.btor2 --property AF[node_200]
 (...)
 [2023-10-16T20:34:13Z INFO  machine_check::verify] Used 5 states and 1 refinements.
 [2023-10-16T20:34:13Z INFO  machine_check::verify] Reached conclusion: false
@@ -91,7 +100,7 @@ $ cargo machine-check verify ./beads.btor2 --property AF[node_200]
 Meaning: we cannot be sure that the bead will ever move to the second position.
 
 ```console
-$ cargo machine-check verify ./beads.btor2 --property EU[node_100,node_200]
+$ machine-check verify ./beads.btor2 --property EU[node_100,node_200]
 (...)
 [2023-10-16T20:42:21Z INFO  machine_check::verify] Used 5 states and 1 refinements.
 [2023-10-16T20:42:21Z INFO  machine_check::verify] Reached conclusion: true
@@ -99,7 +108,7 @@ $ cargo machine-check verify ./beads.btor2 --property EU[node_100,node_200]
 Meaning: there exists a path where the the bead is in the first position until it is in the second position, and the second position is reached.
 
 ```console
-$ cargo machine-check verify ./beads.btor2 --property AU[node_100,node_200]
+$ machine-check verify ./beads.btor2 --property AU[node_100,node_200]
 (...)
 [2023-10-16T20:47:33Z INFO  machine_check::verify] Used 5 states and 1 refinements.
 [2023-10-16T20:47:33Z INFO  machine_check::verify] Reached conclusion: false
@@ -110,12 +119,12 @@ Meaning: the bead stops being in the first position before being in the second p
 Logical connectives `not`, `or`, `and` are supported as well. Due to the currently simple parsing, they are written as if they were functions. You can use brackets, parentheses, or curly braces to visually differentiate the various nesting levels (subject to escaping their behaviour in your console). Spaces are not permitted. The CTL property format may (and probably will) change in the future.
 
 ```console
-$ cargo machine-check verify ./beads.btor2 --property "AG[or(not(node_200),EX[node_300])]"
+$ machine-check verify ./beads.btor2 --property "AG[or(not(node_200),EX[node_300])]"
 (...)
 [2023-10-16T20:54:17Z INFO  machine_check::verify] Used 7 states and 4 refinements.
 [2023-10-16T20:54:17Z INFO  machine_check::verify] Reached conclusion: true
 
-$ cargo machine-check verify ./beads.btor2 --property "AG[or(not(node_200),EX[node_100])]"
+$ machine-check verify ./beads.btor2 --property "AG[or(not(node_200),EX[node_100])]"
 (...)
 [2023-10-16T20:55:32Z INFO  machine_check::verify] Used 5 states and 1 refinements.
 [2023-10-16T20:55:32Z INFO  machine_check::verify] Reached conclusion: false

@@ -17,6 +17,9 @@ use crate::CheckError;
 pub struct Cli {
     #[arg(long)]
     pub preparation_path: Option<Utf8PathBuf>,
+
+    #[arg(long)]
+    pub clean: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -42,10 +45,32 @@ pub(crate) fn prepare(_: super::Cli, prepare: Cli) -> Result<(), CheckError> {
         }
     };
 
+    if prepare.clean {
+        info!(
+            "Cleaning preparation by removing directory {:?}.",
+            preparation_dir
+        );
+        std::fs::remove_dir_all(preparation_dir.clone())
+            .map_err(|err| CheckError::RemoveDirAll(preparation_dir, err))?;
+        return Ok(());
+    }
+
     info!(
         "Preparing sub-artifacts for machine executable building into {:?}.",
         preparation_dir
     );
+
+    let src_dir_path = preparation_dir.join("src");
+    std::fs::create_dir_all(&src_dir_path)
+        .map_err(|err| CheckError::CreateDir(src_dir_path.clone(), err))?;
+    let lib_path = src_dir_path.join("lib.rs");
+
+    std::fs::write(lib_path.clone(), "").map_err(|err| CheckError::WriteFile(lib_path, err))?;
+
+    let cargo_toml = include_str!("../resources/Prepare_Cargo.toml");
+    let cargo_toml_path = preparation_dir.join("Cargo.toml");
+    std::fs::write(&cargo_toml_path, cargo_toml)
+        .map_err(|err| CheckError::WriteFile(cargo_toml_path.clone(), err))?;
 
     let home_dir = preparation_dir.join("home");
     std::fs::create_dir_all(&home_dir)
@@ -58,8 +83,8 @@ pub(crate) fn prepare(_: super::Cli, prepare: Cli) -> Result<(), CheckError> {
     // cargo build machine_check_exec and copy the dependencies to a separate directory
     let build_output = Command::new("cargo")
         .arg("build")
-        .arg("--package")
-        .arg("machine-check-exec")
+        .arg("--manifest-path")
+        .arg(cargo_toml_path)
         .arg("--lib")
         .arg("--profile")
         .arg(&profile)

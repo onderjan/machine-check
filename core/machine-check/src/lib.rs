@@ -82,6 +82,8 @@ pub enum CheckError {
     ReadFile(Utf8PathBuf, #[source] std::io::Error),
     #[error("could not write to file {0}")]
     WriteFile(Utf8PathBuf, #[source] std::io::Error),
+    #[error("could not remove directory and contents of directory {0}")]
+    RemoveDirAll(Utf8PathBuf, #[source] std::io::Error),
     #[error("could convert path to UTF-8")]
     PathToUtf8(PathBuf, #[source] camino::FromPathBufError),
     #[error("error running build: {0}")]
