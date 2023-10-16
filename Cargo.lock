@@ -85,7 +85,7 @@ checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
 
 [[package]]
 name = "btor2rs"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "strum",
  "thiserror",
@@ -303,7 +303,7 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "machine-check"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "btor2rs",
  "camino",
@@ -326,7 +326,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-common"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "serde",
  "thiserror",
@@ -334,7 +334,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-exec"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "anyhow",
  "bimap",
@@ -351,7 +351,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-table"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "anyhow",
  "camino",
@@ -365,7 +365,7 @@ dependencies = [
 
 [[package]]
 name = "mck"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 dependencies = [
  "seq-macro",
 ]

@@ -1,13 +1,13 @@
 [package]
 name = "machine-check-exec-prepare"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 edition = "2021"
 rust-version = "1.70"
 # internal artifact, do not publish
 publish = false
 
 [dependencies]
-mck = "=0.1.0-alpha.2"
-machine-check-exec = "=0.1.0-alpha.2"
+mck = "=0.1.0-alpha.3"
+machine-check-exec = "=0.1.0-alpha.3"
 
 [workspace]

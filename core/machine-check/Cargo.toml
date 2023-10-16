@@ -1,6 +1,6 @@
 [package]
 name = "machine-check"
-version = "0.1.0-alpha.2"
+version = "0.1.0-alpha.3"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -8,9 +8,9 @@ description = "Formal verification tool for digital systems"
 rust-version = "1.70"
 
 [dependencies]
-mck = "=0.1.0-alpha.2"
-machine-check-common = "=0.1.0-alpha.2"
-btor2rs = "=0.1.0-alpha.2"
+mck = "=0.1.0-alpha.3"
+machine-check-common = "=0.1.0-alpha.3"
+btor2rs = "=0.1.0-alpha.3"
 proc-macro2 = "1.0.67"
 syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }
 quote = "1.0.28"
