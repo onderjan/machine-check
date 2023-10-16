@@ -11,20 +11,25 @@ impl Btor2 {
 
         let mut split = line.split_whitespace();
         let Some(id) = split.next() else {
-        // empty line
-        return Ok(());
-    };
+            // empty line
+            return Ok(());
+        };
+
         let second = split.next().ok_or(LineError::MissingSecondSymbol)?;
 
         if second == "sort" {
             let sort = Sort::parse(split)?;
             let sid = Sid::try_from_str(id)?;
-            self.sorts.insert(sid, sort);
+            if self.sorts.insert(sid, sort).is_some() {
+                return Err(LineError::DuplicateSid(sid));
+            }
             return Ok(());
         }
         if let Some(node) = Node::try_parse(second, split)? {
             let nid = Nid::try_from_str(id)?;
-            self.nodes.insert(nid, node);
+            if self.nodes.insert(nid, node).is_some() {
+                return Err(LineError::DuplicateNid(nid));
+            }
             return Ok(());
         }
 
@@ -69,4 +74,10 @@ pub(crate) enum LineError {
     InvalidSortType,
     #[error("Invalid bitvec length")]
     InvalidBitvecLength,
+
+    // duplicate
+    #[error("Duplicate sort id {0}")]
+    DuplicateSid(Sid),
+    #[error("Duplicate node id {0}")]
+    DuplicateNid(Nid),
 }

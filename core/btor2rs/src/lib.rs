@@ -21,7 +21,7 @@
 //! This crate aims for compatibility with the format as parsed by Btor2Tools
 //! and used in [Hardware model-checking benchmarks](
 //! https://gitlab.com/sosy-lab/research/data/word-level-hwmc-benchmarks).
-//! Specifically, [right-side nodes can be immediately negated by using a minus sign](
+//! Specifically, [right-side nodes can be immediately bit-inverted by using a minus sign](
 //! https://github.com/Boolector/btor2tools/issues/15), which is not present in the original paper.
 //!
 //!
@@ -39,10 +39,18 @@ use id::{Nid, Sid};
 use node::Node;
 use sort::Sort;
 
-/// The main structure representing a Btor2 file, composed of sorts and nodes.
+/// Parsed Btor2 file.
+///
+/// Contains
 #[derive(Debug, Clone)]
 pub struct Btor2 {
+    /// A map from sort ids to sorts.
+    ///
+    /// The key is used to reference the sort in other sorts and nodes.
     pub sorts: BTreeMap<Sid, Sort>,
+    /// A map from node ids to nodes.
+    ///
+    /// The key is used to reference the node in other nodes.
     pub nodes: BTreeMap<Nid, Node>,
 }
 
@@ -66,7 +74,7 @@ impl Btor2 {
     }
 }
 
-// Btor2 parsing error.
+/// Btor2 parsing error.
 #[derive(thiserror::Error, Debug, Clone)]
 #[error("Error on line {human_line_num}: {underlying}")]
 pub struct Error {
@@ -75,12 +83,12 @@ pub struct Error {
 }
 
 impl Error {
-    // Return the line number where the error occured, counting from 1.
+    /// Return the line number where the error occured, counting from 1.
     pub fn human_line_num(&self) -> usize {
         self.human_line_num
     }
 
-    // Return the human-readable reason for the error.
+    /// Return the human-readable reason for the error.
     pub fn reason(&self) -> String {
         self.underlying.to_string()
     }

@@ -10,10 +10,10 @@ impl<'a> NodeTranslator<'a> {
         let result_bitvec = self.get_bitvec(value.sid)?;
 
         // convert negation to negation of resulting bitvector
-        let (negate, str) = if let Some(str) = value.string.strip_prefix('-') {
+        let (negate, str) = if let Some(str) = value.value.strip_prefix('-') {
             (true, str)
         } else {
-            (false, value.string.as_str())
+            (false, value.value.as_str())
         };
 
         let value = u64::from_str_radix(str, value.ty.clone() as u32)

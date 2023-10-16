@@ -1,6 +1,11 @@
+//! Btor2 sorts.
+
 use crate::{line::LineError, util::parse_sid, Sid};
 use std::num::NonZeroU32;
 
+/// Bitvector sort.
+///
+/// Defined by its non-zero length.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bitvec {
     pub length: NonZeroU32,
@@ -14,12 +19,18 @@ impl Bitvec {
     }
 }
 
+/// Array sort.
+///
+/// Defined by its index sort and element sort.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Array {
     pub index: Sid,
     pub element: Sid,
 }
 
+/// Btor2 sort.
+///
+/// There are only two sort types, bitvector and array.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Sort {
     Bitvec(Bitvec),
@@ -27,6 +38,7 @@ pub enum Sort {
 }
 
 impl Sort {
+    /// Return a single-bit bitvector sort.
     pub fn single_bit() -> Sort {
         Sort::Bitvec(Bitvec::single_bit())
     }

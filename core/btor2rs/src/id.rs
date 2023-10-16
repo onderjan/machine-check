@@ -1,3 +1,4 @@
+//! Sort and node identifiers.
 use std::{
     fmt::Display,
     num::{NonZeroI32, NonZeroU32},
@@ -5,10 +6,12 @@ use std::{
 
 use crate::line::LineError;
 
+/// Sort identifier.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Sid(NonZeroU32);
 
 impl Sid {
+    /// Get the actual identifier number.
     pub fn get(&self) -> u32 {
         self.0.get()
     }
@@ -22,10 +25,12 @@ impl Sid {
     }
 }
 
+/// Node identifier.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Nid(NonZeroU32);
 
 impl Nid {
+    /// Get the actual identifier number.
     pub fn get(&self) -> u32 {
         self.0.get()
     }
@@ -40,16 +45,26 @@ impl Nid {
     }
 }
 
-// on the right side, '-' can be used on nids to perform bitwise negation
+/// Right-side node identifier with optional bitwise negation.
+///
+/// Right-side nodes [can be immediately bit-inverted by using a minus sign](
+/// https://github.com/Boolector/btor2tools/issues/15) before the node
+/// identifier. This structure stores both the node identifier and the
+/// bit-inversion flag.
 #[derive(Debug, Clone, Copy, Hash)]
 pub struct Rnid(NonZeroI32);
 
 impl Rnid {
+    /// Return the node identifier.
     pub fn nid(&self) -> Nid {
         let positive = self.0.get().checked_abs().unwrap();
         Nid(NonZeroU32::new(positive as u32).unwrap())
     }
 
+    /// Return whether the node should be bit-inverted before applying it as an argument.
+    ///
+    /// Note that despite the minus sign being used, the bit-inversion corresponds to
+    /// `std::ops::Not`, i.e. `!a`.
     pub fn is_not(&self) -> bool {
         self.0.get() < 0
     }

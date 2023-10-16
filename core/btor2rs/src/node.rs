@@ -1,3 +1,10 @@
+//! Btor2 standard nodes.
+//!
+//! The type structure for nodes was chosen so that the nodes that have common fields
+//! are combined. For example, `Init` and `Next` both specify an assignment
+//! to a state at some point in time. They have the same fields as well,
+//! so they are subtypes of `Temporal`.
+
 use crate::{
     id::{Nid, Rnid, Sid},
     line::LineError,
@@ -7,29 +14,77 @@ use crate::{
     util::parse_u32,
 };
 
+/// Btor2 node.
+///
+/// The result node id is stored outside of this structure, which is only concerned
+///  about the line fragments following it that determine node type and arguments.
 #[derive(Debug, Clone)]
-pub struct Const {
-    pub ty: ConstType,
-    pub sid: Sid,
-    pub string: String,
+pub enum Node {
+    Const(Const),
+    Source(Source),
+    Drain(Drain),
+    State(State),
+    Temporal(Temporal),
+    ExtOp(ExtOp),
+    SliceOp(SliceOp),
+    UniOp(UniOp),
+    BiOp(BiOp),
+    TriOp(TriOp),
+    Justice(Justice),
 }
 
+/// Constant node.
+///
+/// As constants can have (almost) arbitrary lengths and the length is not known
+/// without looking up the sort, the constant is not parsed by this crate
+/// and just stored as a string.
+#[derive(Debug, Clone)]
+pub struct Const {
+    /// Constant type.
+    pub ty: ConstType,
+    /// Result sort id.
+    pub sid: Sid,
+    /// Constant value stored as a string.
+    pub value: String,
+}
+
+/// Constant type.
+///
+/// Binary, decimal, or hexadecimal.
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "lowercase")]
 pub enum ConstType {
+    /// Binary constant type.
     Const = 2,
+    /// Decimal constant type.
     Constd = 10,
+    /// Hexadecimal constant type.
     Consth = 16,
 }
 
-#[derive(Debug, Clone)]
-pub enum OpType {
-    Output(Rnid),
-    Const(Const),
-    Bad(Rnid),
-    Constraint(Rnid),
+/// Source node type.Encompasses "input", "one", "ones", and "zero".
+#[derive(Debug, Clone, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "lowercase")]
+pub enum SourceType {
+    Input,
+    One,
+    Ones,
+    Zero,
 }
 
+/// Source node type. Encompasses "input", "one", "ones", and "zero".
+///
+/// In essence, all of these are value sources in a sense, the "input" just
+/// can take any value, while the others have a fixed value.
+#[derive(Debug, Clone)]
+pub struct Source {
+    /// Source type.
+    pub ty: SourceType,
+    /// Source sort id.
+    pub sid: Sid,
+}
+
+/// Drain node type. Encompasses "bad", "constraint", "fair", and "output".
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "lowercase")]
 pub enum DrainType {
@@ -39,12 +94,26 @@ pub enum DrainType {
     Output,
 }
 
+/// Drain node. Encompasses "bad", "constraint", "fair", and "output".
+///
+/// In essence, all of these are value drains in a sense, some just have
+/// special verification behaviour.
 #[derive(Debug, Clone)]
 pub struct Drain {
+    /// Drain type.
     pub ty: DrainType,
+    /// Right-side node id to drain.
     pub rnid: Rnid,
 }
 
+/// State node.
+#[derive(Debug, Clone)]
+pub struct State {
+    /// State sort id.
+    pub sid: Sid,
+}
+
+/// Temporal node type. Encompasses "init" and "next".
 #[derive(Debug, Clone, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "lowercase")]
 pub enum TemporalType {
@@ -52,50 +121,31 @@ pub enum TemporalType {
     Next,
 }
 
+/// Temporal node. Encompasses "init" and "next".
 #[derive(Debug, Clone)]
 pub struct Temporal {
+    /// Temporal node type.
     pub ty: TemporalType,
+    /// Result sort id.
     pub sid: Sid,
+    /// State to apply the temporal assignment to.
     pub state: Nid,
+    /// Value to assign in the corresponding temporal frame.
     pub value: Rnid,
 }
 
-#[derive(Debug, Clone, strum::EnumString, strum::Display)]
-#[strum(serialize_all = "lowercase")]
-pub enum SourceType {
-    Input,
-    One,
-    Ones,
-    Zero,
-}
+/// Justice node.
 #[derive(Debug, Clone)]
-pub struct Source {
-    pub ty: SourceType,
-    pub sid: Sid,
-}
-
-#[derive(Debug, Clone)]
-pub struct State {
-    pub sid: Sid,
-}
-
-#[derive(Debug, Clone)]
-pub enum Node {
-    Source(Source),
-    Const(Const),
-    State(State),
-    ExtOp(ExtOp),
-    SliceOp(SliceOp),
-    UniOp(UniOp),
-    BiOp(BiOp),
-    TriOp(TriOp),
-    Temporal(Temporal),
-    Drain(Drain),
-    Justice(Vec<Rnid>),
+pub struct Justice {
+    /// Vector of justice properties.
+    pub nids: Vec<Rnid>,
 }
 
 impl Node {
-    pub fn get_sid(&self) -> Option<Sid> {
+    /// Return result sort id if it is available.
+    ///
+    /// Drain and justice nodes do not have a result sort id.
+    pub fn get_result_sid(&self) -> Option<Sid> {
         Some(match self {
             Node::Source(n) => n.sid,
             Node::Const(n) => n.sid,
@@ -178,9 +228,8 @@ impl Node {
             return Ok(Some(Node::ExtOp(ExtOp { sid, ty, a, length })));
         }
 
-        // other operations
+        // other node types
         Ok(Some(match second {
-            // special operations
             "slice" => {
                 let sid = parse_sid(&mut split)?;
                 let a = parse_rnid(&mut split)?;
@@ -207,7 +256,7 @@ impl Node {
                 for _ in 0..num {
                     vec.push(parse_rnid(&mut split)?);
                 }
-                Node::Justice(vec)
+                Node::Justice(Justice { nids: vec })
             }
             _ => {
                 return Ok(None);
@@ -225,7 +274,7 @@ fn parse_const_node<'a>(
     Ok(Node::Const(Const {
         ty,
         sid,
-        string: String::from(str),
+        value: String::from(str),
     }))
 }
 

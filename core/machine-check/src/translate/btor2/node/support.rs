@@ -31,7 +31,7 @@ impl<'a> NodeTranslator<'a> {
             .nodes
             .get(&nid)
             .ok_or(Error::InvalidNode(nid))?;
-        let sid = node.get_sid().ok_or(Error::UnknownNodeSort(nid))?;
+        let sid = node.get_result_sid().ok_or(Error::UnknownNodeSort(nid))?;
         self.get_bitvec(sid)
     }
 }
