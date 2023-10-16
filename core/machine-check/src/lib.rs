@@ -1,3 +1,21 @@
+//! # machine-check - a formal verification tool for digital systems
+//!
+//! This is a library crate for the formal verification tool [machine-check](
+//! https://crates.io/crates/machine-check). Currently, machine-check is only
+//! intended to be used as an executable tool, not as a library.
+//!
+//! [Go to machine-check readme.](https://crates.io/crates/machine-check)
+//!
+//! # Usage and Compatibility
+//!
+//! Using machine-check as a library is currently not intended. No compatibility
+//! guarantees are made.
+//!
+//! # License
+//!
+//! This crate is licensed under Apache 2.0 License or MIT License at your discretion.
+//!
+
 use std::{path::PathBuf, process::ExitStatus};
 
 use camino::Utf8PathBuf;
