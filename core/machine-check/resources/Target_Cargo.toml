@@ -2,6 +2,7 @@
 name = "machine-check-exec-target"
 version = "0.1.0-alpha.1"
 edition = "2021"
+rust-version = "1.70"
 # internal artifact, do not publish
 publish = false
 
