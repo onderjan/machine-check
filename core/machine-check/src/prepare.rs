@@ -15,9 +15,11 @@ use crate::CheckError;
 
 #[derive(Debug, Clone, Args)]
 pub struct Cli {
+    /// Location of preparation directory, defaults to "machine-check-preparation" next to the executable.
     #[arg(long)]
     pub preparation_path: Option<Utf8PathBuf>,
 
+    /// Remove the preparation directory and its content instead of creating/updating it.
     #[arg(long)]
     pub clean: bool,
 }

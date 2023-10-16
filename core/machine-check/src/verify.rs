@@ -13,20 +13,22 @@ mod work;
 
 #[derive(Debug, Clone, Args)]
 pub struct Cli {
+    /// Computation Tree Logic property to verify. Defaults to specification within the system.
     #[arg(long)]
     pub property: Option<String>,
 
-    #[arg(long)]
-    pub output_path: Option<Utf8PathBuf>,
-
+    /// Where the machine crate should be created. Defaults to temporary directory.
     #[arg(long)]
     pub machine_path: Option<Utf8PathBuf>,
 
+    /// Location of preparation directory. Defaults to "machine-check-preparation" next to the executable.
     #[arg(long)]
     pub preparation_path: Option<Utf8PathBuf>,
 
+    /// Location of the system to verify.
     pub system_path: Utf8PathBuf,
 
+    /// Whether state decay should be used. This can speed up or slow down verification depending on the system.
     #[arg(long)]
     pub use_decay: bool,
 }

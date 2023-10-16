@@ -32,17 +32,22 @@ pub mod verify;
 #[derive(Parser, Clone, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
+    /// Batch mode, prints result JSON to standard output.
     #[arg(global = true, short, long)]
     pub batch: bool,
+    /// Verbose mode, one use enables debug, two uses enable trace.
     #[arg(global = true, short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
+    /// Subcommand to execute.
     #[command(subcommand)]
     pub command: CliSubcommand,
 }
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum CliSubcommand {
+    /// Prepare libraries used to build machines for faster verification.
     Prepare(prepare::Cli),
+    /// Verify system properties.
     Verify(verify::Cli),
 }
 

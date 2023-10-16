@@ -312,7 +312,7 @@ dependencies = [
  "env_logger",
  "log",
  "machine-check-common",
- "mck 0.1.0-alpha.2",
+ "mck",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -334,25 +334,6 @@ dependencies = [
 
 [[package]]
 name = "machine-check-exec"
-version = "0.1.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12d6b011baa027ddf4f283f7d14cc771e80db0dd69b222dea77448da9dab4b58"
-dependencies = [
- "anyhow",
- "bimap",
- "clap",
- "env_logger",
- "log",
- "machine-check-common",
- "mck 0.1.0-alpha.2",
- "petgraph",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "machine-check-exec"
 version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
@@ -361,19 +342,11 @@ dependencies = [
  "env_logger",
  "log",
  "machine-check-common",
- "mck 0.1.0-alpha.2",
+ "mck",
  "petgraph",
  "serde",
  "serde_json",
  "thiserror",
-]
-
-[[package]]
-name = "machine-check-exec-target"
-version = "0.1.0-alpha.1"
-dependencies = [
- "machine-check-exec 0.1.0-alpha.1",
- "mck 0.1.0-alpha.1",
 ]
 
 [[package]]
@@ -388,15 +361,6 @@ dependencies = [
  "serde_json",
  "simple-xml-builder",
  "yaml-rust",
-]
-
-[[package]]
-name = "mck"
-version = "0.1.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d10d63b0252e4665cbd381773ea4057ce20dc60d359780d83a7d58726eb5797f"
-dependencies = [
- "seq-macro",
 ]
 
 [[package]]
