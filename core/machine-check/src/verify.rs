@@ -1,13 +1,41 @@
+use camino::Utf8PathBuf;
+use clap::Args;
 use log::info;
 use machine_check_common::ExecResult;
 use serde::{Deserialize, Serialize};
 
-use crate::{CheckError, Cli, VerifyCli};
+use crate::CheckError;
 
 mod build;
 mod execute;
 mod translate;
 mod work;
+
+#[derive(Debug, Clone, Args)]
+pub struct Cli {
+    #[arg(long)]
+    pub property: Option<String>,
+
+    #[arg(long)]
+    pub output_path: Option<Utf8PathBuf>,
+
+    #[arg(long)]
+    pub machine_path: Option<Utf8PathBuf>,
+
+    #[arg(long)]
+    pub preparation_path: Option<Utf8PathBuf>,
+
+    pub system_path: Utf8PathBuf,
+
+    #[arg(long)]
+    pub use_decay: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VerifyResult {
+    pub exec: Option<ExecResult>,
+    pub stats: VerifyStats,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VerifyStats {
@@ -17,13 +45,7 @@ pub struct VerifyStats {
     pub prepared: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VerifyResult {
-    pub exec: Option<ExecResult>,
-    pub stats: VerifyStats,
-}
-
-pub fn run(args: Cli, verify_args: VerifyCli) -> Result<(), CheckError> {
+pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> {
     let mut verify = Verify {
         args,
         verify_args,
@@ -69,7 +91,7 @@ pub fn run(args: Cli, verify_args: VerifyCli) -> Result<(), CheckError> {
 }
 
 struct Verify {
-    args: Cli,
-    verify_args: VerifyCli,
+    args: super::Cli,
+    verify_args: Cli,
     stats: VerifyStats,
 }

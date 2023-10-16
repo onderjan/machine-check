@@ -2,7 +2,7 @@ use std::fs::File;
 
 use camino::Utf8PathBuf;
 use clap::Parser;
-use machine_check::VerifyResult;
+use machine_check::verify::VerifyResult;
 use simple_xml_builder::XMLElement;
 
 fn generate_xml_column(title: &str, value: Option<&str>) -> XMLElement {

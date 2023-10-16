@@ -1,4 +1,5 @@
 use cargo_metadata::{camino::Utf8PathBuf, Message};
+use clap::Args;
 use log::info;
 use std::{collections::BTreeSet, io::Write};
 use std::{
@@ -10,14 +11,20 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::util::{log_process_error_log, log_process_output};
-use crate::{CheckError, Cli, PrepareCli};
+use crate::CheckError;
+
+#[derive(Debug, Clone, Args)]
+pub struct Cli {
+    #[arg(long)]
+    pub preparation_path: Option<Utf8PathBuf>,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Preparation {
+pub(crate) struct Preparation {
     pub target_build_args: Vec<String>,
 }
 
-pub(super) fn default_preparation_dir() -> Result<Utf8PathBuf, CheckError> {
+pub(crate) fn default_preparation_dir() -> Result<Utf8PathBuf, CheckError> {
     // directory 'preparation' under the executable
     let mut path = std::env::current_exe().map_err(CheckError::CurrentExe)?;
     path.pop();
@@ -26,7 +33,7 @@ pub(super) fn default_preparation_dir() -> Result<Utf8PathBuf, CheckError> {
     Ok(path.join("preparation"))
 }
 
-pub fn prepare(_: Cli, prepare: PrepareCli) -> Result<(), CheckError> {
+pub(crate) fn prepare(_: super::Cli, prepare: Cli) -> Result<(), CheckError> {
     let preparation_dir = match prepare.preparation_path {
         Some(preparation_path) => preparation_path,
         None => {

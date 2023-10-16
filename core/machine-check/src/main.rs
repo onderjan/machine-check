@@ -1,15 +1,7 @@
 use clap::Parser;
 use log::error;
-use machine_check::{prepare, verify, CheckError, Cli, CliSubcommand};
+use machine_check::Cli;
 use std::thread;
-
-fn run(args: Cli) -> Result<(), CheckError> {
-    let command = args.command.clone();
-    match command {
-        CliSubcommand::Prepare(prepare) => prepare::prepare(args, prepare),
-        CliSubcommand::Verify(verify) => verify::run(args, verify),
-    }
-}
 
 fn main() {
     let args = Cli::parse();
@@ -34,7 +26,7 @@ fn main() {
     // normal stack size is not enough for large token trees
     let result = thread::Builder::new()
         .stack_size(32 * 1024 * 1024)
-        .spawn(|| run(args))
+        .spawn(|| machine_check::run(args))
         .unwrap()
         .join()
         .unwrap();

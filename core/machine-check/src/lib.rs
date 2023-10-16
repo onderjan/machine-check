@@ -1,16 +1,40 @@
 use std::{path::PathBuf, process::ExitStatus};
 
 use camino::Utf8PathBuf;
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use machine_check_common::ExecError;
 use thiserror::Error;
-pub use verify::VerifyResult;
 
 mod machine;
 pub mod prepare;
 mod translate;
 mod util;
 pub mod verify;
+
+#[derive(Parser, Clone, Debug)]
+#[command(author, version, about, long_about = None)]
+pub struct Cli {
+    #[arg(global = true, short, long)]
+    pub batch: bool,
+    #[arg(global = true, short, long, action = clap::ArgAction::Count)]
+    pub verbose: u8,
+    #[command(subcommand)]
+    pub command: CliSubcommand,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum CliSubcommand {
+    Prepare(prepare::Cli),
+    Verify(verify::Cli),
+}
+
+pub fn run(args: Cli) -> Result<(), CheckError> {
+    let command = args.command.clone();
+    match command {
+        CliSubcommand::Prepare(prepare) => prepare::prepare(args, prepare),
+        CliSubcommand::Verify(verify) => verify::run(args, verify),
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum CheckError {
@@ -60,47 +84,4 @@ pub enum CheckError {
     BuildAmount(usize),
     #[error("unknown system type: {0}")]
     SystemType(String),
-}
-
-#[derive(Parser, Clone, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct Cli {
-    #[arg(global = true, short, long)]
-    pub batch: bool,
-    #[arg(global = true, short, long, action = clap::ArgAction::Count)]
-    pub verbose: u8,
-    #[command(subcommand)]
-    pub command: CliSubcommand,
-}
-
-#[derive(Debug, Clone, Args)]
-pub struct VerifyCli {
-    #[arg(long)]
-    pub property: Option<String>,
-
-    #[arg(long)]
-    pub output_path: Option<Utf8PathBuf>,
-
-    #[arg(long)]
-    pub machine_path: Option<Utf8PathBuf>,
-
-    #[arg(long)]
-    pub preparation_path: Option<Utf8PathBuf>,
-
-    pub system_path: Utf8PathBuf,
-
-    #[arg(long)]
-    pub use_decay: bool,
-}
-
-#[derive(Debug, Clone, Args)]
-pub struct PrepareCli {
-    #[arg(long)]
-    pub preparation_path: Option<Utf8PathBuf>,
-}
-
-#[derive(Debug, Clone, Subcommand)]
-pub enum CliSubcommand {
-    Prepare(PrepareCli),
-    Verify(VerifyCli),
 }

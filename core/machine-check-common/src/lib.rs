@@ -16,13 +16,13 @@ pub enum ExecError {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ExecStats {
-    pub num_states: usize,
-    pub num_refinements: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExecResult {
     pub result: Result<bool, ExecError>,
     pub stats: ExecStats,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ExecStats {
+    pub num_states: usize,
+    pub num_refinements: usize,
 }
