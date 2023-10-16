@@ -1,11 +1,11 @@
 use std::collections::{BTreeSet, HashMap};
 
-use machine_check_common::{ExecError, StateId};
+use machine_check_common::ExecError;
 use mck::abstr::{Input, State};
 
 use crate::{
     proposition::{PropBi, PropG, PropTemp, PropU, PropUni, Proposition},
-    space::Space,
+    space::{Space, StateId},
 };
 
 pub struct ClassicChecker<'a, I: Input, S: State> {

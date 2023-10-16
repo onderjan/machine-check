@@ -1,13 +1,16 @@
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-use machine_check_common::{Culprit, ExecError};
-use machine_check_common::{ExecStats, StateId};
+use machine_check_common::ExecError;
+use machine_check_common::ExecStats;
 use mck::abstr;
 use mck::refin::{self};
 
+use crate::model_check::Conclusion;
+use crate::model_check::Culprit;
 use crate::proposition::Proposition;
 use crate::space::NodeId;
+use crate::space::StateId;
 use crate::{
     model_check::{self},
     precision::Precision,
@@ -44,18 +47,15 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
 
         // main refinement loop
         loop {
-            let result = model_check::check_prop(&self.space, &prop);
+            let conclusion = model_check::check_prop(&self.space, &prop)?;
             // if verification was incomplete, try to refine the culprit
-            let culprit = match result {
-                Ok(conclusion) => return Ok(conclusion),
-                Err(err) => match err {
-                    ExecError::Incomplete(culprit) => culprit,
-                    _ => return Err(err),
-                },
+            let culprit = match conclusion {
+                Conclusion::Known(conclusion) => return Ok(conclusion),
+                Conclusion::Unknown(culprit) => culprit,
             };
             if !self.refine(&culprit) {
                 // it really is incomplete
-                return Err(ExecError::Incomplete(culprit));
+                return Err(ExecError::Incomplete);
             }
             if self.space.garbage_collect() {
                 self.precision.retain_indices(|node_id| {

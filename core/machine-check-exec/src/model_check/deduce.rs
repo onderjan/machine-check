@@ -1,11 +1,14 @@
 use std::collections::{BTreeMap, VecDeque};
 
-use machine_check_common::{Culprit, ExecError, StateId};
+use machine_check_common::ExecError;
 use mck::abstr::{Input, State};
 
-use crate::proposition::{PropBi, PropG, PropTemp, PropU, PropUni, Proposition};
+use crate::{
+    proposition::{PropBi, PropG, PropTemp, PropU, PropUni, Proposition},
+    space::StateId,
+};
 
-use super::ThreeValuedChecker;
+use super::{Culprit, ThreeValuedChecker};
 
 pub(super) fn deduce_culprit<I: Input, S: State>(
     checker: &ThreeValuedChecker<I, S>,

@@ -1,16 +1,14 @@
 use std::{collections::BTreeSet, num::NonZeroUsize, ops::Shr, rc::Rc};
 
 use bimap::BiMap;
-use machine_check_common::StateId;
 use mck::{
     abstr::{Input, State},
     concr,
 };
 use petgraph::{prelude::GraphMap, Directed};
 
-pub struct Edge<AI> {
-    pub representative_input: AI,
-}
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StateId(pub NonZeroUsize);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NodeId(Option<NonZeroUsize>);
@@ -34,6 +32,10 @@ impl TryFrom<NodeId> for StateId {
             None => Err(()),
         }
     }
+}
+
+pub struct Edge<AI> {
+    pub representative_input: AI,
 }
 
 pub struct Space<I: Input, S: State> {

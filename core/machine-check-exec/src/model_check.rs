@@ -1,21 +1,34 @@
 mod classic;
 mod deduce;
 
-use machine_check_common::{ExecError, StateId};
+use std::collections::VecDeque;
+
+use machine_check_common::ExecError;
 use mck::abstr::{Input, State};
 
-use crate::proposition::Proposition;
+use crate::{proposition::Proposition, space::StateId};
 
 use self::{classic::ClassicChecker, deduce::deduce_culprit};
 
 use super::space::Space;
 
-pub fn check_prop<I: Input, S: State>(
+pub(super) fn check_prop<I: Input, S: State>(
     space: &Space<I, S>,
     prop: &Proposition,
-) -> Result<bool, ExecError> {
+) -> Result<Conclusion, ExecError> {
     let mut checker = ThreeValuedChecker::new(space);
     checker.check_prop(prop)
+}
+
+pub(super) enum Conclusion {
+    Known(bool),
+    Unknown(Culprit),
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct Culprit {
+    pub path: VecDeque<StateId>,
+    pub name: String,
 }
 
 struct ThreeValuedChecker<'a, I: Input, S: State> {
@@ -33,15 +46,15 @@ impl<'a, I: Input, S: State> ThreeValuedChecker<'a, I, S> {
         }
     }
 
-    fn check_prop(&mut self, enf_prop: &Proposition) -> Result<bool, ExecError> {
+    fn check_prop(&mut self, enf_prop: &Proposition) -> Result<Conclusion, ExecError> {
         // compute optimistic and pessimistic interpretation
         let pessimistic_interpretation = self.pessimistic.compute_interpretation(enf_prop)?;
         let optimistic_interpretation = self.optimistic.compute_interpretation(enf_prop)?;
 
         match (pessimistic_interpretation, optimistic_interpretation) {
-            (false, false) => Ok(false),
-            (false, true) => Err(ExecError::Incomplete(deduce_culprit(self, enf_prop)?)),
-            (true, true) => Ok(true),
+            (false, false) => Ok(Conclusion::Known(false)),
+            (false, true) => Ok(Conclusion::Unknown(deduce_culprit(self, enf_prop)?)),
+            (true, true) => Ok(Conclusion::Known(true)),
             (true, false) => panic!("optimistic interpretation should hold when pessimistic does"),
         }
     }
