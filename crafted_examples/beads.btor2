@@ -1,0 +1,23 @@
+1 sort bitvec 1 ; bit type
+
+10 zero 1 ; bit zero
+11 one 1 ; bit one
+
+20 input 1 ; only input
+
+100 state 1 ; first bead position
+101 init 1 100 11 ; present at first
+
+200 state 1 ; second bead position
+201 init 1 200 10 ; absent at first
+
+300 state 1 ; third bead position
+301 init 1 300 10 ; absent at first
+
+; move beads to the next position if input is 1
+1100 ite 1 20 10 100
+1101 next 1 100 1100
+2100 ite 1 20 100 200
+2101 next 1 200 2100
+3100 ite 1 20 200 300
+3101 next 1 300 3100

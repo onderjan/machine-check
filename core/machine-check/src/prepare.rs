@@ -25,12 +25,12 @@ pub(crate) struct Preparation {
 }
 
 pub(crate) fn default_preparation_dir() -> Result<Utf8PathBuf, CheckError> {
-    // directory 'preparation' under the executable
+    // directory 'machine-check-preparation' under the executable
     let mut path = std::env::current_exe().map_err(CheckError::CurrentExe)?;
     path.pop();
     let path =
         Utf8PathBuf::try_from(path.clone()).map_err(|err| CheckError::PathToUtf8(path, err))?;
-    Ok(path.join("preparation"))
+    Ok(path.join("machine-check-preparation"))
 }
 
 pub(crate) fn prepare(_: super::Cli, prepare: Cli) -> Result<(), CheckError> {
