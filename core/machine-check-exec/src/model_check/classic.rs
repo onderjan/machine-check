@@ -1,5 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
+use log::{log_enabled, trace};
 use machine_check_common::ExecError;
 use mck::abstr::{Input, State};
 
@@ -98,6 +99,15 @@ impl<'a, I: Input, S: State> ClassicChecker<'a, I, S> {
             },
             _ => panic!("expected {:?} to be minimized", prop),
         };
+
+        if log_enabled!(log::Level::Trace) {
+            trace!(
+                "{}: computed property {:?} labelling {:?}",
+                self.optimistic,
+                prop,
+                computed_labelling
+            );
+        }
 
         // insert the labelling to labelling map for future reference
         self.labelling_map.insert(prop.clone(), computed_labelling);

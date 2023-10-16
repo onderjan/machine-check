@@ -34,10 +34,12 @@ impl TryFrom<NodeId> for StateId {
     }
 }
 
+#[derive(Debug)]
 pub struct Edge<AI> {
     pub representative_input: AI,
 }
 
+#[derive(Debug)]
 pub struct Space<I: Input, S: State> {
     node_graph: GraphMap<NodeId, Edge<I>, Directed>,
     state_map: BiMap<StateId, Rc<S>>,
@@ -214,8 +216,8 @@ impl<I: Input, S: State> Space<I, S> {
             if scc.len() == 1 {
                 let state_id = scc[0];
                 if !labelled_graph.contains_edge(state_id, state_id) {
-                    // trivial SCC, do not add to result
-                    break;
+                    // trivial SCC, do not add to result, but continue over other SCCs
+                    continue;
                 }
             }
             // we only labelled states, so they must be

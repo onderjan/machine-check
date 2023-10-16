@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
+use log::log_enabled;
+use log::trace;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use mck::abstr;
@@ -40,13 +42,20 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
     }
 
     pub fn verify(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
+        trace!("Original proposition: {:#?}", prop);
         // transform proposition to positive normal form to move negations to literals
         let prop = prop.pnf();
+        trace!("Positive normal form: {:#?}", prop);
         // transform proposition to existential normal form to be able to verify
         let prop = prop.enf();
+        trace!("Existential normal form: {:#?}", prop);
 
         // main refinement loop
         loop {
+            if log_enabled!(log::Level::Trace) {
+                trace!("State space: {:#?}", self.space);
+            }
+
             let conclusion = model_check::check_prop(&self.space, &prop)?;
             // if verification was incomplete, try to refine the culprit
             let culprit = match conclusion {
