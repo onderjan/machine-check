@@ -1,12 +1,12 @@
 [package]
 name = "machine-check-exec"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-mck = { path = "../mck" }
-machine-check-common = { path = "../machine-check-common" }
+mck = "0.1.0-alpha.1"
+machine-check-common = "0.1.0-alpha.1"
 thiserror = "1.0.49"
 anyhow = "1.0.75"
 bimap = "0.6.3"
