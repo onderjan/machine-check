@@ -1,367 +1,334 @@
-use std::fs::File;
+use std::fs::{self, File};
 
 use camino::Utf8PathBuf;
 use clap::Parser;
 use machine_check::verify::VerifyResult;
-use simple_xml_builder::XMLElement;
+use serde::Deserialize;
 
-fn generate_xml_column(title: &str, value: Option<&str>) -> XMLElement {
-    let mut xml_column = XMLElement::new("column");
-    xml_column.add_attribute("title", title);
-    if let Some(value) = value {
-        xml_column.add_attribute("value", value);
-    }
-    xml_column
-}
+mod table;
+mod xml;
 
-fn generate_xml_columns() -> XMLElement {
-    let mut xml_columns = XMLElement::new("columns");
-    xml_columns.add_child(generate_xml_column("status", None));
-    xml_columns.add_child(generate_xml_column("cputime", None));
-    xml_columns.add_child(generate_xml_column("walltime", None));
-    xml_columns
+#[derive(Parser, Clone, Debug)]
+#[command(author, version, about, long_about = None)]
+pub struct Cli {
+    #[arg(long)]
+    pub xml: bool,
+
+    #[arg(long)]
+    pub table_name: Option<String>,
+
+    pub dir: Utf8PathBuf,
 }
 
 struct TaskStats {
     expected_verdict: bool,
-    max_cpu_time: f64,
+}
+
+#[derive(Clone, Copy)]
+enum RunResult {
+    Correct(bool),
+    Wrong(bool),
+    Timeout,
+    OutOfMemory,
+    OtherError,
 }
 
 struct RunStats {
     name: String,
-    verdict: Option<bool>,
+    result: Option<RunResult>,
     cpu_time: Option<f64>,
     wall_time: Option<f64>,
     memory: Option<u64>,
 }
 
-fn generate_run(task_stats: TaskStats, run_stats: RunStats, max_memory: u64) -> XMLElement {
-    let status = match run_stats.verdict {
-        Some(verdict) => verdict.to_string(),
-        None => String::from("ERROR"),
-    };
-
-    let category = match run_stats.verdict {
-        Some(verdict) => {
-            if verdict == task_stats.expected_verdict {
-                String::from("correct")
-            } else {
-                String::from("wrong")
-            }
-        }
-        None => String::from("error"),
-    };
-
-    let (mut status, category) = if let Some(cpu_time) = run_stats.cpu_time {
-        // make status timeout if it exceeds max cpu time
-        if cpu_time > task_stats.max_cpu_time {
-            (String::from("TIMEOUT"), String::from("error"))
-        } else {
-            (status, category)
-        }
-    } else {
-        // make status error if we do not have cpu time
-        (String::from("ERROR"), String::from("error"))
-    };
-
-    if let Some(memory) = run_stats.memory {
-        if status == "ERROR" {
-            // determine yet undetermined errors to be OOM if memory was above 95% of permitted
-            let conservative_memory = max_memory / 100 * 95;
-            if memory > conservative_memory {
-                status = String::from("OUT OF MEMORY");
-            }
-        }
-    }
-
-    let mut xml_run = XMLElement::new("run");
-    xml_run.add_attribute("name", run_stats.name);
-    xml_run.add_attribute("expectedVerdict", task_stats.expected_verdict);
-    xml_run.add_child(generate_xml_column("status", Some(&status)));
-    xml_run.add_child(generate_xml_column("category", Some(&category)));
-    if let Some(cpu_time) = run_stats.cpu_time {
-        xml_run.add_child(generate_xml_column(
-            "cputime",
-            Some(&format!("{:.6}s", cpu_time)),
-        ));
-    }
-    if let Some(wall_time) = run_stats.wall_time {
-        xml_run.add_child(generate_xml_column(
-            "walltime",
-            Some(&format!("{:.6}s", wall_time)),
-        ));
-    }
-    if let Some(memory) = run_stats.memory {
-        xml_run.add_child(generate_xml_column("memory", Some(&format!("{}B", memory))));
-    }
-    xml_run
+#[derive(Deserialize)]
+struct Limits {
+    #[serde(rename = "cpu-time")]
+    cpu_time: Option<f64>,
+    #[serde(rename = "cpu-cores")]
+    cpu_cores: Option<u64>,
+    #[serde(rename = "ram-size")]
+    ram_size: Option<u64>,
 }
 
-fn generate_xml_systeminfo() -> XMLElement {
-    let mut xml_systeminfo = XMLElement::new("systeminfo");
-
-    let mut xml_os = XMLElement::new("os");
-    xml_os.add_attribute("name", "(unknown)");
-    xml_systeminfo.add_child(xml_os);
-
-    let mut xml_cpu = XMLElement::new("cpu");
-    xml_cpu.add_attribute("cores", "(unknown)");
-    xml_cpu.add_attribute("frequency", "(unknown)");
-    xml_cpu.add_attribute("model", "(unknown)");
-    xml_systeminfo.add_child(xml_cpu);
-
-    let mut xml_ram = XMLElement::new("ram");
-    xml_ram.add_attribute("size", "(unknown)");
-    xml_systeminfo.add_child(xml_ram);
-
-    xml_systeminfo.add_child(XMLElement::new("environment"));
-
-    xml_systeminfo
+#[derive(Deserialize)]
+struct SystemInfo {
+    #[serde(rename = "os-name")]
+    os_name: Option<String>,
+    #[serde(rename = "cpu-cores")]
+    cpu_cores: Option<u64>,
+    #[serde(rename = "cpu-frequency")]
+    cpu_frequency: Option<u64>,
+    #[serde(rename = "cpu-model")]
+    cpu_model: Option<String>,
+    #[serde(rename = "ram-size")]
+    ram_size: Option<u64>,
 }
 
-#[derive(Parser, Clone, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct Cli {
-    #[arg(short, long)]
-    pub spec: Utf8PathBuf,
-    pub dir: Utf8PathBuf,
+#[derive(Clone, Copy, Deserialize)]
+enum Tool {
+    #[serde(rename = "machine-check")]
+    MachineCheck = 0,
+    #[serde(rename = "ABC")]
+    Abc = 1,
+    #[serde(rename = "AVR")]
+    Avr = 2,
+}
 
-    #[arg(long)]
-    pub max_cpu_time: Option<f64>,
+#[derive(Deserialize)]
+struct TestConfig {
+    name: Option<String>,
 
-    #[arg(long)]
-    pub max_memory: Option<u64>,
+    tool: Tool,
+    version: String,
+    spec: String,
+
+    options: Option<String>,
+
+    #[serde(rename = "limits")]
+    limits: Limits,
+
+    #[serde(rename = "system-info")]
+    system_info: SystemInfo,
 }
 
 fn main() {
     let args = Cli::parse();
 
-    let max_cpu_time = args.max_cpu_time.unwrap_or(15. * 60.);
-    let max_memory = args.max_memory.unwrap_or(16 * 1_000_000_000);
+    let test_config_path = args.dir.join("test-config.toml");
 
-    let spec = std::fs::read_to_string(args.spec).unwrap();
+    let mut test_data_vec = Vec::new();
 
-    let exec_outputs_dir = args.dir;
+    if test_config_path.is_file() {
+        test_data_vec.push(parse_test_data(test_config_path));
+    } else {
+        // look in the subdirectories
+        for entry in fs::read_dir(&args.dir).expect("directory should be navigable") {
+            let path = entry.expect("directory entry should be ok").path();
+            if path.is_dir() {
+                let test_config_path = Utf8PathBuf::try_from(path)
+                    .expect("subdirectory path should be valid UTF-8")
+                    .join("test-config.toml");
+                if test_config_path.is_file() {
+                    test_data_vec.push(parse_test_data(test_config_path));
+                }
+            }
+        }
+    }
 
-    let exec_tests_dir = exec_outputs_dir.join("tests");
-    let mut num_tests = 0;
-    let mut num_outputs = 0;
-    let mut num_errors = 0;
-    let mut num_correct_false = 0;
-    let mut num_correct_true = 0;
-    let mut num_wrong_false = 0;
-    let mut num_wrong_true = 0;
-    let mut num_execution_failures = 0;
-    let mut num_other_failures = 0;
+    // sort like in the paper
+    test_data_vec.sort_by(|a, b| {
+        (a.0.tool as u32)
+            .cmp(&(b.0.tool as u32))
+            .then(a.0.options.cmp(&b.0.options))
+    });
 
-    let mut avr = false;
-    let mut abc = false;
+    if args.xml {
+        for test_data in &test_data_vec {
+            let test_config = &test_data.0;
+            let tests = &test_data.1;
+            let filename = test_config
+                .name
+                .clone()
+                .unwrap_or_else(|| match test_config.tool {
+                    Tool::MachineCheck => String::from("machine-check"),
+                    Tool::Abc => String::from("abc"),
+                    Tool::Avr => String::from("avr"),
+                });
 
-    let mut xml_result = XMLElement::new("result");
+            let file = File::create(args.dir.join(format!("{}.xml", filename)))
+                .expect("xml file should be creatable");
+            xml::generate(test_config, tests).write(file).unwrap();
+        }
+    }
+
+    table::print_table(args.table_name, &test_data_vec);
+}
+
+fn parse_test_data(test_config_path: Utf8PathBuf) -> (TestConfig, Vec<(TaskStats, RunStats)>) {
+    let test_config =
+        std::fs::read_to_string(test_config_path.clone()).expect("test config should be readable");
+    let test_config: TestConfig =
+        toml::from_str(&test_config).expect("test config should be valid TOML config");
+
+    let test_config_dir = test_config_path.parent().unwrap();
+
+    let test_spec_path = test_config_dir.join(Utf8PathBuf::from(&test_config.spec));
+
+    let spec = std::fs::read_to_string(test_spec_path).expect("test spec should be readable");
+
+    let exec_tests_dir = test_config_dir.join("tests");
+
+    let mut tests = Vec::new();
 
     for line in spec.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        num_tests += 1;
-        //println!("Line: {}", line);
         // move into the appropriate folder
         let test_dir = exec_tests_dir.join(line);
-        if test_dir.is_dir() {
-            num_outputs += 1;
-        } else {
-            continue;
-        }
         let expected_verdict_file = test_dir.join("expected-verdict");
-        let expected_verdict = std::fs::read_to_string(expected_verdict_file).unwrap();
+        let expected_verdict = std::fs::read_to_string(expected_verdict_file)
+            .expect("expected verdict should be readable");
         let expected_verdict = match expected_verdict.trim() {
             "false" => false,
             "true" => true,
             _ => panic!("Unknown expected verdict {:?}!", expected_verdict),
         };
 
-        let task_stats = TaskStats {
-            expected_verdict,
-            max_cpu_time,
-        };
+        let task_stats = TaskStats { expected_verdict };
 
         let mut run_stats = RunStats {
             name: String::from(line),
-            verdict: None,
+            result: None,
             cpu_time: None,
             wall_time: None,
             memory: None,
         };
 
         let out_file = test_dir.join("out/out");
+        let err_file = test_dir.join("out/err");
         let time_file = test_dir.join("out/time");
         if out_file.exists() && time_file.exists() {
-            let mut out = std::fs::read_to_string(out_file).unwrap();
-            let time = std::fs::read_to_string(time_file).unwrap();
-
-            if out.starts_with("AVR") {
-                avr = true;
-                let err_file = test_dir.join("out/err");
-                out = std::fs::read_to_string(err_file).unwrap();
-            } else if out.starts_with("ABC") {
-                abc = true;
-            }
-
+            let out = match test_config.tool {
+                Tool::MachineCheck | Tool::Abc => {
+                    std::fs::read_to_string(out_file).expect("stdout file should be readable")
+                }
+                Tool::Avr => {
+                    std::fs::read_to_string(err_file).expect("stderr file should be readable")
+                }
+            };
+            let time = std::fs::read_to_string(time_file).expect("time file should be readable");
             if !out.is_empty() && !time.is_empty() {
-                // CPU time is user time + system time
-                let mut user_time: Option<f64> = None;
-                let mut system_time: Option<f64> = None;
-                // we use /usr/bin/time for measurement
-                for time_line in time.lines() {
-                    // split to key and value using colon followed by space,
-                    // as colons without space are also hour-minute-second delimiters
-                    let mut split = time_line.splitn(2, ": ");
-                    let Some(key) = split.next() else {continue};
-                    let Some(value) = split.next() else {continue};
-                    let key = key.trim();
-                    let value = value.trim();
-                    match key {
-                        "User time (seconds)" => user_time = Some(value.parse().unwrap()),
-                        "System time (seconds)" => system_time = Some(value.parse().unwrap()),
-                        "Elapsed (wall clock) time (h:mm:ss or m:ss)" => {
-                            // convert to seconds
-                            let mut total = 0.;
-                            for field in value.splitn(3, ':') {
-                                total *= 60.;
-                                total += field.parse::<f64>().unwrap();
-                            }
-                            run_stats.wall_time = Some(total);
-                        }
-                        "Maximum resident set size (kbytes)" => {
-                            // this is actually in kibibytes, convert to bytes
-                            run_stats.memory =
-                                Some(value.parse::<u64>().unwrap().checked_mul(1024).unwrap());
-                        }
-                        _ => (),
-                    }
-                }
-                // convert to CPU time if possible
-                if let (Some(user_time), Some(system_time)) = (user_time, system_time) {
-                    run_stats.cpu_time = Some(user_time + system_time);
-                }
-
-                //println!("Result: {out}");
-                if avr {
-                    // find line that only has Result at first part
-                    let mut iter = out.lines();
-                    while let Some(line) = iter.next() {
-                        if let Some(first_part) = line.trim().split_ascii_whitespace().next() {
-                            if first_part == "Result" {
-                                // skip next line, line after that is important
-                                iter.next();
-                                let result_line = iter.next();
-                                if let Some(result_line) = result_line {
-                                    if let Some(first_part) =
-                                        result_line.trim().split_ascii_whitespace().next()
-                                    {
-                                        match first_part {
-                                            "h" => run_stats.verdict = Some(true),
-                                            "v" => run_stats.verdict = Some(false),
-                                            _ => panic!("Unexpected result line {:?}", result_line),
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else if abc {
-                    if out.contains("Property proved") {
-                        run_stats.verdict = Some(true);
-                    } else if out.contains("was asserted") {
-                        run_stats.verdict = Some(false);
-                    }
-                } else {
-                    let out: VerifyResult = serde_json::from_str(&out).unwrap();
-                    if let Some(exec) = out.exec {
-                        match exec.result {
-                            Ok(exec_verdict) => {
-                                run_stats.verdict = Some(exec_verdict);
-                            }
-                            Err(_) => {
-                                num_errors += 1;
-                            }
-                        }
-                    } else {
-                        // execution failure
-                        num_execution_failures += 1;
-                    };
-                }
-
-                if let Some(verdict) = run_stats.verdict {
-                    if verdict {
-                        if expected_verdict {
-                            num_correct_true += 1;
-                        } else {
-                            num_wrong_true += 1;
-                        }
-                    } else if expected_verdict {
-                        num_wrong_false += 1;
-                    } else {
-                        num_correct_false += 1;
-                    }
-                }
-            } else {
-                num_other_failures += 1;
-                // some problem was encountered
+                parse_run(&mut run_stats, &test_config, &task_stats, out, time);
             }
-        } else {
-            num_other_failures += 1;
-            // some problem was encountered
         }
-
-        xml_result.add_child(generate_run(task_stats, run_stats, max_memory));
+        tests.push((task_stats, run_stats));
     }
 
-    let tool_name = if abc {
-        "ABC"
-    } else if avr {
-        "AVR"
-    } else {
-        "machine-check"
+    (test_config, tests)
+}
+
+fn parse_run(
+    run_stats: &mut RunStats,
+    test_config: &TestConfig,
+    task_stats: &TaskStats,
+    out: String,
+    time: String,
+) {
+    parse_time(run_stats, time);
+
+    match test_config.tool {
+        Tool::MachineCheck => {
+            let out: VerifyResult = serde_json::from_str(&out).unwrap();
+            if let Some(exec) = out.exec {
+                if let Ok(verdict) = exec.result {
+                    run_stats.result = Some(create_run_result(task_stats, verdict));
+                }
+            }
+        }
+        Tool::Abc => {
+            if out.contains("Property proved") {
+                run_stats.result = Some(create_run_result(task_stats, true));
+            } else if out.contains("was asserted") {
+                run_stats.result = Some(create_run_result(task_stats, false));
+            }
+        }
+        Tool::Avr => parse_avr_run(task_stats, run_stats, out),
     };
 
-    // add required attributes
-    xml_result.add_attribute("tool", tool_name);
-    xml_result.add_attribute("toolmodule", tool_name);
-    xml_result.add_attribute("version", "(unknown)");
-    xml_result.add_attribute("benchmarkname", "(unknown)");
-    xml_result.add_attribute("starttime", "(unknown)");
-    xml_result.add_attribute("date", "(unknown)");
-    xml_result.add_attribute("generator", "machine-check-table");
-    // not required by DTD, but table-generator fails without options
-    xml_result.add_attribute("options", "");
+    if let (Some(cpu_time), Some(max_cpu_time)) = (run_stats.cpu_time, test_config.limits.cpu_time)
+    {
+        // make result timeout if it exceeded max cpu time
+        if cpu_time > max_cpu_time {
+            run_stats.result = Some(RunResult::Timeout);
+        }
+    }
 
-    xml_result.add_child(generate_xml_columns());
-    xml_result.add_child(generate_xml_systeminfo());
+    if run_stats.result.is_none() {
+        if let (Some(memory), Some(max_memory)) = (run_stats.memory, test_config.limits.ram_size) {
+            // determine yet undetermined errors to be OOM if memory was above 95% of permitted
+            let conservative_memory = max_memory / 100 * 95;
+            if memory > conservative_memory {
+                run_stats.result = Some(RunResult::OutOfMemory);
+            }
+        }
+    }
+    // make result error if it was not determined
+    if run_stats.result.is_none() {
+        run_stats.result = Some(RunResult::OtherError);
+    }
+}
 
-    println!(
-        "Num tests: {}, num missing: {}",
-        num_tests,
-        num_tests - num_outputs
-    );
-    println!(
-        "Num correct false: {}, true: {}, num wrong false: {}, true: {}, num errors: {}",
-        num_correct_false, num_correct_true, num_wrong_false, num_wrong_true, num_errors
-    );
-    println!(
-        "Num execution failures: {}, other failures: {}",
-        num_execution_failures, num_other_failures
-    );
-    let total_correct = num_correct_false + num_correct_true;
-    let total_wrong = num_wrong_false + num_wrong_true;
-    let total_undetermined = num_tests - total_correct - total_wrong;
-    println!(
-        "Total correct: {}, wrong: {}, undetermined: {}",
-        total_correct, total_wrong, total_undetermined
-    );
+fn parse_avr_run(task_stats: &TaskStats, run_stats: &mut RunStats, out: String) {
+    // find line that only has Result at first part
+    let mut iter = out.lines();
+    while let Some(line) = iter.next() {
+        if let Some(first_part) = line.trim().split_ascii_whitespace().next() {
+            if first_part == "Result" {
+                // skip next line, line after that is important
+                iter.next();
+                let result_line = iter.next();
+                if let Some(result_line) = result_line {
+                    if let Some(first_part) = result_line.trim().split_ascii_whitespace().next() {
+                        run_stats.result = Some(create_run_result(
+                            task_stats,
+                            match first_part {
+                                "h" => true,
+                                "v" => false,
+                                _ => panic!("Unexpected result line {:?}", result_line),
+                            },
+                        ));
+                    }
+                }
+            }
+        }
+    }
+}
 
-    let file =
-        File::create(exec_outputs_dir.join(format!("{}.xml", tool_name.to_lowercase()))).unwrap();
-    xml_result.write(file).unwrap();
+fn parse_time(run_stats: &mut RunStats, time: String) {
+    // CPU time is user time + system time
+    let mut user_time: Option<f64> = None;
+    let mut system_time: Option<f64> = None;
+    // we use /usr/bin/time for measurement
+    for time_line in time.lines() {
+        // split to key and value using colon followed by space,
+        // as colons without space are also hour-minute-second delimiters
+        let mut split = time_line.splitn(2, ": ");
+        let Some(key) = split.next() else {continue};
+        let Some(value) = split.next() else {continue};
+        let key = key.trim();
+        let value = value.trim();
+        match key {
+            "User time (seconds)" => user_time = Some(value.parse().unwrap()),
+            "System time (seconds)" => system_time = Some(value.parse().unwrap()),
+            "Elapsed (wall clock) time (h:mm:ss or m:ss)" => {
+                // convert to seconds
+                let mut total = 0.;
+                for field in value.splitn(3, ':') {
+                    total *= 60.;
+                    total += field.parse::<f64>().unwrap();
+                }
+                run_stats.wall_time = Some(total);
+            }
+            "Maximum resident set size (kbytes)" => {
+                // this is actually in kibibytes, convert to bytes
+                run_stats.memory = Some(value.parse::<u64>().unwrap().checked_mul(1024).unwrap());
+            }
+            _ => (),
+        }
+    }
+    // convert to CPU time if possible
+    if let (Some(user_time), Some(system_time)) = (user_time, system_time) {
+        run_stats.cpu_time = Some(user_time + system_time);
+    }
+}
+
+fn create_run_result(task_stats: &TaskStats, conclusion: bool) -> RunResult {
+    if conclusion == task_stats.expected_verdict {
+        RunResult::Correct(conclusion)
+    } else {
+        RunResult::Wrong(conclusion)
+    }
 }
