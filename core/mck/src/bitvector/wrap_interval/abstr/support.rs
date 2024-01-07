@@ -68,7 +68,6 @@ impl<const L: u32> Bitvector<L> {
 
     #[must_use]
     pub fn contains(&self, rhs: &Self) -> bool {
-        println!("Does {} contain {}?", self, rhs);
         // handle full intervals specially to avoid corner cases
         if self.is_full() {
             return true;
@@ -100,6 +99,50 @@ impl<const L: u32> Bitvector<L> {
             // the inequalities with representable are always true
             self.start.as_unsigned() <= rhs.start.as_unsigned()
                 && rhs.end.as_unsigned() <= self.end.as_unsigned()
+        }
+    }
+
+    #[must_use]
+    pub fn intersects(&self, rhs: &Self) -> bool {
+        println!("Does {} intersect {}?", self, rhs);
+        // handle full intervals specially to avoid corner cases
+        if self.is_full() {
+            return true;
+        }
+        if rhs.is_full() {
+            return true;
+        }
+
+        if self.start.as_unsigned() <= self.end.as_unsigned() {
+            if rhs.start.as_unsigned() <= rhs.end.as_unsigned() {
+                println!("Both intervals non-wrapping");
+                // this interval is [self.start, self.end]
+                // the other interval is [rhs.start, rhs.end]
+                (rhs.start.as_unsigned() <= self.start.as_unsigned()
+                    && self.start.as_unsigned() <= rhs.end.as_unsigned())
+                    || (rhs.start.as_unsigned() <= self.end.as_unsigned()
+                        && self.end.as_unsigned() <= rhs.end.as_unsigned())
+                    || (self.start.as_unsigned() <= rhs.start.as_unsigned()
+                        && rhs.start.as_unsigned() <= self.end.as_unsigned())
+                    || (self.start.as_unsigned() <= rhs.end.as_unsigned()
+                        && rhs.end.as_unsigned() <= self.end.as_unsigned())
+            } else {
+                // this interval is [self.start, self.end]
+                // the other interval is [rhs.start, repr_max] joined by [repr_min, rhs.end]
+                self.end.as_unsigned() >= rhs.start.as_unsigned()
+                    || self.start.as_unsigned() <= rhs.end.as_unsigned()
+            }
+        } else if rhs.start.as_unsigned() <= rhs.end.as_unsigned() {
+            // the other interval [rhs.start, rhs.end] must be intersect either
+            // [self.start, repr_max] or [repr_min, self.end]
+            // the inequalities with representable are always true
+            self.start.as_unsigned() <= rhs.end.as_unsigned()
+                || rhs.start.as_unsigned() <= self.end.as_unsigned()
+        } else {
+            // this interval is [self.start, repr_max] joined by [repr_min, self.end]
+            // the other interval is [rhs.start, repr_max] joined by [repr_min, rhs.end]
+            // they definitely do intersect on wrapping elements
+            true
         }
     }
 

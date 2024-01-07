@@ -131,10 +131,6 @@ pub(super) fn join_concr_iter<const L: u32>(
         let current_bitvec = ConcreteBitvector::<L>::new(current);
         let next_bitvec = ConcreteBitvector::<L>::new(next);
         let hole = next_bitvec.sub(current_bitvec).as_unsigned();
-        println!(
-            "Index: {}, current: {}, next: {}, hole: {}",
-            index, current, next, hole
-        );
         if hole > largest_hole {
             largest_hole = hole;
             largest_hole_index = index;
@@ -152,6 +148,5 @@ pub(super) fn join_concr_iter<const L: u32>(
     let end = ConcreteBitvector::new(*set.iter().nth(end_index).unwrap());
 
     let result = Bitvector::from_wrap_interval(start, end);
-    println!("Set: {:?}, result: {}", set, result);
     result
 }
