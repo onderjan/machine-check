@@ -1,7 +1,7 @@
-use crate::bitvector::concrete::ConcreteBitvector;
+use super::*;
+use crate::forward::*;
 
-use super::Bitvector;
-
+#[macro_use]
 mod op;
 
 #[test]
@@ -77,3 +77,8 @@ fn support() {
     assert!(!a_b.contains(&smin_umax));
     assert!(!b_a.contains(&smin_umax));
 }
+
+uni_op_test!(arith_neg);
+
+bi_op_test!(add, true);
+bi_op_test!(sub, true);

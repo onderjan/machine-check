@@ -1,3 +1,4 @@
+mod arith;
 mod support;
 #[cfg(test)]
 mod tests;

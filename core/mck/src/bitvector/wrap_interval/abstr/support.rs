@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    hash::{Hash, Hasher},
+};
 
 use crate::{bitvector::concrete::ConcreteBitvector, bitvector::util, forward::HwArith};
 
@@ -20,10 +23,19 @@ impl<const L: u32> Bitvector<L> {
     }
 
     #[must_use]
-    pub fn new_unknown() -> Self {
+    pub fn full() -> Self {
         Self {
             start: Self::representable_umin(),
             end: Self::representable_umax(),
+        }
+    }
+
+    pub fn len(&self) -> Option<ConcreteBitvector<L>> {
+        // length of full interval does not fit into the concrete bitvector
+        if !self.is_full() {
+            Some(self.end.sub(self.start))
+        } else {
+            None
         }
     }
 
@@ -46,12 +58,23 @@ impl<const L: u32> Bitvector<L> {
         }
     }
 
+    pub fn is_full(&self) -> bool {
+        if L == 0 {
+            return true;
+        }
+
+        self.end.add(ConcreteBitvector::new(1)) == self.start
+    }
+
     #[must_use]
     pub fn contains(&self, rhs: &Self) -> bool {
         println!("Does {} contain {}?", self, rhs);
         // handle full intervals specially to avoid corner cases
-        if self.end.add(ConcreteBitvector::new(1)) == self.start {
+        if self.is_full() {
             return true;
+        }
+        if rhs.is_full() {
+            return false;
         }
 
         if self.start.as_unsigned() <= self.end.as_unsigned() {
@@ -100,6 +123,8 @@ impl<const L: u32> Bitvector<L> {
             return *self;
         }
 
+        println!("Joining concrete {} to {}", concrete, self);
+
         // outside the interval, that means we can replace either bound with it
         // select the bound that results in smaller interval
         // prefer increasing the maximum
@@ -107,6 +132,13 @@ impl<const L: u32> Bitvector<L> {
             Self::from_wrap_interval(concrete, self.end)
         } else {
             Self::from_wrap_interval(self.start, concrete)
+        }
+    }
+
+    pub fn concrete_iter(&self) -> impl Iterator<Item = ConcreteBitvector<L>> {
+        BitvectorIterator {
+            current: Some(self.start),
+            end: self.end,
         }
     }
 
@@ -119,10 +151,34 @@ impl<const L: u32> Bitvector<L> {
     }
 }
 
+impl<const L: u32> PartialEq for Bitvector<L> {
+    fn eq(&self, other: &Self) -> bool {
+        // all full intervals are the same
+        if self.is_full() {
+            return other.is_full();
+        }
+
+        // otherwise, compare the bounds
+        self.start == other.start && self.end == other.end
+    }
+}
+
+impl<const L: u32> Eq for Bitvector<L> {}
+
+impl<const L: u32> Hash for Bitvector<L> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // all full intervals are the same, do not write to hasher
+        if !self.is_full() {
+            self.start.hash(state);
+            self.end.hash(state);
+        }
+    }
+}
+
 impl<const L: u32> Default for Bitvector<L> {
     fn default() -> Self {
         // default to fully unknown
-        Self::new_unknown()
+        Self::full()
     }
 }
 
@@ -135,5 +191,26 @@ impl<const L: u32> Debug for Bitvector<L> {
 impl<const L: u32> Display for Bitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
+    }
+}
+
+struct BitvectorIterator<const L: u32> {
+    current: Option<ConcreteBitvector<L>>,
+    end: ConcreteBitvector<L>,
+}
+
+impl<const L: u32> Iterator for BitvectorIterator<L> {
+    type Item = ConcreteBitvector<L>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(result) = self.current else {
+            return None;
+        };
+        if result != self.end {
+            self.current = Some(result.add(ConcreteBitvector::new(1)));
+        } else {
+            self.current = None;
+        }
+        Some(result)
     }
 }
