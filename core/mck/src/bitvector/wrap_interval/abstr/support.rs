@@ -227,7 +227,11 @@ impl<const L: u32> Default for Bitvector<L> {
 
 impl<const L: u32> Debug for Bitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{},{}]", self.start, self.end)
+        if self.start.as_unsigned() <= self.end.as_unsigned() {
+            write!(f, "[{},{}]", self.start, self.end)
+        } else {
+            write!(f, "[{},{}] (mod 2^{})", self.start, self.end, L)
+        }
     }
 }
 
