@@ -65,13 +65,14 @@ impl<const L: u32> ConcreteBitvector<L> {
 
 impl<const L: u32> Debug for ConcreteBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "'")?;
+        write!(f, "0x{:X}", self.0)
+        /*write!(f, "'")?;
         for little_k in 0..L {
             let big_k = L - little_k - 1;
             let bit = (self.0 >> (big_k)) & 1;
             write!(f, "{}", bit)?;
         }
-        write!(f, "'")
+        write!(f, "'")*/
     }
 }
 
