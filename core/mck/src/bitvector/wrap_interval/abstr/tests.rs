@@ -116,3 +116,8 @@ bi_op_test!(add, true);
 bi_op_test!(sub, true);
 
 bi_op_test!(typed_eq, true);
+
+bi_op_test!(typed_ult, true);
+bi_op_test!(typed_ulte, true);
+bi_op_test!(typed_slt, true);
+bi_op_test!(typed_slte, true);

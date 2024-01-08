@@ -34,6 +34,14 @@ impl<const L: u32> ConcreteBitvector<L> {
         result as i64
     }
 
+    pub fn as_offset_signed(&self) -> u64 {
+        if L == 0 {
+            return self.0;
+        }
+        // offset by flipping the most significant bit
+        self.0 ^ (1 << (L - 1))
+    }
+
     pub fn is_zero(&self) -> bool {
         self.0 == 0
     }

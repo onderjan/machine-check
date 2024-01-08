@@ -3,7 +3,11 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use crate::{bitvector::concrete::ConcreteBitvector, bitvector::util, forward::HwArith};
+use crate::{
+    bitvector::concrete::ConcreteBitvector,
+    bitvector::{util, wrap_interval::interval::Interval},
+    forward::HwArith,
+};
 
 use super::Bitvector;
 
@@ -146,17 +150,68 @@ impl<const L: u32> Bitvector<L> {
         }
     }
 
+    pub fn unsigned_intervals(&self) -> Vec<Interval> {
+        if self.start.as_unsigned() <= self.end.as_unsigned() {
+            // single interval
+            vec![Interval::new(
+                self.start.as_unsigned(),
+                self.end.as_unsigned(),
+            )]
+        } else {
+            // interval from start to representable maximum
+            // and interval from representable minimum to end
+            vec![
+                Interval::new(
+                    self.start.as_unsigned(),
+                    Self::representable_umax().as_unsigned(),
+                ),
+                Interval::new(
+                    Self::representable_umin().as_unsigned(),
+                    self.end.as_unsigned(),
+                ),
+            ]
+        }
+    }
+
+    pub fn unsigned_interval(&self) -> Interval {
+        let start = self.start.as_unsigned();
+        let end = self.end.as_unsigned();
+        if start <= end {
+            // single interval
+            Interval::new(start, end)
+        } else {
+            // full interval
+            Interval::new(
+                Self::representable_umin().as_unsigned(),
+                Self::representable_umax().as_unsigned(),
+            )
+        }
+    }
+
+    pub fn offset_signed_interval(&self) -> Interval {
+        let start = self.start.as_offset_signed();
+        let end = self.end.as_offset_signed();
+
+        if start <= end {
+            // single interval
+            Interval::new(start, end)
+        } else {
+            // full interval
+            Interval::new(
+                Self::representable_umin().as_unsigned(),
+                Self::representable_umax().as_unsigned(),
+            )
+        }
+    }
+
     #[must_use]
     pub fn contains_concrete(&self, a: &ConcreteBitvector<L>) -> bool {
-        if self.start.as_unsigned() <= self.end.as_unsigned() {
-            // the value must be inside [self.start, self.end]
-            self.start.as_unsigned() <= a.as_unsigned() && a.as_unsigned() <= self.end.as_unsigned()
-        } else {
-            // the value must be inside of either
-            // [self.start, repr_max] or [repr_min, self.end]
-            // the inequalities with representable are always true
-            self.start.as_unsigned() <= a.as_unsigned() || a.as_unsigned() <= self.end.as_unsigned()
+        for interval in self.unsigned_intervals() {
+            if interval.contains_single(a.as_unsigned()) {
+                return true;
+            }
         }
+        false
     }
 
     #[must_use]
@@ -165,8 +220,6 @@ impl<const L: u32> Bitvector<L> {
         if self.contains_concrete(&concrete) {
             return *self;
         }
-
-        println!("Joining concrete {} to {}", concrete, self);
 
         // outside the interval, that means we can replace either bound with it
         // select the bound that results in smaller interval
@@ -191,6 +244,16 @@ impl<const L: u32> Bitvector<L> {
             let end_iter = ConcreteBitvector::<L>::all_with_length_iter();
             end_iter.map(move |end| Self::from_wrap_interval(start, end))
         })
+    }
+}
+
+impl Bitvector<1> {
+    pub fn from_bools(can_be_false: bool, can_be_true: bool) -> Self {
+        assert!(can_be_false || can_be_true);
+        Self {
+            start: ConcreteBitvector::new(if can_be_false { 0 } else { 1 }),
+            end: ConcreteBitvector::new(if can_be_true { 1 } else { 0 }),
+        }
     }
 }
 
