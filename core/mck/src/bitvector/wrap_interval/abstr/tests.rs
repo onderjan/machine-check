@@ -114,6 +114,12 @@ uni_op_test!(arith_neg);
 
 bi_op_test!(add, true);
 bi_op_test!(sub, true);
+bi_op_test!(mul, false);
+
+bi_op_test!(udiv, false);
+bi_op_test!(urem, false);
+bi_op_test!(sdiv, false);
+bi_op_test!(srem, false);
 
 bi_op_test!(typed_eq, true);
 

@@ -34,13 +34,8 @@ impl<const L: u32> Bitvector<L> {
         }
     }
 
-    pub fn len(&self) -> Option<ConcreteBitvector<L>> {
-        // length of full interval does not fit into the concrete bitvector
-        if !self.is_full() {
-            Some(self.end.sub(self.start))
-        } else {
-            None
-        }
+    pub fn bound_diff(&self) -> ConcreteBitvector<L> {
+        self.end.sub(self.start)
     }
 
     #[must_use]

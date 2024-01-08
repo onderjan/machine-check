@@ -3,8 +3,8 @@ use core::fmt::Display;
 
 #[derive(Clone, Copy, Hash)]
 pub struct Interval {
-    min: u64,
-    max: u64,
+    pub min: u64,
+    pub max: u64,
 }
 
 impl Interval {

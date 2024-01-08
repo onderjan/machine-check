@@ -73,10 +73,16 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
         for b in Bitvector::<L>::all_with_length_iter() {
             let abstr_result = abstr_func(a, b);
 
-            let equiv_result = join_concr_iter(a.concrete_iter().flat_map(|a_concr| {
+            let concrete_iter = a.concrete_iter().flat_map(|a_concr| {
                 b.concrete_iter()
                     .map(move |b_concr| concr_func(a_concr, b_concr))
-            }));
+            });
+            let concrete_vec: Vec<_> = concrete_iter.collect();
+
+            // TODO: better handling of exact and non-exact checks
+            //let concrete_set = BTreeSet::from_iter(concrete_vec.iter().map(|v| v.as_unsigned()));
+
+            let equiv_result = join_concr_iter(concrete_vec.iter().cloned());
 
             if exact {
                 if abstr_result != equiv_result {
@@ -85,11 +91,15 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
                         a, b, equiv_result, abstr_result
                     );
                 }
-            } else if !abstr_result.contains(&equiv_result) {
-                panic!(
-                    "Unsound result with parameters {}, {}, expected {}, got {}",
-                    a, b, equiv_result, abstr_result
-                );
+            } else {
+                for concrete in concrete_vec {
+                    if !abstr_result.contains_concrete(&concrete) {
+                        panic!(
+                            "Unsound result with parameters {}, {}, expected {}, got {}",
+                            a, b, equiv_result, abstr_result
+                        );
+                    }
+                }
             }
             if a.concrete_value().is_some()
                 && b.concrete_value().is_some()
