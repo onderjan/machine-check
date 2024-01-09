@@ -1,5 +1,8 @@
 use super::Bitvector;
-use crate::{bitvector::concrete::ConcreteBitvector, forward::HwArith};
+use crate::{
+    bitvector::{concrete::ConcreteBitvector, wrap_interval::interval::Interval},
+    forward::HwArith,
+};
 
 impl<const L: u32> HwArith for Bitvector<L> {
     fn arith_neg(self) -> Self {
@@ -76,18 +79,43 @@ impl<const L: u32> HwArith for Bitvector<L> {
     }
 
     fn udiv(self, rhs: Self) -> Self {
-        let lhs_interval = self.unsigned_interval();
-        let rhs_interval = rhs.unsigned_interval();
+        if L == 0 {
+            return self;
+        }
+        let lhs_intervals = self.unsigned_intervals();
+        let mut rhs_intervals = rhs.unsigned_intervals();
 
-        let result_max =
-            ConcreteBitvector::new(lhs_interval.max).udiv(ConcreteBitvector::new(rhs_interval.min));
-        let result_min =
-            ConcreteBitvector::new(lhs_interval.min).udiv(ConcreteBitvector::new(rhs_interval.max));
+        if let Some(rhs_first) = rhs_intervals.first() {
+            if rhs_first.min == 0 {
+                let mut new_rhs_intervals = vec![Interval::new(0, 0)];
+                if rhs_first.max != 0 {
+                    new_rhs_intervals.push(Interval::new(1, rhs_first.max));
+                }
+                new_rhs_intervals.extend(rhs_intervals.iter().skip(1));
+                rhs_intervals = new_rhs_intervals;
+            }
+        }
+        let mut result_intervals = Vec::new();
 
-        let start = result_min;
-        let end = result_max;
+        for lhs_interval in lhs_intervals.iter() {
+            for rhs_interval in rhs_intervals.iter() {
+                let result_max = ConcreteBitvector::<L>::new(lhs_interval.max)
+                    .udiv(ConcreteBitvector::new(rhs_interval.min));
+                let result_min = ConcreteBitvector::<L>::new(lhs_interval.min)
+                    .udiv(ConcreteBitvector::new(rhs_interval.max));
+                result_intervals.push(Interval::new(
+                    result_min.as_unsigned(),
+                    result_max.as_unsigned(),
+                ));
+            }
+        }
 
-        Self { start, end }
+        /*println!(
+            "{:?} / {:?} = {:?}",
+            lhs_intervals, rhs_intervals, result_intervals
+        );*/
+
+        Self::from_intervals(result_intervals)
     }
 
     fn sdiv(self, rhs: Self) -> Self {

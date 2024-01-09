@@ -1,11 +1,15 @@
 use std::{
     fmt::{Debug, Display},
     hash::{Hash, Hasher},
+    sync::Condvar,
 };
 
 use crate::{
     bitvector::concrete::ConcreteBitvector,
-    bitvector::{util, wrap_interval::interval::Interval},
+    bitvector::{
+        util,
+        wrap_interval::interval::{self, Interval},
+    },
     forward::HwArith,
 };
 
@@ -26,6 +30,56 @@ impl<const L: u32> Bitvector<L> {
         Self { start, end }
     }
 
+    pub fn from_intervals(mut intervals: Vec<Interval>) -> Self {
+        assert!(!intervals.is_empty());
+
+        intervals.sort_unstable_by(|a, b| a.min.cmp(&b.min));
+
+        // join intervals first
+        let mut index = 0;
+        while index + 1 < intervals.len() {
+            let next = intervals[index + 1];
+            let current = &mut intervals[index];
+            if current.max >= next.min {
+                // unionize
+                current.max = current.max.max(next.max);
+                intervals.remove(index + 1);
+            } else {
+                index += 1;
+            }
+        }
+
+        let mut largest_hole_index = 0;
+        let mut largest_hole = 0;
+        for (index, (current, next)) in intervals
+            .iter()
+            .cloned()
+            .zip(intervals.iter().skip(1).cloned())
+            .chain(std::iter::once((
+                *intervals.last().unwrap(),
+                *intervals.first().unwrap(),
+            )))
+            .enumerate()
+        {
+            let current_bitvec = ConcreteBitvector::<L>::new(current.max);
+            let next_bitvec = ConcreteBitvector::<L>::new(next.min);
+            let hole = next_bitvec.sub(current_bitvec).as_unsigned();
+            if hole > largest_hole {
+                largest_hole = hole;
+                largest_hole_index = index;
+            }
+        }
+
+        let end = intervals[largest_hole_index].max;
+        let start = intervals
+            .get(largest_hole_index + 1)
+            .unwrap_or_else(|| intervals.first().unwrap())
+            .min;
+
+        Self::from_wrap_interval(ConcreteBitvector::new(start), ConcreteBitvector::new(end))
+        //println!("From sorted intervals {:?}: {}", intervals, result);
+    }
+
     #[must_use]
     pub fn full() -> Self {
         Self {
@@ -36,6 +90,10 @@ impl<const L: u32> Bitvector<L> {
 
     pub fn bound_diff(&self) -> ConcreteBitvector<L> {
         self.end.sub(self.start)
+    }
+
+    pub fn hole_diff(&self) -> ConcreteBitvector<L> {
+        self.start.sub(self.end)
     }
 
     #[must_use]
@@ -153,16 +211,17 @@ impl<const L: u32> Bitvector<L> {
                 self.end.as_unsigned(),
             )]
         } else {
+            // start with lowest
+            // interval from representable minimum to end
             // interval from start to representable maximum
-            // and interval from representable minimum to end
             vec![
-                Interval::new(
-                    self.start.as_unsigned(),
-                    Self::representable_umax().as_unsigned(),
-                ),
                 Interval::new(
                     Self::representable_umin().as_unsigned(),
                     self.end.as_unsigned(),
+                ),
+                Interval::new(
+                    self.start.as_unsigned(),
+                    Self::representable_umax().as_unsigned(),
                 ),
             ]
         }
