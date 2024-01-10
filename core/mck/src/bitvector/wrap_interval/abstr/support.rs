@@ -30,6 +30,14 @@ impl<const L: u32> Bitvector<L> {
         Self { start, end }
     }
 
+    pub fn from_interval(interval: Interval) -> Self {
+        assert!(interval.min <= interval.max);
+        Self {
+            start: ConcreteBitvector::new(interval.min),
+            end: ConcreteBitvector::new(interval.max),
+        }
+    }
+
     pub fn from_intervals(mut intervals: Vec<Interval>) -> Self {
         assert!(!intervals.is_empty());
 
@@ -104,6 +112,21 @@ impl<const L: u32> Bitvector<L> {
     #[must_use]
     pub fn representable_umax() -> ConcreteBitvector<L> {
         ConcreteBitvector::new(util::compute_u64_mask(L))
+    }
+
+    #[must_use]
+    pub fn representable_smin() -> ConcreteBitvector<L> {
+        // signed minimum has only the sign bit set
+        ConcreteBitvector::new(util::compute_u64_sign_bit_mask(L))
+    }
+
+    #[must_use]
+    pub fn representable_smax() -> ConcreteBitvector<L> {
+        if L == 0 {
+            return ConcreteBitvector::new(0);
+        }
+        // signed maximum is wrapping one lower than signed minimum
+        Self::representable_smin().sub(ConcreteBitvector::new(1))
     }
 
     #[must_use]
@@ -278,6 +301,64 @@ impl<const L: u32> Bitvector<L> {
                 Self::representable_umax().as_unsigned(),
             )
         }
+    }
+
+    pub fn absolute_negative_intervals(&self) -> Vec<Interval> {
+        self.unsigned_intervals()
+            .iter()
+            .filter_map(|v| {
+                if v.max >= Self::representable_smin().as_unsigned() {
+                    let unsigned_min = ConcreteBitvector::<L>::new(
+                        v.min.max(Self::representable_smin().as_unsigned()),
+                    );
+                    let unsigned_max = ConcreteBitvector::<L>::new(v.max);
+                    let absolute_negative_min = unsigned_max.arith_neg();
+                    let absolute_negative_max = unsigned_min.arith_neg();
+
+                    Some(Interval::new(
+                        absolute_negative_min.as_unsigned(),
+                        absolute_negative_max.as_unsigned(),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn nonnegative_intervals(&self) -> Vec<Interval> {
+        self.unsigned_intervals()
+            .iter()
+            .filter_map(|v| {
+                if v.min <= Self::representable_smax().as_unsigned() {
+                    Some(Interval::new(
+                        v.min,
+                        v.max.min(Self::representable_smax().as_unsigned()),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn positive_intervals(&self) -> Vec<Interval> {
+        self.unsigned_intervals()
+            .iter()
+            .filter_map(|v| {
+                if v.max > 0 && v.min <= Self::representable_smax().as_unsigned() {
+                    let min_val = v.min.max(1);
+                    Some(Interval::new(
+                        v.min.max(1),
+                        v.max
+                            .min(Self::representable_smax().as_unsigned())
+                            .max(min_val),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     #[must_use]

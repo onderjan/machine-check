@@ -119,7 +119,14 @@ impl<const L: u32> HwArith for Bitvector<L> {
     }
 
     fn sdiv(self, rhs: Self) -> Self {
-        todo!()
+        // resolve by parts, division by zero returns all ones
+        // sign of result is positive if signs of both operands are the same
+        self.sdivrem_by_parts(
+            rhs,
+            |a, b| a.udiv(b),
+            |a, b| a == b,
+            Self::from_concrete(Self::representable_umax()),
+        )
     }
 
     fn urem(self, rhs: Self) -> Self {
@@ -167,7 +174,9 @@ impl<const L: u32> HwArith for Bitvector<L> {
     }
 
     fn srem(self, rhs: Self) -> Self {
-        todo!()
+        // resolve by parts, remainder of division by zero is the dividend
+        // sign of the result equals sign of the dividend
+        self.sdivrem_by_parts(rhs, |a, b| a.urem(b), |a, _b| a, self)
     }
 }
 
@@ -179,5 +188,83 @@ impl<const L: u32> Bitvector<L> {
         let wrapped_total_len = lhs_diff.add(rhs_diff);
         wrapped_total_len.as_unsigned() < lhs_diff.as_unsigned()
             || wrapped_total_len.as_unsigned() < rhs_diff.as_unsigned()
+    }
+
+    fn sdivrem_by_parts(
+        self,
+        rhs: Self,
+        op: fn(Bitvector<L>, Bitvector<L>) -> Bitvector<L>,
+        sign_op: fn(bool, bool) -> bool,
+        zero_second_result: Bitvector<L>,
+    ) -> Bitvector<L> {
+        let mut interval_results = Vec::new();
+
+        let lhs_abs_neg_intervals = self.absolute_negative_intervals();
+        let lhs_nonneg_intervals = self.nonnegative_intervals();
+        let rhs_abs_neg_intervals = rhs.absolute_negative_intervals();
+        let rhs_pos_intervals = rhs.positive_intervals();
+
+        // resolve for intervals of both
+        Self::sdivrem_part(
+            &mut interval_results,
+            op,
+            sign_op(false, false),
+            &lhs_abs_neg_intervals,
+            &rhs_abs_neg_intervals,
+        );
+        Self::sdivrem_part(
+            &mut interval_results,
+            op,
+            sign_op(true, false),
+            &lhs_nonneg_intervals,
+            &rhs_abs_neg_intervals,
+        );
+        Self::sdivrem_part(
+            &mut interval_results,
+            op,
+            sign_op(false, true),
+            &lhs_abs_neg_intervals,
+            &rhs_pos_intervals,
+        );
+        Self::sdivrem_part(
+            &mut interval_results,
+            op,
+            sign_op(true, true),
+            &lhs_nonneg_intervals,
+            &rhs_pos_intervals,
+        );
+
+        // resolve division by zero if necessary
+        if rhs.contains_concrete(&ConcreteBitvector::new(0)) {
+            interval_results.push(zero_second_result);
+        }
+
+        Bitvector::<L>::from_intervals(
+            interval_results
+                .iter()
+                .flat_map(|v| v.unsigned_intervals())
+                .collect(),
+        )
+    }
+
+    fn sdivrem_part(
+        interval_results: &mut Vec<Bitvector<L>>,
+        op: fn(Bitvector<L>, Bitvector<L>) -> Bitvector<L>,
+        positive_sign: bool,
+        lhs_intervals: &[Interval],
+        rhs_intervals: &[Interval],
+    ) {
+        for lhs_interval in lhs_intervals.iter().cloned() {
+            for rhs_interval in rhs_intervals.iter().cloned() {
+                let mut op_result = op(
+                    Bitvector::<L>::from_interval(lhs_interval),
+                    Bitvector::<L>::from_interval(rhs_interval),
+                );
+                if !positive_sign {
+                    op_result = op_result.arith_neg()
+                }
+                interval_results.push(op_result);
+            }
+        }
     }
 }
