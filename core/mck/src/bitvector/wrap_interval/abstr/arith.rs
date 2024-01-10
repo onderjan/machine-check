@@ -1,7 +1,7 @@
 use super::Bitvector;
 use crate::{
     bitvector::{concrete::ConcreteBitvector, wrap_interval::interval::Interval},
-    forward::HwArith,
+    forward::{HwArith, TypedCmp},
 };
 
 impl<const L: u32> HwArith for Bitvector<L> {
@@ -123,7 +123,47 @@ impl<const L: u32> HwArith for Bitvector<L> {
     }
 
     fn urem(self, rhs: Self) -> Self {
-        todo!()
+        if L == 0 {
+            return self;
+        }
+        let Some(rhs_value) = rhs.concrete_value() else {
+            // multiple divisor values, assume minimal divisor is nonzero first
+            let rhs_max = rhs.umax();
+            let lhs_min = if self.umax().as_unsigned() < rhs.umin().as_unsigned() {
+                self.umin()
+            } else {
+                ConcreteBitvector::new(0)
+            };
+            let mut result_min = lhs_min.as_unsigned().min(rhs_max.as_unsigned());
+            let mut result_max = rhs_max.as_unsigned();
+            // adjust for zero divisor: in that case, dividend is returned, so adjust the minimum and maximum accordingly
+            if rhs.contains_concrete(&ConcreteBitvector::new(0)) {
+                result_min = result_min.min(lhs_min.as_unsigned());
+                let lhs_max = self.umax();
+                result_max = result_max.max(lhs_max.as_unsigned());
+            }
+
+            return Self::from_wrap_interval(ConcreteBitvector::new(result_min), ConcreteBitvector::new(result_max));
+        };
+
+        if rhs_value.is_zero() {
+            // in case of zero divisor, the dividend is returned
+            return self;
+        }
+
+        // single divisor value, decide if the result is definitely full
+        let lhs_diff = self.bound_diff();
+        if rhs_value.typed_ulte(lhs_diff).is_nonzero() {
+            return Self::full();
+        }
+
+        // decide if the result wraps ... if it does, return full
+        if self.start.as_unsigned() > self.end.as_unsigned() {
+            return Self::full();
+        }
+
+        // return remainder
+        Self::from_wrap_interval(self.start.urem(rhs_value), self.end.urem(rhs_value))
     }
 
     fn srem(self, rhs: Self) -> Self {

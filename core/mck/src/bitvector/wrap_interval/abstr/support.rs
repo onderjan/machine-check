@@ -107,6 +107,28 @@ impl<const L: u32> Bitvector<L> {
     }
 
     #[must_use]
+    pub fn umin(&self) -> ConcreteBitvector<L> {
+        if self.start.as_unsigned() <= self.end.as_unsigned() {
+            // non-wrapping
+            self.start
+        } else {
+            // wrapping
+            Self::representable_umin()
+        }
+    }
+
+    #[must_use]
+    pub fn umax(&self) -> ConcreteBitvector<L> {
+        if self.start.as_unsigned() <= self.end.as_unsigned() {
+            // non-wrapping
+            self.end
+        } else {
+            // wrapping
+            Self::representable_umax()
+        }
+    }
+
+    #[must_use]
     pub fn concrete_value(&self) -> Option<ConcreteBitvector<L>> {
         if self.start == self.end {
             Some(self.start)
