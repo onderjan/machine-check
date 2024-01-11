@@ -93,16 +93,6 @@ impl<const L: u32> HwArith for ConcreteBitvector<L> {
 }
 
 impl<const L: u32> ConcreteBitvector<L> {
-    pub(crate) fn widening_mul(self, rhs: Self) -> (Self, Self) {
-        let wide_lhs = self.0 as u128;
-        let wide_rhs = rhs.0 as u128;
-
-        let wide_result = wide_lhs.wrapping_mul(wide_rhs);
-        let low_result = (wide_result as u64) & Self::bit_mask().0;
-        let high_result = ((wide_result >> L) as u64) & Self::bit_mask().0;
-        (Self::new(low_result), Self::new(high_result))
-    }
-
     pub(crate) fn checked_add(self, rhs: Self) -> Option<Self> {
         let Some(result) = self.0.checked_add(rhs.0) else {
             return None;
