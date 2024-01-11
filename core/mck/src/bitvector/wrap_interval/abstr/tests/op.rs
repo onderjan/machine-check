@@ -137,15 +137,14 @@ pub(super) fn largest_hole<const L: u32>(set: &BTreeSet<u64>) -> u64 {
     // the optimal wrapping interval contains the largest hole between subsequent elements
     // make sure the wrapping between the last element and first element is included
     let mut largest_hole = 0;
-    for (index, (current, next)) in set
-        .iter()
-        .cloned()
-        .zip(set.iter().skip(1).cloned())
-        .chain(std::iter::once((
-            *set.last().unwrap(),
-            *set.first().unwrap(),
-        )))
-        .enumerate()
+    for (current, next) in
+        set.iter()
+            .cloned()
+            .zip(set.iter().skip(1).cloned())
+            .chain(std::iter::once((
+                *set.last().unwrap(),
+                *set.first().unwrap(),
+            )))
     {
         let current_bitvec = ConcreteBitvector::<L>::new(current);
         let next_bitvec = ConcreteBitvector::<L>::new(next);

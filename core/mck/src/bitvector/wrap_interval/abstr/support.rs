@@ -152,6 +152,28 @@ impl<const L: u32> Bitvector<L> {
     }
 
     #[must_use]
+    pub fn smin(&self) -> ConcreteBitvector<L> {
+        if self.start.as_signed() <= self.end.as_signed() {
+            // non-wrapping in signed representation
+            self.start
+        } else {
+            // wrapping in signed representation
+            Self::representable_smin()
+        }
+    }
+
+    #[must_use]
+    pub fn smax(&self) -> ConcreteBitvector<L> {
+        if self.start.as_signed() <= self.end.as_signed() {
+            // non-wrapping in signed representation
+            self.end
+        } else {
+            // wrapping in signed representation
+            Self::representable_smax()
+        }
+    }
+
+    #[must_use]
     pub fn concrete_value(&self) -> Option<ConcreteBitvector<L>> {
         if self.start == self.end {
             Some(self.start)

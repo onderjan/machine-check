@@ -1,6 +1,7 @@
 mod arith;
 mod cmp;
 mod eq;
+mod ext;
 mod support;
 #[cfg(test)]
 mod tests;

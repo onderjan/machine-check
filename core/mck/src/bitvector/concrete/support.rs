@@ -3,6 +3,7 @@ use std::fmt::Display;
 
 use crate::bitvector::util;
 use crate::forward::Bitwise;
+use crate::forward::TypedCmp;
 
 use super::ConcreteBitvector;
 
@@ -68,6 +69,22 @@ impl<const L: u32> ConcreteBitvector<L> {
 
     pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
         (0..=Self::bit_mask().as_unsigned()).map(Self)
+    }
+
+    pub fn umin(self, other: ConcreteBitvector<L>) -> ConcreteBitvector<L> {
+        if self.typed_ulte(other).is_nonzero() {
+            self
+        } else {
+            other
+        }
+    }
+
+    pub fn umax(self, other: ConcreteBitvector<L>) -> ConcreteBitvector<L> {
+        if other.typed_ulte(self).is_nonzero() {
+            self
+        } else {
+            other
+        }
     }
 }
 

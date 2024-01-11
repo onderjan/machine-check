@@ -127,3 +127,6 @@ bi_op_test!(typed_ult, true);
 bi_op_test!(typed_ulte, true);
 bi_op_test!(typed_slt, true);
 bi_op_test!(typed_slte, true);
+
+ext_op_test!(uext);
+ext_op_test!(sext);
