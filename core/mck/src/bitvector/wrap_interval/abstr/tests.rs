@@ -130,3 +130,7 @@ bi_op_test!(typed_slte, true);
 
 ext_op_test!(uext);
 ext_op_test!(sext);
+
+bi_op_test!(logic_shl, false);
+bi_op_test!(logic_shr, true);
+bi_op_test!(arith_shr, true);

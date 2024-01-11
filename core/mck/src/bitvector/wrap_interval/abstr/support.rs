@@ -1,15 +1,11 @@
 use std::{
     fmt::{Debug, Display},
     hash::{Hash, Hasher},
-    sync::Condvar,
 };
 
 use crate::{
     bitvector::concrete::ConcreteBitvector,
-    bitvector::{
-        util,
-        wrap_interval::interval::{self, Interval},
-    },
+    bitvector::{util, wrap_interval::interval::Interval},
     forward::HwArith,
 };
 
@@ -228,7 +224,6 @@ impl<const L: u32> Bitvector<L> {
 
     #[must_use]
     pub fn intersects(&self, rhs: &Self) -> bool {
-        println!("Does {} intersect {}?", self, rhs);
         // handle full intervals specially to avoid corner cases
         if self.is_full() {
             return true;
@@ -239,7 +234,6 @@ impl<const L: u32> Bitvector<L> {
 
         if self.start.as_unsigned() <= self.end.as_unsigned() {
             if rhs.start.as_unsigned() <= rhs.end.as_unsigned() {
-                println!("Both intervals non-wrapping");
                 // this interval is [self.start, self.end]
                 // the other interval is [rhs.start, rhs.end]
                 (rhs.start.as_unsigned() <= self.start.as_unsigned()
@@ -323,6 +317,23 @@ impl<const L: u32> Bitvector<L> {
                 Self::representable_umax().as_unsigned(),
             )
         }
+    }
+
+    pub fn negative_intervals(&self) -> Vec<Interval> {
+        self.unsigned_intervals()
+            .iter()
+            .filter_map(|v| {
+                if v.max >= Self::representable_smin().as_unsigned() {
+                    let min = ConcreteBitvector::<L>::new(
+                        v.min.max(Self::representable_smin().as_unsigned()),
+                    );
+                    let max = ConcreteBitvector::<L>::new(v.max);
+                    Some(Interval::new(min.as_unsigned(), max.as_unsigned()))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     pub fn absolute_negative_intervals(&self) -> Vec<Interval> {
