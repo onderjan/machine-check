@@ -111,6 +111,7 @@ fn support() {
 }
 
 uni_op_test!(arith_neg);
+uni_op_test!(bit_not);
 
 bi_op_test!(add, true);
 bi_op_test!(sub, true);
@@ -134,3 +135,7 @@ ext_op_test!(sext);
 bi_op_test!(logic_shl, false);
 bi_op_test!(logic_shr, true);
 bi_op_test!(arith_shr, true);
+
+bi_op_test!(bit_and, true);
+bi_op_test!(bit_or, true);
+bi_op_test!(bit_xor, false);

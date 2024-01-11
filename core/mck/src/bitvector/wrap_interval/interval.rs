@@ -1,3 +1,5 @@
+mod bitwise;
+
 use core::fmt::Debug;
 use core::fmt::Display;
 
