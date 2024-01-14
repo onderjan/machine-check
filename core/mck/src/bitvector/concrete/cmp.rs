@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::forward::TypedCmp;
 
 use super::ConcreteBitvector;
@@ -23,5 +25,11 @@ impl<const L: u32> TypedCmp for ConcreteBitvector<L> {
     fn typed_ulte(self, rhs: Self) -> Self::Output {
         let result = self.as_unsigned() <= rhs.as_unsigned();
         ConcreteBitvector::<1>::new(result as u64)
+    }
+}
+
+impl<const L: u32> ConcreteBitvector<L> {
+    pub(crate) fn unsigned_cmp(&self, other: &Self) -> Ordering {
+        self.as_unsigned().cmp(&other.as_unsigned())
     }
 }

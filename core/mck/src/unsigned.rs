@@ -34,3 +34,15 @@ impl<const L: u32> Sub<Unsigned<L>> for Unsigned<L> {
         Self::from_bitvector(self.0.sub(rhs.0))
     }
 }
+
+impl<const L: u32> PartialOrd for Unsigned<L> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<const L: u32> Ord for Unsigned<L> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.unsigned_cmp(&other.0)
+    }
+}
