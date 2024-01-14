@@ -2,6 +2,7 @@
 
 mod bitvector;
 mod traits;
+mod unsigned;
 
 pub mod concr {
     pub use super::bitvector::concr::*;
