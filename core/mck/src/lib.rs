@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod bitvector;
+mod signed;
 mod traits;
 mod unsigned;
 
