@@ -7,13 +7,13 @@ use std::ops::Add;
 use crate::unsigned::Unsigned;
 
 #[derive(Clone, Copy, Hash)]
-pub struct Interval<const L: u32> {
-    pub min: Unsigned<L>,
-    pub max: Unsigned<L>,
+pub struct Interval<T: Ord + Clone + Copy> {
+    pub min: T,
+    pub max: T,
 }
 
-impl<const L: u32> Interval<L> {
-    pub fn new(min: Unsigned<L>, max: Unsigned<L>) -> Self {
+impl<T: Ord + Clone + Copy> Interval<T> {
+    pub fn new(min: T, max: T) -> Self {
         assert!(min <= max);
         Self { min, max }
     }
@@ -22,15 +22,8 @@ impl<const L: u32> Interval<L> {
         self.min <= other.min && other.max <= self.max
     }
 
-    pub fn contains_single(self, other: Unsigned<L>) -> bool {
+    pub fn contains_single(self, other: T) -> bool {
         self.min <= other && other <= self.max
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = Unsigned<L>> {
-        IntervalIterator {
-            current: Some(self.min),
-            max: self.max,
-        }
     }
 
     pub fn intersects(self, other: Self) -> bool {
@@ -84,24 +77,32 @@ impl<const L: u32> Interval<L> {
     }
 }
 
-impl<const L: u32> Debug for Interval<L> {
+impl<T: Ord + Clone + Copy + Debug> Debug for Interval<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{:?},{:?}]", self.min, self.max)
+    }
+}
+
+impl<T: Ord + Clone + Copy + Display> Display for Interval<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{},{}]", self.min, self.max)
     }
 }
 
-impl<const L: u32> Display for Interval<L> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        <Self as Debug>::fmt(self, f)
+impl<const L: u32> Interval<Unsigned<L>> {
+    pub fn iter(&self) -> impl Iterator<Item = Unsigned<L>> {
+        IntervalIterator {
+            current: Some(self.min),
+            max: self.max,
+        }
     }
 }
-
-struct IntervalIterator<const L: u32> {
-    pub current: Option<Unsigned<L>>,
-    pub max: Unsigned<L>,
+struct IntervalIterator<T> {
+    pub current: Option<T>,
+    pub max: T,
 }
 
-impl<const L: u32> Iterator for IntervalIterator<L> {
+impl<const L: u32> Iterator for IntervalIterator<Unsigned<L>> {
     type Item = Unsigned<L>;
 
     fn next(&mut self) -> Option<Self::Item> {

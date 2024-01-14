@@ -111,7 +111,7 @@ impl<const L: u32> HwArith for Bitvector<L> {
             lhs_intervals, rhs_intervals, result_intervals
         );*/
 
-        Self::from_intervals(result_intervals)
+        Self::from_unsigned_intervals(result_intervals)
     }
 
     fn sdiv(self, rhs: Self) -> Self {
@@ -235,7 +235,7 @@ impl<const L: u32> Bitvector<L> {
             interval_results.push(zero_second_result);
         }
 
-        Bitvector::<L>::from_intervals(
+        Bitvector::<L>::from_unsigned_intervals(
             interval_results
                 .iter()
                 .flat_map(|v| v.unsigned_intervals())
@@ -247,14 +247,14 @@ impl<const L: u32> Bitvector<L> {
         interval_results: &mut Vec<Bitvector<L>>,
         op: fn(Bitvector<L>, Bitvector<L>) -> Bitvector<L>,
         positive_sign: bool,
-        lhs_intervals: &[Interval<L>],
-        rhs_intervals: &[Interval<L>],
+        lhs_intervals: &[Interval<Unsigned<L>>],
+        rhs_intervals: &[Interval<Unsigned<L>>],
     ) {
         for lhs_interval in lhs_intervals.iter().cloned() {
             for rhs_interval in rhs_intervals.iter().cloned() {
                 let mut op_result = op(
-                    Bitvector::<L>::from_interval(lhs_interval),
-                    Bitvector::<L>::from_interval(rhs_interval),
+                    Bitvector::<L>::from_unsigned_interval(lhs_interval),
+                    Bitvector::<L>::from_unsigned_interval(rhs_interval),
                 );
                 if !positive_sign {
                     op_result = op_result.arith_neg()

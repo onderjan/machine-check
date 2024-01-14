@@ -27,14 +27,14 @@ impl<const L: u32> Bitvector<L> {
         Self { start, end }
     }
 
-    pub fn from_interval(interval: Interval<L>) -> Self {
+    pub fn from_unsigned_interval(interval: Interval<Unsigned<L>>) -> Self {
         Self {
             start: interval.min.as_bitvector(),
             end: interval.max.as_bitvector(),
         }
     }
 
-    pub fn from_intervals(mut intervals: Vec<Interval<L>>) -> Self {
+    pub fn from_unsigned_intervals(mut intervals: Vec<Interval<Unsigned<L>>>) -> Self {
         assert!(!intervals.is_empty());
 
         intervals.sort_unstable_by(|a, b| a.min.cmp(&b.min));
@@ -264,7 +264,7 @@ impl<const L: u32> Bitvector<L> {
         }
     }
 
-    pub fn unsigned_intervals(&self) -> Vec<Interval<L>> {
+    pub fn unsigned_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
         if self.start.as_unsigned() <= self.end.as_unsigned() {
             // single interval
             vec![Interval::new(
@@ -288,7 +288,7 @@ impl<const L: u32> Bitvector<L> {
         }
     }
 
-    pub fn unsigned_interval(&self) -> Interval<L> {
+    pub fn unsigned_interval(&self) -> Interval<Unsigned<L>> {
         let start = self.start;
         let end = self.end;
         if start.as_unsigned() <= end.as_unsigned() {
@@ -306,7 +306,7 @@ impl<const L: u32> Bitvector<L> {
         }
     }
 
-    pub fn offset_signed_interval(&self) -> Interval<L> {
+    pub fn offset_signed_interval(&self) -> Interval<Unsigned<L>> {
         let start = self.start.as_offset_signed();
         let end = self.end.as_offset_signed();
 
@@ -322,7 +322,7 @@ impl<const L: u32> Bitvector<L> {
         }
     }
 
-    pub fn negative_intervals(&self) -> Vec<Interval<L>> {
+    pub fn negative_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
         self.unsigned_intervals()
             .iter()
             .filter_map(|v| {
@@ -342,7 +342,7 @@ impl<const L: u32> Bitvector<L> {
             .collect()
     }
 
-    pub fn absolute_negative_intervals(&self) -> Vec<Interval<L>> {
+    pub fn absolute_negative_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
         self.unsigned_intervals()
             .iter()
             .filter_map(|v| {
@@ -368,7 +368,7 @@ impl<const L: u32> Bitvector<L> {
             .collect()
     }
 
-    pub fn nonnegative_intervals(&self) -> Vec<Interval<L>> {
+    pub fn nonnegative_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
         self.unsigned_intervals()
             .iter()
             .filter_map(|v| {
@@ -389,7 +389,7 @@ impl<const L: u32> Bitvector<L> {
             .collect()
     }
 
-    pub fn positive_intervals(&self) -> Vec<Interval<L>> {
+    pub fn positive_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
         self.unsigned_intervals()
             .iter()
             .filter_map(|v| {

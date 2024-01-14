@@ -53,7 +53,7 @@ impl<const L: u32> HwShift for Bitvector<L> {
             }
         }
 
-        Self::from_intervals(intervals)
+        Self::from_unsigned_intervals(intervals)
     }
 
     fn logic_shr(self, amount: Self) -> Self {
@@ -90,7 +90,7 @@ impl<const L: u32> HwShift for Bitvector<L> {
             }
         }
 
-        Self::from_intervals(intervals)
+        Self::from_unsigned_intervals(intervals)
     }
 
     fn arith_shr(self, amount: Self) -> Self {
@@ -163,6 +163,6 @@ impl<const L: u32> HwShift for Bitvector<L> {
             }
         }
 
-        Self::from_intervals(intervals)
+        Self::from_unsigned_intervals(intervals)
     }
 }

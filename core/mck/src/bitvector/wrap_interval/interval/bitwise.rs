@@ -2,7 +2,7 @@ use crate::unsigned::Unsigned;
 
 use super::Interval;
 
-impl<const L: u32> Interval<L> {
+impl<const L: u32> Interval<Unsigned<L>> {
     pub fn bit_and(self, rhs: Self) -> Self {
         Interval::new(self.bit_and_min(rhs), self.bit_and_max(rhs))
     }

@@ -13,7 +13,7 @@ impl<const L: u32> Bitwise for Bitvector<L> {
                 intervals.push(lhs_interval.bit_and(rhs_interval));
             }
         }
-        Self::from_intervals(intervals)
+        Self::from_unsigned_intervals(intervals)
     }
     fn bit_or(self, rhs: Self) -> Self {
         let mut intervals = Vec::new();
@@ -22,7 +22,7 @@ impl<const L: u32> Bitwise for Bitvector<L> {
                 intervals.push(lhs_interval.bit_or(rhs_interval));
             }
         }
-        Self::from_intervals(intervals)
+        Self::from_unsigned_intervals(intervals)
     }
     fn bit_xor(self, rhs: Self) -> Self {
         let mut intervals = Vec::new();
@@ -31,6 +31,6 @@ impl<const L: u32> Bitwise for Bitvector<L> {
                 intervals.push(lhs_interval.bit_xor(rhs_interval));
             }
         }
-        Self::from_intervals(intervals)
+        Self::from_unsigned_intervals(intervals)
     }
 }
