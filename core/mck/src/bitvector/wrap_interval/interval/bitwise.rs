@@ -1,6 +1,8 @@
+use crate::unsigned::Unsigned;
+
 use super::Interval;
 
-impl Interval {
+impl<const L: u32> Interval<L> {
     pub fn bit_and(self, rhs: Self) -> Self {
         Interval::new(self.bit_and_min(rhs), self.bit_and_max(rhs))
     }
@@ -13,9 +15,14 @@ impl Interval {
         Interval::new(self.bit_xor_min(rhs), self.bit_xor_max(rhs))
     }
 
-    fn bit_and_min(self, rhs: Self) -> u64 {
+    fn bit_and_min(self, rhs: Self) -> Unsigned<L> {
         // from Hacker's Delight, "Propagating Bounds through Logical Operations", with speedup
-        let (mut a, b, mut c, d) = (self.min, self.max, rhs.min, rhs.max);
+        let (mut a, b, mut c, d) = (
+            self.min.as_bitvector().as_unsigned(),
+            self.max.as_bitvector().as_unsigned(),
+            rhs.min.as_bitvector().as_unsigned(),
+            rhs.max.as_bitvector().as_unsigned(),
+        );
         let mut m = if !(a ^ c) == 0 {
             0
         } else {
@@ -36,12 +43,17 @@ impl Interval {
             }
             m >>= 1;
         }
-        a & c
+        Unsigned::new(a & c)
     }
 
-    fn bit_and_max(self, rhs: Self) -> u64 {
+    fn bit_and_max(self, rhs: Self) -> Unsigned<L> {
         // from Hacker's Delight, "Propagating Bounds through Logical Operations", with speedup
-        let (a, mut b, c, mut d) = (self.min, self.max, rhs.min, rhs.max);
+        let (a, mut b, c, mut d) = (
+            self.min.as_bitvector().as_unsigned(),
+            self.max.as_bitvector().as_unsigned(),
+            rhs.min.as_bitvector().as_unsigned(),
+            rhs.max.as_bitvector().as_unsigned(),
+        );
         let mut m = if (b | d) == 0 {
             0
         } else {
@@ -63,12 +75,17 @@ impl Interval {
             }
             m >>= 1;
         }
-        b & d
+        Unsigned::new(b & d)
     }
 
-    fn bit_or_min(self, rhs: Self) -> u64 {
+    fn bit_or_min(self, rhs: Self) -> Unsigned<L> {
         // from Hacker's Delight, "Propagating Bounds through Logical Operations", with speedup
-        let (mut a, b, mut c, d) = (self.min, self.max, rhs.min, rhs.max);
+        let (mut a, b, mut c, d) = (
+            self.min.as_bitvector().as_unsigned(),
+            self.max.as_bitvector().as_unsigned(),
+            rhs.min.as_bitvector().as_unsigned(),
+            rhs.max.as_bitvector().as_unsigned(),
+        );
         let mut m = if (a ^ c) == 0 {
             0
         } else {
@@ -90,12 +107,17 @@ impl Interval {
             }
             m >>= 1;
         }
-        a | c
+        Unsigned::new(a | c)
     }
 
-    fn bit_or_max(self, rhs: Self) -> u64 {
+    fn bit_or_max(self, rhs: Self) -> Unsigned<L> {
         // from Hacker's Delight, "Propagating Bounds through Logical Operations", with speedup
-        let (a, mut b, c, mut d) = (self.min, self.max, rhs.min, rhs.max);
+        let (a, mut b, c, mut d) = (
+            self.min.as_bitvector().as_unsigned(),
+            self.max.as_bitvector().as_unsigned(),
+            rhs.min.as_bitvector().as_unsigned(),
+            rhs.max.as_bitvector().as_unsigned(),
+        );
         let mut m = if (b & d) == 0 {
             0
         } else {
@@ -116,12 +138,17 @@ impl Interval {
             }
             m >>= 1;
         }
-        b | d
+        Unsigned::new(b | d)
     }
 
-    fn bit_xor_min(self, rhs: Self) -> u64 {
+    fn bit_xor_min(self, rhs: Self) -> Unsigned<L> {
         // from Hacker's Delight, "Propagating Bounds through Logical Operations", with speedup
-        let (mut a, b, mut c, d) = (self.min, self.max, rhs.min, rhs.max);
+        let (mut a, b, mut c, d) = (
+            self.min.as_bitvector().as_unsigned(),
+            self.max.as_bitvector().as_unsigned(),
+            rhs.min.as_bitvector().as_unsigned(),
+            rhs.max.as_bitvector().as_unsigned(),
+        );
         let mut m = if (a ^ c) == 0 {
             0
         } else {
@@ -141,12 +168,17 @@ impl Interval {
             }
             m >>= 1;
         }
-        a ^ c
+        Unsigned::new(a ^ c)
     }
 
-    fn bit_xor_max(self, rhs: Self) -> u64 {
+    fn bit_xor_max(self, rhs: Self) -> Unsigned<L> {
         // from Hacker's Delight, "Propagating Bounds through Logical Operations", with speedup
-        let (a, mut b, c, mut d) = (self.min, self.max, rhs.min, rhs.max);
+        let (a, mut b, c, mut d) = (
+            self.min.as_bitvector().as_unsigned(),
+            self.max.as_bitvector().as_unsigned(),
+            rhs.min.as_bitvector().as_unsigned(),
+            rhs.max.as_bitvector().as_unsigned(),
+        );
         let mut m = if (b & d) == 0 {
             0
         } else {
@@ -166,6 +198,6 @@ impl Interval {
             }
             m >>= 1;
         }
-        b ^ d
+        Unsigned::new(b ^ d)
     }
 }
