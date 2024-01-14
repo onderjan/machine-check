@@ -7,7 +7,7 @@ use std::ops::Add;
 use crate::unsigned::Unsigned;
 
 #[derive(Clone, Copy, Hash)]
-pub struct Interval<T: Ord + Clone + Copy> {
+pub(crate) struct Interval<T: Ord + Clone + Copy> {
     pub min: T,
     pub max: T,
 }
@@ -32,6 +32,16 @@ impl<T: Ord + Clone + Copy> Interval<T> {
             || self.min <= other.max && other.max <= self.max
             || other.min <= self.min && self.min <= other.max
             || other.min <= self.max && self.max <= other.max
+    }
+
+    pub fn intersection(self, other: Self) -> Option<Self> {
+        let min = self.min.max(other.min);
+        let max = self.max.min(other.max);
+        if min <= max {
+            Some(Self { min, max })
+        } else {
+            None
+        }
     }
 
     pub fn all_pairs_gt(self, other: Self) -> bool {

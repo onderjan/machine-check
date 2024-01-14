@@ -1,3 +1,4 @@
+mod combined;
 mod concrete;
 mod three_valued;
 mod util;

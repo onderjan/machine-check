@@ -47,6 +47,31 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
+    pub fn from_interval(min: ConcreteBitvector<L>, max: ConcreteBitvector<L>) -> Self {
+        assert!(min.as_unsigned() <= max.as_unsigned());
+        // make positions where min and max agree known
+        let xor = min.bit_xor(max);
+        let Some(unknown_positions) = xor.as_unsigned().checked_ilog2() else {
+            // min is equal to max
+            return Self::from_concrete(min);
+        };
+        if unknown_positions >= L {
+            // all positions are unknown
+            return Self::new_unknown();
+        }
+
+        let unknown_mask = ConcreteBitvector::new(1u64 << unknown_positions);
+        Self::new_value_unknown(min, unknown_mask)
+    }
+
+    pub fn intersection(&self, other: &Self) -> Self {
+        let zeros = self.zeros.bit_and(other.zeros);
+        let ones = self.ones.bit_and(other.ones);
+
+        Self::from_zeros_ones(zeros, ones)
+    }
+
+    #[must_use]
     pub fn new_unknown() -> Self {
         // all zeros and ones set within mask
         let zeros = Self::get_mask();
