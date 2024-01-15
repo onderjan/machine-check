@@ -1,13 +1,13 @@
 use syn::{punctuated::Punctuated, visit_mut::VisitMut, Ident, ImplItemFn, Stmt};
 use syn_path::path;
 
-use crate::machine::{
+use crate::{
     support::backward::BackwardConverter,
     util::{
         create_expr_call, create_expr_path, create_ident, create_let_mut, create_path_from_ident,
         get_block_result_expr, ArgType,
     },
-    Error,
+    MachineError,
 };
 
 use super::{local_visitor::LocalVisitor, ImplConverter};
@@ -16,7 +16,7 @@ impl ImplConverter {
     pub(crate) fn transcribe_impl_item_fn(
         &self,
         orig_fn: &ImplItemFn,
-    ) -> Result<ImplItemFn, Error> {
+    ) -> Result<ImplItemFn, MachineError> {
         let backward_converter = BackwardConverter {
             forward_scheme: self.abstract_rules.clone(),
             backward_scheme: self.refinement_rules.clone(),

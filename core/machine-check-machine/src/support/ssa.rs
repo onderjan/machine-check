@@ -1,14 +1,14 @@
 use proc_macro2::Span;
 use syn::{visit_mut::VisitMut, Block, Expr, Ident, Pat, Stmt};
 
-use crate::machine::{
+use crate::{
     util::{create_expr_path, create_let},
-    Error,
+    MachineError,
 };
 
-pub(crate) fn apply(file: &mut syn::File) -> Result<(), Error> {
+pub(crate) fn apply(file: &mut syn::File) -> Result<(), MachineError> {
     // apply linear SSA to each block using a visitor
-    struct Visitor(Result<(), Error>);
+    struct Visitor(Result<(), MachineError>);
     impl VisitMut for Visitor {
         fn visit_block_mut(&mut self, block: &mut Block) {
             let result = apply_to_block(block);
@@ -24,7 +24,7 @@ pub(crate) fn apply(file: &mut syn::File) -> Result<(), Error> {
     visitor.0
 }
 
-fn apply_to_block(block: &mut Block) -> Result<(), Error> {
+fn apply_to_block(block: &mut Block) -> Result<(), MachineError> {
     let mut translator = BlockTranslator {
         translated_stmts: Vec::new(),
     };
@@ -40,7 +40,7 @@ struct BlockTranslator {
 }
 
 impl BlockTranslator {
-    fn apply_to_stmt(&mut self, mut stmt: Stmt) -> Result<(), Error> {
+    fn apply_to_stmt(&mut self, mut stmt: Stmt) -> Result<(), MachineError> {
         match stmt {
             Stmt::Expr(ref mut expr, _) => {
                 // apply translation to expression without forced movement
@@ -48,17 +48,17 @@ impl BlockTranslator {
             }
             Stmt::Local(ref mut local) => {
                 let Pat::Ident(ident) = &local.pat else {
-                    return Err(Error(String::from("Local let with non-ident pattern not supported")));
+                    return Err(MachineError(String::from("Local let with non-ident pattern not supported")));
                 };
                 if ident.by_ref.is_some() || ident.mutability.is_some() || ident.subpat.is_some() {
-                    return Err(Error(String::from(
+                    return Err(MachineError(String::from(
                         "Non-bare local let ident not supported",
                     )));
                 }
 
                 if let Some(ref mut init) = local.init {
                     if init.diverge.is_some() {
-                        return Err(Error(String::from(
+                        return Err(MachineError(String::from(
                             "Local let with diverging else not supported",
                         )));
                     }
@@ -67,13 +67,18 @@ impl BlockTranslator {
                     self.apply_to_expr(init.expr.as_mut())?;
                 }
             }
-            _ => return Err(Error(format!("Statement type {:?} not supported", stmt))),
+            _ => {
+                return Err(MachineError(format!(
+                    "Statement type {:?} not supported",
+                    stmt
+                )))
+            }
         }
         self.translated_stmts.push(stmt);
         Ok(())
     }
 
-    fn apply_to_expr(&mut self, expr: &mut Expr) -> Result<(), Error> {
+    fn apply_to_expr(&mut self, expr: &mut Expr) -> Result<(), MachineError> {
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA
@@ -101,17 +106,20 @@ impl BlockTranslator {
                     self.move_through_temp(&mut field.expr)?;
                 }
                 if expr_struct.rest.is_some() {
-                    return Err(Error("Struct rest not supported".to_string()));
+                    return Err(MachineError("Struct rest not supported".to_string()));
                 }
             }
             _ => {
-                return Err(Error(format!("Expression type {:?} not supported", expr)));
+                return Err(MachineError(format!(
+                    "Expression type {:?} not supported",
+                    expr
+                )));
             }
         }
         Ok(())
     }
 
-    fn move_through_temp(&mut self, expr: &mut Expr) -> Result<(), Error> {
+    fn move_through_temp(&mut self, expr: &mut Expr) -> Result<(), MachineError> {
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA

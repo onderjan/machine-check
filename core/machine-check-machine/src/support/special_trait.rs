@@ -1,6 +1,6 @@
 use syn::{punctuated::Punctuated, ItemImpl, Path, PathArguments};
 
-use crate::machine::util::{create_ident, create_path_segment};
+use crate::util::{create_ident, create_path_segment};
 
 pub enum SpecialTrait {
     Machine,

@@ -23,7 +23,6 @@ use clap::{Parser, Subcommand};
 use machine_check_common::ExecError;
 use thiserror::Error;
 
-mod machine;
 pub mod prepare;
 mod translate;
 mod util;
@@ -68,7 +67,7 @@ pub enum CheckError {
     #[error("translation error: {0}")]
     Translate(String),
     #[error("machine conversion error: {0}")]
-    Machine(String),
+    Machine(#[from] machine_check_machine::Error),
     #[error("could not flush to file {0}")]
     Flush(Utf8PathBuf, #[source] std::io::Error),
     #[error("could not determine working directory path")]

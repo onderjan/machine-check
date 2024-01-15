@@ -1,9 +1,9 @@
 use syn::visit_mut::VisitMut;
 use syn::Path;
 
-use crate::machine::{
+use crate::{
     util::{create_ident, create_path_segment},
-    Error,
+    MachineError,
 };
 
 #[derive(Clone)]
@@ -30,19 +30,19 @@ impl PathRules {
         PathRules(rules)
     }
 
-    pub(crate) fn apply_to_file(&self, file: &mut syn::File) -> Result<(), Error> {
+    pub(crate) fn apply_to_file(&self, file: &mut syn::File) -> Result<(), MachineError> {
         let mut visitor = Visitor::new(&self.0);
         visitor.visit_file_mut(file);
         visitor.first_error.map_or(Ok(()), Err)
     }
 
-    pub(crate) fn apply_to_item_struct(&self, s: &mut syn::ItemStruct) -> Result<(), Error> {
+    pub(crate) fn apply_to_item_struct(&self, s: &mut syn::ItemStruct) -> Result<(), MachineError> {
         let mut visitor = Visitor::new(&self.0);
         visitor.visit_item_struct_mut(s);
         visitor.first_error.map_or(Ok(()), Err)
     }
 
-    pub(crate) fn convert_path(&self, path: syn::Path) -> Result<syn::Path, Error> {
+    pub(crate) fn convert_path(&self, path: syn::Path) -> Result<syn::Path, MachineError> {
         let mut visitor = Visitor::new(&self.0);
         let mut path = path;
         visitor.apply_to_path(&mut path)?;
@@ -51,7 +51,7 @@ impl PathRules {
 }
 
 struct Visitor<'a> {
-    first_error: Option<Error>,
+    first_error: Option<MachineError>,
     rules: &'a Vec<PathRule>,
 }
 
@@ -79,14 +79,14 @@ impl<'a> Visitor<'a> {
         }
     }
 
-    fn apply_to_path(&mut self, path: &mut Path) -> Result<(), Error> {
+    fn apply_to_path(&mut self, path: &mut Path) -> Result<(), MachineError> {
         // use the first rule that applies
         for rule in self.rules {
             if match_rule(path, rule) {
                 return Ok(());
             }
         }
-        Err(Error(format!("no rule matches path {:?}", path)))
+        Err(MachineError(format!("no rule matches path {:?}", path)))
     }
 }
 

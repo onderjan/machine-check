@@ -1,17 +1,17 @@
 use syn::{ImplItem, ImplItemFn, ItemImpl, ItemStruct, Stmt, Type};
 use syn_path::path;
 
-use crate::machine::{
+use crate::{
     refin::rules,
     util::{
         create_expr_call, create_expr_path, create_ident, create_impl_item_fn,
         create_impl_item_type, create_item_impl, create_path_from_ident, create_self_arg,
         create_type_path, ArgType,
     },
-    Error,
+    MachineError,
 };
 
-pub(crate) fn refinable_impl(s: &ItemStruct) -> Result<ItemImpl, Error> {
+pub(crate) fn refinable_impl(s: &ItemStruct) -> Result<ItemImpl, MachineError> {
     let refine_type_path =
         rules::refinement_type().convert_path(create_path_from_ident(s.ident.clone()))?;
     let refine_type = create_type_path(refine_type_path);

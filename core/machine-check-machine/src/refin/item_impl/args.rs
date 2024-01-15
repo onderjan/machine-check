@@ -1,13 +1,13 @@
 use proc_macro2::Span;
 use syn::{Expr, FnArg, Ident, Member, ReturnType, Signature, Stmt};
 
-use crate::machine::{
+use crate::{
     util::{
         create_arg, create_expr_field_named, create_expr_field_unnamed, create_expr_ident,
         create_expr_path, create_ident, create_let, create_path_from_name, create_refine_join_stmt,
         create_tuple_expr, create_tuple_type, create_type_from_return_type, ArgType,
     },
-    Error,
+    MachineError,
 };
 
 mod util;
@@ -20,7 +20,7 @@ impl ImplConverter {
     pub(crate) fn generate_abstract_input(
         &self,
         orig_sig: &Signature,
-    ) -> Result<(FnArg, Vec<Stmt>), Error> {
+    ) -> Result<(FnArg, Vec<Stmt>), MachineError> {
         let arg_name = "__mck_input_abstr";
         let mut types = Vec::new();
         let mut detuple_stmts = Vec::new();
@@ -46,7 +46,7 @@ impl ImplConverter {
     pub(crate) fn generate_earlier(
         &self,
         orig_sig: &Signature,
-    ) -> Result<(ReturnType, Vec<Ident>, Stmt), Error> {
+    ) -> Result<(ReturnType, Vec<Ident>, Stmt), MachineError> {
         // create return type
         let mut types = Vec::new();
         let mut partial_idents = Vec::new();
@@ -76,7 +76,7 @@ impl ImplConverter {
         &self,
         orig_sig: &Signature,
         orig_result_expr: &Expr,
-    ) -> Result<(FnArg, Vec<Stmt>), Error> {
+    ) -> Result<(FnArg, Vec<Stmt>), MachineError> {
         // just use the original output type, now in refinement context
         let name = "__mck_input_later";
         let ty = create_type_from_return_type(&orig_sig.output);
@@ -84,20 +84,20 @@ impl ImplConverter {
         let arg = create_arg(ArgType::Normal, create_ident(name), Some(ty));
         // create let statement from original result expression
         let Expr::Struct(orig_result_struct) = orig_result_expr else {
-        return Err(Error(String::from("Non-struct result not supported")));
+        return Err(MachineError(String::from("Non-struct result not supported")));
     };
 
         let mut stmts = Vec::new();
 
         for field in &orig_result_struct.fields {
             let Expr::Path(field_path) = &field.expr else {
-            return Err(Error(String::from("Non-path field expression not supported")));
+            return Err(MachineError(String::from("Non-path field expression not supported")));
         };
             let Some(field_ident) = field_path.path.get_ident() else {
-            return Err(Error(String::from("Non-ident field expression not supported")));
+            return Err(MachineError(String::from("Non-ident field expression not supported")));
         };
             let Member::Named(member_ident) = &field.member else {
-            return Err(Error(String::from("Unnamed field member not supported")));
+            return Err(MachineError(String::from("Unnamed field member not supported")));
         };
 
             let refin_ident = self

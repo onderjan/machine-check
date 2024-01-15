@@ -1,8 +1,8 @@
 use syn::{punctuated::Punctuated, visit_mut::VisitMut, Expr, Ident, Member, Path, Stmt, Type};
 
-use crate::machine::{
+use crate::{
     util::{create_path_from_ident, create_type_path},
-    Error,
+    MachineError,
 };
 
 use super::path_rules::PathRules;
@@ -23,7 +23,7 @@ impl StructRules {
         }
     }
 
-    pub(crate) fn apply_to_stmt(&self, stmt: &mut Stmt) -> Result<(), Error> {
+    pub(crate) fn apply_to_stmt(&self, stmt: &mut Stmt) -> Result<(), MachineError> {
         let mut visitor = ConversionVisitor {
             scheme: self,
             result: Ok(()),
@@ -32,7 +32,7 @@ impl StructRules {
         visitor.result
     }
 
-    pub(crate) fn apply_to_expr(&self, expr: &mut Expr) -> Result<(), Error> {
+    pub(crate) fn apply_to_expr(&self, expr: &mut Expr) -> Result<(), MachineError> {
         let mut visitor = ConversionVisitor {
             scheme: self,
             result: Ok(()),
@@ -41,7 +41,7 @@ impl StructRules {
         visitor.result
     }
 
-    pub(crate) fn convert_type(&self, ty: Type) -> Result<Type, Error> {
+    pub(crate) fn convert_type(&self, ty: Type) -> Result<Type, MachineError> {
         if let Type::Reference(ty) = ty {
             let mut ty = ty;
             *ty.elem = self.convert_type(*ty.elem)?;
@@ -49,17 +49,19 @@ impl StructRules {
         }
 
         let Type::Path(ty) = ty else {
-            return Err(Error(String::from("Non-path type not supported")));
+            return Err(MachineError(String::from("Non-path type not supported")));
         };
 
         if ty.qself.is_some() {
-            return Err(Error(String::from("Qualified-path type not supported")));
+            return Err(MachineError(String::from(
+                "Qualified-path type not supported",
+            )));
         }
 
         Ok(create_type_path(self.convert_type_path(&ty.path)?))
     }
 
-    fn convert_type_path(&self, path: &Path) -> Result<Path, Error> {
+    fn convert_type_path(&self, path: &Path) -> Result<Path, MachineError> {
         if path.leading_colon.is_some() {
             // just apply the rules
             return self.type_rules.convert_path(path.clone());
@@ -77,7 +79,7 @@ impl StructRules {
         self.type_rules.convert_path(path.clone())
     }
 
-    pub(crate) fn convert_normal_ident(&self, ident: Ident) -> Result<Ident, Error> {
+    pub(crate) fn convert_normal_ident(&self, ident: Ident) -> Result<Ident, MachineError> {
         let path = self.convert_normal_path(create_path_from_ident(ident))?;
         Ok(path
             .get_ident()
@@ -85,14 +87,14 @@ impl StructRules {
             .clone())
     }
 
-    pub(crate) fn convert_normal_path(&self, path: Path) -> Result<Path, Error> {
+    pub(crate) fn convert_normal_path(&self, path: Path) -> Result<Path, MachineError> {
         self.normal_rules.convert_path(path)
     }
 }
 
 struct ConversionVisitor<'a> {
     scheme: &'a StructRules,
-    result: Result<(), Error>,
+    result: Result<(), MachineError>,
 }
 
 impl<'a> VisitMut for ConversionVisitor<'a> {

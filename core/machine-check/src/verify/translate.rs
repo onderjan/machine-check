@@ -4,10 +4,8 @@ use std::fs::{self};
 use syn::{parse_quote, Item, ItemFn};
 use tempdir::TempDir;
 
-use crate::{
-    machine::{create_abstract_machine, write_machine},
-    translate, CheckError,
-};
+use crate::{translate, CheckError};
+use machine_check_machine::{create_abstract_machine, write_machine};
 
 use super::Verify;
 
@@ -35,8 +33,7 @@ impl Verify {
         let main_path = src_dir_path.join("main.rs");
 
         let concrete_machine: syn::File = translate::translate(&self.verify_args.system_path)?;
-        let mut abstract_machine = create_abstract_machine(&concrete_machine)
-            .map_err(|err| CheckError::Machine(format!("{}", err)))?;
+        let mut abstract_machine = create_abstract_machine(&concrete_machine)?;
 
         // add main function
 

@@ -1,7 +1,7 @@
 use syn::{ImplItem, ImplItemFn, ItemImpl, ItemStruct, Stmt};
 use syn_path::path;
 
-use crate::machine::{
+use crate::{
     refin::rules,
     util::{
         create_arg, create_expr_binary_or, create_expr_call, create_expr_field, create_expr_path,
@@ -9,10 +9,10 @@ use crate::machine::{
         create_path_from_ident, create_path_with_last_generic_type, create_self, create_self_arg,
         create_struct_expr, create_type_path, ArgType,
     },
-    Error,
+    MachineError,
 };
 
-pub(crate) fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, Error> {
+pub(crate) fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, MachineError> {
     let abstr_type_path =
         rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
 
@@ -30,7 +30,7 @@ pub(crate) fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, Error> {
     ))
 }
 
-fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
+fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     let fn_ident = create_ident("proto_first");
 
     let self_arg = create_self_arg(ArgType::Reference);
@@ -59,7 +59,7 @@ fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     ))
 }
 
-fn proto_increment_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
+fn proto_increment_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     let fn_ident = create_ident("proto_increment");
 
     let self_arg = create_self_arg(ArgType::Reference);

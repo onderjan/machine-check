@@ -389,8 +389,8 @@ dependencies = [
  "env_logger",
  "log",
  "machine-check-common",
+ "machine-check-machine",
  "mck",
- "prettyplease",
  "proc-macro2",
  "quote",
  "serde",
@@ -425,6 +425,23 @@ dependencies = [
  "serde_json",
  "thiserror",
 ]
+
+[[package]]
+name = "machine-check-machine"
+version = "0.1.0"
+dependencies = [
+ "camino",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "syn-path",
+ "thiserror",
+]
+
+[[package]]
+name = "machine-check-macros"
+version = "0.1.0"
 
 [[package]]
 name = "machine-check-table"

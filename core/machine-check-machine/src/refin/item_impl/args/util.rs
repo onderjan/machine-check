@@ -1,8 +1,8 @@
 use syn::{FnArg, Pat, Signature, Type};
 
-use crate::machine::{
+use crate::{
     util::{create_converted_type, ArgType},
-    Error,
+    MachineError,
 };
 
 pub fn to_singular_reference(ty: Type) -> Type {
@@ -12,7 +12,7 @@ pub fn to_singular_reference(ty: Type) -> Type {
     }
 }
 
-pub(crate) fn convert_type_to_path(ty: Type) -> Result<Type, Error> {
+pub(crate) fn convert_type_to_path(ty: Type) -> Result<Type, MachineError> {
     match ty {
         Type::Path(_) => return Ok(ty),
         Type::Reference(ref reference) => {
@@ -22,12 +22,14 @@ pub(crate) fn convert_type_to_path(ty: Type) -> Result<Type, Error> {
         }
         _ => (),
     }
-    Err(Error(String::from("Conversion to path type not supported")))
+    Err(MachineError(String::from(
+        "Conversion to path type not supported",
+    )))
 }
 
 pub(crate) fn create_input_name_type_iter(
     sig: &Signature,
-) -> impl Iterator<Item = Result<(String, Type), Error>> + '_ {
+) -> impl Iterator<Item = Result<(String, Type), MachineError>> + '_ {
     sig.inputs.iter().map(|input| match input {
         FnArg::Receiver(receiver) => {
             let ty = receiver.ty.as_ref();
@@ -36,13 +38,13 @@ pub(crate) fn create_input_name_type_iter(
         FnArg::Typed(typed) => {
             let ty = typed.ty.as_ref();
             let Pat::Ident(ref pat_ident) = *typed.pat else {
-                return Err(Error(String::from("Non-identifier patterns are not supported")));
+                return Err(MachineError(String::from("Non-identifier patterns are not supported")));
             };
             if pat_ident.by_ref.is_some()
                 || pat_ident.mutability.is_some()
                 || pat_ident.subpat.is_some()
             {
-                return Err(Error(String::from(
+                return Err(MachineError(String::from(
                     "Impure identifier patterns are not supported",
                 )));
             }

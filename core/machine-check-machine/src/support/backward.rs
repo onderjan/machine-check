@@ -1,11 +1,11 @@
 use syn::{Expr, ExprCall, Pat, Stmt};
 
-use crate::machine::{
+use crate::{
     util::{
         create_expr_field_unnamed, create_expr_ident, create_expr_tuple, create_ident, create_let,
         create_pat_wild, create_refine_join_stmt,
     },
-    Error,
+    MachineError,
 };
 
 use super::struct_rules::StructRules;
@@ -20,16 +20,16 @@ impl BackwardConverter {
         &self,
         backward_stmts: &mut Vec<Stmt>,
         stmt: &Stmt,
-    ) -> Result<(), Error> {
+    ) -> Result<(), MachineError> {
         // the statements should be in linear SSA form
         let mut stmt = stmt.clone();
         match stmt {
             Stmt::Local(ref mut local) => {
                 let Some(ref mut init) = local.init else {
-                return Err(Error(String::from("Inversion of non-initialized let is not supported")));
+                return Err(MachineError(String::from("Inversion of non-initialized let is not supported")));
             };
                 if init.diverge.is_some() {
-                    return Err(Error(String::from(
+                    return Err(MachineError(String::from(
                         "Inversion of diverging let not supported",
                     )));
                 }
@@ -41,7 +41,7 @@ impl BackwardConverter {
                 // no side effects, do not convert
                 Ok(())
             }
-            Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(Error(format!(
+            Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(MachineError(format!(
                 "Inversion of statement type {:?} not supported",
                 stmt
             ))),
@@ -53,12 +53,12 @@ impl BackwardConverter {
         inverted_stmts: &mut Vec<Stmt>,
         left: &Pat,
         right: &Expr,
-    ) -> Result<(), Error> {
+    ) -> Result<(), MachineError> {
         let mut backward_later = match left {
             Pat::Ident(left_pat_ident) => create_expr_ident(left_pat_ident.ident.clone()),
             Pat::Path(left_path) => Expr::Path(left_path.clone()),
             _ => {
-                return Err(Error(format!(
+                return Err(MachineError(format!(
                     "Inversion not implemented for pattern {:?}",
                     left
                 )))
@@ -75,7 +75,7 @@ impl BackwardConverter {
                 Ok(())
             }
             Expr::Call(call) => self.convert_call(inverted_stmts, backward_later, call),
-            _ => Err(Error(format!(
+            _ => Err(MachineError(format!(
                 "Inversion not implemented for expression {:?}",
                 right
             ))),
@@ -87,7 +87,7 @@ impl BackwardConverter {
         stmts: &mut Vec<Stmt>,
         backward_later: Expr,
         call: &ExprCall,
-    ) -> Result<(), Error> {
+    ) -> Result<(), MachineError> {
         // early arguments are forward function arguments converted to left-side pattern
         let mut early_args = Vec::new();
         let mut all_args_wild = true;
@@ -100,7 +100,7 @@ impl BackwardConverter {
                 }
                 Expr::Lit(_) => create_pat_wild(),
                 _ => {
-                    return Err(Error(format!(
+                    return Err(MachineError(format!(
                         "Inversion not implemented for function argument type {:?}",
                         arg
                     )));
@@ -159,7 +159,7 @@ impl BackwardConverter {
                     // do nothing
                 }
                 _ => {
-                    return Err(Error(format!(
+                    return Err(MachineError(format!(
                         "Backward join not implemented for function argument {:?}",
                         backward_arg
                     )))

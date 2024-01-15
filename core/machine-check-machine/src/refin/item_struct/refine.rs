@@ -1,7 +1,7 @@
 use syn::{BinOp, Expr, ExprBinary, ImplItem, ImplItemFn, Item, ItemStruct, Path, Stmt};
 use syn_path::path;
 
-use crate::machine::{
+use crate::{
     refin::rules,
     util::{
         create_arg, create_expr_call, create_expr_field, create_expr_ident, create_expr_path,
@@ -9,10 +9,10 @@ use crate::machine::{
         create_path_with_last_generic_type, create_refine_join_stmt, create_self, create_self_arg,
         create_type_path, ArgType,
     },
-    Error,
+    MachineError,
 };
 
-pub(crate) fn refine_impl(item_struct: &ItemStruct) -> Result<Item, Error> {
+pub(crate) fn refine_impl(item_struct: &ItemStruct) -> Result<Item, MachineError> {
     let refin_fn = apply_refin_fn(item_struct)?;
     let join_fn = apply_join_fn(item_struct)?;
     let decay_fn = force_decay_fn(item_struct)?;
@@ -34,7 +34,7 @@ pub(crate) fn refine_impl(item_struct: &ItemStruct) -> Result<Item, Error> {
     )))
 }
 
-fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
+fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     let fn_ident = create_ident("apply_join");
 
     let self_input = create_self_arg(ArgType::MutableReference);
@@ -57,7 +57,7 @@ fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     ))
 }
 
-fn force_decay_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
+fn force_decay_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     let fn_ident = create_ident("force_decay");
 
     let self_arg = create_self_arg(ArgType::Reference);
@@ -97,7 +97,7 @@ fn force_decay_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     ))
 }
 
-fn apply_refin_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
+fn apply_refin_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     let fn_ident = create_ident("apply_refin");
 
     let self_input = create_self_arg(ArgType::MutableReference);

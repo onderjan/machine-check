@@ -10,11 +10,11 @@ rust-version = "1.70"
 [dependencies]
 mck = "=0.1.0"
 machine-check-common = "=0.1.0"
+machine-check-machine = "=0.1.0"
 btor2rs = "=0.1.0"
 proc-macro2 = "1.0.67"
 syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }
 quote = "1.0.28"
-prettyplease = "0.2.15"
 syn-path = "2.0.0"
 serde = "1.0.188"
 serde_json = "1.0.107"
