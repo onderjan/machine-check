@@ -1,33 +1,31 @@
 #![doc = include_str!("../README.md")]
 
-mod bitvector;
-mod signed;
-mod traits;
-mod unsigned;
+mod internal;
+pub mod types;
 
 pub mod concr {
-    pub use super::bitvector::concr::*;
-    pub use super::traits::concr::*;
+    pub use super::internal::bitvector::concr::*;
+    pub use super::internal::traits::concr::*;
 }
 
 pub mod abstr {
-    pub use super::bitvector::abstr::*;
-    pub use super::traits::abstr::*;
+    pub use super::internal::bitvector::abstr::*;
+    pub use super::internal::traits::abstr::*;
 }
 
 pub mod refin {
-    pub use super::bitvector::refin::*;
-    pub use super::traits::refin::*;
+    pub use super::internal::bitvector::refin::*;
+    pub use super::internal::traits::refin::*;
 }
 
 pub mod forward {
-    pub use super::traits::forward::*;
+    pub use super::internal::traits::forward::*;
 }
 
 pub mod backward {
-    pub use super::traits::backward::*;
+    pub use super::internal::traits::backward::*;
 }
 
 pub mod misc {
-    pub use super::traits::misc::*;
+    pub use super::internal::traits::misc::*;
 }
