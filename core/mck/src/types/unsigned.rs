@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
+    bitvector::concr,
     forward::{HwArith, HwShift},
-    internal::bitvector::concr,
 };
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]

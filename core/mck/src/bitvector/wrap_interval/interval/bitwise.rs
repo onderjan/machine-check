@@ -1,4 +1,4 @@
-use crate::unsigned::Unsigned;
+use crate::types::Unsigned;
 
 use super::Interval;
 

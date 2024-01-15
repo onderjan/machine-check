@@ -2,9 +2,8 @@ mod bitwise;
 
 use core::fmt::Debug;
 use core::fmt::Display;
-use std::ops::Add;
 
-use crate::unsigned::Unsigned;
+use crate::types::Unsigned;
 
 #[derive(Clone, Copy, Hash)]
 pub(crate) struct Interval<T: Ord + Clone + Copy> {
@@ -124,7 +123,7 @@ impl<const L: u32> Iterator for IntervalIterator<Unsigned<L>> {
             return Some(current);
         }
 
-        self.current = Some(current.add(Unsigned::one()));
+        self.current = Some(current + Unsigned::one());
         Some(current)
     }
 }

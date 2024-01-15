@@ -2,7 +2,7 @@ use super::Bitvector;
 use crate::{
     bitvector::{concrete::ConcreteBitvector, wrap_interval::interval::Interval},
     forward::{HwArith, TypedCmp},
-    unsigned::Unsigned,
+    types::Unsigned,
 };
 
 impl<const L: u32> HwArith for Bitvector<L> {

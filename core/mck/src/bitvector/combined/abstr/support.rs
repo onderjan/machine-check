@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 
 use crate::{
     bitvector::{concrete::ConcreteBitvector, three_valued, wrap_interval},
-    unsigned::Unsigned,
+    types::Unsigned,
 };
 
 use super::Bitvector;
