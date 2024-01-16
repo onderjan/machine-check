@@ -1,15 +1,11 @@
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
-use log::info;
+use log::{debug, info};
 use machine_check_common::ExecResult;
 use serde::{Deserialize, Serialize};
+use syn::{parse_quote, Item, ItemFn};
 
 use crate::CheckError;
-
-mod build;
-mod execute;
-mod translate;
-mod work;
 
 #[derive(Debug, Clone, Args)]
 pub struct Cli {
@@ -48,38 +44,18 @@ pub struct VerifyStats {
 }
 
 pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> {
-    let mut verify = Verify {
-        args,
-        verify_args,
-        stats: VerifyStats {
-            transcription_time: None,
-            build_time: None,
-            execution_time: None,
-            prepared: None,
-        },
-    };
+    let abstract_machine = construct_abstract_machine(&verify_args.system_path)?;
 
-    let exec_result = verify.work();
-
-    let exec = match &exec_result {
-        Ok(ok) => Some(ok.clone()),
-        Err(_) => None,
+    let config = machine_check_compile::VerifyConfig {
+        abstract_machine,
+        machine_path: verify_args.machine_path,
+        preparation_path: verify_args.preparation_path,
+        batch: args.batch,
+        property: verify_args.property,
+        verbose: args.verbose,
+        use_decay: verify_args.use_decay,
     };
-
-    let verify_result = VerifyResult {
-        exec,
-        stats: verify.stats,
-    };
-
-    if verify.args.batch {
-        // serialize the result
-        serde_json::to_writer(std::io::stdout(), &verify_result)?;
-    }
-    // get the actual exec result
-    let exec_result = match exec_result {
-        Ok(ok) => ok,
-        Err(err) => return Err(err),
-    };
+    let exec_result = machine_check_compile::verify(config)?;
 
     // print interesting facts
     info!(
@@ -92,8 +68,18 @@ pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> 
     Ok(())
 }
 
-struct Verify {
-    args: super::Cli,
-    verify_args: Cli,
-    stats: VerifyStats,
+fn construct_abstract_machine(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
+    debug!("Constructing machine from path {:?}.", &system_path);
+    let concrete_machine: syn::File = super::translate::translate(system_path)?;
+    let mut abstract_machine = machine_check_machine::create_abstract_machine(&concrete_machine)?;
+
+    // add main function
+
+    let main_fn: ItemFn = parse_quote!(
+        fn main() {
+            ::machine_check_exec::run::<refin::Input, refin::State, refin::Machine>()
+        }
+    );
+    abstract_machine.items.push(Item::Fn(main_fn));
+    Ok(abstract_machine)
 }

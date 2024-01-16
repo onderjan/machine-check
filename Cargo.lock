@@ -389,6 +389,7 @@ dependencies = [
  "env_logger",
  "log",
  "machine-check-common",
+ "machine-check-compile",
  "machine-check-machine",
  "mck",
  "proc-macro2",
@@ -406,6 +407,24 @@ name = "machine-check-common"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "machine-check-compile"
+version = "0.1.0"
+dependencies = [
+ "camino",
+ "cargo_metadata",
+ "env_logger",
+ "log",
+ "machine-check-common",
+ "machine-check-machine",
+ "mck",
+ "serde",
+ "serde_json",
+ "syn",
+ "tempdir",
  "thiserror",
 ]
 
