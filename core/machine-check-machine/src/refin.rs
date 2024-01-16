@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use proc_macro2::Span;
 use syn::{Ident, Item, Type};
 
-use crate::Machine;
+use crate::MachineDescription;
 
 use super::{
     support::{
@@ -18,7 +18,7 @@ mod item_impl;
 mod item_struct;
 mod rules;
 
-pub(crate) fn apply(abstract_machine: &mut Machine) -> Result<(), MachineError> {
+pub(crate) fn apply(abstract_machine: &mut MachineDescription) -> Result<(), MachineError> {
     // the refinement machine will be in a new module at the end of the file
 
     // create items to add to the module

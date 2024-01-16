@@ -1,5 +1,4 @@
-#[machine_check_macros::machine_module]
-#[no_implicit_prelude]
+#[machine_check_macros::machine_description]
 mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {

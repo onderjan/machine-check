@@ -6,14 +6,14 @@ use std::time::Instant;
 use camino::Utf8PathBuf;
 use log::{debug, info, warn};
 use machine_check_common::ExecResult;
-use machine_check_machine::Machine;
+use machine_check_machine::MachineDescription;
 use serde::{Deserialize, Serialize};
 use tempdir::TempDir;
 
 use crate::Error;
 
 pub struct Config {
-    pub abstract_machine: Machine,
+    pub abstract_machine: MachineDescription,
     pub machine_path: Option<Utf8PathBuf>,
     pub preparation_path: Option<Utf8PathBuf>,
     pub batch: bool,

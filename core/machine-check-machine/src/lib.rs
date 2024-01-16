@@ -9,11 +9,11 @@ mod support;
 mod util;
 
 #[derive(Clone)]
-pub struct Machine {
+pub struct MachineDescription {
     pub items: Vec<Item>,
 }
 
-impl Machine {
+impl MachineDescription {
     pub fn from_file(file: syn::File) -> Self {
         // TODO: resolve attributes
         Self { items: file.items }
@@ -27,7 +27,7 @@ impl Machine {
         Some(Self { items: content.1 })
     }
 
-    pub fn abstract_machine(&self) -> Result<Machine, Error> {
+    pub fn abstract_machine(&self) -> Result<MachineDescription, Error> {
         let mut abstract_machine = self.clone();
         support::ssa::apply(&mut abstract_machine)?;
         abstr::apply(&mut abstract_machine)?;

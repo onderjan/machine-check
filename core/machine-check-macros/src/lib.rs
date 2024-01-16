@@ -1,23 +1,23 @@
 extern crate proc_macro;
-use machine_check_machine::Machine;
+use machine_check_machine::MachineDescription;
 use proc_macro::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, Item};
 
 #[proc_macro_attribute]
-pub fn machine_module(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    eprintln!("machine_module: processing");
+pub fn machine_description(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    eprintln!("machine_description: processing");
 
     let item = parse_macro_input!(item as Item);
     let Item::Mod(mut module) = item else {
         return TokenStream::from(quote_spanned! {
             item.span() =>
-            compile_error!("machine_module macro must be used on a module");
+            compile_error!("machine_description macro must be used on a module");
         });
     };
 
-    let Some(machine) = Machine::from_module(module.clone()) else {
+    let Some(machine) = MachineDescription::from_module(module.clone()) else {
         return TokenStream::from(quote_spanned! {
             module.span() =>
             compile_error!("module must have content");
@@ -46,7 +46,7 @@ pub fn machine_module(_attr: TokenStream, item: TokenStream) -> TokenStream {
         semi: None,
     }));*/
     println!(
-        "machine_module output: {}",
+        "machine_description output: {}",
         prettyplease::unparse(&syn::File {
             shebang: None,
             attrs: vec![],

@@ -2,7 +2,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
 use log::{debug, info};
 use machine_check_common::ExecResult;
-use machine_check_machine::Machine;
+use machine_check_machine::MachineDescription;
 use serde::{Deserialize, Serialize};
 
 use crate::CheckError;
@@ -68,7 +68,7 @@ pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> 
     Ok(())
 }
 
-fn construct_abstract_machine(system_path: &Utf8Path) -> Result<Machine, CheckError> {
+fn construct_abstract_machine(system_path: &Utf8Path) -> Result<MachineDescription, CheckError> {
     debug!("Constructing machine from path {:?}.", &system_path);
     let concrete_machine = super::translate::translate(system_path)?;
     let abstract_machine = concrete_machine.abstract_machine()?.with_main_fn();

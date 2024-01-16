@@ -1,6 +1,6 @@
 use syn::{visit_mut::VisitMut, ItemStruct};
 
-use crate::Machine;
+use crate::MachineDescription;
 
 use super::util::generate_derive_attribute;
 
@@ -11,7 +11,7 @@ use super::{
     MachineError,
 };
 
-pub(crate) fn apply(machine: &mut Machine) -> Result<(), MachineError> {
+pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError> {
     // apply transcription to types using path rule transcriptor
     path_rules().apply_to_items(&mut machine.items)?;
 
