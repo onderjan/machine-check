@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use proc_macro2::Span;
 use syn::{Ident, Item, Type};
 
+use crate::Machine;
+
 use super::{
     support::{
         field_manipulate,
@@ -16,7 +18,7 @@ mod item_impl;
 mod item_struct;
 mod rules;
 
-pub(crate) fn apply(abstract_machine_file: &mut syn::File) -> Result<(), MachineError> {
+pub(crate) fn apply(abstract_machine: &mut Machine) -> Result<(), MachineError> {
     // the refinement machine will be in a new module at the end of the file
 
     // create items to add to the module
@@ -24,7 +26,7 @@ pub(crate) fn apply(abstract_machine_file: &mut syn::File) -> Result<(), Machine
     let mut ident_special_traits = HashMap::<Ident, SpecialTrait>::new();
 
     // first pass
-    for item in &abstract_machine_file.items {
+    for item in &abstract_machine.items {
         match item {
             Item::Struct(item_struct) => {
                 // apply path rules and push struct
@@ -49,7 +51,7 @@ pub(crate) fn apply(abstract_machine_file: &mut syn::File) -> Result<(), Machine
         };
     }
     // second pass, add special impls for special traits
-    for item in &abstract_machine_file.items {
+    for item in &abstract_machine.items {
         if let Item::Struct(s) = item {
             if let Some(special_trait) = ident_special_traits.remove(&s.ident) {
                 item_struct::add_special_impls(special_trait, &mut refinement_items, s)?;
@@ -59,7 +61,7 @@ pub(crate) fn apply(abstract_machine_file: &mut syn::File) -> Result<(), Machine
 
     // add field manipulate
     field_manipulate::apply_to_items(&mut refinement_items, "refin")?;
-    field_manipulate::apply_to_items(&mut abstract_machine_file.items, "abstr")?;
+    field_manipulate::apply_to_items(&mut abstract_machine.items, "abstr")?;
 
     // create new module at the end of the file that will contain the refinement
     let refinement_module = Item::Mod(create_item_mod(
@@ -67,6 +69,6 @@ pub(crate) fn apply(abstract_machine_file: &mut syn::File) -> Result<(), Machine
         Ident::new("refin", Span::call_site()),
         refinement_items,
     ));
-    abstract_machine_file.items.push(refinement_module);
+    abstract_machine.items.push(refinement_module);
     Ok(())
 }

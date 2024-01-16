@@ -2,8 +2,8 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
 use log::{debug, info};
 use machine_check_common::ExecResult;
+use machine_check_machine::Machine;
 use serde::{Deserialize, Serialize};
-use syn::{parse_quote, Item, ItemFn};
 
 use crate::CheckError;
 
@@ -68,18 +68,9 @@ pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> 
     Ok(())
 }
 
-fn construct_abstract_machine(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
+fn construct_abstract_machine(system_path: &Utf8Path) -> Result<Machine, CheckError> {
     debug!("Constructing machine from path {:?}.", &system_path);
-    let concrete_machine: syn::File = super::translate::translate(system_path)?;
-    let mut abstract_machine = machine_check_machine::create_abstract_machine(&concrete_machine)?;
-
-    // add main function
-
-    let main_fn: ItemFn = parse_quote!(
-        fn main() {
-            ::machine_check_exec::run::<refin::Input, refin::State, refin::Machine>()
-        }
-    );
-    abstract_machine.items.push(Item::Fn(main_fn));
+    let concrete_machine = super::translate::translate(system_path)?;
+    let abstract_machine = concrete_machine.abstract_machine()?.with_main_fn();
     Ok(abstract_machine)
 }

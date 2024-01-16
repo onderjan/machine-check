@@ -1,10 +1,11 @@
 use camino::Utf8Path;
+use machine_check_machine::Machine;
 
 use crate::CheckError;
 
 mod btor2;
 
-pub fn translate(system_path: &Utf8Path) -> std::result::Result<syn::File, CheckError> {
+pub fn translate(system_path: &Utf8Path) -> std::result::Result<Machine, CheckError> {
     let Some(extension) = system_path.extension() else {
         return Err(CheckError::SystemType(String::from("(no extension)")));
     };

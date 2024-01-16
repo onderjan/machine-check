@@ -3,10 +3,10 @@ use syn::{visit_mut::VisitMut, Block, Expr, Ident, Pat, Stmt};
 
 use crate::{
     util::{create_expr_path, create_let},
-    MachineError,
+    Machine, MachineError,
 };
 
-pub(crate) fn apply(file: &mut syn::File) -> Result<(), MachineError> {
+pub(crate) fn apply(machine: &mut Machine) -> Result<(), MachineError> {
     // apply linear SSA to each block using a visitor
     struct Visitor(Result<(), MachineError>);
     impl VisitMut for Visitor {
@@ -20,7 +20,9 @@ pub(crate) fn apply(file: &mut syn::File) -> Result<(), MachineError> {
         }
     }
     let mut visitor = Visitor(Ok(()));
-    visitor.visit_file_mut(file);
+    for item in machine.items.iter_mut() {
+        visitor.visit_item_mut(item);
+    }
     visitor.0
 }
 

@@ -403,6 +403,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "machine-check-avr"
+version = "0.1.0"
+dependencies = [
+ "machine-check-exec",
+ "machine-check-machine",
+ "machine-check-macros",
+ "mck",
+]
+
+[[package]]
 name = "machine-check-common"
 version = "0.1.0"
 dependencies = [
@@ -461,6 +471,12 @@ dependencies = [
 [[package]]
 name = "machine-check-macros"
 version = "0.1.0"
+dependencies = [
+ "machine-check-machine",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "machine-check-table"

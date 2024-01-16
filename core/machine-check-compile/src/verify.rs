@@ -6,13 +6,14 @@ use std::time::Instant;
 use camino::Utf8PathBuf;
 use log::{debug, info, warn};
 use machine_check_common::ExecResult;
+use machine_check_machine::Machine;
 use serde::{Deserialize, Serialize};
 use tempdir::TempDir;
 
 use crate::Error;
 
 pub struct Config {
-    pub abstract_machine: syn::File,
+    pub abstract_machine: Machine,
     pub machine_path: Option<Utf8PathBuf>,
     pub preparation_path: Option<Utf8PathBuf>,
     pub batch: bool,
@@ -93,6 +94,9 @@ fn write_machine(arguments: &Config) -> Result<(Utf8PathBuf, Option<TempDir>), E
         .map_err(|err| Error::CreateDir(src_dir_path.clone(), err))?;
     let main_path = src_dir_path.join("main.rs");
 
-    machine_check_machine::write_machine(&arguments.abstract_machine, &main_path)?;
+    arguments
+        .abstract_machine
+        .clone()
+        .write_to_file(&main_path)?;
     Ok((machine_package_dir_path, machine_package_temp_dir))
 }

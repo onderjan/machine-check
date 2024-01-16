@@ -1,5 +1,7 @@
 use syn::{visit_mut::VisitMut, ItemStruct};
 
+use crate::Machine;
+
 use super::util::generate_derive_attribute;
 
 use quote::quote;
@@ -9,9 +11,9 @@ use super::{
     MachineError,
 };
 
-pub(crate) fn apply(machine: &mut syn::File) -> Result<(), MachineError> {
+pub(crate) fn apply(machine: &mut Machine) -> Result<(), MachineError> {
     // apply transcription to types using path rule transcriptor
-    path_rules().apply_to_file(machine)?;
+    path_rules().apply_to_items(&mut machine.items)?;
 
     // add default derive attributes to the structs
     // that easily allow us to make unknown inputs/states
@@ -22,7 +24,9 @@ pub(crate) fn apply(machine: &mut syn::File) -> Result<(), MachineError> {
                 .push(generate_derive_attribute(quote!(::std::default::Default)));
         }
     }
-    Visitor().visit_file_mut(machine);
+    for item in machine.items.iter_mut() {
+        Visitor().visit_item_mut(item);
+    }
     Ok(())
 }
 

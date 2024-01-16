@@ -1,5 +1,5 @@
-use syn::visit_mut::VisitMut;
 use syn::Path;
+use syn::{visit_mut::VisitMut, Item};
 
 use crate::{
     util::{create_ident, create_path_segment},
@@ -30,9 +30,11 @@ impl PathRules {
         PathRules(rules)
     }
 
-    pub(crate) fn apply_to_file(&self, file: &mut syn::File) -> Result<(), MachineError> {
+    pub(crate) fn apply_to_items(&self, items: &mut [Item]) -> Result<(), MachineError> {
         let mut visitor = Visitor::new(&self.0);
-        visitor.visit_file_mut(file);
+        for item in items.iter_mut() {
+            visitor.visit_item_mut(item);
+        }
         visitor.first_error.map_or(Ok(()), Err)
     }
 
