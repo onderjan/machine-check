@@ -473,6 +473,7 @@ name = "machine-check-macros"
 version = "0.1.0"
 dependencies = [
  "machine-check-machine",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "syn",

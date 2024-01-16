@@ -141,7 +141,18 @@ impl<'a> VisitMut for ConversionVisitor<'a> {
         }
         for mut el in node.fields.pairs_mut() {
             let it = el.value_mut();
+            // handle shorthands gracefully: add the colon token first to convert from shorthand
+            it.colon_token = Some(Default::default());
             self.visit_field_value_mut(it);
+            // after visiting the field (and potentially changing the expression path),
+            // if it is possible to use shorthand, convert to it
+            if let Member::Named(member) = &it.member {
+                if let Expr::Path(path) = &it.expr {
+                    if path.path.is_ident(member) {
+                        it.colon_token = None;
+                    }
+                }
+            }
         }
         if let Some(it) = &mut node.rest {
             self.visit_expr_mut(it);

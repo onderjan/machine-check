@@ -1,4 +1,5 @@
 #[machine_check_macros::machine_module]
+#[no_implicit_prelude]
 mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
@@ -22,16 +23,13 @@ mod machine_module {
         fn init(_input: &Input) -> State {
             let tmp = ::mck::concr::Bitvector::<1>::new(0);
             let tmp2 = ::mck::forward::Bitwise::bit_not(tmp);
-            let ssafe = ::mck::concr::Bitvector::<1>::new(1);
-            State {
-                a: tmp2,
-                safe: ssafe,
-            }
+            let safe = ::mck::concr::Bitvector::<1>::new(1);
+            State { a: tmp2, safe }
         }
         fn next(state: &State, input: &Input) -> State {
-            let i = ::mck::forward::Bitwise::bit_not(input.i);
+            let a = ::mck::forward::Bitwise::bit_not(input.i);
             State {
-                a: i,
+                a,
                 safe: state.safe,
             }
         }

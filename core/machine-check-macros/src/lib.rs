@@ -45,11 +45,17 @@ pub fn machine_module(_attr: TokenStream, item: TokenStream) -> TokenStream {
         content: Some((Default::default(), machine.items)),
         semi: None,
     }));*/
+    println!(
+        "machine_module output: {}",
+        prettyplease::unparse(&syn::File {
+            shebang: None,
+            attrs: vec![],
+            items: vec![Item::Mod(module.clone())]
+        })
+    );
 
     let expanded = quote! {
         #module
     };
-    println!("machine_module output: {}", quote!(#expanded));
-
     TokenStream::from(expanded)
 }
