@@ -43,8 +43,8 @@ pub fn create_let_mut(left_ident: Ident, right_expr: Expr) -> Stmt {
     create_let_mut_choice(true, left_ident, Some(right_expr))
 }
 
-pub fn create_let_bare(left_ident: Ident) -> Stmt {
-    create_let_mut_choice(false, left_ident, None)
+pub fn create_let_bare(ident: Ident) -> Stmt {
+    create_let_mut_choice(false, ident, None)
 }
 
 pub fn create_assign(left_ident: Ident, right_expr: Expr, semicolon: bool) -> Stmt {

@@ -1,8 +1,4 @@
-use std::{
-    cell::{Ref, RefCell},
-    rc::Rc,
-    sync::atomic::AtomicU32,
-};
+mod normalize_scope;
 
 use proc_macro2::Span;
 use syn::{visit_mut::VisitMut, Block, Expr, Ident, Pat, Stmt};
@@ -13,18 +9,20 @@ use crate::{
 };
 
 pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError> {
+    normalize_scope::normalize_scope(machine);
+
     // apply linear SSA to each block using a visitor
     struct Visitor(Result<(), MachineError>);
     impl VisitMut for Visitor {
         fn visit_block_mut(&mut self, block: &mut Block) {
-            /*println!(
-                "SSA original block:\n\"\"\"\n{}\n\"\"\"\n",
+            println!(
+                "SSA normalized block:\n\"\"\"\n{}\n\"\"\"\n",
                 block
                     .stmts
                     .iter()
                     .map(|s| quote::quote!(#s).to_string())
                     .fold(String::new(), |a, b| a + &b + "\n"),
-            );*/
+            );
             // start with zero temp counter in an outer-level block
             let result = Outer::new().apply_to_block(block, true);
             println!(
@@ -173,8 +171,16 @@ impl<'a> BlockTranslator<'a> {
                     )));
                 }
 
-                // apply translation to right-hand expression without forced movement
-                self.apply_to_expr(assign.right.as_mut())?;
+                match assign.right.as_mut() {
+                    Expr::Block(_) => {
+                        // force movement
+                        self.move_through_temp(assign.right.as_mut())?;
+                    }
+                    _ => {
+                        // apply translation to right-hand expression without forced movement
+                        self.apply_to_expr(assign.right.as_mut())?;
+                    }
+                }
             }
             syn::Expr::Struct(expr_struct) => {
                 // move field values
@@ -232,18 +238,19 @@ impl<'a> BlockTranslator<'a> {
                 *expr = (*paren.expr).clone();
                 return Ok(());
             }
-            _ => (),
+            _ => {
+                // apply translation to expression
+                // so that nested expressions are properly converted to SSA
+                self.apply_to_expr(expr)?;
+            }
         }
-
-        // apply translation to expression
-        // so that nested expressions are properly converted to SSA
-        self.apply_to_expr(expr)?;
 
         // create a temporary variable
         let tmp_ident = Ident::new(
-            format!("__mck_tmp_{}", self.translated_stmts.len()).as_str(),
+            format!("__mck_tmp_{}", self.outer.next_temp_counter).as_str(),
             Span::call_site(),
         );
+        self.outer.next_temp_counter += 1;
 
         // add to created temporaries, they will get their bare let statements created later
         self.outer.created_temporaries.push(tmp_ident.clone());

@@ -19,11 +19,14 @@ mod machine_module {
 
     impl ::mck::concr::Machine<Input, State> for Machine {
         fn init(_input: &Input) -> State {
-            let safe; //= ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
-            safe = /*if true {
+            let safe = ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
+            /*{
+                let x =
+                ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
+                safe = x; /*if true {
                 ::mck::concr::Bitvector::<1>::new(1)
             } else*/
-                ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
+            };*/
             State { safe }
         }
         fn next(state: &State, _input: &Input) -> State {
@@ -43,6 +46,7 @@ fn main() {
     };
     println!("a, b: {}, {}", a, b);
     (a, b) = (5, true);
+    println!("a, b: {}, {}", a, b);
 
     machine_check_exec::run::<
         machine_module::refin::Input,
