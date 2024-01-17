@@ -25,21 +25,22 @@ impl BackwardConverter {
         let mut stmt = stmt.clone();
         match stmt {
             Stmt::Local(ref mut local) => {
-                let Some(ref mut init) = local.init else {
-                return Err(MachineError(String::from("Inversion of non-initialized let is not supported")));
-            };
-                if init.diverge.is_some() {
+                // ensure it is bare
+                if local.init.is_some() {
                     return Err(MachineError(String::from(
-                        "Inversion of diverging let not supported",
+                        "Inversion of let with initialization not supported",
                     )));
+                } else {
+                    // no side effects, do not convert
+                    Ok(())
                 }
-                let left = &local.pat;
-                let right = init.expr.as_ref();
-                self.convert_let(backward_stmts, left, right)
             }
             Stmt::Expr(Expr::Path(_), Some(_)) | Stmt::Expr(Expr::Struct(_), Some(_)) => {
                 // no side effects, do not convert
                 Ok(())
+            }
+            Stmt::Expr(Expr::Assign(assign), Some(_)) => {
+                self.convert_assign(backward_stmts, &assign.left, &assign.right)
             }
             Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(MachineError(format!(
                 "Inversion of statement type {:?} not supported",
@@ -48,35 +49,32 @@ impl BackwardConverter {
         }
     }
 
-    pub(crate) fn convert_let(
+    pub(crate) fn convert_assign(
         &self,
-        inverted_stmts: &mut Vec<Stmt>,
-        left: &Pat,
+        backward_stmts: &mut Vec<Stmt>,
+        left: &Expr,
         right: &Expr,
     ) -> Result<(), MachineError> {
-        let mut backward_later = match left {
-            Pat::Ident(left_pat_ident) => create_expr_ident(left_pat_ident.ident.clone()),
-            Pat::Path(left_path) => Expr::Path(left_path.clone()),
-            _ => {
-                return Err(MachineError(format!(
-                    "Inversion not implemented for pattern {:?}",
-                    left
-                )))
-            }
+        let Expr::Path(backward_later) = left else {
+            return Err(MachineError(format!(
+                "Inversion not implemented for left-side assignment expression: {:?}",
+                left
+            )));
         };
+        let mut backward_later = Expr::Path(backward_later.clone());
         self.backward_scheme.apply_to_expr(&mut backward_later)?;
 
         match right {
-            Expr::Path(_) | Expr::Field(_) | Expr::Struct(_) => {
+            Expr::Path(_) | Expr::Field(_) | Expr::Struct(_) | Expr::Block(_) => {
                 // join instead of assigning
                 let mut earlier = right.clone();
                 self.backward_scheme.apply_to_expr(&mut earlier)?;
-                inverted_stmts.push(create_refine_join_stmt(earlier, backward_later));
+                backward_stmts.push(create_refine_join_stmt(earlier, backward_later));
                 Ok(())
             }
-            Expr::Call(call) => self.convert_call(inverted_stmts, backward_later, call),
+            Expr::Call(call) => self.convert_call(backward_stmts, backward_later, call),
             _ => Err(MachineError(format!(
-                "Inversion not implemented for expression {:?}",
+                "Inversion not implemented for right-side assignment expression: {:?}",
                 right
             ))),
         }

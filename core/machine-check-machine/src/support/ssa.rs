@@ -1,8 +1,14 @@
+use std::{
+    cell::{Ref, RefCell},
+    rc::Rc,
+    sync::atomic::AtomicU32,
+};
+
 use proc_macro2::Span;
 use syn::{visit_mut::VisitMut, Block, Expr, Ident, Pat, Stmt};
 
 use crate::{
-    util::{create_expr_path, create_let},
+    util::{create_assign, create_expr_path, create_let_bare},
     MachineDescription, MachineError,
 };
 
@@ -11,7 +17,24 @@ pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError
     struct Visitor(Result<(), MachineError>);
     impl VisitMut for Visitor {
         fn visit_block_mut(&mut self, block: &mut Block) {
-            let result = apply_to_block(block);
+            /*println!(
+                "SSA original block:\n\"\"\"\n{}\n\"\"\"\n",
+                block
+                    .stmts
+                    .iter()
+                    .map(|s| quote::quote!(#s).to_string())
+                    .fold(String::new(), |a, b| a + &b + "\n"),
+            );*/
+            // start with zero temp counter in an outer-level block
+            let result = Outer::new().apply_to_block(block, true);
+            println!(
+                "SSA translated block:\n\"\"\"\n{}\n\"\"\"\n",
+                block
+                    .stmts
+                    .iter()
+                    .map(|s| quote::quote!(#s).to_string())
+                    .fold(String::new(), |a, b| a + &b + "\n"),
+            );
             if self.0.is_ok() {
                 self.0 = result;
             }
@@ -26,22 +49,52 @@ pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError
     visitor.0
 }
 
-fn apply_to_block(block: &mut Block) -> Result<(), MachineError> {
-    let mut translator = BlockTranslator {
-        translated_stmts: Vec::new(),
-    };
-    // apply linear SSA to statements one by one
-    for stmt in &block.stmts {
-        translator.apply_to_stmt(stmt.clone())?;
-    }
-    block.stmts = translator.translated_stmts;
-    Ok(())
-}
-struct BlockTranslator {
-    translated_stmts: Vec<Stmt>,
+struct Outer {
+    next_temp_counter: u32,
+    created_temporaries: Vec<Ident>,
 }
 
-impl BlockTranslator {
+impl Outer {
+    fn new() -> Self {
+        Outer {
+            next_temp_counter: 0,
+            created_temporaries: vec![],
+        }
+    }
+
+    fn apply_to_block(&mut self, block: &mut Block, outer: bool) -> Result<(), MachineError> {
+        // use the same temp counter
+        let mut translator = BlockTranslator {
+            translated_stmts: Vec::new(),
+            outer: self,
+        };
+        // apply linear SSA to statements one by one
+        for stmt in &block.stmts {
+            translator.apply_to_stmt(stmt.clone())?;
+        }
+
+        let mut stmts = translator.translated_stmts;
+
+        if outer {
+            block.stmts = self
+                .created_temporaries
+                .iter()
+                .map(|tmp_ident| create_let_bare(tmp_ident.clone()))
+                .collect();
+            block.stmts.append(&mut stmts);
+        } else {
+            block.stmts = stmts;
+        }
+        Ok(())
+    }
+}
+
+struct BlockTranslator<'a> {
+    translated_stmts: Vec<Stmt>,
+    outer: &'a mut Outer,
+}
+
+impl<'a> BlockTranslator<'a> {
     fn apply_to_stmt(&mut self, mut stmt: Stmt) -> Result<(), MachineError> {
         match stmt {
             Stmt::Expr(ref mut expr, _) => {
@@ -50,14 +103,24 @@ impl BlockTranslator {
             }
             Stmt::Local(ref mut local) => {
                 let Pat::Ident(ident) = &local.pat else {
-                    return Err(MachineError(String::from("Local let with non-ident pattern not supported")));
+                    return Err(MachineError(String::from(
+                        "Local let with non-ident pattern not supported",
+                    )));
                 };
                 if ident.by_ref.is_some() || ident.mutability.is_some() || ident.subpat.is_some() {
                     return Err(MachineError(String::from(
-                        "Non-bare local let ident not supported",
+                        "Non-traditional local let not supported",
                     )));
                 }
 
+                if local.init.is_some() {
+                    return Err(MachineError(String::from(
+                        "Local let with init not supported",
+                    )));
+                }
+
+                // TODO: move this somewhat to local eliminator
+                /*
                 if let Some(ref mut init) = local.init {
                     if init.diverge.is_some() {
                         return Err(MachineError(String::from(
@@ -67,7 +130,7 @@ impl BlockTranslator {
 
                     // apply translation to expression without forced movement
                     self.apply_to_expr(init.expr.as_mut())?;
-                }
+                }*/
             }
             _ => {
                 return Err(MachineError(format!(
@@ -102,6 +165,17 @@ impl BlockTranslator {
                     self.move_through_temp(arg)?;
                 }
             }
+            syn::Expr::Assign(assign) => {
+                if !matches!(assign.left.as_ref(), Expr::Path(_)) {
+                    return Err(MachineError(format!(
+                        "Non-path left not supported in assignment: {:?}",
+                        assign.left,
+                    )));
+                }
+
+                // apply translation to right-hand expression without forced movement
+                self.apply_to_expr(assign.right.as_mut())?;
+            }
             syn::Expr::Struct(expr_struct) => {
                 // move field values
                 for field in &mut expr_struct.fields {
@@ -111,9 +185,33 @@ impl BlockTranslator {
                     return Err(MachineError("Struct rest not supported".to_string()));
                 }
             }
+            syn::Expr::Block(expr_block) => {
+                // apply in new scope
+                self.outer.apply_to_block(&mut expr_block.block, false)?;
+            }
+            syn::Expr::If(expr_if) => {
+                // move condition
+                self.move_through_temp(&mut expr_if.cond)?;
+                // apply to then-branch
+                self.outer.apply_to_block(&mut expr_if.then_branch, false)?;
+                // apply to else-branch if it exists
+                if let Some(else_branch) = &mut expr_if.else_branch {
+                    // should be a block, if expression, or if-let expression
+                    let else_branch = else_branch.1.as_mut();
+
+                    if matches!(else_branch, Expr::If(_) | Expr::Block(_)) {
+                        self.apply_to_expr(else_branch)?;
+                    } else {
+                        return Err(MachineError(format!(
+                            "Unexpected expression type of else branch: {:?}",
+                            else_branch
+                        )));
+                    }
+                }
+            }
             _ => {
                 return Err(MachineError(format!(
-                    "Expression type {:?} not supported",
+                    "Expression type not supported: {:?}",
                     expr
                 )));
             }
@@ -147,9 +245,11 @@ impl BlockTranslator {
             Span::call_site(),
         );
 
-        // add new let statement to translated statements
+        // add to created temporaries, they will get their bare let statements created later
+        self.outer.created_temporaries.push(tmp_ident.clone());
+        // add assignment statement; the temporary is only assigned to once here
         self.translated_stmts
-            .push(create_let(tmp_ident.clone(), expr.clone()));
+            .push(create_assign(tmp_ident.clone(), expr.clone(), true));
 
         // change expr to the temporary variable path
         *expr = create_expr_path(tmp_ident.into());
