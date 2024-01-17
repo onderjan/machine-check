@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 description = "Formal verification tool for digital systems"
-rust-version = "1.70"
+rust-version = "1.75"
 
 [dependencies]
 mck = "=0.1.0"
