@@ -84,21 +84,29 @@ impl ImplConverter {
         let arg = create_arg(ArgType::Normal, create_ident(name), Some(ty));
         // create let statement from original result expression
         let Expr::Struct(orig_result_struct) = orig_result_expr else {
-        return Err(MachineError(String::from("Non-struct result not supported")));
-    };
+            return Err(MachineError(String::from(
+                "Non-struct result not supported",
+            )));
+        };
 
         let mut stmts = Vec::new();
 
         for field in &orig_result_struct.fields {
             let Expr::Path(field_path) = &field.expr else {
-            return Err(MachineError(String::from("Non-path field expression not supported")));
-        };
+                return Err(MachineError(String::from(
+                    "Non-path field expression not supported",
+                )));
+            };
             let Some(field_ident) = field_path.path.get_ident() else {
-            return Err(MachineError(String::from("Non-ident field expression not supported")));
-        };
+                return Err(MachineError(String::from(
+                    "Non-ident field expression not supported",
+                )));
+            };
             let Member::Named(member_ident) = &field.member else {
-            return Err(MachineError(String::from("Unnamed field member not supported")));
-        };
+                return Err(MachineError(String::from(
+                    "Unnamed field member not supported",
+                )));
+            };
 
             let refin_ident = self
                 .refinement_rules

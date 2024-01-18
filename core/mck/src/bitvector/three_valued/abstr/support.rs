@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
+    abstr::{Join, Test},
     bitvector::{concrete::ConcreteBitvector, util},
     forward::Bitwise,
 };
@@ -207,6 +208,25 @@ impl<const L: u32> Default for ThreeValuedBitvector<L> {
     fn default() -> Self {
         // default to fully unknown
         Self::new_unknown()
+    }
+}
+
+impl Test for ThreeValuedBitvector<1> {
+    fn must_be_true(self) -> bool {
+        self.zeros.is_zero()
+    }
+
+    fn must_be_false(self) -> bool {
+        self.ones.is_zero()
+    }
+}
+
+impl<const L: u32> Join for ThreeValuedBitvector<L> {
+    fn join(self, other: Self) -> Self {
+        let zeros = self.zeros.bit_or(other.zeros);
+        let ones = self.ones.bit_or(other.ones);
+
+        Self::from_zeros_ones(zeros, ones)
     }
 }
 

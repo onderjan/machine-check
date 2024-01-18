@@ -3,6 +3,7 @@ mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
         pub i: ::mck::concr::Bitvector<1>,
+        pub j: ::mck::concr::Bitvector<1>,
     }
 
     impl ::mck::concr::Input for Input {}
@@ -20,7 +21,7 @@ mod machine_module {
     impl ::mck::concr::Machine<Input, State> for Machine {
         fn init(input: &Input) -> State {
             let safe;
-            if false {
+            if ::mck::concr::Test::is_true(input.j) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
                 safe = input.i;
@@ -60,6 +61,8 @@ fn main() {
     println!("a, b: {}, {}", a, b);
     (a, b) = (5, true);
     println!("a, b: {}, {}", a, b);
+
+    let c = true;
 
     machine_check_exec::run::<
         machine_module::refin::Input,

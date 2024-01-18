@@ -196,8 +196,31 @@ impl<'a> BlockTranslator<'a> {
                 self.outer.apply_to_block(&mut expr_block.block, false)?;
             }
             syn::Expr::If(expr_if) => {
-                // move condition
-                self.move_through_temp(&mut expr_if.cond)?;
+                // move condition if it is not special
+                let mut should_move = true;
+                if let Expr::Call(cond_expr_call) = expr_if.cond.as_mut() {
+                    if let Expr::Path(cond_expr_path) = cond_expr_call.func.as_ref() {
+                        if cond_expr_path.path.leading_colon.is_some() {
+                            let segments = &cond_expr_path.path.segments;
+                            
+                            // TODO: integrate the special conditions better
+                            if segments.len() == 4 
+                            && &segments[0].ident.to_string() == "mck" 
+                            && &segments[1].ident.to_string() == "concr"
+                            && &segments[2].ident.to_string() == "Test"
+                            && &segments[3].ident.to_string() == "is_true" {
+                                // only move the inside
+                                should_move = false;
+                                for arg in cond_expr_call.args.iter_mut() {
+                                    self.move_through_temp(arg)?;
+                                }
+                            }
+                        }
+                    }
+                }
+                if should_move {
+                    self.move_through_temp(&mut expr_if.cond)?;
+                }
                 // apply to then-branch
                 self.outer.apply_to_block(&mut expr_if.then_branch, false)?;
                 // apply to else-branch if it exists

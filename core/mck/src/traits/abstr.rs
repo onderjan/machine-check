@@ -19,3 +19,12 @@ pub trait Machine<I: Input, S: State> {
     #[must_use]
     fn next(state: &S, input: &I) -> S;
 }
+
+pub trait Test {
+    fn must_be_true(self) -> bool;
+    fn must_be_false(self) -> bool;
+}
+
+pub trait Join {
+    fn join(self, other: Self) -> Self;
+}

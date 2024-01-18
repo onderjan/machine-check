@@ -2,6 +2,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use crate::bitvector::util;
+use crate::concr::Test;
 use crate::forward::Bitwise;
 use crate::forward::TypedCmp;
 
@@ -85,6 +86,12 @@ impl<const L: u32> ConcreteBitvector<L> {
         } else {
             other
         }
+    }
+}
+
+impl Test for ConcreteBitvector<1> {
+    fn is_true(&self) -> bool {
+        self.is_nonzero()
     }
 }
 

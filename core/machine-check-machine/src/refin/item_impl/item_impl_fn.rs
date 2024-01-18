@@ -1,11 +1,13 @@
+use std::result;
+
 use syn::{punctuated::Punctuated, visit_mut::VisitMut, Ident, ImplItemFn, Stmt};
 use syn_path::path;
 
 use crate::{
     support::backward::BackwardConverter,
     util::{
-        create_expr_call, create_expr_path, create_ident, create_let_mut, create_path_from_ident,
-        get_block_result_expr, ArgType,
+        create_expr_call, create_expr_path, create_ident, create_let_bare, create_let_mut,
+        create_path_from_ident, get_block_result_expr, ArgType,
     },
     MachineError,
 };
@@ -83,11 +85,22 @@ impl ImplConverter {
         }
 
         for local_name in local_visitor.local_names() {
+            println!("Local name: {}", local_name);
             let orig_ident = create_ident(local_name);
             let refin_ident = self
                 .refinement_rules
                 .convert_normal_ident(orig_ident.clone())?;
-            let abstract_ident = self.abstract_rules.convert_normal_ident(orig_ident)?;
+
+            // initialize then/else locals from the non-branch variable
+            let stripped_name = if let Some(prefix) = local_name.strip_prefix("__mck_then_") {
+                prefix
+            } else if let Some(prefix) = local_name.strip_prefix("__mck_else_") {
+                prefix
+            } else {
+                local_name
+            };
+            let stripped_ident = create_ident(stripped_name);
+            let abstract_ident = self.abstract_rules.convert_normal_ident(stripped_ident)?;
             result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, true));
         }
 

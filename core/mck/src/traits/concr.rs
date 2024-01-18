@@ -21,3 +21,7 @@ pub trait Machine<I: Input, S: State> {
     #[must_use]
     fn next(state: &S, input: &I) -> S;
 }
+
+pub trait Test {
+    fn is_true(&self) -> bool;
+}

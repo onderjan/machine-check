@@ -1,4 +1,4 @@
-use syn::{Expr, ExprCall, Pat, Stmt};
+use syn::{Expr, ExprCall, ExprPath, Pat, Path, Stmt};
 
 use crate::{
     util::{
@@ -40,22 +40,27 @@ impl BackwardConverter {
                 Ok(())
             }
             Stmt::Expr(Expr::Block(ref mut expr_block), Some(_)) => {
-                // convert the statements
+                // reverse and convert the statements
                 let mut forward_stmts = Vec::new();
                 forward_stmts.append(&mut expr_block.block.stmts);
-                for stmt in forward_stmts {
-                    self.convert_stmt(&mut expr_block.block.stmts, &stmt)?;
+                forward_stmts.reverse();
+                for forward_stmt in forward_stmts {
+                    self.convert_stmt(&mut expr_block.block.stmts, &forward_stmt)?;
                 }
+
                 // add the redone block to backward statements
                 backward_stmts.push(stmt);
                 Ok(())
             }
             Stmt::Expr(Expr::If(ref mut expr_if), Some(_)) => {
-                // convert the then branch
+                // TODO: deduplicate this with block
+                self.forward_scheme.apply_to_expr(&mut expr_if.cond)?;
+                // reverse and convert the then branch
                 {
                     let then_stmts = &mut expr_if.then_branch.stmts;
                     let mut forward_then_stmts = Vec::new();
                     forward_then_stmts.append(then_stmts);
+                    forward_then_stmts.reverse();
                     for stmt in forward_then_stmts {
                         self.convert_stmt(then_stmts, &stmt)?;
                     }
@@ -77,6 +82,7 @@ impl BackwardConverter {
                     let else_stmts = &mut else_expr_block.block.stmts;
                     let mut forward_else_stmts = Vec::new();
                     forward_else_stmts.append(else_stmts);
+                    forward_else_stmts.reverse();
                     for stmt in forward_else_stmts {
                         self.convert_stmt(else_stmts, &stmt)?;
                     }
@@ -184,12 +190,38 @@ impl BackwardConverter {
 
         let forward_arg = create_expr_tuple(forward_args);
         backward_call.args.push(forward_arg);
-        backward_call.args.push(backward_later);
+        backward_call.args.push(backward_later.clone());
 
         // construct the backward statement, assigning to a temporary
         let tmp_ident = create_ident(&format!("__mck_backw_tmp_{}", stmts.len()));
 
-        stmts.push(create_let(tmp_ident.clone(), Expr::Call(backward_call)));
+        // treat join specially by just splitting it
+        if let Expr::Path(ExprPath {
+            path: Path {
+                leading_colon,
+                segments,
+            },
+            ..
+        }) = call.func.as_ref()
+        {
+            println!("Testing for join: {:?}", segments);
+            if leading_colon.is_some()
+                && segments.len() == 4
+                && &segments[0].ident.to_string() == "mck"
+                && &segments[1].ident.to_string() == "abstr"
+                && &segments[2].ident.to_string() == "Join"
+                && &segments[3].ident.to_string() == "join"
+            {
+                assert!(call.args.len() == 2);
+                println!("Is join");
+                stmts.push(create_let(
+                    tmp_ident.clone(),
+                    create_expr_tuple(vec![backward_later.clone(), backward_later]),
+                ));
+            }
+        } else {
+            stmts.push(create_let(tmp_ident.clone(), Expr::Call(backward_call)));
+        }
 
         // we must join early instead of assigning as each early corresponds to forward argument
         // and we can use variables as forward arguments multiple times
