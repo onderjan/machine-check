@@ -39,6 +39,15 @@ impl BackwardConverter {
                 // no side effects, do not convert
                 Ok(())
             }
+            Stmt::Expr(Expr::Block(mut expr_block), Some(_)) => {
+                // convert the statements
+                let mut forward_stmts = Vec::new();
+                forward_stmts.append(&mut expr_block.block.stmts);
+                for stmt in forward_stmts {
+                    self.convert_stmt(&mut expr_block.block.stmts, &stmt)?;
+                }
+                Ok(())
+            }
             Stmt::Expr(Expr::Assign(assign), Some(_)) => {
                 self.convert_assign(backward_stmts, &assign.left, &assign.right)
             }
@@ -65,7 +74,7 @@ impl BackwardConverter {
         self.backward_scheme.apply_to_expr(&mut backward_later)?;
 
         match right {
-            Expr::Path(_) | Expr::Field(_) | Expr::Struct(_) | Expr::Block(_) => {
+            Expr::Path(_) | Expr::Field(_) | Expr::Struct(_) => {
                 // join instead of assigning
                 let mut earlier = right.clone();
                 self.backward_scheme.apply_to_expr(&mut earlier)?;
