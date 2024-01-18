@@ -47,15 +47,10 @@ impl VisitMut for BlockVisitor {
                 let ident = &pat_ident.ident;
 
                 // create unique ident
-                // for zero scope, we can use normal idents as unique
-                let unique_ident = if scope_num == 0 {
-                    ident.clone()
-                } else {
-                    Ident::new(
-                        &format!("__mck_scope_{}_{}", scope_num, ident),
-                        Span::call_site(),
-                    )
-                };
+                let unique_ident = Ident::new(
+                    &format!("__mck_scope_{}_{}", scope_num, ident),
+                    Span::call_site(),
+                );
 
                 // add ident to scope
                 self.scope_idents
