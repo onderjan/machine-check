@@ -18,9 +18,16 @@ mod machine_module {
     pub struct Machine {}
 
     impl ::mck::concr::Machine<Input, State> for Machine {
-        fn init(_input: &Input) -> State {
-            let safe; 
-            { let a = ::mck::concr::Bitvector::<1>::new(1); safe = a; };
+        fn init(input: &Input) -> State {
+            let safe;
+            if false {
+                safe = ::mck::concr::Bitvector::<1>::new(1);
+            } else {
+                safe = input.i;
+            };
+            /*{
+                safe = ::mck::concr::Bitvector::<1>::new(0);
+            }*/
             /*{
                 let x =
                 ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
@@ -33,10 +40,10 @@ mod machine_module {
         fn next(state: &State, _input: &Input) -> State {
             let b;
             {
-                let a = state.safe;
+                let a = state.safe; //::mck::forward::Bitwise::bit_not(state.safe);
                 b = a;
             }
-            State { safe: state.safe }
+            State { safe: b }
         }
     }
 }

@@ -39,13 +39,52 @@ impl BackwardConverter {
                 // no side effects, do not convert
                 Ok(())
             }
-            Stmt::Expr(Expr::Block(mut expr_block), Some(_)) => {
+            Stmt::Expr(Expr::Block(ref mut expr_block), Some(_)) => {
                 // convert the statements
                 let mut forward_stmts = Vec::new();
                 forward_stmts.append(&mut expr_block.block.stmts);
                 for stmt in forward_stmts {
                     self.convert_stmt(&mut expr_block.block.stmts, &stmt)?;
                 }
+                // add the redone block to backward statements
+                backward_stmts.push(stmt);
+                Ok(())
+            }
+            Stmt::Expr(Expr::If(ref mut expr_if), Some(_)) => {
+                // convert the then branch
+                {
+                    let then_stmts = &mut expr_if.then_branch.stmts;
+                    let mut forward_then_stmts = Vec::new();
+                    forward_then_stmts.append(then_stmts);
+                    for stmt in forward_then_stmts {
+                        self.convert_stmt(then_stmts, &stmt)?;
+                    }
+                }
+                // due to single-assignment requirement, there must be an else branch, convert it
+                {
+                    let Some((_, else_branch)) = &mut expr_if.else_branch else {
+                        return Err(MachineError(format!(
+                            "Unexpected if without else: {:?}",
+                            expr_if
+                        )));
+                    };
+                    let Expr::Block(else_expr_block) = else_branch.as_mut() else {
+                        return Err(MachineError(format!(
+                            "Unexpected if with non-block else: {:?}",
+                            else_branch,
+                        )));
+                    };
+                    let else_stmts = &mut else_expr_block.block.stmts;
+                    let mut forward_else_stmts = Vec::new();
+                    forward_else_stmts.append(else_stmts);
+                    for stmt in forward_else_stmts {
+                        self.convert_stmt(else_stmts, &stmt)?;
+                    }
+                }
+                // TODO: propagate refinement to condition if it is abstract
+                // add the redone condition to backward statements
+                backward_stmts.push(stmt);
+
                 Ok(())
             }
             Stmt::Expr(Expr::Assign(assign), Some(_)) => {
