@@ -1,13 +1,11 @@
-use std::result;
-
 use syn::{punctuated::Punctuated, visit_mut::VisitMut, Ident, ImplItemFn, Stmt};
 use syn_path::path;
 
 use crate::{
     support::backward::BackwardConverter,
     util::{
-        create_expr_call, create_expr_path, create_ident, create_let_bare, create_let_mut,
-        create_path_from_ident, get_block_result_expr, ArgType,
+        create_expr_call, create_expr_path, create_ident, create_let_mut, create_path_from_ident,
+        get_block_result_expr, ArgType,
     },
     MachineError,
 };

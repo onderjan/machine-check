@@ -26,5 +26,6 @@ pub trait Test {
 }
 
 pub trait Join {
-    fn join(self, other: Self) -> Self;
+    type Condition;
+    fn join(self, other: Self, condition: Self::Condition) -> Self;
 }

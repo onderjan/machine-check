@@ -222,7 +222,9 @@ impl Test for ThreeValuedBitvector<1> {
 }
 
 impl<const L: u32> Join for ThreeValuedBitvector<L> {
-    fn join(self, other: Self) -> Self {
+    type Condition = ThreeValuedBitvector<1>;
+    fn join(self, other: Self, _condition: Self::Condition) -> Self {
+        // do not use the condition, it is only here for marking
         let zeros = self.zeros.bit_or(other.zeros);
         let ones = self.ones.bit_or(other.ones);
 

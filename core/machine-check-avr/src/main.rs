@@ -62,8 +62,6 @@ fn main() {
     (a, b) = (5, true);
     println!("a, b: {}, {}", a, b);
 
-    let c = true;
-
     machine_check_exec::run::<
         machine_module::refin::Input,
         machine_module::refin::State,

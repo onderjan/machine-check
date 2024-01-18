@@ -1,8 +1,8 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use syn::{
     visit_mut::{self, VisitMut},
-    Block, ExprAssign, ExprBlock, Ident, ItemStruct, Stmt,
+    Block, ExprBlock, Ident, ItemStruct, Stmt,
 };
 use syn_path::path;
 
@@ -72,6 +72,17 @@ pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError
                                 // TODO: replace with result
                                 panic!("Invalid number of arguments for Test");
                             }
+                            let Expr::Path(ref condition_path) = cond_expr_call.args[0] else {
+                                panic!("Unexpected non-path condition");
+                            };
+                            if !(condition_path.path.leading_colon.is_none()
+                                && condition_path.path.segments.len() == 1
+                                && condition_path.path.segments[0].arguments.is_none())
+                            {
+                                panic!("Unexpected non-ident condition");
+                            }
+                            // create a temporary
+                            let condition = &condition_path.path.segments[0].ident;
 
                             // split into three possibilities:
                             // 1. must be true (perform only then)
@@ -109,7 +120,7 @@ pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError
                                 must_be_false_path.path.segments[3].ident.span(),
                             );
                             let (both_stmts, both_tmps) =
-                                join_statements(&then_block.stmts, &else_block.stmts);
+                                join_statements(&then_block.stmts, &else_block.stmts, condition);
                             self.tmps.extend(both_tmps);
                             // TODO
                             let both_block = ExprBlock {
@@ -153,7 +164,11 @@ pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError
     Ok(())
 }
 
-fn join_statements(then_stmts: &[Stmt], else_stmts: &[Stmt]) -> (Vec<Stmt>, Vec<Ident>) {
+fn join_statements(
+    then_stmts: &[Stmt],
+    else_stmts: &[Stmt],
+    condition: &Ident,
+) -> (Vec<Stmt>, Vec<Ident>) {
     // convert every assignment to assignment to a new temporary
     let mut stmts = Vec::new();
     let (then_stmts, then_temporary_map) = convert_to_temporaries(then_stmts, "then");
@@ -173,6 +188,7 @@ fn join_statements(then_stmts: &[Stmt], else_stmts: &[Stmt]) -> (Vec<Stmt>, Vec<
                 vec![
                     (ArgType::Normal, create_expr_ident(then_tmp_ident)),
                     (ArgType::Normal, create_expr_ident(else_tmp_ident)),
+                    (ArgType::Normal, create_expr_ident(condition.clone())),
                 ],
             ),
             true,

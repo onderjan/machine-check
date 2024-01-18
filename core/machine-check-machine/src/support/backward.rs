@@ -2,11 +2,14 @@ use syn::{Expr, ExprCall, ExprPath, Pat, Path, Stmt};
 
 use crate::{
     util::{
-        create_expr_field_unnamed, create_expr_ident, create_expr_tuple, create_ident, create_let,
-        create_pat_wild, create_refine_join_stmt,
+        create_expr_call, create_expr_field_unnamed, create_expr_ident, create_expr_path,
+        create_expr_tuple, create_ident, create_let, create_pat_wild, create_refine_join_stmt,
+        ArgType,
     },
     MachineError,
 };
+
+use syn_path::path;
 
 use super::struct_rules::StructRules;
 
@@ -195,7 +198,7 @@ impl BackwardConverter {
         // construct the backward statement, assigning to a temporary
         let tmp_ident = create_ident(&format!("__mck_backw_tmp_{}", stmts.len()));
 
-        // treat join specially by just splitting it
+        // treat join specially
         if let Expr::Path(ExprPath {
             path: Path {
                 leading_colon,
@@ -204,7 +207,6 @@ impl BackwardConverter {
             ..
         }) = call.func.as_ref()
         {
-            println!("Testing for join: {:?}", segments);
             if leading_colon.is_some()
                 && segments.len() == 4
                 && &segments[0].ident.to_string() == "mck"
@@ -212,11 +214,19 @@ impl BackwardConverter {
                 && &segments[2].ident.to_string() == "Join"
                 && &segments[3].ident.to_string() == "join"
             {
-                assert!(call.args.len() == 2);
-                println!("Is join");
+                assert!(call.args.len() == 3);
+                let to_condition = create_expr_call(
+                    create_expr_path(path!(::mck::refin::Refine::to_condition)),
+                    vec![(ArgType::Reference, backward_later.clone())],
+                );
                 stmts.push(create_let(
                     tmp_ident.clone(),
-                    create_expr_tuple(vec![backward_later.clone(), backward_later]),
+                    // the third argument is the condition
+                    create_expr_tuple(vec![
+                        backward_later.clone(),
+                        backward_later.clone(),
+                        to_condition,
+                    ]),
                 ));
             }
         } else {

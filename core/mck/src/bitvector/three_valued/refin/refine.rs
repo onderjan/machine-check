@@ -10,8 +10,18 @@ use crate::{
 use super::MarkBitvector;
 
 impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
+    type Condition = MarkBitvector<1>;
+
     fn apply_join(&mut self, other: &Self) {
         self.0 = forward::Bitwise::bit_or(self.0, other.0);
+    }
+
+    fn to_condition(&self) -> Self::Condition {
+        if self.0.is_nonzero() {
+            MarkBitvector::new_marked()
+        } else {
+            MarkBitvector::new_unmarked()
+        }
     }
 
     fn apply_refin(&mut self, offer: &Self) -> bool {
