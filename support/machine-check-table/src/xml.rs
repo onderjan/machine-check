@@ -31,7 +31,7 @@ pub(super) fn generate(test_config: &TestConfig, tests: &Vec<(TaskStats, RunStat
             .options
             .as_ref()
             .map(|a| a.to_string())
-            .unwrap_or(String::new()),
+            .unwrap_or_default(),
     );
 
     xml_result.add_child(generate_xml_columns());
@@ -94,11 +94,7 @@ fn generate_xml_systeminfo(test_config: &TestConfig) -> XMLElement {
     let mut xml_os = XMLElement::new("os");
     xml_os.add_attribute(
         "name",
-        test_config
-            .system_info
-            .os_name
-            .clone()
-            .unwrap_or(String::new()),
+        test_config.system_info.os_name.clone().unwrap_or_default(),
     );
     xml_systeminfo.add_child(xml_os);
 
@@ -114,7 +110,7 @@ fn generate_xml_systeminfo(test_config: &TestConfig) -> XMLElement {
                     .system_info
                     .cpu_cores
                     .map(|u| u.to_string())
-                    .unwrap_or(String::new())
+                    .unwrap_or_default()
             }),
     );
     xml_cpu.add_attribute(
@@ -123,7 +119,7 @@ fn generate_xml_systeminfo(test_config: &TestConfig) -> XMLElement {
             .system_info
             .cpu_frequency
             .map(|u| u.to_string())
-            .unwrap_or(String::new()),
+            .unwrap_or_default(),
     );
     xml_cpu.add_attribute(
         "model",
@@ -131,7 +127,7 @@ fn generate_xml_systeminfo(test_config: &TestConfig) -> XMLElement {
             .system_info
             .cpu_model
             .clone()
-            .unwrap_or(String::new()),
+            .unwrap_or_default(),
     );
     xml_systeminfo.add_child(xml_cpu);
 
@@ -147,7 +143,7 @@ fn generate_xml_systeminfo(test_config: &TestConfig) -> XMLElement {
                     .system_info
                     .ram_size
                     .map(|u| u.to_string())
-                    .unwrap_or(String::new())
+                    .unwrap_or_default()
             }),
     );
     xml_systeminfo.add_child(xml_ram);

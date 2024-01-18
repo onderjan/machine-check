@@ -27,9 +27,9 @@ impl BackwardConverter {
             Stmt::Local(ref mut local) => {
                 // ensure it is bare
                 if local.init.is_some() {
-                    return Err(MachineError(String::from(
+                    Err(MachineError(String::from(
                         "Inversion of let with initialization not supported",
-                    )));
+                    )))
                 } else {
                     // no side effects, do not convert
                     Ok(())

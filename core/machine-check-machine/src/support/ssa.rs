@@ -9,7 +9,7 @@ use crate::{
 };
 
 pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError> {
-    normalize_scope::normalize_scope(machine);
+    normalize_scope::normalize_scope(machine)?;
 
     // apply linear SSA to each block using a visitor
     struct Visitor(Result<(), MachineError>);

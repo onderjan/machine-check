@@ -16,15 +16,11 @@ fn create_let_mut_choice(mutable: bool, left_ident: Ident, right_expr: Option<Ex
         ident: left_ident,
         subpat: None,
     });
-    let init = if let Some(right_expr) = right_expr {
-        Some(LocalInit {
-            eq_token: Default::default(),
-            expr: Box::new(right_expr),
-            diverge: None,
-        })
-    } else {
-        None
-    };
+    let init = right_expr.map(|right_expr| LocalInit {
+        eq_token: Default::default(),
+        expr: Box::new(right_expr),
+        diverge: None,
+    });
 
     Stmt::Local(Local {
         attrs: vec![],

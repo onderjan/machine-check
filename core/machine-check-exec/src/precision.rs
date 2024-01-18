@@ -26,7 +26,7 @@ impl<I: Input, S: State> Precision<I, S> {
     }
 
     pub fn mut_input(&mut self, node_id: NodeId) -> &mut I {
-        self.input.entry(node_id).or_insert_with(Default::default)
+        self.input.entry(node_id).or_default()
     }
 
     pub fn get_decay(&self, node_id: NodeId) -> S {
@@ -37,7 +37,7 @@ impl<I: Input, S: State> Precision<I, S> {
     }
 
     pub fn mut_decay(&mut self, node_id: NodeId) -> &mut S {
-        self.decay.entry(node_id).or_insert_with(Default::default)
+        self.decay.entry(node_id).or_default()
     }
 
     pub fn retain_indices<F>(&mut self, predicate: F)

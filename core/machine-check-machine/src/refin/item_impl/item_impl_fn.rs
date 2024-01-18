@@ -55,7 +55,7 @@ impl ImplConverter {
         result_stmts.clear();
 
         // step 3: detuple abstract input
-        result_stmts.extend(abstract_input.1.into_iter());
+        result_stmts.extend(abstract_input.1);
 
         // step 4: add original block statement with abstract scheme
 

@@ -32,7 +32,7 @@ pub fn create_path_with_last_generic_type(path: Path, ty: Type) -> Path {
         .arguments = syn::PathArguments::AngleBracketed(AngleBracketedGenericArguments {
         colon2_token: Default::default(),
         lt_token: Default::default(),
-        args: Punctuated::from_iter(vec![GenericArgument::Type(ty)].into_iter()),
+        args: Punctuated::from_iter(vec![GenericArgument::Type(ty)]),
         gt_token: Default::default(),
     });
     path

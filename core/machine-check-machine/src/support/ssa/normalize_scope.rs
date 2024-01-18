@@ -8,8 +8,6 @@ use crate::{
     MachineDescription, MachineError,
 };
 
-use quote::quote;
-
 pub fn normalize_scope(machine: &mut MachineDescription) -> Result<(), MachineError> {
     let mut visitor = BlockVisitor {
         result: Ok(()),
@@ -151,11 +149,11 @@ impl VisitMut for BlockVisitor {
         }
     }
 
-    fn visit_type_mut(&mut self, node: &mut Type) {
+    fn visit_type_mut(&mut self, _: &mut Type) {
         // do not propagate
     }
 
-    fn visit_member_mut(&mut self, node: &mut Member) {
+    fn visit_member_mut(&mut self, _: &mut Member) {
         // do not go into the member
     }
     fn visit_path_mut(&mut self, path: &mut Path) {

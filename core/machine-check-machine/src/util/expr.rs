@@ -19,7 +19,7 @@ pub fn create_expr_tuple(expressions: Vec<Expr>) -> Expr {
     Expr::Tuple(ExprTuple {
         attrs: vec![],
         paren_token: Default::default(),
-        elems: Punctuated::from_iter(expressions.into_iter()),
+        elems: Punctuated::from_iter(expressions),
     })
 }
 
@@ -111,7 +111,7 @@ pub fn create_tuple_expr(elems: Vec<Expr>) -> Expr {
     Expr::Tuple(ExprTuple {
         attrs: vec![],
         paren_token: Default::default(),
-        elems: Punctuated::from_iter(elems.into_iter()),
+        elems: Punctuated::from_iter(elems),
     })
 }
 
@@ -121,7 +121,7 @@ pub fn create_struct_expr(type_path: Path, fields: Vec<FieldValue>) -> Expr {
         qself: None,
         path: type_path,
         brace_token: Default::default(),
-        fields: Punctuated::from_iter(fields.into_iter()),
+        fields: Punctuated::from_iter(fields),
         dot2_token: None,
         rest: None,
     })

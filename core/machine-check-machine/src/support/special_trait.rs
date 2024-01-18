@@ -30,14 +30,11 @@ pub fn special_trait_path(trait_path: &Path, flavour: &str) -> Option<SpecialTra
 fn create_trait_path(flavour: &str, ty: &str) -> Path {
     Path {
         leading_colon: Some(Default::default()),
-        segments: Punctuated::from_iter(
-            vec![
-                create_path_segment(create_ident("mck")),
-                create_path_segment(create_ident(flavour)),
-                create_path_segment(create_ident(ty)),
-            ]
-            .into_iter(),
-        ),
+        segments: Punctuated::from_iter(vec![
+            create_path_segment(create_ident("mck")),
+            create_path_segment(create_ident(flavour)),
+            create_path_segment(create_ident(ty)),
+        ]),
     }
 }
 

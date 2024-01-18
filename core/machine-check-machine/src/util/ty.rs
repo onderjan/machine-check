@@ -29,7 +29,7 @@ pub fn create_converted_type(arg_ty: ArgType, ty: Type) -> Type {
 pub fn create_tuple_type(types: Vec<Type>) -> Type {
     Type::Tuple(TypeTuple {
         paren_token: Default::default(),
-        elems: Punctuated::from_iter(types.into_iter()),
+        elems: Punctuated::from_iter(types),
     })
 }
 

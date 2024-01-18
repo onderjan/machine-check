@@ -208,26 +208,20 @@ fn create_fn(mutable: bool, manipulable_field_idents: &Vec<Ident>, flavour: &str
 fn single_bit_type(flavour: &str) -> Type {
     let mut path = Path {
         leading_colon: Some(Default::default()),
-        segments: Punctuated::from_iter(
-            vec![
-                create_path_segment(create_ident("mck")),
-                create_path_segment(create_ident(flavour)),
-                create_path_segment(create_ident("Bitvector")),
-            ]
-            .into_iter(),
-        ),
+        segments: Punctuated::from_iter(vec![
+            create_path_segment(create_ident("mck")),
+            create_path_segment(create_ident(flavour)),
+            create_path_segment(create_ident("Bitvector")),
+        ]),
     };
     path.segments.last_mut().unwrap().arguments =
         PathArguments::AngleBracketed(AngleBracketedGenericArguments {
             colon2_token: Default::default(),
             lt_token: Default::default(),
-            args: Punctuated::from_iter(
-                vec![GenericArgument::Const(Expr::Lit(ExprLit {
-                    attrs: vec![],
-                    lit: Lit::Int(LitInt::new("1", Span::call_site())),
-                }))]
-                .into_iter(),
-            ),
+            args: Punctuated::from_iter(vec![GenericArgument::Const(Expr::Lit(ExprLit {
+                attrs: vec![],
+                lit: Lit::Int(LitInt::new("1", Span::call_site())),
+            }))]),
             gt_token: Default::default(),
         });
 

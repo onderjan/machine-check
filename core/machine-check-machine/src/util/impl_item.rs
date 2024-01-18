@@ -27,7 +27,7 @@ pub fn create_impl_item_fn(
             ident,
             generics: Default::default(),
             paren_token: Default::default(),
-            inputs: Punctuated::from_iter(parameters.into_iter()),
+            inputs: Punctuated::from_iter(parameters),
             variadic: None,
             output: return_type,
         },

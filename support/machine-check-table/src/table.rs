@@ -10,7 +10,7 @@ pub(super) fn print_table(
 
     // add heading
 
-    let mut heading = vec![Cell::new(&table_name.unwrap_or(String::new())).with_style(Attr::Bold)];
+    let mut heading = vec![Cell::new(&table_name.unwrap_or_default()).with_style(Attr::Bold)];
     for test_result in test_results {
         heading.push(
             Cell::new(&test_result.0.name.clone().unwrap_or_else(|| {
@@ -74,7 +74,7 @@ pub(super) fn print_table(
         &mut table,
         test_results,
         "missing",
-        |result| matches!(result, None),
+        |result| result.is_none(),
         true,
     );
 
