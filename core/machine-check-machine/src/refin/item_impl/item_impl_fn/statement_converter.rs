@@ -1,6 +1,7 @@
 use syn::{Expr, ExprCall, ExprPath, Pat, Path, Stmt};
 
 use crate::{
+    support::struct_rules::StructRules,
     util::{
         create_expr_call, create_expr_field_unnamed, create_expr_ident, create_expr_path,
         create_expr_tuple, create_ident, create_let, create_pat_wild, create_refine_join_stmt,
@@ -11,14 +12,12 @@ use crate::{
 
 use syn_path::path;
 
-use super::struct_rules::StructRules;
-
-pub struct BackwardConverter {
+pub struct StatementConverter {
     pub forward_scheme: StructRules,
     pub backward_scheme: StructRules,
 }
 
-impl BackwardConverter {
+impl StatementConverter {
     pub(crate) fn convert_stmt(
         &self,
         backward_stmts: &mut Vec<Stmt>,

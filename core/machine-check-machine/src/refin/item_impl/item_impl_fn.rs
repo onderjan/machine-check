@@ -1,14 +1,18 @@
+mod statement_converter;
+
 use syn::{punctuated::Punctuated, Ident, ImplItemFn, Stmt};
 use syn_path::path;
 
 use crate::{
-    support::{backward::BackwardConverter, local::extract_local_ident_and_orig},
+    support::local::extract_local_ident_and_orig,
     util::{
         create_expr_call, create_expr_path, create_let_mut, create_path_from_ident,
         get_block_result_expr, ArgType,
     },
     MachineError,
 };
+
+use self::statement_converter::StatementConverter;
 
 use super::ImplConverter;
 
@@ -17,7 +21,7 @@ impl ImplConverter {
         &self,
         orig_fn: &ImplItemFn,
     ) -> Result<ImplItemFn, MachineError> {
-        let backward_converter = BackwardConverter {
+        let statement_converter = StatementConverter {
             forward_scheme: self.abstract_rules.clone(),
             backward_scheme: self.refinement_rules.clone(),
         };
@@ -111,7 +115,7 @@ impl ImplConverter {
                 semi.get_or_insert_with(Default::default);
             }
 
-            backward_converter.convert_stmt(result_stmts, &stmt)?
+            statement_converter.convert_stmt(result_stmts, &stmt)?
         }
         // 8. add result expression
         result_stmts.push(earlier.2);
