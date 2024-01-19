@@ -4,7 +4,7 @@ use syn_path::path;
 use crate::{
     support::{backward::BackwardConverter, local::extract_local_ident_and_orig},
     util::{
-        create_expr_call, create_expr_path, create_ident, create_let_mut, create_path_from_ident,
+        create_expr_call, create_expr_path, create_let_mut, create_path_from_ident,
         get_block_result_expr, ArgType,
     },
     MachineError,
@@ -81,38 +81,21 @@ impl ImplConverter {
         for stmt in orig_fn.block.stmts.iter() {
             if let Stmt::Local(local) = stmt {
                 let (local_ident, orig_ident) = extract_local_ident_and_orig(local);
-                local_idents.push(local_ident);
+                local_idents.push((local_ident, orig_ident));
             } else {
                 break;
             }
         }
 
-        for local_ident in local_idents {
+        for (local_ident, orig_ident) in local_idents {
             let refin_ident = self
                 .refinement_rules
                 .convert_normal_ident(local_ident.clone())?;
 
-            // initialize then/else locals from the non-branch variable
-            let mut stripped_name = local_ident.to_string();
-            loop {
-                if let Some(prefix) = stripped_name.strip_prefix("__mck_then_") {
-                    stripped_name = prefix
-                        .trim_start_matches(char::is_numeric)
-                        .strip_prefix('_')
-                        .unwrap()
-                        .to_string()
-                } else if let Some(prefix) = stripped_name.strip_prefix("__mck_else_") {
-                    stripped_name = prefix
-                        .trim_start_matches(char::is_numeric)
-                        .strip_prefix('_')
-                        .unwrap()
-                        .to_string()
-                } else {
-                    break;
-                };
-            }
-            let stripped_ident = create_ident(&stripped_name);
-            let abstract_ident = self.abstract_rules.convert_normal_ident(stripped_ident)?;
+            // some temporary locals may be only initialized in some branches,
+            // but their original is always initialized
+            let orig_ident = orig_ident.unwrap_or(local_ident);
+            let abstract_ident = self.abstract_rules.convert_normal_ident(orig_ident)?;
             result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, true));
         }
 
