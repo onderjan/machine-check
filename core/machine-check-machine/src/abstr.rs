@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
 use syn::{
     visit_mut::{self, VisitMut},
@@ -32,11 +32,14 @@ pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError
     // add default derive attributes to the structs
     // that easily allow us to make unknown inputs/states
     for item in machine.items.iter_mut() {
-        Visitor { tmps: vec![], tmp_counter: 0 }.visit_item_mut(item);
+        Visitor {
+            tmps: vec![],
+            tmp_counter: 0,
+        }
+        .visit_item_mut(item);
     }
     Ok(())
 }
-
 
 struct Visitor {
     tmps: Vec<Ident>,
@@ -101,8 +104,7 @@ impl VisitMut for Visitor {
                         // else { if must_be_false(cond) { else_block } else { join_block } }
 
                         // leave then block as-is, just replace the condition
-                        segments[3].ident =
-                            Ident::new("must_be_true", segments[3].ident.span());
+                        segments[3].ident = Ident::new("must_be_true", segments[3].ident.span());
                         let then_block = expr_if.then_branch.clone();
 
                         // create a new condition in the else block
@@ -127,8 +129,12 @@ impl VisitMut for Visitor {
                             "must_be_false",
                             must_be_false_path.path.segments[3].ident.span(),
                         );
-                        let (both_stmts, both_tmps) =
-                            self.join_statements(then_block.stmts, else_block.stmts.clone(), condition, self.tmp_counter);
+                        let (both_stmts, both_tmps) = self.join_statements(
+                            then_block.stmts,
+                            else_block.stmts.clone(),
+                            condition,
+                            self.tmp_counter,
+                        );
                         self.tmp_counter += 1;
                         self.tmps.extend(both_tmps);
                         // TODO
@@ -171,30 +177,35 @@ impl VisitMut for Visitor {
 }
 
 impl Visitor {
-
-fn join_statements(
-    &mut self,
-    mut then_stmts: Vec<Stmt>,
-    mut else_stmts: Vec<Stmt>,
-    condition: &Ident,
-    if_counter: usize,
-) -> (Vec<Stmt>, Vec<Ident>) {
-    // convert every assignment to assignment to a new temporary
-    let mut stmts = Vec::new();
-    let mut then_set = HashSet::new();
-    let mut else_set = HashSet::new();
-    self.find_temporaries(&mut then_stmts, &mut then_set);
-    self.find_temporaries(&mut else_stmts, &mut else_set);
-    let mut then_temporary_map = HashMap::new();
-    let mut else_temporary_map = HashMap::new();
-    let mut join_stmts = Vec::new();
-    for left_ident in then_set {
-        if else_set.contains(&left_ident) {
-            // is in both, convert to temporary and create join statement
-            let then_tmp_ident = Ident::new(&format!("__mck_then_{}_{}", if_counter, left_ident), left_ident.span());
-            let else_tmp_ident = Ident::new(&format!("__mck_else_{}_{}", if_counter, left_ident), left_ident.span());
-            then_temporary_map.insert(left_ident.clone(), then_tmp_ident.clone());
-            else_temporary_map.insert(left_ident.clone(), else_tmp_ident.clone());
+    fn join_statements(
+        &mut self,
+        mut then_stmts: Vec<Stmt>,
+        mut else_stmts: Vec<Stmt>,
+        condition: &Ident,
+        if_counter: usize,
+    ) -> (Vec<Stmt>, Vec<Ident>) {
+        // convert every assignment to assignment to a new temporary
+        let mut stmts = Vec::new();
+        let mut then_set = HashSet::new();
+        let mut else_set = HashSet::new();
+        find_temporaries(&then_stmts, &mut then_set);
+        find_temporaries(&else_stmts, &mut else_set);
+        let mut then_temporary_map = HashMap::new();
+        let mut else_temporary_map = HashMap::new();
+        let mut join_stmts = Vec::new();
+        for left_ident in then_set {
+            if else_set.contains(&left_ident) {
+                // is in both, convert to temporary and create join statement
+                let then_tmp_ident = Ident::new(
+                    &format!("__mck_then_{}_{}", if_counter, left_ident),
+                    left_ident.span(),
+                );
+                let else_tmp_ident = Ident::new(
+                    &format!("__mck_else_{}_{}", if_counter, left_ident),
+                    left_ident.span(),
+                );
+                then_temporary_map.insert(left_ident.clone(), then_tmp_ident.clone());
+                else_temporary_map.insert(left_ident.clone(), else_tmp_ident.clone());
                 join_stmts.push(create_assign(
                     left_ident,
                     create_expr_call(
@@ -207,27 +218,28 @@ fn join_statements(
                     ),
                     true,
                 ));
+            }
         }
+        println!("Then temporary map: {:?}\n else temporary map: {:?}\n then stmts: {:?}\n else stmts: {:?}", then_temporary_map, else_temporary_map, then_stmts, else_stmts);
+        convert_to_temporaries(&mut then_stmts, &then_temporary_map);
+        convert_to_temporaries(&mut else_stmts, &else_temporary_map);
+
+        stmts.extend(then_stmts);
+        stmts.extend(else_stmts);
+        stmts.extend(join_stmts);
+
+        let mut tmps = Vec::new();
+        tmps.extend(then_temporary_map.into_values());
+        tmps.extend(else_temporary_map.into_values());
+
+        (stmts, tmps)
     }
-    println!("Then temporary map: {:?}\n else temporary map: {:?}\n then stmts: {:?}\n else stmts: {:?}", then_temporary_map, else_temporary_map, then_stmts, else_stmts);
-    self.convert_to_temporaries(&mut then_stmts, &then_temporary_map);
-    self.convert_to_temporaries(&mut else_stmts, &else_temporary_map);
-
-    stmts.extend(then_stmts);
-    stmts.extend(else_stmts);
-    stmts.extend(join_stmts);
-
-    let mut tmps = Vec::new();
-    tmps.extend(then_temporary_map.into_values());
-    tmps.extend(else_temporary_map.into_values());
-
-    (stmts, tmps)
 }
 
-fn find_temporaries(&mut self,stmts: &[Stmt], temporary_set: &mut HashSet<Ident>) {
+fn find_temporaries(stmts: &[Stmt], temporary_set: &mut HashSet<Ident>) {
     for stmt in stmts {
         match stmt {
-            Stmt::Expr(expr, Some(semi)) => match expr {
+            Stmt::Expr(expr, Some(_)) => match expr {
                 Expr::Assign(assign) => {
                     let Expr::Path(left_path) = assign.left.as_ref() else {
                         panic!("Unexpected non-path left");
@@ -244,12 +256,11 @@ fn find_temporaries(&mut self,stmts: &[Stmt], temporary_set: &mut HashSet<Ident>
                     temporary_set.insert(left_ident.clone());
                 }
                 Expr::Block(expr_block) => {
-                    self.find_temporaries(&expr_block.block.stmts, temporary_set);
+                    find_temporaries(&expr_block.block.stmts, temporary_set);
                 }
                 Expr::If(expr_if) => {
-                    self.find_temporaries(&expr_if.then_branch.stmts, temporary_set);
-                    let Some((else_token, else_block)) =
-                        &expr_if.else_branch else {
+                    find_temporaries(&expr_if.then_branch.stmts, temporary_set);
+                    let Some((_else_token, else_block)) = &expr_if.else_branch else {
                         // TODO: replace with result
                         panic!("If without else");
                     };
@@ -257,7 +268,7 @@ fn find_temporaries(&mut self,stmts: &[Stmt], temporary_set: &mut HashSet<Ident>
                         // TODO: replace with result
                         panic!("Non-block else");
                     };
-                    self.find_temporaries(&else_expr_block.block.stmts, temporary_set);
+                    find_temporaries(&else_expr_block.block.stmts, temporary_set);
                 }
                 _ => panic!("Unexpected expression type: {:?}", stmt),
             },
@@ -266,7 +277,7 @@ fn find_temporaries(&mut self,stmts: &[Stmt], temporary_set: &mut HashSet<Ident>
     }
 }
 
-fn convert_to_temporaries(&mut self,stmts: &mut Vec<Stmt>, temporary_map: &HashMap<Ident, Ident>) {
+fn convert_to_temporaries(stmts: &mut [Stmt], temporary_map: &HashMap<Ident, Ident>) {
     for stmt in stmts.iter_mut() {
         match stmt {
             Stmt::Expr(expr, Some(semi)) => match expr {
@@ -284,20 +295,19 @@ fn convert_to_temporaries(&mut self,stmts: &mut Vec<Stmt>, temporary_map: &HashM
 
                     // try to find the temporary and convert if we have it
                     let left_ident = &left_path.path.segments[0].ident;
-                    if let Some(tmp_ident) = temporary_map.get(&left_ident) {
+                    if let Some(tmp_ident) = temporary_map.get(left_ident) {
                         let mut assign = assign.clone();
-                        assign.left = Box::new(create_expr_path(create_path_from_ident(tmp_ident.clone())));
+                        assign.left =
+                            Box::new(create_expr_path(create_path_from_ident(tmp_ident.clone())));
                         *stmt = Stmt::Expr(Expr::Assign(assign), Some(*semi));
                     }
-
                 }
                 Expr::Block(expr_block) => {
-                    self.convert_to_temporaries(&mut expr_block.block.stmts, temporary_map);
+                    convert_to_temporaries(&mut expr_block.block.stmts, temporary_map);
                 }
                 Expr::If(expr_if) => {
-                    self.convert_to_temporaries(&mut expr_if.then_branch.stmts, temporary_map);
-                    let Some((else_token, else_block)) =
-                        &mut expr_if.else_branch else {
+                    convert_to_temporaries(&mut expr_if.then_branch.stmts, temporary_map);
+                    let Some((_else_token, else_block)) = &mut expr_if.else_branch else {
                         // TODO: replace with result
                         panic!("If without else");
                     };
@@ -305,15 +315,13 @@ fn convert_to_temporaries(&mut self,stmts: &mut Vec<Stmt>, temporary_map: &HashM
                         // TODO: replace with result
                         panic!("Non-block else");
                     };
-                    self.convert_to_temporaries(&mut 
-                        else_expr_block.block.stmts, temporary_map);
+                    convert_to_temporaries(&mut else_expr_block.block.stmts, temporary_map);
                 }
                 _ => panic!("Unexpected expression type: {:?}", stmt),
             },
             _ => panic!("Unexpected statement type: {:?}", stmt),
         }
     }
-}
 }
 
 fn path_rules() -> PathRules {
