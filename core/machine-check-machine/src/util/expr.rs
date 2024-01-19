@@ -5,7 +5,7 @@ use syn::{
 };
 use syn_path::path;
 
-use super::{create_path_from_ident, get_field_member, ArgType};
+use super::{create_path_from_ident, extract_path_ident, get_field_member, ArgType};
 
 pub fn create_unit_expr() -> Expr {
     Expr::Tuple(ExprTuple {
@@ -133,4 +133,11 @@ pub fn get_block_result_expr(block: &Block) -> Expr {
     } else {
         create_unit_expr()
     }
+}
+
+pub fn extract_expr_ident(expr: &Expr) -> Ident {
+    let Expr::Path(path) = expr else {
+        panic!("Unexpected non-ident expression {:?}", expr);
+    };
+    extract_path_ident(&path.path)
 }

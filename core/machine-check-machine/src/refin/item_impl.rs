@@ -8,7 +8,6 @@ use crate::{
 
 mod args;
 mod item_impl_fn;
-mod local_visitor;
 
 use super::rules;
 
@@ -19,11 +18,15 @@ pub(super) fn apply(
     let self_ty = item_impl.self_ty.as_ref();
 
     let Type::Path(self_ty) = self_ty else {
-        return Err(MachineError(String::from("Non-path impl type not supported")));
+        return Err(MachineError(String::from(
+            "Non-path impl type not supported",
+        )));
     };
 
     let Some(self_ty_ident) = self_ty.path.get_ident() else {
-        return Err(MachineError(String::from("Non-ident impl type not supported")));
+        return Err(MachineError(String::from(
+            "Non-ident impl type not supported",
+        )));
     };
 
     let converter = ImplConverter {

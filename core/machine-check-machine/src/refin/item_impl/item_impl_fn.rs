@@ -1,8 +1,8 @@
-use syn::{punctuated::Punctuated, visit_mut::VisitMut, Ident, ImplItemFn, Stmt};
+use syn::{punctuated::Punctuated, Ident, ImplItemFn, Stmt};
 use syn_path::path;
 
 use crate::{
-    support::backward::BackwardConverter,
+    support::{backward::BackwardConverter, local::extract_local_ident_and_orig},
     util::{
         create_expr_call, create_expr_path, create_ident, create_let_mut, create_path_from_ident,
         get_block_result_expr, ArgType,
@@ -10,7 +10,7 @@ use crate::{
     MachineError,
 };
 
-use super::{local_visitor::LocalVisitor, ImplConverter};
+use super::ImplConverter;
 
 impl ImplConverter {
     pub(crate) fn transcribe_impl_item_fn(
@@ -76,26 +76,37 @@ impl ImplConverter {
             result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, false));
         }
 
-        let mut local_visitor = LocalVisitor::new();
-        let mut refin_stmts = orig_fn.block.stmts.clone();
-        for stmt in &mut refin_stmts {
-            local_visitor.visit_stmt_mut(stmt);
+        // take the locals
+        let mut local_idents = Vec::new();
+        for stmt in orig_fn.block.stmts.iter() {
+            if let Stmt::Local(local) = stmt {
+                let (local_ident, orig_ident) = extract_local_ident_and_orig(local);
+                local_idents.push(local_ident);
+            } else {
+                break;
+            }
         }
 
-        for local_name in local_visitor.local_names() {
-            println!("Local name: {}", local_name);
-            let orig_ident = create_ident(local_name);
+        for local_ident in local_idents {
             let refin_ident = self
                 .refinement_rules
-                .convert_normal_ident(orig_ident.clone())?;
+                .convert_normal_ident(local_ident.clone())?;
 
             // initialize then/else locals from the non-branch variable
-            let mut stripped_name = String::from(local_name);
+            let mut stripped_name = local_ident.to_string();
             loop {
                 if let Some(prefix) = stripped_name.strip_prefix("__mck_then_") {
-                    stripped_name = prefix.trim_start_matches(char::is_numeric).strip_prefix('_').unwrap().to_string()
+                    stripped_name = prefix
+                        .trim_start_matches(char::is_numeric)
+                        .strip_prefix('_')
+                        .unwrap()
+                        .to_string()
                 } else if let Some(prefix) = stripped_name.strip_prefix("__mck_else_") {
-                    stripped_name = prefix.trim_start_matches(char::is_numeric).strip_prefix('_').unwrap().to_string()
+                    stripped_name = prefix
+                        .trim_start_matches(char::is_numeric)
+                        .strip_prefix('_')
+                        .unwrap()
+                        .to_string()
                 } else {
                     break;
                 };
@@ -110,6 +121,7 @@ impl ImplConverter {
 
         // step 7: add refin-computation statements in reverse order of original statements
 
+        let refin_stmts = orig_fn.block.stmts.clone();
         for mut stmt in refin_stmts.into_iter().rev() {
             if let Stmt::Expr(_, ref mut semi) = stmt {
                 // add semicolon to result

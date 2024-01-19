@@ -7,7 +7,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    support::temporary::{create_temporary_ident, create_temporary_let},
+    support::local::{create_temporary_ident, create_temporary_let},
     util::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path,
         create_path_from_ident, ArgType,
