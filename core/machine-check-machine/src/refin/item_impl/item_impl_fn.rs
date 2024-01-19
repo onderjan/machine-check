@@ -90,14 +90,17 @@ impl ImplConverter {
                 .convert_normal_ident(orig_ident.clone())?;
 
             // initialize then/else locals from the non-branch variable
-            let stripped_name = if let Some(prefix) = local_name.strip_prefix("__mck_then_") {
-                prefix
-            } else if let Some(prefix) = local_name.strip_prefix("__mck_else_") {
-                prefix
-            } else {
-                local_name
-            };
-            let stripped_ident = create_ident(stripped_name);
+            let mut stripped_name = String::from(local_name);
+            loop {
+                if let Some(prefix) = stripped_name.strip_prefix("__mck_then_") {
+                    stripped_name = prefix.trim_start_matches(char::is_numeric).strip_prefix('_').unwrap().to_string()
+                } else if let Some(prefix) = stripped_name.strip_prefix("__mck_else_") {
+                    stripped_name = prefix.trim_start_matches(char::is_numeric).strip_prefix('_').unwrap().to_string()
+                } else {
+                    break;
+                };
+            }
+            let stripped_ident = create_ident(&stripped_name);
             let abstract_ident = self.abstract_rules.convert_normal_ident(stripped_ident)?;
             result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, true));
         }

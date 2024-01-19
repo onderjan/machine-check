@@ -4,6 +4,7 @@ mod machine_module {
     pub struct Input {
         pub i: ::mck::concr::Bitvector<1>,
         pub j: ::mck::concr::Bitvector<1>,
+        pub k: ::mck::concr::Bitvector<1>,
     }
 
     impl ::mck::concr::Input for Input {}
@@ -21,10 +22,16 @@ mod machine_module {
     impl ::mck::concr::Machine<Input, State> for Machine {
         fn init(input: &Input) -> State {
             let safe;
+            let temp = input.k;
             if ::mck::concr::Test::is_true(input.j) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
-                safe = input.i;
+                if ::mck::concr::Test::is_true(temp) {
+                    safe = input.i;
+                } else {
+                    safe = ::mck::concr::Bitvector::<1>::new(1);
+                };
+                //safe = input.i;
             };
             /*{
                 safe = ::mck::concr::Bitvector::<1>::new(0);
