@@ -2,7 +2,7 @@ use proc_macro2::{Ident, Span};
 use syn::{parse_quote, Item, ItemFn, ItemMod};
 use thiserror::Error;
 
-use crate::{support::field_manipulate, util::create_item_mod};
+use crate::util::create_item_mod;
 
 mod abstr;
 mod refin;
@@ -44,15 +44,12 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Error> {
     let mut abstract_machine = abstr::create_abstract_machine(&ssa_machine)?;
     let refinement_machine = refin::create_refinement_machine(&abstract_machine)?;
 
-    // TODO: field-manipulate abstract machine before refinement
-    field_manipulate::apply_to_items(&mut abstract_machine.items, "abstr")?;
-
     // create new module at the end of the file that will contain the refinement
     let refinement_module = create_machine_module("refin", refinement_machine);
     abstract_machine.items.push(refinement_module);
 
     println!(
-        "processed items before stripping: {}",
+        "Processed items before stripping: {}",
         prettyplease::unparse(&syn::File {
             shebang: None,
             attrs: vec![],

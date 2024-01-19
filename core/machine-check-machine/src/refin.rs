@@ -35,15 +35,19 @@ pub(crate) fn create_refinement_machine(
                 result_items.push(Item::Struct(refin_struct));
             }
             Item::Impl(item_impl) => {
-                // look for special traits
-                item_impl::apply(&mut result_items, item_impl)?;
-                if let Some(special_trait) = special_trait_impl(item_impl, "abstr") {
-                    if let Type::Path(ty) = item_impl.self_ty.as_ref() {
-                        if let Some(ident) = ty.path.get_ident() {
-                            ident_special_traits.insert(ident.clone(), special_trait);
+                // skip if it is field-manipulate, we will add it at the end
+                if !is_field_manipulate_impl(item_impl) {
+                    // apply conversion
+                    item_impl::apply(&mut result_items, item_impl)?;
+                    // look for special traits
+                    if let Some(special_trait) = special_trait_impl(item_impl, "abstr") {
+                        if let Type::Path(ty) = item_impl.self_ty.as_ref() {
+                            if let Some(ident) = ty.path.get_ident() {
+                                ident_special_traits.insert(ident.clone(), special_trait);
+                            }
                         }
-                    }
-                };
+                    };
+                }
             }
             _ => {
                 return Err(MachineError(format!("Item type {:?} not supported", item)));
@@ -67,4 +71,18 @@ pub(crate) fn create_refinement_machine(
     };
 
     Ok(refinement_machine)
+}
+
+fn is_field_manipulate_impl(item_impl: &syn::ItemImpl) -> bool {
+    if let Some((_, path, _)) = &item_impl.trait_ {
+        if path.leading_colon.is_some()
+            && path.segments.len() == 3
+            && &path.segments[0].ident.to_string() == "mck"
+            && &path.segments[1].ident.to_string() == "misc"
+            && &path.segments[2].ident.to_string() == "FieldManipulate"
+        {
+            return true;
+        }
+    }
+    false
 }

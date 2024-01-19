@@ -4,7 +4,7 @@ use syn_path::path;
 
 use crate::util::{create_expr_ident, create_local, extract_expr_ident};
 
-pub fn create_temporary_ident(prefix: &str, orig_ident: &Ident) -> Ident {
+pub fn create_prefixed_ident(prefix: &str, orig_ident: &Ident) -> Ident {
     let orig_ident_string = orig_ident.to_string();
     // make sure everything is prefixed by __mck_ only once at the start
     let stripped_ident_str = orig_ident_string

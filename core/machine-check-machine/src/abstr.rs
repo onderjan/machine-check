@@ -7,7 +7,10 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    support::local::{create_temporary_ident, create_temporary_let},
+    support::{
+        field_manipulate,
+        local::{create_prefixed_ident, create_temporary_let},
+    },
     util::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path,
         create_path_from_ident, ArgType,
@@ -43,6 +46,10 @@ pub(crate) fn create_abstract_machine(
         }
         .visit_item_mut(item);
     }
+
+    // add field-manipulate to items
+    field_manipulate::apply_to_items(&mut abstract_machine.items, "abstr")?;
+
     Ok(abstract_machine)
 }
 
@@ -213,9 +220,9 @@ impl Visitor {
             if else_set.contains(&left_ident) {
                 // is in both, convert to temporary and create phi statement
                 let then_tmp_ident =
-                    create_temporary_ident(&format!("then_{}", if_counter), &left_ident);
+                    create_prefixed_ident(&format!("then_{}", if_counter), &left_ident);
                 let else_tmp_ident =
-                    create_temporary_ident(&format!("else_{}", if_counter), &left_ident);
+                    create_prefixed_ident(&format!("else_{}", if_counter), &left_ident);
                 then_temporary_map.insert(left_ident.clone(), then_tmp_ident.clone());
                 else_temporary_map.insert(left_ident.clone(), else_tmp_ident.clone());
                 phi_stmts.push(create_assign(
