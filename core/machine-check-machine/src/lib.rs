@@ -5,6 +5,7 @@ use thiserror::Error;
 
 mod abstr;
 mod refin;
+mod ssa;
 mod support;
 mod util;
 
@@ -29,7 +30,7 @@ impl MachineDescription {
 
     pub fn abstract_machine(&self) -> Result<MachineDescription, Error> {
         let mut abstract_machine = self.clone();
-        support::ssa::apply(&mut abstract_machine)?;
+        ssa::apply(&mut abstract_machine)?;
         abstr::apply(&mut abstract_machine)?;
         refin::apply(&mut abstract_machine)?;
         Ok(abstract_machine)
