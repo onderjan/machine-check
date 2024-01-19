@@ -3,7 +3,7 @@ use syn_path::path;
 
 use super::{create_expr_call, create_expr_path, create_path_from_ident, ArgType};
 
-fn create_let_mut_choice(mutable: bool, left_ident: Ident, right_expr: Option<Expr>) -> Stmt {
+fn create_let_mut_choice(mutable: bool, left_ident: Ident, right_expr: Option<Expr>) -> Local {
     let mutability = if mutable {
         Some(Default::default())
     } else {
@@ -22,24 +22,28 @@ fn create_let_mut_choice(mutable: bool, left_ident: Ident, right_expr: Option<Ex
         diverge: None,
     });
 
-    Stmt::Local(Local {
+    Local {
         attrs: vec![],
         let_token: Default::default(),
         pat: left_pat,
         init,
         semi_token: Default::default(),
-    })
+    }
 }
 
 pub fn create_let(left_ident: Ident, right_expr: Expr) -> Stmt {
-    create_let_mut_choice(false, left_ident, Some(right_expr))
+    Stmt::Local(create_let_mut_choice(false, left_ident, Some(right_expr)))
 }
 
 pub fn create_let_mut(left_ident: Ident, right_expr: Expr) -> Stmt {
-    create_let_mut_choice(true, left_ident, Some(right_expr))
+    Stmt::Local(create_let_mut_choice(true, left_ident, Some(right_expr)))
 }
 
 pub fn create_let_bare(ident: Ident) -> Stmt {
+    Stmt::Local(create_let_mut_choice(false, ident, None))
+}
+
+pub fn create_local(ident: Ident) -> Local {
     create_let_mut_choice(false, ident, None)
 }
 

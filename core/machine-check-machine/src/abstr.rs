@@ -1,17 +1,15 @@
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-};
+use std::collections::{HashMap, HashSet};
 
 use syn::{
     visit_mut::{self, VisitMut},
-    Attribute, Block, ExprBlock, Ident, ItemStruct, MetaNameValue, Stmt,
+    Block, ExprBlock, Ident, ItemStruct, Stmt,
 };
 use syn_path::path;
 
 use crate::{
+    support::temporary::{create_temporary_ident, create_temporary_let},
     util::{
-        create_assign, create_expr_call, create_expr_ident, create_expr_path, create_let_bare,
+        create_assign, create_expr_call, create_expr_ident, create_expr_path,
         create_path_from_ident, ArgType,
     },
     MachineDescription,
@@ -71,23 +69,7 @@ impl VisitMut for Visitor {
         // add bare let for every temporary
         let mut local_stmts = Vec::new();
         for tmp in local_tmps_closure {
-            // add attribute that identifies the original ident
-            let bare_let = create_let_bare(tmp.0);
-            let Stmt::Local(mut bare_let) = bare_let else {
-                panic!("Bare let should be local");
-            };
-            bare_let.attrs.push(Attribute {
-                pound_token: Default::default(),
-                style: syn::AttrStyle::Outer,
-                bracket_token: Default::default(),
-                meta: syn::Meta::NameValue(MetaNameValue {
-                    path: path!(::mck::attr::tmp_original),
-                    eq_token: Default::default(),
-                    value: create_expr_ident(tmp.1),
-                }),
-            });
-
-            local_stmts.push(Stmt::Local(bare_let));
+            local_stmts.push(create_temporary_let(tmp.0, tmp.1));
         }
         local_stmts.append(&mut item_fn.block.stmts);
         item_fn.block.stmts = local_stmts;
@@ -226,14 +208,10 @@ impl Visitor {
         for left_ident in then_set {
             if else_set.contains(&left_ident) {
                 // is in both, convert to temporary and create join statement
-                let then_tmp_ident = Ident::new(
-                    &format!("__mck_then_{}_{}", if_counter, left_ident),
-                    left_ident.span(),
-                );
-                let else_tmp_ident = Ident::new(
-                    &format!("__mck_else_{}_{}", if_counter, left_ident),
-                    left_ident.span(),
-                );
+                let then_tmp_ident =
+                    create_temporary_ident(&format!("then_{}", if_counter), &left_ident);
+                let else_tmp_ident =
+                    create_temporary_ident(&format!("else_{}", if_counter), &left_ident);
                 then_temporary_map.insert(left_ident.clone(), then_tmp_ident.clone());
                 else_temporary_map.insert(left_ident.clone(), else_tmp_ident.clone());
                 join_stmts.push(create_assign(
@@ -250,7 +228,6 @@ impl Visitor {
                 ));
             }
         }
-        println!("Then temporary map: {:?}\n else temporary map: {:?}\n then stmts: {:?}\n else stmts: {:?}", then_temporary_map, else_temporary_map, then_stmts, else_stmts);
         convert_to_temporaries(&mut then_stmts, &then_temporary_map);
         convert_to_temporaries(&mut else_stmts, &else_temporary_map);
 

@@ -4,3 +4,4 @@ pub mod path_rules;
 pub mod special_trait;
 pub mod strip_machine;
 pub mod struct_rules;
+pub mod temporary;
