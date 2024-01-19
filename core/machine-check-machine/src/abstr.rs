@@ -13,7 +13,7 @@ use crate::{
     },
     util::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path,
-        create_path_from_ident, ArgType,
+        create_path_from_ident, extract_expr_ident, ArgType,
     },
     MachineDescription,
 };
@@ -90,110 +90,7 @@ impl VisitMut for Visitor {
 
     fn visit_expr_if_mut(&mut self, expr_if: &mut ExprIf) {
         // TODO: integrate abstract conditions better
-        if let Expr::Call(cond_expr_call) = expr_if.cond.as_mut() {
-            if let Expr::Path(cond_expr_path) = cond_expr_call.func.as_mut() {
-                if cond_expr_path.path.leading_colon.is_some() {
-                    let segments = &mut cond_expr_path.path.segments;
-
-                    // TODO: integrate the special conditions better
-                    if segments.len() == 4
-                        && &segments[0].ident.to_string() == "mck"
-                        && &segments[1].ident.to_string() == "abstr"
-                        && &segments[2].ident.to_string() == "Test"
-                        && &segments[3].ident.to_string() == "is_true"
-                    {
-                        if cond_expr_call.args.len() != 1 {
-                            // TODO: replace with result
-                            panic!("Invalid number of arguments for Test");
-                        }
-                        let Expr::Path(ref condition_path) = cond_expr_call.args[0] else {
-                            panic!("Unexpected non-path condition");
-                        };
-                        if !(condition_path.path.leading_colon.is_none()
-                            && condition_path.path.segments.len() == 1
-                            && condition_path.path.segments[0].arguments.is_none())
-                        {
-                            panic!("Unexpected non-ident condition");
-                        }
-                        // create a temporary
-                        let condition = &condition_path.path.segments[0].ident;
-
-                        // split into three possibilities:
-                        // 1. must be true (perform only then)
-                        // 2. must be false (perform only else)
-                        // 3. otherwise (perform both and join them)
-                        // that is:
-                        // if must_be_true(cond) { then_block }
-                        // else { if must_be_false(cond) { else_block } else { join_block } }
-
-                        // leave then block as-is, just replace the condition
-                        segments[3].ident = Ident::new("must_be_true", segments[3].ident.span());
-                        let then_block = expr_if.then_branch.clone();
-
-                        // create a new condition in the else block
-                        let Some((else_token, else_block)) =
-                            std::mem::take(&mut expr_if.else_branch)
-                        else {
-                            // TODO: replace with result
-                            panic!("If without else");
-                        };
-                        let Expr::Block(else_expr_block) = *else_block else {
-                            // TODO: replace with result
-                            panic!("Non-block else");
-                        };
-                        let else_block = else_expr_block.block;
-                        let mut must_be_false_call = cond_expr_call.clone();
-                        let Expr::Path(must_be_false_path) = must_be_false_call.func.as_mut()
-                        else {
-                            panic!("Should be path");
-                        };
-
-                        must_be_false_path.path.segments[3].ident = Ident::new(
-                            "must_be_false",
-                            must_be_false_path.path.segments[3].ident.span(),
-                        );
-                        let (both_stmts, both_tmps) = self.join_statements(
-                            then_block.stmts,
-                            else_block.stmts.clone(),
-                            condition,
-                            self.tmp_counter,
-                        );
-                        self.tmp_counter += 1;
-                        self.tmps.extend(both_tmps);
-                        // TODO
-                        let both_block = ExprBlock {
-                            attrs: vec![],
-                            label: None,
-                            block: Block {
-                                brace_token: Default::default(),
-                                stmts: both_stmts,
-                            },
-                        };
-                        let new_if = Expr::If(ExprIf {
-                            attrs: vec![],
-                            if_token: expr_if.if_token,
-                            cond: Box::new(Expr::Call(must_be_false_call)),
-                            then_branch: else_block,
-                            else_branch: Some((else_token, Box::new(Expr::Block(both_block)))),
-                        });
-
-                        expr_if.else_branch = Some((
-                            else_token,
-                            Box::new(Expr::Block(ExprBlock {
-                                attrs: vec![],
-                                label: None,
-                                block: Block {
-                                    brace_token: Default::default(),
-                                    stmts: vec![Stmt::Expr(new_if, Some(Default::default()))],
-                                },
-                            })),
-                        ));
-
-                        //todo!();
-                    }
-                }
-            }
-        }
+        self.convert_expr_if(expr_if);
         // propagate afterwards
         visit_mut::visit_expr_if_mut(self, expr_if);
     }
@@ -259,6 +156,88 @@ impl Visitor {
         );
 
         (stmts, tmps)
+    }
+
+    fn convert_expr_if(&mut self, expr_if: &mut ExprIf) {
+        let Expr::Call(cond_expr_call) = expr_if.cond.as_mut() else {
+            return;
+        };
+        let Expr::Path(cond_expr_path) = cond_expr_call.func.as_mut() else {
+            return;
+        };
+        if cond_expr_path.path != path!(::mck::abstr::Test::is_true) {
+            return;
+        }
+        if cond_expr_call.args.len() != 1 {
+            // TODO: replace with result
+            panic!("Invalid number of arguments for Test");
+        }
+        let condition = extract_expr_ident(&cond_expr_call.args[0]);
+
+        // split into three possibilities:
+        // 1. must be true (perform only then)
+        // 2. must be false (perform only else)
+        // 3. otherwise (perform both and join them)
+        // that is:
+        // if must_be_true(cond) { then_block }
+        // else { if must_be_false(cond) { else_block } else { join_block } }
+
+        // leave then block as-is, just replace the condition path
+        cond_expr_path.path = path!(::mck::abstr::Test::must_be_true);
+        let then_block = expr_if.then_branch.clone();
+
+        // create a new condition in the else block
+        let Some((else_token, else_block)) = std::mem::take(&mut expr_if.else_branch) else {
+            // TODO: replace with result
+            panic!("If without else");
+        };
+        let Expr::Block(else_expr_block) = *else_block else {
+            // TODO: replace with result
+            panic!("Non-block else");
+        };
+        let else_block = else_expr_block.block;
+        let mut must_be_false_call = cond_expr_call.clone();
+        let Expr::Path(must_be_false_path) = must_be_false_call.func.as_mut() else {
+            panic!("Should be path");
+        };
+
+        must_be_false_path.path = path!(::mck::abstr::Test::must_be_false);
+        let (both_stmts, both_tmps) = self.join_statements(
+            then_block.stmts,
+            else_block.stmts.clone(),
+            &condition,
+            self.tmp_counter,
+        );
+        self.tmp_counter += 1;
+        self.tmps.extend(both_tmps);
+        // TODO
+        let both_block = ExprBlock {
+            attrs: vec![],
+            label: None,
+            block: Block {
+                brace_token: Default::default(),
+                stmts: both_stmts,
+            },
+        };
+        let new_if = Expr::If(ExprIf {
+            attrs: vec![],
+            if_token: expr_if.if_token,
+            cond: Box::new(Expr::Call(must_be_false_call)),
+            then_branch: else_block,
+            else_branch: Some((else_token, Box::new(Expr::Block(both_block)))),
+        });
+
+        expr_if.else_branch = Some((
+            else_token,
+            Box::new(Expr::Block(ExprBlock {
+                attrs: vec![],
+                label: None,
+                block: Block {
+                    brace_token: Default::default(),
+                    stmts: vec![Stmt::Expr(new_if, Some(Default::default()))],
+                },
+            })),
+        ));
     }
 }
 
