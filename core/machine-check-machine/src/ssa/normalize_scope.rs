@@ -1,20 +1,20 @@
 use std::{collections::HashMap, vec};
 
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Block, Expr, Ident, Member, Pat, Path, Stmt, Type};
+use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Member, Pat, Path, Stmt, Type};
 
 use crate::{
     util::{create_assign, create_let_bare},
-    MachineDescription, MachineError,
+    MachineError,
 };
 
-pub fn normalize_scope(machine: &mut MachineDescription) -> Result<(), MachineError> {
+pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
     let mut visitor = BlockVisitor {
         result: Ok(()),
         scope_idents: vec![],
         unique_idents: vec![],
     };
-    for item in machine.items.iter_mut() {
+    for item in items.iter_mut() {
         visitor.visit_item_mut(item);
     }
 

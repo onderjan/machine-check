@@ -12,11 +12,10 @@ use btor2rs::{
     Btor2,
 };
 use camino::Utf8Path;
-use machine_check_machine::MachineDescription;
 use std::io::BufRead;
 use syn::parse_quote;
 
-pub fn translate(system_path: &Utf8Path) -> Result<MachineDescription, CheckError> {
+pub fn translate(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
     let file = fs::File::open(system_path)
         .map_err(|err| CheckError::OpenFile(system_path.to_path_buf(), err))?;
 
@@ -30,7 +29,6 @@ pub fn translate(system_path: &Utf8Path) -> Result<MachineDescription, CheckErro
         .map_err(|err| CheckError::Translate(format!("Btor2 translation: {}", err)))?
         .translate()
         .map_err(|err| CheckError::Translate(format!("Btor2 translation: {}", err)))
-        .map(MachineDescription::from_file)
 }
 
 #[derive(thiserror::Error, Debug, Clone)]

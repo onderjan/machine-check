@@ -31,6 +31,8 @@ pub enum Error {
     CreateTempDir(#[source] std::io::Error),
     #[error("could not create file {0}")]
     CreateFile(Utf8PathBuf, #[source] std::io::Error),
+    #[error("could not open file {0}")]
+    OpenFile(Utf8PathBuf, #[source] std::io::Error),
     #[error("could not read file {0}")]
     ReadFile(Utf8PathBuf, #[source] std::io::Error),
     #[error("could not write to file {0}")]

@@ -1,7 +1,8 @@
-use camino::{Utf8Path, Utf8PathBuf};
-use std::io::Write;
+use proc_macro2::{Ident, Span};
 use syn::{parse_quote, Item, ItemFn, ItemMod};
 use thiserror::Error;
+
+use crate::{support::field_manipulate, util::create_item_mod};
 
 mod abstr;
 mod refin;
@@ -14,68 +15,64 @@ pub struct MachineDescription {
     pub items: Vec<Item>,
 }
 
-impl MachineDescription {
-    pub fn from_file(file: syn::File) -> Self {
-        // TODO: resolve attributes
-        Self { items: file.items }
-    }
+pub fn process_file(mut file: syn::File) -> Result<syn::File, Error> {
+    process_items(&mut file.items)?;
+    Ok(file)
+}
 
-    pub fn from_module(module: ItemMod) -> Option<Self> {
-        // TODO: resolve attributes etc.
-        let Some(content) = module.content else {
-            return None;
-        };
-        Some(Self { items: content.1 })
-    }
+pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Error> {
+    let Some((_, items)) = &mut module.content else {
+        return Err(Error::Machine(String::from(
+            "Cannot process module without content",
+        )));
+    };
+    process_items(items)?;
+    Ok(module)
+}
 
-    pub fn abstract_machine(&self) -> Result<MachineDescription, Error> {
-        let mut abstract_machine = self.clone();
-        ssa::apply(&mut abstract_machine)?;
-        abstr::apply(&mut abstract_machine)?;
-        refin::apply(&mut abstract_machine)?;
+pub fn default_main() -> Item {
+    let main_fn: ItemFn = parse_quote!(
+        fn main() {
+            ::machine_check_exec::run::<refin::Input, refin::State, refin::Machine>()
+        }
+    );
+    Item::Fn(main_fn)
+}
 
-        println!(
-            "abstract machine before stripping: {}",
-            prettyplease::unparse(&syn::File {
-                shebang: None,
-                attrs: vec![],
-                items: abstract_machine.items.clone()
-            })
-        );
+fn process_items(items: &mut Vec<Item>) -> Result<(), Error> {
+    let ssa_machine = ssa::create_concrete_machine(items.clone())?;
+    let mut abstract_machine = abstr::create_abstract_machine(&ssa_machine)?;
+    let refinement_machine = refin::create_refinement_machine(&abstract_machine)?;
 
-        support::strip_machine::strip_machine(&mut abstract_machine)?;
+    // TODO: field-manipulate abstract machine before refinement
+    field_manipulate::apply_to_items(&mut abstract_machine.items, "abstr")?;
 
-        Ok(abstract_machine)
-    }
+    // create new module at the end of the file that will contain the refinement
+    let refinement_module = create_machine_module("refin", refinement_machine);
+    abstract_machine.items.push(refinement_module);
 
-    pub fn with_main_fn(mut self) -> Self {
-        // add main function
-
-        let main_fn: ItemFn = parse_quote!(
-            fn main() {
-                ::machine_check_exec::run::<refin::Input, refin::State, refin::Machine>()
-            }
-        );
-        self.items.push(Item::Fn(main_fn));
-        self
-    }
-
-    pub fn write_to_file(self, filename: &Utf8Path) -> Result<(), Error> {
-        let mut machine_file = std::fs::File::create(filename)
-            .map_err(|err| Error::OpenFile(filename.to_path_buf(), err))?;
-
-        let syn_file = syn::File {
+    println!(
+        "processed items before stripping: {}",
+        prettyplease::unparse(&syn::File {
             shebang: None,
             attrs: vec![],
-            items: self.items,
-        };
+            items: abstract_machine.items.clone()
+        })
+    );
 
-        let pretty_machine = prettyplease::unparse(&syn_file);
+    support::strip_machine::strip_machine(&mut abstract_machine)?;
 
-        machine_file
-            .write_all(pretty_machine.as_bytes())
-            .map_err(|err| Error::WriteFile(filename.to_path_buf(), err))
-    }
+    *items = abstract_machine.items;
+
+    Ok(())
+}
+
+fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
+    Item::Mod(create_item_mod(
+        syn::Visibility::Public(Default::default()),
+        Ident::new(name, Span::call_site()),
+        machine.items,
+    ))
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
@@ -84,10 +81,6 @@ pub(crate) struct MachineError(String);
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("could not open file {0}")]
-    OpenFile(Utf8PathBuf, #[source] std::io::Error),
-    #[error("could not write to file {0}")]
-    WriteFile(Utf8PathBuf, #[source] std::io::Error),
     #[error("machine conversion error: {0}")]
     Machine(String),
 }

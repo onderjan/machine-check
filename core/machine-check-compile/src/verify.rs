@@ -3,17 +3,17 @@ mod execute;
 
 use std::time::Instant;
 
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use log::{debug, info, warn};
 use machine_check_common::ExecResult;
-use machine_check_machine::MachineDescription;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use tempdir::TempDir;
 
 use crate::Error;
 
 pub struct Config {
-    pub abstract_machine: MachineDescription,
+    pub abstract_machine: syn::File,
     pub machine_path: Option<Utf8PathBuf>,
     pub preparation_path: Option<Utf8PathBuf>,
     pub batch: bool,
@@ -94,9 +94,17 @@ fn write_machine(arguments: &Config) -> Result<(Utf8PathBuf, Option<TempDir>), E
         .map_err(|err| Error::CreateDir(src_dir_path.clone(), err))?;
     let main_path = src_dir_path.join("main.rs");
 
-    arguments
-        .abstract_machine
-        .clone()
-        .write_to_file(&main_path)?;
+    write_syn_file(&main_path, &arguments.abstract_machine)?;
     Ok((machine_package_dir_path, machine_package_temp_dir))
+}
+
+fn write_syn_file(filename: &Utf8Path, file: &syn::File) -> Result<(), Error> {
+    let mut fs_file = std::fs::File::create(filename)
+        .map_err(|err| Error::OpenFile(filename.to_path_buf(), err))?;
+
+    let pretty_machine = prettyplease::unparse(file);
+
+    fs_file
+        .write_all(pretty_machine.as_bytes())
+        .map_err(|err| Error::WriteFile(filename.to_path_buf(), err))
 }

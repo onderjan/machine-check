@@ -2,7 +2,6 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Args;
 use log::{debug, info};
 use machine_check_common::ExecResult;
-use machine_check_machine::MachineDescription;
 use serde::{Deserialize, Serialize};
 
 use crate::CheckError;
@@ -44,7 +43,7 @@ pub struct VerifyStats {
 }
 
 pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> {
-    let abstract_machine = construct_abstract_machine(&verify_args.system_path)?;
+    let abstract_machine = process_machine(&verify_args.system_path)?;
 
     let config = machine_check_compile::VerifyConfig {
         abstract_machine,
@@ -68,9 +67,12 @@ pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> 
     Ok(())
 }
 
-fn construct_abstract_machine(system_path: &Utf8Path) -> Result<MachineDescription, CheckError> {
+fn process_machine(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
     debug!("Constructing machine from path {:?}.", &system_path);
-    let concrete_machine = super::translate::translate(system_path)?;
-    let abstract_machine = concrete_machine.abstract_machine()?.with_main_fn();
-    Ok(abstract_machine)
+    let machine_file = super::translate::translate(system_path)?;
+    let mut processed_file = machine_check_machine::process_file(machine_file)?;
+    processed_file
+        .items
+        .push(machine_check_machine::default_main());
+    Ok(processed_file)
 }

@@ -431,6 +431,7 @@ dependencies = [
  "machine-check-common",
  "machine-check-machine",
  "mck",
+ "prettyplease",
  "serde",
  "serde_json",
  "syn",
@@ -459,7 +460,6 @@ dependencies = [
 name = "machine-check-machine"
 version = "0.1.0"
 dependencies = [
- "camino",
  "prettyplease",
  "proc-macro2",
  "quote",

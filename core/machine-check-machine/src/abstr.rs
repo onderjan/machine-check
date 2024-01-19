@@ -26,20 +26,24 @@ use super::{
 
 use syn::{Expr, ExprIf};
 
-pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError> {
+pub(crate) fn create_abstract_machine(
+    ssa_machine: &MachineDescription,
+) -> Result<MachineDescription, MachineError> {
+    // expecting the concrete machine in SSA form
+    let mut abstract_machine = ssa_machine.clone();
     // apply transcription to types using path rule transcriptor
-    path_rules().apply_to_items(&mut machine.items)?;
+    path_rules().apply_to_items(&mut abstract_machine.items)?;
 
     // add default derive attributes to the structs
     // that easily allow us to make unknown inputs/states
-    for item in machine.items.iter_mut() {
+    for item in abstract_machine.items.iter_mut() {
         Visitor {
             tmps: HashMap::new(),
             tmp_counter: 0,
         }
         .visit_item_mut(item);
     }
-    Ok(())
+    Ok(abstract_machine)
 }
 
 struct Visitor {

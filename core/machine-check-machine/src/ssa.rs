@@ -1,15 +1,17 @@
 mod normalize_scope;
 
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Block, Expr, Ident, Pat, Stmt};
+use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Pat, Stmt};
 
 use crate::{
     util::{create_assign, create_expr_path, create_let_bare},
     MachineDescription, MachineError,
 };
 
-pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError> {
-    normalize_scope::normalize_scope(machine)?;
+pub(crate) fn create_concrete_machine(
+    mut items: Vec<Item>,
+) -> Result<MachineDescription, MachineError> {
+    normalize_scope::normalize_scope(&mut items)?;
 
     // apply linear SSA to each block using a visitor
     struct Visitor(Result<(), MachineError>);
@@ -41,10 +43,10 @@ pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError
         }
     }
     let mut visitor = Visitor(Ok(()));
-    for item in machine.items.iter_mut() {
+    for item in items.iter_mut() {
         visitor.visit_item_mut(item);
     }
-    visitor.0
+    visitor.0.map(|_| MachineDescription { items })
 }
 
 struct Outer {
