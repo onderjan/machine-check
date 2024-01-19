@@ -202,13 +202,14 @@ impl<'a> BlockTranslator<'a> {
                     if let Expr::Path(cond_expr_path) = cond_expr_call.func.as_ref() {
                         if cond_expr_path.path.leading_colon.is_some() {
                             let segments = &cond_expr_path.path.segments;
-                            
+
                             // TODO: integrate the special conditions better
-                            if segments.len() == 4 
-                            && &segments[0].ident.to_string() == "mck" 
-                            && &segments[1].ident.to_string() == "concr"
-                            && &segments[2].ident.to_string() == "Test"
-                            && &segments[3].ident.to_string() == "is_true" {
+                            if segments.len() == 4
+                                && &segments[0].ident.to_string() == "mck"
+                                && &segments[1].ident.to_string() == "concr"
+                                && &segments[2].ident.to_string() == "Test"
+                                && &segments[3].ident.to_string() == "is_true"
+                            {
                                 // only move the inside
                                 should_move = false;
                                 for arg in cond_expr_call.args.iter_mut() {
@@ -270,7 +271,7 @@ impl<'a> BlockTranslator<'a> {
 
         // create a temporary variable
         let tmp_ident = Ident::new(
-            format!("__mck_tmp_{}", self.outer.next_temp_counter).as_str(),
+            format!("__mck_ssa_{}", self.outer.next_temp_counter).as_str(),
             Span::call_site(),
         );
         self.outer.next_temp_counter += 1;
