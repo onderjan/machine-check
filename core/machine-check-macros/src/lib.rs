@@ -45,14 +45,6 @@ pub fn machine_description(_attr: TokenStream, item: TokenStream) -> TokenStream
         content: Some((Default::default(), machine.items)),
         semi: None,
     }));*/
-    println!(
-        "machine_description output: {}",
-        prettyplease::unparse(&syn::File {
-            shebang: None,
-            attrs: vec![],
-            items: vec![Item::Mod(module.clone())]
-        })
-    );
 
     let expanded = quote! {
         #module

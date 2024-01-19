@@ -32,6 +32,14 @@ pub fn refinement_normal() -> PathRules {
                 String::from("__mck_refin_"),
             )],
         },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Match(String::from("mck")),
+                PathRuleSegment::Match(String::from("attr")),
+                PathRuleSegment::EndWildcard,
+            ],
+        },
     ])
 }
 
@@ -73,6 +81,14 @@ pub fn abstract_normal() -> PathRules {
                 String::from(""),
                 String::from("__mck_abstr_"),
             )],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Match(String::from("mck")),
+                PathRuleSegment::Match(String::from("attr")),
+                PathRuleSegment::EndWildcard,
+            ],
         },
     ])
 }

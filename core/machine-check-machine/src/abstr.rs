@@ -1,8 +1,11 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
 use syn::{
     visit_mut::{self, VisitMut},
-    Block, ExprBlock, Ident, ItemStruct, Stmt,
+    Attribute, Block, ExprBlock, Ident, ItemStruct, MetaNameValue, Stmt,
 };
 use syn_path::path;
 
@@ -33,7 +36,7 @@ pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError
     // that easily allow us to make unknown inputs/states
     for item in machine.items.iter_mut() {
         Visitor {
-            tmps: vec![],
+            tmps: HashMap::new(),
             tmp_counter: 0,
         }
         .visit_item_mut(item);
@@ -42,7 +45,7 @@ pub(crate) fn apply(machine: &mut MachineDescription) -> Result<(), MachineError
 }
 
 struct Visitor {
-    tmps: Vec<Ident>,
+    tmps: HashMap<Ident, Ident>,
     tmp_counter: usize,
 }
 impl VisitMut for Visitor {
@@ -54,15 +57,42 @@ impl VisitMut for Visitor {
     fn visit_impl_item_fn_mut(&mut self, item_fn: &mut syn::ImplItemFn) {
         // visit first
         visit_mut::visit_impl_item_fn_mut(self, item_fn);
-        // add local temporaries
-        let mut local_tmps = Vec::new();
-        local_tmps.append(&mut self.tmps);
+
+        // perform transitive closure on temporaries
+        let mut local_tmps_closure = HashMap::new();
+
+        for (tmp_ident, mut closure_ident) in self.tmps.iter() {
+            while let Some(get_ident) = self.tmps.get(closure_ident) {
+                closure_ident = get_ident;
+            }
+            local_tmps_closure.insert(tmp_ident.clone(), closure_ident.clone());
+        }
+
+        // add bare let for every temporary
         let mut local_stmts = Vec::new();
-        for tmp in local_tmps {
-            local_stmts.push(create_let_bare(tmp));
+        for tmp in local_tmps_closure {
+            // add attribute that identifies the original ident
+            let bare_let = create_let_bare(tmp.0);
+            let Stmt::Local(mut bare_let) = bare_let else {
+                panic!("Bare let should be local");
+            };
+            bare_let.attrs.push(Attribute {
+                pound_token: Default::default(),
+                style: syn::AttrStyle::Outer,
+                bracket_token: Default::default(),
+                meta: syn::Meta::NameValue(MetaNameValue {
+                    path: path!(::mck::attr::tmp_original),
+                    eq_token: Default::default(),
+                    value: create_expr_ident(tmp.1),
+                }),
+            });
+
+            local_stmts.push(Stmt::Local(bare_let));
         }
         local_stmts.append(&mut item_fn.block.stmts);
         item_fn.block.stmts = local_stmts;
+        // clear temporaries
+        self.tmps.clear();
     }
 
     fn visit_expr_if_mut(&mut self, expr_if: &mut ExprIf) {
@@ -183,7 +213,7 @@ impl Visitor {
         mut else_stmts: Vec<Stmt>,
         condition: &Ident,
         if_counter: usize,
-    ) -> (Vec<Stmt>, Vec<Ident>) {
+    ) -> (Vec<Stmt>, HashMap<Ident, Ident>) {
         // convert every assignment to assignment to a new temporary
         let mut stmts = Vec::new();
         let mut then_set = HashSet::new();
@@ -228,9 +258,17 @@ impl Visitor {
         stmts.extend(else_stmts);
         stmts.extend(join_stmts);
 
-        let mut tmps = Vec::new();
-        tmps.extend(then_temporary_map.into_values());
-        tmps.extend(else_temporary_map.into_values());
+        let mut tmps = HashMap::new();
+        tmps.extend(
+            then_temporary_map
+                .into_iter()
+                .map(|(orig_ident, tmp_ident)| (tmp_ident, orig_ident)),
+        );
+        tmps.extend(
+            else_temporary_map
+                .into_iter()
+                .map(|(orig_ident, tmp_ident)| (tmp_ident, orig_ident)),
+        );
 
         (stmts, tmps)
     }
@@ -339,6 +377,14 @@ fn path_rules() -> PathRules {
             segments: vec![
                 PathRuleSegment::Match(String::from("mck")),
                 PathRuleSegment::Match(String::from("forward")),
+                PathRuleSegment::EndWildcard,
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Match(String::from("mck")),
+                PathRuleSegment::Match(String::from("attr")),
                 PathRuleSegment::EndWildcard,
             ],
         },

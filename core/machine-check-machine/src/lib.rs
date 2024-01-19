@@ -33,6 +33,18 @@ impl MachineDescription {
         ssa::apply(&mut abstract_machine)?;
         abstr::apply(&mut abstract_machine)?;
         refin::apply(&mut abstract_machine)?;
+
+        println!(
+            "abstract machine before stripping: {}",
+            prettyplease::unparse(&syn::File {
+                shebang: None,
+                attrs: vec![],
+                items: abstract_machine.items.clone()
+            })
+        );
+
+        support::strip_machine::strip_machine(&mut abstract_machine)?;
+
         Ok(abstract_machine)
     }
 
