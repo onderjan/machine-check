@@ -204,20 +204,20 @@ impl Visitor {
         find_temporaries(&else_stmts, &mut else_set);
         let mut then_temporary_map = HashMap::new();
         let mut else_temporary_map = HashMap::new();
-        let mut join_stmts = Vec::new();
+        let mut phi_stmts = Vec::new();
         for left_ident in then_set {
             if else_set.contains(&left_ident) {
-                // is in both, convert to temporary and create join statement
+                // is in both, convert to temporary and create phi statement
                 let then_tmp_ident =
                     create_temporary_ident(&format!("then_{}", if_counter), &left_ident);
                 let else_tmp_ident =
                     create_temporary_ident(&format!("else_{}", if_counter), &left_ident);
                 then_temporary_map.insert(left_ident.clone(), then_tmp_ident.clone());
                 else_temporary_map.insert(left_ident.clone(), else_tmp_ident.clone());
-                join_stmts.push(create_assign(
+                phi_stmts.push(create_assign(
                     left_ident,
                     create_expr_call(
-                        create_expr_path(path!(::mck::abstr::Join::join)),
+                        create_expr_path(path!(::mck::abstr::Phi::phi)),
                         vec![
                             (ArgType::Normal, create_expr_ident(then_tmp_ident)),
                             (ArgType::Normal, create_expr_ident(else_tmp_ident)),
@@ -233,7 +233,7 @@ impl Visitor {
 
         stmts.extend(then_stmts);
         stmts.extend(else_stmts);
-        stmts.extend(join_stmts);
+        stmts.extend(phi_stmts);
 
         let mut tmps = HashMap::new();
         tmps.extend(

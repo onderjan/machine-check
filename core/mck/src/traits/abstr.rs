@@ -25,7 +25,7 @@ pub trait Test {
     fn must_be_false(self) -> bool;
 }
 
-pub trait Join {
+pub trait Phi {
     type Condition;
-    fn join(self, other: Self, condition: Self::Condition) -> Self;
+    fn phi(self, other: Self, condition: Self::Condition) -> Self;
 }

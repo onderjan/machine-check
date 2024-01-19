@@ -198,7 +198,7 @@ impl BackwardConverter {
         // construct the backward statement, assigning to a temporary
         let tmp_ident = create_ident(&format!("__mck_backw_tmp_{}", stmts.len()));
 
-        // treat join specially
+        // treat phi specially
         if let Expr::Path(ExprPath {
             path: Path {
                 leading_colon,
@@ -211,8 +211,8 @@ impl BackwardConverter {
                 && segments.len() == 4
                 && &segments[0].ident.to_string() == "mck"
                 && &segments[1].ident.to_string() == "abstr"
-                && &segments[2].ident.to_string() == "Join"
-                && &segments[3].ident.to_string() == "join"
+                && &segments[2].ident.to_string() == "Phi"
+                && &segments[3].ident.to_string() == "phi"
             {
                 assert!(call.args.len() == 3);
                 let to_condition = create_expr_call(
