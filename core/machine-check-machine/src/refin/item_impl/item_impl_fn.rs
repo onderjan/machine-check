@@ -1,14 +1,11 @@
 mod statement_converter;
 
-use syn::{punctuated::Punctuated, Ident, ImplItemFn, Stmt};
+use syn::{punctuated::Punctuated, Ident, ImplItemFn, Stmt, Type};
 use syn_path::path;
 
 use crate::{
-    support::local::extract_local_ident_and_orig,
-    util::{
-        create_expr_call, create_expr_path, create_let_mut, create_path_from_ident,
-        get_block_result_expr, ArgType,
-    },
+    support::local_types::find_local_types,
+    util::{create_expr_call, create_expr_path, create_let_mut, get_block_result_expr},
     MachineError,
 };
 
@@ -73,34 +70,11 @@ impl ImplConverter {
             result_stmts.push(stmt);
         }
 
-        // step 5: add initialization of local refin variables
-        for ident in earlier.1 {
+        // step 5: add initialization of earlier and local refin variables
+        for (ident, ty) in earlier.1.into_iter().chain(find_local_types(orig_fn)) {
             let refin_ident = self.refinement_rules.convert_normal_ident(ident.clone())?;
-            let abstract_ident = self.abstract_rules.convert_normal_ident(ident)?;
-            result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, false));
-        }
-
-        // take the locals
-        let mut local_idents = Vec::new();
-        for stmt in orig_fn.block.stmts.iter() {
-            if let Stmt::Local(local) = stmt {
-                let (local_ident, orig_ident) = extract_local_ident_and_orig(local);
-                local_idents.push((local_ident, orig_ident));
-            } else {
-                break;
-            }
-        }
-
-        for (local_ident, orig_ident) in local_idents {
-            let refin_ident = self
-                .refinement_rules
-                .convert_normal_ident(local_ident.clone())?;
-
-            // some temporary locals may be only initialized in some branches,
-            // but their original is always initialized
-            let orig_ident = orig_ident.unwrap_or(local_ident);
-            let abstract_ident = self.abstract_rules.convert_normal_ident(orig_ident)?;
-            result_stmts.push(self.create_init_stmt(refin_ident, abstract_ident, true));
+            let refin_type = self.refinement_rules.convert_type(ty)?;
+            result_stmts.push(self.create_init_stmt(refin_ident, refin_type));
         }
 
         // step 6: de-result later refin
@@ -123,20 +97,25 @@ impl ImplConverter {
         Ok(refin_fn)
     }
 
-    fn create_init_stmt(&self, ident: Ident, abstract_ident: Ident, reference: bool) -> Stmt {
-        let abstract_arg = create_expr_path(create_path_from_ident(abstract_ident));
-        let arg_ty = if reference {
-            ArgType::Reference
+    fn create_init_stmt(&self, ident: Ident, ty: Type) -> Stmt {
+        // remove references
+        let ty = if matches!(ty, Type::Path(_)) {
+            ty
         } else {
-            ArgType::Normal
+            let mut ty = &ty;
+            if let Type::Reference(ref_ty) = ty {
+                ty = ref_ty.elem.as_ref();
+            }
+            ty.clone()
         };
 
         create_let_mut(
             ident,
             create_expr_call(
-                create_expr_path(path!(::mck::refin::Refinable::clean_refin)),
-                vec![(arg_ty, abstract_arg)],
+                create_expr_path(path!(::std::default::Default::default)),
+                vec![],
             ),
+            Some(ty),
         )
     }
 }

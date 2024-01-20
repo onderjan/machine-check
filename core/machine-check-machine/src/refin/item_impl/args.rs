@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use proc_macro2::Span;
-use syn::{Expr, FnArg, Ident, Member, ReturnType, Signature, Stmt};
+use syn::{Expr, FnArg, Ident, Member, ReturnType, Signature, Stmt, Type};
 
 use crate::{
     util::{
@@ -46,10 +48,10 @@ impl ImplConverter {
     pub(crate) fn generate_earlier(
         &self,
         orig_sig: &Signature,
-    ) -> Result<(ReturnType, Vec<Ident>, Stmt), MachineError> {
+    ) -> Result<(ReturnType, HashMap<Ident, Type>, Stmt), MachineError> {
         // create return type
         let mut types = Vec::new();
-        let mut partial_idents = Vec::new();
+        let mut partial_ident_types = HashMap::new();
         let mut refin_exprs = Vec::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
@@ -61,7 +63,7 @@ impl ImplConverter {
                 .refinement_rules
                 .convert_normal_ident(partial_ident.clone())?;
             let refin_expr = create_expr_ident(refin_ident);
-            partial_idents.push(partial_ident);
+            partial_ident_types.insert(partial_ident, orig_type.clone());
             refin_exprs.push(refin_expr);
         }
         let ty = create_tuple_type(types);
@@ -69,7 +71,11 @@ impl ImplConverter {
 
         let tuple_expr = create_tuple_expr(refin_exprs);
 
-        Ok((return_type, partial_idents, Stmt::Expr(tuple_expr, None)))
+        Ok((
+            return_type,
+            partial_ident_types,
+            Stmt::Expr(tuple_expr, None),
+        ))
     }
 
     pub(crate) fn generate_later(

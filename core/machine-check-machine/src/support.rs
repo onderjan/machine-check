@@ -1,5 +1,6 @@
 pub mod field_manipulate;
 pub mod local;
+pub mod local_types;
 pub mod path_rules;
 pub mod special_trait;
 pub mod strip_machine;

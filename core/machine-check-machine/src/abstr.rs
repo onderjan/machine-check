@@ -9,7 +9,8 @@ use syn_path::path;
 use crate::{
     support::{
         field_manipulate,
-        local::{create_prefixed_ident, create_temporary_let, extract_local_ident_with_type},
+        local::{create_prefixed_ident, create_temporary_let},
+        local_types::find_local_types,
     },
     util::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path,
@@ -63,9 +64,9 @@ impl VisitMut for Visitor {
             .push(generate_derive_attribute(quote!(::std::default::Default)));
     }
 
-    fn visit_impl_item_fn_mut(&mut self, item_fn: &mut syn::ImplItemFn) {
+    fn visit_impl_item_fn_mut(&mut self, impl_item_fn: &mut syn::ImplItemFn) {
         // visit first
-        visit_mut::visit_impl_item_fn_mut(self, item_fn);
+        visit_mut::visit_impl_item_fn_mut(self, impl_item_fn);
 
         // perform transitive closure on temporaries
         let mut local_tmps_closure = HashMap::new();
@@ -77,29 +78,18 @@ impl VisitMut for Visitor {
             local_tmps_closure.insert(tmp_ident.clone(), closure_ident.clone());
         }
 
-        let mut ident_type_map = HashMap::new();
-
-        // find temporary types
-        for stmt in item_fn.block.stmts.iter() {
-            if let Stmt::Local(local) = stmt {
-                let (ident, ty) = extract_local_ident_with_type(local);
-                let ty = ty.expect("All locals should be typed");
-                ident_type_map.insert(ident, ty);
-            } else {
-                break;
-            }
-        }
+        let local_types = find_local_types(impl_item_fn);
 
         // add bare let for every temporary
         let mut local_stmts = Vec::new();
         for tmp in local_tmps_closure {
-            let ty = ident_type_map
+            let ty = local_types
                 .get(&tmp.1)
                 .expect("Original for temporary should be typed");
             local_stmts.push(create_temporary_let(tmp.0, tmp.1, ty.clone()));
         }
-        local_stmts.append(&mut item_fn.block.stmts);
-        item_fn.block.stmts = local_stmts;
+        local_stmts.append(&mut impl_item_fn.block.stmts);
+        impl_item_fn.block.stmts = local_stmts;
         // clear temporaries
         self.tmps.clear();
     }

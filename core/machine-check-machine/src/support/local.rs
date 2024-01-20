@@ -1,8 +1,8 @@
 use proc_macro2::Ident;
-use syn::{Attribute, Local, Meta, MetaNameValue, Pat, Stmt, Type};
+use syn::{Attribute, Local, MetaNameValue, Pat, Stmt, Type};
 use syn_path::path;
 
-use crate::util::{create_expr_ident, create_local, extract_expr_ident};
+use crate::util::{create_expr_ident, create_local};
 
 pub fn create_prefixed_ident(prefix: &str, orig_ident: &Ident) -> Ident {
     let orig_ident_string = orig_ident.to_string();
@@ -46,16 +46,4 @@ pub fn extract_local_ident_with_type(local: &Local) -> (Ident, Option<Type>) {
         panic!("Unexpected non-ident pattern local {:?}", local);
     };
     (pat_ident.ident.clone(), ty)
-}
-
-pub fn extract_local_ident_and_orig(local: &Local) -> (Ident, Option<Ident>) {
-    let (local_ident, _) = extract_local_ident_with_type(local);
-    for attr in &local.attrs {
-        if let Meta::NameValue(meta) = &attr.meta {
-            if meta.path == path!(::mck::attr::tmp_original) {
-                return (local_ident, Some(extract_expr_ident(&meta.value)));
-            }
-        }
-    }
-    (local_ident, None)
 }

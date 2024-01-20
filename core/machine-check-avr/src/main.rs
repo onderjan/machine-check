@@ -29,7 +29,8 @@ mod machine_module {
                 if ::mck::concr::Test::is_true(temp) {
                     safe = input.i;
                 } else {
-                    safe = ::mck::concr::Bitvector::<1>::new(1);
+                    let a = ::mck::concr::Bitvector::<1>::new(1);
+                    safe = a;
                 };
                 //safe = input.i;
             };

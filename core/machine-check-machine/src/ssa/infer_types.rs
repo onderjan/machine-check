@@ -85,10 +85,8 @@ fn infer_fn_types(
         match &local.pat {
             Pat::Ident(pat_ident) => {
                 // no type yet
-                println!("Pattern has no type yet: {:?}", pat_ident);
                 let inferred_type = visitor.local_ident_types.remove(&pat_ident.ident).unwrap();
                 if let Some(inferred_type) = inferred_type {
-                    println!("Inferred type: {:?}", inferred_type);
                     // add type
                     local.pat = Pat::Type(PatType {
                         attrs: vec![],
@@ -123,10 +121,6 @@ struct Visitor<'a> {
 impl VisitMut for Visitor<'_> {
     fn visit_expr_assign_mut(&mut self, expr_assign: &mut syn::ExprAssign) {
         let left_ident = extract_expr_ident(&expr_assign.left);
-        println!(
-            "left ident: {:?}, local ident types: {:?}",
-            left_ident, self.local_ident_types
-        );
 
         if self
             .local_ident_types
@@ -173,10 +167,6 @@ impl Visitor<'_> {
         let Some(mut base_type) = base_type else {
             return None;
         };
-        println!(
-            "Extracting base type path for {}",
-            quote::quote!(#expr_field)
-        );
         // ignore references
         while let Type::Reference(ref_type) = base_type {
             base_type = ref_type.elem.as_ref();
@@ -276,7 +266,6 @@ impl Visitor<'_> {
                         // change the argument generics based on trait generics
                         let mut type_path = extract_type_path(arg_type);
                         type_path.segments[2].arguments = func_path.segments[2].arguments.clone();
-                        println!("Extension: {:?}, {:?}", type_path, func_path);
 
                         return Some(create_type_path(type_path));
                     }

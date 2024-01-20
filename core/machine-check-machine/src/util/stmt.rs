@@ -53,12 +53,12 @@ pub fn create_let(left_ident: Ident, right_expr: Expr) -> Stmt {
     ))
 }
 
-pub fn create_let_mut(left_ident: Ident, right_expr: Expr) -> Stmt {
+pub fn create_let_mut(left_ident: Ident, right_expr: Expr, ty: Option<Type>) -> Stmt {
     Stmt::Local(create_let_mut_choice(
         true,
         left_ident,
         Some(right_expr),
-        None,
+        ty,
     ))
 }
 

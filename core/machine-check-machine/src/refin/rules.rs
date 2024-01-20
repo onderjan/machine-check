@@ -44,10 +44,20 @@ pub fn refinement_normal() -> PathRules {
 }
 
 pub fn refinement_type() -> PathRules {
-    PathRules::new(vec![PathRule {
-        has_leading_colon: false,
-        segments: vec![PathRuleSegment::Wildcard],
-    }])
+    PathRules::new(vec![
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![PathRuleSegment::Wildcard],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Match(String::from("mck")),
+                PathRuleSegment::Convert(String::from("abstr"), String::from("refin")),
+                PathRuleSegment::EndWildcard,
+            ],
+        },
+    ])
 }
 
 pub fn abstract_normal() -> PathRules {

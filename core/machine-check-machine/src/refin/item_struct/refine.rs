@@ -12,7 +12,7 @@ use crate::{
         create_arg, create_expr_call, create_expr_field, create_expr_ident, create_expr_path,
         create_ident, create_impl_item_fn, create_impl_item_type, create_item_impl, create_let_mut,
         create_path_from_ident, create_path_with_last_generic_type, create_refine_join_stmt,
-        create_self, create_self_arg, create_type_path, ArgType,
+        create_self, create_self_arg, create_type_path, single_bit_type, ArgType,
     },
     MachineError,
 };
@@ -167,9 +167,10 @@ fn to_condition_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
             create_expr_path(path!(::mck::refin::Bitvector::new_unmarked)),
             vec![],
         ),
+        Some(single_bit_type("refin")),
     ));
 
-    // join the conditionwith results of fields
+    // join the condition with results of fields
     for (index, field) in s.fields.iter().enumerate() {
         let field_expr = create_expr_field(create_self(), index, field);
         let right = create_expr_call(
