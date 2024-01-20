@@ -13,32 +13,15 @@ pub(crate) fn create_concrete_machine(
     mut items: Vec<Item>,
 ) -> Result<MachineDescription, MachineError> {
     normalize_scope::normalize_scope(&mut items)?;
-    infer_types::infer_types(&mut items)?;
 
     // apply linear SSA to each block using a visitor
     struct Visitor(Result<(), MachineError>);
     impl VisitMut for Visitor {
         fn visit_block_mut(&mut self, block: &mut Block) {
-            println!(
-                "SSA normalized block:\n\"\"\"\n{}\n\"\"\"\n",
-                block
-                    .stmts
-                    .iter()
-                    .map(|s| quote::quote!(#s).to_string())
-                    .fold(String::new(), |a, b| a + &b + "\n"),
-            );
             // start with zero temp counter in an outer-level block
             let result = Outer::new().apply_to_block(block, true);
-            println!(
-                "SSA translated block:\n\"\"\"\n{}\n\"\"\"\n",
-                block
-                    .stmts
-                    .iter()
-                    .map(|s| quote::quote!(#s).to_string())
-                    .fold(String::new(), |a, b| a + &b + "\n"),
-            );
-            if self.0.is_ok() {
-                self.0 = result;
+            if let Err(err) = result {
+                self.0 = Err(err);
             }
             // do not delegate, the representation should not contain
             // any nested blocks anyway after translation
@@ -48,7 +31,11 @@ pub(crate) fn create_concrete_machine(
     for item in items.iter_mut() {
         visitor.visit_item_mut(item);
     }
-    visitor.0.map(|_| MachineDescription { items })
+    visitor.0?;
+
+    infer_types::infer_types(&mut items)?;
+
+    Ok(MachineDescription { items })
 }
 
 struct Outer {

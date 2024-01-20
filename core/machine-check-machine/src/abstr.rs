@@ -9,7 +9,7 @@ use syn_path::path;
 use crate::{
     support::{
         field_manipulate,
-        local::{create_prefixed_ident, create_temporary_let},
+        local::{create_prefixed_ident, create_temporary_let, extract_local_ident_with_type},
     },
     util::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path,
@@ -77,10 +77,26 @@ impl VisitMut for Visitor {
             local_tmps_closure.insert(tmp_ident.clone(), closure_ident.clone());
         }
 
+        let mut ident_type_map = HashMap::new();
+
+        // find temporary types
+        for stmt in item_fn.block.stmts.iter() {
+            if let Stmt::Local(local) = stmt {
+                let (ident, ty) = extract_local_ident_with_type(local);
+                let ty = ty.expect("All locals should be typed");
+                ident_type_map.insert(ident, ty);
+            } else {
+                break;
+            }
+        }
+
         // add bare let for every temporary
         let mut local_stmts = Vec::new();
         for tmp in local_tmps_closure {
-            local_stmts.push(create_temporary_let(tmp.0, tmp.1));
+            let ty = ident_type_map
+                .get(&tmp.1)
+                .expect("Original for temporary should be typed");
+            local_stmts.push(create_temporary_let(tmp.0, tmp.1, ty.clone()));
         }
         local_stmts.append(&mut item_fn.block.stmts);
         item_fn.block.stmts = local_stmts;
@@ -246,18 +262,8 @@ fn find_temporaries(stmts: &[Stmt], temporary_set: &mut HashSet<Ident>) {
         match stmt {
             Stmt::Expr(expr, Some(_)) => match expr {
                 Expr::Assign(assign) => {
-                    let Expr::Path(left_path) = assign.left.as_ref() else {
-                        panic!("Unexpected non-path left");
-                    };
-
-                    if !(left_path.path.leading_colon.is_none()
-                        && left_path.path.segments.len() == 1
-                        && left_path.path.segments[0].arguments.is_none())
-                    {
-                        panic!("Unexpected non-ident left");
-                    }
-                    // create a temporary and inser it to temporary map
-                    let left_ident = &left_path.path.segments[0].ident;
+                    // insert to temporary map
+                    let left_ident = extract_expr_ident(&assign.left);
                     temporary_set.insert(left_ident.clone());
                 }
                 Expr::Block(expr_block) => {

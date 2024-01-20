@@ -137,7 +137,7 @@ pub fn get_block_result_expr(block: &Block) -> Expr {
 
 pub fn extract_expr_path(expr: &Expr) -> Path {
     let Expr::Path(expr_path) = expr else {
-        panic!("Unexpected non-path expression {:?}", expr);
+        panic!("Unexpected non-path expression {}", quote::quote!(#expr));
     };
     expr_path.path.clone()
 }

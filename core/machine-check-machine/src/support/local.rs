@@ -17,9 +17,9 @@ pub fn create_prefixed_ident(prefix: &str, orig_ident: &Ident) -> Ident {
     )
 }
 
-pub fn create_temporary_let(tmp_ident: Ident, orig_ident: Ident) -> Stmt {
+pub fn create_temporary_let(tmp_ident: Ident, orig_ident: Ident, ty: Type) -> Stmt {
     // add attribute that identifies the original ident
-    let mut local = create_local(tmp_ident);
+    let mut local = create_local(tmp_ident, Some(ty));
     local.attrs.push(Attribute {
         pound_token: Default::default(),
         style: syn::AttrStyle::Outer,

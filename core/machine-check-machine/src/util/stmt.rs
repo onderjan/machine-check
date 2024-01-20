@@ -1,21 +1,34 @@
-use syn::{Expr, ExprAssign, Ident, Local, LocalInit, Pat, PatIdent, Stmt};
+use syn::{Expr, ExprAssign, Ident, Local, LocalInit, Pat, PatIdent, PatType, Stmt, Type};
 use syn_path::path;
 
 use super::{create_expr_call, create_expr_path, create_path_from_ident, ArgType};
 
-fn create_let_mut_choice(mutable: bool, left_ident: Ident, right_expr: Option<Expr>) -> Local {
+fn create_let_mut_choice(
+    mutable: bool,
+    left_ident: Ident,
+    right_expr: Option<Expr>,
+    ty: Option<Type>,
+) -> Local {
     let mutability = if mutable {
         Some(Default::default())
     } else {
         None
     };
-    let left_pat = Pat::Ident(PatIdent {
+    let mut left_pat = Pat::Ident(PatIdent {
         attrs: vec![],
         by_ref: None,
         mutability,
         ident: left_ident,
         subpat: None,
     });
+    if let Some(ty) = ty {
+        left_pat = Pat::Type(PatType {
+            attrs: vec![],
+            pat: Box::new(left_pat),
+            colon_token: Default::default(),
+            ty: Box::new(ty),
+        });
+    }
     let init = right_expr.map(|right_expr| LocalInit {
         eq_token: Default::default(),
         expr: Box::new(right_expr),
@@ -32,19 +45,29 @@ fn create_let_mut_choice(mutable: bool, left_ident: Ident, right_expr: Option<Ex
 }
 
 pub fn create_let(left_ident: Ident, right_expr: Expr) -> Stmt {
-    Stmt::Local(create_let_mut_choice(false, left_ident, Some(right_expr)))
+    Stmt::Local(create_let_mut_choice(
+        false,
+        left_ident,
+        Some(right_expr),
+        None,
+    ))
 }
 
 pub fn create_let_mut(left_ident: Ident, right_expr: Expr) -> Stmt {
-    Stmt::Local(create_let_mut_choice(true, left_ident, Some(right_expr)))
+    Stmt::Local(create_let_mut_choice(
+        true,
+        left_ident,
+        Some(right_expr),
+        None,
+    ))
 }
 
 pub fn create_let_bare(ident: Ident) -> Stmt {
-    Stmt::Local(create_let_mut_choice(false, ident, None))
+    Stmt::Local(create_let_mut_choice(false, ident, None, None))
 }
 
-pub fn create_local(ident: Ident) -> Local {
-    create_let_mut_choice(false, ident, None)
+pub fn create_local(ident: Ident, ty: Option<Type>) -> Local {
+    create_let_mut_choice(false, ident, None, ty)
 }
 
 pub fn create_assign(left_ident: Ident, right_expr: Expr, semicolon: bool) -> Stmt {
