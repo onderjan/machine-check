@@ -65,10 +65,11 @@ impl Outer {
         let mut stmts = translator.translated_stmts;
 
         if outer {
+            // do not add types to temporaries, they will be inferred later
             block.stmts = self
                 .created_temporaries
                 .iter()
-                .map(|tmp_ident| create_let_bare(tmp_ident.clone()))
+                .map(|tmp_ident| create_let_bare(tmp_ident.clone(), None))
                 .collect();
             block.stmts.append(&mut stmts);
         } else {

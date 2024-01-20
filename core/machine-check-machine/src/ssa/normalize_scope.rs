@@ -4,7 +4,7 @@ use proc_macro2::Span;
 use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Member, Pat, Path, Stmt, Type};
 
 use crate::{
-    util::{create_assign, create_let_bare},
+    util::{create_assign, create_let_bare, extract_pat_ident},
     MachineError,
 };
 
@@ -24,7 +24,7 @@ pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
 struct BlockVisitor {
     result: Result<(), MachineError>,
     scope_idents: Vec<HashMap<Ident, Ident>>,
-    unique_idents: Vec<Ident>,
+    unique_idents: Vec<(Ident, Option<Type>)>,
 }
 impl VisitMut for BlockVisitor {
     fn visit_block_mut(&mut self, block: &mut Block) {
@@ -37,18 +37,18 @@ impl VisitMut for BlockVisitor {
         // process all statements
         for mut stmt in original_stmts {
             if let Stmt::Local(local) = stmt {
-                let Pat::Ident(pat_ident) = &local.pat else {
-                    self.result = Err(MachineError(format!(
-                        "Non-ident left side of assignment not supported: {:?}",
-                        local.pat,
-                    )));
-                    return;
+                let (left_ident, ty) = if let Pat::Type(pat_ty) = local.pat {
+                    (
+                        extract_pat_ident(pat_ty.pat.as_ref()),
+                        Some(pat_ty.ty.as_ref().clone()),
+                    )
+                } else {
+                    (extract_pat_ident(&local.pat), None)
                 };
-                let ident = &pat_ident.ident;
 
                 // create unique ident
                 let unique_ident = Ident::new(
-                    &format!("__mck_scope_{}_{}", scope_num, ident),
+                    &format!("__mck_scope_{}_{}", scope_num, left_ident),
                     Span::call_site(),
                 );
 
@@ -56,8 +56,8 @@ impl VisitMut for BlockVisitor {
                 self.scope_idents
                     .last_mut()
                     .unwrap()
-                    .insert(ident.clone(), unique_ident.clone());
-                self.unique_idents.push(unique_ident.clone());
+                    .insert(left_ident.clone(), unique_ident.clone());
+                self.unique_idents.push((unique_ident.clone(), ty));
 
                 // only retain statement if it has initialization, convert it to assignment in that case
                 if let Some(init) = local.init {
@@ -89,8 +89,8 @@ impl VisitMut for BlockVisitor {
             let mut stmts = vec![];
             let mut unique_idents = vec![];
             unique_idents.append(&mut self.unique_idents);
-            for unique_ident in unique_idents {
-                stmts.push(create_let_bare(unique_ident));
+            for (unique_ident, ty) in unique_idents {
+                stmts.push(create_let_bare(unique_ident, ty));
             }
             stmts.append(&mut block.stmts);
             block.stmts = stmts;
