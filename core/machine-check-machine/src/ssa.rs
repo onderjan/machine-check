@@ -2,10 +2,9 @@ mod infer_types;
 mod normalize_scope;
 
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Pat, Stmt};
+use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Stmt};
 
 use crate::{
-    support::local::extract_local_ident_with_type,
     util::{create_assign, create_expr_path, create_let_bare},
     MachineDescription, MachineError,
 };

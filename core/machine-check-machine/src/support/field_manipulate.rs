@@ -14,7 +14,7 @@ use crate::{
         create_expr_ident, create_expr_path, create_ident, create_impl_item_fn, create_item_impl,
         create_pat_wild, create_path_from_ident, create_path_from_name, create_path_segment,
         create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
-        ArgType,
+        single_bit_type, ArgType,
     },
     MachineError,
 };
@@ -203,27 +203,4 @@ fn create_fn(mutable: bool, manipulable_field_idents: &Vec<Ident>, flavour: &str
         Some(return_type),
         vec![Stmt::Expr(match_expr, None)],
     )
-}
-
-fn single_bit_type(flavour: &str) -> Type {
-    let mut path = Path {
-        leading_colon: Some(Default::default()),
-        segments: Punctuated::from_iter(vec![
-            create_path_segment(create_ident("mck")),
-            create_path_segment(create_ident(flavour)),
-            create_path_segment(create_ident("Bitvector")),
-        ]),
-    };
-    path.segments.last_mut().unwrap().arguments =
-        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-            colon2_token: Default::default(),
-            lt_token: Default::default(),
-            args: Punctuated::from_iter(vec![GenericArgument::Const(Expr::Lit(ExprLit {
-                attrs: vec![],
-                lit: Lit::Int(LitInt::new("1", Span::call_site())),
-            }))]),
-            gt_token: Default::default(),
-        });
-
-    create_type_path(path)
 }

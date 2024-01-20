@@ -9,13 +9,13 @@ pub trait TypedCmp {
     type Output;
 
     #[must_use]
-    fn typed_slt(self, rhs: Self) -> Self::Output;
-    #[must_use]
     fn typed_ult(self, rhs: Self) -> Self::Output;
     #[must_use]
-    fn typed_slte(self, rhs: Self) -> Self::Output;
+    fn typed_slt(self, rhs: Self) -> Self::Output;
     #[must_use]
     fn typed_ulte(self, rhs: Self) -> Self::Output;
+    #[must_use]
+    fn typed_slte(self, rhs: Self) -> Self::Output;
 }
 
 pub trait Bitwise

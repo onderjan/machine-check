@@ -48,3 +48,15 @@ pub fn extract_path_ident(path: Path) -> Ident {
         panic!("Unexpected non-ident path {:?}", path);
     }
 }
+
+pub fn path_matches_global_names(path: &Path, names: &[&'static str]) -> bool {
+    if path.leading_colon.is_none() || path.segments.len() != names.len() {
+        return false;
+    }
+    for (segment, name) in path.segments.iter().zip(names) {
+        if segment.ident != name {
+            return false;
+        }
+    }
+    true
+}
