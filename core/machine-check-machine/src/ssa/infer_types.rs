@@ -101,9 +101,14 @@ impl VisitMut for BlockVisitor {
                 // TODO
                 None
             }
-            syn::Expr::Path(expr_path) => {
-                // TODO
-                None
+            syn::Expr::Path(_) => {
+                // infer from the right identifier
+                let right_ident = extract_expr_ident(&expr_assign.right);
+                let right_type = self
+                    .local_ident_types
+                    .get(&right_ident)
+                    .expect("Right ident should be in local ident types");
+                right_type.clone()
             }
             _ => panic!("Unexpected local assignment expression {:?}", expr_assign),
         };

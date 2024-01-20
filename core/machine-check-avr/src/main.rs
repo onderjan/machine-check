@@ -35,7 +35,8 @@ mod machine_module {
             };*/
             let a = ::mck::concr::Bitvector::<4>::new(1);
             let b = ::mck::forward::Ext::<1>::uext(a);
-            safe = ::mck::forward::Bitwise::bit_not(b);
+            let c = b;
+            safe = ::mck::forward::Bitwise::bit_not(c);
 
             //safe = temp;
             State { safe }
