@@ -34,7 +34,7 @@ mod machine_module {
                 //safe = input.i;
             };*/
             let a = ::mck::concr::Bitvector::<1>::new(1);
-            safe = ::mck::concr::Bitvector::<1>::new(1); //::mck::forward::Bitwise::bit_not(a);
+            safe = ::mck::forward::Bitwise::bit_not(a);
 
             //safe = temp;
             State { safe }

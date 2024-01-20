@@ -198,6 +198,7 @@ impl StatementConverter {
         let tmp_ident = create_ident(&format!("__mck_backw_tmp_{}", stmts.len()));
 
         // treat phi specially
+        let mut is_phi = false;
         if let Expr::Path(ExprPath {
             path: Path {
                 leading_colon,
@@ -227,8 +228,10 @@ impl StatementConverter {
                         to_condition,
                     ]),
                 ));
+                is_phi = true;
             }
-        } else {
+        }
+        if !is_phi {
             stmts.push(create_let(tmp_ident.clone(), Expr::Call(backward_call)));
         }
 
