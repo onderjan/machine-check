@@ -2,9 +2,8 @@ use std::collections::HashSet;
 
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, Arm, Expr, ExprLit, ExprMatch, Field,
-    GenericArgument, Ident, ImplItem, ImplItemFn, Item, ItemImpl, ItemStruct, Lit, LitInt, LitStr,
-    Pat, Path, PathArguments, Stmt, Type,
+    Arm, Expr, ExprLit, ExprMatch, Field, GenericArgument, Ident, ImplItem, ImplItemFn, Item,
+    ItemImpl, ItemStruct, Lit, LitStr, Pat, PathArguments, Stmt, Type,
 };
 use syn_path::path;
 
@@ -12,7 +11,7 @@ use crate::{
     util::{
         create_arg, create_converted_type, create_expr_call, create_expr_field_named,
         create_expr_ident, create_expr_path, create_ident, create_impl_item_fn, create_item_impl,
-        create_pat_wild, create_path_from_ident, create_path_from_name, create_path_segment,
+        create_pat_wild, create_path_from_ident, create_path_from_name,
         create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
         single_bit_type, ArgType,
     },
