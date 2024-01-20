@@ -94,11 +94,17 @@ pub fn abstract_normal() -> PathRules {
 }
 
 pub fn abstract_type() -> PathRules {
-    PathRules::new(vec![PathRule {
-        has_leading_colon: false,
-        segments: vec![
-            PathRuleSegment::Insert(String::from("super")),
-            PathRuleSegment::Wildcard,
-        ],
-    }])
+    PathRules::new(vec![
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![
+                PathRuleSegment::Insert(String::from("super")),
+                PathRuleSegment::Wildcard,
+            ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![PathRuleSegment::EndWildcard],
+        },
+    ])
 }

@@ -22,7 +22,7 @@ mod machine_module {
     impl ::mck::concr::Machine<Input, State> for Machine {
         fn init(input: &Input) -> State {
             let safe;
-            let temp = input.k;
+            /*let temp = input.k;
             if ::mck::concr::Test::is_true(input.j) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
@@ -32,7 +32,10 @@ mod machine_module {
                     safe = ::mck::concr::Bitvector::<1>::new(1);
                 };
                 //safe = input.i;
-            };
+            };*/
+            let a = ::mck::concr::Bitvector::<1>::new(1);
+            safe = ::mck::concr::Bitvector::<1>::new(1); //::mck::forward::Bitwise::bit_not(a);
+
             //safe = temp;
             State { safe }
         }

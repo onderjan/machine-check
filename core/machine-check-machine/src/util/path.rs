@@ -38,12 +38,12 @@ pub fn create_path_with_last_generic_type(path: Path, ty: Type) -> Path {
     path
 }
 
-pub fn extract_path_ident(path: &Path) -> Ident {
+pub fn extract_path_ident(path: Path) -> Ident {
     if path.leading_colon.is_none()
         && path.segments.len() == 1
         && path.segments[0].arguments.is_none()
     {
-        path.segments[0].ident.clone()
+        path.segments.into_iter().next().unwrap().ident
     } else {
         panic!("Unexpected non-ident path {:?}", path);
     }

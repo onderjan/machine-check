@@ -135,9 +135,13 @@ pub fn get_block_result_expr(block: &Block) -> Expr {
     }
 }
 
-pub fn extract_expr_ident(expr: &Expr) -> Ident {
-    let Expr::Path(path) = expr else {
-        panic!("Unexpected non-ident expression {:?}", expr);
+pub fn extract_expr_path(expr: &Expr) -> Path {
+    let Expr::Path(expr_path) = expr else {
+        panic!("Unexpected non-path expression {:?}", expr);
     };
-    extract_path_ident(&path.path)
+    expr_path.path.clone()
+}
+
+pub fn extract_expr_ident(expr: &Expr) -> Ident {
+    extract_path_ident(extract_expr_path(expr))
 }

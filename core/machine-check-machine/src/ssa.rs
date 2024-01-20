@@ -1,9 +1,11 @@
+mod infer_types;
 mod normalize_scope;
 
 use proc_macro2::Span;
 use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Pat, Stmt};
 
 use crate::{
+    support::local::extract_local_ident_with_type,
     util::{create_assign, create_expr_path, create_let_bare},
     MachineDescription, MachineError,
 };
@@ -12,6 +14,7 @@ pub(crate) fn create_concrete_machine(
     mut items: Vec<Item>,
 ) -> Result<MachineDescription, MachineError> {
     normalize_scope::normalize_scope(&mut items)?;
+    infer_types::infer_types(&mut items)?;
 
     // apply linear SSA to each block using a visitor
     struct Visitor(Result<(), MachineError>);
@@ -101,36 +104,8 @@ impl<'a> BlockTranslator<'a> {
                 // apply translation to expression without forced movement
                 self.apply_to_expr(expr)?;
             }
-            Stmt::Local(ref mut local) => {
-                let Pat::Ident(ident) = &local.pat else {
-                    return Err(MachineError(String::from(
-                        "Local let with non-ident pattern not supported",
-                    )));
-                };
-                if ident.by_ref.is_some() || ident.mutability.is_some() || ident.subpat.is_some() {
-                    return Err(MachineError(String::from(
-                        "Non-traditional local let not supported",
-                    )));
-                }
-
-                if local.init.is_some() {
-                    return Err(MachineError(String::from(
-                        "Local let with init not supported",
-                    )));
-                }
-
-                // TODO: move this somewhat to local eliminator
-                /*
-                if let Some(ref mut init) = local.init {
-                    if init.diverge.is_some() {
-                        return Err(MachineError(String::from(
-                            "Local let with diverging else not supported",
-                        )));
-                    }
-
-                    // apply translation to expression without forced movement
-                    self.apply_to_expr(init.expr.as_mut())?;
-                }*/
+            Stmt::Local(_) => {
+                // do nothing
             }
             _ => {
                 return Err(MachineError(format!(

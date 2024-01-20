@@ -6,7 +6,7 @@ use crate::{
     MachineError,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PathRuleSegment {
     Match(String),
     Convert(String, String),
@@ -16,7 +16,7 @@ pub enum PathRuleSegment {
     EndWildcard,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PathRule {
     pub has_leading_colon: bool,
     pub segments: Vec<PathRuleSegment>,
@@ -88,7 +88,10 @@ impl<'a> Visitor<'a> {
                 return Ok(());
             }
         }
-        Err(MachineError(format!("no rule matches path {:?}", path)))
+        Err(MachineError(format!(
+            "no rule matches path {:?}, rules: {:?}",
+            path, self.rules
+        )))
     }
 }
 
