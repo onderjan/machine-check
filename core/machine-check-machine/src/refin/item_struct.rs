@@ -2,12 +2,11 @@ use syn::{Item, ItemStruct};
 
 use crate::MachineError;
 
-use self::{meta::meta_impl, refinable::refinable_impl, refine::refine_impl};
+use self::{meta::meta_impl, refine::refine_impl};
 
 use super::SpecialTrait;
 
 mod meta;
-mod refinable;
 mod refine;
 
 pub(super) fn add_special_impls(
@@ -17,10 +16,8 @@ pub(super) fn add_special_impls(
 ) -> Result<(), MachineError> {
     match special_trait {
         SpecialTrait::Input | SpecialTrait::State => {
-            // add Meta and Refinable implementations
+            // add Meta and Refine implementations
             refinement_items.push(Item::Impl(meta_impl(item_struct)?));
-            refinement_items.push(Item::Impl(refinable_impl(item_struct)?));
-            // add Refine implementation
             refinement_items.push(refine_impl(item_struct)?);
         }
 

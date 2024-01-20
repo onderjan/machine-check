@@ -20,12 +20,6 @@ where
     fn force_decay(&self, target: &mut A);
 }
 
-pub trait Refinable {
-    type Refin;
-    #[must_use]
-    fn clean_refin(&self) -> Self::Refin;
-}
-
 pub trait Input:
     Debug
     + PartialEq

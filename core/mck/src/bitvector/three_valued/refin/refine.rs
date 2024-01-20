@@ -4,7 +4,7 @@ use crate::{
         util::compute_u64_sign_bit_mask,
     },
     forward,
-    refin::{Refinable, Refine},
+    refin::Refine,
 };
 
 use super::MarkBitvector;
@@ -47,13 +47,5 @@ impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
         let zeros = forward::Bitwise::bit_or(target.get_possibly_zero_flags(), forced_unknown);
         let ones = forward::Bitwise::bit_or(target.get_possibly_one_flags(), forced_unknown);
         *target = ThreeValuedBitvector::from_zeros_ones(zeros, ones);
-    }
-}
-
-impl<const L: u32> Refinable for ThreeValuedBitvector<L> {
-    type Refin = MarkBitvector<L>;
-
-    fn clean_refin(&self) -> Self::Refin {
-        MarkBitvector::new_unmarked()
     }
 }
