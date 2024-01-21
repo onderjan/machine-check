@@ -1,8 +1,8 @@
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated, token::Else, BinOp, Block, Expr, ExprBinary, ExprCall, ExprField,
-    ExprIf, ExprPath, ExprReference, ExprStruct, ExprTuple, Field, FieldValue, Ident, Index,
-    Member, Path, Stmt,
+    ExprPath, ExprReference, ExprStruct, ExprTuple, Field, FieldValue, Ident, Index, Member, Path,
+    Stmt,
 };
 use syn_path::path;
 
@@ -160,16 +160,6 @@ pub fn extract_expr_ident(expr: &Expr) -> Option<&Ident> {
 
 pub fn extract_expr_ident_mut(expr: &mut Expr) -> Option<&mut Ident> {
     extract_path_ident_mut(extract_expr_path_mut(expr)?)
-}
-
-pub fn extract_else_block(else_branch: &Option<(Else, Box<Expr>)>) -> Option<&Block> {
-    let Some((_else_token, else_block)) = else_branch else {
-        return None;
-    };
-    let Expr::Block(else_expr_block) = else_block.as_ref() else {
-        return None;
-    };
-    Some(&else_expr_block.block)
 }
 
 pub fn extract_else_block_with_token(

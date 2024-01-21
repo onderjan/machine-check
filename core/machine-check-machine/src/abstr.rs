@@ -7,13 +7,9 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    support::{
-        field_manipulate,
-        local::{construct_prefixed_ident, create_temporary_let},
-        local_types::find_local_types,
-    },
+    support::{field_manipulate, local::construct_prefixed_ident, local_types::find_local_types},
     util::{
-        create_assign, create_expr_call, create_expr_ident, create_expr_path,
+        create_assign, create_expr_call, create_expr_ident, create_expr_path, create_let_bare,
         create_path_from_ident, extract_else_block_with_token, extract_expr_ident, ArgType,
     },
     MachineDescription,
@@ -86,7 +82,7 @@ impl VisitMut for Visitor {
             let ty = local_types
                 .get(&tmp.1)
                 .expect("Original for temporary should be typed");
-            local_stmts.push(create_temporary_let(tmp.0, tmp.1, ty.clone()));
+            local_stmts.push(create_let_bare(tmp.0, Some(ty.clone())));
         }
         local_stmts.append(&mut impl_item_fn.block.stmts);
         impl_item_fn.block.stmts = local_stmts;
@@ -194,7 +190,7 @@ impl Visitor {
         let then_block = expr_if.then_branch.clone();
 
         // create a new condition in the else block
-        let (else_block, else_token) = extract_else_block_with_token(&mut expr_if.else_branch)
+        let (else_block, else_token) = extract_else_block_with_token(&expr_if.else_branch)
             .expect("Expected if with else block");
         let mut must_be_false_call = cond_expr_call.clone();
         let Expr::Path(must_be_false_path) = must_be_false_call.func.as_mut() else {

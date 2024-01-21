@@ -1,5 +1,4 @@
 use crate::abstr;
-use crate::forward::PhiArg;
 use crate::misc::FieldManipulate;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -31,6 +30,9 @@ where
     Self: std::marker::Sized,
 {
     type Condition;
+    // TODO: deduplicate mutable
     fn phi(self, other: Self, condition: Self::Condition) -> Self;
     fn phi_no_cond(self, other: Self) -> Self;
+
+    fn uninit() -> Self;
 }

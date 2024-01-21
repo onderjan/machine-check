@@ -1,7 +1,5 @@
 mod statement_converter;
 
-use std::path;
-
 use syn::{punctuated::Punctuated, GenericArgument, Ident, ImplItemFn, PathArguments, Stmt, Type};
 use syn_path::path;
 

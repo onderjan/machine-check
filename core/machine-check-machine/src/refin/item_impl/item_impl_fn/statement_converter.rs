@@ -1,4 +1,4 @@
-use syn::{Expr, ExprCall, ExprPath, Pat, Path, Stmt};
+use syn::{Expr, ExprCall, ExprPath, Pat, Stmt};
 
 use crate::{
     support::struct_rules::StructRules,
