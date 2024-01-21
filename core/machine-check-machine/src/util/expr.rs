@@ -5,7 +5,9 @@ use syn::{
 };
 use syn_path::path;
 
-use super::{create_path_from_ident, extract_path_ident, get_field_member, ArgType};
+use super::{
+    create_path_from_ident, extract_path_ident, extract_path_ident_mut, get_field_member, ArgType,
+};
 
 pub fn create_unit_expr() -> Expr {
     Expr::Tuple(ExprTuple {
@@ -135,13 +137,26 @@ pub fn get_block_result_expr(block: &Block) -> Expr {
     }
 }
 
-pub fn extract_expr_path(expr: &Expr) -> Path {
-    let Expr::Path(expr_path) = expr else {
-        panic!("Unexpected non-path expression {}", quote::quote!(#expr));
-    };
-    expr_path.path.clone()
+pub fn extract_expr_path(expr: &Expr) -> Option<&Path> {
+    if let Expr::Path(expr_path) = expr {
+        Some(&expr_path.path)
+    } else {
+        None
+    }
 }
 
-pub fn extract_expr_ident(expr: &Expr) -> Ident {
-    extract_path_ident(extract_expr_path(expr))
+pub fn extract_expr_path_mut(expr: &mut Expr) -> Option<&mut Path> {
+    if let Expr::Path(expr_path) = expr {
+        Some(&mut expr_path.path)
+    } else {
+        None
+    }
+}
+
+pub fn extract_expr_ident(expr: &Expr) -> Option<&Ident> {
+    extract_path_ident(extract_expr_path(expr)?)
+}
+
+pub fn extract_expr_ident_mut(expr: &mut Expr) -> Option<&mut Ident> {
+    extract_path_ident_mut(extract_expr_path_mut(expr)?)
 }

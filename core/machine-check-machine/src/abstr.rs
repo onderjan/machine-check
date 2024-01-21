@@ -9,7 +9,7 @@ use syn_path::path;
 use crate::{
     support::{
         field_manipulate,
-        local::{create_prefixed_ident, create_temporary_let},
+        local::{construct_prefixed_ident, create_temporary_let},
         local_types::find_local_types,
     },
     util::{
@@ -123,9 +123,9 @@ impl Visitor {
             if else_set.contains(&left_ident) {
                 // is in both, convert to temporary and create phi statement
                 let then_tmp_ident =
-                    create_prefixed_ident(&format!("then_{}", if_counter), &left_ident);
+                    construct_prefixed_ident(&format!("then_{}", if_counter), &left_ident);
                 let else_tmp_ident =
-                    create_prefixed_ident(&format!("else_{}", if_counter), &left_ident);
+                    construct_prefixed_ident(&format!("else_{}", if_counter), &left_ident);
                 then_temporary_map.insert(left_ident.clone(), then_tmp_ident.clone());
                 else_temporary_map.insert(left_ident.clone(), else_tmp_ident.clone());
                 phi_stmts.push(create_assign(
@@ -178,7 +178,8 @@ impl Visitor {
             // TODO: replace with result
             panic!("Invalid number of arguments for Test");
         }
-        let condition = extract_expr_ident(&cond_expr_call.args[0]);
+        let condition =
+            extract_expr_ident(&cond_expr_call.args[0]).expect("Condition should be ident");
 
         // split into three possibilities:
         // 1. must be true (perform only then)
@@ -211,7 +212,7 @@ impl Visitor {
         let (both_stmts, both_tmps) = self.join_statements(
             then_block.stmts,
             else_block.stmts.clone(),
-            &condition,
+            condition,
             self.tmp_counter,
         );
         self.tmp_counter += 1;
@@ -253,7 +254,8 @@ fn find_temporaries(stmts: &[Stmt], temporary_set: &mut HashSet<Ident>) {
             Stmt::Expr(expr, Some(_)) => match expr {
                 Expr::Assign(assign) => {
                     // insert to temporary map
-                    let left_ident = extract_expr_ident(&assign.left);
+                    let left_ident = extract_expr_ident(&assign.left)
+                        .expect("Left side of assignment should be ident");
                     temporary_set.insert(left_ident.clone());
                 }
                 Expr::Block(expr_block) => {
