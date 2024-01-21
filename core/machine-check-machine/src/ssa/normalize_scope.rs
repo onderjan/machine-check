@@ -1,18 +1,15 @@
 use std::{collections::HashMap, vec};
 
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Member, Pat, Path, Stmt, Type};
+use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Local, Member, Pat, Path, Stmt, Type};
 
-use crate::{
-    util::{create_assign, create_let_bare, extract_pat_ident},
-    MachineError,
-};
+use crate::{util::create_assign, MachineError};
 
 pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
     let mut visitor = BlockVisitor {
         result: Ok(()),
         scope_idents: vec![],
-        unique_idents: vec![],
+        local_defs: vec![],
     };
     for item in items.iter_mut() {
         visitor.visit_item_mut(item);
@@ -24,7 +21,7 @@ pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
 struct BlockVisitor {
     result: Result<(), MachineError>,
     scope_idents: Vec<HashMap<Ident, Ident>>,
-    unique_idents: Vec<(Ident, Option<Type>)>,
+    local_defs: Vec<Local>,
 }
 impl VisitMut for BlockVisitor {
     fn visit_block_mut(&mut self, block: &mut Block) {
@@ -36,31 +33,46 @@ impl VisitMut for BlockVisitor {
 
         // process all statements
         for mut stmt in original_stmts {
-            if let Stmt::Local(local) = stmt {
-                let (left_ident, ty) = if let Pat::Type(pat_ty) = local.pat {
-                    (
-                        extract_pat_ident(pat_ty.pat.as_ref()),
-                        Some(pat_ty.ty.as_ref().clone()),
-                    )
+            if let Stmt::Local(mut local) = stmt {
+                let mut pat = if let Pat::Type(ref mut pat_ty) = &mut local.pat {
+                    pat_ty.pat.as_mut()
                 } else {
-                    (extract_pat_ident(&local.pat), None)
+                    &mut local.pat
                 };
+
+                let Pat::Ident(pat_ident) = &mut pat else {
+                    self.result = Err(MachineError(format!("Unsupported pattern: {:?}", pat)));
+                    return;
+                };
+
+                if pat_ident.subpat.is_some() {
+                    self.result = Err(MachineError(format!("Unsupported subpattern: {:?}", pat)));
+                    return;
+                }
+
+                if pat_ident.by_ref.is_some() {
+                    self.result = Err(MachineError(format!(
+                        "Unsupported pattern by ref: {:?}",
+                        pat
+                    )));
+                    return;
+                }
+
+                let left_ident = pat_ident.ident.clone();
 
                 // create unique ident
                 let unique_ident = Ident::new(
                     &format!("__mck_scope_{}_{}", scope_num, left_ident),
                     Span::call_site(),
                 );
-
                 // add ident to scope
                 self.scope_idents
                     .last_mut()
                     .unwrap()
                     .insert(left_ident.clone(), unique_ident.clone());
-                self.unique_idents.push((unique_ident.clone(), ty));
 
                 // only retain statement if it has initialization, convert it to assignment in that case
-                if let Some(init) = local.init {
+                if let Some(ref mut init) = local.init {
                     if init.diverge.is_some() {
                         self.result = Err(MachineError(format!(
                             "Diverging let not supported: {:?}",
@@ -69,12 +81,18 @@ impl VisitMut for BlockVisitor {
                         return;
                     }
                     // remember to visit the right expression before adding the assignment to converted statements
-                    let mut right_expr = *init.expr;
+                    let mut right_expr = init.expr.as_ref().clone();
                     self.visit_expr_mut(&mut right_expr);
                     block
                         .stmts
-                        .push(create_assign(unique_ident, right_expr, true));
+                        .push(create_assign(unique_ident.clone(), right_expr, true));
+                    // drop init in local
+                    local.init = None;
                 }
+
+                // assign unique ident to local and push the local to local defs
+                pat_ident.ident = unique_ident;
+                self.local_defs.push(local);
             } else {
                 // visit the statement and add it to converted statements
                 self.visit_stmt_mut(&mut stmt);
@@ -87,10 +105,10 @@ impl VisitMut for BlockVisitor {
         // add initializations of unique idents to outermost block
         if self.scope_idents.is_empty() {
             let mut stmts = vec![];
-            let mut unique_idents = vec![];
-            unique_idents.append(&mut self.unique_idents);
-            for (unique_ident, ty) in unique_idents {
-                stmts.push(create_let_bare(unique_ident, ty));
+            let mut local_defs = vec![];
+            local_defs.append(&mut self.local_defs);
+            for local_def in local_defs {
+                stmts.push(Stmt::Local(local_def));
             }
             stmts.append(&mut block.stmts);
             block.stmts = stmts;
