@@ -14,7 +14,7 @@ use crate::{
     },
     util::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path,
-        create_path_from_ident, extract_expr_ident, ArgType,
+        create_path_from_ident, extract_else_block_with_token, extract_expr_ident, ArgType,
     },
     MachineDescription,
 };
@@ -194,15 +194,8 @@ impl Visitor {
         let then_block = expr_if.then_branch.clone();
 
         // create a new condition in the else block
-        let Some((else_token, else_block)) = std::mem::take(&mut expr_if.else_branch) else {
-            // TODO: replace with result
-            panic!("If without else");
-        };
-        let Expr::Block(else_expr_block) = *else_block else {
-            // TODO: replace with result
-            panic!("Non-block else");
-        };
-        let else_block = else_expr_block.block;
+        let (else_block, else_token) = extract_else_block_with_token(&mut expr_if.else_branch)
+            .expect("Expected if with else block");
         let mut must_be_false_call = cond_expr_call.clone();
         let Expr::Path(must_be_false_path) = must_be_false_call.func.as_mut() else {
             panic!("Should be path");
@@ -230,12 +223,12 @@ impl Visitor {
             attrs: vec![],
             if_token: expr_if.if_token,
             cond: Box::new(Expr::Call(must_be_false_call)),
-            then_branch: else_block,
-            else_branch: Some((else_token, Box::new(Expr::Block(both_block)))),
+            then_branch: else_block.clone(),
+            else_branch: Some((*else_token, Box::new(Expr::Block(both_block)))),
         });
 
         expr_if.else_branch = Some((
-            else_token,
+            *else_token,
             Box::new(Expr::Block(ExprBlock {
                 attrs: vec![],
                 label: None,

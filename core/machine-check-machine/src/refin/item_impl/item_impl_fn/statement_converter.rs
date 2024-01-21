@@ -5,7 +5,7 @@ use crate::{
     util::{
         create_expr_call, create_expr_field_unnamed, create_expr_ident, create_expr_path,
         create_expr_tuple, create_ident, create_let, create_pat_wild, create_refine_join_stmt,
-        ArgType,
+        path_matches_global_names, ArgType,
     },
     MachineError,
 };
@@ -167,6 +167,14 @@ impl StatementConverter {
             return Ok(());
         }
 
+        if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
+            if path_matches_global_names(path, &["mck", "forward", "PhiArg", "NotTaken"]) {
+                assert!(call.args.len() == 1);
+                // do not convert
+                return Ok(());
+            }
+        }
+
         // change the function name
         let mut backward_call = call.clone();
         self.backward_scheme
@@ -198,22 +206,9 @@ impl StatementConverter {
         let tmp_ident = create_ident(&format!("__mck_backw_tmp_{}", stmts.len()));
 
         // treat phi specially
-        let mut is_phi = false;
-        if let Expr::Path(ExprPath {
-            path: Path {
-                leading_colon,
-                segments,
-            },
-            ..
-        }) = call.func.as_ref()
-        {
-            if leading_colon.is_some()
-                && segments.len() == 4
-                && &segments[0].ident.to_string() == "mck"
-                && &segments[1].ident.to_string() == "abstr"
-                && &segments[2].ident.to_string() == "Phi"
-                && &segments[3].ident.to_string() == "phi"
-            {
+        let mut is_special = false;
+        if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
+            if path_matches_global_names(path, &["mck", "abstr", "Phi", "phi"]) {
                 assert!(call.args.len() == 3);
                 let to_condition = create_expr_call(
                     create_expr_path(path!(::mck::refin::Refine::to_condition)),
@@ -228,10 +223,28 @@ impl StatementConverter {
                         to_condition,
                     ]),
                 ));
-                is_phi = true;
+                is_special = true;
+            }
+
+            if path_matches_global_names(path, &["mck", "forward", "PhiArg", "phi"]) {
+                assert!(call.args.len() == 2);
+                stmts.push(create_let(
+                    tmp_ident.clone(),
+                    create_expr_tuple(vec![backward_later.clone(), backward_later.clone()]),
+                ));
+                is_special = true;
+            }
+
+            if path_matches_global_names(path, &["mck", "forward", "PhiArg", "Taken"]) {
+                assert!(call.args.len() == 1);
+                stmts.push(create_let(
+                    tmp_ident.clone(),
+                    create_expr_tuple(vec![backward_later.clone()]),
+                ));
+                is_special = true;
             }
         }
-        if !is_phi {
+        if !is_special {
             stmts.push(create_let(tmp_ident.clone(), Expr::Call(backward_call)));
         }
 

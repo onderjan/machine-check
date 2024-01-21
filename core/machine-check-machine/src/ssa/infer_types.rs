@@ -10,9 +10,9 @@ use syn_path::path;
 use crate::{
     support::local::extract_local_ident_with_type,
     util::{
-        create_path_from_ident, create_type_path, extract_expr_ident, extract_expr_path,
-        extract_pat_ident, extract_path_ident, extract_type_path, path_matches_global_names,
-        single_bit_type,
+        create_path_from_ident, create_path_with_last_generic_type, create_type_path,
+        extract_expr_ident, extract_expr_path, extract_last_generic_type, extract_pat_ident,
+        extract_path_ident, extract_type_path, path_matches_global_names, single_bit_type,
     },
     MachineError,
 };
@@ -83,30 +83,30 @@ fn infer_fn_types(
     // merge local types
     let mut i = 0;
     while let Stmt::Local(local) = &mut impl_item_fn.block.stmts[i] {
-        match &local.pat {
-            Pat::Ident(pat_ident) => {
-                // no type yet
-                let inferred_type = visitor.local_ident_types.remove(&pat_ident.ident).unwrap();
-                if let Some(inferred_type) = inferred_type {
-                    // add type
-                    local.pat = Pat::Type(PatType {
-                        attrs: vec![],
-                        pat: Box::new(Pat::Ident(pat_ident.clone())),
-                        colon_token: Default::default(),
-                        ty: Box::new(inferred_type),
-                    })
-                } else {
-                    // could not infer type
-                    return Err(MachineError(format!(
-                        "Could not infer type for local identifier {}",
-                        pat_ident.ident
-                    )));
-                }
+        let ident = match &local.pat {
+            Pat::Ident(pat_ident) => pat_ident.ident.clone(),
+            Pat::Type(ty) => extract_pat_ident(&ty.pat),
+            _ => panic!("Unexpected patttern type {:?}", local.pat),
+        };
+        let inferred_type = visitor.local_ident_types.remove(&ident).unwrap();
+        if let Some(inferred_type) = inferred_type {
+            // add type
+            let mut pat = local.pat.clone();
+            if let Pat::Type(pat_type) = pat {
+                pat = pat_type.pat.as_ref().clone();
             }
-            Pat::Type(_) => {
-                // do nothing, we already have the type
-            }
-            _ => panic!("Unexpected local pattern {:?}", local.pat),
+            local.pat = Pat::Type(PatType {
+                attrs: vec![],
+                pat: Box::new(pat),
+                colon_token: Default::default(),
+                ty: Box::new(inferred_type),
+            })
+        } else {
+            // could not infer type
+            return Err(MachineError(format!(
+                "Could not infer type for ident {}",
+                ident
+            )));
         }
         i += 1;
     }
@@ -124,15 +124,24 @@ impl VisitMut for Visitor<'_> {
         let left_ident =
             extract_expr_ident(&expr_assign.left).expect("Left side of assignment should be ident");
 
-        if self
+        if let Some(ty) = self
             .local_ident_types
             .get_mut(left_ident)
             .expect("Left ident should be in local ident types")
-            .is_some()
         {
-            // we already have some left type, return
-            return;
+            let path = extract_type_path(ty);
+
+            if !path_matches_global_names(&path, &["mck", "forward", "PhiArg"]) {
+                // we already have determined left type, return
+                return;
+            }
         }
+
+        println!(
+            "Visiting expr: {}, right: {:?}",
+            quote::quote!(#expr_assign),
+            expr_assign.right
+        );
 
         let inferred_type = match expr_assign.right.as_ref() {
             syn::Expr::Call(right_call) => self.infer_call_result_type(right_call),
@@ -211,6 +220,7 @@ impl Visitor<'_> {
     fn infer_call_result_type(&self, expr_call: &ExprCall) -> Option<Type> {
         // discover the type based on the call function
         let func_path = extract_expr_path(&expr_call.func).expect("Call function should be path");
+        println!("Inferring call result for: {:?}", func_path);
         // --- BITVECTOR INITIALIZATION ---
         if path_matches_global_names(func_path, &["mck", "concr", "Bitvector", "new"]) {
             // infer bitvector type
@@ -280,6 +290,49 @@ impl Visitor<'_> {
                 return None;
             }
         }
+
+        if path_matches_global_names(func_path, &["mck", "forward", "PhiArg", "Taken"])
+            || path_matches_global_names(func_path, &["mck", "forward", "PhiArg", "NotTaken"])
+        {
+            assert!(expr_call.args.len() == 1);
+            println!("Processing taken: {}", quote::quote!(#expr_call));
+            let arg_ident =
+                extract_expr_ident(&expr_call.args[0]).expect("Call argument should be ident");
+            let arg_type = self
+                .local_ident_types
+                .get(arg_ident)
+                .expect("Call argument should have local ident");
+            println!("Local ident types: {:?}", self.local_ident_types);
+            if let Some(arg_type) = arg_type {
+                println!("Taken have arg type {}", quote::quote!(#arg_type));
+                let result = Some(create_type_path(create_path_with_last_generic_type(
+                    path!(::mck::forward::PhiArg),
+                    arg_type.clone(),
+                )));
+                println!("Result: {:?}", result);
+                return result;
+            }
+        }
+
+        if path_matches_global_names(func_path, &["mck", "forward", "PhiArg", "phi"]) {
+            assert!(expr_call.args.len() == 2);
+            println!("Processing phi: {}", quote::quote!(#expr_call));
+            let arg_ident =
+                extract_expr_ident(&expr_call.args[0]).expect("Call argument should be ident");
+            let arg_type = self
+                .local_ident_types
+                .get(arg_ident)
+                .expect("Call argument should have local ident");
+            if let Some(arg_type) = arg_type {
+                // extract
+
+                println!("Phi have arg type {}", quote::quote!(#arg_type));
+                return Some(extract_last_generic_type(extract_type_path(arg_type)));
+            }
+        }
+
+        panic!("Cannot infer call: {:?}", func_path);
+
         None
     }
 }

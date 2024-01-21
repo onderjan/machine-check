@@ -1,13 +1,18 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use syn::{
     visit_mut::{self, VisitMut},
-    Ident, ImplItem, ImplItemFn, Item, Pat, Stmt, Type,
+    Expr, Ident, ImplItem, ImplItemFn, Item, Pat, Stmt, Type,
 };
+use syn_path::path;
 
 use crate::{
     support::local::construct_prefixed_ident,
-    util::{create_let_bare, extract_expr_ident_mut, extract_path_ident_mut},
+    util::{
+        create_assign, create_expr_call, create_expr_ident, create_expr_path, create_let_bare,
+        create_path_with_last_generic_type, create_type_path, extract_else_block_mut,
+        extract_expr_ident, extract_expr_ident_mut, extract_path_ident_mut, ArgType,
+    },
     MachineError,
 };
 
@@ -43,7 +48,7 @@ fn process_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
             };
             // if mutable, do not retain the statement and insert to counters
             if pat_ident.mutability.is_some() {
-                local_ident_mut_counters.insert(pat_ident.ident.clone(), (0u32, ty));
+                local_ident_mut_counters.insert(pat_ident.ident.clone(), (0u32, 0u32, ty));
                 retain_stmt = false;
             }
         }
@@ -56,19 +61,18 @@ fn process_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
     let mut visitor = Visitor {
         local_ident_mut_counters,
         result: Ok(()),
+        temps: BTreeMap::new(),
+        branch_counter: 0,
     };
     visitor.visit_impl_item_fn_mut(impl_item_fn);
     visitor.result?;
 
-    // add new local idents
+    // add temporaries
     let mut stmts = Vec::new();
-    for (local_ident, (mut_counter, ty)) in visitor.local_ident_mut_counters {
-        for i in 1..=mut_counter {
-            let temp_ident = construct_prefixed_ident(&format!("mut_{}", i), &local_ident);
-            println!("Adding temp ident {}", temp_ident);
-            stmts.push(create_let_bare(temp_ident, ty.clone()));
-        }
+    for (phi_temp_ident, ty) in visitor.temps {
+        stmts.push(create_let_bare(phi_temp_ident, ty.clone()));
     }
+
     stmts.append(&mut impl_item_fn.block.stmts);
     impl_item_fn.block.stmts = stmts;
 
@@ -78,7 +82,9 @@ fn process_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
 }
 
 struct Visitor {
-    local_ident_mut_counters: HashMap<Ident, (u32, Option<Type>)>,
+    branch_counter: u32,
+    local_ident_mut_counters: HashMap<Ident, (u32, u32, Option<Type>)>,
+    temps: BTreeMap<Ident, Option<Type>>,
     result: Result<(), MachineError>,
 }
 impl VisitMut for Visitor {
@@ -90,23 +96,30 @@ impl VisitMut for Visitor {
         // if the left ident is mutable, change it to temporary
         let left_ident = extract_expr_ident_mut(&mut expr_assign.left)
             .expect("Left side of assignment should be expression");
-        if let Some((mut_counter, _ty)) = self.local_ident_mut_counters.get_mut(left_ident) {
-            *mut_counter = mut_counter
-                .checked_add(1)
-                .expect("Mutable counter should not overflow");
-            let temp_ident = construct_prefixed_ident(&format!("mut_{}", mut_counter), left_ident);
-            *left_ident = temp_ident.clone();
-            println!("Expr assign to ident: {} -> {}", left_ident, temp_ident);
-            /*if let Some(temp_ident_set) = result.get_mut(left_ident) {
-                temp_ident_set.insert(temp_ident);
-            } else {
-                result.insert(left_ident.clone(), HashSet::from([temp_ident]));
-            }*/
+        if let Some(counter) = self.local_ident_mut_counters.get_mut(left_ident) {
+            let temp_ident = create_mut_temporary(&mut self.temps, left_ident, counter);
+            self.temps.insert(temp_ident.clone(), counter.2.clone());
+            *left_ident = temp_ident;
         }
     }
 
-    fn visit_expr_if_mut(&mut self, i: &mut syn::ExprIf) {
-        todo!()
+    fn visit_block_mut(&mut self, block: &mut syn::Block) {
+        let stmts = Vec::from_iter(block.stmts.drain(..));
+        // allow adding new statements after if expression statements
+        for mut stmt in stmts {
+            if let Stmt::Expr(Expr::If(expr_if), Some(_)) = &mut stmt {
+                let extend_statements = self.process_if(expr_if);
+                block.stmts.push(stmt);
+                block.stmts.extend(extend_statements);
+            } else {
+                self.visit_stmt_mut(&mut stmt);
+                block.stmts.push(stmt);
+            }
+        }
+    }
+
+    fn visit_expr_if_mut(&mut self, expr_if: &mut syn::ExprIf) {
+        panic!("Unexpected non-statement if expression");
     }
 
     fn visit_path_mut(&mut self, path: &mut syn::Path) {
@@ -119,8 +132,156 @@ impl VisitMut for Visitor {
 
     fn visit_ident_mut(&mut self, ident: &mut Ident) {
         // replace ident by temporary if necessary
-        if let Some((mut_counter, _ty)) = self.local_ident_mut_counters.get(ident) {
-            *ident = construct_prefixed_ident(&format!("mut_{}", mut_counter), ident);
+        if let Some((current_counter, next_counter, _ty)) = self.local_ident_mut_counters.get(ident)
+        {
+            // the variable must be used before being assigned
+            assert!(current_counter < next_counter);
+            *ident = construct_prefixed_ident(&format!("mut_{}", current_counter), ident);
         }
     }
+}
+
+impl Visitor {
+    fn process_if(&mut self, expr_if: &mut syn::ExprIf) -> Vec<Stmt> {
+        let current_branch_counter = self.branch_counter;
+        self.branch_counter = self
+            .branch_counter
+            .checked_add(1)
+            .expect("Branch counter should not overflow");
+
+        let then_block = &mut expr_if.then_branch;
+        let else_block =
+            extract_else_block_mut(&mut expr_if.else_branch).expect("Expected if with else block");
+
+        // detect the changed counters
+        let base_counters = self.local_ident_mut_counters.clone();
+
+        // visit then block, retain then counters, reset current counters, but keep next counters
+        self.visit_block_mut(then_block);
+        let then_counters = self.local_ident_mut_counters.clone();
+        for (ident, counter) in self.local_ident_mut_counters.iter_mut() {
+            let base_counter = base_counters.get(ident).unwrap();
+            counter.0 = base_counter.0;
+        }
+
+        // visit else block
+        self.visit_block_mut(else_block);
+
+        // phi changed idents
+        let mut append_stmts = Vec::new();
+        for (ident, else_counter) in self.local_ident_mut_counters.iter_mut() {
+            let ty = else_counter.2.clone();
+            let last_base = base_counters.get(ident).unwrap().0;
+            let last_then = then_counters.get(ident).unwrap().0;
+            let last_else = else_counter.0;
+
+            if last_base == last_then && last_base == last_else {
+                // do nothing for this ident, it was not assigned to in either branch
+                continue;
+            }
+
+            // we cannot use the last_then and last_else temporaries, as they were only assigned to in one branch
+            // create phi temps that will be taken in one branch and not taken in the other
+            assert!(last_then != last_else);
+
+            let last_then_ident = construct_mut_temp_ident(ident, last_then);
+            let last_else_ident = construct_mut_temp_ident(ident, last_else);
+
+            let phi_then_ident =
+                construct_prefixed_ident(&format!("phi_then_{}", current_branch_counter), ident);
+            let phi_else_ident =
+                construct_prefixed_ident(&format!("phi_else_{}", current_branch_counter), ident);
+
+            // phi then and else have phi arg type
+            let phi_arg_path = path!(::mck::forward::PhiArg);
+
+            let phi_arg_type = if let Some(ty) = &ty {
+                create_type_path(create_path_with_last_generic_type(phi_arg_path, ty.clone()))
+            } else {
+                create_type_path(phi_arg_path)
+            };
+
+            self.temps
+                .insert(phi_then_ident.clone(), Some(phi_arg_type.clone()));
+            self.temps
+                .insert(phi_else_ident.clone(), Some(phi_arg_type));
+
+            // last then ident is taken in then block, but not in else block
+            then_block
+                .stmts
+                .push(create_taken_assign(phi_then_ident.clone(), last_then_ident.clone()));
+            else_block
+                .stmts
+                .push(create_not_taken_assign(phi_then_ident.clone(), last_else_ident.clone()));
+
+            // last else ident is not taken in then block, but is taken in else block
+            then_block
+                .stmts
+                .push(create_not_taken_assign(phi_else_ident.clone(), last_then_ident));
+            else_block
+                .stmts
+                .push(create_taken_assign(phi_else_ident.clone(), last_else_ident));
+
+            // create mut temporary after the if that will phi the then and else temporaries
+            let append_ident = create_mut_temporary(&mut self.temps, ident, else_counter);
+            self.temps.insert(append_ident.clone(), ty.clone());
+
+            append_stmts.push(create_assign(
+                append_ident,
+                create_expr_call(
+                    create_expr_path(path!(::mck::forward::PhiArg::phi)),
+                    vec![
+                        (ArgType::Normal, create_expr_ident(phi_then_ident)),
+                        (ArgType::Normal, create_expr_ident(phi_else_ident)),
+                    ],
+                ),
+                true,
+            ));
+        }
+        append_stmts
+    }
+}
+
+fn create_mut_temporary(
+    temps: &mut BTreeMap<Ident, Option<Type>>,
+    orig_ident: &Ident,
+    counter: &mut (u32, u32, Option<Type>),
+) -> Ident {
+    let current_counter = &mut counter.0;
+    let next_counter = &mut counter.1;
+    let ty = &counter.2;
+    let temp_ident = construct_mut_temp_ident(orig_ident, *next_counter);
+    temps.insert(temp_ident.clone(), ty.clone());
+
+    *current_counter = *next_counter;
+    *next_counter = next_counter
+        .checked_add(1)
+        .expect("Mutable counter should not overflow");
+    temp_ident
+}
+
+fn construct_mut_temp_ident(orig_ident: &Ident, next_counter: u32) -> Ident {
+    construct_prefixed_ident(&format!("mut_{}", next_counter), orig_ident)
+}
+
+fn create_taken_assign(phi_arg_ident: Ident, taken_ident: Ident) -> Stmt {
+    create_assign(
+        phi_arg_ident,
+        create_expr_call(
+            create_expr_path(path!(::mck::forward::PhiArg::Taken)),
+            vec![(ArgType::Normal, create_expr_ident(taken_ident))],
+        ),
+        true,
+    )
+}
+
+fn create_not_taken_assign(phi_arg_ident: Ident, taken_ident: Ident) -> Stmt {
+    create_assign(
+        phi_arg_ident,
+        create_expr_call(
+            create_expr_path(path!(::mck::forward::PhiArg::NotTaken)),
+            vec![(ArgType::Normal, create_expr_ident(taken_ident))],
+        ),
+        true,
+    )
 }

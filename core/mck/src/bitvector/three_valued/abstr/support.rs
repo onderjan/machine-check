@@ -225,6 +225,10 @@ impl<const L: u32> Phi for ThreeValuedBitvector<L> {
     type Condition = ThreeValuedBitvector<1>;
     fn phi(self, other: Self, _condition: Self::Condition) -> Self {
         // do not use the condition, it is only here for marking
+        self.phi_no_cond(other)
+    }
+
+    fn phi_no_cond(self, other: Self) -> Self {
         let zeros = self.zeros.bit_or(other.zeros);
         let ones = self.ones.bit_or(other.ones);
 

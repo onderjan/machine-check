@@ -1,11 +1,16 @@
 mod statement_converter;
 
-use syn::{punctuated::Punctuated, Ident, ImplItemFn, Stmt, Type};
+use std::path;
+
+use syn::{punctuated::Punctuated, GenericArgument, Ident, ImplItemFn, PathArguments, Stmt, Type};
 use syn_path::path;
 
 use crate::{
     support::local_types::find_local_types,
-    util::{create_expr_call, create_expr_path, create_let_mut, get_block_result_expr},
+    util::{
+        create_expr_call, create_expr_path, create_let_mut, get_block_result_expr,
+        path_matches_global_names,
+    },
     MachineError,
 };
 
@@ -73,7 +78,11 @@ impl ImplConverter {
         // step 5: add initialization of earlier and local refin variables
         for (ident, ty) in earlier.1.into_iter().chain(find_local_types(orig_fn)) {
             let refin_ident = self.refinement_rules.convert_normal_ident(ident.clone())?;
-            let refin_type = self.refinement_rules.convert_type(ty)?;
+            // convert phi arguments into normal type
+
+            let refin_type = self
+                .refinement_rules
+                .convert_type(remove_phi_arg_type(ty))?;
             result_stmts.push(self.create_init_stmt(refin_ident, refin_type));
         }
 
@@ -118,4 +127,21 @@ impl ImplConverter {
             Some(ty),
         )
     }
+}
+
+fn remove_phi_arg_type(ty: Type) -> Type {
+    let Type::Path(path_ty) = &ty else {
+        return ty;
+    };
+    if !path_matches_global_names(&path_ty.path, &["mck", "forward", "PhiArg"]) {
+        return ty;
+    }
+    let PathArguments::AngleBracketed(angle_bracketed) = &path_ty.path.segments[2].arguments else {
+        panic!("Expected angle bracketed args following phi argument");
+    };
+    assert_eq!(angle_bracketed.args.len(), 1);
+    let GenericArgument::Type(inner_ty) = &angle_bracketed.args[0] else {
+        panic!("Expected inner type in phi argument");
+    };
+    inner_ty.clone()
 }

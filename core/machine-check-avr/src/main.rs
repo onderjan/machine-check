@@ -21,19 +21,28 @@ mod machine_module {
 
     impl ::mck::concr::Machine<Input, State> for Machine {
         fn init(input: &Input) -> State {
-            let safe;
+            let mut safe;
             let mut temp: ::mck::concr::Bitvector<1> = input.k;
+            let k = input.k;
+            if true {
+                let mut j = ::mck::concr::Bitvector::<1>::new(1);
+                temp = j;
+            } else {
+            };
             /*if ::mck::concr::Test::is_true(input.j) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
-                if ::mck::concr::Test::is_true(temp) {
+                if ::mck::concr::Test::is_true(k) {
                     safe = input.i;
                 } else {
-                    let a = ::mck::concr::Bitvector::<1>::new(1);
-                    safe = a;
+                    safe = ::mck::concr::Bitvector::<1>::new(1);
                 };
                 //safe = input.i;
             };*/
+            if ::mck::concr::Test::is_true(k) {
+                safe = ::mck::concr::Bitvector::<1>::new(1);
+            } else {
+            };
             /*let a = ::mck::concr::Bitvector::<4>::new(1);
             let b = ::mck::forward::Ext::<1>::uext(a);
             let c = b;

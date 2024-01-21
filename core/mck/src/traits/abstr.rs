@@ -1,4 +1,5 @@
 use crate::abstr;
+use crate::forward::PhiArg;
 use crate::misc::FieldManipulate;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -25,7 +26,11 @@ pub trait Test {
     fn must_be_false(self) -> bool;
 }
 
-pub trait Phi {
+pub trait Phi
+where
+    Self: std::marker::Sized,
+{
     type Condition;
     fn phi(self, other: Self, condition: Self::Condition) -> Self;
+    fn phi_no_cond(self, other: Self) -> Self;
 }

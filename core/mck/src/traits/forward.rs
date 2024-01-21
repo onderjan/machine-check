@@ -1,3 +1,5 @@
+use crate::abstr::Phi;
+
 pub trait TypedEq {
     type Output;
 
@@ -75,4 +77,20 @@ pub trait Ext<const M: u32> {
     fn uext(self) -> Self::Output;
     #[must_use]
     fn sext(self) -> Self::Output;
+}
+
+pub enum PhiArg<T: Phi> {
+    Taken(T),
+    NotTaken(T),
+}
+
+impl<T: Phi> PhiArg<T> {
+    pub fn phi(self, other: Self) -> T {
+        match (self, other) {
+            (PhiArg::Taken(a), PhiArg::Taken(b)) => a.phi_no_cond(b),
+            (PhiArg::Taken(a), PhiArg::NotTaken(_)) => a,
+            (PhiArg::NotTaken(_), PhiArg::Taken(b)) => b,
+            (PhiArg::NotTaken(_), PhiArg::NotTaken(_)) => panic!("Neither branch taken"),
+        }
+    }
 }
