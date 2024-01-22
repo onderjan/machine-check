@@ -23,5 +23,5 @@ pub trait Machine<I: Input, S: State> {
 }
 
 pub trait Test {
-    fn is_true(&self) -> bool;
+    fn is_true(self) -> bool;
 }

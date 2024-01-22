@@ -212,12 +212,12 @@ impl<const L: u32> Default for ThreeValuedBitvector<L> {
 }
 
 impl Test for ThreeValuedBitvector<1> {
-    fn must_be_true(self) -> bool {
-        self.zeros.is_zero()
+    fn can_be_true(self) -> bool {
+        self.ones.is_nonzero()
     }
 
-    fn must_be_false(self) -> bool {
-        self.ones.is_zero()
+    fn can_be_false(self) -> bool {
+        self.zeros.is_nonzero()
     }
 }
 

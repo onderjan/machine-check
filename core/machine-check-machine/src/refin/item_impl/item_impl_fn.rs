@@ -137,7 +137,11 @@ fn remove_phi_arg_type(ty: Type) -> Type {
     let PathArguments::AngleBracketed(angle_bracketed) = &path_ty.path.segments[2].arguments else {
         panic!("Expected angle bracketed args following phi argument");
     };
-    assert_eq!(angle_bracketed.args.len(), 1);
+    if angle_bracketed.args.len() != 1 {
+        panic!(
+            "Expected angle bracketed args following phi argument to have length of exactly one"
+        );
+    }
     let GenericArgument::Type(inner_ty) = &angle_bracketed.args[0] else {
         panic!("Expected inner type in phi argument");
     };

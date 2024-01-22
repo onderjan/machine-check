@@ -21,8 +21,8 @@ pub trait Machine<I: Input, S: State> {
 }
 
 pub trait Test {
-    fn must_be_true(self) -> bool;
-    fn must_be_false(self) -> bool;
+    fn can_be_true(self) -> bool;
+    fn can_be_false(self) -> bool;
 }
 
 pub trait Phi

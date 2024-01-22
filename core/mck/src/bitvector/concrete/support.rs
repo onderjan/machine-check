@@ -90,7 +90,7 @@ impl<const L: u32> ConcreteBitvector<L> {
 }
 
 impl Test for ConcreteBitvector<1> {
-    fn is_true(&self) -> bool {
+    fn is_true(self) -> bool {
         self.is_nonzero()
     }
 }

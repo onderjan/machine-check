@@ -162,16 +162,14 @@ pub fn extract_expr_ident_mut(expr: &mut Expr) -> Option<&mut Ident> {
     extract_path_ident_mut(extract_expr_path_mut(expr)?)
 }
 
-pub fn extract_else_block_with_token(
-    else_branch: &Option<(Else, Box<Expr>)>,
-) -> Option<(&Block, &Else)> {
+pub fn extract_else_token_block(else_branch: &Option<(Else, Box<Expr>)>) -> Option<(Else, &Block)> {
     let Some((else_token, else_block)) = else_branch else {
         return None;
     };
     let Expr::Block(else_expr_block) = else_block.as_ref() else {
         return None;
     };
-    Some((&else_expr_block.block, &else_token))
+    Some((*else_token, &else_expr_block.block))
 }
 
 pub fn extract_else_block_mut(else_branch: &mut Option<(Else, Box<Expr>)>) -> Option<&mut Block> {

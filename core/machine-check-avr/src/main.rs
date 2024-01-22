@@ -23,8 +23,8 @@ mod machine_module {
         fn init(input: &Input) -> State {
             let mut safe;
             //let mut temp: ::mck::concr::Bitvector<1> = input.k;
-            //let k = input.k;
-            /*safe = input.k;
+            let k = input.k;
+            safe = ::mck::concr::Bitvector::<1>::new(1);
             if false {
                 //let mut j = ::mck::concr::Bitvector::<1>::new(1);
                 //temp = j;
@@ -32,7 +32,7 @@ mod machine_module {
             } else {
                 if true {
                     let mut asdf = ::mck::concr::Bitvector::<1>::new(1);
-                    if false {
+                    if ::mck::concr::Test::is_true(k) {
                         asdf = input.i;
                     } else {
                     };
@@ -41,13 +41,13 @@ mod machine_module {
                     safe = ::mck::concr::Bitvector::<1>::new(1);
                 };
                 //safe = input.i;
-            };*/
-            let mut k = input.k;
+            };
+            /*let mut k = input.k;
             if ::mck::concr::Test::is_true(k) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
                 safe = ::mck::concr::Bitvector::<1>::new(0);
-            };
+            };*/
             //safe = ::mck::concr::Bitvector::<1>::new(1);
             /*if ::mck::concr::Test::is_true(input.j) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);

@@ -169,7 +169,9 @@ impl StatementConverter {
 
         if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
             if path_matches_global_names(path, &["mck", "forward", "PhiArg", "NotTaken"]) {
-                assert_eq!(call.args.len(), 0);
+                if !call.args.is_empty() {
+                    panic!("Expected not taken args length to be empty");
+                }
                 // do not convert
                 return Ok(());
             }
@@ -240,6 +242,20 @@ impl StatementConverter {
                 stmts.push(create_let(
                     tmp_ident.clone(),
                     create_expr_tuple(vec![backward_later.clone()]),
+                ));
+                is_special = true;
+            }
+
+            if path_matches_global_names(path, &["mck", "forward", "PhiArg", "MaybeTaken"]) {
+                assert!(call.args.len() == 2);
+                // the second argument is the condition
+                let to_condition = create_expr_call(
+                    create_expr_path(path!(::mck::refin::Refine::to_condition)),
+                    vec![(ArgType::Reference, backward_later.clone())],
+                );
+                stmts.push(create_let(
+                    tmp_ident.clone(),
+                    create_expr_tuple(vec![backward_later.clone(), to_condition]),
                 ));
                 is_special = true;
             }
