@@ -24,7 +24,7 @@ mod machine_module {
             let mut safe;
             //let mut temp: ::mck::concr::Bitvector<1> = input.k;
             let k = input.k;
-            safe = ::mck::concr::Bitvector::<1>::new(1);
+            safe = ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
             /*if false {
                 //let mut j = ::mck::concr::Bitvector::<1>::new(1);
                 //temp = j;

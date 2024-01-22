@@ -7,7 +7,7 @@ use crate::{
 };
 
 pub fn normalize_expressions(items: &mut [Item]) -> Result<(), MachineError> {
-    // apply linear SSA to each block using a visitor
+    // normalize to three-address code by adding temporaries
     struct Visitor(Result<(), MachineError>);
     impl VisitMut for Visitor {
         fn visit_block_mut(&mut self, block: &mut Block) {
@@ -224,7 +224,7 @@ impl<'a> BlockTranslator<'a> {
 
         // create a temporary variable
         let tmp_ident = Ident::new(
-            format!("__mck_ssa_{}", self.outer.next_temp_counter).as_str(),
+            format!("__mck_tac_{}", self.outer.next_temp_counter).as_str(),
             Span::call_site(),
         );
         self.outer.next_temp_counter += 1;
