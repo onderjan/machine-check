@@ -9,7 +9,7 @@ use syn_path::path;
 use crate::{
     support::local::{construct_prefixed_ident, create_let_with_original},
     util::{
-        create_assign, create_expr_call, create_expr_ident, create_expr_path, create_let_bare,
+        create_assign, create_expr_call, create_expr_ident, create_expr_path,
         create_path_with_last_generic_type, create_type_path, extract_else_block_mut,
         extract_expr_ident_mut, extract_path_ident_mut, ArgType,
     },
@@ -76,12 +76,11 @@ fn process_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
     // add temporaries
     let mut stmts = Vec::new();
     for (phi_temp_ident, (orig_ident, ty)) in visitor.temps {
-        let local_stmt = if let Some(orig_ident) = orig_ident {
-            create_let_with_original(phi_temp_ident, orig_ident, ty.clone())
-        } else {
-            create_let_bare(phi_temp_ident, ty.clone())
-        };
-        stmts.push(local_stmt);
+        stmts.push(create_let_with_original(
+            phi_temp_ident,
+            orig_ident,
+            ty.clone(),
+        ));
     }
 
     stmts.append(&mut impl_item_fn.block.stmts);
@@ -100,7 +99,7 @@ struct Counter {
 struct Visitor {
     branch_counter: u32,
     local_ident_counters: HashMap<Ident, Counter>,
-    temps: BTreeMap<Ident, (Option<Ident>, Option<Type>)>,
+    temps: BTreeMap<Ident, (Ident, Option<Type>)>,
     result: Result<(), MachineError>,
 }
 impl VisitMut for Visitor {
@@ -232,12 +231,10 @@ impl Visitor {
 
             self.temps.insert(
                 phi_then_ident.clone(),
-                (Some(ident.clone()), Some(phi_arg_type.clone())),
+                (ident.clone(), Some(phi_arg_type.clone())),
             );
-            self.temps.insert(
-                phi_else_ident.clone(),
-                (Some(ident.clone()), Some(phi_arg_type)),
-            );
+            self.temps
+                .insert(phi_else_ident.clone(), (ident.clone(), Some(phi_arg_type)));
 
             // last then ident is taken in then block, but not in else block
             then_block.stmts.push(create_taken_assign(
@@ -276,15 +273,12 @@ impl Visitor {
 }
 
 fn create_new_temporary(
-    temps: &mut BTreeMap<Ident, (Option<Ident>, Option<Type>)>,
+    temps: &mut BTreeMap<Ident, (Ident, Option<Type>)>,
     orig_ident: &Ident,
     counter: &mut Counter,
 ) -> Ident {
     let temp_ident = construct_temp_ident(orig_ident, counter.next);
-    temps.insert(
-        temp_ident.clone(),
-        (Some(orig_ident.clone()), counter.ty.clone()),
-    );
+    temps.insert(temp_ident.clone(), (orig_ident.clone(), counter.ty.clone()));
 
     counter.current = Some(counter.next);
     counter.next = counter
@@ -296,7 +290,7 @@ fn create_new_temporary(
 
 fn create_existing_temporary(
     block: &mut Block,
-    temps: &mut BTreeMap<Ident, (Option<Ident>, Option<Type>)>,
+    temps: &mut BTreeMap<Ident, (Ident, Option<Type>)>,
     orig_ident: &Ident,
     current: Option<u32>,
     ty: Option<Type>,
@@ -310,7 +304,7 @@ fn create_existing_temporary(
             create_expr_call(create_expr_path(path!(::mck::concr::Phi::uninit)), vec![]),
             true,
         ));
-        temps.insert(ident.clone(), (Some(orig_ident.clone()), ty));
+        temps.insert(ident.clone(), (orig_ident.clone(), ty));
         ident
     }
 }
