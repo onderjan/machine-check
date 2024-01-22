@@ -6,7 +6,7 @@ use crate::{
     MachineError,
 };
 
-pub fn normalize_expressions(items: &mut [Item]) -> Result<(), MachineError> {
+pub fn convert_to_tac(items: &mut [Item]) -> Result<(), MachineError> {
     // normalize to three-address code by adding temporaries
     struct Visitor(Result<(), MachineError>);
     impl VisitMut for Visitor {
