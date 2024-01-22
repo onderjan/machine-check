@@ -34,8 +34,6 @@ pub(crate) fn create_abstract_machine(
     // apply transcription to types using path rule transcriptor
     path_rules().apply_to_items(&mut abstract_machine.items)?;
 
-    // add default derive attributes to the structs
-    // that easily allow us to make unknown inputs/states
     for item in abstract_machine.items.iter_mut() {
         Visitor {
             tmps: HashMap::new(),
@@ -56,6 +54,8 @@ struct Visitor {
 }
 impl VisitMut for Visitor {
     fn visit_item_struct_mut(&mut self, s: &mut ItemStruct) {
+        // add default derive attributes to the structs
+        // that easily allow us to make unknown inputs/states
         s.attrs
             .push(generate_derive_attribute(quote!(::std::default::Default)));
     }

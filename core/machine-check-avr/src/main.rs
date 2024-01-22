@@ -24,7 +24,7 @@ mod machine_module {
             let mut safe;
             //let mut temp: ::mck::concr::Bitvector<1> = input.k;
             //let k = input.k;
-            safe = input.k;
+            /*safe = input.k;
             if false {
                 //let mut j = ::mck::concr::Bitvector::<1>::new(1);
                 //temp = j;
@@ -41,6 +41,12 @@ mod machine_module {
                     safe = ::mck::concr::Bitvector::<1>::new(1);
                 };
                 //safe = input.i;
+            };*/
+            let mut k = input.k;
+            if ::mck::concr::Test::is_true(k) {
+                safe = ::mck::concr::Bitvector::<1>::new(1);
+            } else {
+                safe = ::mck::concr::Bitvector::<1>::new(0);
             };
             //safe = ::mck::concr::Bitvector::<1>::new(1);
             /*if ::mck::concr::Test::is_true(input.j) {

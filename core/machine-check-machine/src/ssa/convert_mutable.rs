@@ -164,6 +164,9 @@ impl Visitor {
             .checked_add(1)
             .expect("Branch counter should not overflow");
 
+        // visit condition
+        self.visit_expr_mut(expr_if.cond.as_mut());
+
         let then_block = &mut expr_if.then_branch;
         let else_block =
             extract_else_block_mut(&mut expr_if.else_branch).expect("Expected if with else block");
