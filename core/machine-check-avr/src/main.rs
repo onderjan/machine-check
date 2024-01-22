@@ -42,7 +42,7 @@ mod machine_module {
                 };
                 //safe = input.i;
             };*/
-            //let mut k = input.k;
+            let mut k = input.k;
             if ::mck::concr::Test::into_bool(k) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
