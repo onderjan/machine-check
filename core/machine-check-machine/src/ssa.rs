@@ -174,7 +174,7 @@ impl<'a> BlockTranslator<'a> {
                                 && &segments[0].ident.to_string() == "mck"
                                 && &segments[1].ident.to_string() == "concr"
                                 && &segments[2].ident.to_string() == "Test"
-                                && &segments[3].ident.to_string() == "is_true"
+                                && &segments[3].ident.to_string() == "into_bool"
                             {
                                 // only move the inside
                                 should_move = false;

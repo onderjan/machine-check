@@ -32,7 +32,7 @@ mod machine_module {
             } else {
                 if true {
                     let mut asdf = ::mck::concr::Bitvector::<1>::new(1);
-                    if ::mck::concr::Test::is_true(k) {
+                    if ::mck::concr::Test::into_bool(k) {
                         asdf = input.i;
                     } else {
                     };
@@ -43,23 +43,23 @@ mod machine_module {
                 //safe = input.i;
             };*/
             //let mut k = input.k;
-            if ::mck::concr::Test::is_true(k) {
+            if ::mck::concr::Test::into_bool(k) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
                 safe = ::mck::concr::Bitvector::<1>::new(0);
             };
             //safe = ::mck::concr::Bitvector::<1>::new(1);
-            /*if ::mck::concr::Test::is_true(input.j) {
+            /*if ::mck::concr::Test::into_bool(input.j) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
-                /*if ::mck::concr::Test::is_true(k) {
+                /*if ::mck::concr::Test::into_bool(k) {
                     safe = input.i;
                 } else {
                     safe = ::mck::concr::Bitvector::<1>::new(1);
                 };*/
                 safe = input.i;
             };*/
-            /*if ::mck::concr::Test::is_true(k) {
+            /*if ::mck::concr::Test::into_bool(k) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
             };*/

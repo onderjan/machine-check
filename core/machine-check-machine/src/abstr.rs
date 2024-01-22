@@ -69,11 +69,11 @@ fn convert_expr(expr: &mut Expr) {
     let Expr::Path(cond_expr_path) = cond_expr_call.func.as_mut() else {
         return;
     };
-    if cond_expr_path.path != path!(::mck::abstr::Test::is_true) {
+    if cond_expr_path.path != path!(::mck::abstr::Test::into_bool) {
         return;
     }
     if cond_expr_call.args.len() != 1 {
-        panic!("Expected is_true call to have exactly one argument");
+        panic!("Expected into_bool call to have exactly one argument");
     }
 
     let if_token = expr_if.if_token;
