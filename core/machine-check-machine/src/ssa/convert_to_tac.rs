@@ -2,118 +2,108 @@ use proc_macro2::Span;
 use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Stmt};
 
 use crate::{
-    util::{create_assign, create_expr_path, create_let_bare},
+    util::{create_assign, create_expr_path, create_let_bare, extract_else_block_mut},
     MachineError,
 };
 
 pub fn convert_to_tac(items: &mut [Item]) -> Result<(), MachineError> {
     // normalize to three-address code by adding temporaries
-    struct Visitor(Result<(), MachineError>);
-    impl VisitMut for Visitor {
-        fn visit_block_mut(&mut self, block: &mut Block) {
-            // start with zero temp counter in an outer-level block
-            let result = Outer::new().apply_to_block(block, true);
-            if let Err(err) = result {
-                self.0 = Err(err);
-            }
-            // do not delegate, the representation should not contain
-            // any nested blocks anyway after translation
-        }
-    }
-    let mut visitor = Visitor(Ok(()));
+    let mut visitor = Visitor { result: Ok(()) };
     for item in items.iter_mut() {
         visitor.visit_item_mut(item);
     }
-    visitor.0
+    visitor.result
 }
 
-struct Outer {
+struct Visitor {
+    result: Result<(), MachineError>,
+}
+impl VisitMut for Visitor {
+    fn visit_impl_item_fn_mut(&mut self, impl_item_fn: &mut syn::ImplItemFn) {
+        let result = process_impl_item_fn(impl_item_fn);
+        if let Err(err) = result {
+            self.result = Err(err);
+        }
+    }
+}
+
+fn process_impl_item_fn(impl_item_fn: &mut syn::ImplItemFn) -> Result<(), MachineError> {
+    let mut converter = Converter {
+        next_temp_counter: 0,
+        created_temporaries: vec![],
+    };
+    converter.process_block(&mut impl_item_fn.block)?;
+
+    // prefix the function block with newly created temporaries
+    // do not add types to temporaries, they will be inferred later
+    let mut stmts: Vec<Stmt> = converter
+        .created_temporaries
+        .iter()
+        .map(|tmp_ident| create_let_bare(tmp_ident.clone(), None))
+        .collect();
+    stmts.append(&mut impl_item_fn.block.stmts);
+    impl_item_fn.block.stmts.append(&mut stmts);
+
+    Ok(())
+}
+
+struct Converter {
     next_temp_counter: u32,
     created_temporaries: Vec<Ident>,
 }
 
-impl Outer {
-    fn new() -> Self {
-        Outer {
-            next_temp_counter: 0,
-            created_temporaries: vec![],
-        }
-    }
-
-    fn apply_to_block(&mut self, block: &mut Block, outer: bool) -> Result<(), MachineError> {
-        // use the same temp counter
-        let mut translator = BlockTranslator {
-            translated_stmts: Vec::new(),
-            outer: self,
-        };
-        // apply linear SSA to statements one by one
-        for stmt in &block.stmts {
-            translator.apply_to_stmt(stmt.clone())?;
-        }
-
-        let mut stmts = translator.translated_stmts;
-
-        if outer {
-            // do not add types to temporaries, they will be inferred later
-            block.stmts = self
-                .created_temporaries
-                .iter()
-                .map(|tmp_ident| create_let_bare(tmp_ident.clone(), None))
-                .collect();
-            block.stmts.append(&mut stmts);
-        } else {
-            block.stmts = stmts;
-        }
-        Ok(())
-    }
-}
-
-struct BlockTranslator<'a> {
-    translated_stmts: Vec<Stmt>,
-    outer: &'a mut Outer,
-}
-
-impl<'a> BlockTranslator<'a> {
-    fn apply_to_stmt(&mut self, mut stmt: Stmt) -> Result<(), MachineError> {
-        match stmt {
-            Stmt::Expr(ref mut expr, _) => {
-                // apply translation to expression without forced movement
-                self.apply_to_expr(expr)?;
-            }
-            Stmt::Local(_) => {
-                // do nothing
-            }
-            _ => {
-                return Err(MachineError(format!(
-                    "Statement type {:?} not supported",
-                    stmt
-                )))
+impl Converter {
+    fn process_block(&mut self, block: &mut Block) -> Result<(), MachineError> {
+        let mut processed_stmts = Vec::new();
+        for mut stmt in block.stmts.drain(..) {
+            match stmt {
+                Stmt::Expr(ref mut expr, _) => {
+                    // process expression without forced movement
+                    // the newly created statements (for temporaries) will be added
+                    // before the (possibly changed) processed statement
+                    self.process_expr(&mut processed_stmts, expr)?;
+                    processed_stmts.push(stmt);
+                }
+                Stmt::Local(_) => {
+                    // just retain
+                    processed_stmts.push(stmt);
+                }
+                _ => {
+                    return Err(MachineError(format!(
+                        "Statement type {:?} not supported",
+                        stmt
+                    )))
+                }
             }
         }
-        self.translated_stmts.push(stmt);
+        block.stmts = processed_stmts;
         Ok(())
     }
 
-    fn apply_to_expr(&mut self, expr: &mut Expr) -> Result<(), MachineError> {
+    fn process_expr(
+        &mut self,
+        assign_stmts: &mut Vec<Stmt>,
+        expr: &mut Expr,
+    ) -> Result<(), MachineError> {
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA
             }
             syn::Expr::Field(field) => {
                 // move base
-                self.move_through_temp(&mut field.base)?;
+                self.move_through_temp(assign_stmts, &mut field.base)?;
             }
             syn::Expr::Paren(paren) => {
                 // move statement in parentheses
-                self.move_through_temp(&mut paren.expr)?;
+                self.move_through_temp(assign_stmts, &mut paren.expr)?;
                 // remove parentheses
                 *expr = (*paren.expr).clone();
             }
             syn::Expr::Call(call) => {
                 // move call function expression and arguments
-                self.move_through_temp(&mut call.func)?;
+                self.move_through_temp(assign_stmts, &mut call.func)?;
                 for arg in &mut call.args {
-                    self.move_through_temp(arg)?;
+                    self.move_through_temp(assign_stmts, arg)?;
                 }
             }
             syn::Expr::Assign(assign) => {
@@ -127,26 +117,26 @@ impl<'a> BlockTranslator<'a> {
                 match assign.right.as_mut() {
                     Expr::Block(_) => {
                         // force movement
-                        self.move_through_temp(assign.right.as_mut())?;
+                        self.move_through_temp(assign_stmts, assign.right.as_mut())?;
                     }
                     _ => {
                         // apply translation to right-hand expression without forced movement
-                        self.apply_to_expr(assign.right.as_mut())?;
+                        self.process_expr(assign_stmts, assign.right.as_mut())?;
                     }
                 }
             }
             syn::Expr::Struct(expr_struct) => {
                 // move field values
                 for field in &mut expr_struct.fields {
-                    self.move_through_temp(&mut field.expr)?;
+                    self.move_through_temp(assign_stmts, &mut field.expr)?;
                 }
                 if expr_struct.rest.is_some() {
                     return Err(MachineError("Struct rest not supported".to_string()));
                 }
             }
             syn::Expr::Block(expr_block) => {
-                // apply in new scope
-                self.outer.apply_to_block(&mut expr_block.block, false)?;
+                // process the block
+                self.process_block(&mut expr_block.block)?;
             }
             syn::Expr::If(expr_if) => {
                 // move condition if it is not special
@@ -166,31 +156,20 @@ impl<'a> BlockTranslator<'a> {
                                 // only move the inside
                                 should_move = false;
                                 for arg in cond_expr_call.args.iter_mut() {
-                                    self.move_through_temp(arg)?;
+                                    self.move_through_temp(assign_stmts, arg)?;
                                 }
                             }
                         }
                     }
                 }
                 if should_move {
-                    self.move_through_temp(&mut expr_if.cond)?;
+                    self.move_through_temp(assign_stmts, &mut expr_if.cond)?;
                 }
-                // apply to then-branch
-                self.outer.apply_to_block(&mut expr_if.then_branch, false)?;
-                // apply to else-branch if it exists
-                if let Some(else_branch) = &mut expr_if.else_branch {
-                    // should be a block, if expression, or if-let expression
-                    let else_branch = else_branch.1.as_mut();
-
-                    if matches!(else_branch, Expr::If(_) | Expr::Block(_)) {
-                        self.apply_to_expr(else_branch)?;
-                    } else {
-                        return Err(MachineError(format!(
-                            "Unexpected expression type of else branch: {:?}",
-                            else_branch
-                        )));
-                    }
-                }
+                // process then and else blocks
+                self.process_block(&mut expr_if.then_branch)?;
+                self.process_block(
+                    extract_else_block_mut(&mut expr_if.else_branch).expect("Expected else block"),
+                )?;
             }
             _ => {
                 return Err(MachineError(format!(
@@ -202,7 +181,12 @@ impl<'a> BlockTranslator<'a> {
         Ok(())
     }
 
-    fn move_through_temp(&mut self, expr: &mut Expr) -> Result<(), MachineError> {
+    fn move_through_temp(
+        &mut self,
+        assign_stmts: &mut Vec<Stmt>,
+        expr: &mut Expr,
+    ) -> Result<(), MachineError> {
+        // process the expression first before moving it through temporary
         match expr {
             syn::Expr::Path(_) | syn::Expr::Lit(_) => {
                 // do nothing, paths and literals are not moved in our SSA
@@ -210,30 +194,32 @@ impl<'a> BlockTranslator<'a> {
             }
             syn::Expr::Paren(paren) => {
                 // move statement in parentheses
-                self.move_through_temp(&mut paren.expr)?;
+                self.move_through_temp(assign_stmts, &mut paren.expr)?;
                 // remove parentheses
                 *expr = (*paren.expr).clone();
                 return Ok(());
             }
             _ => {
-                // apply translation to expression
+                // process the expression normally
                 // so that nested expressions are properly converted to SSA
-                self.apply_to_expr(expr)?;
+                self.process_expr(assign_stmts, expr)?;
             }
         }
 
         // create a temporary variable
         let tmp_ident = Ident::new(
-            format!("__mck_tac_{}", self.outer.next_temp_counter).as_str(),
+            format!("__mck_tac_{}", self.next_temp_counter).as_str(),
             Span::call_site(),
         );
-        self.outer.next_temp_counter += 1;
+        self.next_temp_counter = self
+            .next_temp_counter
+            .checked_add(1)
+            .expect("Temp counter should not overflow");
 
-        // add to created temporaries, they will get their bare let statements created later
-        self.outer.created_temporaries.push(tmp_ident.clone());
+        // add to created temporaries, they will get their let statements created later
+        self.created_temporaries.push(tmp_ident.clone());
         // add assignment statement; the temporary is only assigned to once here
-        self.translated_stmts
-            .push(create_assign(tmp_ident.clone(), expr.clone(), true));
+        assign_stmts.push(create_assign(tmp_ident.clone(), expr.clone(), true));
 
         // change expr to the temporary variable path
         *expr = create_expr_path(tmp_ident.into());
