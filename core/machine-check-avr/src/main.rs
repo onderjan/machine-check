@@ -23,8 +23,8 @@ mod machine_module {
         fn init(input: &Input) -> State {
             let mut safe;
             //let mut temp: ::mck::concr::Bitvector<1> = input.k;
-            let k = input.k;
-            safe = ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
+            //let k = input.k;
+            //safe = ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
             /*if false {
                 //let mut j = ::mck::concr::Bitvector::<1>::new(1);
                 //temp = j;
@@ -42,12 +42,12 @@ mod machine_module {
                 };
                 //safe = input.i;
             };*/
-            let mut k = input.k;
+            /*let mut k = input.k;
             if ::mck::concr::Test::into_bool(k) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
             } else {
                 safe = ::mck::concr::Bitvector::<1>::new(0);
-            };
+            };*/
             //safe = ::mck::concr::Bitvector::<1>::new(1);
             /*if ::mck::concr::Test::into_bool(input.j) {
                 safe = ::mck::concr::Bitvector::<1>::new(1);
@@ -69,14 +69,15 @@ mod machine_module {
             safe = ::mck::forward::Bitwise::bit_not(c);*/
 
             //safe = temp;
+            safe = input.i;
             State { safe }
         }
-        fn next(state: &State, _input: &Input) -> State {
-            let b;
-            {
+        fn next(_state: &State, _input: &Input) -> State {
+            let b = ::mck::concr::Bitvector::<1>::new(1);
+            /*{
                 let a = state.safe; //::mck::forward::Bitwise::bit_not(state.safe);
                 b = a;
-            }
+            }*/
             State { safe: b }
         }
     }
