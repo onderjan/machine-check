@@ -63,12 +63,13 @@ fn infer_fn_types(
     }
 
     // add local idents
-    let mut i = 0;
-    while let Stmt::Local(local) = &impl_item_fn.block.stmts[i] {
+    for stmt in &impl_item_fn.block.stmts {
+        let Stmt::Local(local) = stmt else {
+            break;
+        };
         // add local ident
         let (local_ident, local_type) = extract_local_ident_with_type(local);
         local_ident_types.insert(local_ident, local_type);
-        i += 1;
     }
 
     // infer from statements
@@ -151,8 +152,10 @@ fn infer_fn_types(
     }*/
 
     // merge local types
-    let mut i = 0;
-    while let Stmt::Local(local) = &mut impl_item_fn.block.stmts[i] {
+    for stmt in &mut impl_item_fn.block.stmts {
+        let Stmt::Local(local) = stmt else {
+            break;
+        };
         let ident = match &local.pat {
             Pat::Ident(pat_ident) => pat_ident.ident.clone(),
             Pat::Type(ty) => extract_pat_ident(&ty.pat),
@@ -178,7 +181,6 @@ fn infer_fn_types(
                 ident
             )));
         }
-        i += 1;
     }
 
     Ok(())
