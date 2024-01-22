@@ -81,12 +81,12 @@ fn infer_fn_types(
     visitor.result.clone()?;
 
     // infer to originals
-    let mut local_temp_origs = Vec::new();
+    let mut local_temp_origs = HashMap::new();
     let mut local_orig_types = HashMap::new();
 
     for stmt in &impl_item_fn.block.stmts {
         let Stmt::Local(local) = stmt else {
-            continue;
+            break;
         };
         let mut replace_type = None;
         let ident = match &local.pat {
@@ -95,7 +95,7 @@ fn infer_fn_types(
             _ => panic!("Unexpected patttern type {:?}", local.pat),
         };
         if let Some(ty) = visitor.local_ident_types.get(&ident).unwrap() {
-            if is_type_fully_inferred(ty) {
+            if is_type_standard_inferred(ty) {
                 replace_type = Some(ty.clone());
             }
         }
@@ -104,7 +104,7 @@ fn infer_fn_types(
             if let Meta::NameValue(name_value) = &attr.meta {
                 if name_value.path == path!(::mck::attr::tmp_original) {
                     let orig_ident = extract_expr_ident(&name_value.value).unwrap();
-                    local_temp_origs.push((ident, orig_ident.clone()));
+                    local_temp_origs.insert(ident, orig_ident.clone());
                     // replace the original type
                     if let Some(replace_type) = replace_type {
                         local_orig_types.insert(orig_ident.clone(), replace_type);
@@ -115,13 +115,36 @@ fn infer_fn_types(
         }
     }
 
-    for (temp_ident, orig_ident) in local_temp_origs {
-        if let Some(orig_type) = local_orig_types.get(&orig_ident) {
-            visitor
-                .local_ident_types
-                .insert(temp_ident.clone(), Some(orig_type.clone()));
+    for stmt in &mut impl_item_fn.block.stmts {
+        let Stmt::Local(local) = stmt else {
+            break;
+        };
+        let (ident, ty) = match &local.pat {
+            Pat::Ident(pat_ident) => (pat_ident.ident.clone(), None),
+            Pat::Type(ty) => (extract_pat_ident(&ty.pat), Some(ty.ty.as_ref().clone())),
+            _ => panic!("Unexpected patttern type {:?}", local.pat),
+        };
+        if let Some(orig_ident) = local_temp_origs.get(&ident) {
+            if let Some(orig_type) = local_orig_types.get(orig_ident) {
+                let mut inferred_type = orig_type.clone();
+                if let Some(ty) = ty {
+                    let ty_path = extract_type_path(&ty);
+                    if path_matches_global_names(&ty_path, &["mck", "forward", "PhiArg"]) {
+                        // put the original type into generics
+                        inferred_type = create_type_path(create_path_with_last_generic_type(
+                            ty_path,
+                            inferred_type,
+                        ));
+                    }
+                }
+
+                visitor
+                    .local_ident_types
+                    .insert(ident.clone(), Some(inferred_type));
+            }
         }
     }
+
     /*println!("Local ident types now:");
     for (ident, ty) in visitor.local_ident_types.iter() {
         println!("{} -> {}", ident, quote::quote!(#ty));
@@ -161,7 +184,7 @@ fn infer_fn_types(
     Ok(())
 }
 
-fn is_type_fully_inferred(ty: &Type) -> bool {
+fn is_type_standard_inferred(ty: &Type) -> bool {
     let path = extract_type_path(ty);
     !path_matches_global_names(&path, &["mck", "forward", "PhiArg"])
 }
@@ -181,7 +204,7 @@ impl VisitMut for Visitor<'_> {
             .get_mut(left_ident)
             .expect("Left ident should be in local ident types")
         {
-            if is_type_fully_inferred(ty) {
+            if is_type_standard_inferred(ty) {
                 // we already have determined left type, return
                 return;
             }
@@ -336,9 +359,7 @@ impl Visitor<'_> {
             }
         }
 
-        if path_matches_global_names(func_path, &["mck", "forward", "PhiArg", "Taken"])
-            || path_matches_global_names(func_path, &["mck", "forward", "PhiArg", "NotTaken"])
-        {
+        if path_matches_global_names(func_path, &["mck", "forward", "PhiArg", "Taken"]) {
             assert!(expr_call.args.len() == 1);
             let arg_ident =
                 extract_expr_ident(&expr_call.args[0]).expect("Call argument should be ident");
@@ -364,7 +385,9 @@ impl Visitor<'_> {
                     .expect("Call argument should have local ident");
                 if let Some(arg_type) = arg_type {
                     // extract
-                    return Some(extract_last_generic_type(extract_type_path(arg_type)));
+                    if let Some(ty) = extract_last_generic_type(extract_type_path(arg_type)) {
+                        return Some(ty);
+                    }
                 }
             }
         }

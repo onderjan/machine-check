@@ -169,7 +169,7 @@ impl StatementConverter {
 
         if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
             if path_matches_global_names(path, &["mck", "forward", "PhiArg", "NotTaken"]) {
-                assert!(call.args.len() == 1);
+                assert_eq!(call.args.len(), 0);
                 // do not convert
                 return Ok(());
             }

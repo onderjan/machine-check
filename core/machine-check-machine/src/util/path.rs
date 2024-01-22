@@ -38,17 +38,20 @@ pub fn create_path_with_last_generic_type(path: Path, ty: Type) -> Path {
     path
 }
 
-pub fn extract_last_generic_type(path: Path) -> Type {
+pub fn extract_last_generic_type(path: Path) -> Option<Type> {
     let syn::PathArguments::AngleBracketed(angle_bracketed) =
         path.segments.into_iter().next_back().unwrap().arguments
     else {
-        panic!("Path should have last generic type");
+        return None;
     };
-    assert_eq!(angle_bracketed.args.len(), 1);
+
+    if angle_bracketed.args.len() != 1 {
+        return None;
+    }
     let GenericArgument::Type(ty) = angle_bracketed.args.into_iter().next().unwrap() else {
-        panic!("Path last generic should be type");
+        return None;
     };
-    ty
+    Some(ty)
 }
 
 pub fn extract_path_ident(path: &Path) -> Option<&Ident> {

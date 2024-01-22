@@ -81,16 +81,16 @@ pub trait Ext<const M: u32> {
 
 pub enum PhiArg<T: Phi> {
     Taken(T),
-    NotTaken(T),
+    NotTaken(),
 }
 
 impl<T: Phi> PhiArg<T> {
     pub fn phi(self, other: Self) -> T {
         match (self, other) {
             (PhiArg::Taken(a), PhiArg::Taken(b)) => a.phi_no_cond(b),
-            (PhiArg::Taken(a), PhiArg::NotTaken(_)) => a,
-            (PhiArg::NotTaken(_), PhiArg::Taken(b)) => b,
-            (PhiArg::NotTaken(_), PhiArg::NotTaken(_)) => panic!("Neither branch taken"),
+            (PhiArg::Taken(a), PhiArg::NotTaken()) => a,
+            (PhiArg::NotTaken(), PhiArg::Taken(b)) => b,
+            (PhiArg::NotTaken(), PhiArg::NotTaken()) => panic!("Neither branch taken"),
         }
     }
 }

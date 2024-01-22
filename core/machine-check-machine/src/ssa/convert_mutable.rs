@@ -228,26 +228,28 @@ impl Visitor {
                 create_type_path(phi_arg_path)
             };
 
-            self.temps
-                .insert(phi_then_ident.clone(), (None, Some(phi_arg_type.clone())));
-            self.temps
-                .insert(phi_else_ident.clone(), (None, Some(phi_arg_type)));
+            self.temps.insert(
+                phi_then_ident.clone(),
+                (Some(ident.clone()), Some(phi_arg_type.clone())),
+            );
+            self.temps.insert(
+                phi_else_ident.clone(),
+                (Some(ident.clone()), Some(phi_arg_type)),
+            );
 
             // last then ident is taken in then block, but not in else block
             then_block.stmts.push(create_taken_assign(
                 phi_then_ident.clone(),
                 last_then_ident.clone(),
             ));
-            else_block.stmts.push(create_not_taken_assign(
-                phi_then_ident.clone(),
-                last_else_ident.clone(),
-            ));
+            else_block
+                .stmts
+                .push(create_not_taken_assign(phi_then_ident.clone()));
 
             // last else ident is not taken in then block, but is taken in else block
-            then_block.stmts.push(create_not_taken_assign(
-                phi_else_ident.clone(),
-                last_then_ident,
-            ));
+            then_block
+                .stmts
+                .push(create_not_taken_assign(phi_else_ident.clone()));
             else_block
                 .stmts
                 .push(create_taken_assign(phi_else_ident.clone(), last_else_ident));
@@ -326,12 +328,12 @@ fn create_taken_assign(phi_arg_ident: Ident, taken_ident: Ident) -> Stmt {
     )
 }
 
-fn create_not_taken_assign(phi_arg_ident: Ident, taken_ident: Ident) -> Stmt {
+fn create_not_taken_assign(phi_arg_ident: Ident) -> Stmt {
     create_assign(
         phi_arg_ident,
         create_expr_call(
             create_expr_path(path!(::mck::forward::PhiArg::NotTaken)),
-            vec![(ArgType::Normal, create_expr_ident(taken_ident))],
+            vec![],
         ),
         true,
     )
