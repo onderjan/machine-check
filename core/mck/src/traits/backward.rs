@@ -107,3 +107,22 @@ pub trait Ext<const M: u32> {
     #[must_use]
     fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,);
 }
+
+pub trait ReadWrite
+where
+    Self: Sized,
+{
+    type Index;
+    type Element;
+
+    type Mark;
+    type IndexMark;
+    type ElementMark;
+
+    // TODO: read
+    #[must_use]
+    fn write(
+        normal_input: (Self, Self::Index, Self::Element),
+        mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::IndexMark, Self::ElementMark);
+}

@@ -128,6 +128,27 @@ impl LocalVisitor<'_> {
             bitvector.segments[2].arguments = func_path.segments[2].arguments.clone();
             return Some(create_type_path(bitvector));
         }
+        if path_matches_global_names(func_path, &["mck", "concr", "Array", "new_filled"]) {
+            // infer array type
+            let mut array = path!(::mck::concr::Array);
+            array.segments[2].arguments = func_path.segments[2].arguments.clone();
+            return Some(create_type_path(array));
+        }
+
+        if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "write"]) {
+            // infer from first argument
+            let arg = &expr_call.args[0];
+            // take the type from first typed argument we find
+            let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
+            let arg_type = self
+                .local_ident_types
+                .get(arg_ident)
+                .expect("Call argument should have local ident");
+            if let Some(arg_type) = arg_type {
+                return Some(arg_type.clone());
+            }
+
+        }
 
         // --- FUNCTIONS THAT ALWAYS RETURN A SINGLE BIT ---
         for (bit_result_trait, bit_result_fn) in BIT_RESULT_TRAIT_FNS {

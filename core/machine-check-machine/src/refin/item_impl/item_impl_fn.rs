@@ -1,3 +1,4 @@
+mod clone_needed;
 mod statement_converter;
 
 use syn::{punctuated::Punctuated, GenericArgument, Ident, ImplItemFn, PathArguments, Stmt, Type};
@@ -21,6 +22,11 @@ impl ImplConverter {
         &self,
         orig_fn: &ImplItemFn,
     ) -> Result<ImplItemFn, MachineError> {
+        // clone needed, do not do that in abstract as it would lead to unnecessary cloning
+        let mut orig_fn = orig_fn.clone();
+        clone_needed::clone_needed(&mut orig_fn);
+        let orig_fn = &orig_fn;
+
         let statement_converter = StatementConverter {
             forward_scheme: self.abstract_rules.clone(),
             backward_scheme: self.refinement_rules.clone(),
@@ -49,7 +55,6 @@ impl ImplConverter {
         let earlier = self.generate_earlier(orig_sig)?;
 
         // step 1: set signature
-
         let mut refin_fn = orig_fn.clone();
         refin_fn.sig.inputs = Punctuated::from_iter(vec![abstract_input.0, later.0]);
         refin_fn.sig.output = earlier.0;

@@ -22,6 +22,13 @@ mod machine_module {
     impl ::mck::concr::Machine<Input, State> for Machine {
         fn init(input: &Input) -> State {
             let mut safe;
+            let fill = ::mck::concr::Bitvector::<1>::new(1);
+            let arr = ::mck::concr::Array::<2,1>::new_filled(fill);
+            let index = ::mck::concr::Bitvector::<2>::new(0);
+            //safe = ::mck::forward::ReadWrite::read(&arr, index);
+            let element =  ::mck::concr::Bitvector::<1>::new(0);
+            let arr2 = ::mck::forward::ReadWrite::write(arr, index, element);
+            safe = fill;
             //let mut temp: ::mck::concr::Bitvector<1> = input.k;
             //let k = input.k;
             //safe = ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
@@ -69,7 +76,7 @@ mod machine_module {
             safe = ::mck::forward::Bitwise::bit_not(c);*/
 
             //safe = temp;
-            safe = input.i;
+            //safe = input.i;
             State { safe }
         }
         fn next(_state: &State, _input: &Input) -> State {

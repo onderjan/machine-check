@@ -100,3 +100,10 @@ impl<T: Phi> PhiArg<T> {
         }
     }
 }
+
+pub trait ReadWrite {
+    type Index: Copy;
+    type Element: Copy;
+    fn read(&self, index: Self::Index) -> Self::Element;
+    fn write(self, index: Self::Index, element: Self::Element) -> Self;
+}

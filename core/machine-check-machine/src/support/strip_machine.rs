@@ -1,4 +1,7 @@
-use syn::{visit_mut::VisitMut, Meta};
+use syn::{
+    visit_mut::{self, VisitMut},
+    Attribute, Meta,
+};
 
 use crate::{MachineDescription, MachineError};
 
@@ -12,22 +15,31 @@ pub fn strip_machine(machine: &mut MachineDescription) -> Result<(), MachineErro
 
 struct BlockVisitor {}
 impl VisitMut for BlockVisitor {
-    fn visit_local_mut(&mut self, local: &mut syn::Local) {
-        let mut i = 0;
-        while i < local.attrs.len() {
-            let attr = &local.attrs[i];
-            if let Meta::NameValue(meta) = &attr.meta {
-                if meta.path.leading_colon.is_some()
-                    && meta.path.segments.len() > 2
-                    && &meta.path.segments[0].ident.to_string() == "mck"
-                    && &meta.path.segments[1].ident.to_string() == "attr"
-                {
-                    // remove attribute
-                    local.attrs.remove(i);
-                } else {
-                    // leave as-is, increment i
-                    i += 1;
-                }
+    fn visit_local_mut(&mut self, node: &mut syn::Local) {
+        strip_attributes(&mut node.attrs);
+        visit_mut::visit_local_mut(self, node);
+    }
+    fn visit_expr_call_mut(&mut self, node: &mut syn::ExprCall) {
+        strip_attributes(&mut node.attrs);
+        visit_mut::visit_expr_call_mut(self, node);
+    }
+}
+
+fn strip_attributes(attrs: &mut Vec<Attribute>) {
+    let mut i = 0;
+    while i < attrs.len() {
+        let attr = &attrs[i];
+        if let Meta::NameValue(meta) = &attr.meta {
+            if meta.path.leading_colon.is_some()
+                && meta.path.segments.len() > 2
+                && &meta.path.segments[0].ident.to_string() == "mck"
+                && &meta.path.segments[1].ident.to_string() == "attr"
+            {
+                // remove attribute
+                attrs.remove(i);
+            } else {
+                // leave as-is, increment i
+                i += 1;
             }
         }
     }

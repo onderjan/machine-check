@@ -1,11 +1,11 @@
-use syn::{Expr, ExprCall, ExprPath, Pat, Stmt};
+use syn::{Expr, ExprCall, ExprPath, Meta, Pat, Stmt};
 
 use crate::{
-    support::struct_rules::StructRules,
+    support::{local::construct_prefixed_ident, struct_rules::StructRules},
     util::{
         create_expr_call, create_expr_field_unnamed, create_expr_ident, create_expr_path,
         create_expr_tuple, create_ident, create_let, create_pat_wild, create_refine_join_stmt,
-        path_matches_global_names, ArgType,
+        extract_expr_ident, path_matches_global_names, ArgType,
     },
     MachineError,
 };
@@ -142,6 +142,32 @@ impl StatementConverter {
         backward_later: Expr,
         call: &ExprCall,
     ) -> Result<(), MachineError> {
+        if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
+            if path_matches_global_names(path, &["mck", "forward", "PhiArg", "NotTaken"]) {
+                if !call.args.is_empty() {
+                    panic!("Expected not taken args length to be empty");
+                }
+                // do not convert
+                return Ok(());
+            }
+
+            if path_matches_global_names(path, &["std", "clone", "Clone", "clone"]) {
+                // swap parameter and result
+                // the parameter is a reference
+                let mut call = call.clone();
+                let Expr::Reference(ref mut arg_ref) = call.args[0] else {
+                    panic!("Clone argument should be a reference");
+                };
+
+                let orig_call_param = extract_expr_ident(&arg_ref.expr)
+                    .expect("Clone argument should be ident")
+                    .clone();
+                *arg_ref.expr = backward_later.clone();
+                stmts.push(create_let(orig_call_param.clone(), Expr::Call(call)));
+                return Ok(());
+            }
+        }
+
         // early arguments are forward function arguments converted to left-side pattern
         let mut early_args = Vec::new();
         let mut all_args_wild = true;
@@ -167,16 +193,6 @@ impl StatementConverter {
             return Ok(());
         }
 
-        if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
-            if path_matches_global_names(path, &["mck", "forward", "PhiArg", "NotTaken"]) {
-                if !call.args.is_empty() {
-                    panic!("Expected not taken args length to be empty");
-                }
-                // do not convert
-                return Ok(());
-            }
-        }
-
         // change the function name
         let mut backward_call = call.clone();
         self.backward_scheme
@@ -198,6 +214,21 @@ impl StatementConverter {
             let mut backward_arg = arg.clone();
             self.backward_scheme.apply_to_expr(&mut backward_arg)?;
             backward_args.push(backward_arg);
+        }
+
+        // use a clone instead of normal first argument if we have the attribute
+        // TODO: remove this hack
+        for attr in &call.attrs {
+            if let Meta::NameValue(name_value) = &attr.meta {
+                if path_matches_global_names(&name_value.path, &["mck", "attr", "refin_clone"]) {
+                    // we have to convert the ident to abstract namespace
+                    let ident = extract_expr_ident(&name_value.value)
+                        .expect("Clone attribute should contain ident");
+                    let ident = construct_prefixed_ident("abstr", ident);
+                    forward_args[0] = create_expr_ident(ident);
+                    break;
+                }
+            }
         }
 
         let forward_arg = create_expr_tuple(forward_args);
