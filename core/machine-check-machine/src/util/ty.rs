@@ -47,11 +47,12 @@ pub fn create_type_from_return_type(return_type: &ReturnType) -> Type {
     }
 }
 
-pub fn extract_type_path(ty: &Type) -> Path {
-    let Type::Path(path) = ty else {
-        panic!("Expected path type {:?}", ty);
-    };
-    path.path.clone()
+pub fn extract_type_path(ty: &Type) -> Option<Path> {
+    if let Type::Path(path) = ty {
+        Some(path.path.clone())
+    } else {
+        None
+    }
 }
 
 pub fn single_bit_type(flavour: &str) -> Type {

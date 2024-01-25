@@ -23,12 +23,14 @@ mod machine_module {
         fn init(input: &Input) -> State {
             let mut safe;
             let fill = ::mck::concr::Bitvector::<1>::new(1);
-            let arr = ::mck::concr::Array::<2,1>::new_filled(fill);
+            let arr = ::mck::concr::Array::<2, 1>::new_filled(fill);
             let index = ::mck::concr::Bitvector::<2>::new(0);
+            let index2 = ::mck::concr::Bitvector::<2>::new(2);
             //safe = ::mck::forward::ReadWrite::read(&arr, index);
-            let element =  ::mck::concr::Bitvector::<1>::new(0);
+            let element = ::mck::concr::Bitvector::<1>::new(0);
             let arr2 = ::mck::forward::ReadWrite::write(arr, index, element);
-            safe = fill;
+            safe = ::mck::forward::ReadWrite::read(&arr2, index);
+            //safe = fill;
             //let mut temp: ::mck::concr::Bitvector<1> = input.k;
             //let k = input.k;
             //safe = ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));

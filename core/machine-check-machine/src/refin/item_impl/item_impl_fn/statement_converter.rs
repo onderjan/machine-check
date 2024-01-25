@@ -128,6 +128,13 @@ impl StatementConverter {
                 backward_stmts.push(create_refine_join_stmt(earlier, backward_later));
                 Ok(())
             }
+            Expr::Reference(expr_reference) => {
+                // eliminate referencing and join instead of assigning
+                let mut earlier = expr_reference.expr.as_ref().clone();
+                self.backward_scheme.apply_to_expr(&mut earlier)?;
+                backward_stmts.push(create_refine_join_stmt(earlier, backward_later));
+                Ok(())
+            }
             Expr::Call(call) => self.convert_call(backward_stmts, backward_later, call),
             _ => Err(MachineError(format!(
                 "Inversion not implemented for right-side assignment expression: {:?}",

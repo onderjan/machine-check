@@ -119,7 +119,12 @@ where
     type IndexMark;
     type ElementMark;
 
-    // TODO: read
+    #[must_use]
+    fn read(
+        normal_input: (&Self, Self::Index),
+        mark_later: Self::ElementMark,
+    ) -> (Self::Mark, Self::IndexMark);
+
     #[must_use]
     fn write(
         normal_input: (Self, Self::Index, Self::Element),

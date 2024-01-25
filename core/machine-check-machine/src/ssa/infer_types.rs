@@ -132,13 +132,14 @@ fn infer_fn_types(
             if let Some(orig_type) = local_orig_types.get(orig_ident) {
                 let mut inferred_type = orig_type.clone();
                 if let Some(ty) = ty {
-                    let ty_path = extract_type_path(&ty);
-                    if path_matches_global_names(&ty_path, &["mck", "forward", "PhiArg"]) {
-                        // put the original type into generics
-                        inferred_type = create_type_path(create_path_with_last_generic_type(
-                            ty_path,
-                            inferred_type,
-                        ));
+                    if let Some(ty_path) = extract_type_path(&ty) {
+                        if path_matches_global_names(&ty_path, &["mck", "forward", "PhiArg"]) {
+                            // put the original type into generics
+                            inferred_type = create_type_path(create_path_with_last_generic_type(
+                                ty_path,
+                                inferred_type,
+                            ));
+                        }
                     }
                 }
 

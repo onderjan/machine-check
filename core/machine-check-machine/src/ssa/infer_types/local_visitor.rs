@@ -1,8 +1,11 @@
+use core::panic;
 use std::collections::HashMap;
 
 use syn::{
+    punctuated::Punctuated,
     visit_mut::{self, VisitMut},
-    ExprCall, ExprField, Ident, ItemStruct, Member, Path, Type,
+    AngleBracketedGenericArguments, ExprCall, ExprField, ExprPath, ExprReference, Ident,
+    ItemStruct, Member, Path, PathArguments, Type, TypeReference,
 };
 use syn_path::path;
 
@@ -45,15 +48,9 @@ impl VisitMut for LocalVisitor<'_> {
         let inferred_type = match expr_assign.right.as_ref() {
             syn::Expr::Call(right_call) => self.infer_call_result_type(right_call),
             syn::Expr::Field(right_field) => self.infer_field_result_type(right_field),
-            syn::Expr::Path(right_path) => {
-                // infer from the right identifier
-                let right_ident = extract_path_ident(&right_path.path)
-                    .expect("Right side of assignment should be ident");
-                let right_type = self
-                    .local_ident_types
-                    .get(right_ident)
-                    .expect("Right ident should be in ident types");
-                right_type.clone()
+            syn::Expr::Path(right_path) => self.infer_path_result_type(right_path),
+            syn::Expr::Reference(right_reference) => {
+                self.infer_reference_result_type(right_reference)
             }
             _ => panic!("Unexpected local assignment expression {:?}", expr_assign),
         };
@@ -81,12 +78,15 @@ impl LocalVisitor<'_> {
         let Some(mut base_type) = base_type else {
             return None;
         };
-        // ignore references
+        // dereference first
         while let Type::Reference(ref_type) = base_type {
             base_type = ref_type.elem.as_ref();
         }
 
-        let base_type_path = extract_type_path(base_type);
+        let Some(base_type_path) = extract_type_path(base_type) else {
+            panic!("Unexpected base type: {:?}", base_type);
+        };
+
         let base_struct = self.structs.get(&base_type_path);
         let Some(base_struct) = base_struct else {
             return None;
@@ -147,7 +147,48 @@ impl LocalVisitor<'_> {
             if let Some(arg_type) = arg_type {
                 return Some(arg_type.clone());
             }
+        }
 
+        if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "read"]) {
+            // infer from first argument which should be a reference to the array
+            let arg = &expr_call.args[0];
+            // take the type from first typed argument we find
+            let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
+            let arg_type = self
+                .local_ident_types
+                .get(arg_ident)
+                .expect("Call argument should have local ident");
+            if let Some(arg_type) = arg_type {
+                // the argument type is a reference to the array, construct the bitvector type
+                let Type::Reference(type_reference) = arg_type else {
+                    panic!("Expected first argument of array read to be a reference");
+                };
+                let array_type = type_reference.elem.as_ref();
+                let Some(array_path) = extract_type_path(array_type) else {
+                    panic!("Expected first argument of array read to be a reference to path type");
+                };
+                if !path_matches_global_names(&array_path, &["mck", "concr", "Array"]) {
+                    panic!("Expected first argument of array read to be a reference to Array");
+                }
+                let PathArguments::AngleBracketed(generics) = &array_path.segments[2].arguments
+                else {
+                    panic!("Expected first argument of array read to have generic arguments");
+                };
+                if generics.args.len() != 2 {
+                    panic!("Expected first argument of array read to have exactly two generic arguments");
+                }
+                // element length is the second argument
+                let mut result_type_path = path!(::mck::concr::Bitvector);
+                result_type_path.segments[2].arguments =
+                    PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                        colon2_token: Default::default(),
+                        lt_token: Default::default(),
+                        args: Punctuated::from_iter(vec![generics.args[1].clone()]),
+                        gt_token: Default::default(),
+                    });
+
+                return Some(create_type_path(result_type_path));
+            }
         }
 
         // --- FUNCTIONS THAT ALWAYS RETURN A SINGLE BIT ---
@@ -198,11 +239,13 @@ impl LocalVisitor<'_> {
                         .get(arg_ident)
                         .expect("Call argument should have local ident");
                     if let Some(arg_type) = arg_type {
-                        // change the argument generics based on trait generics
-                        let mut type_path = extract_type_path(arg_type);
-                        type_path.segments[2].arguments = func_path.segments[2].arguments.clone();
+                        if let Some(mut type_path) = extract_type_path(arg_type) {
+                            // change the argument generics based on trait generics
+                            type_path.segments[2].arguments =
+                                func_path.segments[2].arguments.clone();
 
-                        return Some(create_type_path(type_path));
+                            return Some(create_type_path(type_path));
+                        }
                     }
                 }
 
@@ -237,14 +280,46 @@ impl LocalVisitor<'_> {
                     .get(arg_ident)
                     .expect("Call argument should have local ident");
                 if let Some(arg_type) = arg_type {
-                    // extract
-                    if let Some(ty) = extract_last_generic_type(extract_type_path(arg_type)) {
-                        return Some(ty);
+                    // extract, never a reference
+                    if let Some(arg_path) = extract_type_path(arg_type) {
+                        if let Some(ty) = extract_last_generic_type(arg_path) {
+                            return Some(ty);
+                        }
                     }
                 }
             }
         }
 
         None
+    }
+
+    fn infer_path_result_type(&self, expr_path: &ExprPath) -> Option<Type> {
+        // infer from the identifier
+        let right_ident =
+            extract_path_ident(&expr_path.path).expect("Right side of assignment should be ident");
+        let right_type = self
+            .local_ident_types
+            .get(right_ident)
+            .expect("Right ident should be in ident types");
+        right_type.clone()
+    }
+
+    fn infer_reference_result_type(&self, expr_reference: &ExprReference) -> Option<Type> {
+        // infer type from the identifier first
+        let expr_ident = extract_expr_ident(&expr_reference.expr)
+            .expect("Right side of assignment should be ident");
+        let expr_type = self
+            .local_ident_types
+            .get(expr_ident)
+            .expect("Right ident should be in ident types")
+            .clone();
+        expr_type.map(|expr_type|
+            // resolve to reference
+            Type::Reference(TypeReference {
+                and_token: Default::default(),
+                lifetime: None,
+                mutability: None,
+                elem: Box::new(expr_type.clone()),
+        }))
     }
 }

@@ -99,6 +99,15 @@ impl Converter {
                 // remove parentheses
                 *expr = (*paren.expr).clone();
             }
+            syn::Expr::Reference(reference) => {
+                if reference.mutability.is_some() {
+                    return Err(MachineError(String::from(
+                        "Mutable referencing not supported",
+                    )));
+                }
+                // move expression
+                self.move_through_temp(assign_stmts, &mut reference.expr)?;
+            }
             syn::Expr::Call(call) => {
                 // move call function expression and arguments
                 self.move_through_temp(assign_stmts, &mut call.func)?;

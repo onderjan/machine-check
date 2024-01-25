@@ -52,6 +52,26 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
     type IndexMark = Bitvector<I>;
     type ElementMark = Bitvector<L>;
 
+    #[must_use]
+    fn read(
+        normal_input: (&Self, Self::Index),
+        mark_later: Self::ElementMark,
+    ) -> (Self::Mark, Self::IndexMark) {
+        // prefer marking index
+        let (min_index, max_index) = extract_bounds(normal_input.1);
+        if min_index == max_index {
+            // mark array element
+            let mut earlier_array_mark = Self::Mark::new_unmarked();
+            earlier_array_mark.inner[min_index] = mark_later.limit(normal_input.0.inner[min_index]);
+            (earlier_array_mark, Self::IndexMark::new_unmarked())
+        } else {
+            (
+                Self::Mark::new_unmarked(),
+                Self::IndexMark::new_marked().limit(normal_input.1),
+            )
+        }
+    }
+
     fn write(
         normal_input: (Self, Self::Index, Self::Element),
         mark_later: Self::Mark,
@@ -83,12 +103,12 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
                 // do not mark anything else to force index to have a single concretization
                 (
                     Self::Mark::new_unmarked(),
-                    Self::IndexMark::new_marked(),
+                    Self::IndexMark::new_marked().limit(normal_input.1),
                     Self::ElementMark::new_unmarked(),
                 )
             } else {
-                let earlier_array_mark = mark_later.clone();
                 // retain the array marks, do not mark anything else
+                let earlier_array_mark = mark_later.clone();
                 (
                     earlier_array_mark,
                     Self::IndexMark::new_unmarked(),
@@ -98,8 +118,6 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
         }
     }
 }
-
-
 
 impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
     type Condition = Bitvector<1>;
