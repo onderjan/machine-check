@@ -7,7 +7,6 @@ members = ["core/*", "support/*"]
 [patch.crates-io]
 btor2rs = { path = "./core/btor2rs" }
 machine-check-common = { path = "./core/machine-check-common" }
-machine-check-types = { path = "./core/machine-check-types" }
 machine-check-machine = { path = "./core/machine-check-machine" }
 machine-check-macros = { path = "./core/machine-check-macros" }
 machine-check-compile = { path = "./core/machine-check-compile" }
