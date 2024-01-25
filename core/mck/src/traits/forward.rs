@@ -91,7 +91,7 @@ impl<T: Phi> PhiArg<T> {
             (PhiArg::Taken(a), PhiArg::Taken(b))
             | (PhiArg::Taken(a), PhiArg::MaybeTaken(b, _))
             | (PhiArg::MaybeTaken(a, _), PhiArg::Taken(b))
-            | (PhiArg::MaybeTaken(a, _), PhiArg::MaybeTaken(b, _)) => a.phi_no_cond(b),
+            | (PhiArg::MaybeTaken(a, _), PhiArg::MaybeTaken(b, _)) => a.phi(b),
             (PhiArg::Taken(a), PhiArg::NotTaken())
             | (PhiArg::MaybeTaken(a, _), PhiArg::NotTaken()) => a,
             (PhiArg::NotTaken(), PhiArg::Taken(b))

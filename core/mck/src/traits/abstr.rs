@@ -30,9 +30,7 @@ where
     Self: std::marker::Sized,
 {
     type Condition;
-    // TODO: deduplicate mutable
-    fn phi(self, other: Self, condition: Self::Condition) -> Self;
-    fn phi_no_cond(self, other: Self) -> Self;
+    fn phi(self, other: Self) -> Self;
 
     fn uninit() -> Self;
 }

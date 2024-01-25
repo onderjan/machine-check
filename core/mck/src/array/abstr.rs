@@ -28,7 +28,7 @@ impl<const I: u32, const L: u32> ReadWrite for Array<I, L> {
         let (mut current_index, max_index) = extract_bounds(index);
         let mut element = self.inner[current_index];
         while current_index <= max_index {
-            element = element.phi_no_cond(self.inner[current_index]);
+            element = element.phi(self.inner[current_index]);
             current_index += 1;
         }
         element
@@ -43,7 +43,7 @@ impl<const I: u32, const L: u32> ReadWrite for Array<I, L> {
         } else {
             // unsure which element is being set, join the previous values
             for current_index in min_index..=max_index {
-                self.inner[current_index] = self.inner[current_index].phi_no_cond(element);
+                self.inner[current_index] = self.inner[current_index].phi(element);
             }
         }
         self
