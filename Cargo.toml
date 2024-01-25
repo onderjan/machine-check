@@ -14,3 +14,4 @@ machine-check-compile = { path = "./core/machine-check-compile" }
 mck = { path = "./core/mck" }
 machine-check = { path = "./core/machine-check" }
 machine-check-exec = { path = "./core/machine-check-exec" }
+machine-check-hw = { path = "./core/machine-check-hw" }

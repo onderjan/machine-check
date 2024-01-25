@@ -2,7 +2,7 @@ use std::fs::{self, File};
 
 use camino::Utf8PathBuf;
 use clap::Parser;
-use machine_check::verify::VerifyResult;
+use machine_check_hw::verify::VerifyResult;
 use serde::Deserialize;
 
 mod table;
@@ -296,8 +296,8 @@ fn parse_time(run_stats: &mut RunStats, time: String) {
         // split to key and value using colon followed by space,
         // as colons without space are also hour-minute-second delimiters
         let mut split = time_line.splitn(2, ": ");
-        let Some(key) = split.next() else {continue};
-        let Some(value) = split.next() else {continue};
+        let Some(key) = split.next() else { continue };
+        let Some(value) = split.next() else { continue };
         let key = key.trim();
         let value = value.trim();
         match key {

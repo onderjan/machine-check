@@ -1,6 +1,6 @@
 use clap::Parser;
 use log::error;
-use machine_check::Cli;
+use machine_check_hw::Cli;
 use std::thread;
 
 fn main() {
@@ -26,7 +26,7 @@ fn main() {
     // normal stack size is not enough for large token trees
     let result = thread::Builder::new()
         .stack_size(32 * 1024 * 1024)
-        .spawn(|| machine_check::run(args))
+        .spawn(|| machine_check_hw::run(args))
         .unwrap()
         .join()
         .unwrap();

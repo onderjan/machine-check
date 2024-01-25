@@ -457,6 +457,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "machine-check-hw"
+version = "0.1.0"
+dependencies = [
+ "btor2rs",
+ "camino",
+ "cargo_metadata",
+ "clap",
+ "env_logger",
+ "log",
+ "machine-check",
+ "machine-check-common",
+ "machine-check-compile",
+ "machine-check-machine",
+ "mck",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "syn",
+ "syn-path",
+ "tempdir",
+ "thiserror",
+]
+
+[[package]]
 name = "machine-check-machine"
 version = "0.1.0"
 dependencies = [
@@ -481,12 +506,12 @@ dependencies = [
 
 [[package]]
 name = "machine-check-table"
-version = "0.1.0-alpha.3"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "camino",
  "clap",
- "machine-check",
+ "machine-check-hw",
  "prettytable-rs",
  "serde",
  "serde_json",
