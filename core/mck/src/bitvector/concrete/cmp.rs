@@ -29,10 +29,10 @@ impl<const L: u32> TypedCmp for ConcreteBitvector<L> {
 }
 
 impl<const L: u32> ConcreteBitvector<L> {
-    pub(crate) fn unsigned_cmp(&self, other: &Self) -> Ordering {
+    pub fn unsigned_cmp(&self, other: &Self) -> Ordering {
         self.as_unsigned().cmp(&other.as_unsigned())
     }
-    pub(crate) fn signed_cmp(&self, other: &Self) -> Ordering {
+    pub fn signed_cmp(&self, other: &Self) -> Ordering {
         self.as_signed().cmp(&other.as_signed())
     }
 }

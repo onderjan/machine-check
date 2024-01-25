@@ -1,8 +1,8 @@
 use super::Bitvector;
 use crate::{
+    bitvector::support::Unsigned,
     bitvector::{concrete::ConcreteBitvector, wrap_interval::interval::Interval},
     forward::{HwArith, TypedCmp},
-    types::Unsigned,
 };
 
 impl<const L: u32> HwArith for Bitvector<L> {
@@ -70,7 +70,10 @@ impl<const L: u32> HwArith for Bitvector<L> {
             diff_product, diff_start_product, start_diff_product
         );*/
 
-        let Some(result_len) = diff_product.checked_add(diff_start_product).and_then(|v| v.checked_add(start_diff_product)) else {
+        let Some(result_len) = diff_product
+            .checked_add(diff_start_product)
+            .and_then(|v| v.checked_add(start_diff_product))
+        else {
             return Self::full();
         };
 
@@ -146,7 +149,10 @@ impl<const L: u32> HwArith for Bitvector<L> {
                 result_max = result_max.max(lhs_max.as_unsigned());
             }
 
-            return Self::from_wrap_interval(ConcreteBitvector::new(result_min), ConcreteBitvector::new(result_max));
+            return Self::from_wrap_interval(
+                ConcreteBitvector::new(result_min),
+                ConcreteBitvector::new(result_max),
+            );
         };
 
         if rhs_value.is_zero() {

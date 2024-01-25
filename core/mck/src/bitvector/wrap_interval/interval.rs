@@ -3,7 +3,7 @@ mod bitwise;
 use core::fmt::Debug;
 use core::fmt::Display;
 
-use crate::types::Unsigned;
+use crate::bitvector::support::Unsigned;
 
 #[derive(Clone, Copy, Hash)]
 pub(crate) struct Interval<T: Ord + Clone + Copy> {

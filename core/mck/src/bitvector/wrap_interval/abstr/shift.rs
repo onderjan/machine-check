@@ -1,7 +1,7 @@
 use crate::{
+    bitvector::support::Unsigned,
     bitvector::{concrete::ConcreteBitvector, wrap_interval::interval::Interval},
     forward::{HwArith, HwShift},
-    types::Unsigned,
 };
 
 use super::Bitvector;

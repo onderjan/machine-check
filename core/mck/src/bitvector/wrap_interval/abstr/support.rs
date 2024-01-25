@@ -5,9 +5,9 @@ use std::{
 
 use crate::{
     bitvector::concrete::ConcreteBitvector,
+    bitvector::support::Unsigned,
     bitvector::{util, wrap_interval::interval::Interval},
     forward::HwArith,
-    types::Unsigned,
 };
 
 use super::Bitvector;

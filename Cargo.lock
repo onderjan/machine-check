@@ -406,6 +406,7 @@ dependencies = [
 name = "machine-check-avr"
 version = "0.1.0"
 dependencies = [
+ "machine-check",
  "machine-check-exec",
  "machine-check-machine",
  "machine-check-macros",

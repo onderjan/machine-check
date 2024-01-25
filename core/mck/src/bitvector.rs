@@ -1,5 +1,6 @@
 mod combined;
 mod concrete;
+mod support;
 mod three_valued;
 mod util;
 mod wrap_interval;

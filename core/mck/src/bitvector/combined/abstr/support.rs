@@ -1,8 +1,7 @@
 use std::fmt::{Debug, Display};
 
-use crate::{
-    bitvector::{concrete::ConcreteBitvector, three_valued, wrap_interval},
-    types::Unsigned,
+use crate::bitvector::{
+    concrete::ConcreteBitvector, support::Unsigned, three_valued, wrap_interval,
 };
 
 use super::Bitvector;

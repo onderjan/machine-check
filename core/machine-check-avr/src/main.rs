@@ -95,15 +95,13 @@ mod machine_module {
 fn main() {
     let mut a;
     let mut b = if true {
-        a = 0;
+        a = ::machine_check::Unsigned::<2>::new(3);
         true
     } else {
-        a = 1;
+        a = ::machine_check::Unsigned::new(1);
         false
     };
-    println!("a, b: {}, {}", a, b);
-    (a, b) = (5, true);
-    println!("a, b: {}, {}", a, b);
+    println!("a, b: {:?}, {:?}", a, b);
 
     machine_check_exec::run::<
         machine_module::refin::Input,

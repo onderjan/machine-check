@@ -3,7 +3,6 @@
 mod array;
 mod bitvector;
 mod traits;
-pub mod types;
 
 pub mod concr {
     pub use super::array::concr::*;
