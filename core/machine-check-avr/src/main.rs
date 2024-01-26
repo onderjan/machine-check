@@ -2,9 +2,9 @@
 mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
-        /*pub i: ::mck::concr::Bitvector<1>,
-        pub j: ::mck::concr::Bitvector<1>,
-        pub k: ::mck::concr::Bitvector<1>,*/
+        pub i: ::machine_check::Bitvector<1>,
+        pub j: ::machine_check::Bitvector<1>,
+        pub k: ::machine_check::Bitvector<1>,
     }
 
     impl ::mck::concr::Input for Input {}
@@ -21,7 +21,7 @@ mod machine_module {
     pub struct Machine {}
 
     impl ::mck::concr::Machine<Input, State> for Machine {
-        fn init(input: &Input) -> State {
+        fn init(_input: &Input) -> State {
             let mut safe;
             /*let fill = ::mck::concr::Bitvector::<1>::new(1);
             let arr = ::mck::concr::Array::<2, 1>::new_filled(fill);
@@ -32,7 +32,10 @@ mod machine_module {
             let arr2 = ::mck::forward::ReadWrite::write(arr, index, element);
             safe = ::mck::forward::ReadWrite::read(&arr2, index);*/
             safe = ::machine_check::Bitvector::<1>::new(1);
-            safe = ::std::ops::Not::not(safe);
+            //let a = ::std::ops::Not::not(::machine_check::Bitvector::<1>::new(1));
+            if true {
+                safe = ::std::ops::Not::not(safe);
+            }
             //safe = fill;
             //let mut temp: ::mck::concr::Bitvector<1> = input.k;
             //let k = input.k;
@@ -97,8 +100,8 @@ mod machine_module {
 }
 
 fn main() {
-    let mut a;
-    let mut b = if true {
+    let a;
+    let b = if true {
         a = ::machine_check::Unsigned::<2>::new(3);
         true
     } else {
