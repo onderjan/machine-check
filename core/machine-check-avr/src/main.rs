@@ -23,92 +23,25 @@ mod machine_module {
     impl ::mck::concr::Machine<Input, State> for Machine {
         fn init(_input: &Input) -> State {
             let mut safe;
-            /*let fill = ::mck::concr::Bitvector::<1>::new(1);
-            let arr = ::mck::concr::Array::<2, 1>::new_filled(fill);
-            let index = ::mck::concr::Bitvector::<2>::new(0);
-            let index2 = ::mck::concr::Bitvector::<2>::new(2);
-            //safe = ::mck::forward::ReadWrite::read(&arr, index);
-            let element = ::mck::concr::Bitvector::<1>::new(0);
-            let arr2 = ::mck::forward::ReadWrite::write(arr, index, element);
-            safe = ::mck::forward::ReadWrite::read(&arr2, index);*/
-            safe = ::machine_check::Bitvector::<1>::new(1);
-            //let a = ::std::ops::Not::not(::machine_check::Bitvector::<1>::new(1));
-            if true {
-                safe = !safe;
-            }
-            //safe = fill;
-            //let mut temp: ::mck::concr::Bitvector<1> = input.k;
-            //let k = input.k;
-            //safe = ::mck::forward::Bitwise::bit_not(::mck::concr::Bitvector::<1>::new(1));
-            /*if false {
-                //let mut j = ::mck::concr::Bitvector::<1>::new(1);
-                //temp = j;
-                safe = input.j;
-            } else {
-                if true {
-                    let mut asdf = ::mck::concr::Bitvector::<1>::new(1);
-                    if ::mck::concr::Test::into_bool(k) {
-                        asdf = input.i;
-                    } else {
-                    };
-                    safe = asdf;
-                } else {
-                    safe = ::mck::concr::Bitvector::<1>::new(1);
-                };
-                //safe = input.i;
-            };*/
-            /*let mut k = input.k;
-            if ::mck::concr::Test::into_bool(k) {
-                safe = ::mck::concr::Bitvector::<1>::new(1);
-            } else {
-                safe = ::mck::concr::Bitvector::<1>::new(0);
-            };*/
-            //safe = ::mck::concr::Bitvector::<1>::new(1);
-            /*if ::mck::concr::Test::into_bool(input.j) {
-                safe = ::mck::concr::Bitvector::<1>::new(1);
-            } else {
-                /*if ::mck::concr::Test::into_bool(k) {
-                    safe = input.i;
-                } else {
-                    safe = ::mck::concr::Bitvector::<1>::new(1);
-                };*/
-                safe = input.i;
-            };*/
-            /*if ::mck::concr::Test::into_bool(k) {
-                safe = ::mck::concr::Bitvector::<1>::new(1);
-            } else {
-            };*/
-            /*let a = ::mck::concr::Bitvector::<4>::new(1);
-            let b = ::mck::forward::Ext::<1>::uext(a);
-            let c = b;
-            safe = ::mck::forward::Bitwise::bit_not(c);*/
-
-            //safe = temp;
-            //safe = input.i;
+            let fill = ::machine_check::Bitvector::<1>::new(1);
+            let index = ::machine_check::Bitvector::<4>::new(0xC);
+            let mut arr = ::machine_check::BitvectorArray::<4, 1>::new_filled(fill);
+            safe = arr[index];
             State { safe }
         }
         fn next(_state: &State, _input: &Input) -> State {
-            //let b = ::mck::concr::Bitvector::<1>::new(1);
             let b = ::machine_check::Bitvector::<1>::new(1);
-            /*{
-                let a = state.safe; //::mck::forward::Bitwise::bit_not(state.safe);
-                b = a;
-            }*/
             State { safe: b }
         }
     }
 }
 
 fn main() {
-    let a;
-    let b = if true {
-        a = ::machine_check::Unsigned::<2>::new(3);
-        true
-    } else {
-        a = ::machine_check::Unsigned::new(1);
-        false
-    };
-    println!("a, b: {:?}, {:?}", a, b);
+    /*let fill = ::machine_check::Bitvector::<4>::new(0xC);
+    let index = ::machine_check::Bitvector::<2>::new(3);
+    let mut arr = ::machine_check::BitvectorArray::<2, 4>::new_filled(fill);
+    arr[index] = ::machine_check::Bitvector::<4>::new(0xD);
+    println!("arr[{:?}] = {:?}", index, arr[index]);*/
 
     machine_check_exec::run::<
         machine_module::refin::Input,

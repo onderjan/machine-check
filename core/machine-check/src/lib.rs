@@ -2,4 +2,4 @@
 
 mod types;
 
-pub use types::{Bitvector, Signed, Unsigned};
+pub use types::{Bitvector, BitvectorArray, Signed, Unsigned};

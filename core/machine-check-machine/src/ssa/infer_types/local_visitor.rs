@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use syn::{
     punctuated::Punctuated,
     visit_mut::{self, VisitMut},
-    AngleBracketedGenericArguments, ExprCall, ExprField, ExprPath, ExprReference, Ident,
+    AngleBracketedGenericArguments, ExprCall, ExprField, ExprIndex, ExprPath, ExprReference, Ident,
     ItemStruct, Member, Path, PathArguments, Type, TypeReference,
 };
 use syn_path::path;
@@ -46,9 +46,10 @@ impl VisitMut for LocalVisitor<'_> {
         }
 
         let inferred_type = match expr_assign.right.as_ref() {
+            syn::Expr::Path(right_path) => self.infer_path_result_type(right_path),
             syn::Expr::Call(right_call) => self.infer_call_result_type(right_call),
             syn::Expr::Field(right_field) => self.infer_field_result_type(right_field),
-            syn::Expr::Path(right_path) => self.infer_path_result_type(right_path),
+            syn::Expr::Index(right_index) => self.infer_index_result_type(right_index),
             syn::Expr::Reference(right_reference) => {
                 self.infer_reference_result_type(right_reference)
             }
@@ -73,7 +74,7 @@ impl LocalVisitor<'_> {
         let base_type = self
             .local_ident_types
             .get(base_ident)
-            .expect("Base ident should be in ident types")
+            .expect("Field base ident should be in ident types")
             .as_ref();
         let Some(mut base_type) = base_type else {
             return None;
@@ -118,6 +119,55 @@ impl LocalVisitor<'_> {
         }
     }
 
+    fn infer_index_result_type(&self, expr_index: &ExprIndex) -> Option<Type> {
+        println!(
+            "Inferring index result type: {}",
+            quote::quote!(#expr_index)
+        );
+        // infer type of base expression
+        let base_ident = extract_expr_ident(&expr_index.expr).expect("Index base should be ident");
+        let base_type = self
+            .local_ident_types
+            .get(base_ident)
+            .expect("Index base ident should be in ident types")
+            .as_ref();
+        let Some(mut base_type) = base_type else {
+            return None;
+        };
+
+        // dereference first
+        while let Type::Reference(ref_type) = base_type {
+            base_type = ref_type.elem.as_ref();
+        }
+
+        let Some(base_type_path) = extract_type_path(base_type) else {
+            panic!("Unexpected index base type: {:?}", base_type);
+        };
+
+        println!("Base type path: {}", quote::quote!(#base_type_path));
+
+        if path_matches_global_names(&base_type_path, &["machine_check", "BitvectorArray"]) {
+            // infer bitvector type with element length, which is the second generic argument
+            let mut bitvector_path = path!(::machine_check::Bitvector);
+            let PathArguments::AngleBracketed(array_angle_bracketed) =
+                &base_type_path.segments[1].arguments
+            else {
+                panic!("Expected generic arguments to array");
+            };
+            if array_angle_bracketed.args.len() != 2 {
+                panic!("Expected exactly two generic arguments to array");
+            }
+            let mut bitvector_angle_bracketed = array_angle_bracketed.clone();
+            bitvector_angle_bracketed.args =
+                Punctuated::from_iter([bitvector_angle_bracketed.args.pop().unwrap()]);
+            bitvector_path.segments[1].arguments =
+                PathArguments::AngleBracketed(bitvector_angle_bracketed);
+            Some(create_type_path(bitvector_path))
+        } else {
+            None
+        }
+    }
+
     fn infer_call_result_type(&self, expr_call: &ExprCall) -> Option<Type> {
         // discover the type based on the call function
         let func_path = extract_expr_path(&expr_call.func).expect("Call function should be path");
@@ -128,14 +178,17 @@ impl LocalVisitor<'_> {
             bitvector.segments[1].arguments = func_path.segments[1].arguments.clone();
             return Some(create_type_path(bitvector));
         }
-        /*if path_matches_global_names(func_path, &["mck", "concr", "Array", "new_filled"]) {
+        if path_matches_global_names(
+            func_path,
+            &["machine_check", "BitvectorArray", "new_filled"],
+        ) {
             // infer array type
-            let mut array = path!(::mck::concr::Array);
-            array.segments[2].arguments = func_path.segments[2].arguments.clone();
+            let mut array = path!(::machine_check::BitvectorArray);
+            array.segments[1].arguments = func_path.segments[1].arguments.clone();
             return Some(create_type_path(array));
         }
 
-        if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "write"]) {
+        /*if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "write"]) {
             // infer from first argument
             let arg = &expr_call.args[0];
             // take the type from first typed argument we find

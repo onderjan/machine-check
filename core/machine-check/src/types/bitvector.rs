@@ -9,7 +9,7 @@ use mck::{
 };
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Bitvector<const L: u32>(concr::Bitvector<L>);
+pub struct Bitvector<const L: u32>(pub(super) concr::Bitvector<L>);
 
 impl<const L: u32> Bitvector<L> {
     pub fn new(value: u64) -> Self {

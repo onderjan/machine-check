@@ -6,7 +6,7 @@ use crate::{
 
 use super::abstr::extract_bounds;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const L: u32> {
     inner: Vec<refin::Bitvector<L>>,
 }

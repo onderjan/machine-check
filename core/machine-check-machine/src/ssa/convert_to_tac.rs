@@ -93,6 +93,10 @@ impl Converter {
                 // move base
                 self.move_through_temp(assign_stmts, &mut field.base)?;
             }
+            syn::Expr::Index(expr_index) => {
+                // move base
+                self.move_through_temp(assign_stmts, &mut expr_index.index)?;
+            }
             syn::Expr::Paren(paren) => {
                 // move statement in parentheses
                 self.move_through_temp(assign_stmts, &mut paren.expr)?;
