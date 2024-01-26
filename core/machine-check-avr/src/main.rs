@@ -34,7 +34,7 @@ mod machine_module {
             safe = ::machine_check::Bitvector::<1>::new(1);
             //let a = ::std::ops::Not::not(::machine_check::Bitvector::<1>::new(1));
             if true {
-                safe = ::std::ops::Not::not(safe);
+                safe = !safe;
             }
             //safe = fill;
             //let mut temp: ::mck::concr::Bitvector<1> = input.k;
