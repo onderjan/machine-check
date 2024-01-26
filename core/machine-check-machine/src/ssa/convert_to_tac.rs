@@ -1,8 +1,12 @@
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Block, Expr, Ident, Item, Stmt};
+use syn::{visit_mut::VisitMut, Block, Expr, ExprAssign, Ident, Item, Stmt};
+use syn_path::path;
 
 use crate::{
-    util::{create_assign, create_expr_path, create_let_bare, extract_else_block_mut},
+    util::{
+        create_assign, create_expr_call, create_expr_ident, create_expr_path,
+        create_expr_reference, create_let_bare, extract_else_block_mut, ArgType,
+    },
     MachineError,
 };
 
@@ -55,14 +59,88 @@ struct Converter {
 impl Converter {
     fn process_block(&mut self, block: &mut Block) -> Result<(), MachineError> {
         let mut processed_stmts = Vec::new();
-        for mut stmt in block.stmts.drain(..) {
+        for stmt in block.stmts.drain(..) {
             match stmt {
-                Stmt::Expr(ref mut expr, _) => {
+                Stmt::Expr(mut expr, semi) => {
                     // process expression without forced movement
                     // the newly created statements (for temporaries) will be added
                     // before the (possibly changed) processed statement
-                    self.process_expr(&mut processed_stmts, expr)?;
-                    processed_stmts.push(stmt);
+                    self.process_expr(&mut processed_stmts, &mut expr)?;
+
+                    if let Expr::Assign(expr_assign) = expr {
+                        // convert indexing to ReadWrite
+                        if let Expr::Index(right_index) = *expr_assign.right {
+                            // create a temporary variable
+                            let tmp_ident = Ident::new(
+                                format!("__mck_tac_{}", self.get_and_increment_temp_counter())
+                                    .as_str(),
+                                Span::call_site(),
+                            );
+                            self.created_temporaries.push(tmp_ident.clone());
+                            // assign reference to the array
+                            processed_stmts.push(Stmt::Expr(
+                                Expr::Assign(ExprAssign {
+                                    attrs: vec![],
+                                    left: Box::new(create_expr_ident(tmp_ident.clone())),
+                                    eq_token: Default::default(),
+                                    right: Box::new(create_expr_reference(
+                                        false,
+                                        *right_index.expr,
+                                    )),
+                                }),
+                                Some(Default::default()),
+                            ));
+                            // the read call consumes the reference and index
+                            let read_call = create_expr_call(
+                                create_expr_path(path!(::mck::forward::ReadWrite::read)),
+                                vec![
+                                    (ArgType::Normal, create_expr_ident(tmp_ident)),
+                                    (ArgType::Normal, *right_index.index),
+                                ],
+                            );
+                            // the result is the original left side
+                            processed_stmts.push(Stmt::Expr(
+                                Expr::Assign(ExprAssign {
+                                    right: Box::new(read_call),
+                                    ..expr_assign
+                                }),
+                                semi,
+                            ));
+                        } else if let Expr::Index(left_index) = *expr_assign.left {
+                            // convert to write
+                            // the base must be without side-effects
+                            let base = *left_index.expr;
+                            if !matches!(base, Expr::Path(_)) {
+                                return Err(MachineError(String::from(
+                                    "Only path base supported when left-hand indexing",
+                                )));
+                            }
+
+                            // the base is let through
+                            let write_call = create_expr_call(
+                                create_expr_path(path!(::mck::forward::ReadWrite::write)),
+                                vec![
+                                    (ArgType::Normal, base.clone()),
+                                    (ArgType::Normal, *left_index.index),
+                                    (ArgType::Normal, *expr_assign.right),
+                                ],
+                            );
+
+                            processed_stmts.push(Stmt::Expr(
+                                Expr::Assign(ExprAssign {
+                                    left: Box::new(base),
+                                    right: Box::new(write_call),
+                                    ..expr_assign
+                                }),
+                                semi,
+                            ));
+                        } else {
+                            // no conversion, just push
+                            processed_stmts.push(Stmt::Expr(Expr::Assign(expr_assign), semi));
+                        }
+                    } else {
+                        processed_stmts.push(Stmt::Expr(expr, semi));
+                    }
                 }
                 Stmt::Local(_) => {
                     // just retain
@@ -94,7 +172,7 @@ impl Converter {
                 self.move_through_temp(assign_stmts, &mut field.base)?;
             }
             syn::Expr::Index(expr_index) => {
-                // move base
+                // base cannot be moved, move index
                 self.move_through_temp(assign_stmts, &mut expr_index.index)?;
             }
             syn::Expr::Paren(paren) => {
@@ -120,21 +198,28 @@ impl Converter {
                 }
             }
             syn::Expr::Assign(assign) => {
-                if !matches!(assign.left.as_ref(), Expr::Path(_)) {
-                    return Err(MachineError(format!(
-                        "Non-path left not supported in assignment: {:?}",
-                        assign.left,
-                    )));
-                }
-
-                match assign.right.as_mut() {
-                    Expr::Block(_) => {
-                        // force movement
-                        self.move_through_temp(assign_stmts, assign.right.as_mut())?;
+                match assign.left.as_mut() {
+                    Expr::Path(_) => {
+                        match assign.right.as_mut() {
+                            Expr::Block(_) => {
+                                // force movement
+                                self.move_through_temp(assign_stmts, assign.right.as_mut())?;
+                            }
+                            _ => {
+                                // apply translation to right-hand expression without forced movement
+                                self.process_expr(assign_stmts, assign.right.as_mut())?;
+                            }
+                        }
+                    }
+                    Expr::Index(_) => {
+                        // force movement of right expression
+                        self.process_expr(assign_stmts, assign.right.as_mut())?;
                     }
                     _ => {
-                        // apply translation to right-hand expression without forced movement
-                        self.process_expr(assign_stmts, assign.right.as_mut())?;
+                        return Err(MachineError(format!(
+                            "Only path and path-indexed-path supported on left side of assignment: {:?}",
+                            assign.left,
+                        )));
                     }
                 }
             }
@@ -221,13 +306,9 @@ impl Converter {
 
         // create a temporary variable
         let tmp_ident = Ident::new(
-            format!("__mck_tac_{}", self.next_temp_counter).as_str(),
+            format!("__mck_tac_{}", self.get_and_increment_temp_counter()).as_str(),
             Span::call_site(),
         );
-        self.next_temp_counter = self
-            .next_temp_counter
-            .checked_add(1)
-            .expect("Temp counter should not overflow");
 
         // add to created temporaries, they will get their let statements created later
         self.created_temporaries.push(tmp_ident.clone());
@@ -237,5 +318,14 @@ impl Converter {
         // change expr to the temporary variable path
         *expr = create_expr_path(tmp_ident.into());
         Ok(())
+    }
+
+    fn get_and_increment_temp_counter(&mut self) -> u32 {
+        let result = self.next_temp_counter;
+        self.next_temp_counter = self
+            .next_temp_counter
+            .checked_add(1)
+            .expect("Temp counter should not overflow");
+        result
     }
 }

@@ -1,21 +1,13 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use syn::{
-    punctuated::Punctuated,
     spanned::Spanned,
     visit_mut::{self, VisitMut},
-    Expr, ExprAssign, ExprCall, ExprReference, Ident, ItemStruct, Path, PathArguments, PathSegment,
-    Stmt, Type,
+    ExprCall, Ident, ItemStruct, Path, PathArguments, PathSegment, Type,
 };
-use syn_path::path;
 
 use crate::{
-    support::local::construct_prefixed_ident,
-    util::{
-        create_assign, create_expr_call, create_expr_ident, create_expr_path,
-        create_expr_reference, create_type_reference, extract_expr_ident, extract_expr_path_mut,
-        path_matches_global_names, path_starts_with_global_names, ArgType,
-    },
+    util::{extract_expr_path_mut, path_matches_global_names, path_starts_with_global_names},
     MachineError,
 };
 
@@ -23,55 +15,9 @@ pub struct LocalVisitor<'a> {
     pub local_ident_types: HashMap<Ident, Type>,
     pub structs: &'a HashMap<Path, ItemStruct>,
     pub result: Result<(), MachineError>,
-    pub created_locals: BTreeMap<Ident, Type>,
 }
 
 impl VisitMut for LocalVisitor<'_> {
-    fn visit_block_mut(&mut self, block: &mut syn::Block) {
-        let mut processed_stmts = Vec::new();
-        // convert indexing to ReadWrite
-        for stmt in block.stmts.drain(..) {
-            if let Stmt::Expr(Expr::Assign(mut expr_assign), semi) = stmt {
-                if let Expr::Index(expr_index) = *expr_assign.right {
-                    // convert to read, create a temporary for reference
-                    let base_ident = extract_expr_ident(&expr_index.expr)
-                        .expect("Right-side index base should be ident");
-                    println!("Base ident: {}", base_ident);
-                    let base_type = self
-                        .local_ident_types
-                        .get(base_ident)
-                        .expect("Right-side index base should have type");
-                    let temporary_ident = construct_prefixed_ident("read_ref", base_ident);
-                    let temporary_type = create_type_reference(false, base_type.clone());
-
-                    processed_stmts.push(create_assign(
-                        temporary_ident.clone(),
-                        create_expr_reference(false, create_expr_ident(base_ident.clone())),
-                        true,
-                    ));
-                    self.created_locals
-                        .insert(temporary_ident.clone(), temporary_type);
-                    *expr_assign.right = create_expr_call(
-                        create_expr_path(path!(::mck::forward::ReadWrite::read)),
-                        vec![
-                            (ArgType::Normal, create_expr_ident(temporary_ident)),
-                            (ArgType::Normal, *expr_index.index),
-                        ],
-                    );
-                }
-                // TODO: write
-
-                processed_stmts.push(Stmt::Expr(Expr::Assign(expr_assign), semi));
-            } else {
-                processed_stmts.push(stmt);
-            }
-        }
-        block.stmts = processed_stmts;
-
-        // delegate
-        visit_mut::visit_block_mut(self, block);
-    }
-
     fn visit_expr_call_mut(&mut self, expr_call: &mut ExprCall) {
         println!("Visit expr call: {}", quote::quote!(#expr_call));
         let func_path =

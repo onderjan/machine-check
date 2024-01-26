@@ -6,22 +6,22 @@ pub static BIT_RESULT_TRAIT_FNS: [(&str, &str); 5] = [
     ("TypedCmp", "typed_slte"),
 ];
 
-pub static TYPE_RETAINING_TRAIT_FNS: [(&str, &str); 15] = [
-    ("Bitwise", "bit_not"),
-    ("Bitwise", "bit_and"),
-    ("Bitwise", "bit_or"),
-    ("Bitwise", "bit_xor"),
-    ("HwArith", "arith_neg"),
-    ("HwArith", "add"),
-    ("HwArith", "sub"),
-    ("HwArith", "mul"),
-    ("HwArith", "udiv"),
-    ("HwArith", "sdiv"),
-    ("HwArith", "urem"),
-    ("HwArith", "srem"),
-    ("HwShift", "logic_shl"),
-    ("HwShift", "logic_shr"),
-    ("HwShift", "arith_shr"),
+pub static TYPE_RETAINING_STD_OPS: [(&str, &str); 12] = [
+    // arithmetic
+    ("Neg", "neg"),
+    ("Add", "add"),
+    ("Sub", "sub"),
+    ("Mul", "mul"),
+    ("Div", "div"),
+    ("Rem", "rem"),
+    // bitwise
+    ("Not", "not"),
+    ("BitAnd", "bitand"),
+    ("BitOr", "bitor"),
+    ("BitXor", "bitxor"),
+    // shifts
+    ("Shl", "shl"),
+    ("Shr", "shr"),
 ];
 
 pub static GENERICS_CHANGING_TRAIT_FNS: [(&str, &str); 2] = [("Ext", "uext"), ("Ext", "sext")];

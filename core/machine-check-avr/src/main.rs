@@ -11,7 +11,6 @@ mod machine_module {
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
-        //safe: ::mck::concr::Bitvector<1>,
         safe: ::machine_check::Bitvector<1>,
     }
 
@@ -24,9 +23,14 @@ mod machine_module {
         fn init(_input: &Input) -> State {
             let mut safe;
             let fill = ::machine_check::Bitvector::<1>::new(1);
-            let index = ::machine_check::Bitvector::<4>::new(0xC);
+            let mut index = ::machine_check::Bitvector::<4>::new(0xC);
             let mut arr = ::machine_check::BitvectorArray::<4, 1>::new_filled(fill);
-            safe = arr[index];
+            let x = ::machine_check::Bitvector::<1>::new(0);
+            arr[index] = x;
+            index = index
+                + (::machine_check::Bitvector::<4>::new(1)
+                    + ::machine_check::Bitvector::<4>::new(1));
+            safe = arr[::machine_check::Bitvector::<4>::new(0xC)];
             State { safe }
         }
         fn next(_state: &State, _input: &Input) -> State {
