@@ -87,3 +87,15 @@ pub fn path_matches_global_names(path: &Path, names: &[&'static str]) -> bool {
     }
     true
 }
+
+pub fn path_starts_with_global_names(path: &Path, names: &[&'static str]) -> bool {
+    if path.leading_colon.is_none() || path.segments.len() < names.len() {
+        return false;
+    }
+    for (segment, name) in path.segments.iter().zip(names) {
+        if segment.ident != name {
+            return false;
+        }
+    }
+    true
+}

@@ -2,6 +2,7 @@ mod convert_to_ssa;
 mod convert_to_tac;
 mod infer_types;
 mod normalize_scope;
+mod convert_types;
 
 use syn::Item;
 
@@ -14,6 +15,7 @@ pub(crate) fn create_concrete_machine(
     convert_to_tac::convert_to_tac(&mut items)?;
     convert_to_ssa::convert_to_ssa(&mut items)?;
     infer_types::infer_types(&mut items)?;
+    convert_types::convert_types(&mut items)?;
 
     Ok(MachineDescription { items })
 }

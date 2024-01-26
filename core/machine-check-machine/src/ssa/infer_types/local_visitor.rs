@@ -122,13 +122,13 @@ impl LocalVisitor<'_> {
         // discover the type based on the call function
         let func_path = extract_expr_path(&expr_call.func).expect("Call function should be path");
         // --- BITVECTOR INITIALIZATION ---
-        if path_matches_global_names(func_path, &["mck", "concr", "Bitvector", "new"]) {
+        if path_matches_global_names(func_path, &["machine_check", "Bitvector", "new"]) {
             // infer bitvector type
-            let mut bitvector = path!(::mck::concr::Bitvector);
-            bitvector.segments[2].arguments = func_path.segments[2].arguments.clone();
+            let mut bitvector = path!(::machine_check::Bitvector);
+            bitvector.segments[1].arguments = func_path.segments[1].arguments.clone();
             return Some(create_type_path(bitvector));
         }
-        if path_matches_global_names(func_path, &["mck", "concr", "Array", "new_filled"]) {
+        /*if path_matches_global_names(func_path, &["mck", "concr", "Array", "new_filled"]) {
             // infer array type
             let mut array = path!(::mck::concr::Array);
             array.segments[2].arguments = func_path.segments[2].arguments.clone();
@@ -288,7 +288,7 @@ impl LocalVisitor<'_> {
                     }
                 }
             }
-        }
+        }*/
 
         None
     }
