@@ -60,6 +60,15 @@ fn main() {
     arr[index] = ::machine_check::Bitvector::<4>::new(0xD);
     println!("arr[{:?}] = {:?}", index, arr[index]);*/
 
+    machine_check_macros::bitmask_switch!(a {
+        "0100_0110" => {
+            some_choice
+        },
+        _ => {
+            some_default
+        }
+    });
+
     machine_check_exec::run::<
         machine_module::refin::Input,
         machine_module::refin::State,
