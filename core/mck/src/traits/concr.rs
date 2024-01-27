@@ -25,3 +25,9 @@ pub trait Machine<I: Input, S: State> {
 pub trait Test {
     fn into_bool(self) -> bool;
 }
+
+impl Test for bool {
+    fn into_bool(self) -> bool {
+        self
+    }
+}

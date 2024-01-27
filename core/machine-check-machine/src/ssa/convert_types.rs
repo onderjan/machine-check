@@ -1,4 +1,5 @@
 mod local_visitor;
+mod global_visitor;
 
 use std::collections::HashMap;
 
@@ -10,20 +11,18 @@ use crate::{
 use syn::{visit_mut::VisitMut, ImplItem, ImplItemFn, Item, ItemStruct, Path, Stmt};
 
 use self::local_visitor::LocalVisitor;
+use self::global_visitor::GlobalVisitor;
 
 pub fn convert_types(items: &mut [Item]) -> Result<(), MachineError> {
-    let struct_visitor_structs = HashMap::new();
-    let mut struct_visitor = LocalVisitor {
-        local_ident_types: HashMap::new(),
-        structs: &struct_visitor_structs,
+    let mut global_visitor = GlobalVisitor {
         result: Ok(()),
     };
 
     let mut structs = HashMap::new();
-    // convert and add structures first
+    // visit by global visitor and add structures
     for item in items.iter_mut() {
+        global_visitor.visit_item_mut(item);
         if let Item::Struct(item_struct) = item {
-            struct_visitor.visit_item_struct_mut(item_struct);
             structs.insert(
                 create_path_from_ident(item_struct.ident.clone()),
                 item_struct.clone(),
@@ -31,7 +30,7 @@ pub fn convert_types(items: &mut [Item]) -> Result<(), MachineError> {
         }
     }
 
-    struct_visitor.result?;
+    global_visitor.result?;
 
     // main conversion
     for item in items.iter_mut() {

@@ -368,6 +368,33 @@ impl VisitMut for Visitor {
         // delegate
         visit_mut::visit_attribute_mut(self, attribute);
     }
+
+    fn visit_path_mut(&mut self, path: &mut syn::Path) {
+        // for now, disallow paths that can break out (super / crate / $crate)
+        for segment in path.segments.iter() {
+            if segment.ident == "super" || segment.ident == "crate" || segment.ident == "$crate" {
+                self.push_error(MachineError(format!(
+                    "Paths with super / crate / $crate not supported: {}",
+                    quote::quote!(#path)
+                )));
+            }
+        }
+        // disallow global paths to any other crates than machine_check and std
+        if path.leading_colon.is_some() {
+            if let Some(crate_segment) = path.segments.first() {
+                let crate_ident = &crate_segment.ident;
+                if crate_ident != "machine_check" && crate_ident != "std" {
+                    self.push_error(MachineError(format!(
+                        "Only global paths starting with 'machine_check' and 'std' supported: {}",
+                        quote::quote!(#path)
+                    )));
+                }
+            }
+        }
+
+        // delegate
+        visit_mut::visit_path_mut(self, path);
+    }
 }
 
 impl Visitor {
