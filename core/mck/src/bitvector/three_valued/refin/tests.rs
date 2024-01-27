@@ -2,7 +2,9 @@
 mod op;
 
 use crate::{
-    bitvector::three_valued::abstr::ThreeValuedBitvector, refin::Refine, traits::misc::Meta,
+    bitvector::three_valued::abstr::ThreeValuedBitvector,
+    refin::Refine,
+    traits::misc::{Meta, MetaEq},
 };
 
 use super::*;
@@ -46,33 +48,30 @@ pub fn meta() {
     let mark = MarkBitvector::<4>::new_from_flag(ConcreteBitvector::new(0x2));
 
     let mut v = mark.proto_first();
-    assert_eq!(
-        v,
+    assert!(v.meta_eq(
         // "XX0X"
-        ThreeValuedBitvector::new_value_known(
+        &ThreeValuedBitvector::new_value_known(
             ConcreteBitvector::new(0x0),
             ConcreteBitvector::new(0x2)
         )
-    );
+    ));
     assert!(mark.proto_increment(&mut v));
-    assert_eq!(
-        v,
+    assert!(v.meta_eq(
         // "XX1X"
-        ThreeValuedBitvector::new_value_known(
+        &ThreeValuedBitvector::new_value_known(
             ConcreteBitvector::new(0x2),
             ConcreteBitvector::new(0x2)
         )
-    );
+    ));
     // returns false due to cycling, but v should contain the first proto again
     assert!(!mark.proto_increment(&mut v));
-    assert_eq!(
-        v,
+    assert!(v.meta_eq(
         // "XX0X"
-        ThreeValuedBitvector::new_value_known(
+        &ThreeValuedBitvector::new_value_known(
             ConcreteBitvector::new(0x0),
             ConcreteBitvector::new(0x2)
         )
-    );
+    ));
 }
 
 #[test]
@@ -100,13 +99,10 @@ pub fn refine() {
     let mut three_valued = ThreeValuedBitvector::new(0xC);
     mark_c.force_decay(&mut three_valued);
     // unmarked fields become unknown
-    assert_eq!(
-        three_valued,
-        ThreeValuedBitvector::from_zeros_ones(
-            ConcreteBitvector::new(0xB),
-            ConcreteBitvector::new(0xE)
-        )
-    )
+    assert!(three_valued.meta_eq(&ThreeValuedBitvector::from_zeros_ones(
+        ConcreteBitvector::new(0xB),
+        ConcreteBitvector::new(0xE)
+    )))
 }
 
 // === SMALL-LENGTH-EXHAUSTIVE TESTS ===

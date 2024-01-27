@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use proc_macro2::Span;
-use syn::{Expr, FnArg, Ident, Member, ReturnType, Signature, Stmt, Type};
+use syn::{Expr, ExprTuple, FnArg, Ident, Member, ReturnType, Signature, Stmt, Type};
 
 use crate::{
     util::{
         create_arg, create_expr_field_named, create_expr_field_unnamed, create_expr_ident,
         create_expr_path, create_ident, create_let, create_path_from_name, create_refine_join_stmt,
-        create_tuple_expr, create_tuple_type, create_type_from_return_type, ArgType,
+        create_tuple_expr, create_tuple_type, create_type_from_return_type, extract_expr_ident,
+        extract_expr_path, ArgType,
     },
     MachineError,
 };
@@ -84,18 +85,39 @@ impl ImplConverter {
         orig_result_expr: &Expr,
     ) -> Result<(FnArg, Vec<Stmt>), MachineError> {
         // just use the original output type, now in refinement context
-        let name = "__mck_input_later";
+        let later_name = "__mck_input_later";
         let ty = create_type_from_return_type(&orig_sig.output);
         // do not convert to reference, consuming is better
-        let arg = create_arg(ArgType::Normal, create_ident(name), Some(ty));
-        // create let statement from original result expression
-        let Expr::Struct(orig_result_struct) = orig_result_expr else {
-            return Err(MachineError(String::from(
-                "Non-struct result not supported",
-            )));
-        };
+        let arg = create_arg(ArgType::Normal, create_ident(later_name), Some(ty));
 
         let mut stmts = Vec::new();
+
+        println!("Orig result expr: {}", quote::quote!(#orig_result_expr));
+
+        if let Expr::Tuple(orig_tuple) = orig_result_expr {
+            if orig_tuple.elems.empty_or_trailing() {
+                // unit, no refinement
+                return Ok((arg, stmts));
+            }
+        }
+
+        if let Some(orig_result_ident) = extract_expr_ident(orig_result_expr) {
+            // generate join statement
+            let refin_ident = self
+                .refinement_rules
+                .convert_normal_ident(orig_result_ident.clone())?;
+            let left_expr = create_expr_ident(refin_ident);
+            let right_expr = create_expr_ident(create_ident(later_name));
+            stmts.push(create_refine_join_stmt(left_expr, right_expr));
+            return Ok((arg, stmts));
+        }
+
+        // create join statement from original result expression
+        let Expr::Struct(orig_result_struct) = orig_result_expr else {
+            return Err(MachineError(String::from(
+                "Non-unit, Non-path, non-struct result not supported",
+            )));
+        };
 
         for field in &orig_result_struct.fields {
             let Expr::Path(field_path) = &field.expr else {
@@ -118,7 +140,7 @@ impl ImplConverter {
                 .refinement_rules
                 .convert_normal_ident(field_ident.clone())?;
             let left_expr = create_expr_ident(refin_ident);
-            let right_base = create_expr_ident(create_ident(name));
+            let right_base = create_expr_ident(create_ident(later_name));
             let right_expr = create_expr_field_named(right_base, member_ident.clone());
 
             // generate join statement

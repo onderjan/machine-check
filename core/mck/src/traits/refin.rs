@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use super::abstr;
-use super::misc::Meta;
+use super::misc::{Meta, MetaEq};
 
 pub trait Refine<A>
 where
@@ -21,8 +21,7 @@ where
 
 pub trait Input:
     Debug
-    + PartialEq
-    + Eq
+    + MetaEq
     + Hash
     + Clone
     + Default
@@ -35,9 +34,7 @@ pub trait Input:
 
 pub trait State:
     Debug
-    + PartialEq
-    + Eq
-    + Hash
+    + MetaEq
     + Clone
     + Default
     + Refine<<Self as State>::Abstract>

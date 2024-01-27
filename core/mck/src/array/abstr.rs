@@ -3,7 +3,7 @@ use crate::{
     forward::ReadWrite,
 };
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash)]
 pub struct Array<const I: u32, const L: u32> {
     pub(super) inner: Vec<abstr::Bitvector<L>>,
 }

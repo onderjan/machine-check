@@ -1,11 +1,13 @@
-use std::{collections::BTreeSet, num::NonZeroUsize, ops::Shr, rc::Rc};
+use std::{collections::BTreeSet, fmt::Debug, num::NonZeroUsize, ops::Shr, rc::Rc};
 
 use bimap::BiMap;
 use mck::{
     abstr::{Input, State},
     concr,
+    misc::MetaEq,
 };
 use petgraph::{prelude::GraphMap, Directed};
+use std::hash::Hash;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StateId(pub NonZeroUsize);
@@ -39,10 +41,26 @@ pub struct Edge<AI> {
     pub representative_input: AI,
 }
 
+#[derive(Debug, Clone)]
+pub struct MetaWrap<E: MetaEq + Debug + Clone + Hash>(E);
+
+impl<E: MetaEq + Debug + Clone + Hash> PartialEq for MetaWrap<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.meta_eq(&other.0)
+    }
+}
+impl<E: MetaEq + Debug + Clone + Hash> Eq for MetaWrap<E> {}
+
+impl<E: MetaEq + Debug + Clone + Hash> Hash for MetaWrap<E> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
 #[derive(Debug)]
 pub struct Space<I: Input, S: State> {
-    node_graph: GraphMap<NodeId, Edge<I>, Directed>,
-    state_map: BiMap<StateId, Rc<S>>,
+    node_graph: GraphMap<NodeId, Edge<MetaWrap<I>>, Directed>,
+    state_map: BiMap<StateId, Rc<MetaWrap<S>>>,
     num_states_for_sweep: usize,
     next_state_id: StateId,
 }
@@ -58,10 +76,12 @@ impl<I: Input, S: State> Space<I, S> {
     }
 
     pub fn get_state_by_id(&self, state_id: StateId) -> &S {
-        self.state_map
+        &self
+            .state_map
             .get_by_left(&state_id)
             .expect("State should be in state map")
             .as_ref()
+            .0
     }
 
     pub fn remove_outgoing_edges(&mut self, node_id: NodeId) {
@@ -86,7 +106,7 @@ impl<I: Input, S: State> Space<I, S> {
     }
 
     fn add_state(&mut self, state: S) -> (StateId, bool) {
-        let state = Rc::new(state);
+        let state = Rc::new(MetaWrap(state));
         let state_id = if let Some(state_id) = self.state_map.get_by_right(&state) {
             // state already present in state map and consequentially next precision map
             // might not be in state graph
@@ -123,7 +143,7 @@ impl<I: Input, S: State> Space<I, S> {
             from,
             to,
             Edge {
-                representative_input: input.clone(),
+                representative_input: MetaWrap(input.clone()),
             },
         );
     }
@@ -134,6 +154,7 @@ impl<I: Input, S: State> Space<I, S> {
             .edge_weight(head, tail.into())
             .expect("Edge should be present in graph")
             .representative_input
+            .0
     }
 
     pub fn direct_predecessor_iter(&self, node_id: NodeId) -> impl Iterator<Item = NodeId> + '_ {
@@ -167,7 +188,7 @@ impl<I: Input, S: State> Space<I, S> {
         optimistic: bool,
     ) -> impl Iterator<Item = Result<StateId, ()>> + 'a {
         self.state_map.iter().filter_map(move |(state_id, state)| {
-            if let Some(labelling) = state.get(name) {
+            if let Some(labelling) = state.0.get(name) {
                 let labelled = match labelling.concrete_value() {
                     Some(concrete_value) => {
                         // negate if necessary

@@ -4,6 +4,7 @@ use crate::{
     abstr::{Boolean, Phi, Test},
     bitvector::{concrete::ConcreteBitvector, util},
     forward::Bitwise,
+    traits::misc::MetaEq,
 };
 
 use super::ThreeValuedBitvector;
@@ -201,6 +202,12 @@ impl<const L: u32> ThreeValuedBitvector<L> {
             let ones_iter = ConcreteBitvector::<L>::all_with_length_iter();
             ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
         })
+    }
+}
+
+impl<const L: u32> MetaEq for ThreeValuedBitvector<L> {
+    fn meta_eq(&self, other: &Self) -> bool {
+        self.ones == other.ones && self.zeros == other.zeros
     }
 }
 

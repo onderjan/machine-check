@@ -2,6 +2,7 @@ use crate::{
     bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
     forward,
     refin::Boolean,
+    traits::misc::MetaEq,
 };
 
 use super::MarkBitvector;
@@ -60,6 +61,12 @@ pub(super) fn default_bi_mark<const L: u32, const X: u32>(
         MarkBitvector::new_marked().limit(normal_input.0),
         MarkBitvector::new_marked().limit(normal_input.1),
     )
+}
+
+impl<const L: u32> MetaEq for MarkBitvector<L> {
+    fn meta_eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
 }
 
 impl From<Boolean> for MarkBitvector<1> {

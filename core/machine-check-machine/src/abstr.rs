@@ -1,11 +1,14 @@
 use syn::{
+    parse_quote,
+    punctuated::Punctuated,
+    spanned::Spanned,
     visit_mut::{self, VisitMut},
-    Block, ExprAssign, ExprBlock, ExprCall, Ident, ItemStruct, Path, Stmt,
+    Block, ExprAssign, ExprBlock, ExprCall, Ident, Item, ItemStruct, Path, Stmt, Token,
 };
 use syn_path::path;
 
 use crate::{
-    support::field_manipulate,
+    support::{field_manipulate, meta_eq::meta_eq_impl},
     util::{
         create_expr_ident, create_expr_path, extract_else_token_block, extract_expr_ident,
         path_matches_global_names,
@@ -15,7 +18,7 @@ use crate::{
 
 use super::util::generate_derive_attribute;
 
-use quote::quote;
+use quote::{quote, ToTokens};
 
 use super::{
     support::path_rules::{PathRule, PathRuleSegment, PathRules},
@@ -32,9 +35,20 @@ pub(crate) fn create_abstract_machine(
     // apply transcription to types using path rule transcriptor
     path_rules().apply_to_items(&mut abstract_machine.items)?;
 
-    for item in abstract_machine.items.iter_mut() {
-        Visitor().visit_item_mut(item);
+    let mut processed_items = Vec::new();
+
+    for mut item in abstract_machine.items.drain(..) {
+        Visitor().visit_item_mut(&mut item);
+        match item {
+            syn::Item::Impl(_) => {
+                // just visit
+                processed_items.push(item);
+            }
+            syn::Item::Struct(item_struct) => processed_items.extend(process_struct(item_struct)),
+            _ => panic!("Unexpected item type"),
+        }
     }
+    abstract_machine.items = processed_items;
 
     // add field-manipulate to items
     field_manipulate::apply_to_items(&mut abstract_machine.items, "abstr")?;
@@ -42,15 +56,42 @@ pub(crate) fn create_abstract_machine(
     Ok(abstract_machine)
 }
 
-struct Visitor();
-impl VisitMut for Visitor {
-    fn visit_item_struct_mut(&mut self, s: &mut ItemStruct) {
-        // add default derive attributes to the structs
-        // that easily allow us to make unknown inputs/states
-        s.attrs
-            .push(generate_derive_attribute(quote!(::std::default::Default)));
+fn process_struct(mut item_struct: ItemStruct) -> Vec<Item> {
+    // remove derive of PartialEq and convert derive of Eq to AbstractEq
+    for attr in item_struct.attrs.iter_mut() {
+        if let syn::Meta::List(meta_list) = &mut attr.meta {
+            if meta_list.path.is_ident("derive") {
+                let tokens = &meta_list.tokens;
+                let punctuated: Punctuated<Path, Token![,]> = parse_quote!(#tokens);
+                println!("Derive tokens: {:?}", punctuated);
+                let mut processed_punctuated: Punctuated<Path, Token![,]> = Punctuated::new();
+                for derive in punctuated {
+                    // TODO: resolve paths
+                    if derive.is_ident("PartialEq") || derive.is_ident("Eq") {
+                        // do not add
+                        // TODO eq
+                    } else {
+                        processed_punctuated.push(derive);
+                    }
+                }
+                meta_list.tokens = processed_punctuated.to_token_stream();
+            }
+        }
     }
 
+    // add default derive attributes to the structs
+    // that easily allow us to make unknown inputs/states
+    item_struct
+        .attrs
+        .push(generate_derive_attribute(quote!(::std::default::Default)));
+
+    let meta_eq_impl = meta_eq_impl(&item_struct);
+
+    vec![Item::Struct(item_struct), meta_eq_impl]
+}
+
+struct Visitor();
+impl VisitMut for Visitor {
     fn visit_expr_mut(&mut self, expr: &mut Expr) {
         // propagate first
         visit_mut::visit_expr_mut(self, expr);

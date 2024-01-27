@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use syn::{Ident, Item, Type};
 
-use crate::MachineDescription;
+use crate::{util::path_matches_global_names, MachineDescription};
 
 use super::{
     support::{
@@ -36,7 +36,7 @@ pub(crate) fn create_refinement_machine(
             }
             Item::Impl(item_impl) => {
                 // skip if it is field-manipulate, we will add it at the end
-                if !is_field_manipulate_impl(item_impl) {
+                if !is_skipped_impl(item_impl) {
                     // apply conversion
                     item_impl::apply(&mut result_items, item_impl)?;
                     // look for special traits
@@ -73,16 +73,10 @@ pub(crate) fn create_refinement_machine(
     Ok(refinement_machine)
 }
 
-fn is_field_manipulate_impl(item_impl: &syn::ItemImpl) -> bool {
-    if let Some((_, path, _)) = &item_impl.trait_ {
-        if path.leading_colon.is_some()
-            && path.segments.len() == 3
-            && &path.segments[0].ident.to_string() == "mck"
-            && &path.segments[1].ident.to_string() == "misc"
-            && &path.segments[2].ident.to_string() == "FieldManipulate"
-        {
-            return true;
-        }
-    }
-    false
+fn is_skipped_impl(item_impl: &syn::ItemImpl) -> bool {
+    let Some((_, path, _)) = &item_impl.trait_ else {
+        return false;
+    };
+    path_matches_global_names(path, &["mck", "misc", "FieldManipulate"])
+        || path_matches_global_names(path, &["mck", "misc", "MetaEq"])
 }

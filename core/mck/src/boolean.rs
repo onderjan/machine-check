@@ -25,7 +25,7 @@ pub mod concr {
 pub mod abstr {
     use crate::abstr::{Bitvector, Phi, Test};
 
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
+    #[derive(Clone, Copy, Hash, Default)]
     pub struct Boolean(pub(crate) Bitvector<1>);
 
     impl Test for Boolean {

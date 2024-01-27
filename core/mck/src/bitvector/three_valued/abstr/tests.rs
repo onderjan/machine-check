@@ -2,7 +2,7 @@
 mod op;
 
 use super::*;
-use crate::forward::*;
+use crate::{forward::*, misc::MetaEq};
 
 // === ANECDOTAL TESTS ===
 
@@ -70,13 +70,12 @@ pub fn support() {
     assert!(unknown.contains(&partially_known));
     assert!(unknown.contains(&unknown));
 
-    assert_eq!(
-        cafe.concrete_join(ConcreteBitvector::new(0x1337)),
-        ThreeValuedBitvector::from_zeros_ones(
+    assert!(cafe.concrete_join(ConcreteBitvector::new(0x1337)).meta_eq(
+        &ThreeValuedBitvector::from_zeros_ones(
             ConcreteBitvector::new(0xFDC9),
             ConcreteBitvector::new(0xDBFF)
         )
-    );
+    ));
 
     assert_eq!(
         ThreeValuedBitvector::<8>::all_with_length_iter().count(),

@@ -19,6 +19,14 @@ pub fn refinement_normal() -> PathRules {
             ],
         },
         PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Match(String::from("mck")),
+                PathRuleSegment::Match(String::from("misc")),
+                PathRuleSegment::EndWildcard,
+            ],
+        },
+        PathRule {
             has_leading_colon: false,
             segments: vec![PathRuleSegment::ConvertPrefix(
                 String::from("__mck_"),

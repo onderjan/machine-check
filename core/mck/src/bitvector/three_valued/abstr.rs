@@ -12,7 +12,7 @@ mod shift;
 mod support;
 
 // the normal equality compares abstract bitvectors
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Hash)]
 pub struct ThreeValuedBitvector<const L: u32> {
     zeros: ConcreteBitvector<L>,
     ones: ConcreteBitvector<L>,

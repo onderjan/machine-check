@@ -5,6 +5,10 @@ pub trait FieldManipulate<T> {
     fn get_mut(&mut self, name: &str) -> Option<&mut T>;
 }
 
+pub trait MetaEq {
+    fn meta_eq(&self, other: &Self) -> bool;
+}
+
 pub trait Meta<P: Clone>: Sized {
     fn proto_first(&self) -> P;
     fn proto_increment(&self, proto: &mut P) -> bool;

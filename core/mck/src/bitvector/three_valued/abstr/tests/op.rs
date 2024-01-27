@@ -1,4 +1,7 @@
-use crate::bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector};
+use crate::{
+    bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
+    traits::misc::MetaEq,
+};
 
 macro_rules! uni_op_test {
     ($op:tt) => {
@@ -56,7 +59,7 @@ pub(super) fn exec_uni_check<const L: u32, const X: u32>(
                 .filter(|c| a.contains_concr(c))
                 .map(concr_func),
         );
-        if abstr_result != equiv_result {
+        if !abstr_result.meta_eq(&equiv_result) {
             panic!(
                 "Wrong result with parameter {}, expected {}, got {}",
                 a, equiv_result, abstr_result
@@ -83,7 +86,7 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
             }));
 
             if exact {
-                if abstr_result != equiv_result {
+                if !abstr_result.meta_eq(&equiv_result) {
                     panic!(
                         "Non-exact result with parameters {}, {}, expected {}, got {}",
                         a, b, equiv_result, abstr_result

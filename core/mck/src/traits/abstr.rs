@@ -3,15 +3,11 @@ use crate::misc::FieldManipulate;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub trait Input:
-    Debug + PartialEq + Eq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>>
-{
-}
+use super::misc::MetaEq;
 
-pub trait State:
-    Debug + PartialEq + Eq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>>
-{
-}
+pub trait Input: Debug + MetaEq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>> {}
+
+pub trait State: Debug + MetaEq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>> {}
 
 pub trait Machine<I: Input, S: State> {
     #[must_use]
