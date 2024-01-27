@@ -2,6 +2,7 @@ use super::Bitvector;
 use crate::{
     bitvector::support::Unsigned,
     bitvector::{concrete::ConcreteBitvector, wrap_interval::interval::Interval},
+    concr::Test,
     forward::{HwArith, TypedCmp},
 };
 
@@ -162,7 +163,7 @@ impl<const L: u32> HwArith for Bitvector<L> {
 
         // single divisor value, decide if the result is definitely full
         let lhs_diff = self.bound_diff();
-        if rhs_value.typed_ulte(lhs_diff).is_nonzero() {
+        if rhs_value.ule(lhs_diff).into_bool() {
             return Self::full();
         }
 

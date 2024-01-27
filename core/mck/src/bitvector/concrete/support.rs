@@ -73,7 +73,7 @@ impl<const L: u32> ConcreteBitvector<L> {
     }
 
     pub fn umin(self, other: ConcreteBitvector<L>) -> ConcreteBitvector<L> {
-        if self.typed_ulte(other).is_nonzero() {
+        if self.ule(other).into_bool() {
             self
         } else {
             other
@@ -81,17 +81,11 @@ impl<const L: u32> ConcreteBitvector<L> {
     }
 
     pub fn umax(self, other: ConcreteBitvector<L>) -> ConcreteBitvector<L> {
-        if other.typed_ulte(self).is_nonzero() {
+        if other.ule(self).into_bool() {
             self
         } else {
             other
         }
-    }
-}
-
-impl Test for ConcreteBitvector<1> {
-    fn into_bool(self) -> bool {
-        self.is_nonzero()
     }
 }
 

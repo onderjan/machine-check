@@ -1,5 +1,6 @@
 use crate::bitvector::refin;
 use crate::misc::FieldManipulate;
+use crate::refin::Boolean;
 
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -11,12 +12,10 @@ pub trait Refine<A>
 where
     Self: Sized,
 {
-    type Condition;
-
     #[must_use]
     fn apply_refin(&mut self, offer: &Self) -> bool;
     fn apply_join(&mut self, other: &Self);
-    fn to_condition(&self) -> Self::Condition;
+    fn to_condition(&self) -> Boolean;
     fn force_decay(&self, target: &mut A);
 }
 

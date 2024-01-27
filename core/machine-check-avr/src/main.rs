@@ -31,12 +31,19 @@ mod machine_module {
                 + (::machine_check::Bitvector::<4>::new(1)
                     + ::machine_check::Bitvector::<4>::new(1));
             safe = arr[::machine_check::Bitvector::<4>::new(0xC)];*/
-            /*if ::mck::concr::Test::into_bool(input.i) {
-                safe = ::machine_check::Bitvector::<1>::new(1);
-            } else {
+            let zero = ::machine_check::Bitvector::<1>::new(0);
+            let one = ::machine_check::Bitvector::<1>::new(1);
+            if input.j == zero {
+                /*if input.j == one {
+                    //if input.i == 0 {
+                    safe = ::machine_check::Bitvector::<1>::new(0);
+                } else {
+                    safe = ::machine_check::Bitvector::<1>::new(1);
+                };*/
                 safe = ::machine_check::Bitvector::<1>::new(0);
-            }*/
-            safe = ::machine_check::Bitvector::<1>::new(1);
+            } else {
+                safe = ::machine_check::Bitvector::<1>::new(1);
+            }
 
             State { safe }
         }

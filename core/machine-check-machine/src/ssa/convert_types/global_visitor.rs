@@ -1,15 +1,10 @@
-use std::collections::HashMap;
-
 use syn::{
     spanned::Spanned,
     visit_mut::{self, VisitMut},
-    ExprCall, Ident, ItemStruct, Path, PathArguments, PathSegment, Type,
+    Ident, Path, PathArguments, PathSegment,
 };
 
-use crate::{
-    util::{extract_expr_path_mut, path_matches_global_names, path_starts_with_global_names},
-    MachineError,
-};
+use crate::{util::path_starts_with_global_names, MachineError};
 
 pub struct GlobalVisitor {
     pub result: Result<(), MachineError>,
@@ -49,8 +44,8 @@ impl VisitMut for GlobalVisitor {
         }
 
         if path_starts_with_global_names(path, &["machine_check", "Input"])
-        || path_starts_with_global_names(path, &["machine_check", "State"])
-        || path_starts_with_global_names(path, &["machine_check", "Machine"])
+            || path_starts_with_global_names(path, &["machine_check", "State"])
+            || path_starts_with_global_names(path, &["machine_check", "Machine"])
         {
             let first_segment_span = path.segments[0].span();
             path.segments[0].ident = Ident::new("mck", first_segment_span);

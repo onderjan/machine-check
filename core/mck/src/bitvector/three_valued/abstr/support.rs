@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    abstr::{Phi, Test},
+    abstr::{Boolean, Phi, Test},
     bitvector::{concrete::ConcreteBitvector, util},
     forward::Bitwise,
 };
@@ -204,6 +204,31 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 }
 
+impl ThreeValuedBitvector<1> {
+    fn from_bools(can_be_zero: bool, can_be_one: bool) -> Self {
+        Self::from_zeros_ones(
+            ConcreteBitvector::new(can_be_zero as u64),
+            ConcreteBitvector::new(can_be_one as u64),
+        )
+    }
+}
+
+impl From<Boolean> for ThreeValuedBitvector<1> {
+    fn from(value: Boolean) -> Self {
+        Self::from_bools(value.can_be_false(), value.can_be_true())
+    }
+}
+
+impl ThreeValuedBitvector<1> {
+    pub fn can_be_true(self) -> bool {
+        self.ones.is_nonzero()
+    }
+
+    pub fn can_be_false(self) -> bool {
+        self.zeros.is_nonzero()
+    }
+}
+
 impl<const L: u32> Default for ThreeValuedBitvector<L> {
     fn default() -> Self {
         // default to fully unknown
@@ -211,18 +236,8 @@ impl<const L: u32> Default for ThreeValuedBitvector<L> {
     }
 }
 
-impl Test for ThreeValuedBitvector<1> {
-    fn can_be_true(self) -> bool {
-        self.ones.is_nonzero()
-    }
-
-    fn can_be_false(self) -> bool {
-        self.zeros.is_nonzero()
-    }
-}
-
 impl<const L: u32> Phi for ThreeValuedBitvector<L> {
-    type Condition = ThreeValuedBitvector<1>;
+    type Condition = Boolean;
     fn phi(self, other: Self) -> Self {
         let zeros = self.zeros.bit_or(other.zeros);
         let ones = self.ones.bit_or(other.ones);

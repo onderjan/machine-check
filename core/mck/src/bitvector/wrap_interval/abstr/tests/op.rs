@@ -1,7 +1,11 @@
 use std::collections::BTreeSet;
 
 use super::Bitvector;
-use crate::{bitvector::concrete::ConcreteBitvector, forward::HwArith};
+use crate::{
+    abstr::{Boolean, Test},
+    bitvector::concrete::ConcreteBitvector,
+    forward::HwArith,
+};
 
 macro_rules! uni_op_test {
     ($op:tt) => {
@@ -40,8 +44,8 @@ macro_rules! bi_op_test {
 
         #[test]
         pub fn $op~L() {
-            let abstr_func = |a: Bitvector<L>, b: Bitvector<L>| a.$op(b);
-            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| a.$op(b);
+            let abstr_func = |a: Bitvector<L>, b: Bitvector<L>| ::std::convert::Into::into(a.$op(b));
+            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| ::std::convert::Into::into(a.$op(b));
             $crate::bitvector::wrap_interval::abstr::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
         }
     });

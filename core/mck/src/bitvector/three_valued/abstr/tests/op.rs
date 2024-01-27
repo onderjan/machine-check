@@ -37,8 +37,8 @@ macro_rules! bi_op_test {
 
         #[test]
         pub fn $op~L() {
-            let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b);
-            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| a.$op(b);
+            let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b).into();
+            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| a.$op(b).into();
             $crate::bitvector::three_valued::abstr::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
         }
     });

@@ -4,23 +4,21 @@ use crate::{
         util::compute_u64_sign_bit_mask,
     },
     forward,
-    refin::Refine,
+    refin::{Boolean, Refine},
 };
 
 use super::MarkBitvector;
 
 impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
-    type Condition = MarkBitvector<1>;
-
     fn apply_join(&mut self, other: &Self) {
         self.0 = forward::Bitwise::bit_or(self.0, other.0);
     }
 
-    fn to_condition(&self) -> Self::Condition {
+    fn to_condition(&self) -> Boolean {
         if self.0.is_nonzero() {
-            MarkBitvector::new_marked()
+            Boolean::new_marked()
         } else {
-            MarkBitvector::new_unmarked()
+            Boolean::new_unmarked()
         }
     }
 

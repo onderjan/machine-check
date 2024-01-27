@@ -11,13 +11,16 @@ use syn_path::path;
 
 use crate::{
     util::{
-        create_type_path, extract_expr_ident, extract_expr_path, extract_path_ident,
+        boolean_type, create_type_path, extract_expr_ident, extract_expr_path, extract_path_ident,
         extract_type_path, path_matches_global_names,
     },
     MachineError,
 };
 
-use super::{fn_properties::TYPE_RETAINING_STD_OPS, type_properties::is_type_standard_inferred};
+use super::{
+    fn_properties::{STD_CMP_FNS, STD_OPS_FNS},
+    type_properties::is_type_standard_inferred,
+};
 
 pub struct LocalVisitor<'a> {
     pub local_ident_types: HashMap<Ident, Option<Type>>,
@@ -192,7 +195,7 @@ impl LocalVisitor<'_> {
         }
 
         // --- FUNCTIONS THAT RETAIN ARGUMENT TYPES IN RETURN TYPE ---
-        for (bit_result_trait, bit_result_fn) in TYPE_RETAINING_STD_OPS {
+        for (bit_result_trait, bit_result_fn) in STD_OPS_FNS {
             if path_matches_global_names(
                 func_path,
                 &["std", "ops", bit_result_trait, bit_result_fn],
@@ -216,16 +219,17 @@ impl LocalVisitor<'_> {
         }
 
         // TODO: add extensions and conditions
-        /* // --- FUNCTIONS THAT ALWAYS RETURN A SINGLE BIT ---
-        for (bit_result_trait, bit_result_fn) in BIT_RESULT_TRAIT_FNS {
+        // --- FUNCTIONS THAT RETURN BOOLEAN ---
+        for (bit_result_trait, bit_result_fn) in STD_CMP_FNS {
             if path_matches_global_names(
                 func_path,
-                &["mck", "forward", bit_result_trait, bit_result_fn],
+                &["std", "cmp", bit_result_trait, bit_result_fn],
             ) {
-                return Some(single_bit_type("concr"));
+                return Some(boolean_type("concr"));
             }
         }
 
+        /*
         // --- FUNCTION THAT CHANGE GENERICS BASED ON TRAIT ---
         for (bit_result_trait, bit_result_fn) in GENERICS_CHANGING_TRAIT_FNS {
             if path_matches_global_names(

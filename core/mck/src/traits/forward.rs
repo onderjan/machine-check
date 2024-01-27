@@ -4,20 +4,20 @@ pub trait TypedEq {
     type Output;
 
     #[must_use]
-    fn typed_eq(self, rhs: Self) -> Self::Output;
+    fn eq(self, rhs: Self) -> Self::Output;
 }
 
 pub trait TypedCmp {
     type Output;
 
     #[must_use]
-    fn typed_ult(self, rhs: Self) -> Self::Output;
+    fn ult(self, rhs: Self) -> Self::Output;
     #[must_use]
-    fn typed_slt(self, rhs: Self) -> Self::Output;
+    fn slt(self, rhs: Self) -> Self::Output;
     #[must_use]
-    fn typed_ulte(self, rhs: Self) -> Self::Output;
+    fn ule(self, rhs: Self) -> Self::Output;
     #[must_use]
-    fn typed_slte(self, rhs: Self) -> Self::Output;
+    fn sle(self, rhs: Self) -> Self::Output;
 }
 
 pub trait Bitwise

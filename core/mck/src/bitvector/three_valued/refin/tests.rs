@@ -133,11 +133,11 @@ bi_op_test!(Bitwise, bit_or, false);
 bi_op_test!(Bitwise, bit_xor, false);
 
 // equality and comparison tests
-bi_op_test!(TypedEq, typed_eq, false);
-bi_op_test!(TypedCmp, typed_slt, false);
-bi_op_test!(TypedCmp, typed_slte, false);
-bi_op_test!(TypedCmp, typed_ult, false);
-bi_op_test!(TypedCmp, typed_ulte, false);
+bi_op_test!(TypedEq, eq, false);
+bi_op_test!(TypedCmp, slt, false);
+bi_op_test!(TypedCmp, sle, false);
+bi_op_test!(TypedCmp, ult, false);
+bi_op_test!(TypedCmp, ule, false);
 
 // shift tests
 bi_op_test!(HwShift, logic_shl, false);

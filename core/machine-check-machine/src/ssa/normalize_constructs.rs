@@ -10,7 +10,7 @@ use syn_path::path;
 
 use crate::{
     support::local::extract_local_ident_with_type,
-    util::{create_expr_ident, extract_path_ident},
+    util::{create_expr_ident, create_expr_path, extract_path_ident},
     MachineError,
 };
 
@@ -140,6 +140,9 @@ impl VisitMut for Visitor {
     }
 
     fn visit_expr_mut(&mut self, expr: &mut Expr) {
+        // delegate first to avoid spurious path errors
+        visit_mut::visit_expr_mut(self, expr);
+
         let mut taken_expr = Expr::Infer(ExprInfer {
             attrs: vec![],
             underscore_token: Default::default(),
@@ -188,9 +191,6 @@ impl VisitMut for Visitor {
             }
         };
         std::mem::swap(expr, &mut processed_expr);
-
-        // delegate
-        visit_mut::visit_expr_mut(self, expr);
     }
 
     fn visit_expr_call_mut(&mut self, expr_call: &mut syn::ExprCall) {
@@ -261,6 +261,22 @@ impl VisitMut for Visitor {
 
         // delegate
         visit_mut::visit_expr_if_mut(self, expr_if);
+
+        // add call to Test if the condition is not a literal
+        // do it after delegation so we do not trigger path error
+        if !matches!(*expr_if.cond, Expr::Lit(_)) {
+            let mut cond = Expr::Infer(ExprInfer {
+                attrs: vec![],
+                underscore_token: Default::default(),
+            });
+            std::mem::swap(&mut cond, &mut expr_if.cond);
+            expr_if.cond = Box::new(Expr::Call(ExprCall {
+                attrs: vec![],
+                func: Box::new(create_expr_path(path!(::mck::concr::Test::into_bool))),
+                paren_token: Default::default(),
+                args: Punctuated::from_iter([cond]),
+            }));
+        }
     }
 
     fn visit_block_mut(&mut self, block: &mut Block) {
@@ -430,7 +446,7 @@ impl Visitor {
     }
 
     fn normalize_binary(&mut self, expr_binary: ExprBinary) -> Expr {
-        let path = match expr_binary.op {
+        let call_func = match expr_binary.op {
             syn::BinOp::Add(_) => Some(path!(::std::ops::Add::add)),
             syn::BinOp::Sub(_) => Some(path!(::std::ops::Sub::sub)),
             syn::BinOp::Mul(_) => Some(path!(::std::ops::Mul::mul)),
@@ -453,15 +469,12 @@ impl Visitor {
             syn::BinOp::BitXor(_) => Some(path!(::std::ops::BitXor::bitxor)),
             syn::BinOp::Shl(_) => Some(path!(::std::ops::Shl::shl)),
             syn::BinOp::Shr(_) => Some(path!(::std::ops::Shr::shr)),
-            syn::BinOp::Eq(_)
-            | syn::BinOp::Lt(_)
-            | syn::BinOp::Le(_)
-            | syn::BinOp::Ne(_)
-            | syn::BinOp::Ge(_)
-            | syn::BinOp::Gt(_) => {
-                // TODO: equality / comparisons
-                todo!()
-            }
+            syn::BinOp::Eq(_) => Some(path!(::std::cmp::PartialEq::eq)),
+            syn::BinOp::Ne(_) => Some(path!(::std::cmp::PartialEq::ne)),
+            syn::BinOp::Lt(_) => Some(path!(::std::cmp::PartialCmp::lt)),
+            syn::BinOp::Le(_) => Some(path!(::std::cmp::PartialCmp::lte)),
+            syn::BinOp::Gt(_) => Some(path!(::std::cmp::PartialCmp::gt)),
+            syn::BinOp::Ge(_) => Some(path!(::std::cmp::PartialCmp::gte)),
             syn::BinOp::AddAssign(_)
             | syn::BinOp::SubAssign(_)
             | syn::BinOp::MulAssign(_)
@@ -482,8 +495,8 @@ impl Visitor {
                 None
             }
         };
-        if let Some(path) = path {
-            // construct a call
+        if let Some(path) = call_func {
+            // construct the call
             Expr::Call(ExprCall {
                 attrs: vec![],
                 func: Box::new(Expr::Path(ExprPath {

@@ -49,10 +49,10 @@ macro_rules! bi_op_test {
             let mark_func = |inputs: ($crate::bitvector::three_valued::abstr::ThreeValuedBitvector<L>,
                 $crate::bitvector::three_valued::abstr::ThreeValuedBitvector<L>),
                                 mark| {
-                crate::backward::$ty::$op(inputs, mark)
+                                    ::std::convert::Into::into(crate::backward::$ty::$op(inputs, ::std::convert::Into::into(mark)))
             };
-            let concr_func = $crate::forward::$ty::$op;
-            $crate::bitvector::three_valued::refin::tests::op::exec_bi_check(mark_func, concr_func, $exact);
+            let concr_func = |a: $crate::bitvector::concrete::ConcreteBitvector<L>, b:$crate::bitvector::concrete::ConcreteBitvector<L>| ::std::convert::Into::into($crate::forward::$ty::$op(a,b));
+            $crate::bitvector::three_valued::refin::tests::op::exec_bi_check(&mark_func, &concr_func, $exact);
         }
     });
     };
@@ -216,11 +216,11 @@ fn exec_left_check<const L: u32, const X: u32>(
 }
 
 pub(super) fn exec_bi_check<const L: u32, const X: u32>(
-    mark_func: fn(
+    mark_func: &impl Fn(
         (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
         MarkBitvector<X>,
     ) -> (MarkBitvector<L>, MarkBitvector<L>),
-    concr_func: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<X>,
+    concr_func: &impl Fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<X>,
     want_exact: bool,
 ) {
     // exec for left

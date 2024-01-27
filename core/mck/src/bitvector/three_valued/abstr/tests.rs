@@ -131,11 +131,11 @@ bi_op_test!(bit_or, true);
 bi_op_test!(bit_xor, true);
 
 // equality and comparison tests
-bi_op_test!(typed_eq, true);
-bi_op_test!(typed_slt, true);
-bi_op_test!(typed_slte, true);
-bi_op_test!(typed_ult, true);
-bi_op_test!(typed_ulte, true);
+bi_op_test!(eq, true);
+bi_op_test!(slt, true);
+bi_op_test!(sle, true);
+bi_op_test!(ult, true);
+bi_op_test!(ule, true);
 
 // shift tests
 bi_op_test!(logic_shl, true);

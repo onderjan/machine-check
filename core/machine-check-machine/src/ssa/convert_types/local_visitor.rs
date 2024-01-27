@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use syn::{
     spanned::Spanned,
     visit_mut::{self, VisitMut},
-    ExprCall, Ident, ItemStruct, Path, PathArguments, PathSegment, Type,
+    ExprCall, Ident, ItemStruct, Path, Type,
 };
 
 use crate::{
-    util::{extract_expr_path_mut, path_matches_global_names, path_starts_with_global_names},
+    util::{extract_expr_path_mut, path_matches_global_names},
     MachineError,
 };
 
@@ -65,6 +65,16 @@ impl VisitMut for LocalVisitor<'_> {
             func_path.segments[0].ident = Ident::new("mck", func_path.segments[0].span());
             func_path.segments[1].ident = Ident::new("forward", func_path.segments[1].span());
             func_path.segments[2].ident = Ident::new("HwArith", func_path.segments[2].span());
+            // leave the last segment as-is
+        }
+
+        // --- Eq ---
+        if path_matches_global_names(func_path, &["std", "cmp", "PartialEq", "eq"])
+            || path_matches_global_names(func_path, &["std", "cmp", "PartialEq", "ne"])
+        {
+            func_path.segments[0].ident = Ident::new("mck", func_path.segments[0].span());
+            func_path.segments[1].ident = Ident::new("forward", func_path.segments[1].span());
+            func_path.segments[2].ident = Ident::new("TypedEq", func_path.segments[2].span());
             // leave the last segment as-is
         }
 

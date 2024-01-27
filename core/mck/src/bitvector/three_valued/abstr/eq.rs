@@ -1,4 +1,5 @@
 use crate::{
+    abstr::Boolean,
     bitvector::concrete::ConcreteBitvector,
     forward::{Bitwise, TypedEq},
 };
@@ -6,8 +7,8 @@ use crate::{
 use super::ThreeValuedBitvector;
 
 impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
-    type Output = ThreeValuedBitvector<1>;
-    fn typed_eq(self, rhs: Self) -> Self::Output {
+    type Output = Boolean;
+    fn eq(self, rhs: Self) -> Self::Output {
         // result can be true if all bits can be the same
         // result can be false if at least one bit can be different
 

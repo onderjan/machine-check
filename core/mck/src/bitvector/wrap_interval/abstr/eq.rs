@@ -4,7 +4,7 @@ use super::Bitvector;
 
 impl<const L: u32> TypedEq for Bitvector<L> {
     type Output = Bitvector<1>;
-    fn typed_eq(self, rhs: Self) -> Self::Output {
+    fn eq(self, rhs: Self) -> Self::Output {
         // consider all intervals, otherwise the results would be inexact
         let lhs_intervals = self.unsigned_intervals();
         let rhs_intervals = rhs.unsigned_intervals();

@@ -63,21 +63,26 @@ fn convert_expr(expr: &mut Expr) {
     let Expr::If(expr_if) = expr else {
         return;
     };
-    let Expr::Call(cond_expr_call) = expr_if.cond.as_mut() else {
+    if matches!(*expr_if.cond, Expr::Lit(_)) {
         return;
+    }
+    let Expr::Call(cond_expr_call) = expr_if.cond.as_mut() else {
+        panic!("Expected non-literal-condition if to use into_bool, but no call");
     };
     let Expr::Path(cond_expr_path) = cond_expr_call.func.as_mut() else {
-        return;
+        panic!("Expected non-literal-condition if to use into_bool, but call func is not path");
     };
     if cond_expr_path.path != path!(::mck::abstr::Test::into_bool) {
-        return;
+        panic!("Expected non-literal-condition if to use into_bool, but call func is different");
     }
     if cond_expr_call.args.len() != 1 {
         panic!("Expected into_bool call to have exactly one argument");
     }
 
     let if_token = expr_if.if_token;
-    let condition = extract_expr_ident(&cond_expr_call.args[0]).expect("Condition should be ident");
+
+    let condition = extract_expr_ident(&cond_expr_call.args[0])
+        .expect("Condition should be either path or literal");
 
     let then_block = &expr_if.then_branch;
 

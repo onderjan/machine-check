@@ -1,30 +1,30 @@
 use std::cmp::Ordering;
 
-use crate::forward::TypedCmp;
+use crate::{concr::Boolean, forward::TypedCmp};
 
 use super::ConcreteBitvector;
 
 impl<const L: u32> TypedCmp for ConcreteBitvector<L> {
-    type Output = ConcreteBitvector<1>;
+    type Output = Boolean;
 
-    fn typed_slt(self, rhs: Self) -> Self::Output {
+    fn slt(self, rhs: Self) -> Self::Output {
         let result = self.as_signed() < rhs.as_signed();
-        ConcreteBitvector::<1>::new(result as u64)
+        Boolean::new(result as u64)
     }
 
-    fn typed_ult(self, rhs: Self) -> Self::Output {
+    fn ult(self, rhs: Self) -> Self::Output {
         let result = self.as_unsigned() < rhs.as_unsigned();
-        ConcreteBitvector::<1>::new(result as u64)
+        Boolean::new(result as u64)
     }
 
-    fn typed_slte(self, rhs: Self) -> Self::Output {
+    fn sle(self, rhs: Self) -> Self::Output {
         let result = self.as_signed() <= rhs.as_signed();
-        ConcreteBitvector::<1>::new(result as u64)
+        Boolean::new(result as u64)
     }
 
-    fn typed_ulte(self, rhs: Self) -> Self::Output {
+    fn ule(self, rhs: Self) -> Self::Output {
         let result = self.as_unsigned() <= rhs.as_unsigned();
-        ConcreteBitvector::<1>::new(result as u64)
+        Boolean::new(result as u64)
     }
 }
 

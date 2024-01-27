@@ -3,9 +3,9 @@ use crate::{bitvector::concrete::ConcreteBitvector, forward::TypedCmp};
 use super::ThreeValuedBitvector;
 
 impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
-    type Output = ThreeValuedBitvector<1>;
+    type Output = crate::abstr::Boolean;
 
-    fn typed_ult(self, rhs: Self) -> Self::Output {
+    fn ult(self, rhs: Self) -> Self::Output {
         // use unsigned versions
         let lhs_min = self.umin().as_unsigned();
         let lhs_max = self.umax().as_unsigned();
@@ -26,7 +26,7 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
         )
     }
 
-    fn typed_ulte(self, rhs: Self) -> Self::Output {
+    fn ule(self, rhs: Self) -> Self::Output {
         // use unsigned versions
         let lhs_min = self.umin().as_unsigned();
         let lhs_max = self.umax().as_unsigned();
@@ -47,7 +47,7 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
         )
     }
 
-    fn typed_slt(self, rhs: Self) -> Self::Output {
+    fn slt(self, rhs: Self) -> Self::Output {
         // use signed versions
         let lhs_min = self.smin().as_signed();
         let lhs_max = self.smax().as_signed();
@@ -68,7 +68,7 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
         )
     }
 
-    fn typed_slte(self, rhs: Self) -> Self::Output {
+    fn sle(self, rhs: Self) -> Self::Output {
         // use signed versions
         let lhs_min = self.smin().as_signed();
         let lhs_max = self.smax().as_signed();

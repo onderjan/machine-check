@@ -1,7 +1,7 @@
 use crate::{
     abstr,
     backward::ReadWrite,
-    refin::{self, Bitvector, Refine},
+    refin::{self, Bitvector, Boolean, Refine},
 };
 
 use super::abstr::extract_bounds;
@@ -120,22 +120,20 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
 }
 
 impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
-    type Condition = Bitvector<1>;
-
     fn apply_join(&mut self, other: &Self) {
         for (dst, src) in self.inner.iter_mut().zip(other.inner.iter()) {
             dst.apply_join(src);
         }
     }
 
-    fn to_condition(&self) -> Self::Condition {
+    fn to_condition(&self) -> Boolean {
         // marked if we have any marking
         for elem in self.inner.iter() {
             if *elem != Bitvector::<L>::new_unmarked() {
-                return Bitvector::new_marked();
+                return Boolean::new_marked();
             }
         }
-        Bitvector::new_unmarked()
+        Boolean::new_unmarked()
     }
 
     fn apply_refin(&mut self, offer: &Self) -> bool {

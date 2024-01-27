@@ -6,7 +6,7 @@ where
     type MarkLater;
 
     #[must_use]
-    fn typed_eq(
+    fn eq(
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier);
@@ -20,22 +20,22 @@ where
     type MarkLater;
 
     #[must_use]
-    fn typed_slt(
+    fn slt(
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier);
     #[must_use]
-    fn typed_ult(
+    fn ult(
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier);
     #[must_use]
-    fn typed_slte(
+    fn sle(
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier);
     #[must_use]
-    fn typed_ulte(
+    fn ule(
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier);

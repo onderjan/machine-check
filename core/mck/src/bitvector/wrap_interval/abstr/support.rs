@@ -4,6 +4,7 @@ use std::{
 };
 
 use crate::{
+    abstr::{Boolean, Test},
     bitvector::concrete::ConcreteBitvector,
     bitvector::support::Unsigned,
     bitvector::{util, wrap_interval::interval::Interval},
@@ -464,6 +465,12 @@ impl Bitvector<1> {
             start: ConcreteBitvector::new(if can_be_false { 0 } else { 1 }),
             end: ConcreteBitvector::new(if can_be_true { 1 } else { 0 }),
         }
+    }
+}
+
+impl From<Boolean> for Bitvector<1> {
+    fn from(value: Boolean) -> Self {
+        Self::from_bools(value.can_be_false(), value.can_be_true())
     }
 }
 

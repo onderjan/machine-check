@@ -1,4 +1,7 @@
-use crate::forward::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq};
+use crate::{
+    concr::Test,
+    forward::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq},
+};
 
 use super::ConcreteBitvector;
 
@@ -55,10 +58,10 @@ fn eq() {
     let a = ConcreteBitvector::<16>::new(0xCAFE);
     let b = ConcreteBitvector::<16>::new(0x1337);
 
-    assert!(a.typed_eq(a).is_nonzero());
-    assert!(b.typed_eq(b).is_nonzero());
-    assert!(a.typed_eq(b).is_zero());
-    assert!(b.typed_eq(a).is_zero());
+    assert!(a.eq(a).into_bool());
+    assert!(b.eq(b).into_bool());
+    assert!(!a.eq(b).into_bool());
+    assert!(!b.eq(a).into_bool());
 }
 
 #[test]
@@ -67,22 +70,22 @@ fn cmp() {
     let b = ConcreteBitvector::<16>::new(0x1337);
 
     // identity
-    assert!(a.typed_ult(a).is_zero());
-    assert!(a.typed_ulte(a).is_nonzero());
-    assert!(a.typed_slt(a).is_zero());
-    assert!(a.typed_slte(a).is_nonzero());
+    assert!(!a.ult(a).into_bool());
+    assert!(a.ule(a).into_bool());
+    assert!(!a.slt(a).into_bool());
+    assert!(a.sle(a).into_bool());
 
     // comparison
-    assert!(a.typed_ult(b).is_zero());
-    assert!(a.typed_ulte(b).is_zero());
-    assert!(a.typed_slt(b).is_nonzero());
-    assert!(a.typed_slte(b).is_nonzero());
+    assert!(!a.ult(b).into_bool());
+    assert!(!a.ule(b).into_bool());
+    assert!(a.slt(b).into_bool());
+    assert!(a.sle(b).into_bool());
 
     // try flipped the other way, they are not equal
-    assert!(b.typed_ult(a).is_nonzero());
-    assert!(b.typed_ulte(a).is_nonzero());
-    assert!(b.typed_slt(a).is_zero());
-    assert!(b.typed_slte(a).is_zero());
+    assert!(b.ult(a).into_bool());
+    assert!(b.ule(a).into_bool());
+    assert!(!b.slt(a).into_bool());
+    assert!(!b.sle(a).into_bool());
 }
 
 #[test]

@@ -18,8 +18,8 @@ macro_rules! generate_bi_op {
     ($op_name:ident, $output:ty) => {
         fn $op_name(self, rhs: Self) -> $output {
             <$output>::from_join(
-                self.three_valued.$op_name(rhs.three_valued),
-                self.wrap_interval.$op_name(rhs.wrap_interval),
+                ::std::convert::Into::into(self.three_valued.$op_name(rhs.three_valued)),
+                ::std::convert::Into::into(self.wrap_interval.$op_name(rhs.wrap_interval)),
             )
         }
     };
@@ -46,15 +46,15 @@ impl<const L: u32> HwArith for Bitvector<L> {
 impl<const L: u32> TypedCmp for Bitvector<L> {
     type Output = Bitvector<1>;
 
-    generate_bi_op!(typed_ult, Self::Output);
-    generate_bi_op!(typed_ulte, Self::Output);
-    generate_bi_op!(typed_slt, Self::Output);
-    generate_bi_op!(typed_slte, Self::Output);
+    generate_bi_op!(ult, Self::Output);
+    generate_bi_op!(ule, Self::Output);
+    generate_bi_op!(slt, Self::Output);
+    generate_bi_op!(sle, Self::Output);
 }
 
 impl<const L: u32> TypedEq for Bitvector<L> {
     type Output = Bitvector<1>;
-    generate_bi_op!(typed_eq, Self::Output);
+    generate_bi_op!(eq, Self::Output);
 }
 
 impl<const L: u32, const X: u32> Ext<X> for Bitvector<L> {

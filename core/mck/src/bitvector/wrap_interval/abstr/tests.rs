@@ -122,12 +122,12 @@ bi_op_test!(urem, false);
 bi_op_test!(sdiv, false);
 bi_op_test!(srem, false);
 
-bi_op_test!(typed_eq, true);
+bi_op_test!(eq, true);
 
-bi_op_test!(typed_ult, true);
-bi_op_test!(typed_ulte, true);
-bi_op_test!(typed_slt, true);
-bi_op_test!(typed_slte, true);
+bi_op_test!(ult, true);
+bi_op_test!(ule, true);
+bi_op_test!(slt, true);
+bi_op_test!(sle, true);
 
 ext_op_test!(uext);
 ext_op_test!(sext);

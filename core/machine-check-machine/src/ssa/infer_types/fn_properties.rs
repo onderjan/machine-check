@@ -1,12 +1,13 @@
-pub static BIT_RESULT_TRAIT_FNS: [(&str, &str); 5] = [
-    ("TypedEq", "typed_eq"),
-    ("TypedCmp", "typed_ult"),
-    ("TypedCmp", "typed_slt"),
-    ("TypedCmp", "typed_ulte"),
-    ("TypedCmp", "typed_slte"),
+pub static STD_CMP_FNS: [(&str, &str); 6] = [
+    ("PartialEq", "eq"),
+    ("PartialEq", "ne"),
+    ("PartialOrd", "lt"),
+    ("PartialOrd", "le"),
+    ("PartialOrd", "gt"),
+    ("PartialOrd", "ge"),
 ];
 
-pub static TYPE_RETAINING_STD_OPS: [(&str, &str); 12] = [
+pub static STD_OPS_FNS: [(&str, &str); 12] = [
     // arithmetic
     ("Neg", "neg"),
     ("Add", "add"),

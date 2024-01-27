@@ -77,3 +77,16 @@ pub fn single_bit_type(flavour: &str) -> Type {
 
     create_type_path(path)
 }
+
+pub fn boolean_type(flavour: &str) -> Type {
+    let mut path = Path {
+        leading_colon: Some(Default::default()),
+        segments: Punctuated::from_iter(vec![
+            create_path_segment(create_ident("mck")),
+            create_path_segment(create_ident(flavour)),
+            create_path_segment(create_ident("Boolean")),
+        ]),
+    };
+    create_type_path(path)
+}
+

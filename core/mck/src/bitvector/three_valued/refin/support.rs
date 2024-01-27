@@ -1,6 +1,7 @@
 use crate::{
     bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
     forward,
+    refin::Boolean,
 };
 
 use super::MarkBitvector;
@@ -59,4 +60,16 @@ pub(super) fn default_bi_mark<const L: u32, const X: u32>(
         MarkBitvector::new_marked().limit(normal_input.0),
         MarkBitvector::new_marked().limit(normal_input.1),
     )
+}
+
+impl From<Boolean> for MarkBitvector<1> {
+    fn from(value: Boolean) -> Self {
+        value.0
+    }
+}
+
+impl From<MarkBitvector<1>> for Boolean {
+    fn from(value: MarkBitvector<1>) -> Self {
+        Boolean(value)
+    }
 }
