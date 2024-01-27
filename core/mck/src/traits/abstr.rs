@@ -28,5 +28,6 @@ where
     type Condition;
     fn phi(self, other: Self) -> Self;
 
-    fn uninit() -> Self;
+    fn uninit_read() -> Self;
+    fn uninit_write() -> Self;
 }

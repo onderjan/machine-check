@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use syn::{
     visit_mut::{self, VisitMut},
@@ -7,6 +7,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
+    ssa,
     support::local::construct_prefixed_ident,
     util::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path,
@@ -18,14 +19,14 @@ use crate::{
 
 pub struct LocalVisitor {
     pub branch_counter: u32,
-    pub local_ident_counters: HashMap<Ident, Counter>,
+    pub local_ident_counters: BTreeMap<Ident, Counter>,
     pub temps: BTreeMap<Ident, (Ident, Option<Type>)>,
     pub result: Result<(), MachineError>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Counter {
-    pub current: Option<u32>,
+    pub present: BTreeSet<u32>,
     pub next: u32,
     pub ty: Option<Type>,
 }
@@ -74,24 +75,24 @@ impl VisitMut for LocalVisitor {
         // replace ident by temporary if necessary
         if let Some(counter) = self.local_ident_counters.get(ident) {
             // the variable must be used before being assigned
-            let Some(current_counter) = counter.current else {
+            let Some(current_counter) = counter.present.last() else {
                 panic!("Counter used before being assigned");
             };
-            *ident = construct_temp_ident(ident, current_counter);
+            *ident = construct_temp_ident(ident, *current_counter);
         }
     }
 }
 
 impl LocalVisitor {
     fn process_if(&mut self, expr_if: &mut syn::ExprIf) -> Vec<Stmt> {
+        // visit condition
+        self.visit_expr_mut(expr_if.cond.as_mut());
+
         let current_branch_counter = self.branch_counter;
         self.branch_counter = self
             .branch_counter
             .checked_add(1)
             .expect("Branch counter should not overflow");
-
-        // visit condition
-        self.visit_expr_mut(expr_if.cond.as_mut());
 
         let then_block = &mut expr_if.then_branch;
         let else_block =
@@ -104,8 +105,10 @@ impl LocalVisitor {
         self.visit_block_mut(then_block);
         let then_counters = self.local_ident_counters.clone();
         for (ident, counter) in self.local_ident_counters.iter_mut() {
-            let base_counter = base_counters.get(ident).unwrap();
-            counter.current = base_counter.current;
+            let base_counter = base_counters
+                .get(ident)
+                .expect("Then block ident should be in base counters");
+            counter.present = base_counter.present.clone();
         }
 
         // visit else block
@@ -115,12 +118,46 @@ impl LocalVisitor {
         let mut append_stmts = Vec::new();
         for (ident, else_counter) in self.local_ident_counters.iter_mut() {
             let ty = else_counter.ty.clone();
-            let last_base = base_counters.get(ident).unwrap().current;
-            let last_then = then_counters.get(ident).unwrap().current;
-            let last_else = else_counter.current;
+            let base_present = &base_counters
+                .get(ident)
+                .expect("Else block ident should be in base counters")
+                .present;
+            let then_present = &then_counters
+                .get(ident)
+                .expect("Else block ident should be in then counters")
+                .present;
+            let else_present = &mut else_counter.present;
+
+            let last_base = base_present.last().cloned();
+            let last_then = then_present.last().cloned();
+            let last_else = else_present.last().cloned();
+
+            // set the ones which are present in one branch but not the other as uninitialized in the other
+            for present_only_in_then in then_present.difference(else_present).cloned() {
+                let temp_ident = construct_temp_ident(ident, present_only_in_then);
+                else_block.stmts.push(create_assign(
+                    temp_ident.clone(),
+                    create_expr_call(
+                        create_expr_path(path!(::mck::concr::Phi::uninit_write)),
+                        vec![],
+                    ),
+                    true,
+                ));
+            }
+            for present_only_in_else in else_present.difference(then_present).cloned() {
+                let temp_ident = construct_temp_ident(ident, present_only_in_else);
+                then_block.stmts.push(create_assign(
+                    temp_ident.clone(),
+                    create_expr_call(
+                        create_expr_path(path!(::mck::concr::Phi::uninit_write)),
+                        vec![],
+                    ),
+                    true,
+                ));
+            }
 
             if last_base == last_then && last_base == last_else {
-                // do nothing for this ident, it was not assigned to in either branch
+                // this ident was not assigned to in either branch
                 continue;
             }
 
@@ -185,7 +222,7 @@ impl LocalVisitor {
             let append_ident = create_new_temporary(&mut self.temps, ident, else_counter);
 
             append_stmts.push(create_assign(
-                append_ident,
+                append_ident.clone(),
                 create_expr_call(
                     create_expr_path(path!(::mck::forward::PhiArg::phi)),
                     vec![
@@ -208,7 +245,7 @@ fn create_new_temporary(
     let temp_ident = construct_temp_ident(orig_ident, counter.next);
     temps.insert(temp_ident.clone(), (orig_ident.clone(), counter.ty.clone()));
 
-    counter.current = Some(counter.next);
+    counter.present.insert(counter.next);
     counter.next = counter
         .next
         .checked_add(1)
@@ -229,7 +266,10 @@ fn create_existing_temporary(
         let ident = construct_prefixed_ident("uninit", orig_ident);
         block.stmts.push(create_assign(
             ident.clone(),
-            create_expr_call(create_expr_path(path!(::mck::concr::Phi::uninit)), vec![]),
+            create_expr_call(
+                create_expr_path(path!(::mck::concr::Phi::uninit_read)),
+                vec![],
+            ),
             true,
         ));
         temps.insert(ident.clone(), (orig_ident.clone(), ty));

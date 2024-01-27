@@ -12,12 +12,10 @@ pub struct GlobalVisitor {
 
 impl VisitMut for GlobalVisitor {
     fn visit_path_mut(&mut self, path: &mut Path) {
-        println!("Visit path: {}, {:?}", quote::quote!(#path), path);
         if path_starts_with_global_names(path, &["machine_check", "Bitvector"])
             || path_starts_with_global_names(path, &["machine_check", "Unsigned"])
             || path_starts_with_global_names(path, &["machine_check", "Signed"])
         {
-            println!("Matches bitvector!");
             let first_segment_span = path.segments[0].span();
             path.segments[0].ident = Ident::new("mck", first_segment_span);
             path.segments.insert(
@@ -30,7 +28,6 @@ impl VisitMut for GlobalVisitor {
             path.segments[2].ident = Ident::new("Bitvector", path.segments[2].ident.span());
         }
         if path_starts_with_global_names(path, &["machine_check", "BitvectorArray"]) {
-            println!("Matches array!");
             let first_segment_span = path.segments[0].span();
             path.segments[0].ident = Ident::new("mck", first_segment_span);
             path.segments.insert(

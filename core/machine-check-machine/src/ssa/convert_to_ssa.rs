@@ -1,6 +1,6 @@
 mod local_visitor;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::{support::local::create_let_with_original, MachineError};
 use syn::visit_mut::VisitMut;
@@ -15,7 +15,6 @@ pub fn convert_to_ssa(items: &mut [Item]) -> Result<(), MachineError> {
                 }
             }
         }
-        //println!("After conversion: {}", quote::quote!(#item));
     }
     Ok(())
 }
@@ -24,7 +23,7 @@ fn process_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
     // TODO: process parameters
 
     // process mutable local idents
-    let mut local_ident_counters = HashMap::new();
+    let mut local_ident_counters = BTreeMap::new();
 
     for stmt in Vec::from_iter(impl_item_fn.block.stmts.drain(..)) {
         let mut retain_stmt = true;
@@ -41,7 +40,7 @@ fn process_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
             local_ident_counters.insert(
                 pat_ident.ident.clone(),
                 local_visitor::Counter {
-                    current: None,
+                    present: BTreeSet::new(),
                     next: 0,
                     ty,
                 },

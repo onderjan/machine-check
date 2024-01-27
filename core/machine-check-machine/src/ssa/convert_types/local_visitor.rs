@@ -19,7 +19,6 @@ pub struct LocalVisitor<'a> {
 
 impl VisitMut for LocalVisitor<'_> {
     fn visit_expr_call_mut(&mut self, expr_call: &mut ExprCall) {
-        println!("Visit expr call: {}", quote::quote!(#expr_call));
         let func_path =
             extract_expr_path_mut(&mut expr_call.func).expect("Call function should be path");
 

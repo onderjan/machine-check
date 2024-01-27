@@ -34,13 +34,12 @@ mod machine_module {
             let zero = ::machine_check::Bitvector::<1>::new(0);
             let one = ::machine_check::Bitvector::<1>::new(1);
             if input.j == zero {
-                /*if input.j == one {
+                if input.j == one {
                     //if input.i == 0 {
                     safe = ::machine_check::Bitvector::<1>::new(0);
                 } else {
                     safe = ::machine_check::Bitvector::<1>::new(1);
-                };*/
-                safe = ::machine_check::Bitvector::<1>::new(0);
+                };
             } else {
                 safe = ::machine_check::Bitvector::<1>::new(1);
             }

@@ -40,11 +40,9 @@ impl VisitMut for Visitor {
         // delegate first so we do not forget
         visit_mut::visit_block_mut(self, block);
 
-        println!("Visiting block {}", quote::quote!(#block));
         // process statements
         let mut processed_stmts = Vec::new();
         for mut stmt in block.stmts.drain(..) {
-            println!("Statement: {}", quote::quote!(#stmt));
             let Stmt::Expr(Expr::Assign(expr_assign), _) = &mut stmt else {
                 processed_stmts.push(stmt);
                 continue;
@@ -57,9 +55,7 @@ impl VisitMut for Visitor {
             let Expr::Path(ExprPath { path, .. }) = expr_call.func.as_ref() else {
                 panic!("Unexpected non-path call function");
             };
-            println!("Path: {}", quote::quote!(#path));
             if path_matches_global_names(path, &["mck", "forward", "ReadWrite", "write"]) {
-                println!("Write");
                 // clone the first argument
                 let first_arg_ident =
                     extract_expr_ident(&expr_call.args[0]).expect("Write argument should be ident");

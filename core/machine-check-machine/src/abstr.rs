@@ -10,8 +10,8 @@ use syn_path::path;
 use crate::{
     support::{field_manipulate, meta_eq::meta_eq_impl},
     util::{
-        create_expr_ident, create_expr_path, extract_else_token_block, extract_expr_ident,
-        path_matches_global_names,
+        create_expr_ident, create_expr_path, extract_else_block_mut, extract_else_token_block,
+        extract_expr_ident, path_matches_global_names,
     },
     MachineDescription,
 };
@@ -63,7 +63,6 @@ fn process_struct(mut item_struct: ItemStruct) -> Vec<Item> {
             if meta_list.path.is_ident("derive") {
                 let tokens = &meta_list.tokens;
                 let punctuated: Punctuated<Path, Token![,]> = parse_quote!(#tokens);
-                println!("Derive tokens: {:?}", punctuated);
                 let mut processed_punctuated: Punctuated<Path, Token![,]> = Punctuated::new();
                 for derive in punctuated {
                     // TODO: resolve paths
@@ -137,7 +136,7 @@ fn convert_expr(expr: &mut Expr) {
     // in then branch, retain Taken within the statements, but eliminate NotTaken
     // in else branch, convert the Taken from then branch to NotTaken
 
-    let can_be_true_if = create_branch_if(
+    let (mut can_be_true_if, can_be_true_uninit_stmts) = create_branch_if(
         path!(::mck::abstr::Test::can_be_true),
         then_block,
         condition,
@@ -146,7 +145,7 @@ fn convert_expr(expr: &mut Expr) {
         else_token,
     );
 
-    let can_be_true_else = create_branch_if(
+    let (mut can_be_false_if, can_be_false_uninit_stmts) = create_branch_if(
         path!(::mck::abstr::Test::can_be_false),
         else_block,
         condition,
@@ -155,6 +154,15 @@ fn convert_expr(expr: &mut Expr) {
         else_token,
     );
 
+    extract_else_block_mut(&mut can_be_true_if.else_branch)
+        .unwrap()
+        .stmts
+        .extend(can_be_false_uninit_stmts);
+    extract_else_block_mut(&mut can_be_false_if.else_branch)
+        .unwrap()
+        .stmts
+        .extend(can_be_true_uninit_stmts);
+
     let outer_expr = Expr::Block(ExprBlock {
         attrs: vec![],
         label: None,
@@ -162,7 +170,7 @@ fn convert_expr(expr: &mut Expr) {
             brace_token: Default::default(),
             stmts: vec![
                 Stmt::Expr(Expr::If(can_be_true_if), Some(Default::default())),
-                Stmt::Expr(Expr::If(can_be_true_else), Some(Default::default())),
+                Stmt::Expr(Expr::If(can_be_false_if), Some(Default::default())),
             ],
         },
     });
@@ -177,7 +185,7 @@ fn create_branch_if(
     cond_expr_call: &ExprCall,
     if_token: syn::token::If,
     else_token: syn::token::Else,
-) -> ExprIf {
+) -> (ExprIf, Vec<Stmt>) {
     let can_be_true_cond = Expr::Call(ExprCall {
         attrs: cond_expr_call.attrs.clone(),
         func: Box::new(create_expr_path(cond_path)),
@@ -186,9 +194,10 @@ fn create_branch_if(
     });
 
     let mut taken_branch_block = taken_block.clone();
-    let not_taken_branch_block = process_taken_branch_block(&mut taken_branch_block, condition);
+    let (not_taken_branch_block, uninit_stmts) =
+        process_taken_branch_block(&mut taken_branch_block, condition);
 
-    ExprIf {
+    let result_branch = ExprIf {
         attrs: vec![],
         if_token,
         cond: Box::new(can_be_true_cond),
@@ -201,12 +210,15 @@ fn create_branch_if(
                 block: not_taken_branch_block,
             })),
         )),
-    }
+    };
+    (result_branch, uninit_stmts)
 }
 
-fn process_taken_branch_block(taken_block: &mut Block, condition: &Ident) -> Block {
+fn process_taken_branch_block(taken_block: &mut Block, condition: &Ident) -> (Block, Vec<Stmt>) {
     let mut taken_stmts = Vec::new();
     let mut not_taken_stmts = Vec::new();
+    let mut uninit_stmts = Vec::new();
+
     for mut stmt in taken_block.stmts.drain(..) {
         let mut retain = true;
         if let Stmt::Expr(Expr::Assign(expr_assign), Some(semi)) = &mut stmt {
@@ -249,6 +261,14 @@ fn process_taken_branch_block(taken_block: &mut Block, condition: &Ident) -> Blo
                             Stmt::Expr(Expr::Assign(not_taken_expr_assign), Some(*semi));
                         not_taken_stmts.push(not_taken_stmt);
                     }
+                    if path_matches_global_names(
+                        &expr_path.path,
+                        &["mck", "abstr", "Phi", "uninit_write"],
+                    ) {
+                        // do not uninit here, but in the not-taken of other original branch
+                        uninit_stmts.push(stmt);
+                        continue;
+                    }
                 }
             }
         };
@@ -258,10 +278,11 @@ fn process_taken_branch_block(taken_block: &mut Block, condition: &Ident) -> Blo
     }
     taken_block.stmts = taken_stmts;
 
-    Block {
+    let result_block = Block {
         brace_token: taken_block.brace_token,
         stmts: not_taken_stmts,
-    }
+    };
+    (result_block, uninit_stmts)
 }
 
 fn path_rules() -> PathRules {

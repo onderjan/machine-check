@@ -152,7 +152,6 @@ impl LocalVisitor<'_> {
         }
 
         if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "read"]) {
-            println!("Array read: {}", quote::quote!(#expr_call));
             // infer from first argument which should be a reference to the array
             let arg = &expr_call.args[0];
             // take the type from first typed argument we find

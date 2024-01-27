@@ -92,8 +92,6 @@ impl ImplConverter {
 
         let mut stmts = Vec::new();
 
-        println!("Orig result expr: {}", quote::quote!(#orig_result_expr));
-
         if let Expr::Tuple(orig_tuple) = orig_result_expr {
             if orig_tuple.elems.empty_or_trailing() {
                 // unit, no refinement
