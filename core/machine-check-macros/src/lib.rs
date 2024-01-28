@@ -9,12 +9,14 @@ use quote::{quote, quote_spanned};
 use syn::parse::Parse;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::token::{Brace, Comma, FatArrow, Underscore};
+use syn::token::{Brace, Comma, FatArrow, Ge, Underscore};
 use syn::{
-    braced, parse_macro_input, BinOp, Block, Expr, ExprBinary, ExprIf, ExprLit, ExprParen,
-    ExprPath, Ident, Item, LitInt, LitStr, Local, LocalInit, Pat, PatIdent, Path, PathSegment,
-    Stmt, Token,
+    braced, parse_macro_input, AngleBracketedGenericArguments, BinOp, Block, Expr, ExprBinary,
+    ExprCall, ExprIf, ExprInfer, ExprLit, ExprParen, ExprPath, GenericArgument, Ident, Item,
+    LitInt, LitStr, Local, LocalInit, Pat, PatIdent, Path, PathArguments, PathSegment, Stmt, Token,
+    Type, TypeInfer, TypePath,
 };
+use syn_path::path;
 
 #[proc_macro_attribute]
 pub fn machine_description(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -83,24 +85,6 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
     // mixed site ident as we do not want the caller to know about it
     let scrutinee_ident = Ident::new("__scrutinee", Span::mixed_site());
 
-    let scrutinee_local = Stmt::Local(Local {
-        attrs: vec![],
-        let_token: Token![let](scrutinee_span),
-        pat: Pat::Ident(PatIdent {
-            attrs: vec![],
-            by_ref: None,
-            mutability: None,
-            ident: scrutinee_ident.clone(),
-            subpat: None,
-        }),
-        init: Some(LocalInit {
-            eq_token: Token![=](scrutinee_span),
-            expr: switch.expr,
-            diverge: None,
-        }),
-        semi_token: Token![;](scrutinee_span),
-    });
-
     let scrutinee_expr = Expr::Path(ExprPath {
         attrs: vec![],
         qself: None,
@@ -117,12 +101,12 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
         brace_token: Brace {
             span: switch.brace_token.span,
         },
-        stmts: vec![scrutinee_local],
+        stmts: vec![],
     };
 
     let mut arm_exprs = Vec::new();
 
-    let mut num_bits = None;
+    let mut prev_num_bits = None;
 
     let mut default_arms = Vec::new();
 
@@ -157,12 +141,13 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
             // to get proper indexing (0 = lowest bit)
             mask_bits.push_front(mask_bit);
         }
-        if let Some(num_bits) = num_bits {
-            if num_bits != mask_bits.len() {
+        let num_bits = mask_bits.len();
+        if let Some(prev_num_bits) = prev_num_bits {
+            if num_bits != prev_num_bits {
                 panic!("Incompatible number of bits");
             }
         } else {
-            num_bits = Some(mask_bits.len());
+            prev_num_bits = Some(num_bits);
         }
 
         // construct mask/value combo
@@ -221,8 +206,8 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
 
         let choice_span = choice.span();
 
-        let mask_expr = create_number_expr(&condition.mask, choice_span);
-        let value_expr = create_number_expr(&condition.value, choice_span);
+        let mask_expr = create_number_expr(&condition.mask, num_bits, choice_span);
+        let value_expr = create_number_expr(&condition.value, num_bits, choice_span);
 
         mask_values.push(condition);
 
@@ -260,7 +245,7 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
                 // the shift is always to the right, reindexes relative to the variable
                 let right_shift = lowest_bit - variable_bit_index;
 
-                let run_mask_expr = create_number_expr(&run_mask, choice_span);
+                let run_mask_expr = create_number_expr(&run_mask, num_bits, choice_span);
 
                 // construct run expression (scrutinee & run_mask) >> right_shift
                 let mut run_expr = Expr::Binary(ExprBinary {
@@ -280,7 +265,7 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
                 // do not create a right shift operation if unnecessary
                 if right_shift != 0 {
                     let right_shift_expr =
-                        create_number_expr(&BigUint::from(right_shift), choice_span);
+                        create_number_expr(&BigUint::from(right_shift), num_bits, choice_span);
                     run_expr = Expr::Binary(ExprBinary {
                         attrs: vec![],
                         left: Box::new(run_expr),
@@ -312,7 +297,11 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
                 variable_bit_index += run_length;
             }
 
+            // convert to variable bit length
             let variable_init_expr = variable_init_expr.expect("Mask variable should have init");
+            let variable_length = variable_bit_index;
+            let variable_init_expr =
+                convert_bit_length(variable_init_expr, variable_length, choice_span);
 
             // define and init the local variable
             // this must have call-site hygiene so that we can use the local variable later
@@ -331,7 +320,12 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
                 pat: variable_pat,
                 init: Some(LocalInit {
                     eq_token: Token![=](choice_span),
-                    expr: Box::new(variable_init_expr),
+                    expr: Box::new(convert_type(
+                        variable_init_expr,
+                        variable_length,
+                        choice_span,
+                        false,
+                    )),
                     diverge: None,
                 }),
                 semi_token: Token![;](choice_span),
@@ -410,6 +404,31 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
 
     let chain_expr = chain_expr.expect("There must be at least one arm");
 
+    // add local statement to outer block
+    let scrutinee_local = Stmt::Local(Local {
+        attrs: vec![],
+        let_token: Token![let](scrutinee_span),
+        pat: Pat::Ident(PatIdent {
+            attrs: vec![],
+            by_ref: None,
+            mutability: None,
+            ident: scrutinee_ident.clone(),
+            subpat: None,
+        }),
+        init: Some(LocalInit {
+            eq_token: Token![=](scrutinee_span),
+            expr: Box::new(convert_type(
+                *switch.expr,
+                prev_num_bits.unwrap(),
+                scrutinee_span,
+                true,
+            )),
+            diverge: None,
+        }),
+        semi_token: Token![;](scrutinee_span),
+    });
+    outer_block.stmts.push(scrutinee_local);
+
     // add chain to outer block
     outer_block.stmts.push(Stmt::Expr(chain_expr, None));
 
@@ -421,10 +440,106 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-fn create_number_expr(num: &BigUint, span: Span) -> Expr {
-    Expr::Lit(ExprLit {
+fn convert_bit_length(expr: Expr, new_length: usize, span: Span) -> Expr {
+    let new_length_expr = Expr::Lit(ExprLit {
+        attrs: vec![],
+        lit: syn::Lit::Int(LitInt::new(&new_length.to_string(), span)),
+    });
+
+    let mut ext_path = path!(::machine_check::Ext::ext);
+
+    ext_path.segments[1].arguments =
+        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+            colon2_token: Some(Default::default()),
+            lt_token: Default::default(),
+            args: Punctuated::from_iter([GenericArgument::Const(new_length_expr)]),
+            gt_token: Default::default(),
+        });
+    let func_expr = Expr::Path(ExprPath {
+        attrs: vec![],
+        qself: None,
+        path: ext_path,
+    });
+    Expr::Call(ExprCall {
+        attrs: vec![],
+        func: Box::new(func_expr),
+        paren_token: Default::default(),
+        args: Punctuated::from_iter([expr]),
+    })
+}
+
+fn convert_type(expr: Expr, num_bits: usize, span: Span, unsigned: bool) -> Expr {
+    let num_bits_expr = Expr::Lit(ExprLit {
+        attrs: vec![],
+        lit: syn::Lit::Int(LitInt::new(&num_bits.to_string(), span)),
+    });
+
+    let mut type_path = if unsigned {
+        path!(::machine_check::Unsigned)
+    } else {
+        path!(::machine_check::Bitvector)
+    };
+    type_path.segments[1].arguments =
+        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+            colon2_token: Some(Default::default()),
+            lt_token: Default::default(),
+            args: Punctuated::from_iter([GenericArgument::Const(num_bits_expr)]),
+            gt_token: Default::default(),
+        });
+    let ty = Type::Path(TypePath {
+        qself: None,
+        path: type_path,
+    });
+    let mut into_path = path!(::std::convert::Into::into);
+    into_path.segments[2].arguments =
+        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+            colon2_token: Some(Default::default()),
+            lt_token: Default::default(),
+            args: Punctuated::from_iter([GenericArgument::Type(ty)]),
+            gt_token: Default::default(),
+        });
+    let func_expr = Expr::Path(ExprPath {
+        attrs: vec![],
+        qself: None,
+        path: into_path,
+    });
+
+    Expr::Call(ExprCall {
+        attrs: vec![],
+        func: Box::new(func_expr),
+        paren_token: Default::default(),
+        args: Punctuated::from_iter([expr]),
+    })
+}
+
+fn create_number_expr(num: &BigUint, num_bits: usize, span: Span) -> Expr {
+    let num_bits_expr = Expr::Lit(ExprLit {
+        attrs: vec![],
+        lit: syn::Lit::Int(LitInt::new(&num_bits.to_string(), span)),
+    });
+    let mut new_func_path = path!(::machine_check::Unsigned::new);
+    new_func_path.segments[1].arguments =
+        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+            colon2_token: Some(Default::default()),
+            lt_token: Default::default(),
+            args: Punctuated::from_iter([GenericArgument::Const(num_bits_expr)]),
+            gt_token: Default::default(),
+        });
+    let func_expr = Expr::Path(ExprPath {
+        attrs: vec![],
+        qself: None,
+        path: new_func_path,
+    });
+
+    let lit_expr = Expr::Lit(ExprLit {
         attrs: vec![],
         lit: syn::Lit::Int(LitInt::new(&num.to_string(), span)),
+    });
+    Expr::Call(ExprCall {
+        attrs: vec![],
+        func: Box::new(func_expr),
+        paren_token: Default::default(),
+        args: Punctuated::from_iter([lit_expr]),
     })
 }
 

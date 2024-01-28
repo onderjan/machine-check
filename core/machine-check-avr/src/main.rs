@@ -1,3 +1,5 @@
+use machine_check::Unsigned;
+
 #[machine_check_macros::machine_description]
 mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -60,14 +62,17 @@ fn main() {
     arr[index] = ::machine_check::Bitvector::<4>::new(0xD);
     println!("arr[{:?}] = {:?}", index, arr[index]);*/
 
-    let a = 0b1101_0101;
+    let sw = ::machine_check::Bitvector::<8>::new(0b1101_0101);
+    //let b: Unsigned<8> = ::std::convert::Into::into(a);
 
-    machine_check_macros::bitmask_switch!(a {
+    machine_check_macros::bitmask_switch!(sw {
         "0100_011a" => {
             println!("Choice 0");
         },
         "1bbb_bb0a" => {
-            println!("Choice b: {}, a: {}", b, a);
+            println!("Choice b: {:?}, a: {:?}", b, a);
+            let x = b == ::machine_check::Bitvector::<5>::new(0b101_01);
+            println!("X: {}", x);
         },
         "0101_010a" => {
             println!("Choice 2");
@@ -75,6 +80,7 @@ fn main() {
         _ => {
             println!("Default");
         }
+
     });
 
     machine_check_exec::run::<

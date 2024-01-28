@@ -504,6 +504,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+ "syn-path",
  "unicode-ident",
 ]
 

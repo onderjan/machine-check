@@ -1,12 +1,14 @@
 use std::{
     fmt::Debug,
-    ops::{Add, Div, Mul, Rem, Shl, Shr, Sub},
+    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub},
 };
 
 use mck::{
     concr,
-    forward::{HwArith, HwShift},
+    forward::{Bitwise, HwArith, HwShift},
 };
+
+use crate::{traits::Ext, Bitvector, Signed};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Unsigned<const L: u32>(pub(super) concr::Bitvector<L>);
@@ -16,6 +18,40 @@ impl<const L: u32> Unsigned<L> {
         Unsigned(concr::Bitvector::new(value))
     }
 }
+
+// --- BITWISE OPERATIONS ---
+
+impl<const L: u32> Not for Unsigned<L> {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        Self(self.0.bit_not())
+    }
+}
+
+impl<const L: u32> BitAnd<Unsigned<L>> for Unsigned<L> {
+    type Output = Self;
+
+    fn bitand(self, rhs: Unsigned<L>) -> Self::Output {
+        Self(self.0.bit_and(rhs.0))
+    }
+}
+impl<const L: u32> BitOr<Unsigned<L>> for Unsigned<L> {
+    type Output = Self;
+
+    fn bitor(self, rhs: Unsigned<L>) -> Self::Output {
+        Self(self.0.bit_or(rhs.0))
+    }
+}
+impl<const L: u32> BitXor<Unsigned<L>> for Unsigned<L> {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Unsigned<L>) -> Self::Output {
+        Self(self.0.bit_xor(rhs.0))
+    }
+}
+
+// --- ARITHMETIC OPERATIONS ---
 
 impl<const L: u32> Add<Unsigned<L>> for Unsigned<L> {
     type Output = Self;
@@ -73,6 +109,17 @@ impl<const L: u32> Shr<Unsigned<L>> for Unsigned<L> {
     }
 }
 
+// --- EXTENSION ---
+impl<const L: u32, const X: u32> Ext<X> for Unsigned<L> {
+    type Output = Unsigned<X>;
+
+    fn ext(self) -> Self::Output {
+        Unsigned::<X>(mck::forward::Ext::uext(self.0))
+    }
+}
+
+// --- ORDERING ---
+
 impl<const L: u32> PartialOrd for Unsigned<L> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
@@ -84,6 +131,22 @@ impl<const L: u32> Ord for Unsigned<L> {
         self.0.unsigned_cmp(&other.0)
     }
 }
+
+// --- CONVERSION ---
+
+impl<const L: u32> From<Bitvector<L>> for Unsigned<L> {
+    fn from(value: Bitvector<L>) -> Self {
+        Self(value.0)
+    }
+}
+
+impl<const L: u32> From<Signed<L>> for Unsigned<L> {
+    fn from(value: Signed<L>) -> Self {
+        Self(value.0)
+    }
+}
+
+// --- MISC ---
 
 impl<const L: u32> Debug for Unsigned<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
