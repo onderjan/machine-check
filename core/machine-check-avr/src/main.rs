@@ -60,14 +60,14 @@ fn main() {
     arr[index] = ::machine_check::Bitvector::<4>::new(0xD);
     println!("arr[{:?}] = {:?}", index, arr[index]);*/
 
-    let a = 0b0101_0101;
+    let a = 0b1101_0101;
 
     machine_check_macros::bitmask_switch!(a {
         "0100_011a" => {
             println!("Choice 0");
         },
-        "0100_010a" => {
-            println!("Choice 1");
+        "1bbb_bb0a" => {
+            println!("Choice b: {}, a: {}", b, a);
         },
         "0101_010a" => {
             println!("Choice 2");

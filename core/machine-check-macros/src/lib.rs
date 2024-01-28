@@ -1,5 +1,6 @@
 extern crate proc_macro;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::env::var;
 
 use num::{BigInt, BigUint, One, Zero};
 use proc_macro::TokenStream;
@@ -10,8 +11,9 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::{Brace, Comma, FatArrow, Underscore};
 use syn::{
-    braced, parse_macro_input, BinOp, Block, Expr, ExprBinary, ExprIf, ExprLit, ExprPath, Ident,
-    Item, LitInt, LitStr, Local, LocalInit, Pat, PatIdent, Path, PathSegment, Stmt, Token,
+    braced, parse_macro_input, BinOp, Block, Expr, ExprBinary, ExprIf, ExprLit, ExprParen,
+    ExprPath, Ident, Item, LitInt, LitStr, Local, LocalInit, Pat, PatIdent, Path, PathSegment,
+    Stmt, Token,
 };
 
 #[proc_macro_attribute]
@@ -78,7 +80,8 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
     println!("Bitmask switch: {:?}", switch);
 
     let scrutinee_span = switch.expr.span();
-    let scrutinee_ident = Ident::new("__scrutinee", Span::call_site());
+    // mixed site ident as we do not want the caller to know about it
+    let scrutinee_ident = Ident::new("__scrutinee", Span::mixed_site());
 
     let scrutinee_local = Stmt::Local(Local {
         attrs: vec![],
@@ -98,14 +101,24 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
         semi_token: Token![;](scrutinee_span),
     });
 
+    let scrutinee_expr = Expr::Path(ExprPath {
+        attrs: vec![],
+        qself: None,
+        path: Path {
+            leading_colon: None,
+            segments: Punctuated::from_iter([PathSegment {
+                ident: scrutinee_ident.clone(),
+                arguments: syn::PathArguments::None,
+            }]),
+        },
+    });
+
     let mut outer_block = Block {
         brace_token: Brace {
             span: switch.brace_token.span,
         },
         stmts: vec![scrutinee_local],
     };
-
-    // TODO: check that the arms are disjoint
 
     let mut arm_exprs = Vec::new();
 
@@ -153,48 +166,70 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
         }
 
         // construct mask/value combo
-        let one: BigUint = One::one();
-        let mut mask_value = MaskValue {
+        let mut condition = MaskValue {
             mask: Zero::zero(),
             value: Zero::zero(),
         };
+
+        let mut current_run: Option<(char, usize)> = None;
+        let mut variable_runs: HashMap<char, Vec<(usize, usize)>> = HashMap::new();
+
         for (bit_index, mask_bit) in mask_bits.iter().enumerate() {
-            if let MaskBit::Literal(literal) = mask_bit {
-                // unmask this bit and set appropriate value
-                mask_value.mask.set_bit(bit_index as u64, true);
-                mask_value.value.set_bit(bit_index as u64, *literal);
-            } else {
-                // don't cares and variables are masked
+            // check if we can continue the current run first
+            if let Some((run_variable, run_lowest_bit)) = current_run {
+                if let MaskBit::Variable(variable) = mask_bit {
+                    if *variable == run_variable {
+                        // continuing the current run
+                        continue;
+                    }
+                }
+                // end the current run
+                current_run = None;
+                let run_highest_bit = bit_index - 1;
+                assert!(run_lowest_bit <= run_highest_bit);
+                variable_runs
+                    .entry(run_variable)
+                    .or_default()
+                    .push((run_lowest_bit, run_highest_bit));
             }
+
+            match mask_bit {
+                MaskBit::Literal(literal) => {
+                    // unmask this bit and set appropriate value
+                    condition.mask.set_bit(bit_index as u64, true);
+                    condition.value.set_bit(bit_index as u64, *literal);
+                }
+                MaskBit::Variable(char) => {
+                    // start a run
+                    current_run = Some((*char, bit_index));
+                }
+                MaskBit::DontCare => {
+                    // do nothing
+                }
+            }
+        }
+
+        // end the current run if it is still going on
+        if let Some((run_variable, run_lowest_bit)) = current_run {
+            let run_highest_bit = mask_bits.len() - 1;
+            assert!(run_lowest_bit <= run_highest_bit);
+            variable_runs
+                .entry(run_variable)
+                .or_default()
+                .push((run_lowest_bit, run_highest_bit));
         }
 
         let choice_span = choice.span();
 
-        let mask_expr = Expr::Lit(ExprLit {
-            attrs: vec![],
-            lit: syn::Lit::Int(LitInt::new(&mask_value.mask.to_string(), choice_span)),
-        });
-        let value_expr = Expr::Lit(ExprLit {
-            attrs: vec![],
-            lit: syn::Lit::Int(LitInt::new(&mask_value.value.to_string(), choice_span)),
-        });
+        let mask_expr = create_number_expr(&condition.mask, choice_span);
+        let value_expr = create_number_expr(&condition.value, choice_span);
 
-        mask_values.push(mask_value);
+        mask_values.push(condition);
 
         // scrutinee & mask == value
         let bitand_expr = Expr::Binary(ExprBinary {
             attrs: vec![],
-            left: Box::new(Expr::Path(ExprPath {
-                attrs: vec![],
-                qself: None,
-                path: Path {
-                    leading_colon: None,
-                    segments: Punctuated::from_iter([PathSegment {
-                        ident: scrutinee_ident.clone(),
-                        arguments: syn::PathArguments::None,
-                    }]),
-                },
-            })),
+            left: Box::new(scrutinee_expr.clone()),
             op: syn::BinOp::BitAnd(Token![&](choice_span)),
             right: Box::new(mask_expr),
         });
@@ -206,11 +241,112 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
             right: Box::new(value_expr),
         });
 
+        // construct variables from runs
+        let mut arm_block_stmts = Vec::new();
+        for (variable, runs) in variable_runs {
+            let mut variable_bit_index = 0;
+            let mut variable_init_expr = None;
+
+            for (lowest_bit, highest_bit) in runs {
+                // mask the value, then shift down
+                let run_length = highest_bit - lowest_bit + 1;
+                // construct the run-length mask first
+                let mut run_mask: BigUint = One::one();
+                run_mask <<= run_length;
+                run_mask -= 1usize;
+                // move it up to obtain run mask
+                run_mask <<= lowest_bit;
+
+                // the shift is always to the right, reindexes relative to the variable
+                let right_shift = lowest_bit - variable_bit_index;
+
+                let run_mask_expr = create_number_expr(&run_mask, choice_span);
+
+                // construct run expression (scrutinee & run_mask) >> right_shift
+                let mut run_expr = Expr::Binary(ExprBinary {
+                    attrs: vec![],
+                    left: Box::new(scrutinee_expr.clone()),
+                    op: BinOp::BitAnd(Token![&](choice_span)),
+                    right: Box::new(run_mask_expr),
+                });
+
+                // enclose the bit and in parentheses for correct operation precedence
+                run_expr = Expr::Paren(ExprParen {
+                    attrs: vec![],
+                    paren_token: Default::default(),
+                    expr: Box::new(run_expr),
+                });
+
+                // do not create a right shift operation if unnecessary
+                if right_shift != 0 {
+                    let right_shift_expr =
+                        create_number_expr(&BigUint::from(right_shift), choice_span);
+                    run_expr = Expr::Binary(ExprBinary {
+                        attrs: vec![],
+                        left: Box::new(run_expr),
+                        op: BinOp::Shr(Token![>>](choice_span)),
+                        right: Box::new(right_shift_expr),
+                    });
+                    // enclose the right shift operation in parentheses to make operator precedence clearer
+                    run_expr = Expr::Paren(ExprParen {
+                        attrs: vec![],
+                        paren_token: Default::default(),
+                        expr: Box::new(run_expr),
+                    });
+                }
+
+                // bit-or the variable init expression
+                // put the current higher-index run on the left for better readability
+                if let Some(variable_init_expr_val) = variable_init_expr {
+                    variable_init_expr = Some(Expr::Binary(ExprBinary {
+                        attrs: vec![],
+                        left: Box::new(run_expr),
+                        op: BinOp::BitOr(Token![|](choice_span)),
+                        right: Box::new(variable_init_expr_val),
+                    }));
+                } else {
+                    variable_init_expr = Some(run_expr);
+                }
+
+                // update index within the created variable
+                variable_bit_index += run_length;
+            }
+
+            let variable_init_expr = variable_init_expr.expect("Mask variable should have init");
+
+            // define and init the local variable
+            // this must have call-site hygiene so that we can use the local variable later
+            let variable_ident = Ident::new(&variable.to_string(), Span::call_site());
+            let variable_pat = Pat::Ident(PatIdent {
+                attrs: vec![],
+                by_ref: None,
+                mutability: None,
+                ident: variable_ident,
+                subpat: None,
+            });
+
+            let local_stmt = Stmt::Local(Local {
+                attrs: vec![],
+                let_token: Token![let](choice_span),
+                pat: variable_pat,
+                init: Some(LocalInit {
+                    eq_token: Token![=](choice_span),
+                    expr: Box::new(variable_init_expr),
+                    diverge: None,
+                }),
+                semi_token: Token![;](choice_span),
+            });
+            arm_block_stmts.push(local_stmt);
+        }
+
+        // add arm body after the mask variable initializations
+        arm_block_stmts.push(Stmt::Expr(*arm.body, None));
+
+        // construct if expression and add it to arm expressions
         let then_block = Block {
             brace_token: Default::default(),
-            stmts: vec![Stmt::Expr(*arm.body, None)],
+            stmts: arm_block_stmts,
         };
-        // TODO: declare and initialize variables
 
         let if_expr = Expr::If(ExprIf {
             attrs: vec![],
@@ -248,10 +384,9 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
     }
 
     if !has_default {
+        // TODO: check full coverage using the Quine–McCluskey algorithm
         panic!("There currently must be a default arm");
     }
-
-    // TODO: process default arm
 
     let mut chain_expr = None;
 
@@ -284,6 +419,13 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
     println!("Expanded: {}", expanded);
 
     TokenStream::from(expanded)
+}
+
+fn create_number_expr(num: &BigUint, span: Span) -> Expr {
+    Expr::Lit(ExprLit {
+        attrs: vec![],
+        lit: syn::Lit::Int(LitInt::new(&num.to_string(), span)),
+    })
 }
 
 #[derive(Debug, Clone)]
