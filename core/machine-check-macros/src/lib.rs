@@ -132,7 +132,7 @@ pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
                     continue;
                 }
                 '-' => MaskBit::DontCare,
-                char if unicode_ident::is_xid_start(char) => MaskBit::Variable(char),
+                char if char.is_ascii_alphabetic() => MaskBit::Variable(char),
                 '0' => MaskBit::Literal(false),
                 '1' => MaskBit::Literal(true),
                 _ => panic!("Unexpected character '{}'", char),

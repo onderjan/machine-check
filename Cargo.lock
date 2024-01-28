@@ -505,7 +505,6 @@ dependencies = [
  "quote",
  "syn",
  "syn-path",
- "unicode-ident",
 ]
 
 [[package]]
