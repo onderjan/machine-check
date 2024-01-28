@@ -1,5 +1,3 @@
-use machine_check::Unsigned;
-
 #[machine_check_macros::machine_description]
 mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -23,33 +21,28 @@ mod machine_module {
 
     impl ::machine_check::Machine<Input, State> for Machine {
         fn init(input: &Input) -> State {
-            let mut safe;
-            /*let fill = ::machine_check::Bitvector::<1>::new(1);
-            let mut index = ::machine_check::Bitvector::<4>::new(0xC);
-            let mut arr = ::machine_check::BitvectorArray::<4, 1>::new_filled(fill);
-            let x = ::machine_check::Bitvector::<1>::new(0);
-            arr[index] = x;
-            index = index
-                + (::machine_check::Bitvector::<4>::new(1)
-                    + ::machine_check::Bitvector::<4>::new(1));
-            safe = arr[::machine_check::Bitvector::<4>::new(0xC)];*/
+            let mut safe = ::machine_check::Bitvector::<1>::new(0);
+
+            let sw = ::machine_check::Bitvector::<8>::new(5);
             let zero = ::machine_check::Bitvector::<1>::new(0);
-            let one = ::machine_check::Bitvector::<1>::new(1);
-            if input.j == zero {
-                if input.j == one {
-                    //if input.i == 0 {
-                    safe = ::machine_check::Bitvector::<1>::new(0);
-                } else {
+
+            ::machine_check::bitmask_switch!(sw {
+                /*"1---_----" => {
                     safe = ::machine_check::Bitvector::<1>::new(1);
-                };
-            } else {
-                safe = ::machine_check::Bitvector::<1>::new(1);
-            }
+                },*/
+                "0---_--0d" => {
+                    safe = d;
+                },
+                _ => {
+                    safe = ::machine_check::Bitvector::<1>::new(0);
+                }
+            });
 
             State { safe }
         }
         fn next(_state: &State, _input: &Input) -> State {
             let b = ::machine_check::Bitvector::<1>::new(1);
+
             State { safe: b }
         }
     }
@@ -62,10 +55,10 @@ fn main() {
     arr[index] = ::machine_check::Bitvector::<4>::new(0xD);
     println!("arr[{:?}] = {:?}", index, arr[index]);*/
 
-    let sw = ::machine_check::Bitvector::<8>::new(0b1101_0101);
+    //let sw = ::machine_check::Bitvector::<8>::new(0b1101_0101);
     //let b: Unsigned<8> = ::std::convert::Into::into(a);
 
-    machine_check_macros::bitmask_switch!(sw {
+    /*machine_check::bitmask_switch!(sw {
         "0100_011a" => {
             println!("Choice 0");
         },
@@ -81,7 +74,7 @@ fn main() {
             println!("Default");
         }
 
-    });
+    });*/
 
     machine_check_exec::run::<
         machine_module::refin::Input,

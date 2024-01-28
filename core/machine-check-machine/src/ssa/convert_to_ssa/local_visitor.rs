@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use syn::{
     visit_mut::{self, VisitMut},
@@ -7,7 +7,6 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    ssa,
     support::local::construct_prefixed_ident,
     util::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path,
@@ -22,6 +21,7 @@ pub struct LocalVisitor {
     pub local_ident_counters: BTreeMap<Ident, Counter>,
     pub temps: BTreeMap<Ident, (Ident, Option<Type>)>,
     pub result: Result<(), MachineError>,
+    pub uninit_counter: u32,
 }
 
 #[derive(Clone, Default)]
@@ -171,6 +171,7 @@ impl LocalVisitor {
                 ident,
                 last_then,
                 ty.clone(),
+                &mut self.uninit_counter,
             );
             let last_else_ident = create_existing_temporary(
                 else_block,
@@ -178,6 +179,7 @@ impl LocalVisitor {
                 ident,
                 last_else,
                 ty.clone(),
+                &mut self.uninit_counter,
             );
 
             let phi_then_ident =
@@ -259,11 +261,13 @@ fn create_existing_temporary(
     orig_ident: &Ident,
     current: Option<u32>,
     ty: Option<Type>,
+    uninit_counter: &mut u32,
 ) -> Ident {
     if let Some(current) = current {
         construct_temp_ident(orig_ident, current)
     } else {
-        let ident = construct_prefixed_ident("uninit", orig_ident);
+        let ident = construct_prefixed_ident(&format!("uninit_{}", *uninit_counter), orig_ident);
+        *uninit_counter += 1;
         block.stmts.push(create_assign(
             ident.clone(),
             create_expr_call(

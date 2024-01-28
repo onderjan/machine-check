@@ -382,24 +382,8 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 name = "machine-check"
 version = "0.1.0"
 dependencies = [
- "btor2rs",
- "camino",
- "cargo_metadata",
- "clap",
- "env_logger",
- "log",
- "machine-check-common",
- "machine-check-compile",
- "machine-check-machine",
+ "machine-check-macros",
  "mck",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
- "syn-path",
- "tempdir",
- "thiserror",
 ]
 
 [[package]]
@@ -417,7 +401,6 @@ dependencies = [
 name = "machine-check-bitmask-switch"
 version = "0.1.0"
 dependencies = [
- "machine-check-machine",
  "num",
  "prettyplease",
  "proc-macro2",
@@ -499,6 +482,7 @@ dependencies = [
 name = "machine-check-machine"
 version = "0.1.0"
 dependencies = [
+ "machine-check-bitmask-switch",
  "prettyplease",
  "proc-macro2",
  "quote",

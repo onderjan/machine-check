@@ -1,6 +1,6 @@
 mod local_visitor;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{support::local::create_let_with_original, MachineError};
 use syn::visit_mut::VisitMut;
@@ -58,6 +58,7 @@ fn process_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
         result: Ok(()),
         temps: BTreeMap::new(),
         branch_counter: 0,
+        uninit_counter: 0,
     };
     local_visitor.visit_impl_item_fn_mut(impl_item_fn);
     local_visitor.result?;

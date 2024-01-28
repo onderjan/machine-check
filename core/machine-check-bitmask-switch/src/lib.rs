@@ -65,13 +65,6 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         },
     });
 
-    let mut outer_block = Block {
-        brace_token: Brace {
-            span: switch.brace_token.span,
-        },
-        stmts: vec![],
-    };
-
     let mut arm_exprs = Vec::new();
 
     let mut prev_num_bits = None;
@@ -302,7 +295,7 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         }
 
         // add arm body after the mask variable initializations
-        arm_block_stmts.push(Stmt::Expr(*arm.body, None));
+        arm_block_stmts.push(Stmt::Expr(*arm.body, Some(Default::default())));
 
         // construct if expression and add it to arm expressions
         let then_block = Block {
@@ -395,15 +388,21 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         }),
         semi_token: Token![;](scrutinee_span),
     });
-    outer_block.stmts.push(scrutinee_local);
 
-    // add chain to outer block
-    outer_block.stmts.push(Stmt::Expr(chain_expr, None));
+    // add scrutinee and chain to outer block
+    let outer_block = Block {
+        brace_token: Brace {
+            span: switch.brace_token.span,
+        },
+        stmts: vec![
+            scrutinee_local,
+            Stmt::Expr(chain_expr, Some(Default::default())),
+        ],
+    };
 
     let expanded = quote! {
         #outer_block
     };
-    println!("Expanded: {}", expanded);
 
     expanded
 }

@@ -7,3 +7,5 @@ pub use traits::Ext;
 pub use types::{Bitvector, BitvectorArray, Signed, Unsigned};
 
 pub use ::mck::concr::{Input, State};
+
+pub use ::machine_check_macros::{bitmask_switch, machine_description};

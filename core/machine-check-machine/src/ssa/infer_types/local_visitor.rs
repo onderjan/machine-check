@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use syn::{
     punctuated::Punctuated,
     visit_mut::{self, VisitMut},
-    AngleBracketedGenericArguments, ExprCall, ExprField, ExprPath, ExprReference, Ident,
-    ItemStruct, Member, Path, PathArguments, Type, TypeReference,
+    AngleBracketedGenericArguments, ExprCall, ExprField, ExprPath, ExprReference, GenericArgument,
+    Ident, ItemStruct, Member, Path, PathArguments, Type, TypeReference,
 };
 use syn_path::path;
 
@@ -121,9 +121,13 @@ impl LocalVisitor<'_> {
         // discover the type based on the call function
         let func_path = extract_expr_path(&expr_call.func).expect("Call function should be path");
         // --- BITVECTOR INITIALIZATION ---
-        if path_matches_global_names(func_path, &["machine_check", "Bitvector", "new"]) {
+        if path_matches_global_names(func_path, &["machine_check", "Bitvector", "new"])
+            || path_matches_global_names(func_path, &["machine_check", "Unsigned", "new"])
+            || path_matches_global_names(func_path, &["machine_check", "Signed", "new"])
+        {
             // infer bitvector type
-            let mut bitvector = path!(::machine_check::Bitvector);
+            let mut bitvector = func_path.clone();
+            bitvector.segments.pop();
             bitvector.segments[1].arguments = func_path.segments[1].arguments.clone();
             return Some(create_type_path(bitvector));
         }
@@ -135,6 +139,24 @@ impl LocalVisitor<'_> {
             let mut array = path!(::machine_check::BitvectorArray);
             array.segments[1].arguments = func_path.segments[1].arguments.clone();
             return Some(create_type_path(array));
+        }
+
+        // --- INTO ---
+
+        if path_matches_global_names(func_path, &["std", "convert", "Into", "into"]) {
+            // the argument can be given
+            let PathArguments::AngleBracketed(angle_bracketed) = &func_path.segments[2].arguments
+            else {
+                return None;
+            };
+            if angle_bracketed.args.len() != 1 {
+                panic!("Into should have exactly one generic argument");
+            }
+            let GenericArgument::Type(ty) = &angle_bracketed.args[0] else {
+                panic!("Into should have type generic argument");
+            };
+
+            return Some(ty.clone());
         }
 
         if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "write"]) {
@@ -226,6 +248,38 @@ impl LocalVisitor<'_> {
             ) {
                 return Some(boolean_type("concr"));
             }
+        }
+
+        // --- EXT ---
+
+        if path_matches_global_names(func_path, &["machine_check", "Ext", "ext"]) {
+            // infer from first argument and generic const
+            let arg = &expr_call.args[0];
+            // take the type from first typed argument we find
+            let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
+            let arg_type = self
+                .local_ident_types
+                .get(arg_ident)
+                .expect("Call argument should have local ident");
+
+            let Some(Type::Path(ty_path)) = arg_type else {
+                return None;
+            };
+            if !is_bitvector_related_path(&ty_path.path) {
+                return None;
+            }
+
+            if !matches!(
+                &func_path.segments[1].arguments,
+                PathArguments::AngleBracketed(_)
+            ) {
+                return None;
+            };
+            // change generics
+            let mut ty_path = ty_path.clone();
+            ty_path.path.segments[1].arguments = func_path.segments[1].arguments.clone();
+
+            return Some(Type::Path(ty_path));
         }
 
         /*
@@ -326,4 +380,10 @@ impl LocalVisitor<'_> {
                 elem: Box::new(expr_type.clone()),
         }))
     }
+}
+
+fn is_bitvector_related_path(path: &Path) -> bool {
+    path_matches_global_names(path, &["machine_check", "Bitvector"])
+        || path_matches_global_names(path, &["machine_check", "Unsigned"])
+        || path_matches_global_names(path, &["machine_check", "Signed"])
 }

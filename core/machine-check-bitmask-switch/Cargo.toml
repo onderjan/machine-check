@@ -11,6 +11,5 @@ proc-macro2 = "1.0.67"
 syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }
 quote = "1.0.28"
 prettyplease = "0.2.15"
-machine-check-machine = "=0.1.0"
 syn-path = "2.0.0"
 num = "0.4.1"

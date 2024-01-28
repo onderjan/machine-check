@@ -150,7 +150,8 @@ fn infer_fn_types(
         }
     }
 
-    /*println!("Local ident types now:");
+    /*println!("Fn: {}", quote::quote!(#impl_item_fn));
+    println!("Local ident types now:");
     for (ident, ty) in visitor.local_ident_types.iter() {
         println!("{} -> {}", ident, quote::quote!(#ty));
     }*/
