@@ -414,6 +414,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "machine-check-bitmask-switch"
+version = "0.1.0"
+dependencies = [
+ "machine-check-machine",
+ "num",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "syn-path",
+]
+
+[[package]]
 name = "machine-check-common"
 version = "0.1.0"
 dependencies = [
@@ -498,8 +511,8 @@ dependencies = [
 name = "machine-check-macros"
 version = "0.1.0"
 dependencies = [
+ "machine-check-bitmask-switch",
  "machine-check-machine",
- "num",
  "prettyplease",
  "proc-macro2",
  "quote",
