@@ -1,41 +1,98 @@
+use std::collections::{BTreeMap, HashMap};
+
 use syn::{
     visit_mut::{self, VisitMut},
-    Attribute, Expr, ExprPath, Ident, ImplItemFn, MetaNameValue, Stmt,
+    Attribute, Expr, Ident, ImplItemFn, Local, LocalInit, MetaNameValue, Pat, PatIdent, PatType,
+    Stmt, Token, Type,
 };
 use syn_path::path;
 
 use crate::{
-    support::{local::construct_prefixed_ident, local_types::find_local_types},
+    support::{
+        local::{construct_prefixed_ident, extract_local_ident_with_type},
+        local_types::find_local_types,
+    },
     util::{
-        create_assign, create_expr_call, create_expr_ident, create_expr_path, create_let_bare,
-        extract_expr_ident, path_matches_global_names, ArgType,
+        create_assign, create_expr_call, create_expr_ident, create_expr_path, extract_expr_ident,
+        path_matches_global_names, ArgType,
     },
 };
 
 pub fn clone_needed(impl_item_fn: &mut ImplItemFn) {
     let local_types = find_local_types(impl_item_fn);
     let mut visitor = Visitor {
-        created_idents: Vec::new(),
+        local_types: &local_types,
+        created_idents: BTreeMap::new(),
     };
     visitor.visit_impl_item_fn_mut(impl_item_fn);
 
     // add created locals
-    let mut stmts: Vec<Stmt> = Vec::new();
-    for (created_ident, orig_ident) in visitor.created_idents {
+    let mut clone_local_stmts: Vec<Stmt> = Vec::new();
+    for (orig_ident, created_ident) in visitor.created_idents.iter() {
         let ty = local_types
-            .get(&orig_ident)
+            .get(orig_ident)
             .expect("Created local original should be in local types");
-        stmts.push(create_let_bare(created_ident, Some(ty.clone())));
+        let pat = Pat::Type(PatType {
+            attrs: vec![],
+            colon_token: Token![:](orig_ident.span()),
+            pat: Box::new(Pat::Ident(PatIdent {
+                attrs: vec![],
+                by_ref: None,
+                mutability: Some(Token![mut](orig_ident.span())),
+                ident: created_ident.clone(),
+                subpat: None,
+            })),
+            ty: Box::new(ty.clone()),
+        });
+        // init to default
+        let default_call_expr = create_expr_call(
+            create_expr_path(path!(::std::default::Default::default)),
+            vec![],
+        );
+        let init = LocalInit {
+            eq_token: Token![=](orig_ident.span()),
+            expr: Box::new(default_call_expr),
+            diverge: None,
+        };
+        clone_local_stmts.push(Stmt::Local(Local {
+            attrs: vec![],
+            let_token: Token![let](orig_ident.span()),
+            pat,
+            init: Some(init),
+            semi_token: Token![;](orig_ident.span()),
+        }));
     }
-    stmts.append(&mut impl_item_fn.block.stmts);
-    impl_item_fn.block.stmts = stmts;
+
+    let orig_stmts = Vec::from_iter(impl_item_fn.block.stmts.drain(..));
+
+    impl_item_fn.block.stmts.extend(clone_local_stmts);
+
+    for mut stmt in orig_stmts {
+        if let Stmt::Local(local) = &mut stmt {
+            let (left_ident, _ty) = extract_local_ident_with_type(local);
+            if let Some(clone_ident) = visitor.created_idents.get(&left_ident) {
+                local.attrs.push(Attribute {
+                    pound_token: Default::default(),
+                    style: syn::AttrStyle::Outer,
+                    bracket_token: Default::default(),
+                    meta: syn::Meta::NameValue(MetaNameValue {
+                        path: path!(::mck::attr::refin_clone),
+                        eq_token: Default::default(),
+                        value: create_expr_ident(clone_ident.clone()),
+                    }),
+                });
+            }
+        }
+        impl_item_fn.block.stmts.push(stmt);
+    }
 }
 
-struct Visitor {
-    created_idents: Vec<(Ident, Ident)>,
+struct Visitor<'a> {
+    local_types: &'a HashMap<Ident, syn::Type>,
+    created_idents: BTreeMap<Ident, Ident>,
 }
 
-impl VisitMut for Visitor {
+impl VisitMut for Visitor<'_> {
     fn visit_block_mut(&mut self, block: &mut syn::Block) {
         // delegate first so we do not forget
         visit_mut::visit_block_mut(self, block);
@@ -47,45 +104,62 @@ impl VisitMut for Visitor {
                 processed_stmts.push(stmt);
                 continue;
             };
-            let Expr::Call(expr_call) = expr_assign.right.as_mut() else {
+            /*let Expr::Call(expr_call) = expr_assign.right.as_mut() else {
                 processed_stmts.push(stmt);
                 continue;
-            };
+            };*/
 
-            let Expr::Path(ExprPath { path, .. }) = expr_call.func.as_ref() else {
+            /*let Expr::Path(ExprPath { path, .. }) = expr_call.func.as_ref() else {
                 panic!("Unexpected non-path call function");
             };
             if path_matches_global_names(path, &["mck", "forward", "ReadWrite", "write"]) {
                 // clone the first argument
                 let first_arg_ident =
-                    extract_expr_ident(&expr_call.args[0]).expect("Write argument should be ident");
+                    extract_expr_ident(&expr_call.args[0]).expect("Write argument should be ident");*/
 
-                let clone_ident = construct_prefixed_ident("clone", first_arg_ident);
-                self.created_idents
-                    .push((clone_ident.clone(), first_arg_ident.clone()));
-                let clone_call = create_expr_call(
-                    create_expr_path(path!(::std::clone::Clone::clone)),
-                    vec![(
-                        ArgType::Reference,
-                        create_expr_ident(first_arg_ident.clone()),
-                    )],
-                );
-                let clone_assign = create_assign(clone_ident.clone(), clone_call, true);
-                processed_stmts.push(clone_assign);
-                // add attribute for clone to the original call
-                expr_call.attrs.push(Attribute {
-                    pound_token: Default::default(),
-                    style: syn::AttrStyle::Outer,
-                    bracket_token: Default::default(),
-                    meta: syn::Meta::NameValue(MetaNameValue {
-                        path: path!(::mck::attr::refin_clone),
-                        eq_token: Default::default(),
-                        value: create_expr_ident(clone_ident),
-                    }),
-                });
+            let left_ident = extract_expr_ident(expr_assign.left.as_ref())
+                .expect("Assignment expression left side should be ident");
+
+            // do not clone if it is a PhiArg, it would be useless
+            let left_ident_type = self
+                .local_types
+                .get(left_ident)
+                .expect("Assignment expression left should be in local types");
+
+            if let Type::Path(type_path) = left_ident_type {
+                if path_matches_global_names(&type_path.path, &["mck", "forward", "PhiArg"]) {
+                    // skip
+
+                    processed_stmts.push(stmt);
+                    continue;
+                }
             }
 
+            let clone_ident = construct_prefixed_ident("clone", left_ident);
+            self.created_idents
+                .insert(left_ident.clone(), clone_ident.clone());
+            let clone_call = create_expr_call(
+                create_expr_path(path!(::std::clone::Clone::clone)),
+                vec![(ArgType::Reference, create_expr_ident(left_ident.clone()))],
+            );
+            let clone_assign = create_assign(clone_ident.clone(), clone_call, true);
+
             processed_stmts.push(stmt);
+            processed_stmts.push(clone_assign);
+
+            // add attribute for clone to the original call
+            /*expr_call.attrs.push(Attribute {
+                pound_token: Default::default(),
+                style: syn::AttrStyle::Outer,
+                bracket_token: Default::default(),
+                meta: syn::Meta::NameValue(MetaNameValue {
+                    path: path!(::mck::attr::refin_clone),
+                    eq_token: Default::default(),
+                    value: create_expr_ident(clone_ident),
+                }),
+            });*/
+
+            //}
         }
         block.stmts = processed_stmts;
     }

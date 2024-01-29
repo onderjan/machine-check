@@ -22,12 +22,8 @@ impl ImplConverter {
         &self,
         orig_fn: &ImplItemFn,
     ) -> Result<ImplItemFn, MachineError> {
-        // clone needed, do not do that in abstract as it would lead to unnecessary cloning
-        let mut orig_fn = orig_fn.clone();
-        clone_needed::clone_needed(&mut orig_fn);
-        let orig_fn = &orig_fn;
-
         let statement_converter = StatementConverter {
+            clone_scheme: self.clone_rules.clone(),
             forward_scheme: self.abstract_rules.clone(),
             backward_scheme: self.refinement_rules.clone(),
         };
@@ -67,8 +63,10 @@ impl ImplConverter {
         result_stmts.extend(abstract_input.1);
 
         // step 4: add original block statement with abstract scheme
+        let mut abstr_fn = orig_fn.clone();
+        clone_needed::clone_needed(&mut abstr_fn);
 
-        for orig_stmt in &orig_fn.block.stmts {
+        for orig_stmt in &abstr_fn.block.stmts {
             let mut stmt = orig_stmt.clone();
             self.abstract_rules.apply_to_stmt(&mut stmt)?;
             if let Stmt::Expr(_, ref mut semi) = stmt {

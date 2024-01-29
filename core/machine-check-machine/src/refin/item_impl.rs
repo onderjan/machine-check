@@ -30,6 +30,11 @@ pub(super) fn apply(
     };
 
     let converter = ImplConverter {
+        clone_rules: StructRules::new(
+            self_ty_ident.clone(),
+            rules::clone_normal(),
+            rules::clone_type(),
+        ),
         abstract_rules: StructRules::new(
             self_ty_ident.clone(),
             rules::abstract_normal(),
@@ -48,6 +53,7 @@ pub(super) fn apply(
 }
 
 pub struct ImplConverter {
+    pub clone_rules: StructRules,
     pub abstract_rules: StructRules,
     pub refinement_rules: StructRules,
 }

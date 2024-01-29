@@ -61,12 +61,8 @@ pub mod abstr {
             Boolean(self.0.phi(other.0))
         }
 
-        fn uninit_read() -> Self {
-            Boolean(Bitvector::<1>::uninit_read())
-        }
-
-        fn uninit_write() -> Self {
-            Boolean(Bitvector::<1>::uninit_write())
+        fn uninit() -> Self {
+            Boolean(Bitvector::<1>::uninit())
         }
     }
 }

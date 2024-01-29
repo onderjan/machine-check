@@ -20,21 +20,35 @@ mod machine_module {
     pub struct Machine {}
 
     impl ::machine_check::Machine<Input, State> for Machine {
-        fn init(input: &Input) -> State {
-            let mut safe = ::machine_check::Bitvector::<1>::new(0);
+        fn init(_input: &Input) -> State {
+            let mut safe = ::machine_check::Bitvector::<1>::new(1);
 
-            let sw = ::machine_check::Bitvector::<8>::new(5);
+            let sw = ::machine_check::Bitvector::<8>::new(0);
             let zero = ::machine_check::Bitvector::<1>::new(0);
 
-            ::machine_check::bitmask_switch!(sw {
-                /*"1---_----" => {
+            /*::machine_check::bitmask_switch!(sw {
+                "1---_----" => {
                     safe = ::machine_check::Bitvector::<1>::new(1);
-                },*/
+                },
                 "0---_--0d" => {
-                    safe = d;
+                    if sw == ::machine_check::Bitvector::<8>::new(1) {
+                        safe = d;
+                    };
                 },
                 _ => {
                     safe = ::machine_check::Bitvector::<1>::new(0);
+                }
+            });*/
+            ::machine_check::bitmask_switch!(_input.j {
+                "1" => {
+                    safe = ::machine_check::Bitvector::<1>::new(1);
+                },
+                "0" => {
+                    if _input.j == ::machine_check::Bitvector::<1>::new(0) {
+                        safe = ::machine_check::Bitvector::<1>::new(0);
+                    };
+                },
+                _ => {
                 }
             });
 

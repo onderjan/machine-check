@@ -13,6 +13,7 @@ use crate::{
 use syn_path::path;
 
 pub struct StatementConverter {
+    pub clone_scheme: StructRules,
     pub forward_scheme: StructRules,
     pub backward_scheme: StructRules,
 }
@@ -56,6 +57,7 @@ impl StatementConverter {
             }
             Stmt::Expr(Expr::If(ref mut expr_if), Some(_)) => {
                 // TODO: deduplicate this with block
+                self.clone_scheme.apply_to_expr(&mut expr_if.cond)?;
                 self.forward_scheme.apply_to_expr(&mut expr_if.cond)?;
                 // reverse and convert the then branch
                 {
@@ -215,6 +217,7 @@ impl StatementConverter {
 
         for arg in &call.args {
             let mut forward_arg = arg.clone();
+            self.clone_scheme.apply_to_expr(&mut forward_arg)?;
             self.forward_scheme.apply_to_expr(&mut forward_arg)?;
             forward_args.push(forward_arg);
 

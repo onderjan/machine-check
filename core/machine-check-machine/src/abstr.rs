@@ -217,7 +217,7 @@ fn create_branch_if(
 fn process_taken_branch_block(taken_block: &mut Block, condition: &Ident) -> (Block, Vec<Stmt>) {
     let mut taken_stmts = Vec::new();
     let mut not_taken_stmts = Vec::new();
-    let mut uninit_stmts = Vec::new();
+    let uninit_stmts = Vec::new();
 
     for mut stmt in taken_block.stmts.drain(..) {
         let mut retain = true;
@@ -260,14 +260,6 @@ fn process_taken_branch_block(taken_block: &mut Block, condition: &Ident) -> (Bl
                         let not_taken_stmt =
                             Stmt::Expr(Expr::Assign(not_taken_expr_assign), Some(*semi));
                         not_taken_stmts.push(not_taken_stmt);
-                    }
-                    if path_matches_global_names(
-                        &expr_path.path,
-                        &["mck", "abstr", "Phi", "uninit_write"],
-                    ) {
-                        // do not uninit here, but in the not-taken of other original branch
-                        uninit_stmts.push(stmt);
-                        continue;
                     }
                 }
             }

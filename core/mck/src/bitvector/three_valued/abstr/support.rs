@@ -252,12 +252,7 @@ impl<const L: u32> Phi for ThreeValuedBitvector<L> {
         Self::from_zeros_ones(zeros, ones)
     }
 
-    fn uninit_read() -> Self {
-        // present unknown so there is no loss of soundness in case of bug
-        Self::new_unknown()
-    }
-
-    fn uninit_write() -> Self {
+    fn uninit() -> Self {
         // present unknown so there is no loss of soundness in case of bug
         Self::new_unknown()
     }

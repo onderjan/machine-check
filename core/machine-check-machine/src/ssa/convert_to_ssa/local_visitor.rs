@@ -132,30 +132,6 @@ impl LocalVisitor {
             let last_then = then_present.last().cloned();
             let last_else = else_present.last().cloned();
 
-            // set the ones which are present in one branch but not the other as uninitialized in the other
-            for present_only_in_then in then_present.difference(else_present).cloned() {
-                let temp_ident = construct_temp_ident(ident, present_only_in_then);
-                else_block.stmts.push(create_assign(
-                    temp_ident.clone(),
-                    create_expr_call(
-                        create_expr_path(path!(::mck::concr::Phi::uninit_write)),
-                        vec![],
-                    ),
-                    true,
-                ));
-            }
-            for present_only_in_else in else_present.difference(then_present).cloned() {
-                let temp_ident = construct_temp_ident(ident, present_only_in_else);
-                then_block.stmts.push(create_assign(
-                    temp_ident.clone(),
-                    create_expr_call(
-                        create_expr_path(path!(::mck::concr::Phi::uninit_write)),
-                        vec![],
-                    ),
-                    true,
-                ));
-            }
-
             if last_base == last_then && last_base == last_else {
                 // this ident was not assigned to in either branch
                 continue;
@@ -270,10 +246,7 @@ fn create_existing_temporary(
         *uninit_counter += 1;
         block.stmts.push(create_assign(
             ident.clone(),
-            create_expr_call(
-                create_expr_path(path!(::mck::concr::Phi::uninit_read)),
-                vec![],
-            ),
+            create_expr_call(create_expr_path(path!(::mck::concr::Phi::uninit)), vec![]),
             true,
         ));
         temps.insert(ident.clone(), (orig_ident.clone(), ty));

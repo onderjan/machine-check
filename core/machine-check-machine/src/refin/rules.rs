@@ -126,6 +126,15 @@ pub fn abstract_normal() -> PathRules {
                 PathRuleSegment::Match(String::from("clone")),
             ],
         },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![
+                PathRuleSegment::Match(String::from("std")),
+                PathRuleSegment::Match(String::from("default")),
+                PathRuleSegment::Match(String::from("Default")),
+                PathRuleSegment::Match(String::from("default")),
+            ],
+        },
     ])
 }
 
@@ -137,6 +146,42 @@ pub fn abstract_type() -> PathRules {
                 PathRuleSegment::Insert(String::from("super")),
                 PathRuleSegment::Wildcard,
             ],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![PathRuleSegment::EndWildcard],
+        },
+    ])
+}
+
+pub fn clone_normal() -> PathRules {
+    PathRules::new(vec![
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![PathRuleSegment::ConvertPrefix(
+                String::from("__mck_"),
+                String::from("__mck_clone_"),
+            )],
+        },
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![PathRuleSegment::ConvertPrefix(
+                String::from(""),
+                String::from("clone_"),
+            )],
+        },
+        PathRule {
+            has_leading_colon: true,
+            segments: vec![PathRuleSegment::EndWildcard],
+        },
+    ])
+}
+
+pub fn clone_type() -> PathRules {
+    PathRules::new(vec![
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![PathRuleSegment::EndWildcard],
         },
         PathRule {
             has_leading_colon: true,
