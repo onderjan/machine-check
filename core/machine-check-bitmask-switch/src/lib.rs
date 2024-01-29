@@ -9,9 +9,10 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::{Brace, Comma, FatArrow, Underscore};
 use syn::{
-    braced, parse2, AngleBracketedGenericArguments, BinOp, Block, Expr, ExprBinary, ExprCall,
-    ExprIf, ExprLit, ExprParen, ExprPath, GenericArgument, Ident, LitInt, LitStr, Local, LocalInit,
-    Pat, PatIdent, Path, PathArguments, PathSegment, Stmt, Token, Type, TypePath,
+    braced, parse2, AngleBracketedGenericArguments, BinOp, Block, Expr, ExprAssign, ExprBinary,
+    ExprCall, ExprIf, ExprLit, ExprParen, ExprPath, GenericArgument, Ident, Lit, LitBool, LitInt,
+    LitStr, Local, LocalInit, Pat, PatIdent, Path, PathArguments, PathSegment, Stmt, Token, Type,
+    TypePath,
 };
 use syn_path::path;
 
@@ -52,6 +53,7 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
     let scrutinee_span = switch.expr.span();
     // mixed site ident as we do not want the caller to know about it
     let scrutinee_ident = Ident::new("__scrutinee", Span::mixed_site());
+    let something_taken_ident = Ident::new("__something_taken", Span::mixed_site());
 
     let scrutinee_expr = Expr::Path(ExprPath {
         attrs: vec![],
@@ -60,6 +62,17 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
             leading_colon: None,
             segments: Punctuated::from_iter([PathSegment {
                 ident: scrutinee_ident.clone(),
+                arguments: syn::PathArguments::None,
+            }]),
+        },
+    });
+    let something_taken_expr = Expr::Path(ExprPath {
+        attrs: vec![],
+        qself: None,
+        path: Path {
+            leading_colon: None,
+            segments: Punctuated::from_iter([PathSegment {
+                ident: something_taken_ident.clone(),
                 arguments: syn::PathArguments::None,
             }]),
         },
@@ -187,8 +200,26 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
             right: Box::new(value_expr),
         });
 
-        // construct variables from runs
+        // set something taken
         let mut arm_block_stmts = Vec::new();
+
+        let something_taken_flag_stmt = Stmt::Expr(
+            Expr::Assign(ExprAssign {
+                attrs: vec![],
+                left: Box::new(Expr::Path(ExprPath {
+                    attrs: vec![],
+                    qself: None,
+                    path: something_taken_ident.clone().into(),
+                })),
+                eq_token: Token![=](choice_span),
+                right: Box::new(create_number_expr(&BigUint::from(1u8), 1, scrutinee_span)),
+            }),
+            Some(Token![;](choice_span)),
+        );
+
+        arm_block_stmts.push(something_taken_flag_stmt);
+
+        // construct variables from runs
         for (variable, runs) in variable_runs {
             let mut variable_bit_index = 0;
             let mut variable_init_expr = None;
@@ -303,13 +334,13 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
             stmts: arm_block_stmts,
         };
 
-        let if_expr = Expr::If(ExprIf {
+        let if_expr = ExprIf {
             attrs: vec![],
             if_token: Token![if](choice_span),
             cond: Box::new(cond_expr),
             then_branch: then_block,
             else_branch: None,
-        });
+        };
 
         arm_exprs.push(if_expr);
     }
@@ -334,8 +365,30 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         }
         has_default = true;
 
-        // add default body to the end
-        arm_exprs.push(*default_arm.body);
+        let span = default_arm.fat_arrow_token.span();
+
+        // take the default arm if nothing was taken
+        let cond_expr = Expr::Binary(ExprBinary {
+            attrs: vec![],
+            left: Box::new(something_taken_expr.clone()),
+            op: BinOp::Eq(Token![==](span)),
+            right: Box::new(create_number_expr(&BigUint::from(0u8), 1, span)),
+        });
+
+        let then_block = Block {
+            brace_token: Default::default(),
+            stmts: vec![Stmt::Expr(*default_arm.body, Some(Default::default()))],
+        };
+
+        let if_expr = ExprIf {
+            attrs: vec![],
+            if_token: Token![if](span),
+            cond: Box::new(cond_expr),
+            then_branch: then_block,
+            else_branch: None,
+        };
+
+        arm_exprs.push(if_expr);
     }
 
     if !has_default {
@@ -343,29 +396,7 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         panic!("There currently must be a default arm");
     }
 
-    let mut chain_expr = None;
-
-    // convert arm expression to if-else-chain, construct by iterating in reverse
-    for arm_expr in arm_exprs.into_iter().rev() {
-        let new_expr = if let Some(chain_expr) = chain_expr.take() {
-            // set the current chain to the else block of the arm condition
-            let Expr::If(mut arm_if_expr) = arm_expr else {
-                panic!("Every arm expression except possibly the last should be if expression");
-            };
-            arm_if_expr.else_branch = Some((
-                Token![else](arm_if_expr.if_token.span),
-                Box::new(chain_expr),
-            ));
-            Expr::If(arm_if_expr)
-        } else {
-            arm_expr
-        };
-        chain_expr = Some(new_expr);
-    }
-
-    let chain_expr = chain_expr.expect("There must be at least one arm");
-
-    // add local statement to outer block
+    // add local statements to outer block
     let scrutinee_local = Stmt::Local(Local {
         attrs: vec![],
         let_token: Token![let](scrutinee_span),
@@ -388,17 +419,37 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         }),
         semi_token: Token![;](scrutinee_span),
     });
+    let something_taken_local = Stmt::Local(Local {
+        attrs: vec![],
+        let_token: Token![let](scrutinee_span),
+        pat: Pat::Ident(PatIdent {
+            attrs: vec![],
+            by_ref: None,
+            mutability: Some(Token![mut](scrutinee_span)),
+            ident: something_taken_ident.clone(),
+            subpat: None,
+        }),
+        init: Some(LocalInit {
+            eq_token: Token![=](scrutinee_span),
+            expr: Box::new(create_number_expr(&BigUint::from(0u8), 1, scrutinee_span)),
+            diverge: None,
+        }),
+        semi_token: Token![;](scrutinee_span),
+    });
 
-    // add scrutinee and chain to outer block
-    let outer_block = Block {
+    // add scrutinee, something-taken, and arms to outer block
+    let mut outer_block = Block {
         brace_token: Brace {
             span: switch.brace_token.span,
         },
-        stmts: vec![
-            scrutinee_local,
-            Stmt::Expr(chain_expr, Some(Default::default())),
-        ],
+        stmts: vec![scrutinee_local, something_taken_local],
     };
+
+    for arm_expr in arm_exprs {
+        outer_block
+            .stmts
+            .push(Stmt::Expr(Expr::If(arm_expr), Some(Default::default())))
+    }
 
     let expanded = quote! {
         #outer_block

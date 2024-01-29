@@ -267,7 +267,7 @@ mod machine_module {
                 //R[1..0] = ( ((Int8)R[d+16])*((Int8)R[r+16]) << 1);
             }
 
-            /*// FMULSU
+            // FMULSU
             "0000_0011_1ddd_1rrr" => {
                 //unimplemented();
                 //R[1..0] = ( ((Int8)R[d+16])*((Uint8)R[r+16]) << 1);
@@ -306,7 +306,7 @@ mod machine_module {
                     R[d] = R[d] + R[r];
                 }
                 SREG = compute_status_add(SREG, prev, R[r], R[d]);*/
-            }*/
+            }
 
                 _ => {
                     // unimplemented!();
@@ -342,10 +342,10 @@ fn main() {
     arr[index] = ::machine_check::Bitvector::<4>::new(0xD);
     println!("arr[{:?}] = {:?}", index, arr[index]);*/
 
-    //let sw = ::machine_check::Bitvector::<8>::new(0b1101_0101);
+    let sw = ::machine_check::Bitvector::<8>::new(0b1101_0101);
     //let b: Unsigned<8> = ::std::convert::Into::into(a);
 
-    /*machine_check::bitmask_switch!(sw {
+    machine_check::bitmask_switch!(sw {
         "0100_011a" => {
             println!("Choice 0");
         },
@@ -361,7 +361,7 @@ fn main() {
             println!("Default");
         }
 
-    });*/
+    });
 
     let zeros = ::mck::abstr::Bitvector::new(0);
 

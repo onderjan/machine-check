@@ -15,6 +15,7 @@ pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
     let mut visitor = Visitor {
         result: Ok(()),
         scope_idents: vec![],
+        scope_num: 0,
         local_defs: vec![],
     };
     for item in items.iter_mut() {
@@ -27,6 +28,7 @@ pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
 struct Visitor {
     result: Result<(), MachineError>,
     scope_idents: Vec<HashMap<Ident, Vec<Ident>>>,
+    scope_num: usize,
     local_defs: Vec<Local>,
 }
 impl VisitMut for Visitor {
@@ -43,6 +45,7 @@ impl VisitMut for Visitor {
     }
 
     fn visit_block_mut(&mut self, block: &mut Block) {
+        self.scope_num += 1;
         // push scope idents
         self.scope_idents.push(HashMap::new());
 
@@ -141,7 +144,7 @@ impl Visitor {
 
         let left_ident = pat_ident.ident.clone();
 
-        let scope_num = self.scope_idents.len() - 1;
+        let scope_num = self.scope_num;
 
         // find the vector of unique idents for the local in this scope
         let unique_ident_vec = self
