@@ -179,7 +179,7 @@ impl LocalVisitor<'_> {
         }
 
         if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "write"]) {
-            // infer from first argument
+            // infer from first argument which should be a reference to the array
             let arg = &expr_call.args[0];
             // take the type from first typed argument we find
             let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
@@ -188,7 +188,13 @@ impl LocalVisitor<'_> {
                 .get(arg_ident)
                 .expect("Call argument should have local ident");
             if let Some(arg_type) = arg_type {
-                return Some(arg_type.clone());
+                // the argument type is a reference to the array, construct the bitvector type
+                let Type::Reference(type_reference) = arg_type else {
+                    panic!("Expected first argument of array read to be a reference");
+                };
+                let array_type = type_reference.elem.as_ref();
+
+                return Some(array_type.clone());
             }
         }
 

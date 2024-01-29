@@ -127,7 +127,7 @@ where
 
     #[must_use]
     fn write(
-        normal_input: (Self, Self::Index, Self::Element),
+        normal_input: (&Self, Self::Index, Self::Element),
         mark_later: Self::Mark,
     ) -> (Self::Mark, Self::IndexMark, Self::ElementMark);
 }

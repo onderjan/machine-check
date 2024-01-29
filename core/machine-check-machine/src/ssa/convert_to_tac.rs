@@ -1,5 +1,5 @@
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Block, Expr, ExprAssign, Ident, Item, Stmt};
+use syn::{visit_mut::VisitMut, Block, Expr, ExprAssign, ExprPath, Ident, Item, Stmt};
 use syn_path::path;
 
 use crate::{
@@ -116,11 +116,29 @@ impl Converter {
                                 )));
                             }
 
+                            // create a temporary variable
+                            let tmp_ident = Ident::new(
+                                format!("__mck_tac_{}", self.get_and_increment_temp_counter())
+                                    .as_str(),
+                                Span::call_site(),
+                            );
+                            self.created_temporaries.push(tmp_ident.clone());
+                            // assign reference to the array
+                            processed_stmts.push(Stmt::Expr(
+                                Expr::Assign(ExprAssign {
+                                    attrs: vec![],
+                                    left: Box::new(create_expr_ident(tmp_ident.clone())),
+                                    eq_token: Default::default(),
+                                    right: Box::new(create_expr_reference(false, base.clone())),
+                                }),
+                                Some(Default::default()),
+                            ));
+
                             // the base is let through
                             let write_call = create_expr_call(
                                 create_expr_path(path!(::mck::forward::ReadWrite::write)),
                                 vec![
-                                    (ArgType::Normal, base.clone()),
+                                    (ArgType::Normal, create_expr_ident(tmp_ident)),
                                     (ArgType::Normal, *left_index.index),
                                     (ArgType::Normal, *expr_assign.right),
                                 ],

@@ -1,5 +1,5 @@
 use crate::{
-    abstr::{self, Phi},
+    abstr::{self, Boolean, Phi},
     forward::ReadWrite,
     traits::misc::MetaEq,
 };
@@ -20,11 +20,12 @@ impl<const I: u32, const L: u32> Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> ReadWrite for Array<I, L> {
+impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
     type Index = abstr::Bitvector<I>;
     type Element = abstr::Bitvector<L>;
+    type Deref = Array<I, L>;
 
-    fn read(&self, index: Self::Index) -> Self::Element {
+    fn read(self, index: Self::Index) -> Self::Element {
         // ensure we always have the first element to join
         let (mut current_index, max_index) = extract_bounds(index);
         let mut element = self.inner[current_index];
@@ -35,19 +36,21 @@ impl<const I: u32, const L: u32> ReadWrite for Array<I, L> {
         element
     }
 
-    fn write(mut self, index: Self::Index, element: Self::Element) -> Self {
+    fn write(self, index: Self::Index, element: Self::Element) -> Self::Deref {
         let (min_index, max_index) = extract_bounds(index);
+
+        let mut result = self.clone();
 
         if min_index == max_index {
             // just set the single element
-            self.inner[min_index] = element;
+            result.inner[min_index] = element;
         } else {
             // unsure which element is being set, join the previous values
             for current_index in min_index..=max_index {
-                self.inner[current_index] = self.inner[current_index].phi(element);
+                result.inner[current_index] = result.inner[current_index].phi(element);
             }
         }
-        self
+        result
     }
 }
 
@@ -74,5 +77,20 @@ impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
 impl<const I: u32, const L: u32> Default for Array<I, L> {
     fn default() -> Self {
         Self::new_filled(abstr::Bitvector::<L>::default())
+    }
+}
+
+impl<const I: u32, const L: u32> Phi for Array<I, L> {
+    type Condition = Boolean;
+    fn phi(mut self, other: Self) -> Self {
+        for (self_element, other_element) in self.inner.iter_mut().zip(other.inner.into_iter()) {
+            *self_element = self_element.phi(other_element);
+        }
+        self
+    }
+
+    fn uninit() -> Self {
+        // present filled with uninit so there is no loss of soundness in case of bug
+        Self::new_filled(abstr::Bitvector::uninit())
     }
 }

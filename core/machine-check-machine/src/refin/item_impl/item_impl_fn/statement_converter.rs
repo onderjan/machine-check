@@ -253,7 +253,9 @@ impl StatementConverter {
         }
 
         if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
-            if path_matches_global_names(path, &["mck", "forward", "ReadWrite", "read"]) {
+            if path_matches_global_names(path, &["mck", "forward", "ReadWrite", "read"])
+                || path_matches_global_names(path, &["mck", "forward", "ReadWrite", "write"])
+            {
                 // reference the clone
                 forward_args[0] = create_expr_reference(false, forward_args[0].clone());
             }
@@ -275,11 +277,17 @@ impl StatementConverter {
                     create_expr_path(path!(::mck::refin::Refine::to_condition)),
                     vec![(ArgType::Reference, backward_later.clone())],
                 );
+                // we are using backward later twice, need to clone it
+                let backward_later_clone = create_expr_call(
+                    create_expr_path(path!(::std::clone::Clone::clone)),
+                    vec![(ArgType::Reference, backward_later.clone())],
+                );
+
                 stmts.push(create_let(
                     tmp_ident.clone(),
                     // the third argument is the condition
                     create_expr_tuple(vec![
-                        backward_later.clone(),
+                        backward_later_clone,
                         backward_later.clone(),
                         to_condition,
                     ]),
@@ -288,10 +296,16 @@ impl StatementConverter {
             }
 
             if path_matches_global_names(path, &["mck", "forward", "PhiArg", "phi"]) {
+                // we are using backward later twice, need to clone it
+                let backward_later_clone = create_expr_call(
+                    create_expr_path(path!(::std::clone::Clone::clone)),
+                    vec![(ArgType::Reference, backward_later.clone())],
+                );
+
                 assert!(call.args.len() == 2);
                 stmts.push(create_let(
                     tmp_ident.clone(),
-                    create_expr_tuple(vec![backward_later.clone(), backward_later.clone()]),
+                    create_expr_tuple(vec![backward_later_clone, backward_later.clone()]),
                 ));
                 is_special = true;
             }
@@ -312,9 +326,15 @@ impl StatementConverter {
                     create_expr_path(path!(::mck::refin::Refine::to_condition)),
                     vec![(ArgType::Reference, backward_later.clone())],
                 );
+
+                // we are using backward later twice, need to clone it
+                let backward_later_clone = create_expr_call(
+                    create_expr_path(path!(::std::clone::Clone::clone)),
+                    vec![(ArgType::Reference, backward_later.clone())],
+                );
                 stmts.push(create_let(
                     tmp_ident.clone(),
-                    create_expr_tuple(vec![backward_later.clone(), to_condition]),
+                    create_expr_tuple(vec![backward_later_clone, to_condition]),
                 ));
                 is_special = true;
             }

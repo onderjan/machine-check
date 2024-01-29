@@ -74,7 +74,7 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
     }
 
     fn write(
-        normal_input: (Self, Self::Index, Self::Element),
+        normal_input: (&Self, Self::Index, Self::Element),
         mark_later: Self::Mark,
     ) -> (Self::Mark, Self::IndexMark, Self::ElementMark) {
         // mark if we could have written indices

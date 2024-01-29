@@ -231,6 +231,8 @@ mod machine_module {
 
             let safe = ::machine_check::Bitvector::<1>::new(1);
 
+            //let mut a;
+
             ::machine_check::bitmask_switch!(instruction {
                                                 // --- 0000 prefixes ---
 
@@ -359,16 +361,21 @@ mod machine_module {
 
                             // AND
                             "0010_00rd_dddd_rrrr" => {
-                                /*
+
                                 // logical and
-                                R[d] = R[d] & R[r];
-                                SREG = compute_status_logical(SREG, R[d]);
-                                */
+                                //R[d] = R[d] & R[r];
+                                let a = ::machine_check::Bitvector::<8>::new(0);
+                                //a = R[d];
+                                R[d] = a;
+
+                                // TODO
+                                //SREG = compute_status_logical(SREG, R[d]);
+
                             }
 
                             // EOR
                             "0010_01rd_dddd_rrrr" => {
-                                /*
+
                                 // exclusive or
 
                                 // kludge: when zeroing the register through EOR,
@@ -376,14 +383,15 @@ mod machine_module {
                                 // this is due to this special case being widely
                                 // used to set a register to zero
 
-                                if (r == d) {
-                                    R[d] = 0;
+                                /*if (r == d) {
+                                    R[d] = ::machine_check::Bitvector::<1>::new(0);
                                 } else {
                                     R[d] = R[d] ^ R[r];
-                                }
+                                };*/
 
-                                SREG = compute_status_logical(SREG, R[d]);
-                                */
+                                // TODO
+                                //SREG = compute_status_logical(SREG, R[d]);
+
                             }
 
                             // OR
