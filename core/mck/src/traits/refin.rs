@@ -44,14 +44,21 @@ pub trait State:
     type Abstract: abstr::State;
 }
 
-pub trait Machine<I: Input, S: State> {
+pub trait Machine<I: Input, S: State>
+where
+    Self: std::marker::Sized,
+{
     type Abstract: abstr::Machine<<I as Input>::Abstract, <S as State>::Abstract>;
 
     #[must_use]
-    fn init(abstr_args: (&<I as Input>::Abstract,), later_mark: S) -> (I,);
+    fn init(abstr_args: (&Self::Abstract, &<I as Input>::Abstract), later_mark: S) -> (Self, I);
     #[must_use]
     fn next(
-        abstr_args: (&<S as State>::Abstract, &<I as Input>::Abstract),
+        abstr_args: (
+            &Self::Abstract,
+            &<S as State>::Abstract,
+            &<I as Input>::Abstract,
+        ),
         later_mark: S,
-    ) -> (S, I);
+    ) -> (Self, S, I);
 }

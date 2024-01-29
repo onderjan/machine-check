@@ -17,10 +17,14 @@ mod machine_module {
     impl ::machine_check::State for State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-    pub struct Machine {}
+    pub struct Machine {
+        // progmem is 32 KB, i.e. 16K 16-bit words
+        // that is 2^14 = 16384
+        pub progmem: ::machine_check::BitvectorArray<14,16>,
+    }
 
     impl ::machine_check::Machine<Input, State> for Machine {
-        fn init(_input: &Input) -> State {
+        fn init(&self, _input: &Input) -> State {
             let mut safe = ::machine_check::Bitvector::<1>::new(1);
 
             let sw = ::machine_check::Bitvector::<8>::new(0);
@@ -54,7 +58,7 @@ mod machine_module {
 
             State { safe }
         }
-        fn next(_state: &State, _input: &Input) -> State {
+        fn next(&self, _state: &State, _input: &Input) -> State {
             let b = ::machine_check::Bitvector::<1>::new(1);
 
             State { safe: b }
@@ -90,9 +94,15 @@ fn main() {
 
     });*/
 
+    let zeros = ::mck::abstr::Bitvector::new(0);
+
+    let abstract_machine = machine_module::Machine {
+        progmem: ::mck::abstr::Array::new_filled(zeros),
+    };
+
     machine_check_exec::run::<
         machine_module::refin::Input,
         machine_module::refin::State,
         machine_module::refin::Machine,
-    >()
+    >(&abstract_machine);
 }

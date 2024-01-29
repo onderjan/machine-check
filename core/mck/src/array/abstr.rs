@@ -1,6 +1,7 @@
 use crate::{
     abstr::{self, Phi},
     forward::ReadWrite,
+    traits::misc::MetaEq,
 };
 
 #[derive(Debug, Clone, Hash)]
@@ -57,4 +58,21 @@ pub(super) fn extract_bounds<const I: u32>(index: abstr::Bitvector<I>) -> (usize
     assert!(umax <= usize::MAX as u64);
 
     (umin as usize, umax as usize)
+}
+
+impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
+    fn meta_eq(&self, other: &Self) -> bool {
+        for (self_element, other_element) in self.inner.iter().zip(other.inner.iter()) {
+            if !self_element.meta_eq(other_element) {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+impl<const I: u32, const L: u32> Default for Array<I, L> {
+    fn default() -> Self {
+        Self::new_filled(abstr::Bitvector::<L>::default())
+    }
 }

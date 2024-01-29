@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::marker::PhantomData;
 
 use log::log_enabled;
 use log::trace;
@@ -19,18 +18,18 @@ use crate::{
     space::Space,
 };
 
-pub struct Refinery<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> {
-    machine: PhantomData<M>,
+pub struct Refinery<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> {
+    machine: &'a M::Abstract,
     precision: Precision<I, S>,
     space: Space<I::Abstract, S::Abstract>,
     num_refinements: usize,
     use_decay: bool,
 }
 
-impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M> {
-    pub fn new(use_decay: bool) -> Self {
+impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a, I, S, M> {
+    pub fn new(machine: &'a M::Abstract, use_decay: bool) -> Self {
         let mut refinery = Refinery {
-            machine: PhantomData,
+            machine,
             precision: Precision::new(),
             space: Space::new(),
             num_refinements: 0,
@@ -126,8 +125,8 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
                 if self.num_refinements == 22 && i == 4 {
                     info!("HERE");
                 }*/
-                let (new_state_mark, input_mark) =
-                    M::next((previous_state, input), current_state_mark);
+                let (_refinement_machine, new_state_mark, input_mark) =
+                    M::next((self.machine, previous_state, input), current_state_mark);
                 //info!("Step new state mark: {:?}", new_state_mark);
 
                 (input_mark, Some(new_state_mark))
@@ -136,7 +135,8 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
                 //info!("Init");
 
                 // increasing state precision failed, try increasing init precision
-                let (input_mark,) = M::init((input,), current_state_mark);
+                let (_refinement_machine, input_mark) =
+                    M::init((self.machine, input), current_state_mark);
                 (input_mark, None)
             };
 
@@ -190,12 +190,12 @@ impl<I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<I, S, M
                         <<M as refin::Machine<I, S>>::Abstract as abstr::Machine<
                             I::Abstract,
                             S::Abstract,
-                        >>::next(current_state, &input)
+                        >>::next(self.machine, current_state, &input)
                     } else {
                         <<M as refin::Machine<I, S>>::Abstract as abstr::Machine<
                             I::Abstract,
                             S::Abstract,
-                        >>::init(&input)
+                        >>::init(self.machine, &input)
                     }
                 };
                 if self.use_decay {

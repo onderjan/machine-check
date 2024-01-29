@@ -67,9 +67,9 @@ impl StructRules {
             return self.type_rules.convert_path(path.clone());
         }
 
-        let mut path_segments = path.segments.clone();
+        let mut path = path.clone();
         // replace Self by type name
-        for path_segment in path_segments.iter_mut() {
+        for path_segment in path.segments.iter_mut() {
             if path_segment.ident == "Self" {
                 path_segment.ident = self.self_ty_ident.clone();
             }

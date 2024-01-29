@@ -9,11 +9,14 @@ pub trait Input: Debug + MetaEq + Hash + Clone + FieldManipulate<abstr::Bitvecto
 
 pub trait State: Debug + MetaEq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>> {}
 
-pub trait Machine<I: Input, S: State> {
+pub trait Machine<I: Input, S: State>
+where
+    Self: std::marker::Sized,
+{
     #[must_use]
-    fn init(input: &I) -> S;
+    fn init(&self, input: &I) -> S;
     #[must_use]
-    fn next(state: &S, input: &I) -> S;
+    fn next(&self, state: &S, input: &I) -> S;
 }
 
 pub trait Test {
