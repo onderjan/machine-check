@@ -137,6 +137,11 @@ impl LocalVisitor {
                 continue;
             }
 
+            if last_then.is_none() || last_else.is_none() {
+                // the ident was only assigned to in one branch and thus using it after the branch is an error
+                continue;
+            }
+
             // we cannot use the last_then and last_else temporaries, as they were only assigned to in one branch
             // create phi temps that will be taken in one branch and not taken in the other
             assert!(last_then != last_else);
