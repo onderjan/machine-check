@@ -201,7 +201,8 @@ impl StatementConverter {
                 Expr::Lit(_) => create_pat_wild(),
                 _ => {
                     return Err(MachineError(format!(
-                        "Inversion not implemented for function argument type {:?}",
+                        "Inversion not implemented for function argument type {} ({:?})",
+                        quote::quote!(#arg),
                         arg
                     )));
                 }

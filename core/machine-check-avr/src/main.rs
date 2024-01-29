@@ -198,6 +198,28 @@ mod machine_module {
                 safe,
             }
         }
+
+        // for instructions AND, EOR, OR
+        // Ru: destination register after being set
+        /*fn compute_status_logical(
+            sreg: ::machine_check::Bitvector<8>,
+            Ru: ::machine_check::Bitvector<8>,
+        ) -> ::machine_check::Bitvector<8> {
+            /*// Z - zero flag
+            sreg[[1]] = (Ru == 0);
+
+            // N - negative flag
+            sreg[[2]] = Ru[[7]];
+
+            // V - two's complement overflow flag
+            sreg[[3]] = '0';
+
+            // S - sign flag
+            sreg[[4]] = sreg[[2]] ^ sreg[[3]];*/
+
+            sreg
+        }*/
+
         fn next(&self, state: &State, _input: &Input) -> State {
             // localize state variables
             let mut PC = state.PC;
@@ -233,82 +255,103 @@ mod machine_module {
 
             //let mut a;
 
+            let five_bit_one = ::machine_check::Bitvector::<5>::new(1);
+
+            let five_bit_16 = ::machine_check::Bitvector::<5>::new(16);
+
             ::machine_check::bitmask_switch!(instruction {
-                                                // --- 0000 prefixes ---
+                // --- 0000 prefixes ---
 
-                                                // NOP
-                                                "0000_0000_0000_0000" => {
-                                                    // do nothing
-                                                },
+                // NOP
+                "0000_0000_0000_0000" => {
+                    // do nothing
+                },
 
 
-                                    // MOVW
-                                    "0000_0001_dddd_rrrr" => {
-                                        //R[d+d, 2] = R[r+r, 2];
-                                    }
+                // MOVW
+                "0000_0001_dddd_rrrr" => {
+                    // copy register pair
+                    let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(d);
+                    let d_ext_unsigned = ::machine_check::Ext::<5>::ext(d_unsigned);
+                    let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(d_ext_unsigned);
 
-                                    // MULS
-                                    "0000_0010_dddd_rrrr" => {
-                                        //R[1..0] = ((Int8)R[d+16])*((Int8)R[r+16]);
-                                    }
-                                    // MULSU
-                                    "0000_0011_0ddd_0rrr" => {
-                                        //unimplemented();
-                                        //R[1..0] = ((Int8)R[d+16])*((Uint8)R[r+16]);
-                                    }
+                    let r_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(r);
+                    let r_ext_unsigned = ::machine_check::Ext::<5>::ext(r_unsigned);
+                    let r_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(r_ext_unsigned);
 
-                                    // FMUL
-                                    "0000_0011_0ddd_1rrr" => {
-                                        //unimplemented();
-                                        //R[1..0] = ( ((Uint8)R[d+16])*((Uint8)R[r+16]) << 1);
-                                    }
+                    // TODO: support doing this at once
+                    let r_lo_val = R[r_ext + r_ext];
+                    R[d_ext + d_ext] = r_lo_val;
 
-                                    // FMULS
-                                    "0000_0011_1ddd_0rrr" => {
-                                        //unimplemented();
-                                        //R[1..0] = ( ((Int8)R[d+16])*((Int8)R[r+16]) << 1);
-                                    }
+                    let r_hi_val = R[r_ext + r_ext + five_bit_one];
+                    R[d_ext + d_ext + five_bit_one] = r_hi_val;
+                }
 
-                                    // FMULSU
-                                    "0000_0011_1ddd_1rrr" => {
-                                        //unimplemented();
-                                        //R[1..0] = ( ((Int8)R[d+16])*((Uint8)R[r+16]) << 1);
-                                    }
+                // MULS
+                "0000_0010_dddd_rrrr" => {
+                    //R[1..0] = ((Int8)R[d+16])*((Int8)R[r+16]);
+                }
+                // MULSU
+                "0000_0011_0ddd_0rrr" => {
+                    //unimplemented();
+                    //R[1..0] = ((Int8)R[d+16])*((Uint8)R[r+16]);
+                }
 
-                                    // CPC
-                                    "0000_01rd_dddd_rrrr" => {
-                                        // compare with carry, same as SBC without actually saving the computed value
-                                        /*Uint8 carry = 0;
-                                        carry[[0]] = SREG[[0]];
-                                        Uint8 result = R[d] - R[r] - carry;
-                                        SREG = compute_status_sbc(SREG, R[d], R[r], result);*/
-                                    }
+                // FMUL
+                "0000_0011_0ddd_1rrr" => {
+                    //unimplemented();
+                    //R[1..0] = ( ((Uint8)R[d+16])*((Uint8)R[r+16]) << 1);
+                }
 
-                                    // SBC
-                                    "0000_10rd_dddd_rrrr" => {
-                                        // subtract with carry
-                                        /*Uint8 prev = R[d];
-                                        Uint8 carry = 0;
-                                        carry[[0]] = SREG[[0]];
-                                        R[d] = R[d] - R[r] - carry;
-                                        SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
-                                    }
+                // FMULS
+                "0000_0011_1ddd_0rrr" => {
+                    //unimplemented();
+                    //R[1..0] = ( ((Int8)R[d+16])*((Int8)R[r+16]) << 1);
+                }
 
-                                    // ADD
-                                    "0000_11rd_dddd_rrrr" => {
-                                        /*// add
-                                        Uint8 prev = R[d];
-                                        Uint8 current = 0;
-                                        // kludge: if using the same register, shift left
-                                        // this does not force determinization
-                                        if (d == r) {
-                                            current[[1, 7]] = prev[[0, 7]];
-                                            R[d] = current;
-                                        } else {
-                                            R[d] = R[d] + R[r];
-                                        }
-                                        SREG = compute_status_add(SREG, prev, R[r], R[d]);*/
-                                    }
+                // FMULSU
+                "0000_0011_1ddd_1rrr" => {
+                    //unimplemented();
+                    //R[1..0] = ( ((Int8)R[d+16])*((Uint8)R[r+16]) << 1);
+                }
+
+                // CPC
+                "0000_01rd_dddd_rrrr" => {
+                    // compare with carry, same as SBC without actually saving the computed value
+                    /*Uint8 carry = 0;
+                    carry[[0]] = SREG[[0]];
+                    Uint8 result = R[d] - R[r] - carry;
+                    SREG = compute_status_sbc(SREG, R[d], R[r], result);*/
+                }
+
+                // SBC
+                "0000_10rd_dddd_rrrr" => {
+                    // subtract with carry
+                    /*Uint8 prev = R[d];
+                    Uint8 carry = 0;
+                    carry[[0]] = SREG[[0]];
+                    R[d] = R[d] - R[r] - carry;
+                    SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
+                }
+
+                // ADD
+                "0000_11rd_dddd_rrrr" => {
+                    // add
+                    /*Uint8 prev = R[d];
+                    Uint8 current = 0;
+                    // kludge: if using the same register, shift left
+                    // this does not force determinization
+                    if (d == r) {
+                        current[[1, 7]] = prev[[0, 7]];
+                        R[d] = current;
+                    } else {
+                        R[d] = R[d] + R[r];
+                    }*/
+
+                    R[d] = R[d] + R[r];
+                    // TODO
+                    //SREG = compute_status_add(SREG, prev, R[r], R[d]);
+                }
 
                             // --- 0001 ---
 
@@ -361,12 +404,8 @@ mod machine_module {
 
                             // AND
                             "0010_00rd_dddd_rrrr" => {
-
                                 // logical and
-                                //R[d] = R[d] & R[r];
-                                let a = ::machine_check::Bitvector::<8>::new(0);
-                                //a = R[d];
-                                R[d] = a;
+                                R[d] =  R[d] & R[r];
 
                                 // TODO
                                 //SREG = compute_status_logical(SREG, R[d]);
@@ -383,11 +422,11 @@ mod machine_module {
                                 // this is due to this special case being widely
                                 // used to set a register to zero
 
-                                /*if (r == d) {
-                                    R[d] = ::machine_check::Bitvector::<1>::new(0);
+                                if (r == d) {
+                                    R[d] = ::machine_check::Bitvector::<8>::new(0);
                                 } else {
                                     R[d] = R[d] ^ R[r];
-                                };*/
+                                };
 
                                 // TODO
                                 //SREG = compute_status_logical(SREG, R[d]);
@@ -396,30 +435,36 @@ mod machine_module {
 
                             // OR
                             "0010_10rd_dddd_rrrr" => {
-                                /*
                                 // logical or
                                 R[d] = R[d] | R[r];
-                                SREG = compute_status_logical(SREG, R[d]);*/
-
+                                // TODO
+                                //SREG = compute_status_logical(SREG, R[d]);
                             }
 
                             // MOV
                             "0010_11rd_dddd_rrrr" => {
-                                /*
                                 // copy register, status flags not affected
-                                R[d] = R[r];
-                                */
+                                // TODO: do this at once
+                                let tmp = R[r];
+                                R[d] = tmp;
                             }
 
                             // --- 0011 ---
 
                             // CPI
                             "0011_kkkk_dddd_kkkk" => {
-                                /*
+                                // extend d to five bits and add 16
+                                let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(d);
+                                let d_ext_unsigned = ::machine_check::Ext::<5>::ext(d_unsigned);
+                                let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(d_ext_unsigned);
+                                let reg_num = d_ext + five_bit_16;
+
                                 // compare with immediate
-                                Uint8 result = R[d+16] - k;
-                                SREG = compute_status_sub(SREG, R[d+16], k, result);
-                                */
+                                let result = R[reg_num] - k;
+
+                                // TODO
+                                //SREG = compute_status_sub(SREG, R[d+16], k, result);
+
                             }
 
                             // --- 0100 ---
@@ -438,34 +483,51 @@ mod machine_module {
 
                             // SUBI
                             "0101_kkkk_dddd_kkkk" => {
-                                /*
+                                // extend d to five bits and add 16
+                                let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(d);
+                                let d_ext_unsigned = ::machine_check::Ext::<5>::ext(d_unsigned);
+                                let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(d_ext_unsigned);
+                                let reg_num = d_ext + five_bit_16;
+
                                 // subtract immediate
-                                Uint8 prev = R[d+16];
-                                R[d+16] = R[d+16] - k;
-                                SREG = compute_status_sub(SREG, prev, k, R[d+16]);
-                                */
+                                let prev = R[reg_num];
+                                R[reg_num] = R[reg_num] - k;
+
+                                // TODO
+                                //SREG = compute_status_sub(SREG, prev, k, R[d+16]);
                             }
 
                             // --- 0110 ---
 
                             // ORI
                             "0110_kkkk_dddd_kkkk" => {
-                                /*
+                                // extend d to five bits and add 16
+                                let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(d);
+                                let d_ext_unsigned = ::machine_check::Ext::<5>::ext(d_unsigned);
+                                let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(d_ext_unsigned);
+                                let reg_num = d_ext + five_bit_16;
+
                                 // logical or with immediate
-                                R[d+16] = R[d+16] | k;
-                                SREG = compute_status_logical(SREG, R[d+16]);
-                                */
+                                R[reg_num] = R[reg_num] | k;
+                                //SREG = compute_status_logical(SREG, R[d+16]);
                             }
 
                             // --- 0111 ---
 
                             // ANDI
                             "0111_kkkk_dddd_kkkk" => {
-                                /*
+                                // extend d to five bits and add 16
+                                let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(d);
+                                let d_ext_unsigned = ::machine_check::Ext::<5>::ext(d_unsigned);
+                                let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(d_ext_unsigned);
+                                let reg_num = d_ext + five_bit_16;
+
                                 // logical and with immediate
-                                R[d+16] = R[d+16] & k;
-                                SREG = compute_status_logical(SREG, R[d+16]);
-                                */
+                                R[reg_num] = R[reg_num] & k;
+
+                                // TODO
+                                //SREG = compute_status_logical(SREG, R[d+16]);
+
                             }
 
 

@@ -26,6 +26,7 @@ pub struct LocalVisitor<'a> {
     pub local_ident_types: HashMap<Ident, Option<Type>>,
     pub structs: &'a HashMap<Path, ItemStruct>,
     pub result: Result<(), MachineError>,
+    pub inferred_something: bool,
 }
 
 impl VisitMut for LocalVisitor<'_> {
@@ -40,6 +41,11 @@ impl VisitMut for LocalVisitor<'_> {
         {
             if is_type_standard_inferred(ty) {
                 // we already have determined left type, return
+                /*println!(
+                    "Type of {} is already determined: {}",
+                    left_ident,
+                    quote::quote!(#ty)
+                );*/
                 return;
             }
         }
@@ -49,14 +55,32 @@ impl VisitMut for LocalVisitor<'_> {
             syn::Expr::Call(right_call) => self.infer_call_result_type(right_call),
             syn::Expr::Field(right_field) => self.infer_field_result_type(right_field),
             syn::Expr::Reference(right_reference) => {
+                /*println!(
+                    "Inferring ident {} from reference {}",
+                    left_ident,
+                    quote::quote!(#right_reference)
+                );*/
                 self.infer_reference_result_type(right_reference)
             }
-            _ => panic!("Unexpected local assignment expression {:?}", expr_assign),
+            _ => panic!(
+                "Unexpected local assignment expression {} ({:?})",
+                quote::quote!(#expr_assign),
+                expr_assign
+            ),
         };
 
         // add inferred type
         if let Some(inferred_type) = inferred_type {
-            *self.local_ident_types.get_mut(left_ident).unwrap() = Some(inferred_type);
+            let mut_ty = self.local_ident_types.get_mut(left_ident).unwrap();
+            if mut_ty.is_none() {
+                /*println!(
+                    "Inferred ident {} type {}",
+                    left_ident,
+                    quote::quote!(#inferred_type)
+                );*/
+                *self.local_ident_types.get_mut(left_ident).unwrap() = Some(inferred_type);
+                self.inferred_something = true;
+            }
         }
 
         // delegate visit

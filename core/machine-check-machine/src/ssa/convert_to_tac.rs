@@ -37,6 +37,7 @@ fn process_impl_item_fn(impl_item_fn: &mut syn::ImplItemFn) -> Result<(), Machin
         created_temporaries: vec![],
     };
     converter.process_block(&mut impl_item_fn.block)?;
+    converter.finish_block(&mut impl_item_fn.block)?;
 
     // prefix the function block with newly created temporaries
     // do not add types to temporaries, they will be inferred later
@@ -57,6 +58,159 @@ struct Converter {
 }
 
 impl Converter {
+    fn finish_block(&mut self, block: &mut Block) -> Result<(), MachineError> {
+        let mut processed_stmts = Vec::new();
+        for stmt in block.stmts.drain(..) {
+            match stmt {
+                Stmt::Expr(mut expr, semi) => {
+                    match expr {
+                        syn::Expr::Struct(mut expr_struct) => {
+                            // let it be
+                            processed_stmts.push(Stmt::Expr(Expr::Struct(expr_struct), semi));
+                        }
+                        syn::Expr::Block(mut expr_block) => {
+                            // finish the block
+                            self.finish_block(&mut expr_block.block)?;
+                            processed_stmts.push(Stmt::Expr(Expr::Block(expr_block), semi));
+                        }
+                        syn::Expr::If(mut expr_if) => {
+                            // finish then and else blocks
+                            self.finish_block(&mut expr_if.then_branch)?;
+                            self.finish_block(
+                                extract_else_block_mut(&mut expr_if.else_branch)
+                                    .expect("Expected else block"),
+                            )?;
+                            processed_stmts.push(Stmt::Expr(Expr::If(expr_if), semi));
+                        }
+                        syn::Expr::Assign(mut expr_assign) => {
+                            // convert indexing to ReadWrite
+                            if let Expr::Index(mut right_index) = *expr_assign.right {
+                                // perform forced movement on index
+                                self.move_through_temp(
+                                    &mut processed_stmts,
+                                    right_index.index.as_mut(),
+                                )?;
+
+                                // create a temporary variable
+                                let tmp_ident = Ident::new(
+                                    format!("__mck_tac_{}", self.get_and_increment_temp_counter())
+                                        .as_str(),
+                                    Span::call_site(),
+                                );
+                                self.created_temporaries.push(tmp_ident.clone());
+                                // assign reference to the array
+                                processed_stmts.push(Stmt::Expr(
+                                    Expr::Assign(ExprAssign {
+                                        attrs: vec![],
+                                        left: Box::new(create_expr_ident(tmp_ident.clone())),
+                                        eq_token: Default::default(),
+                                        right: Box::new(create_expr_reference(
+                                            false,
+                                            *right_index.expr,
+                                        )),
+                                    }),
+                                    Some(Default::default()),
+                                ));
+                                // the read call consumes the reference and index
+                                let read_call = create_expr_call(
+                                    create_expr_path(path!(::mck::forward::ReadWrite::read)),
+                                    vec![
+                                        (ArgType::Normal, create_expr_ident(tmp_ident)),
+                                        (ArgType::Normal, *right_index.index),
+                                    ],
+                                );
+                                // the result is the original left side
+                                processed_stmts.push(Stmt::Expr(
+                                    Expr::Assign(ExprAssign {
+                                        right: Box::new(read_call),
+                                        ..expr_assign
+                                    }),
+                                    semi,
+                                ));
+                            } else if let Expr::Index(mut left_index) = *expr_assign.left {
+                                // perform forced movement on index and right
+                                // perform forced movement on index
+                                self.move_through_temp(
+                                    &mut processed_stmts,
+                                    left_index.index.as_mut(),
+                                )?;
+                                self.move_through_temp(
+                                    &mut processed_stmts,
+                                    &mut expr_assign.right,
+                                )?;
+                                // convert to write
+                                // the base must be without side-effects
+                                let base = *left_index.expr;
+                                if !matches!(base, Expr::Path(_)) {
+                                    return Err(MachineError(String::from(
+                                        "Only path base supported when left-hand indexing",
+                                    )));
+                                }
+
+                                // create a temporary variable
+                                let tmp_ident = Ident::new(
+                                    format!("__mck_tac_{}", self.get_and_increment_temp_counter())
+                                        .as_str(),
+                                    Span::call_site(),
+                                );
+                                self.created_temporaries.push(tmp_ident.clone());
+                                // assign reference to the array
+                                processed_stmts.push(Stmt::Expr(
+                                    Expr::Assign(ExprAssign {
+                                        attrs: vec![],
+                                        left: Box::new(create_expr_ident(tmp_ident.clone())),
+                                        eq_token: Default::default(),
+                                        right: Box::new(create_expr_reference(false, base.clone())),
+                                    }),
+                                    Some(Default::default()),
+                                ));
+
+                                // the base is let through
+                                let write_call = create_expr_call(
+                                    create_expr_path(path!(::mck::forward::ReadWrite::write)),
+                                    vec![
+                                        (ArgType::Normal, create_expr_ident(tmp_ident)),
+                                        (ArgType::Normal, *left_index.index),
+                                        (ArgType::Normal, *expr_assign.right),
+                                    ],
+                                );
+
+                                processed_stmts.push(Stmt::Expr(
+                                    Expr::Assign(ExprAssign {
+                                        left: Box::new(base),
+                                        right: Box::new(write_call),
+                                        ..expr_assign
+                                    }),
+                                    semi,
+                                ));
+                            } else {
+                                processed_stmts.push(Stmt::Expr(Expr::Assign(expr_assign), semi));
+                            }
+                        }
+                        _ => {
+                            return Err(MachineError(format!(
+                                "Finishing expression type {:?} not supported",
+                                expr
+                            )))
+                        }
+                    }
+                }
+                Stmt::Local(_) => {
+                    // just retain
+                    processed_stmts.push(stmt);
+                }
+                _ => {
+                    return Err(MachineError(format!(
+                        "Finishing statement type {:?} not supported",
+                        stmt
+                    )))
+                }
+            }
+        }
+        block.stmts = processed_stmts;
+        Ok(())
+    }
+
     fn process_block(&mut self, block: &mut Block) -> Result<(), MachineError> {
         let mut processed_stmts = Vec::new();
         for stmt in block.stmts.drain(..) {
@@ -66,99 +220,7 @@ impl Converter {
                     // the newly created statements (for temporaries) will be added
                     // before the (possibly changed) processed statement
                     self.process_expr(&mut processed_stmts, &mut expr)?;
-
-                    if let Expr::Assign(expr_assign) = expr {
-                        // convert indexing to ReadWrite
-                        if let Expr::Index(right_index) = *expr_assign.right {
-                            // create a temporary variable
-                            let tmp_ident = Ident::new(
-                                format!("__mck_tac_{}", self.get_and_increment_temp_counter())
-                                    .as_str(),
-                                Span::call_site(),
-                            );
-                            self.created_temporaries.push(tmp_ident.clone());
-                            // assign reference to the array
-                            processed_stmts.push(Stmt::Expr(
-                                Expr::Assign(ExprAssign {
-                                    attrs: vec![],
-                                    left: Box::new(create_expr_ident(tmp_ident.clone())),
-                                    eq_token: Default::default(),
-                                    right: Box::new(create_expr_reference(
-                                        false,
-                                        *right_index.expr,
-                                    )),
-                                }),
-                                Some(Default::default()),
-                            ));
-                            // the read call consumes the reference and index
-                            let read_call = create_expr_call(
-                                create_expr_path(path!(::mck::forward::ReadWrite::read)),
-                                vec![
-                                    (ArgType::Normal, create_expr_ident(tmp_ident)),
-                                    (ArgType::Normal, *right_index.index),
-                                ],
-                            );
-                            // the result is the original left side
-                            processed_stmts.push(Stmt::Expr(
-                                Expr::Assign(ExprAssign {
-                                    right: Box::new(read_call),
-                                    ..expr_assign
-                                }),
-                                semi,
-                            ));
-                        } else if let Expr::Index(left_index) = *expr_assign.left {
-                            // convert to write
-                            // the base must be without side-effects
-                            let base = *left_index.expr;
-                            if !matches!(base, Expr::Path(_)) {
-                                return Err(MachineError(String::from(
-                                    "Only path base supported when left-hand indexing",
-                                )));
-                            }
-
-                            // create a temporary variable
-                            let tmp_ident = Ident::new(
-                                format!("__mck_tac_{}", self.get_and_increment_temp_counter())
-                                    .as_str(),
-                                Span::call_site(),
-                            );
-                            self.created_temporaries.push(tmp_ident.clone());
-                            // assign reference to the array
-                            processed_stmts.push(Stmt::Expr(
-                                Expr::Assign(ExprAssign {
-                                    attrs: vec![],
-                                    left: Box::new(create_expr_ident(tmp_ident.clone())),
-                                    eq_token: Default::default(),
-                                    right: Box::new(create_expr_reference(false, base.clone())),
-                                }),
-                                Some(Default::default()),
-                            ));
-
-                            // the base is let through
-                            let write_call = create_expr_call(
-                                create_expr_path(path!(::mck::forward::ReadWrite::write)),
-                                vec![
-                                    (ArgType::Normal, create_expr_ident(tmp_ident)),
-                                    (ArgType::Normal, *left_index.index),
-                                    (ArgType::Normal, *expr_assign.right),
-                                ],
-                            );
-
-                            processed_stmts.push(Stmt::Expr(
-                                Expr::Assign(ExprAssign {
-                                    left: Box::new(base),
-                                    right: Box::new(write_call),
-                                    ..expr_assign
-                                }),
-                                semi,
-                            ));
-                        } else {
-                            // no conversion, just push
-                            processed_stmts.push(Stmt::Expr(Expr::Assign(expr_assign), semi));
-                        }
-                    } else {
-                        processed_stmts.push(Stmt::Expr(expr, semi));
-                    }
+                    processed_stmts.push(Stmt::Expr(expr, semi));
                 }
                 Stmt::Local(_) => {
                     // just retain

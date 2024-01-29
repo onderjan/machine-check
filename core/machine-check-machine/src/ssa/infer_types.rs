@@ -51,6 +51,7 @@ fn infer_fn_types(
     impl_item_fn: &mut ImplItemFn,
     structs: &HashMap<Path, ItemStruct>,
 ) -> Result<(), MachineError> {
+    println!("Inferring types for function {}", impl_item_fn.sig.ident);
     let mut local_ident_types = HashMap::new();
 
     // add param idents
@@ -83,74 +84,82 @@ fn infer_fn_types(
         local_ident_types,
         structs,
         result: Ok(()),
+        inferred_something: false,
     };
-    visitor.visit_impl_item_fn_mut(impl_item_fn);
-    visitor.result.clone()?;
-
-    // infer to originals
-    let mut local_temp_origs = HashMap::new();
-    let mut local_orig_types = HashMap::new();
-
-    for stmt in &impl_item_fn.block.stmts {
-        let Stmt::Local(local) = stmt else {
+    loop {
+        // TODO: remove kludge loop
+        visitor.visit_impl_item_fn_mut(impl_item_fn);
+        visitor.result.clone()?;
+        if !visitor.inferred_something {
             break;
-        };
-        let mut replace_type = None;
-        let ident = match &local.pat {
-            Pat::Ident(pat_ident) => pat_ident.ident.clone(),
-            Pat::Type(ty) => extract_pat_ident(&ty.pat),
-            _ => panic!("Unexpected patttern type {:?}", local.pat),
-        };
-        if let Some(ty) = visitor.local_ident_types.get(&ident).unwrap() {
-            if is_type_standard_inferred(ty) {
-                replace_type = Some(ty.clone());
-            }
         }
 
-        for attr in &local.attrs {
-            if let Meta::NameValue(name_value) = &attr.meta {
-                if name_value.path == path!(::mck::attr::tmp_original) {
-                    let orig_ident = extract_expr_ident(&name_value.value).unwrap();
-                    local_temp_origs.insert(ident, orig_ident.clone());
-                    // replace the original type
-                    if let Some(replace_type) = replace_type {
-                        local_orig_types.insert(orig_ident.clone(), replace_type);
+        // infer to originals
+        let mut local_temp_origs = HashMap::new();
+        let mut local_orig_types = HashMap::new();
+
+        for stmt in &impl_item_fn.block.stmts {
+            let Stmt::Local(local) = stmt else {
+                break;
+            };
+            let mut replace_type = None;
+            let ident = match &local.pat {
+                Pat::Ident(pat_ident) => pat_ident.ident.clone(),
+                Pat::Type(ty) => extract_pat_ident(&ty.pat),
+                _ => panic!("Unexpected patttern type {:?}", local.pat),
+            };
+            if let Some(ty) = visitor.local_ident_types.get(&ident).unwrap() {
+                if is_type_standard_inferred(ty) {
+                    replace_type = Some(ty.clone());
+                }
+            }
+
+            for attr in &local.attrs {
+                if let Meta::NameValue(name_value) = &attr.meta {
+                    if name_value.path == path!(::mck::attr::tmp_original) {
+                        let orig_ident = extract_expr_ident(&name_value.value).unwrap();
+                        local_temp_origs.insert(ident, orig_ident.clone());
+                        // replace the original type
+                        if let Some(replace_type) = replace_type {
+                            local_orig_types.insert(orig_ident.clone(), replace_type);
+                        }
+                        break;
                     }
-                    break;
                 }
             }
         }
-    }
 
-    for stmt in &mut impl_item_fn.block.stmts {
-        let Stmt::Local(local) = stmt else {
-            break;
-        };
-        let (ident, ty) = match &local.pat {
-            Pat::Ident(pat_ident) => (pat_ident.ident.clone(), None),
-            Pat::Type(ty) => (extract_pat_ident(&ty.pat), Some(ty.ty.as_ref().clone())),
-            _ => panic!("Unexpected patttern type {:?}", local.pat),
-        };
-        if let Some(orig_ident) = local_temp_origs.get(&ident) {
-            if let Some(orig_type) = local_orig_types.get(orig_ident) {
-                let mut inferred_type = orig_type.clone();
-                if let Some(ty) = ty {
-                    if let Some(ty_path) = extract_type_path(&ty) {
-                        if path_matches_global_names(&ty_path, &["mck", "forward", "PhiArg"]) {
-                            // put the original type into generics
-                            inferred_type = create_type_path(create_path_with_last_generic_type(
-                                ty_path,
-                                inferred_type,
-                            ));
+        for stmt in &mut impl_item_fn.block.stmts {
+            let Stmt::Local(local) = stmt else {
+                break;
+            };
+            let (ident, ty) = match &local.pat {
+                Pat::Ident(pat_ident) => (pat_ident.ident.clone(), None),
+                Pat::Type(ty) => (extract_pat_ident(&ty.pat), Some(ty.ty.as_ref().clone())),
+                _ => panic!("Unexpected patttern type {:?}", local.pat),
+            };
+            if let Some(orig_ident) = local_temp_origs.get(&ident) {
+                if let Some(orig_type) = local_orig_types.get(orig_ident) {
+                    let mut inferred_type = orig_type.clone();
+                    if let Some(ty) = ty {
+                        if let Some(ty_path) = extract_type_path(&ty) {
+                            if path_matches_global_names(&ty_path, &["mck", "forward", "PhiArg"]) {
+                                // put the original type into generics
+                                inferred_type = create_type_path(
+                                    create_path_with_last_generic_type(ty_path, inferred_type),
+                                );
+                            }
                         }
                     }
-                }
 
-                visitor
-                    .local_ident_types
-                    .insert(ident.clone(), Some(inferred_type));
+                    visitor
+                        .local_ident_types
+                        .insert(ident.clone(), Some(inferred_type));
+                }
             }
         }
+
+        visitor.inferred_something = false;
     }
 
     /*println!("Fn: {}", quote::quote!(#impl_item_fn));
