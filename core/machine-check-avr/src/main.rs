@@ -21,6 +21,8 @@ mod machine_module {
         // progmem is 32 KB, i.e. 16K 16-bit words
         // that is 2^14 = 16384
         pub progmem: ::machine_check::BitvectorArray<14,16>,
+        
+        pub dummy: ::machine_check::Bitvector<1>,
     }
 
     impl ::machine_check::Machine<Input, State> for Machine {
@@ -43,7 +45,7 @@ mod machine_module {
                     safe = ::machine_check::Bitvector::<1>::new(0);
                 }
             });*/
-            ::machine_check::bitmask_switch!(_input.j {
+            /* ::machine_check::bitmask_switch!(_input.j {
                 "1" => {
                     safe = ::machine_check::Bitvector::<1>::new(1);
                 },
@@ -54,7 +56,9 @@ mod machine_module {
                 },
                 _ => {
                 }
-            });
+            });*/
+
+            safe = self.dummy;
 
             State { safe }
         }
@@ -98,6 +102,7 @@ fn main() {
 
     let abstract_machine = machine_module::Machine {
         progmem: ::mck::abstr::Array::new_filled(zeros),
+        dummy: ::mck::abstr::Bitvector::new(1),
     };
 
     machine_check_exec::run::<

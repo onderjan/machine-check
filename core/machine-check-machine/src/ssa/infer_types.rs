@@ -5,7 +5,7 @@ mod type_properties;
 use std::{collections::HashMap, vec};
 
 use syn::{
-    visit_mut::VisitMut, ImplItem, ImplItemFn, Item, ItemStruct, Meta, Pat, PatType, Path, Stmt,
+    visit_mut::VisitMut, ImplItem, ImplItemFn, Item, ItemStruct, Meta, Pat, PatType, Path, Stmt, Ident, Type,
 };
 use syn_path::path;
 
@@ -37,7 +37,7 @@ pub fn infer_types(items: &mut [Item]) -> Result<(), MachineError> {
         if let Item::Impl(item_impl) = item {
             for impl_item in item_impl.items.iter_mut() {
                 if let ImplItem::Fn(impl_item_fn) = impl_item {
-                    infer_fn_types(impl_item_fn, &structs)?;
+                    infer_fn_types(item_impl.self_ty.as_ref(), impl_item_fn, &structs)?;
                 }
             }
         }
@@ -46,6 +46,7 @@ pub fn infer_types(items: &mut [Item]) -> Result<(), MachineError> {
 }
 
 fn infer_fn_types(
+    self_ty: &Type,
     impl_item_fn: &mut ImplItemFn,
     structs: &HashMap<Path, ItemStruct>,
 ) -> Result<(), MachineError> {
@@ -54,8 +55,9 @@ fn infer_fn_types(
     // add param idents
     for param in impl_item_fn.sig.inputs.iter() {
         match param {
-            syn::FnArg::Receiver(_param) => {
-                // TODO: add self type
+            syn::FnArg::Receiver(receiver) => {
+                let ident = Ident::new("self", receiver.self_token.span);
+                local_ident_types.insert(ident, Some(self_ty.clone()));
             }
             syn::FnArg::Typed(param) => {
                 // parameters are always typed
