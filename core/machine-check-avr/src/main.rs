@@ -232,85 +232,1001 @@ mod machine_module {
             let safe = ::machine_check::Bitvector::<1>::new(1);
 
             ::machine_check::bitmask_switch!(instruction {
-                        // --- 0000 prefixes ---
+                                                // --- 0000 prefixes ---
 
-                        // NOP
-                        "0000_0000_0000_0000" => {
-                            // do nothing
-                        },
+                                                // NOP
+                                                "0000_0000_0000_0000" => {
+                                                    // do nothing
+                                                },
 
 
-            // MOVW
-            "0000_0001_dddd_rrrr" => {
-                //R[d+d, 2] = R[r+r, 2];
-            }
+                                    // MOVW
+                                    "0000_0001_dddd_rrrr" => {
+                                        //R[d+d, 2] = R[r+r, 2];
+                                    }
 
-            // MULS
-            "0000_0010_dddd_rrrr" => {
-                //R[1..0] = ((Int8)R[d+16])*((Int8)R[r+16]);
-            }
-            // MULSU
-            "0000_0011_0ddd_0rrr" => {
-                //unimplemented();
-                //R[1..0] = ((Int8)R[d+16])*((Uint8)R[r+16]);
-            }
+                                    // MULS
+                                    "0000_0010_dddd_rrrr" => {
+                                        //R[1..0] = ((Int8)R[d+16])*((Int8)R[r+16]);
+                                    }
+                                    // MULSU
+                                    "0000_0011_0ddd_0rrr" => {
+                                        //unimplemented();
+                                        //R[1..0] = ((Int8)R[d+16])*((Uint8)R[r+16]);
+                                    }
 
-            // FMUL
-            "0000_0011_0ddd_1rrr" => {
-                //unimplemented();
-                //R[1..0] = ( ((Uint8)R[d+16])*((Uint8)R[r+16]) << 1);
-            }
+                                    // FMUL
+                                    "0000_0011_0ddd_1rrr" => {
+                                        //unimplemented();
+                                        //R[1..0] = ( ((Uint8)R[d+16])*((Uint8)R[r+16]) << 1);
+                                    }
 
-            // FMULS
-            "0000_0011_1ddd_0rrr" => {
-                //unimplemented();
-                //R[1..0] = ( ((Int8)R[d+16])*((Int8)R[r+16]) << 1);
-            }
+                                    // FMULS
+                                    "0000_0011_1ddd_0rrr" => {
+                                        //unimplemented();
+                                        //R[1..0] = ( ((Int8)R[d+16])*((Int8)R[r+16]) << 1);
+                                    }
 
-            // FMULSU
-            "0000_0011_1ddd_1rrr" => {
-                //unimplemented();
-                //R[1..0] = ( ((Int8)R[d+16])*((Uint8)R[r+16]) << 1);
-            }
+                                    // FMULSU
+                                    "0000_0011_1ddd_1rrr" => {
+                                        //unimplemented();
+                                        //R[1..0] = ( ((Int8)R[d+16])*((Uint8)R[r+16]) << 1);
+                                    }
 
-            // CPC
-            "0000_01rd_dddd_rrrr" => {
-                // compare with carry, same as SBC without actually saving the computed value
-                /*Uint8 carry = 0;
-                carry[[0]] = SREG[[0]];
-                Uint8 result = R[d] - R[r] - carry;
-                SREG = compute_status_sbc(SREG, R[d], R[r], result);*/
-            }
+                                    // CPC
+                                    "0000_01rd_dddd_rrrr" => {
+                                        // compare with carry, same as SBC without actually saving the computed value
+                                        /*Uint8 carry = 0;
+                                        carry[[0]] = SREG[[0]];
+                                        Uint8 result = R[d] - R[r] - carry;
+                                        SREG = compute_status_sbc(SREG, R[d], R[r], result);*/
+                                    }
 
-            // SBC
-            "0000_10rd_dddd_rrrr" => {
-                // subtract with carry
-                /*Uint8 prev = R[d];
-                Uint8 carry = 0;
-                carry[[0]] = SREG[[0]];
-                R[d] = R[d] - R[r] - carry;
-                SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
-            }
+                                    // SBC
+                                    "0000_10rd_dddd_rrrr" => {
+                                        // subtract with carry
+                                        /*Uint8 prev = R[d];
+                                        Uint8 carry = 0;
+                                        carry[[0]] = SREG[[0]];
+                                        R[d] = R[d] - R[r] - carry;
+                                        SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
+                                    }
 
-            // ADD
-            "0000_11rd_dddd_rrrr" => {
-                /*// add
-                Uint8 prev = R[d];
-                Uint8 current = 0;
-                // kludge: if using the same register, shift left
-                // this does not force determinization
-                if (d == r) {
-                    current[[1, 7]] = prev[[0, 7]];
-                    R[d] = current;
-                } else {
-                    R[d] = R[d] + R[r];
+                                    // ADD
+                                    "0000_11rd_dddd_rrrr" => {
+                                        /*// add
+                                        Uint8 prev = R[d];
+                                        Uint8 current = 0;
+                                        // kludge: if using the same register, shift left
+                                        // this does not force determinization
+                                        if (d == r) {
+                                            current[[1, 7]] = prev[[0, 7]];
+                                            R[d] = current;
+                                        } else {
+                                            R[d] = R[d] + R[r];
+                                        }
+                                        SREG = compute_status_add(SREG, prev, R[r], R[d]);*/
+                                    }
+
+                            // --- 0001 ---
+
+                            // CPSE
+                            "0001_00rd_dddd_rrrr" => {
+                                /*
+                                // compare skip if equal
+                                // similar to other skips, but with register comparison
+
+                                R_direct[d] = R_direct[d];
+                                R_direct[r] = R_direct[r];
+
+                                if (R[d] == R[r]) {
+                                    // they are equal, skip next instruction
+                                    skip_next_instruction();
+                                } else {
+                                    // they are not equal, do nothing
+                                }
+                                */
+                            }
+
+                            // CP
+                            "0001_01rd_dddd_rrrr" => {
+                                /*
+                                // compare, same as SUB without actually saving the computed value
+                                Uint8 result = R[d] - R[r];
+                                SREG = compute_status_sub(SREG, R[d], R[r], result);
+                                */
+                            }
+
+                            // SUB
+                            "0001_10rd_dddd_rrrr" => {
+                                /*// subtract
+                                Uint8 prev = R[d];
+                                R[d] = R[d] - R[r];
+                                SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
+                            }
+
+                            // ADC
+                            "0001_11rd_dddd_rrrr" => {
+                                /*// add with carry
+                                Uint8 prev = R[d];
+                                Uint8 carry = 0;
+                                carry[[0]] = SREG[[0]];
+                                R[d] = R[d] + R[r] + carry;
+                                SREG = compute_status_add(SREG, prev, R[r], R[d]);*/
+                            }
+
+                            // --- 0010 ---
+
+                            // AND
+                            "0010_00rd_dddd_rrrr" => {
+                                /*
+                                // logical and
+                                R[d] = R[d] & R[r];
+                                SREG = compute_status_logical(SREG, R[d]);
+                                */
+                            }
+
+                            // EOR
+                            "0010_01rd_dddd_rrrr" => {
+                                /*
+                                // exclusive or
+
+                                // kludge: when zeroing the register through EOR,
+                                // bypass unknown values by setting zero directly
+                                // this is due to this special case being widely
+                                // used to set a register to zero
+
+                                if (r == d) {
+                                    R[d] = 0;
+                                } else {
+                                    R[d] = R[d] ^ R[r];
+                                }
+
+                                SREG = compute_status_logical(SREG, R[d]);
+                                */
+                            }
+
+                            // OR
+                            "0010_10rd_dddd_rrrr" => {
+                                /*
+                                // logical or
+                                R[d] = R[d] | R[r];
+                                SREG = compute_status_logical(SREG, R[d]);*/
+
+                            }
+
+                            // MOV
+                            "0010_11rd_dddd_rrrr" => {
+                                /*
+                                // copy register, status flags not affected
+                                R[d] = R[r];
+                                */
+                            }
+
+                            // --- 0011 ---
+
+                            // CPI
+                            "0011_kkkk_dddd_kkkk" => {
+                                /*
+                                // compare with immediate
+                                Uint8 result = R[d+16] - k;
+                                SREG = compute_status_sub(SREG, R[d+16], k, result);
+                                */
+                            }
+
+                            // --- 0100 ---
+
+                            // SBCI
+                            "0100_kkkk_dddd_kkkk" => {
+                                /*// subtract immediate with carry
+                                Uint8 prev = R[d+16];
+                                Uint8 carry = 0;
+                                carry[[0]] = SREG[[0]];
+                                R[d+16] = R[d+16] - k - carry;
+                                SREG = compute_status_sbc(SREG, prev, k, R[d+16]);*/
+                            }
+
+                            // --- 0101 ---
+
+                            // SUBI
+                            "0101_kkkk_dddd_kkkk" => {
+                                /*
+                                // subtract immediate
+                                Uint8 prev = R[d+16];
+                                R[d+16] = R[d+16] - k;
+                                SREG = compute_status_sub(SREG, prev, k, R[d+16]);
+                                */
+                            }
+
+                            // --- 0110 ---
+
+                            // ORI
+                            "0110_kkkk_dddd_kkkk" => {
+                                /*
+                                // logical or with immediate
+                                R[d+16] = R[d+16] | k;
+                                SREG = compute_status_logical(SREG, R[d+16]);
+                                */
+                            }
+
+                            // --- 0111 ---
+
+                            // ANDI
+                            "0111_kkkk_dddd_kkkk" => {
+                                /*
+                                // logical and with immediate
+                                R[d+16] = R[d+16] & k;
+                                SREG = compute_status_logical(SREG, R[d+16]);
+                                */
+                            }
+
+
+                // --- 1000 ---
+
+                // LD Rd, Z+q
+                "10q0_qq0d_dddd_0qqq" => {
+                    //R[d] = DATA[Z+q]; increment_cycle_count();
                 }
-                SREG = compute_status_add(SREG, prev, R[r], R[d]);*/
-            }
 
-                _ => {
-                    // unimplemented!();
+                // LD Rd, Y+q
+                "10q0_qq0d_dddd_1qqq" => {
+                    //R[d] = DATA[Y+q]; increment_cycle_count();
                 }
+
+                // ST Z+q, Rr
+                "10q0_qq1r_rrrr_0qqq" => {
+                    //DATA[Z+q] = R[r]; increment_cycle_count();
+                }
+
+                // ST Y+q, Rr
+                "10q0_qq1r_rrrr_1qqq" => {
+                    //DATA[Y+q] = R[r]; increment_cycle_count();
+                }
+
+                // --- 1001 ---
+
+                // LDS - 2 words
+                "1001_000d_dddd_0000" => {
+                    /*
+                    // load direct from data space
+                    // d contains destination register
+                    // next instruction word contains address
+                    // ATmega328p does not contain RAMPD register
+                    // so we do not need to concern ourselves with it
+
+                    // fetch and increment PC, taking one cycle
+                    Uint16 newInstruction = progmem[PC];
+                    PC = PC + 1;
+                    increment_cycle_count();
+
+                    // move data space byte to register
+                    R[d] = DATA[newInstruction];
+                    */
+                }
+
+                // LD Rd, Z+
+                "1001_000d_dddd_0001" => {
+                    //R[d] = DATA[Z]; Z = Z + 1; increment_cycle_count();
+                }
+
+                // LD Rd, -Z
+                "1001_000d_dddd_0010" => {
+                    //Z = Z - 1; R[d] = DATA[Z]; increment_cycle_count();
+                }
+
+                // 0011 reserved
+
+                // LPM Rd, Z
+                "1001_000d_dddd_0100" => {
+                    /*
+                    // load program memory
+                    //R[d] = fetchProgramByte(Z);
+                    unimplemented();
+
+                    // LPM is a three-cycle instruction
+                    increment_cycle_count();
+                    increment_cycle_count();
+                    */
+                }
+
+                // LPM Rd, Z+
+                "1001_000d_dddd_0101" => {
+                    /*
+                    // load program memory with post-increment
+                    //R[d] = fetchProgramByte(Z);
+                    unimplemented();
+
+                    Z = Z + 1;
+
+                    // LPM is a three-cycle instruction
+                    increment_cycle_count();
+                    increment_cycle_count();
+                    */
+                }
+
+                // ELPM Rd, Z
+                "1001_000d_dddd_0110" => {
+                    //unimplemented(); //R[d] = PROGRAM[RAMPZ:Z];
+                }
+
+                // ELPM Rd, Z+
+                "1001_000d_dddd_0111" => {
+                    //unimplemented(); //R[d] = PROGRAM[RAMPZ:Z]; (RAMPZ:Z) = (RAMPZ:Z) + 1;
+                }
+
+                // 1000 reserved
+
+                // LD Rd, Y+
+                "1001_000d_dddd_1001" => {
+                    //R[d] = DATA[Y]; Y = Y + 1; increment_cycle_count();
+                }
+
+                // LD Rd, -Y
+                "1001_000d_dddd_1010" => {
+                    //Y = Y - 1; R[d] = DATA[Y]; increment_cycle_count();
+                }
+
+                // 1011  reserved
+
+                // LD Rd, X
+                "1001_000d_dddd_1100" => {
+                    //R[d] = DATA[X]; increment_cycle_count();
+                }
+
+                // LD Rd, X+
+                "1001_000d_dddd_1101" => {
+                    //R[d] = DATA[X]; X = X + 1; increment_cycle_count();
+                }
+
+                // LD Rd, -X
+                "1001_000d_dddd_1110" => {
+                    //X = X - 1; R[d] = DATA[X]; increment_cycle_count();
+                }
+
+                // POP Rd
+                "1001_000d_dddd_1111" => {
+                    /*
+                    SP = SP + 1;
+                    R[d] = DATA[SP];
+
+                    // POP is a two-cycle instruction
+                    increment_cycle_count();
+                    */
+                }
+
+                // --- 1010 ---
+
+                // STS - 2 words
+                "1001_001r_rrrr_0000" => {
+                    /*
+                    // store direct to data space
+                    // r contains source register
+                    // next instruction word contains address
+                    // ATmega328p does not contain RAMPD register
+                    // so we do not need to concern ourselves with it
+
+                    // fetch and increment PC
+                    Uint16 newInstruction = progmem[PC];
+                    PC = PC + 1;
+
+                    // move register to data space byte
+                    DATA[newInstruction] = R[r];
+                    */
+                }
+
+
+                // ST Z+, Rr
+                "1001_001r_rrrr_0001" => {
+                    //DATA[Z] = R[r]; Z = Z + 1; increment_cycle_count();
+                }
+
+                // ST -Z, Rr
+                "1001_001r_rrrr_0010" => {
+                    //Z = Z - 1; DATA[Z] = R[r]; increment_cycle_count();
+                }
+
+                // 0011, 01xx, 1000 reserved
+
+                // ST Y+, Rr
+                "1001_001r_rrrr_1001" => {
+                    //DATA[Y] = R[r]; Y = Y + 1; increment_cycle_count();
+                }
+
+                // ST -Y, Rr
+                "1001_001r_rrrr_1010" => {
+                    //Y = Y - 1; DATA[Y] = R[r]; increment_cycle_count();
+                }
+
+                // 1011 reserved
+
+                // ST X, Rr
+                "1001_001r_rrrr_1100" => {
+                    //DATA[X] = R[r]; increment_cycle_count();
+                }
+
+                // ST X+, Rr
+                "1001_001r_rrrr_1101" => {
+                    // DATA[X] = R[r]; X = X + 1; increment_cycle_count();
+                }
+
+                // ST -X, Rr
+                "1001_001r_rrrr_1110"  => {
+                    //X = X - 1; DATA[X] = R[r]; increment_cycle_count();
+                }
+
+                // PUSH
+                "1001_001d_dddd_1111" => {
+                    /*DATA[SP] = R[d];
+                    SP = SP - 1;
+
+                    // PUSH is a two-cycle instruction
+                    increment_cycle_count();*/
+                }
+
+                // --- 1011 ---
+
+                // COM Rd
+                "1001_010d_dddd_0000" => {
+                    /*
+                    // one's complement
+                    R[d] = 0xFF - R[d];
+                    SREG = compute_status_com(SREG, R[d]);*/
+                }
+
+                // NEG Rd
+                "1001_010d_dddd_0001" => {
+                    /*
+                    // two's complement
+                    Uint8 prev = R[d];
+                    R[d] = 0x00 - R[d];
+                    SREG = compute_status_neg(SREG, prev, R[d]);
+                    */
+                }
+
+                // SWAP Rd
+                "1001_010d_dddd_0010" => {
+                    /*
+                    // swap nibbles in register, status flags not affected
+                    Uint8 prev = R[d];
+                    Uint8 tmp;
+                    tmp[[0, 4]] = prev[[4, 4]];
+                    tmp[[4, 4]] = prev[[0, 4]];
+                    R[d] = tmp;
+                    */
+                }
+
+                // INC Rd
+                "1001_010d_dddd_0011" => {
+                    /*
+                    R[d] = R[d] + 1;
+                    SREG = compute_status_inc(SREG, R[d]);
+                    */
+                }
+
+                // 0100 is reserved
+
+                // ASR Rd
+                "1001_010d_dddd_0101" => {
+                    /*
+                    // arithmetic shift right
+                      Uint8 prev = R[d];
+
+                      Uint8 result = 0;
+                    result[[0, 7]] = prev[[1, 7]];
+                      result[[7]] = prev[[7]];
+
+                      R[d] = result;
+                      SREG = compute_status_right_shift(SREG, prev, R[d]);
+                    */
+                }
+
+                // LSR Rd
+                "1001_010d_dddd_0110" => {
+                    /*
+                    // logical shift right
+                      Uint8 prev = R[d];
+
+                      Uint8 result = 0;
+                    result[[0, 7]] = prev[[1, 7]];
+
+                      R[d] = result;
+                    SREG = compute_status_right_shift(SREG, prev, R[d]);
+                    */
+                }
+
+                // ROR Rd
+                "1001_010d_dddd_0111" => {
+                    /*
+                    // rotate right through carry
+                    Uint8 prev = R[d];
+
+                    Uint8 result = 0;
+                    result[[0, 7]] = prev[[1, 7]];
+                    result[[7]] = SREG[[0]];
+                      R[d] = result;
+                    SREG = compute_status_right_shift(SREG, prev, R[d]);
+                    */
+                }
+
+                // - opcodes only in 1011_0101 -
+
+                // BSET s
+                "1001_0100_0sss_1000" => {
+                    /*
+                    // bit set in status register
+                    SREG[[s]] = '1';
+                    */
+                }
+
+                // BCLR s
+                "1001_0100_1sss_1000" => {
+                    /*
+                    // bit clear in status register
+                    SREG[[s]] = '0';
+                    */
+                }
+
+                // IJMP
+                "1001_0100_0000_1001" => {
+                    //unimplemented();
+                }
+
+                // EIJMP
+                "1001_0100_0001_1001" => {
+                    //unimplemented();
+                }
+
+                // other 1001_0100_xxxx_1001 reserved
+
+                // DEC Rd
+                "1001_010d_dddd_1010" => {
+                    /*
+                    // decrement
+                    R[d] = R[d] - 1;
+                    SREG = compute_status_dec(SREG, R[d]);
+                    */
+                }
+
+                // 1011 is DES/reserved on ATxmega, reserved for others
+
+                // JMP - 2 words
+                "1001_010k_kkkk_110k" => {
+                    /*
+                    // PC is 14-bit on ATmega328p, we ignore the higher bits
+                    Uint16 newInstruction = progmem[PC];
+                    PC = newInstruction;
+
+                    // JMP is a three-cycle instruction
+                    increment_cycle_count();
+                    increment_cycle_count();
+                    */
+                }
+
+                // CALL - 2 words
+                "1001_010k_kkkk_111k" => {
+                    /*
+                    // save return address to stack and post-decrement SP
+                    // PC is 14-bit on ATmega328p, we ignore the higher bits
+
+                    // move low target word to instruction variable
+                    Uint16 newInstruction = progmem[PC];
+                    // make sure PC points to the result instruction
+                    PC = PC + 1;
+
+                    // save low bits
+                    DATA[SP] = PCL;
+                    // decrement stack pointer
+                    SP = SP - 1;
+                    // save high bits
+                    DATA[SP] = PCH;
+                    // decrement stack pointer
+                    SP = SP - 1;
+
+
+                    /// jump to subroutine
+                    PC = newInstruction;
+
+                    // CALL is a four-cycle instruction
+                    increment_cycle_count();
+                    increment_cycle_count();
+                    increment_cycle_count();
+                    */
+                }
+
+                // -  opcodes only in 1011_0110 -
+
+                // RET
+                "1001_0101_0000_1000" => {
+                    /*
+                    // return from subroutine
+                    // move highest stack word to PC with pre-increment
+
+                    // increment stack pointer
+                    SP = SP + 1;
+                    // move stack byte to high byte of PC
+                    PCH = DATA[SP];
+                    // increment stack pointer
+                    SP = SP + 1;
+                    // move stack byte to low byte of PC
+                    PCL = DATA[SP];
+
+                    // RET is a four-cycle instruction
+                    increment_cycle_count();
+                    increment_cycle_count();
+                    increment_cycle_count();
+                    */
+                }
+
+                // RETI
+                "1001_0101_0001_1000" => {
+                    //unimplemented();
+                }
+
+                // next six reserved
+
+                // SLEEP
+                "1001_0101_1000_1000" => {
+                    //unimplemented();
+                }
+
+                // BREAK
+                "1001_0101_1001_1000" => {
+                    /*
+                    // break the execution when debugging
+                    unimplemented();
+                    */
+                }
+
+                // WDR
+                "1001_0101_1010_1000" => {
+                    /*
+                    unimplemented();
+                    */
+                }
+
+                // next one reserved
+
+                // LPM (implied R0 destination)
+                "1001_0101_1100_1000" => {
+                    /*
+                    // load program memory
+
+                    //R[0] = fetchProgramByte(Z);
+                    unimplemented();
+
+                    // LPM is a three-cycle instruction
+                    increment_cycle_count();
+                    increment_cycle_count();
+                    */
+                }
+
+                // ELPM
+                "1001_0101_1101_1000" => {
+                    /*
+                    unimplemented(); //R[0] = PROGRAM[RAMPZ:Z];
+                    */
+                }
+
+                // SPM
+                "1001_0101_1110_1000" => {
+                    //unimplemented();
+                }
+
+                // next one reserved (SPM on ATxmega)
+
+                // ICALL
+                "1001_0101_0000_1001" => {
+                    //unimplemented();
+                }
+
+                // EICALL
+                "1001_0101_0001_1001" => {
+                    //unimplemented();
+                }
+
+                // next 14 reserved
+
+                // - other opcodes in 1011 -
+
+                // ADIW Rd, K
+                "1001_0110_kkdd_kkkk" => {
+                    /*
+                    Uint16 pair;
+
+                    Uint8 lo = R[d+d+24];
+                    Uint8 hi = R[d+d+25];
+
+                    pair[[0, 8]] = lo;
+                    pair[[8, 8]] = hi;
+
+                    Uint16 result = pair + k;
+
+                    lo = result[[0, 8]];
+                    hi = result[[8, 8]];
+
+                    R[d+d+24] = lo;
+                    R[d+d+25] = hi;
+
+                    SREG = compute_status_adiw(SREG, pair, result);
+
+                    // ADIW is a two-cycle instruction
+                    increment_cycle_count();
+                    */
+                }
+
+                // SBIW Rd, K
+                "1001_0111_kkdd_kkkk" => {
+                    /*
+                    Uint16 pair;
+
+                    Uint8 lo = R[d+d+24];
+                    Uint8 hi = R[d+d+25];
+
+                    pair[[0, 8]] = lo;
+                    pair[[8, 8]] = hi;
+
+                    Uint16 result = pair - k;
+
+                    lo = result[[0, 8]];
+                    hi = result[[8, 8]];
+
+                    R[d+d+24] = lo;
+                    R[d+d+25] = hi;
+
+                    SREG = compute_status_sbiw(SREG, pair, result);
+
+                    // SBIW is a two-cycle instruction
+                    increment_cycle_count();
+                    */
+                }
+
+                // CBI A, b
+                "1001_1000_aaaa_abbb" => {
+                    /*
+                    // clear bit in I/O register, status flags not affected
+                    IO[a][[b]] = '0';
+
+                    // SBI is a two-cycle instruction
+                    increment_cycle_count();
+                    */
+                }
+
+                // SBIC A, b
+                "1001_1001_aaaa_abbb" => {
+                    /*
+                    IO_direct[a][[b]] = IO_direct[a][[b]];
+
+                    // skip if bit in I/O register is cleared
+                    if (IO[a][[b]]) {
+                        // bit is set, do nothing
+                    } else {
+                        // bit is cleared, skip next instruction
+                        skip_next_instruction();
+                    }
+                    */
+                }
+
+                // SBI A, b
+                "1001_1010_aaaa_abbb" => {
+                    /*
+                    // set bit in I/O register, status flags not affected
+                    IO[a][[b]] = '1';
+
+                    // SBI is a two-cycle instruction
+                    increment_cycle_count();
+                    */
+                }
+
+                // SBIS A, b
+                "1001_1011_aaaa_abbb" => {
+                    /*
+                    IO_direct[a][[b]] = IO_direct[a][[b]];
+                    // skip if bit in I/O register is set
+                    if (IO[a][[b]]) {
+                        // bit is set, skip next instruction
+                        skip_next_instruction();
+                    } else {
+                        // bit is cleared, do nothing
+                    }
+                    */
+                }
+
+                // MUL
+                "1001_11rd_dddd_rrrr" => {
+                    /* unimplemented(); //R[1:0] = R[d]*R[r]; */
+                }
+
+                // --- 1010 ---
+
+                // already taken care of by the ld/st instructions with displacement
+
+                // --- 1011 ---
+
+                // IN
+                "1011_0aad_dddd_aaaa" => {
+                    /*
+                    // load I/O location to register, status flags not affected
+                    R[d] = IO[a];
+                    */
+                }
+
+                // OUT
+                "1011_1aar_rrrr_aaaa" => {
+                    /*
+                    // store register to I/O location, status flags not affected
+                    IO[a] = R[r];
+                    */
+                }
+
+                // --- 1100 ---
+
+                // RJMP
+                "1100_kkkk_kkkk_kkkk" => {
+                    /*
+                    // relative jump
+                    // we have already added 1 before case, just add adjusted k
+                    // TODO: represent k as signed and sign-extend
+
+                    Uint16 short_k = 0;
+                    short_k[[0, 12]] = k;
+                    if (short_k[[11]]) {
+                        // negative jump
+                        // convert k in short_k to its absolute value in two's complement
+                        // OK to do since the highest bit of short_k is never set
+                        short_k[[0, 12]] = ~short_k[[0, 12]];
+                        short_k = short_k + 1;
+                        // subtract it
+                        PC = PC - short_k;
+                    } else {
+                        // positive jump
+                        PC = PC + short_k;
+                    }
+
+                    // RJMP is a two-cycle instruction
+                    increment_cycle_count();
+                    */
+                }
+
+                // --- 1101 ---
+
+                // RCALL
+                "1101_kkkk_kkkk_kkkk" => {
+                    //unimplemented();
+                }
+
+                // --- 1110 ---
+                // LDI
+                "1110_kkkk_dddd_kkkk" => {
+                    /*
+                    // load immediate, status flags not affected
+                    R[d+16] = k;
+                    */
+                }
+
+                // --- 1111 ---
+
+                // BRBS
+                "1111_00kk_kkkk_ksss" => {
+                    /*
+                    SREG_direct[[s]] = SREG_direct[[s]];
+
+                    // branch if bit in SREG is set
+                    // we have already added 1 to PC before case
+                    if (SREG[[s]]) {
+                        // it is set, branch
+                        // TODO: represent k as signed and sign-extend
+                        Uint16 short_k = 0;
+                        short_k[[0, 7]] = k;
+                        if (short_k[[6]]) {
+                            // negative jump
+                            // convert k in short_k to its absolute value in two's complement
+                            // OK to do since the highest bit of short_k is never set
+                            short_k[[0, 7]] = ~short_k[[0, 7]];
+                            short_k = short_k + 1;
+                            // subtract it
+                            PC = PC - short_k;
+                        } else {
+                            // positive jump
+                            PC = PC + short_k;
+                        }
+                        // since we branched, one more cycle is taken
+                        increment_cycle_count();
+                    } else {
+                        // it is cleared, do nothing
+                    }*/
+                }
+
+                // BRBC
+                "1111_01kk_kkkk_ksss" => {
+                    /*
+                    SREG_direct[[s]] = SREG_direct[[s]];
+
+                    // branch if bit in SREG is cleared
+                    // we have already added 1 to PC before case
+                    if (SREG[[s]]) {
+                        // it is set, do nothing
+                    } else {
+                        // it is cleared, branch
+                        // TODO: represent k as signed and sign-extend
+                        Uint16 short_k = 0;
+                        short_k[[0, 7]] = k;
+                        if (short_k[[6]]) {
+                            // negative jump
+                            // convert k in short_k to its absolute value in two's complement
+                            // OK to do since the highest bit of short_k is never set
+                            short_k[[0, 7]] = ~short_k[[0, 7]];
+                            short_k = short_k + 1;
+                            // subtract it
+                            PC = PC - short_k;
+                        } else {
+                            // positive jump
+                            PC = PC + short_k;
+                        }
+                        // since we branched, one more cycle is taken
+                        increment_cycle_count();
+                    }
+                    */
+                }
+
+                // BLD
+                "1111_100d_dddd_0bbb" => {
+                    /*
+                    // load bit T of SREG from register
+                    R[d][[b]] = R[d][[6]];
+                    */
+                }
+
+                // 1xxx part reserved
+
+                // BST
+                "1111_101d_dddd_0bbb" => {
+                    /*
+                    // store bit T of SREG to register
+                    SREG[[6]] = R[d][[b]];
+                    */
+                }
+
+                // 1xxx part reserved
+
+                // SBRC
+                "1111_110r_rrrr_0bbb" => {
+                    /*
+
+                    R_direct[r][[b]] = R_direct[r][[b]];
+
+                    // skip if bit in register is cleared
+                    if (R[r][[b]]) {
+                        // bit is set, do nothing
+                    } else {
+                        // bit is cleared, skip next instruction
+                        skip_next_instruction();
+                    }
+                    */
+                }
+
+                // 1xxx part reserved
+
+                // SBRS
+                "1111_111r_rrrr_0bbb" => {
+                    /*
+                    R_direct[r][[b]] = R_direct[r][[b]];
+
+                    // skip if bit in register is set
+                    if (R[r][[b]]) {
+                        // bit is set, skip next instruction
+                        skip_next_instruction();
+                    } else {
+                        // bit is cleared, do nothing
+                    }
+                */
+                }
+
+                // 1xxx part reserved
+
+                // --- DEFAULT ---
+                            _ => {
+                                // unimplemented!();
+                            }
             });
 
             State {

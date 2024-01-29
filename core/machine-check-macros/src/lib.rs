@@ -28,9 +28,12 @@ pub fn machine_description(_attr: TokenStream, item: TokenStream) -> TokenStream
         }
     };
 
+    println!("Expanding machine description");
+
     let expanded = quote! {
         #module
     };
+    println!("Returning expanded description");
     TokenStream::from(expanded)
 }
 

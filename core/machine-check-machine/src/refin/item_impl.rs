@@ -16,6 +16,7 @@ pub(super) fn apply(
     item_impl: &ItemImpl,
 ) -> Result<(), MachineError> {
     let self_ty = item_impl.self_ty.as_ref();
+    println!("Applying refinement to impl {}", quote::quote!(#self_ty));
 
     let Type::Path(self_ty) = self_ty else {
         return Err(MachineError(String::from(
@@ -49,6 +50,7 @@ pub(super) fn apply(
 
     let converted_item_impl = converter.convert(item_impl.clone())?;
     refinement_items.push(Item::Impl(converted_item_impl));
+    println!("Applied refinement to impl {}", quote::quote!(#self_ty));
     Ok(())
 }
 

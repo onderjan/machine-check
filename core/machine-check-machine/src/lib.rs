@@ -40,15 +40,17 @@ pub fn default_main() -> Item {
 }
 
 fn process_items(items: &mut Vec<Item>) -> Result<(), Error> {
+    println!("Machine-check-machine starting processing");
+
     let ssa_machine = ssa::create_concrete_machine(items.clone())?;
-    /*println!(
+    println!(
         "SSA machine: {}",
         prettyplease::unparse(&syn::File {
             shebang: None,
             attrs: vec![],
             items: ssa_machine.items.clone()
         })
-    );*/
+    );
     let mut abstract_machine = abstr::create_abstract_machine(&ssa_machine)?;
     let refinement_machine = refin::create_refinement_machine(&abstract_machine)?;
 
@@ -68,6 +70,8 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Error> {
     support::strip_machine::strip_machine(&mut abstract_machine)?;
 
     *items = abstract_machine.items;
+
+    println!("Machine-check-machine ending processing");
 
     Ok(())
 }

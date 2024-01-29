@@ -84,7 +84,7 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
 
     let mut default_arms = Vec::new();
 
-    let mut mask_values = Vec::new();
+    let mut arm_data = Vec::new();
 
     // process normal arms
     for arm in switch.arms {
@@ -183,7 +183,7 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         let mask_expr = create_number_expr(&condition.mask, num_bits, choice_span);
         let value_expr = create_number_expr(&condition.value, num_bits, choice_span);
 
-        mask_values.push(condition);
+        arm_data.push((str, condition));
 
         // scrutinee & mask == value
         let bitand_expr = Expr::Binary(ExprBinary {
@@ -346,10 +346,13 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
     }
 
     // make sure the arms are disjoint
-    for i in 0..mask_values.len() {
-        for j in i + 1..mask_values.len() {
-            if mask_values[i].intersects(&mask_values[j]) {
-                panic!("Arms are not disjoint");
+    for i in 0..arm_data.len() {
+        for j in i + 1..arm_data.len() {
+            if arm_data[i].1.intersects(&arm_data[j].1) {
+                panic!(
+                    "Arms are not disjoint: {} intersects {}",
+                    arm_data[i].0, arm_data[j].0
+                );
             }
         }
     }
