@@ -1,11 +1,11 @@
-use syn::{Expr, ExprCall, ExprPath, Meta, Pat, Stmt};
+use syn::{spanned::Spanned, Expr, ExprCall, ExprPath, ExprReference, Meta, Pat, Stmt, Token};
 
 use crate::{
     support::{local::construct_prefixed_ident, struct_rules::StructRules},
     util::{
         create_expr_call, create_expr_field_unnamed, create_expr_ident, create_expr_path,
-        create_expr_tuple, create_ident, create_let, create_pat_wild, create_refine_join_stmt,
-        extract_expr_ident, path_matches_global_names, ArgType,
+        create_expr_reference, create_expr_tuple, create_ident, create_let, create_pat_wild,
+        create_refine_join_stmt, extract_expr_ident, path_matches_global_names, ArgType,
     },
     MachineError,
 };
@@ -164,15 +164,26 @@ impl StatementConverter {
                 // swap parameter and result
                 // the parameter is a reference
                 let mut call = call.clone();
-                let Expr::Reference(ref mut arg_ref) = call.args[0] else {
-                    panic!("Clone argument should be a reference");
-                };
+                if let Expr::Reference(ref mut arg_ref) = call.args[0] {
+                    let orig_call_param = extract_expr_ident(&arg_ref.expr)
+                        .expect("Clone argument in reference should be ident")
+                        .clone();
+                    *arg_ref.expr = backward_later.clone();
+                    stmts.push(create_let(orig_call_param.clone(), Expr::Call(call)));
+                } else {
+                    let arg = &mut call.args[0];
+                    let orig_call_param = extract_expr_ident(arg)
+                        .expect("Clone argument should be ident")
+                        .clone();
+                    *arg = Expr::Reference(ExprReference {
+                        attrs: vec![],
+                        and_token: Token![&](arg.span()),
+                        mutability: None,
+                        expr: Box::new(backward_later.clone()),
+                    });
+                    stmts.push(create_let(orig_call_param.clone(), Expr::Call(call)));
+                }
 
-                let orig_call_param = extract_expr_ident(&arg_ref.expr)
-                    .expect("Clone argument should be ident")
-                    .clone();
-                *arg_ref.expr = backward_later.clone();
-                stmts.push(create_let(orig_call_param.clone(), Expr::Call(call)));
                 return Ok(());
             }
         }
@@ -238,6 +249,13 @@ impl StatementConverter {
                     forward_args[0] = create_expr_ident(ident);
                     break;
                 }
+            }
+        }
+
+        if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
+            if path_matches_global_names(path, &["mck", "forward", "ReadWrite", "read"]) {
+                // reference the clone
+                forward_args[0] = create_expr_reference(false, forward_args[0].clone());
             }
         }
 

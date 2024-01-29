@@ -81,9 +81,14 @@ impl ImplConverter {
             let refin_ident = self.refinement_rules.convert_normal_ident(ident.clone())?;
             // convert phi arguments into normal type
 
-            let refin_type = self
+            let mut refin_type = self
                 .refinement_rules
                 .convert_type(remove_phi_arg_type(ty))?;
+            // remove references as we make refinement joins
+            if let Type::Reference(ref_type) = refin_type {
+                refin_type = ref_type.elem.as_ref().clone();
+            }
+
             result_stmts.push(self.create_init_stmt(refin_ident, refin_type));
         }
 

@@ -46,17 +46,17 @@ impl VisitMut for Visitor {
     fn visit_item_struct_mut(&mut self, item_struct: &mut syn::ItemStruct) {
         // handle attributes specially
         for attr in &item_struct.attrs {
-            let mut is_derive = false;
+            let mut is_permitted = false;
             if let Meta::List(meta_list) = &attr.meta {
                 if let Some(ident) = extract_path_ident(&meta_list.path) {
-                    if ident == "derive" {
-                        is_derive = true;
+                    if ident == "derive" || ident == "allow" {
+                        is_permitted = true;
                     }
                 }
             }
-            if !is_derive {
+            if !is_permitted {
                 self.push_error(MachineError(String::from(
-                    "Only derive attributes supported on structs",
+                    "Only derive and allow attributes supported on structs",
                 )));
             }
         }
@@ -377,9 +377,21 @@ impl VisitMut for Visitor {
     }
 
     fn visit_attribute_mut(&mut self, attribute: &mut syn::Attribute) {
-        self.push_error(MachineError(String::from(
-            "Attributes not supported except for derive",
-        )));
+
+        let mut is_permitted = false;
+        if let Meta::List(meta_list) = &attribute.meta {
+            if let Some(ident) = extract_path_ident(&meta_list.path) {
+                if ident == "allow" {
+                    is_permitted = true;
+                }
+            }
+        }
+        if !is_permitted {
+            self.push_error(MachineError(String::from(
+                "Attributes not supported except for allow, also derive on structs",
+            )));
+        }
+
 
         // delegate
         visit_mut::visit_attribute_mut(self, attribute);

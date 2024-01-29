@@ -31,7 +31,6 @@ impl ImplConverter {
             let (orig_name, orig_type) = r?;
             // convert to abstract type and to reference so we do not consume original abstract output
             let ty = to_singular_reference(self.abstract_rules.convert_type(orig_type.clone())?);
-            println!("Original type: {:?} converted to: {:?}", orig_type, ty);
             types.push(ty);
             let abstr_ident = self
                 .abstract_rules

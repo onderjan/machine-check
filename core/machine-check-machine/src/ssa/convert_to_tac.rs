@@ -187,8 +187,13 @@ impl Converter {
                         "Mutable referencing not supported",
                     )));
                 }
+                // do not move field expression
+                let mut move_expr = reference.expr.as_mut();
+                if let Expr::Field(expr_field) = move_expr {
+                    move_expr = &mut expr_field.base;
+                }
                 // move expression
-                self.move_through_temp(assign_stmts, &mut reference.expr)?;
+                self.move_through_temp(assign_stmts, move_expr)?;
             }
             syn::Expr::Call(call) => {
                 // move call function expression and arguments

@@ -5,7 +5,8 @@ mod type_properties;
 use std::{collections::HashMap, vec};
 
 use syn::{
-    visit_mut::VisitMut, ImplItem, ImplItemFn, Item, ItemStruct, Meta, Pat, PatType, Path, Stmt, Ident, Type,
+    visit_mut::VisitMut, Ident, ImplItem, ImplItemFn, Item, ItemStruct, Meta, Pat, PatType, Path,
+    Stmt, Type,
 };
 use syn_path::path;
 

@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use syn::{
     punctuated::Punctuated,
     visit_mut::{self, VisitMut},
-    AngleBracketedGenericArguments, ExprCall, ExprField, ExprPath, ExprReference, GenericArgument,
-    Ident, ItemStruct, Member, Path, PathArguments, Type, TypeReference,
+    AngleBracketedGenericArguments, Expr, ExprCall, ExprField, ExprPath, ExprReference,
+    GenericArgument, Ident, ItemStruct, Member, Path, PathArguments, Type, TypeReference,
 };
 use syn_path::path;
 
@@ -157,6 +157,25 @@ impl LocalVisitor<'_> {
             };
 
             return Some(ty.clone());
+        }
+
+        if path_matches_global_names(func_path, &["std", "clone", "Clone", "clone"]) {
+            // infer from first argument which should be a reference
+            let arg = &expr_call.args[0];
+            // take the type from first typed argument we find
+            let arg_ident =
+                extract_expr_ident(arg).expect("Call argument should be reference to ident");
+            let arg_type = self
+                .local_ident_types
+                .get(arg_ident)
+                .expect("Call argument should have local ident");
+            if let Some(arg_type) = arg_type {
+                // the argument type is a reference, dereference it
+                let Type::Reference(type_reference) = arg_type else {
+                    panic!("Expected first argument of array read to be a reference");
+                };
+                return Some(type_reference.elem.as_ref().clone());
+            }
         }
 
         if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "write"]) {
@@ -353,8 +372,8 @@ impl LocalVisitor<'_> {
 
     fn infer_path_result_type(&self, expr_path: &ExprPath) -> Option<Type> {
         // infer from the identifier
-        let right_ident =
-            extract_path_ident(&expr_path.path).expect("Right side of assignment should be ident");
+        let right_ident = extract_path_ident(&expr_path.path)
+            .expect("Right side of assignment should be ident on path");
         let right_type = self
             .local_ident_types
             .get(right_ident)
@@ -363,21 +382,39 @@ impl LocalVisitor<'_> {
     }
 
     fn infer_reference_result_type(&self, expr_reference: &ExprReference) -> Option<Type> {
+        if let Expr::Field(expr_field) = expr_reference.expr.as_ref() {
+            let Some(field_result_type) = self.infer_field_result_type(expr_field) else {
+                return None;
+            };
+
+            return Some(Type::Reference(TypeReference {
+                and_token: Default::default(),
+                lifetime: None,
+                mutability: None,
+                elem: Box::new(field_result_type.clone()),
+            }));
+        }
         // infer type from the identifier first
-        let expr_ident = extract_expr_ident(&expr_reference.expr)
-            .expect("Right side of assignment should be ident");
+        let expr_ident = extract_expr_ident(expr_reference.expr.as_ref())
+            .expect("Right side of assignment should be ident in reference");
         let expr_type = self
             .local_ident_types
             .get(expr_ident)
             .expect("Right ident should be in ident types")
             .clone();
-        expr_type.map(|expr_type|
-            // resolve to reference
-            Type::Reference(TypeReference {
-                and_token: Default::default(),
-                lifetime: None,
-                mutability: None,
-                elem: Box::new(expr_type.clone()),
+
+        let Some(expr_type) = expr_type else {
+            return None;
+        };
+
+        // apply fields
+
+        // resolve to reference
+        Some(Type::Reference(TypeReference {
+            and_token: Default::default(),
+            lifetime: None,
+            mutability: None,
+            elem: Box::new(expr_type.clone()),
         }))
     }
 }

@@ -2,6 +2,7 @@ use crate::{
     abstr,
     backward::ReadWrite,
     refin::{self, Bitvector, Boolean, Refine},
+    traits::misc::{Meta, MetaEq},
 };
 
 use super::abstr::extract_bounds;
@@ -151,5 +152,38 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
         for (refin_element, abstr_element) in self.inner.iter().zip(target.inner.iter_mut()) {
             refin_element.force_decay(abstr_element);
         }
+    }
+}
+
+impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
+    fn meta_eq(&self, other: &Self) -> bool {
+        for (self_element, other_element) in self.inner.iter().zip(other.inner.iter()) {
+            if !self_element.meta_eq(other_element) {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
+    fn proto_first(&self) -> abstr::Array<I, L> {
+        let mut result_inner = Vec::new();
+        for element in self.inner.iter() {
+            result_inner.push(element.proto_first());
+        }
+
+        abstr::Array {
+            inner: result_inner,
+        }
+    }
+
+    fn proto_increment(&self, proto: &mut abstr::Array<I, L>) -> bool {
+        for (element, abstr_element) in self.inner.iter().zip(proto.inner.iter_mut()) {
+            if element.proto_increment(abstr_element) {
+                return true;
+            }
+        }
+        false
     }
 }

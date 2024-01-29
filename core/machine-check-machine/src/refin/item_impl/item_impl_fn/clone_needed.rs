@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    clone,
+    collections::{BTreeMap, HashMap},
+};
 
 use syn::{
     visit_mut::{self, VisitMut},
@@ -32,6 +35,11 @@ pub fn clone_needed(impl_item_fn: &mut ImplItemFn) {
         let ty = local_types
             .get(orig_ident)
             .expect("Created local original should be in local types");
+        let mut clone_ty = ty.clone();
+        if let Type::Reference(ref_ty) = clone_ty {
+            clone_ty = ref_ty.elem.as_ref().clone();
+        }
+
         let pat = Pat::Type(PatType {
             attrs: vec![],
             colon_token: Token![:](orig_ident.span()),
@@ -42,7 +50,7 @@ pub fn clone_needed(impl_item_fn: &mut ImplItemFn) {
                 ident: created_ident.clone(),
                 subpat: None,
             })),
-            ty: Box::new(ty.clone()),
+            ty: Box::new(clone_ty),
         });
         // init to default
         let default_call_expr = create_expr_call(
@@ -135,12 +143,18 @@ impl VisitMut for Visitor<'_> {
                 }
             }
 
+            let arg_type = if matches!(left_ident_type, Type::Reference(_)) {
+                ArgType::Normal
+            } else {
+                ArgType::Reference
+            };
+
             let clone_ident = construct_prefixed_ident("clone", left_ident);
             self.created_idents
                 .insert(left_ident.clone(), clone_ident.clone());
             let clone_call = create_expr_call(
                 create_expr_path(path!(::std::clone::Clone::clone)),
-                vec![(ArgType::Reference, create_expr_ident(left_ident.clone()))],
+                vec![(arg_type, create_expr_ident(left_ident.clone()))],
             );
             let clone_assign = create_assign(clone_ident.clone(), clone_call, true);
 
