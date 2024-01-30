@@ -244,7 +244,6 @@ impl<const L: u32> Default for ThreeValuedBitvector<L> {
 }
 
 impl<const L: u32> Phi for ThreeValuedBitvector<L> {
-    type Condition = Boolean;
     fn phi(self, other: Self) -> Self {
         let zeros = self.zeros.bit_or(other.zeros);
         let ones = self.ones.bit_or(other.ones);

@@ -55,8 +55,6 @@ pub mod abstr {
     }
 
     impl Phi for Boolean {
-        type Condition = Boolean;
-
         fn phi(self, other: Self) -> Self {
             Boolean(self.0.phi(other.0))
         }

@@ -1,4 +1,4 @@
-use crate::abstr::Phi;
+use crate::{abstr::Phi, boolean::abstr};
 
 pub trait TypedEq {
     type Output;
@@ -81,7 +81,7 @@ pub trait Ext<const M: u32> {
 
 pub enum PhiArg<T: Phi> {
     Taken(T),
-    MaybeTaken(T, <T as Phi>::Condition),
+    MaybeTaken(T, abstr::Boolean),
     NotTaken(),
 }
 

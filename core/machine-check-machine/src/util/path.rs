@@ -38,22 +38,6 @@ pub fn create_path_with_last_generic_type(path: Path, ty: Type) -> Path {
     path
 }
 
-pub fn extract_last_generic_type(path: Path) -> Option<Type> {
-    let syn::PathArguments::AngleBracketed(angle_bracketed) =
-        path.segments.into_iter().next_back().unwrap().arguments
-    else {
-        return None;
-    };
-
-    if angle_bracketed.args.len() != 1 {
-        return None;
-    }
-    let GenericArgument::Type(ty) = angle_bracketed.args.into_iter().next().unwrap() else {
-        return None;
-    };
-    Some(ty)
-}
-
 pub fn extract_path_ident(path: &Path) -> Option<&Ident> {
     if path.leading_colon.is_none()
         && path.segments.len() == 1

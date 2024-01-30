@@ -1,7 +1,12 @@
-use syn::{spanned::Spanned, Expr, ExprCall, ExprPath, ExprReference, Meta, Pat, Stmt, Token};
+use std::collections::HashMap;
+
+use proc_macro2::Ident;
+use syn::{
+    spanned::Spanned, Expr, ExprCall, ExprInfer, ExprPath, ExprReference, Pat, Stmt, Token, Type,
+};
 
 use crate::{
-    support::{local::construct_prefixed_ident, struct_rules::StructRules},
+    support::struct_rules::StructRules,
     util::{
         create_expr_call, create_expr_field_unnamed, create_expr_ident, create_expr_path,
         create_expr_reference, create_expr_tuple, create_ident, create_let, create_pat_wild,
@@ -16,6 +21,7 @@ pub struct StatementConverter {
     pub clone_scheme: StructRules,
     pub forward_scheme: StructRules,
     pub backward_scheme: StructRules,
+    pub local_types: HashMap<Ident, Type>,
 }
 
 impl StatementConverter {
@@ -57,7 +63,6 @@ impl StatementConverter {
             }
             Stmt::Expr(Expr::If(ref mut expr_if), Some(_)) => {
                 // TODO: deduplicate this with block
-                self.clone_scheme.apply_to_expr(&mut expr_if.cond)?;
                 self.forward_scheme.apply_to_expr(&mut expr_if.cond)?;
                 // reverse and convert the then branch
                 {
@@ -229,8 +234,26 @@ impl StatementConverter {
 
         for arg in &call.args {
             let mut forward_arg = arg.clone();
+
             self.clone_scheme.apply_to_expr(&mut forward_arg)?;
+
             self.forward_scheme.apply_to_expr(&mut forward_arg)?;
+
+            // make clone into a reference if it was a reference
+            let arg_ident = extract_expr_ident(arg).expect("Call arg should be ident");
+            let arg_ty = self
+                .local_types
+                .get(arg_ident)
+                .expect("Call arg should be in local types");
+            if matches!(arg_ty, Type::Reference(_)) {
+                let mut arg_expr = Expr::Infer(ExprInfer {
+                    attrs: vec![],
+                    underscore_token: Default::default(),
+                });
+                std::mem::swap(&mut arg_expr, &mut forward_arg);
+                forward_arg = create_expr_reference(false, arg_expr);
+            }
+
             forward_args.push(forward_arg);
 
             let mut backward_arg = arg.clone();
@@ -240,8 +263,11 @@ impl StatementConverter {
 
         // use a clone instead of normal first argument if we have the attribute
         // TODO: remove this hack
-        for attr in &call.attrs {
+        /*for attr in &call.attrs {
             if let Meta::NameValue(name_value) = &attr.meta {
+                if path_matches_global_names(&name_value.path, &["mck", "attr", "reference_clone"]) {
+
+                }
                 if path_matches_global_names(&name_value.path, &["mck", "attr", "refin_clone"]) {
                     // we have to convert the ident to abstract namespace
                     let ident = extract_expr_ident(&name_value.value)
@@ -251,16 +277,7 @@ impl StatementConverter {
                     break;
                 }
             }
-        }
-
-        if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
-            if path_matches_global_names(path, &["mck", "forward", "ReadWrite", "read"])
-                || path_matches_global_names(path, &["mck", "forward", "ReadWrite", "write"])
-            {
-                // reference the clone
-                forward_args[0] = create_expr_reference(false, forward_args[0].clone());
-            }
-        }
+        }*/
 
         let forward_arg = create_expr_tuple(forward_args);
         backward_call.args.push(forward_arg);
@@ -272,31 +289,6 @@ impl StatementConverter {
         // treat phi specially
         let mut is_special = false;
         if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
-            if path_matches_global_names(path, &["mck", "abstr", "Phi", "phi"]) {
-                assert!(call.args.len() == 3);
-                let to_condition = create_expr_call(
-                    create_expr_path(path!(::mck::refin::Refine::to_condition)),
-                    vec![(ArgType::Reference, backward_later.clone())],
-                );
-                // we are using backward later twice, need to clone it
-                let backward_later_clone = create_expr_call(
-                    create_expr_path(path!(::std::clone::Clone::clone)),
-                    vec![(ArgType::Reference, backward_later.clone())],
-                );
-
-                stmts.push(create_let(
-                    tmp_ident.clone(),
-                    // the third argument is the condition
-                    create_expr_tuple(vec![
-                        backward_later_clone,
-                        backward_later.clone(),
-                        to_condition,
-                    ]),
-                    None,
-                ));
-                is_special = true;
-            }
-
             if path_matches_global_names(path, &["mck", "forward", "PhiArg", "phi"]) {
                 // we are using backward later twice, need to clone it
                 let backward_later_clone = create_expr_call(

@@ -13,6 +13,7 @@ mod machine_module {
         pub i: ::machine_check::Bitvector<1>,
         pub j: ::machine_check::Bitvector<1>,
         pub k: ::machine_check::Bitvector<1>,
+        pub test_instr: ::machine_check::Bitvector<16>,
     }
 
     impl ::machine_check::Input for Input {}
@@ -141,6 +142,232 @@ mod machine_module {
 
             result
         }
+
+        fn next_0000(
+            state: &State,
+            input: &Input,
+            instruction_tail: ::machine_check::Bitvector<12>,
+        ) -> State {
+            let mut PC = state.PC;
+            let mut R = ::std::clone::Clone::clone(&state.R);
+            let mut DDRB = state.DDRB;
+            let mut PORTB = state.PORTB;
+            let mut DDRC = state.DDRC;
+            let mut PORTC = state.PORTC;
+            let mut DDRD = state.DDRD;
+            let mut PORTD = state.PORTD;
+            let mut GPIOR0 = state.GPIOR0;
+            let mut GPIOR1 = state.GPIOR1;
+            let mut GPIOR2 = state.GPIOR2;
+            let mut SPL = state.SPL;
+            let mut SPH = state.SPH;
+            let mut SREG = state.SREG;
+            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+
+            let mut safe = ::machine_check::Bitvector::<1>::new(1);
+
+            ::machine_check::bitmask_switch!(instruction_tail {
+                // NOP
+                "0000_0000_0000" => {
+                    // do nothing
+                },
+
+
+                // MOVW
+                "0001_dddd_rrrr" => {
+                    // copy register pair
+                    let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(d);
+                    let d_ext_unsigned = ::machine_check::Ext::<5>::ext(d_unsigned);
+                    let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(d_ext_unsigned);
+
+                    let r_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(r);
+                    let r_ext_unsigned = ::machine_check::Ext::<5>::ext(r_unsigned);
+                    let r_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(r_ext_unsigned);
+
+                    // TODO: support doing this at once
+                    let r_lo_val = R[r_ext + r_ext];
+                    R[d_ext + d_ext] = r_lo_val;
+
+                    let five_bit_one = ::machine_check::Bitvector::<5>::new(1);
+                    let r_hi_val = R[r_ext + r_ext + five_bit_one];
+                    R[d_ext + d_ext + five_bit_one] = r_hi_val;
+                }
+
+                // MULS
+                "0010_dddd_rrrr" => {
+                    //R[1..0] = ((Int8)R[d+16])*((Int8)R[r+16]);
+                }
+                // MULSU
+                "0011_0ddd_0rrr" => {
+                    //unimplemented();
+                    //R[1..0] = ((Int8)R[d+16])*((Uint8)R[r+16]);
+                }
+
+                // FMUL
+                "0011_0ddd_1rrr" => {
+                    //unimplemented();
+                    //R[1..0] = ( ((Uint8)R[d+16])*((Uint8)R[r+16]) << 1);
+                }
+
+                // FMULS
+                "0011_1ddd_0rrr" => {
+                    //unimplemented();
+                    //R[1..0] = ( ((Int8)R[d+16])*((Int8)R[r+16]) << 1);
+                }
+
+                // FMULSU
+                "0011_1ddd_1rrr" => {
+                    //unimplemented();
+                    //R[1..0] = ( ((Int8)R[d+16])*((Uint8)R[r+16]) << 1);
+                }
+
+                // CPC
+                "01rd_dddd_rrrr" => {
+                    // compare with carry, same as SBC without actually saving the computed value
+                    /*Uint8 carry = 0;
+                    carry[[0]] = SREG[[0]];
+                    Uint8 result = R[d] - R[r] - carry;
+                    SREG = compute_status_sbc(SREG, R[d], R[r], result);*/
+                }
+
+                // SBC
+                "10rd_dddd_rrrr" => {
+                    // subtract with carry
+                    /*Uint8 prev = R[d];
+                    Uint8 carry = 0;
+                    carry[[0]] = SREG[[0]];
+                    R[d] = R[d] - R[r] - carry;
+                    SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
+                }
+
+                // ADD
+                "11rd_dddd_rrrr" => {
+                    // add
+
+                    R[d] = R[d] + R[r];
+                    // TODO
+                    //SREG = compute_status_add(SREG, prev, R[r], R[d]);
+                }
+                _ => {
+                    // TODO: disjoint arms check
+                }
+            });
+
+            //safe = ::machine_check::Bitvector::<1>::new(0);
+            State {
+                PC,
+                R,
+                DDRB,
+                PORTB,
+                DDRC,
+                PORTC,
+                DDRD,
+                PORTD,
+                GPIOR0,
+                GPIOR1,
+                GPIOR2,
+                SPL,
+                SPH,
+                SREG,
+                SRAM,
+                safe,
+            }
+        }
+
+        fn next_0001(
+            state: &State,
+            input: &Input,
+            instruction_tail: ::machine_check::Bitvector<12>,
+        ) -> State {
+            let mut PC = state.PC;
+            let mut R = ::std::clone::Clone::clone(&state.R);
+            let mut DDRB = state.DDRB;
+            let mut PORTB = state.PORTB;
+            let mut DDRC = state.DDRC;
+            let mut PORTC = state.PORTC;
+            let mut DDRD = state.DDRD;
+            let mut PORTD = state.PORTD;
+            let mut GPIOR0 = state.GPIOR0;
+            let mut GPIOR1 = state.GPIOR1;
+            let mut GPIOR2 = state.GPIOR2;
+            let mut SPL = state.SPL;
+            let mut SPH = state.SPH;
+            let mut SREG = state.SREG;
+            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+
+            let mut safe = ::machine_check::Bitvector::<1>::new(1);
+
+            ::machine_check::bitmask_switch!(instruction_tail {
+                // CPSE
+                "00rd_dddd_rrrr" => {
+                    /*
+                    // compare skip if equal
+                    // similar to other skips, but with register comparison
+
+                    R_direct[d] = R_direct[d];
+                    R_direct[r] = R_direct[r];
+
+                    if (R[d] == R[r]) {
+                        // they are equal, skip next instruction
+                        skip_next_instruction();
+                    } else {
+                        // they are not equal, do nothing
+                    }
+                    */
+                }
+
+                // CP
+                "01rd_dddd_rrrr" => {
+                    /*
+                    // compare, same as SUB without actually saving the computed value
+                    Uint8 result = R[d] - R[r];
+                    SREG = compute_status_sub(SREG, R[d], R[r], result);
+                    */
+                }
+
+                // SUB
+                "10rd_dddd_rrrr" => {
+                    /*// subtract
+                    Uint8 prev = R[d];
+                    R[d] = R[d] - R[r];
+                    SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
+                }
+
+                // ADC
+                "11rd_dddd_rrrr" => {
+                    /*// add with carry
+                    Uint8 prev = R[d];
+                    Uint8 carry = 0;
+                    carry[[0]] = SREG[[0]];
+                    R[d] = R[d] + R[r] + carry;
+                    SREG = compute_status_add(SREG, prev, R[r], R[d]);*/
+                }
+
+                _ => {
+                    // TODO: disjoint arms check
+                }
+            });
+
+            safe = ::machine_check::Bitvector::<1>::new(0);
+            State {
+                PC,
+                R,
+                DDRB,
+                PORTB,
+                DDRC,
+                PORTC,
+                DDRD,
+                PORTD,
+                GPIOR0,
+                GPIOR1,
+                GPIOR2,
+                SPL,
+                SPH,
+                SREG,
+                SRAM,
+                safe,
+            }
+        }
     }
 
     impl ::machine_check::Machine<Input, State> for Machine {
@@ -190,34 +417,7 @@ mod machine_module {
             // --- EEPROM ---
             // TODO: implement EEPROM
 
-            /*::machine_check::bitmask_switch!(sw {
-                "1---_----" => {
-                    safe = ::machine_check::Bitvector::<1>::new(1);
-                },
-                "0---_--0d" => {
-                    if sw == ::machine_check::Bitvector::<8>::new(1) {
-                        safe = d;
-                    };
-                },
-                _ => {
-                    safe = ::machine_check::Bitvector::<1>::new(0);
-                }
-            });*/
-            /* ::machine_check::bitmask_switch!(_input.j {
-                "1" => {
-                    safe = ::machine_check::Bitvector::<1>::new(1);
-                },
-                "0" => {
-                    if _input.j == ::machine_check::Bitvector::<1>::new(0) {
-                        safe = ::machine_check::Bitvector::<1>::new(0);
-                    };
-                },
-                _ => {
-                }
-            });*/
-
             let mut safe = ::machine_check::Bitvector::<1>::new(1);
-            safe = self.dummy;
 
             State {
                 PC,
@@ -239,185 +439,54 @@ mod machine_module {
             }
         }
 
-        fn next(&self, state: &State, _input: &Input) -> State {
+        fn next(&self, state: &State, input: &Input) -> State {
             let mut safe = ::machine_check::Bitvector::<1>::new(1);
 
-            // localize state variables
-            let mut PC = state.PC;
-
-            let mut R = ::std::clone::Clone::clone(&state.R);
-
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
-
-            let mut SREG = state.SREG;
-
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let mut result = ::std::clone::Clone::clone(state);
 
             // --- Instruction Step ---
 
             // fetch instruction and increment PC
-            let instruction = self.PROGMEM[PC];
+            let instruction = self.PROGMEM[state.PC];
+            //let instruction = input.test_instr;
 
-            PC = PC + ::machine_check::Bitvector::<14>::new(1);
+            let unsigned_instruction =
+                ::std::convert::Into::<::machine_check::Unsigned<16>>::into(instruction);
 
-            //let mut a;
+            let unsigned_instruction_tail = ::machine_check::Ext::<12>::ext(unsigned_instruction);
 
-            let five_bit_one = ::machine_check::Bitvector::<5>::new(1);
+            let unsigned_instruction_long_head =
+                unsigned_instruction >> ::machine_check::Unsigned::<16>::new(12);
+            let unsigned_instruction_head =
+                ::machine_check::Ext::<4>::ext(unsigned_instruction_long_head);
 
-            let five_bit_16 = ::machine_check::Bitvector::<5>::new(16);
+            let instruction_head = ::std::convert::Into::<::machine_check::Bitvector<4>>::into(
+                unsigned_instruction_head,
+            );
 
-            ::machine_check::bitmask_switch!(instruction {
-                // --- 0000 prefixes ---
+            let instruction_tail = ::std::convert::Into::<::machine_check::Bitvector<12>>::into(
+                unsigned_instruction_tail,
+            );
 
-                // NOP
-                "0000_0000_0000_0000" => {
-                    // do nothing
-                },
+            //result = Self::next_0000(state, input, instruction_tail);
 
-
-                // MOVW
-                "0000_0001_dddd_rrrr" => {
-                    // copy register pair
-                    let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(d);
-                    let d_ext_unsigned = ::machine_check::Ext::<5>::ext(d_unsigned);
-                    let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(d_ext_unsigned);
-
-                    let r_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(r);
-                    let r_ext_unsigned = ::machine_check::Ext::<5>::ext(r_unsigned);
-                    let r_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(r_ext_unsigned);
-
-                    // TODO: support doing this at once
-                    let r_lo_val = R[r_ext + r_ext];
-                    R[d_ext + d_ext] = r_lo_val;
-
-                    let r_hi_val = R[r_ext + r_ext + five_bit_one];
-                    R[d_ext + d_ext + five_bit_one] = r_hi_val;
+            ::machine_check::bitmask_switch!(instruction_head {
+                "0000" => {
+                    result = Self::next_0000(state, input, instruction_tail);
                 }
-
-                // MULS
-                "0000_0010_dddd_rrrr" => {
-                    //R[1..0] = ((Int8)R[d+16])*((Int8)R[r+16]);
+                "0001" => {
+                    result = Self::next_0001(state, input, instruction_tail);
                 }
-                // MULSU
-                "0000_0011_0ddd_0rrr" => {
-                    //unimplemented();
-                    //R[1..0] = ((Int8)R[d+16])*((Uint8)R[r+16]);
+                _ => {
+                    // TODO: disjoint check
                 }
+            });
 
-                // FMUL
-                "0000_0011_0ddd_1rrr" => {
-                    //unimplemented();
-                    //R[1..0] = ( ((Uint8)R[d+16])*((Uint8)R[r+16]) << 1);
-                }
+            //PC = PC + ::machine_check::Bitvector::<14>::new(1);
 
-                // FMULS
-                "0000_0011_1ddd_0rrr" => {
-                    //unimplemented();
-                    //R[1..0] = ( ((Int8)R[d+16])*((Int8)R[r+16]) << 1);
-                }
-
-                // FMULSU
-                "0000_0011_1ddd_1rrr" => {
-                    //unimplemented();
-                    //R[1..0] = ( ((Int8)R[d+16])*((Uint8)R[r+16]) << 1);
-                }
-
-                // CPC
-                "0000_01rd_dddd_rrrr" => {
-                    // compare with carry, same as SBC without actually saving the computed value
-                    /*Uint8 carry = 0;
-                    carry[[0]] = SREG[[0]];
-                    Uint8 result = R[d] - R[r] - carry;
-                    SREG = compute_status_sbc(SREG, R[d], R[r], result);*/
-                }
-
-                // SBC
-                "0000_10rd_dddd_rrrr" => {
-                    // subtract with carry
-                    /*Uint8 prev = R[d];
-                    Uint8 carry = 0;
-                    carry[[0]] = SREG[[0]];
-                    R[d] = R[d] - R[r] - carry;
-                    SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
-                }
-
-                // ADD
-                "0000_11rd_dddd_rrrr" => {
-                    // add
-                    /*Uint8 prev = R[d];
-                    Uint8 current = 0;
-                    // kludge: if using the same register, shift left
-                    // this does not force determinization
-                    if (d == r) {
-                        current[[1, 7]] = prev[[0, 7]];
-                        R[d] = current;
-                    } else {
-                        R[d] = R[d] + R[r];
-                    }*/
-
-                    R[d] = R[d] + R[r];
-                    // TODO
-                    //SREG = compute_status_add(SREG, prev, R[r], R[d]);
-                }
+            /*
 
                             // --- 0001 ---
-
-                            // CPSE
-                            "0001_00rd_dddd_rrrr" => {
-                                /*
-                                // compare skip if equal
-                                // similar to other skips, but with register comparison
-
-                                R_direct[d] = R_direct[d];
-                                R_direct[r] = R_direct[r];
-
-                                if (R[d] == R[r]) {
-                                    // they are equal, skip next instruction
-                                    skip_next_instruction();
-                                } else {
-                                    // they are not equal, do nothing
-                                }
-                                */
-                            }
-
-                            // CP
-                            "0001_01rd_dddd_rrrr" => {
-                                /*
-                                // compare, same as SUB without actually saving the computed value
-                                Uint8 result = R[d] - R[r];
-                                SREG = compute_status_sub(SREG, R[d], R[r], result);
-                                */
-                            }
-
-                            // SUB
-                            "0001_10rd_dddd_rrrr" => {
-                                /*// subtract
-                                Uint8 prev = R[d];
-                                R[d] = R[d] - R[r];
-                                SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
-                            }
-
-                            // ADC
-                            "0001_11rd_dddd_rrrr" => {
-                                /*// add with carry
-                                Uint8 prev = R[d];
-                                Uint8 carry = 0;
-                                carry[[0]] = SREG[[0]];
-                                R[d] = R[d] + R[r] + carry;
-                                SREG = compute_status_add(SREG, prev, R[r], R[d]);*/
-                            }
 
                             // --- 0010 ---
 
@@ -1335,7 +1404,9 @@ mod machine_module {
                 SREG,
                 SRAM,
                 safe,
-            }
+            }*/
+
+            result
         }
     }
 }

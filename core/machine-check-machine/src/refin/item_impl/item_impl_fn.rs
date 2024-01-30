@@ -22,12 +22,6 @@ impl ImplConverter {
         &self,
         orig_fn: &ImplItemFn,
     ) -> Result<ImplItemFn, MachineError> {
-        let statement_converter = StatementConverter {
-            clone_scheme: self.clone_rules.clone(),
-            forward_scheme: self.abstract_rules.clone(),
-            backward_scheme: self.refinement_rules.clone(),
-        };
-
         // to transcribe function with signature (inputs) -> output and linear SSA block
         // we must the following steps
         // 1. set refin function signature to (abstract_inputs, later) -> (earlier)
@@ -87,8 +81,11 @@ impl ImplConverter {
             result_stmts.push(stmt);
         }
 
+        let mut local_types = find_local_types(orig_fn);
+        local_types.extend(earlier.1);
+
         // step 5: add initialization of earlier and local refin variables
-        for (ident, ty) in earlier.1.into_iter().chain(find_local_types(orig_fn)) {
+        for (ident, ty) in local_types.clone().into_iter() {
             let refin_ident = self.refinement_rules.convert_normal_ident(ident.clone())?;
             // convert phi arguments into normal type
 
@@ -107,6 +104,13 @@ impl ImplConverter {
         result_stmts.extend(later.1);
 
         // step 7: add refin-computation statements in reverse order of original statements
+
+        let statement_converter = StatementConverter {
+            local_types,
+            forward_scheme: self.abstract_rules.clone(),
+            backward_scheme: self.refinement_rules.clone(),
+            clone_scheme: self.clone_rules.clone(),
+        };
 
         let refin_stmts = orig_fn.block.stmts.clone();
         for mut stmt in refin_stmts.into_iter().rev() {

@@ -28,7 +28,6 @@ pub trait Phi
 where
     Self: std::marker::Sized,
 {
-    type Condition;
     fn phi(self, other: Self) -> Self;
     fn uninit() -> Self;
 }

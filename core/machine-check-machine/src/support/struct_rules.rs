@@ -1,4 +1,7 @@
-use syn::{punctuated::Punctuated, visit_mut::VisitMut, Expr, Ident, Member, Path, Stmt, Type};
+use syn::{
+    punctuated::Punctuated, visit_mut::VisitMut, Expr, GenericArgument, Ident, Member, Path, Stmt,
+    Type,
+};
 
 use crate::{
     util::{create_path_from_ident, create_type_path},
@@ -47,7 +50,10 @@ impl StructRules {
         }
 
         let Type::Path(ty) = ty else {
-            return Err(MachineError(String::from("Non-path type not supported")));
+            return Err(MachineError(format!(
+                "Non-path type {} not supported",
+                quote::quote!(#ty)
+            )));
         };
 
         if ty.qself.is_some() {
@@ -60,8 +66,18 @@ impl StructRules {
     }
 
     fn convert_type_path(&self, path: &Path) -> Result<Path, MachineError> {
-        // apply the rules
-        self.type_rules.convert_path(path.clone())
+        // TODO: rework generic kludge
+        let mut path = self.type_rules.convert_path(path.clone())?;
+        for segment in &mut path.segments {
+            if let syn::PathArguments::AngleBracketed(arguments) = &mut segment.arguments {
+                for arg in &mut arguments.args {
+                    if let GenericArgument::Type(Type::Path(ty_path)) = arg {
+                        ty_path.path = self.type_rules.convert_path(ty_path.path.clone())?;
+                    }
+                }
+            }
+        }
+        Ok(path)
     }
 
     pub(crate) fn convert_normal_ident(&self, ident: Ident) -> Result<Ident, MachineError> {

@@ -1,5 +1,5 @@
 use crate::{
-    abstr::{self, Boolean, Phi},
+    abstr::{self, Phi},
     forward::ReadWrite,
     traits::misc::MetaEq,
 };
@@ -81,7 +81,6 @@ impl<const I: u32, const L: u32> Default for Array<I, L> {
 }
 
 impl<const I: u32, const L: u32> Phi for Array<I, L> {
-    type Condition = Boolean;
     fn phi(mut self, other: Self) -> Self {
         for (self_element, other_element) in self.inner.iter_mut().zip(other.inner.into_iter()) {
             *self_element = self_element.phi(other_element);

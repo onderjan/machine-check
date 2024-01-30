@@ -13,8 +13,8 @@ use crate::{
         local_types::find_local_types,
     },
     util::{
-        create_assign, create_expr_call, create_expr_ident, create_expr_path, extract_expr_ident,
-        path_matches_global_names, ArgType,
+        create_assign, create_expr_call, create_expr_ident, create_expr_path, create_expr_tuple,
+        extract_expr_ident, path_matches_global_names, ArgType,
     },
 };
 
@@ -74,8 +74,22 @@ pub fn clone_needed(impl_item_fn: &mut ImplItemFn) {
 
     for mut stmt in orig_stmts {
         if let Stmt::Local(local) = &mut stmt {
-            let (left_ident, _ty) = extract_local_ident_with_type(local);
+            let (left_ident, ty) = extract_local_ident_with_type(local);
             if let Some(clone_ident) = visitor.created_idents.get(&left_ident) {
+                if let Some(ty) = ty {
+                    if matches!(ty, Type::Reference(_)) {
+                        local.attrs.push(Attribute {
+                            pound_token: Default::default(),
+                            style: syn::AttrStyle::Outer,
+                            bracket_token: Default::default(),
+                            meta: syn::Meta::NameValue(MetaNameValue {
+                                path: path!(::mck::attr::reference_clone),
+                                eq_token: Default::default(),
+                                value: create_expr_tuple(vec![]),
+                            }),
+                        });
+                    }
+                }
                 local.attrs.push(Attribute {
                     pound_token: Default::default(),
                     style: syn::AttrStyle::Outer,

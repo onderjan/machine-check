@@ -1,9 +1,6 @@
 use syn::{FnArg, Pat, Signature, Type};
 
-use crate::{
-    util::{create_converted_type, ArgType},
-    MachineError,
-};
+use crate::MachineError;
 
 pub(crate) fn convert_type_to_path(ty: Type) -> Result<Type, MachineError> {
     match ty {
