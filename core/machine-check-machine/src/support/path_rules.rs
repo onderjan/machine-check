@@ -1,3 +1,7 @@
+use std::rc::Rc;
+
+use proc_macro2::Ident;
+use syn::spanned::Spanned;
 use syn::Path;
 use syn::{visit_mut::VisitMut, Item};
 
@@ -23,15 +27,28 @@ pub struct PathRule {
 }
 
 #[derive(Clone)]
-pub struct PathRules(Vec<PathRule>);
+pub struct PathRules {
+    rules: Rc<Vec<PathRule>>,
+    self_ty_name: Option<String>,
+}
 
 impl PathRules {
     pub fn new(rules: Vec<PathRule>) -> PathRules {
-        PathRules(rules)
+        PathRules {
+            rules: Rc::new(rules),
+            self_ty_name: None,
+        }
+    }
+
+    pub fn with_self_ty_name(&self, self_ty_name: String) -> PathRules {
+        PathRules {
+            rules: Rc::clone(&self.rules),
+            self_ty_name: Some(self_ty_name),
+        }
     }
 
     pub(crate) fn apply_to_items(&self, items: &mut [Item]) -> Result<(), MachineError> {
-        let mut visitor = Visitor::new(&self.0);
+        let mut visitor = Visitor::new(&self.rules, &self.self_ty_name);
         for item in items.iter_mut() {
             visitor.visit_item_mut(item);
         }
@@ -39,13 +56,13 @@ impl PathRules {
     }
 
     pub(crate) fn apply_to_item_struct(&self, s: &mut syn::ItemStruct) -> Result<(), MachineError> {
-        let mut visitor = Visitor::new(&self.0);
+        let mut visitor = Visitor::new(&self.rules, &self.self_ty_name);
         visitor.visit_item_struct_mut(s);
         visitor.first_error.map_or(Ok(()), Err)
     }
 
     pub(crate) fn convert_path(&self, path: syn::Path) -> Result<syn::Path, MachineError> {
-        let mut visitor = Visitor::new(&self.0);
+        let mut visitor = Visitor::new(&self.rules, &self.self_ty_name);
         let mut path = path;
         visitor.apply_to_path(&mut path)?;
         visitor.first_error.map_or(Ok(path), Err)
@@ -55,6 +72,7 @@ impl PathRules {
 struct Visitor<'a> {
     first_error: Option<MachineError>,
     rules: &'a Vec<PathRule>,
+    self_ty_name: &'a Option<String>,
 }
 
 impl<'a> VisitMut for Visitor<'a> {
@@ -74,20 +92,36 @@ impl<'a> VisitMut for Visitor<'a> {
 }
 
 impl<'a> Visitor<'a> {
-    fn new(rules: &'a Vec<PathRule>) -> Self {
+    fn new(rules: &'a Vec<PathRule>, self_ty_name: &'a Option<String>) -> Self {
         Self {
             first_error: None,
             rules,
+            self_ty_name,
         }
     }
 
     fn apply_to_path(&mut self, path: &mut Path) -> Result<(), MachineError> {
+        let mut matched_rule = false;
         // use the first rule that applies
         for rule in self.rules {
             if match_rule(path, rule) {
-                return Ok(());
+                matched_rule = true;
+                break;
             }
         }
+
+        if matched_rule {
+            if let Some(self_ty_name) = self.self_ty_name {
+                // replace Self by type name after rule matching
+                for path_segment in path.segments.iter_mut() {
+                    if path_segment.ident == "Self" {
+                        path_segment.ident = Ident::new(self_ty_name, path_segment.span());
+                    }
+                }
+            }
+            return Ok(());
+        }
+
         Err(MachineError(format!(
             "no rule matches path {:?}, rules: {:?}",
             path, self.rules

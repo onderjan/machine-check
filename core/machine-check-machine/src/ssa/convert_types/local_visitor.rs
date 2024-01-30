@@ -106,6 +106,14 @@ impl VisitMut for LocalVisitor<'_> {
 
         // TODO: HW shift, extension
 
+        // --- Shl ---
+        if path_matches_global_names(func_path, &["std", "ops", "Shl", "shl"]) {
+            func_path.segments[0].ident = Ident::new("mck", func_path.segments[0].span());
+            func_path.segments[1].ident = Ident::new("forward", func_path.segments[1].span());
+            func_path.segments[2].ident = Ident::new("HwShift", func_path.segments[2].span());
+            func_path.segments[3].ident = Ident::new("logic_shl", func_path.segments[3].span());
+        }
+
         // --- Shr ---
         if path_matches_global_names(func_path, &["std", "ops", "Shr", "shr"]) {
             // TODO: in Rust, type inference depends on whether Shr is an operation or a call

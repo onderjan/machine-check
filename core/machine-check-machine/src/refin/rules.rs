@@ -57,6 +57,13 @@ pub fn refinement_normal() -> PathRules {
                 PathRuleSegment::Match(String::from("clone")),
             ],
         },
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![
+                PathRuleSegment::Match(String::from("Self")),
+                PathRuleSegment::EndWildcard,
+            ],
+        },
     ])
 }
 
@@ -133,6 +140,14 @@ pub fn abstract_normal() -> PathRules {
                 PathRuleSegment::Match(String::from("default")),
                 PathRuleSegment::Match(String::from("Default")),
                 PathRuleSegment::Match(String::from("default")),
+            ],
+        },
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![
+                PathRuleSegment::Insert(String::from("super")),
+                PathRuleSegment::Match(String::from("Self")),
+                PathRuleSegment::EndWildcard,
             ],
         },
     ])

@@ -5,17 +5,17 @@ use syn::{Expr, FnArg, Ident, Member, ReturnType, Signature, Stmt, Type};
 
 use crate::{
     util::{
-        create_arg, create_expr_field_named, create_expr_field_unnamed, create_expr_ident,
-        create_expr_path, create_ident, create_let, create_path_from_name, create_refine_join_stmt,
-        create_tuple_expr, create_tuple_type, create_type_from_return_type, extract_expr_ident,
-        ArgType,
+        create_arg, create_assign, create_expr_field_named, create_expr_field_unnamed,
+        create_expr_ident, create_expr_path, create_ident, create_let_bare, create_path_from_name,
+        create_refine_join_stmt, create_tuple_expr, create_tuple_type,
+        create_type_from_return_type, extract_expr_ident, ArgType,
     },
     MachineError,
 };
 
 mod util;
 
-use self::util::{convert_type_to_path, create_input_name_type_iter, to_singular_reference};
+use self::util::{convert_type_to_path, create_input_name_type_iter};
 
 use super::ImplConverter;
 
@@ -23,27 +23,32 @@ impl ImplConverter {
     pub(crate) fn generate_abstract_input(
         &self,
         orig_sig: &Signature,
-    ) -> Result<(FnArg, Vec<Stmt>), MachineError> {
-        let arg_name = "__mck_input_abstr";
-        let mut types = Vec::new();
+    ) -> Result<(FnArg, Vec<Stmt>, Vec<Stmt>), MachineError> {
+        let args_name = "__mck_args";
+        let abstr_args_name = "__mck_abstr_args";
+        let mut abstr_types = Vec::new();
+        let mut local_stmts = Vec::new();
         let mut detuple_stmts = Vec::new();
         for (index, r) in create_input_name_type_iter(orig_sig).enumerate() {
             let (orig_name, orig_type) = r?;
-            // convert to abstract type and to reference so we do not consume original abstract output
-            let ty = to_singular_reference(self.abstract_rules.convert_type(orig_type.clone())?);
-            types.push(ty);
-            let abstr_ident = self
-                .abstract_rules
-                .convert_normal_ident(create_ident(&orig_name))?;
-            let detuple_stmt = create_let(
-                abstr_ident,
-                create_expr_field_unnamed(create_expr_path(create_path_from_name(arg_name)), index),
+            let abstr_ty = self.abstract_rules.convert_type(orig_type.clone())?;
+            abstr_types.push(abstr_ty);
+            let orig_ident = create_ident(&orig_name);
+            let local_stmt = create_let_bare(orig_ident.clone(), Some(orig_type));
+            let detuple_stmt = create_assign(
+                orig_ident,
+                create_expr_field_unnamed(
+                    create_expr_path(create_path_from_name(args_name)),
+                    index,
+                ),
+                true,
             );
+            local_stmts.push(local_stmt);
             detuple_stmts.push(detuple_stmt);
         }
-        let ty = create_tuple_type(types);
-        let arg = create_arg(ArgType::Normal, create_ident(arg_name), Some(ty));
-        Ok((arg, detuple_stmts))
+        let ty = create_tuple_type(abstr_types);
+        let abstr_args = create_arg(ArgType::Normal, create_ident(abstr_args_name), Some(ty));
+        Ok((abstr_args, local_stmts, detuple_stmts))
     }
 
     pub(crate) fn generate_earlier(
@@ -52,19 +57,23 @@ impl ImplConverter {
     ) -> Result<(ReturnType, HashMap<Ident, Type>, Stmt), MachineError> {
         // create return type
         let mut types = Vec::new();
-        let mut partial_ident_types = HashMap::new();
+        let mut orig_ident_types = HashMap::new();
         let mut refin_exprs = Vec::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
+
+            // convert type
+            let refin_type = self.refinement_rules.convert_type(orig_type.clone())?;
+
             // convert type to path
-            types.push(convert_type_to_path(orig_type.clone())?);
+            types.push(convert_type_to_path(refin_type.clone())?);
             // add expression to result tuple
             let partial_ident = Ident::new(&orig_name, Span::call_site());
             let refin_ident = self
                 .refinement_rules
                 .convert_normal_ident(partial_ident.clone())?;
             let refin_expr = create_expr_ident(refin_ident);
-            partial_ident_types.insert(partial_ident, orig_type.clone());
+            orig_ident_types.insert(partial_ident, orig_type);
             refin_exprs.push(refin_expr);
         }
         let ty = create_tuple_type(types);
@@ -72,11 +81,7 @@ impl ImplConverter {
 
         let tuple_expr = create_tuple_expr(refin_exprs);
 
-        Ok((
-            return_type,
-            partial_ident_types,
-            Stmt::Expr(tuple_expr, None),
-        ))
+        Ok((return_type, orig_ident_types, Stmt::Expr(tuple_expr, None)))
     }
 
     pub(crate) fn generate_later(
@@ -87,6 +92,8 @@ impl ImplConverter {
         // just use the original output type, now in refinement context
         let later_name = "__mck_input_later";
         let ty = create_type_from_return_type(&orig_sig.output);
+        // convert type
+        let ty = self.refinement_rules.convert_type(ty)?;
         // do not convert to reference, consuming is better
         let arg = create_arg(ArgType::Normal, create_ident(later_name), Some(ty));
 

@@ -46,13 +46,13 @@ impl ImplConverter {
 
         let orig_sig = &orig_fn.sig;
 
-        let abstract_input = self.generate_abstract_input(orig_sig)?;
+        let mut abstract_args = self.generate_abstract_input(orig_sig)?;
         let later = self.generate_later(orig_sig, &get_block_result_expr(&orig_fn.block))?;
         let earlier = self.generate_earlier(orig_sig)?;
 
         // step 1: set signature
         let mut refin_fn = orig_fn.clone();
-        refin_fn.sig.inputs = Punctuated::from_iter(vec![abstract_input.0, later.0]);
+        refin_fn.sig.inputs = Punctuated::from_iter(vec![abstract_args.0, later.0]);
         refin_fn.sig.output = earlier.0;
 
         // step 2: clear refin block
@@ -60,10 +60,21 @@ impl ImplConverter {
         result_stmts.clear();
 
         // step 3: detuple abstract input
-        result_stmts.extend(abstract_input.1);
+        let mut abstr_fn = orig_fn.clone();
+        let mut abstr_stmts = abstract_args.1;
+        let mut is_local_start = true;
+        for stmt in abstr_fn.block.stmts.drain(..) {
+            if is_local_start && !matches!(stmt, Stmt::Local(_)) {
+                abstr_stmts.append(&mut abstract_args.2);
+                is_local_start = false;
+            }
+            abstr_stmts.push(stmt);
+        }
+        abstr_stmts.append(&mut abstract_args.2);
+        abstr_stmts.append(&mut abstr_fn.block.stmts);
+        abstr_fn.block.stmts = abstr_stmts;
 
         // step 4: add original block statement with abstract scheme
-        let mut abstr_fn = orig_fn.clone();
         clone_needed::clone_needed(&mut abstr_fn);
 
         for orig_stmt in &abstr_fn.block.stmts {

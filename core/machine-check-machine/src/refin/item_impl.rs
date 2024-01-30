@@ -30,19 +30,21 @@ pub(super) fn apply(
         )));
     };
 
+    let self_ty_name = self_ty_ident.to_string();
+
     let converter = ImplConverter {
         clone_rules: StructRules::new(
-            self_ty_ident.clone(),
+            self_ty_name.clone(),
             rules::clone_normal(),
             rules::clone_type(),
         ),
         abstract_rules: StructRules::new(
-            self_ty_ident.clone(),
+            self_ty_name.clone(),
             rules::abstract_normal(),
             rules::abstract_type(),
         ),
         refinement_rules: StructRules::new(
-            self_ty_ident.clone(),
+            self_ty_name,
             rules::refinement_normal(),
             rules::refinement_type(),
         ),

@@ -1,7 +1,4 @@
-use std::{
-    clone,
-    collections::{BTreeMap, HashMap},
-};
+use std::collections::{BTreeMap, HashMap};
 
 use syn::{
     visit_mut::{self, VisitMut},

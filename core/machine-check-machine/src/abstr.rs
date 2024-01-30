@@ -378,5 +378,12 @@ fn path_rules() -> PathRules {
             has_leading_colon: false,
             segments: vec![PathRuleSegment::Wildcard],
         },
+        PathRule {
+            has_leading_colon: false,
+            segments: vec![
+                PathRuleSegment::Match(String::from("Self")),
+                PathRuleSegment::EndWildcard,
+            ],
+        },
     ])
 }

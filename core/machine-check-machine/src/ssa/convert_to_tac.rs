@@ -1,5 +1,5 @@
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Block, Expr, ExprAssign, ExprPath, Ident, Item, Stmt};
+use syn::{visit_mut::VisitMut, Block, Expr, ExprAssign, Ident, Item, Stmt};
 use syn_path::path;
 
 use crate::{
@@ -62,9 +62,13 @@ impl Converter {
         let mut processed_stmts = Vec::new();
         for stmt in block.stmts.drain(..) {
             match stmt {
-                Stmt::Expr(mut expr, semi) => {
+                Stmt::Expr(expr, semi) => {
                     match expr {
-                        syn::Expr::Struct(mut expr_struct) => {
+                        syn::Expr::Path(expr_path) => {
+                            // let it be
+                            processed_stmts.push(Stmt::Expr(Expr::Path(expr_path), semi));
+                        }
+                        syn::Expr::Struct(expr_struct) => {
                             // let it be
                             processed_stmts.push(Stmt::Expr(Expr::Struct(expr_struct), semi));
                         }
@@ -213,14 +217,25 @@ impl Converter {
 
     fn process_block(&mut self, block: &mut Block) -> Result<(), MachineError> {
         let mut processed_stmts = Vec::new();
-        for stmt in block.stmts.drain(..) {
+        let num_block_stmts = block.stmts.len();
+        for (index, stmt) in block.stmts.drain(..).enumerate() {
             match stmt {
                 Stmt::Expr(mut expr, semi) => {
-                    // process expression without forced movement
-                    // the newly created statements (for temporaries) will be added
-                    // before the (possibly changed) processed statement
-                    self.process_expr(&mut processed_stmts, &mut expr)?;
-                    processed_stmts.push(Stmt::Expr(expr, semi));
+                    if semi.is_some()
+                        || index + 1 != num_block_stmts
+                        || matches!(expr, Expr::Path(_) | Expr::Struct(_) | Expr::Lit(_))
+                    {
+                        //println!("Processing: {}", quote::quote!(expr));
+                        // process expression without forced movement
+                        // the newly created statements (for temporaries) will be added
+                        // before the (possibly changed) processed statement
+                        self.process_expr(&mut processed_stmts, &mut expr)?;
+                        processed_stmts.push(Stmt::Expr(expr, semi));
+                    } else {
+                        // force movement to ensure there is only a path, struct or literal in return position
+                        self.move_through_temp(&mut processed_stmts, &mut expr)?;
+                        processed_stmts.push(Stmt::Expr(expr, semi));
+                    }
                 }
                 Stmt::Local(_) => {
                     // just retain

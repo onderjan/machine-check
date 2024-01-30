@@ -103,6 +103,46 @@ mod machine_module {
         pub dummy: ::machine_check::Bitvector<1>,
     }
 
+    impl Machine {
+        // for instructions AND, EOR, OR
+        // Ru: destination register after being set
+        fn compute_status_logical(
+            sreg: ::machine_check::Bitvector<8>,
+            Ru: ::machine_check::Bitvector<8>,
+        ) -> ::machine_check::Bitvector<8> {
+            let retained_flags = ::machine_check::Bitvector::<8>::new(0b1110_0001);
+            let result = sreg | retained_flags;
+
+            let scrutinee = Ru;
+            let unsigned_scrutinee =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(scrutinee);
+
+            // Z - zero flag, bit 1
+            if scrutinee == ::machine_check::Bitvector::<8>::new(0) {
+                result = result | ::machine_check::Bitvector::<8>::new(0b0000_0010);
+            };
+
+            // N - negative flag, bit 2
+            // the sign is in bit 7 of scrutinee
+            // move into lowest bit first
+            let lowest_bit_negative = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(
+                (unsigned_scrutinee & ::machine_check::Bitvector::<8>::new(0b1000_0000))
+                    >> ::machine_check::Bitvector::<8>::new(7),
+            );
+
+            result = result | (lowest_bit_negative << ::machine_check::Bitvector::<8>::new(2));
+
+            // V - two's complement overflow flag, bit 3
+            // just constant zero here, already taken care of by not retaining flag
+
+            // S - sign flag, bit 4
+            // equal to N ^ V, but V is constant zero, so just use N
+            result = result | (lowest_bit_negative << ::machine_check::Bitvector::<8>::new(4));
+
+            result
+        }
+    }
+
     impl ::machine_check::Machine<Input, State> for Machine {
         fn init(&self, input: &Input) -> State {
             // --- Program Counter ---
@@ -199,28 +239,9 @@ mod machine_module {
             }
         }
 
-        // for instructions AND, EOR, OR
-        // Ru: destination register after being set
-        /*fn compute_status_logical(
-            sreg: ::machine_check::Bitvector<8>,
-            Ru: ::machine_check::Bitvector<8>,
-        ) -> ::machine_check::Bitvector<8> {
-            /*// Z - zero flag
-            sreg[[1]] = (Ru == 0);
-
-            // N - negative flag
-            sreg[[2]] = Ru[[7]];
-
-            // V - two's complement overflow flag
-            sreg[[3]] = '0';
-
-            // S - sign flag
-            sreg[[4]] = sreg[[2]] ^ sreg[[3]];*/
-
-            sreg
-        }*/
-
         fn next(&self, state: &State, _input: &Input) -> State {
+            let mut safe = ::machine_check::Bitvector::<1>::new(1);
+
             // localize state variables
             let mut PC = state.PC;
 
@@ -250,8 +271,6 @@ mod machine_module {
             let instruction = self.PROGMEM[PC];
 
             PC = PC + ::machine_check::Bitvector::<14>::new(1);
-
-            let safe = ::machine_check::Bitvector::<1>::new(1);
 
             //let mut a;
 
@@ -408,7 +427,7 @@ mod machine_module {
                                 R[d] =  R[d] & R[r];
 
                                 // TODO
-                                //SREG = compute_status_logical(SREG, R[d]);
+                                SREG = Self::compute_status_logical(SREG, R[d]);
 
                             }
 

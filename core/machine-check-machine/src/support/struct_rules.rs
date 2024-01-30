@@ -9,17 +9,15 @@ use super::path_rules::PathRules;
 
 #[derive(Clone)]
 pub struct StructRules {
-    self_ty_ident: Ident,
     normal_rules: PathRules,
     type_rules: PathRules,
 }
 
 impl StructRules {
-    pub fn new(self_ty_ident: Ident, normal_rules: PathRules, type_rules: PathRules) -> Self {
+    pub fn new(self_ty_name: String, normal_rules: PathRules, type_rules: PathRules) -> Self {
         StructRules {
-            self_ty_ident,
-            normal_rules,
-            type_rules,
+            normal_rules: normal_rules.with_self_ty_name(self_ty_name.clone()),
+            type_rules: type_rules.with_self_ty_name(self_ty_name),
         }
     }
 
@@ -62,19 +60,6 @@ impl StructRules {
     }
 
     fn convert_type_path(&self, path: &Path) -> Result<Path, MachineError> {
-        if path.leading_colon.is_some() {
-            // just apply the rules
-            return self.type_rules.convert_path(path.clone());
-        }
-
-        let mut path = path.clone();
-        // replace Self by type name
-        for path_segment in path.segments.iter_mut() {
-            if path_segment.ident == "Self" {
-                path_segment.ident = self.self_ty_ident.clone();
-            }
-        }
-
         // apply the rules
         self.type_rules.convert_path(path.clone())
     }
