@@ -260,19 +260,18 @@ mod machine_module {
 
         // for instruction COM
         // Ru: destination register after being set
-        /*fn compute_status_com(
+        fn compute_status_com(
             sreg: ::machine_check::Bitvector<8>,
             Ru: ::machine_check::Bitvector<8>,
         ) -> ::machine_check::Bitvector<8> {
-            // C - carry flag
+            // C - carry flag, bit 0
             // is set to one
-            sreg[[0]] = '1';
+            let result = sreg | ::machine_check::Unsigned::<8>::new(0b0000_0001);
 
-            // others are set like logical
-            sreg = compute_status_logical(sreg, Ru);
-
-            return sreg;
-        }*/
+            // others are set like logical, which retains carry
+            result = Self::compute_status_logical(result, Ru);
+            result
+        }
 
         fn next_0000(
             state: &State,
@@ -1139,10 +1138,9 @@ mod machine_module {
             ::machine_check::bitmask_switch!(instruction {
                 // COM Rd
                 "----_---d_dddd_0000" => {
-                    /*
                     // one's complement
-                    R[d] = 0xFF - R[d];
-                    SREG = compute_status_com(SREG, R[d]);*/
+                    R[d] = ::machine_check::Bitvector::<8>::new(0xFF) - R[d];
+                    SREG = Self::compute_status_com(SREG, R[d]);
                 }
 
                 // NEG Rd
