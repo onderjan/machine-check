@@ -376,6 +376,53 @@ mod machine_module {
             result
         }
 
+        // for instructions INC/DEC
+        // Ru: destination register after being decremented
+        // flag_V: whether the two's complement overflow flag is set
+        fn compute_status_inc_dec(
+            sreg: ::machine_check::Bitvector<8>,
+            Ru: ::machine_check::Bitvector<8>,
+            flag_V: ::machine_check::Bitvector<1>,
+        ) -> ::machine_check::Bitvector<8> {
+            let retained_flags = ::machine_check::Unsigned::<8>::new(0b1110_0001);
+            let result =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
+
+            let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
+            let Ru7 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
+
+            // Z - zero flag, bit 1
+            if Ru == ::machine_check::Bitvector::<8>::new(0) {
+                result = result | ::machine_check::Unsigned::<8>::new(0b0000_0010);
+            };
+
+            // N - negative flag, bit 2
+            let flag_N = Ru7;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_N)
+                    << ::machine_check::Bitvector::<8>::new(2));
+
+            // V - two's complement overflow flag, bit 3
+            // the only practical difference between INC and DEC status flags is given by V
+            // so we take it by parameter
+
+            let flag_V_unsigned =
+                ::std::convert::Into::<::machine_check::Unsigned<1>>::into(flag_V);
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_V_unsigned)
+                    << ::machine_check::Bitvector::<8>::new(3));
+
+            // S - sign flag (N ^ V), bit 4
+            let flag_S = flag_N ^ flag_V;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_S)
+                    << ::machine_check::Bitvector::<8>::new(4));
+
+            result
+        }
+
         fn next_0000(
             state: &State,
             input: &Input,
@@ -1270,10 +1317,21 @@ mod machine_module {
 
                 // INC Rd
                 "----_---d_dddd_0011" => {
+
+                    // increment
+                    R[d] = R[d] + ::machine_check::Bitvector::<8>::new(1);
+
+                    // the V flag is set exactly when R[d] after increment is 0x80
+                    let mut flag_V = ::machine_check::Bitvector::<1>::new(0);
+
+                    // TODO: FIX conditions in if
                     /*
-                    R[d] = R[d] + 1;
-                    SREG = compute_status_inc(SREG, R[d]);
+                    if R[d] == ::machine_check::Bitvector::<8>::new(0x7F) {
+                        flag_V = ::machine_check::Bitvector::<1>::new(1);
+                    }
                     */
+
+                    SREG = Self::compute_status_inc_dec(SREG, R[d], flag_V);
                 }
 
                 // 0100 is reserved
@@ -1350,11 +1408,22 @@ mod machine_module {
 
                 // DEC Rd
                 "----_---d_dddd_1010" => {
-                    /*
+
                     // decrement
-                    R[d] = R[d] - 1;
-                    SREG = compute_status_dec(SREG, R[d]);
+                    R[d] = R[d] - ::machine_check::Bitvector::<8>::new(1);
+
+                    // the V flag is set exactly when R[d] after decrement is 0x7F
+                    let mut flag_V = ::machine_check::Bitvector::<1>::new(0);
+
+                    // TODO: FIX conditions in if
+                    /*
+                    if R[d] == ::machine_check::Bitvector::<8>::new(0x7F) {
+                        flag_V = ::machine_check::Bitvector::<1>::new(1);
+                    }
                     */
+
+                    SREG = Self::compute_status_inc_dec(SREG, R[d], flag_V);
+
                 }
 
                 // 1011 is DES/reserved on ATxmega, reserved for others
