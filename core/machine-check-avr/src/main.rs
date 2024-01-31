@@ -1993,20 +1993,32 @@ mod machine_module {
 
                 // BLD
                 "--11_100d_dddd_0bbb" => {
-                    /*
-                    // load flag T (bit 6) of SREG from bit b of register Rd
-                    R[d][[b]] = R[d][[6]];
-                    */
+                    // copy from flag T (bit 6) of SREG to bit b of register Rd
+
+                    let SREG_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(SREG);
+                    let SREG_masked = SREG_unsigned & ::machine_check::Unsigned::<8>::new(0b0100_0000);
+                    let lowest_bit_T = SREG_masked >> ::machine_check::Bitvector::<8>::new(6);
+
+                    let amount = ::machine_check::Ext::<8>::ext(::std::convert::Into::<::machine_check::Unsigned<3>>::into(b));
+                    let bit_only_mask = ::machine_check::Bitvector::<8>::new(1) << amount;
+                    let bit_only_T = lowest_bit_T << amount;
+
+                    R[d] = (R[d] & !bit_only_mask) | bit_only_T;
                 }
 
                 // 1xxx part reserved
 
                 // BST
                 "--11_101d_dddd_0bbb" => {
-                    /*
-                    // store flag T (bit 6) of SREG to bit b of register Rd
-                    SREG[[6]] = R[d][[b]];
-                    */
+                    // store bit b from register Rd to flag T (bit 6) of SREG
+                    let amount = ::machine_check::Ext::<8>::ext(::std::convert::Into::<::machine_check::Unsigned<3>>::into(b));
+                    let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(R[d]);
+                    let lowest_bit_T = (Rd_unsigned >> amount) & ::machine_check::Bitvector::<8>::new(1);
+
+                    let retained_flags = ::machine_check::Bitvector::<8>::new(0b1011_1111);
+                    let bit_only_T = lowest_bit_T << ::machine_check::Bitvector::<8>::new(6);
+
+                    SREG = (SREG & retained_flags) | bit_only_T;
                 }
 
                 // 1xxx part reserved
