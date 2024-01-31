@@ -111,36 +111,114 @@ mod machine_module {
             sreg: ::machine_check::Bitvector<8>,
             Ru: ::machine_check::Bitvector<8>,
         ) -> ::machine_check::Bitvector<8> {
-            let retained_flags = ::machine_check::Bitvector::<8>::new(0b1110_0001);
-            let result = sreg | retained_flags;
+            let retained_flags = ::machine_check::Unsigned::<8>::new(0b1110_0001);
+            let result =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
 
-            let scrutinee = Ru;
-            let unsigned_scrutinee =
-                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(scrutinee);
+            let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
+
+            let Ru7 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
 
             // Z - zero flag, bit 1
-            if scrutinee == ::machine_check::Bitvector::<8>::new(0) {
+            if Ru == ::machine_check::Bitvector::<8>::new(0) {
                 result = result | ::machine_check::Bitvector::<8>::new(0b0000_0010);
             };
 
             // N - negative flag, bit 2
             // the sign is in bit 7 of scrutinee
             // move into lowest bit first
-            let lowest_bit_negative = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(
-                (unsigned_scrutinee & ::machine_check::Bitvector::<8>::new(0b1000_0000))
-                    >> ::machine_check::Bitvector::<8>::new(7),
-            );
+            let flag_N = Ru7;
 
-            result = result | (lowest_bit_negative << ::machine_check::Bitvector::<8>::new(2));
+            /*result = result
+            | (::machine_check::Ext::<8>::ext(flag_N)
+                << ::machine_check::Bitvector::<8>::new(2));*/
 
             // V - two's complement overflow flag, bit 3
             // just constant zero here, already taken care of by not retaining flag
 
             // S - sign flag, bit 4
             // equal to N ^ V, but V is constant zero, so just use N
-            result = result | (lowest_bit_negative << ::machine_check::Bitvector::<8>::new(4));
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_N)
+                    << ::machine_check::Bitvector::<8>::new(4));
 
-            result
+            ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
+        }
+
+        // for instructions: ADD, ADC
+        // Rd: destination register before being set
+        // Rr: other register
+        // Ru: destination register after being set
+        fn compute_status_add(
+            sreg: ::machine_check::Bitvector<8>,
+            Rd: ::machine_check::Bitvector<8>,
+            Rr: ::machine_check::Bitvector<8>,
+            Ru: ::machine_check::Bitvector<8>,
+        ) -> ::machine_check::Bitvector<8> {
+            let retained_flags = ::machine_check::Unsigned::<8>::new(0b1100_0000);
+            let result =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
+
+            let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Rd);
+            let Rr_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Rr);
+            let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
+
+            let Rd7 = ::machine_check::Ext::<1>::ext(
+                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
+            let Rr7 = ::machine_check::Ext::<1>::ext(
+                Rr_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
+            let Ru7 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
+
+            // C - carry flag, bit 0
+            let flag_C = (Rd7 & Rr7) | (Rr7 & !Ru7) | (!Ru7 & Rd7);
+            result = result | ::machine_check::Ext::<8>::ext(flag_C);
+
+            // Z - zero flag, bit 1
+            if Ru == ::machine_check::Bitvector::<8>::new(0) {
+                result = result | ::machine_check::Unsigned::<8>::new(0b0000_0010);
+            };
+
+            // N - negative flag, bit 2
+            let flag_N = Ru7;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_N)
+                    << ::machine_check::Bitvector::<8>::new(2));
+
+            // V - two's complement overflow flag, bit 3
+            let flag_V = (Rd7 & Rr7 & !Ru7) | (!Rd7 & !Rr7 & Ru7);
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_V)
+                    << ::machine_check::Bitvector::<8>::new(3));
+
+            // S - sign flag (N ^ V), bit 4
+            let flag_S = flag_N ^ flag_V;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_S)
+                    << ::machine_check::Bitvector::<8>::new(4));
+
+            let Rd3 = ::machine_check::Ext::<1>::ext(
+                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+            );
+            let Rr3 = ::machine_check::Ext::<1>::ext(
+                Rr_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+            );
+            let Ru3 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+            );
+
+            // H - half carry flag, bit 5
+            let flag_H = (Rd3 & Rr3) | (Rr3 & !Ru3) | (!Ru3 & Rd3);
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_H)
+                    << ::machine_check::Bitvector::<8>::new(4));
+
+            ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
 
         fn next_0000(
@@ -243,10 +321,9 @@ mod machine_module {
                 // ADD
                 "----_11rd_dddd_rrrr" => {
                     // add
-
+                    let prev = R[d];
                     R[d] = R[d] + R[r];
-                    // TODO
-                    //SREG = compute_status_add(SREG, prev, R[r], R[d]);
+                    SREG = Self::compute_status_add(SREG, prev, R[r], R[d]);
                 }
                 _ => {
                     // TODO: disjoint arms check
@@ -335,12 +412,12 @@ mod machine_module {
 
                 // ADC
                 "----_11rd_dddd_rrrr" => {
-                    /*// add with carry
-                    Uint8 prev = R[d];
-                    Uint8 carry = 0;
-                    carry[[0]] = SREG[[0]];
+                    // add with carry
+                    let prev = R[d];
+                    // carry is in bit 0
+                    let carry = SREG & ::machine_check::Bitvector::<8>::new(0b0000_0001);
                     R[d] = R[d] + R[r] + carry;
-                    SREG = compute_status_add(SREG, prev, R[r], R[d]);*/
+                    SREG = Self::compute_status_add(SREG, prev, R[r], R[d]);
                 }
 
                 _ => {

@@ -178,6 +178,11 @@ impl LocalVisitor<'_> {
         } else if path_matches_global_names(&right_ty_path.path, &["machine_check", "Signed"]) {
             Some(true)
         } else {
+            println!(
+                "Ext expr: {}, ty: {}",
+                quote::quote!(#expr),
+                quote::quote!(#right_ty)
+            );
             None
         }
     }
