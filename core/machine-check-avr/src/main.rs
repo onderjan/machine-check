@@ -1448,18 +1448,16 @@ mod machine_module {
 
                 // BSET s
                 "----_---0_0sss_1000" => {
-                    /*
                     // bit set in status register
-                    SREG[[s]] = '1';
-                    */
+                    let amount = ::machine_check::Ext::<8>::ext(::std::convert::Into::<::machine_check::Unsigned<3>>::into(s));
+                    SREG = SREG | (::machine_check::Bitvector::<8>::new(1) << amount);
                 }
 
                 // BCLR s
                 "----_---0_1sss_1000" => {
-                    /*
                     // bit clear in status register
-                    SREG[[s]] = '0';
-                    */
+                    let amount = ::machine_check::Ext::<8>::ext(::std::convert::Into::<::machine_check::Unsigned<3>>::into(s));
+                    SREG = SREG & !(::machine_check::Bitvector::<8>::new(1) << amount);
                 }
 
                 // IJMP
@@ -1996,7 +1994,7 @@ mod machine_module {
                 // BLD
                 "--11_100d_dddd_0bbb" => {
                     /*
-                    // load bit T of SREG from register
+                    // load flag T (bit 6) of SREG from bit b of register Rd
                     R[d][[b]] = R[d][[6]];
                     */
                 }
@@ -2006,7 +2004,7 @@ mod machine_module {
                 // BST
                 "--11_101d_dddd_0bbb" => {
                     /*
-                    // store bit T of SREG to register
+                    // store flag T (bit 6) of SREG to bit b of register Rd
                     SREG[[6]] = R[d][[b]];
                     */
                 }
