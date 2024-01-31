@@ -131,9 +131,9 @@ mod machine_module {
             // move into lowest bit first
             let flag_N = Ru7;
 
-            /*result = result
-            | (::machine_check::Ext::<8>::ext(flag_N)
-                << ::machine_check::Bitvector::<8>::new(2));*/
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_N)
+                    << ::machine_check::Bitvector::<8>::new(2));
 
             // V - two's complement overflow flag, bit 3
             // just constant zero here, already taken care of by not retaining flag
@@ -639,7 +639,7 @@ mod machine_module {
                     // this is due to this special case being widely
                     // used to set a register to zero
 
-                    // TODO
+                    // TODO make the kludge work
                     /*if (r == d) {
                         R[d] = ::machine_check::Bitvector::<8>::new(0);
                     } else {
@@ -821,7 +821,7 @@ mod machine_module {
 
                     // logical or with immediate
                     R[reg_num] = R[reg_num] | k;
-                    //SREG = compute_status_logical(SREG, R[d+16]);
+                    SREG = Self::compute_status_logical(SREG, R[reg_num]);
                 }
                 // ANDI
                 "--11_kkkk_dddd_kkkk" => {
@@ -833,9 +833,7 @@ mod machine_module {
 
                     // logical and with immediate
                     R[reg_num] = R[reg_num] & k;
-
-                    // TODO
-                    //SREG = compute_status_logical(SREG, R[d+16]);
+                    SREG = Self::compute_status_logical(SREG, R[reg_num]);
                 }
                 _ => {
                     // TODO: disjoint arms check
