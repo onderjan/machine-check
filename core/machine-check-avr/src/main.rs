@@ -423,6 +423,76 @@ mod machine_module {
             result
         }
 
+        // for instruction NEG
+        // Rd: register before being negated
+        // Ru: register after being negated
+        fn compute_status_neg(
+            sreg: ::machine_check::Bitvector<8>,
+            Rd: ::machine_check::Bitvector<8>,
+            Ru: ::machine_check::Bitvector<8>,
+        ) -> ::machine_check::Bitvector<8> {
+            // like compute_status_sub, but with Rd being the subtrahend from zero
+
+            let retained_flags = ::machine_check::Unsigned::<8>::new(0b1100_0000);
+            let result =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
+
+            let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Rd);
+            let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
+
+            let Rd7 = ::machine_check::Ext::<1>::ext(
+                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
+            let Ru7 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
+
+            // C - carry flag, bit 0
+            // set if there is an implied borrow, i.e. exactly if Rd/Ru is not zero
+            // Z - zero flag, bit 1
+            // set either the Z or C flag depending on Ru being zero
+            if Ru == ::machine_check::Bitvector::<8>::new(0) {
+                result = result | ::machine_check::Unsigned::<8>::new(0b0000_0010);
+            } else {
+                result = result | ::machine_check::Unsigned::<8>::new(0b0000_0001);
+            }
+
+            // N - negative flag, bit 2
+            let flag_N = Ru7;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_N)
+                    << ::machine_check::Bitvector::<8>::new(2));
+
+            // V - two's complement overflow flag, bit 3
+            // set if and only if Ru is 0x80
+            let mut flag_V = ::machine_check::Unsigned::<1>::new(0);
+            if Ru == ::machine_check::Bitvector::<8>::new(0x80) {
+                flag_V = ::machine_check::Unsigned::<1>::new(1);
+            }
+
+            // S - sign flag (N ^ V), bit 4
+            let flag_S = flag_N ^ flag_V;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_S)
+                    << ::machine_check::Bitvector::<8>::new(4));
+
+            let Rd3 = ::machine_check::Ext::<1>::ext(
+                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+            );
+            let Ru3 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+            );
+
+            // H - half carry flag, bit 5
+            // set exactly if there was a borrow from bit 3
+            let flag_H = Ru3 & !Rd3;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_H)
+                    << ::machine_check::Bitvector::<8>::new(4));
+
+            ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
+        }
+
         fn next_0000(
             state: &State,
             input: &Input,
@@ -1295,24 +1365,22 @@ mod machine_module {
 
                 // NEG Rd
                 "----_---d_dddd_0001" => {
-                    /*
                     // two's complement
-                    Uint8 prev = R[d];
-                    R[d] = 0x00 - R[d];
-                    SREG = compute_status_neg(SREG, prev, R[d]);
-                    */
+                    let prev = R[d];
+                    R[d] = ::machine_check::Bitvector::<8>::new(0x00) - R[d];
+                    SREG = Self::compute_status_neg(SREG, prev, R[d]);
                 }
 
                 // SWAP Rd
                 "----_---d_dddd_0010" => {
-                    /*
+
+                    let prev_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(R[d]);
                     // swap nibbles in register, status flags not affected
-                    Uint8 prev = R[d];
-                    Uint8 tmp;
-                    tmp[[0, 4]] = prev[[4, 4]];
-                    tmp[[4, 4]] = prev[[0, 4]];
-                    R[d] = tmp;
-                    */
+                    let prev_lo_half = prev_unsigned & ::machine_check::Bitvector::<8>::new(0x0F);
+                    let prev_hi_half = prev_unsigned & ::machine_check::Bitvector::<8>::new(0xF0);
+                    let current_lo_half = prev_hi_half >> ::machine_check::Bitvector::<8>::new(4);
+                    let current_hi_half = prev_lo_half << ::machine_check::Bitvector::<8>::new(4);
+                    R[d] = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(current_hi_half | current_lo_half);
                 }
 
                 // INC Rd
