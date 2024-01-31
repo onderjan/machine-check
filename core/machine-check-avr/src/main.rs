@@ -1,3 +1,12 @@
+/**
+ * The machine currently only targets ATmega328P.
+ *
+ * The system is written using the official instruction set reference
+ * https://ww1.microchip.com/downloads/en/devicedoc/atmel-0856-avr-instruction-set-manual.pdf
+ * and datasheet
+ * https://ww1.microchip.com/downloads/aemDocuments/documents/MCU08/ProductDocuments/DataSheets/ATmega48A-PA-88A-PA-168A-PA-328-P-DS-DS40002061B.pdf
+ */
+
 #[allow(non_snake_case)]
 #[allow(clippy::if_same_then_else)]
 #[machine_check_macros::machine_description]
@@ -491,6 +500,108 @@ mod machine_module {
                     << ::machine_check::Bitvector::<8>::new(4));
 
             ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
+        }
+
+        // for instruction ADIW
+        // Rd: register pair before addition
+        // R: register pair after addition
+        fn compute_status_adiw(
+            sreg: ::machine_check::Bitvector<8>,
+            Rd: ::machine_check::Bitvector<16>,
+            Ru: ::machine_check::Bitvector<16>,
+        ) -> ::machine_check::Bitvector<8> {
+            let retained_flags = ::machine_check::Unsigned::<8>::new(0b1110_0000);
+            let result =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
+
+            let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<16>>::into(Rd);
+            let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<16>>::into(Ru);
+
+            let Rd15 = ::machine_check::Ext::<1>::ext(
+                Rd_unsigned >> ::machine_check::Bitvector::<16>::new(15),
+            );
+            let Ru15 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<16>::new(15),
+            );
+
+            // C - carry flag, bit 0
+            let flag_C = !Ru15 & Rd15;
+            result = result | ::machine_check::Ext::<8>::ext(flag_C);
+
+            // Z - zero flag, bit 1
+            if Ru == ::machine_check::Bitvector::<16>::new(0) {
+                result = result | ::machine_check::Unsigned::<8>::new(0b0000_0010);
+            };
+
+            // N - negative flag, bit 2
+            let flag_N = Ru15;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_N)
+                    << ::machine_check::Bitvector::<8>::new(2));
+
+            // V - two's complement overflow flag, bit 3
+            let flag_V = !Rd15 & Ru15;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_V)
+                    << ::machine_check::Bitvector::<8>::new(3));
+
+            // S - sign flag (N ^ V), bit 4
+            let flag_S = flag_N ^ flag_V;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_S)
+                    << ::machine_check::Bitvector::<8>::new(4));
+            result
+        }
+
+        // for instruction SBIW
+        // Rd: register pair before subtraction
+        // R: register pair after subtraction
+        fn compute_status_sbiw(
+            sreg: ::machine_check::Bitvector<8>,
+            Rd: ::machine_check::Bitvector<16>,
+            Ru: ::machine_check::Bitvector<16>,
+        ) -> ::machine_check::Bitvector<8> {
+            let retained_flags = ::machine_check::Unsigned::<8>::new(0b1110_0000);
+            let result =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
+
+            let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<16>>::into(Rd);
+            let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<16>>::into(Ru);
+
+            let Rd15 = ::machine_check::Ext::<1>::ext(
+                Rd_unsigned >> ::machine_check::Bitvector::<16>::new(15),
+            );
+            let Ru15 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<16>::new(15),
+            );
+
+            // C - carry flag, bit 0
+            let flag_C = Ru15 & !Rd15;
+            result = result | ::machine_check::Ext::<8>::ext(flag_C);
+
+            // Z - zero flag, bit 1
+            if Ru == ::machine_check::Bitvector::<16>::new(0) {
+                result = result | ::machine_check::Unsigned::<8>::new(0b0000_0010);
+            };
+
+            // N - negative flag, bit 2
+            let flag_N = Ru15;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_N)
+                    << ::machine_check::Bitvector::<8>::new(2));
+
+            // V - two's complement overflow flag, bit 3
+            let flag_V = Ru15 & !Rd15;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_V)
+                    << ::machine_check::Bitvector::<8>::new(3));
+
+            // S - sign flag (N ^ V), bit 4
+            let flag_S = flag_N ^ flag_V;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_S)
+                    << ::machine_check::Bitvector::<8>::new(4));
+            result
         }
 
         fn next_0000(
@@ -1657,6 +1768,129 @@ mod machine_module {
             }
         }
 
+        fn next_1001_011x(
+            state: &State,
+            input: &Input,
+            instruction: ::machine_check::Bitvector<16>,
+        ) -> State {
+            let mut PC = state.PC;
+            let mut R = ::std::clone::Clone::clone(&state.R);
+            let mut DDRB = state.DDRB;
+            let mut PORTB = state.PORTB;
+            let mut DDRC = state.DDRC;
+            let mut PORTC = state.PORTC;
+            let mut DDRD = state.DDRD;
+            let mut PORTD = state.PORTD;
+            let mut GPIOR0 = state.GPIOR0;
+            let mut GPIOR1 = state.GPIOR1;
+            let mut GPIOR2 = state.GPIOR2;
+            let mut SPL = state.SPL;
+            let mut SPH = state.SPH;
+            let mut SREG = state.SREG;
+            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+
+            let mut safe = state.safe;
+
+            ::machine_check::bitmask_switch!(instruction {
+                // ADIW Rd, K
+                "----_---0_kkdd_kkkk" => {
+
+                    // add immediate to register word
+                    // only available for register pairs r24:r25, r26:r27, r28:29, r30:r31
+                    // extend d to five bits, double it, and add 24 to get low register index
+                    let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<2>>::into(d);
+                    let d_ext = ::machine_check::Ext::<5>::ext(d_unsigned);
+                    let double_d_ext = d_ext + d_ext;
+                    let lo_reg_num = double_d_ext + ::machine_check::Unsigned::<5>::new(24);
+                    let hi_reg_num = lo_reg_num + ::machine_check::Unsigned::<5>::new(1);
+
+                    let lo_reg = R[lo_reg_num];
+                    let hi_reg = R[hi_reg_num];
+
+                    // construct the little-endian pair (low index corresponds to low bits)
+                    let lo_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(lo_reg);
+                    let hi_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(hi_reg);
+
+                    let lo_reg_ext = ::machine_check::Ext::<16>::ext(lo_reg_unsigned);
+                    let hi_reg_ext = ::machine_check::Ext::<16>::ext(hi_reg_unsigned);
+                    let pair = (hi_reg_ext << ::machine_check::Bitvector::<16>::new(8)) | lo_reg_ext;
+
+                    let k_unsigned = ::std::convert::Into::<::machine_check::Unsigned<6>>::into(k);
+                    let result_pair = pair + ::machine_check::Ext::<16>::ext(k_unsigned);
+
+                    let result_lo = ::machine_check::Ext::<8>::ext(result_pair);
+                    let result_hi = ::machine_check::Ext::<8>::ext(result_pair >> ::machine_check::Bitvector::<16>::new(8));
+
+                    R[lo_reg_num] = result_lo;
+                    R[hi_reg_num] = result_hi;
+
+                    SREG = Self::compute_status_adiw(SREG, pair, result_pair);
+
+                    // ADIW is a two-cycle instruction
+
+                }
+
+                // SBIW Rd, K
+                "----_---1_kkdd_kkkk" => {
+                    // subtract immediate from register word
+                    // only available for register pairs r24:r25, r26:r27, r28:29, r30:r31
+                    // extend d to five bits, double it, and add 24 to get low register index
+                    let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<2>>::into(d);
+                    let d_ext = ::machine_check::Ext::<5>::ext(d_unsigned);
+                    let double_d_ext = d_ext + d_ext;
+                    let lo_reg_num = double_d_ext + ::machine_check::Unsigned::<5>::new(24);
+                    let hi_reg_num = lo_reg_num + ::machine_check::Unsigned::<5>::new(1);
+
+                    let lo_reg = R[lo_reg_num];
+                    let hi_reg = R[hi_reg_num];
+
+                    // construct the little-endian pair (low index corresponds to low bits)
+                    let lo_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(lo_reg);
+                    let hi_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(hi_reg);
+
+                    let lo_reg_ext = ::machine_check::Ext::<16>::ext(lo_reg_unsigned);
+                    let hi_reg_ext = ::machine_check::Ext::<16>::ext(hi_reg_unsigned);
+                    let pair = (hi_reg_ext << ::machine_check::Bitvector::<16>::new(8)) | lo_reg_ext;
+
+                    let k_unsigned = ::std::convert::Into::<::machine_check::Unsigned<6>>::into(k);
+                    let result_pair = pair - ::machine_check::Ext::<16>::ext(k_unsigned);
+
+                    let result_lo = ::machine_check::Ext::<8>::ext(result_pair);
+                    let result_hi = ::machine_check::Ext::<8>::ext(result_pair >> ::machine_check::Bitvector::<16>::new(8));
+
+                    R[lo_reg_num] = result_lo;
+                    R[hi_reg_num] = result_hi;
+
+                    SREG = Self::compute_status_sbiw(SREG, pair, result_pair);
+
+                    // SBIW is a two-cycle instruction
+                }
+
+                _ => {
+                    // TODO: disjoint arms check
+                }
+            });
+
+            State {
+                PC,
+                R,
+                DDRB,
+                PORTB,
+                DDRC,
+                PORTC,
+                DDRD,
+                PORTD,
+                GPIOR0,
+                GPIOR1,
+                GPIOR2,
+                SPL,
+                SPH,
+                SREG,
+                SRAM,
+                safe,
+            }
+        }
+
         fn next_1001(
             state: &State,
             input: &Input,
@@ -1674,57 +1908,8 @@ mod machine_module {
                 "----_010-_----_----" => {
                     result = Self::next_1001_010x(state, input, instruction);
                 }
-
-                // ADIW Rd, K
-                "----_0110_kkdd_kkkk" => {
-                    /*
-                    Uint16 pair;
-
-                    Uint8 lo = R[d+d+24];
-                    Uint8 hi = R[d+d+25];
-
-                    pair[[0, 8]] = lo;
-                    pair[[8, 8]] = hi;
-
-                    Uint16 result = pair + k;
-
-                    lo = result[[0, 8]];
-                    hi = result[[8, 8]];
-
-                    R[d+d+24] = lo;
-                    R[d+d+25] = hi;
-
-                    SREG = compute_status_adiw(SREG, pair, result);
-
-                    // ADIW is a two-cycle instruction
-                    increment_cycle_count();
-                    */
-                }
-
-                // SBIW Rd, K
-                "----_0111_kkdd_kkkk" => {
-                    /*
-                    Uint16 pair;
-
-                    Uint8 lo = R[d+d+24];
-                    Uint8 hi = R[d+d+25];
-
-                    pair[[0, 8]] = lo;
-                    pair[[8, 8]] = hi;
-
-                    Uint16 result = pair - k;
-
-                    lo = result[[0, 8]];
-                    hi = result[[8, 8]];
-
-                    R[d+d+24] = lo;
-                    R[d+d+25] = hi;
-
-                    SREG = compute_status_sbiw(SREG, pair, result);
-
-                    // SBIW is a two-cycle instruction
-                    increment_cycle_count();
-                    */
+                "----_011-_----_----" => {
+                    result = Self::next_1001_011x(state, input, instruction);
                 }
 
                 // CBI A, b
