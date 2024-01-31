@@ -604,11 +604,7 @@ mod machine_module {
             result
         }
 
-        fn next_0000(
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_0000(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -733,11 +729,7 @@ mod machine_module {
             }
         }
 
-        fn next_0001(
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_0001(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -824,11 +816,7 @@ mod machine_module {
             }
         }
 
-        fn next_0010(
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_0010(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -920,11 +908,7 @@ mod machine_module {
             }
         }
 
-        fn next_0011(
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_0011(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -983,11 +967,7 @@ mod machine_module {
             }
         }
 
-        fn next_01(
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_01(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -1768,11 +1748,7 @@ mod machine_module {
             }
         }
 
-        fn next_1001_011x(
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_1001_011x(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -1909,7 +1885,7 @@ mod machine_module {
                     result = Self::next_1001_010x(state, input, instruction);
                 }
                 "----_011-_----_----" => {
-                    result = Self::next_1001_011x(state, input, instruction);
+                    result = Self::next_1001_011x(state, instruction);
                 }
 
                 // CBI A, b
@@ -2355,19 +2331,19 @@ mod machine_module {
 
             ::machine_check::bitmask_switch!(instruction {
                 "0000_----_----_----" => {
-                    result = Self::next_0000(state, input, instruction);
+                    result = Self::next_0000(state, instruction);
                 }
                 "0001_----_----_----" => {
-                    result = Self::next_0001(state, input, instruction);
+                    result = Self::next_0001(state, instruction);
                 }
                 "0010_----_----_----" => {
-                    result = Self::next_0010(state, input, instruction);
+                    result = Self::next_0010(state, instruction);
                 }
                 "0011_----_----_----" => {
-                    result = Self::next_0011(state, input, instruction);
+                    result = Self::next_0011(state, instruction);
                 }
                 "01--_----_----_----" => {
-                    result = Self::next_01(state, input, instruction);
+                    result = Self::next_01(state, instruction);
                 }
                 "10-0_----_----_----" => {
                     result = Self::next_10q0(state, input, instruction);
