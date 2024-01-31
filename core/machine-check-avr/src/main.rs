@@ -273,6 +273,109 @@ mod machine_module {
             result
         }
 
+        // for instructions SUB, SUBI, CP, CPI
+        // Rd: destination register before being set
+        // Rr: other register
+        // Ru: destination register after being set
+        fn compute_status_sub(
+            sreg: ::machine_check::Bitvector<8>,
+            Rd: ::machine_check::Bitvector<8>,
+            Rr: ::machine_check::Bitvector<8>,
+            Ru: ::machine_check::Bitvector<8>,
+        ) -> ::machine_check::Bitvector<8> {
+            // like compute_status_add, but with different negations in C, V, H flags
+
+            let retained_flags = ::machine_check::Unsigned::<8>::new(0b1100_0000);
+            let result =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
+
+            let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Rd);
+            let Rr_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Rr);
+            let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
+
+            let Rd7 = ::machine_check::Ext::<1>::ext(
+                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
+            let Rr7 = ::machine_check::Ext::<1>::ext(
+                Rr_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
+            let Ru7 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+            );
+
+            // C - carry flag, bit 0
+            let flag_C = (!Rd7 & Rr7) | (Rr7 & Ru7) | (Ru7 & !Rd7);
+            result = result | ::machine_check::Ext::<8>::ext(flag_C);
+
+            // Z - zero flag, bit 1
+            if Ru == ::machine_check::Bitvector::<8>::new(0) {
+                result = result | ::machine_check::Unsigned::<8>::new(0b0000_0010);
+            };
+
+            // N - negative flag, bit 2
+            let flag_N = Ru7;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_N)
+                    << ::machine_check::Bitvector::<8>::new(2));
+
+            // V - two's complement overflow flag, bit 3
+            let flag_V = (Rd7 & !Rr7 & !Ru7) | (!Rd7 & Rr7 & Ru7);
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_V)
+                    << ::machine_check::Bitvector::<8>::new(3));
+
+            // S - sign flag (N ^ V), bit 4
+            let flag_S = flag_N ^ flag_V;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_S)
+                    << ::machine_check::Bitvector::<8>::new(4));
+
+            let Rd3 = ::machine_check::Ext::<1>::ext(
+                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+            );
+            let Rr3 = ::machine_check::Ext::<1>::ext(
+                Rr_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+            );
+            let Ru3 = ::machine_check::Ext::<1>::ext(
+                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+            );
+
+            // H - half carry flag, bit 5
+            let flag_H = (!Rd3 & Rr3) | (Rr3 & Ru3) | (Ru3 & !Rd3);
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_H)
+                    << ::machine_check::Bitvector::<8>::new(4));
+
+            ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
+        }
+
+        // for instructions SBC, SBCI, CPC
+        // differs from compute_status_sub in zero flag treatment
+        // Rd: destination register before being set
+        // Rr: other register
+        // Ru: destination register after being set
+        fn compute_status_sbc(
+            sreg: ::machine_check::Bitvector<8>,
+            Rd: ::machine_check::Bitvector<8>,
+            Rr: ::machine_check::Bitvector<8>,
+            Ru: ::machine_check::Bitvector<8>,
+        ) -> ::machine_check::Bitvector<8> {
+            // remember previous zero flag (bit 1 of SREG)
+            let prev_sreg_zero_flag = sreg & ::machine_check::Unsigned::<8>::new(0b0000_0010);
+
+            let result = Self::compute_status_sub(sreg, Rd, Rr, Ru);
+
+            // Z - zero flag, bit 1
+            // if result is zero, the flag must remain unchanged
+            // otherwise, it is cleared as normal
+            if Ru == ::machine_check::Unsigned::<8>::new(0) {
+                // the zero flag is now wrongly cleared, set previous
+                result = result | prev_sreg_zero_flag;
+            }
+
+            result
+        }
+
         fn next_0000(
             state: &State,
             input: &Input,
@@ -354,25 +457,24 @@ mod machine_module {
                 // CPC
                 "----_01rd_dddd_rrrr" => {
                     // compare with carry, same as SBC without actually saving the computed value
-                    /*Uint8 carry = 0;
-                    carry[[0]] = SREG[[0]];
-                    Uint8 result = R[d] - R[r] - carry;
-                    SREG = compute_status_sbc(SREG, R[d], R[r], result);*/
+                    // carry is in bit 0
+                    let carry = SREG & ::machine_check::Bitvector::<8>::new(0b0000_0001);
+                    let result = R[d] - R[r] - carry;
+                    SREG = Self::compute_status_sbc(SREG, R[d], R[r], result);
                 }
 
                 // SBC
                 "----_10rd_dddd_rrrr" => {
                     // subtract with carry
-                    /*Uint8 prev = R[d];
-                    Uint8 carry = 0;
-                    carry[[0]] = SREG[[0]];
+                    let prev = R[d];
+                    // carry is in bit 0
+                    let carry = SREG & ::machine_check::Bitvector::<8>::new(0b0000_0001);
                     R[d] = R[d] - R[r] - carry;
-                    SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
+                    SREG = Self::compute_status_sbc(SREG, prev, R[r], R[d]);
                 }
 
                 // ADD
                 "----_11rd_dddd_rrrr" => {
-                    // add
                     let prev = R[d];
                     R[d] = R[d] + R[r];
                     SREG = Self::compute_status_add(SREG, prev, R[r], R[d]);
@@ -447,19 +549,16 @@ mod machine_module {
 
                 // CP
                 "----_01rd_dddd_rrrr" => {
-                    /*
                     // compare, same as SUB without actually saving the computed value
-                    Uint8 result = R[d] - R[r];
-                    SREG = compute_status_sub(SREG, R[d], R[r], result);
-                    */
+                    let result = R[d] - R[r];
+                    SREG = Self::compute_status_sub(SREG, R[d], R[r], result);
                 }
 
                 // SUB
                 "----_10rd_dddd_rrrr" => {
-                    /*// subtract
-                    Uint8 prev = R[d];
+                    let prev = R[d];
                     R[d] = R[d] - R[r];
-                    SREG = compute_status_sub(SREG, prev, R[r], R[d]);*/
+                    SREG = Self::compute_status_sub(SREG, prev, R[r], R[d]);
                 }
 
                 // ADC
@@ -684,12 +783,18 @@ mod machine_module {
 
                 // SBCI
                 "--00_kkkk_dddd_kkkk" => {
-                    /*// subtract immediate with carry
-                    Uint8 prev = R[d+16];
-                    Uint8 carry = 0;
-                    carry[[0]] = SREG[[0]];
-                    R[d+16] = R[d+16] - k - carry;
-                    SREG = compute_status_sbc(SREG, prev, k, R[d+16]);*/
+                    // extend d to five bits and add 16
+                    let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(d);
+                    let d_ext_unsigned = ::machine_check::Ext::<5>::ext(d_unsigned);
+                    let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(d_ext_unsigned);
+                    let reg_num = d_ext + ::machine_check::Bitvector::<5>::new(16);
+
+                    // subtract immediate with carry
+                    let prev = R[reg_num];
+                    // carry is in bit 0
+                    let carry = SREG & ::machine_check::Bitvector::<8>::new(0b0000_0001);
+                    R[reg_num] = R[reg_num] - k - carry;
+                    SREG = Self::compute_status_sbc(SREG, prev, k, R[reg_num]);
                 }
                 // SUBI
                 "--01_kkkk_dddd_kkkk" => {
@@ -704,7 +809,7 @@ mod machine_module {
                     R[reg_num] = R[reg_num] - k;
 
                     // TODO
-                    //SREG = compute_status_sub(SREG, prev, k, R[d+16]);
+                    SREG = Self::compute_status_sub(SREG, prev, k, R[reg_num]);
                 }
                 // ORI
                 "--10_kkkk_dddd_kkkk" => {
