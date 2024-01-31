@@ -399,6 +399,10 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         panic!("There currently must be a default arm");
     }
 
+    let Some(num_bits) = prev_num_bits else {
+        panic!("There must be at least one non-default arm");
+    };
+
     // add local statements to outer block
     let scrutinee_local = Stmt::Local(Local {
         attrs: vec![],
@@ -412,12 +416,7 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         }),
         init: Some(LocalInit {
             eq_token: Token![=](scrutinee_span),
-            expr: Box::new(convert_type(
-                *switch.expr,
-                prev_num_bits.unwrap(),
-                scrutinee_span,
-                true,
-            )),
+            expr: Box::new(convert_type(*switch.expr, num_bits, scrutinee_span, true)),
             diverge: None,
         }),
         semi_token: Token![;](scrutinee_span),
