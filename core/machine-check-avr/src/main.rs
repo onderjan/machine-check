@@ -844,8 +844,7 @@ mod machine_module {
                     // compare with immediate
                     let result = R[reg_num] - k;
 
-                    // TODO
-                    //SREG = compute_status_sub(SREG, R[d+16], k, result);
+                    SREG = Self::compute_status_sub(SREG, R[reg_num], k, result);
                 }
 
                 _ => {
@@ -925,7 +924,6 @@ mod machine_module {
                     let prev = R[reg_num];
                     R[reg_num] = R[reg_num] - k;
 
-                    // TODO
                     SREG = Self::compute_status_sub(SREG, prev, k, R[reg_num]);
                 }
                 // ORI
