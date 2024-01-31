@@ -221,6 +221,59 @@ mod machine_module {
             ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
 
+        // for instructions ASR, LSR, ROR
+        // Rd: register before being shifted
+        // Ru: register after being shifted
+        // LSR has N flag always zero, but that
+        // will also happen due to zero Ru[[7]]
+        fn compute_status_right_shift(
+            sreg: ::machine_check::Bitvector<8>,
+            Rd: ::machine_check::Bitvector<8>,
+            Ru: ::machine_check::Bitvector<8>,
+        ) -> ::machine_check::Bitvector<8> {
+            // first, set like logical
+            let result = Self::compute_status_logical(sreg, Ru);
+
+            let retained_flags = ::machine_check::Unsigned::<8>::new(0b1111_0110);
+            result =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(result) & retained_flags;
+
+            // C - carry flag, bit 0
+            // set to shifted-out bit
+            let shifted_out = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Rd)
+                & ::machine_check::Unsigned::<8>::new(0b0000_0001);
+            let flag_C = ::machine_check::Ext::<1>::ext(shifted_out);
+            result = result | shifted_out;
+
+            // V - two's complement overflow flag, bit 3
+            // set to N ^ C after shift
+            // N is in bit 2
+            let flag_N =
+                ::machine_check::Ext::<1>::ext(result >> ::machine_check::Bitvector::<8>::new(2));
+            let flag_V = flag_N ^ flag_C;
+            result = result
+                | (::machine_check::Ext::<8>::ext(flag_V)
+                    << ::machine_check::Bitvector::<8>::new(3));
+
+            result
+        }
+
+        // for instruction COM
+        // Ru: destination register after being set
+        /*fn compute_status_com(
+            sreg: ::machine_check::Bitvector<8>,
+            Ru: ::machine_check::Bitvector<8>,
+        ) -> ::machine_check::Bitvector<8> {
+            // C - carry flag
+            // is set to one
+            sreg[[0]] = '1';
+
+            // others are set like logical
+            sreg = compute_status_logical(sreg, Ru);
+
+            return sreg;
+        }*/
+
         fn next_0000(
             state: &State,
             input: &Input,
@@ -1126,45 +1179,42 @@ mod machine_module {
 
                 // ASR Rd
                 "----_---d_dddd_0101" => {
-                    /*
                     // arithmetic shift right
-                      Uint8 prev = R[d];
-
-                      Uint8 result = 0;
-                    result[[0, 7]] = prev[[1, 7]];
-                      result[[7]] = prev[[7]];
-
-                      R[d] = result;
-                      SREG = compute_status_right_shift(SREG, prev, R[d]);
-                    */
+                    // treat as signed and shift one place right
+                    let prev = R[d];
+                    let prev_signed = ::std::convert::Into::<::machine_check::Signed<8>>::into(prev);
+                    let shifted_signed = prev_signed >> ::machine_check::Signed::<8>::new(1);
+                    R[d] = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(shifted_signed);
+                    SREG = Self::compute_status_right_shift(SREG, prev, R[d]);
                 }
 
                 // LSR Rd
                 "----_---d_dddd_0110" => {
-                    /*
                     // logical shift right
-                      Uint8 prev = R[d];
-
-                      Uint8 result = 0;
-                    result[[0, 7]] = prev[[1, 7]];
-
-                      R[d] = result;
-                    SREG = compute_status_right_shift(SREG, prev, R[d]);
-                    */
+                    // treat as unsigned and shift one place right
+                    let prev = R[d];
+                    let prev_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(prev);
+                    let shifted_unsigned = prev_unsigned >> ::machine_check::Unsigned::<8>::new(1);
+                    R[d] = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(shifted_unsigned);
+                    SREG = Self::compute_status_right_shift(SREG, prev, R[d]);
                 }
 
                 // ROR Rd
                 "----_---d_dddd_0111" => {
-                    /*
-                    // rotate right through carry
-                    Uint8 prev = R[d];
+                    // logical shift right
+                    // first, treat as unsigned and shift one place right
+                    let prev = R[d];
+                    let prev_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(prev);
+                    let shifted_unsigned = prev_unsigned >> ::machine_check::Unsigned::<8>::new(1);
+                    R[d] = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(shifted_unsigned);
 
-                    Uint8 result = 0;
-                    result[[0, 7]] = prev[[1, 7]];
-                    result[[7]] = SREG[[0]];
-                      R[d] = result;
-                    SREG = compute_status_right_shift(SREG, prev, R[d]);
-                    */
+                    // emplace the carry bit into the highest bit of new Rd
+                    // the carry bit is in bit 0 of SREG, so mask it and shift up to bit 7
+                    let SREG_masked_carry = SREG & ::machine_check::Bitvector::<8>::new(0b0000_0000);
+                    R[d] = R[d] | (SREG_masked_carry << ::machine_check::Bitvector::<8>::new(7));
+
+                    // compute status like normal, the shifted-out bit will be rotated to carry
+                    SREG = Self::compute_status_right_shift(SREG, prev, R[d]);
                 }
 
                 // - opcodes only in 1011_0101 -
