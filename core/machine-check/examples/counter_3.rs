@@ -36,14 +36,18 @@ mod machine_module {
             }
 
             let mut next_safe = state.safe;
-            if next_value > ::machine_check::Unsigned::<8>::new(158) {
+            if next_value >= ::machine_check::Unsigned::<8>::new(157) {
                 next_safe = ::machine_check::Bitvector::<1>::new(0);
             }
+
+            let unused = ::std::clone::Clone::clone(&input.unused);
+            //unused[::machine_check::Unsigned::<16>::new(747)] =
+            //    ::machine_check::Unsigned::<8>::new(224);
 
             State {
                 value: next_value,
                 safe: next_safe,
-                unused: ::std::clone::Clone::clone(&input.unused),
+                unused,
             }
         }
     }

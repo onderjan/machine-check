@@ -106,7 +106,7 @@ impl<T: Debug + Clone> LightArray<T> {
             .expect("Expected at least one light map entry");
 
         let mut result = default_result;
-        loop {
+        let result = loop {
             match (func)(result, &mut lhs_current.1, &mut rhs_current.1) {
                 ControlFlow::Continue(next_result) => {
                     // continue normally
@@ -115,7 +115,7 @@ impl<T: Debug + Clone> LightArray<T> {
                 ControlFlow::Break(next_result) => break next_result,
             }
 
-            // move to the next index, lower of the two
+            // move to the next index
             let lhs_next_index = lhs_iter.peek().map(|e| e.0);
             let rhs_next_index = rhs_iter.peek().map(|e| e.0);
             match (lhs_next_index, rhs_next_index) {
@@ -123,14 +123,25 @@ impl<T: Debug + Clone> LightArray<T> {
                 (None, Some(_)) => rhs_current = rhs_iter.next().unwrap(),
                 (Some(_), None) => lhs_current = lhs_iter.next().unwrap(),
                 (Some(lhs_next_index), Some(rhs_next_index)) => {
-                    if lhs_next_index < rhs_next_index {
-                        lhs_current = lhs_iter.next().unwrap();
-                    } else {
-                        rhs_current = rhs_iter.next().unwrap();
+                    match lhs_next_index.cmp(&rhs_next_index) {
+                        std::cmp::Ordering::Less => {
+                            // next lhs index is smaller, move it
+                            lhs_current = lhs_iter.next().unwrap();
+                        }
+                        std::cmp::Ordering::Equal => {
+                            // both next indices are equal, move both
+                            lhs_current = lhs_iter.next().unwrap();
+                            rhs_current = rhs_iter.next().unwrap();
+                        }
+                        std::cmp::Ordering::Greater => {
+                            // next rhs index is smaller, move it
+                            rhs_current = rhs_iter.next().unwrap();
+                        }
                     }
                 }
             }
-        }
+        };
+        result
     }
 }
 
@@ -149,7 +160,7 @@ impl<T: Debug + Clone> Debug for LightArray<T> {
             } else {
                 self.len
             };
-            if next_index > *current_index {
+            if next_index != *current_index + 1 {
                 write!(
                     f,
                     "{}..{}: {:?}, ",
@@ -193,8 +204,8 @@ impl<T: Debug + Clone> IndexMut<usize> for LightArray<T> {
 
         use std::ops::Bound::{Included, Unbounded};
 
-        // always clone the value and try to re-insert
-        // this satisfies the borrow checker, but might not be optimal
+        // we have to insert both the value and also the next value
+        // if it is within array bounds and does not exist
 
         let element = self
             .inner
@@ -203,6 +214,12 @@ impl<T: Debug + Clone> IndexMut<usize> for LightArray<T> {
             .expect("Expected lower bound entry when indexing")
             .1
             .clone();
+
+        let next_index = index + 1;
+        if next_index < self.len {
+            // needed to preserve the next elements
+            self.inner.entry(next_index).or_insert(element.clone());
+        }
 
         self.inner.entry(index).or_insert(element).borrow_mut()
     }
