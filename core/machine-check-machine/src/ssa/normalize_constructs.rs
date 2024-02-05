@@ -377,7 +377,6 @@ impl VisitMut for Visitor {
     }
 
     fn visit_attribute_mut(&mut self, attribute: &mut syn::Attribute) {
-
         let mut is_permitted = false;
         if let Meta::List(meta_list) = &attribute.meta {
             if let Some(ident) = extract_path_ident(&meta_list.path) {
@@ -391,7 +390,6 @@ impl VisitMut for Visitor {
                 "Attributes not supported except for allow, also derive on structs",
             )));
         }
-
 
         // delegate
         visit_mut::visit_attribute_mut(self, attribute);
@@ -483,10 +481,10 @@ impl Visitor {
             syn::BinOp::Shr(_) => Some(path!(::std::ops::Shr::shr)),
             syn::BinOp::Eq(_) => Some(path!(::std::cmp::PartialEq::eq)),
             syn::BinOp::Ne(_) => Some(path!(::std::cmp::PartialEq::ne)),
-            syn::BinOp::Lt(_) => Some(path!(::std::cmp::PartialCmp::lt)),
-            syn::BinOp::Le(_) => Some(path!(::std::cmp::PartialCmp::lte)),
-            syn::BinOp::Gt(_) => Some(path!(::std::cmp::PartialCmp::gt)),
-            syn::BinOp::Ge(_) => Some(path!(::std::cmp::PartialCmp::gte)),
+            syn::BinOp::Lt(_) => Some(path!(::std::cmp::PartialOrd::lt)),
+            syn::BinOp::Le(_) => Some(path!(::std::cmp::PartialOrd::le)),
+            syn::BinOp::Gt(_) => Some(path!(::std::cmp::PartialOrd::gt)),
+            syn::BinOp::Ge(_) => Some(path!(::std::cmp::PartialOrd::ge)),
             syn::BinOp::AddAssign(_)
             | syn::BinOp::SubAssign(_)
             | syn::BinOp::MulAssign(_)

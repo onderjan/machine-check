@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::HashMap;
 
 use syn::{
@@ -102,9 +103,57 @@ impl VisitMut for LocalVisitor<'_> {
             // leave the last segment as-is
         }
 
-        // TODO: div, rem depending on Signed/Unsigned
+        // --- Cmp ---
+        if path_matches_global_names(func_path, &["std", "cmp", "PartialOrd", "lt"])
+            || path_matches_global_names(func_path, &["std", "cmp", "PartialOrd", "le"])
+            || path_matches_global_names(func_path, &["std", "cmp", "PartialOrd", "gt"])
+            || path_matches_global_names(func_path, &["std", "cmp", "PartialOrd", "ge"])
+        {
+            func_path.segments[0].ident = Ident::new("mck", func_path.segments[0].span());
+            func_path.segments[1].ident = Ident::new("forward", func_path.segments[1].span());
+            func_path.segments[2].ident = Ident::new("TypedCmp", func_path.segments[2].span());
 
-        // TODO: HW shift, extension
+            // need to know type signedness
+            if expr_call.args.len() != 2 {
+                panic!("Comparison should have exactly two arguments");
+            }
+
+            let (Some(left_is_signed), Some(right_is_signed)) = (
+                self.is_expr_signed(&expr_call.args[0]),
+                self.is_expr_signed(&expr_call.args[1]),
+            ) else {
+                panic!("Could not determine comparison signedness");
+            };
+            if left_is_signed != right_is_signed {
+                panic!("Comparison signedness does not match");
+            }
+
+            let fn_prefix = if left_is_signed { "s" } else { "u" };
+
+            let (fn_suffix, swap_args) = match func_path.segments[3].ident.to_string().as_str() {
+                "lt" => ("lt", false),
+                "le" => ("le", false),
+                "gt" => ("le", true),
+                "ge" => ("lt", true),
+                _ => panic!("Unexpected comparison function"),
+            };
+            if swap_args {
+                let args = &mut expr_call.args;
+                println!("Before swap: {}", quote::quote!(#args));
+                let second_arg = args.pop().unwrap();
+                let first_arg = args.pop().unwrap();
+                args.push(second_arg.into_value());
+                args.push(first_arg.into_value());
+                println!("After swap: {}", quote::quote!(#args));
+            }
+
+            let fn_name = format!("{}{}", fn_prefix, fn_suffix);
+            func_path.segments[3].ident = Ident::new(&fn_name, func_path.segments[3].span());
+
+            // leave the last segment as-is
+        }
+
+        // TODO: div, rem depending on Signed/Unsigned
 
         // --- Shl ---
         if path_matches_global_names(func_path, &["std", "ops", "Shl", "shl"]) {
@@ -154,7 +203,7 @@ impl VisitMut for LocalVisitor<'_> {
                 panic!("Could not determine ext signedness");
             };
 
-            let func_name = if is_signed { "uext" } else { "sext" };
+            let func_name = if is_signed { "sext" } else { "uext" };
             func_path.segments[3].ident = Ident::new(func_name, func_path.segments[3].span());
         }
 

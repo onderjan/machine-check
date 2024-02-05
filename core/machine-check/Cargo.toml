@@ -10,3 +10,6 @@ rust-version = "1.75"
 [dependencies]
 mck = "=0.1.0"
 machine-check-macros = "=0.1.0"
+
+[dev-dependencies]
+machine-check-exec = "=0.1.0"

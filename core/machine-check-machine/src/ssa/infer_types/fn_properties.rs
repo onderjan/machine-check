@@ -24,5 +24,3 @@ pub static STD_OPS_FNS: [(&str, &str); 12] = [
     ("Shl", "shl"),
     ("Shr", "shr"),
 ];
-
-pub static GENERICS_CHANGING_TRAIT_FNS: [(&str, &str); 2] = [("Ext", "uext"), ("Ext", "sext")];

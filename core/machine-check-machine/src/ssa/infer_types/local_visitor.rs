@@ -142,6 +142,11 @@ impl LocalVisitor<'_> {
     }
 
     fn infer_call_result_type(&self, expr_call: &ExprCall) -> Option<Type> {
+        println!(
+            "Inferring call result type for {}",
+            quote::quote!(#expr_call)
+        );
+
         // discover the type based on the call function
         let func_path = extract_expr_path(&expr_call.func).expect("Call function should be path");
         // --- BITVECTOR INITIALIZATION ---
