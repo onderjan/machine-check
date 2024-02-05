@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use std::ops::ControlFlow;
 
 use crate::{
@@ -9,7 +11,7 @@ use crate::{
 
 use super::{abstr::extract_bounds, light::LightArray};
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const L: u32> {
     inner: LightArray<refin::Bitvector<L>>,
 }
@@ -229,5 +231,11 @@ impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
             }
         }
         false*/
+    }
+}
+
+impl<const I: u32, const L: u32> Debug for Array<I, L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
     }
 }

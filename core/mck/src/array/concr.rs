@@ -1,10 +1,12 @@
+use std::fmt::Debug;
+
 use concr::Bitvector;
 
 use crate::{concr, forward::ReadWrite};
 
 use super::light::LightArray;
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const L: u32> {
     pub(super) inner: LightArray<concr::Bitvector<L>>,
 }
@@ -42,4 +44,10 @@ fn coerce_index<const I: u32>(index: Bitvector<I>) -> usize {
         .try_into()
         .expect("Index should be within usize");
     index
+}
+
+impl<const I: u32, const L: u32> Debug for Array<I, L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
+    }
 }

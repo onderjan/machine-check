@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::{
     abstr::{self, Phi},
     forward::ReadWrite,
@@ -6,7 +8,7 @@ use crate::{
 
 use super::light::LightArray;
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Clone, Hash)]
 pub struct Array<const I: u32, const L: u32> {
     pub(super) inner: LightArray<abstr::Bitvector<L>>,
 }
@@ -99,5 +101,11 @@ impl<const I: u32, const L: u32> Phi for Array<I, L> {
     fn uninit() -> Self {
         // present filled with uninit so there is no loss of soundness in case of bug
         Self::new_filled(abstr::Bitvector::uninit())
+    }
+}
+
+impl<const I: u32, const L: u32> Debug for Array<I, L> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
     }
 }
