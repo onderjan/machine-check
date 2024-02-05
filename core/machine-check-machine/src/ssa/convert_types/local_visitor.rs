@@ -130,11 +130,13 @@ impl VisitMut for LocalVisitor<'_> {
 
             let fn_prefix = if left_is_signed { "s" } else { "u" };
 
+            // strength of inequality is preserved when arguments are swapped
+            // i.e. a >= b becomes b <= a, a > b becomes b < a
             let (fn_suffix, swap_args) = match func_path.segments[3].ident.to_string().as_str() {
                 "lt" => ("lt", false),
                 "le" => ("le", false),
-                "gt" => ("le", true),
-                "ge" => ("lt", true),
+                "gt" => ("lt", true),
+                "ge" => ("le", true),
                 _ => panic!("Unexpected comparison function"),
             };
             if swap_args {

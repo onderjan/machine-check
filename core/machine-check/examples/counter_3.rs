@@ -36,7 +36,8 @@ mod machine_module {
             }
 
             let mut next_safe = state.safe;
-            if next_value >= ::machine_check::Unsigned::<8>::new(157) {
+            if next_value >= ::machine_check::Unsigned::<8>::new(156) {
+                //if ::machine_check::Unsigned::<8>::new(156) <= next_value {
                 next_safe = ::machine_check::Bitvector::<1>::new(0);
             }
 
