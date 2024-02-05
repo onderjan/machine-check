@@ -2,9 +2,11 @@ use concr::Bitvector;
 
 use crate::{concr, forward::ReadWrite};
 
+use super::light::LightArray;
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const L: u32> {
-    pub(super) inner: Vec<concr::Bitvector<L>>,
+    pub(super) inner: LightArray<concr::Bitvector<L>>,
 }
 
 impl<const I: u32, const L: u32> Array<I, L> {
@@ -13,7 +15,7 @@ impl<const I: u32, const L: u32> Array<I, L> {
     pub fn new_filled(element: concr::Bitvector<L>) -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: vec![element; Self::SIZE],
+            inner: LightArray::new_filled(element, Self::SIZE),
         }
     }
 }

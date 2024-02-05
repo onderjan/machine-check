@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use crate::{
     abstr,
     backward::ReadWrite,
@@ -5,11 +7,11 @@ use crate::{
     traits::misc::{Meta, MetaEq},
 };
 
-use super::abstr::extract_bounds;
+use super::{abstr::extract_bounds, light::LightArray};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const L: u32> {
-    inner: Vec<refin::Bitvector<L>>,
+    inner: LightArray<refin::Bitvector<L>>,
 }
 
 impl<const I: u32, const L: u32> Array<I, L> {
@@ -17,7 +19,7 @@ impl<const I: u32, const L: u32> Array<I, L> {
 
     pub fn new_unmarked() -> Self {
         Array {
-            inner: vec![refin::Bitvector::<L>::new_unmarked(); Self::SIZE],
+            inner: LightArray::new_filled(refin::Bitvector::<L>::new_unmarked(), Self::SIZE),
         }
     }
 }
@@ -28,10 +30,13 @@ impl<const I: u32, const L: u32> Array<I, L> {
         mark_later: Self,
     ) -> (refin::Bitvector<L>,) {
         // join marks and propagate them to the new element
-        let mut earlier_element = refin::Bitvector::<L>::new_unmarked();
-        for later_element in mark_later.inner {
-            earlier_element.apply_join(&later_element);
-        }
+        let earlier_element = mark_later.inner.lattice_fold(
+            refin::Bitvector::<L>::new_unmarked(),
+            |mut earlier_element, later_element| {
+                earlier_element.apply_join(later_element);
+                earlier_element
+            },
+        );
         (earlier_element.limit(normal_input.0),)
     }
 }
@@ -40,7 +45,7 @@ impl<const I: u32, const L: u32> Default for Array<I, L> {
     fn default() -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: vec![Default::default(); Self::SIZE],
+            inner: LightArray::new_filled(Default::default(), Self::SIZE),
         }
     }
 }
@@ -122,68 +127,107 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
 
 impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
     fn apply_join(&mut self, other: &Self) {
-        for (dst, src) in self.inner.iter_mut().zip(other.inner.iter()) {
+        self.inner.involve(&other.inner, Bitvector::apply_join);
+
+        /*for (dst, src) in self.inner.iter_mut().zip(other.inner.iter()) {
             dst.apply_join(src);
-        }
+        }*/
     }
 
     fn to_condition(&self) -> Boolean {
         // marked if we have any marking
-        for elem in self.inner.iter() {
-            if *elem != Bitvector::<L>::new_unmarked() {
-                return Boolean::new_marked();
-            }
-        }
-        Boolean::new_unmarked()
+        self.inner
+            .lattice_fold(Boolean::new_unmarked(), |result, element| {
+                if *element != Bitvector::<L>::new_unmarked() {
+                    Boolean::new_marked()
+                } else {
+                    result
+                }
+            })
     }
 
     fn apply_refin(&mut self, offer: &Self) -> bool {
         // try to apply refin within our elements, stop when done
-        for (dst, src) in self.inner.iter_mut().zip(offer.inner.iter()) {
+        self.inner.involve_with_flow(
+            &offer.inner,
+            |result, lhs, rhs| {
+                if lhs.apply_refin(rhs) {
+                    ControlFlow::Break(true)
+                } else {
+                    ControlFlow::Continue(result)
+                }
+            },
+            false,
+        )
+        /*for (dst, src) in self.inner.iter_mut().zip(offer.inner.iter()) {
             if dst.apply_refin(src) {
                 return true;
             }
         }
-        false
+        false*/
     }
 
     fn force_decay(&self, target: &mut abstr::Array<I, L>) {
         // force decay for every element
-        for (refin_element, abstr_element) in self.inner.iter().zip(target.inner.iter_mut()) {
+        /*for (refin_element, abstr_element) in self.inner.iter().zip(target.inner.iter_mut()) {
             refin_element.force_decay(abstr_element);
-        }
+        }*/
+        target
+            .inner
+            .involve(&self.inner, |abstr_element, refin_element| {
+                refin_element.force_decay(abstr_element);
+            });
     }
 }
 
 impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
     fn meta_eq(&self, other: &Self) -> bool {
-        for (self_element, other_element) in self.inner.iter().zip(other.inner.iter()) {
+        /*for (self_element, other_element) in self.inner.iter().zip(other.inner.iter()) {
             if !self_element.meta_eq(other_element) {
                 return false;
             }
         }
-        true
+        true*/
+        self.inner
+            .lattice_bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
+                can_be_eq && (lhs.meta_eq(rhs))
+            })
     }
 }
 
 impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
     fn proto_first(&self) -> abstr::Array<I, L> {
-        let mut result_inner = Vec::new();
+        /*let mut result_inner = Vec::new();
         for element in self.inner.iter() {
             result_inner.push(element.proto_first());
         }
 
         abstr::Array {
             inner: result_inner,
+        }*/
+        abstr::Array {
+            inner: self.inner.map(|element| element.proto_first()),
         }
     }
 
     fn proto_increment(&self, proto: &mut abstr::Array<I, L>) -> bool {
-        for (element, abstr_element) in self.inner.iter().zip(proto.inner.iter_mut()) {
+        proto.inner.involve_with_flow(
+            &self.inner,
+            |result, abstr_element, refin_element| {
+                if refin_element.proto_increment(abstr_element) {
+                    ControlFlow::Break(true)
+                } else {
+                    ControlFlow::Continue(result)
+                }
+            },
+            false,
+        )
+
+        /*for (element, abstr_element) in self.inner.iter().zip(proto.inner.iter_mut()) {
             if element.proto_increment(abstr_element) {
                 return true;
             }
         }
-        false
+        false*/
     }
 }

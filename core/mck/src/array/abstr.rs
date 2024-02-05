@@ -4,9 +4,11 @@ use crate::{
     traits::misc::MetaEq,
 };
 
+use super::light::LightArray;
+
 #[derive(Debug, Clone, Hash)]
 pub struct Array<const I: u32, const L: u32> {
-    pub(super) inner: Vec<abstr::Bitvector<L>>,
+    pub(super) inner: LightArray<abstr::Bitvector<L>>,
 }
 
 impl<const I: u32, const L: u32> Array<I, L> {
@@ -15,7 +17,7 @@ impl<const I: u32, const L: u32> Array<I, L> {
     pub fn new_filled(element: abstr::Bitvector<L>) -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: vec![element; Self::SIZE],
+            inner: LightArray::new_filled(element, Self::SIZE),
         }
     }
 }
@@ -65,12 +67,15 @@ pub(super) fn extract_bounds<const I: u32>(index: abstr::Bitvector<I>) -> (usize
 
 impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
     fn meta_eq(&self, other: &Self) -> bool {
-        for (self_element, other_element) in self.inner.iter().zip(other.inner.iter()) {
+        /*for (self_element, other_element) in self.inner.iter().zip(other.inner.iter()) {
             if !self_element.meta_eq(other_element) {
                 return false;
             }
-        }
-        true
+        }*/
+        self.inner
+            .lattice_bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
+                can_be_eq && (lhs.meta_eq(rhs))
+            })
     }
 }
 
@@ -82,9 +87,12 @@ impl<const I: u32, const L: u32> Default for Array<I, L> {
 
 impl<const I: u32, const L: u32> Phi for Array<I, L> {
     fn phi(mut self, other: Self) -> Self {
-        for (self_element, other_element) in self.inner.iter_mut().zip(other.inner.into_iter()) {
+        /*for (self_element, other_element) in self.inner.iter_mut().zip(other.inner.into_iter()) {
             *self_element = self_element.phi(other_element);
-        }
+        }*/
+        self.inner
+            .subsume(other.inner, |lhs, rhs| *lhs = lhs.phi(rhs));
+
         self
     }
 
