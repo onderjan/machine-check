@@ -23,7 +23,8 @@ pub(super) fn add_special_impls(
         }
 
         SpecialTrait::Machine => {
-            // do nothing for now
+            // add Refine implementation
+            refinement_items.push(refine_impl(item_struct)?);
         }
     }
 

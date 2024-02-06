@@ -114,12 +114,12 @@ mod machine_module {
     }
 
     impl Machine {
-        fn skip_instruction(
-            progmem: ::machine_check::BitvectorArray<14, 16>,
+        fn instruction_skip(
+            &self,
             pc: ::machine_check::Bitvector<14>,
         ) -> ::machine_check::Bitvector<14> {
             let mut result_pc = pc;
-            let instruction = progmem[result_pc];
+            let instruction = self.PROGMEM[result_pc];
             let const_two = ::machine_check::Unsigned::<14>::new(2);
             ::machine_check::bitmask_switch!(instruction {
                 // LDS or STS (two-word)
@@ -758,7 +758,7 @@ mod machine_module {
             }
         }
 
-        fn next_0001(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
+        fn next_0001(&self, state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -780,20 +780,14 @@ mod machine_module {
             ::machine_check::bitmask_switch!(instruction {
                 // CPSE
                 "----_00rd_dddd_rrrr" => {
-                    /*
                     // compare skip if equal
                     // similar to other skips, but with register comparison
-
-                    R_direct[d] = R_direct[d];
-                    R_direct[r] = R_direct[r];
-
                     if (R[d] == R[r]) {
                         // they are equal, skip next instruction
-                        skip_next_instruction();
+                        PC = Self::instruction_skip(self, PC);
                     } else {
                         // they are not equal, do nothing
-                    }
-                    */
+                    };
                 }
 
                 // CP
@@ -1447,6 +1441,7 @@ mod machine_module {
         }
 
         fn next_1001_010x(
+            &self,
             state: &State,
             input: &Input,
             instruction: ::machine_check::Bitvector<16>,
@@ -1505,13 +1500,9 @@ mod machine_module {
 
                     // the V flag is set exactly when R[d] after increment is 0x80
                     let mut flag_V = ::machine_check::Bitvector::<1>::new(0);
-
-                    // TODO: FIX conditions in if
-                    /*
                     if R[d] == ::machine_check::Bitvector::<8>::new(0x7F) {
                         flag_V = ::machine_check::Bitvector::<1>::new(1);
                     }
-                    */
 
                     SREG = Self::compute_status_inc_dec(SREG, R[d], flag_V);
                 }
@@ -1594,13 +1585,10 @@ mod machine_module {
 
                     // the V flag is set exactly when R[d] after decrement is 0x7F
                     let mut flag_V = ::machine_check::Bitvector::<1>::new(0);
-
-                    // TODO: FIX conditions in if
-                    /*
                     if R[d] == ::machine_check::Bitvector::<8>::new(0x7F) {
                         flag_V = ::machine_check::Bitvector::<1>::new(1);
                     }
-                    */
+
 
                     SREG = Self::compute_status_inc_dec(SREG, R[d], flag_V);
 
@@ -1610,19 +1598,16 @@ mod machine_module {
 
                 // JMP - 2 words
                 "----_---k_kkkk_110k" => {
-                    /*
                     // PC is 14-bit on ATmega328p, we ignore the higher bits
-                    Uint16 newInstruction = progmem[PC];
-                    PC = newInstruction;
+                    let low_word = ::std::convert::Into::<::machine_check::Unsigned<16>>::into(self.PROGMEM[PC]);
+                    PC = ::std::convert::Into::<::machine_check::Bitvector<14>>::into(::machine_check::Ext::<14>::ext(low_word));
 
                     // JMP is a three-cycle instruction
-                    increment_cycle_count();
-                    increment_cycle_count();
-                    */
                 }
 
                 // CALL - 2 words
                 "----_---k_kkkk_111k" => {
+                    // TODO
                     /*
                     // save return address to stack and post-decrement SP
                     // PC is 14-bit on ATmega328p, we ignore the higher bits
@@ -1656,6 +1641,7 @@ mod machine_module {
 
                 // RET
                 "----_---1_0000_1000" => {
+                    // TODO
                     /*
                     // return from subroutine
                     // move highest stack word to PC with pre-increment
@@ -1893,6 +1879,7 @@ mod machine_module {
         }
 
         fn next_1001(
+            &self,
             state: &State,
             input: &Input,
             instruction: ::machine_check::Bitvector<16>,
@@ -1907,7 +1894,7 @@ mod machine_module {
                     result = Self::next_1001_001r(state, input, instruction);
                 }
                 "----_010-_----_----" => {
-                    result = Self::next_1001_010x(state, input, instruction);
+                    result = Self::next_1001_010x(self, state, input, instruction);
                 }
                 "----_011-_----_----" => {
                     result = Self::next_1001_011x(state, instruction);
@@ -2069,29 +2056,17 @@ mod machine_module {
 
                 // RJMP
                 "--00_kkkk_kkkk_kkkk" => {
-                    /*
+
                     // relative jump
                     // we have already added 1 before case, just add adjusted k
-                    // TODO: represent k as signed and sign-extend
-
-                    Uint16 short_k = 0;
-                    short_k[[0, 12]] = k;
-                    if (short_k[[11]]) {
-                        // negative jump
-                        // convert k in short_k to its absolute value in two's complement
-                        // OK to do since the highest bit of short_k is never set
-                        short_k[[0, 12]] = ~short_k[[0, 12]];
-                        short_k = short_k + 1;
-                        // subtract it
-                        PC = PC - short_k;
-                    } else {
-                        // positive jump
-                        PC = PC + short_k;
-                    }
+                    // it is represented in 12-bit two's complement, we need to sign-extend to 14 bits
+                    let k_signed = ::std::convert::Into::<::machine_check::Signed<12>>::into(k);
+                    let k_signed_ext = ::machine_check::Ext::<14>::ext(k_signed);
+                    let k_ext = ::std::convert::Into::<::machine_check::Bitvector<14>>::into(k_signed_ext);
+                    // jump
+                    PC = PC + k_ext;
 
                     // RJMP is a two-cycle instruction
-                    increment_cycle_count();
-                    */
                 }
 
                 // --- 1101 ---
@@ -2104,10 +2079,14 @@ mod machine_module {
                 // --- 1110 ---
                 // LDI
                 "--10_kkkk_dddd_kkkk" => {
-                    /*
+                    // extend d to five bits and add 16
+                    let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<4>>::into(d);
+                    let d_ext_unsigned = ::machine_check::Ext::<5>::ext(d_unsigned);
+                    let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(d_ext_unsigned);
+                    let reg_num = d_ext + ::machine_check::Bitvector::<5>::new(16);
+
                     // load immediate, status flags not affected
-                    R[d+16] = k;
-                    */
+                    R[reg_num] = k;
                 }
 
                 // --- 1111 ---
@@ -2396,7 +2375,7 @@ mod machine_module {
                     result = Self::next_0000(&state, instruction);
                 }
                 "0001_----_----_----" => {
-                    result = Self::next_0001(&state, instruction);
+                    result = Self::next_0001(self, &state, instruction);
                 }
                 "0010_----_----_----" => {
                     result = Self::next_0010(&state, instruction);
@@ -2411,7 +2390,7 @@ mod machine_module {
                     result = Self::next_10q0(&state, input, instruction);
                 }
                 "1001_----_----_----" => {
-                    result = Self::next_1001(&state, input, instruction);
+                    result = Self::next_1001(self, &state, input, instruction);
                 }
                 "1011_----_----_----" => {
                     result = Self::next_1011(&state, input, instruction);
