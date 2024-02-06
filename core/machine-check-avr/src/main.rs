@@ -2030,6 +2030,7 @@ mod machine_module {
         }
 
         fn next_11(
+            &self,
             state: &State,
             input: &Input,
             instruction: ::machine_check::Bitvector<16>,
@@ -2093,65 +2094,50 @@ mod machine_module {
 
                 // BRBS
                 "--11_00kk_kkkk_ksss" => {
-                    /*
-                    SREG_direct[[s]] = SREG_direct[[s]];
+                    let s_unsigned = ::std::convert::Into::<::machine_check::Unsigned<3>>::into(s);
+                    let s_unsigned_ext =  ::machine_check::Ext::<8>::ext(s_unsigned);
+                    let unsigned_bit_mask = ::machine_check::Unsigned::<8>::new(1) << s_unsigned_ext;
+                    let bit_mask = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(unsigned_bit_mask);
 
                     // branch if bit in SREG is set
                     // we have already added 1 to PC before case
-                    if (SREG[[s]]) {
+                    if (SREG & bit_mask == bit_mask) {
                         // it is set, branch
-                        // TODO: represent k as signed and sign-extend
-                        Uint16 short_k = 0;
-                        short_k[[0, 7]] = k;
-                        if (short_k[[6]]) {
-                            // negative jump
-                            // convert k in short_k to its absolute value in two's complement
-                            // OK to do since the highest bit of short_k is never set
-                            short_k[[0, 7]] = ~short_k[[0, 7]];
-                            short_k = short_k + 1;
-                            // subtract it
-                            PC = PC - short_k;
-                        } else {
-                            // positive jump
-                            PC = PC + short_k;
-                        }
-                        // since we branched, one more cycle is taken
-                        increment_cycle_count();
+                        // represent k as signed and sign-extend
+
+                        let k_signed = ::std::convert::Into::<::machine_check::Signed<7>>::into(k);
+                        let k_signed_ext = ::machine_check::Ext::<14>::ext(k_signed);
+                        let k_ext = ::std::convert::Into::<::machine_check::Bitvector<14>>::into(k_signed_ext);
+                        // jump
+                        PC = PC + k_ext;
+                        // since we branched, one more cycle is taken by this instruction
                     } else {
                         // it is cleared, do nothing
-                    }*/
+                    };
                 }
 
                 // BRBC
                 "--11_01kk_kkkk_ksss" => {
-                    /*
-                    SREG_direct[[s]] = SREG_direct[[s]];
+                    let s_unsigned = ::std::convert::Into::<::machine_check::Unsigned<3>>::into(s);
+                    let s_unsigned_ext =  ::machine_check::Ext::<8>::ext(s_unsigned);
+                    let unsigned_bit_mask = ::machine_check::Unsigned::<8>::new(1) << s_unsigned_ext;
+                    let bit_mask = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(unsigned_bit_mask);
 
                     // branch if bit in SREG is cleared
                     // we have already added 1 to PC before case
-                    if (SREG[[s]]) {
+                    if (SREG & bit_mask == bit_mask) {
                         // it is set, do nothing
                     } else {
                         // it is cleared, branch
-                        // TODO: represent k as signed and sign-extend
-                        Uint16 short_k = 0;
-                        short_k[[0, 7]] = k;
-                        if (short_k[[6]]) {
-                            // negative jump
-                            // convert k in short_k to its absolute value in two's complement
-                            // OK to do since the highest bit of short_k is never set
-                            short_k[[0, 7]] = ~short_k[[0, 7]];
-                            short_k = short_k + 1;
-                            // subtract it
-                            PC = PC - short_k;
-                        } else {
-                            // positive jump
-                            PC = PC + short_k;
-                        }
-                        // since we branched, one more cycle is taken
-                        increment_cycle_count();
-                    }
-                    */
+                        // represent k as signed and sign-extend
+
+                        let k_signed = ::std::convert::Into::<::machine_check::Signed<7>>::into(k);
+                        let k_signed_ext = ::machine_check::Ext::<14>::ext(k_signed);
+                        let k_ext = ::std::convert::Into::<::machine_check::Bitvector<14>>::into(k_signed_ext);
+                        // jump
+                        PC = PC + k_ext;
+                        // since we branched, one more cycle is taken by this instruction
+                    };
                 }
 
                 // BLD
@@ -2188,35 +2174,36 @@ mod machine_module {
 
                 // SBRC
                 "--11_110r_rrrr_0bbb" => {
-                    /*
-
-                    R_direct[r][[b]] = R_direct[r][[b]];
-
                     // skip if bit in register is cleared
-                    if (R[r][[b]]) {
-                        // bit is set, do nothing
+                    let b_unsigned = ::std::convert::Into::<::machine_check::Unsigned<3>>::into(b);
+                    let b_unsigned_ext =  ::machine_check::Ext::<8>::ext(b_unsigned);
+                    let unsigned_bit_mask = ::machine_check::Unsigned::<8>::new(1) << b_unsigned_ext;
+                    let bit_mask = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(unsigned_bit_mask);
+
+                    if (R[r] & bit_mask == bit_mask) {
+                        // it is set, do nothing
                     } else {
-                        // bit is cleared, skip next instruction
-                        skip_next_instruction();
-                    }
-                    */
+                        // it is cleared, skip next instruction
+                        PC = Self::instruction_skip(self, PC);
+                    };
                 }
 
                 // 1xxx part reserved
 
                 // SBRS
                 "--11_111r_rrrr_0bbb" => {
-                    /*
-                    R_direct[r][[b]] = R_direct[r][[b]];
-
                     // skip if bit in register is set
-                    if (R[r][[b]]) {
-                        // bit is set, skip next instruction
-                        skip_next_instruction();
+                    let b_unsigned = ::std::convert::Into::<::machine_check::Unsigned<3>>::into(b);
+                    let b_unsigned_ext =  ::machine_check::Ext::<8>::ext(b_unsigned);
+                    let unsigned_bit_mask = ::machine_check::Unsigned::<8>::new(1) << b_unsigned_ext;
+                    let bit_mask = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(unsigned_bit_mask);
+
+                    if (R[r] & bit_mask == bit_mask) {
+                        // it is set, skip next instruction
+                        PC = Self::instruction_skip(self, PC);
                     } else {
-                        // bit is cleared, do nothing
-                    }
-                */
+                        // it is cleared, do nothing
+                    };
                 }
 
                 // 1xxx part reserved
@@ -2397,7 +2384,7 @@ mod machine_module {
 
                 }
                 "11--_----_----_----" => {
-                    result = Self::next_11(&state, input, instruction);
+                    result = Self::next_11(self, &state, input, instruction);
                 }
                 _ => {
                     // TODO: disjoint check
