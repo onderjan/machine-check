@@ -63,6 +63,7 @@ impl StatementConverter {
             }
             Stmt::Expr(Expr::If(ref mut expr_if), Some(_)) => {
                 // TODO: deduplicate this with block
+                self.clone_scheme.apply_to_expr(&mut expr_if.cond)?;
                 self.forward_scheme.apply_to_expr(&mut expr_if.cond)?;
                 // reverse and convert the then branch
                 {

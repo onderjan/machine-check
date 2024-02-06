@@ -854,15 +854,11 @@ mod machine_module {
                     // bypass unknown values by setting zero directly
                     // this is due to this special case being widely
                     // used to set a register to zero
-
-                    // TODO make the kludge work
-                    /*if (r == d) {
+                    if (r == d) {
                         R[d] = ::machine_check::Bitvector::<8>::new(0);
                     } else {
                         R[d] = R[d] ^ R[r];
-                    };*/
-
-                    R[d] = R[d] ^ R[r];
+                    };
 
                     SREG = Self::compute_status_logical(SREG, R[d]);
 
