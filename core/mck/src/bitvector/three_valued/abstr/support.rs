@@ -259,6 +259,10 @@ impl<const L: u32> Phi for ThreeValuedBitvector<L> {
 
 impl<const L: u32> Debug for ThreeValuedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(concrete) = self.concrete_value() {
+            return write!(f, "{:?}", concrete);
+        }
+
         write!(f, "\"")?;
         for little_k in 0..L {
             let big_k = L - little_k - 1;

@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use log::debug;
 use log::log_enabled;
 use log::trace;
 use machine_check_common::ExecError;
@@ -50,7 +51,7 @@ impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a,
         trace!("Existential normal form: {:#?}", prop);
 
         // main refinement loop
-        loop {
+        let result = loop {
             if log_enabled!(log::Level::Trace) {
                 trace!("State space: {:#?}", self.space);
             }
@@ -58,12 +59,12 @@ impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a,
             let conclusion = model_check::check_prop(&self.space, &prop)?;
             // if verification was incomplete, try to refine the culprit
             let culprit = match conclusion {
-                Conclusion::Known(conclusion) => return Ok(conclusion),
+                Conclusion::Known(conclusion) => break Ok(conclusion),
                 Conclusion::Unknown(culprit) => culprit,
             };
             if !self.refine(&culprit) {
                 // it really is incomplete
-                return Err(ExecError::Incomplete);
+                break Err(ExecError::Incomplete);
             }
             if self.space.garbage_collect() {
                 self.precision.retain_indices(|node_id| {
@@ -76,7 +77,13 @@ impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a,
                     }
                 });
             }
+        };
+
+        if log_enabled!(log::Level::Debug) {
+            debug!("Final state space: {:#?}", self.space);
         }
+
+        result
     }
 
     fn refine(&mut self, culprit: &Culprit) -> bool {

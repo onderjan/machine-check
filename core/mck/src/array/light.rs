@@ -163,8 +163,10 @@ impl<T: Debug + Clone> Debug for LightArray<T> {
             if next_index != *current_index + 1 {
                 write!(
                     f,
-                    "{}..{}: {:?}, ",
-                    current_index, next_index, current_element
+                    "{}..={}: {:?}, ",
+                    current_index,
+                    next_index - 1,
+                    current_element
                 )?;
             } else {
                 write!(f, "{}: {:?}, ", current_index, current_element)?;

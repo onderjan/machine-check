@@ -10,7 +10,7 @@
 #[allow(non_snake_case)]
 #[allow(clippy::if_same_then_else)]
 #[machine_check_macros::machine_description]
-mod machine_module {
+pub mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
         // --- Uninitialized Registers and Memory ---
@@ -2394,46 +2394,4 @@ mod machine_module {
             result
         }
     }
-}
-
-fn main() {
-    /*let fill = ::machine_check::Bitvector::<4>::new(0xC);
-    let index = ::machine_check::Bitvector::<2>::new(3);
-    let mut arr = ::machine_check::BitvectorArray::<2, 4>::new_filled(fill);
-    arr[index] = ::machine_check::Bitvector::<4>::new(0xD);
-    println!("arr[{:?}] = {:?}", index, arr[index]);*/
-
-    let sw = ::machine_check::Bitvector::<8>::new(0b1101_0101);
-    //let b: Unsigned<8> = ::std::convert::Into::into(a);
-
-    machine_check::bitmask_switch!(sw {
-        "0100_011a" => {
-            println!("Choice 0");
-        },
-        "1bbb_bb0a" => {
-            println!("Choice b: {:?}, a: {:?}", b, a);
-            let x = b == ::machine_check::Bitvector::<5>::new(0b101_01);
-            println!("X: {}", x);
-        },
-        "0101_010a" => {
-            println!("Choice 2");
-        },
-        _ => {
-            println!("Default");
-        }
-
-    });
-
-    let zeros = ::mck::abstr::Bitvector::new(0);
-
-    let abstract_machine = machine_module::Machine {
-        PROGMEM: ::mck::abstr::Array::new_filled(zeros),
-        dummy: ::mck::abstr::Bitvector::new(1),
-    };
-
-    machine_check_exec::run::<
-        machine_module::refin::Input,
-        machine_module::refin::State,
-        machine_module::refin::Machine,
-    >(&abstract_machine);
 }

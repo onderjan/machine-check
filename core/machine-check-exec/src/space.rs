@@ -6,14 +6,23 @@ use mck::{
     concr,
     misc::MetaEq,
 };
-use petgraph::{prelude::GraphMap, Directed};
+use petgraph::{graph::Node, prelude::GraphMap, Directed};
 use std::hash::Hash;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StateId(pub NonZeroUsize);
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NodeId(Option<NonZeroUsize>);
+
+impl Debug for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Some(id) => write!(f, "{}", id),
+            None => write!(f, "0"),
+        }
+    }
+}
 
 impl NodeId {
     pub const START: NodeId = NodeId(None);
@@ -36,12 +45,11 @@ impl TryFrom<NodeId> for StateId {
     }
 }
 
-#[derive(Debug)]
 pub struct Edge<AI> {
     pub representative_input: AI,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MetaWrap<E: MetaEq + Debug + Clone + Hash>(E);
 
 impl<E: MetaEq + Debug + Clone + Hash> PartialEq for MetaWrap<E> {
@@ -57,12 +65,45 @@ impl<E: MetaEq + Debug + Clone + Hash> Hash for MetaWrap<E> {
     }
 }
 
-#[derive(Debug)]
 pub struct Space<I: Input, S: State> {
     node_graph: GraphMap<NodeId, Edge<MetaWrap<I>>, Directed>,
     state_map: BiMap<StateId, Rc<MetaWrap<S>>>,
     num_states_for_sweep: usize,
     next_state_id: StateId,
+}
+
+impl<I: Input, S: State> Debug for Space<I, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // build sorted nodes first
+        let mut node_ids: Vec<_> = self.node_graph.nodes().collect();
+        node_ids.sort();
+
+        writeln!(f, "Space {{")?;
+
+        // print node states
+        for node_id in node_ids {
+            let mut outgoing: Vec<_> = self
+                .node_graph
+                .neighbors_directed(node_id, petgraph::Direction::Outgoing)
+                .collect();
+            outgoing.sort();
+
+            write!(f, "{:?} (-> {:?}): ", node_id, outgoing)?;
+
+            let state_id = match StateId::try_from(node_id) {
+                Ok(state_id) => state_id,
+                Err(_) => {
+                    writeln!(f, "_,")?;
+                    continue;
+                }
+            };
+            let state = &self.state_map.get_by_left(&state_id).unwrap().0;
+            state.fmt(f)?;
+            writeln!(f)?;
+        }
+
+        writeln!(f, "}}")
+    }
 }
 
 impl<I: Input, S: State> Space<I, S> {
