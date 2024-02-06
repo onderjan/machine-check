@@ -2,15 +2,17 @@ use std::collections::HashMap;
 
 use proc_macro2::Ident;
 use syn::{
-    spanned::Spanned, Expr, ExprCall, ExprInfer, ExprPath, ExprReference, Pat, Stmt, Token, Type,
+    spanned::Spanned, Expr, ExprCall, ExprField, ExprInfer, ExprPath, ExprReference, Pat, Stmt,
+    Token, Type,
 };
 
 use crate::{
     support::struct_rules::StructRules,
     util::{
-        create_expr_call, create_expr_field_unnamed, create_expr_ident, create_expr_path,
-        create_expr_reference, create_expr_tuple, create_ident, create_let, create_pat_wild,
-        create_refine_join_stmt, extract_expr_ident, path_matches_global_names, ArgType,
+        create_expr_call, create_expr_field, create_expr_field_unnamed, create_expr_ident,
+        create_expr_path, create_expr_reference, create_expr_tuple, create_ident, create_let,
+        create_pat_wild, create_refine_join_stmt, extract_expr_ident, path_matches_global_names,
+        ArgType,
     },
     MachineError,
 };
@@ -129,11 +131,29 @@ impl StatementConverter {
         self.backward_scheme.apply_to_expr(&mut backward_later)?;
 
         match right {
-            Expr::Path(_) | Expr::Field(_) | Expr::Struct(_) => {
+            Expr::Path(_) | Expr::Field(_) => {
                 // join instead of assigning
                 let mut earlier = right.clone();
                 self.backward_scheme.apply_to_expr(&mut earlier)?;
                 backward_stmts.push(create_refine_join_stmt(earlier, backward_later));
+                Ok(())
+            }
+            Expr::Struct(right_struct) => {
+                // join each struct field separately
+                let mut earlier = right_struct.clone();
+                self.backward_scheme.apply_to_expr_struct(&mut earlier)?;
+                assert!(earlier.rest.is_none());
+                for field_value in earlier.fields.into_iter() {
+                    // value_expr = backward_later.member
+                    let backward_later_field = Expr::Field(ExprField {
+                        attrs: vec![],
+                        base: Box::new(backward_later.clone()),
+                        dot_token: Token![.](field_value.member.span()),
+                        member: field_value.member,
+                    });
+                    let earlier = field_value.expr;
+                    backward_stmts.push(create_refine_join_stmt(earlier, backward_later_field));
+                }
                 Ok(())
             }
             Expr::Reference(expr_reference) => {

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use syn::{
     punctuated::Punctuated,
     visit_mut::{self, VisitMut},
-    AngleBracketedGenericArguments, Expr, ExprCall, ExprField, ExprPath, ExprReference,
+    AngleBracketedGenericArguments, Expr, ExprCall, ExprField, ExprPath, ExprReference, ExprStruct,
     GenericArgument, Ident, ItemStruct, Member, Path, PathArguments, Type, TypeReference,
 };
 use syn_path::path;
@@ -62,6 +62,7 @@ impl VisitMut for LocalVisitor<'_> {
                 );*/
                 self.infer_reference_result_type(right_reference)
             }
+            syn::Expr::Struct(right_struct) => Some(create_type_path(right_struct.path.clone())),
             _ => panic!(
                 "Unexpected local assignment expression {} ({:?})",
                 quote::quote!(#expr_assign),
@@ -142,10 +143,10 @@ impl LocalVisitor<'_> {
     }
 
     fn infer_call_result_type(&self, expr_call: &ExprCall) -> Option<Type> {
-        println!(
+        /*println!(
             "Inferring call result type for {}",
             quote::quote!(#expr_call)
-        );
+        );*/
 
         // discover the type based on the call function
         let func_path = extract_expr_path(&expr_call.func).expect("Call function should be path");

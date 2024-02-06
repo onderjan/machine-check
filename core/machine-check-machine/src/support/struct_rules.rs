@@ -1,6 +1,6 @@
 use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Expr, GenericArgument, Ident, Member, Path, Stmt,
-    Type,
+    punctuated::Punctuated, visit_mut::VisitMut, Expr, ExprStruct, GenericArgument, Ident, Member,
+    Path, Stmt, Type,
 };
 
 use crate::{
@@ -42,6 +42,17 @@ impl StructRules {
         visitor.result
     }
 
+    pub(crate) fn apply_to_expr_struct(
+        &self,
+        expr_struct: &mut ExprStruct,
+    ) -> Result<(), MachineError> {
+        let mut visitor = ConversionVisitor {
+            scheme: self,
+            result: Ok(()),
+        };
+        visitor.visit_expr_struct_mut(expr_struct);
+        visitor.result
+    }
     pub(crate) fn convert_type(&self, ty: Type) -> Result<Type, MachineError> {
         if let Type::Reference(ty) = ty {
             let mut ty = ty;

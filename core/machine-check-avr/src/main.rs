@@ -114,6 +114,35 @@ mod machine_module {
     }
 
     impl Machine {
+        fn skip_instruction(
+            progmem: ::machine_check::BitvectorArray<14, 16>,
+            pc: ::machine_check::Bitvector<14>,
+        ) -> ::machine_check::Bitvector<14> {
+            let mut result_pc = pc;
+            let instruction = progmem[result_pc];
+            let const_two = ::machine_check::Unsigned::<14>::new(2);
+            ::machine_check::bitmask_switch!(instruction {
+                // LDS or STS (two-word)
+                // STS (two-word)
+                "1001_00-d_dddd_0000" => {
+                    result_pc = result_pc + const_two;
+                }
+                // JMP
+                "1001_010k_kkkk_110k" => {
+                    result_pc = result_pc + const_two;
+                }
+                // CALL
+                "1001_010k_kkkk_111k" => {
+                    result_pc = result_pc + const_two;
+                }
+                // otherwise, we are skipping a one-word instruction
+                _ => {
+                    result_pc = result_pc + ::machine_check::Unsigned::<14>::new(1);
+                }
+            });
+            result_pc
+        }
+
         // for instructions AND, EOR, OR
         // Ru: destination register after being set
         fn compute_status_logical(
@@ -2312,13 +2341,50 @@ mod machine_module {
         fn next(&self, state: &State, input: &Input) -> State {
             let mut safe = ::machine_check::Bitvector::<1>::new(1);
 
-            let mut result = ::std::clone::Clone::clone(state);
+            let mut PC = state.PC;
+            let mut R = ::std::clone::Clone::clone(&state.R);
+            let mut DDRB = state.DDRB;
+            let mut PORTB = state.PORTB;
+            let mut DDRC = state.DDRC;
+            let mut PORTC = state.PORTC;
+            let mut DDRD = state.DDRD;
+            let mut PORTD = state.PORTD;
+            let mut GPIOR0 = state.GPIOR0;
+            let mut GPIOR1 = state.GPIOR1;
+            let mut GPIOR2 = state.GPIOR2;
+            let mut SPL = state.SPL;
+            let mut SPH = state.SPH;
+            let mut SREG = state.SREG;
+            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
             // --- Instruction Step ---
 
             // fetch instruction and increment PC
             let instruction = self.PROGMEM[state.PC];
-            //let instruction = input.test_instr;
+
+            // increment PC
+            PC = PC + ::machine_check::Bitvector::<14>::new(1);
+
+            let state = State {
+                PC,
+                R,
+                DDRB,
+                PORTB,
+                DDRC,
+                PORTC,
+                DDRD,
+                PORTD,
+                GPIOR0,
+                GPIOR1,
+                GPIOR2,
+                SPL,
+                SPH,
+                SREG,
+                SRAM,
+                safe,
+            };
+
+            let mut result = ::std::clone::Clone::clone(&state);
 
             let unsigned_instruction =
                 ::std::convert::Into::<::machine_check::Unsigned<16>>::into(instruction);
@@ -2327,39 +2393,37 @@ mod machine_module {
 
             ::machine_check::bitmask_switch!(instruction {
                 "0000_----_----_----" => {
-                    result = Self::next_0000(state, instruction);
+                    result = Self::next_0000(&state, instruction);
                 }
                 "0001_----_----_----" => {
-                    result = Self::next_0001(state, instruction);
+                    result = Self::next_0001(&state, instruction);
                 }
                 "0010_----_----_----" => {
-                    result = Self::next_0010(state, instruction);
+                    result = Self::next_0010(&state, instruction);
                 }
                 "0011_----_----_----" => {
-                    result = Self::next_0011(state, instruction);
+                    result = Self::next_0011(&state, instruction);
                 }
                 "01--_----_----_----" => {
-                    result = Self::next_01(state, instruction);
+                    result = Self::next_01(&state, instruction);
                 }
                 "10-0_----_----_----" => {
-                    result = Self::next_10q0(state, input, instruction);
+                    result = Self::next_10q0(&state, input, instruction);
                 }
                 "1001_----_----_----" => {
-                    result = Self::next_1001(state, input, instruction);
+                    result = Self::next_1001(&state, input, instruction);
                 }
                 "1011_----_----_----" => {
-                    result = Self::next_1011(state, input, instruction);
+                    result = Self::next_1011(&state, input, instruction);
 
                 }
                 "11--_----_----_----" => {
-                    result = Self::next_11(state, input, instruction);
+                    result = Self::next_11(&state, input, instruction);
                 }
                 _ => {
                     // TODO: disjoint check
                 }
             });
-
-            //PC = PC + ::machine_check::Bitvector::<14>::new(1);
 
             result
         }
