@@ -6,7 +6,7 @@ use mck::{
     concr,
     misc::MetaEq,
 };
-use petgraph::{graph::Node, prelude::GraphMap, Directed};
+use petgraph::{prelude::GraphMap, Directed};
 use std::hash::Hash;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]

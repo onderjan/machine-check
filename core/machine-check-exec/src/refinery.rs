@@ -90,7 +90,7 @@ impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a,
         self.num_refinements += 1;
         //info!("Refinement number: {}", self.num_refinements);
         // compute marking
-        let mut current_state_mark = S::default();
+        let mut current_state_mark = S::clean();
         let mark_bit = current_state_mark.get_mut(&culprit.name).unwrap();
         *mark_bit = refin::Bitvector::new_marked();
 

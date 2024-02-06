@@ -34,12 +34,6 @@ pub fn process_impl_item_struct(mut item_struct: ItemStruct) -> Result<Vec<Item>
     }
 
     if has_derived_partial_eq && has_derived_eq {
-        // add default derive attributes to the structs
-        // that easily allow us to make unknown inputs/states
-        item_struct
-            .attrs
-            .push(generate_derive_attribute(quote!(::std::default::Default)));
-
         // add trait implementations
         let phi_impl = phi_impl(&item_struct)?;
 

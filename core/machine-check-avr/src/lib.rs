@@ -17,12 +17,16 @@ pub mod machine_module {
         uninit_R: ::machine_check::BitvectorArray<5, 8>,
         uninit_SRAM: ::machine_check::BitvectorArray<11, 8>,
 
-        // --- Misc ---
-        // TODO: remove i,j,k
-        pub i: ::machine_check::Bitvector<1>,
-        pub j: ::machine_check::Bitvector<1>,
-        pub k: ::machine_check::Bitvector<1>,
-        pub test_instr: ::machine_check::Bitvector<16>,
+        // --- General Purpose I/O ---
+        // I/O address 0x3: reads pins
+        PINB: ::machine_check::Bitvector<8>,
+
+        // I/O address 0x6: reads pins
+        // only 7 bits, the high bit is always zero
+        PINC: ::machine_check::Bitvector<7>,
+
+        // I/O address 0x9: reads pins
+        PIND: ::machine_check::Bitvector<8>,
     }
 
     impl ::machine_check::Input for Input {}
@@ -66,14 +70,12 @@ pub mod machine_module {
         // I/O address 0xB: output/pullup register
         PORTD: ::machine_check::Bitvector<8>,
 
-        // TODO: port C, port D
-
         // General Purpose I/O registers
         // I/O address 0x1E: General Purpose I/O register 0
         GPIOR0: ::machine_check::Bitvector<8>,
         // I/O address 0x2A: General Purpose I/O register 1
         GPIOR1: ::machine_check::Bitvector<8>,
-        // I/O ad: machine_check::Bitvector<1>dress 0x2B: General Purpose I/O register 2
+        // I/O address 0x2B: General Purpose I/O register 2
         GPIOR2: ::machine_check::Bitvector<8>,
 
         // I/O address 0x3D: Stack Pointer Low
@@ -109,8 +111,6 @@ pub mod machine_module {
         // progmem is 32 KB, i.e. 16K 16-bit words
         // that is 2^14 = 16384
         pub PROGMEM: ::machine_check::BitvectorArray<14, 16>,
-
-        pub dummy: ::machine_check::Bitvector<1>,
     }
 
     impl Machine {
@@ -141,6 +141,166 @@ pub mod machine_module {
                 }
             });
             result_pc
+        }
+
+        fn read_io_reg(
+            state: &State,
+            input: &Input,
+            io_index: ::machine_check::Bitvector<6>,
+        ) -> ::machine_check::Bitvector<8> {
+            let result;
+            if io_index == ::machine_check::Bitvector::<6>::new(0x03) {
+                result = input.PINB;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x04) {
+                result = state.DDRB;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x05) {
+                result = state.PORTB;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x06) {
+                // port C has only 7 bits, zero-extend
+                result = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(
+                    ::machine_check::Ext::<8>::ext(::std::convert::Into::<
+                        ::machine_check::Unsigned<7>,
+                    >::into(input.PINC)),
+                );
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x07) {
+                // port C has only 7 bits, zero-extend
+                result = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(
+                    ::machine_check::Ext::<8>::ext(::std::convert::Into::<
+                        ::machine_check::Unsigned<7>,
+                    >::into(state.DDRC)),
+                );
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x08) {
+                // port C has only 7 bits, zero-extend
+                result = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(
+                    ::machine_check::Ext::<8>::ext(::std::convert::Into::<
+                        ::machine_check::Unsigned<7>,
+                    >::into(state.PORTC)),
+                );
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x09) {
+                result = input.PIND;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x0A) {
+                result = state.DDRD;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x0B) {
+                result = state.PORTD;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x1E) {
+                result = state.GPIOR0;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x2A) {
+                result = state.GPIOR1;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x2B) {
+                result = state.GPIOR2;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x3D) {
+                result = state.SPL;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x3E) {
+                result = state.SPH;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x3F) {
+                result = state.SREG;
+            } else {
+                // TODO: invalid or unimplemented read
+                result = ::machine_check::Bitvector::<8>::new(0);
+            }
+
+            result
+        }
+
+        fn write_io_reg(
+            state: &State,
+            io_index: ::machine_check::Bitvector<6>,
+            value: ::machine_check::Bitvector<8>,
+        ) -> State {
+            let mut PC = state.PC;
+            let mut R = ::std::clone::Clone::clone(&state.R);
+            let mut DDRB = state.DDRB;
+            let mut PORTB = state.PORTB;
+            let mut DDRC = state.DDRC;
+            let mut PORTC = state.PORTC;
+            let mut DDRD = state.DDRD;
+            let mut PORTD = state.PORTD;
+            let mut GPIOR0 = state.GPIOR0;
+            let mut GPIOR1 = state.GPIOR1;
+            let mut GPIOR2 = state.GPIOR2;
+            let mut SPL = state.SPL;
+            let mut SPH = state.SPH;
+            let mut SREG = state.SREG;
+            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+
+            let mut safe = state.safe;
+
+            if io_index == ::machine_check::Bitvector::<6>::new(0x03) {
+                // instead of writing to PINB, exclusive-or PORTB
+                PORTB = PORTB ^ value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x04) {
+                DDRB = value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x05) {
+                PORTB = value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x06) {
+                // port C has only 7 bits, drop bit 8
+                // TODO: ensure written bit 8 is zero
+                let value_ext = ::std::convert::Into::<::machine_check::Bitvector<7>>::into(
+                    ::machine_check::Ext::<7>::ext(::std::convert::Into::<
+                        ::machine_check::Unsigned<8>,
+                    >::into(value)),
+                );
+                // instead of writing to PINC, exclusive-or PORTC
+                PORTC = PORTC ^ value_ext;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x07) {
+                // port C has only 7 bits, drop bit 8
+                // TODO: ensure written bit 8 is zero
+                let value_ext = ::std::convert::Into::<::machine_check::Bitvector<7>>::into(
+                    ::machine_check::Ext::<7>::ext(::std::convert::Into::<
+                        ::machine_check::Unsigned<8>,
+                    >::into(value)),
+                );
+                DDRC = value_ext;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x08) {
+                // port C has only 7 bits, drop bit 8
+                // TODO: ensure written bit 8 is zero
+                let value_ext = ::std::convert::Into::<::machine_check::Bitvector<7>>::into(
+                    ::machine_check::Ext::<7>::ext(::std::convert::Into::<
+                        ::machine_check::Unsigned<8>,
+                    >::into(value)),
+                );
+                PORTC = value_ext;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x09) {
+                // instead of writing to PIND, exclusive-or PORTD
+                PORTD = PORTD ^ value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x0A) {
+                DDRD = value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x0B) {
+                PORTD = value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x1E) {
+                GPIOR0 = value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x2A) {
+                GPIOR1 = value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x2B) {
+                GPIOR2 = value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x3D) {
+                SPL = value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x3E) {
+                SPH = value;
+            } else if io_index == ::machine_check::Bitvector::<6>::new(0x3F) {
+                SREG = value;
+            } else {
+                // TODO: invalid or unimplemented write
+            }
+
+            State {
+                PC,
+                R,
+                DDRB,
+                PORTB,
+                DDRC,
+                PORTC,
+                DDRD,
+                PORTD,
+                GPIOR0,
+                GPIOR1,
+                GPIOR2,
+                SPL,
+                SPH,
+                SREG,
+                SRAM,
+                safe,
+            }
         }
 
         // for instructions AND, EOR, OR
@@ -1085,11 +1245,7 @@ pub mod machine_module {
             }
         }
 
-        fn next_10q0(
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_10q0(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -1154,11 +1310,7 @@ pub mod machine_module {
             }
         }
 
-        fn next_1001_000d(
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_1001_000d(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -1321,11 +1473,7 @@ pub mod machine_module {
             }
         }
 
-        fn next_1001_001r(
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_1001_001r(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -1443,7 +1591,6 @@ pub mod machine_module {
         fn next_1001_010x(
             &self,
             state: &State,
-            input: &Input,
             instruction: ::machine_check::Bitvector<16>,
         ) -> State {
             let mut PC = state.PC;
@@ -1878,23 +2025,18 @@ pub mod machine_module {
             }
         }
 
-        fn next_1001(
-            &self,
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_1001(&self, state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut result = ::std::clone::Clone::clone(state);
 
             ::machine_check::bitmask_switch!(instruction {
                 "----_000-_----_----" => {
-                    result = Self::next_1001_000d(state, input, instruction);
+                    result = Self::next_1001_000d(state, instruction);
                 }
                 "----_001-_----_----" => {
-                    result = Self::next_1001_001r(state, input, instruction);
+                    result = Self::next_1001_001r(state, instruction);
                 }
                 "----_010-_----_----" => {
-                    result = Self::next_1001_010x(self, state, input, instruction);
+                    result = Self::next_1001_010x(self, state, instruction);
                 }
                 "----_011-_----_----" => {
                     result = Self::next_1001_011x(state, instruction);
@@ -1969,39 +2111,57 @@ pub mod machine_module {
             input: &Input,
             instruction: ::machine_check::Bitvector<16>,
         ) -> State {
-            let mut PC = state.PC;
-            let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
-            let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
-
-            let mut safe = state.safe;
+            let mut result = ::std::clone::Clone::clone(state);
 
             ::machine_check::bitmask_switch!(instruction {
                 // IN
                 "----_0aad_dddd_aaaa" => {
-                    /*
                     // load I/O location to register, status flags not affected
-                    R[d] = IO[a];
-                    */
+                    let mut PC = state.PC;
+                    let mut R = ::std::clone::Clone::clone(&state.R);
+                    let mut DDRB = state.DDRB;
+                    let mut PORTB = state.PORTB;
+                    let mut DDRC = state.DDRC;
+                    let mut PORTC = state.PORTC;
+                    let mut DDRD = state.DDRD;
+                    let mut PORTD = state.PORTD;
+                    let mut GPIOR0 = state.GPIOR0;
+                    let mut GPIOR1 = state.GPIOR1;
+                    let mut GPIOR2 = state.GPIOR2;
+                    let mut SPL = state.SPL;
+                    let mut SPH = state.SPH;
+                    let mut SREG = state.SREG;
+                    let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+                    let mut safe = state.safe;
+
+                    // TODO: infer type
+                    let io_result: ::machine_check::Bitvector<8> = Self::read_io_reg(state, input, a);
+                    R[d] = io_result;
+
+                    result = State {
+                        PC,
+                        R,
+                        DDRB,
+                        PORTB,
+                        DDRC,
+                        PORTC,
+                        DDRD,
+                        PORTD,
+                        GPIOR0,
+                        GPIOR1,
+                        GPIOR2,
+                        SPL,
+                        SPH,
+                        SREG,
+                        SRAM,
+                        safe,
+                    };
                 }
 
                 // OUT
                 "----_1aar_rrrr_aaaa" => {
-                    /*
                     // store register to I/O location, status flags not affected
-                    IO[a] = R[r];
-                    */
+                    result = Self::write_io_reg(state, a, state.R[r]);
                 }
 
                 _ => {
@@ -2009,32 +2169,10 @@ pub mod machine_module {
                 }
             });
 
-            State {
-                PC,
-                R,
-                DDRB,
-                PORTB,
-                DDRC,
-                PORTC,
-                DDRD,
-                PORTD,
-                GPIOR0,
-                GPIOR1,
-                GPIOR2,
-                SPL,
-                SPH,
-                SREG,
-                SRAM,
-                safe,
-            }
+            result
         }
 
-        fn next_11(
-            &self,
-            state: &State,
-            input: &Input,
-            instruction: ::machine_check::Bitvector<16>,
-        ) -> State {
+        fn next_11(&self, state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
@@ -2374,17 +2512,17 @@ pub mod machine_module {
                     result = Self::next_01(&state, instruction);
                 }
                 "10-0_----_----_----" => {
-                    result = Self::next_10q0(&state, input, instruction);
+                    result = Self::next_10q0(&state, instruction);
                 }
                 "1001_----_----_----" => {
-                    result = Self::next_1001(self, &state, input, instruction);
+                    result = Self::next_1001(self, &state, instruction);
                 }
                 "1011_----_----_----" => {
                     result = Self::next_1011(&state, input, instruction);
 
                 }
                 "11--_----_----_----" => {
-                    result = Self::next_11(self, &state, input, instruction);
+                    result = Self::next_11(self, &state, instruction);
                 }
                 _ => {
                     // TODO: disjoint check

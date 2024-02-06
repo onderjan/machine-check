@@ -10,9 +10,8 @@ use syn::spanned::Spanned;
 use syn::token::{Brace, Comma, FatArrow, Underscore};
 use syn::{
     braced, parse2, AngleBracketedGenericArguments, BinOp, Block, Expr, ExprAssign, ExprBinary,
-    ExprCall, ExprIf, ExprLit, ExprParen, ExprPath, GenericArgument, Ident, Lit, LitBool, LitInt,
-    LitStr, Local, LocalInit, Pat, PatIdent, Path, PathArguments, PathSegment, Stmt, Token, Type,
-    TypePath,
+    ExprCall, ExprIf, ExprLit, ExprParen, ExprPath, GenericArgument, Ident, LitInt, LitStr, Local,
+    LocalInit, Pat, PatIdent, Path, PathArguments, PathSegment, Stmt, Token, Type, TypePath,
 };
 use syn_path::path;
 

@@ -136,10 +136,10 @@ pub fn abstract_normal() -> PathRules {
         PathRule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Match(String::from("std")),
-                PathRuleSegment::Match(String::from("default")),
-                PathRuleSegment::Match(String::from("Default")),
-                PathRuleSegment::Match(String::from("default")),
+                PathRuleSegment::Match(String::from("mck")),
+                PathRuleSegment::Match(String::from("refin")),
+                PathRuleSegment::Match(String::from("Refine")),
+                PathRuleSegment::Match(String::from("clean")),
             ],
         },
         PathRule {

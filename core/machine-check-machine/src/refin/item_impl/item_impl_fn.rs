@@ -141,10 +141,7 @@ impl ImplConverter {
 
         create_let_mut(
             ident,
-            create_expr_call(
-                create_expr_path(path!(::std::default::Default::default)),
-                vec![],
-            ),
+            create_expr_call(create_expr_path(path!(::mck::refin::Refine::clean)), vec![]),
             Some(ty),
         )
     }

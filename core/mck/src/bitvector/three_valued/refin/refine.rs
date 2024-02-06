@@ -46,4 +46,8 @@ impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
         let ones = forward::Bitwise::bit_or(target.get_possibly_one_flags(), forced_unknown);
         *target = ThreeValuedBitvector::from_zeros_ones(zeros, ones);
     }
+
+    fn clean() -> Self {
+        Self::new_unmarked()
+    }
 }

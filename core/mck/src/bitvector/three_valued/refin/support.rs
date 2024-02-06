@@ -34,12 +34,6 @@ impl<const L: u32> MarkBitvector<L> {
     }
 }
 
-impl<const L: u32> Default for MarkBitvector<L> {
-    fn default() -> Self {
-        Self::new_unmarked()
-    }
-}
-
 pub(super) fn default_uni_mark<const L: u32, const X: u32>(
     normal_input: (ThreeValuedBitvector<L>,),
     mark_later: MarkBitvector<X>,

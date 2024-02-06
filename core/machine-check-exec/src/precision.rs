@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use mck::refin::Input;
+use mck::refin::Refine;
 use mck::refin::State;
 
 use crate::space::NodeId;
@@ -21,23 +22,23 @@ impl<I: Input, S: State> Precision<I, S> {
     pub fn get_input(&self, node_id: NodeId) -> I {
         match self.input.get(&node_id) {
             Some(input) => input.clone(),
-            None => Default::default(),
+            None => Refine::clean(),
         }
     }
 
     pub fn mut_input(&mut self, node_id: NodeId) -> &mut I {
-        self.input.entry(node_id).or_default()
+        self.input.entry(node_id).or_insert_with(|| Refine::clean())
     }
 
     pub fn get_decay(&self, node_id: NodeId) -> S {
         match self.decay.get(&node_id) {
             Some(decay) => decay.clone(),
-            None => Default::default(),
+            None => Refine::clean(),
         }
     }
 
     pub fn mut_decay(&mut self, node_id: NodeId) -> &mut S {
-        self.decay.entry(node_id).or_default()
+        self.decay.entry(node_id).or_insert_with(|| Refine::clean())
     }
 
     pub fn retain_indices<F>(&mut self, predicate: F)

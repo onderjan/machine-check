@@ -48,10 +48,7 @@ fn main() {
 
     println!("Progmem: {:?}", progmem);
 
-    let abstract_machine = machine_module::Machine {
-        PROGMEM: progmem,
-        dummy: ::mck::abstr::Bitvector::new(1),
-    };
+    let abstract_machine = machine_module::Machine { PROGMEM: progmem };
 
     machine_check_exec::run::<
         machine_module::refin::Input,

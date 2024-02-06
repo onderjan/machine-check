@@ -17,6 +17,7 @@ where
     fn apply_join(&mut self, other: &Self);
     fn to_condition(&self) -> Boolean;
     fn force_decay(&self, target: &mut A);
+    fn clean() -> Self;
 }
 
 pub trait Input:
@@ -24,7 +25,6 @@ pub trait Input:
     + MetaEq
     + Hash
     + Clone
-    + Default
     + Meta<<Self as Input>::Abstract>
     + Refine<<Self as Input>::Abstract>
     + FieldManipulate<refin::Bitvector<1>>
@@ -36,7 +36,6 @@ pub trait State:
     Debug
     + MetaEq
     + Clone
-    + Default
     + Refine<<Self as State>::Abstract>
     + Meta<<Self as State>::Abstract>
     + FieldManipulate<refin::Bitvector<1>>

@@ -1,18 +1,19 @@
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated, AngleBracketedGenericArguments, BinOp, Expr, ExprBinary, ExprLit,
-    GenericArgument, ImplItem, ImplItemFn, Item, ItemStruct, Lit, LitInt, Path, PathArguments,
-    Stmt,
+    ExprStruct, GenericArgument, ImplItem, ImplItemFn, Item, ItemStruct, Lit, LitInt, Path,
+    PathArguments, Stmt,
 };
 use syn_path::path;
 
 use crate::{
     refin::rules,
     util::{
-        boolean_type, create_arg, create_expr_call, create_expr_field, create_expr_ident,
-        create_expr_path, create_ident, create_impl_item_fn, create_item_impl, create_let_mut,
-        create_path_from_ident, create_path_with_last_generic_type, create_refine_join_stmt,
-        create_self, create_self_arg, create_type_path, ArgType,
+        boolean_type, create_arg, create_assign, create_expr_call, create_expr_field,
+        create_expr_ident, create_expr_path, create_field_value, create_ident, create_impl_item_fn,
+        create_item_impl, create_let_bare, create_let_mut, create_path_from_ident,
+        create_path_with_last_generic_type, create_refine_join_stmt, create_self, create_self_arg,
+        create_type_path, ArgType,
     },
     MachineError,
 };
@@ -22,6 +23,7 @@ pub(crate) fn refine_impl(item_struct: &ItemStruct) -> Result<Item, MachineError
     let join_fn = apply_join_fn(item_struct)?;
     let decay_fn = force_decay_fn(item_struct)?;
     let to_condition_fn = to_condition_fn(item_struct)?;
+    let clean_fn = clean_fn(item_struct)?;
 
     let abstr_type_path =
         rules::abstract_type().convert_path(create_path_from_ident(item_struct.ident.clone()))?;
@@ -37,6 +39,7 @@ pub(crate) fn refine_impl(item_struct: &ItemStruct) -> Result<Item, MachineError
             ImplItem::Fn(join_fn),
             ImplItem::Fn(decay_fn),
             ImplItem::Fn(to_condition_fn),
+            ImplItem::Fn(clean_fn),
         ],
     )))
 }
@@ -205,5 +208,43 @@ fn to_condition_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
         vec![self_input],
         Some(return_type),
         stmts,
+    ))
+}
+
+fn clean_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+    let mut local_stmts = Vec::new();
+    let mut assign_stmts = Vec::new();
+    let mut struct_field_values = Vec::new();
+
+    for (index, field) in s.fields.iter().enumerate() {
+        let uninit_expr =
+            create_expr_call(create_expr_path(path!(::mck::refin::Refine::clean)), vec![]);
+        let temp_ident = create_ident(&format!("__mck_clean_{}", index));
+        local_stmts.push(create_let_bare(temp_ident.clone(), None));
+        assign_stmts.push(create_assign(temp_ident.clone(), uninit_expr, true));
+        struct_field_values.push(create_field_value(
+            index,
+            field,
+            create_expr_ident(temp_ident),
+        ));
+    }
+
+    let struct_expr = Expr::Struct(ExprStruct {
+        attrs: vec![],
+        qself: None,
+        path: path!(Self),
+        brace_token: Default::default(),
+        fields: Punctuated::from_iter(struct_field_values),
+        dot2_token: None,
+        rest: None,
+    });
+    local_stmts.extend(assign_stmts);
+    local_stmts.push(Stmt::Expr(struct_expr, None));
+
+    Ok(create_impl_item_fn(
+        create_ident("clean"),
+        vec![],
+        Some(create_type_path(path!(Self))),
+        local_stmts,
     ))
 }

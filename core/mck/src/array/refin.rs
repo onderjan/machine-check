@@ -43,15 +43,6 @@ impl<const I: u32, const L: u32> Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> Default for Array<I, L> {
-    fn default() -> Self {
-        assert!(I < isize::BITS);
-        Self {
-            inner: LightArray::new_filled(Default::default(), Self::SIZE),
-        }
-    }
-}
-
 impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
     type Index = abstr::Bitvector<I>;
     type Element = abstr::Bitvector<L>;
@@ -179,6 +170,13 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
             .involve(&self.inner, |abstr_element, refin_element| {
                 refin_element.force_decay(abstr_element);
             });
+    }
+
+    fn clean() -> Self {
+        assert!(I < isize::BITS);
+        Self {
+            inner: LightArray::new_filled(Bitvector::clean(), Self::SIZE),
+        }
     }
 }
 

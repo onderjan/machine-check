@@ -49,11 +49,9 @@ pub fn clone_needed(impl_item_fn: &mut ImplItemFn) {
             })),
             ty: Box::new(clone_ty),
         });
-        // init to default
-        let default_call_expr = create_expr_call(
-            create_expr_path(path!(::std::default::Default::default)),
-            vec![],
-        );
+        // default uninit
+        let default_call_expr =
+            create_expr_call(create_expr_path(path!(::mck::abstr::Phi::uninit)), vec![]);
         let init = LocalInit {
             eq_token: Token![=](orig_ident.span()),
             expr: Box::new(default_call_expr),

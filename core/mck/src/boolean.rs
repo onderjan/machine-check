@@ -67,7 +67,7 @@ pub mod abstr {
 
 pub mod refin {
     use crate::refin::{Bitvector, Refine};
-    #[derive(Clone, Copy, PartialEq, Eq, Hash, Default)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct Boolean(pub(crate) Bitvector<1>);
 
     impl Boolean {
@@ -95,6 +95,10 @@ pub mod refin {
 
         fn force_decay(&self, target: &mut super::abstr::Boolean) {
             self.0.force_decay(&mut target.0)
+        }
+
+        fn clean() -> Self {
+            Self(Bitvector::clean())
         }
     }
 }
