@@ -48,11 +48,11 @@ fn main() {
 
     println!("Progmem: {:?}", progmem);
 
-    let abstract_machine = machine_module::Machine { PROGMEM: progmem };
+    let abstract_machine = machine_module::__mck_mod_abstr::Machine { PROGMEM: progmem };
 
     machine_check_exec::run::<
-        machine_module::refin::Input,
-        machine_module::refin::State,
-        machine_module::refin::Machine,
+        machine_module::__mck_mod_abstr::__mck_mod_refin::Input,
+        machine_module::__mck_mod_abstr::__mck_mod_refin::State,
+        machine_module::__mck_mod_abstr::__mck_mod_refin::Machine,
     >(&abstract_machine);
 }

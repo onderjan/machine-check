@@ -1,5 +1,3 @@
-use machine_check::Bitvector;
-
 #[::machine_check::machine_description]
 mod machine_module {
     #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -31,7 +29,7 @@ mod machine_module {
         fn next(&self, state: &State, input: &Input) -> State {
             let instruction = self.progmem[state.pc];
             let mut reg = ::std::clone::Clone::clone(&state.reg);
-            let mut pc = state.pc + ::machine_check::Unsigned::<8>::new(1);
+            let mut pc = state.pc + ::machine_check::Bitvector::<8>::new(1);
             let mut data = ::std::clone::Clone::clone(&state.data);
 
             ::machine_check::bitmask_switch!(instruction {

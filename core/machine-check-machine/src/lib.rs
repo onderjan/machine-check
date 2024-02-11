@@ -86,7 +86,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Error> {
     let refinement_machine = refin::create_refinement_machine(&abstract_machine)?;
 
     // create new module at the end of the file that will contain the refinement
-    let refinement_module = create_machine_module("refin", refinement_machine);
+    let refinement_module = create_machine_module("__mck_mod_refin", refinement_machine);
     abstract_machine.items.push(refinement_module);
 
     std::fs::write(out_dir.join("machine_full.rs"), unparse(&abstract_machine))
@@ -94,7 +94,9 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Error> {
 
     support::strip_machine::strip_machine(&mut abstract_machine)?;
 
-    *items = abstract_machine.items;
+    let abstract_module = create_machine_module("__mck_mod_abstr", abstract_machine);
+
+    items.push(abstract_module);
 
     println!("Machine-check-machine ending processing");
 

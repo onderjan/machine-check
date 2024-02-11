@@ -120,7 +120,7 @@ pub mod machine_module {
         ) -> ::machine_check::Bitvector<14> {
             let mut result_pc = pc;
             let instruction = self.PROGMEM[result_pc];
-            let const_two = ::machine_check::Unsigned::<14>::new(2);
+            let const_two = ::machine_check::Bitvector::<14>::new(2);
             ::machine_check::bitmask_switch!(instruction {
                 // LDS or STS (two-word)
                 // STS (two-word)
@@ -137,7 +137,7 @@ pub mod machine_module {
                 }
                 // otherwise, we are skipping a one-word instruction
                 _ => {
-                    result_pc = result_pc + ::machine_check::Unsigned::<14>::new(1);
+                    result_pc = result_pc + ::machine_check::Bitvector::<14>::new(1);
                 }
             });
             result_pc
@@ -207,8 +207,8 @@ pub mod machine_module {
             io_index: ::machine_check::Bitvector<6>,
             value: ::machine_check::Bitvector<8>,
         ) -> State {
-            let mut PC = state.PC;
-            let mut R = ::std::clone::Clone::clone(&state.R);
+            let PC = state.PC;
+            let R = ::std::clone::Clone::clone(&state.R);
             let mut DDRB = state.DDRB;
             let mut PORTB = state.PORTB;
             let mut DDRC = state.DDRC;
@@ -221,9 +221,9 @@ pub mod machine_module {
             let mut SPL = state.SPL;
             let mut SPH = state.SPH;
             let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             if io_index == ::machine_check::Bitvector::<6>::new(0x03) {
                 // instead of writing to PINB, exclusive-or PORTB
@@ -310,18 +310,18 @@ pub mod machine_module {
             Ru: ::machine_check::Bitvector<8>,
         ) -> ::machine_check::Bitvector<8> {
             let retained_flags = ::machine_check::Unsigned::<8>::new(0b1110_0001);
-            let result =
+            let mut result =
                 ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
 
             let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
 
             let Ru7 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+                Ru_unsigned >> ::machine_check::Unsigned::<8>::new(7),
             );
 
             // Z - zero flag, bit 1
             if Ru == ::machine_check::Bitvector::<8>::new(0) {
-                result = result | ::machine_check::Bitvector::<8>::new(0b0000_0010);
+                result = result | ::machine_check::Unsigned::<8>::new(0b0000_0010);
             };
 
             // N - negative flag, bit 2
@@ -331,7 +331,7 @@ pub mod machine_module {
 
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_N)
-                    << ::machine_check::Bitvector::<8>::new(2));
+                    << ::machine_check::Unsigned::<8>::new(2));
 
             // V - two's complement overflow flag, bit 3
             // just constant zero here, already taken care of by not retaining flag
@@ -340,7 +340,7 @@ pub mod machine_module {
             // equal to N ^ V, but V is constant zero, so just use N
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_N)
-                    << ::machine_check::Bitvector::<8>::new(4));
+                    << ::machine_check::Unsigned::<8>::new(4));
 
             ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
@@ -356,7 +356,7 @@ pub mod machine_module {
             Ru: ::machine_check::Bitvector<8>,
         ) -> ::machine_check::Bitvector<8> {
             let retained_flags = ::machine_check::Unsigned::<8>::new(0b1100_0000);
-            let result =
+            let mut result =
                 ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
 
             let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Rd);
@@ -364,13 +364,13 @@ pub mod machine_module {
             let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
 
             let Rd7 = ::machine_check::Ext::<1>::ext(
-                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+                Rd_unsigned >> ::machine_check::Unsigned::<8>::new(7),
             );
             let Rr7 = ::machine_check::Ext::<1>::ext(
-                Rr_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+                Rr_unsigned >> ::machine_check::Unsigned::<8>::new(7),
             );
             let Ru7 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+                Ru_unsigned >> ::machine_check::Unsigned::<8>::new(7),
             );
 
             // C - carry flag, bit 0
@@ -386,35 +386,35 @@ pub mod machine_module {
             let flag_N = Ru7;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_N)
-                    << ::machine_check::Bitvector::<8>::new(2));
+                    << ::machine_check::Unsigned::<8>::new(2));
 
             // V - two's complement overflow flag, bit 3
             let flag_V = (Rd7 & Rr7 & !Ru7) | (!Rd7 & !Rr7 & Ru7);
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_V)
-                    << ::machine_check::Bitvector::<8>::new(3));
+                    << ::machine_check::Unsigned::<8>::new(3));
 
             // S - sign flag (N ^ V), bit 4
             let flag_S = flag_N ^ flag_V;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_S)
-                    << ::machine_check::Bitvector::<8>::new(4));
+                    << ::machine_check::Unsigned::<8>::new(4));
 
             let Rd3 = ::machine_check::Ext::<1>::ext(
-                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+                Rd_unsigned >> ::machine_check::Unsigned::<8>::new(3),
             );
             let Rr3 = ::machine_check::Ext::<1>::ext(
-                Rr_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+                Rr_unsigned >> ::machine_check::Unsigned::<8>::new(3),
             );
             let Ru3 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+                Ru_unsigned >> ::machine_check::Unsigned::<8>::new(3),
             );
 
             // H - half carry flag, bit 5
             let flag_H = (Rd3 & Rr3) | (Rr3 & !Ru3) | (!Ru3 & Rd3);
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_H)
-                    << ::machine_check::Bitvector::<8>::new(4));
+                    << ::machine_check::Unsigned::<8>::new(4));
 
             ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
@@ -430,11 +430,13 @@ pub mod machine_module {
             Ru: ::machine_check::Bitvector<8>,
         ) -> ::machine_check::Bitvector<8> {
             // first, set like logical
-            let result = Self::compute_status_logical(sreg, Ru);
+            let logical_status: ::machine_check::Bitvector<8> =
+                Self::compute_status_logical(sreg, Ru);
+            let mut result =
+                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(logical_status);
 
             let retained_flags = ::machine_check::Unsigned::<8>::new(0b1111_0110);
-            result =
-                ::std::convert::Into::<::machine_check::Unsigned<8>>::into(result) & retained_flags;
+            result = result & retained_flags;
 
             // C - carry flag, bit 0
             // set to shifted-out bit
@@ -447,13 +449,13 @@ pub mod machine_module {
             // set to N ^ C after shift
             // N is in bit 2
             let flag_N =
-                ::machine_check::Ext::<1>::ext(result >> ::machine_check::Bitvector::<8>::new(2));
+                ::machine_check::Ext::<1>::ext(result >> ::machine_check::Unsigned::<8>::new(2));
             let flag_V = flag_N ^ flag_C;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_V)
-                    << ::machine_check::Bitvector::<8>::new(3));
+                    << ::machine_check::Unsigned::<8>::new(3));
 
-            result
+            ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
 
         // for instruction COM
@@ -464,7 +466,7 @@ pub mod machine_module {
         ) -> ::machine_check::Bitvector<8> {
             // C - carry flag, bit 0
             // is set to one
-            let result = sreg | ::machine_check::Unsigned::<8>::new(0b0000_0001);
+            let mut result = sreg | ::machine_check::Bitvector::<8>::new(0b0000_0001);
 
             // others are set like logical, which retains carry
             result = Self::compute_status_logical(result, Ru);
@@ -484,7 +486,7 @@ pub mod machine_module {
             // like compute_status_add, but with different negations in C, V, H flags
 
             let retained_flags = ::machine_check::Unsigned::<8>::new(0b1100_0000);
-            let result =
+            let mut result =
                 ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
 
             let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Rd);
@@ -492,13 +494,13 @@ pub mod machine_module {
             let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
 
             let Rd7 = ::machine_check::Ext::<1>::ext(
-                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+                Rd_unsigned >> ::machine_check::Unsigned::<8>::new(7),
             );
             let Rr7 = ::machine_check::Ext::<1>::ext(
-                Rr_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+                Rr_unsigned >> ::machine_check::Unsigned::<8>::new(7),
             );
             let Ru7 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+                Ru_unsigned >> ::machine_check::Unsigned::<8>::new(7),
             );
 
             // C - carry flag, bit 0
@@ -514,35 +516,35 @@ pub mod machine_module {
             let flag_N = Ru7;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_N)
-                    << ::machine_check::Bitvector::<8>::new(2));
+                    << ::machine_check::Unsigned::<8>::new(2));
 
             // V - two's complement overflow flag, bit 3
             let flag_V = (Rd7 & !Rr7 & !Ru7) | (!Rd7 & Rr7 & Ru7);
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_V)
-                    << ::machine_check::Bitvector::<8>::new(3));
+                    << ::machine_check::Unsigned::<8>::new(3));
 
             // S - sign flag (N ^ V), bit 4
             let flag_S = flag_N ^ flag_V;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_S)
-                    << ::machine_check::Bitvector::<8>::new(4));
+                    << ::machine_check::Unsigned::<8>::new(4));
 
             let Rd3 = ::machine_check::Ext::<1>::ext(
-                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+                Rd_unsigned >> ::machine_check::Unsigned::<8>::new(3),
             );
             let Rr3 = ::machine_check::Ext::<1>::ext(
-                Rr_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+                Rr_unsigned >> ::machine_check::Unsigned::<8>::new(3),
             );
             let Ru3 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+                Ru_unsigned >> ::machine_check::Unsigned::<8>::new(3),
             );
 
             // H - half carry flag, bit 5
             let flag_H = (!Rd3 & Rr3) | (Rr3 & Ru3) | (Ru3 & !Rd3);
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_H)
-                    << ::machine_check::Bitvector::<8>::new(4));
+                    << ::machine_check::Unsigned::<8>::new(4));
 
             ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
@@ -559,14 +561,14 @@ pub mod machine_module {
             Ru: ::machine_check::Bitvector<8>,
         ) -> ::machine_check::Bitvector<8> {
             // remember previous zero flag (bit 1 of SREG)
-            let prev_sreg_zero_flag = sreg & ::machine_check::Unsigned::<8>::new(0b0000_0010);
+            let prev_sreg_zero_flag = sreg & ::machine_check::Bitvector::<8>::new(0b0000_0010);
 
-            let result = Self::compute_status_sub(sreg, Rd, Rr, Ru);
+            let mut result = Self::compute_status_sub(sreg, Rd, Rr, Ru);
 
             // Z - zero flag, bit 1
             // if result is zero, the flag must remain unchanged
             // otherwise, it is cleared as normal
-            if Ru == ::machine_check::Unsigned::<8>::new(0) {
+            if Ru == ::machine_check::Bitvector::<8>::new(0) {
                 // the zero flag is now wrongly cleared, set previous
                 result = result | prev_sreg_zero_flag;
             }
@@ -583,12 +585,12 @@ pub mod machine_module {
             flag_V: ::machine_check::Bitvector<1>,
         ) -> ::machine_check::Bitvector<8> {
             let retained_flags = ::machine_check::Unsigned::<8>::new(0b1110_0001);
-            let result =
+            let mut result =
                 ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
 
             let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
             let Ru7 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+                Ru_unsigned >> ::machine_check::Unsigned::<8>::new(7),
             );
 
             // Z - zero flag, bit 1
@@ -600,7 +602,7 @@ pub mod machine_module {
             let flag_N = Ru7;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_N)
-                    << ::machine_check::Bitvector::<8>::new(2));
+                    << ::machine_check::Unsigned::<8>::new(2));
 
             // V - two's complement overflow flag, bit 3
             // the only practical difference between INC and DEC status flags is given by V
@@ -610,15 +612,15 @@ pub mod machine_module {
                 ::std::convert::Into::<::machine_check::Unsigned<1>>::into(flag_V);
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_V_unsigned)
-                    << ::machine_check::Bitvector::<8>::new(3));
+                    << ::machine_check::Unsigned::<8>::new(3));
 
             // S - sign flag (N ^ V), bit 4
-            let flag_S = flag_N ^ flag_V;
+            let flag_S = flag_N ^ flag_V_unsigned;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_S)
-                    << ::machine_check::Bitvector::<8>::new(4));
+                    << ::machine_check::Unsigned::<8>::new(4));
 
-            result
+            ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
 
         // for instruction NEG
@@ -632,17 +634,14 @@ pub mod machine_module {
             // like compute_status_sub, but with Rd being the subtrahend from zero
 
             let retained_flags = ::machine_check::Unsigned::<8>::new(0b1100_0000);
-            let result =
+            let mut result =
                 ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
 
             let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Rd);
             let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(Ru);
 
-            let Rd7 = ::machine_check::Ext::<1>::ext(
-                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(7),
-            );
             let Ru7 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(7),
+                Ru_unsigned >> ::machine_check::Unsigned::<8>::new(7),
             );
 
             // C - carry flag, bit 0
@@ -659,7 +658,7 @@ pub mod machine_module {
             let flag_N = Ru7;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_N)
-                    << ::machine_check::Bitvector::<8>::new(2));
+                    << ::machine_check::Unsigned::<8>::new(2));
 
             // V - two's complement overflow flag, bit 3
             // set if and only if Ru is 0x80
@@ -672,13 +671,13 @@ pub mod machine_module {
             let flag_S = flag_N ^ flag_V;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_S)
-                    << ::machine_check::Bitvector::<8>::new(4));
+                    << ::machine_check::Unsigned::<8>::new(4));
 
             let Rd3 = ::machine_check::Ext::<1>::ext(
-                Rd_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+                Rd_unsigned >> ::machine_check::Unsigned::<8>::new(3),
             );
             let Ru3 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<8>::new(3),
+                Ru_unsigned >> ::machine_check::Unsigned::<8>::new(3),
             );
 
             // H - half carry flag, bit 5
@@ -686,7 +685,7 @@ pub mod machine_module {
             let flag_H = Ru3 & !Rd3;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_H)
-                    << ::machine_check::Bitvector::<8>::new(4));
+                    << ::machine_check::Unsigned::<8>::new(4));
 
             ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
@@ -700,17 +699,17 @@ pub mod machine_module {
             Ru: ::machine_check::Bitvector<16>,
         ) -> ::machine_check::Bitvector<8> {
             let retained_flags = ::machine_check::Unsigned::<8>::new(0b1110_0000);
-            let result =
+            let mut result =
                 ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
 
             let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<16>>::into(Rd);
             let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<16>>::into(Ru);
 
             let Rd15 = ::machine_check::Ext::<1>::ext(
-                Rd_unsigned >> ::machine_check::Bitvector::<16>::new(15),
+                Rd_unsigned >> ::machine_check::Unsigned::<16>::new(15),
             );
             let Ru15 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<16>::new(15),
+                Ru_unsigned >> ::machine_check::Unsigned::<16>::new(15),
             );
 
             // C - carry flag, bit 0
@@ -726,20 +725,21 @@ pub mod machine_module {
             let flag_N = Ru15;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_N)
-                    << ::machine_check::Bitvector::<8>::new(2));
+                    << ::machine_check::Unsigned::<8>::new(2));
 
             // V - two's complement overflow flag, bit 3
             let flag_V = !Rd15 & Ru15;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_V)
-                    << ::machine_check::Bitvector::<8>::new(3));
+                    << ::machine_check::Unsigned::<8>::new(3));
 
             // S - sign flag (N ^ V), bit 4
             let flag_S = flag_N ^ flag_V;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_S)
-                    << ::machine_check::Bitvector::<8>::new(4));
-            result
+                    << ::machine_check::Unsigned::<8>::new(4));
+
+            ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
 
         // for instruction SBIW
@@ -751,17 +751,17 @@ pub mod machine_module {
             Ru: ::machine_check::Bitvector<16>,
         ) -> ::machine_check::Bitvector<8> {
             let retained_flags = ::machine_check::Unsigned::<8>::new(0b1110_0000);
-            let result =
+            let mut result =
                 ::std::convert::Into::<::machine_check::Unsigned<8>>::into(sreg) & retained_flags;
 
             let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<16>>::into(Rd);
             let Ru_unsigned = ::std::convert::Into::<::machine_check::Unsigned<16>>::into(Ru);
 
             let Rd15 = ::machine_check::Ext::<1>::ext(
-                Rd_unsigned >> ::machine_check::Bitvector::<16>::new(15),
+                Rd_unsigned >> ::machine_check::Unsigned::<16>::new(15),
             );
             let Ru15 = ::machine_check::Ext::<1>::ext(
-                Ru_unsigned >> ::machine_check::Bitvector::<16>::new(15),
+                Ru_unsigned >> ::machine_check::Unsigned::<16>::new(15),
             );
 
             // C - carry flag, bit 0
@@ -777,40 +777,41 @@ pub mod machine_module {
             let flag_N = Ru15;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_N)
-                    << ::machine_check::Bitvector::<8>::new(2));
+                    << ::machine_check::Unsigned::<8>::new(2));
 
             // V - two's complement overflow flag, bit 3
             let flag_V = Ru15 & !Rd15;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_V)
-                    << ::machine_check::Bitvector::<8>::new(3));
+                    << ::machine_check::Unsigned::<8>::new(3));
 
             // S - sign flag (N ^ V), bit 4
             let flag_S = flag_N ^ flag_V;
             result = result
                 | (::machine_check::Ext::<8>::ext(flag_S)
-                    << ::machine_check::Bitvector::<8>::new(4));
-            result
+                    << ::machine_check::Unsigned::<8>::new(4));
+
+            ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result)
         }
 
         fn next_0000(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
-            let mut PC = state.PC;
+            let PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
             let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // NOP
@@ -921,28 +922,28 @@ pub mod machine_module {
         fn next_0001(&self, state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
             let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // CPSE
                 "----_00rd_dddd_rrrr" => {
                     // compare skip if equal
                     // similar to other skips, but with register comparison
-                    if (R[d] == R[r]) {
+                    if R[d] == R[r] {
                         // they are equal, skip next instruction
                         PC = Self::instruction_skip(self, PC);
                     } else {
@@ -1000,23 +1001,23 @@ pub mod machine_module {
         }
 
         fn next_0010(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
-            let mut PC = state.PC;
+            let PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
             let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
 
@@ -1037,7 +1038,7 @@ pub mod machine_module {
                     // bypass unknown values by setting zero directly
                     // this is due to this special case being widely
                     // used to set a register to zero
-                    if (r == d) {
+                    if r == d {
                         R[d] = ::machine_check::Bitvector::<8>::new(0);
                     } else {
                         R[d] = R[d] ^ R[r];
@@ -1088,23 +1089,23 @@ pub mod machine_module {
         }
 
         fn next_0011(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
-            let mut PC = state.PC;
-            let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
+            let PC = state.PC;
+            let R = ::std::clone::Clone::clone(&state.R);
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
             let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // CPI
@@ -1147,23 +1148,23 @@ pub mod machine_module {
         }
 
         fn next_01(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
-            let mut PC = state.PC;
+            let PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
             let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
 
@@ -1246,23 +1247,23 @@ pub mod machine_module {
         }
 
         fn next_10q0(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
-            let mut PC = state.PC;
-            let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
-            let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let PC = state.PC;
+            let R = ::std::clone::Clone::clone(&state.R);
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
+            let SREG = state.SREG;
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // LD Rd, Z+q
@@ -1311,23 +1312,23 @@ pub mod machine_module {
         }
 
         fn next_1001_000d(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
-            let mut PC = state.PC;
-            let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
-            let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let PC = state.PC;
+            let R = ::std::clone::Clone::clone(&state.R);
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
+            let SREG = state.SREG;
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // LDS - 2 words
@@ -1474,23 +1475,23 @@ pub mod machine_module {
         }
 
         fn next_1001_001r(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
-            let mut PC = state.PC;
-            let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
-            let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let PC = state.PC;
+            let R = ::std::clone::Clone::clone(&state.R);
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
+            let SREG = state.SREG;
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
 
@@ -1595,21 +1596,21 @@ pub mod machine_module {
         ) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
             let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // COM Rd
@@ -1632,10 +1633,10 @@ pub mod machine_module {
 
                     let prev_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(R[d]);
                     // swap nibbles in register, status flags not affected
-                    let prev_lo_half = prev_unsigned & ::machine_check::Bitvector::<8>::new(0x0F);
-                    let prev_hi_half = prev_unsigned & ::machine_check::Bitvector::<8>::new(0xF0);
-                    let current_lo_half = prev_hi_half >> ::machine_check::Bitvector::<8>::new(4);
-                    let current_hi_half = prev_lo_half << ::machine_check::Bitvector::<8>::new(4);
+                    let prev_lo_half = prev_unsigned & ::machine_check::Unsigned::<8>::new(0x0F);
+                    let prev_hi_half = prev_unsigned & ::machine_check::Unsigned::<8>::new(0xF0);
+                    let current_lo_half = prev_hi_half >> ::machine_check::Unsigned::<8>::new(4);
+                    let current_hi_half = prev_lo_half << ::machine_check::Unsigned::<8>::new(4);
                     R[d] = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(current_hi_half | current_lo_half);
                 }
 
@@ -1702,14 +1703,14 @@ pub mod machine_module {
                 "----_---0_0sss_1000" => {
                     // bit set in status register
                     let amount = ::machine_check::Ext::<8>::ext(::std::convert::Into::<::machine_check::Unsigned<3>>::into(s));
-                    SREG = SREG | (::machine_check::Bitvector::<8>::new(1) << amount);
+                    SREG = SREG | ::std::convert::Into::<::machine_check::Bitvector<8>>::into(::machine_check::Unsigned::<8>::new(1) << amount);
                 }
 
                 // BCLR s
                 "----_---0_1sss_1000" => {
                     // bit clear in status register
                     let amount = ::machine_check::Ext::<8>::ext(::std::convert::Into::<::machine_check::Unsigned<3>>::into(s));
-                    SREG = SREG & !(::machine_check::Bitvector::<8>::new(1) << amount);
+                    SREG = SREG & !(::std::convert::Into::<::machine_check::Bitvector<8>>::into(::machine_check::Unsigned::<8>::new(1) << amount));
                 }
 
                 // IJMP
@@ -1907,23 +1908,23 @@ pub mod machine_module {
         }
 
         fn next_1001_011x(state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
-            let mut PC = state.PC;
+            let PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
             let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // ADIW Rd, K
@@ -1933,10 +1934,10 @@ pub mod machine_module {
                     // only available for register pairs r24:r25, r26:r27, r28:29, r30:r31
                     // extend d to five bits, double it, and add 24 to get low register index
                     let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<2>>::into(d);
-                    let d_ext = ::machine_check::Ext::<5>::ext(d_unsigned);
+                    let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(::machine_check::Ext::<5>::ext(d_unsigned));
                     let double_d_ext = d_ext + d_ext;
-                    let lo_reg_num = double_d_ext + ::machine_check::Unsigned::<5>::new(24);
-                    let hi_reg_num = lo_reg_num + ::machine_check::Unsigned::<5>::new(1);
+                    let lo_reg_num = double_d_ext + ::machine_check::Bitvector::<5>::new(24);
+                    let hi_reg_num = lo_reg_num + ::machine_check::Bitvector::<5>::new(1);
 
                     let lo_reg = R[lo_reg_num];
                     let hi_reg = R[hi_reg_num];
@@ -1947,18 +1948,20 @@ pub mod machine_module {
 
                     let lo_reg_ext = ::machine_check::Ext::<16>::ext(lo_reg_unsigned);
                     let hi_reg_ext = ::machine_check::Ext::<16>::ext(hi_reg_unsigned);
-                    let pair = (hi_reg_ext << ::machine_check::Bitvector::<16>::new(8)) | lo_reg_ext;
+                    let pair = (hi_reg_ext << ::machine_check::Unsigned::<16>::new(8)) | lo_reg_ext;
 
                     let k_unsigned = ::std::convert::Into::<::machine_check::Unsigned<6>>::into(k);
                     let result_pair = pair + ::machine_check::Ext::<16>::ext(k_unsigned);
 
                     let result_lo = ::machine_check::Ext::<8>::ext(result_pair);
-                    let result_hi = ::machine_check::Ext::<8>::ext(result_pair >> ::machine_check::Bitvector::<16>::new(8));
+                    let result_hi = ::machine_check::Ext::<8>::ext(result_pair >> ::machine_check::Unsigned::<16>::new(8));
 
-                    R[lo_reg_num] = result_lo;
-                    R[hi_reg_num] = result_hi;
+                    R[lo_reg_num] = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result_lo);
+                    R[hi_reg_num] = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result_hi);
 
-                    SREG = Self::compute_status_adiw(SREG, pair, result_pair);
+
+
+                    SREG = Self::compute_status_adiw(SREG, ::std::convert::Into::<::machine_check::Bitvector<16>>::into(pair), ::std::convert::Into::<::machine_check::Bitvector<16>>::into(result_pair));
 
                     // ADIW is a two-cycle instruction
 
@@ -1970,10 +1973,10 @@ pub mod machine_module {
                     // only available for register pairs r24:r25, r26:r27, r28:29, r30:r31
                     // extend d to five bits, double it, and add 24 to get low register index
                     let d_unsigned = ::std::convert::Into::<::machine_check::Unsigned<2>>::into(d);
-                    let d_ext = ::machine_check::Ext::<5>::ext(d_unsigned);
+                    let d_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(::machine_check::Ext::<5>::ext(d_unsigned));
                     let double_d_ext = d_ext + d_ext;
-                    let lo_reg_num = double_d_ext + ::machine_check::Unsigned::<5>::new(24);
-                    let hi_reg_num = lo_reg_num + ::machine_check::Unsigned::<5>::new(1);
+                    let lo_reg_num = double_d_ext + ::machine_check::Bitvector::<5>::new(24);
+                    let hi_reg_num = lo_reg_num + ::machine_check::Bitvector::<5>::new(1);
 
                     let lo_reg = R[lo_reg_num];
                     let hi_reg = R[hi_reg_num];
@@ -1984,18 +1987,19 @@ pub mod machine_module {
 
                     let lo_reg_ext = ::machine_check::Ext::<16>::ext(lo_reg_unsigned);
                     let hi_reg_ext = ::machine_check::Ext::<16>::ext(hi_reg_unsigned);
-                    let pair = (hi_reg_ext << ::machine_check::Bitvector::<16>::new(8)) | lo_reg_ext;
+                    let pair = (hi_reg_ext << ::machine_check::Unsigned::<16>::new(8)) | lo_reg_ext;
 
                     let k_unsigned = ::std::convert::Into::<::machine_check::Unsigned<6>>::into(k);
                     let result_pair = pair - ::machine_check::Ext::<16>::ext(k_unsigned);
 
+
                     let result_lo = ::machine_check::Ext::<8>::ext(result_pair);
-                    let result_hi = ::machine_check::Ext::<8>::ext(result_pair >> ::machine_check::Bitvector::<16>::new(8));
+                    let result_hi = ::machine_check::Ext::<8>::ext(result_pair >> ::machine_check::Unsigned::<16>::new(8));
 
-                    R[lo_reg_num] = result_lo;
-                    R[hi_reg_num] = result_hi;
+                    R[lo_reg_num] = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result_lo);
+                    R[hi_reg_num] = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(result_hi);
 
-                    SREG = Self::compute_status_sbiw(SREG, pair, result_pair);
+                    SREG = Self::compute_status_sbiw(SREG, ::std::convert::Into::<::machine_check::Bitvector<16>>::into(pair), ::std::convert::Into::<::machine_check::Bitvector<16>>::into(result_pair));
 
                     // SBIW is a two-cycle instruction
                 }
@@ -2117,22 +2121,22 @@ pub mod machine_module {
                 // IN
                 "----_0aad_dddd_aaaa" => {
                     // load I/O location to register, status flags not affected
-                    let mut PC = state.PC;
+                    let PC = state.PC;
                     let mut R = ::std::clone::Clone::clone(&state.R);
-                    let mut DDRB = state.DDRB;
-                    let mut PORTB = state.PORTB;
-                    let mut DDRC = state.DDRC;
-                    let mut PORTC = state.PORTC;
-                    let mut DDRD = state.DDRD;
-                    let mut PORTD = state.PORTD;
-                    let mut GPIOR0 = state.GPIOR0;
-                    let mut GPIOR1 = state.GPIOR1;
-                    let mut GPIOR2 = state.GPIOR2;
-                    let mut SPL = state.SPL;
-                    let mut SPH = state.SPH;
-                    let mut SREG = state.SREG;
-                    let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
-                    let mut safe = state.safe;
+                    let DDRB = state.DDRB;
+                    let PORTB = state.PORTB;
+                    let DDRC = state.DDRC;
+                    let PORTC = state.PORTC;
+                    let DDRD = state.DDRD;
+                    let PORTD = state.PORTD;
+                    let GPIOR0 = state.GPIOR0;
+                    let GPIOR1 = state.GPIOR1;
+                    let GPIOR2 = state.GPIOR2;
+                    let SPL = state.SPL;
+                    let SPH = state.SPH;
+                    let SREG = state.SREG;
+                    let SRAM = ::std::clone::Clone::clone(&state.SRAM);
+                    let safe = state.safe;
 
                     // TODO: infer type
                     let io_result: ::machine_check::Bitvector<8> = Self::read_io_reg(state, input, a);
@@ -2175,21 +2179,21 @@ pub mod machine_module {
         fn next_11(&self, state: &State, instruction: ::machine_check::Bitvector<16>) -> State {
             let mut PC = state.PC;
             let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
             let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
-            let mut safe = state.safe;
+            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
 
@@ -2239,7 +2243,7 @@ pub mod machine_module {
 
                     // branch if bit in SREG is set
                     // we have already added 1 to PC before case
-                    if (SREG & bit_mask == bit_mask) {
+                    if SREG & bit_mask == bit_mask {
                         // it is set, branch
                         // represent k as signed and sign-extend
 
@@ -2263,7 +2267,7 @@ pub mod machine_module {
 
                     // branch if bit in SREG is cleared
                     // we have already added 1 to PC before case
-                    if (SREG & bit_mask == bit_mask) {
+                    if SREG & bit_mask == bit_mask {
                         // it is set, do nothing
                     } else {
                         // it is cleared, branch
@@ -2284,11 +2288,11 @@ pub mod machine_module {
 
                     let SREG_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(SREG);
                     let SREG_masked = SREG_unsigned & ::machine_check::Unsigned::<8>::new(0b0100_0000);
-                    let lowest_bit_T = SREG_masked >> ::machine_check::Bitvector::<8>::new(6);
+                    let lowest_bit_T = SREG_masked >> ::machine_check::Unsigned::<8>::new(6);
 
                     let amount = ::machine_check::Ext::<8>::ext(::std::convert::Into::<::machine_check::Unsigned<3>>::into(b));
-                    let bit_only_mask = ::machine_check::Bitvector::<8>::new(1) << amount;
-                    let bit_only_T = lowest_bit_T << amount;
+                    let bit_only_mask = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(::machine_check::Unsigned::<8>::new(1) << amount);
+                    let bit_only_T = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(lowest_bit_T << amount);
 
                     R[d] = (R[d] & !bit_only_mask) | bit_only_T;
                 }
@@ -2300,10 +2304,10 @@ pub mod machine_module {
                     // store bit b from register Rd to flag T (bit 6) of SREG
                     let amount = ::machine_check::Ext::<8>::ext(::std::convert::Into::<::machine_check::Unsigned<3>>::into(b));
                     let Rd_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(R[d]);
-                    let lowest_bit_T = (Rd_unsigned >> amount) & ::machine_check::Bitvector::<8>::new(1);
+                    let lowest_bit_T = (Rd_unsigned >> amount) & ::machine_check::Unsigned::<8>::new(1);
 
                     let retained_flags = ::machine_check::Bitvector::<8>::new(0b1011_1111);
-                    let bit_only_T = lowest_bit_T << ::machine_check::Bitvector::<8>::new(6);
+                    let bit_only_T = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(lowest_bit_T << ::machine_check::Unsigned::<8>::new(6));
 
                     SREG = (SREG & retained_flags) | bit_only_T;
                 }
@@ -2318,7 +2322,7 @@ pub mod machine_module {
                     let unsigned_bit_mask = ::machine_check::Unsigned::<8>::new(1) << b_unsigned_ext;
                     let bit_mask = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(unsigned_bit_mask);
 
-                    if (R[r] & bit_mask == bit_mask) {
+                    if R[r] & bit_mask == bit_mask {
                         // it is set, do nothing
                     } else {
                         // it is cleared, skip next instruction
@@ -2336,7 +2340,7 @@ pub mod machine_module {
                     let unsigned_bit_mask = ::machine_check::Unsigned::<8>::new(1) << b_unsigned_ext;
                     let bit_mask = ::std::convert::Into::<::machine_check::Bitvector<8>>::into(unsigned_bit_mask);
 
-                    if (R[r] & bit_mask == bit_mask) {
+                    if R[r] & bit_mask == bit_mask {
                         // it is set, skip next instruction
                         PC = Self::instruction_skip(self, PC);
                     } else {
@@ -2420,7 +2424,7 @@ pub mod machine_module {
             // --- EEPROM ---
             // TODO: implement EEPROM
 
-            let mut safe = ::machine_check::Bitvector::<1>::new(1);
+            let safe = ::machine_check::Bitvector::<1>::new(1);
 
             State {
                 PC,
@@ -2443,23 +2447,23 @@ pub mod machine_module {
         }
 
         fn next(&self, state: &State, input: &Input) -> State {
-            let mut safe = ::machine_check::Bitvector::<1>::new(1);
+            let safe = ::machine_check::Bitvector::<1>::new(1);
 
             let mut PC = state.PC;
-            let mut R = ::std::clone::Clone::clone(&state.R);
-            let mut DDRB = state.DDRB;
-            let mut PORTB = state.PORTB;
-            let mut DDRC = state.DDRC;
-            let mut PORTC = state.PORTC;
-            let mut DDRD = state.DDRD;
-            let mut PORTD = state.PORTD;
-            let mut GPIOR0 = state.GPIOR0;
-            let mut GPIOR1 = state.GPIOR1;
-            let mut GPIOR2 = state.GPIOR2;
-            let mut SPL = state.SPL;
-            let mut SPH = state.SPH;
-            let mut SREG = state.SREG;
-            let mut SRAM = ::std::clone::Clone::clone(&state.SRAM);
+            let R = ::std::clone::Clone::clone(&state.R);
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
+            let SREG = state.SREG;
+            let SRAM = ::std::clone::Clone::clone(&state.SRAM);
 
             // --- Instruction Step ---
 
@@ -2489,9 +2493,6 @@ pub mod machine_module {
             };
 
             let mut result = ::std::clone::Clone::clone(&state);
-
-            let unsigned_instruction =
-                ::std::convert::Into::<::machine_check::Unsigned<16>>::into(instruction);
 
             //result = Self::next_0000(state, input, instruction_tail);
 

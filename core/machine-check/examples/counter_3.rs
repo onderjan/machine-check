@@ -55,10 +55,10 @@ mod machine_module {
 }
 
 fn main() {
-    let abstract_machine = machine_module::CounterMachine {};
+    let abstract_machine = machine_module::__mck_mod_abstr::CounterMachine {};
     machine_check_exec::run::<
-        machine_module::refin::Input,
-        machine_module::refin::State,
-        machine_module::refin::CounterMachine,
+        machine_module::__mck_mod_abstr::__mck_mod_refin::Input,
+        machine_module::__mck_mod_abstr::__mck_mod_refin::State,
+        machine_module::__mck_mod_abstr::__mck_mod_refin::CounterMachine,
     >(&abstract_machine);
 }
