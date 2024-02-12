@@ -1,4 +1,5 @@
 use crate::bitvector::refin;
+use crate::concr::MachineCheckMachine;
 use crate::misc::FieldManipulate;
 use crate::refin::Boolean;
 
@@ -20,44 +21,47 @@ where
     fn clean() -> Self;
 }
 
-pub trait Input:
+pub trait Input<C: MachineCheckMachine>:
     Debug
     + MetaEq
     + Hash
     + Clone
-    + Meta<<Self as Input>::Abstract>
-    + Refine<<Self as Input>::Abstract>
+    + Meta<<C::Abstr as abstr::Machine<C>>::Input>
+    + Refine<<C::Abstr as abstr::Machine<C>>::Input>
     + FieldManipulate<refin::Bitvector<1>>
 {
-    type Abstract: abstr::Input;
 }
 
-pub trait State:
+pub trait State<C: MachineCheckMachine>:
     Debug
     + MetaEq
     + Clone
-    + Refine<<Self as State>::Abstract>
-    + Meta<<Self as State>::Abstract>
+    + Refine<<C::Abstr as abstr::Machine<C>>::State>
+    + Meta<<C::Abstr as abstr::Machine<C>>::State>
     + FieldManipulate<refin::Bitvector<1>>
 {
-    type Abstract: abstr::State;
 }
 
-pub trait Machine<I: Input, S: State>
+pub trait Machine<C: MachineCheckMachine>
 where
     Self: std::marker::Sized,
 {
-    type Abstract: abstr::Machine<<I as Input>::Abstract, <S as State>::Abstract>;
+    type Input: Input<C>;
+    type State: State<C>;
 
     #[must_use]
-    fn init(abstr_args: (&Self::Abstract, &<I as Input>::Abstract), later_mark: S) -> (Self, I);
+    fn init(
+        abstr_args: (&C::Abstr, &<C::Abstr as abstr::Machine<C>>::Input),
+        later_mark: Self::State,
+    ) -> (Self, Self::Input);
+    #[allow(clippy::type_complexity)]
     #[must_use]
     fn next(
         abstr_args: (
-            &Self::Abstract,
-            &<S as State>::Abstract,
-            &<I as Input>::Abstract,
+            &C::Abstr,
+            &<C::Abstr as abstr::Machine<C>>::State,
+            &<C::Abstr as abstr::Machine<C>>::Input,
         ),
-        later_mark: S,
-    ) -> (Self, S, I);
+        later_mark: Self::State,
+    ) -> (Self, Self::State, Self::Input);
 }

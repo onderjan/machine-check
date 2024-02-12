@@ -2377,7 +2377,10 @@ pub mod machine_module {
         }
     }
 
-    impl ::machine_check::Machine<Input, State> for Machine {
+    impl ::machine_check::Machine for Machine {
+        type Input = Input;
+        type State = State;
+
         fn init(&self, input: &Input) -> State {
             // --- Program Counter ---
             // initialized to 0 after reset

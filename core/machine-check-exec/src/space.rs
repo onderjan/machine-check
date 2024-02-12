@@ -2,9 +2,9 @@ use std::{collections::BTreeSet, fmt::Debug, num::NonZeroUsize, ops::Shr, rc::Rc
 
 use bimap::BiMap;
 use mck::{
-    abstr::{Input, State},
-    concr,
-    misc::MetaEq,
+    abstr,
+    concr::{self, MachineCheckMachine},
+    misc::{FieldManipulate, MetaEq},
 };
 use petgraph::{prelude::GraphMap, Directed};
 use std::hash::Hash;
@@ -65,14 +65,14 @@ impl<E: MetaEq + Debug + Clone + Hash> Hash for MetaWrap<E> {
     }
 }
 
-pub struct Space<I: Input, S: State> {
-    node_graph: GraphMap<NodeId, Edge<MetaWrap<I>>, Directed>,
-    state_map: BiMap<StateId, Rc<MetaWrap<S>>>,
+pub struct Space<M: MachineCheckMachine> {
+    node_graph: GraphMap<NodeId, Edge<MetaWrap<<M::Abstr as abstr::Machine<M>>::Input>>, Directed>,
+    state_map: BiMap<StateId, Rc<MetaWrap<<M::Abstr as abstr::Machine<M>>::State>>>,
     num_states_for_sweep: usize,
     next_state_id: StateId,
 }
 
-impl<I: Input, S: State> Debug for Space<I, S> {
+impl<M: MachineCheckMachine> Debug for Space<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // build sorted nodes first
         let mut node_ids: Vec<_> = self.node_graph.nodes().collect();
@@ -106,7 +106,7 @@ impl<I: Input, S: State> Debug for Space<I, S> {
     }
 }
 
-impl<I: Input, S: State> Space<I, S> {
+impl<M: MachineCheckMachine> Space<M> {
     pub fn new() -> Self {
         Self {
             node_graph: GraphMap::new(),
@@ -116,7 +116,7 @@ impl<I: Input, S: State> Space<I, S> {
         }
     }
 
-    pub fn get_state_by_id(&self, state_id: StateId) -> &S {
+    pub fn get_state_by_id(&self, state_id: StateId) -> &<M::Abstr as abstr::Machine<M>>::State {
         &self
             .state_map
             .get_by_left(&state_id)
@@ -138,15 +138,15 @@ impl<I: Input, S: State> Space<I, S> {
     pub fn add_step(
         &mut self,
         current_node: NodeId,
-        next_state: S,
-        representative_input: &I,
+        next_state: <M::Abstr as abstr::Machine<M>>::State,
+        representative_input: &<M::Abstr as abstr::Machine<M>>::Input,
     ) -> (StateId, bool) {
         let (next_state_id, inserted) = self.add_state(next_state);
         self.add_edge(current_node, next_state_id.into(), representative_input);
         (next_state_id, inserted)
     }
 
-    fn add_state(&mut self, state: S) -> (StateId, bool) {
+    fn add_state(&mut self, state: <M::Abstr as abstr::Machine<M>>::State) -> (StateId, bool) {
         let state = Rc::new(MetaWrap(state));
         let state_id = if let Some(state_id) = self.state_map.get_by_right(&state) {
             // state already present in state map and consequentially next precision map
@@ -175,7 +175,12 @@ impl<I: Input, S: State> Space<I, S> {
         }
     }
 
-    fn add_edge(&mut self, from: NodeId, to: NodeId, input: &I) {
+    fn add_edge(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        input: &<M::Abstr as abstr::Machine<M>>::Input,
+    ) {
         if self.node_graph.contains_edge(from, to) {
             // do nothing
             return;
@@ -189,7 +194,11 @@ impl<I: Input, S: State> Space<I, S> {
         );
     }
 
-    pub fn get_representative_input(&self, head: NodeId, tail: StateId) -> &I {
+    pub fn get_representative_input(
+        &self,
+        head: NodeId,
+        tail: StateId,
+    ) -> &<M::Abstr as abstr::Machine<M>>::Input {
         &self
             .node_graph
             .edge_weight(head, tail.into())

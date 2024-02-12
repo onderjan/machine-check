@@ -35,5 +35,6 @@ pub mod backward {
 }
 
 pub mod misc {
+    pub use super::array::light::*;
     pub use super::traits::misc::*;
 }

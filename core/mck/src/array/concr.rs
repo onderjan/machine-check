@@ -20,6 +20,10 @@ impl<const I: u32, const L: u32> Array<I, L> {
             inner: LightArray::new_filled(element, Self::SIZE),
         }
     }
+
+    pub fn from_inner(inner: LightArray<concr::Bitvector<L>>) -> Self {
+        Self { inner }
+    }
 }
 
 impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {

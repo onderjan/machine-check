@@ -1,10 +1,12 @@
 use std::ops::{Index, IndexMut};
 
+use mck::{concr::IntoMck, misc::LightArray};
+
 use crate::Bitvector;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct BitvectorArray<const I: u32, const L: u32> {
-    pub(super) inner: Vec<Bitvector<L>>,
+    pub(super) inner: LightArray<Bitvector<L>>,
 }
 
 impl<const I: u32, const L: u32> BitvectorArray<I, L> {
@@ -13,7 +15,7 @@ impl<const I: u32, const L: u32> BitvectorArray<I, L> {
     pub fn new_filled(element: Bitvector<L>) -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: vec![element; Self::SIZE],
+            inner: LightArray::new_filled(element, Self::SIZE),
         }
     }
 }
@@ -39,4 +41,12 @@ fn coerce_index<const I: u32>(index: Bitvector<I>) -> usize {
         .try_into()
         .expect("Index should be within usize");
     index
+}
+
+impl<const I: u32, const L: u32> IntoMck for BitvectorArray<I, L> {
+    type Type = mck::concr::Array<I, L>;
+
+    fn into_mck(self) -> Self::Type {
+        Self::Type::from_inner(self.inner.map(|v| v.into_mck()))
+    }
 }

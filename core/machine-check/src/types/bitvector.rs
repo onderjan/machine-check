@@ -4,7 +4,7 @@ use std::{
 };
 
 use mck::{
-    concr,
+    concr::{self, IntoMck},
     forward::{Bitwise, HwArith, HwShift},
 };
 
@@ -16,6 +16,14 @@ pub struct Bitvector<const L: u32>(pub(super) concr::Bitvector<L>);
 impl<const L: u32> Bitvector<L> {
     pub fn new(value: u64) -> Self {
         Bitvector(concr::Bitvector::new(value))
+    }
+}
+
+impl<const L: u32> IntoMck for Bitvector<L> {
+    type Type = mck::concr::Bitvector<L>;
+
+    fn into_mck(self) -> Self::Type {
+        self.0
     }
 }
 

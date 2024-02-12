@@ -1,3 +1,5 @@
+use machine_check::Bitvector;
+
 #[::machine_check::machine_description]
 mod machine_module {
     #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -16,9 +18,12 @@ mod machine_module {
     impl ::machine_check::State for State {}
     #[derive(Clone, Hash, PartialEq, Eq)]
     pub struct Machine {
-        progmem: ::machine_check::BitvectorArray<8, 12>,
+        pub progmem: ::machine_check::BitvectorArray<8, 12>,
     }
-    impl ::machine_check::Machine<Input, State> for Machine {
+    impl ::machine_check::Machine for Machine {
+        type Input = Input;
+        type State = State;
+
         fn init(&self, input: &Input) -> State {
             State {
                 pc: ::machine_check::Bitvector::<8>::new(0),
@@ -69,18 +74,14 @@ mod machine_module {
 }
 
 fn main() {
-    /*let mut progmem =
+    let mut progmem =
         ::machine_check::BitvectorArray::<8, 12>::new_filled(::machine_check::Bitvector::new(0));
 
     progmem[Bitvector::new(0)] = Bitvector::new(0b0000_0000_0000);
     progmem[Bitvector::new(1)] = Bitvector::new(0b0000_0000_0001);
     progmem[Bitvector::new(2)] = Bitvector::new(0b0000_0000_0010);
 
-    let abstract_machine = machine_module::Machine { progmem };
+    let system = machine_module::Machine { progmem };
 
-    machine_check_exec::run::<
-        machine_module::refin::Input,
-        machine_module::refin::State,
-        machine_module::refin::Machine,
-    >(&abstract_machine);*/
+    machine_check_exec::run(system);
 }

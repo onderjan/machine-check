@@ -1,13 +1,25 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    abstr::{Boolean, Phi, Test},
+    abstr::{Abstr, Boolean, Phi, Test},
     bitvector::{concrete::ConcreteBitvector, util},
+    concr,
     forward::Bitwise,
     traits::misc::MetaEq,
 };
 
 use super::ThreeValuedBitvector;
+
+impl<const L: u32> Abstr<concr::Bitvector<L>> for ThreeValuedBitvector<L> {
+    fn from_concrete(value: concr::Bitvector<L>) -> Self {
+        // bit-negate for zeros
+        let zeros = Bitwise::bit_not(value);
+        // leave as-is for ones
+        let ones = value;
+
+        Self::from_zeros_ones(zeros, ones)
+    }
+}
 
 impl<const L: u32> ThreeValuedBitvector<L> {
     #[must_use]
@@ -36,16 +48,6 @@ impl<const L: u32> ThreeValuedBitvector<L> {
             return Err(());
         }
         Ok(Self { zeros, ones })
-    }
-
-    #[must_use]
-    pub fn from_concrete(value: ConcreteBitvector<L>) -> Self {
-        // bit-negate for zeros
-        let zeros = Bitwise::bit_not(value);
-        // leave as-is for ones
-        let ones = value;
-
-        Self::from_zeros_ones(zeros, ones)
     }
 
     #[must_use]

@@ -93,12 +93,12 @@ impl VisitMut for Visitor {
 
     fn visit_impl_item_mut(&mut self, impl_item: &mut syn::ImplItem) {
         match impl_item {
-            syn::ImplItem::Fn(_) => {
+            syn::ImplItem::Fn(_) | syn::ImplItem::Type(_) => {
                 // OK
             }
             _ => {
                 self.push_error(MachineError(String::from(
-                    "Only functions supported in implementation",
+                    "Only functions and types supported in implementation",
                 )));
             }
         }

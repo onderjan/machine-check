@@ -1,5 +1,5 @@
+use machine_check::{Bitvector, BitvectorArray};
 use machine_check_avr::machine_module;
-use mck::forward::ReadWrite;
 
 fn main() {
     let hex = include_str!("basic_branch.hex");
@@ -7,8 +7,8 @@ fn main() {
     let reader = ihex::Reader::new(hex);
 
     // fill with ones which is a reserved instruction
-    let unknown = ::mck::abstr::Bitvector::new_unknown();
-    let mut progmem = ::mck::abstr::Array::new_filled(unknown);
+    let all_ones = Bitvector::new(0xFFFF);
+    let mut progmem = BitvectorArray::new_filled(all_ones);
 
     for record in reader {
         let record = match record {
@@ -34,10 +34,8 @@ fn main() {
                 {
                     // AVR has progmem words specified in little-endian order
                     let word = u16::from_le_bytes([lo, hi]);
-                    progmem = progmem.write(
-                        ::mck::abstr::Bitvector::new(word_index as u64),
-                        ::mck::abstr::Bitvector::new(word as u64),
-                    );
+                    let index = Bitvector::new(word_index as u64);
+                    progmem[index] = Bitvector::new(word as u64);
                     word_index += 1;
                 }
             }
@@ -48,11 +46,7 @@ fn main() {
 
     println!("Progmem: {:?}", progmem);
 
-    let abstract_machine = machine_module::__mck_mod_abstr::Machine { PROGMEM: progmem };
+    let system = machine_module::Machine { PROGMEM: progmem };
 
-    machine_check_exec::run::<
-        machine_module::__mck_mod_abstr::__mck_mod_refin::Input,
-        machine_module::__mck_mod_abstr::__mck_mod_refin::State,
-        machine_module::__mck_mod_abstr::__mck_mod_refin::Machine,
-    >(&abstract_machine);
+    machine_check_exec::run(system);
 }

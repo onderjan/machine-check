@@ -1,4 +1,5 @@
 use crate::{
+    abstr::Abstr,
     bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
     traits::misc::MetaEq,
 };

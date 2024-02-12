@@ -2,21 +2,21 @@ use std::collections::{BTreeSet, HashMap};
 
 use log::{log_enabled, trace};
 use machine_check_common::ExecError;
-use mck::abstr::{Input, State};
+use mck::concr::MachineCheckMachine;
 
 use crate::{
     proposition::{PropBi, PropG, PropTemp, PropU, PropUni, Proposition},
     space::{Space, StateId},
 };
 
-pub struct ClassicChecker<'a, I: Input, S: State> {
-    space: &'a Space<I, S>,
+pub struct ClassicChecker<'a, M: MachineCheckMachine> {
+    space: &'a Space<M>,
     optimistic: bool,
     labelling_map: HashMap<Proposition, BTreeSet<StateId>>,
 }
 
-impl<'a, I: Input, S: State> ClassicChecker<'a, I, S> {
-    pub fn new(space: &'a Space<I, S>, optimistic: bool) -> Self {
+impl<'a, M: MachineCheckMachine> ClassicChecker<'a, M> {
+    pub fn new(space: &'a Space<M>, optimistic: bool) -> Self {
         ClassicChecker {
             space,
             optimistic,

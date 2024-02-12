@@ -1,11 +1,14 @@
-mod impl_item_fn;
+mod item_impl;
 mod item_struct;
 
-use syn::{ImplItem, Item};
+use syn::Item;
 
 use crate::{support::field_manipulate, MachineDescription};
 
-use self::{impl_item_fn::process_impl_item_fn, item_struct::process_impl_item_struct};
+use self::{
+    item_impl::{preprocess_item_impl, process_item_impl},
+    item_struct::process_item_struct,
+};
 
 use super::{
     support::path_rules::{PathRule, PathRuleSegment, PathRules},
@@ -20,20 +23,24 @@ pub(crate) fn create_abstract_machine(
     // apply transcription to types using path rule transcriptor
     path_rules().apply_to_items(&mut abstract_machine.items)?;
 
+    let mut machine_types = Vec::new();
     let mut processed_items = Vec::new();
+
+    for item in abstract_machine.items.iter() {
+        if let Item::Impl(item_impl) = item {
+            if let Some(ty) = preprocess_item_impl(item_impl)? {
+                machine_types.push(ty);
+            }
+        }
+    }
 
     for item in abstract_machine.items.drain(..) {
         match item {
-            syn::Item::Impl(mut item_impl) => {
-                for impl_item in item_impl.items.iter_mut() {
-                    if let ImplItem::Fn(impl_item_fn) = impl_item {
-                        process_impl_item_fn(impl_item_fn)?;
-                    }
-                }
-                processed_items.push(Item::Impl(item_impl));
+            syn::Item::Impl(item_impl) => {
+                processed_items.extend(process_item_impl(item_impl, &machine_types)?);
             }
             syn::Item::Struct(item_struct) => {
-                processed_items.extend(process_impl_item_struct(item_struct)?);
+                processed_items.extend(process_item_struct(item_struct)?);
             }
             _ => panic!("Unexpected item type"),
         }

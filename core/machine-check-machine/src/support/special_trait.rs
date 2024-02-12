@@ -2,6 +2,7 @@ use syn::{punctuated::Punctuated, ItemImpl, Path, PathArguments};
 
 use crate::util::{create_ident, create_path_segment};
 
+#[derive(Debug)]
 pub enum SpecialTrait {
     Machine,
     Input,
@@ -16,11 +17,16 @@ pub fn special_trait_impl(item_impl: &ItemImpl, flavour: &str) -> Option<Special
 }
 
 pub fn special_trait_path(trait_path: &Path, flavour: &str) -> Option<SpecialTrait> {
-    if is_abstr_input_trait(trait_path, flavour) {
+    // strip generics
+    let mut trait_path = trait_path.clone();
+    for seg in &mut trait_path.segments {
+        seg.arguments = PathArguments::None;
+    }
+    if is_abstr_input_trait(&trait_path, flavour) {
         Some(SpecialTrait::Input)
-    } else if is_abstr_state_trait(trait_path, flavour) {
+    } else if is_abstr_state_trait(&trait_path, flavour) {
         Some(SpecialTrait::State)
-    } else if is_abstr_machine_trait(trait_path, flavour) {
+    } else if is_abstr_machine_trait(&trait_path, flavour) {
         Some(SpecialTrait::Machine)
     } else {
         None
@@ -47,11 +53,5 @@ fn is_abstr_state_trait(trait_path: &Path, flavour: &str) -> bool {
 }
 
 fn is_abstr_machine_trait(trait_path: &Path, flavour: &str) -> bool {
-    // strip generics
-    let mut trait_path = trait_path.clone();
-    for seg in &mut trait_path.segments {
-        seg.arguments = PathArguments::None;
-    }
-
-    trait_path == create_trait_path(flavour, "Machine")
+    trait_path == &create_trait_path(flavour, "Machine")
 }

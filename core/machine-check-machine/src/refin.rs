@@ -82,4 +82,5 @@ fn is_skipped_impl(item_impl: &syn::ItemImpl) -> bool {
     path_matches_global_names(path, &["mck", "misc", "FieldManipulate"])
         || path_matches_global_names(path, &["mck", "misc", "MetaEq"])
         || path_matches_global_names(path, &["mck", "abstr", "Phi"])
+        || path_matches_global_names(path, &["mck", "abstr", "Abstr"])
 }

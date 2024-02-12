@@ -1,8 +1,15 @@
-use syn::{ImplItem, Item, ItemImpl, Type};
+use syn::{
+    punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, GenericArgument,
+    GenericParam, Generics, Ident, ImplItem, Item, ItemImpl, PathArguments, Token, Type, TypeParam,
+};
 
 use crate::{
+    concr,
     support::{special_trait::special_trait_impl, struct_rules::StructRules},
-    util::{create_ident, create_impl_item_type},
+    util::{
+        create_ident, create_impl_item_type, create_path_segment,
+        create_path_with_last_generic_type, create_type_path,
+    },
     MachineError,
 };
 
@@ -49,10 +56,29 @@ pub(super) fn apply(
             rules::refinement_type(),
         ),
     };
+    let mut converted_item_impl = converter.convert(item_impl.clone())?;
 
-    let converted_item_impl = converter.convert(item_impl.clone())?;
+    if let Some((_, path, _)) = &mut converted_item_impl.trait_ {
+        // convert generic parameters
+        for segment in &mut path.segments {
+            if let PathArguments::AngleBracketed(angle_bracketed) = &mut segment.arguments {
+                for argument in &mut angle_bracketed.args {
+                    let span = argument.span();
+                    if let GenericArgument::Type(Type::Path(type_path)) = argument {
+                        if type_path.path.leading_colon.is_none() {
+                            type_path
+                                .path
+                                .segments
+                                .insert(0, create_path_segment(Ident::new("super", span)));
+                        }
+                    }
+                }
+            }
+        }
+    };
+
     refinement_items.push(Item::Impl(converted_item_impl));
-    println!("Applied refinement to impl {}", quote::quote!(#self_ty));
+
     Ok(())
 }
 
@@ -85,18 +111,6 @@ impl ImplConverter {
 
         let mut item_impl = item_impl;
         item_impl.items = items;
-
-        if special_trait_impl(&item_impl, "abstr").is_some() {
-            // add abstract type
-            let type_ident = create_ident("Abstract");
-            let type_assign = self
-                .abstract_rules
-                .convert_type((*item_impl.self_ty).clone())?;
-            item_impl.items.push(ImplItem::Type(create_impl_item_type(
-                type_ident,
-                type_assign,
-            )));
-        }
 
         if let Some(trait_) = &mut item_impl.trait_ {
             trait_.1 = self

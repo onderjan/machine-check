@@ -5,7 +5,9 @@ use log::log_enabled;
 use log::trace;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
-use mck::abstr;
+use mck::concr::MachineCheckMachine;
+use mck::misc::FieldManipulate;
+use mck::misc::Meta;
 use mck::refin::{self};
 
 use crate::model_check::Conclusion;
@@ -18,19 +20,22 @@ use crate::{
     precision::Precision,
     space::Space,
 };
+use mck::abstr::Machine as AbstrMachine;
+use mck::refin::Machine as RefinMachine;
+use mck::refin::Refine;
 
-pub struct Refinery<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> {
-    machine: &'a M::Abstract,
-    precision: Precision<I, S>,
-    space: Space<I::Abstract, S::Abstract>,
+pub struct Refinery<'a, M: MachineCheckMachine> {
+    abstract_system: &'a M::Abstr,
+    precision: Precision<M>,
+    space: Space<M>,
     num_refinements: usize,
     use_decay: bool,
 }
 
-impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a, I, S, M> {
-    pub fn new(machine: &'a M::Abstract, use_decay: bool) -> Self {
+impl<'a, M: MachineCheckMachine> Refinery<'a, M> {
+    pub fn new(abstract_system: &'a M::Abstr, use_decay: bool) -> Self {
         let mut refinery = Refinery {
-            machine,
+            abstract_system,
             precision: Precision::new(),
             space: Space::new(),
             num_refinements: 0,
@@ -56,7 +61,7 @@ impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a,
                 trace!("State space: {:#?}", self.space);
             }
 
-            let conclusion = model_check::check_prop(&self.space, &prop)?;
+            let conclusion = model_check::check_prop::<M>(&self.space, &prop)?;
             // if verification was incomplete, try to refine the culprit
             let culprit = match conclusion {
                 Conclusion::Known(conclusion) => break Ok(conclusion),
@@ -90,7 +95,7 @@ impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a,
         self.num_refinements += 1;
         //info!("Refinement number: {}", self.num_refinements);
         // compute marking
-        let mut current_state_mark = S::clean();
+        let mut current_state_mark = <M::Refin as refin::Machine<M>>::State::clean();
         let mark_bit = current_state_mark.get_mut(&culprit.name).unwrap();
         *mark_bit = refin::Bitvector::new_marked();
 
@@ -132,8 +137,10 @@ impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a,
                 if self.num_refinements == 22 && i == 4 {
                     info!("HERE");
                 }*/
-                let (_refinement_machine, new_state_mark, input_mark) =
-                    M::next((self.machine, previous_state, input), current_state_mark);
+                let (_refinement_machine, new_state_mark, input_mark) = M::Refin::next(
+                    (self.abstract_system, previous_state, input),
+                    current_state_mark,
+                );
                 //info!("Step new state mark: {:?}", new_state_mark);
 
                 (input_mark, Some(new_state_mark))
@@ -143,7 +150,7 @@ impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a,
 
                 // increasing state precision failed, try increasing init precision
                 let (_refinement_machine, input_mark) =
-                    M::init((self.machine, input), current_state_mark);
+                    M::Refin::init((self.abstract_system, input), current_state_mark);
                 (input_mark, None)
             };
 
@@ -194,15 +201,9 @@ impl<'a, I: refin::Input, S: refin::State, M: refin::Machine<I, S>> Refinery<'a,
             for input in input_precision.into_proto_iter() {
                 let mut next_state = {
                     if let Some(current_state) = &current_state {
-                        <<M as refin::Machine<I, S>>::Abstract as abstr::Machine<
-                            I::Abstract,
-                            S::Abstract,
-                        >>::next(self.machine, current_state, &input)
+                        M::Abstr::next(self.abstract_system, current_state, &input)
                     } else {
-                        <<M as refin::Machine<I, S>>::Abstract as abstr::Machine<
-                            I::Abstract,
-                            S::Abstract,
-                        >>::init(self.machine, &input)
+                        M::Abstr::init(self.abstract_system, &input)
                     }
                 };
                 if self.use_decay {

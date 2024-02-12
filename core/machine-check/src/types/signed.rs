@@ -4,7 +4,7 @@ use std::{
 };
 
 use mck::{
-    concr,
+    concr::{self, IntoMck},
     forward::{Bitwise, HwArith, HwShift},
 };
 
@@ -16,6 +16,14 @@ pub struct Signed<const L: u32>(pub(super) concr::Bitvector<L>);
 impl<const L: u32> Signed<L> {
     pub fn new(value: u64) -> Self {
         Signed(concr::Bitvector::new(value))
+    }
+}
+
+impl<const L: u32> IntoMck for Signed<L> {
+    type Type = mck::concr::Bitvector<L>;
+
+    fn into_mck(self) -> Self::Type {
+        self.0
     }
 }
 

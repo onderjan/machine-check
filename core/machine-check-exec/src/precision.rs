@@ -1,17 +1,18 @@
 use std::collections::BTreeMap;
 
-use mck::refin::Input;
-use mck::refin::Refine;
-use mck::refin::State;
+use mck::{
+    concr::MachineCheckMachine,
+    refin::{self, Refine},
+};
 
 use crate::space::NodeId;
 
-pub struct Precision<I: Input, S: State> {
-    input: BTreeMap<NodeId, I>,
-    decay: BTreeMap<NodeId, S>,
+pub struct Precision<M: MachineCheckMachine> {
+    input: BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input>,
+    decay: BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::State>,
 }
 
-impl<I: Input, S: State> Precision<I, S> {
+impl<M: MachineCheckMachine> Precision<M> {
     pub fn new() -> Self {
         Precision {
             input: BTreeMap::new(),
@@ -19,25 +20,25 @@ impl<I: Input, S: State> Precision<I, S> {
         }
     }
 
-    pub fn get_input(&self, node_id: NodeId) -> I {
+    pub fn get_input(&self, node_id: NodeId) -> <M::Refin as refin::Machine<M>>::Input {
         match self.input.get(&node_id) {
             Some(input) => input.clone(),
             None => Refine::clean(),
         }
     }
 
-    pub fn mut_input(&mut self, node_id: NodeId) -> &mut I {
+    pub fn mut_input(&mut self, node_id: NodeId) -> &mut <M::Refin as refin::Machine<M>>::Input {
         self.input.entry(node_id).or_insert_with(|| Refine::clean())
     }
 
-    pub fn get_decay(&self, node_id: NodeId) -> S {
+    pub fn get_decay(&self, node_id: NodeId) -> <M::Refin as refin::Machine<M>>::State {
         match self.decay.get(&node_id) {
             Some(decay) => decay.clone(),
             None => Refine::clean(),
         }
     }
 
-    pub fn mut_decay(&mut self, node_id: NodeId) -> &mut S {
+    pub fn mut_decay(&mut self, node_id: NodeId) -> &mut <M::Refin as refin::Machine<M>>::State {
         self.decay.entry(node_id).or_insert_with(|| Refine::clean())
     }
 

@@ -20,7 +20,10 @@ mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct CounterMachine {}
 
-    impl ::machine_check::Machine<Input, State> for CounterMachine {
+    impl ::machine_check::Machine for CounterMachine {
+        type Input = Input;
+        type State = State;
+
         fn init(&self, input: &Input) -> State {
             State {
                 value: ::machine_check::Unsigned::<8>::new(0),
@@ -55,10 +58,6 @@ mod machine_module {
 }
 
 fn main() {
-    let abstract_machine = machine_module::__mck_mod_abstr::CounterMachine {};
-    machine_check_exec::run::<
-        machine_module::__mck_mod_abstr::__mck_mod_refin::Input,
-        machine_module::__mck_mod_abstr::__mck_mod_refin::State,
-        machine_module::__mck_mod_abstr::__mck_mod_refin::CounterMachine,
-    >(&abstract_machine);
+    let system = machine_module::CounterMachine {};
+    machine_check_exec::run(system);
 }

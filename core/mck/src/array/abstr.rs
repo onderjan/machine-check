@@ -1,16 +1,24 @@
 use std::fmt::Debug;
 
 use crate::{
-    abstr::{self, Phi},
+    abstr::{self, Abstr, Phi},
     forward::ReadWrite,
     traits::misc::MetaEq,
 };
 
-use super::light::LightArray;
+use super::{concr, light::LightArray};
 
 #[derive(Clone, Hash)]
 pub struct Array<const I: u32, const L: u32> {
     pub(super) inner: LightArray<abstr::Bitvector<L>>,
+}
+
+impl<const I: u32, const L: u32> Abstr<concr::Array<I, L>> for Array<I, L> {
+    fn from_concrete(value: concr::Array<I, L>) -> Self {
+        Self {
+            inner: value.inner.map(|v| abstr::Bitvector::from_concrete(*v)),
+        }
+    }
 }
 
 impl<const I: u32, const L: u32> Array<I, L> {

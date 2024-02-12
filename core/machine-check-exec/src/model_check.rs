@@ -4,7 +4,7 @@ mod deduce;
 use std::collections::VecDeque;
 
 use machine_check_common::ExecError;
-use mck::abstr::{Input, State};
+use mck::concr::MachineCheckMachine;
 
 use crate::{proposition::Proposition, space::StateId};
 
@@ -12,8 +12,8 @@ use self::{classic::ClassicChecker, deduce::deduce_culprit};
 
 use super::space::Space;
 
-pub(super) fn check_prop<I: Input, S: State>(
-    space: &Space<I, S>,
+pub(super) fn check_prop<M: MachineCheckMachine>(
+    space: &Space<M>,
     prop: &Proposition,
 ) -> Result<Conclusion, ExecError> {
     let mut checker = ThreeValuedChecker::new(space);
@@ -31,14 +31,14 @@ pub(super) struct Culprit {
     pub name: String,
 }
 
-struct ThreeValuedChecker<'a, I: Input, S: State> {
-    space: &'a Space<I, S>,
-    pessimistic: ClassicChecker<'a, I, S>,
-    optimistic: ClassicChecker<'a, I, S>,
+struct ThreeValuedChecker<'a, M: MachineCheckMachine> {
+    space: &'a Space<M>,
+    pessimistic: ClassicChecker<'a, M>,
+    optimistic: ClassicChecker<'a, M>,
 }
 
-impl<'a, I: Input, S: State> ThreeValuedChecker<'a, I, S> {
-    fn new(space: &'a Space<I, S>) -> Self {
+impl<'a, M: MachineCheckMachine> ThreeValuedChecker<'a, M> {
+    fn new(space: &'a Space<M>) -> Self {
         Self {
             space,
             pessimistic: ClassicChecker::new(space, false),

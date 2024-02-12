@@ -1,23 +1,27 @@
 use std::fmt::{Debug, Display};
 
-use crate::bitvector::{
-    concrete::ConcreteBitvector, support::Unsigned, three_valued, wrap_interval,
+use crate::{
+    abstr::Abstr,
+    bitvector::{
+        concr, concrete::ConcreteBitvector, support::Unsigned, three_valued, wrap_interval,
+    },
 };
 
 use super::Bitvector;
+
+impl<const L: u32> Abstr<concr::Bitvector<L>> for Bitvector<L> {
+    fn from_concrete(value: concr::Bitvector<L>) -> Self {
+        Self {
+            three_valued: three_valued::AbstractBitvector::from_concrete(value),
+            wrap_interval: wrap_interval::AbstractBitvector::from_concrete(value),
+        }
+    }
+}
 
 impl<const L: u32> Bitvector<L> {
     #[must_use]
     pub fn new(value: u64) -> Self {
         Self::from_concrete(ConcreteBitvector::new(value))
-    }
-
-    #[must_use]
-    pub fn from_concrete(value: ConcreteBitvector<L>) -> Self {
-        Self {
-            three_valued: three_valued::AbstractBitvector::from_concrete(value),
-            wrap_interval: wrap_interval::AbstractBitvector::from_concrete(value),
-        }
     }
 
     pub fn from_join(

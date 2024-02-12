@@ -7,6 +7,7 @@ use thiserror::Error;
 use crate::util::create_item_mod;
 
 mod abstr;
+mod concr;
 mod refin;
 mod ssa;
 mod support;
@@ -89,14 +90,20 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Error> {
     let refinement_module = create_machine_module("__mck_mod_refin", refinement_machine);
     abstract_machine.items.push(refinement_module);
 
-    std::fs::write(out_dir.join("machine_full.rs"), unparse(&abstract_machine))
-        .expect("Full machine file should be writable");
-
     support::strip_machine::strip_machine(&mut abstract_machine)?;
 
-    let abstract_module = create_machine_module("__mck_mod_abstr", abstract_machine);
+    concr::process_items(items)?;
 
+    let abstract_module = create_machine_module("__mck_mod_abstr", abstract_machine);
     items.push(abstract_module);
+
+    std::fs::write(
+        out_dir.join("machine_full.rs"),
+        unparse(&MachineDescription {
+            items: items.clone(),
+        }),
+    )
+    .expect("Full machine file should be writable");
 
     println!("Machine-check-machine ending processing");
 
