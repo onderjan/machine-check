@@ -1,7 +1,5 @@
-use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, GenericParam, Generics, Ident, ImplItem,
-    ImplItemType, Item, Path, PathSegment, Token,
+    punctuated::Punctuated, spanned::Spanned, Generics, Ident, ImplItem, Item, Path, PathSegment,
 };
 
 use crate::{

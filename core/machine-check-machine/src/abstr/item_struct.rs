@@ -1,9 +1,9 @@
 mod phi;
 use proc_macro2::Ident;
-use quote::{quote, ToTokens};
+use quote::ToTokens;
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, Expr, ExprStruct, Generics, ImplItem,
-    ImplItemFn, Item, ItemImpl, ItemStruct, Path, PathSegment, Stmt, Token, Type,
+    ImplItemFn, Item, ItemImpl, ItemStruct, Path, Stmt, Token, Type,
 };
 use syn_path::path;
 
@@ -12,11 +12,9 @@ use crate::{
     support::meta_eq::meta_eq_impl,
     util::{
         create_arg, create_assign, create_expr_call, create_expr_field, create_expr_ident,
-        create_expr_path, create_field_value, create_ident, create_impl_item_fn,
-        create_impl_item_type, create_let_bare, create_path_from_ident, create_path_segment,
-        create_path_with_last_generic_type, create_type_path, extract_type_path,
-        generate_derive_attribute, path_matches_global_names, path_starts_with_global_names,
-        ArgType,
+        create_expr_path, create_field_value, create_ident, create_impl_item_fn, create_let_bare,
+        create_path_from_ident, create_path_segment, create_path_with_last_generic_type,
+        create_type_path, extract_type_path, path_starts_with_global_names, ArgType,
     },
     MachineError,
 };

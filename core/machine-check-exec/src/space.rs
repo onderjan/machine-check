@@ -65,9 +65,12 @@ impl<E: MetaEq + Debug + Clone + Hash> Hash for MetaWrap<E> {
     }
 }
 
+type WrappedInput<M> = MetaWrap<<<M as MachineCheckMachine>::Abstr as abstr::Machine<M>>::Input>;
+type WrappedState<M> = MetaWrap<<<M as MachineCheckMachine>::Abstr as abstr::Machine<M>>::State>;
+
 pub struct Space<M: MachineCheckMachine> {
-    node_graph: GraphMap<NodeId, Edge<MetaWrap<<M::Abstr as abstr::Machine<M>>::Input>>, Directed>,
-    state_map: BiMap<StateId, Rc<MetaWrap<<M::Abstr as abstr::Machine<M>>::State>>>,
+    node_graph: GraphMap<NodeId, Edge<WrappedInput<M>>, Directed>,
+    state_map: BiMap<StateId, Rc<WrappedState<M>>>,
     num_states_for_sweep: usize,
     next_state_id: StateId,
 }

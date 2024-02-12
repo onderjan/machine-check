@@ -1,17 +1,8 @@
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, GenericArgument,
-    GenericParam, Generics, Ident, ImplItem, Item, ItemImpl, PathArguments, Token, Type, TypeParam,
+    spanned::Spanned, GenericArgument, Ident, ImplItem, Item, ItemImpl, PathArguments, Type,
 };
 
-use crate::{
-    concr,
-    support::{special_trait::special_trait_impl, struct_rules::StructRules},
-    util::{
-        create_ident, create_impl_item_type, create_path_segment,
-        create_path_with_last_generic_type, create_type_path,
-    },
-    MachineError,
-};
+use crate::{support::struct_rules::StructRules, util::create_path_segment, MachineError};
 
 mod args;
 mod item_impl_fn;

@@ -28,7 +28,7 @@ impl<M: MachineCheckMachine> Precision<M> {
     }
 
     pub fn mut_input(&mut self, node_id: NodeId) -> &mut <M::Refin as refin::Machine<M>>::Input {
-        self.input.entry(node_id).or_insert_with(|| Refine::clean())
+        self.input.entry(node_id).or_insert_with(Refine::clean)
     }
 
     pub fn get_decay(&self, node_id: NodeId) -> <M::Refin as refin::Machine<M>>::State {
@@ -39,7 +39,7 @@ impl<M: MachineCheckMachine> Precision<M> {
     }
 
     pub fn mut_decay(&mut self, node_id: NodeId) -> &mut <M::Refin as refin::Machine<M>>::State {
-        self.decay.entry(node_id).or_insert_with(|| Refine::clean())
+        self.decay.entry(node_id).or_insert_with(Refine::clean)
     }
 
     pub fn retain_indices<F>(&mut self, predicate: F)

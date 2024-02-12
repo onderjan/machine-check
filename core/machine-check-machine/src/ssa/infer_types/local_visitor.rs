@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use syn::{
     punctuated::Punctuated,
     visit_mut::{self, VisitMut},
-    AngleBracketedGenericArguments, Expr, ExprCall, ExprField, ExprPath, ExprReference, ExprStruct,
+    AngleBracketedGenericArguments, Expr, ExprCall, ExprField, ExprPath, ExprReference,
     GenericArgument, Ident, ItemStruct, Member, Path, PathArguments, Type, TypeReference,
 };
 use syn_path::path;

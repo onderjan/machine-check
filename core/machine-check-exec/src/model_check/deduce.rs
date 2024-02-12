@@ -1,10 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use machine_check_common::ExecError;
-use mck::{
-    abstr::{Input, State},
-    concr::MachineCheckMachine,
-};
+use mck::concr::MachineCheckMachine;
 
 use crate::{
     proposition::{PropBi, PropG, PropTemp, PropU, PropUni, Proposition},

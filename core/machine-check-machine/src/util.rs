@@ -1,5 +1,4 @@
 mod arg;
-mod attr;
 mod expr;
 mod field;
 mod impl_item;
@@ -9,7 +8,6 @@ mod path;
 mod stmt;
 mod ty;
 pub use arg::*;
-pub use attr::*;
 pub use expr::*;
 pub use field::*;
 pub use impl_item::*;

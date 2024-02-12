@@ -22,6 +22,10 @@ impl<T: Debug + Clone> LightArray<T> {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn lattice_fold<B>(&self, init: B, func: fn(B, &T) -> B) -> B {
         let mut accumulator = init;
         for value in self.inner.values() {

@@ -8,10 +8,6 @@ use crate::{
 use super::MarkBitvector;
 
 impl<const L: u32> MarkBitvector<L> {
-    pub fn new() -> Self {
-        Self::new_unmarked()
-    }
-
     pub fn new_unmarked() -> Self {
         MarkBitvector(ConcreteBitvector::new(0))
     }
