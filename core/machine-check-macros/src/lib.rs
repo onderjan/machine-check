@@ -40,6 +40,13 @@ pub fn machine_description(_attr: TokenStream, item: TokenStream) -> TokenStream
 #[proc_macro]
 pub fn bitmask_switch(stream: TokenStream) -> TokenStream {
     let switch = parse_macro_input!(stream as BitmaskSwitch);
-    let generated = machine_check_bitmask_switch::generate(switch);
-    TokenStream::from(generated)
+    match machine_check_bitmask_switch::generate(switch) {
+        Ok(ok) => TokenStream::from(ok),
+        Err(error) => match error {
+            machine_check_bitmask_switch::Error::Parse(error) => error.into_compile_error().into(),
+            machine_check_bitmask_switch::Error::Process(msg, span) => {
+                syn::Error::new(span, msg).into_compile_error().into()
+            }
+        },
+    }
 }

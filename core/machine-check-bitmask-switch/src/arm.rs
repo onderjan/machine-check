@@ -14,10 +14,10 @@ use syn::{
 
 use crate::{
     util::{convert_bit_length, convert_type, create_number_expr},
-    BitmaskArm, BitmaskArmChoice,
+    BitmaskArm, BitmaskArmChoice, Error,
 };
 
-use util::{MaskBit, CareValue};
+use util::{CareValue, MaskBit};
 
 struct ArmStatementCreator {
     scrutinee_expr: Expr,
@@ -33,7 +33,8 @@ pub fn process_arms(
     scrutinee_ident: Ident,
     something_taken_ident: Ident,
     arms: Vec<BitmaskArm>,
-) -> (Vec<Stmt>, usize) {
+    body_span: Span,
+) -> Result<(Vec<Stmt>, usize), Error> {
     let mut statement_creator = ArmStatementCreator {
         scrutinee_expr: Expr::Path(ExprPath {
             attrs: vec![],
@@ -55,7 +56,7 @@ pub fn process_arms(
     let mut default_arms = Vec::new();
     for arm in arms {
         if let BitmaskArmChoice::Normal(choice) = arm.choice {
-            statement_creator.process_arm(choice, *arm.body);
+            statement_creator.process_arm(choice, *arm.body)?;
         } else {
             default_arms.push(arm);
         }
@@ -63,24 +64,24 @@ pub fn process_arms(
 
     for default_arm in default_arms {
         let span = default_arm.fat_arrow_token.span();
-        statement_creator.process_default_arm(span, *default_arm.body);
+        statement_creator.process_default_arm(span, *default_arm.body)?;
     }
 
     // make sure the arms are disjoint
     for (first_arm_index, first_arm) in statement_creator.arm_data.iter().enumerate() {
         for second_arm in statement_creator.arm_data.iter().skip(first_arm_index + 1) {
             if first_arm.1.intersects(&second_arm.1) {
-                panic!(
-                    "Arms are not disjoint: {} intersects {}",
-                    first_arm.0.value(),
-                    second_arm.0.value()
-                );
+                let string = format!("Arm is not disjoint with previous {}", second_arm.0.value());
+                return Err(Error::Process(string, first_arm.0.span()));
             }
         }
     }
 
     let Some(num_bits) = statement_creator.num_bits else {
-        panic!("There must be at least one non-default arm");
+        return Err(Error::Process(
+            String::from("There must be at least one non-default arm"),
+            body_span,
+        ));
     };
 
     if !statement_creator.has_default {
@@ -145,15 +146,16 @@ pub fn process_arms(
                     (string, false)
                 })
                 .0;
-            panic!("Incomplete coverage, covering only {}", &string);
+            let string = format!("Incomplete coverage, covering only {}", &string);
+            return Err(Error::Process(string, body_span));
         }
     }
 
-    (statement_creator.arm_stmts, num_bits)
+    Ok((statement_creator.arm_stmts, num_bits))
 }
 
 impl ArmStatementCreator {
-    fn process_arm(&mut self, choice: LitStr, body: Expr) {
+    fn process_arm(&mut self, choice: LitStr, body: Expr) -> Result<(), Error> {
         let mut mask_bits = VecDeque::new();
 
         let str = choice.value();
@@ -171,7 +173,10 @@ impl ArmStatementCreator {
                 char if char.is_ascii_alphabetic() => MaskBit::Variable(char),
                 '0' => MaskBit::Literal(false),
                 '1' => MaskBit::Literal(true),
-                _ => panic!("Unexpected character '{}'", char),
+                _ => {
+                    let string = format!("Unexpected character '{}'", char);
+                    return Err(Error::Process(string, choice.span()));
+                }
             };
             // push to front as we need to reverse human-readable
             // to get proper indexing (0 = lowest bit)
@@ -180,7 +185,11 @@ impl ArmStatementCreator {
         let num_bits = mask_bits.len();
         if let Some(prev_num_bits) = self.num_bits {
             if num_bits != prev_num_bits {
-                panic!("Incompatible number of bits");
+                let string = format!(
+                    "Incompatible number of bits: {} here, but {} previously",
+                    num_bits, prev_num_bits
+                );
+                return Err(Error::Process(string, choice.span()));
             }
         } else {
             self.num_bits = Some(num_bits);
@@ -407,11 +416,15 @@ impl ArmStatementCreator {
         let if_expr_span = if_expr.span();
         self.arm_stmts
             .push(Stmt::Expr(Expr::If(if_expr), Some(Token![;](if_expr_span))));
+        Ok(())
     }
 
-    fn process_default_arm(&mut self, span: Span, body: Expr) {
+    fn process_default_arm(&mut self, span: Span, body: Expr) -> Result<(), Error> {
         if self.has_default {
-            panic!("There can be only one default arm");
+            return Err(Error::Process(
+                String::from("Multiple default arms not permitted"),
+                span,
+            ));
         }
         self.has_default = true;
 
@@ -439,5 +452,6 @@ impl ArmStatementCreator {
         let if_expr_span = if_expr.span();
         self.arm_stmts
             .push(Stmt::Expr(Expr::If(if_expr), Some(Token![;](if_expr_span))));
+        Ok(())
     }
 }

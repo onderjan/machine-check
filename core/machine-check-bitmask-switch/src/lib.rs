@@ -15,12 +15,27 @@ use syn::token::Brace;
 use syn::{parse2, Block, Ident, Local, LocalInit, Pat, PatIdent, Stmt, Token};
 use util::{convert_type, create_number_expr};
 
-pub fn process(stream: TokenStream) -> Result<TokenStream, syn::parse::Error> {
-    let switch: BitmaskSwitch = parse2(stream)?;
-    Ok(generate(switch))
+pub fn process(stream: TokenStream) -> Result<TokenStream, Error> {
+    let switch: BitmaskSwitch = parse2(stream).map_err(Error::Parse)?;
+    generate(switch)
 }
 
-pub fn generate(switch: BitmaskSwitch) -> TokenStream {
+#[derive(Debug)]
+pub enum Error {
+    Parse(syn::parse::Error),
+    Process(String, Span),
+}
+
+impl Error {
+    pub fn msg(&self) -> String {
+        match self {
+            Error::Parse(error) => error.to_string(),
+            Error::Process(msg, _span) => msg.clone(),
+        }
+    }
+}
+
+pub fn generate(switch: BitmaskSwitch) -> Result<TokenStream, Error> {
     let scrutinee_span = switch.expr.span();
     // mixed site ident as we do not want the caller to know about it
     let scrutinee_ident = Ident::new("__scrutinee", Span::mixed_site());
@@ -33,7 +48,8 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         scrutinee_ident.clone(),
         something_taken_ident.clone(),
         switch.arms,
-    );
+        switch.brace_token.span.span(),
+    )?;
 
     // add local statements to outer block
     let scrutinee_local = Stmt::Local(Local {
@@ -85,5 +101,5 @@ pub fn generate(switch: BitmaskSwitch) -> TokenStream {
         #outer_block
     };
 
-    expanded
+    Ok(expanded)
 }

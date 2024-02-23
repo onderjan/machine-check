@@ -61,7 +61,7 @@ impl Visitor {
 
         let macro_result = match machine_check_bitmask_switch::process(tokens) {
             Ok(ok) => ok,
-            Err(err) => panic!("Bitmask switch macro returned an error: {}", err),
+            Err(err) => panic!("Bitmask switch macro returned an error: {}", err.msg()),
         };
         let macro_result: Expr = match parse2(macro_result) {
             Ok(ok) => ok,
