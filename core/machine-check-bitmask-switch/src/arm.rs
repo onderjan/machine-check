@@ -1,4 +1,7 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{BTreeMap, HashMap, VecDeque},
+    fmt::Write,
+};
 
 use num::{BigUint, One, Zero};
 use proc_macro2::Span;
@@ -9,7 +12,7 @@ use syn::{
 
 use crate::{
     util::{convert_bit_length, convert_type, create_number_expr},
-    BitmaskArm, BitmaskArmChoice, MaskBit, MaskValue,
+    BitmaskArm, BitmaskArmChoice, CareValue, MaskBit,
 };
 
 struct ArmStatementCreator {
@@ -17,7 +20,7 @@ struct ArmStatementCreator {
     something_taken_expr: Expr,
 
     num_bits: Option<usize>,
-    arm_data: Vec<(String, MaskValue)>,
+    arm_data: Vec<(LitStr, CareValue)>,
     arm_stmts: Vec<Stmt>,
     has_default: bool,
 }
@@ -47,7 +50,7 @@ pub fn process_arms(
     // process normal arms first, default arms after that
     let mut default_arms = Vec::new();
     for arm in arms {
-        if let BitmaskArmChoice::Normal(choice) = &arm.choice {
+        if let BitmaskArmChoice::Normal(choice) = arm.choice {
             statement_creator.process_arm(choice, *arm.body);
         } else {
             default_arms.push(arm);
@@ -65,26 +68,88 @@ pub fn process_arms(
             if first_arm.1.intersects(&second_arm.1) {
                 panic!(
                     "Arms are not disjoint: {} intersects {}",
-                    first_arm.0, second_arm.0
+                    first_arm.0.value(),
+                    second_arm.0.value()
                 );
             }
         }
     }
 
+    let Some(num_bits) = statement_creator.num_bits else {
+        panic!("There must be at least one non-default arm");
+    };
+
     if !statement_creator.has_default {
-        // TODO: check full coverage using the Quine–McCluskey algorithm
-        panic!("There currently must be a default arm");
+        // check full coverage by combining minterms as in the Quine–McCluskey algorithm
+
+        // organize the minterms by the number of care bits
+        let mut minterm_map = BTreeMap::<u64, VecDeque<_>>::new();
+        for (_lit_str, care_value) in statement_creator.arm_data {
+            minterm_map
+                .entry(care_value.num_care_bits())
+                .or_default()
+                .push_back(care_value);
+        }
+
+        // combine the smallest minterms in a loop until there are no care bits
+        // keep a list of minterms that could not be combined
+        let mut uncombinable_minterms = Vec::new();
+
+        while let Some((num_cares, mut smallest_minterms)) = minterm_map.pop_last() {
+            // remove the entry with the highest number of care bits (i.e. smallest minterms)
+            if num_cares == 0 {
+                // OK, full coverage
+                continue;
+            }
+            // we should be able to combine each minterm with another one
+            // prefer combining the first minterms first
+            while let Some(first_minterm) = smallest_minterms.pop_front() {
+                let mut removal_index = None;
+                for (second_index, second_minterm) in smallest_minterms.iter().enumerate() {
+                    if let Some(combined_minterm) = first_minterm.try_combine(second_minterm) {
+                        // we were able to combine the minterms
+                        // add the combined one to minterm map and remove the second minterm after breaking
+                        let combined_care_bits = combined_minterm.num_care_bits();
+                        assert!(combined_care_bits < num_cares);
+                        minterm_map
+                            .entry(combined_care_bits)
+                            .or_default()
+                            .push_back(combined_minterm);
+                        removal_index = Some(second_index);
+                        break;
+                    }
+                }
+                if let Some(removal_index) = removal_index {
+                    // OK, we found the second minterm and will remove it
+                    smallest_minterms.remove(removal_index);
+                } else {
+                    // we found a minterm that cannot be combined
+                    uncombinable_minterms.push(first_minterm);
+                }
+            }
+        }
+
+        if !uncombinable_minterms.is_empty() {
+            let string = uncombinable_minterms
+                .iter()
+                .fold((String::new(), true), |(mut string, first), item| {
+                    if !first {
+                        string += ", ";
+                    }
+                    // string write cannot return an error
+                    write!(string, "{}", item).unwrap();
+                    (string, false)
+                })
+                .0;
+            panic!("Incomplete coverage, covering only {}", &string);
+        }
     }
 
-    if let Some(num_bits) = statement_creator.num_bits {
-        (statement_creator.arm_stmts, num_bits)
-    } else {
-        panic!("There must be at least one non-default arm");
-    }
+    (statement_creator.arm_stmts, num_bits)
 }
 
 impl ArmStatementCreator {
-    fn process_arm(&mut self, choice: &LitStr, body: Expr) {
+    fn process_arm(&mut self, choice: LitStr, body: Expr) {
         let mut mask_bits = VecDeque::new();
 
         let str = choice.value();
@@ -117,9 +182,10 @@ impl ArmStatementCreator {
             self.num_bits = Some(num_bits);
         }
 
-        // construct mask/value combo
-        let mut condition = MaskValue {
-            mask: Zero::zero(),
+        // construct care/value combo, do not care about anything at first
+        let mut condition = CareValue {
+            num_bits: num_bits as u64,
+            care: Zero::zero(),
             value: Zero::zero(),
         };
 
@@ -147,8 +213,8 @@ impl ArmStatementCreator {
 
             match mask_bit {
                 MaskBit::Literal(literal) => {
-                    // unmask this bit and set appropriate value
-                    condition.mask.set_bit(bit_index as u64, true);
+                    // care about this bit and set appropriate value
+                    condition.care.set_bit(bit_index as u64, true);
                     condition.value.set_bit(bit_index as u64, *literal);
                 }
                 MaskBit::Variable(char) => {
@@ -173,10 +239,10 @@ impl ArmStatementCreator {
 
         let choice_span = choice.span();
 
-        let mask_expr = create_number_expr(&condition.mask, num_bits, choice_span);
+        let mask_expr = create_number_expr(&condition.care, num_bits, choice_span);
         let value_expr = create_number_expr(&condition.value, num_bits, choice_span);
 
-        self.arm_data.push((str, condition));
+        self.arm_data.push((choice, condition));
 
         // scrutinee & mask == value
         let bitand_expr = Expr::Binary(ExprBinary {

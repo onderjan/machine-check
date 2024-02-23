@@ -819,6 +819,7 @@ pub mod machine_module {
                     // do nothing
                 },
 
+                // other 255 opcodes starting with 0000_0000 are reserved
 
                 // MOVW
                 "----_0001_dddd_rrrr" => {
@@ -971,10 +972,6 @@ pub mod machine_module {
                     R[d] = R[d] + R[r] + carry;
                     SREG = Self::compute_status_add(SREG, prev, R[r], R[d]);
                 }
-
-                _ => {
-                    // TODO: disjoint arms check
-                }
             });
 
             State {
@@ -1057,10 +1054,6 @@ pub mod machine_module {
                     // copy register, status flags not affected
                     R[d] = R[r];
                 }
-
-                _ => {
-                    // TODO: disjoint arms check
-                }
             });
 
             State {
@@ -1115,10 +1108,6 @@ pub mod machine_module {
                     let result = R[reg_num] - k;
 
                     SREG = Self::compute_status_sub(SREG, R[reg_num], k, result);
-                }
-
-                _ => {
-                    // TODO: disjoint arms check
                 }
             });
 
@@ -1216,9 +1205,6 @@ pub mod machine_module {
                     R[reg_num] = R[reg_num] & k;
                     SREG = Self::compute_status_logical(SREG, R[reg_num]);
                 }
-                _ => {
-                    // TODO: disjoint arms check
-                }
             });
 
             State {
@@ -1262,27 +1248,23 @@ pub mod machine_module {
 
             ::machine_check::bitmask_switch!(instruction {
                 // LD Rd, Z+q
-                "10q0_qq0d_dddd_0qqq" => {
+                "--q-_qq0d_dddd_0qqq" => {
                     //R[d] = DATA[Z+q]; increment_cycle_count();
                 }
 
                 // LD Rd, Y+q
-                "10q0_qq0d_dddd_1qqq" => {
+                "--q-_qq0d_dddd_1qqq" => {
                     //R[d] = DATA[Y+q]; increment_cycle_count();
                 }
 
                 // ST Z+q, Rr
-                "10q0_qq1r_rrrr_0qqq" => {
+                "--q-_qq1r_rrrr_0qqq" => {
                     //DATA[Z+q] = R[r]; increment_cycle_count();
                 }
 
                 // ST Y+q, Rr
-                "10q0_qq1r_rrrr_1qqq" => {
+                "--q-_qq1r_rrrr_1qqq" => {
                     //DATA[Y+q] = R[r]; increment_cycle_count();
-                }
-
-                _ => {
-                    // TODO: disjoint arms check
                 }
             });
 
@@ -1442,10 +1424,6 @@ pub mod machine_module {
                     // POP is a two-cycle instruction
                     increment_cycle_count();
                     */
-                }
-
-                _ => {
-                    // TODO: disjoint arms check
                 }
             });
 
@@ -1992,10 +1970,6 @@ pub mod machine_module {
 
                     // SBIW is a two-cycle instruction
                 }
-
-                _ => {
-                    // TODO: disjoint arms check
-                }
             });
 
             State {
@@ -2090,10 +2064,6 @@ pub mod machine_module {
                 "----_11rd_dddd_rrrr" => {
                     /* unimplemented(); //R[1:0] = R[d]*R[r]; */
                 }
-
-                _ => {
-                    // TODO: disjoint arms check
-                }
             });
 
             result
@@ -2155,10 +2125,6 @@ pub mod machine_module {
                 "----_1aar_rrrr_aaaa" => {
                     // store register to I/O location, status flags not affected
                     result = Self::write_io_reg(state, a, state.R[r]);
-                }
-
-                _ => {
-                    // TODO: disjoint arms check
                 }
             });
 
@@ -2516,9 +2482,6 @@ pub mod machine_module {
                 }
                 "11--_----_----_----" => {
                     result = Self::next_11(self, &state, instruction);
-                }
-                _ => {
-                    // TODO: disjoint check
                 }
             });
 

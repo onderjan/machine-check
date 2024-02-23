@@ -59,9 +59,9 @@ mod machine_module {
                 "11ss_1---_--nn" => { // store indirect
                     data[reg[n]] = reg[s];
                 }
-                _ => {
+                /*_ => {
 
-                }
+                }*/
             });
             State { pc, reg, data }
         }
