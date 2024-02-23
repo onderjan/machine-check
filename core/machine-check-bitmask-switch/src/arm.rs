@@ -1,3 +1,5 @@
+mod util;
+
 use std::{
     collections::{BTreeMap, HashMap, VecDeque},
     fmt::Write,
@@ -12,8 +14,10 @@ use syn::{
 
 use crate::{
     util::{convert_bit_length, convert_type, create_number_expr},
-    BitmaskArm, BitmaskArmChoice, CareValue, MaskBit,
+    BitmaskArm, BitmaskArmChoice,
 };
+
+use util::{MaskBit, CareValue};
 
 struct ArmStatementCreator {
     scrutinee_expr: Expr,
