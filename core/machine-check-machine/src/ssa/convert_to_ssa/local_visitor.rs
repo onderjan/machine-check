@@ -36,9 +36,16 @@ impl VisitMut for LocalVisitor {
         // visit right side first
         visit_mut::visit_expr_mut(self, &mut expr_assign.right);
 
-        // if the left ident is mutable, change it to temporary
-        let left_ident = extract_expr_ident_mut(&mut expr_assign.left)
-            .expect("Left side of assignment should be expression");
+        let left = if let Expr::Index(expr_index) = expr_assign.left.as_mut() {
+            visit_mut::visit_expr_mut(self, expr_index.index.as_mut());
+            expr_index.expr.as_mut()
+        } else {
+            expr_assign.left.as_mut()
+        };
+
+        // change left to temporary
+        let left_ident =
+            extract_expr_ident_mut(left).expect("Left side of assignment should be expression");
         if let Some(counter) = self.local_ident_counters.get_mut(left_ident) {
             let temp_ident = create_new_temporary(&mut self.temps, left_ident, counter);
             *left_ident = temp_ident;

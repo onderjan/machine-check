@@ -54,15 +54,10 @@ mod machine_module {
                     reg[d] = k;
                 }
                 "11dd_0---_--nn" => { // load indirect
-                    let addr = reg[n];
-                    let value = data[addr];
-                    reg[d] = value;
+                    reg[d] = data[reg[n]];
                 }
                 "11ss_1---_--nn" => { // store indirect
-                    let addr = reg[n];
-                    let value = reg[s];
-                    data[addr] = value;
-                    //data[n] = reg[s];
+                    data[reg[n]] = reg[s];
                 }
                 _ => {
 

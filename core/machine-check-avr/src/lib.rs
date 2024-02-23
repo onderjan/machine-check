@@ -831,13 +831,10 @@ pub mod machine_module {
                     let r_ext_unsigned = ::machine_check::Ext::<5>::ext(r_unsigned);
                     let r_ext = ::std::convert::Into::<::machine_check::Bitvector<5>>::into(r_ext_unsigned);
 
-                    // TODO: support doing this at once
-                    let r_lo_val = R[r_ext + r_ext];
-                    R[d_ext + d_ext] = r_lo_val;
+                    R[d_ext + d_ext] = R[r_ext + r_ext];
 
                     let five_bit_one = ::machine_check::Bitvector::<5>::new(1);
-                    let r_hi_val = R[r_ext + r_ext + five_bit_one];
-                    R[d_ext + d_ext + five_bit_one] = r_hi_val;
+                    R[d_ext + d_ext + five_bit_one] = R[r_ext + r_ext + five_bit_one];
                 }
 
                 // MULS
@@ -1058,9 +1055,7 @@ pub mod machine_module {
                 // MOV
                 "----_11rd_dddd_rrrr" => {
                     // copy register, status flags not affected
-                    // TODO: do this at once
-                    let tmp = R[r];
-                    R[d] = tmp;
+                    R[d] = R[r];
                 }
 
                 _ => {
@@ -1939,12 +1934,9 @@ pub mod machine_module {
                     let lo_reg_num = double_d_ext + ::machine_check::Bitvector::<5>::new(24);
                     let hi_reg_num = lo_reg_num + ::machine_check::Bitvector::<5>::new(1);
 
-                    let lo_reg = R[lo_reg_num];
-                    let hi_reg = R[hi_reg_num];
-
                     // construct the little-endian pair (low index corresponds to low bits)
-                    let lo_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(lo_reg);
-                    let hi_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(hi_reg);
+                    let lo_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(R[lo_reg_num]);
+                    let hi_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(R[hi_reg_num]);
 
                     let lo_reg_ext = ::machine_check::Ext::<16>::ext(lo_reg_unsigned);
                     let hi_reg_ext = ::machine_check::Ext::<16>::ext(hi_reg_unsigned);
@@ -1978,12 +1970,9 @@ pub mod machine_module {
                     let lo_reg_num = double_d_ext + ::machine_check::Bitvector::<5>::new(24);
                     let hi_reg_num = lo_reg_num + ::machine_check::Bitvector::<5>::new(1);
 
-                    let lo_reg = R[lo_reg_num];
-                    let hi_reg = R[hi_reg_num];
-
                     // construct the little-endian pair (low index corresponds to low bits)
-                    let lo_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(lo_reg);
-                    let hi_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(hi_reg);
+                    let lo_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(R[lo_reg_num]);
+                    let hi_reg_unsigned = ::std::convert::Into::<::machine_check::Unsigned<8>>::into(R[hi_reg_num]);
 
                     let lo_reg_ext = ::machine_check::Ext::<16>::ext(lo_reg_unsigned);
                     let hi_reg_ext = ::machine_check::Ext::<16>::ext(hi_reg_unsigned);
