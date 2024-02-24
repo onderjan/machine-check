@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use syn::{Ident, Item, Type};
+use syn::{spanned::Spanned, Ident, Item, Type};
 
-use crate::{util::path_matches_global_names, MachineDescription};
+use crate::{util::path_matches_global_names, ErrorType, MachineDescription};
 
 use super::{
     support::{
@@ -52,7 +52,10 @@ pub(crate) fn create_refinement_machine(
                 }
             }
             _ => {
-                return Err(MachineError(format!("Item type {:?} not supported", item)));
+                return Err(MachineError::new(
+                    ErrorType::BackwardInternal(format!("Item type {:?} not supported", item)),
+                    item.span(),
+                ));
             }
         };
     }

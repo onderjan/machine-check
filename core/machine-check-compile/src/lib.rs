@@ -17,8 +17,6 @@ pub use prepare::Config as PrepareConfig;
 pub enum Error {
     #[error("could not serialize: {0}")]
     Serialize(#[from] serde_json::Error),
-    #[error(transparent)]
-    Machine(#[from] machine_check_machine::Error),
     #[error("could not flush to file {0}")]
     Flush(Utf8PathBuf, #[source] std::io::Error),
     #[error("could not determine working directory path")]

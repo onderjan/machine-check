@@ -1,11 +1,11 @@
 use syn::{
-    punctuated::Punctuated, visit_mut::VisitMut, Expr, ExprStruct, GenericArgument, Ident, Member,
-    Path, Stmt, Type,
+    punctuated::Punctuated, spanned::Spanned, visit_mut::VisitMut, Expr, ExprStruct,
+    GenericArgument, Ident, Member, Path, Stmt, Type,
 };
 
 use crate::{
     util::{create_path_from_ident, create_type_path},
-    MachineError,
+    ErrorType, MachineError,
 };
 
 use super::path_rules::PathRules;
@@ -61,16 +61,23 @@ impl StructRules {
         }
 
         let Type::Path(ty) = ty else {
-            return Err(MachineError(format!(
-                "Non-path type {} not supported",
-                quote::quote!(#ty)
-            )));
+            return Err(MachineError::new(
+                ErrorType::RulesInternal(format!(
+                    "Non-path type {} not supported",
+                    quote::quote!(#ty)
+                )),
+                ty.span(),
+            ));
         };
 
         if ty.qself.is_some() {
-            return Err(MachineError(String::from(
-                "Qualified-path type not supported",
-            )));
+            return Err(MachineError::new(
+                ErrorType::RulesInternal(format!(
+                    "Qualified-path type {} not supported",
+                    quote::quote!(#ty)
+                )),
+                ty.span(),
+            ));
         }
 
         Ok(create_type_path(self.convert_type_path(&ty.path)?))

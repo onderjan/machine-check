@@ -1,5 +1,7 @@
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Block, Expr, ExprAssign, ExprInfer, Ident, Item, Stmt};
+use syn::{
+    spanned::Spanned, visit_mut::VisitMut, Block, Expr, ExprAssign, ExprInfer, Ident, Item, Stmt,
+};
 use syn_path::path;
 
 use crate::{
@@ -7,7 +9,7 @@ use crate::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path,
         create_expr_reference, create_let_bare, extract_else_block_mut, ArgType,
     },
-    MachineError,
+    ErrorType, MachineError,
 };
 
 pub fn convert_to_tac(items: &mut [Item]) -> Result<(), MachineError> {
@@ -182,9 +184,12 @@ impl Converter<'_> {
                             );
 
                             if !matches!(left_base, Expr::Path(_)) {
-                                return Err(MachineError(String::from(
-                                    "Only path base supported when left-hand indexing",
-                                )));
+                                return Err(MachineError::new(
+                                    ErrorType::SsaInternal(String::from(
+                                        "Non-path base in left-hand indexing when finishing three-address-code conversion",
+                                    )),
+                                    left_base.span(),
+                                ));
                             }
 
                             // create a temporary variable
@@ -222,10 +227,10 @@ impl Converter<'_> {
                         }
                     }
                     _ => {
-                        return Err(MachineError(format!(
-                            "Finishing expression type {:?} not supported",
-                            expr
-                        )))
+                        return Err(MachineError::new(ErrorType::SsaInternal(String::from(
+                            "Unexpected expression type when finishing three-address-code conversion")),
+                            expr.span()
+                        ));
                     }
                 }
             }
@@ -233,10 +238,12 @@ impl Converter<'_> {
                 // just retain
             }
             _ => {
-                return Err(MachineError(format!(
-                    "Finishing statement type {:?} not supported",
-                    stmt
-                )))
+                return Err(MachineError::new(
+                    ErrorType::SsaInternal(String::from(
+                        "Unexpected statement type when finishing three-address-code conversion",
+                    )),
+                    stmt.span(),
+                ));
             }
         }
         Ok(added_stmts)
@@ -269,10 +276,12 @@ impl Converter<'_> {
                     processed_stmts.push(stmt);
                 }
                 _ => {
-                    return Err(MachineError(format!(
-                        "Statement type {:?} not supported",
-                        stmt
-                    )))
+                    return Err(MachineError::new(
+                        ErrorType::SsaInternal(String::from(
+                            "Unexpected statement type in three-address-code conversion",
+                        )),
+                        stmt.span(),
+                    ));
                 }
             }
         }
@@ -305,9 +314,12 @@ impl Converter<'_> {
             }
             syn::Expr::Reference(reference) => {
                 if reference.mutability.is_some() {
-                    return Err(MachineError(String::from(
-                        "Mutable referencing not supported",
-                    )));
+                    return Err(MachineError::new(
+                        ErrorType::SsaInternal(String::from(
+                            "Mutable reference in three-address-code conversion",
+                        )),
+                        reference.span(),
+                    ));
                 }
                 // do not move field expression
                 let mut move_expr = reference.expr.as_mut();
@@ -343,10 +355,12 @@ impl Converter<'_> {
                         self.process_expr(assign_stmts, assign.right.as_mut())?;
                     }
                     _ => {
-                        return Err(MachineError(format!(
-                            "Only path and path-indexed-path supported on left side of assignment: {:?}",
-                            assign.left,
-                        )));
+                        return Err(MachineError::new(
+                            ErrorType::SsaInternal(String::from(
+                                "Unexpected assignment left side in three-address-code conversion",
+                            )),
+                            assign.left.span(),
+                        ));
                     }
                 }
             }
@@ -356,7 +370,12 @@ impl Converter<'_> {
                     self.move_through_temp(assign_stmts, &mut field.expr)?;
                 }
                 if expr_struct.rest.is_some() {
-                    return Err(MachineError("Struct rest not supported".to_string()));
+                    return Err(MachineError::new(
+                        ErrorType::SsaInternal(String::from(
+                            "Unexpected struct rest in three-address-code conversion",
+                        )),
+                        expr_struct.span(),
+                    ));
                 }
             }
             syn::Expr::Block(expr_block) => {
@@ -397,10 +416,12 @@ impl Converter<'_> {
                 )?;
             }
             _ => {
-                return Err(MachineError(format!(
-                    "Expression type not supported: {:?}",
-                    expr
-                )));
+                return Err(MachineError::new(
+                    ErrorType::SsaInternal(String::from(
+                        "Unexpected expression type in three-address-code conversion",
+                    )),
+                    expr.span(),
+                ));
             }
         }
         Ok(())

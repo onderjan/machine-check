@@ -1,7 +1,9 @@
 use std::vec;
 
+use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated,
+    spanned::Spanned,
     visit_mut::{self, VisitMut},
     Block, Expr, ExprAssign, ExprBinary, ExprBlock, ExprCall, ExprInfer, ExprPath, ExprUnary, Item,
     Member, Meta, Pat, Stmt,
@@ -11,7 +13,7 @@ use syn_path::path;
 use crate::{
     support::local::extract_local_ident_with_type,
     util::{create_expr_ident, create_expr_path, extract_path_ident},
-    MachineError,
+    ErrorType, MachineError,
 };
 
 pub fn normalize_constructs(items: &mut [Item]) -> Result<(), MachineError> {
@@ -28,9 +30,12 @@ struct Visitor {
 }
 
 impl Visitor {
-    fn push_error(&mut self, err: MachineError) {
+    fn push_error(&mut self, msg: String, span: Span) {
         if self.result.is_ok() {
-            self.result = Err(err);
+            self.result = Err(MachineError::new(
+                ErrorType::UnsupportedConstruct(msg),
+                span,
+            ));
         }
     }
 }
@@ -39,7 +44,7 @@ impl VisitMut for Visitor {
     fn visit_item_mut(&mut self, item: &mut syn::Item) {
         match item {
             Item::Struct(_) | Item::Impl(_) => visit_mut::visit_item_mut(self, item),
-            _ => self.push_error(MachineError(String::from("Item type not supported"))),
+            _ => self.push_error(String::from("Item type not supported"), item.span()),
         }
     }
 
@@ -55,9 +60,10 @@ impl VisitMut for Visitor {
                 }
             }
             if !is_permitted {
-                self.push_error(MachineError(String::from(
-                    "Only derive and allow attributes supported on structs",
-                )));
+                self.push_error(
+                    String::from("Only derive and allow attributes supported on structs"),
+                    attr.span(),
+                );
             }
         }
 
@@ -70,7 +76,7 @@ impl VisitMut for Visitor {
 
     fn visit_generics_mut(&mut self, generics: &mut syn::Generics) {
         if generics.lt_token.is_some() || generics.where_clause.is_some() {
-            self.push_error(MachineError(String::from("Generics not supported")));
+            self.push_error(String::from("Generics not supported"), generics.span());
         }
 
         // delegate
@@ -79,12 +85,13 @@ impl VisitMut for Visitor {
 
     fn visit_item_impl_mut(&mut self, item_impl: &mut syn::ItemImpl) {
         if item_impl.defaultness.is_some() {
-            self.push_error(MachineError(String::from("Defaultness not supported")));
+            self.push_error(String::from("Defaultness not supported"), item_impl.span());
         }
         if item_impl.unsafety.is_some() {
-            self.push_error(MachineError(String::from(
-                "Implementation unsafety not supported",
-            )));
+            self.push_error(
+                String::from("Implementation unsafety not supported"),
+                item_impl.span(),
+            );
         }
 
         // delegate
@@ -97,9 +104,10 @@ impl VisitMut for Visitor {
                 // OK
             }
             _ => {
-                self.push_error(MachineError(String::from(
-                    "Only functions and types supported in implementation",
-                )));
+                self.push_error(
+                    String::from("Only functions and types supported in implementation"),
+                    impl_item.span(),
+                );
             }
         }
 
@@ -109,7 +117,10 @@ impl VisitMut for Visitor {
 
     fn visit_impl_item_fn_mut(&mut self, impl_item_fn: &mut syn::ImplItemFn) {
         if impl_item_fn.defaultness.is_some() {
-            self.push_error(MachineError(String::from("Defaultness not supported")));
+            self.push_error(
+                String::from("Defaultness not supported"),
+                impl_item_fn.span(),
+            );
         }
 
         // delegate
@@ -118,21 +129,22 @@ impl VisitMut for Visitor {
 
     fn visit_signature_mut(&mut self, signature: &mut syn::Signature) {
         if signature.constness.is_some() {
-            self.push_error(MachineError(String::from("Constness not supported")));
+            self.push_error(String::from("Constness not supported"), signature.span());
         }
         if signature.asyncness.is_some() {
-            self.push_error(MachineError(String::from("Asyncness not supported")));
+            self.push_error(String::from("Asyncness not supported"), signature.span());
         }
         if signature.unsafety.is_some() {
-            self.push_error(MachineError(String::from("Unsafety not supported")));
+            self.push_error(String::from("Unsafety not supported"), signature.span());
         }
         if signature.abi.is_some() {
-            self.push_error(MachineError(String::from("ABI not supported")));
+            self.push_error(String::from("ABI not supported"), signature.span());
         }
         if signature.variadic.is_some() {
-            self.push_error(MachineError(String::from(
-                "Variadic argument not supported",
-            )));
+            self.push_error(
+                String::from("Variadic argument not supported"),
+                signature.span(),
+            );
         }
 
         // delegate
@@ -186,7 +198,7 @@ impl VisitMut for Visitor {
                 self.normalize_binary(expr_binary)
             }
             _ => {
-                self.push_error(MachineError(String::from("Expression type not supported")));
+                self.push_error(String::from("Expression type not supported"), expr.span());
                 taken_expr
             }
         };
@@ -195,9 +207,10 @@ impl VisitMut for Visitor {
 
     fn visit_expr_call_mut(&mut self, expr_call: &mut syn::ExprCall) {
         if !matches!(*expr_call.func, Expr::Path(_)) {
-            self.push_error(MachineError(String::from(
-                "Non-path call functions not supported",
-            )));
+            self.push_error(
+                String::from("Non-path call functions not supported"),
+                expr_call.span(),
+            );
         }
 
         // delegate
@@ -206,12 +219,16 @@ impl VisitMut for Visitor {
 
     fn visit_expr_struct_mut(&mut self, expr_struct: &mut syn::ExprStruct) {
         if expr_struct.qself.is_some() {
-            self.push_error(MachineError(String::from("Quantified self not supported")));
+            self.push_error(
+                String::from("Quantified self not supported"),
+                expr_struct.span(),
+            );
         }
         if expr_struct.dot2_token.is_some() {
-            self.push_error(MachineError(String::from(
-                "Struct expressions with base not supported",
-            )));
+            self.push_error(
+                String::from("Struct expressions with base not supported"),
+                expr_struct.span(),
+            );
         }
 
         // delegate
@@ -220,7 +237,10 @@ impl VisitMut for Visitor {
 
     fn visit_expr_path_mut(&mut self, expr_path: &mut syn::ExprPath) {
         if expr_path.qself.is_some() {
-            self.push_error(MachineError(String::from("Quantified self not supported")));
+            self.push_error(
+                String::from("Qualified self on path not supported"),
+                expr_path.span(),
+            );
         }
 
         // delegate
@@ -289,10 +309,11 @@ impl VisitMut for Visitor {
                     let (ident, _ty) = extract_local_ident_with_type(&local);
                     // split init to assignment
                     if let Some(init) = local.init.take() {
-                        if init.diverge.is_some() {
-                            self.push_error(MachineError(String::from(
-                                "Diverging local not supported",
-                            )));
+                        if let Some(diverge) = init.diverge {
+                            self.push_error(
+                                String::from("Diverging local not supported"),
+                                diverge.1.span(),
+                            );
                         }
                         let assign_stmt = Stmt::Expr(
                             Expr::Assign(ExprAssign {
@@ -321,7 +342,7 @@ impl VisitMut for Visitor {
                     processed_stmts.push(Stmt::Expr(expr, semi));
                 }
                 Stmt::Macro(stmt_macro) => {
-                    self.push_error(MachineError(String::from("Macros not supported")));
+                    self.push_error(String::from("Used macro not supported"), stmt_macro.span());
                     processed_stmts.push(Stmt::Macro(stmt_macro));
                 }
             }
@@ -337,7 +358,7 @@ impl VisitMut for Visitor {
             Pat::Ident(_) | Pat::Lit(_) | Pat::Path(_) | Pat::Type(_) => {
                 visit_mut::visit_pat_mut(self, pat)
             }
-            _ => self.push_error(MachineError(String::from("Pattern type not supported"))),
+            _ => self.push_error(String::from("Pattern type not supported"), pat.span()),
         };
 
         // delegate
@@ -351,15 +372,14 @@ impl VisitMut for Visitor {
             }
             syn::Type::Reference(ty_ref) => {
                 if !matches!(*ty_ref.elem, syn::Type::Path(_)) {
-                    self.push_error(MachineError(String::from(
-                        "Multiple-reference types not supported",
-                    )));
+                    self.push_error(
+                        String::from("Multiple-reference types not supported"),
+                        ty.span(),
+                    );
                 }
             }
             _ => {
-                self.push_error(MachineError(String::from(
-                    "Only path and single-reference types supported",
-                )));
+                self.push_error(String::from("Type not supported"), ty.span());
             }
         }
 
@@ -369,7 +389,10 @@ impl VisitMut for Visitor {
 
     fn visit_member_mut(&mut self, member: &mut syn::Member) {
         if !matches!(member, Member::Named(_)) {
-            self.push_error(MachineError(String::from("Only named members supported")));
+            self.push_error(
+                String::from("Only named members are supported"),
+                member.span(),
+            );
         }
 
         // delegate
@@ -386,9 +409,10 @@ impl VisitMut for Visitor {
             }
         }
         if !is_permitted {
-            self.push_error(MachineError(String::from(
-                "Attributes not supported except for allow, also derive on structs",
-            )));
+            self.push_error(
+                String::from("Attributes not supported except for allow, also derive on structs"),
+                attribute.span(),
+            );
         }
 
         // delegate
@@ -399,10 +423,10 @@ impl VisitMut for Visitor {
         // for now, disallow paths that can break out (super / crate / $crate)
         for segment in path.segments.iter() {
             if segment.ident == "super" || segment.ident == "crate" || segment.ident == "$crate" {
-                self.push_error(MachineError(format!(
-                    "Paths with super / crate / $crate not supported: {}",
-                    quote::quote!(#path)
-                )));
+                self.push_error(
+                    String::from("Paths with super / crate / $crate not supported"),
+                    path.span(),
+                );
             }
         }
         // disallow global paths to any other crates than machine_check and std
@@ -410,10 +434,12 @@ impl VisitMut for Visitor {
             if let Some(crate_segment) = path.segments.first() {
                 let crate_ident = &crate_segment.ident;
                 if crate_ident != "machine_check" && crate_ident != "std" {
-                    self.push_error(MachineError(format!(
-                        "Only global paths starting with 'machine_check' and 'std' supported: {}",
-                        quote::quote!(#path)
-                    )));
+                    self.push_error(
+                        String::from(
+                            "Only global paths starting with 'machine_check' and 'std' supported",
+                        ),
+                        path.span(),
+                    );
                 }
             }
         }
@@ -427,13 +453,16 @@ impl Visitor {
     fn normalize_unary(&mut self, expr_unary: ExprUnary) -> Expr {
         let path = match expr_unary.op {
             syn::UnOp::Deref(_) => {
-                self.push_error(MachineError(String::from("Dereference not supported")));
+                self.push_error(
+                    String::from("Dereference not supported"),
+                    expr_unary.op.span(),
+                );
                 None
             }
             syn::UnOp::Not(_) => Some(path!(::std::ops::Not::not)),
             syn::UnOp::Neg(_) => Some(path!(::std::ops::Neg::neg)),
             _ => {
-                self.push_error(MachineError(String::from("Unknown unary operator")));
+                self.push_error(String::from("Unknown unary operator"), expr_unary.op.span());
                 None
             }
         };
@@ -463,15 +492,17 @@ impl Visitor {
             syn::BinOp::Div(_) => Some(path!(::std::ops::Div::div)),
             syn::BinOp::Rem(_) => Some(path!(::std::ops::Rem::rem)),
             syn::BinOp::And(_) => {
-                self.push_error(MachineError(String::from(
-                    "Short-circuiting AND not supported",
-                )));
+                self.push_error(
+                    String::from("Short-circuiting AND not supported"),
+                    expr_binary.op.span(),
+                );
                 None
             }
             syn::BinOp::Or(_) => {
-                self.push_error(MachineError(String::from(
-                    "Short-circuiting OR not supported",
-                )));
+                self.push_error(
+                    String::from("Short-circuiting OR not supported"),
+                    expr_binary.op.span(),
+                );
                 None
             }
             syn::BinOp::BitAnd(_) => Some(path!(::std::ops::BitAnd::bitand)),
@@ -495,13 +526,17 @@ impl Visitor {
             | syn::BinOp::BitOrAssign(_)
             | syn::BinOp::ShlAssign(_)
             | syn::BinOp::ShrAssign(_) => {
-                self.push_error(MachineError(String::from(
-                    "Assignment operators not supported",
-                )));
+                self.push_error(
+                    String::from("Assignment operators not supported"),
+                    expr_binary.op.span(),
+                );
                 None
             }
             _ => {
-                self.push_error(MachineError(String::from("Unknown binary operator")));
+                self.push_error(
+                    String::from("Unknown binary operator"),
+                    expr_binary.op.span(),
+                );
                 None
             }
         };

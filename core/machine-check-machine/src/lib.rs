@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use proc_macro2::{Ident, Span};
+use syn::spanned::Spanned;
 use syn::{parse_quote, Item, ItemFn, ItemMod};
-use thiserror::Error;
 
 use crate::util::create_item_mod;
 
@@ -18,16 +18,17 @@ pub struct MachineDescription {
     pub items: Vec<Item>,
 }
 
-pub fn process_file(mut file: syn::File) -> Result<syn::File, Error> {
+pub fn process_file(mut file: syn::File) -> Result<syn::File, MachineError> {
     process_items(&mut file.items)?;
     Ok(file)
 }
 
-pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Error> {
+pub fn process_module(mut module: ItemMod) -> Result<ItemMod, MachineError> {
     let Some((_, items)) = &mut module.content else {
-        return Err(Error::Machine(String::from(
-            "Cannot process module without content",
-        )));
+        return Err(MachineError::new(
+            ErrorType::ModuleWithoutContent,
+            module.span(),
+        ));
     };
     process_items(items)?;
     Ok(module)
@@ -70,7 +71,7 @@ fn unparse(machine: &MachineDescription) -> String {
     })
 }
 
-fn process_items(items: &mut Vec<Item>) -> Result<(), Error> {
+fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
     println!("Machine-check-machine starting processing");
 
     let out_dir = out_dir();
@@ -119,17 +120,40 @@ fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
-#[error("{0}")]
-pub(crate) struct MachineError(String);
+pub enum ErrorType {
+    #[error("machine-check: Cannot parse module without content")]
+    ModuleWithoutContent,
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("machine conversion error: {0}")]
-    Machine(String),
+    #[error("machine-check error: Unsupported macro")]
+    UnsupportedMacro,
+    #[error("{0}")]
+    MacroError(String),
+    #[error("{0}")]
+    MacroParseError(syn::Error),
+    #[error("machine-check: {0}")]
+    UnsupportedConstruct(String),
+    #[error("machine-check: {0}")]
+    InferenceFailure(String),
+
+    #[error("machine-check internal error (SSA translation): {0}")]
+    SsaInternal(String),
+    #[error("machine-check internal error (forward translation): {0}")]
+    ForwardInternal(String),
+    #[error("machine-check internal error (backward translation): {0}")]
+    BackwardInternal(String),
+    #[error("machine-check internal error (rules): {0}")]
+    RulesInternal(String),
 }
 
-impl From<MachineError> for Error {
-    fn from(value: MachineError) -> Self {
-        Error::Machine(value.0)
+#[derive(thiserror::Error, Debug, Clone)]
+#[error("{span:?}: {ty}")]
+pub struct MachineError {
+    pub ty: ErrorType,
+    pub span: Span,
+}
+
+impl MachineError {
+    fn new(ty: ErrorType, span: Span) -> Self {
+        Self { ty, span }
     }
 }

@@ -5,6 +5,7 @@ use syn::spanned::Spanned;
 use syn::Path;
 use syn::{visit_mut::VisitMut, Item};
 
+use crate::ErrorType;
 use crate::{
     util::{create_ident, create_path_segment},
     MachineError,
@@ -121,11 +122,10 @@ impl<'a> Visitor<'a> {
             }
             return Ok(());
         }
-
-        Err(MachineError(format!(
-            "no rule matches path {:?}, rules: {:?}",
-            path, self.rules
-        )))
+        Err(MachineError::new(
+            ErrorType::RulesInternal(String::from("No rule matches path")),
+            path.span(),
+        ))
     }
 }
 

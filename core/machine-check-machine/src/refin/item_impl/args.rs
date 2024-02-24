@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use proc_macro2::Span;
-use syn::{Expr, FnArg, Ident, Member, ReturnType, Signature, Stmt, Type};
+use syn::{spanned::Spanned, Expr, FnArg, Ident, Member, ReturnType, Signature, Stmt, Type};
 
 use crate::{
     refin::util::create_refine_join_stmt,
@@ -11,7 +11,7 @@ use crate::{
         create_tuple_expr, create_tuple_type, create_type_from_return_type, extract_expr_ident,
         ArgType,
     },
-    MachineError,
+    ErrorType, MachineError,
 };
 
 mod util;
@@ -120,26 +120,36 @@ impl ImplConverter {
 
         // create join statement from original result expression
         let Expr::Struct(orig_result_struct) = orig_result_expr else {
-            return Err(MachineError(String::from(
-                "Non-unit, Non-path, non-struct result not supported",
-            )));
+            return Err(MachineError::new(
+                ErrorType::BackwardInternal(String::from(
+                    "Non-unit, non-path, non-struct result not supported",
+                )),
+                orig_result_expr.span(),
+            ));
         };
 
         for field in &orig_result_struct.fields {
             let Expr::Path(field_path) = &field.expr else {
-                return Err(MachineError(String::from(
-                    "Non-path field expression not supported",
-                )));
+                return Err(MachineError::new(
+                    ErrorType::BackwardInternal(String::from(
+                        "Non-path field expression not supported",
+                    )),
+                    field.span(),
+                ));
             };
             let Some(field_ident) = field_path.path.get_ident() else {
-                return Err(MachineError(String::from(
-                    "Non-ident field expression not supported",
-                )));
+                return Err(MachineError::new(
+                    ErrorType::BackwardInternal(String::from(
+                        "Non-ident field expression not supported",
+                    )),
+                    field.span(),
+                ));
             };
             let Member::Named(member_ident) = &field.member else {
-                return Err(MachineError(String::from(
-                    "Unnamed field member not supported",
-                )));
+                return Err(MachineError::new(
+                    ErrorType::BackwardInternal(String::from("Unnamed field member not supported")),
+                    field.span(),
+                ));
             };
 
             let refin_ident = self

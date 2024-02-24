@@ -2,13 +2,14 @@ use std::{collections::HashMap, vec};
 
 use proc_macro2::Span;
 use syn::{
+    spanned::Spanned,
     visit_mut::{self, VisitMut},
     Block, Expr, Ident, Item, Local, Member, Pat, Path, Stmt, Type,
 };
 
 use crate::{
     util::{create_assign, extract_path_ident_mut},
-    MachineError,
+    ErrorType, MachineError,
 };
 
 pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
@@ -128,18 +129,30 @@ impl Visitor {
         };
 
         let Pat::Ident(pat_ident) = &mut pat else {
-            return Err(MachineError(format!("Unsupported pattern: {:?}", pat)));
+            return Err(MachineError::new(
+                ErrorType::SsaInternal(String::from(
+                    "Unsupported non-ident pattern in scope normalization",
+                )),
+                pat.span(),
+            ));
         };
 
         if pat_ident.subpat.is_some() {
-            return Err(MachineError(format!("Unsupported subpattern: {:?}", pat)));
+            return Err(MachineError::new(
+                ErrorType::SsaInternal(String::from(
+                    "Unsupported pattern with subpattern in scope normalization",
+                )),
+                pat.span(),
+            ));
         }
 
         if pat_ident.by_ref.is_some() {
-            return Err(MachineError(format!(
-                "Unsupported pattern by ref: {:?}",
-                pat
-            )));
+            return Err(MachineError::new(
+                ErrorType::SsaInternal(String::from(
+                    "Unsupported pattern by reference in scope normalization",
+                )),
+                pat.span(),
+            ));
         }
 
         let left_ident = pat_ident.ident.clone();
@@ -167,11 +180,11 @@ impl Visitor {
 
         // only retain statement if it has initialization, convert it to assignment in that case
         if let Some(ref mut init) = local.init {
-            if init.diverge.is_some() {
-                return Err(MachineError(format!(
-                    "Diverging let not supported: {:?}",
-                    init,
-                )));
+            if let Some(diverge) = &init.diverge {
+                return Err(MachineError::new(
+                    ErrorType::SsaInternal(String::from("Diverging let not supported:")),
+                    diverge.1.span(),
+                ));
             }
             // remember to visit the right expression before adding the assignment to converted statements
             let mut right_expr = init.expr.as_ref().clone();

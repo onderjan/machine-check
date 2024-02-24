@@ -1,11 +1,12 @@
 use proc_macro2::TokenStream;
 use syn::{
     parse2,
+    spanned::Spanned,
     visit_mut::{self, VisitMut},
     Expr, Item, Macro, Stmt,
 };
 
-use crate::{util::path_matches_global_names, MachineError};
+use crate::{util::path_matches_global_names, ErrorType, MachineError};
 
 pub fn expand_macros(items: &mut [Item]) -> Result<(), MachineError> {
     let mut visitor = Visitor { result: Ok(()) };
@@ -31,8 +32,9 @@ impl Visitor {
 impl VisitMut for Visitor {
     fn visit_stmt_mut(&mut self, stmt: &mut Stmt) {
         if let Stmt::Macro(stmt_macro) = stmt {
-            if let Some(macro_result) = self.process_macro(&mut stmt_macro.mac) {
-                *stmt = Stmt::Expr(macro_result, stmt_macro.semi_token);
+            match self.process_macro(&mut stmt_macro.mac) {
+                Ok(macro_result) => *stmt = Stmt::Expr(macro_result, stmt_macro.semi_token),
+                Err(err) => self.push_error(err),
             }
         }
         // delegate afterwards so macros are expanded from outer to inner
@@ -41,8 +43,9 @@ impl VisitMut for Visitor {
 
     fn visit_expr_mut(&mut self, expr: &mut Expr) {
         if let Expr::Macro(expr_macro) = expr {
-            if let Some(macro_result) = self.process_macro(&mut expr_macro.mac) {
-                *expr = macro_result;
+            match self.process_macro(&mut expr_macro.mac) {
+                Ok(macro_result) => *expr = macro_result,
+                Err(err) => self.push_error(err),
             }
         }
         // delegate afterwards so macros are expanded from outer to inner
@@ -51,9 +54,9 @@ impl VisitMut for Visitor {
 }
 
 impl Visitor {
-    fn process_macro(&self, mac: &mut Macro) -> Option<Expr> {
+    fn process_macro(&self, mac: &mut Macro) -> Result<Expr, MachineError> {
         if !path_matches_global_names(&mac.path, &["machine_check", "bitmask_switch"]) {
-            return None;
+            return Err(MachineError::new(ErrorType::UnsupportedMacro, mac.span()));
         }
 
         let mut tokens = TokenStream::default();
@@ -61,12 +64,22 @@ impl Visitor {
 
         let macro_result = match machine_check_bitmask_switch::process(tokens) {
             Ok(ok) => ok,
-            Err(err) => panic!("Bitmask switch macro returned an error: {}", err.msg()),
+            Err(err) => {
+                return Err(MachineError::new(
+                    ErrorType::MacroError(err.msg()),
+                    mac.span(),
+                ));
+            }
         };
         let macro_result: Expr = match parse2(macro_result) {
             Ok(ok) => ok,
-            Err(err) => panic!("Bitmask switch macro result could not be parsed: {}", err),
+            Err(err) => {
+                return Err(MachineError::new(
+                    ErrorType::MacroParseError(err),
+                    mac.span(),
+                ));
+            }
         };
-        Some(macro_result)
+        Ok(macro_result)
     }
 }

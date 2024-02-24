@@ -2,29 +2,27 @@ extern crate proc_macro;
 
 use machine_check_bitmask_switch::BitmaskSwitch;
 use proc_macro::TokenStream;
-use quote::{quote, quote_spanned};
+use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, Item};
 
 #[proc_macro_attribute]
 pub fn machine_description(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let item = parse_macro_input!(item as Item);
     let Item::Mod(module) = item else {
-        return TokenStream::from(quote_spanned! {
-            item.span() =>
-            compile_error!("machine_description macro must be used on a module");
-        });
+        return syn::Error::new(
+            item.span(),
+            String::from("machine_description macro must be used on a module"),
+        )
+        .to_compile_error()
+        .into();
     };
-
-    let module_span = module.span();
 
     let module = match machine_check_machine::process_module(module) {
         Ok(ok) => ok,
         Err(err) => {
-            let err_string = err.to_string();
-            return TokenStream::from(quote_spanned! {
-                module_span =>
-                compile_error!(#err_string);
-            });
+            return syn::Error::new(err.span, err.ty.to_string())
+                .to_compile_error()
+                .into();
         }
     };
 

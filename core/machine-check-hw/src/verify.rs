@@ -70,7 +70,8 @@ pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> 
 fn process_machine(system_path: &Utf8Path) -> Result<syn::File, CheckError> {
     debug!("Constructing machine from path {:?}.", &system_path);
     let machine_file = super::translate::translate(system_path)?;
-    let mut processed_file = machine_check_machine::process_file(machine_file)?;
+    let mut processed_file = machine_check_machine::process_file(machine_file)
+        .map_err(|err| CheckError::Machine(err.to_string()))?;
     processed_file
         .items
         .push(machine_check_machine::default_main());

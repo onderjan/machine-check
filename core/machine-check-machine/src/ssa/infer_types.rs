@@ -16,7 +16,7 @@ use crate::{
         create_path_from_ident, create_path_with_last_generic_type, create_type_path,
         extract_expr_ident, extract_pat_ident, extract_type_path, path_matches_global_names,
     },
-    MachineError,
+    ErrorType, MachineError,
 };
 
 use self::{local_visitor::LocalVisitor, type_properties::is_type_standard_inferred};
@@ -193,10 +193,13 @@ fn infer_fn_types(
             })
         } else {
             // could not infer type
-            return Err(MachineError(format!(
-                "Could not infer type for ident {}",
-                ident
-            )));
+            return Err(MachineError::new(
+                ErrorType::InferenceFailure(format!(
+                    "Could not infer type for ident '{:?}'",
+                    ident
+                )),
+                ident.span(),
+            ));
         }
     }
 

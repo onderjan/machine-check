@@ -2,7 +2,9 @@ use syn::{
     spanned::Spanned, GenericArgument, Ident, ImplItem, Item, ItemImpl, PathArguments, Type,
 };
 
-use crate::{support::struct_rules::StructRules, util::create_path_segment, MachineError};
+use crate::{
+    support::struct_rules::StructRules, util::create_path_segment, ErrorType, MachineError,
+};
 
 mod args;
 mod item_impl_fn;
@@ -17,15 +19,17 @@ pub(super) fn apply(
     println!("Applying refinement to impl {}", quote::quote!(#self_ty));
 
     let Type::Path(self_ty) = self_ty else {
-        return Err(MachineError(String::from(
-            "Non-path impl type not supported",
-        )));
+        return Err(MachineError::new(
+            ErrorType::BackwardInternal(String::from("Non-path impl type not supported")),
+            self_ty.span(),
+        ));
     };
 
     let Some(self_ty_ident) = self_ty.path.get_ident() else {
-        return Err(MachineError(String::from(
-            "Non-ident impl type not supported",
-        )));
+        return Err(MachineError::new(
+            ErrorType::BackwardInternal(String::from("Non-ident impl type not supported")),
+            self_ty.span(),
+        ));
     };
 
     let self_ty_name = self_ty_ident.to_string();
@@ -92,10 +96,10 @@ impl ImplConverter {
                     items.push(ImplItem::Type(item_type.clone()));
                 }
                 _ => {
-                    return Err(MachineError(format!(
-                        "Impl item type {:?} not supported",
-                        item
-                    )))
+                    return Err(MachineError::new(
+                        ErrorType::BackwardInternal(String::from("Impl item type not supported")),
+                        item.span(),
+                    ));
                 }
             }
         }

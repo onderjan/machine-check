@@ -57,9 +57,9 @@ pub fn run(args: Cli) -> Result<(), CheckError> {
 
 #[derive(Debug, Error)]
 pub enum CheckError {
-    #[error(transparent)]
-    Machine(#[from] machine_check_machine::Error),
-    #[error("translation error: {0}")]
+    #[error("{0}")]
+    Machine(String),
+    #[error("{0}")]
     Translate(String),
     #[error(transparent)]
     Compile(#[from] machine_check_compile::Error),

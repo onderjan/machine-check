@@ -14,7 +14,7 @@ use crate::{
         create_expr_reference, create_expr_tuple, create_ident, create_let, create_pat_wild,
         extract_expr_ident, path_matches_global_names, ArgType,
     },
-    MachineError,
+    ErrorType, MachineError,
 };
 
 use syn_path::path;
@@ -38,9 +38,12 @@ impl StatementConverter {
             Stmt::Local(ref mut local) => {
                 // ensure it is bare
                 if local.init.is_some() {
-                    Err(MachineError(String::from(
-                        "Inversion of let with initialization not supported",
-                    )))
+                    Err(MachineError::new(
+                        ErrorType::BackwardInternal(String::from(
+                            "Inversion of let with initialization not supported",
+                        )),
+                        local.span(),
+                    ))
                 } else {
                     // no side effects, do not convert
                     Ok(())
@@ -80,16 +83,18 @@ impl StatementConverter {
                 // due to single-assignment requirement, there must be an else branch, convert it
                 {
                     let Some((_, else_branch)) = &mut expr_if.else_branch else {
-                        return Err(MachineError(format!(
-                            "Unexpected if without else: {:?}",
-                            expr_if
-                        )));
+                        return Err(MachineError::new(
+                            ErrorType::BackwardInternal(String::from("Unexpected if without else")),
+                            expr_if.span(),
+                        ));
                     };
                     let Expr::Block(else_expr_block) = else_branch.as_mut() else {
-                        return Err(MachineError(format!(
-                            "Unexpected if with non-block else: {:?}",
-                            else_branch,
-                        )));
+                        return Err(MachineError::new(
+                            ErrorType::BackwardInternal(String::from(
+                                "Unexpected if with non-block else",
+                            )),
+                            else_branch.span(),
+                        ));
                     };
                     let else_stmts = &mut else_expr_block.block.stmts;
                     let mut forward_else_stmts = Vec::new();
@@ -108,10 +113,10 @@ impl StatementConverter {
             Stmt::Expr(Expr::Assign(assign), Some(_)) => {
                 self.convert_assign(backward_stmts, &assign.left, &assign.right)
             }
-            Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(MachineError(format!(
-                "Inversion of statement type {:?} not supported",
-                stmt
-            ))),
+            Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(MachineError::new(
+                ErrorType::BackwardInternal(String::from("Inversion of statement not supported")),
+                stmt.span(),
+            )),
         }
     }
 
@@ -122,10 +127,12 @@ impl StatementConverter {
         right: &Expr,
     ) -> Result<(), MachineError> {
         let Expr::Path(backward_later) = left else {
-            return Err(MachineError(format!(
-                "Inversion not implemented for left-side assignment expression: {:?}",
-                left
-            )));
+            return Err(MachineError::new(
+                ErrorType::BackwardInternal(String::from(
+                    "Inversion not implemented for left-side assignment expression",
+                )),
+                left.span(),
+            ));
         };
         let mut backward_later = Expr::Path(backward_later.clone());
         self.backward_scheme.apply_to_expr(&mut backward_later)?;
@@ -164,10 +171,12 @@ impl StatementConverter {
                 Ok(())
             }
             Expr::Call(call) => self.convert_call(backward_stmts, backward_later, call),
-            _ => Err(MachineError(format!(
-                "Inversion not implemented for right-side assignment expression: {:?}",
-                right
-            ))),
+            _ => Err(MachineError::new(
+                ErrorType::BackwardInternal(String::from(
+                    "Inversion not implemented for right-side assignment expression",
+                )),
+                right.span(),
+            )),
         }
     }
 
@@ -226,11 +235,12 @@ impl StatementConverter {
                 }
                 Expr::Lit(_) => create_pat_wild(),
                 _ => {
-                    return Err(MachineError(format!(
-                        "Inversion not implemented for function argument type {} ({:?})",
-                        quote::quote!(#arg),
-                        arg
-                    )));
+                    return Err(MachineError::new(
+                        ErrorType::BackwardInternal(String::from(
+                            "Inversion not implemented for function argument type",
+                        )),
+                        arg.span(),
+                    ));
                 }
             });
         }
@@ -379,10 +389,12 @@ impl StatementConverter {
                     // do nothing
                 }
                 _ => {
-                    return Err(MachineError(format!(
-                        "Backward join not implemented for function argument {:?}",
-                        backward_arg
-                    )))
+                    return Err(MachineError::new(
+                        ErrorType::BackwardInternal(String::from(
+                            "Backward join not implemented for function argument",
+                        )),
+                        backward_arg.span(),
+                    ));
                 }
             }
         }
