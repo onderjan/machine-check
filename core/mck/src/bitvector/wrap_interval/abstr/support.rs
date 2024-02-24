@@ -13,6 +13,7 @@ use crate::{
 
 use super::Bitvector;
 
+#[allow(dead_code)]
 impl<const L: u32> Bitvector<L> {
     #[must_use]
     pub fn new(value: u64) -> Self {

@@ -11,6 +11,7 @@ pub(crate) struct Interval<T: Ord + Clone + Copy> {
     pub max: T,
 }
 
+#[allow(dead_code)]
 impl<T: Ord + Clone + Copy> Interval<T> {
     pub fn new(min: T, max: T) -> Self {
         assert!(min <= max);

@@ -1,11 +1,7 @@
 use std::collections::BTreeSet;
 
 use super::Bitvector;
-use crate::{
-    abstr::{Boolean, Test},
-    bitvector::concrete::ConcreteBitvector,
-    forward::HwArith,
-};
+use crate::{bitvector::concrete::ConcreteBitvector, forward::HwArith};
 
 macro_rules! uni_op_test {
     ($op:tt) => {
