@@ -175,10 +175,6 @@ impl<T: Debug + Clone> Debug for LightArray<T> {
             } else {
                 write!(f, "{}: {:?}, ", current_index, current_element)?;
             }
-
-            /*f.debug_struct("LightArray")
-            .field("inner", &self.inner)
-            .finish()*/
         }
         write!(f, "}}")
     }

@@ -121,10 +121,6 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
 impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
     fn apply_join(&mut self, other: &Self) {
         self.inner.involve(&other.inner, Bitvector::apply_join);
-
-        /*for (dst, src) in self.inner.iter_mut().zip(other.inner.iter()) {
-            dst.apply_join(src);
-        }*/
     }
 
     fn to_condition(&self) -> Boolean {
@@ -152,19 +148,10 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
             },
             false,
         )
-        /*for (dst, src) in self.inner.iter_mut().zip(offer.inner.iter()) {
-            if dst.apply_refin(src) {
-                return true;
-            }
-        }
-        false*/
     }
 
     fn force_decay(&self, target: &mut abstr::Array<I, L>) {
         // force decay for every element
-        /*for (refin_element, abstr_element) in self.inner.iter().zip(target.inner.iter_mut()) {
-            refin_element.force_decay(abstr_element);
-        }*/
         target
             .inner
             .involve(&self.inner, |abstr_element, refin_element| {
@@ -182,12 +169,6 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
 
 impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
     fn meta_eq(&self, other: &Self) -> bool {
-        /*for (self_element, other_element) in self.inner.iter().zip(other.inner.iter()) {
-            if !self_element.meta_eq(other_element) {
-                return false;
-            }
-        }
-        true*/
         self.inner
             .lattice_bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
                 can_be_eq && (lhs.meta_eq(rhs))
@@ -197,14 +178,6 @@ impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
 
 impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
     fn proto_first(&self) -> abstr::Array<I, L> {
-        /*let mut result_inner = Vec::new();
-        for element in self.inner.iter() {
-            result_inner.push(element.proto_first());
-        }
-
-        abstr::Array {
-            inner: result_inner,
-        }*/
         abstr::Array {
             inner: self.inner.map(|element| element.proto_first()),
         }
@@ -222,13 +195,6 @@ impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
             },
             false,
         )
-
-        /*for (element, abstr_element) in self.inner.iter().zip(proto.inner.iter_mut()) {
-            if element.proto_increment(abstr_element) {
-                return true;
-            }
-        }
-        false*/
     }
 }
 
