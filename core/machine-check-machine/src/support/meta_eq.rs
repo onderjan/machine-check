@@ -1,10 +1,10 @@
-use syn::{spanned::Spanned, BinOp, Expr, ExprBinary, Ident, ImplItem, Item, ItemStruct, Stmt};
+use syn::{spanned::Spanned, Ident, ImplItem, Item, ItemStruct, Stmt};
 use syn_path::path;
 
 use crate::util::{
-    create_arg, create_expr_call, create_expr_field, create_expr_ident, create_expr_path,
-    create_impl_item_fn, create_item_impl, create_path_from_ident, create_self, create_self_arg,
-    create_type_path, ArgType,
+    create_arg, create_expr_call, create_expr_field, create_expr_ident, create_expr_logical_and,
+    create_expr_path, create_impl_item_fn, create_item_impl, create_path_from_ident, create_self,
+    create_self_arg, create_type_path, ArgType,
 };
 
 pub fn meta_eq_impl(item_struct: &ItemStruct) -> Item {
@@ -23,12 +23,7 @@ pub fn meta_eq_impl(item_struct: &ItemStruct) -> Item {
 
         if let Some(previous_expr) = result_expr.take() {
             // short-circuiting and for simplicity
-            result_expr = Some(Expr::Binary(ExprBinary {
-                attrs: vec![],
-                left: Box::new(previous_expr),
-                op: BinOp::And(Default::default()),
-                right: Box::new(eq_expr),
-            }))
+            result_expr = Some(create_expr_logical_and(previous_expr, eq_expr));
         } else {
             result_expr = Some(eq_expr);
         }

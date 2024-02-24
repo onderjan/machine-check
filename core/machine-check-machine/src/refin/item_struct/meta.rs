@@ -4,7 +4,7 @@ use syn_path::path;
 use crate::{
     refin::rules,
     util::{
-        create_arg, create_expr_binary_or, create_expr_call, create_expr_field, create_expr_path,
+        create_arg, create_expr_call, create_expr_field, create_expr_logical_or, create_expr_path,
         create_field_value, create_ident, create_impl_item_fn, create_item_impl,
         create_path_from_ident, create_path_with_last_generic_type, create_self, create_self_arg,
         create_struct_expr, create_type_path, ArgType,
@@ -92,7 +92,7 @@ fn proto_increment_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
         );
         if let Some(previous_expr) = result_expr.take() {
             // short-circuiting or for simplicity
-            result_expr = Some(create_expr_binary_or(previous_expr, expr))
+            result_expr = Some(create_expr_logical_or(previous_expr, expr))
         } else {
             result_expr = Some(expr);
         }

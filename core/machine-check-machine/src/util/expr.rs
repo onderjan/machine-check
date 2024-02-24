@@ -56,7 +56,16 @@ pub fn create_expr_field(base: Expr, index: usize, field: &Field) -> Expr {
     })
 }
 
-pub fn create_expr_binary_or(left: Expr, right: Expr) -> Expr {
+pub fn create_expr_logical_and(left: Expr, right: Expr) -> Expr {
+    Expr::Binary(ExprBinary {
+        attrs: vec![],
+        left: Box::new(left),
+        op: BinOp::And(Default::default()),
+        right: Box::new(right),
+    })
+}
+
+pub fn create_expr_logical_or(left: Expr, right: Expr) -> Expr {
     Expr::Binary(ExprBinary {
         attrs: vec![],
         left: Box::new(left),
