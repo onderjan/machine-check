@@ -7,11 +7,12 @@ use syn::{
 };
 
 use crate::{
+    refin::util::create_refine_join_stmt,
     support::struct_rules::StructRules,
     util::{
         create_expr_call, create_expr_field_unnamed, create_expr_ident, create_expr_path,
         create_expr_reference, create_expr_tuple, create_ident, create_let, create_pat_wild,
-        create_refine_join_stmt, extract_expr_ident, path_matches_global_names, ArgType,
+        extract_expr_ident, path_matches_global_names, ArgType,
     },
     MachineError,
 };

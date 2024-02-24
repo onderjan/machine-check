@@ -1,8 +1,7 @@
-use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, token::Else, BinOp, Block, Expr, ExprBinary, ExprCall, ExprField,
-    ExprPath, ExprReference, ExprStruct, ExprTuple, Field, FieldValue, Ident, Index, Member, Path,
-    Stmt,
+    punctuated::Punctuated, spanned::Spanned, token::Else, BinOp, Block, Expr, ExprBinary,
+    ExprCall, ExprField, ExprPath, ExprReference, ExprStruct, ExprTuple, Field, FieldValue, Ident,
+    Index, Member, Path, Stmt,
 };
 use syn_path::path;
 
@@ -27,13 +26,14 @@ pub fn create_expr_tuple(expressions: Vec<Expr>) -> Expr {
 }
 
 pub fn create_expr_field_unnamed(base: Expr, index: usize) -> Expr {
+    let span = base.span();
     Expr::Field(ExprField {
         attrs: vec![],
         base: Box::new(base),
         dot_token: Default::default(),
         member: Member::Unnamed(Index {
             index: index as u32,
-            span: Span::call_site(),
+            span,
         }),
     })
 }

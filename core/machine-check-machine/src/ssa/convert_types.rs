@@ -4,7 +4,7 @@ mod local_visitor;
 use std::collections::HashMap;
 
 use crate::{
-    support::{local::extract_local_ident_with_type, local_types::find_local_types},
+    support::{local::extract_local_ident_with_type, types::find_local_types},
     util::create_path_from_ident,
     MachineError,
 };

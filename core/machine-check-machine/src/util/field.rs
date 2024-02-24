@@ -1,12 +1,12 @@
-use proc_macro2::Span;
-use syn::{Expr, Field, FieldValue, Index, Member};
+use syn::{spanned::Spanned, Expr, Field, FieldValue, Index, Member};
 
 pub fn get_field_member(index: usize, field: &Field) -> Member {
+    let span = field.span();
     match &field.ident {
         Some(ident) => Member::Named(ident.clone()),
         None => Member::Unnamed(Index {
             index: index as u32,
-            span: Span::call_site(),
+            span,
         }),
     }
 }

@@ -15,6 +15,7 @@ use super::{
 mod item_impl;
 mod item_struct;
 mod rules;
+mod util;
 
 pub(crate) fn create_refinement_machine(
     abstract_machine: &MachineDescription,

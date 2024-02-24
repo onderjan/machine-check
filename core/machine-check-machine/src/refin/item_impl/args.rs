@@ -4,11 +4,12 @@ use proc_macro2::Span;
 use syn::{Expr, FnArg, Ident, Member, ReturnType, Signature, Stmt, Type};
 
 use crate::{
+    refin::util::create_refine_join_stmt,
     util::{
         create_arg, create_assign, create_expr_field_named, create_expr_field_unnamed,
         create_expr_ident, create_expr_path, create_ident, create_let_bare, create_path_from_name,
-        create_refine_join_stmt, create_tuple_expr, create_tuple_type,
-        create_type_from_return_type, extract_expr_ident, ArgType,
+        create_tuple_expr, create_tuple_type, create_type_from_return_type, extract_expr_ident,
+        ArgType,
     },
     MachineError,
 };

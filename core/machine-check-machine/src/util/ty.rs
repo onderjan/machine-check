@@ -1,10 +1,6 @@
-use proc_macro2::Span;
-use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, Lit,
-    LitInt, Path, PathArguments, ReturnType, Type, TypePath, TypeReference, TypeTuple,
-};
+use syn::{punctuated::Punctuated, Path, ReturnType, Type, TypePath, TypeReference, TypeTuple};
 
-use super::{create_ident, create_path_segment, ArgType};
+use super::ArgType;
 
 pub fn create_type_path(path: Path) -> Type {
     Type::Path(TypePath { qself: None, path })
@@ -53,39 +49,4 @@ pub fn extract_type_path(ty: &Type) -> Option<Path> {
     } else {
         None
     }
-}
-
-pub fn single_bit_type(flavour: &str) -> Type {
-    let mut path = Path {
-        leading_colon: Some(Default::default()),
-        segments: Punctuated::from_iter(vec![
-            create_path_segment(create_ident("mck")),
-            create_path_segment(create_ident(flavour)),
-            create_path_segment(create_ident("Bitvector")),
-        ]),
-    };
-    path.segments.last_mut().unwrap().arguments =
-        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-            colon2_token: Default::default(),
-            lt_token: Default::default(),
-            args: Punctuated::from_iter(vec![GenericArgument::Const(Expr::Lit(ExprLit {
-                attrs: vec![],
-                lit: Lit::Int(LitInt::new("1", Span::call_site())),
-            }))]),
-            gt_token: Default::default(),
-        });
-
-    create_type_path(path)
-}
-
-pub fn boolean_type(flavour: &str) -> Type {
-    let path = Path {
-        leading_colon: Some(Default::default()),
-        segments: Punctuated::from_iter(vec![
-            create_path_segment(create_ident("mck")),
-            create_path_segment(create_ident(flavour)),
-            create_path_segment(create_ident("Boolean")),
-        ]),
-    };
-    create_type_path(path)
 }

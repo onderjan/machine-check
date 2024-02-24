@@ -8,7 +8,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    support::{local::create_let_with_original, local_types::find_local_types},
+    support::{local::create_let_with_original, types::find_local_types},
     util::{
         create_expr_ident, create_expr_path, extract_else_token_block, extract_expr_ident,
         path_matches_global_names,

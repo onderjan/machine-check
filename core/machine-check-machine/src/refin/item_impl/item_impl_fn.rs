@@ -5,7 +5,7 @@ use syn::{punctuated::Punctuated, GenericArgument, Ident, ImplItemFn, PathArgume
 use syn_path::path;
 
 use crate::{
-    support::local_types::find_local_types,
+    support::types::find_local_types,
     util::{
         create_expr_call, create_expr_path, create_let_mut, get_block_result_expr,
         path_matches_global_names,

@@ -10,8 +10,9 @@ use syn::{
 use syn_path::path;
 
 use crate::{
+    support::types::boolean_type,
     util::{
-        boolean_type, create_type_path, extract_expr_ident, extract_expr_path, extract_path_ident,
+        create_type_path, extract_expr_ident, extract_expr_path, extract_path_ident,
         extract_type_path, path_matches_global_names,
     },
     MachineError,

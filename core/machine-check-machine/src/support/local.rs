@@ -2,7 +2,7 @@ use proc_macro2::Ident;
 use syn::{Attribute, Local, MetaNameValue, Pat, Stmt, Type};
 use syn_path::path;
 
-use crate::util::{create_expr_ident, create_local};
+use crate::util::{create_expr_ident, create_local_bare};
 
 pub fn construct_prefixed_ident(prefix: &str, orig_ident: &Ident) -> Ident {
     let orig_ident_string = orig_ident.to_string();
@@ -19,7 +19,7 @@ pub fn construct_prefixed_ident(prefix: &str, orig_ident: &Ident) -> Ident {
 
 pub fn create_let_with_original(tmp_ident: Ident, orig_ident: Ident, ty: Option<Type>) -> Stmt {
     // add attribute that identifies the original ident
-    let mut local = create_local(tmp_ident, ty);
+    let mut local = create_local_bare(tmp_ident, ty);
     local.attrs.push(Attribute {
         pound_token: Default::default(),
         style: syn::AttrStyle::Outer,

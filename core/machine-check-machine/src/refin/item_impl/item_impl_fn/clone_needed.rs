@@ -10,7 +10,7 @@ use syn_path::path;
 use crate::{
     support::{
         local::{construct_prefixed_ident, extract_local_ident_with_type},
-        local_types::find_local_types,
+        types::find_local_types,
     },
     util::{
         create_assign, create_expr_call, create_expr_ident, create_expr_path, create_expr_tuple,

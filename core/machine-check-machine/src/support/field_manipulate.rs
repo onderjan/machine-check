@@ -13,12 +13,15 @@ use crate::{
         create_expr_ident, create_expr_path, create_ident, create_impl_item_fn, create_item_impl,
         create_pat_wild, create_path_from_ident, create_path_from_name,
         create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
-        single_bit_type, ArgType,
+        ArgType,
     },
     MachineError,
 };
 
-use super::special_trait::{special_trait_impl, SpecialTrait};
+use super::{
+    special_trait::{special_trait_impl, SpecialTrait},
+    types::single_bit_type,
+};
 
 pub(crate) fn apply_to_items(items: &mut Vec<Item>, flavour: &str) -> Result<(), MachineError> {
     let mut impls_to_add = Vec::new();

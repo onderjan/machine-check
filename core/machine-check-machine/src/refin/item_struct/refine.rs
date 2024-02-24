@@ -7,13 +7,14 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    refin::rules,
+    refin::{rules, util::create_refine_join_stmt},
+    support::types::boolean_type,
     util::{
-        boolean_type, create_arg, create_assign, create_expr_call, create_expr_field,
-        create_expr_ident, create_expr_path, create_field_value, create_ident, create_impl_item_fn,
-        create_item_impl, create_let_bare, create_let_mut, create_path_from_ident,
-        create_path_with_last_generic_type, create_refine_join_stmt, create_self, create_self_arg,
-        create_type_path, ArgType,
+        create_arg, create_assign, create_expr_call, create_expr_field, create_expr_ident,
+        create_expr_path, create_field_value, create_ident, create_impl_item_fn, create_item_impl,
+        create_let_bare, create_let_mut, create_path_from_ident,
+        create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
+        ArgType,
     },
     MachineError,
 };

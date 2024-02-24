@@ -1,7 +1,6 @@
 use syn::{Expr, ExprAssign, Ident, Local, LocalInit, Pat, PatIdent, PatType, Stmt, Type};
-use syn_path::path;
 
-use super::{create_expr_call, create_expr_path, create_path_from_ident, ArgType};
+use super::{create_expr_path, create_path_from_ident};
 
 fn create_let_mut_choice(
     mutable: bool,
@@ -66,7 +65,7 @@ pub fn create_let_bare(ident: Ident, ty: Option<Type>) -> Stmt {
     Stmt::Local(create_let_mut_choice(false, ident, None, ty))
 }
 
-pub fn create_local(ident: Ident, ty: Option<Type>) -> Local {
+pub fn create_local_bare(ident: Ident, ty: Option<Type>) -> Local {
     create_let_mut_choice(false, ident, None, ty)
 }
 
@@ -84,18 +83,5 @@ pub fn create_assign(left_ident: Ident, right_expr: Expr, semicolon: bool) -> St
         } else {
             None
         },
-    )
-}
-
-pub fn create_refine_join_stmt(left: Expr, right: Expr) -> Stmt {
-    Stmt::Expr(
-        create_expr_call(
-            create_expr_path(path!(::mck::refin::Refine::apply_join)),
-            vec![
-                (ArgType::MutableReference, left),
-                (ArgType::Reference, right),
-            ],
-        ),
-        Some(Default::default()),
     )
 }
