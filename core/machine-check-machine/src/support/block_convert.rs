@@ -3,7 +3,7 @@ use syn::{visit_mut::VisitMut, Block, Ident, Item, Stmt};
 
 use crate::{util::create_let_bare, MachineError};
 
-pub fn convert_block(
+pub fn block_convert(
     items: &mut [Item],
     temporary_manager: &mut TemporaryManager,
     conversion_fn: fn(&mut TemporaryManager, &mut Block) -> Result<(), MachineError>,

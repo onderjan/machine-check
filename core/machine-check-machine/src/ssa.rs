@@ -1,3 +1,4 @@
+mod convert_indexing;
 mod convert_to_ssa;
 mod convert_to_tac;
 mod convert_types;
@@ -8,7 +9,7 @@ mod normalize_scope;
 
 use syn::Item;
 
-use crate::{support::block_converter::TemporaryManager, MachineDescription, MachineError};
+use crate::{support::block_convert::TemporaryManager, MachineDescription, MachineError};
 
 pub(crate) fn create_concrete_machine(
     mut items: Vec<Item>,
@@ -19,6 +20,7 @@ pub(crate) fn create_concrete_machine(
     normalize_constructs::normalize_constructs(&mut items)?;
     normalize_scope::normalize_scope(&mut items);
     convert_to_tac::convert_to_tac(&mut items, &mut temporary_manager)?;
+    convert_indexing::convert_indexing(&mut items, &mut temporary_manager)?;
     convert_to_ssa::convert_to_ssa(&mut items)?;
     infer_types::infer_types(&mut items)?;
     convert_types::convert_types(&mut items)?;
