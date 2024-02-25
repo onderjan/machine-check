@@ -1,17 +1,14 @@
 use std::{collections::HashMap, vec};
 
-use proc_macro2::Span;
 use syn::{
-    spanned::Spanned,
     visit_mut::{self, VisitMut},
-    Block, Expr, Ident, Item, Local, Member, Pat, Path, Stmt, Type,
+    Block, Expr, FnArg, Ident, Item, Local, Member, Pat, Path, Stmt, Type,
 };
 
-use crate::{util::extract_path_ident_mut, ErrorType, MachineError};
+use crate::util::extract_path_ident_mut;
 
-pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
+pub fn normalize_scope(items: &mut [Item]) {
     let mut visitor = Visitor {
-        result: Ok(()),
         scope_idents: vec![],
         scope_num: 0,
         local_defs: vec![],
@@ -19,27 +16,52 @@ pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
     for item in items.iter_mut() {
         visitor.visit_item_mut(item);
     }
-
-    visitor.result
 }
 
 struct Visitor {
-    result: Result<(), MachineError>,
     scope_idents: Vec<HashMap<Ident, Vec<Ident>>>,
     scope_num: usize,
     local_defs: Vec<Local>,
 }
 impl VisitMut for Visitor {
     fn visit_impl_item_fn_mut(&mut self, impl_item_fn: &mut syn::ImplItemFn) {
+        // add non-self parameters to scope idents
+        self.scope_num = self
+            .scope_num
+            .checked_add(1)
+            .expect("Scope number should not overflow");
+        let mut param_ident_map = HashMap::new();
+        for param in impl_item_fn.sig.inputs.iter() {
+            if let FnArg::Typed(param) = param {
+                let Pat::Ident(pat_ident) = param.pat.as_ref() else {
+                    panic!("Function parameters should be identifers in scope normalization");
+                };
+                let param_ident = pat_ident.ident.clone();
+                let unique_ident = Ident::new(
+                    &format!("__mck_scope_{}_0_{}", self.scope_num, param_ident),
+                    param_ident.span(),
+                );
+                // the map contains keys with original idents and values representing unique idents
+                // the idents can be shadowed within the same scope, so the last unique ident is taken
+                param_ident_map.insert(param_ident, vec![unique_ident]);
+            }
+        }
+        self.scope_idents.push(param_ident_map);
+
         // delegate visit
         visit_mut::visit_impl_item_fn_mut(self, impl_item_fn);
-        assert!(self.scope_idents.is_empty());
 
-        // drain local defs to create let statements and add them at the start of block
-        let mut stmts = Vec::from_iter(self.local_defs.drain(..).map(Stmt::Local));
-        stmts.append(&mut impl_item_fn.block.stmts);
-        impl_item_fn.block.stmts = stmts;
-        assert!(self.local_defs.is_empty());
+        // remove the parameters scope
+        assert_eq!(self.scope_idents.len(), 1);
+        self.scope_idents.clear();
+
+        // put the local statements at the start of the function block
+        impl_item_fn.block.stmts = Vec::from_iter(
+            self.local_defs
+                .drain(..)
+                .map(Stmt::Local)
+                .chain(impl_item_fn.block.stmts.drain(..)),
+        );
     }
 
     fn visit_block_mut(&mut self, block: &mut Block) {
@@ -47,16 +69,14 @@ impl VisitMut for Visitor {
             .scope_num
             .checked_add(1)
             .expect("Scope number should not overflow");
-        // push scope idents
+        // push scope, currenly with no idents
         self.scope_idents.push(HashMap::new());
 
         // process all statements
         let mut processed_stmts = Vec::new();
         for mut stmt in block.stmts.drain(..) {
             if let Stmt::Local(local) = stmt {
-                if let Err(err) = self.process_local(local) {
-                    self.result = Err(err);
-                }
+                self.process_local(local);
             } else {
                 // visit the statement and add it to converted statements
                 self.visit_stmt_mut(&mut stmt);
@@ -74,7 +94,10 @@ impl VisitMut for Visitor {
         for scope in self.scope_idents.iter().rev() {
             if let Some(unique_ident_vec) = scope.get(ident) {
                 // replace ident with the last unique ident created, the others are shadowed
-                *ident = unique_ident_vec.last().unwrap().clone();
+                *ident = unique_ident_vec
+                    .last()
+                    .expect("Scope ident should correspond to unique ident")
+                    .clone();
             }
         }
     }
@@ -108,7 +131,7 @@ impl VisitMut for Visitor {
     }
 
     fn visit_type_mut(&mut self, _: &mut Type) {
-        // do not propagate
+        // do not go into a type
     }
 
     fn visit_member_mut(&mut self, _: &mut Member) {
@@ -117,7 +140,7 @@ impl VisitMut for Visitor {
 }
 
 impl Visitor {
-    fn process_local(&mut self, mut local: Local) -> Result<(), MachineError> {
+    fn process_local(&mut self, mut local: Local) {
         let mut pat = if let Pat::Type(ref mut pat_ty) = &mut local.pat {
             pat_ty.pat.as_mut()
         } else {
@@ -125,31 +148,10 @@ impl Visitor {
         };
 
         let Pat::Ident(pat_ident) = &mut pat else {
-            return Err(MachineError::new(
-                ErrorType::SsaInternal(String::from(
-                    "Unsupported non-ident pattern in scope normalization",
-                )),
-                pat.span(),
-            ));
+            panic!("Non-ident pattern in scope normalization");
         };
 
-        if pat_ident.subpat.is_some() {
-            return Err(MachineError::new(
-                ErrorType::SsaInternal(String::from(
-                    "Unsupported pattern with subpattern in scope normalization",
-                )),
-                pat.span(),
-            ));
-        }
-
-        if pat_ident.by_ref.is_some() {
-            return Err(MachineError::new(
-                ErrorType::SsaInternal(String::from(
-                    "Unsupported pattern by reference in scope normalization",
-                )),
-                pat.span(),
-            ));
-        }
+        assert!(pat_ident.subpat.is_none() && pat_ident.by_ref.is_none());
 
         let left_ident = pat_ident.ident.clone();
 
@@ -169,7 +171,7 @@ impl Visitor {
 
         let unique_ident = Ident::new(
             &format!("__mck_scope_{}_{}_{}", scope_num, shadow_num, left_ident),
-            Span::call_site(),
+            left_ident.span(),
         );
         // add ident to scope
         unique_ident_vec.push(unique_ident.clone());
@@ -180,6 +182,5 @@ impl Visitor {
         // assign unique ident to local and push the local to local defs
         pat_ident.ident = unique_ident;
         self.local_defs.push(local);
-        Ok(())
     }
 }

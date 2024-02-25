@@ -9,9 +9,12 @@ use crate::util::extract_path_ident;
 impl VisitMut for super::Visitor {
     fn visit_item_mut(&mut self, item: &mut syn::Item) {
         match item {
-            Item::Struct(_) | Item::Impl(_) => visit_mut::visit_item_mut(self, item),
+            Item::Struct(_) | Item::Impl(_) => {}
             _ => self.push_error(String::from("Item type not supported"), item.span()),
         }
+
+        // delegate
+        visit_mut::visit_item_mut(self, item)
     }
 
     fn visit_item_struct_mut(&mut self, item_struct: &mut syn::ItemStruct) {
@@ -117,6 +120,23 @@ impl VisitMut for super::Visitor {
         visit_mut::visit_signature_mut(self, signature);
     }
 
+    fn visit_receiver_mut(&mut self, receiver: &mut syn::Receiver) {
+        if receiver.mutability.is_some() {
+            self.push_error(
+                String::from("Mutable self parameter not supported"),
+                receiver.mutability.span(),
+            );
+        }
+        if let Some((_and, Some(lifetime))) = &receiver.reference {
+            self.push_error(
+                String::from("Self parameter with lifetime not supported"),
+                lifetime.span(),
+            );
+        }
+        // delegate
+        visit_mut::visit_receiver_mut(self, receiver);
+    }
+
     fn visit_expr_mut(&mut self, expr: &mut Expr) {
         // delegate first to avoid spurious path errors
         visit_mut::visit_expr_mut(self, expr);
@@ -212,23 +232,50 @@ impl VisitMut for super::Visitor {
     }
 
     fn visit_block_mut(&mut self, block: &mut Block) {
+        // delegate first
+        visit_mut::visit_block_mut(self, block);
+
         // process block
         self.process_block(block);
-
-        // delegate
-        visit_mut::visit_block_mut(self, block);
     }
 
     fn visit_pat_mut(&mut self, pat: &mut Pat) {
+        println!("Visiting pattern: {}, {:?}", quote::quote!(#pat), pat);
         match pat {
-            Pat::Ident(_) | Pat::Lit(_) | Pat::Path(_) | Pat::Type(_) => {
-                visit_mut::visit_pat_mut(self, pat)
-            }
+            Pat::Ident(_) | Pat::Lit(_) | Pat::Type(_) => {}
             _ => self.push_error(String::from("Pattern type not supported"), pat.span()),
         };
 
         // delegate
         visit_mut::visit_pat_mut(self, pat);
+    }
+
+    fn visit_pat_ident_mut(&mut self, pat_ident: &mut syn::PatIdent) {
+        if pat_ident.by_ref.is_some() {
+            self.push_error(
+                String::from("Pattern binding to reference not supported"),
+                pat_ident.by_ref.span(),
+            );
+        }
+
+        if let Some((_at, subpat)) = &pat_ident.subpat {
+            self.push_error(String::from("Subpattern not supported"), subpat.span());
+        }
+
+        // delegate
+        visit_mut::visit_pat_ident_mut(self, pat_ident);
+    }
+
+    fn visit_pat_type_mut(&mut self, pat_type: &mut syn::PatType) {
+        if !matches!(*pat_type.pat, Pat::Ident(_)) {
+            self.push_error(
+                String::from("Non-identifier typed pattern not supported"),
+                pat_type.span(),
+            );
+        }
+
+        // delegate
+        visit_mut::visit_pat_type_mut(self, pat_type);
     }
 
     fn visit_type_mut(&mut self, ty: &mut syn::Type) {

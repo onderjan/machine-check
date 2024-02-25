@@ -1,13 +1,10 @@
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, ExprBinary, ExprBlock,
-    ExprCall, ExprIf, ExprInfer, ExprUnary, Stmt,
+    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprBinary, ExprBlock, ExprCall, ExprIf,
+    ExprInfer, ExprUnary, Pat, Stmt,
 };
 use syn_path::path;
 
-use crate::{
-    support::local::extract_local_ident_with_type,
-    util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
-};
+use crate::util::{create_assign, create_expr_call, create_expr_path, ArgType};
 
 impl super::Visitor {
     pub(super) fn process_block(&mut self, block: &mut Block) {
@@ -17,8 +14,7 @@ impl super::Visitor {
         for (index, stmt) in block.stmts.drain(..).enumerate() {
             match stmt {
                 Stmt::Local(mut local) => {
-                    let (ident, _ty) = extract_local_ident_with_type(&local);
-                    // split init to assignment
+                    let mut assign_stmt = None;
                     if let Some(init) = local.init.take() {
                         if let Some(diverge) = init.diverge {
                             self.push_error(
@@ -26,19 +22,23 @@ impl super::Visitor {
                                 diverge.1.span(),
                             );
                         }
-                        let assign_stmt = Stmt::Expr(
-                            Expr::Assign(ExprAssign {
-                                attrs: vec![],
-                                left: Box::new(create_expr_ident(ident)),
-                                eq_token: init.eq_token,
-                                right: init.expr,
-                            }),
-                            Some(local.semi_token),
-                        );
-                        processed_stmts.push(Stmt::Local(local));
+                        // try to extract the local identifier to split the local init to assignment
+                        // this may not succeed if there was a pattern error
+                        // do not split and do not panic in that case to propagate the pattern error
+
+                        let mut pat = &local.pat;
+                        if let Pat::Type(pat_type) = pat {
+                            pat = pat_type.pat.as_ref();
+                        }
+
+                        if let Pat::Ident(pat_ident) = pat {
+                            assign_stmt =
+                                Some(create_assign(pat_ident.ident.clone(), *init.expr, true));
+                        }
+                    }
+                    processed_stmts.push(Stmt::Local(local));
+                    if let Some(assign_stmt) = assign_stmt {
                         processed_stmts.push(assign_stmt);
-                    } else {
-                        processed_stmts.push(Stmt::Local(local));
                     }
                 }
                 Stmt::Item(item) => {

@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use proc_macro2::{Ident, Span};
+use quote::quote;
 use syn::spanned::Spanned;
-use syn::{parse_quote, Item, ItemFn, ItemMod};
+use syn::{parse_quote, Attribute, Item, ItemFn, ItemMod, Meta, MetaList};
+use syn_path::path;
 
 use crate::util::create_item_mod;
 
@@ -112,11 +114,23 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
 }
 
 fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
-    Item::Mod(create_item_mod(
+    let mut module = create_item_mod(
         syn::Visibility::Public(Default::default()),
         Ident::new(name, Span::call_site()),
         machine.items,
-    ))
+    );
+    module.attrs.push(Attribute {
+        pound_token: Default::default(),
+        style: syn::AttrStyle::Outer,
+        bracket_token: Default::default(),
+        meta: Meta::List(MetaList {
+            path: path!(allow),
+            delimiter: syn::MacroDelimiter::Paren(Default::default()),
+            tokens: quote!(clippy::needless_late_init),
+        }),
+    });
+
+    Item::Mod(module)
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
