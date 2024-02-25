@@ -331,8 +331,11 @@ impl VisitMut for Visitor {
                     }
                 }
                 Stmt::Item(item) => {
-                    // no processing here
-                    processed_stmts.push(Stmt::Item(item));
+                    // not supported
+                    self.push_error(
+                        String::from("Item inside statement not supported"),
+                        item.span(),
+                    );
                 }
                 Stmt::Expr(expr, mut semi) => {
                     // ensure it has semicolon if it is not the last statement
