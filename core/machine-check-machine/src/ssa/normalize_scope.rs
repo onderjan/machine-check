@@ -7,10 +7,7 @@ use syn::{
     Block, Expr, Ident, Item, Local, Member, Pat, Path, Stmt, Type,
 };
 
-use crate::{
-    util::{create_assign, extract_path_ident_mut},
-    ErrorType, MachineError,
-};
+use crate::{util::extract_path_ident_mut, ErrorType, MachineError};
 
 pub fn normalize_scope(items: &mut [Item]) -> Result<(), MachineError> {
     let mut visitor = Visitor {
@@ -46,7 +43,10 @@ impl VisitMut for Visitor {
     }
 
     fn visit_block_mut(&mut self, block: &mut Block) {
-        self.scope_num += 1;
+        self.scope_num = self
+            .scope_num
+            .checked_add(1)
+            .expect("Scope number should not overflow");
         // push scope idents
         self.scope_idents.push(HashMap::new());
 
@@ -54,7 +54,7 @@ impl VisitMut for Visitor {
         let mut processed_stmts = Vec::new();
         for mut stmt in block.stmts.drain(..) {
             if let Stmt::Local(local) = stmt {
-                if let Err(err) = self.process_local(&mut processed_stmts, local) {
+                if let Err(err) = self.process_local(local) {
                     self.result = Err(err);
                 }
             } else {
@@ -80,7 +80,7 @@ impl VisitMut for Visitor {
     }
 
     fn visit_path_mut(&mut self, path: &mut Path) {
-        // only consider if it is an identifier
+        // only visit identifiers
         if let Some(ident) = extract_path_ident_mut(path) {
             self.visit_ident_mut(ident);
         }
@@ -117,11 +117,7 @@ impl VisitMut for Visitor {
 }
 
 impl Visitor {
-    fn process_local(
-        &mut self,
-        stmts: &mut Vec<Stmt>,
-        mut local: Local,
-    ) -> Result<(), MachineError> {
+    fn process_local(&mut self, mut local: Local) -> Result<(), MachineError> {
         let mut pat = if let Pat::Type(ref mut pat_ty) = &mut local.pat {
             pat_ty.pat.as_mut()
         } else {
@@ -178,21 +174,8 @@ impl Visitor {
         // add ident to scope
         unique_ident_vec.push(unique_ident.clone());
 
-        // only retain statement if it has initialization, convert it to assignment in that case
-        if let Some(ref mut init) = local.init {
-            if let Some(diverge) = &init.diverge {
-                return Err(MachineError::new(
-                    ErrorType::SsaInternal(String::from("Diverging let not supported:")),
-                    diverge.1.span(),
-                ));
-            }
-            // remember to visit the right expression before adding the assignment to converted statements
-            let mut right_expr = init.expr.as_ref().clone();
-            self.visit_expr_mut(&mut right_expr);
-            stmts.push(create_assign(unique_ident.clone(), right_expr, true));
-            // drop init in local
-            local.init = None;
-        }
+        // the local does not contain initialization after construct normalization
+        assert!(local.init.is_none());
 
         // assign unique ident to local and push the local to local defs
         pat_ident.ident = unique_ident;
