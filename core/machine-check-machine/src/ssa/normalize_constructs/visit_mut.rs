@@ -240,7 +240,6 @@ impl VisitMut for super::Visitor {
     }
 
     fn visit_pat_mut(&mut self, pat: &mut Pat) {
-        println!("Visiting pattern: {}, {:?}", quote::quote!(#pat), pat);
         match pat {
             Pat::Ident(_) | Pat::Lit(_) | Pat::Type(_) => {}
             _ => self.push_error(String::from("Pattern type not supported"), pat.span()),

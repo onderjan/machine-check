@@ -1,5 +1,4 @@
-use proc_macro2::Span;
-use syn::{spanned::Spanned, Block, Expr, Ident, Stmt};
+use syn::{spanned::Spanned, Block, Expr, Stmt};
 
 use crate::{
     util::{create_assign, create_expr_path, extract_else_block_mut},
@@ -210,13 +209,7 @@ impl super::Converter<'_> {
         }
 
         // create a temporary variable
-        let tmp_ident = Ident::new(
-            format!("__mck_tac_{}", self.get_and_increment_temp_counter()).as_str(),
-            Span::call_site(),
-        );
-
-        // add to created temporaries, they will get their let statements created later
-        self.created_temporaries.push(tmp_ident.clone());
+        let tmp_ident = self.temporary_manager.create_temporary_ident(expr.span());
         // add assignment statement; the temporary is only assigned to once here
         assign_stmts.push(create_assign(tmp_ident.clone(), expr.clone(), true));
 

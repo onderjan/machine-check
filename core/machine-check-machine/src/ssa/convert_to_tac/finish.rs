@@ -1,4 +1,4 @@
-use syn::{spanned::Spanned, Block, Expr, ExprAssign, ExprInfer, Ident, Stmt};
+use syn::{spanned::Spanned, Block, Expr, ExprAssign, ExprInfer, Stmt};
 use syn_path::path;
 
 use crate::{
@@ -67,12 +67,9 @@ impl super::Converter<'_> {
                             );
 
                             // create a temporary variable for reference to right base
-                            let tmp_ident = Ident::new(
-                                format!("__mck_tac_{}", self.get_and_increment_temp_counter())
-                                    .as_str(),
-                                right_base.span(),
-                            );
-                            self.created_temporaries.push(tmp_ident.clone());
+                            let tmp_ident = self
+                                .temporary_manager
+                                .create_temporary_ident(right_base.span());
 
                             // assign reference to the array
                             added_stmts.push(Stmt::Expr(
@@ -134,12 +131,9 @@ impl super::Converter<'_> {
                             }
 
                             // create a temporary variable for reference to left base
-                            let tmp_ident = Ident::new(
-                                format!("__mck_tac_{}", self.get_and_increment_temp_counter())
-                                    .as_str(),
-                                left_base.span(),
-                            );
-                            self.created_temporaries.push(tmp_ident.clone());
+                            let tmp_ident = self
+                                .temporary_manager
+                                .create_temporary_ident(left_base.span());
                             // assign reference to the array
                             added_stmts.push(Stmt::Expr(
                                 Expr::Assign(ExprAssign {
