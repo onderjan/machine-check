@@ -19,7 +19,7 @@ pub(crate) fn create_concrete_machine(
     expand_macros::expand_macros(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
     normalize_scope::normalize_scope(&mut items);
-    convert_to_tac::convert_to_tac(&mut items, &mut temporary_manager)?;
+    convert_to_tac::convert_to_tac(&mut items, &mut temporary_manager);
     convert_indexing::convert_indexing(&mut items, &mut temporary_manager)?;
     convert_to_ssa::convert_to_ssa(&mut items)?;
     infer_types::infer_types(&mut items)?;

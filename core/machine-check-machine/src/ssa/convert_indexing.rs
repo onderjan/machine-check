@@ -77,7 +77,7 @@ fn convert_stmt(
                             temporary_manager,
                             &mut added_stmts,
                             right_expr.index.as_mut(),
-                        )?;
+                        );
 
                         let right_base = std::mem::replace(
                             right_expr.expr.as_mut(),
@@ -125,12 +125,12 @@ fn convert_stmt(
                             temporary_manager,
                             &mut added_stmts,
                             left_expr.index.as_mut(),
-                        )?;
+                        );
                         move_through_temp(
                             temporary_manager,
                             &mut added_stmts,
                             &mut expr_assign.right,
-                        )?;
+                        );
                         // convert to write
                         // the base must be without side-effects
                         let left_base = std::mem::replace(
