@@ -5,14 +5,14 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     visit_mut::{self, VisitMut},
-    Block, Expr, ExprAssign, ExprBinary, ExprBlock, ExprCall, ExprInfer, ExprPath, ExprUnary, Item,
-    Member, Meta, Pat, Stmt,
+    Block, Expr, ExprAssign, ExprBinary, ExprBlock, ExprCall, ExprInfer, ExprUnary, Item, Member,
+    Meta, Pat, Stmt,
 };
 use syn_path::path;
 
 use crate::{
     support::local::extract_local_ident_with_type,
-    util::{create_expr_ident, create_expr_path, extract_path_ident},
+    util::{create_expr_call, create_expr_ident, create_expr_path, extract_path_ident, ArgType},
     ErrorType, MachineError,
 };
 
@@ -374,15 +374,30 @@ impl VisitMut for Visitor {
                 // OK
             }
             syn::Type::Reference(ty_ref) => {
+                if ty_ref.mutability.is_some() {
+                    self.push_error(
+                        String::from("Mutable reference not supported in type"),
+                        ty_ref.span(),
+                    );
+                }
+                if ty_ref.lifetime.is_some() {
+                    self.push_error(
+                        String::from("Lifetime not supported in type"),
+                        ty_ref.span(),
+                    );
+                }
                 if !matches!(*ty_ref.elem, syn::Type::Path(_)) {
                     self.push_error(
-                        String::from("Multiple-reference types not supported"),
-                        ty.span(),
+                        String::from("Only single-reference and path types are supported"),
+                        ty_ref.span(),
                     );
                 }
             }
             _ => {
-                self.push_error(String::from("Type not supported"), ty.span());
+                self.push_error(
+                    String::from("Only single-reference and path types are supported"),
+                    ty.span(),
+                );
             }
         }
 
@@ -413,7 +428,7 @@ impl VisitMut for Visitor {
         }
         if !is_permitted {
             self.push_error(
-                String::from("Attributes not supported except for allow, also derive on structs"),
+                String::from("Only allow attribute supported in this context"),
                 attribute.span(),
             );
         }
@@ -434,16 +449,18 @@ impl VisitMut for Visitor {
         }
         // disallow global paths to any other crates than machine_check and std
         if path.leading_colon.is_some() {
-            if let Some(crate_segment) = path.segments.first() {
-                let crate_ident = &crate_segment.ident;
-                if crate_ident != "machine_check" && crate_ident != "std" {
-                    self.push_error(
-                        String::from(
-                            "Only global paths starting with 'machine_check' and 'std' supported",
-                        ),
-                        path.span(),
-                    );
-                }
+            let crate_segment = path
+                .segments
+                .first()
+                .expect("Global path should have at least one segment");
+            let crate_ident = &crate_segment.ident;
+            if crate_ident != "machine_check" && crate_ident != "std" {
+                self.push_error(
+                    String::from(
+                        "Only global paths starting with 'machine_check' and 'std' supported",
+                    ),
+                    path.span(),
+                );
             }
         }
 
@@ -470,17 +487,11 @@ impl Visitor {
             }
         };
         if let Some(path) = path {
-            // construct a call
-            Expr::Call(ExprCall {
-                attrs: vec![],
-                func: Box::new(Expr::Path(ExprPath {
-                    attrs: vec![],
-                    qself: None,
-                    path,
-                })),
-                paren_token: Default::default(),
-                args: Punctuated::from_iter(vec![*expr_unary.expr]),
-            })
+            // construct the call
+            create_expr_call(
+                create_expr_path(path),
+                vec![(ArgType::Normal, *expr_unary.expr)],
+            )
         } else {
             // retain original if we were unsuccessful
             Expr::Unary(expr_unary)
@@ -545,16 +556,13 @@ impl Visitor {
         };
         if let Some(path) = call_func {
             // construct the call
-            Expr::Call(ExprCall {
-                attrs: vec![],
-                func: Box::new(Expr::Path(ExprPath {
-                    attrs: vec![],
-                    qself: None,
-                    path,
-                })),
-                paren_token: Default::default(),
-                args: Punctuated::from_iter(vec![*expr_binary.left, *expr_binary.right]),
-            })
+            create_expr_call(
+                create_expr_path(path),
+                vec![
+                    (ArgType::Normal, *expr_binary.left),
+                    (ArgType::Normal, *expr_binary.right),
+                ],
+            )
         } else {
             // retain original if we were unsuccessful
             Expr::Binary(expr_binary)
