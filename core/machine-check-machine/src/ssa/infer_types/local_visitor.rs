@@ -42,11 +42,6 @@ impl VisitMut for LocalVisitor<'_> {
         {
             if is_type_inferrable(ty) {
                 // we already have determined left type, return
-                /*println!(
-                    "Type of {} is already determined: {}",
-                    left_ident,
-                    quote::quote!(#ty)
-                );*/
                 return;
             }
         }
@@ -56,11 +51,6 @@ impl VisitMut for LocalVisitor<'_> {
             syn::Expr::Call(right_call) => self.infer_call_result_type(right_call),
             syn::Expr::Field(right_field) => self.infer_field_result_type(right_field),
             syn::Expr::Reference(right_reference) => {
-                /*println!(
-                    "Inferring ident {} from reference {}",
-                    left_ident,
-                    quote::quote!(#right_reference)
-                );*/
                 self.infer_reference_result_type(right_reference)
             }
             syn::Expr::Struct(right_struct) => Some(create_type_path(right_struct.path.clone())),
@@ -75,11 +65,6 @@ impl VisitMut for LocalVisitor<'_> {
         if let Some(inferred_type) = inferred_type {
             let mut_ty = self.local_ident_types.get_mut(left_ident).unwrap();
             if mut_ty.is_none() {
-                /*println!(
-                    "Inferred ident {} type {}",
-                    left_ident,
-                    quote::quote!(#inferred_type)
-                );*/
                 *self.local_ident_types.get_mut(left_ident).unwrap() = Some(inferred_type);
                 self.inferred_something = true;
             }
@@ -144,11 +129,6 @@ impl LocalVisitor<'_> {
     }
 
     fn infer_call_result_type(&self, expr_call: &ExprCall) -> Option<Type> {
-        /*println!(
-            "Inferring call result type for {}",
-            quote::quote!(#expr_call)
-        );*/
-
         // discover the type based on the call function
         let func_path = extract_expr_path(&expr_call.func).expect("Call function should be path");
         // --- BITVECTOR INITIALIZATION ---
@@ -337,72 +317,6 @@ impl LocalVisitor<'_> {
 
             return Some(Type::Path(ty_path));
         }
-
-        /*
-        // --- FUNCTION THAT CHANGE GENERICS BASED ON TRAIT ---
-        for (bit_result_trait, bit_result_fn) in GENERICS_CHANGING_TRAIT_FNS {
-            if path_matches_global_names(
-                func_path,
-                &["mck", "forward", bit_result_trait, bit_result_fn],
-            ) {
-                // take the type from first typed argument we find
-                for arg in &expr_call.args {
-                    let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
-                    let arg_type = self
-                        .local_ident_types
-                        .get(arg_ident)
-                        .expect("Call argument should have local ident");
-                    if let Some(arg_type) = arg_type {
-                        if let Some(mut type_path) = extract_type_path(arg_type) {
-                            // change the argument generics based on trait generics
-                            type_path.segments[2].arguments =
-                                func_path.segments[2].arguments.clone();
-
-                            return Some(create_type_path(type_path));
-                        }
-                    }
-                }
-
-                // no joy
-                // TODO: error here
-                return None;
-            }
-        }
-
-        if path_matches_global_names(func_path, &["mck", "forward", "PhiArg", "Taken"]) {
-            assert!(expr_call.args.len() == 1);
-            let arg_ident =
-                extract_expr_ident(&expr_call.args[0]).expect("Call argument should be ident");
-            let arg_type = self
-                .local_ident_types
-                .get(arg_ident)
-                .expect("Call argument should have local ident");
-            if let Some(arg_type) = arg_type {
-                return Some(create_type_path(create_path_with_last_generic_type(
-                    path!(::mck::forward::PhiArg),
-                    arg_type.clone(),
-                )));
-            }
-        }
-
-        if path_matches_global_names(func_path, &["mck", "forward", "PhiArg", "phi"]) {
-            assert!(expr_call.args.len() == 2);
-            for arg in &expr_call.args {
-                let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
-                let arg_type = self
-                    .local_ident_types
-                    .get(arg_ident)
-                    .expect("Call argument should have local ident");
-                if let Some(arg_type) = arg_type {
-                    // extract, never a reference
-                    if let Some(arg_path) = extract_type_path(arg_type) {
-                        if let Some(ty) = extract_last_generic_type(arg_path) {
-                            return Some(ty);
-                        }
-                    }
-                }
-            }
-        }*/
 
         None
     }
