@@ -1,4 +1,4 @@
-mod fn_properties;
+mod fns;
 mod local_visitor;
 mod type_properties;
 

@@ -19,7 +19,7 @@ use crate::{
 };
 
 use super::{
-    fn_properties::{STD_CMP_FNS, STD_OPS_FNS},
+    fns::{STD_CMP_FNS, STD_OPS_FNS},
     type_properties::is_type_inferrable,
 };
 
