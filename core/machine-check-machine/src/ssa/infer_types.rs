@@ -2,7 +2,7 @@ mod fn_properties;
 mod local_visitor;
 mod type_properties;
 
-use std::{collections::HashMap, vec};
+use std::{collections::HashMap, ops::ControlFlow, vec};
 
 use syn::{
     visit_mut::VisitMut, Ident, ImplItem, ImplItemFn, Item, ItemStruct, Meta, Pat, PatType, Path,
@@ -19,7 +19,7 @@ use crate::{
     ErrorType, MachineError,
 };
 
-use self::{local_visitor::LocalVisitor, type_properties::is_type_standard_inferred};
+use self::{local_visitor::LocalVisitor, type_properties::is_type_inferrable};
 
 pub fn infer_types(items: &mut [Item]) -> Result<(), MachineError> {
     let mut structs = HashMap::new();
@@ -51,7 +51,6 @@ fn infer_fn_types(
     impl_item_fn: &mut ImplItemFn,
     structs: &HashMap<Path, ItemStruct>,
 ) -> Result<(), MachineError> {
-    println!("Inferring types for function {}", impl_item_fn.sig.ident);
     let mut local_ident_types = HashMap::new();
 
     // add param idents
@@ -69,12 +68,12 @@ fn infer_fn_types(
         }
     }
 
-    // add local idents
+    // determine local idents and initial types
     for stmt in &impl_item_fn.block.stmts {
+        // locals are guaranteed to be at the beginning only
         let Stmt::Local(local) = stmt else {
             break;
         };
-        // add local ident
         let (local_ident, local_type) = extract_local_ident_with_type(local);
         local_ident_types.insert(local_ident, local_type);
     }
@@ -86,89 +85,111 @@ fn infer_fn_types(
         result: Ok(()),
         inferred_something: false,
     };
-    loop {
-        // TODO: remove kludge loop
-        visitor.visit_impl_item_fn_mut(impl_item_fn);
-        visitor.result.clone()?;
-        if !visitor.inferred_something {
-            break;
-        }
 
-        // infer to originals
-        let mut local_temp_origs = HashMap::new();
-        let mut local_orig_types = HashMap::new();
+    // infer within a loop to allow for transitive inference
+    while let ControlFlow::Continue(()) = infer_fn_types_next(&mut visitor, impl_item_fn)? {}
 
-        for stmt in &impl_item_fn.block.stmts {
-            let Stmt::Local(local) = stmt else {
-                break;
-            };
-            let mut replace_type = None;
-            let ident = match &local.pat {
-                Pat::Ident(pat_ident) => pat_ident.ident.clone(),
-                Pat::Type(ty) => extract_pat_ident(&ty.pat),
-                _ => panic!("Unexpected patttern type {:?}", local.pat),
-            };
-            if let Some(ty) = visitor.local_ident_types.get(&ident).unwrap() {
-                if is_type_standard_inferred(ty) {
-                    replace_type = Some(ty.clone());
-                }
-            }
+    // update the local types
+    update_local_types(&mut visitor, impl_item_fn)?;
 
-            for attr in &local.attrs {
-                if let Meta::NameValue(name_value) = &attr.meta {
-                    if name_value.path == path!(::mck::attr::tmp_original) {
-                        let orig_ident = extract_expr_ident(&name_value.value).unwrap();
-                        local_temp_origs.insert(ident, orig_ident.clone());
-                        // replace the original type
-                        if let Some(replace_type) = replace_type {
-                            local_orig_types.insert(orig_ident.clone(), replace_type);
-                        }
-                        break;
-                    }
-                }
-            }
-        }
+    Ok(())
+}
 
-        for stmt in &mut impl_item_fn.block.stmts {
-            let Stmt::Local(local) = stmt else {
-                break;
-            };
-            let (ident, ty) = match &local.pat {
-                Pat::Ident(pat_ident) => (pat_ident.ident.clone(), None),
-                Pat::Type(ty) => (extract_pat_ident(&ty.pat), Some(ty.ty.as_ref().clone())),
-                _ => panic!("Unexpected patttern type {:?}", local.pat),
-            };
-            if let Some(orig_ident) = local_temp_origs.get(&ident) {
-                if let Some(orig_type) = local_orig_types.get(orig_ident) {
-                    let mut inferred_type = orig_type.clone();
-                    if let Some(ty) = ty {
-                        if let Some(ty_path) = extract_type_path(&ty) {
-                            if path_matches_global_names(&ty_path, &["mck", "forward", "PhiArg"]) {
-                                // put the original type into generics
-                                inferred_type = create_type_path(
-                                    create_path_with_last_generic_type(ty_path, inferred_type),
-                                );
-                            }
-                        }
-                    }
-
-                    visitor
-                        .local_ident_types
-                        .insert(ident.clone(), Some(inferred_type));
-                }
-            }
-        }
-
-        visitor.inferred_something = false;
+fn infer_fn_types_next(
+    visitor: &mut LocalVisitor<'_>,
+    impl_item_fn: &mut ImplItemFn,
+) -> Result<ControlFlow<(), ()>, MachineError> {
+    // visit first to infer as much as we can
+    visitor.inferred_something = false;
+    visitor.visit_impl_item_fn_mut(impl_item_fn);
+    std::mem::replace(&mut visitor.result, Ok(()))?;
+    if !visitor.inferred_something {
+        return Ok(ControlFlow::Break(()));
     }
 
-    /*println!("Fn: {}", quote::quote!(#impl_item_fn));
-    println!("Local ident types now:");
-    for (ident, ty) in visitor.local_ident_types.iter() {
-        println!("{} -> {}", ident, quote::quote!(#ty));
-    }*/
+    // we have some temporaries with the same or similar types as the originals
+    // if the type of temporary is PhiArg, the original type will be in generics
+    let mut local_temp_origs = HashMap::new();
 
-    // merge local types
+    // iterate over the locals to find temporary originals
+    // and determined original types
+    for stmt in &impl_item_fn.block.stmts {
+        let Stmt::Local(local) = stmt else {
+            // locals are guaranteed to be at the beginning only
+            break;
+        };
+        let mut local_type = None;
+        // extract type from local definition if possible
+        let ident = match &local.pat {
+            Pat::Ident(pat_ident) => pat_ident.ident.clone(),
+            Pat::Type(ty) => extract_pat_ident(&ty.pat),
+            _ => panic!("Unexpected patttern type {:?}", local.pat),
+        };
+        // next, try to take the type from the visitor
+        if let Some(ty) = visitor.local_ident_types.get(&ident).unwrap() {
+            if is_type_inferrable(ty) {
+                local_type = Some(ty.clone());
+            }
+        }
+
+        // if we this is a temporary with an original, remember it
+        // and replace the original type with ours if ours is known, remember it
+        for attr in &local.attrs {
+            if let Meta::NameValue(name_value) = &attr.meta {
+                if name_value.path == path!(::mck::attr::tmp_original) {
+                    let orig_ident = extract_expr_ident(&name_value.value).unwrap();
+                    // remember that this temporary has an original with the same type
+                    local_temp_origs.insert(ident, orig_ident.clone());
+                    // replace the original type with ours if ours is known, remember it
+                    if let Some(local_type) = local_type {
+                        visitor
+                            .local_ident_types
+                            .insert(orig_ident.clone(), Some(local_type.clone()));
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    // iterate over locals once more to distribute the determined types of original
+    for stmt in &mut impl_item_fn.block.stmts {
+        let Stmt::Local(local) = stmt else {
+            // locals are guaranteed to be at the beginning only
+            break;
+        };
+        let (ident, ty) = extract_local_ident_with_type(local);
+        // look at if we have an original with some type
+        if let Some(orig_ident) = local_temp_origs.get(&ident) {
+            if let Some(Some(orig_type)) = visitor.local_ident_types.get(orig_ident) {
+                let mut inferred_type = orig_type.clone();
+                // if temporary type is PhiArg, put the original type into generics
+                if let Some(ty) = ty {
+                    if let Some(ty_path) = extract_type_path(&ty) {
+                        if path_matches_global_names(&ty_path, &["mck", "forward", "PhiArg"]) {
+                            inferred_type = create_type_path(create_path_with_last_generic_type(
+                                ty_path,
+                                inferred_type,
+                            ));
+                        }
+                    }
+                }
+
+                // update the type of the temporary
+                visitor
+                    .local_ident_types
+                    .insert(ident.clone(), Some(inferred_type));
+            }
+        }
+    }
+    Ok(ControlFlow::Continue(()))
+}
+
+fn update_local_types(
+    visitor: &mut LocalVisitor<'_>,
+    impl_item_fn: &mut ImplItemFn,
+) -> Result<(), MachineError> {
+    // add inferred types to the definitions
     for stmt in &mut impl_item_fn.block.stmts {
         let Stmt::Local(local) = stmt else {
             break;
@@ -179,28 +200,21 @@ fn infer_fn_types(
             _ => panic!("Unexpected patttern type {:?}", local.pat),
         };
         let inferred_type = visitor.local_ident_types.remove(&ident).unwrap();
-        if let Some(inferred_type) = inferred_type {
-            // add type
-            let mut pat = local.pat.clone();
-            if let Pat::Type(pat_type) = pat {
-                pat = pat_type.pat.as_ref().clone();
-            }
-            local.pat = Pat::Type(PatType {
-                attrs: vec![],
-                pat: Box::new(pat),
-                colon_token: Default::default(),
-                ty: Box::new(inferred_type),
-            })
-        } else {
-            // could not infer type
-            return Err(MachineError::new(
-                ErrorType::InferenceFailure(format!(
-                    "Could not infer type for ident '{:?}'",
-                    ident
-                )),
-                ident.span(),
-            ));
+        let Some(inferred_type) = inferred_type else {
+            // inference failure
+            return Err(MachineError::new(ErrorType::InferenceFailure, ident.span()));
+        };
+        // add type
+        let mut pat = local.pat.clone();
+        if let Pat::Type(pat_type) = pat {
+            pat = pat_type.pat.as_ref().clone();
         }
+        local.pat = Pat::Type(PatType {
+            attrs: vec![],
+            pat: Box::new(pat),
+            colon_token: Default::default(),
+            ty: Box::new(inferred_type),
+        });
     }
 
     Ok(())

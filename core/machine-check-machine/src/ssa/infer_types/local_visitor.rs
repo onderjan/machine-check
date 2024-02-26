@@ -20,7 +20,7 @@ use crate::{
 
 use super::{
     fn_properties::{STD_CMP_FNS, STD_OPS_FNS},
-    type_properties::is_type_standard_inferred,
+    type_properties::is_type_inferrable,
 };
 
 pub struct LocalVisitor<'a> {
@@ -40,7 +40,7 @@ impl VisitMut for LocalVisitor<'_> {
             .get_mut(left_ident)
             .expect("Left ident should be in local ident types")
         {
-            if is_type_standard_inferred(ty) {
+            if is_type_inferrable(ty) {
                 // we already have determined left type, return
                 /*println!(
                     "Type of {} is already determined: {}",

@@ -146,8 +146,8 @@ pub enum ErrorType {
     MacroParseError(syn::Error),
     #[error("machine-check: {0}")]
     UnsupportedConstruct(String),
-    #[error("machine-check: {0}")]
-    InferenceFailure(String),
+    #[error("machine-check: Could not infer variable type")]
+    InferenceFailure,
 
     #[error("machine-check internal error (SSA translation): {0}")]
     SsaInternal(String),
