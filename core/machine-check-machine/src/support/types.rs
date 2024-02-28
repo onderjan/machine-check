@@ -6,13 +6,31 @@ use syn::{
     ImplItemFn, Lit, LitInt, Path, PathArguments, Stmt, Type,
 };
 
-use crate::util::{create_ident, create_path_segment, create_type_path};
+use crate::util::{
+    create_ident, create_path_segment, create_type_path, extract_pat_ident,
+    path_matches_global_names,
+};
 
 use super::local::extract_local_ident_with_type;
 
 pub fn find_local_types(impl_item_fn: &ImplItemFn) -> HashMap<Ident, Type> {
     let mut result = HashMap::new();
-    // find temporary types
+    // add arguments
+    for arg in impl_item_fn.sig.inputs.iter() {
+        match arg {
+            syn::FnArg::Receiver(receiver) => {
+                result.insert(
+                    Ident::new("self", receiver.self_token.span),
+                    receiver.ty.as_ref().clone(),
+                );
+            }
+            syn::FnArg::Typed(typed) => {
+                let ident = extract_pat_ident(&typed.pat);
+                result.insert(ident, typed.ty.as_ref().clone());
+            }
+        }
+    }
+    // add types in block
     for stmt in impl_item_fn.block.stmts.iter() {
         if let Stmt::Local(local) = stmt {
             let (ident, ty) = extract_local_ident_with_type(local);
@@ -58,4 +76,16 @@ pub fn boolean_type(flavour: &str) -> Type {
         ]),
     };
     create_type_path(path)
+}
+
+pub fn is_machine_check_bitvector_related_path(path: &Path) -> bool {
+    path_matches_global_names(path, &["machine_check", "Bitvector"])
+        || path_matches_global_names(path, &["machine_check", "Unsigned"])
+        || path_matches_global_names(path, &["machine_check", "Signed"])
+}
+
+pub fn is_concr_bitvector_related_path(path: &Path) -> bool {
+    path_matches_global_names(path, &["mck", "concr", "Bitvector"])
+        || path_matches_global_names(path, &["mck", "concr", "Unsigned"])
+        || path_matches_global_names(path, &["mck", "concr", "Signed"])
 }

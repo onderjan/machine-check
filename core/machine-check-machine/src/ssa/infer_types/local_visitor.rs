@@ -9,10 +9,7 @@ use syn::{
 };
 
 use crate::{
-    util::{
-        create_type_path, extract_expr_ident, extract_path_ident, extract_type_path,
-        path_matches_global_names,
-    },
+    util::{create_type_path, extract_expr_ident, extract_path_ident, extract_type_path},
     ErrorType, MachineError,
 };
 
@@ -209,10 +206,4 @@ impl LocalVisitor<'_> {
             Ok(None)
         }
     }
-}
-
-fn is_bitvector_related_path(path: &Path) -> bool {
-    path_matches_global_names(path, &["machine_check", "Bitvector"])
-        || path_matches_global_names(path, &["machine_check", "Unsigned"])
-        || path_matches_global_names(path, &["machine_check", "Signed"])
 }

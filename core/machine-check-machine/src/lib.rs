@@ -148,6 +148,8 @@ pub enum ErrorType {
     UnsupportedConstruct(String),
     #[error("machine-check: Could not infer variable type")]
     InferenceFailure,
+    #[error("machine-check: {0}")]
+    ConcreteConversionError(String),
 
     #[error("machine-check internal error (SSA translation): {0}")]
     SsaInternal(String),

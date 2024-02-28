@@ -6,15 +6,13 @@ use syn_path::path;
 
 use crate::{
     ssa::infer_types::type_properties::is_type_inferrable,
-    support::types::boolean_type,
+    support::types::{boolean_type, is_machine_check_bitvector_related_path},
     util::{
         create_type_path, extract_expr_ident, extract_expr_path, extract_type_path,
         path_matches_global_names,
     },
     ErrorType, MachineError,
 };
-
-use super::is_bitvector_related_path;
 
 impl super::LocalVisitor<'_> {
     pub(super) fn infer_call_result_type(&mut self, expr_call: &ExprCall) -> Option<Type> {
@@ -208,7 +206,7 @@ impl super::LocalVisitor<'_> {
             // unexpected type, do not infer
             return None;
         };
-        if !is_bitvector_related_path(&ty_path.path) {
+        if !is_machine_check_bitvector_related_path(&ty_path.path) {
             // unexpected type, do not infer
             return None;
         }
