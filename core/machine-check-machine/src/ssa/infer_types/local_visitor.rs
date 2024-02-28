@@ -2,26 +2,23 @@ use core::panic;
 use std::collections::HashMap;
 
 use syn::{
-    punctuated::Punctuated,
+    spanned::Spanned,
     visit_mut::{self, VisitMut},
-    AngleBracketedGenericArguments, Expr, ExprCall, ExprField, ExprPath, ExprReference,
-    GenericArgument, Ident, ItemStruct, Member, Path, PathArguments, Type, TypeReference,
+    Expr, ExprCall, ExprField, ExprPath, ExprReference, Ident, ItemStruct, Member, Path, Type,
+    TypeReference,
 };
-use syn_path::path;
 
 use crate::{
-    support::types::boolean_type,
     util::{
-        create_type_path, extract_expr_ident, extract_expr_path, extract_path_ident,
-        extract_type_path, path_matches_global_names,
+        create_type_path, extract_expr_ident, extract_path_ident, extract_type_path,
+        path_matches_global_names,
     },
-    MachineError,
+    ErrorType, MachineError,
 };
 
-use super::{
-    fns::{STD_CMP_FNS, STD_OPS_FNS},
-    type_properties::is_type_inferrable,
-};
+use super::type_properties::is_type_inferrable;
+
+mod infer_call;
 
 pub struct LocalVisitor<'a> {
     pub local_ident_types: HashMap<Ident, Option<Type>>,
@@ -35,11 +32,13 @@ impl VisitMut for LocalVisitor<'_> {
         let left_ident =
             extract_expr_ident(&expr_assign.left).expect("Left side of assignment should be ident");
 
-        if let Some(ty) = self
-            .local_ident_types
-            .get_mut(left_ident)
-            .expect("Left ident should be in local ident types")
-        {
+        let Some(ty) = self.local_ident_types.get_mut(left_ident) else {
+            // not a local ident, skip
+            return;
+        };
+
+        // check whether the left type has already a determined left type
+        if let Some(ty) = ty {
             if is_type_inferrable(ty) {
                 // we already have determined left type, return
                 return;
@@ -76,16 +75,22 @@ impl VisitMut for LocalVisitor<'_> {
 }
 
 impl LocalVisitor<'_> {
+    fn push_error(&mut self, error: MachineError) {
+        if self.result.is_ok() {
+            self.result = Err(error);
+        }
+    }
+
     fn infer_field_result_type(&self, expr_field: &ExprField) -> Option<Type> {
         // get type of member from structs
         let base_ident =
             extract_expr_ident(expr_field.base.as_ref()).expect("Field base should be an ident");
-        let base_type = self
-            .local_ident_types
-            .get(base_ident)
-            .expect("Field base ident should be in ident types")
-            .as_ref();
-        let Some(mut base_type) = base_type else {
+
+        let Some(base_type) = self.local_ident_types.get(base_ident) else {
+            // not a local ident, skip
+            return None;
+        };
+        let Some(mut base_type) = base_type.as_ref() else {
             return None;
         };
         // dereference first
@@ -94,7 +99,7 @@ impl LocalVisitor<'_> {
         }
 
         let Some(base_type_path) = extract_type_path(base_type) else {
-            panic!("Unexpected base type: {:?}", base_type);
+            panic!("Unexpected non-path base type");
         };
 
         let base_struct = self.structs.get(&base_type_path);
@@ -126,199 +131,6 @@ impl LocalVisitor<'_> {
             }
             syn::Fields::Unit => None,
         }
-    }
-
-    fn infer_call_result_type(&self, expr_call: &ExprCall) -> Option<Type> {
-        // discover the type based on the call function
-        let func_path = extract_expr_path(&expr_call.func).expect("Call function should be path");
-        // --- BITVECTOR INITIALIZATION ---
-        if path_matches_global_names(func_path, &["machine_check", "Bitvector", "new"])
-            || path_matches_global_names(func_path, &["machine_check", "Unsigned", "new"])
-            || path_matches_global_names(func_path, &["machine_check", "Signed", "new"])
-        {
-            // infer bitvector type
-            let mut bitvector = func_path.clone();
-            bitvector.segments.pop();
-            bitvector.segments[1].arguments = func_path.segments[1].arguments.clone();
-            return Some(create_type_path(bitvector));
-        }
-        if path_matches_global_names(
-            func_path,
-            &["machine_check", "BitvectorArray", "new_filled"],
-        ) {
-            // infer array type
-            let mut array = path!(::machine_check::BitvectorArray);
-            array.segments[1].arguments = func_path.segments[1].arguments.clone();
-            return Some(create_type_path(array));
-        }
-
-        // --- INTO ---
-
-        if path_matches_global_names(func_path, &["std", "convert", "Into", "into"]) {
-            // the argument can be given
-            let PathArguments::AngleBracketed(angle_bracketed) = &func_path.segments[2].arguments
-            else {
-                return None;
-            };
-            if angle_bracketed.args.len() != 1 {
-                panic!("Into should have exactly one generic argument");
-            }
-            let GenericArgument::Type(ty) = &angle_bracketed.args[0] else {
-                panic!("Into should have type generic argument");
-            };
-
-            return Some(ty.clone());
-        }
-
-        if path_matches_global_names(func_path, &["std", "clone", "Clone", "clone"]) {
-            // infer from first argument which should be a reference
-            let arg = &expr_call.args[0];
-            // take the type from first typed argument we find
-            let arg_ident =
-                extract_expr_ident(arg).expect("Call argument should be reference to ident");
-            let arg_type = self
-                .local_ident_types
-                .get(arg_ident)
-                .expect("Call argument should have local ident");
-            if let Some(arg_type) = arg_type {
-                // the argument type is a reference, dereference it
-                let Type::Reference(type_reference) = arg_type else {
-                    panic!("Expected first argument of array read to be a reference");
-                };
-                return Some(type_reference.elem.as_ref().clone());
-            }
-        }
-
-        if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "write"]) {
-            // infer from first argument which should be a reference to the array
-            let arg = &expr_call.args[0];
-            // take the type from first typed argument we find
-            let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
-            let arg_type = self
-                .local_ident_types
-                .get(arg_ident)
-                .expect("Call argument should have local ident");
-            if let Some(arg_type) = arg_type {
-                // the argument type is a reference to the array, construct the bitvector type
-                let Type::Reference(type_reference) = arg_type else {
-                    panic!("Expected first argument of array read to be a reference");
-                };
-                let array_type = type_reference.elem.as_ref();
-
-                return Some(array_type.clone());
-            }
-        }
-
-        if path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "read"]) {
-            // infer from first argument which should be a reference to the array
-            let arg = &expr_call.args[0];
-            // take the type from first typed argument we find
-            let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
-            let arg_type = self
-                .local_ident_types
-                .get(arg_ident)
-                .expect("Call argument should have local ident");
-            if let Some(arg_type) = arg_type {
-                // the argument type is a reference to the array, construct the bitvector type
-                let Type::Reference(type_reference) = arg_type else {
-                    panic!("Expected first argument of array read to be a reference");
-                };
-                let array_type = type_reference.elem.as_ref();
-                let Some(array_path) = extract_type_path(array_type) else {
-                    panic!("Expected first argument of array read to be a reference to path type");
-                };
-                if !path_matches_global_names(&array_path, &["machine_check", "BitvectorArray"]) {
-                    panic!("Expected first argument of array read to be a reference to array");
-                }
-                let PathArguments::AngleBracketed(generics) = &array_path.segments[1].arguments
-                else {
-                    panic!("Expected first argument of array read to have generic arguments");
-                };
-                if generics.args.len() != 2 {
-                    panic!("Expected first argument of array read to have exactly two generic arguments");
-                }
-                // element length is the second argument
-                let mut result_type_path = path!(::mck::concr::Bitvector);
-                result_type_path.segments[2].arguments =
-                    PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                        colon2_token: Default::default(),
-                        lt_token: Default::default(),
-                        args: Punctuated::from_iter(vec![generics.args[1].clone()]),
-                        gt_token: Default::default(),
-                    });
-
-                return Some(create_type_path(result_type_path));
-            }
-        }
-
-        // --- FUNCTIONS THAT RETAIN ARGUMENT TYPES IN RETURN TYPE ---
-        for (bit_result_trait, bit_result_fn) in STD_OPS_FNS {
-            if path_matches_global_names(
-                func_path,
-                &["std", "ops", bit_result_trait, bit_result_fn],
-            ) {
-                // take the type from first typed argument we find
-                for arg in &expr_call.args {
-                    let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
-                    let arg_type = self
-                        .local_ident_types
-                        .get(arg_ident)
-                        .expect("Call argument should have local ident");
-                    if let Some(arg_type) = arg_type {
-                        return Some(arg_type.clone());
-                    }
-                }
-
-                // no joy
-                // TODO: error here
-                return None;
-            }
-        }
-
-        // TODO: add extensions and conditions
-        // --- FUNCTIONS THAT RETURN BOOLEAN ---
-        for (bit_result_trait, bit_result_fn) in STD_CMP_FNS {
-            if path_matches_global_names(
-                func_path,
-                &["std", "cmp", bit_result_trait, bit_result_fn],
-            ) {
-                return Some(boolean_type("concr"));
-            }
-        }
-
-        // --- EXT ---
-
-        if path_matches_global_names(func_path, &["machine_check", "Ext", "ext"]) {
-            // infer from first argument and generic const
-            let arg = &expr_call.args[0];
-            // take the type from first typed argument we find
-            let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
-            let arg_type = self
-                .local_ident_types
-                .get(arg_ident)
-                .expect("Call argument should have local ident");
-
-            let Some(Type::Path(ty_path)) = arg_type else {
-                return None;
-            };
-            if !is_bitvector_related_path(&ty_path.path) {
-                return None;
-            }
-
-            if !matches!(
-                &func_path.segments[1].arguments,
-                PathArguments::AngleBracketed(_)
-            ) {
-                return None;
-            };
-            // change generics
-            let mut ty_path = ty_path.clone();
-            ty_path.path.segments[1].arguments = func_path.segments[1].arguments.clone();
-
-            return Some(Type::Path(ty_path));
-        }
-
-        None
     }
 
     fn infer_path_result_type(&self, expr_path: &ExprPath) -> Option<Type> {
@@ -367,6 +179,35 @@ impl LocalVisitor<'_> {
             mutability: None,
             elem: Box::new(expr_type.clone()),
         }))
+    }
+
+    fn get_arg_type<'a>(
+        &'a mut self,
+        expr_call: &ExprCall,
+        arg_index: usize,
+        num_args: usize,
+    ) -> Result<Option<&'a Type>, ()> {
+        assert!(arg_index < num_args);
+        if num_args != expr_call.args.len() {
+            self.push_error(MachineError::new(
+                ErrorType::UnsupportedConstruct(format!(
+                    "Expected {} parameters, but {} supplied",
+                    num_args,
+                    expr_call.args.len()
+                )),
+                expr_call.span(),
+            ));
+            return Err(());
+        }
+        let arg = &expr_call.args[arg_index];
+        let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
+        let arg_type = self.local_ident_types.get(arg_ident);
+        if let Some(arg_type) = arg_type {
+            Ok(arg_type.as_ref())
+        } else {
+            // not a local ident, do not produce an error
+            Ok(None)
+        }
     }
 }
 
