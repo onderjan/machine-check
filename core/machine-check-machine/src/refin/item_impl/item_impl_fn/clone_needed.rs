@@ -121,18 +121,6 @@ impl VisitMut for Visitor<'_> {
                 processed_stmts.push(stmt);
                 continue;
             };
-            /*let Expr::Call(expr_call) = expr_assign.right.as_mut() else {
-                processed_stmts.push(stmt);
-                continue;
-            };*/
-
-            /*let Expr::Path(ExprPath { path, .. }) = expr_call.func.as_ref() else {
-                panic!("Unexpected non-path call function");
-            };
-            if path_matches_global_names(path, &["mck", "forward", "ReadWrite", "write"]) {
-                // clone the first argument
-                let first_arg_ident =
-                    extract_expr_ident(&expr_call.args[0]).expect("Write argument should be ident");*/
 
             let left_ident = extract_expr_ident(expr_assign.left.as_ref())
                 .expect("Assignment expression left side should be ident");
@@ -169,20 +157,6 @@ impl VisitMut for Visitor<'_> {
 
             processed_stmts.push(stmt);
             processed_stmts.push(clone_assign);
-
-            // add attribute for clone to the original call
-            /*expr_call.attrs.push(Attribute {
-                pound_token: Default::default(),
-                style: syn::AttrStyle::Outer,
-                bracket_token: Default::default(),
-                meta: syn::Meta::NameValue(MetaNameValue {
-                    path: path!(::mck::attr::refin_clone),
-                    eq_token: Default::default(),
-                    value: create_expr_ident(clone_ident),
-                }),
-            });*/
-
-            //}
         }
         block.stmts = processed_stmts;
     }

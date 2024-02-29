@@ -292,24 +292,6 @@ impl StatementConverter {
             backward_args.push(backward_arg);
         }
 
-        // use a clone instead of normal first argument if we have the attribute
-        // TODO: remove this hack
-        /*for attr in &call.attrs {
-            if let Meta::NameValue(name_value) = &attr.meta {
-                if path_matches_global_names(&name_value.path, &["mck", "attr", "reference_clone"]) {
-
-                }
-                if path_matches_global_names(&name_value.path, &["mck", "attr", "refin_clone"]) {
-                    // we have to convert the ident to abstract namespace
-                    let ident = extract_expr_ident(&name_value.value)
-                        .expect("Clone attribute should contain ident");
-                    let ident = construct_prefixed_ident("abstr", ident);
-                    forward_args[0] = create_expr_ident(ident);
-                    break;
-                }
-            }
-        }*/
-
         let forward_arg = create_expr_tuple(forward_args);
         backward_call.args.push(forward_arg);
         backward_call.args.push(backward_later.clone());
