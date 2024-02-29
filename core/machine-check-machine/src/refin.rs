@@ -33,7 +33,15 @@ pub(crate) fn create_refinement_machine(
             Item::Struct(item_struct) => {
                 // apply path rules and push struct
                 let mut refin_struct = item_struct.clone();
-                rules::refinement_normal().apply_to_item_struct(&mut refin_struct)?;
+                match rules::refinement_normal().apply_to_item_struct(&mut refin_struct) {
+                    Ok(()) => {}
+                    Err(err) => {
+                        return Err(MachineError::new(
+                            ErrorType::BackwardConversionError(String::from("Unable to convert")),
+                            err.0,
+                        ));
+                    }
+                }
                 result_items.push(Item::Struct(refin_struct));
             }
             Item::Impl(item_impl) => {

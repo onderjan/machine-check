@@ -62,20 +62,14 @@ impl StructRules {
 
         let Type::Path(ty) = ty else {
             return Err(MachineError::new(
-                ErrorType::RulesInternal(format!(
-                    "Non-path type {} not supported",
-                    quote::quote!(#ty)
-                )),
+                ErrorType::RulesInternal(String::from("Unable to convert non-path type")),
                 ty.span(),
             ));
         };
 
         if ty.qself.is_some() {
             return Err(MachineError::new(
-                ErrorType::RulesInternal(format!(
-                    "Qualified-path type {} not supported",
-                    quote::quote!(#ty)
-                )),
+                ErrorType::RulesInternal(String::from("Unable to convert qualified-path type")),
                 ty.span(),
             ));
         }
@@ -85,12 +79,30 @@ impl StructRules {
 
     fn convert_type_path(&self, path: &Path) -> Result<Path, MachineError> {
         // TODO: rework generic kludge
-        let mut path = self.type_rules.convert_path(path.clone())?;
+        let mut path = match self.type_rules.convert_path(path.clone()) {
+            Ok(ok) => ok,
+            Err(err) => {
+                return Err(MachineError::new(
+                    ErrorType::BackwardConversionError(String::from("Unable to convert type path")),
+                    err.0,
+                ));
+            }
+        };
         for segment in &mut path.segments {
             if let syn::PathArguments::AngleBracketed(arguments) = &mut segment.arguments {
                 for arg in &mut arguments.args {
                     if let GenericArgument::Type(Type::Path(ty_path)) = arg {
-                        ty_path.path = self.type_rules.convert_path(ty_path.path.clone())?;
+                        ty_path.path = match self.type_rules.convert_path(ty_path.path.clone()) {
+                            Ok(ok) => ok,
+                            Err(err) => {
+                                return Err(MachineError::new(
+                                    ErrorType::BackwardConversionError(String::from(
+                                        "Unable to convert type path segment generic arguments",
+                                    )),
+                                    err.0,
+                                ));
+                            }
+                        }
                     }
                 }
             }
@@ -107,7 +119,14 @@ impl StructRules {
     }
 
     pub(crate) fn convert_normal_path(&self, path: Path) -> Result<Path, MachineError> {
-        self.normal_rules.convert_path(path)
+        // TODO: rework
+        match self.normal_rules.convert_path(path) {
+            Ok(ok) => Ok(ok),
+            Err(err) => Err(MachineError::new(
+                ErrorType::BackwardConversionError(String::from("Unable to convert normal path")),
+                err.0,
+            )),
+        }
     }
 }
 

@@ -1,15 +1,13 @@
 use std::rc::Rc;
 
-use proc_macro2::Ident;
+use proc_macro2::{Ident, Span};
 use syn::spanned::Spanned;
 use syn::Path;
 use syn::{visit_mut::VisitMut, Item};
 
-use crate::ErrorType;
-use crate::{
-    util::{create_ident, create_path_segment},
-    MachineError,
-};
+use crate::util::{create_ident, create_path_segment};
+
+pub struct NoPathRuleMatch(pub Span);
 
 #[derive(Clone, Debug)]
 pub enum PathRuleSegment {
@@ -48,7 +46,7 @@ impl PathRules {
         }
     }
 
-    pub(crate) fn apply_to_items(&self, items: &mut [Item]) -> Result<(), MachineError> {
+    pub(crate) fn apply_to_items(&self, items: &mut [Item]) -> Result<(), NoPathRuleMatch> {
         let mut visitor = Visitor::new(&self.rules, &self.self_ty_name);
         for item in items.iter_mut() {
             visitor.visit_item_mut(item);
@@ -56,13 +54,16 @@ impl PathRules {
         visitor.first_error.map_or(Ok(()), Err)
     }
 
-    pub(crate) fn apply_to_item_struct(&self, s: &mut syn::ItemStruct) -> Result<(), MachineError> {
+    pub(crate) fn apply_to_item_struct(
+        &self,
+        s: &mut syn::ItemStruct,
+    ) -> Result<(), NoPathRuleMatch> {
         let mut visitor = Visitor::new(&self.rules, &self.self_ty_name);
         visitor.visit_item_struct_mut(s);
         visitor.first_error.map_or(Ok(()), Err)
     }
 
-    pub(crate) fn convert_path(&self, path: syn::Path) -> Result<syn::Path, MachineError> {
+    pub(crate) fn convert_path(&self, path: syn::Path) -> Result<syn::Path, NoPathRuleMatch> {
         let mut visitor = Visitor::new(&self.rules, &self.self_ty_name);
         let mut path = path;
         visitor.apply_to_path(&mut path)?;
@@ -71,7 +72,7 @@ impl PathRules {
 }
 
 struct Visitor<'a> {
-    first_error: Option<MachineError>,
+    first_error: Option<NoPathRuleMatch>,
     rules: &'a Vec<PathRule>,
     self_ty_name: &'a Option<String>,
 }
@@ -101,7 +102,7 @@ impl<'a> Visitor<'a> {
         }
     }
 
-    fn apply_to_path(&mut self, path: &mut Path) -> Result<(), MachineError> {
+    fn apply_to_path(&mut self, path: &mut Path) -> Result<(), NoPathRuleMatch> {
         let mut matched_rule = false;
         // use the first rule that applies
         for rule in self.rules {
@@ -122,10 +123,7 @@ impl<'a> Visitor<'a> {
             }
             return Ok(());
         }
-        Err(MachineError::new(
-            ErrorType::RulesInternal(String::from("No rule matches path")),
-            path.span(),
-        ))
+        Err(NoPathRuleMatch(path.span()))
     }
 }
 

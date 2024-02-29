@@ -1,8 +1,7 @@
-use syn::{ImplItem, ImplItemFn, ItemImpl, ItemStruct, Stmt};
+use syn::{ImplItem, ImplItemFn, ItemImpl, ItemStruct, Path, Stmt};
 use syn_path::path;
 
 use crate::{
-    refin::rules,
     util::{
         create_arg, create_expr_call, create_expr_field, create_expr_logical_or, create_expr_path,
         create_field_value, create_ident, create_impl_item_fn, create_item_impl,
@@ -12,16 +11,13 @@ use crate::{
     MachineError,
 };
 
-pub(crate) fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, MachineError> {
-    let abstr_type_path =
-        rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
-
+pub(crate) fn meta_impl(s: &ItemStruct, abstr_type_path: &Path) -> Result<ItemImpl, MachineError> {
     let trait_path = path!(::mck::misc::Meta);
     let trait_path =
-        create_path_with_last_generic_type(trait_path, create_type_path(abstr_type_path));
+        create_path_with_last_generic_type(trait_path, create_type_path(abstr_type_path.clone()));
 
-    let first_fn = proto_first_fn(s)?;
-    let increment_fn = proto_increment_fn(s)?;
+    let first_fn = proto_first_fn(s, abstr_type_path)?;
+    let increment_fn = proto_increment_fn(s, abstr_type_path)?;
 
     Ok(create_item_impl(
         Some(trait_path),
@@ -30,13 +26,11 @@ pub(crate) fn meta_impl(s: &ItemStruct) -> Result<ItemImpl, MachineError> {
     ))
 }
 
-fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+fn proto_first_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, MachineError> {
     let fn_ident = create_ident("proto_first");
 
     let self_arg = create_self_arg(ArgType::Reference);
-    let return_type_path =
-        rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
-    let return_type = create_type_path(return_type_path.clone());
+    let return_type = create_type_path(abstr_type_path.clone());
 
     let mut struct_expr_fields = Vec::new();
 
@@ -49,7 +43,7 @@ fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
         struct_expr_fields.push(create_field_value(index, field, init_expr));
     }
 
-    let struct_expr = create_struct_expr(return_type_path, struct_expr_fields);
+    let struct_expr = create_struct_expr(abstr_type_path.clone(), struct_expr_fields);
 
     Ok(create_impl_item_fn(
         fn_ident,
@@ -59,14 +53,12 @@ fn proto_first_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     ))
 }
 
-fn proto_increment_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+fn proto_increment_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, MachineError> {
     let fn_ident = create_ident("proto_increment");
 
     let self_arg = create_self_arg(ArgType::Reference);
     let proto_ident = create_ident("proto");
-    let proto_type_path =
-        rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?;
-    let proto_type = create_type_path(proto_type_path);
+    let proto_type = create_type_path(abstr_type_path.clone());
     let proto_arg = create_arg(
         ArgType::MutableReference,
         proto_ident.clone(),

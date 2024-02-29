@@ -4,7 +4,7 @@ mod rules;
 
 use syn::Item;
 
-use crate::{support::field_manipulate, MachineDescription};
+use crate::{support::field_manipulate, ErrorType, MachineDescription};
 
 use self::{
     item_impl::{preprocess_item_impl, process_item_impl},
@@ -20,7 +20,15 @@ pub(crate) fn create_abstract_machine(
     // expecting the concrete machine in SSA form
     let mut abstract_machine = ssa_machine.clone();
     // apply transcription to types using path rule transcriptor
-    path_rules().apply_to_items(&mut abstract_machine.items)?;
+    match path_rules().apply_to_items(&mut abstract_machine.items) {
+        Ok(()) => {}
+        Err(err) => {
+            return Err(MachineError::new(
+                ErrorType::ForwardConversionError(String::from("Unable to convert")),
+                err.0,
+            ));
+        }
+    }
 
     let mut machine_types = Vec::new();
     let mut processed_items = Vec::new();

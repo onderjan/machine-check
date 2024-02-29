@@ -7,7 +7,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    refin::{rules, util::create_refine_join_stmt},
+    refin::util::create_refine_join_stmt,
     support::types::boolean_type,
     util::{
         create_arg, create_assign, create_expr_call, create_expr_field, create_expr_ident,
@@ -19,18 +19,19 @@ use crate::{
     MachineError,
 };
 
-pub(crate) fn refine_impl(item_struct: &ItemStruct) -> Result<Item, MachineError> {
+pub(crate) fn refine_impl(
+    item_struct: &ItemStruct,
+    abstr_type_path: &Path,
+) -> Result<Item, MachineError> {
     let refin_fn = apply_refin_fn(item_struct)?;
     let join_fn = apply_join_fn(item_struct)?;
-    let decay_fn = force_decay_fn(item_struct)?;
+    let decay_fn = force_decay_fn(item_struct, abstr_type_path)?;
     let to_condition_fn = to_condition_fn(item_struct)?;
     let clean_fn = clean_fn(item_struct)?;
 
-    let abstr_type_path =
-        rules::abstract_type().convert_path(create_path_from_ident(item_struct.ident.clone()))?;
     let refine_trait: Path = path!(::mck::refin::Refine);
     let refine_trait =
-        create_path_with_last_generic_type(refine_trait, create_type_path(abstr_type_path));
+        create_path_with_last_generic_type(refine_trait, create_type_path(abstr_type_path.clone()));
 
     Ok(Item::Impl(create_item_impl(
         Some(refine_trait),
@@ -68,15 +69,13 @@ fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     ))
 }
 
-fn force_decay_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, MachineError> {
     let fn_ident = create_ident("force_decay");
 
     let self_arg = create_self_arg(ArgType::Reference);
 
     let target_ident = create_ident("target");
-    let target_type = create_type_path(
-        rules::abstract_type().convert_path(create_path_from_ident(s.ident.clone()))?,
-    );
+    let target_type = create_type_path(abstr_type_path.clone());
     let target_arg = create_arg(
         ArgType::MutableReference,
         target_ident.clone(),
