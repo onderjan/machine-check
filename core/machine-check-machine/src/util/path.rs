@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, Ident, Path,
-    PathSegment, Type,
+    punctuated::Punctuated, token::Comma, AngleBracketedGenericArguments, GenericArgument, Ident,
+    Path, PathArguments, PathSegment, Token, Type,
 };
 
 pub fn create_ident(name: &str) -> Ident {
@@ -83,4 +83,22 @@ pub fn path_starts_with_global_names(path: &Path, names: &[&'static str]) -> boo
         }
     }
     true
+}
+
+pub fn create_angle_bracketed_path_arguments(
+    turbofish: bool,
+    args: Vec<GenericArgument>,
+    span: Span,
+) -> PathArguments {
+    let colon2_token = if turbofish {
+        Some(Token![::](span))
+    } else {
+        None
+    };
+    PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+        colon2_token,
+        lt_token: Token![<](span),
+        args: Punctuated::<_, Comma>::from_iter(args),
+        gt_token: Token![>](span),
+    })
 }

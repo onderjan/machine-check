@@ -1,6 +1,12 @@
 #[machine_check_macros::machine_description]
 mod machine_module {
-    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    #[derive(
+        ::std::clone::Clone,
+        ::std::cmp::PartialEq,
+        ::std::cmp::Eq,
+        ::std::hash::Hash,
+        ::std::fmt::Debug,
+    )]
     pub struct Input {
         increment: ::machine_check::Unsigned<1>,
         unused: ::machine_check::BitvectorArray<16, 8>,
@@ -8,7 +14,13 @@ mod machine_module {
 
     impl ::machine_check::Input for Input {}
 
-    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    #[derive(
+        ::std::clone::Clone,
+        ::std::cmp::PartialEq,
+        ::std::cmp::Eq,
+        ::std::hash::Hash,
+        ::std::fmt::Debug,
+    )]
     pub struct State {
         value: ::machine_check::Unsigned<8>,
         safe: ::machine_check::Bitvector<1>,
@@ -17,7 +29,13 @@ mod machine_module {
 
     impl ::machine_check::State for State {}
 
-    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    #[derive(
+        ::std::clone::Clone,
+        ::std::cmp::PartialEq,
+        ::std::cmp::Eq,
+        ::std::hash::Hash,
+        ::std::fmt::Debug,
+    )]
     pub struct CounterMachine {}
 
     impl ::machine_check::Machine for CounterMachine {

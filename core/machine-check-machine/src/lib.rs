@@ -150,6 +150,8 @@ pub enum ErrorType {
     InferenceFailure,
     #[error("machine-check: {0}")]
     ConcreteConversionError(String),
+    #[error("machine-check: {0}")]
+    ForwardConversionError(String),
 
     #[error("machine-check internal error (SSA translation): {0}")]
     SsaInternal(String),

@@ -1,14 +1,11 @@
 mod impl_item_fn;
 
-use syn::{
-    punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, GenericArgument,
-    Ident, ImplItem, Item, ItemImpl, PathArguments, Token, Type, TypePath,
-};
+use syn::{spanned::Spanned, GenericArgument, Ident, ImplItem, Item, ItemImpl, Type, TypePath};
 
 use crate::{
     support::special_trait::{special_trait_impl, SpecialTrait},
-    util::{create_path_segment, extract_type_path},
-    MachineError,
+    util::{create_angle_bracketed_path_arguments, create_path_segment, extract_type_path},
+    ErrorType, MachineError,
 };
 
 use self::impl_item_fn::process_impl_item_fn;
@@ -42,7 +39,12 @@ pub fn process_item_impl(
         let span = item_impl.span();
 
         let Some(self_ty_path) = extract_type_path(&item_impl.self_ty) else {
-            panic!("Expected type path");
+            return Err(MachineError::new(
+                ErrorType::ForwardConversionError(String::from(
+                    "Unable to convert impl of non-path type",
+                )),
+                item_impl.self_ty.span(),
+            ));
         };
 
         if let Some((_, trait_path, _)) = &mut item_impl.trait_ {
@@ -51,12 +53,11 @@ pub fn process_item_impl(
                 .segments
                 .insert(0, create_path_segment(Ident::new("super", span)));
             trait_path.segments.last_mut().unwrap().arguments =
-                PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                    colon2_token: None,
-                    lt_token: Token![<](span),
-                    args: Punctuated::from_iter([GenericArgument::Type(machine_type.clone())]),
-                    gt_token: Token![>](span),
-                })
+                create_angle_bracketed_path_arguments(
+                    false,
+                    vec![GenericArgument::Type(machine_type.clone())],
+                    span,
+                );
         }
     }
 

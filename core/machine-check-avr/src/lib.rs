@@ -11,7 +11,13 @@
 #[allow(clippy::if_same_then_else)]
 #[machine_check_macros::machine_description]
 pub mod machine_module {
-    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    #[derive(
+        ::std::clone::Clone,
+        ::std::cmp::PartialEq,
+        ::std::cmp::Eq,
+        ::std::hash::Hash,
+        ::std::fmt::Debug,
+    )]
     pub struct Input {
         // --- Uninitialized Registers and Memory ---
         uninit_R: ::machine_check::BitvectorArray<5, 8>,
@@ -31,7 +37,13 @@ pub mod machine_module {
 
     impl ::machine_check::Input for Input {}
 
-    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    #[derive(
+        ::std::clone::Clone,
+        ::std::cmp::PartialEq,
+        ::std::cmp::Eq,
+        ::std::hash::Hash,
+        ::std::fmt::Debug,
+    )]
     pub struct State {
         // --- Program Counter ---
         // TODO: check overflow in the future
@@ -106,7 +118,13 @@ pub mod machine_module {
 
     impl ::machine_check::State for State {}
 
-    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    #[derive(
+        ::std::clone::Clone,
+        ::std::cmp::PartialEq,
+        ::std::cmp::Eq,
+        ::std::hash::Hash,
+        ::std::fmt::Debug,
+    )]
     pub struct Machine {
         // progmem is 32 KB, i.e. 16K 16-bit words
         // that is 2^14 = 16384

@@ -2,21 +2,39 @@ use machine_check::Bitvector;
 
 #[::machine_check::machine_description]
 mod machine_module {
-    #[derive(Debug, Clone, Hash, PartialEq, Eq)]
+    #[derive(
+        ::std::clone::Clone,
+        ::std::cmp::PartialEq,
+        ::std::cmp::Eq,
+        ::std::hash::Hash,
+        ::std::fmt::Debug,
+    )]
     pub struct Input {
         gpio_read: ::machine_check::BitvectorArray<4, 8>,
         uninit_reg: ::machine_check::BitvectorArray<2, 8>,
         uninit_data: ::machine_check::BitvectorArray<8, 8>,
     }
     impl ::machine_check::Input for Input {}
-    #[derive(Debug, Clone, Hash, PartialEq, Eq)]
+    #[derive(
+        ::std::clone::Clone,
+        ::std::cmp::PartialEq,
+        ::std::cmp::Eq,
+        ::std::hash::Hash,
+        ::std::fmt::Debug,
+    )]
     pub struct State {
         pc: ::machine_check::Bitvector<8>,
         reg: ::machine_check::BitvectorArray<2, 8>,
         data: ::machine_check::BitvectorArray<8, 8>,
     }
     impl ::machine_check::State for State {}
-    #[derive(Clone, Hash, PartialEq, Eq)]
+    #[derive(
+        ::std::clone::Clone,
+        ::std::cmp::PartialEq,
+        ::std::cmp::Eq,
+        ::std::hash::Hash,
+        ::std::fmt::Debug,
+    )]
     pub struct Machine {
         pub progmem: ::machine_check::BitvectorArray<8, 12>,
     }

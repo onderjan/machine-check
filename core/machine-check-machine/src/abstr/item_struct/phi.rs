@@ -23,6 +23,7 @@ pub fn phi_impl(item_struct: &ItemStruct) -> Result<Item, MachineError> {
 }
 
 fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+    // phi each field together
     let self_arg = create_self_arg(ArgType::Normal);
     let other_ident = create_ident("other");
     let other_arg = create_arg(ArgType::Normal, other_ident.clone(), None);
@@ -32,6 +33,7 @@ fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     let mut struct_field_values = Vec::new();
 
     for (index, field) in s.fields.iter().enumerate() {
+        // assign our field to a temporary as calls can only take ident arguments
         let self_field_expr = create_expr_field(create_self(), index, field);
         let other_field_expr =
             create_expr_field(create_expr_ident(other_ident.clone()), index, field);
@@ -46,6 +48,7 @@ fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
             true,
         ));
 
+        // assign other field to a temporary
         let other_field_temp_ident = create_ident(&format!("__mck_phi_other_{}", index));
         local_stmts.push(create_let_bare(
             other_field_temp_ident.clone(),
@@ -57,6 +60,7 @@ fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
             true,
         ));
 
+        // phi our and other field together
         let phi_result_expr = create_expr_call(
             create_expr_path(path!(::mck::abstr::Phi::phi)),
             vec![
@@ -64,6 +68,7 @@ fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
                 (ArgType::Normal, create_expr_ident(other_field_temp_ident)),
             ],
         );
+        // put the result value into a new temporary, which will be returned by struct initializer
         let phi_result_ident = create_ident(&format!("__mck_phi_result_{}", index));
         local_stmts.push(create_let_bare(
             phi_result_ident.clone(),
@@ -80,6 +85,7 @@ fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
             create_expr_ident(phi_result_ident),
         ));
     }
+    // the result is an initialized struct
     let struct_expr = Expr::Struct(ExprStruct {
         attrs: vec![],
         qself: None,
@@ -101,6 +107,7 @@ fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
 }
 
 fn uninit_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+    // each field is uninitialized (using the Phi uninit function)
     let mut local_stmts = Vec::new();
     let mut assign_stmts = Vec::new();
     let mut struct_field_values = Vec::new();

@@ -1,9 +1,8 @@
-mod phi;
 use proc_macro2::Ident;
 use quote::ToTokens;
 use syn::{
-    parse_quote, punctuated::Punctuated, spanned::Spanned, Expr, ExprStruct, Generics, ImplItem,
-    ImplItemFn, Item, ItemImpl, ItemStruct, Path, Stmt, Token, Type,
+    parse::Parser, punctuated::Punctuated, spanned::Spanned, Generics, ImplItem, Item, ItemImpl,
+    ItemStruct, Path, Token,
 };
 use syn_path::path;
 
@@ -11,46 +10,76 @@ use crate::{
     abstr::item_struct::phi::phi_impl,
     support::meta_eq::meta_eq_impl,
     util::{
-        create_arg, create_assign, create_expr_call, create_expr_field, create_expr_ident,
-        create_expr_path, create_field_value, create_ident, create_impl_item_fn, create_let_bare,
         create_path_from_ident, create_path_segment, create_path_with_last_generic_type,
-        create_type_path, extract_type_path, path_starts_with_global_names, ArgType,
+        create_type_path, path_matches_global_names,
     },
-    MachineError,
+    ErrorType, MachineError,
 };
+
+use self::from_concrete::from_concrete_fn;
+
+mod from_concrete;
+mod phi;
 
 pub fn process_item_struct(mut item_struct: ItemStruct) -> Result<Vec<Item>, MachineError> {
     let mut has_derived_eq = false;
     let mut has_derived_partial_eq = false;
-    // remove derives of PartialEq and Eq
+    // look for derives of PartialEq and Eq
     // only if they were derived, we can derive corresponding abstract traits
     for attr in item_struct.attrs.iter_mut() {
-        if let syn::Meta::List(meta_list) = &mut attr.meta {
-            if meta_list.path.is_ident("derive") {
-                let tokens = &meta_list.tokens;
-                let punctuated: Punctuated<Path, Token![,]> = parse_quote!(#tokens);
-                let mut processed_punctuated: Punctuated<Path, Token![,]> = Punctuated::new();
-                for derive in punctuated {
-                    // TODO: resolve paths
-                    if derive.is_ident("PartialEq") {
-                        has_derived_partial_eq = true;
-                    } else if derive.is_ident("Eq") {
-                        has_derived_eq = true;
-                    } else {
-                        processed_punctuated.push(derive);
+        let syn::Meta::List(meta_list) = &mut attr.meta else {
+            continue;
+        };
+        if !meta_list.path.is_ident("derive") {
+            continue;
+        }
+
+        let parser = Punctuated::<Path, Token![,]>::parse_terminated;
+
+        let Ok(punctuated) = parser.parse2(meta_list.tokens.clone()) else {
+            // could not be parsed, skip attribude
+            continue;
+        };
+        let mut processed_punctuated: Punctuated<Path, Token![,]> = Punctuated::new();
+        for derive in punctuated {
+            let passthrough_names_list = [
+                ["std", "clone", "Clone"],
+                ["std", "hash", "Hash"],
+                ["std", "fmt", "Debug"],
+            ];
+
+            if path_matches_global_names(&derive, &["std", "cmp", "PartialEq"]) {
+                has_derived_partial_eq = true;
+            } else if path_matches_global_names(&derive, &["std", "cmp", "Eq"]) {
+                has_derived_eq = true;
+            } else {
+                let mut passthrough = false;
+                for passthrough_names in &passthrough_names_list {
+                    if path_matches_global_names(&derive, passthrough_names) {
+                        passthrough = true;
+                        break;
                     }
                 }
-                meta_list.tokens = processed_punctuated.to_token_stream();
+                if passthrough {
+                    processed_punctuated.push(derive);
+                } else {
+                    return Err(MachineError::new(
+                        ErrorType::ForwardConversionError(String::from(
+                            "Unable to passthrough derive attribute",
+                        )),
+                        derive.span(),
+                    ));
+                }
             }
         }
+        meta_list.tokens = processed_punctuated.to_token_stream();
     }
 
     let abstr_impl = create_abstr(&item_struct)?;
 
     if has_derived_partial_eq && has_derived_eq {
-        // add trait implementations
+        // add phi and meta-eq implementations
         let phi_impl = phi_impl(&item_struct)?;
-
         let meta_eq_impl = meta_eq_impl(&item_struct);
 
         Ok(vec![
@@ -93,82 +122,4 @@ fn create_abstr(item_struct: &ItemStruct) -> Result<Item, MachineError> {
         brace_token: Default::default(),
         items: vec![from_concrete_fn],
     }))
-}
-
-fn from_concrete_fn(s: &ItemStruct, concr_ty: Type) -> Result<ImplItemFn, MachineError> {
-    let concr_ident = create_ident("concr");
-    let concr_arg = create_arg(ArgType::Normal, concr_ident.clone(), Some(concr_ty));
-
-    let mut local_stmts = Vec::new();
-    let mut assign_stmts = Vec::new();
-    let mut struct_field_values = Vec::new();
-
-    for (index, field) in s.fields.iter().enumerate() {
-        let concr_field_expr =
-            create_expr_field(create_expr_ident(concr_ident.clone()), index, field);
-
-        let Some(mut concr_field_path) = extract_type_path(&field.ty) else {
-            panic!("Expected type path when creating from concrete fn");
-        };
-
-        let assign_expr = if path_starts_with_global_names(&concr_field_path, &["mck", "abstr"]) {
-            concr_field_path.segments[1].ident =
-                Ident::new("concr", concr_field_path.segments[1].span());
-
-            let mck_field_temp_ident = create_ident(&format!("__mck_into_mck_{}", index));
-            local_stmts.push(create_let_bare(
-                mck_field_temp_ident.clone(),
-                Some(create_type_path(concr_field_path)),
-            ));
-            assign_stmts.push(create_assign(
-                mck_field_temp_ident.clone(),
-                create_expr_call(
-                    create_expr_path(path!(::mck::concr::IntoMck::into_mck)),
-                    vec![(ArgType::Normal, concr_field_expr)],
-                ),
-                true,
-            ));
-            create_expr_ident(mck_field_temp_ident)
-        } else {
-            concr_field_expr
-        };
-
-        let abstr_field_temp_ident = create_ident(&format!("__mck_into_abstr_{}", index));
-        local_stmts.push(create_let_bare(
-            abstr_field_temp_ident.clone(),
-            Some(field.ty.clone()),
-        ));
-        assign_stmts.push(create_assign(
-            abstr_field_temp_ident.clone(),
-            create_expr_call(
-                create_expr_path(path!(::mck::abstr::Abstr::from_concrete)),
-                vec![(ArgType::Normal, assign_expr)],
-            ),
-            true,
-        ));
-
-        struct_field_values.push(create_field_value(
-            index,
-            field,
-            create_expr_ident(abstr_field_temp_ident),
-        ));
-    }
-    let struct_expr = Expr::Struct(ExprStruct {
-        attrs: vec![],
-        qself: None,
-        path: path!(Self),
-        brace_token: Default::default(),
-        fields: Punctuated::from_iter(struct_field_values),
-        dot2_token: None,
-        rest: None,
-    });
-    local_stmts.extend(assign_stmts);
-    local_stmts.push(Stmt::Expr(struct_expr, None));
-
-    Ok(create_impl_item_fn(
-        create_ident("from_concrete"),
-        vec![concr_arg],
-        Some(create_type_path(path!(Self))),
-        local_stmts,
-    ))
 }
