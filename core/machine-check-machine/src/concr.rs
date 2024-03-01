@@ -14,7 +14,7 @@ pub fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
                 // add concrete traits for inputs, states, and machines
                 added_items.extend(process_item_impl(item_impl)?);
             }
-            syn::Item::Struct(_) => {
+            syn::Item::Struct(_) | syn::Item::Use(_) => {
                 // do nothing
             }
             _ => panic!("Unexpected item type"),

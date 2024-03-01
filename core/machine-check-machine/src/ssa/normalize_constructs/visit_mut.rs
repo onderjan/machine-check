@@ -9,7 +9,7 @@ use crate::util::extract_path_ident;
 impl VisitMut for super::Visitor {
     fn visit_item_mut(&mut self, item: &mut syn::Item) {
         match item {
-            Item::Struct(_) | Item::Impl(_) => {}
+            Item::Struct(_) | Item::Impl(_) | Item::Use(_) => {}
             _ => self.push_error(String::from("Item type not supported"), item.span()),
         }
 

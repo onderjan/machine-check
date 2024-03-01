@@ -2,41 +2,31 @@ use machine_check::Bitvector;
 
 #[::machine_check::machine_description]
 mod machine_module {
-    #[derive(
-        ::std::clone::Clone,
-        ::std::cmp::PartialEq,
-        ::std::cmp::Eq,
-        ::std::hash::Hash,
-        ::std::fmt::Debug,
-    )]
+    use ::machine_check::{Bitvector, BitvectorArray};
+    use ::std::{
+        clone::Clone,
+        cmp::{Eq, PartialEq},
+        fmt::Debug,
+        hash::Hash,
+    };
+
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
-        gpio_read: ::machine_check::BitvectorArray<4, 8>,
-        uninit_reg: ::machine_check::BitvectorArray<2, 8>,
-        uninit_data: ::machine_check::BitvectorArray<8, 8>,
+        gpio_read: BitvectorArray<4, 8>,
+        uninit_reg: BitvectorArray<2, 8>,
+        uninit_data: BitvectorArray<8, 8>,
     }
     impl ::machine_check::Input for Input {}
-    #[derive(
-        ::std::clone::Clone,
-        ::std::cmp::PartialEq,
-        ::std::cmp::Eq,
-        ::std::hash::Hash,
-        ::std::fmt::Debug,
-    )]
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
-        pc: ::machine_check::Bitvector<8>,
-        reg: ::machine_check::BitvectorArray<2, 8>,
-        data: ::machine_check::BitvectorArray<8, 8>,
+        pc: Bitvector<8>,
+        reg: BitvectorArray<2, 8>,
+        data: BitvectorArray<8, 8>,
     }
     impl ::machine_check::State for State {}
-    #[derive(
-        ::std::clone::Clone,
-        ::std::cmp::PartialEq,
-        ::std::cmp::Eq,
-        ::std::hash::Hash,
-        ::std::fmt::Debug,
-    )]
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Machine {
-        pub progmem: ::machine_check::BitvectorArray<8, 12>,
+        pub progmem: BitvectorArray<8, 12>,
     }
     impl ::machine_check::Machine for Machine {
         type Input = Input;
@@ -44,16 +34,16 @@ mod machine_module {
 
         fn init(&self, input: &Input) -> State {
             State {
-                pc: ::machine_check::Bitvector::<8>::new(0),
-                reg: ::std::clone::Clone::clone(&input.uninit_reg),
-                data: ::std::clone::Clone::clone(&input.uninit_data),
+                pc: Bitvector::<8>::new(0),
+                reg: Clone::clone(&input.uninit_reg),
+                data: Clone::clone(&input.uninit_data),
             }
         }
         fn next(&self, state: &State, input: &Input) -> State {
             let instruction = self.progmem[state.pc];
-            let mut reg = ::std::clone::Clone::clone(&state.reg);
-            let mut pc = state.pc + ::machine_check::Bitvector::<8>::new(1);
-            let mut data = ::std::clone::Clone::clone(&state.data);
+            let mut reg = Clone::clone(&state.reg);
+            let mut pc = state.pc + Bitvector::<8>::new(1);
+            let mut data = Clone::clone(&state.data);
 
             ::machine_check::bitmask_switch!(instruction {
                 "00dd_0---_aabb" => { // subtract
@@ -64,7 +54,7 @@ mod machine_module {
                     reg[d] = tmp;
                 }
                 "01rr_kkkk_kkkk" => { // jump if zero
-                    if reg[r] == ::machine_check::Bitvector::<8>::new(0) {
+                    if reg[r] == Bitvector::<8>::new(0) {
                         pc = k;
                     };
                 }
@@ -77,9 +67,6 @@ mod machine_module {
                 "11ss_1---_--nn" => { // store indirect
                     data[reg[n]] = reg[s];
                 }
-                /*_ => {
-
-                }*/
             });
             State { pc, reg, data }
         }
@@ -87,8 +74,7 @@ mod machine_module {
 }
 
 fn main() {
-    let mut progmem =
-        ::machine_check::BitvectorArray::<8, 12>::new_filled(::machine_check::Bitvector::new(0));
+    let mut progmem = ::machine_check::BitvectorArray::<8, 12>::new_filled(Bitvector::new(0));
 
     progmem[Bitvector::new(0)] = Bitvector::new(0b0000_0000_0000);
     progmem[Bitvector::new(1)] = Bitvector::new(0b0000_0000_0001);

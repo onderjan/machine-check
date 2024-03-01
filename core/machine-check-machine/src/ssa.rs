@@ -6,6 +6,7 @@ mod expand_macros;
 mod infer_types;
 mod normalize_constructs;
 mod normalize_scope;
+mod resolve_use;
 
 use syn::Item;
 
@@ -19,6 +20,7 @@ pub(crate) fn create_concrete_machine(
     expand_macros::expand_macros(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
     normalize_scope::normalize_scope(&mut items);
+    resolve_use::resolve_use(&mut items)?;
     convert_to_tac::convert_to_tac(&mut items, &mut temporary_manager);
     convert_indexing::convert_indexing(&mut items, &mut temporary_manager)?;
     convert_to_ssa::convert_to_ssa(&mut items)?;
