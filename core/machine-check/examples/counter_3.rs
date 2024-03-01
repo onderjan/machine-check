@@ -1,41 +1,31 @@
 #[machine_check_macros::machine_description]
 mod machine_module {
-    #[derive(
-        ::std::clone::Clone,
-        ::std::cmp::PartialEq,
-        ::std::cmp::Eq,
-        ::std::hash::Hash,
-        ::std::fmt::Debug,
-    )]
+    use ::machine_check::{Bitvector, BitvectorArray, Ext, Unsigned};
+    use ::std::{
+        clone::Clone,
+        cmp::{Eq, PartialEq},
+        fmt::Debug,
+        hash::Hash,
+    };
+
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
-        increment: ::machine_check::Unsigned<1>,
-        unused: ::machine_check::BitvectorArray<16, 8>,
+        increment: Unsigned<1>,
+        unused: BitvectorArray<16, 8>,
     }
 
     impl ::machine_check::Input for Input {}
 
-    #[derive(
-        ::std::clone::Clone,
-        ::std::cmp::PartialEq,
-        ::std::cmp::Eq,
-        ::std::hash::Hash,
-        ::std::fmt::Debug,
-    )]
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
-        value: ::machine_check::Unsigned<8>,
-        safe: ::machine_check::Bitvector<1>,
-        unused: ::machine_check::BitvectorArray<16, 8>,
+        value: Unsigned<8>,
+        safe: Bitvector<1>,
+        unused: BitvectorArray<16, 8>,
     }
 
     impl ::machine_check::State for State {}
 
-    #[derive(
-        ::std::clone::Clone,
-        ::std::cmp::PartialEq,
-        ::std::cmp::Eq,
-        ::std::hash::Hash,
-        ::std::fmt::Debug,
-    )]
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct CounterMachine {}
 
     impl ::machine_check::Machine for CounterMachine {
@@ -44,27 +34,24 @@ mod machine_module {
 
         fn init(&self, input: &Input) -> State {
             State {
-                value: ::machine_check::Unsigned::<8>::new(0),
-                safe: ::machine_check::Bitvector::<1>::new(1),
-                unused: ::std::clone::Clone::clone(&input.unused),
+                value: Unsigned::<8>::new(0),
+                safe: Bitvector::<1>::new(1),
+                unused: Clone::clone(&input.unused),
             }
         }
 
         fn next(&self, state: &State, input: &Input) -> State {
-            let mut next_value = state.value + ::machine_check::Ext::<8>::ext(input.increment);
-            if next_value == ::machine_check::Unsigned::<8>::new(157) {
-                next_value = ::machine_check::Unsigned::<8>::new(0);
+            let mut next_value = state.value + Ext::<8>::ext(input.increment);
+            if next_value == Unsigned::<8>::new(157) {
+                next_value = Unsigned::<8>::new(0);
             }
 
             let mut next_safe = state.safe;
-            if next_value >= ::machine_check::Unsigned::<8>::new(156) {
-                //if ::machine_check::Unsigned::<8>::new(156) <= next_value {
-                next_safe = ::machine_check::Bitvector::<1>::new(0);
+            if next_value >= Unsigned::<8>::new(156) {
+                next_safe = Bitvector::<1>::new(0);
             }
 
-            let unused = ::std::clone::Clone::clone(&input.unused);
-            //unused[::machine_check::Unsigned::<16>::new(747)] =
-            //    ::machine_check::Unsigned::<8>::new(224);
+            let unused = Clone::clone(&input.unused);
 
             State {
                 value: next_value,
