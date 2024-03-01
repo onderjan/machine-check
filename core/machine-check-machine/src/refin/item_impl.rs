@@ -1,5 +1,5 @@
 use syn::{
-    spanned::Spanned, GenericArgument, Ident, ImplItem, Item, ItemImpl, PathArguments, Type,
+    spanned::Spanned, GenericArgument, Ident, ImplItem, Item, ItemImpl, Path, PathArguments, Type,
 };
 
 use crate::{support::rules::Rules, util::create_path_segment, BackwardError, BackwardErrorType};
@@ -13,8 +13,28 @@ pub(super) fn apply(
     refinement_items: &mut Vec<Item>,
     item_impl: &ItemImpl,
 ) -> Result<(), BackwardError> {
+    // convert implementation
+    let self_ty_name = extract_self_type_ident(item_impl)?.to_string();
+
+    let converter = ImplConverter {
+        clone_rules: rules::clone_rules().with_self_ty_name(self_ty_name.clone()),
+        abstract_rules: rules::abstract_rules().with_self_ty_name(self_ty_name.clone()),
+        refinement_rules: rules::refinement_rules().with_self_ty_name(self_ty_name.clone()),
+    };
+    let mut converted_item_impl = converter.convert(item_impl.clone())?;
+
+    if let Some((_, path, _)) = &mut converted_item_impl.trait_ {
+        // convert generics arguments to super so that they still point to the original types
+        convert_generic_arguments_to_super(path)?;
+    };
+
+    refinement_items.push(Item::Impl(converted_item_impl));
+
+    Ok(())
+}
+
+fn extract_self_type_ident(item_impl: &ItemImpl) -> Result<&Ident, BackwardError> {
     let self_ty = item_impl.self_ty.as_ref();
-    println!("Applying refinement to impl {}", quote::quote!(#self_ty));
 
     let Type::Path(self_ty) = self_ty else {
         return Err(BackwardError::new(
@@ -33,37 +53,44 @@ pub(super) fn apply(
             self_ty.span(),
         ));
     };
+    Ok(self_ty_ident)
+}
 
-    let self_ty_name = self_ty_ident.to_string();
-
-    let converter = ImplConverter {
-        clone_rules: rules::clone_rules().with_self_ty_name(self_ty_name.clone()),
-        abstract_rules: rules::abstract_rules().with_self_ty_name(self_ty_name.clone()),
-        refinement_rules: rules::refinement_rules().with_self_ty_name(self_ty_name.clone()),
-    };
-    let mut converted_item_impl = converter.convert(item_impl.clone())?;
-
-    if let Some((_, path, _)) = &mut converted_item_impl.trait_ {
-        // convert generic parameters
-        for segment in &mut path.segments {
-            if let PathArguments::AngleBracketed(angle_bracketed) = &mut segment.arguments {
+fn convert_generic_arguments_to_super(path: &mut Path) -> Result<(), BackwardError> {
+    for segment in &mut path.segments {
+        match &mut segment.arguments {
+            PathArguments::None => {
+                // do nothing
+            }
+            PathArguments::AngleBracketed(angle_bracketed) => {
                 for argument in &mut angle_bracketed.args {
                     let span = argument.span();
-                    if let GenericArgument::Type(Type::Path(type_path)) = argument {
-                        if type_path.path.leading_colon.is_none() {
-                            type_path
-                                .path
-                                .segments
-                                .insert(0, create_path_segment(Ident::new("super", span)));
-                        }
+                    let GenericArgument::Type(Type::Path(type_path)) = argument else {
+                        return Err(BackwardError::new(
+                            BackwardErrorType::UnsupportedConstruct(String::from(
+                                "Only path-based type generic arguments are supported",
+                            )),
+                            span,
+                        ));
+                    };
+                    if type_path.path.leading_colon.is_none() {
+                        type_path
+                            .path
+                            .segments
+                            .insert(0, create_path_segment(Ident::new("super", span)));
                     }
                 }
             }
+            PathArguments::Parenthesized(_) => {
+                return Err(BackwardError::new(
+                    BackwardErrorType::UnsupportedConstruct(String::from(
+                        "Parenthesized generic arguments not supported",
+                    )),
+                    segment.arguments.span(),
+                ));
+            }
         }
-    };
-
-    refinement_items.push(Item::Impl(converted_item_impl));
-
+    }
     Ok(())
 }
 

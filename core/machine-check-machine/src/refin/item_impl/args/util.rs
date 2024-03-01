@@ -20,17 +20,11 @@ pub(crate) fn create_input_name_type_iter(
                     ty.span(),
                 ));
             };
-            if pat_ident.by_ref.is_some()
-                || pat_ident.mutability.is_some()
-                || pat_ident.subpat.is_some()
-            {
-                return Err(BackwardError::new(
-                    BackwardErrorType::UnsupportedConstruct(String::from(
-                        "Impure identifier patterns are not supported",
-                    )),
-                    ty.span(),
-                ));
-            }
+            assert!(
+                pat_ident.by_ref.is_none()
+                    && pat_ident.mutability.is_none()
+                    && pat_ident.subpat.is_none()
+            );
             Ok((pat_ident.ident.to_string(), ty.clone()))
         }
     })

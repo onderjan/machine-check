@@ -134,11 +134,12 @@ impl LocalVisitor<'_> {
         // infer from the identifier
         let right_ident = extract_path_ident(&expr_path.path)
             .expect("Right side of assignment should be ident on path");
-        let right_type = self
-            .local_ident_types
-            .get(right_ident)
-            .expect("Right ident should be in ident types");
-        right_type.clone()
+        let right_type = self.local_ident_types.get(right_ident);
+        if let Some(right_type) = right_type {
+            right_type.clone()
+        } else {
+            None
+        }
     }
 
     fn infer_reference_result_type(&self, expr_reference: &ExprReference) -> Option<Type> {
@@ -157,13 +158,9 @@ impl LocalVisitor<'_> {
         // infer type from the identifier first
         let expr_ident = extract_expr_ident(expr_reference.expr.as_ref())
             .expect("Right side of assignment should be ident in reference");
-        let expr_type = self
-            .local_ident_types
-            .get(expr_ident)
-            .expect("Right ident should be in ident types")
-            .clone();
+        let expr_type = self.local_ident_types.get(expr_ident);
 
-        let Some(expr_type) = expr_type else {
+        let Some(Some(expr_type)) = expr_type else {
             return None;
         };
 

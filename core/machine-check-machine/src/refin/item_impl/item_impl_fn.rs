@@ -29,48 +29,53 @@ impl ImplConverter {
         // 2. clear refin function block
         // 3. add original block statements excluding result that has local variables (including inputs)
         //        changed to abstract naming scheme (no other variables should be present)
-        // 4. initialize all local refinement variables including earlier to default value
-        // 5. add initialization of local variables
-        // 6. add "init_refin.apply_join(later);" where init_refin is changed from result expression
+        // 4. add initialization of earlier and local refinement variables
+        // 5. add "init_refin.apply_join(later);" where init_refin is changed from result expression
         //        to a pattern with local variables changed to refin naming scheme
-        // 7. add refin-computation statements in reverse order of original statements
+        // 6. add refin-computation statements in reverse order of original statements
         //        i.e. instead of "let a = call(b);"
         //        add "refin_b.apply_join(refin_call(abstr_b, refin_a))"
-        // 8. add result expression for earlier
+        // 7. add result expression
 
         let orig_sig = &orig_fn.sig;
 
-        let mut abstract_args = self.generate_abstract_input(orig_sig)?;
-        let later = self.generate_later(orig_sig, &get_block_result_expr(&orig_fn.block))?;
-        let earlier = self.generate_earlier(orig_sig)?;
+        let (abstract_args, mut abstract_local_stmts, mut abstract_detuple_stmts) =
+            self.generate_abstract_input(orig_sig)?;
+        let (later_arg, later_stmts) =
+            self.generate_later(orig_sig, &get_block_result_expr(&orig_fn.block))?;
+        let (earlier_return_type, earlier_orig_ident_types, earlier_tuple_stmt) =
+            self.generate_earlier(orig_sig)?;
 
         // step 1: set signature
         let mut refin_fn = orig_fn.clone();
-        refin_fn.sig.inputs = Punctuated::from_iter(vec![abstract_args.0, later.0]);
-        refin_fn.sig.output = earlier.0;
+        refin_fn.sig.inputs = Punctuated::from_iter(vec![abstract_args, later_arg]);
+        refin_fn.sig.output = earlier_return_type;
 
         // step 2: clear refin block
         let result_stmts = &mut refin_fn.block.stmts;
         result_stmts.clear();
 
-        // step 3: detuple abstract input
+        // step 3: add original block statement with abstract scheme
+        // add the abstract detuple statements after the locals but before other statements
         let mut abstr_fn = orig_fn.clone();
-        let mut abstr_stmts = abstract_args.1;
         let mut is_local_start = true;
         for stmt in abstr_fn.block.stmts.drain(..) {
             if is_local_start && !matches!(stmt, Stmt::Local(_)) {
-                abstr_stmts.append(&mut abstract_args.2);
+                abstract_local_stmts.append(&mut abstract_detuple_stmts);
                 is_local_start = false;
             }
-            abstr_stmts.push(stmt);
+            abstract_local_stmts.push(stmt);
         }
-        abstr_stmts.append(&mut abstract_args.2);
-        abstr_stmts.append(&mut abstr_fn.block.stmts);
-        abstr_fn.block.stmts = abstr_stmts;
+        if is_local_start {
+            abstract_local_stmts.append(&mut abstract_detuple_stmts);
+        }
+        abstract_local_stmts.append(&mut abstr_fn.block.stmts);
+        abstr_fn.block.stmts = abstract_local_stmts;
 
-        // step 4: add original block statement with abstract scheme
+        // clone variables that need to be cloned for later backward-statements use
         clone_needed::clone_needed(&mut abstr_fn);
 
+        // convert the block statement to abstract scheme
         for orig_stmt in &abstr_fn.block.stmts {
             let mut stmt = orig_stmt.clone();
             self.abstract_rules.apply_to_stmt(&mut stmt)?;
@@ -81,17 +86,17 @@ impl ImplConverter {
             result_stmts.push(stmt);
         }
 
-        let mut local_types = find_local_types(orig_fn);
-        local_types.extend(earlier.1);
+        // step 4: add initialization of earlier and local refin variables
 
-        // step 5: add initialization of earlier and local refin variables
+        // find out local types first and
+        let mut local_types = find_local_types(orig_fn);
+        local_types.extend(earlier_orig_ident_types);
+
         for (ident, ty) in local_types.clone().into_iter() {
             let refin_ident = self.refinement_rules.convert_normal_ident(ident.clone())?;
             // convert phi arguments into normal type
 
-            let mut refin_type = self
-                .refinement_rules
-                .convert_type(remove_phi_arg_type(ty))?;
+            let mut refin_type = self.refinement_rules.convert_type(unwrap_phi_arg(ty))?;
             // remove references as we make refinement joins
             if let Type::Reference(ref_type) = refin_type {
                 refin_type = ref_type.elem.as_ref().clone();
@@ -100,11 +105,10 @@ impl ImplConverter {
             result_stmts.push(self.create_init_stmt(refin_ident, refin_type));
         }
 
-        // step 6: de-result later refin
-        result_stmts.extend(later.1);
+        // step 5: de-result later refin
+        result_stmts.extend(later_stmts);
 
-        // step 7: add refin-computation statements in reverse order of original statements
-
+        // step 6: add refin-computation statements in reverse order of original statements
         let statement_converter = StatementConverter {
             local_types,
             forward_scheme: self.abstract_rules.clone(),
@@ -121,8 +125,8 @@ impl ImplConverter {
 
             statement_converter.convert_stmt(result_stmts, &stmt)?
         }
-        // 8. add result expression
-        result_stmts.push(earlier.2);
+        // 7. add result expression
+        result_stmts.push(earlier_tuple_stmt);
 
         Ok(refin_fn)
     }
@@ -147,13 +151,16 @@ impl ImplConverter {
     }
 }
 
-fn remove_phi_arg_type(ty: Type) -> Type {
+fn unwrap_phi_arg(ty: Type) -> Type {
     let Type::Path(path_ty) = &ty else {
+        // not a path, retain
         return ty;
     };
     if !path_matches_global_names(&path_ty.path, &["mck", "forward", "PhiArg"]) {
+        // not a phi arg, retain
         return ty;
     }
+    // phi arg is only added internally, so the next errors are internal
     let PathArguments::AngleBracketed(angle_bracketed) = &path_ty.path.segments[2].arguments else {
         panic!("Expected angle bracketed args following phi argument");
     };
@@ -165,5 +172,6 @@ fn remove_phi_arg_type(ty: Type) -> Type {
     let GenericArgument::Type(inner_ty) = &angle_bracketed.args[0] else {
         panic!("Expected inner type in phi argument");
     };
+    // unwrap phi arg
     inner_ty.clone()
 }

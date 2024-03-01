@@ -18,9 +18,6 @@ mod util;
 pub(crate) fn create_refinement_machine(
     abstract_machine: &MachineDescription,
 ) -> Result<MachineDescription, BackwardError> {
-    // the refinement machine will be in a new module at the end of the file
-    println!("Refining abstract machine");
-
     // create items to add to the module
     let mut result_items = Vec::<Item>::new();
     let mut ident_special_traits = HashMap::<Ident, SpecialTrait>::new();
@@ -67,7 +64,6 @@ pub(crate) fn create_refinement_machine(
     let refinement_machine = MachineDescription {
         items: result_items,
     };
-    println!("Refined abstract machine");
 
     Ok(refinement_machine)
 }

@@ -12,6 +12,7 @@ use crate::{
 };
 
 pub(crate) fn meta_impl(s: &ItemStruct, abstr_type_path: &Path) -> Result<ItemImpl, BackwardError> {
+    // Meta implementation which allows iteration over the forward values produced by this backward value
     let trait_path = path!(::mck::misc::Meta);
     let trait_path =
         create_path_with_last_generic_type(trait_path, create_type_path(abstr_type_path.clone()));
@@ -27,6 +28,7 @@ pub(crate) fn meta_impl(s: &ItemStruct, abstr_type_path: &Path) -> Result<ItemIm
 }
 
 fn proto_first_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, BackwardError> {
+    // just initialize each field to proto first
     let fn_ident = create_ident("proto_first");
 
     let self_arg = create_self_arg(ArgType::Reference);
@@ -54,6 +56,8 @@ fn proto_first_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, 
 }
 
 fn proto_increment_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, BackwardError> {
+    // increment the first field which is able to be incremented
+    // return whether we were able to increment some field
     let fn_ident = create_ident("proto_increment");
 
     let self_arg = create_self_arg(ArgType::Reference);

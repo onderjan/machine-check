@@ -58,7 +58,7 @@ impl ImplConverter {
     ) -> Result<(ReturnType, HashMap<Ident, Type>, Stmt), BackwardError> {
         // create return type
         let mut types = Vec::new();
-        let mut orig_ident_types = HashMap::new();
+        let mut earlier_orig_ident_types = HashMap::new();
         let mut refin_exprs = Vec::new();
         for r in create_input_name_type_iter(orig_sig) {
             let (orig_name, orig_type) = r?;
@@ -81,15 +81,19 @@ impl ImplConverter {
                 .convert_normal_ident(partial_ident.clone())?;
 
             let refin_expr = create_expr_ident(refin_ident);
-            orig_ident_types.insert(partial_ident, orig_type);
+            earlier_orig_ident_types.insert(partial_ident, orig_type);
             refin_exprs.push(refin_expr);
         }
         let ty = create_tuple_type(types);
-        let return_type = ReturnType::Type(Default::default(), Box::new(ty));
+        let earlier_return_type = ReturnType::Type(Default::default(), Box::new(ty));
 
         let tuple_expr = create_tuple_expr(refin_exprs);
 
-        Ok((return_type, orig_ident_types, Stmt::Expr(tuple_expr, None)))
+        Ok((
+            earlier_return_type,
+            earlier_orig_ident_types,
+            Stmt::Expr(tuple_expr, None),
+        ))
     }
 
     pub(crate) fn generate_later(
