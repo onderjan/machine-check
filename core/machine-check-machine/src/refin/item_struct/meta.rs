@@ -8,10 +8,10 @@ use crate::{
         create_path_from_ident, create_path_with_last_generic_type, create_self, create_self_arg,
         create_struct_expr, create_type_path, ArgType,
     },
-    MachineError,
+    BackwardError,
 };
 
-pub(crate) fn meta_impl(s: &ItemStruct, abstr_type_path: &Path) -> Result<ItemImpl, MachineError> {
+pub(crate) fn meta_impl(s: &ItemStruct, abstr_type_path: &Path) -> Result<ItemImpl, BackwardError> {
     let trait_path = path!(::mck::misc::Meta);
     let trait_path =
         create_path_with_last_generic_type(trait_path, create_type_path(abstr_type_path.clone()));
@@ -26,7 +26,7 @@ pub(crate) fn meta_impl(s: &ItemStruct, abstr_type_path: &Path) -> Result<ItemIm
     ))
 }
 
-fn proto_first_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, MachineError> {
+fn proto_first_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, BackwardError> {
     let fn_ident = create_ident("proto_first");
 
     let self_arg = create_self_arg(ArgType::Reference);
@@ -53,7 +53,7 @@ fn proto_first_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, 
     ))
 }
 
-fn proto_increment_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, MachineError> {
+fn proto_increment_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, BackwardError> {
     let fn_ident = create_ident("proto_increment");
 
     let self_arg = create_self_arg(ArgType::Reference);

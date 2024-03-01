@@ -55,7 +55,7 @@ pub(crate) fn create_abstract_machine(
     abstract_machine.items = processed_items;
 
     // add field-manipulate to items
-    field_manipulate::apply_to_items(&mut abstract_machine.items, "abstr")?;
+    field_manipulate::apply_to_items(&mut abstract_machine.items, "abstr");
 
     Ok(abstract_machine)
 }

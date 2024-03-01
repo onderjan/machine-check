@@ -1,15 +1,13 @@
+use core::panic;
 use std::collections::HashMap;
 
-use syn::{spanned::Spanned, Ident, Item, Type};
+use syn::{Ident, Item, Type};
 
-use crate::{util::path_matches_global_names, ErrorType, MachineDescription};
+use crate::{util::path_matches_global_names, BackwardError, MachineDescription};
 
-use super::{
-    support::{
-        field_manipulate,
-        special_trait::{special_trait_impl, SpecialTrait},
-    },
-    MachineError,
+use super::support::{
+    field_manipulate,
+    special_trait::{special_trait_impl, SpecialTrait},
 };
 
 mod item_impl;
@@ -19,7 +17,7 @@ mod util;
 
 pub(crate) fn create_refinement_machine(
     abstract_machine: &MachineDescription,
-) -> Result<MachineDescription, MachineError> {
+) -> Result<MachineDescription, BackwardError> {
     // the refinement machine will be in a new module at the end of the file
     println!("Refining abstract machine");
 
@@ -33,15 +31,7 @@ pub(crate) fn create_refinement_machine(
             Item::Struct(item_struct) => {
                 // apply path rules and push struct
                 let mut refin_struct = item_struct.clone();
-                match rules::refinement_normal().apply_to_item_struct(&mut refin_struct) {
-                    Ok(()) => {}
-                    Err(err) => {
-                        return Err(MachineError::new(
-                            ErrorType::BackwardConversionError(String::from("Unable to convert")),
-                            err.0,
-                        ));
-                    }
-                }
+                rules::refinement_rules().apply_to_item_struct(&mut refin_struct)?;
                 result_items.push(Item::Struct(refin_struct));
             }
             Item::Impl(item_impl) => {
@@ -59,12 +49,7 @@ pub(crate) fn create_refinement_machine(
                     };
                 }
             }
-            _ => {
-                return Err(MachineError::new(
-                    ErrorType::BackwardInternal(format!("Item type {:?} not supported", item)),
-                    item.span(),
-                ));
-            }
+            _ => panic!("Unexpected item type"),
         };
     }
     // second pass, add special impls for special traits
@@ -77,7 +62,7 @@ pub(crate) fn create_refinement_machine(
     }
 
     // add field manipulate
-    field_manipulate::apply_to_items(&mut result_items, "refin")?;
+    field_manipulate::apply_to_items(&mut result_items, "refin");
 
     let refinement_machine = MachineDescription {
         items: result_items,

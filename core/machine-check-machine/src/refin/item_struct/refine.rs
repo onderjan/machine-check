@@ -16,13 +16,13 @@ use crate::{
         create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
         ArgType,
     },
-    MachineError,
+    BackwardError,
 };
 
 pub(crate) fn refine_impl(
     item_struct: &ItemStruct,
     abstr_type_path: &Path,
-) -> Result<Item, MachineError> {
+) -> Result<Item, BackwardError> {
     let refin_fn = apply_refin_fn(item_struct)?;
     let join_fn = apply_join_fn(item_struct)?;
     let decay_fn = force_decay_fn(item_struct, abstr_type_path)?;
@@ -46,7 +46,7 @@ pub(crate) fn refine_impl(
     )))
 }
 
-fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
     let fn_ident = create_ident("apply_join");
 
     let self_input = create_self_arg(ArgType::MutableReference);
@@ -69,7 +69,7 @@ fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     ))
 }
 
-fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, MachineError> {
+fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, BackwardError> {
     let fn_ident = create_ident("force_decay");
 
     let self_arg = create_self_arg(ArgType::Reference);
@@ -107,7 +107,7 @@ fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, 
     ))
 }
 
-fn apply_refin_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+fn apply_refin_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
     let fn_ident = create_ident("apply_refin");
 
     let self_input = create_self_arg(ArgType::MutableReference);
@@ -153,7 +153,7 @@ fn apply_refin_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     ))
 }
 
-fn to_condition_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+fn to_condition_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
     let fn_ident = create_ident("to_condition");
     let self_input = create_self_arg(ArgType::Reference);
 
@@ -211,7 +211,7 @@ fn to_condition_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     ))
 }
 
-fn clean_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+fn clean_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
     let mut local_stmts = Vec::new();
     let mut assign_stmts = Vec::new();
     let mut struct_field_values = Vec::new();

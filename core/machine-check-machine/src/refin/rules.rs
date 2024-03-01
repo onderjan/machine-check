@@ -1,206 +1,200 @@
-use crate::support::path_rules::{PathRule, PathRuleSegment, PathRules};
+use crate::support::rules::{Rule, RuleSegment, Rules};
 
-pub fn refinement_normal() -> PathRules {
-    PathRules::new(vec![
-        PathRule {
+pub fn refinement_rules() -> Rules {
+    let normal_rules = vec![
+        Rule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Match(String::from("mck")),
-                PathRuleSegment::Convert(String::from("abstr"), String::from("refin")),
-                PathRuleSegment::EndWildcard,
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Convert(String::from("abstr"), String::from("refin")),
+                RuleSegment::EndWildcard,
             ],
         },
-        PathRule {
+        Rule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Match(String::from("mck")),
-                PathRuleSegment::Convert(String::from("forward"), String::from("backward")),
-                PathRuleSegment::EndWildcard,
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Convert(String::from("forward"), String::from("backward")),
+                RuleSegment::EndWildcard,
             ],
         },
-        PathRule {
+        Rule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Match(String::from("mck")),
-                PathRuleSegment::Match(String::from("misc")),
-                PathRuleSegment::EndWildcard,
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Match(String::from("misc")),
+                RuleSegment::EndWildcard,
             ],
         },
-        PathRule {
+        Rule {
             has_leading_colon: false,
-            segments: vec![PathRuleSegment::ConvertPrefix(
+            segments: vec![RuleSegment::ConvertPrefix(
                 String::from("__mck_"),
                 String::from("__mck_refin_"),
             )],
         },
-        PathRule {
+        Rule {
             has_leading_colon: false,
-            segments: vec![PathRuleSegment::ConvertPrefix(
+            segments: vec![RuleSegment::ConvertPrefix(
                 String::from(""),
                 String::from("__mck_refin_"),
             )],
         },
-        PathRule {
+        Rule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Match(String::from("mck")),
-                PathRuleSegment::Match(String::from("attr")),
-                PathRuleSegment::EndWildcard,
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Match(String::from("attr")),
+                RuleSegment::EndWildcard,
             ],
         },
-        PathRule {
+        Rule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Match(String::from("std")),
-                PathRuleSegment::Match(String::from("clone")),
-                PathRuleSegment::Match(String::from("Clone")),
-                PathRuleSegment::Match(String::from("clone")),
+                RuleSegment::Match(String::from("std")),
+                RuleSegment::Match(String::from("clone")),
+                RuleSegment::Match(String::from("Clone")),
+                RuleSegment::Match(String::from("clone")),
             ],
         },
-        PathRule {
+        Rule {
             has_leading_colon: false,
             segments: vec![
-                PathRuleSegment::Match(String::from("Self")),
-                PathRuleSegment::EndWildcard,
+                RuleSegment::Match(String::from("Self")),
+                RuleSegment::EndWildcard,
             ],
         },
-    ])
+    ];
+    let type_rules = vec![
+        Rule {
+            has_leading_colon: false,
+            segments: vec![RuleSegment::Wildcard],
+        },
+        Rule {
+            has_leading_colon: true,
+            segments: vec![
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Convert(String::from("abstr"), String::from("refin")),
+                RuleSegment::EndWildcard,
+            ],
+        },
+    ];
+    Rules::new(normal_rules, type_rules)
 }
 
-pub fn refinement_type() -> PathRules {
-    PathRules::new(vec![
-        PathRule {
+pub fn abstract_rules() -> Rules {
+    let normal_rules = vec![
+        Rule {
+            has_leading_colon: true,
+            segments: vec![
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Match(String::from("abstr")),
+                RuleSegment::EndWildcard,
+            ],
+        },
+        Rule {
+            has_leading_colon: true,
+            segments: vec![
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Match(String::from("forward")),
+                RuleSegment::EndWildcard,
+            ],
+        },
+        Rule {
             has_leading_colon: false,
-            segments: vec![PathRuleSegment::Wildcard],
-        },
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Match(String::from("mck")),
-                PathRuleSegment::Convert(String::from("abstr"), String::from("refin")),
-                PathRuleSegment::EndWildcard,
-            ],
-        },
-    ])
-}
-
-pub fn abstract_normal() -> PathRules {
-    PathRules::new(vec![
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Match(String::from("mck")),
-                PathRuleSegment::Match(String::from("abstr")),
-                PathRuleSegment::EndWildcard,
-            ],
-        },
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![
-                PathRuleSegment::Match(String::from("mck")),
-                PathRuleSegment::Match(String::from("forward")),
-                PathRuleSegment::EndWildcard,
-            ],
-        },
-        PathRule {
-            has_leading_colon: false,
-            segments: vec![PathRuleSegment::ConvertPrefix(
+            segments: vec![RuleSegment::ConvertPrefix(
                 String::from("__mck_"),
                 String::from("__mck_abstr_"),
             )],
         },
-        PathRule {
+        Rule {
             has_leading_colon: false,
-            segments: vec![PathRuleSegment::ConvertPrefix(
+            segments: vec![RuleSegment::ConvertPrefix(
                 String::from(""),
                 String::from("__mck_abstr_"),
             )],
         },
-        PathRule {
+        Rule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Match(String::from("mck")),
-                PathRuleSegment::Match(String::from("attr")),
-                PathRuleSegment::EndWildcard,
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Match(String::from("attr")),
+                RuleSegment::EndWildcard,
             ],
         },
-        PathRule {
+        Rule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Match(String::from("std")),
-                PathRuleSegment::Match(String::from("clone")),
-                PathRuleSegment::Match(String::from("Clone")),
-                PathRuleSegment::Match(String::from("clone")),
+                RuleSegment::Match(String::from("std")),
+                RuleSegment::Match(String::from("clone")),
+                RuleSegment::Match(String::from("Clone")),
+                RuleSegment::Match(String::from("clone")),
             ],
         },
-        PathRule {
+        Rule {
             has_leading_colon: true,
             segments: vec![
-                PathRuleSegment::Match(String::from("mck")),
-                PathRuleSegment::Match(String::from("refin")),
-                PathRuleSegment::Match(String::from("Refine")),
-                PathRuleSegment::Match(String::from("clean")),
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Match(String::from("refin")),
+                RuleSegment::Match(String::from("Refine")),
+                RuleSegment::Match(String::from("clean")),
             ],
         },
-        PathRule {
+        Rule {
             has_leading_colon: false,
             segments: vec![
-                PathRuleSegment::Insert(String::from("super")),
-                PathRuleSegment::Match(String::from("Self")),
-                PathRuleSegment::EndWildcard,
+                RuleSegment::Insert(String::from("super")),
+                RuleSegment::Match(String::from("Self")),
+                RuleSegment::EndWildcard,
             ],
         },
-    ])
+    ];
+    let type_rules = vec![
+        Rule {
+            has_leading_colon: false,
+            segments: vec![
+                RuleSegment::Insert(String::from("super")),
+                RuleSegment::Wildcard,
+            ],
+        },
+        Rule {
+            has_leading_colon: true,
+            segments: vec![RuleSegment::EndWildcard],
+        },
+    ];
+    Rules::new(normal_rules, type_rules)
 }
 
-pub fn abstract_type() -> PathRules {
-    PathRules::new(vec![
-        PathRule {
+pub fn clone_rules() -> Rules {
+    let normal_rules = vec![
+        Rule {
             has_leading_colon: false,
-            segments: vec![
-                PathRuleSegment::Insert(String::from("super")),
-                PathRuleSegment::Wildcard,
-            ],
-        },
-        PathRule {
-            has_leading_colon: true,
-            segments: vec![PathRuleSegment::EndWildcard],
-        },
-    ])
-}
-
-pub fn clone_normal() -> PathRules {
-    PathRules::new(vec![
-        PathRule {
-            has_leading_colon: false,
-            segments: vec![PathRuleSegment::ConvertPrefix(
+            segments: vec![RuleSegment::ConvertPrefix(
                 String::from("__mck_"),
                 String::from("__mck_clone_"),
             )],
         },
-        PathRule {
+        Rule {
             has_leading_colon: false,
-            segments: vec![PathRuleSegment::ConvertPrefix(
+            segments: vec![RuleSegment::ConvertPrefix(
                 String::from(""),
                 String::from("clone_"),
             )],
         },
-        PathRule {
+        Rule {
             has_leading_colon: true,
-            segments: vec![PathRuleSegment::EndWildcard],
+            segments: vec![RuleSegment::EndWildcard],
         },
-    ])
-}
-
-pub fn clone_type() -> PathRules {
-    PathRules::new(vec![
-        PathRule {
+    ];
+    let type_rules = vec![
+        Rule {
             has_leading_colon: false,
-            segments: vec![PathRuleSegment::EndWildcard],
+            segments: vec![RuleSegment::EndWildcard],
         },
-        PathRule {
+        Rule {
             has_leading_colon: true,
-            segments: vec![PathRuleSegment::EndWildcard],
+            segments: vec![RuleSegment::EndWildcard],
         },
-    ])
+    ];
+    Rules::new(normal_rules, type_rules)
 }

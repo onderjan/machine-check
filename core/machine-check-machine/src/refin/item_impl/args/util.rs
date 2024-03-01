@@ -1,26 +1,10 @@
 use syn::{spanned::Spanned, FnArg, Pat, Signature, Type};
 
-use crate::{ErrorType, MachineError};
-
-pub(crate) fn convert_type_to_path(ty: Type) -> Result<Type, MachineError> {
-    match ty {
-        Type::Path(_) => return Ok(ty),
-        Type::Reference(ref reference) => {
-            if let Type::Path(ref path) = *reference.elem {
-                return Ok(Type::Path(path.clone()));
-            }
-        }
-        _ => (),
-    }
-    Err(MachineError::new(
-        ErrorType::BackwardInternal(String::from("Conversion to path type not supported")),
-        ty.span(),
-    ))
-}
+use crate::{BackwardError, BackwardErrorType};
 
 pub(crate) fn create_input_name_type_iter(
     sig: &Signature,
-) -> impl Iterator<Item = Result<(String, Type), MachineError>> + '_ {
+) -> impl Iterator<Item = Result<(String, Type), BackwardError>> + '_ {
     sig.inputs.iter().map(|input| match input {
         FnArg::Receiver(receiver) => {
             let ty = receiver.ty.as_ref();
@@ -29,8 +13,8 @@ pub(crate) fn create_input_name_type_iter(
         FnArg::Typed(typed) => {
             let ty = typed.ty.as_ref();
             let Pat::Ident(ref pat_ident) = *typed.pat else {
-                return Err(MachineError::new(
-                    ErrorType::BackwardInternal(String::from(
+                return Err(BackwardError::new(
+                    BackwardErrorType::UnsupportedConstruct(String::from(
                         "Non-identifier patterns are not supported",
                     )),
                     ty.span(),
@@ -40,8 +24,8 @@ pub(crate) fn create_input_name_type_iter(
                 || pat_ident.mutability.is_some()
                 || pat_ident.subpat.is_some()
             {
-                return Err(MachineError::new(
-                    ErrorType::BackwardInternal(String::from(
+                return Err(BackwardError::new(
+                    BackwardErrorType::UnsupportedConstruct(String::from(
                         "Impure identifier patterns are not supported",
                     )),
                     ty.span(),

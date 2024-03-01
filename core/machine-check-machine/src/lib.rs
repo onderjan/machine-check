@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use proc_macro2::{Ident, Span};
 use quote::quote;
+use support::rules::NoRuleMatch;
 use syn::spanned::Spanned;
 use syn::{parse_quote, Attribute, Item, ItemFn, ItemMod, Meta, MetaList};
 use syn_path::path;
@@ -134,6 +135,34 @@ fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
+#[error("{0}")]
+pub enum BackwardErrorType {
+    #[error("Unable to convert")]
+    NoRuleMatch,
+    #[error("Unsupported construct: {0}")]
+    UnsupportedConstruct(String),
+}
+
+#[derive(thiserror::Error, Debug, Clone)]
+#[error("{ty}")]
+pub struct BackwardError {
+    pub ty: BackwardErrorType,
+    pub span: Span,
+}
+
+impl From<NoRuleMatch> for BackwardError {
+    fn from(error: NoRuleMatch) -> Self {
+        BackwardError::new(BackwardErrorType::NoRuleMatch, error.0)
+    }
+}
+
+impl BackwardError {
+    fn new(ty: BackwardErrorType, span: Span) -> Self {
+        Self { ty, span }
+    }
+}
+
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum ErrorType {
     #[error("machine-check: Cannot parse module without content")]
     ModuleWithoutContent,
@@ -163,6 +192,15 @@ pub enum ErrorType {
     BackwardInternal(String),
     #[error("machine-check internal error (rules): {0}")]
     RulesInternal(String),
+}
+
+impl From<BackwardError> for MachineError {
+    fn from(error: BackwardError) -> Self {
+        MachineError {
+            ty: ErrorType::BackwardConversionError(format!("{}", error)),
+            span: error.span,
+        }
+    }
 }
 
 #[derive(thiserror::Error, Debug, Clone)]

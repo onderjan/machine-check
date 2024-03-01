@@ -10,7 +10,7 @@ use crate::{
         create_expr_call, create_expr_path, create_let_mut, get_block_result_expr,
         path_matches_global_names,
     },
-    MachineError,
+    BackwardError,
 };
 
 use self::statement_converter::StatementConverter;
@@ -21,7 +21,7 @@ impl ImplConverter {
     pub(crate) fn transcribe_impl_item_fn(
         &self,
         orig_fn: &ImplItemFn,
-    ) -> Result<ImplItemFn, MachineError> {
+    ) -> Result<ImplItemFn, BackwardError> {
         // to transcribe function with signature (inputs) -> output and linear SSA block
         // we must the following steps
         // 1. set refin function signature to (abstract_inputs, later) -> (earlier)

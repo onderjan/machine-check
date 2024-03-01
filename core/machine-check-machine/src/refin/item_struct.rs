@@ -1,8 +1,6 @@
 use syn::{Item, ItemStruct};
 
-use crate::{
-    support::meta_eq::meta_eq_impl, util::create_path_from_ident, ErrorType, MachineError,
-};
+use crate::{support::meta_eq::meta_eq_impl, util::create_path_from_ident, BackwardError};
 
 use self::{meta::meta_impl, refine::refine_impl};
 
@@ -15,18 +13,9 @@ pub(super) fn add_special_impls(
     special_trait: SpecialTrait,
     refinement_items: &mut Vec<Item>,
     item_struct: &ItemStruct,
-) -> Result<(), MachineError> {
-    let abstr_type_path = match rules::abstract_type()
-        .convert_path(create_path_from_ident(item_struct.ident.clone()))
-    {
-        Ok(ok) => ok,
-        Err(err) => {
-            return Err(MachineError::new(
-                ErrorType::BackwardConversionError(String::from("Unable to convert struct ident")),
-                err.0,
-            ));
-        }
-    };
+) -> Result<(), BackwardError> {
+    let abstr_type_path = rules::abstract_rules()
+        .convert_type_path(create_path_from_ident(item_struct.ident.clone()))?;
 
     match special_trait {
         SpecialTrait::Input | SpecialTrait::State => {

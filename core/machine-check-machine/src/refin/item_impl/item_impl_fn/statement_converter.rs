@@ -8,21 +8,21 @@ use syn::{
 
 use crate::{
     refin::util::create_refine_join_stmt,
-    support::struct_rules::StructRules,
+    support::rules::Rules,
     util::{
         create_expr_call, create_expr_field_unnamed, create_expr_ident, create_expr_path,
         create_expr_reference, create_expr_tuple, create_ident, create_let, create_pat_wild,
         extract_expr_ident, path_matches_global_names, ArgType,
     },
-    ErrorType, MachineError,
+    BackwardError, BackwardErrorType,
 };
 
 use syn_path::path;
 
 pub struct StatementConverter {
-    pub clone_scheme: StructRules,
-    pub forward_scheme: StructRules,
-    pub backward_scheme: StructRules,
+    pub clone_scheme: Rules,
+    pub forward_scheme: Rules,
+    pub backward_scheme: Rules,
     pub local_types: HashMap<Ident, Type>,
 }
 
@@ -31,15 +31,15 @@ impl StatementConverter {
         &self,
         backward_stmts: &mut Vec<Stmt>,
         stmt: &Stmt,
-    ) -> Result<(), MachineError> {
+    ) -> Result<(), BackwardError> {
         // the statements should be in linear SSA form
         let mut stmt = stmt.clone();
         match stmt {
             Stmt::Local(ref mut local) => {
                 // ensure it is bare
                 if local.init.is_some() {
-                    Err(MachineError::new(
-                        ErrorType::BackwardInternal(String::from(
+                    Err(BackwardError::new(
+                        BackwardErrorType::UnsupportedConstruct(String::from(
                             "Inversion of let with initialization not supported",
                         )),
                         local.span(),
@@ -83,14 +83,16 @@ impl StatementConverter {
                 // due to single-assignment requirement, there must be an else branch, convert it
                 {
                     let Some((_, else_branch)) = &mut expr_if.else_branch else {
-                        return Err(MachineError::new(
-                            ErrorType::BackwardInternal(String::from("Unexpected if without else")),
+                        return Err(BackwardError::new(
+                            BackwardErrorType::UnsupportedConstruct(String::from(
+                                "Unexpected if without else",
+                            )),
                             expr_if.span(),
                         ));
                     };
                     let Expr::Block(else_expr_block) = else_branch.as_mut() else {
-                        return Err(MachineError::new(
-                            ErrorType::BackwardInternal(String::from(
+                        return Err(BackwardError::new(
+                            BackwardErrorType::UnsupportedConstruct(String::from(
                                 "Unexpected if with non-block else",
                             )),
                             else_branch.span(),
@@ -113,8 +115,10 @@ impl StatementConverter {
             Stmt::Expr(Expr::Assign(assign), Some(_)) => {
                 self.convert_assign(backward_stmts, &assign.left, &assign.right)
             }
-            Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(MachineError::new(
-                ErrorType::BackwardInternal(String::from("Inversion of statement not supported")),
+            Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(BackwardError::new(
+                BackwardErrorType::UnsupportedConstruct(String::from(
+                    "Inversion of statement not supported",
+                )),
                 stmt.span(),
             )),
         }
@@ -125,10 +129,10 @@ impl StatementConverter {
         backward_stmts: &mut Vec<Stmt>,
         left: &Expr,
         right: &Expr,
-    ) -> Result<(), MachineError> {
+    ) -> Result<(), BackwardError> {
         let Expr::Path(backward_later) = left else {
-            return Err(MachineError::new(
-                ErrorType::BackwardInternal(String::from(
+            return Err(BackwardError::new(
+                BackwardErrorType::UnsupportedConstruct(String::from(
                     "Inversion not implemented for left-side assignment expression",
                 )),
                 left.span(),
@@ -171,8 +175,8 @@ impl StatementConverter {
                 Ok(())
             }
             Expr::Call(call) => self.convert_call(backward_stmts, backward_later, call),
-            _ => Err(MachineError::new(
-                ErrorType::BackwardInternal(String::from(
+            _ => Err(BackwardError::new(
+                BackwardErrorType::UnsupportedConstruct(String::from(
                     "Inversion not implemented for right-side assignment expression",
                 )),
                 right.span(),
@@ -185,7 +189,7 @@ impl StatementConverter {
         stmts: &mut Vec<Stmt>,
         backward_later: Expr,
         call: &ExprCall,
-    ) -> Result<(), MachineError> {
+    ) -> Result<(), BackwardError> {
         if let Expr::Path(ExprPath { path, .. }) = call.func.as_ref() {
             if path_matches_global_names(path, &["mck", "forward", "PhiArg", "NotTaken"]) {
                 if !call.args.is_empty() {
@@ -235,8 +239,8 @@ impl StatementConverter {
                 }
                 Expr::Lit(_) => create_pat_wild(),
                 _ => {
-                    return Err(MachineError::new(
-                        ErrorType::BackwardInternal(String::from(
+                    return Err(BackwardError::new(
+                        BackwardErrorType::UnsupportedConstruct(String::from(
                             "Inversion not implemented for function argument type",
                         )),
                         arg.span(),
@@ -371,8 +375,8 @@ impl StatementConverter {
                     // do nothing
                 }
                 _ => {
-                    return Err(MachineError::new(
-                        ErrorType::BackwardInternal(String::from(
+                    return Err(BackwardError::new(
+                        BackwardErrorType::UnsupportedConstruct(String::from(
                             "Backward join not implemented for function argument",
                         )),
                         backward_arg.span(),

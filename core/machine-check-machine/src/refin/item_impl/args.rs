@@ -11,12 +11,12 @@ use crate::{
         create_tuple_expr, create_tuple_type, create_type_from_return_type, extract_expr_ident,
         ArgType,
     },
-    ErrorType, MachineError,
+    BackwardError, BackwardErrorType,
 };
 
 mod util;
 
-use self::util::{convert_type_to_path, create_input_name_type_iter};
+use self::util::create_input_name_type_iter;
 
 use super::ImplConverter;
 
@@ -24,7 +24,7 @@ impl ImplConverter {
     pub(crate) fn generate_abstract_input(
         &self,
         orig_sig: &Signature,
-    ) -> Result<(FnArg, Vec<Stmt>, Vec<Stmt>), MachineError> {
+    ) -> Result<(FnArg, Vec<Stmt>, Vec<Stmt>), BackwardError> {
         let args_name = "__mck_args";
         let abstr_args_name = "__mck_abstr_args";
         let mut abstr_types = Vec::new();
@@ -55,7 +55,7 @@ impl ImplConverter {
     pub(crate) fn generate_earlier(
         &self,
         orig_sig: &Signature,
-    ) -> Result<(ReturnType, HashMap<Ident, Type>, Stmt), MachineError> {
+    ) -> Result<(ReturnType, HashMap<Ident, Type>, Stmt), BackwardError> {
         // create return type
         let mut types = Vec::new();
         let mut orig_ident_types = HashMap::new();
@@ -64,15 +64,22 @@ impl ImplConverter {
             let (orig_name, orig_type) = r?;
 
             // convert type
-            let refin_type = self.refinement_rules.convert_type(orig_type.clone())?;
+            let mut refin_type = self.refinement_rules.convert_type(orig_type.clone())?;
+            if let Type::Reference(refin_type_reference) = refin_type {
+                refin_type = *refin_type_reference.elem;
+            }
+            let Type::Path(refin_type) = refin_type else {
+                panic!("Unexpected type that is not path or single-reference path");
+            };
 
             // convert type to path
-            types.push(convert_type_to_path(refin_type.clone())?);
+            types.push(Type::Path(refin_type));
             // add expression to result tuple
             let partial_ident = Ident::new(&orig_name, Span::call_site());
             let refin_ident = self
                 .refinement_rules
                 .convert_normal_ident(partial_ident.clone())?;
+
             let refin_expr = create_expr_ident(refin_ident);
             orig_ident_types.insert(partial_ident, orig_type);
             refin_exprs.push(refin_expr);
@@ -89,7 +96,7 @@ impl ImplConverter {
         &self,
         orig_sig: &Signature,
         orig_result_expr: &Expr,
-    ) -> Result<(FnArg, Vec<Stmt>), MachineError> {
+    ) -> Result<(FnArg, Vec<Stmt>), BackwardError> {
         // just use the original output type, now in refinement context
         let later_name = "__mck_input_later";
         let ty = create_type_from_return_type(&orig_sig.output);
@@ -120,8 +127,8 @@ impl ImplConverter {
 
         // create join statement from original result expression
         let Expr::Struct(orig_result_struct) = orig_result_expr else {
-            return Err(MachineError::new(
-                ErrorType::BackwardInternal(String::from(
+            return Err(BackwardError::new(
+                BackwardErrorType::UnsupportedConstruct(String::from(
                     "Non-unit, non-path, non-struct result not supported",
                 )),
                 orig_result_expr.span(),
@@ -130,24 +137,26 @@ impl ImplConverter {
 
         for field in &orig_result_struct.fields {
             let Expr::Path(field_path) = &field.expr else {
-                return Err(MachineError::new(
-                    ErrorType::BackwardInternal(String::from(
+                return Err(BackwardError::new(
+                    BackwardErrorType::UnsupportedConstruct(String::from(
                         "Non-path field expression not supported",
                     )),
                     field.span(),
                 ));
             };
             let Some(field_ident) = field_path.path.get_ident() else {
-                return Err(MachineError::new(
-                    ErrorType::BackwardInternal(String::from(
+                return Err(BackwardError::new(
+                    BackwardErrorType::UnsupportedConstruct(String::from(
                         "Non-ident field expression not supported",
                     )),
                     field.span(),
                 ));
             };
             let Member::Named(member_ident) = &field.member else {
-                return Err(MachineError::new(
-                    ErrorType::BackwardInternal(String::from("Unnamed field member not supported")),
+                return Err(BackwardError::new(
+                    BackwardErrorType::UnsupportedConstruct(String::from(
+                        "Unnamed field member not supported",
+                    )),
                     field.span(),
                 ));
             };

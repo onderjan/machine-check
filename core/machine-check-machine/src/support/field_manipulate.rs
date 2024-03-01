@@ -7,15 +7,11 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::{
-    util::{
-        create_arg, create_converted_type, create_expr_call, create_expr_field_named,
-        create_expr_ident, create_expr_path, create_ident, create_impl_item_fn, create_item_impl,
-        create_pat_wild, create_path_from_ident, create_path_from_name,
-        create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
-        ArgType,
-    },
-    MachineError,
+use crate::util::{
+    create_arg, create_converted_type, create_expr_call, create_expr_field_named,
+    create_expr_ident, create_expr_path, create_ident, create_impl_item_fn, create_item_impl,
+    create_pat_wild, create_path_from_ident, create_path_from_name,
+    create_path_with_last_generic_type, create_self, create_self_arg, create_type_path, ArgType,
 };
 
 use super::{
@@ -23,7 +19,7 @@ use super::{
     types::single_bit_type,
 };
 
-pub(crate) fn apply_to_items(items: &mut Vec<Item>, flavour: &str) -> Result<(), MachineError> {
+pub(crate) fn apply_to_items(items: &mut Vec<Item>, flavour: &str) {
     let mut impls_to_add = Vec::new();
 
     let mut process_idents = HashSet::<Ident>::new();
@@ -54,7 +50,6 @@ pub(crate) fn apply_to_items(items: &mut Vec<Item>, flavour: &str) -> Result<(),
         }
     }
     items.extend(impls_to_add.into_iter().map(Item::Impl));
-    Ok(())
 }
 
 pub fn create_field_manipulate_impl(item_struct: &ItemStruct, flavour: &str) -> ItemImpl {
