@@ -48,6 +48,7 @@ mod machine_module {
             ::machine_check::bitmask_switch!(instruction {
                 "00dd_0---_aabb" => { // subtract
                     reg[d] = reg[a] - reg[b];
+                    //::std::todo!("a");
                 }
                 "00dd_1---_gggg" => { // read input
                     let tmp = input.gpio_read[g];
@@ -66,8 +67,6 @@ mod machine_module {
                 }
                 "11ss_1---_--nn" => { // store indirect
                     data[reg[n]] = reg[s];
-                    //call(x);
-                    //::std::todo!("a");
                 }
             });
             State { pc, reg, data }

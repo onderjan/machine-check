@@ -18,11 +18,13 @@ pub(crate) fn create_concrete_machine(
 ) -> Result<MachineDescription, MachineError> {
     let mut temporary_manager = TemporaryManager::new();
 
+    resolve_use::resolve_use(&mut items)?;
     expand_macros::expand_macros(&mut items)?;
+    resolve_use::resolve_use(&mut items)?;
+    resolve_use::remove_use(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
     convert_panic::convert_panic_demacroed(&mut items, &mut temporary_manager)?;
     normalize_scope::normalize_scope(&mut items);
-    resolve_use::resolve_use(&mut items)?;
     convert_to_tac::convert_to_tac(&mut items, &mut temporary_manager);
     convert_indexing::convert_indexing(&mut items, &mut temporary_manager)?;
     convert_to_ssa::convert_to_ssa(&mut items)?;

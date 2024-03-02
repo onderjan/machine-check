@@ -23,6 +23,7 @@ mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct CounterMachine {}
 
+    #[allow(dead_code, unreachable_code)]
     impl CounterMachine {
         fn test_fn() -> ::machine_check::Bitvector<8> {
             ::std::panic!("Test panic");
