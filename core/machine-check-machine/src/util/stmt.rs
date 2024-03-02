@@ -65,23 +65,31 @@ pub fn create_let_bare(ident: Ident, ty: Option<Type>) -> Stmt {
     Stmt::Local(create_let_mut_choice(false, ident, None, ty))
 }
 
+pub fn create_let_mut_bare(ident: Ident, ty: Option<Type>) -> Stmt {
+    Stmt::Local(create_let_mut_choice(true, ident, None, ty))
+}
+
 pub fn create_local_bare(ident: Ident, ty: Option<Type>) -> Local {
     create_let_mut_choice(false, ident, None, ty)
 }
 
 pub fn create_assign(left_ident: Ident, right_expr: Expr, semicolon: bool) -> Stmt {
-    let left_expr = create_expr_path(create_path_from_ident(left_ident));
     Stmt::Expr(
-        Expr::Assign(ExprAssign {
-            attrs: vec![],
-            left: Box::new(left_expr),
-            eq_token: Default::default(),
-            right: Box::new(right_expr),
-        }),
+        create_assign_expr(left_ident, right_expr),
         if semicolon {
             Some(Default::default())
         } else {
             None
         },
     )
+}
+
+pub fn create_assign_expr(left_ident: Ident, right_expr: Expr) -> Expr {
+    let left_expr = create_expr_path(create_path_from_ident(left_ident));
+    Expr::Assign(ExprAssign {
+        attrs: vec![],
+        left: Box::new(left_expr),
+        eq_token: Default::default(),
+        right: Box::new(right_expr),
+    })
 }

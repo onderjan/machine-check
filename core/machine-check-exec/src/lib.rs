@@ -80,7 +80,7 @@ fn verify<M: MachineCheckMachine>(
     let mut refinery = Refinery::<M>::new(&abstract_system, use_decay);
     let proposition = select_proposition(property);
     let result = match proposition {
-        Ok(proposition) => refinery.verify(&proposition),
+        Ok(proposition) => refinery.verify_property(&proposition),
         Err(err) => Err(err),
     };
 

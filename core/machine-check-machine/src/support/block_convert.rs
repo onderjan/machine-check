@@ -1,5 +1,5 @@
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Block, Ident, Item, Stmt};
+use syn::{visit_mut::VisitMut, Block, Ident, Item, Stmt, Type};
 
 use crate::{util::create_let_bare, MachineError};
 
@@ -22,7 +22,7 @@ pub fn block_convert(
 pub struct TemporaryManager {
     inside_block: bool,
     next_temp_counter: u64,
-    created_temporaries: Vec<Ident>,
+    created_temporaries: Vec<(Ident, Option<Type>)>,
     result: Result<(), MachineError>,
 }
 
@@ -36,7 +36,7 @@ impl TemporaryManager {
         }
     }
 
-    pub fn create_temporary_ident(&mut self, span: Span) -> Ident {
+    pub fn create_temporary_ident(&mut self, span: Span, ty: Option<Type>) -> Ident {
         if !self.inside_block {
             panic!("Temporary ident cannot be created outside a block");
         }
@@ -44,7 +44,7 @@ impl TemporaryManager {
             format!("__mck_tmp_{}", self.next_temp_counter).as_str(),
             span,
         );
-        self.created_temporaries.push(tmp_ident.clone());
+        self.created_temporaries.push((tmp_ident.clone(), ty));
 
         self.next_temp_counter = self
             .next_temp_counter
@@ -77,7 +77,7 @@ impl VisitMut for Visitor<'_> {
             .temporary_manager
             .created_temporaries
             .drain(..)
-            .map(|tmp_ident| create_let_bare(tmp_ident, None))
+            .map(|(tmp_ident, tmp_type)| create_let_bare(tmp_ident, tmp_type))
             .collect();
         stmts.append(&mut impl_item_fn.block.stmts);
         impl_item_fn.block.stmts.append(&mut stmts);

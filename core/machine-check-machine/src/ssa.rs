@@ -1,4 +1,5 @@
 mod convert_indexing;
+mod convert_panic;
 mod convert_to_ssa;
 mod convert_to_tac;
 mod convert_types;
@@ -19,6 +20,7 @@ pub(crate) fn create_concrete_machine(
 
     expand_macros::expand_macros(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
+    convert_panic::convert_panic_demacroed(&mut items, &mut temporary_manager)?;
     normalize_scope::normalize_scope(&mut items);
     resolve_use::resolve_use(&mut items)?;
     convert_to_tac::convert_to_tac(&mut items, &mut temporary_manager);
@@ -26,6 +28,7 @@ pub(crate) fn create_concrete_machine(
     convert_to_ssa::convert_to_ssa(&mut items)?;
     infer_types::infer_types(&mut items)?;
     convert_types::convert_types(&mut items)?;
+    convert_panic::convert_panic_typed(&mut items)?;
 
     Ok(MachineDescription { items })
 }

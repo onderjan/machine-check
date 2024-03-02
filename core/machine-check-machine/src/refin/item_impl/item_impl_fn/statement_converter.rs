@@ -47,9 +47,7 @@ impl StatementConverter {
                 self.convert_assign(backward_stmts, &assign.left, &assign.right)
             }
             Stmt::Expr(_, _) | Stmt::Item(_) | Stmt::Macro(_) => Err(BackwardError::new(
-                BackwardErrorType::UnsupportedConstruct(String::from(
-                    "Inversion of statement not supported",
-                )),
+                BackwardErrorType::UnsupportedConstruct(String::from("Possibly impure statement")),
                 stmt.span(),
             )),
         }

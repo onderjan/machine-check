@@ -53,6 +53,21 @@ impl super::Visitor {
                     if semi.is_none() && index != num_stmts - 1 {
                         semi = Some(Default::default());
                     }
+                    match expr {
+                        Expr::Assign(_)
+                        | Expr::Struct(_)
+                        | Expr::Path(_)
+                        | Expr::If(_)
+                        | Expr::Block(_)
+                        | Expr::Call(_) => {}
+                        _ => {
+                            self.push_error(
+                                String::from("Unsupported expression-statement type"),
+                                expr.span(),
+                            );
+                        }
+                    }
+
                     processed_stmts.push(Stmt::Expr(expr, semi));
                 }
                 Stmt::Macro(stmt_macro) => {

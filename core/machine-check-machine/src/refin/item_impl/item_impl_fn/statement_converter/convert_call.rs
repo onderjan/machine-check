@@ -83,10 +83,16 @@ impl super::StatementConverter {
 
             // make clone into a reference if it was a reference
             let arg_ident = extract_expr_ident(arg).expect("Call arg should be ident");
-            let arg_ty = self
-                .local_types
-                .get(arg_ident)
-                .expect("Call arg should be in local types");
+            let arg_ty = self.local_types.get(arg_ident);
+            let arg_ty = match arg_ty {
+                Some(ty) => ty,
+                None => {
+                    return Err(BackwardError::new(
+                        BackwardErrorType::IdentTypeDiscovery,
+                        arg_ident.span(),
+                    ));
+                }
+            };
             if matches!(arg_ty, Type::Reference(_)) {
                 let mut arg_expr = Expr::Infer(ExprInfer {
                     attrs: vec![],

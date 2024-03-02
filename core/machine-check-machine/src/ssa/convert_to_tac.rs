@@ -191,7 +191,7 @@ pub(super) fn move_through_temp(
     }
 
     // create a temporary variable
-    let tmp_ident = temporary_manager.create_temporary_ident(expr.span());
+    let tmp_ident = temporary_manager.create_temporary_ident(expr.span(), None);
     // add assignment statement; the temporary is only assigned to once here
     assign_stmts.push(create_assign(tmp_ident.clone(), expr.clone(), true));
 

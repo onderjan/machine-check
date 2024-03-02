@@ -9,7 +9,7 @@ use crate::space::NodeId;
 
 pub struct Precision<M: MachineCheckMachine> {
     input: BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input>,
-    decay: BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::State>,
+    decay: BTreeMap<NodeId, refin::PanicResult<<M::Refin as refin::Machine<M>>::State>>,
 }
 
 impl<M: MachineCheckMachine> Precision<M> {
@@ -31,14 +31,20 @@ impl<M: MachineCheckMachine> Precision<M> {
         self.input.entry(node_id).or_insert_with(Refine::clean)
     }
 
-    pub fn get_decay(&self, node_id: NodeId) -> <M::Refin as refin::Machine<M>>::State {
+    pub fn get_decay(
+        &self,
+        node_id: NodeId,
+    ) -> refin::PanicResult<<M::Refin as refin::Machine<M>>::State> {
         match self.decay.get(&node_id) {
             Some(decay) => decay.clone(),
             None => Refine::clean(),
         }
     }
 
-    pub fn mut_decay(&mut self, node_id: NodeId) -> &mut <M::Refin as refin::Machine<M>>::State {
+    pub fn mut_decay(
+        &mut self,
+        node_id: NodeId,
+    ) -> &mut refin::PanicResult<<M::Refin as refin::Machine<M>>::State> {
         self.decay.entry(node_id).or_insert_with(Refine::clean)
     }
 

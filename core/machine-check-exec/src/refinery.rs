@@ -12,6 +12,10 @@ use mck::refin::{self};
 
 use crate::model_check::Conclusion;
 use crate::model_check::Culprit;
+use crate::proposition::Literal;
+use crate::proposition::PropG;
+use crate::proposition::PropTemp;
+use crate::proposition::PropUni;
 use crate::proposition::Proposition;
 use crate::space::NodeId;
 use crate::space::StateId;
@@ -46,7 +50,22 @@ impl<'a, M: MachineCheckMachine> Refinery<'a, M> {
         refinery
     }
 
-    pub fn verify(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
+    pub fn verify_property(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
+        // verify inherent non-panicking of system first
+        let never_panic_prop = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Negation(
+            PropUni::new(Proposition::Literal(Literal::new(String::from("__panic")))),
+        )))));
+        let inherent_never_panic = self.verify_inner(&never_panic_prop)?;
+        if !inherent_never_panic {
+            // TODO: panic string
+            return Err(ExecError::InherentPanic(String::from("(panic string)")));
+        }
+
+        // verify the property afterwards
+        self.verify_inner(prop)
+    }
+
+    pub fn verify_inner(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
         trace!("Original proposition: {:#?}", prop);
         // transform proposition to positive normal form to move negations to literals
         let prop = prop.pnf();
@@ -95,9 +114,19 @@ impl<'a, M: MachineCheckMachine> Refinery<'a, M> {
         self.num_refinements += 1;
         //info!("Refinement number: {}", self.num_refinements);
         // compute marking
-        let mut current_state_mark = <M::Refin as refin::Machine<M>>::State::clean();
-        let mark_bit = current_state_mark.get_mut(&culprit.name).unwrap();
-        *mark_bit = refin::Bitvector::new_marked();
+        let mut current_state_mark =
+            mck::refin::PanicResult::<<M::Refin as refin::Machine<M>>::State>::clean();
+
+        // TODO: rework panic name kludge
+        if culprit.name == "__panic" {
+            current_state_mark.panic = refin::Bitvector::new_marked();
+        } else {
+            let mark_bit = current_state_mark
+                .result
+                .get_mut(&culprit.name)
+                .expect("Culprit name should be manipulatable");
+            *mark_bit = refin::Bitvector::new_marked();
+        }
 
         // try increasing precision of the state preceding current mark
         let mut iter = culprit.path.iter().cloned().rev().peekable();
@@ -131,6 +160,9 @@ impl<'a, M: MachineCheckMachine> Refinery<'a, M> {
             {
                 // use step function
                 let previous_state = self.space.get_state_by_id(*previous_state_index);
+
+                // the previous state must definitely be non-panicking
+                let previous_state = &previous_state.result;
 
                 /*info!("Previous state: {:?}", previous_state);
                 info!("Step cur state mark: {:?}", current_state_mark);
@@ -166,7 +198,11 @@ impl<'a, M: MachineCheckMachine> Refinery<'a, M> {
             // mark not applied, continue iteration
             if let Some(new_state_mark) = new_state_mark {
                 // update current state mark
-                current_state_mark = new_state_mark;
+                // note that the preceding state could not have panicked
+                current_state_mark = mck::refin::PanicResult {
+                    panic: refin::Bitvector::new_unmarked(),
+                    result: new_state_mark,
+                };
             } else {
                 // we already know the iterator will end
                 // break early as current_state_mark is moved from
@@ -192,7 +228,22 @@ impl<'a, M: MachineCheckMachine> Refinery<'a, M> {
 
             // get current state, none if we are at start node
             let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
-                Some(self.space.get_state_by_id(state_id).clone())
+                let current_state = self.space.get_state_by_id(state_id).clone();
+
+                let mut can_be_panic = true;
+                if let Some(panic_value) = current_state.panic.concrete_value() {
+                    if panic_value.is_zero() {
+                        can_be_panic = false;
+                    }
+                }
+                if can_be_panic {
+                    // skip generation from state
+                    // loop back to itself instead to retain left-totality
+                    self.space
+                        .add_loop(state_id, &input_precision.into_proto_iter().nth(0).unwrap());
+                    continue;
+                }
+                Some(current_state)
             } else {
                 None
             };
@@ -201,7 +252,7 @@ impl<'a, M: MachineCheckMachine> Refinery<'a, M> {
             for input in input_precision.into_proto_iter() {
                 let mut next_state = {
                     if let Some(current_state) = &current_state {
-                        M::Abstr::next(self.abstract_system, current_state, &input)
+                        M::Abstr::next(self.abstract_system, &current_state.result, &input)
                     } else {
                         M::Abstr::init(self.abstract_system, &input)
                     }

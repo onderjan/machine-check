@@ -18,7 +18,7 @@ use crate::{
     ErrorType, MachineError,
 };
 
-use self::{local_visitor::LocalVisitor, type_properties::is_type_inferrable};
+use self::{local_visitor::LocalVisitor, type_properties::is_type_fully_specified};
 
 pub fn infer_types(items: &mut [Item]) -> Result<(), MachineError> {
     let mut structs = HashMap::new();
@@ -126,7 +126,7 @@ fn infer_fn_types_next(
         };
         // next, try to take the type from the visitor
         if let Some(ty) = visitor.local_ident_types.get(&ident).unwrap() {
-            if is_type_inferrable(ty) {
+            if is_type_fully_specified(ty) {
                 local_type = Some(ty.clone());
             }
         }

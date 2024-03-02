@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, fmt::Debug, num::NonZeroUsize, ops::Shr, rc::Rc
 
 use bimap::BiMap;
 use mck::{
-    abstr,
+    abstr::{self, PanicResult},
     concr::{self, MachineCheckMachine},
     misc::{FieldManipulate, MetaEq},
 };
@@ -65,8 +65,10 @@ impl<E: MetaEq + Debug + Clone + Hash> Hash for MetaWrap<E> {
     }
 }
 
+type PanicState<M> = PanicResult<<<M as MachineCheckMachine>::Abstr as abstr::Machine<M>>::State>;
+
 type WrappedInput<M> = MetaWrap<<<M as MachineCheckMachine>::Abstr as abstr::Machine<M>>::Input>;
-type WrappedState<M> = MetaWrap<<<M as MachineCheckMachine>::Abstr as abstr::Machine<M>>::State>;
+type WrappedState<M> = MetaWrap<PanicState<M>>;
 
 pub struct Space<M: MachineCheckMachine> {
     node_graph: GraphMap<NodeId, Edge<WrappedInput<M>>, Directed>,
@@ -119,7 +121,7 @@ impl<M: MachineCheckMachine> Space<M> {
         }
     }
 
-    pub fn get_state_by_id(&self, state_id: StateId) -> &<M::Abstr as abstr::Machine<M>>::State {
+    pub fn get_state_by_id(&self, state_id: StateId) -> &PanicState<M> {
         &self
             .state_map
             .get_by_left(&state_id)
@@ -141,7 +143,7 @@ impl<M: MachineCheckMachine> Space<M> {
     pub fn add_step(
         &mut self,
         current_node: NodeId,
-        next_state: <M::Abstr as abstr::Machine<M>>::State,
+        next_state: PanicState<M>,
         representative_input: &<M::Abstr as abstr::Machine<M>>::Input,
     ) -> (StateId, bool) {
         let (next_state_id, inserted) = self.add_state(next_state);
@@ -149,7 +151,15 @@ impl<M: MachineCheckMachine> Space<M> {
         (next_state_id, inserted)
     }
 
-    fn add_state(&mut self, state: <M::Abstr as abstr::Machine<M>>::State) -> (StateId, bool) {
+    pub fn add_loop(
+        &mut self,
+        state_id: StateId,
+        representative_input: &<M::Abstr as abstr::Machine<M>>::Input,
+    ) {
+        self.add_edge(state_id.into(), state_id.into(), representative_input);
+    }
+
+    fn add_state(&mut self, state: PanicState<M>) -> (StateId, bool) {
         let state = Rc::new(MetaWrap(state));
         let state_id = if let Some(state_id) = self.state_map.get_by_right(&state) {
             // state already present in state map and consequentially next precision map
@@ -241,7 +251,21 @@ impl<M: MachineCheckMachine> Space<M> {
         optimistic: bool,
     ) -> impl Iterator<Item = Result<StateId, ()>> + 'a {
         self.state_map.iter().filter_map(move |(state_id, state)| {
-            if let Some(labelling) = state.0.get(name) {
+            let labelling = if name == "__panic" {
+                Some(if let Some(panic_value) = state.0.panic.concrete_value() {
+                    if panic_value.is_zero() {
+                        mck::abstr::Bitvector::<1>::new(0)
+                    } else {
+                        mck::abstr::Bitvector::<1>::new(1)
+                    }
+                } else {
+                    mck::abstr::Bitvector::<1>::new_unknown()
+                })
+            } else {
+                state.0.result.get(name).cloned()
+            };
+
+            if let Some(labelling) = labelling {
                 let labelled = match labelling.concrete_value() {
                     Some(concrete_value) => {
                         // negate if necessary

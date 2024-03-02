@@ -5,7 +5,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    ssa::infer_types::type_properties::is_type_inferrable,
+    ssa::infer_types::type_properties::is_type_fully_specified,
     support::types::{boolean_type, is_machine_check_bitvector_related_path},
     util::{
         create_type_path, extract_expr_ident, extract_expr_path, extract_type_path,
@@ -254,7 +254,7 @@ impl super::LocalVisitor<'_> {
                     let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
                     let arg_type = self.local_ident_types.get(arg_ident).map(|a| a.as_ref());
                     if let Some(Some(arg_type)) = arg_type {
-                        if is_type_inferrable(arg_type) {
+                        if is_type_fully_specified(arg_type) {
                             return Some(arg_type.clone());
                         }
                     }

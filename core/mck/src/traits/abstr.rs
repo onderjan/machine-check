@@ -1,4 +1,4 @@
-use crate::abstr;
+use crate::abstr::{self, PanicResult};
 use crate::concr::MachineCheckMachine;
 use crate::misc::FieldManipulate;
 use std::fmt::Debug;
@@ -29,9 +29,9 @@ where
     type State: State<C>;
 
     #[must_use]
-    fn init(&self, input: &Self::Input) -> Self::State;
+    fn init(&self, input: &Self::Input) -> PanicResult<Self::State>;
     #[must_use]
-    fn next(&self, state: &Self::State, input: &Self::Input) -> Self::State;
+    fn next(&self, state: &Self::State, input: &Self::Input) -> PanicResult<Self::State>;
 }
 
 pub trait Test {

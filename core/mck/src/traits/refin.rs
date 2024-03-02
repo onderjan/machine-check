@@ -52,7 +52,7 @@ where
     #[must_use]
     fn init(
         abstr_args: (&C::Abstr, &<C::Abstr as abstr::Machine<C>>::Input),
-        later_mark: Self::State,
+        later_mark: crate::refin::PanicResult<Self::State>,
     ) -> (Self, Self::Input);
     #[allow(clippy::type_complexity)]
     #[must_use]
@@ -62,6 +62,6 @@ where
             &<C::Abstr as abstr::Machine<C>>::State,
             &<C::Abstr as abstr::Machine<C>>::Input,
         ),
-        later_mark: Self::State,
+        later_mark: crate::refin::PanicResult<Self::State>,
     ) -> (Self, Self::State, Self::Input);
 }

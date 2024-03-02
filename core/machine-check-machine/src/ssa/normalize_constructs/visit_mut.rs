@@ -115,6 +115,15 @@ impl VisitMut for super::Visitor {
                 signature.span(),
             );
         }
+        match signature.output {
+            syn::ReturnType::Default => {
+                self.push_error(
+                    String::from("Function must have return type"),
+                    signature.span(),
+                );
+            }
+            syn::ReturnType::Type(_, _) => {}
+        }
 
         // delegate
         visit_mut::visit_signature_mut(self, signature);

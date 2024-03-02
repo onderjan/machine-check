@@ -139,6 +139,8 @@ fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
 pub enum BackwardErrorType {
     #[error("Unable to convert")]
     NoRuleMatch,
+    #[error("Identifier type discovery failed")]
+    IdentTypeDiscovery,
     #[error("Unsupported construct: {0}")]
     UnsupportedConstruct(String),
 }
@@ -167,8 +169,8 @@ pub enum ErrorType {
     #[error("machine-check: Cannot parse module without content")]
     ModuleWithoutContent,
 
-    #[error("machine-check error: Unsupported macro")]
-    UnsupportedMacro,
+    #[error("machine-check error: Unknown macro")]
+    UnknownMacro,
     #[error("{0}")]
     MacroError(String),
     #[error("{0}")]

@@ -13,6 +13,8 @@ pub enum ExecError {
     PropertyNotLexable(String, String),
     #[error("property '{0}' could not be parsed")]
     PropertyNotParseable(String),
+    #[error("inherent machine panic")]
+    InherentPanic(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

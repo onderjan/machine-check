@@ -55,6 +55,13 @@ impl VisitMut for GlobalVisitor {
             );
         }
 
+        if path_starts_with_global_names(path, &["machine_check", "internal"]) {
+            let first_segment_span = path.segments[0].span();
+            let second_segment_span = path.segments[1].span();
+            path.segments[0].ident = Ident::new("mck", first_segment_span);
+            path.segments[1].ident = Ident::new("concr", second_segment_span);
+        }
+
         // delegate
         visit_mut::visit_path_mut(self, path);
     }

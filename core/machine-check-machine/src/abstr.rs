@@ -24,7 +24,7 @@ pub(crate) fn create_abstract_machine(
         Ok(()) => {}
         Err(err) => {
             return Err(MachineError::new(
-                ErrorType::ForwardConversionError(String::from("Unable to convert")),
+                ErrorType::ForwardConversionError(String::from("Conversion not known")),
                 err.0,
             ));
         }

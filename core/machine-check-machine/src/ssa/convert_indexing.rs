@@ -72,6 +72,9 @@ fn convert_stmt(
                 syn::Expr::Assign(ref mut expr_assign) => {
                     convert_assign(temporary_manager, expr_assign, &mut added_stmts)?;
                 }
+                syn::Expr::Call(_) => {
+                    // no need to convert, the parameters are idents
+                }
                 _ => panic!(
                     "Unexpected expression type in indexing conversion ({:?})",
                     expr.span()
@@ -117,7 +120,7 @@ fn convert_assign(
         );
 
         // create a temporary variable for reference to right base
-        let tmp_ident = temporary_manager.create_temporary_ident(right_base.span());
+        let tmp_ident = temporary_manager.create_temporary_ident(right_base.span(), None);
 
         // assign reference to the array
         added_stmts.push(Stmt::Expr(
@@ -181,7 +184,7 @@ fn convert_assign(
         }
 
         // create a temporary variable for reference to left base
-        let tmp_ident = temporary_manager.create_temporary_ident(left_base.span());
+        let tmp_ident = temporary_manager.create_temporary_ident(left_base.span(), None);
         // assign reference to the array
         added_stmts.push(Stmt::Expr(
             Expr::Assign(ExprAssign {

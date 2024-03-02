@@ -5,7 +5,7 @@ use syn::{
     Block, Expr, FnArg, Ident, Item, Local, Member, Pat, Path, Stmt, Type,
 };
 
-use crate::util::extract_path_ident_mut;
+use crate::{support::local::construct_prefixed_ident, util::extract_path_ident_mut};
 
 pub fn normalize_scope(items: &mut [Item]) {
     let mut visitor = Visitor {
@@ -36,14 +36,12 @@ impl VisitMut for Visitor {
                 let Pat::Ident(pat_ident) = param.pat.as_ref() else {
                     panic!("Function parameters should be identifers in scope normalization");
                 };
-                let param_ident = pat_ident.ident.clone();
-                let unique_ident = Ident::new(
-                    &format!("__mck_scope_{}_0_{}", self.scope_num, param_ident),
-                    param_ident.span(),
-                );
+                let param_ident = &pat_ident.ident;
+                let unique_ident =
+                    construct_prefixed_ident(&format!("scope_{}_0", self.scope_num), param_ident);
                 // the map contains keys with original idents and values representing unique idents
                 // the idents can be shadowed within the same scope, so the last unique ident is taken
-                param_ident_map.insert(param_ident, vec![unique_ident]);
+                param_ident_map.insert(param_ident.clone(), vec![unique_ident]);
             }
         }
         self.scope_idents.push(param_ident_map);
@@ -169,10 +167,8 @@ impl Visitor {
         // choose the unique ident name with that in mind
         let shadow_num = unique_ident_vec.len();
 
-        let unique_ident = Ident::new(
-            &format!("__mck_scope_{}_{}_{}", scope_num, shadow_num, left_ident),
-            left_ident.span(),
-        );
+        let unique_ident =
+            construct_prefixed_ident(&format!("scope_{}_{}", scope_num, shadow_num), &left_ident);
         // add ident to scope
         unique_ident_vec.push(unique_ident.clone());
 

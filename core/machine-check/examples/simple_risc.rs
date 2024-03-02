@@ -66,6 +66,8 @@ mod machine_module {
                 }
                 "11ss_1---_--nn" => { // store indirect
                     data[reg[n]] = reg[s];
+                    //call(x);
+                    //::std::todo!("a");
                 }
             });
             State { pc, reg, data }

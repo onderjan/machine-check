@@ -2,18 +2,22 @@ use core::panic;
 use std::collections::HashMap;
 
 use syn::{
+    punctuated::Punctuated,
     spanned::Spanned,
     visit_mut::{self, VisitMut},
-    Expr, ExprCall, ExprField, ExprPath, ExprReference, Ident, ItemStruct, Member, Path, Type,
-    TypeReference,
+    AngleBracketedGenericArguments, Expr, ExprCall, ExprField, ExprPath, ExprReference,
+    GenericArgument, Ident, ItemStruct, Member, Path, PathArguments, Token, Type, TypeReference,
 };
 
 use crate::{
-    util::{create_type_path, extract_expr_ident, extract_path_ident, extract_type_path},
+    util::{
+        create_type_path, extract_expr_ident, extract_path_ident, extract_type_path,
+        path_matches_global_names,
+    },
     ErrorType, MachineError,
 };
 
-use super::type_properties::is_type_inferrable;
+use super::type_properties::is_type_fully_specified;
 
 mod infer_call;
 
@@ -36,8 +40,33 @@ impl VisitMut for LocalVisitor<'_> {
 
         // check whether the left type has already a determined left type
         if let Some(ty) = ty {
-            if is_type_inferrable(ty) {
-                // we already have determined left type, return
+            if is_type_fully_specified(ty) {
+                // we already have determined left type
+                // try to infer PanicResult type if it is field base
+
+                if let Expr::Field(right_field) = expr_assign.right.as_ref() {
+                    let left_type = ty.clone();
+                    let base_ident = extract_expr_ident(right_field.base.as_ref())
+                        .expect("Right field base should be an ident");
+                    if let Some(Some(Type::Path(base_type_path))) =
+                        self.local_ident_types.get_mut(base_ident)
+                    {
+                        if path_matches_global_names(
+                            &base_type_path.path,
+                            &["machine_check", "internal", "PanicResult"],
+                        ) {
+                            let generics_span = base_type_path.path.segments[2].span();
+                            // infer the generics
+                            base_type_path.path.segments[2].arguments =
+                                PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                                    colon2_token: Some(Default::default()),
+                                    lt_token: Token![<](generics_span),
+                                    args: Punctuated::from_iter([GenericArgument::Type(left_type)]),
+                                    gt_token: Token![>](generics_span),
+                                });
+                        }
+                    };
+                }
                 return;
             }
         }

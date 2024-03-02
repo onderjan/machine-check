@@ -24,7 +24,7 @@ pub struct LocalVisitor {
     pub uninit_counter: u32,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Counter {
     pub present: BTreeSet<u32>,
     pub next: u32,
@@ -83,6 +83,10 @@ impl VisitMut for LocalVisitor {
         if let Some(counter) = self.local_ident_counters.get(ident) {
             // the variable must be used before being assigned
             let Some(current_counter) = counter.present.last() else {
+                println!(
+                    "Ident: {}, Local ident counters: {:?}",
+                    ident, self.local_ident_counters
+                );
                 panic!("Counter used before being assigned");
             };
             *ident = construct_temp_ident(ident, *current_counter);
