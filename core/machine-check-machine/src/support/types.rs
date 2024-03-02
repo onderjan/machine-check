@@ -1,4 +1,3 @@
-use core::num;
 use std::collections::HashMap;
 
 use proc_macro2::Span;

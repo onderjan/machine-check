@@ -1,5 +1,3 @@
-use std::{convert, os::windows::process};
-
 use crate::{
     support::{
         block_convert::{self, TemporaryManager},
@@ -7,19 +5,17 @@ use crate::{
     },
     util::{
         create_assign, create_expr_call, create_expr_field_named, create_expr_ident,
-        create_expr_path, create_let_bare, create_let_mut, create_let_mut_bare, create_type_path,
-        extract_else_block_mut, extract_expr_path, extract_expr_path_mut,
-        path_matches_global_names, path_starts_with_global_names, ArgType,
+        create_expr_path, create_let_mut_bare, create_type_path, extract_else_block_mut,
+        extract_expr_path, extract_expr_path_mut, path_matches_global_names,
+        path_starts_with_global_names, ArgType,
     },
     MachineError,
 };
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated,
-    spanned::Spanned,
-    visit_mut::{self, VisitMut},
-    Block, Expr, ExprBinary, ExprBlock, ExprCall, ExprIf, ExprInfer, ExprStruct, ExprTuple,
-    FieldValue, Ident, ImplItem, ImplItemFn, Item, Path, PathArguments, PathSegment, Stmt, Token,
+    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprBlock, ExprCall, ExprIf, ExprInfer,
+    ExprStruct, ExprTuple, FieldValue, Ident, ImplItem, ImplItemFn, Item, Path, PathArguments,
+    PathSegment, Stmt, Token,
 };
 use syn_path::path;
 

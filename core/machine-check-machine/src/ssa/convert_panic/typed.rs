@@ -3,11 +3,11 @@ use syn::{
     spanned::Spanned,
     visit_mut::{self, VisitMut},
     AngleBracketedGenericArguments, Expr, GenericArgument, Ident, ImplItem, ImplItemFn, Item, Pat,
-    PatType, Path, PathArguments, PathSegment, ReturnType, Stmt, Token, Type, TypeInfer,
+    Path, PathArguments, PathSegment, ReturnType, Stmt, Token, Type, TypeInfer,
 };
 
 use crate::{
-    support::{local::extract_local_ident_with_type, special_trait::special_trait_impl},
+    support::special_trait::special_trait_impl,
     util::{create_type_path, path_matches_global_names},
     ErrorType, MachineError,
 };
@@ -86,7 +86,7 @@ impl VisitMut for Visitor {
 }
 
 fn convert_path(path: &mut Path) {
-    if path_matches_global_names(&path, &["machine_check", "internal", "PanicResult"]) {
+    if path_matches_global_names(path, &["machine_check", "internal", "PanicResult"]) {
         // convert to mck concr
         path.segments[0].ident = Ident::new("mck", path.segments[0].span());
         path.segments[1].ident = Ident::new("concr", path.segments[1].span());
