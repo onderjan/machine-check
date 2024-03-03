@@ -16,9 +16,15 @@ use crate::{support::block_convert::TemporaryManager, MachineDescription, Machin
 pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescription, MachineError> {
     let mut temporary_manager = TemporaryManager::new();
 
-    resolve_use::resolve_use(&mut items)?;
-    let panic_messages = expand_macros::expand_macros(&mut items)?;
-    resolve_use::resolve_use(&mut items)?;
+    let mut macro_expander = expand_macros::MacroExpander::new();
+    loop {
+        resolve_use::resolve_use(&mut items)?;
+        if !macro_expander.expand_macros(&mut items)? {
+            break;
+        }
+    }
+    let panic_messages = macro_expander.panic_messages().clone();
+
     resolve_use::remove_use(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
     convert_panic::convert_panic_demacroed(&mut items, &mut temporary_manager)?;

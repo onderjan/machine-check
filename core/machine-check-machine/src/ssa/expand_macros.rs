@@ -14,25 +14,43 @@ use crate::{
     ErrorType, MachineError,
 };
 
-pub fn expand_macros(items: &mut [Item]) -> Result<Vec<String>, MachineError> {
-    let mut visitor = Visitor {
-        result: Ok(()),
-        panic_messages: Vec::new(),
-    };
-    for item in items.iter_mut() {
-        visitor.visit_item_mut(item);
-    }
-
-    visitor.result?;
-    Ok(visitor.panic_messages)
-}
-
-struct Visitor {
-    result: Result<(), MachineError>,
+pub struct MacroExpander {
     panic_messages: Vec<String>,
 }
 
-impl Visitor {
+impl MacroExpander {
+    pub fn new() -> Self {
+        Self {
+            panic_messages: Vec::new(),
+        }
+    }
+
+    pub fn expand_macros(&mut self, items: &mut [Item]) -> Result<bool, MachineError> {
+        let mut visitor = Visitor {
+            result: Ok(()),
+            panic_messages: &mut self.panic_messages,
+            expanded_some_macro: false,
+        };
+        for item in items.iter_mut() {
+            visitor.visit_item_mut(item);
+        }
+
+        visitor.result?;
+        Ok(visitor.expanded_some_macro)
+    }
+
+    pub fn panic_messages(&self) -> &Vec<String> {
+        &self.panic_messages
+    }
+}
+
+struct Visitor<'a> {
+    result: Result<(), MachineError>,
+    panic_messages: &'a mut Vec<String>,
+    expanded_some_macro: bool,
+}
+
+impl Visitor<'_> {
     fn push_error(&mut self, err: MachineError) {
         if self.result.is_ok() {
             self.result = Err(err);
@@ -40,32 +58,37 @@ impl Visitor {
     }
 }
 
-impl VisitMut for Visitor {
+impl VisitMut for Visitor<'_> {
     fn visit_stmt_mut(&mut self, stmt: &mut Stmt) {
+        // delegate first so only one macro invocation is expanded each time
+        visit_mut::visit_stmt_mut(self, stmt);
+
+        // process macros
         if let Stmt::Macro(stmt_macro) = stmt {
             match self.process_macro(&mut stmt_macro.mac) {
                 Ok(macro_result) => *stmt = Stmt::Expr(macro_result, stmt_macro.semi_token),
                 Err(err) => self.push_error(err),
             }
         }
-        // delegate afterwards so macros are expanded from outer to inner
-        visit_mut::visit_stmt_mut(self, stmt);
     }
 
     fn visit_expr_mut(&mut self, expr: &mut Expr) {
+        // delegate first so only one macro invocation is expanded each time
+        visit_mut::visit_expr_mut(self, expr);
+
+        // process macros
         if let Expr::Macro(expr_macro) = expr {
             match self.process_macro(&mut expr_macro.mac) {
                 Ok(macro_result) => *expr = macro_result,
                 Err(err) => self.push_error(err),
             }
         }
-        // delegate afterwards so macros are expanded from outer to inner
-        visit_mut::visit_expr_mut(self, expr);
     }
 }
 
-impl Visitor {
+impl Visitor<'_> {
     fn process_macro(&mut self, mac: &mut Macro) -> Result<Expr, MachineError> {
+        self.expanded_some_macro = true;
         if path_matches_global_names(&mac.path, &["machine_check", "bitmask_switch"]) {
             return self.process_bitmask_switch(mac);
         }

@@ -18,6 +18,7 @@ pub mod machine_module {
         convert::Into,
         fmt::Debug,
         hash::Hash,
+        panic, todo, unimplemented,
     };
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -697,6 +698,30 @@ pub mod machine_module {
                 },
 
                 // other 255 opcodes starting with 0000_0000 are reserved
+                "----_0000_0000_0001" => {
+                    panic!("Reserved opcode");
+                }
+                "----_0000_0000_001-" => {
+                    panic!("Reserved opcode");
+                }
+                "----_0000_0000_01--" => {
+                    panic!("Reserved opcode");
+                }
+                "----_0000_0000_1---" => {
+                    panic!("Reserved opcode");
+                }
+                "----_0000_0001_----" => {
+                    panic!("Reserved opcode");
+                }
+                "----_0000_001-_----" => {
+                    panic!("Reserved opcode");
+                }
+                "----_0000_01--_----" => {
+                    panic!("Reserved opcode");
+                }
+                "----_0000_1---_----" => {
+                    panic!("Reserved opcode");
+                }
 
                 // MOVW
                 "----_0001_dddd_rrrr" => {
@@ -717,30 +742,26 @@ pub mod machine_module {
 
                 // MULS
                 "----_0010_dddd_rrrr" => {
-                    //R[1..0] = ((Int8)R[d+16])*((Int8)R[r+16]);
+                    todo!("MULS instruction");
                 }
                 // MULSU
                 "----_0011_0ddd_0rrr" => {
-                    //unimplemented();
-                    //R[1..0] = ((Int8)R[d+16])*((Uint8)R[r+16]);
+                    todo!("MULSU instruction");
                 }
 
                 // FMUL
                 "----_0011_0ddd_1rrr" => {
-                    //unimplemented();
-                    //R[1..0] = ( ((Uint8)R[d+16])*((Uint8)R[r+16]) << 1);
+                    todo!("FMUL instruction");
                 }
 
                 // FMULS
                 "----_0011_1ddd_0rrr" => {
-                    //unimplemented();
-                    //R[1..0] = ( ((Int8)R[d+16])*((Int8)R[r+16]) << 1);
+                    todo!("FMULS instruction");
                 }
 
                 // FMULSU
                 "----_0011_1ddd_1rrr" => {
-                    //unimplemented();
-                    //R[1..0] = ( ((Int8)R[d+16])*((Uint8)R[r+16]) << 1);
+                    todo!("FMULSU instruction");
                 }
 
                 // CPC
@@ -767,9 +788,6 @@ pub mod machine_module {
                     let prev = R[d];
                     R[d] = R[d] + R[r];
                     SREG = Self::compute_status_add(SREG, prev, R[r], R[d]);
-                }
-                _ => {
-                    // TODO: disjoint arms check
                 }
             });
 
@@ -1126,21 +1144,25 @@ pub mod machine_module {
             ::machine_check::bitmask_switch!(instruction {
                 // LD Rd, Z+q
                 "--q-_qq0d_dddd_0qqq" => {
+                    todo!("LD instruction");
                     //R[d] = DATA[Z+q]; increment_cycle_count();
                 }
 
                 // LD Rd, Y+q
                 "--q-_qq0d_dddd_1qqq" => {
+                    todo!("LD instruction");
                     //R[d] = DATA[Y+q]; increment_cycle_count();
                 }
 
                 // ST Z+q, Rr
                 "--q-_qq1r_rrrr_0qqq" => {
+                    todo!("ST instruction");
                     //DATA[Z+q] = R[r]; increment_cycle_count();
                 }
 
                 // ST Y+q, Rr
                 "--q-_qq1r_rrrr_1qqq" => {
+                    todo!("ST instruction");
                     //DATA[Y+q] = R[r]; increment_cycle_count();
                 }
             });
@@ -1187,6 +1209,7 @@ pub mod machine_module {
             ::machine_check::bitmask_switch!(instruction {
                 // LDS - 2 words
                 "----_---d_dddd_0000" => {
+                    todo!("LDS instruction");
                     /*
                     // load direct from data space
                     // d contains destination register
@@ -1206,21 +1229,24 @@ pub mod machine_module {
 
                 // LD Rd, Z+
                 "----_---d_dddd_0001" => {
+                    todo!("LD instruction");
                     //R[d] = DATA[Z]; Z = Z + 1; increment_cycle_count();
                 }
 
                 // LD Rd, -Z
                 "----_---d_dddd_0010" => {
+                    todo!("LD instruction");
                     //Z = Z - 1; R[d] = DATA[Z]; increment_cycle_count();
                 }
 
                 // 0011 reserved
                 "----_---d_dddd_0011" => {
-                    //panic();
+                    panic!("Reserved opcode");
                 }
 
                 // LPM Rd, Z
                 "----_---d_dddd_0100" => {
+                    unimplemented!("LPM instruction");
                     /*
                     // load program memory
                     //R[d] = fetchProgramByte(Z);
@@ -1234,6 +1260,7 @@ pub mod machine_module {
 
                 // LPM Rd, Z+
                 "----_---d_dddd_0101" => {
+                    unimplemented!("LPM instruction");
                     /*
                     // load program memory with post-increment
                     //R[d] = fetchProgramByte(Z);
@@ -1249,51 +1276,59 @@ pub mod machine_module {
 
                 // ELPM Rd, Z
                 "----_---d_dddd_0110" => {
-                    //unimplemented(); //R[d] = PROGRAM[RAMPZ:Z];
+                    unimplemented!("ELPM instruction");
+                    //R[d] = PROGRAM[RAMPZ:Z];
                 }
 
                 // ELPM Rd, Z+
                 "----_---d_dddd_0111" => {
-                    //unimplemented(); //R[d] = PROGRAM[RAMPZ:Z]; (RAMPZ:Z) = (RAMPZ:Z) + 1;
+                    unimplemented!("ELPM instruction");
+                    //R[d] = PROGRAM[RAMPZ:Z]; (RAMPZ:Z) = (RAMPZ:Z) + 1;
                 }
 
                 // 1000 reserved
                 "----_---d_dddd_1000" => {
-                    //panic();
+                    panic!("Reserved opcode");
                 }
 
                 // LD Rd, Y+
                 "----_---d_dddd_1001" => {
+                    todo!("LD instruction");
                     //R[d] = DATA[Y]; Y = Y + 1; increment_cycle_count();
                 }
 
                 // LD Rd, -Y
                 "----_---d_dddd_1010" => {
+                    todo!("LD instruction");
                     //Y = Y - 1; R[d] = DATA[Y]; increment_cycle_count();
                 }
 
                 // 1011  reserved
                 "----_---d_dddd_1011" => {
-                    //panic();
+                    panic!("Reserved opcode");
                 }
 
                 // LD Rd, X
                 "----_---d_dddd_1100" => {
+                    todo!("LD instruction");
                     //R[d] = DATA[X]; increment_cycle_count();
                 }
 
                 // LD Rd, X+
                 "----_---d_dddd_1101" => {
+                    todo!("LD instruction");
                     //R[d] = DATA[X]; X = X + 1; increment_cycle_count();
                 }
 
                 // LD Rd, -X
                 "----_---d_dddd_1110" => {
+                    todo!("LD instruction");
                     //X = X - 1; R[d] = DATA[X]; increment_cycle_count();
                 }
 
                 // POP Rd
                 "----_---d_dddd_1111" => {
+                    todo!("POP instruction");
                     /*
                     SP = SP + 1;
                     R[d] = DATA[SP];
@@ -1347,6 +1382,7 @@ pub mod machine_module {
 
                 // STS - 2 words
                 "----_---r_rrrr_0000" => {
+                    todo!("STS instruction");
                     /*
                     // store direct to data space
                     // r contains source register
@@ -1366,11 +1402,13 @@ pub mod machine_module {
 
                 // ST Z+, Rr
                 "----_---r_rrrr_0001" => {
+                    todo!("ST instruction");
                     //DATA[Z] = R[r]; Z = Z + 1; increment_cycle_count();
                 }
 
                 // ST -Z, Rr
                 "----_---r_rrrr_0010" => {
+                    todo!("ST instruction");
                     //Z = Z - 1; DATA[Z] = R[r]; increment_cycle_count();
                 }
 
@@ -1378,11 +1416,13 @@ pub mod machine_module {
 
                 // ST Y+, Rr
                 "----_---r_rrrr_1001" => {
+                    todo!("ST instruction");
                     //DATA[Y] = R[r]; Y = Y + 1; increment_cycle_count();
                 }
 
                 // ST -Y, Rr
                 "----_---r_rrrr_1010" => {
+                    todo!("ST instruction");
                     //Y = Y - 1; DATA[Y] = R[r]; increment_cycle_count();
                 }
 
@@ -1390,21 +1430,25 @@ pub mod machine_module {
 
                 // ST X, Rr
                 "----_---r_rrrr_1100" => {
+                    todo!("ST instruction");
                     //DATA[X] = R[r]; increment_cycle_count();
                 }
 
                 // ST X+, Rr
                 "----_---r_rrrr_1101" => {
+                    todo!("ST instruction");
                     // DATA[X] = R[r]; X = X + 1; increment_cycle_count();
                 }
 
                 // ST -X, Rr
                 "----_---r_rrrr_1110"  => {
+                    todo!("ST instruction");
                     //X = X - 1; DATA[X] = R[r]; increment_cycle_count();
                 }
 
                 // PUSH
                 "----_---r_rrrr_1111" => {
+                    todo!("PUSH instruction");
                     // the instruction set manual uses 'd' for the push register opcode
                     // but it is referred to as 'r' everywhere else
                     /*DATA[SP] = R[r];
@@ -1416,6 +1460,7 @@ pub mod machine_module {
 
                 _ => {
                     // TODO: disjoint arms check
+                    panic!("Default arm instruction");
                 }
             });
 
@@ -1561,12 +1606,12 @@ pub mod machine_module {
 
                 // IJMP
                 "----_---0_0000_1001" => {
-                    //unimplemented();
+                    unimplemented!("IJMP instruction");
                 }
 
                 // EIJMP
                 "----_---0_0001_1001" => {
-                    //unimplemented();
+                    unimplemented!("EIJMP instruction");
                 }
 
                 // other 1001_0100_xxxx_1001 reserved
@@ -1601,6 +1646,7 @@ pub mod machine_module {
 
                 // CALL - 2 words
                 "----_---k_kkkk_111k" => {
+                    todo!("CALL instruction");
                     // TODO
                     /*
                     // save return address to stack and post-decrement SP
@@ -1635,7 +1681,7 @@ pub mod machine_module {
 
                 // RET
                 "----_---1_0000_1000" => {
-                    // TODO
+                    todo!("RET instruction");
                     /*
                     // return from subroutine
                     // move highest stack word to PC with pre-increment
@@ -1658,35 +1704,32 @@ pub mod machine_module {
 
                 // RETI
                 "----_---1_0001_1000" => {
-                    //unimplemented();
+                    unimplemented!("RETI instruction");
                 }
 
                 // next six reserved
 
                 // SLEEP
                 "----_---1_1000_1000" => {
-                    //unimplemented();
+                    unimplemented!("SLEEP instruction");
                 }
 
                 // BREAK
                 "----_---1_1001_1000" => {
-                    /*
                     // break the execution when debugging
-                    unimplemented();
-                    */
+                    unimplemented!("BREAK instruction");
                 }
 
                 // WDR
                 "----_---1_1010_1000" => {
-                    /*
-                    unimplemented();
-                    */
+                    unimplemented!("WDR instruction");
                 }
 
                 // next one reserved
 
                 // LPM (implied R0 destination)
                 "----_---1_1100_1000" => {
+                    unimplemented!("LPM instruction");
                     /*
                     // load program memory
 
@@ -1701,26 +1744,27 @@ pub mod machine_module {
 
                 // ELPM
                 "----_---1_1101_1000" => {
+                    unimplemented!("ELPM instruction");
                     /*
-                    unimplemented(); //R[0] = PROGRAM[RAMPZ:Z];
+                    //R[0] = PROGRAM[RAMPZ:Z];
                     */
                 }
 
                 // SPM
                 "----_---1_1110_1000" => {
-                    //unimplemented();
+                    unimplemented!("SPM instruction");
                 }
 
                 // next one reserved (SPM on ATxmega)
 
                 // ICALL
                 "----_---1_0000_1001" => {
-                    //unimplemented();
+                    unimplemented!("ICALL instruction");
                 }
 
                 // EICALL
                 "----_---1_0001_1001" => {
-                    //unimplemented();
+                    unimplemented!("EICALL instruction");
                 }
 
                 // next 14 reserved
@@ -1730,6 +1774,7 @@ pub mod machine_module {
 
                 _ => {
                     // TODO: disjoint arms check
+                    panic!("Default arm instruction");
                 }
             });
 
@@ -1884,6 +1929,7 @@ pub mod machine_module {
 
                 // CBI A, b
                 "----_1000_aaaa_abbb" => {
+                    todo!("CBI instruction");
                     /*
                     // clear bit in I/O register, status flags not affected
                     IO[a][[b]] = '0';
@@ -1895,6 +1941,7 @@ pub mod machine_module {
 
                 // SBIC A, b
                 "----_1001_aaaa_abbb" => {
+                    todo!("SBIC instruction");
                     /*
                     IO_direct[a][[b]] = IO_direct[a][[b]];
 
@@ -1910,6 +1957,7 @@ pub mod machine_module {
 
                 // SBI A, b
                 "----_1010_aaaa_abbb" => {
+                    todo!("SBI instruction");
                     /*
                     // set bit in I/O register, status flags not affected
                     IO[a][[b]] = '1';
@@ -1921,6 +1969,7 @@ pub mod machine_module {
 
                 // SBIS A, b
                 "----_1011_aaaa_abbb" => {
+                    todo!("SBIS instruction");
                     /*
                     IO_direct[a][[b]] = IO_direct[a][[b]];
                     // skip if bit in I/O register is set
@@ -1935,7 +1984,8 @@ pub mod machine_module {
 
                 // MUL
                 "----_11rd_dddd_rrrr" => {
-                    /* unimplemented(); //R[1:0] = R[d]*R[r]; */
+                    todo!("MUL instruction");
+                    /* R[1:0] = R[d]*R[r]; */
                 }
             });
 
@@ -1966,7 +2016,6 @@ pub mod machine_module {
                     let SRAM = Clone::clone(&state.SRAM);
                     let safe = state.safe;
 
-                    // TODO: infer type
                     let io_result: Bitvector<8> = Self::read_io_reg(state, input, a);
                     R[d] = io_result;
 
@@ -2040,7 +2089,7 @@ pub mod machine_module {
 
                 // RCALL
                 "--01_kkkk_kkkk_kkkk" => {
-                    //unimplemented();
+                    unimplemented!("RCALL instruction");
                 }
 
                 // --- 1110 ---
@@ -2177,6 +2226,7 @@ pub mod machine_module {
 
                 _ => {
                     // TODO: disjoint arms check
+                    panic!("Default arm instruction");
                 }
             });
 
@@ -2320,8 +2370,6 @@ pub mod machine_module {
             };
 
             let mut result = Clone::clone(&state);
-
-            //result = Self::next_0000(state, input, instruction_tail);
 
             ::machine_check::bitmask_switch!(instruction {
                 "0000_----_----_----" => {
