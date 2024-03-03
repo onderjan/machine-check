@@ -1,6 +1,6 @@
 #[machine_check_macros::machine_description]
 mod machine_module {
-    use ::machine_check::{Bitvector, BitvectorArray, Ext, Unsigned};
+    use ::machine_check::{BitvectorArray, Ext, Unsigned};
     use ::std::{
         clone::Clone,
         cmp::{Eq, PartialEq},
@@ -19,7 +19,6 @@ mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         value: Unsigned<8>,
-        safe: Bitvector<1>,
         unused: BitvectorArray<16, 8>,
     }
 
@@ -35,7 +34,6 @@ mod machine_module {
         fn init(&self, input: &Input) -> State {
             State {
                 value: Unsigned::<8>::new(0),
-                safe: Bitvector::<1>::new(1),
                 unused: Clone::clone(&input.unused),
             }
         }
@@ -46,16 +44,10 @@ mod machine_module {
                 next_value = Unsigned::<8>::new(0);
             }
 
-            let mut next_safe = state.safe;
-            if next_value >= Unsigned::<8>::new(156) {
-                next_safe = Bitvector::<1>::new(0);
-            }
-
             let unused = Clone::clone(&input.unused);
 
             State {
                 value: next_value,
-                safe: next_safe,
                 unused,
             }
         }

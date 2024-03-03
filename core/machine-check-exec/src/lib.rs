@@ -10,11 +10,16 @@ use log::{error, info, log_enabled, trace};
 use machine_check_common::{ExecError, ExecResult};
 use mck::concr::FullMachine;
 
-use clap::Parser;
-use proposition::{Literal, PropTemp, PropU, PropUni, Proposition};
+use clap::{ArgGroup, Parser};
+use proposition::Proposition;
 use refinery::Refinery;
 
 #[derive(Parser, Debug)]
+#[clap(group(ArgGroup::new("property-group")
+.required(true)
+.multiple(true)
+.args(&["property", "inherent"]),
+))]
 struct Args {
     #[arg(short, long)]
     batch: bool,
@@ -24,6 +29,9 @@ struct Args {
 
     #[arg(long)]
     property: Option<String>,
+
+    #[arg(long)]
+    inherent: bool,
 
     #[arg(long)]
     use_decay: bool,
@@ -88,15 +96,7 @@ fn select_proposition(property: Option<&String>) -> Result<Proposition, ExecErro
     if let Some(property_str) = property {
         Proposition::parse(property_str)
     } else {
-        // check AG[safe]
-        // TODO: reject verification instead if no property nor inherent is selected
-        Ok(Proposition::Negation(PropUni::new(Proposition::E(
-            PropTemp::U(PropU {
-                hold: Box::new(Proposition::Const(true)),
-                until: Box::new(Proposition::Negation(PropUni::new(Proposition::Literal(
-                    Literal::new(String::from("safe"), proposition::ComparisonType::Eq, 1),
-                )))),
-            }),
-        ))))
+        // check for inherent panics without really checking a property, use constant true
+        Ok(Proposition::Const(true))
     }
 }
