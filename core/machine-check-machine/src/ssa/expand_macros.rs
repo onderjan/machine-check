@@ -14,7 +14,7 @@ use crate::{
     ErrorType, MachineError,
 };
 
-pub fn expand_macros(items: &mut [Item]) -> Result<(), MachineError> {
+pub fn expand_macros(items: &mut [Item]) -> Result<Vec<String>, MachineError> {
     let mut visitor = Visitor {
         result: Ok(()),
         panic_messages: Vec::new(),
@@ -23,7 +23,8 @@ pub fn expand_macros(items: &mut [Item]) -> Result<(), MachineError> {
         visitor.visit_item_mut(item);
     }
 
-    visitor.result
+    visitor.result?;
+    Ok(visitor.panic_messages)
 }
 
 struct Visitor {

@@ -13,13 +13,11 @@ use syn::Item;
 
 use crate::{support::block_convert::TemporaryManager, MachineDescription, MachineError};
 
-pub(crate) fn create_concrete_machine(
-    mut items: Vec<Item>,
-) -> Result<MachineDescription, MachineError> {
+pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescription, MachineError> {
     let mut temporary_manager = TemporaryManager::new();
 
     resolve_use::resolve_use(&mut items)?;
-    expand_macros::expand_macros(&mut items)?;
+    let panic_messages = expand_macros::expand_macros(&mut items)?;
     resolve_use::resolve_use(&mut items)?;
     resolve_use::remove_use(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
@@ -32,5 +30,8 @@ pub(crate) fn create_concrete_machine(
     convert_types::convert_types(&mut items)?;
     convert_panic::convert_panic_typed(&mut items)?;
 
-    Ok(MachineDescription { items })
+    Ok(MachineDescription {
+        items,
+        panic_messages,
+    })
 }

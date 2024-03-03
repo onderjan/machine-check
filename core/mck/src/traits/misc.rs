@@ -43,3 +43,7 @@ impl<M: Meta<P>, P: Clone> Iterator for ProtoIterator<M, P> {
         self.current_proto.clone()
     }
 }
+
+pub trait PanicMessage {
+    fn panic_message(panic_id: u32) -> &'static str;
+}

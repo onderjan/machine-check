@@ -8,7 +8,7 @@ mod space;
 
 use log::{error, info, log_enabled, trace};
 use machine_check_common::{ExecError, ExecResult};
-use mck::{abstr::Abstr, concr::FullMachine};
+use mck::concr::FullMachine;
 
 use clap::Parser;
 use proposition::{Literal, PropTemp, PropU, PropUni, Proposition};
@@ -71,9 +71,7 @@ fn run_inner<M: FullMachine>(system: M) -> Result<ExecResult, anyhow::Error> {
 }
 
 fn verify<M: FullMachine>(system: M, property: Option<&String>, use_decay: bool) -> ExecResult {
-    let abstract_system = M::Abstr::from_concrete(system);
-
-    let mut refinery = Refinery::<M>::new(&abstract_system, use_decay);
+    let mut refinery = Refinery::<M>::new(system, use_decay);
     let proposition = select_proposition(property);
     let result = match proposition {
         Ok(proposition) => refinery.verify_property(&proposition),

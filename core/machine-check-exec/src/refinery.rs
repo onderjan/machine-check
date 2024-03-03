@@ -24,20 +24,22 @@ use crate::{
     precision::Precision,
     space::Space,
 };
+use mck::abstr::Abstr;
 use mck::abstr::Machine as AbstrMachine;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Refine;
 
-pub struct Refinery<'a, M: FullMachine> {
-    abstract_system: &'a M::Abstr,
+pub struct Refinery<M: FullMachine> {
+    abstract_system: M::Abstr,
     precision: Precision<M>,
     space: Space<M>,
     num_refinements: usize,
     use_decay: bool,
 }
 
-impl<'a, M: FullMachine> Refinery<'a, M> {
-    pub fn new(abstract_system: &'a M::Abstr, use_decay: bool) -> Self {
+impl<M: FullMachine> Refinery<M> {
+    pub fn new(system: M, use_decay: bool) -> Self {
+        let abstract_system = M::Abstr::from_concrete(system);
         let mut refinery = Refinery {
             abstract_system,
             precision: Precision::new(),
@@ -57,12 +59,23 @@ impl<'a, M: FullMachine> Refinery<'a, M> {
         )))));
         let inherent_never_panic = self.verify_inner(&never_panic_prop)?;
         if !inherent_never_panic {
+            let Some(panic_string) = self.find_panic_string() else {
+                panic!("Panic string should be found");
+            };
             // TODO: panic string
-            return Err(ExecError::InherentPanic(String::from("(panic string)")));
+            return Err(ExecError::InherentPanic(String::from(panic_string)));
         }
 
         // verify the property afterwards
         self.verify_inner(prop)
+    }
+
+    fn find_panic_string(&mut self) -> Option<&'static str> {
+        // TODO: this approach does not work if there are multiple macro invocations
+        let Some(panic_id) = self.space.find_panic_id() else {
+            return None;
+        };
+        Some(M::panic_message(panic_id))
     }
 
     pub fn verify_inner(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
@@ -170,7 +183,7 @@ impl<'a, M: FullMachine> Refinery<'a, M> {
                     info!("HERE");
                 }*/
                 let (_refinement_machine, new_state_mark, input_mark) = M::Refin::next(
-                    (self.abstract_system, previous_state, input),
+                    (&self.abstract_system, previous_state, input),
                     current_state_mark,
                 );
                 //info!("Step new state mark: {:?}", new_state_mark);
@@ -182,7 +195,7 @@ impl<'a, M: FullMachine> Refinery<'a, M> {
 
                 // increasing state precision failed, try increasing init precision
                 let (_refinement_machine, input_mark) =
-                    M::Refin::init((self.abstract_system, input), current_state_mark);
+                    M::Refin::init((&self.abstract_system, input), current_state_mark);
                 (input_mark, None)
             };
 
@@ -252,9 +265,9 @@ impl<'a, M: FullMachine> Refinery<'a, M> {
             for input in input_precision.into_proto_iter() {
                 let mut next_state = {
                     if let Some(current_state) = &current_state {
-                        M::Abstr::next(self.abstract_system, &current_state.result, &input)
+                        M::Abstr::next(&self.abstract_system, &current_state.result, &input)
                     } else {
-                        M::Abstr::init(self.abstract_system, &input)
+                        M::Abstr::init(&self.abstract_system, &input)
                     }
                 };
                 if self.use_decay {

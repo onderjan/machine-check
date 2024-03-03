@@ -26,7 +26,7 @@ mod machine_module {
     #[allow(dead_code, unreachable_code)]
     impl CounterMachine {
         fn test_fn() -> ::machine_check::Bitvector<8> {
-            ::std::panic!("Test panic");
+            ::std::panic!("Test panic 4");
             ::machine_check::Bitvector::<8>::new(0)
         }
     }
@@ -42,13 +42,13 @@ mod machine_module {
 
         #[allow(unreachable_code)]
         fn next(&self, state: &State, input: &Input) -> State {
-            /*if false {
+            if false {
                 ::std::panic!("Test panic 1");
             }
             if input.panic_input == Bitvector::<8>::new(0) {
                 ::std::panic!("Test panic 2");
                 ::std::panic!("Test panic 3");
-            }*/
+            }
             let a: ::machine_check::Bitvector<8> = Self::test_fn();
             //::std::panic!("Test panic");
             State {}

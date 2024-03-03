@@ -19,6 +19,7 @@ mod util;
 #[derive(Clone)]
 pub struct MachineDescription {
     pub items: Vec<Item>,
+    pub panic_messages: Vec<String>,
 }
 
 pub fn process_file(mut file: syn::File) -> Result<syn::File, MachineError> {
@@ -79,7 +80,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
 
     let out_dir = out_dir();
 
-    let ssa_machine = ssa::create_concrete_machine(items.clone())?;
+    let ssa_machine = ssa::create_ssa_machine(items.clone())?;
     std::fs::write(out_dir.join("machine_ssa.rs"), unparse(&ssa_machine))
         .expect("SSA machine file should be writable");
 
@@ -96,7 +97,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
 
     support::strip_machine::strip_machine(&mut abstract_machine)?;
 
-    concr::process_items(items)?;
+    concr::process_items(items, &ssa_machine.panic_messages)?;
 
     let abstract_module = create_machine_module("__mck_mod_abstr", abstract_machine);
     items.push(abstract_module);
@@ -105,6 +106,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
         out_dir.join("machine_full.rs"),
         unparse(&MachineDescription {
             items: items.clone(),
+            panic_messages: ssa_machine.panic_messages.clone(),
         }),
     )
     .expect("Full machine file should be writable");

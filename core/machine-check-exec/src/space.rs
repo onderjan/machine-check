@@ -1,4 +1,10 @@
-use std::{collections::BTreeSet, fmt::Debug, num::NonZeroUsize, ops::Shr, rc::Rc};
+use std::{
+    collections::{BTreeSet, HashSet, VecDeque},
+    fmt::Debug,
+    num::NonZeroUsize,
+    ops::Shr,
+    rc::Rc,
+};
 
 use bimap::BiMap;
 use mck::{
@@ -366,5 +372,30 @@ impl<M: FullMachine> Space<M> {
 
     pub fn contains_state_id(&self, id: StateId) -> bool {
         self.state_map.contains_left(&id)
+    }
+
+    pub fn find_panic_id(&self) -> Option<u32> {
+        // find the earliest-occuring definite panic id by breadth-first search
+        let mut queue = VecDeque::<NodeId>::new();
+        let mut processed = HashSet::<NodeId>::new();
+        queue.push_back(NodeId::START);
+        while let Some(node_id) = queue.pop_front() {
+            if let Ok(state_id) = StateId::try_from(node_id) {
+                let state = self.get_state_by_id(state_id);
+                if let Some(panic_value) = state.panic.concrete_value() {
+                    if panic_value.is_nonzero() {
+                        return Some(panic_value.as_unsigned() as u32);
+                    }
+                }
+            }
+            // go on to direct successors that have not been processed yet
+            processed.insert(node_id);
+            for direct_successor_id in self.direct_successor_iter(node_id) {
+                if !processed.contains(&direct_successor_id.into()) {
+                    queue.push_back(direct_successor_id.into());
+                }
+            }
+        }
+        None
     }
 }
