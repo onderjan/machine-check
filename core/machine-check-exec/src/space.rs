@@ -411,7 +411,7 @@ impl<M: FullMachine> Space<M> {
         false
     }
 
-    fn mark_and_sweep(&mut self) {
+    pub fn mark_and_sweep(&mut self) {
         // construct a map containing all of the nodes
         let mut unmarked = BTreeSet::from_iter(self.state_map.left_values().cloned());
         // remove all of the reachable nodes by depth-first search

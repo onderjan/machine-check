@@ -5,6 +5,7 @@ use log::log_enabled;
 use log::trace;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
+use mck::abstr;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
 use mck::refin::Manipulatable;
@@ -39,16 +40,13 @@ pub struct Refinery<M: FullMachine> {
 impl<M: FullMachine> Refinery<M> {
     pub fn new(system: M, use_decay: bool) -> Self {
         let abstract_system = M::Abstr::from_concrete(system);
-        let mut refinery = Refinery {
+        Refinery {
             abstract_system,
             precision: Precision::new(),
             space: Space::new(),
             num_refinements: 0,
             use_decay,
-        };
-        // generate first space
-        refinery.regenerate(NodeId::START);
-        refinery
+        }
     }
 
     pub fn verify_property(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
@@ -60,7 +58,7 @@ impl<M: FullMachine> Refinery<M> {
                 0,
             ),
         )))));
-        let inherent_never_panic = self.verify_inner(&never_panic_prop)?;
+        let inherent_never_panic = self.verify_inner(&never_panic_prop, false)?;
         if !inherent_never_panic {
             let Some(panic_string) = self.find_panic_string() else {
                 panic!("Panic string should be found");
@@ -70,7 +68,7 @@ impl<M: FullMachine> Refinery<M> {
         }
 
         // verify the property afterwards
-        self.verify_inner(prop)
+        self.verify_inner(prop, true)
     }
 
     fn find_panic_string(&mut self) -> Option<&'static str> {
@@ -81,7 +79,16 @@ impl<M: FullMachine> Refinery<M> {
         Some(M::panic_message(panic_id))
     }
 
-    pub fn verify_inner(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
+    pub fn verify_inner(
+        &mut self,
+        prop: &Proposition,
+        assume_no_panic: bool,
+    ) -> Result<bool, ExecError> {
+        // completely regenerate
+        self.space = Space::new();
+        self.precision = Precision::new();
+        self.regenerate(NodeId::START, assume_no_panic);
+
         trace!("Original proposition: {:#?}", prop);
         // transform proposition to positive normal form to move negations to literals
         let prop = prop.pnf();
@@ -102,7 +109,7 @@ impl<M: FullMachine> Refinery<M> {
                 Conclusion::Known(conclusion) => break Ok(conclusion),
                 Conclusion::Unknown(culprit) => culprit,
             };
-            if !self.refine(&culprit) {
+            if !self.refine(&culprit, assume_no_panic) {
                 // it really is incomplete
                 break Err(ExecError::Incomplete);
             }
@@ -120,13 +127,18 @@ impl<M: FullMachine> Refinery<M> {
         };
 
         if log_enabled!(log::Level::Debug) {
-            debug!("Final state space: {:#?}", self.space);
+            self.space.mark_and_sweep();
+            if assume_no_panic {
+                debug!("Inherent no-panic checking final space: {:#?}", self.space);
+            } else {
+                debug!("Property checking final space: {:#?}", self.space);
+            }
         }
 
         result
     }
 
-    fn refine(&mut self, culprit: &Culprit) -> bool {
+    fn refine(&mut self, culprit: &Culprit, assume_no_panic: bool) -> bool {
         self.num_refinements += 1;
         //info!("Refinement number: {}", self.num_refinements);
         // compute marking
@@ -164,7 +176,7 @@ impl<M: FullMachine> Refinery<M> {
                 //info!("Decay prec: {:?}", decay_precision);
                 if decay_precision.apply_refin(&current_state_mark) {
                     // single mark applied to decay, regenerate
-                    self.regenerate(previous_node_id);
+                    self.regenerate(previous_node_id, assume_no_panic);
                     return true;
                 }
             }
@@ -209,7 +221,7 @@ impl<M: FullMachine> Refinery<M> {
             //info!("Input prec: {:?}", input_precision);
             if input_precision.apply_refin(&input_mark) {
                 // single mark applied, regenerate
-                self.regenerate(previous_node_id);
+                self.regenerate(previous_node_id, assume_no_panic);
                 return true;
             }
             // mark not applied, continue iteration
@@ -231,7 +243,7 @@ impl<M: FullMachine> Refinery<M> {
         false
     }
 
-    pub fn regenerate(&mut self, from_node_id: NodeId) {
+    pub fn regenerate(&mut self, from_node_id: NodeId, assume_no_panic: bool) {
         let mut queue = VecDeque::new();
         queue.push_back(from_node_id);
         // construct state space by breadth-first search
@@ -241,7 +253,10 @@ impl<M: FullMachine> Refinery<M> {
 
             // prepare precision
             let input_precision = self.precision.get_input(node_id);
-            let decay_precision = self.precision.get_decay(node_id);
+            let mut decay_precision = self.precision.get_decay(node_id);
+            if assume_no_panic {
+                decay_precision.panic = refin::Bitvector::new_marked();
+            }
 
             // get current state, none if we are at start node
             let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
@@ -274,6 +289,10 @@ impl<M: FullMachine> Refinery<M> {
                         M::Abstr::init(&self.abstract_system, &input)
                     }
                 };
+                if assume_no_panic {
+                    next_state.panic = abstr::Bitvector::new(0);
+                }
+
                 if self.use_decay {
                     decay_precision.force_decay(&mut next_state);
                 }
