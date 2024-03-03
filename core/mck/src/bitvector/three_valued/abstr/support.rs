@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
+    abstr::ManipField,
     abstr::{Abstr, Boolean, Phi, Test},
     bitvector::{concrete::ConcreteBitvector, util},
     concr,
@@ -256,6 +257,28 @@ impl<const L: u32> Phi for ThreeValuedBitvector<L> {
     fn uninit() -> Self {
         // present unknown so there is no loss of soundness in case of bug
         Self::new_unknown()
+    }
+}
+
+impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
+    fn num_bits(&self) -> u32 {
+        L
+    }
+
+    fn min_unsigned(&self) -> u64 {
+        self.umin().as_unsigned()
+    }
+
+    fn max_unsigned(&self) -> u64 {
+        self.umax().as_unsigned()
+    }
+
+    fn min_signed(&self) -> i64 {
+        self.smin().as_signed()
+    }
+
+    fn max_signed(&self) -> i64 {
+        self.smax().as_signed()
     }
 }
 

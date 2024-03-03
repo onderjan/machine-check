@@ -8,9 +8,9 @@ use std::{
 
 use bimap::BiMap;
 use mck::{
-    abstr::{self, PanicResult},
+    abstr::{self, Manipulatable, PanicResult},
     concr::{self, FullMachine},
-    misc::{FieldManipulate, MetaEq},
+    misc::MetaEq,
 };
 use petgraph::{prelude::GraphMap, Directed};
 use std::hash::Hash;
@@ -268,7 +268,22 @@ impl<M: FullMachine> Space<M> {
                     mck::abstr::Bitvector::<1>::new_unknown()
                 })
             } else {
-                state.0.result.get(name).cloned()
+                // TODO: add equality/inequality operators, currently compares nonzero
+                if let Some(manipulatable_result) = state.0.result.get(name) {
+                    let max_unsigned = manipulatable_result.max_unsigned();
+                    let min_unsigned = manipulatable_result.min_unsigned();
+                    Some(if min_unsigned > 0 {
+                        // definitely 1
+                        mck::abstr::Bitvector::<1>::new(1)
+                    } else if max_unsigned == 0 {
+                        // definitely 0
+                        mck::abstr::Bitvector::<1>::new(0)
+                    } else {
+                        mck::abstr::Bitvector::<1>::new_unknown()
+                    })
+                } else {
+                    None
+                }
             };
 
             if let Some(labelling) = labelling {

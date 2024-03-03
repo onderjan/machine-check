@@ -4,7 +4,10 @@ mod rules;
 
 use syn::Item;
 
-use crate::{support::field_manipulate, ErrorType, MachineDescription};
+use crate::{
+    support::manipulate::{self, ManipulateKind},
+    ErrorType, MachineDescription,
+};
 
 use self::{
     item_impl::{preprocess_item_impl, process_item_impl},
@@ -55,7 +58,7 @@ pub(crate) fn create_abstract_machine(
     abstract_machine.items = processed_items;
 
     // add field-manipulate to items
-    field_manipulate::apply_to_items(&mut abstract_machine.items, "abstr");
+    manipulate::apply_to_items(&mut abstract_machine.items, ManipulateKind::Abstr);
 
     Ok(abstract_machine)
 }

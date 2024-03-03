@@ -6,8 +6,8 @@ use log::trace;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use mck::concr::FullMachine;
-use mck::misc::FieldManipulate;
 use mck::misc::Meta;
+use mck::refin::Manipulatable;
 use mck::refin::{self};
 
 use crate::model_check::Conclusion;
@@ -134,11 +134,12 @@ impl<M: FullMachine> Refinery<M> {
         if culprit.name == "__panic" {
             current_state_mark.panic = refin::Bitvector::new_marked();
         } else {
-            let mark_bit = current_state_mark
+            // TODO: mark more adequately
+            let manipulatable_mark = current_state_mark
                 .result
                 .get_mut(&culprit.name)
-                .expect("Culprit name should be manipulatable");
-            *mark_bit = refin::Bitvector::new_marked();
+                .expect("Culprit mark should be manipulatable");
+            manipulatable_mark.mark();
         }
 
         // try increasing precision of the state preceding current mark

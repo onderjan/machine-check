@@ -58,6 +58,7 @@ fn bitvector_related_type(mut path: Path, num_bits: u32) -> Type {
     create_type_path(path)
 }
 
+#[allow(dead_code)]
 pub fn bitvector_type(flavour: &str, num_bits: u32) -> Type {
     let path = Path {
         leading_colon: Some(Default::default()),
@@ -129,10 +130,6 @@ pub fn machine_check_bitvector_new(num_bits: u32, value: &str) -> Expr {
     };
 
     bitvector_related_new(path, num_bits, value)
-}
-
-pub fn single_bit_type(flavour: &str) -> Type {
-    bitvector_type(flavour, 1)
 }
 
 pub fn boolean_type(flavour: &str) -> Type {

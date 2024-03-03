@@ -3,12 +3,13 @@ use std::collections::HashMap;
 
 use syn::{Ident, Item, Type};
 
-use crate::{util::path_matches_global_names, BackwardError, MachineDescription};
-
-use super::support::{
-    field_manipulate,
-    special_trait::{special_trait_impl, SpecialTrait},
+use crate::{
+    support::manipulate::{self, ManipulateKind},
+    util::path_matches_global_names,
+    BackwardError, MachineDescription,
 };
+
+use super::support::special_trait::{special_trait_impl, SpecialTrait};
 
 mod item_impl;
 mod item_struct;
@@ -59,7 +60,7 @@ pub(crate) fn create_refinement_machine(
     }
 
     // add field manipulate
-    field_manipulate::apply_to_items(&mut result_items, "refin");
+    manipulate::apply_to_items(&mut result_items, ManipulateKind::Refin);
 
     let refinement_machine = MachineDescription {
         items: result_items,
@@ -73,8 +74,8 @@ fn is_skipped_impl(item_impl: &syn::ItemImpl) -> bool {
     let Some((_, path, _)) = &item_impl.trait_ else {
         return false;
     };
-    path_matches_global_names(path, &["mck", "misc", "FieldManipulate"])
-        || path_matches_global_names(path, &["mck", "misc", "MetaEq"])
+    path_matches_global_names(path, &["mck", "abstr", "Manipulatable"])
         || path_matches_global_names(path, &["mck", "abstr", "Phi"])
         || path_matches_global_names(path, &["mck", "abstr", "Abstr"])
+        || path_matches_global_names(path, &["mck", "misc", "MetaEq"])
 }

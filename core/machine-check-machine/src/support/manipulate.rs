@@ -2,24 +2,37 @@ use std::collections::HashSet;
 
 use proc_macro2::Span;
 use syn::{
-    Arm, Expr, ExprLit, ExprMatch, Field, GenericArgument, Ident, ImplItem, ImplItemFn, Item,
-    ItemImpl, ItemStruct, Lit, LitStr, Pat, PathArguments, Stmt, Type,
+    punctuated::Punctuated, spanned::Spanned, Arm, Expr, ExprLit, ExprMatch, Field, Ident,
+    ImplItem, ImplItemFn, Item, ItemImpl, ItemStruct, Lit, LitStr, Pat, Path, PathArguments,
+    PathSegment, Stmt, Token, TraitBound, Type, TypeParamBound, TypeTraitObject,
 };
 use syn_path::path;
 
 use crate::util::{
-    create_arg, create_converted_type, create_expr_call, create_expr_field_named,
-    create_expr_ident, create_expr_path, create_ident, create_impl_item_fn, create_item_impl,
-    create_pat_wild, create_path_from_ident, create_path_from_name,
-    create_path_with_last_generic_type, create_self, create_self_arg, create_type_path, ArgType,
+    create_arg, create_expr_call, create_expr_field_named, create_expr_ident, create_expr_path,
+    create_ident, create_impl_item_fn, create_item_impl, create_pat_wild, create_path_from_ident,
+    create_path_from_name, create_path_with_last_generic_type, create_self, create_self_arg,
+    create_type_path, create_type_reference, path_matches_global_names, ArgType,
 };
 
-use super::{
-    special_trait::{special_trait_impl, SpecialTrait},
-    types::single_bit_type,
-};
+use super::special_trait::{special_trait_impl, SpecialTrait};
 
-pub(crate) fn apply_to_items(items: &mut Vec<Item>, flavour: &str) {
+#[derive(Clone, Copy)]
+pub enum ManipulateKind {
+    Abstr,
+    Refin,
+}
+
+impl ManipulateKind {
+    fn str(&self) -> &'static str {
+        match self {
+            ManipulateKind::Abstr => "abstr",
+            ManipulateKind::Refin => "refin",
+        }
+    }
+}
+
+pub(crate) fn apply_to_items(items: &mut Vec<Item>, kind: ManipulateKind) {
     let mut impls_to_add = Vec::new();
 
     let mut process_idents = HashSet::<Ident>::new();
@@ -32,7 +45,7 @@ pub(crate) fn apply_to_items(items: &mut Vec<Item>, flavour: &str) {
         if let Type::Path(ty) = item_impl.self_ty.as_ref() {
             if let Some(ident) = ty.path.get_ident() {
                 if let Some(SpecialTrait::Input) | Some(SpecialTrait::State) =
-                    special_trait_impl(item_impl, flavour)
+                    special_trait_impl(item_impl, kind.str())
                 {
                     process_idents.insert(ident.clone());
                 }
@@ -46,26 +59,25 @@ pub(crate) fn apply_to_items(items: &mut Vec<Item>, flavour: &str) {
         };
 
         if process_idents.remove(&item_struct.ident) {
-            impls_to_add.push(create_field_manipulate_impl(item_struct, flavour));
+            impls_to_add.push(create_manipulatable_impl(item_struct, kind));
         }
     }
     items.extend(impls_to_add.into_iter().map(Item::Impl));
 }
 
-pub fn create_field_manipulate_impl(item_struct: &ItemStruct, flavour: &str) -> ItemImpl {
+pub fn create_manipulatable_impl(item_struct: &ItemStruct, kind: ManipulateKind) -> ItemImpl {
     let mut manipulable_field_idents = Vec::<Ident>::new();
 
     for field in &item_struct.fields {
-        if let Some(manipulable_ident) = field_manipulable_ident(field, flavour) {
+        if let Some(manipulable_ident) = field_manipulatable_ident(field, kind) {
             manipulable_field_idents.push(manipulable_ident);
         }
     }
 
-    let get_fn = create_fn(false, &manipulable_field_idents, flavour);
-    let get_mut_fn = create_fn(true, &manipulable_field_idents, flavour);
+    let get_fn = create_fn(false, &manipulable_field_idents, kind, item_struct.span());
+    let get_mut_fn = create_fn(true, &manipulable_field_idents, kind, item_struct.span());
 
-    let trait_path = path!(::mck::misc::FieldManipulate);
-    let trait_path = create_path_with_last_generic_type(trait_path, single_bit_type(flavour));
+    let trait_path = kind_path(kind, "Manipulatable", item_struct.span());
 
     create_item_impl(
         Some(trait_path),
@@ -74,7 +86,27 @@ pub fn create_field_manipulate_impl(item_struct: &ItemStruct, flavour: &str) -> 
     )
 }
 
-fn field_manipulable_ident(field: &Field, flavour: &str) -> Option<Ident> {
+fn kind_path(kind: ManipulateKind, last_str: &str, span: Span) -> Path {
+    Path {
+        leading_colon: Some(Token![::](span)),
+        segments: Punctuated::from_iter([
+            PathSegment {
+                ident: Ident::new("mck", span),
+                arguments: PathArguments::None,
+            },
+            PathSegment {
+                ident: Ident::new(kind.str(), span),
+                arguments: PathArguments::None,
+            },
+            PathSegment {
+                ident: Ident::new(last_str, span),
+                arguments: PathArguments::None,
+            },
+        ]),
+    }
+}
+
+fn field_manipulatable_ident(field: &Field, kind: ManipulateKind) -> Option<Ident> {
     let Some(field_ident) = &field.ident else {
         // do not consider unnamed fields
         return None;
@@ -86,55 +118,20 @@ fn field_manipulable_ident(field: &Field, flavour: &str) -> Option<Ident> {
     if path_type.qself.is_some() || path_type.path.leading_colon.is_none() {
         return None;
     }
-    let mut segments_iter = path_type.path.segments.iter();
-
-    let Some(crate_segment) = segments_iter.next() else {
-        return None;
-    };
-    let Some(flavour_segment) = segments_iter.next() else {
-        return None;
-    };
-    let Some(type_segment) = segments_iter.next() else {
-        return None;
-    };
-
-    if crate_segment.ident != "mck"
-        || flavour_segment.ident != flavour
-        || type_segment.ident != "Bitvector"
-    {
-        return None;
-    }
-
-    let PathArguments::AngleBracketed(arguments) = &type_segment.arguments else {
-        return None;
-    };
-
-    if arguments.args.len() != 1 {
-        return None;
-    }
-    let GenericArgument::Const(Expr::Lit(expr_lit)) = &arguments.args[0] else {
-        return None;
-    };
-    let Lit::Int(lit_int) = &expr_lit.lit else {
-        return None;
-    };
-
-    let Ok(lit_val) = lit_int.base10_parse::<u32>() else {
-        return None;
-    };
-    if lit_val != 1 {
-        return None;
-    }
-
-    if segments_iter.next().is_some() {
+    if !path_matches_global_names(&path_type.path, &["mck", kind.str(), "Bitvector"]) {
         return None;
     }
 
     Some(field_ident.clone())
 }
 
-fn create_fn(mutable: bool, manipulable_field_idents: &Vec<Ident>, flavour: &str) -> ImplItemFn {
-    let fn_ident: Ident = create_ident(if mutable { "get_mut" } else { "get" });
+fn create_fn(
+    mutable: bool,
+    manipulable_field_idents: &Vec<Ident>,
+    kind: ManipulateKind,
+    span: Span,
+) -> ImplItemFn {
+    let fn_ident: Ident = Ident::new(if mutable { "get_mut" } else { "get" }, span);
     let self_arg_ty = if mutable {
         ArgType::MutableReference
     } else {
@@ -147,9 +144,21 @@ fn create_fn(mutable: bool, manipulable_field_idents: &Vec<Ident>, flavour: &str
         name_ident.clone(),
         Some(create_type_path(create_path_from_name("str"))),
     );
-    let single_bit_type = create_converted_type(self_arg_ty.clone(), single_bit_type(flavour));
+    let manip_field_type = create_type_reference(
+        mutable,
+        Type::TraitObject(TypeTraitObject {
+            dyn_token: Some(Token![dyn](span)),
+            bounds: Punctuated::from_iter([TypeParamBound::Trait(TraitBound {
+                paren_token: None,
+                modifier: syn::TraitBoundModifier::None,
+                lifetimes: None,
+                path: kind_path(kind, "ManipField", span),
+            })]),
+        }),
+    );
+
     let option_path = path!(::std::option::Option);
-    let option_path = create_path_with_last_generic_type(option_path, single_bit_type);
+    let option_path = create_path_with_last_generic_type(option_path, manip_field_type);
     let return_type = create_type_path(option_path);
 
     // add arms

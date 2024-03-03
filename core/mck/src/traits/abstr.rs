@@ -1,6 +1,5 @@
-use crate::abstr::{self, PanicResult};
+use crate::abstr::PanicResult;
 use crate::concr::FullMachine;
-use crate::misc::FieldManipulate;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -12,12 +11,12 @@ pub trait Abstr<C> {
 }
 
 pub trait Input<C: FullMachine>:
-    Debug + MetaEq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>> + Abstr<C::Input>
+    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Input>
 {
 }
 
 pub trait State<C: FullMachine>:
-    Debug + MetaEq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>> + Abstr<C::State>
+    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State>
 {
 }
 
@@ -45,4 +44,18 @@ where
 {
     fn phi(self, other: Self) -> Self;
     fn uninit() -> Self;
+}
+
+pub trait ManipField {
+    fn num_bits(&self) -> u32;
+    fn min_unsigned(&self) -> u64;
+    fn max_unsigned(&self) -> u64;
+    fn min_signed(&self) -> i64;
+    fn max_signed(&self) -> i64;
+}
+pub trait Manipulatable {
+    #[must_use]
+    fn get(&self, name: &str) -> Option<&dyn ManipField>;
+    #[must_use]
+    fn get_mut(&mut self, name: &str) -> Option<&mut dyn ManipField>;
 }

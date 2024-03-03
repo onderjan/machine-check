@@ -1,7 +1,7 @@
 use crate::{
     bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
     forward,
-    refin::Boolean,
+    refin::{Boolean, ManipField},
     traits::misc::MetaEq,
 };
 
@@ -56,6 +56,16 @@ pub(super) fn default_bi_mark<const L: u32, const X: u32>(
 impl<const L: u32> MetaEq for MarkBitvector<L> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.0 == other.0
+    }
+}
+
+impl<const L: u32> ManipField for MarkBitvector<L> {
+    fn num_bits(&self) -> u32 {
+        L
+    }
+
+    fn mark(&mut self) {
+        *self = Self::new_marked();
     }
 }
 

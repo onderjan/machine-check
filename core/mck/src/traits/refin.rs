@@ -1,6 +1,4 @@
-use crate::bitvector::refin;
 use crate::concr::FullMachine;
-use crate::misc::FieldManipulate;
 use crate::refin::Boolean;
 
 use std::fmt::Debug;
@@ -28,7 +26,7 @@ pub trait Input<C: FullMachine>:
     + Clone
     + Meta<<C::Abstr as abstr::Machine<C>>::Input>
     + Refine<<C::Abstr as abstr::Machine<C>>::Input>
-    + FieldManipulate<refin::Bitvector<1>>
+    + Manipulatable
 {
 }
 
@@ -38,7 +36,7 @@ pub trait State<C: FullMachine>:
     + Clone
     + Refine<<C::Abstr as abstr::Machine<C>>::State>
     + Meta<<C::Abstr as abstr::Machine<C>>::State>
-    + FieldManipulate<refin::Bitvector<1>>
+    + Manipulatable
 {
 }
 
@@ -64,4 +62,15 @@ where
         ),
         later_mark: crate::refin::PanicResult<Self::State>,
     ) -> (Self, Self::State, Self::Input);
+}
+
+pub trait ManipField {
+    fn num_bits(&self) -> u32;
+    fn mark(&mut self);
+}
+pub trait Manipulatable {
+    #[must_use]
+    fn get(&self, name: &str) -> Option<&dyn ManipField>;
+    #[must_use]
+    fn get_mut(&mut self, name: &str) -> Option<&mut dyn ManipField>;
 }
