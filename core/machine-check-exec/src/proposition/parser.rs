@@ -2,7 +2,9 @@ use std::collections::VecDeque;
 
 use machine_check_common::ExecError;
 
-use super::{Literal, PropBi, PropF, PropG, PropR, PropTemp, PropU, PropUni, Proposition};
+use super::{
+    ComparisonType, Literal, PropBi, PropF, PropG, PropR, PropTemp, PropU, PropUni, Proposition,
+};
 
 pub fn parse(input: &str) -> Result<Proposition, ExecError> {
     let mut parser = PropositionParser {
@@ -23,6 +25,7 @@ pub enum PropositionLexItem {
     OpeningParen(char),
     ClosingParen(char),
     Ident(String),
+    Number(u64),
 }
 
 impl PropositionParser {
@@ -77,45 +80,99 @@ impl PropositionParser {
         })
     }
 
+    fn parse_comparison(&mut self, comparison_type: ComparisonType) -> Result<Literal, ExecError> {
+        let Some(PropositionLexItem::OpeningParen(opening)) = self.lex_items.pop_front() else {
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
+        };
+
+        let Some(PropositionLexItem::Ident(left_name)) = self.lex_items.pop_front() else {
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
+        };
+        let Some(PropositionLexItem::Comma) = self.lex_items.pop_front() else {
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
+        };
+        let Some(PropositionLexItem::Number(right_number)) = self.lex_items.pop_front() else {
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
+        };
+        let Some(PropositionLexItem::ClosingParen(closing)) = self.lex_items.pop_front() else {
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
+        };
+        if corresponding_closing(opening) != closing {
+            return Err(ExecError::PropertyNotParseable(self.input.clone()));
+        }
+
+        Ok(Literal::new(left_name, comparison_type, right_number))
+    }
+
     fn parse_proposition(&mut self) -> Result<Proposition, ExecError> {
         let Some(lex_item) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
 
         Ok(match lex_item {
-            PropositionLexItem::Ident(ident) => match ident.as_ref() {
-                "and" => Proposition::And(self.parse_bi()?),
-                "or" => Proposition::Or(self.parse_bi()?),
-                "not" => Proposition::Negation(self.parse_uni()?),
-                _ => {
-                    if ident.len() == 2
-                        && matches!(ident.as_bytes()[0], b'A' | b'E')
-                        && matches!(ident.as_bytes()[1], b'X' | b'F' | b'G' | b'U' | b'R')
-                    {
-                        // temporal operator
-                        let prop_temp = match ident.as_bytes()[1] {
-                            b'X' => PropTemp::X(self.parse_uni()?),
-                            b'F' => PropTemp::F(PropF(self.parse_uni()?.0)),
-                            b'G' => PropTemp::G(PropG(self.parse_uni()?.0)),
-                            b'U' => PropTemp::U(self.parse_u()?),
-                            b'R' => PropTemp::R(self.parse_r()?),
-                            _ => panic!("temporal operator match should be exhaustive"),
-                        };
+            PropositionLexItem::Ident(ident) => {
+                // opening parenthesis should be next
+                let Some(PropositionLexItem::OpeningParen(_)) = self.lex_items.front() else {
+                    // this should be a function
+                    return Err(ExecError::PropertyNotParseable(self.input.clone()));
+                };
+                // function
+                match ident.as_ref() {
+                    "and" => Proposition::And(self.parse_bi()?),
+                    "or" => Proposition::Or(self.parse_bi()?),
+                    "not" => Proposition::Negation(self.parse_uni()?),
+                    "eq" => Proposition::Literal(self.parse_comparison(ComparisonType::Eq)?),
+                    "neq" => Proposition::Literal(self.parse_comparison(ComparisonType::Neq)?),
+                    "unsigned_lt" => Proposition::Literal(
+                        self.parse_comparison(ComparisonType::Unsigned(super::InequalityType::Lt))?,
+                    ),
+                    "unsigned_le" => Proposition::Literal(
+                        self.parse_comparison(ComparisonType::Unsigned(super::InequalityType::Le))?,
+                    ),
+                    "unsigned_gt" => Proposition::Literal(
+                        self.parse_comparison(ComparisonType::Unsigned(super::InequalityType::Gt))?,
+                    ),
+                    "unsigned_ge" => Proposition::Literal(
+                        self.parse_comparison(ComparisonType::Unsigned(super::InequalityType::Ge))?,
+                    ),
+                    "signed_lt" => Proposition::Literal(
+                        self.parse_comparison(ComparisonType::Signed(super::InequalityType::Lt))?,
+                    ),
+                    "signed_le" => Proposition::Literal(
+                        self.parse_comparison(ComparisonType::Signed(super::InequalityType::Le))?,
+                    ),
+                    "signed_gt" => Proposition::Literal(
+                        self.parse_comparison(ComparisonType::Signed(super::InequalityType::Gt))?,
+                    ),
+                    "signed_ge" => Proposition::Literal(
+                        self.parse_comparison(ComparisonType::Signed(super::InequalityType::Ge))?,
+                    ),
+                    _ => {
+                        if ident.len() == 2
+                            && matches!(ident.as_bytes()[0], b'A' | b'E')
+                            && matches!(ident.as_bytes()[1], b'X' | b'F' | b'G' | b'U' | b'R')
+                        {
+                            // temporal operator
+                            let prop_temp = match ident.as_bytes()[1] {
+                                b'X' => PropTemp::X(self.parse_uni()?),
+                                b'F' => PropTemp::F(PropF(self.parse_uni()?.0)),
+                                b'G' => PropTemp::G(PropG(self.parse_uni()?.0)),
+                                b'U' => PropTemp::U(self.parse_u()?),
+                                b'R' => PropTemp::R(self.parse_r()?),
+                                _ => panic!("temporal operator match should be exhaustive"),
+                            };
 
-                        return Ok(match ident.as_bytes()[0] {
-                            b'A' => Proposition::A(prop_temp),
-                            b'E' => Proposition::E(prop_temp),
-                            _ => panic!("quantifier match should be exhaustive"),
-                        });
+                            return Ok(match ident.as_bytes()[0] {
+                                b'A' => Proposition::A(prop_temp),
+                                b'E' => Proposition::E(prop_temp),
+                                _ => panic!("quantifier match should be exhaustive"),
+                            });
+                        }
+                        // did not match any function
+                        return Err(ExecError::PropertyNotParseable(self.input.clone()));
                     }
-
-                    // truly an ident
-                    Proposition::Literal(Literal {
-                        complementary: false,
-                        name: ident,
-                    })
                 }
-            },
+            }
             _ => {
                 // not allowed for now
                 return Err(ExecError::PropertyNotParseable(self.input.clone()));
@@ -129,6 +186,10 @@ fn lex(input: &str) -> Result<VecDeque<PropositionLexItem>, ExecError> {
 
     let mut it = input.chars().peekable();
     while let Some(&c) = it.peek() {
+        if c.is_ascii_whitespace() {
+            it.next();
+            continue;
+        }
         match c {
             ',' => {
                 result.push_back(PropositionLexItem::Comma);
@@ -155,6 +216,31 @@ fn lex(input: &str) -> Result<VecDeque<PropositionLexItem>, ExecError> {
                     }
                 }
                 result.push_back(PropositionLexItem::Ident(ident));
+            }
+            '0'..='9' => {
+                let mut str_val = String::from(c);
+                it.next();
+                while let Some(&c) = it.peek() {
+                    match c {
+                        '0'..='9' => {
+                            it.next();
+                            str_val.push(c);
+                        }
+                        _ => break,
+                    }
+                }
+                let unsigned_val: Result<u64, _> = str_val.parse();
+                let val = if let Ok(unsigned_val) = unsigned_val {
+                    unsigned_val
+                } else {
+                    let signed_val: Result<i64, _> = str_val.parse();
+                    if let Ok(signed_val) = signed_val {
+                        signed_val as u64
+                    } else {
+                        return Err(ExecError::PropertyNotParseable(String::from(input)));
+                    }
+                };
+                result.push_back(PropositionLexItem::Number(val));
             }
             _ => return Err(ExecError::PropertyNotParseable(String::from(input))),
         }

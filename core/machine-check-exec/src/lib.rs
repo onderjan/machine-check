@@ -89,11 +89,12 @@ fn select_proposition(property: Option<&String>) -> Result<Proposition, ExecErro
         Proposition::parse(property_str)
     } else {
         // check AG[safe]
+        // TODO: reject verification instead if no property nor inherent is selected
         Ok(Proposition::Negation(PropUni::new(Proposition::E(
             PropTemp::U(PropU {
                 hold: Box::new(Proposition::Const(true)),
                 until: Box::new(Proposition::Negation(PropUni::new(Proposition::Literal(
-                    Literal::new(String::from("safe")),
+                    Literal::new(String::from("safe"), proposition::ComparisonType::Eq, 1),
                 )))),
             }),
         ))))

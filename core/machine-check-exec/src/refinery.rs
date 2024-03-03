@@ -15,7 +15,6 @@ use crate::model_check::Culprit;
 use crate::proposition::Literal;
 use crate::proposition::PropG;
 use crate::proposition::PropTemp;
-use crate::proposition::PropUni;
 use crate::proposition::Proposition;
 use crate::space::NodeId;
 use crate::space::StateId;
@@ -54,8 +53,12 @@ impl<M: FullMachine> Refinery<M> {
 
     pub fn verify_property(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
         // verify inherent non-panicking of system first
-        let never_panic_prop = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Negation(
-            PropUni::new(Proposition::Literal(Literal::new(String::from("__panic")))),
+        let never_panic_prop = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
+            Literal::new(
+                String::from("__panic"),
+                crate::proposition::ComparisonType::Eq,
+                0,
+            ),
         )))));
         let inherent_never_panic = self.verify_inner(&never_panic_prop)?;
         if !inherent_never_panic {
@@ -131,13 +134,13 @@ impl<M: FullMachine> Refinery<M> {
             mck::refin::PanicResult::<<M::Refin as refin::Machine<M>>::State>::clean();
 
         // TODO: rework panic name kludge
-        if culprit.name == "__panic" {
+        if culprit.literal.name() == "__panic" {
             current_state_mark.panic = refin::Bitvector::new_marked();
         } else {
             // TODO: mark more adequately
             let manipulatable_mark = current_state_mark
                 .result
-                .get_mut(&culprit.name)
+                .get_mut(culprit.literal.name())
                 .expect("Culprit mark should be manipulatable");
             manipulatable_mark.mark();
         }

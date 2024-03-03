@@ -48,7 +48,7 @@ fn deduce_end<M: FullMachine>(
             // culprit ends here
             Ok(Culprit {
                 path: path.clone(),
-                name: String::from(literal.name()),
+                literal: literal.clone(),
             })
         }
         Proposition::Negation(inner) => {

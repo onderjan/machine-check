@@ -60,10 +60,8 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
             }
             Proposition::Literal(literal) => {
                 // get from space
-                let labelled: Result<BTreeSet<_>, ()> = self
-                    .space
-                    .labelled_iter(literal.name(), literal.is_complementary(), self.optimistic)
-                    .collect();
+                let labelled: Result<BTreeSet<_>, ()> =
+                    self.space.labelled_iter(literal, self.optimistic).collect();
                 match labelled {
                     Ok(labelled) => labelled,
                     Err(_) => return Err(ExecError::FieldNotFound(String::from(literal.name()))),

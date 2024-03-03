@@ -8,12 +8,14 @@ use std::{
 
 use bimap::BiMap;
 use mck::{
-    abstr::{self, Manipulatable, PanicResult},
-    concr::{self, FullMachine},
+    abstr::{self, ManipField, Manipulatable, PanicResult},
+    concr::FullMachine,
     misc::MetaEq,
 };
 use petgraph::{prelude::GraphMap, Directed};
 use std::hash::Hash;
+
+use crate::proposition::{InequalityType, Literal};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StateId(pub NonZeroUsize);
@@ -252,66 +254,122 @@ impl<M: FullMachine> Space<M> {
 
     pub fn labelled_iter<'a>(
         &'a self,
-        name: &'a str,
-        complementary: bool,
+        literal: &'a Literal,
         optimistic: bool,
     ) -> impl Iterator<Item = Result<StateId, ()>> + 'a {
         self.state_map.iter().filter_map(move |(state_id, state)| {
-            let labelling = if name == "__panic" {
-                Some(if let Some(panic_value) = state.0.panic.concrete_value() {
-                    if panic_value.is_zero() {
-                        mck::abstr::Bitvector::<1>::new(0)
-                    } else {
-                        mck::abstr::Bitvector::<1>::new(1)
-                    }
-                } else {
-                    mck::abstr::Bitvector::<1>::new_unknown()
-                })
+            let name = literal.name();
+            let manip_field = if name == "__panic" {
+                let manip_field: &dyn ManipField = &state.0.panic;
+                manip_field
             } else {
-                // TODO: add equality/inequality operators, currently compares nonzero
-                if let Some(manipulatable_result) = state.0.result.get(name) {
-                    let max_unsigned = manipulatable_result.max_unsigned();
-                    let min_unsigned = manipulatable_result.min_unsigned();
-                    Some(if min_unsigned > 0 {
-                        // definitely 1
-                        mck::abstr::Bitvector::<1>::new(1)
-                    } else if max_unsigned == 0 {
-                        // definitely 0
-                        mck::abstr::Bitvector::<1>::new(0)
-                    } else {
-                        mck::abstr::Bitvector::<1>::new_unknown()
-                    })
-                } else {
-                    None
+                match state.0.result.get(name) {
+                    Some(manip_field) => manip_field,
+                    None => return Some(Err(())),
                 }
             };
 
-            if let Some(labelling) = labelling {
-                let labelled = match labelling.concrete_value() {
-                    Some(concrete_value) => {
-                        // negate if necessary
-                        let is_true = concrete_value != concr::Bitvector::new(0);
-                        if complementary {
-                            !is_true
-                        } else {
-                            is_true
-                        }
+            let min_unsigned = manip_field.min_unsigned();
+            let max_unsigned = manip_field.max_unsigned();
+            let right_unsigned = literal.right_number_unsigned();
+            let comparison_result = match literal.comparison_type() {
+                crate::proposition::ComparisonType::Eq => {
+                    if min_unsigned == max_unsigned {
+                        Some(min_unsigned == right_unsigned)
+                    } else {
+                        None
                     }
-                    None => {
-                        // never negate here, just consider if it is optimistic
-                        // see https://patricegodefroid.github.io/public_psfiles/marktoberdorf2013.pdf
-                        optimistic
+                }
+                crate::proposition::ComparisonType::Neq => {
+                    if min_unsigned == max_unsigned {
+                        Some(min_unsigned != right_unsigned)
+                    } else {
+                        None
                     }
-                };
-                if labelled {
-                    Some(Ok(*state_id))
+                }
+                crate::proposition::ComparisonType::Unsigned(inequality_type) => {
+                    Self::resolve_inequality(
+                        inequality_type,
+                        min_unsigned,
+                        max_unsigned,
+                        right_unsigned,
+                    )
+                }
+                crate::proposition::ComparisonType::Signed(inequality_type) => {
+                    let min_signed = manip_field.min_signed();
+                    let max_signed = manip_field.max_signed();
+                    let right_signed = literal.right_number_signed();
+                    Self::resolve_inequality(inequality_type, min_signed, max_signed, right_signed)
+                }
+            };
+
+            let labelled = match comparison_result {
+                Some(comparison_result) => {
+                    // negate if necessary
+                    if literal.is_complementary() {
+                        !comparison_result
+                    } else {
+                        comparison_result
+                    }
+                }
+                None => {
+                    // never negate here, just consider if it is optimistic
+                    // see https://patricegodefroid.github.io/public_psfiles/marktoberdorf2013.pdf
+                    optimistic
+                }
+            };
+            if labelled {
+                Some(Ok(*state_id))
+            } else {
+                None
+            }
+        })
+    }
+
+    fn resolve_inequality<T: Ord>(
+        inequality_type: &InequalityType,
+        min_left: T,
+        max_left: T,
+        right: T,
+    ) -> Option<bool> {
+        match inequality_type {
+            InequalityType::Lt => {
+                if max_left < right {
+                    Some(true)
+                } else if min_left >= right {
+                    Some(false)
                 } else {
                     None
                 }
-            } else {
-                Some(Err(()))
             }
-        })
+            InequalityType::Le => {
+                if max_left <= right {
+                    Some(true)
+                } else if min_left > right {
+                    Some(false)
+                } else {
+                    None
+                }
+            }
+            InequalityType::Gt => {
+                if max_left > right {
+                    Some(true)
+                } else if min_left <= right {
+                    Some(false)
+                } else {
+                    None
+                }
+            }
+            InequalityType::Ge => {
+                if max_left <= right {
+                    Some(true)
+                } else if min_left > right {
+                    Some(false)
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     pub fn labelled_nontrivial_scc_indices(

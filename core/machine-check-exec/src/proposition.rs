@@ -32,21 +32,53 @@ impl Proposition {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum InequalityType {
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum ComparisonType {
+    Eq,
+    Neq,
+    Unsigned(InequalityType),
+    Signed(InequalityType),
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Literal {
     complementary: bool,
-    name: String,
+    left_name: String,
+    comparison_type: ComparisonType,
+    right_number: u64,
 }
 
 impl Literal {
-    pub fn new(name: String) -> Literal {
+    pub fn new(left_name: String, comparison_type: ComparisonType, right_number: u64) -> Literal {
         Literal {
             complementary: false,
-            name,
+            left_name,
+            comparison_type,
+            right_number,
         }
     }
 
     pub fn name(&self) -> &str {
-        self.name.as_str()
+        self.left_name.as_str()
+    }
+
+    pub fn comparison_type(&self) -> &ComparisonType {
+        &self.comparison_type
+    }
+
+    pub fn right_number_unsigned(&self) -> u64 {
+        self.right_number
+    }
+
+    pub fn right_number_signed(&self) -> i64 {
+        self.right_number as i64
     }
 
     pub fn is_complementary(&self) -> bool {

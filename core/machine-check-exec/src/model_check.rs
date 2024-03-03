@@ -6,7 +6,10 @@ use std::collections::VecDeque;
 use machine_check_common::ExecError;
 use mck::concr::FullMachine;
 
-use crate::{proposition::Proposition, space::StateId};
+use crate::{
+    proposition::{Literal, Proposition},
+    space::StateId,
+};
 
 use self::{classic::ClassicChecker, deduce::deduce_culprit};
 
@@ -28,7 +31,7 @@ pub(super) enum Conclusion {
 #[derive(Debug, Clone)]
 pub(super) struct Culprit {
     pub path: VecDeque<StateId>,
-    pub name: String,
+    pub literal: Literal,
 }
 
 struct ThreeValuedChecker<'a, M: FullMachine> {
