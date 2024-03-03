@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, fmt::Debug, num::NonZeroUsize, ops::Shr, rc::Rc
 use bimap::BiMap;
 use mck::{
     abstr::{self, PanicResult},
-    concr::{self, MachineCheckMachine},
+    concr::{self, FullMachine},
     misc::{FieldManipulate, MetaEq},
 };
 use petgraph::{prelude::GraphMap, Directed};
@@ -65,19 +65,19 @@ impl<E: MetaEq + Debug + Clone + Hash> Hash for MetaWrap<E> {
     }
 }
 
-type PanicState<M> = PanicResult<<<M as MachineCheckMachine>::Abstr as abstr::Machine<M>>::State>;
+type PanicState<M> = PanicResult<<<M as FullMachine>::Abstr as abstr::Machine<M>>::State>;
 
-type WrappedInput<M> = MetaWrap<<<M as MachineCheckMachine>::Abstr as abstr::Machine<M>>::Input>;
+type WrappedInput<M> = MetaWrap<<<M as FullMachine>::Abstr as abstr::Machine<M>>::Input>;
 type WrappedState<M> = MetaWrap<PanicState<M>>;
 
-pub struct Space<M: MachineCheckMachine> {
+pub struct Space<M: FullMachine> {
     node_graph: GraphMap<NodeId, Edge<WrappedInput<M>>, Directed>,
     state_map: BiMap<StateId, Rc<WrappedState<M>>>,
     num_states_for_sweep: usize,
     next_state_id: StateId,
 }
 
-impl<M: MachineCheckMachine> Debug for Space<M> {
+impl<M: FullMachine> Debug for Space<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // build sorted nodes first
         let mut node_ids: Vec<_> = self.node_graph.nodes().collect();
@@ -111,7 +111,7 @@ impl<M: MachineCheckMachine> Debug for Space<M> {
     }
 }
 
-impl<M: MachineCheckMachine> Space<M> {
+impl<M: FullMachine> Space<M> {
     pub fn new() -> Self {
         Self {
             node_graph: GraphMap::new(),

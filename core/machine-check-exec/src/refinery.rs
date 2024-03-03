@@ -5,7 +5,7 @@ use log::log_enabled;
 use log::trace;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
-use mck::concr::MachineCheckMachine;
+use mck::concr::FullMachine;
 use mck::misc::FieldManipulate;
 use mck::misc::Meta;
 use mck::refin::{self};
@@ -28,7 +28,7 @@ use mck::abstr::Machine as AbstrMachine;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Refine;
 
-pub struct Refinery<'a, M: MachineCheckMachine> {
+pub struct Refinery<'a, M: FullMachine> {
     abstract_system: &'a M::Abstr,
     precision: Precision<M>,
     space: Space<M>,
@@ -36,7 +36,7 @@ pub struct Refinery<'a, M: MachineCheckMachine> {
     use_decay: bool,
 }
 
-impl<'a, M: MachineCheckMachine> Refinery<'a, M> {
+impl<'a, M: FullMachine> Refinery<'a, M> {
     pub fn new(abstract_system: &'a M::Abstr, use_decay: bool) -> Self {
         let mut refinery = Refinery {
             abstract_system,

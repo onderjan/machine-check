@@ -1,5 +1,5 @@
 use crate::bitvector::refin;
-use crate::concr::MachineCheckMachine;
+use crate::concr::FullMachine;
 use crate::misc::FieldManipulate;
 use crate::refin::Boolean;
 
@@ -21,7 +21,7 @@ where
     fn clean() -> Self;
 }
 
-pub trait Input<C: MachineCheckMachine>:
+pub trait Input<C: FullMachine>:
     Debug
     + MetaEq
     + Hash
@@ -32,7 +32,7 @@ pub trait Input<C: MachineCheckMachine>:
 {
 }
 
-pub trait State<C: MachineCheckMachine>:
+pub trait State<C: FullMachine>:
     Debug
     + MetaEq
     + Clone
@@ -42,7 +42,7 @@ pub trait State<C: MachineCheckMachine>:
 {
 }
 
-pub trait Machine<C: MachineCheckMachine>
+pub trait Machine<C: FullMachine>
 where
     Self: std::marker::Sized,
 {

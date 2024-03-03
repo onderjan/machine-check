@@ -1,5 +1,5 @@
 use crate::abstr::{self, PanicResult};
-use crate::concr::MachineCheckMachine;
+use crate::concr::FullMachine;
 use crate::misc::FieldManipulate;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -11,17 +11,17 @@ pub trait Abstr<C> {
     fn from_concrete(value: C) -> Self;
 }
 
-pub trait Input<C: MachineCheckMachine>:
+pub trait Input<C: FullMachine>:
     Debug + MetaEq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>> + Abstr<C::Input>
 {
 }
 
-pub trait State<C: MachineCheckMachine>:
+pub trait State<C: FullMachine>:
     Debug + MetaEq + Hash + Clone + FieldManipulate<abstr::Bitvector<1>> + Abstr<C::State>
 {
 }
 
-pub trait Machine<C: MachineCheckMachine>: Abstr<C>
+pub trait Machine<C: FullMachine>: Abstr<C>
 where
     Self: std::marker::Sized,
 {

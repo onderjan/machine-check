@@ -20,10 +20,9 @@ pub fn process_item_impl(item_impl: &mut syn::ItemImpl) -> Result<Vec<Item>, Mac
     };
 
     // implement the trait that points to the analogues
-    // change to mck::concr, change the trait name to MachineCheckMachine and replace the impl with the pointed-to types
+    // change to mck::concr, change the trait name to FullMachine and replace the impl with the pointed-to types
     trait_path.segments[0].ident = Ident::new("mck", trait_path.segments[0].ident.span());
-    trait_path.segments[1].ident =
-        Ident::new("MachineCheckMachine", trait_path.segments[1].ident.span());
+    trait_path.segments[1].ident = Ident::new("FullMachine", trait_path.segments[1].ident.span());
     trait_path.segments.insert(
         1,
         PathSegment {

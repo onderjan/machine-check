@@ -24,7 +24,7 @@ pub trait Test {
     fn into_bool(self) -> bool;
 }
 
-pub trait MachineCheckMachine: Machine {
+pub trait FullMachine: Machine {
     type Abstr: abstr::Machine<Self>;
     type Refin: refin::Machine<Self>;
 }

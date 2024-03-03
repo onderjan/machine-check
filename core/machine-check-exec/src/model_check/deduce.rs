@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 
 use machine_check_common::ExecError;
-use mck::concr::MachineCheckMachine;
+use mck::concr::FullMachine;
 
 use crate::{
     proposition::{PropBi, PropG, PropTemp, PropU, PropUni, Proposition},
@@ -10,7 +10,7 @@ use crate::{
 
 use super::{Culprit, ThreeValuedChecker};
 
-pub(super) fn deduce_culprit<M: MachineCheckMachine>(
+pub(super) fn deduce_culprit<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     prop: &Proposition,
 ) -> Result<Culprit, ExecError> {
@@ -31,7 +31,7 @@ pub(super) fn deduce_culprit<M: MachineCheckMachine>(
     panic!("no interpretation culprit found");
 }
 
-fn deduce_end<M: MachineCheckMachine>(
+fn deduce_end<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     prop: &Proposition,
     path: &VecDeque<StateId>,
@@ -84,7 +84,7 @@ fn deduce_end<M: MachineCheckMachine>(
     }
 }
 
-fn deduce_end_ex<M: MachineCheckMachine>(
+fn deduce_end_ex<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     path: &VecDeque<StateId>,
     inner: &PropUni,
@@ -104,7 +104,7 @@ fn deduce_end_ex<M: MachineCheckMachine>(
     panic!("no EX culprit found")
 }
 
-fn deduce_end_eg<M: MachineCheckMachine>(
+fn deduce_end_eg<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     path: &VecDeque<StateId>,
     inner: &PropG,
@@ -157,7 +157,7 @@ fn deduce_end_eg<M: MachineCheckMachine>(
     panic!("no EG culprit found");
 }
 
-fn deduce_end_eu<M: MachineCheckMachine>(
+fn deduce_end_eu<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     path: &VecDeque<StateId>,
     inner: &PropU,

@@ -1,18 +1,18 @@
 use std::collections::BTreeMap;
 
 use mck::{
-    concr::MachineCheckMachine,
+    concr::FullMachine,
     refin::{self, Refine},
 };
 
 use crate::space::NodeId;
 
-pub struct Precision<M: MachineCheckMachine> {
+pub struct Precision<M: FullMachine> {
     input: BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input>,
     decay: BTreeMap<NodeId, refin::PanicResult<<M::Refin as refin::Machine<M>>::State>>,
 }
 
-impl<M: MachineCheckMachine> Precision<M> {
+impl<M: FullMachine> Precision<M> {
     pub fn new() -> Self {
         Precision {
             input: BTreeMap::new(),

@@ -8,7 +8,7 @@ mod space;
 
 use log::{error, info, log_enabled, trace};
 use machine_check_common::{ExecError, ExecResult};
-use mck::{abstr::Abstr, concr::MachineCheckMachine};
+use mck::{abstr::Abstr, concr::FullMachine};
 
 use clap::Parser;
 use proposition::{Literal, PropTemp, PropU, PropUni, Proposition};
@@ -29,7 +29,7 @@ struct Args {
     use_decay: bool,
 }
 
-pub fn run<M: MachineCheckMachine>(system: M) {
+pub fn run<M: FullMachine>(system: M) {
     if let Err(err) = run_inner(system) {
         // log root error
         error!("{:#?}", err);
@@ -39,7 +39,7 @@ pub fn run<M: MachineCheckMachine>(system: M) {
     // terminate successfully, the information is in stdout
 }
 
-fn run_inner<M: MachineCheckMachine>(system: M) -> Result<ExecResult, anyhow::Error> {
+fn run_inner<M: FullMachine>(system: M) -> Result<ExecResult, anyhow::Error> {
     let args = Args::parse();
     // logging to stderr, stdout will contain the result in batch mode
     let filter_level = match args.verbose {
@@ -70,11 +70,7 @@ fn run_inner<M: MachineCheckMachine>(system: M) -> Result<ExecResult, anyhow::Er
     Ok(verification_result)
 }
 
-fn verify<M: MachineCheckMachine>(
-    system: M,
-    property: Option<&String>,
-    use_decay: bool,
-) -> ExecResult {
+fn verify<M: FullMachine>(system: M, property: Option<&String>, use_decay: bool) -> ExecResult {
     let abstract_system = M::Abstr::from_concrete(system);
 
     let mut refinery = Refinery::<M>::new(&abstract_system, use_decay);
