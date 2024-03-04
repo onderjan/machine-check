@@ -2100,6 +2100,7 @@ pub mod machine_module {
 
                 // CALL - 2 words
                 "----_---k_kkkk_111k" => {
+                    // call subroutine
                     // save 2-byte return address to stack and post-decrement SP
 
                     // PC is 14-bit on ATmega328p, the higher bits should be zero
@@ -2133,7 +2134,7 @@ pub mod machine_module {
                     let stack_sram_address_minus_1 = stack_sram_address - Unsigned::<11>::new(1);
 
                     if Ext::<16>::ext(stack_sram_address) != stack_sram_address_full {
-                        panic!("Stack address is not within data memory on call");
+                        panic!("Stack address higher than data memory on call");
                     };
 
                     let pc_unsigned = Into::<Unsigned<14>>::into(PC);
@@ -2157,25 +2158,50 @@ pub mod machine_module {
 
                 // RET
                 "----_---1_0000_1000" => {
-                    todo!("RET instruction");
-                    /*
                     // return from subroutine
-                    // move highest stack word to PC with pre-increment
+                    // pre-increment SP and load 2-byte PC value from stack
 
-                    // increment stack pointer
-                    SP = SP + 1;
-                    // move stack byte to high byte of PC
-                    PCH = DATA[SP];
-                    // increment stack pointer
-                    SP = SP + 1;
-                    // move stack byte to low byte of PC
-                    PCL = DATA[SP];
+                    let old_stack_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPL));
+                    let old_stack_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPH));
+                    let address_pc_hi = (old_stack_hi << Unsigned::<16>::new(8)) | old_stack_lo;
+                    let address_pc_lo = address_pc_hi + Unsigned::<16>::new(1);
 
-                    // RET is a four-cycle instruction
-                    increment_cycle_count();
-                    increment_cycle_count();
-                    increment_cycle_count();
-                    */
+                    let stack = address_pc_lo + Unsigned::<16>::new(2);
+
+                    // update SPL/SPH
+                    SPL = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack));
+                    SPH = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack >> Unsigned::<16>::new(8)));
+
+                    // stack should be in data memory
+                    if address_pc_hi < Unsigned::<16>::new(0x0100) {
+                        panic!("Return with overflowed stack");
+                    };
+                    let sram_address_pc_hi_full = address_pc_hi - Unsigned::<16>::new(0x0100);
+                    let sram_address_pc_lo_full = address_pc_lo - Unsigned::<16>::new(0x0100);
+
+                    let sram_address_pc_hi = Ext::<11>::ext(sram_address_pc_hi_full);
+                    let sram_address_pc_lo = Ext::<11>::ext(sram_address_pc_lo_full);
+
+                    if (Ext::<16>::ext(sram_address_pc_hi) != sram_address_pc_hi_full)
+                    | (Ext::<16>::ext(sram_address_pc_lo) != sram_address_pc_lo_full) {
+                        panic!("Return underflows stack from data memory");
+                    };
+
+                    let pc_lo = SRAM[Into::<Bitvector<11>>::into(sram_address_pc_lo)];
+                    let pc_hi = SRAM[Into::<Bitvector<11>>::into(sram_address_pc_hi)];
+
+                    let pc_lo_ext = Ext::<16>::ext(Into::<Unsigned<8>>::into(pc_lo));
+                    let pc_hi_ext = Ext::<16>::ext(Into::<Unsigned<8>>::into(pc_hi));
+                    let new_pc_full = (pc_hi_ext << Unsigned::<16>::new(8)) | pc_lo_ext;
+
+                    let new_pc = Ext::<14>::ext(new_pc_full);
+                    if Ext::<16>::ext(new_pc) != new_pc_full {
+                        panic!("Return address does not fit into program counter");
+                    }
+
+                    PC = Into::<Bitvector<14>>::into(new_pc);
+
+                    // RET is a four-cycle instruction on 16-bit PC devices
                 }
 
                 // RETI
