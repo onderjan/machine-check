@@ -1567,6 +1567,8 @@ pub mod machine_module {
                 "----_---d_dddd_1111" => {
                     // pre-increment stack pointer, then load byte from register d
 
+                    // TODO: detect stack underflow/outside data memory
+
                     let old_stack_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPL));
                     let old_stack_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPH));
                     let old_stack = (old_stack_hi << Unsigned::<16>::new(8)) | old_stack_lo;
@@ -1865,6 +1867,7 @@ pub mod machine_module {
 
                     let value = state.R[r];
 
+                    // TODO: detect stack overflow/outside data memory
                     // store
                     let write_state: State =
                         Self::write_data_mem(state, Into::<Bitvector<16>>::into(stack), value);
@@ -1925,10 +1928,10 @@ pub mod machine_module {
             let GPIOR0 = state.GPIOR0;
             let GPIOR1 = state.GPIOR1;
             let GPIOR2 = state.GPIOR2;
-            let SPL = state.SPL;
-            let SPH = state.SPH;
+            let mut SPL = state.SPL;
+            let mut SPH = state.SPH;
             let mut SREG = state.SREG;
-            let SRAM = Clone::clone(&state.SRAM);
+            let mut SRAM = Clone::clone(&state.SRAM);
 
             ::machine_check::bitmask_switch!(instruction {
                 // COM Rd
@@ -2079,44 +2082,75 @@ pub mod machine_module {
 
                 // JMP - 2 words
                 "----_---k_kkkk_110k" => {
-                    // PC is 14-bit on ATmega328p, we ignore the higher bits
+                    // PC is 14-bit on ATmega328p, the higher bits should be zero
+                    if k != Bitvector::<6>::new(0) {
+                        panic!("Jump outside program memory due to high word bits");
+                    }
+
                     let low_word = Into::<Unsigned<16>>::into(self.PROGMEM[PC]);
-                    PC = Into::<Bitvector<14>>::into(Ext::<14>::ext(low_word));
+                    let target_pc = Ext::<14>::ext(low_word);
+                    if Ext::<16>::ext(target_pc) != low_word {
+                        panic!("Jump outside program memory due to low word bits");
+                    }
+
+                    PC = Into::<Bitvector<14>>::into(target_pc);
 
                     // JMP is a three-cycle instruction
                 }
 
                 // CALL - 2 words
                 "----_---k_kkkk_111k" => {
-                    todo!("CALL instruction");
-                    // TODO
-                    /*
-                    // save return address to stack and post-decrement SP
-                    // PC is 14-bit on ATmega328p, we ignore the higher bits
+                    // save 2-byte return address to stack and post-decrement SP
 
-                    // move low target word to instruction variable
-                    Uint16 newInstruction = progmem[PC];
-                    // make sure PC points to the result instruction
-                    PC = PC + 1;
+                    // PC is 14-bit on ATmega328p, the higher bits should be zero
+                    if k != Bitvector::<6>::new(0) {
+                        panic!("Call outside program memory due to high word bits");
+                    }
 
-                    // save low bits
-                    DATA[SP] = PCL;
-                    // decrement stack pointer
-                    SP = SP - 1;
-                    // save high bits
-                    DATA[SP] = PCH;
-                    // decrement stack pointer
-                    SP = SP - 1;
+                    let low_word = Into::<Unsigned<16>>::into(self.PROGMEM[PC]);
+                    let target_pc = Ext::<14>::ext(low_word);
+                    if Ext::<16>::ext(target_pc) != low_word {
+                        panic!("Call outside program memory due to low word bits");
+                    }
 
+                    let stack_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPL));
+                    let stack_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPH));
+                    let stack = (stack_hi << Unsigned::<16>::new(8)) | stack_lo;
 
-                    /// jump to subroutine
-                    PC = newInstruction;
+                    // the stack is decremented by 2 at the end
+                    let stack_post = stack - Unsigned::<16>::new(2);
 
-                    // CALL is a four-cycle instruction
-                    increment_cycle_count();
-                    increment_cycle_count();
-                    increment_cycle_count();
-                    */
+                    // make sure that the stack does not overflow from data memory down to extended I/O
+                    // pointing to last extended I/O is not an overflow, as the data is not written there
+                    if (stack < Unsigned::<16>::new(0x0099)) | (stack_post < Unsigned::<16>::new(0x0099)) {
+                        panic!("Call overflows stack from data memory to extended I/O");
+                    };
+
+                    let stack_sram_address_full = stack - Unsigned::<16>::new(0x0100);
+
+                    // only SRAM can be written to
+                    let stack_sram_address = Ext::<11>::ext(stack_sram_address_full);
+                    let stack_sram_address_minus_1 = stack_sram_address - Unsigned::<11>::new(1);
+
+                    if Ext::<16>::ext(stack_sram_address) != stack_sram_address_full {
+                        panic!("Stack address is not within data memory on call");
+                    };
+
+                    let pc_unsigned = Into::<Unsigned<14>>::into(PC);
+                    let pc_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(pc_unsigned));
+                    let pc_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(pc_unsigned >> Unsigned::<14>::new(8)));
+
+                    SRAM[Into::<Bitvector<11>>::into(stack_sram_address)] = pc_lo;
+                    SRAM[Into::<Bitvector<11>>::into(stack_sram_address_minus_1)] = pc_hi;
+
+                    // update PC
+                    PC = Into::<Bitvector<14>>::into(target_pc);
+
+                    // update SPL/SPH
+                    SPL = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack_post));
+                    SPH = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack_post >> Unsigned::<16>::new(8)));
+
+                    // CALL is a four-cycle instruction on 16-bit PC devices
                 }
 
                 // -  opcodes only in 1011_0110 -
