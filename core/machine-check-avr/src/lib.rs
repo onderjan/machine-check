@@ -1254,9 +1254,35 @@ pub mod machine_module {
             R
         }
 
+        fn store_with_displacement(
+            state: &State,
+            address_lo_index: Bitvector<5>,
+            value_reg_index: Bitvector<5>,
+            displacement: Bitvector<6>,
+        ) -> State {
+            let address_hi_index = address_lo_index + Bitvector::<5>::new(1);
+
+            let address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[address_lo_index]));
+            let address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[address_hi_index]));
+            let address = (address_hi << Unsigned::<16>::new(8)) | address_lo;
+
+            // add displacement, it is interpreted as 6-bit unsigned
+            let address_with_displacement =
+                address + Ext::<16>::ext(Into::<Unsigned<6>>::into(displacement));
+
+            let value = state.R[value_reg_index];
+
+            // load
+            let write_result: State = Self::write_data_mem(
+                state,
+                Into::<Bitvector<16>>::into(address_with_displacement),
+                value,
+            );
+            write_result
+        }
+
         fn next_10q0(state: &State, input: &Input, instruction: Bitvector<16>) -> State {
             let PC = state.PC;
-            let mut R = Clone::clone(&state.R);
             let DDRB = state.DDRB;
             let PORTB = state.PORTB;
             let DDRC = state.DDRC;
@@ -1269,51 +1295,71 @@ pub mod machine_module {
             let SPL = state.SPL;
             let SPH = state.SPH;
             let SREG = state.SREG;
-            let SRAM = Clone::clone(&state.SRAM);
+
+            let mut result = Clone::clone(state);
 
             ::machine_check::bitmask_switch!(instruction {
                 // LD Rd, Z+q
                 "--q-_qq0d_dddd_0qqq" => {
                     // load data memory pointed to by Z (30:31) with displacement
-                    R = Self::load_with_displacement(state, input, Bitvector::<5>::new(30), d, q);
+                    let SRAM = Clone::clone(&state.SRAM);
+                    let R: BitvectorArray<5, 8> = Self::load_with_displacement(state, input, Bitvector::<5>::new(30), d, q);
+                    result = State {
+                        PC,
+                        R,
+                        DDRB,
+                        PORTB,
+                        DDRC,
+                        PORTC,
+                        DDRD,
+                        PORTD,
+                        GPIOR0,
+                        GPIOR1,
+                        GPIOR2,
+                        SPL,
+                        SPH,
+                        SREG,
+                        SRAM,
+                    };
                 }
 
                 // LD Rd, Y+q
                 "--q-_qq0d_dddd_1qqq" => {
                     // load data memory pointed to by Y (28:29) with displacement
-                    R = Self::load_with_displacement(state, input, Bitvector::<5>::new(28), d, q);
+                    let SRAM = Clone::clone(&state.SRAM);
+                    let R: BitvectorArray<5, 8>  = Self::load_with_displacement(state, input, Bitvector::<5>::new(28), d, q);
+                    result = State {
+                        PC,
+                        R,
+                        DDRB,
+                        PORTB,
+                        DDRC,
+                        PORTC,
+                        DDRD,
+                        PORTD,
+                        GPIOR0,
+                        GPIOR1,
+                        GPIOR2,
+                        SPL,
+                        SPH,
+                        SREG,
+                        SRAM,
+                    };
                 }
 
                 // ST Z+q, Rr
                 "--q-_qq1r_rrrr_0qqq" => {
-                    todo!("ST instruction");
-                    //DATA[Z+q] = R[r]; increment_cycle_count();
+                    // store data memory pointed to by Y (30:31) with displacement
+                    result = Self::store_with_displacement(state, Bitvector::<5>::new(30), r, q);
                 }
 
                 // ST Y+q, Rr
                 "--q-_qq1r_rrrr_1qqq" => {
-                    todo!("ST instruction");
-                    //DATA[Y+q] = R[r]; increment_cycle_count();
+                    // store data memory pointed to by Y (28:29) with displacement
+                    result = Self::store_with_displacement(state, Bitvector::<5>::new(28), r, q);
                 }
             });
-
-            State {
-                PC,
-                R,
-                DDRB,
-                PORTB,
-                DDRC,
-                PORTC,
-                DDRD,
-                PORTD,
-                GPIOR0,
-                GPIOR1,
-                GPIOR2,
-                SPL,
-                SPH,
-                SREG,
-                SRAM,
-            }
+            result
         }
 
         fn load_post_increment(
@@ -1545,8 +1591,8 @@ pub mod machine_module {
             }
         }
 
-        fn next_1001_001r(state: &State, instruction: Bitvector<16>) -> State {
-            let PC = state.PC;
+        fn next_1001_001r(&self, state: &State, instruction: Bitvector<16>) -> State {
+            let mut PC = state.PC;
             let R = Clone::clone(&state.R);
             let DDRB = state.DDRB;
             let PORTB = state.PORTB;
@@ -1562,25 +1608,39 @@ pub mod machine_module {
             let SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
 
+            let mut result = Clone::clone(state);
+
             ::machine_check::bitmask_switch!(instruction {
 
                 // STS - 2 words
                 "----_---r_rrrr_0000" => {
-                    todo!("STS instruction");
-                    /*
-                    // store direct to data space
-                    // r contains source register
-                    // next instruction word contains address
-                    // ATmega328p does not contain RAMPD register
-                    // so we do not need to concern ourselves with it
+                    // store direct to data space from register r
+                    let value = R[r];
 
-                    // fetch and increment PC
-                    Uint16 newInstruction = progmem[PC];
-                    PC = PC + 1;
+                    // STS is a 2-word instruction, the address is in program memory in the next instruction location
+                    // PC is already incremented to point to the next instruction, fetch it and increment PC once again before writing
+                    let address = self.PROGMEM[PC];
+                    PC = PC + Bitvector::<14>::new(1);
 
-                    // move register to data space byte
-                    DATA[newInstruction] = R[r];
-                    */
+                    let pc_incremented_state = State {
+                        PC,
+                        R,
+                        DDRB,
+                        PORTB,
+                        DDRC,
+                        PORTC,
+                        DDRD,
+                        PORTD,
+                        GPIOR0,
+                        GPIOR1,
+                        GPIOR2,
+                        SPL,
+                        SPH,
+                        SREG,
+                        SRAM,
+                    };
+
+                    result = Self::write_data_mem(&pc_incremented_state, Into::<Bitvector<16>>::into(address), value);
                 }
 
 
@@ -1614,8 +1674,9 @@ pub mod machine_module {
 
                 // ST X, Rr
                 "----_---r_rrrr_1100" => {
-                    todo!("ST instruction");
-                    //DATA[X] = R[r]; increment_cycle_count();
+                    // store data memory pointed to by X (26:27)
+                    // register X does not support displacement, it is always 0
+                    result = Self::store_with_displacement(state, Bitvector::<5>::new(26), r, Bitvector::<6>::new(0));
                 }
 
                 // ST X+, Rr
@@ -1648,23 +1709,7 @@ pub mod machine_module {
                 }
             });
 
-            State {
-                PC,
-                R,
-                DDRB,
-                PORTB,
-                DDRC,
-                PORTC,
-                DDRD,
-                PORTD,
-                GPIOR0,
-                GPIOR1,
-                GPIOR2,
-                SPL,
-                SPH,
-                SREG,
-                SRAM,
-            }
+            result
         }
 
         fn next_1001_010x(&self, state: &State, instruction: Bitvector<16>) -> State {
@@ -2095,7 +2140,7 @@ pub mod machine_module {
                     result = Self::next_1001_000d(self, state, input, instruction);
                 }
                 "----_001-_----_----" => {
-                    result = Self::next_1001_001r(state, instruction);
+                    result = Self::next_1001_001r(self, state, instruction);
                 }
                 "----_010-_----_----" => {
                     result = Self::next_1001_010x(self, state, instruction);
