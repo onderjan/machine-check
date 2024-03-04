@@ -1286,9 +1286,9 @@ pub mod machine_module {
             }
         }
 
-        fn next_1001_000d(state: &State, instruction: Bitvector<16>) -> State {
+        fn next_1001_000d(state: &State, input: &Input, instruction: Bitvector<16>) -> State {
             let PC = state.PC;
-            let R = Clone::clone(&state.R);
+            let mut R = Clone::clone(&state.R);
             let DDRB = state.DDRB;
             let PORTB = state.PORTB;
             let DDRC = state.DDRC;
@@ -1407,20 +1407,67 @@ pub mod machine_module {
 
                 // LD Rd, X
                 "----_---d_dddd_1100" => {
-                    todo!("LD instruction");
-                    //R[d] = DATA[X]; increment_cycle_count();
+                    // load data memory pointed to by X (26:27) into working register
+                    // note that register X does not support load with displacement, unlike Y and Z
+                    let address_lo_index = Bitvector::<5>::new(26);
+                    let address_hi_index = Bitvector::<5>::new(27);
+
+                    let address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
+                    let address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
+                    let address = (address_hi << Unsigned::<16>::new(8)) | address_lo;
+
+                    // load
+                    let read_result: Bitvector<8> = Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(address));
+                    R[d] = read_result;
                 }
 
                 // LD Rd, X+
                 "----_---d_dddd_1101" => {
-                    todo!("LD instruction");
-                    //R[d] = DATA[X]; X = X + 1; increment_cycle_count();
+                    // load data memory pointed to by X (26:27) into working register with post-increment
+
+                    let address_lo_index = Bitvector::<5>::new(26);
+                    let address_hi_index = Bitvector::<5>::new(27);
+
+                    let address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
+                    let address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
+                    let address = (address_hi << Unsigned::<16>::new(8)) | address_lo;
+
+                    // load
+                    let read_result: Bitvector<8> = Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(address));
+                    R[d] = read_result;
+
+                    // post-increment
+                    if (d == address_lo_index) | (d == address_hi_index) {
+                        panic!("Illegal load with post-increment from part of address register");
+                    }
+                    let address_post = address + Unsigned::<16>::new(1);
+                    let address_lo_post = Into::<Bitvector<8>>::into(Ext::<8>::ext(address_post));
+                    let address_hi_post = Into::<Bitvector<8>>::into(Ext::<8>::ext(address_post >> Unsigned::<16>::new(8)));
+                    R[address_lo_index] = address_lo_post;
+                    R[address_hi_index] = address_hi_post;
                 }
 
                 // LD Rd, -X
                 "----_---d_dddd_1110" => {
-                    todo!("LD instruction");
-                    //X = X - 1; R[d] = DATA[X]; increment_cycle_count();
+                    // load data memory pointed to by X (26:27) into working register with pre-decrement
+
+                    let address_lo_index = Bitvector::<5>::new(26);
+                    let address_hi_index = Bitvector::<5>::new(27);
+
+                    let old_address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
+                    let old_address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
+                    let old_address = ((old_address_hi << Unsigned::<16>::new(8)) | old_address_lo) - Unsigned::<16>::new(1);
+
+                    // pre-decrement
+                    let address = old_address - Unsigned::<16>::new(1);
+                    let address_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(address));
+                    let address_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(address >> Unsigned::<16>::new(8)));
+                    R[address_lo_index] = address_lo;
+                    R[address_hi_index] = address_hi;
+
+                    // load
+                    let read_result: Bitvector<8> = Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(address));
+                    R[d] = read_result;
                 }
 
                 // POP Rd
@@ -1997,12 +2044,12 @@ pub mod machine_module {
             }
         }
 
-        fn next_1001(&self, state: &State, instruction: Bitvector<16>) -> State {
+        fn next_1001(&self, state: &State, input: &Input, instruction: Bitvector<16>) -> State {
             let mut result = Clone::clone(state);
 
             ::machine_check::bitmask_switch!(instruction {
                 "----_000-_----_----" => {
-                    result = Self::next_1001_000d(state, instruction);
+                    result = Self::next_1001_000d(state, input, instruction);
                 }
                 "----_001-_----_----" => {
                     result = Self::next_1001_001r(state, instruction);
@@ -2467,7 +2514,7 @@ pub mod machine_module {
                     result = Self::next_10q0(&state, instruction);
                 }
                 "1001_----_----_----" => {
-                    result = Self::next_1001(self, &state, instruction);
+                    result = Self::next_1001(self, &state, input, instruction);
                 }
                 "1011_----_----_----" => {
                     result = Self::next_1011(&state, input, instruction);

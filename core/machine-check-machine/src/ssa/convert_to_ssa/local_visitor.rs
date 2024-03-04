@@ -90,7 +90,7 @@ impl VisitMut for LocalVisitor {
     fn visit_ident_mut(&mut self, ident: &mut Ident) {
         // replace ident by temporary if necessary
         if let Some(counter) = self.local_ident_counters.get(ident) {
-            // the variable must be used before being assigned
+            // the variable must be assigned before being used
             let Some(current_counter) = counter.present.last() else {
                 self.result = Err(MachineError::new(
                     ErrorType::IllegalConstruct(String::from(
