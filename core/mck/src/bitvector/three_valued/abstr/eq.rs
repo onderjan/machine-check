@@ -24,4 +24,8 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
             ConcreteBitvector::new(can_be_same as u64),
         )
     }
+
+    fn ne(self, rhs: Self) -> Self::Output {
+        self.eq(rhs).bit_not()
+    }
 }

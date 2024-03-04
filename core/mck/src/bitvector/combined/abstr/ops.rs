@@ -55,6 +55,7 @@ impl<const L: u32> TypedCmp for Bitvector<L> {
 impl<const L: u32> TypedEq for Bitvector<L> {
     type Output = Bitvector<1>;
     generate_bi_op!(eq, Self::Output);
+    generate_bi_op!(ne, Self::Output);
 }
 
 impl<const L: u32, const X: u32> Ext<X> for Bitvector<L> {

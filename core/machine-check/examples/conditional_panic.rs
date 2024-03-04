@@ -42,14 +42,16 @@ mod machine_module {
 
         #[allow(unreachable_code)]
         fn next(&self, state: &State, input: &Input) -> State {
-            if false {
+            /*if false {
                 ::std::panic!("Test panic 1");
-            }
-            if input.panic_input == Bitvector::<8>::new(0) {
+            }*/
+            if (input.panic_input == Bitvector::<8>::new(0))
+                | (input.panic_input == Bitvector::<8>::new(1))
+            {
                 ::std::panic!("Test panic 2");
                 ::std::panic!("Test panic 3");
             }
-            let a: ::machine_check::Bitvector<8> = Self::test_fn();
+            //let a: ::machine_check::Bitvector<8> = Self::test_fn();
             //::std::panic!("Test panic");
             State {}
         }

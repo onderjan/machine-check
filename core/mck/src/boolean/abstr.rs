@@ -1,4 +1,7 @@
-use crate::abstr::{Bitvector, Phi, Test};
+use crate::{
+    abstr::{Bitvector, Phi, Test},
+    forward::Bitwise,
+};
 
 #[derive(Clone, Copy, Hash, Default)]
 pub struct Boolean(pub(crate) Bitvector<1>);
@@ -36,5 +39,23 @@ impl Phi for Boolean {
 
     fn uninit() -> Self {
         Boolean(Bitvector::<1>::uninit())
+    }
+}
+
+impl Bitwise for Boolean {
+    fn bit_not(self) -> Self {
+        Self(self.0.bit_not())
+    }
+
+    fn bit_and(self, rhs: Self) -> Self {
+        Self(self.0.bit_and(rhs.0))
+    }
+
+    fn bit_or(self, rhs: Self) -> Self {
+        Self(self.0.bit_or(rhs.0))
+    }
+
+    fn bit_xor(self, rhs: Self) -> Self {
+        Self(self.0.bit_xor(rhs.0))
     }
 }

@@ -129,7 +129,10 @@ fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
         meta: Meta::List(MetaList {
             path: path!(allow),
             delimiter: syn::MacroDelimiter::Paren(Default::default()),
-            tokens: quote!(clippy::needless_late_init),
+            tokens: quote!(
+                clippy::needless_late_init,
+                clippy::suspicious_else_formatting
+            ),
         }),
     });
 

@@ -1,4 +1,4 @@
-use crate::forward::TypedEq;
+use crate::{forward::TypedEq, traits::forward::Bitwise};
 
 use super::Bitvector;
 
@@ -18,5 +18,9 @@ impl<const L: u32> TypedEq for Bitvector<L> {
             }
         }
         Bitvector::<1>::from_bools(can_be_false, can_be_true)
+    }
+
+    fn ne(self, rhs: Self) -> Self::Output {
+        self.eq(rhs).bit_not()
     }
 }

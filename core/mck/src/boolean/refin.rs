@@ -1,4 +1,9 @@
-use crate::refin::{Bitvector, Refine};
+use crate::{
+    backward::Bitwise,
+    refin::{Bitvector, Refine},
+};
+
+use super::abstr;
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Boolean(pub(crate) Bitvector<1>);
 
@@ -31,5 +36,29 @@ impl Refine<super::abstr::Boolean> for Boolean {
 
     fn clean() -> Self {
         Self(Bitvector::clean())
+    }
+}
+
+impl Bitwise for abstr::Boolean {
+    type Mark = Boolean;
+
+    fn bit_not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
+        let mark_earlier = Bitwise::bit_not((normal_input.0 .0,), mark_later.0);
+        (Boolean(mark_earlier.0),)
+    }
+
+    fn bit_and(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        let out = Bitwise::bit_and((normal_input.0 .0, normal_input.1 .0), mark_later.0);
+        (Boolean(out.0), Boolean(out.1))
+    }
+
+    fn bit_or(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        let out = Bitwise::bit_or((normal_input.0 .0, normal_input.1 .0), mark_later.0);
+        (Boolean(out.0), Boolean(out.1))
+    }
+
+    fn bit_xor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        let out = Bitwise::bit_xor((normal_input.0 .0, normal_input.1 .0), mark_later.0);
+        (Boolean(out.0), Boolean(out.1))
     }
 }

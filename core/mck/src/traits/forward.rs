@@ -5,6 +5,9 @@ pub trait TypedEq {
 
     #[must_use]
     fn eq(self, rhs: Self) -> Self::Output;
+
+    #[must_use]
+    fn ne(self, rhs: Self) -> Self::Output;
 }
 
 pub trait TypedCmp {

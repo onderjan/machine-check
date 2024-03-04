@@ -10,6 +10,12 @@ where
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier);
+
+    #[must_use]
+    fn ne(
+        normal_input: (Self, Self),
+        mark_later: Self::MarkLater,
+    ) -> (Self::MarkEarlier, Self::MarkEarlier);
 }
 
 pub trait TypedCmp

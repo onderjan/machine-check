@@ -105,13 +105,8 @@ pub mod machine_module {
         // --- SRAM ---
         // 2048 8-bit cells
         SRAM: BitvectorArray<11, 8>,
-
         // --- EEPROM ---
         // TODO: implement EEPROM
-
-        // --- Misc ---
-        // TODO: remove safe
-        safe: Bitvector<1>,
     }
 
     impl ::machine_check::State for State {}
@@ -127,20 +122,19 @@ pub mod machine_module {
         fn instruction_skip(&self, pc: Bitvector<14>) -> Bitvector<14> {
             let mut result_pc = pc;
             let instruction = self.PROGMEM[result_pc];
-            let const_two = Bitvector::<14>::new(2);
             ::machine_check::bitmask_switch!(instruction {
                 // LDS or STS (two-word)
                 // STS (two-word)
                 "1001_00-d_dddd_0000" => {
-                    result_pc = result_pc + const_two;
+                    result_pc = result_pc + Bitvector::<14>::new(2);
                 }
                 // JMP
                 "1001_010k_kkkk_110k" => {
-                    result_pc = result_pc + const_two;
+                    result_pc = result_pc + Bitvector::<14>::new(2);
                 }
                 // CALL
                 "1001_010k_kkkk_111k" => {
-                    result_pc = result_pc + const_two;
+                    result_pc = result_pc + Bitvector::<14>::new(2);
                 }
                 // otherwise, we are skipping a one-word instruction
                 _ => {
@@ -150,6 +144,7 @@ pub mod machine_module {
             result_pc
         }
 
+        #[allow(unreachable_code)]
         fn read_io_reg(state: &State, input: &Input, io_index: Bitvector<6>) -> Bitvector<8> {
             let result;
             if io_index == Bitvector::<6>::new(0x03) {
@@ -192,7 +187,8 @@ pub mod machine_module {
             } else if io_index == Bitvector::<6>::new(0x3F) {
                 result = state.SREG;
             } else {
-                // TODO: invalid or unimplemented read
+                panic!("Unimplemented or invalid read");
+                // TODO: discover that panic diverges and no assignment is necessary
                 result = Bitvector::<8>::new(0);
             }
 
@@ -216,8 +212,6 @@ pub mod machine_module {
             let mut SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
 
-            let safe = state.safe;
-
             if io_index == Bitvector::<6>::new(0x03) {
                 // instead of writing to PINB, exclusive-or PORTB
                 PORTB = PORTB ^ value;
@@ -225,25 +219,28 @@ pub mod machine_module {
                 DDRB = value;
             } else if io_index == Bitvector::<6>::new(0x05) {
                 PORTB = value;
-            } else if io_index == Bitvector::<6>::new(0x06) {
-                // port C has only 7 bits, drop bit 8
-                // TODO: ensure written bit 8 is zero
+            } else if (io_index == Bitvector::<6>::new(0x06))
+                | (io_index == Bitvector::<6>::new(0x07))
+                | (io_index == Bitvector::<6>::new(0x08))
+            {
+                // port C has only 7 bits
+                // ensure written bit 8 is zero
+                let bit_8_mask = Bitvector::<8>::new(0b1000_0000);
+                let bit_8_masked = value & bit_8_mask;
+                if bit_8_masked != Bitvector::<8>::new(0) {
+                    panic!("Port C bit 8 should not have 1 written to it");
+                };
+                //  drop bit 8
                 let value_ext =
                     Into::<Bitvector<7>>::into(Ext::<7>::ext(Into::<Unsigned<8>>::into(value)));
-                // instead of writing to PINC, exclusive-or PORTC
-                PORTC = PORTC ^ value_ext;
-            } else if io_index == Bitvector::<6>::new(0x07) {
-                // port C has only 7 bits, drop bit 8
-                // TODO: ensure written bit 8 is zero
-                let value_ext =
-                    Into::<Bitvector<7>>::into(Ext::<7>::ext(Into::<Unsigned<8>>::into(value)));
-                DDRC = value_ext;
-            } else if io_index == Bitvector::<6>::new(0x08) {
-                // port C has only 7 bits, drop bit 8
-                // TODO: ensure written bit 8 is zero
-                let value_ext =
-                    Into::<Bitvector<7>>::into(Ext::<7>::ext(Into::<Unsigned<8>>::into(value)));
-                PORTC = value_ext;
+                if io_index == Bitvector::<6>::new(0x06) {
+                    // instead of writing to PINC, exclusive-or PORTC
+                    PORTC = PORTC ^ value_ext;
+                } else if io_index == Bitvector::<6>::new(0x07) {
+                    DDRC = value_ext;
+                } else if io_index == Bitvector::<6>::new(0x08) {
+                    PORTC = value_ext;
+                };
             } else if io_index == Bitvector::<6>::new(0x09) {
                 // instead of writing to PIND, exclusive-or PORTD
                 PORTD = PORTD ^ value;
@@ -264,7 +261,7 @@ pub mod machine_module {
             } else if io_index == Bitvector::<6>::new(0x3F) {
                 SREG = value;
             } else {
-                // TODO: invalid or unimplemented write
+                panic!("Unimplemented or invalid write");
             }
 
             State {
@@ -283,7 +280,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -689,8 +685,6 @@ pub mod machine_module {
             let mut SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
 
-            let safe = state.safe;
-
             ::machine_check::bitmask_switch!(instruction {
                 // NOP
                 "----_0000_0000_0000" => {
@@ -791,7 +785,6 @@ pub mod machine_module {
                 }
             });
 
-            //safe = Bitvector::<1>::new(0);
             State {
                 PC,
                 R,
@@ -808,7 +801,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -828,8 +820,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let mut SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // CPSE
@@ -885,7 +875,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -905,8 +894,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let mut SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
 
@@ -967,7 +954,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -987,8 +973,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let mut SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // CPI
@@ -1022,7 +1006,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -1042,8 +1025,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let mut SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
 
@@ -1118,7 +1099,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -1138,8 +1118,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // LD Rd, Z+q
@@ -1183,7 +1161,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -1203,8 +1180,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // LDS - 2 words
@@ -1355,7 +1330,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -1375,8 +1349,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
 
@@ -1480,7 +1452,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -1500,8 +1471,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let mut SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // COM Rd
@@ -1794,7 +1763,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -1814,8 +1782,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let mut SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
                 // ADIW Rd, K
@@ -1906,7 +1872,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
@@ -2014,7 +1979,6 @@ pub mod machine_module {
                     let SPH = state.SPH;
                     let SREG = state.SREG;
                     let SRAM = Clone::clone(&state.SRAM);
-                    let safe = state.safe;
 
                     let io_result: Bitvector<8> = Self::read_io_reg(state, input, a);
                     R[d] = io_result;
@@ -2035,7 +1999,6 @@ pub mod machine_module {
                         SPH,
                         SREG,
                         SRAM,
-                        safe,
                     };
                 }
 
@@ -2065,8 +2028,6 @@ pub mod machine_module {
             let SPH = state.SPH;
             let mut SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
-
-            let safe = state.safe;
 
             ::machine_check::bitmask_switch!(instruction {
 
@@ -2246,7 +2207,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
     }
@@ -2301,8 +2261,6 @@ pub mod machine_module {
             // --- EEPROM ---
             // TODO: implement EEPROM
 
-            let safe = Bitvector::<1>::new(1);
-
             State {
                 PC,
                 R,
@@ -2319,13 +2277,10 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             }
         }
 
         fn next(&self, state: &State, input: &Input) -> State {
-            let safe = Bitvector::<1>::new(1);
-
             let mut PC = state.PC;
             let R = Clone::clone(&state.R);
             let DDRB = state.DDRB;
@@ -2366,7 +2321,6 @@ pub mod machine_module {
                 SPH,
                 SREG,
                 SRAM,
-                safe,
             };
 
             let mut result = Clone::clone(&state);

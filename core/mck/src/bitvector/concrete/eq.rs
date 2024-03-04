@@ -8,4 +8,9 @@ impl<const L: u32> TypedEq for ConcreteBitvector<L> {
         let result = self.0 == rhs.0;
         Boolean::new(result as u64)
     }
+
+    fn ne(self, rhs: Self) -> Self::Output {
+        let result = self.0 != rhs.0;
+        Boolean::new(result as u64)
+    }
 }
