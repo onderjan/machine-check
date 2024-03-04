@@ -1792,7 +1792,16 @@ pub mod machine_module {
                     result = Self::store_pre_decrement(state, Bitvector::<5>::new(30), r);
                 }
 
-                // 0011, 01xx, 1000 reserved
+                // 0011, 01--, 1000 reserved
+                "----_---r_rrrr_0011" => {
+                    panic!("Reserved opcode");
+                }
+                "----_---r_rrrr_01--" => {
+                    panic!("Reserved opcode");
+                }
+                "----_---r_rrrr_1000" => {
+                    panic!("Reserved opcode");
+                }
 
                 // ST Y+, Rr
                 "----_---r_rrrr_1001" => {
@@ -1807,6 +1816,9 @@ pub mod machine_module {
                 }
 
                 // 1011 reserved
+                "----_---r_rrrr_1011" => {
+                    panic!("Reserved opcode");
+                }
 
                 // ST X, Rr
                 "----_---r_rrrr_1100" => {
@@ -1837,11 +1849,6 @@ pub mod machine_module {
 
                     // PUSH is a two-cycle instruction
                     increment_cycle_count();*/
-                }
-
-                _ => {
-                    // TODO: disjoint arms check
-                    panic!("Default arm instruction");
                 }
             });
 
@@ -1909,6 +1916,9 @@ pub mod machine_module {
                 }
 
                 // 0100 is reserved
+                "----_---d_dddd_0100" => {
+                    panic!("Reserved opcode");
+                }
 
                 // ASR Rd
                 "----_---d_dddd_0101" => {
@@ -1976,7 +1986,16 @@ pub mod machine_module {
                     unimplemented!("EIJMP instruction");
                 }
 
-                // other 1001_0100_xxxx_1001 reserved
+                // other 1001_0100_----_1001 reserved
+                "----_---0_001-_1001" => {
+                    panic!("Reserved opcode");
+                }
+                "----_---0_01--_1001" => {
+                    panic!("Reserved opcode");
+                }
+                "----_---0_1---_1001" => {
+                    panic!("Reserved opcode");
+                }
 
                 // DEC Rd
                 "----_---d_dddd_1010" => {
@@ -1995,7 +2014,10 @@ pub mod machine_module {
 
                 }
 
-                // 1011 is DES/reserved on ATxmega, reserved for others
+                // DES on ATxmega, reserved for non-ATxmega
+                "----_---0_----_1011" => {
+                    panic!("Reserved opcode (DES on ATxmega)");
+                }
 
                 // JMP - 2 words
                 "----_---k_kkkk_110k" => {
@@ -2069,7 +2091,15 @@ pub mod machine_module {
                     unimplemented!("RETI instruction");
                 }
 
-                // next six reserved
+                // next 6 reserved
+
+                "----_---1_001-_1000" => {
+                    panic!("Reserved opcode");
+                }
+
+                "----_---1_01--_1000" => {
+                    panic!("Reserved opcode");
+                }
 
                 // SLEEP
                 "----_---1_1000_1000" => {
@@ -2088,6 +2118,9 @@ pub mod machine_module {
                 }
 
                 // next one reserved
+                "----_---1_1011_1000" => {
+                    unimplemented!("WDR instruction");
+                }
 
                 // LPM (implied R0 destination)
                 "----_---1_1100_1000" => {
@@ -2119,6 +2152,10 @@ pub mod machine_module {
 
                 // next one reserved (SPM on ATxmega)
 
+                "----_---1_1111_1000" => {
+                    unimplemented!("Reserved opcode (SPM on ATxmega)");
+                }
+
                 // ICALL
                 "----_---1_0000_1001" => {
                     unimplemented!("ICALL instruction");
@@ -2129,15 +2166,20 @@ pub mod machine_module {
                     unimplemented!("EICALL instruction");
                 }
 
-                // next 14 reserved
-
-                // - other opcodes in 1011 -
-
-
-                _ => {
-                    // TODO: disjoint arms check
-                    panic!("Default arm instruction");
+                // other 1001_010-_----_1001 reserved
+                "----_---1_001-_1001" => {
+                    panic!("Reserved opcode");
                 }
+                "----_---1_01--_1001" => {
+                    panic!("Reserved opcode");
+                }
+                "----_---1_1---_1001" => {
+                    panic!("Reserved opcode");
+                }
+                "----_---1_----_1011" => {
+                    panic!("Reserved opcode");
+                }
+
             });
 
             State {
@@ -2525,6 +2567,9 @@ pub mod machine_module {
                 }
 
                 // 1xxx part reserved
+                "--11_100-_----_1---" => {
+                    panic!("Reserved opcode");
+                }
 
                 // BST
                 "--11_101d_dddd_0bbb" => {
@@ -2540,6 +2585,9 @@ pub mod machine_module {
                 }
 
                 // 1xxx part reserved
+                "--11_101-_----_1---" => {
+                    panic!("Reserved opcode");
+                }
 
                 // SBRC
                 "--11_110r_rrrr_0bbb" => {
@@ -2558,6 +2606,9 @@ pub mod machine_module {
                 }
 
                 // 1xxx part reserved
+                "--11_110-_----_1---" => {
+                    panic!("Reserved opcode");
+                }
 
                 // SBRS
                 "--11_111r_rrrr_0bbb" => {
@@ -2576,11 +2627,8 @@ pub mod machine_module {
                 }
 
                 // 1xxx part reserved
-
-
-                _ => {
-                    // TODO: disjoint arms check
-                    panic!("Default arm instruction");
+                "--11_111-_----_1---" => {
+                    panic!("Reserved opcode");
                 }
             });
 
@@ -2652,7 +2700,7 @@ pub mod machine_module {
             let SRAM = Clone::clone(&input.uninit_SRAM);
 
             // --- EEPROM ---
-            // TODO: implement EEPROM
+            // EEPROM is unchangeable as SPM is not supported
 
             State {
                 PC,
