@@ -18,7 +18,7 @@ pub mod machine_module {
         convert::Into,
         fmt::Debug,
         hash::Hash,
-        panic, todo, unimplemented,
+        panic, unimplemented,
     };
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -792,22 +792,26 @@ pub mod machine_module {
         }
 
         // for instructions: MUL, MULS, MULSU, FMUL, FMULS, FMULSU
-        // Ru: multiplication result (before shifting in fractional multiplies)
-        fn compute_status_mul(sreg: Bitvector<8>, Ru: Bitvector<16>) -> Bitvector<8> {
+        // Rt: multiplication result (before shifting in fractional multiplies)
+        // Ru: final multiplication result
+        fn compute_status_mul(
+            sreg: Bitvector<8>,
+            Rt: Bitvector<16>,
+            Ru: Bitvector<16>,
+        ) -> Bitvector<8> {
             let retained_flags = Unsigned::<8>::new(0b1111_1100);
             let mut result = Into::<Unsigned<8>>::into(sreg) & retained_flags;
 
-            let Ru_unsigned = Into::<Unsigned<16>>::into(Ru);
-            let Ru15 = Ext::<1>::ext(Ru_unsigned >> Unsigned::<16>::new(15));
+            let Rt_unsigned = Into::<Unsigned<16>>::into(Rt);
+            let Rt15 = Ext::<1>::ext(Rt_unsigned >> Unsigned::<16>::new(15));
 
             // C - carry flag, bit 0
             // copies bit 15 of result (before shifting in fractional multiplies)
-            let flag_C = Ru15;
+            let flag_C = Rt15;
             result = result | Ext::<8>::ext(flag_C);
 
             // Z - zero flag, bit 1
-            // in case of fractional multiplies, there is also the bit shifted in
-            // by left shift, but that is always 0 anyway
+            // whether the final result is zero
             if Ru == Bitvector::<16>::new(0) {
                 result = result | Unsigned::<8>::new(0b0000_0010);
             };
@@ -883,26 +887,124 @@ pub mod machine_module {
 
                 // MULS
                 "----_0010_dddd_rrrr" => {
-                    todo!("MULS instruction");
+                    // the operand registers are 16 to 31
+                    let reg_d = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<4>>::into(d))) + Bitvector::<5>::new(16);
+                    let reg_r = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<4>>::into(r))) + Bitvector::<5>::new(16);
+
+                    // multiply signed by signed
+                    let d_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Signed<8>>::into(state.R[reg_d])));
+                    let r_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Signed<8>>::into(state.R[reg_r])));
+
+                    let mul_result = d_ext * r_ext;
+                    let mul_result_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(mul_result)));
+                    let mul_result_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(mul_result) >> Unsigned::<16>::new(8)));
+
+                    // store result low byte into register 0 and high byte into register 1
+                    R[Bitvector::<5>::new(0)] = mul_result_lo;
+                    R[Bitvector::<5>::new(1)] = mul_result_hi;
+
+                    // update status register
+                    SREG = Self::compute_status_mul(state.SREG, mul_result, mul_result);
+
                 }
                 // MULSU
                 "----_0011_0ddd_0rrr" => {
-                    todo!("MULSU instruction");
+                    // the operand registers are 16 to 23
+                    let reg_d = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d))) + Bitvector::<5>::new(16);
+                    let reg_r = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(r))) + Bitvector::<5>::new(16);
+
+                    // multiply signed by unsigned
+                    let d_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Signed<8>>::into(state.R[reg_d])));
+                    let r_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[reg_r])));
+
+                    let mul_result = d_ext * r_ext;
+                    let mul_result_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(mul_result)));
+                    let mul_result_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(mul_result) >> Unsigned::<16>::new(8)));
+
+                    // store result low byte into register 0 and high byte into register 1
+                    R[Bitvector::<5>::new(0)] = mul_result_lo;
+                    R[Bitvector::<5>::new(1)] = mul_result_hi;
+
+                    // update status register
+                    SREG = Self::compute_status_mul(state.SREG, mul_result, mul_result);
                 }
 
                 // FMUL
                 "----_0011_0ddd_1rrr" => {
-                    todo!("FMUL instruction");
+                    // the operand registers are 16 to 23
+                    let reg_d = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d))) + Bitvector::<5>::new(16);
+                    let reg_r = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(r))) + Bitvector::<5>::new(16);
+
+                    // multiply unsigned by unsigned
+                    let d_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[reg_d])));
+                    let r_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[reg_r])));
+
+                    let mul_result = d_ext * r_ext;
+
+                    // shift multiplication result left by one position
+                    let fmul_result = mul_result << Bitvector::<16>::new(1);
+
+                    let fmul_result_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(fmul_result)));
+                    let fmul_result_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(fmul_result) >> Unsigned::<16>::new(8)));
+
+                    // store fractional result low byte into register 0 and high byte into register 1
+                    R[Bitvector::<5>::new(0)] = fmul_result_lo;
+                    R[Bitvector::<5>::new(1)] = fmul_result_hi;
+
+                    // update status register
+                    SREG = Self::compute_status_mul(state.SREG, mul_result, fmul_result);
                 }
 
                 // FMULS
                 "----_0011_1ddd_0rrr" => {
-                    todo!("FMULS instruction");
+                    // the operand registers are 16 to 23
+                    let reg_d = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d))) + Bitvector::<5>::new(16);
+                    let reg_r = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(r))) + Bitvector::<5>::new(16);
+
+                    // multiply signed by signed
+                    let d_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Signed<8>>::into(state.R[reg_d])));
+                    let r_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Signed<8>>::into(state.R[reg_r])));
+
+                    let mul_result = d_ext * r_ext;
+
+                    // shift multiplication result left by one position
+                    let fmul_result = mul_result << Bitvector::<16>::new(1);
+
+                    let fmul_result_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(fmul_result)));
+                    let fmul_result_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(fmul_result) >> Unsigned::<16>::new(8)));
+
+                    // store fractional result low byte into register 0 and high byte into register 1
+                    R[Bitvector::<5>::new(0)] = fmul_result_lo;
+                    R[Bitvector::<5>::new(1)] = fmul_result_hi;
+
+                    // update status register
+                    SREG = Self::compute_status_mul(state.SREG, mul_result, fmul_result);
                 }
 
                 // FMULSU
                 "----_0011_1ddd_1rrr" => {
-                    todo!("FMULSU instruction");
+                    // the operand registers are 16 to 23
+                    let reg_d = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d))) + Bitvector::<5>::new(16);
+                    let reg_r = Into::<Bitvector<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(r))) + Bitvector::<5>::new(16);
+
+                    // multiply signed by unsigned
+                    let d_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Signed<8>>::into(state.R[reg_d])));
+                    let r_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[reg_r])));
+
+                    let mul_result = d_ext * r_ext;
+
+                    // shift multiplication result left by one position
+                    let fmul_result = mul_result << Bitvector::<16>::new(1);
+
+                    let fmul_result_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(fmul_result)));
+                    let fmul_result_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(fmul_result) >> Unsigned::<16>::new(8)));
+
+                    // store fractional result low byte into register 0 and high byte into register 1
+                    R[Bitvector::<5>::new(0)] = fmul_result_lo;
+                    R[Bitvector::<5>::new(1)] = fmul_result_hi;
+
+                    // update status register
+                    SREG = Self::compute_status_mul(state.SREG, mul_result, fmul_result);
                 }
 
                 // CPC
@@ -2588,7 +2690,7 @@ pub mod machine_module {
                     R[Bitvector::<5>::new(1)] = mul_result_hi;
 
                     // update status register
-                    let SREG: Bitvector<8> = Self::compute_status_mul(state.SREG, mul_result);
+                    let SREG: Bitvector<8> = Self::compute_status_mul(state.SREG, mul_result, mul_result);
 
                     result =
                     State {
