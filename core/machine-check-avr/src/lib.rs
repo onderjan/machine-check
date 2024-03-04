@@ -1444,8 +1444,8 @@ pub mod machine_module {
             let GPIOR0 = state.GPIOR0;
             let GPIOR1 = state.GPIOR1;
             let GPIOR2 = state.GPIOR2;
-            let SPL = state.SPL;
-            let SPH = state.SPH;
+            let mut SPL = state.SPL;
+            let mut SPH = state.SPH;
             let SREG = state.SREG;
             let SRAM = Clone::clone(&state.SRAM);
 
@@ -1565,14 +1565,26 @@ pub mod machine_module {
 
                 // POP Rd
                 "----_---d_dddd_1111" => {
-                    todo!("POP instruction");
-                    /*
-                    SP = SP + 1;
-                    R[d] = DATA[SP];
+                    // pre-increment stack pointer, then load byte from register d
+
+                    let old_stack_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPL));
+                    let old_stack_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPH));
+                    let old_stack = (old_stack_hi << Unsigned::<16>::new(8)) | old_stack_lo;
+
+                    // pre-increment
+                    let stack = old_stack + Unsigned::<16>::new(1);
+                    let stack_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack));
+                    let stack_hi =
+                        Into::<Bitvector<8>>::into(Ext::<8>::ext(stack >> Unsigned::<16>::new(8)));
+                    SPL = stack_lo;
+                    SPH = stack_hi;
+
+                    // load
+                    let read_result: Bitvector<8> =
+                        Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(stack));
+                    R[d] = read_result;
 
                     // POP is a two-cycle instruction
-                    increment_cycle_count();
-                    */
                 }
             });
 
@@ -1728,22 +1740,6 @@ pub mod machine_module {
         }
 
         fn next_1001_001r(&self, state: &State, instruction: Bitvector<16>) -> State {
-            let mut PC = state.PC;
-            let R = Clone::clone(&state.R);
-            let DDRB = state.DDRB;
-            let PORTB = state.PORTB;
-            let DDRC = state.DDRC;
-            let PORTC = state.PORTC;
-            let DDRD = state.DDRD;
-            let PORTD = state.PORTD;
-            let GPIOR0 = state.GPIOR0;
-            let GPIOR1 = state.GPIOR1;
-            let GPIOR2 = state.GPIOR2;
-            let SPL = state.SPL;
-            let SPH = state.SPH;
-            let SREG = state.SREG;
-            let SRAM = Clone::clone(&state.SRAM);
-
             let mut result = Clone::clone(state);
 
             ::machine_check::bitmask_switch!(instruction {
@@ -1751,6 +1747,23 @@ pub mod machine_module {
                 // STS - 2 words
                 "----_---r_rrrr_0000" => {
                     // store direct to data space from register r
+
+                    let mut PC = state.PC;
+                    let R = Clone::clone(&state.R);
+                    let DDRB = state.DDRB;
+                    let PORTB = state.PORTB;
+                    let DDRC = state.DDRC;
+                    let PORTC = state.PORTC;
+                    let DDRD = state.DDRD;
+                    let PORTD = state.PORTD;
+                    let GPIOR0 = state.GPIOR0;
+                    let GPIOR1 = state.GPIOR1;
+                    let GPIOR2 = state.GPIOR2;
+                    let SPL = state.SPL;
+                    let SPH = state.SPH;
+                    let SREG = state.SREG;
+                    let SRAM = Clone::clone(&state.SRAM);
+
                     let value = R[r];
 
                     // STS is a 2-word instruction, the address is in program memory in the next instruction location
@@ -1841,14 +1854,59 @@ pub mod machine_module {
 
                 // PUSH
                 "----_---r_rrrr_1111" => {
-                    todo!("PUSH instruction");
-                    // the instruction set manual uses 'd' for the push register opcode
-                    // but it is referred to as 'r' everywhere else
-                    /*DATA[SP] = R[r];
-                    SP = SP - 1;
+                    // store to data memory pointed to by stack pointer and post-decrement
 
+                    // note the instruction set manual uses 'd' for the push register opcode
+                    // but it is referred to as 'r' everywhere else
+
+                    let stack_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(state.SPL));
+                    let stack_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(state.SPH));
+                    let stack = (stack_hi << Unsigned::<16>::new(8)) | stack_lo;
+
+                    let value = state.R[r];
+
+                    // store
+                    let write_state: State =
+                        Self::write_data_mem(state, Into::<Bitvector<16>>::into(stack), value);
+
+                    let PC = write_state.PC;
+                    let R = Clone::clone(&write_state.R);
+                    let DDRB = write_state.DDRB;
+                    let PORTB = write_state.PORTB;
+                    let DDRC = write_state.DDRC;
+                    let PORTC = write_state.PORTC;
+                    let DDRD = write_state.DDRD;
+                    let PORTD = write_state.PORTD;
+                    let GPIOR0 = write_state.GPIOR0;
+                    let GPIOR1 = write_state.GPIOR1;
+                    let GPIOR2 = write_state.GPIOR2;
+                    let SREG = write_state.SREG;
+                    let SRAM = Clone::clone(&write_state.SRAM);
+
+                    // post-decrement
+                    let stack_post = stack - Unsigned::<16>::new(1);
+                    let SPL = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack_post));
+                    let SPH =
+                        Into::<Bitvector<8>>::into(Ext::<8>::ext(stack_post >> Unsigned::<16>::new(8)));
+
+                    result = State {
+                        PC,
+                        R,
+                        DDRB,
+                        PORTB,
+                        DDRC,
+                        PORTC,
+                        DDRD,
+                        PORTD,
+                        GPIOR0,
+                        GPIOR1,
+                        GPIOR2,
+                        SPL,
+                        SPH,
+                        SREG,
+                        SRAM,
+                    };
                     // PUSH is a two-cycle instruction
-                    increment_cycle_count();*/
                 }
             });
 
