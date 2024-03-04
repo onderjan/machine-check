@@ -791,6 +791,30 @@ pub mod machine_module {
             Into::<Bitvector<8>>::into(result)
         }
 
+        // for instructions: MUL, MULS, MULSU, FMUL, FMULS, FMULSU
+        // Ru: multiplication result (before shifting in fractional multiplies)
+        fn compute_status_mul(sreg: Bitvector<8>, Ru: Bitvector<16>) -> Bitvector<8> {
+            let retained_flags = Unsigned::<8>::new(0b1111_1100);
+            let mut result = Into::<Unsigned<8>>::into(sreg) & retained_flags;
+
+            let Ru_unsigned = Into::<Unsigned<16>>::into(Ru);
+            let Ru15 = Ext::<1>::ext(Ru_unsigned >> Unsigned::<16>::new(15));
+
+            // C - carry flag, bit 0
+            // copies bit 15 of result (before shifting in fractional multiplies)
+            let flag_C = Ru15;
+            result = result | Ext::<8>::ext(flag_C);
+
+            // Z - zero flag, bit 1
+            // in case of fractional multiplies, there is also the bit shifted in
+            // by left shift, but that is always 0 anyway
+            if Ru == Bitvector::<16>::new(0) {
+                result = result | Unsigned::<8>::new(0b0000_0010);
+            };
+
+            Into::<Bitvector<8>>::into(result)
+        }
+
         fn next_0000(state: &State, instruction: Bitvector<16>) -> State {
             let PC = state.PC;
             let mut R = Clone::clone(&state.R);
@@ -2536,8 +2560,54 @@ pub mod machine_module {
 
                 // MUL
                 "----_11rd_dddd_rrrr" => {
-                    todo!("MUL instruction");
-                    /* R[1:0] = R[d]*R[r]; */
+                    // multiply unsigned by unsigned
+                    let d_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[d])));
+                    let r_ext = Into::<Bitvector<16>>::into(Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[r])));
+
+                    let mul_result = d_ext * r_ext;
+                    let mul_result_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(mul_result)));
+                    let mul_result_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(mul_result) >> Unsigned::<16>::new(8)));
+
+                    let mut R = Clone::clone(&result.R);
+                    let PC = state.PC;
+                    let DDRB = state.DDRB;
+                    let PORTB = state.PORTB;
+                    let DDRC = state.DDRC;
+                    let PORTC = state.PORTC;
+                    let DDRD = state.DDRD;
+                    let PORTD = state.PORTD;
+                    let GPIOR0 = state.GPIOR0;
+                    let GPIOR1 = state.GPIOR1;
+                    let GPIOR2 = state.GPIOR2;
+                    let SPL = state.SPL;
+                    let SPH = state.SPH;
+                    let SRAM = Clone::clone(&result.SRAM);
+
+                    // store result low byte into register 0 and high byte into register 1
+                    R[Bitvector::<5>::new(0)] = mul_result_lo;
+                    R[Bitvector::<5>::new(1)] = mul_result_hi;
+
+                    // update status register
+                    let SREG: Bitvector<8> = Self::compute_status_mul(state.SREG, mul_result);
+
+                    result =
+                    State {
+                        PC,
+                        R,
+                        DDRB,
+                        PORTB,
+                        DDRC,
+                        PORTC,
+                        DDRD,
+                        PORTD,
+                        GPIOR0,
+                        GPIOR1,
+                        GPIOR2,
+                        SPL,
+                        SPH,
+                        SREG,
+                        SRAM,
+                    };
                 }
             });
 
