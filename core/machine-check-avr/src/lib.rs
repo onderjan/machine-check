@@ -1272,7 +1272,7 @@ pub mod machine_module {
 
             let value = state.R[value_reg_index];
 
-            // load
+            // store
             let write_result: State = Self::write_data_mem(
                 state,
                 Into::<Bitvector<16>>::into(address_with_displacement),
@@ -1403,6 +1403,10 @@ pub mod machine_module {
             let mut R = Clone::clone(&state.R);
 
             let address_hi_index = address_lo_index + Bitvector::<5>::new(1);
+
+            if (result_reg_index == address_lo_index) | (result_reg_index == address_hi_index) {
+                panic!("Illegal load with pre-decrement from part of address register");
+            }
 
             let old_address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
             let old_address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
@@ -1591,6 +1595,138 @@ pub mod machine_module {
             }
         }
 
+        fn store_post_increment(
+            state: &State,
+            address_lo_index: Bitvector<5>,
+            value_reg_index: Bitvector<5>,
+        ) -> State {
+            let address_hi_index = address_lo_index + Bitvector::<5>::new(1);
+
+            if (value_reg_index == address_lo_index) | (value_reg_index == address_hi_index) {
+                panic!("Illegal store with post-increment to part of address register");
+            }
+
+            let value = state.R[value_reg_index];
+
+            let address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[address_lo_index]));
+            let address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(state.R[address_hi_index]));
+            let address = (address_hi << Unsigned::<16>::new(8)) | address_lo;
+
+            // store
+            let write_state: State =
+                Self::write_data_mem(state, Into::<Bitvector<16>>::into(address), value);
+
+            let PC = write_state.PC;
+            let mut R = Clone::clone(&write_state.R);
+            let DDRB = write_state.DDRB;
+            let PORTB = write_state.PORTB;
+            let DDRC = write_state.DDRC;
+            let PORTC = write_state.PORTC;
+            let DDRD = write_state.DDRD;
+            let PORTD = write_state.PORTD;
+            let GPIOR0 = write_state.GPIOR0;
+            let GPIOR1 = write_state.GPIOR1;
+            let GPIOR2 = write_state.GPIOR2;
+            let SPL = write_state.SPL;
+            let SPH = write_state.SPH;
+            let SREG = write_state.SREG;
+            let SRAM = Clone::clone(&write_state.SRAM);
+
+            // post-increment
+            let address_post = address + Unsigned::<16>::new(1);
+            let address_lo_post = Into::<Bitvector<8>>::into(Ext::<8>::ext(address_post));
+            let address_hi_post =
+                Into::<Bitvector<8>>::into(Ext::<8>::ext(address_post >> Unsigned::<16>::new(8)));
+            R[address_lo_index] = address_lo_post;
+            R[address_hi_index] = address_hi_post;
+
+            State {
+                PC,
+                R,
+                DDRB,
+                PORTB,
+                DDRC,
+                PORTC,
+                DDRD,
+                PORTD,
+                GPIOR0,
+                GPIOR1,
+                GPIOR2,
+                SPL,
+                SPH,
+                SREG,
+                SRAM,
+            }
+        }
+
+        fn store_pre_decrement(
+            state: &State,
+            address_lo_index: Bitvector<5>,
+            value_reg_index: Bitvector<5>,
+        ) -> State {
+            let PC = state.PC;
+            let mut R = Clone::clone(&state.R);
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
+            let SREG = state.SREG;
+            let SRAM = Clone::clone(&state.SRAM);
+
+            let address_hi_index = address_lo_index + Bitvector::<5>::new(1);
+
+            if (value_reg_index == address_lo_index) | (value_reg_index == address_hi_index) {
+                panic!("Illegal store with pre-decrement to part of address register");
+            }
+
+            let value = R[value_reg_index];
+
+            let old_address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
+            let old_address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
+            let old_address = (old_address_hi << Unsigned::<16>::new(8)) | old_address_lo;
+
+            // pre-decrement
+            let address = old_address - Unsigned::<16>::new(1);
+            let address_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(address));
+            let address_hi =
+                Into::<Bitvector<8>>::into(Ext::<8>::ext(address >> Unsigned::<16>::new(8)));
+            R[address_lo_index] = address_lo;
+            R[address_hi_index] = address_hi;
+
+            let pre_decrement_state = State {
+                PC,
+                R,
+                DDRB,
+                PORTB,
+                DDRC,
+                PORTC,
+                DDRD,
+                PORTD,
+                GPIOR0,
+                GPIOR1,
+                GPIOR2,
+                SPL,
+                SPH,
+                SREG,
+                SRAM,
+            };
+
+            // store
+            let write_result: State = Self::write_data_mem(
+                &pre_decrement_state,
+                Into::<Bitvector<16>>::into(address),
+                value,
+            );
+            write_result
+        }
+
         fn next_1001_001r(&self, state: &State, instruction: Bitvector<16>) -> State {
             let mut PC = state.PC;
             let R = Clone::clone(&state.R);
@@ -1646,28 +1782,28 @@ pub mod machine_module {
 
                 // ST Z+, Rr
                 "----_---r_rrrr_0001" => {
-                    todo!("ST instruction");
-                    //DATA[Z] = R[r]; Z = Z + 1; increment_cycle_count();
+                    // store to data memory pointed to by Z (30:31) with post-increment
+                    result = Self::store_post_increment(state, Bitvector::<5>::new(30), r);
                 }
 
                 // ST -Z, Rr
                 "----_---r_rrrr_0010" => {
-                    todo!("ST instruction");
-                    //Z = Z - 1; DATA[Z] = R[r]; increment_cycle_count();
+                    // store to data memory pointed to by Z (30:31) with pre-decrement
+                    result = Self::store_pre_decrement(state, Bitvector::<5>::new(30), r);
                 }
 
                 // 0011, 01xx, 1000 reserved
 
                 // ST Y+, Rr
                 "----_---r_rrrr_1001" => {
-                    todo!("ST instruction");
-                    //DATA[Y] = R[r]; Y = Y + 1; increment_cycle_count();
+                    // store to data memory pointed to by Y (28:29) with post-increment
+                    result = Self::store_post_increment(state, Bitvector::<5>::new(28), r);
                 }
 
                 // ST -Y, Rr
                 "----_---r_rrrr_1010" => {
-                    todo!("ST instruction");
-                    //Y = Y - 1; DATA[Y] = R[r]; increment_cycle_count();
+                    // store to data memory pointed to by Y (28:29) with pre-decrement
+                    result = Self::store_pre_decrement(state, Bitvector::<5>::new(28), r);
                 }
 
                 // 1011 reserved
@@ -1681,14 +1817,14 @@ pub mod machine_module {
 
                 // ST X+, Rr
                 "----_---r_rrrr_1101" => {
-                    todo!("ST instruction");
-                    // DATA[X] = R[r]; X = X + 1; increment_cycle_count();
+                    // store to data memory pointed to by X (26:27) with post-increment
+                    result = Self::store_post_increment(state, Bitvector::<5>::new(26), r);
                 }
 
                 // ST -X, Rr
                 "----_---r_rrrr_1110"  => {
-                    todo!("ST instruction");
-                    //X = X - 1; DATA[X] = R[r]; increment_cycle_count();
+                    // store to data memory pointed to by X (26:27) with pre-decrement
+                    result = Self::store_pre_decrement(state, Bitvector::<5>::new(26), r);
                 }
 
                 // PUSH
