@@ -2445,59 +2445,93 @@ pub mod machine_module {
                     result = Self::next_1001_011x(state, instruction);
                 }
 
-                // CBI A, b
-                "----_1000_aaaa_abbb" => {
-                    todo!("CBI instruction");
-                    /*
-                    // clear bit in I/O register, status flags not affected
-                    IO[a][[b]] = '0';
+                // v=0: CBI A, b
+                // v=1: SBI A, b
+                "----_10v0_aaaa_abbb" => {
+                    // clear/set bit in I/O register, status flags not affected
 
-                    // SBI is a two-cycle instruction
-                    increment_cycle_count();
-                    */
-                }
+                    // we can do this by read-modify-write
+                    // on all implemented I/O registers except for PINx, resolve these differently
 
-                // SBIC A, b
-                "----_1001_aaaa_abbb" => {
-                    todo!("SBIC instruction");
-                    /*
-                    IO_direct[a][[b]] = IO_direct[a][[b]];
+                    let b_shift = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<3>>::into(b)));
+                    let b_mask = Bitvector::<8>::new(1) << b_shift;
+                    let b_value = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<1>>::into(v))) << b_shift;
 
-                    // skip if bit in I/O register is cleared
-                    if (IO[a][[b]]) {
-                        // bit is set, do nothing
-                    } else {
-                        // bit is cleared, skip next instruction
-                        skip_next_instruction();
+                    // PINx can be set with all other bits being 0, so they do not flip
+                    let mut retained_bits = Bitvector::<8>::new(0);
+
+                    // only lower 32 registers are supported by SBI/CBI, zero-extend
+                    let ext_a = Into::<Bitvector<6>>::into(Ext::<6>::ext(Into::<Unsigned<5>>::into(a)));
+
+                    // get the retained bits for all others
+                    if (a != Bitvector::<5>::new(0x3)) & (a != Bitvector::<5>::new(0x6)) & (a == Bitvector::<5>::new(0x9)) {
+                        let read_bits: Bitvector<8> = Self::read_io_reg(state, input, ext_a);
+                        retained_bits = read_bits & !b_mask;
                     }
-                    */
+                    // write the bits
+                    let write_bits = retained_bits | b_value;
+                    result = Self::write_io_reg(state, ext_a, write_bits);
+                    // CBI / SBI is a two-cycle instruction
                 }
 
-                // SBI A, b
-                "----_1010_aaaa_abbb" => {
-                    todo!("SBI instruction");
-                    /*
-                    // set bit in I/O register, status flags not affected
-                    IO[a][[b]] = '1';
+                // v=0: SBIC A, b
+                // v=1: SBIS A, b
+                "----_10v1_aaaa_abbb" => {
+                    // skip if bit in I/O register is cleared/set
 
-                    // SBI is a two-cycle instruction
-                    increment_cycle_count();
-                    */
-                }
+                    // read I/O register value and determine if we should skip
 
-                // SBIS A, b
-                "----_1011_aaaa_abbb" => {
-                    todo!("SBIS instruction");
-                    /*
-                    IO_direct[a][[b]] = IO_direct[a][[b]];
-                    // skip if bit in I/O register is set
-                    if (IO[a][[b]]) {
-                        // bit is set, skip next instruction
-                        skip_next_instruction();
-                    } else {
-                        // bit is cleared, do nothing
+                    let b_shift = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<3>>::into(b)));
+                    let b_mask = Bitvector::<8>::new(1) << b_shift;
+                    let b_value = Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<1>>::into(v))) << b_shift;
+
+                    // only lower 32 registers are supported by SBIS/SBIC, zero-extend
+                    let ext_a = Into::<Bitvector<6>>::into(Ext::<6>::ext(Into::<Unsigned<5>>::into(a)));
+
+                    // read bits
+                    let read_bits: Bitvector<8> = Self::read_io_reg(state, input, ext_a);
+
+                    let R = Clone::clone(&result.R);
+                    let mut PC = state.PC;
+                    let DDRB = state.DDRB;
+                    let PORTB = state.PORTB;
+                    let DDRC = state.DDRC;
+                    let PORTC = state.PORTC;
+                    let DDRD = state.DDRD;
+                    let PORTD = state.PORTD;
+                    let GPIOR0 = state.GPIOR0;
+                    let GPIOR1 = state.GPIOR1;
+                    let GPIOR2 = state.GPIOR2;
+                    let SPL = state.SPL;
+                    let SPH = state.SPH;
+                    let SREG = state.SREG;
+                    let SRAM = Clone::clone(&result.SRAM);
+
+                    // determine if we should skip
+                    if (read_bits & b_mask) == b_value {
+                        // skip by incrementing PC
+
+                        PC = PC + Bitvector::<14>::new(1);
                     }
-                    */
+
+                    result =
+                    State {
+                        PC,
+                        R,
+                        DDRB,
+                        PORTB,
+                        DDRC,
+                        PORTC,
+                        DDRD,
+                        PORTD,
+                        GPIOR0,
+                        GPIOR1,
+                        GPIOR2,
+                        SPL,
+                        SPH,
+                        SREG,
+                        SRAM,
+                    };
                 }
 
                 // MUL
