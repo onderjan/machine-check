@@ -1225,9 +1225,38 @@ pub mod machine_module {
             }
         }
 
-        fn next_10q0(state: &State, instruction: Bitvector<16>) -> State {
+        fn load_with_displacement(
+            state: &State,
+            input: &Input,
+            address_lo_index: Bitvector<5>,
+            result_reg_index: Bitvector<5>,
+            displacement: Bitvector<6>,
+        ) -> BitvectorArray<5, 8> {
+            let mut R = Clone::clone(&state.R);
+
+            let address_hi_index = address_lo_index + Bitvector::<5>::new(1);
+
+            let address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
+            let address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
+            let address = (address_hi << Unsigned::<16>::new(8)) | address_lo;
+
+            // add displacement, it is interpreted as 6-bit unsigned
+            let address_with_displacement =
+                address + Ext::<16>::ext(Into::<Unsigned<6>>::into(displacement));
+
+            // load
+            let read_result: Bitvector<8> = Self::read_data_mem(
+                state,
+                input,
+                Into::<Bitvector<16>>::into(address_with_displacement),
+            );
+            R[result_reg_index] = read_result;
+            R
+        }
+
+        fn next_10q0(state: &State, input: &Input, instruction: Bitvector<16>) -> State {
             let PC = state.PC;
-            let R = Clone::clone(&state.R);
+            let mut R = Clone::clone(&state.R);
             let DDRB = state.DDRB;
             let PORTB = state.PORTB;
             let DDRC = state.DDRC;
@@ -1245,14 +1274,14 @@ pub mod machine_module {
             ::machine_check::bitmask_switch!(instruction {
                 // LD Rd, Z+q
                 "--q-_qq0d_dddd_0qqq" => {
-                    todo!("LD instruction");
-                    //R[d] = DATA[Z+q]; increment_cycle_count();
+                    // load data memory pointed to by Z (30:31) with displacement
+                    R = Self::load_with_displacement(state, input, Bitvector::<5>::new(30), d, q);
                 }
 
                 // LD Rd, Y+q
                 "--q-_qq0d_dddd_1qqq" => {
-                    todo!("LD instruction");
-                    //R[d] = DATA[Y+q]; increment_cycle_count();
+                    // load data memory pointed to by Y (28:29) with displacement
+                    R = Self::load_with_displacement(state, input, Bitvector::<5>::new(28), d, q);
                 }
 
                 // ST Z+q, Rr
@@ -1468,17 +1497,8 @@ pub mod machine_module {
                 // LD Rd, X
                 "----_---d_dddd_1100" => {
                     // load data memory pointed to by X (26:27) into working register
-                    // note that register X does not support load with displacement, unlike Y and Z
-                    let address_lo_index = Bitvector::<5>::new(26);
-                    let address_hi_index = Bitvector::<5>::new(27);
-
-                    let address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
-                    let address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
-                    let address = (address_hi << Unsigned::<16>::new(8)) | address_lo;
-
-                    // load
-                    let read_result: Bitvector<8> = Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(address));
-                    R[d] = read_result;
+                    // register X does not support displacement, it is always 0
+                    R = Self::load_with_displacement(state, input, Bitvector::<5>::new(26), d, Bitvector::<6>::new(0));
                 }
 
                 // LD Rd, X+
@@ -2072,7 +2092,7 @@ pub mod machine_module {
 
             ::machine_check::bitmask_switch!(instruction {
                 "----_000-_----_----" => {
-                    result = Self::next_1001_000d(&self, state, input, instruction);
+                    result = Self::next_1001_000d(self, state, input, instruction);
                 }
                 "----_001-_----_----" => {
                     result = Self::next_1001_001r(state, instruction);
@@ -2534,7 +2554,7 @@ pub mod machine_module {
                     result = Self::next_01(&state, instruction);
                 }
                 "10-0_----_----_----" => {
-                    result = Self::next_10q0(&state, instruction);
+                    result = Self::next_10q0(&state, input, instruction);
                 }
                 "1001_----_----_----" => {
                     result = Self::next_1001(self, &state, input, instruction);
