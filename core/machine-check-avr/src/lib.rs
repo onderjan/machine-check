@@ -120,6 +120,7 @@ pub mod machine_module {
 
     impl Machine {
         fn instruction_skip(&self, pc: Bitvector<14>) -> Bitvector<14> {
+            // PC is already incremented to point to the next instruction
             let mut result_pc = pc;
             let instruction = self.PROGMEM[result_pc];
             ::machine_check::bitmask_switch!(instruction {
@@ -1286,8 +1287,74 @@ pub mod machine_module {
             }
         }
 
-        fn next_1001_000d(state: &State, input: &Input, instruction: Bitvector<16>) -> State {
-            let PC = state.PC;
+        fn load_post_increment(
+            state: &State,
+            input: &Input,
+            address_lo_index: Bitvector<5>,
+            result_reg_index: Bitvector<5>,
+        ) -> BitvectorArray<5, 8> {
+            let mut R = Clone::clone(&state.R);
+
+            let address_hi_index = address_lo_index + Bitvector::<5>::new(1);
+
+            let address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
+            let address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
+            let address = (address_hi << Unsigned::<16>::new(8)) | address_lo;
+
+            // load
+            let read_result: Bitvector<8> =
+                Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(address));
+            R[result_reg_index] = read_result;
+
+            // post-increment
+            if (result_reg_index == address_lo_index) | (result_reg_index == address_hi_index) {
+                panic!("Illegal load with post-increment from part of address register");
+            }
+            let address_post = address + Unsigned::<16>::new(1);
+            let address_lo_post = Into::<Bitvector<8>>::into(Ext::<8>::ext(address_post));
+            let address_hi_post =
+                Into::<Bitvector<8>>::into(Ext::<8>::ext(address_post >> Unsigned::<16>::new(8)));
+            R[address_lo_index] = address_lo_post;
+            R[address_hi_index] = address_hi_post;
+            R
+        }
+
+        fn load_pre_decrement(
+            state: &State,
+            input: &Input,
+            address_lo_index: Bitvector<5>,
+            result_reg_index: Bitvector<5>,
+        ) -> BitvectorArray<5, 8> {
+            let mut R = Clone::clone(&state.R);
+
+            let address_hi_index = address_lo_index + Bitvector::<5>::new(1);
+
+            let old_address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
+            let old_address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
+            let old_address = (old_address_hi << Unsigned::<16>::new(8)) | old_address_lo;
+
+            // pre-decrement
+            let address = old_address - Unsigned::<16>::new(1);
+            let address_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(address));
+            let address_hi =
+                Into::<Bitvector<8>>::into(Ext::<8>::ext(address >> Unsigned::<16>::new(8)));
+            R[address_lo_index] = address_lo;
+            R[address_hi_index] = address_hi;
+
+            // load
+            let read_result: Bitvector<8> =
+                Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(address));
+            R[result_reg_index] = read_result;
+            R
+        }
+
+        fn next_1001_000d(
+            &self,
+            state: &State,
+            input: &Input,
+            instruction: Bitvector<16>,
+        ) -> State {
+            let mut PC = state.PC;
             let mut R = Clone::clone(&state.R);
             let DDRB = state.DDRB;
             let PORTB = state.PORTB;
@@ -1306,34 +1373,27 @@ pub mod machine_module {
             ::machine_check::bitmask_switch!(instruction {
                 // LDS - 2 words
                 "----_---d_dddd_0000" => {
-                    todo!("LDS instruction");
-                    /*
-                    // load direct from data space
-                    // d contains destination register
-                    // next instruction word contains address
-                    // ATmega328p does not contain RAMPD register
-                    // so we do not need to concern ourselves with it
+                    // load direct from data space to register d
 
-                    // fetch and increment PC, taking one cycle
-                    Uint16 newInstruction = progmem[PC];
-                    PC = PC + 1;
-                    increment_cycle_count();
+                    // LDS is a 2-word instruction, the address is in program memory in the next instruction location
+                    // PC is already incremented to point to the next instruction, fetch it and increment PC once again
+                    let address = self.PROGMEM[PC];
+                    PC = PC + Bitvector::<14>::new(1);
 
-                    // move data space byte to register
-                    R[d] = DATA[newInstruction];
-                    */
+                    let read_result: Bitvector<8> = Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(address));
+                    R[d] = read_result;
                 }
 
                 // LD Rd, Z+
                 "----_---d_dddd_0001" => {
-                    todo!("LD instruction");
-                    //R[d] = DATA[Z]; Z = Z + 1; increment_cycle_count();
+                    // load data memory pointed to by Z (30:31) with post-increment
+                    R = Self::load_post_increment(state, input, Bitvector::<5>::new(30), d);
                 }
 
                 // LD Rd, -Z
                 "----_---d_dddd_0010" => {
-                    todo!("LD instruction");
-                    //Z = Z - 1; R[d] = DATA[Z]; increment_cycle_count();
+                    // load data memory pointed to by Z (30:31) with pre-decrement
+                    R = Self::load_pre_decrement(state, input, Bitvector::<5>::new(30), d);
                 }
 
                 // 0011 reserved
@@ -1390,14 +1450,14 @@ pub mod machine_module {
 
                 // LD Rd, Y+
                 "----_---d_dddd_1001" => {
-                    todo!("LD instruction");
-                    //R[d] = DATA[Y]; Y = Y + 1; increment_cycle_count();
+                    // load data memory pointed to by Y (28:29) with post-increment
+                    R = Self::load_post_increment(state, input, Bitvector::<5>::new(28), d);
                 }
 
                 // LD Rd, -Y
                 "----_---d_dddd_1010" => {
-                    todo!("LD instruction");
-                    //Y = Y - 1; R[d] = DATA[Y]; increment_cycle_count();
+                    // load data memory pointed to by Y (28:29) with pre-decrement
+                    R = Self::load_pre_decrement(state, input, Bitvector::<5>::new(28), d);
                 }
 
                 // 1011  reserved
@@ -1423,51 +1483,14 @@ pub mod machine_module {
 
                 // LD Rd, X+
                 "----_---d_dddd_1101" => {
-                    // load data memory pointed to by X (26:27) into working register with post-increment
-
-                    let address_lo_index = Bitvector::<5>::new(26);
-                    let address_hi_index = Bitvector::<5>::new(27);
-
-                    let address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
-                    let address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
-                    let address = (address_hi << Unsigned::<16>::new(8)) | address_lo;
-
-                    // load
-                    let read_result: Bitvector<8> = Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(address));
-                    R[d] = read_result;
-
-                    // post-increment
-                    if (d == address_lo_index) | (d == address_hi_index) {
-                        panic!("Illegal load with post-increment from part of address register");
-                    }
-                    let address_post = address + Unsigned::<16>::new(1);
-                    let address_lo_post = Into::<Bitvector<8>>::into(Ext::<8>::ext(address_post));
-                    let address_hi_post = Into::<Bitvector<8>>::into(Ext::<8>::ext(address_post >> Unsigned::<16>::new(8)));
-                    R[address_lo_index] = address_lo_post;
-                    R[address_hi_index] = address_hi_post;
+                    // load data memory pointed to by X (26:27) with post-increment
+                    R = Self::load_post_increment(state, input, Bitvector::<5>::new(26), d);
                 }
 
                 // LD Rd, -X
                 "----_---d_dddd_1110" => {
-                    // load data memory pointed to by X (26:27) into working register with pre-decrement
-
-                    let address_lo_index = Bitvector::<5>::new(26);
-                    let address_hi_index = Bitvector::<5>::new(27);
-
-                    let old_address_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_lo_index]));
-                    let old_address_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(R[address_hi_index]));
-                    let old_address = ((old_address_hi << Unsigned::<16>::new(8)) | old_address_lo) - Unsigned::<16>::new(1);
-
-                    // pre-decrement
-                    let address = old_address - Unsigned::<16>::new(1);
-                    let address_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(address));
-                    let address_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(address >> Unsigned::<16>::new(8)));
-                    R[address_lo_index] = address_lo;
-                    R[address_hi_index] = address_hi;
-
-                    // load
-                    let read_result: Bitvector<8> = Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(address));
-                    R[d] = read_result;
+                    // load data memory pointed to by X (26:27) with pre-decrement
+                    R = Self::load_pre_decrement(state, input, Bitvector::<5>::new(26), d);
                 }
 
                 // POP Rd
@@ -2049,7 +2072,7 @@ pub mod machine_module {
 
             ::machine_check::bitmask_switch!(instruction {
                 "----_000-_----_----" => {
-                    result = Self::next_1001_000d(state, input, instruction);
+                    result = Self::next_1001_000d(&self, state, input, instruction);
                 }
                 "----_001-_----_----" => {
                     result = Self::next_1001_001r(state, instruction);
