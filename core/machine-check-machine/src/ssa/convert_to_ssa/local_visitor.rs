@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use syn::{
+    spanned::Spanned,
     visit_mut::{self, VisitMut},
     Block, Expr, Ident, Stmt, Type,
 };
@@ -13,7 +14,7 @@ use crate::{
         create_path_with_last_generic_type, create_type_path, extract_else_block_mut,
         extract_expr_ident_mut, extract_path_ident_mut, ArgType,
     },
-    MachineError,
+    ErrorType, MachineError,
 };
 
 pub struct LocalVisitor {
@@ -67,8 +68,16 @@ impl VisitMut for LocalVisitor {
         }
     }
 
-    fn visit_expr_if_mut(&mut self, _expr_if: &mut syn::ExprIf) {
-        panic!("Unexpected non-statement if expression");
+    fn visit_expr_if_mut(&mut self, expr_if: &mut syn::ExprIf) {
+        // visit inner first
+        visit_mut::visit_expr_if_mut(self, expr_if);
+
+        self.result = Err(MachineError::new(
+            ErrorType::UnsupportedConstruct(String::from(
+                "Potentially non-statement if expression",
+            )),
+            expr_if.span(),
+        ));
     }
 
     fn visit_path_mut(&mut self, path: &mut syn::Path) {
@@ -83,11 +92,13 @@ impl VisitMut for LocalVisitor {
         if let Some(counter) = self.local_ident_counters.get(ident) {
             // the variable must be used before being assigned
             let Some(current_counter) = counter.present.last() else {
-                println!(
-                    "Ident: {}, Local ident counters: {:?}",
-                    ident, self.local_ident_counters
-                );
-                panic!("Counter used before being assigned");
+                self.result = Err(MachineError::new(
+                    ErrorType::IllegalConstruct(String::from(
+                        "Variable used before being assigned",
+                    )),
+                    ident.span(),
+                ));
+                return;
             };
             *ident = construct_temp_ident(ident, *current_counter);
         }

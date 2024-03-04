@@ -187,7 +187,7 @@ pub mod machine_module {
             } else if io_index == Bitvector::<6>::new(0x3F) {
                 result = state.SREG;
             } else {
-                panic!("Unimplemented or invalid read");
+                panic!("Unimplemented or invalid read from I/O register");
                 // TODO: discover that panic diverges and no assignment is necessary
                 result = Bitvector::<8>::new(0);
             }
@@ -261,7 +261,7 @@ pub mod machine_module {
             } else if io_index == Bitvector::<6>::new(0x3F) {
                 SREG = value;
             } else {
-                panic!("Unimplemented or invalid write");
+                panic!("Unimplemented or invalid write to I/O register");
             }
 
             State {
@@ -281,6 +281,128 @@ pub mod machine_module {
                 SREG,
                 SRAM,
             }
+        }
+
+        #[allow(unreachable_code)]
+        fn read_data_mem(state: &State, input: &Input, data_index: Bitvector<16>) -> Bitvector<8> {
+            let unsigned_data_index = Into::<Unsigned<16>>::into(data_index);
+            let result;
+            if unsigned_data_index < Unsigned::<16>::new(0x0020) {
+                // working registers
+                let reg_index = Into::<Bitvector<5>>::into(Ext::<5>::ext(unsigned_data_index));
+                result = state.R[reg_index];
+            } else if unsigned_data_index < Unsigned::<16>::new(0x0060) {
+                // I/O registers
+                let io_reg_index = Into::<Bitvector<6>>::into(Ext::<6>::ext(
+                    unsigned_data_index - Unsigned::<16>::new(0x0020),
+                ));
+                result = Self::read_io_reg(state, input, io_reg_index);
+            } else if unsigned_data_index < Unsigned::<16>::new(0x100) {
+                // extended I/O registers, none implemented yet
+                panic!("Unimplemented or invalid read from extended I/O register");
+                // TODO: discover that panic diverges and no assignment is necessary
+                result = Bitvector::<8>::new(0);
+            } else {
+                let sram_full_index = unsigned_data_index - Unsigned::<16>::new(0x0100);
+                let sram_index = Ext::<11>::ext(sram_full_index);
+                if sram_full_index == Ext::<16>::ext(sram_index) {
+                    // inside SRAM
+                    result = state.SRAM[Into::<Bitvector<11>>::into(sram_index)];
+                } else {
+                    // outside SRAM
+                    panic!("Illegal read after data memory end");
+                    // TODO: discover that panic diverges and no assignment is necessary
+                    result = Bitvector::<8>::new(0);
+                };
+            }
+            result
+        }
+
+        #[allow(unreachable_code)]
+        fn write_data_mem(state: &State, data_index: Bitvector<16>, value: Bitvector<8>) -> State {
+            let PC = state.PC;
+            let DDRB = state.DDRB;
+            let PORTB = state.PORTB;
+            let DDRC = state.DDRC;
+            let PORTC = state.PORTC;
+            let DDRD = state.DDRD;
+            let PORTD = state.PORTD;
+            let GPIOR0 = state.GPIOR0;
+            let GPIOR1 = state.GPIOR1;
+            let GPIOR2 = state.GPIOR2;
+            let SPL = state.SPL;
+            let SPH = state.SPH;
+            let SREG = state.SREG;
+
+            let result;
+            let unsigned_data_index = Into::<Unsigned<16>>::into(data_index);
+            if unsigned_data_index < Unsigned::<16>::new(0x0020) {
+                // working registers
+                let reg_index = Into::<Bitvector<5>>::into(Ext::<5>::ext(unsigned_data_index));
+
+                let mut R = Clone::clone(&state.R);
+                let SRAM = Clone::clone(&state.SRAM);
+                R[reg_index] = value;
+
+                result = State {
+                    PC,
+                    R,
+                    DDRB,
+                    PORTB,
+                    DDRC,
+                    PORTC,
+                    DDRD,
+                    PORTD,
+                    GPIOR0,
+                    GPIOR1,
+                    GPIOR2,
+                    SPL,
+                    SPH,
+                    SREG,
+                    SRAM,
+                };
+            } else if unsigned_data_index < Unsigned::<16>::new(0x0060) {
+                // I/O registers
+                let io_reg_index = Into::<Bitvector<6>>::into(Ext::<6>::ext(
+                    unsigned_data_index - Unsigned::<16>::new(0x0020),
+                ));
+                result = Self::write_io_reg(state, io_reg_index, value);
+            } else if unsigned_data_index < Unsigned::<16>::new(0x100) {
+                // extended I/O registers, none implemented yet
+                panic!("Unimplemented or invalid read from extended I/O register");
+                // TODO: discover that panic diverges and no assignment is necessary
+                result = Clone::clone(state);
+            } else {
+                let sram_full_index = unsigned_data_index - Unsigned::<16>::new(0x0100);
+                let sram_index = Ext::<11>::ext(sram_full_index);
+                if sram_full_index != Ext::<16>::ext(sram_index) {
+                    // outside SRAM
+                    panic!("Illegal read after data memory end");
+                }
+                // inside SRAM
+                let R = Clone::clone(&state.R);
+                let mut SRAM = Clone::clone(&state.SRAM);
+                SRAM[Into::<Bitvector<11>>::into(sram_index)] = value;
+
+                result = State {
+                    PC,
+                    R,
+                    DDRB,
+                    PORTB,
+                    DDRC,
+                    PORTC,
+                    DDRD,
+                    PORTD,
+                    GPIOR0,
+                    GPIOR1,
+                    GPIOR2,
+                    SPL,
+                    SPH,
+                    SREG,
+                    SRAM,
+                };
+            }
+            result
         }
 
         // for instructions AND, EOR, OR

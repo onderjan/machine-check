@@ -124,6 +124,7 @@ impl VisitMut for Visitor {
                 // global path, no further replacement possible
                 break;
             }
+            let path_span = path.span();
             // local path, try to replace the first segment with use path
             let first_segment = path
                 .segments
@@ -144,6 +145,11 @@ impl VisitMut for Visitor {
 
             // put the use path segments (without last) before the standard segments
             let mut leading_segments = use_path.segments.clone();
+            // set their span to the standard path span
+            for leading_segment in leading_segments.iter_mut() {
+                leading_segment.ident = Ident::new(&leading_segment.ident.to_string(), path_span);
+            }
+
             let last_use_path_segment = leading_segments
                 .pop()
                 .expect("Use path should have at least one segment")
@@ -155,15 +161,13 @@ impl VisitMut for Visitor {
             let mut trailing_segments = Punctuated::new();
             std::mem::swap(&mut path.segments, &mut trailing_segments);
 
-            path.segments = Punctuated::from_iter(
-                leading_segments
-                    .into_iter()
-                    .take(use_path.segments.len() - 1)
-                    .chain(trailing_segments),
-            );
+            path.segments =
+                Punctuated::from_iter(leading_segments.into_iter().chain(trailing_segments));
 
-            // add the leading global path double-colons from use path
-            path.leading_colon = use_path.leading_colon;
+            // add the leading global path double-colon if it exists in use path, with original path span
+            if use_path.leading_colon.is_some() {
+                path.leading_colon = Some(Token![::](path_span));
+            }
         }
 
         // delegate
