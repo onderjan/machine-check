@@ -2,7 +2,8 @@ use btor2rs::{
     id::Nid,
     node::{Node, SourceType},
 };
-use syn::parse_quote;
+use proc_macro2::Span;
+use syn::{parse_quote, Ident};
 
 use self::{constant::create_value_expr, uni::create_arith_neg_expr};
 
@@ -24,6 +25,7 @@ pub(super) fn translate(translator: &Translator, for_init: bool) -> Result<Vec<s
         translator,
         stmts: Vec::new(),
         for_init,
+        temp_counter: 0,
     };
     for (nid, node) in translator.btor2.nodes.iter() {
         node_translator.translate_node(*nid, node)?;
@@ -35,13 +37,16 @@ struct NodeTranslator<'a> {
     translator: &'a Translator,
     stmts: Vec<syn::Stmt>,
     for_init: bool,
+    temp_counter: u64,
 }
 
 impl<'a> NodeTranslator<'a> {
     pub fn translate_node(&mut self, nid: Nid, node: &Node) -> Result<(), Error> {
         // most nodes return single expression to assign to result
-        let result_expr = match node {
-            Node::Const(const_value) => self.const_expr(const_value)?,
+        // some also create statements before it
+
+        let (result_expr, created_stmts) = match node {
+            Node::Const(const_value) => (self.const_expr(const_value)?, vec![]),
             Node::ExtOp(op) => self.ext_op_expr(op)?,
             Node::SliceOp(op) => self.slice_op_expr(op)?,
             Node::UniOp(op) => self.uni_op_expr(op)?,
@@ -52,7 +57,7 @@ impl<'a> NodeTranslator<'a> {
                 // the state info should definitely be present for the state
                 let state_info = self.translator.state_info_map.get(&nid).unwrap();
 
-                if self.for_init {
+                let result_expr = if self.for_init {
                     if let Some(init) = state_info.init {
                         // initialize current from init expression
                         create_rnid_expr(init)
@@ -69,21 +74,26 @@ impl<'a> NodeTranslator<'a> {
                     // no next expression, initialize it from input
                     let input_field_ident = create_nid_ident(nid);
                     parse_quote!(input.#input_field_ident)
-                }
+                };
+                (result_expr, vec![])
             }
-            Node::Source(source) => match source.ty {
-                SourceType::Input => {
-                    // move from input
-                    let input_field_ident = create_nid_ident(nid);
-                    parse_quote!(input.#input_field_ident)
-                }
-                SourceType::One => create_value_expr(1, self.get_nid_bitvec(nid)?),
-                SourceType::Ones => {
-                    // arithmetic-negate one
-                    create_arith_neg_expr(create_value_expr(1, self.get_nid_bitvec(nid)?))
-                }
-                SourceType::Zero => create_value_expr(0, self.get_nid_bitvec(nid)?),
-            },
+            Node::Source(source) => (
+                match source.ty {
+                    SourceType::Input => {
+                        // move from input
+                        let input_field_ident = create_nid_ident(nid);
+                        parse_quote!(input.#input_field_ident)
+                    }
+                    SourceType::One => create_value_expr(1, self.get_nid_bitvec(nid)?),
+                    SourceType::Ones => {
+                        // arithmetic-negate one
+                        let bitvec = self.get_nid_bitvec(nid)?;
+                        create_arith_neg_expr(create_value_expr(1, bitvec), bitvec.length.get())
+                    }
+                    SourceType::Zero => create_value_expr(0, self.get_nid_bitvec(nid)?),
+                },
+                vec![],
+            ),
             Node::Drain(_) => {
                 // treated above
                 return Ok(());
@@ -94,10 +104,23 @@ impl<'a> NodeTranslator<'a> {
             }
             Node::Justice(_) => return Err(Error::JusticeNotSupported(nid)),
         };
+        // add the created statements
+        self.stmts.extend(created_stmts);
+
         // assign the returned expression to result
         let result_ident = create_nid_ident(nid);
+        let result_length = self.get_nid_bitvec(nid)?.length.get();
         self.stmts
-            .push(parse_quote!(let #result_ident = #result_expr;));
+            .push(parse_quote!(let #result_ident: ::machine_check::Bitvector<#result_length> = #result_expr;));
         Ok(())
+    }
+
+    fn create_next_temporary(&mut self) -> Ident {
+        let temp_id = self.temp_counter;
+        self.temp_counter = self
+            .temp_counter
+            .checked_add(1)
+            .expect("Temporary counter should not overflow");
+        Ident::new(&format!("tmp_{}", temp_id), Span::call_site())
     }
 }

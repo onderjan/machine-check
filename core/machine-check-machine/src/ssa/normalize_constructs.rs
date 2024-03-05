@@ -21,7 +21,6 @@ struct Visitor {
 
 impl Visitor {
     fn push_error(&mut self, msg: String, span: Span) {
-        println!("Pushing error {}", msg);
         if self.result.is_ok() {
             self.result = Err(MachineError::new(
                 ErrorType::UnsupportedConstruct(msg),

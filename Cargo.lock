@@ -434,8 +434,6 @@ dependencies = [
  "env_logger",
  "log",
  "machine-check-common",
- "machine-check-machine",
- "mck",
  "prettyplease",
  "serde",
  "serde_json",
@@ -462,6 +460,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "machine-check-exec-target"
+version = "0.1.0"
+dependencies = [
+ "machine-check",
+ "machine-check-exec",
+ "mck",
+]
+
+[[package]]
 name = "machine-check-hw"
 version = "0.1.0"
 dependencies = [
@@ -476,6 +483,7 @@ dependencies = [
  "machine-check-compile",
  "machine-check-machine",
  "mck",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "serde",

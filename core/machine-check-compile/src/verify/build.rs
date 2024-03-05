@@ -5,7 +5,7 @@ use std::{
     collections::HashMap,
     fs::{self},
     path::PathBuf,
-    process::{Command, Stdio},
+    process::Command,
 };
 
 use crate::{
@@ -98,12 +98,8 @@ pub(super) fn build(
     };
     debug!("Executing build command {:?}.", build_command);
 
-    // build with piped
-    let build_output = build_command
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-        .map_err(Error::BuildRun)?;
+    // build
+    let build_output = build_command.output().map_err(Error::BuildRun)?;
 
     debug!("Build command status: {:?}.", build_command.status());
 

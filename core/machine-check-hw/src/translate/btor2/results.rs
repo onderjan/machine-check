@@ -40,7 +40,7 @@ impl Translator {
         let constraint_expr = single_bits_and(constraint_exprs);
         // make sure it is still constrained from previous
         let constraint_expr = if !is_init {
-            parse_quote!(::mck::forward::Bitwise::bit_and(state.constrained, #constraint_expr))
+            parse_quote!((state.constrained & #constraint_expr))
         } else {
             constraint_expr
         };
@@ -53,17 +53,14 @@ impl Translator {
         // create the (!bad_1 & !bad_2 & ...)
         let not_bad_exprs = self.bads.iter().map(|bad| -> Expr {
             let bad_expr: Expr = create_rnid_expr(*bad);
-            parse_quote!(::mck::forward::Bitwise::bit_not(#bad_expr))
+            parse_quote!((!#bad_expr))
         });
         let not_bad_expr = single_bits_and(not_bad_exprs);
 
         // create the !constrained, the constraint must hold up to this state
-        let not_constraint_expr: Expr =
-            parse_quote!(::mck::forward::Bitwise::bit_not(#constraint_expr));
+        let not_constraint_expr: Expr = parse_quote!((!#constraint_expr));
 
         // combine and add to field values
-        field_values.push(
-            parse_quote!(safe: ::mck::forward::Bitwise::bit_or(#not_constraint_expr, #not_bad_expr)),
-        );
+        field_values.push(parse_quote!(safe: (#not_constraint_expr | #not_bad_expr)));
     }
 }

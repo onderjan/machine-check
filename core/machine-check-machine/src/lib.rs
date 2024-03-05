@@ -47,7 +47,8 @@ pub fn default_main() -> Item {
     Item::Fn(main_fn)
 }
 
-fn out_dir() -> PathBuf {
+fn out_dir() -> Option<PathBuf> {
+    // TODO: disable creation of temporary files unless specifically requested
     let mut args = std::env::args();
 
     let mut out_dir = None;
@@ -56,15 +57,18 @@ fn out_dir() -> PathBuf {
             out_dir = args.next();
         }
     }
+    let Some(out_dir) = out_dir else {
+        return None;
+    };
     // find target directory
-    let mut out_dir = PathBuf::from(out_dir.expect("Failed to find out_dir"));
+    let mut out_dir = PathBuf::from(out_dir);
     while !out_dir.ends_with("target") {
         if !out_dir.pop() {
-            panic!("Cannot find out_dir");
+            return None;
         }
     }
 
-    out_dir
+    Some(out_dir)
 }
 
 fn unparse(machine: &MachineDescription) -> String {
@@ -81,13 +85,17 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
     let out_dir = out_dir();
 
     let ssa_machine = ssa::create_ssa_machine(items.clone())?;
-    std::fs::write(out_dir.join("machine_ssa.rs"), unparse(&ssa_machine))
-        .expect("SSA machine file should be writable");
+    if let Some(out_dir) = &out_dir {
+        std::fs::write(out_dir.join("machine_ssa.rs"), unparse(&ssa_machine))
+            .expect("SSA machine file should be writable");
+    }
 
     let mut abstract_machine = abstr::create_abstract_machine(&ssa_machine)?;
 
-    std::fs::write(out_dir.join("machine_abstr.rs"), unparse(&abstract_machine))
-        .expect("Abstract machine file should be writable");
+    if let Some(out_dir) = &out_dir {
+        std::fs::write(out_dir.join("machine_abstr.rs"), unparse(&abstract_machine))
+            .expect("Abstract machine file should be writable");
+    }
 
     let refinement_machine = refin::create_refinement_machine(&abstract_machine)?;
 
@@ -102,14 +110,16 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
     let abstract_module = create_machine_module("__mck_mod_abstr", abstract_machine);
     items.push(abstract_module);
 
-    std::fs::write(
-        out_dir.join("machine_full.rs"),
-        unparse(&MachineDescription {
-            items: items.clone(),
-            panic_messages: ssa_machine.panic_messages.clone(),
-        }),
-    )
-    .expect("Full machine file should be writable");
+    if let Some(out_dir) = &out_dir {
+        std::fs::write(
+            out_dir.join("machine_full.rs"),
+            unparse(&MachineDescription {
+                items: items.clone(),
+                panic_messages: ssa_machine.panic_messages.clone(),
+            }),
+        )
+        .expect("Full machine file should be writable");
+    }
 
     println!("Machine-check-machine ending processing");
 

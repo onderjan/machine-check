@@ -11,6 +11,9 @@ use super::Config;
 pub(super) fn execute(config: &Config, artifact_path: &Path) -> Result<ExecResult, Error> {
     let mut command = Command::new(artifact_path);
 
+    command.arg("--property");
+    command.arg("AG[neq(safe,0)]");
+
     // forward batch
     if config.batch {
         command.arg("--batch");

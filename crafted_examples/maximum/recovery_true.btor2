@@ -24,7 +24,7 @@
 152 next 1 150 145 ; next
 
 200 add 2 101 102 ; A + B
-201 ugt 2 200 140 ; A + B > running_maximum
+201 ugt 1 200 140 ; A + B > running_maximum
 202 ite 2 201 200 140 ; (A + B > running_maximum) ? (A + B) : running_maximum
 203 ite 2 100 20 202 ; if reset, zero running maximum, otherwise updated running maximum
 

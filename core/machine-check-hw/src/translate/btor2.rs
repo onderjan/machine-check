@@ -12,6 +12,7 @@ use btor2rs::{
     Btor2,
 };
 use camino::Utf8Path;
+use log::trace;
 use std::io::BufRead;
 use syn::parse_quote;
 
@@ -41,6 +42,9 @@ pub(crate) enum Error {
     InvalidSort(Sid),
     #[error("Invalid node id {0}")]
     InvalidNode(Nid),
+
+    #[error("Invalid binary operation on node ids {0}, {1}")]
+    InvalidBiOp(Nid, Nid),
 
     #[error("Unknown sort for node id {0}")]
     UnknownNodeSort(Nid),
@@ -135,37 +139,57 @@ impl Translator {
         let init_result = self.create_result(true)?;
         let next_result = self.create_result(false)?;
 
-        Ok(parse_quote!(
+        let system = parse_quote!(
             #![no_implicit_prelude]
             #![allow(dead_code, unused_variables, clippy::all)]
 
-            #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
-            pub struct Input {
-                #(#input_fields),*
-            }
+            #[::machine_check::machine_description]
+            mod machine_module {
 
-            impl ::mck::concr::Input for Input {}
-
-            #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
-            pub struct State {
-                #(#state_fields),*
-            }
-
-            impl ::mck::concr::State for State {}
-
-            pub struct Machine;
-
-            impl ::mck::concr::Machine<Input, State> for Machine {
-                fn init(input: &Input) -> State {
-                    #(#init_statements)*
-                    #init_result
+                #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
+                pub struct Input {
+                    #(#input_fields),*
                 }
 
-                fn next(state: &State, input: &Input) -> State {
-                    #(#next_statements)*
-                    #next_result
+                impl ::machine_check::Input for Input {}
+
+                #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
+                pub struct State {
+                    #(#state_fields),*
+                }
+
+                impl ::machine_check::State for State {}
+
+                #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
+                pub struct System {}
+
+                impl ::machine_check::Machine for System {
+                    type Input = Input;
+                    type State = State;
+
+                    fn init(&self, input: &Input) -> State {
+                        #(#init_statements)*
+                        #init_result
+                    }
+
+                    fn next(&self, state: &State, input: &Input) -> State {
+                        #(#next_statements)*
+                        #next_result
+                    }
                 }
             }
-        ))
+
+            fn main() {
+                let system = machine_module::System {};
+                ::machine_check_exec::run(system);
+            }
+        );
+        if log::log_enabled!(log::Level::Trace) {
+            trace!(
+                "Constructed machine-check system: {}",
+                prettyplease::unparse(&system)
+            );
+        }
+        Ok(system)
     }
 }

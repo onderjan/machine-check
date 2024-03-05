@@ -21,7 +21,7 @@ impl<'a> NodeTranslator<'a> {
         // create value and optionally negate it
         let mut value = create_value_expr(value, result_bitvec);
         if negate {
-            value = create_arith_neg_expr(value);
+            value = create_arith_neg_expr(value, result_bitvec.length.get());
         }
         Ok(value)
     }
@@ -29,7 +29,7 @@ impl<'a> NodeTranslator<'a> {
 
 pub fn create_value_expr(value: u64, bitvec: &Bitvec) -> Expr {
     let bitvec_length = bitvec.length.get();
-    parse_quote!(::mck::concr::Bitvector::<#bitvec_length>::new(#value))
+    parse_quote!(::machine_check::Bitvector::<#bitvec_length>::new(#value))
 }
 
 pub fn create_zero_expr(bitvec: &Bitvec) -> Expr {
@@ -41,5 +41,5 @@ pub fn create_one_expr(bitvec: &Bitvec) -> Expr {
 }
 
 pub fn create_minus_one_expr(bitvec: &Bitvec) -> Expr {
-    create_arith_neg_expr(create_value_expr(1, bitvec))
+    create_arith_neg_expr(create_value_expr(1, bitvec), bitvec.length.get())
 }
