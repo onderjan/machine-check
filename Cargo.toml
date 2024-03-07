@@ -1,7 +1,7 @@
 [workspace]
 
 resolver = "2"
-members = ["core/*", "transpile/*", "system/*", "support/*"]
+members = ["core/*", "macros/*", "transpile/*", "system/*", "support/*"]
 
 
 [patch.crates-io]
@@ -9,8 +9,8 @@ members = ["core/*", "transpile/*", "system/*", "support/*"]
 machine-check-common = { path = "./core/machine-check-common" }
 mck = { path = "./core/mck" }
 
-machine-check-bitmask-switch = { path = "./core/machine-check-bitmask-switch" }
-machine-check-macros = { path = "./core/machine-check-macros" }
+machine-check-bitmask-switch = { path = "./macros/machine-check-bitmask-switch" }
+machine-check-macros = { path = "./macros/machine-check-macros" }
 
 machine-check-machine = { path = "./core/machine-check-machine" }
 machine-check-exec = { path = "./core/machine-check-exec" }
