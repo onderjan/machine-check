@@ -1,17 +1,16 @@
 # Utility type/operation crate for machine-check
 
-This crate is used to define concrete, abstract, etc. types and operations
-for the formal verification tool [machine-check](
-https://crates.io/crates/machine-check). As [machine-check](
-https://crates.io/crates/machine-check) generates Rust code using these types
-and operations and then builds and executes the resulting files, the name of
-this crate was chosen so the generated absolute paths are as concise as possible.
+This crate is used to define concrete, abstract, etc. types and forward/backward operations
+for the formal verification tool [machine-check](https://crates.io/crates/machine-check).
 
-# Usage and Compatibility
+## Usage and Compatibility
 
 This crate is a utility crate for [machine-check](https://crates.io/crates/machine-check)
 and should not be used on its own. No compatibility guarantees are made.
 
-# License
+## License
 
-This crate is licensed under Apache 2.0 License or MIT License at your discretion.
+Licensed under either of Apache License, Version 2.0 or MIT license at your option.
+Unless you explicitly state otherwise, any contribution intentionally submitted 
+for inclusion in this crate by you, as defined in the Apache-2.0 license, shall be 
+dual licensed as above, without any additional terms or conditions.

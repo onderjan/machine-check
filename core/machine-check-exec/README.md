@@ -1,18 +1,16 @@
 # Utility executable-logic crate for machine-check
 
 This crate contains machine verification logic for the formal verification tool
-[machine-check](https://crates.io/crates/machine-check). In essence, [machine-check](
-https://crates.io/crates/machine-check) generates a Rust crate with machine behaviour
-translated to Rust with use of types and operations in another utility crate
-[mck](https://docs.rs/mck). The main entry point of the generated binary
-just calls the [run](run) function in this crate, which contains the actual
-verification logic.
+[machine-check](https://crates.io/crates/machine-check).
 
-# Usage and Compatibility
+## Usage and Compatibility
 
 This crate is a utility crate for [machine-check](https://crates.io/crates/machine-check)
 and should not be used on its own. No compatibility guarantees are made.
 
-# License
+## License
 
-This crate is licensed under Apache 2.0 License or MIT License at your discretion.
+Licensed under either of Apache License, Version 2.0 or MIT license at your option.
+Unless you explicitly state otherwise, any contribution intentionally submitted 
+for inclusion in this crate by you, as defined in the Apache-2.0 license, shall be 
+dual licensed as above, without any additional terms or conditions.

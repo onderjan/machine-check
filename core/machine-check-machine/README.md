@@ -3,11 +3,14 @@
 This crate defines machine manipulation routines for use in the formal verification tool 
 [machine-check](https://crates.io/crates/machine-check).
 
-# Usage and Compatibility
+## Usage and Compatibility
 
 This crate is a utility crate for [machine-check](https://crates.io/crates/machine-check)
 and should not be used on its own. No compatibility guarantees are made.
 
-# License
+## License
 
-This crate is licensed under Apache 2.0 License or MIT License at your discretion.
+Licensed under either of Apache License, Version 2.0 or MIT license at your option.
+Unless you explicitly state otherwise, any contribution intentionally submitted 
+for inclusion in this crate by you, as defined in the Apache-2.0 license, shall be 
+dual licensed as above, without any additional terms or conditions.
