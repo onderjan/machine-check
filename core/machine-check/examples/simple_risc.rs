@@ -25,10 +25,10 @@ mod machine_module {
     }
     impl ::machine_check::State for State {}
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-    pub struct Machine {
+    pub struct System {
         pub progmem: BitvectorArray<8, 12>,
     }
-    impl ::machine_check::Machine for Machine {
+    impl ::machine_check::Machine for System {
         type Input = Input;
         type State = State;
 
@@ -80,7 +80,7 @@ fn main() {
     progmem[Bitvector::new(1)] = Bitvector::new(0b0000_0000_0001);
     progmem[Bitvector::new(2)] = Bitvector::new(0b0000_0000_0010);
 
-    let system = machine_module::Machine { progmem };
+    let system = machine_module::System { progmem };
 
     machine_check_exec::run(system);
 }

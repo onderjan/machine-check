@@ -112,13 +112,13 @@ pub mod machine_module {
     impl ::machine_check::State for State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-    pub struct Machine {
+    pub struct System {
         // progmem is 32 KB, i.e. 16K 16-bit words
         // that is 2^14 = 16384
         pub PROGMEM: BitvectorArray<14, 16>,
     }
 
-    impl Machine {
+    impl System {
         fn instruction_skip(&self, pc: Bitvector<14>) -> Bitvector<14> {
             // PC is already incremented to point to the next instruction
             let mut result_pc = pc;
@@ -2976,7 +2976,7 @@ pub mod machine_module {
         }
     }
 
-    impl ::machine_check::Machine for Machine {
+    impl ::machine_check::Machine for System {
         type Input = Input;
         type State = State;
 

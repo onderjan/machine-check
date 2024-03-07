@@ -46,7 +46,7 @@ fn main() {
 
     println!("Progmem: {:?}", progmem);
 
-    let system = machine_module::Machine { PROGMEM: progmem };
+    let system = machine_module::System { PROGMEM: progmem };
 
     machine_check_exec::run(system);
 }

@@ -21,10 +21,10 @@ mod machine_module {
     impl ::machine_check::State for State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-    pub struct CounterMachine {}
+    pub struct System {}
 
     #[allow(dead_code, unreachable_code)]
-    impl CounterMachine {
+    impl System {
         fn test_fn() -> ::machine_check::Bitvector<8> {
             ::std::panic!("Test panic 4");
             ::machine_check::Bitvector::<8>::new(0)
@@ -32,7 +32,7 @@ mod machine_module {
     }
 
     #[allow(unused_variables)]
-    impl ::machine_check::Machine for CounterMachine {
+    impl ::machine_check::Machine for System {
         type Input = Input;
         type State = State;
 
@@ -42,23 +42,21 @@ mod machine_module {
 
         #[allow(unreachable_code)]
         fn next(&self, state: &State, input: &Input) -> State {
-            /*if false {
+            if false {
                 ::std::panic!("Test panic 1");
-            }*/
+            }
             if (input.panic_input == Bitvector::<8>::new(0))
                 | (input.panic_input == Bitvector::<8>::new(1))
             {
                 ::std::panic!("Test panic 2");
                 ::std::panic!("Test panic 3");
             }
-            //let a: ::machine_check::Bitvector<8> = Self::test_fn();
-            //::std::panic!("Test panic");
             State {}
         }
     }
 }
 
 fn main() {
-    let system = machine_module::CounterMachine {};
+    let system = machine_module::System {};
     machine_check_exec::run(system);
 }

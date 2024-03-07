@@ -25,9 +25,9 @@ mod machine_module {
     impl ::machine_check::State for State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-    pub struct CounterMachine {}
+    pub struct System {}
 
-    impl ::machine_check::Machine for CounterMachine {
+    impl ::machine_check::Machine for System {
         type Input = Input;
         type State = State;
 
@@ -55,6 +55,6 @@ mod machine_module {
 }
 
 fn main() {
-    let system = machine_module::CounterMachine {};
+    let system = machine_module::System {};
     machine_check_exec::run(system);
 }
