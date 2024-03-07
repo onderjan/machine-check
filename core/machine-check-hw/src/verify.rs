@@ -62,7 +62,9 @@ pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> 
         exec_result.stats.num_states, exec_result.stats.num_refinements
     );
     // print conclusion or return exec error
-    let conclusion = exec_result.result?;
+    let conclusion = exec_result
+        .result
+        .map_err(|err| CheckError::ExecError(err))?;
     info!("Reached conclusion: {}", conclusion);
     Ok(())
 }
