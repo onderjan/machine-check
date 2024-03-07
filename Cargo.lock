@@ -92,6 +92,8 @@ checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
 [[package]]
 name = "btor2rs"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36652da2744e1b6c7606ea2317468eb6edbb087b3a3cace5fe0ef29319c1352e"
 dependencies = [
  "strum",
  "thiserror",
