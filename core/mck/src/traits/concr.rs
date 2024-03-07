@@ -11,11 +11,28 @@ pub trait Machine
 where
     Self: std::marker::Sized,
 {
-    type Input;
-    type State;
+    /**
+     * Machine input.
+     */
+    type Input: Input;
+    /**
+     * Machine state.
+     */
+    type State: State;
 
+    /**
+     * Creates an initial state from an initial input.
+     *
+     * This function must be pure.
+     */
     #[must_use]
     fn init(&self, input: &Self::Input) -> Self::State;
+
+    /**
+     * Creates next state from current state, given the input.
+     *
+     * This function must be pure.
+     */
     #[must_use]
     fn next(&self, state: &Self::State, input: &Self::Input) -> Self::State;
 }
