@@ -10,16 +10,14 @@ use mck::{
 
 use crate::{traits::Ext, Bitvector, Unsigned};
 
-/**
- * Signed bitvector.
- *
- * The number of bits is specified in the generic parameter L.
- * Signed bitvectors support bitwise operations and wrapping-arithmetic operations.
- * Arithmetic bit extension is also possible (the sign bit is copied into any bits above it).
- * Signed bitvectors be converted into [`Unsigned`] or [`Bitvector`].
- *
- * Currently, it is not possible to create signed bitvectors directly, only convert into them.
- */
+/// Signed bitvector.
+///
+/// The number of bits is specified in the generic parameter L.
+/// Signed bitvectors support bitwise operations and wrapping-arithmetic operations.
+/// Arithmetic bit extension is also possible (the sign bit is copied into any bits above it).
+/// Signed bitvectors be converted into [`Unsigned`] or [`Bitvector`].
+///
+/// Currently, it is not possible to create signed bitvectors directly, only convert into them.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Signed<const L: u32>(pub(super) concr::Bitvector<L>);
 

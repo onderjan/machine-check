@@ -6,6 +6,7 @@ mod boolean;
 mod panic;
 mod traits;
 
+#[doc(hidden)]
 pub mod concr {
     pub use super::array::concr::*;
     pub use super::bitvector::concr::*;
@@ -14,6 +15,7 @@ pub mod concr {
     pub use super::traits::concr::*;
 }
 
+#[doc(hidden)]
 pub mod abstr {
     pub use super::array::abstr::*;
     pub use super::bitvector::abstr::*;
@@ -22,6 +24,7 @@ pub mod abstr {
     pub use super::traits::abstr::*;
 }
 
+#[doc(hidden)]
 pub mod refin {
     pub use super::array::refin::*;
     pub use super::bitvector::refin::*;
@@ -30,14 +33,17 @@ pub mod refin {
     pub use super::traits::refin::*;
 }
 
+#[doc(hidden)]
 pub mod forward {
     pub use super::traits::forward::*;
 }
 
+#[doc(hidden)]
 pub mod backward {
     pub use super::traits::backward::*;
 }
 
+#[doc(hidden)]
 pub mod misc {
     pub use super::array::light::*;
     pub use super::traits::misc::*;

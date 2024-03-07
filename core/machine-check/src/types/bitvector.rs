@@ -10,23 +10,21 @@ use mck::{
 
 use crate::{Signed, Unsigned};
 
-/**
- * Bitvector without signedness information.
- *
- * The number of bits is specified in the generic parameter L.
- * Bitvectors support bitwise operations and wrapping-arithmetic operations.
- * Only operations where the behaviour of signed and unsigned numbers match are implemented.
- * For others, conversion into [`Unsigned`] or [`Signed`] is necessary.
- * Bit-extension is not possible directly, as signed and unsigned bitvectors are extended differently.
- */
+/// Bitvector without signedness information.
+///
+/// The number of bits is specified in the generic parameter L.
+/// Bitvectors support bitwise operations and wrapping-arithmetic operations.
+/// Only operations where the behaviour of signed and unsigned numbers match are implemented.
+/// For others, conversion into [`Unsigned`] or [`Signed`] is necessary.
+/// Bit-extension is not possible directly, as signed and unsigned bitvectors are extended differently.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Bitvector<const L: u32>(pub(super) concr::Bitvector<L>);
 
 impl<const L: u32> Bitvector<L> {
-    /**
-     * Creates a new bitvector with the given value.
-     * Panics if the value does not fit into the type.
-     */
+    ///
+    /// Creates a new bitvector with the given value.
+    /// Panics if the value does not fit into the type.
+    ///
     pub fn new(value: u64) -> Self {
         Bitvector(concr::Bitvector::new(value))
     }
