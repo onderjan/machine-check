@@ -4,6 +4,14 @@ use mck::{concr::IntoMck, misc::LightArray};
 
 use crate::Bitvector;
 
+/**
+ * Power-of-two array of bitvectors without signedness information.
+ *
+ * The exponent of array size is specified in the first generic parameter I.
+ * Element length is specified in the second generic parameter L.
+ *
+ * The array is indexed by bitvectors of length I, so no out-of-bound access can occur.
+ */
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct BitvectorArray<const I: u32, const L: u32> {
     pub(super) inner: LightArray<Bitvector<L>>,
@@ -12,6 +20,9 @@ pub struct BitvectorArray<const I: u32, const L: u32> {
 impl<const I: u32, const L: u32> BitvectorArray<I, L> {
     const SIZE: usize = 1 << I;
 
+    /**
+     * Creates a new array filled with the given element.
+     */
     pub fn new_filled(element: Bitvector<L>) -> Self {
         assert!(I < isize::BITS);
         Self {

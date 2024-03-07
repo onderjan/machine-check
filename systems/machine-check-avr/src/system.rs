@@ -2126,7 +2126,7 @@ pub mod machine_module {
                     // treat as signed and shift one place right
                     let prev = R[d];
                     let prev_signed = Into::<Signed<8>>::into(prev);
-                    let shifted_signed = prev_signed >> Signed::<8>::new(1);
+                    let shifted_signed = prev_signed >> Into::<Signed<8>>::into(Bitvector::<8>::new(1));
                     R[d] = Into::<Bitvector<8>>::into(shifted_signed);
                     SREG = Self::compute_status_right_shift(SREG, prev, R[d]);
                 }

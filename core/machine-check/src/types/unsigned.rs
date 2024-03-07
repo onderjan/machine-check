@@ -10,23 +10,27 @@ use mck::{
 
 use crate::{traits::Ext, Bitvector, Signed};
 
+/**
+ * Unsigned bitvector.
+ *
+ * The number of bits is specified in the generic parameter L.
+ * Unsigned bitvectors support bitwise operations and wrapping-arithmetic operations.
+ * Logical bit extension is also possible (any new bits are zero).
+ * Signed bitvectors be converted into [`Unsigned`] or [`Bitvector`].
+ *
+ */
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct Unsigned<const L: u32>(pub(super) concr::Bitvector<L>);
 
 impl<const L: u32> Unsigned<L> {
+    /**
+     * Creates a new bitvector with the given value.
+     * Panics if the value does not fit into the type.
+     */
     pub fn new(value: u64) -> Self {
         Unsigned(concr::Bitvector::new(value))
     }
 }
-
-impl<const L: u32> IntoMck for Unsigned<L> {
-    type Type = mck::concr::Bitvector<L>;
-
-    fn into_mck(self) -> Self::Type {
-        self.0
-    }
-}
-
 // --- BITWISE OPERATIONS ---
 
 impl<const L: u32> Not for Unsigned<L> {
@@ -159,5 +163,16 @@ impl<const L: u32> From<Signed<L>> for Unsigned<L> {
 impl<const L: u32> Debug for Unsigned<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.0, f)
+    }
+}
+
+// --- INTERNAL IMPLEMENTATIONS ---
+
+#[doc(hidden)]
+impl<const L: u32> IntoMck for Unsigned<L> {
+    type Type = mck::concr::Bitvector<L>;
+
+    fn into_mck(self) -> Self::Type {
+        self.0
     }
 }
