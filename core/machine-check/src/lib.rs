@@ -12,6 +12,7 @@ pub use ::machine_check_macros::{bitmask_switch, machine_description};
 
 pub use ::machine_check_exec::run;
 
+#[doc(hidden)]
 pub mod mck {
     pub use mck::*;
 }
