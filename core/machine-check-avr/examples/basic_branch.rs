@@ -1,5 +1,5 @@
 use machine_check::{Bitvector, BitvectorArray};
-use machine_check_avr::machine_module;
+use machine_check_avr::ATmega328P;
 
 fn main() {
     let hex = include_str!("basic_branch.hex");
@@ -46,7 +46,7 @@ fn main() {
 
     println!("Progmem: {:?}", progmem);
 
-    let system = machine_module::System { PROGMEM: progmem };
+    let system = ATmega328P { PROGMEM: progmem };
 
     machine_check_exec::run(system);
 }

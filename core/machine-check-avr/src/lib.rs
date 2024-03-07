@@ -1,16 +1,31 @@
 /**
- * The machine currently only targets ATmega328P.
+ * A system for [machine-check](https://crates.io/crates/machine-check) for checking machine-code programs for the AVR ATmega328P microcontroller.
+ *
+ * Known problems:
+ * - Some lesser-used instructions are unimplemented.
+ * - Only general-purpose I/O peripherals are supported.
+ * - The program counter is not always checked for overflow.
+ *
+ * Inherently panics on:
+ * - Jumps and calls outside program memory.
+ * - Execution of reserved or illegal opcodes.
+ * - Illegal or discouraged reads and writes.
+ * - Push, pop, call, return with values read or written outside data memory.
+ * - Unimplemented instructions, reads and writes.
  *
  * The system is written using the official instruction set reference
  * https://ww1.microchip.com/downloads/en/devicedoc/atmel-0856-avr-instruction-set-manual.pdf
  * and datasheet
  * https://ww1.microchip.com/downloads/aemDocuments/documents/MCU08/ProductDocuments/DataSheets/ATmega48A-PA-88A-PA-168A-PA-328-P-DS-DS40002061B.pdf
  */
+pub use machine_module::ATmega328P;
+pub use machine_module::Input;
+pub use machine_module::State;
 
 #[allow(non_snake_case)]
 #[allow(clippy::if_same_then_else)]
 #[machine_check_macros::machine_description]
-pub mod machine_module {
+mod machine_module {
     use ::machine_check::{Bitvector, BitvectorArray, Ext, Signed, Unsigned};
     use ::std::{
         clone::Clone,
@@ -106,19 +121,19 @@ pub mod machine_module {
         // 2048 8-bit cells
         SRAM: BitvectorArray<11, 8>,
         // --- EEPROM ---
-        // TODO: implement EEPROM
+        // unchangeable as SPM instruction is not supported
     }
 
     impl ::machine_check::State for State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-    pub struct System {
+    pub struct ATmega328P {
         // progmem is 32 KB, i.e. 16K 16-bit words
         // that is 2^14 = 16384
         pub PROGMEM: BitvectorArray<14, 16>,
     }
 
-    impl System {
+    impl ATmega328P {
         fn instruction_skip(&self, pc: Bitvector<14>) -> Bitvector<14> {
             // PC is already incremented to point to the next instruction
             let mut result_pc = pc;
@@ -378,7 +393,7 @@ pub mod machine_module {
                 let sram_index = Ext::<11>::ext(sram_full_index);
                 if sram_full_index != Ext::<16>::ext(sram_index) {
                     // outside SRAM
-                    panic!("Illegal read after data memory end");
+                    panic!("Illegal write after data memory end");
                 }
                 // inside SRAM
                 let R = Clone::clone(&state.R);
@@ -1691,7 +1706,7 @@ pub mod machine_module {
 
                 // POP Rd
                 "----_---d_dddd_1111" => {
-                    // pre-increment stack pointer, then load byte from register d
+                    // pre-increment stack pointer, then load byte to register d
 
                     // TODO: detect stack underflow/outside data memory
 
@@ -1707,10 +1722,20 @@ pub mod machine_module {
                     SPL = stack_lo;
                     SPH = stack_hi;
 
-                    // load
-                    let read_result: Bitvector<8> =
-                        Self::read_data_mem(state, input, Into::<Bitvector<16>>::into(stack));
-                    R[d] = read_result;
+                    // stack value should be in data memory
+                    if stack < Unsigned::<16>::new(0x0100) {
+                        panic!("Pop with overflowed stack");
+                    };
+                    let sram_address_full = stack - Unsigned::<16>::new(0x0100);
+
+                    let sram_address = Ext::<11>::ext(sram_address_full);
+
+                    if Ext::<16>::ext(sram_address) != sram_address_full {
+                        panic!("Pop underflows stack from data memory");
+                    };
+
+                    // load byte
+                    R[d] = SRAM[Into::<Bitvector<11>>::into(sram_address)];
 
                     // POP is a two-cycle instruction
                 }
@@ -1987,36 +2012,48 @@ pub mod machine_module {
                     // note the instruction set manual uses 'd' for the push register opcode
                     // but it is referred to as 'r' everywhere else
 
+                    let value = state.R[r];
+
                     let stack_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(state.SPL));
                     let stack_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(state.SPH));
                     let stack = (stack_hi << Unsigned::<16>::new(8)) | stack_lo;
-
-                    let value = state.R[r];
-
-                    // TODO: detect stack overflow/outside data memory
-                    // store
-                    let write_state: State =
-                        Self::write_data_mem(state, Into::<Bitvector<16>>::into(stack), value);
-
-                    let PC = write_state.PC;
-                    let R = Clone::clone(&write_state.R);
-                    let DDRB = write_state.DDRB;
-                    let PORTB = write_state.PORTB;
-                    let DDRC = write_state.DDRC;
-                    let PORTC = write_state.PORTC;
-                    let DDRD = write_state.DDRD;
-                    let PORTD = write_state.PORTD;
-                    let GPIOR0 = write_state.GPIOR0;
-                    let GPIOR1 = write_state.GPIOR1;
-                    let GPIOR2 = write_state.GPIOR2;
-                    let SREG = write_state.SREG;
-                    let SRAM = Clone::clone(&write_state.SRAM);
-
-                    // post-decrement
                     let stack_post = stack - Unsigned::<16>::new(1);
+
+                    // make sure that the stack does not overflow from data memory down to extended I/O
+                    // pointing to last extended I/O is not an overflow, as the data is not written there
+                    if (stack < Unsigned::<16>::new(0x0099)) | (stack_post < Unsigned::<16>::new(0x0099)) {
+                        panic!("Push overflows stack from data memory to extended I/O");
+                    };
+
+                    let stack_sram_address_full = stack - Unsigned::<16>::new(0x0100);
+
+                    // only SRAM can be written to
+                    let stack_sram_address = Ext::<11>::ext(stack_sram_address_full);
+
+                    if Ext::<16>::ext(stack_sram_address) != stack_sram_address_full {
+                        panic!("Stack address higher than data memory on push");
+                    };
+
+                    let PC = state.PC;
+                    let R = Clone::clone(&state.R);
+                    let DDRB = state.DDRB;
+                    let PORTB = state.PORTB;
+                    let DDRC = state.DDRC;
+                    let PORTC = state.PORTC;
+                    let DDRD = state.DDRD;
+                    let PORTD = state.PORTD;
+                    let GPIOR0 = state.GPIOR0;
+                    let GPIOR1 = state.GPIOR1;
+                    let GPIOR2 = state.GPIOR2;
+                    let SREG = state.SREG;
+                    let mut SRAM = Clone::clone(&state.SRAM);
+
+                    // write pushed value
+                    SRAM[Into::<Bitvector<11>>::into(stack_sram_address)] = value;
+
+                    // update SPL/SPH to post-decrement
                     let SPL = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack_post));
-                    let SPH =
-                        Into::<Bitvector<8>>::into(Ext::<8>::ext(stack_post >> Unsigned::<16>::new(8)));
+                    let SPH = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack_post >> Unsigned::<16>::new(8)));
 
                     result = State {
                         PC,
@@ -2976,7 +3013,7 @@ pub mod machine_module {
         }
     }
 
-    impl ::machine_check::Machine for System {
+    impl ::machine_check::Machine for ATmega328P {
         type Input = Input;
         type State = State;
 
