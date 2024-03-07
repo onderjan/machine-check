@@ -1,17 +1,21 @@
 [workspace]
 
 resolver = "2"
-members = ["core/*", "support/*"]
+members = ["core/*", "transpile/*", "support/*"]
 
 
 [patch.crates-io]
 btor2rs = { path = "./core/btor2rs" }
+
 machine-check-common = { path = "./core/machine-check-common" }
-machine-check-machine = { path = "./core/machine-check-machine" }
+mck = { path = "./core/mck" }
+
 machine-check-bitmask-switch = { path = "./core/machine-check-bitmask-switch" }
 machine-check-macros = { path = "./core/machine-check-macros" }
-machine-check-compile = { path = "./core/machine-check-compile" }
-mck = { path = "./core/mck" }
-machine-check = { path = "./core/machine-check" }
+
+machine-check-machine = { path = "./core/machine-check-machine" }
 machine-check-exec = { path = "./core/machine-check-exec" }
-machine-check-hw = { path = "./core/machine-check-hw" }
+machine-check = { path = "./core/machine-check" }
+
+machine-check-compile = { path = "./transpile/machine-check-compile" }
+machine-check-hw = { path = "./transpile/machine-check-hw" }
