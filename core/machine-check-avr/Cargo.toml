@@ -7,7 +7,6 @@ description = "Crate for the formal verification of AVR microcontrollers by mach
 rust-version = "1.75"
 
 [dependencies]
-mck = "=0.2.0-alpha.1"
 machine-check = "=0.2.0-alpha.1"
 
 ihex = "3.0.0"

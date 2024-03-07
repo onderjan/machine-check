@@ -4,7 +4,8 @@ use proc_macro2::{Ident, Span};
 use quote::quote;
 use support::rules::NoRuleMatch;
 use syn::spanned::Spanned;
-use syn::{parse_quote, Attribute, Item, ItemFn, ItemMod, Meta, MetaList};
+use syn::visit_mut::{self, VisitMut};
+use syn::{parse_quote, Attribute, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
 use syn_path::path;
 
 use crate::util::create_item_mod;
@@ -110,6 +111,8 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
     let abstract_module = create_machine_module("__mck_mod_abstr", abstract_machine);
     items.push(abstract_module);
 
+    redirect_mck(items)?;
+
     if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("machine_full.rs"),
@@ -124,6 +127,40 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
     println!("Machine-check-machine ending processing");
 
     Ok(())
+}
+
+fn redirect_mck(items: &mut [Item]) -> Result<(), MachineError> {
+    let mut redirect_visitor = RedirectVisitor;
+    for item in items.iter_mut() {
+        redirect_visitor.visit_item_mut(item);
+    }
+
+    Ok(())
+}
+
+struct RedirectVisitor;
+
+impl VisitMut for RedirectVisitor {
+    fn visit_path_mut(&mut self, path: &mut syn::Path) {
+        if path.leading_colon.is_some() {
+            let first_segment = path
+                .segments
+                .first()
+                .expect("Path should have first segment");
+            if first_segment.ident == "mck" {
+                let span = first_segment.span();
+                // add machine_check before it
+                path.segments.insert(
+                    0,
+                    PathSegment {
+                        ident: Ident::new("machine_check", span),
+                        arguments: syn::PathArguments::None,
+                    },
+                );
+            }
+        }
+        visit_mut::visit_path_mut(self, path);
+    }
 }
 
 fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
