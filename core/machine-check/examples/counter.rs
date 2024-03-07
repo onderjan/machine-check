@@ -1,4 +1,4 @@
-#[machine_check_macros::machine_description]
+#[machine_check::machine_description]
 mod machine_module {
     use ::machine_check::{BitvectorArray, Ext, Unsigned};
     use ::std::{
@@ -56,5 +56,5 @@ mod machine_module {
 
 fn main() {
     let system = machine_module::System {};
-    machine_check_exec::run(system);
+    machine_check::run(system);
 }

@@ -82,5 +82,5 @@ fn main() {
 
     let system = machine_module::System { progmem };
 
-    machine_check_exec::run(system);
+    machine_check::run(system);
 }

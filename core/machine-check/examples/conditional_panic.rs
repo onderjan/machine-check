@@ -1,4 +1,4 @@
-#[machine_check_macros::machine_description]
+#[machine_check::machine_description]
 mod machine_module {
     use ::machine_check::Bitvector;
     use ::std::{
@@ -45,9 +45,7 @@ mod machine_module {
             if false {
                 ::std::panic!("Test panic 1");
             }
-            if (input.panic_input == Bitvector::<8>::new(0))
-                | (input.panic_input == Bitvector::<8>::new(1))
-            {
+            if input.panic_input == Bitvector::<8>::new(1) {
                 ::std::panic!("Test panic 2");
                 ::std::panic!("Test panic 3");
             }
@@ -58,5 +56,5 @@ mod machine_module {
 
 fn main() {
     let system = machine_module::System {};
-    machine_check_exec::run(system);
+    machine_check::run(system);
 }
