@@ -48,5 +48,5 @@ fn main() {
 
     let system = ATmega328P { PROGMEM: progmem };
 
-    machine_check_exec::run(system);
+    machine_check::run(system);
 }
