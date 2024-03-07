@@ -129,7 +129,10 @@ pub fn prepare(config: Config) -> Result<(), Error> {
                 linked_paths.extend(build_script.linked_paths);
             }
             Message::CompilerArtifact(artifact) => {
-                if matches!(artifact.target.name.as_str(), "mck" | "machine-check-exec") {
+                if matches!(
+                    artifact.target.name.as_str(),
+                    "mck" | "machine-check" | "machine-check-exec"
+                ) {
                     for original_path in artifact.filenames {
                         // TODO: base addition of extern on Target_Cargo.toml
                         // add extern to args

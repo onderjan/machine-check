@@ -11,6 +11,5 @@ mck = "=0.1.0"
 machine-check = "=0.1.0"
 machine-check-exec = "=0.1.0"
 
-# TODO: re-enable workspace-independency
-#[workspace]
+[workspace]
 # disallow workspace hijinks

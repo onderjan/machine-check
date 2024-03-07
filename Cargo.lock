@@ -460,15 +460,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "machine-check-exec-target"
-version = "0.1.0"
-dependencies = [
- "machine-check",
- "machine-check-exec",
- "mck",
-]
-
-[[package]]
 name = "machine-check-hw"
 version = "0.1.0"
 dependencies = [
