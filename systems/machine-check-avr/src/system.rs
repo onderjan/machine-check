@@ -12,81 +12,88 @@ pub mod machine_module {
         panic, unimplemented,
     };
 
+    /// ATmega328P system input.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
         // --- Uninitialized Registers and Memory ---
-        uninit_R: BitvectorArray<5, 8>,
-        uninit_SRAM: BitvectorArray<11, 8>,
+        /// Uninitialized general-purpose working registers.
+        pub uninit_R: BitvectorArray<5, 8>,
+        /// Uninitialized SRAM.
+        pub uninit_SRAM: BitvectorArray<11, 8>,
 
         // --- General Purpose I/O ---
-        // I/O address 0x3: reads pins
-        PINB: Bitvector<8>,
+        /// I/O address 0x3: pin read.
+        pub PINB: Bitvector<8>,
 
-        // I/O address 0x6: reads pins
-        // only 7 bits, the high bit is always zero
-        PINC: Bitvector<7>,
+        /// I/O address 0x6: pin read.
+        ///
+        /// Only low 7 bits are read, the high bit is always zero.
+        pub PINC: Bitvector<7>,
 
-        // I/O address 0x9: reads pins
-        PIND: Bitvector<8>,
+        /// I/O address 0x9: pin read.
+        pub PIND: Bitvector<8>,
     }
 
     impl ::machine_check::Input for Input {}
 
+    /// ATmega328P system state.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         // --- Program Counter ---
-        // TODO: check overflow in the future
-        PC: Bitvector<14>,
+        /// Program counter.
+        pub PC: Bitvector<14>,
 
-        // --- General Purpose Registers ---
-        // 32 8-bit registers
-        // data addresses 0x0..0x20
-        R: BitvectorArray<5, 8>,
+        // --- Working Registers ---
+        // Data addresses 0x00..0x20
+        /// General-purpose working registers.
+        ///
+        /// 32 (2<sup>5</sup>) 8-bit registers.
+        pub R: BitvectorArray<5, 8>,
 
         // --- I/O Registers ---
         // 64 addresses, only some are true registers
-        // data addresses 0x20..0x40
+        // Data addresses 0x20..0x40
 
         // Port B
-        // I/O address 0x3: reads pins, write XORs output/pullup register
+        // I/O address 0x3: reads pins, write XORs output/pullup register.
         // ---
-        // I/O address 0x4: data direction register
-        DDRB: Bitvector<8>,
-        // I/O address 0x5: output/pullup register
-        PORTB: Bitvector<8>,
+        /// I/O address 0x4: data direction register.
+        pub DDRB: Bitvector<8>,
+        /// I/O address 0x5: output/pullup register.
+        pub PORTB: Bitvector<8>,
 
         // Port C: lacks the highest bit
-        // I/O address 0x6: reads pins, write XORs output/pullup register
+        // I/O address 0x6: reads pins, write XORs output/pullup register.
         // ---
-        // I/O address 0x7: data direction register
-        DDRC: Bitvector<7>,
-        // I/O address 0x8: output/pullup register
-        PORTC: Bitvector<7>,
+        /// I/O address 0x7: data direction register.
+        pub DDRC: Bitvector<7>,
+        /// I/O address 0x8: output/pullup register.
+        pub PORTC: Bitvector<7>,
 
         // Port D
-        // I/O address 0x9: reads pins, write XORs output/pullup register
+        // I/O address 0x9: reads pins, write XORs output/pullup register.
         // ---
-        // I/O address 0xA: data direction register
-        DDRD: Bitvector<8>,
-        // I/O address 0xB: output/pullup register
-        PORTD: Bitvector<8>,
+        /// I/O address 0xA: data direction register.
+        pub DDRD: Bitvector<8>,
+        /// I/O address 0xB: output/pullup register.
+        pub PORTD: Bitvector<8>,
 
         // General Purpose I/O registers
-        // I/O address 0x1E: General Purpose I/O register 0
-        GPIOR0: Bitvector<8>,
-        // I/O address 0x2A: General Purpose I/O register 1
-        GPIOR1: Bitvector<8>,
-        // I/O address 0x2B: General Purpose I/O register 2
-        GPIOR2: Bitvector<8>,
+        /// I/O address 0x1E: General Purpose I/O register 0.
+        pub GPIOR0: Bitvector<8>,
+        /// I/O address 0x2A: General Purpose I/O register 1.
+        pub GPIOR1: Bitvector<8>,
+        /// I/O address 0x2B: General Purpose I/O register 2.
+        pub GPIOR2: Bitvector<8>,
 
-        // I/O address 0x3D: Stack Pointer Low
-        SPL: Bitvector<8>,
+        /// I/O address 0x3D: Stack Pointer Low.
+        pub SPL: Bitvector<8>,
 
-        // I/O address 0x3E: Stack Pointer High
-        SPH: Bitvector<8>,
+        /// I/O address 0x3E: Stack Pointer High.
+        pub SPH: Bitvector<8>,
 
-        // I/O address 0x3F: Status Register
-        SREG: Bitvector<8>,
+        /// I/O address 0x3F: Status Register.
+        pub SREG: Bitvector<8>,
 
         // TODO: other I/O registers
 
@@ -94,18 +101,24 @@ pub mod machine_module {
         // TODO: extended I/O registers
 
         // --- SRAM ---
-        // 2048 8-bit cells
-        SRAM: BitvectorArray<11, 8>,
+        /// Static RAM.
+        ///
+        /// Contains 2K (2<sup>11</sup>) 8-bit cells.
+        pub SRAM: BitvectorArray<11, 8>,
         // --- EEPROM ---
         // unchangeable as SPM instruction is not supported
     }
 
     impl ::machine_check::State for State {}
 
+    /// ATmega328P system.
+    ///
+    /// Program memory is treated as unchanging as the SPM instruction is not implemented.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct ATmega328P {
-        // progmem is 32 KB, i.e. 16K 16-bit words
-        // that is 2^14 = 16384
+        /// Program memory.
+        ///
+        /// ATmega328P program memory is 32 KB, i.e. 16K (2<sup>14</sup>) 16-bit words.
         pub PROGMEM: BitvectorArray<14, 16>,
     }
 

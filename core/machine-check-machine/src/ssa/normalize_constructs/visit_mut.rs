@@ -28,7 +28,16 @@ impl VisitMut for super::Visitor {
                     }
                 }
             }
+            if let Meta::NameValue(name_value) = &attr.meta {
+                if let Some(ident) = extract_path_ident(&name_value.path) {
+                    if ident == "doc" {
+                        is_permitted = true;
+                    }
+                }
+            }
             if !is_permitted {
+                // do not mention documentation comments
+                // as those are usually not written as attributes
                 self.push_error(
                     String::from("Only derive and allow attributes supported on structs"),
                     attr.span(),
@@ -344,7 +353,16 @@ impl VisitMut for super::Visitor {
                 }
             }
         }
+        if let Meta::NameValue(name_value) = &attribute.meta {
+            if let Some(ident) = extract_path_ident(&name_value.path) {
+                if ident == "doc" {
+                    is_permitted = true;
+                }
+            }
+        }
         if !is_permitted {
+            // do not mention documentation comments
+            // as those are usually not written as attributes
             self.push_error(
                 String::from("Only allow attribute supported in this context"),
                 attribute.span(),

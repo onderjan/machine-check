@@ -38,7 +38,11 @@ struct Args {
 }
 
 pub fn run<M: FullMachine>(system: M) {
-    if let Err(err) = run_inner(system) {
+    run_with_args(system, std::env::args())
+}
+
+pub fn run_with_args<M: FullMachine>(system: M, args: impl Iterator<Item = String>) {
+    if let Err(err) = run_inner(system, args) {
         // log root error
         error!("{:#?}", err);
         // terminate with non-success code
@@ -47,8 +51,11 @@ pub fn run<M: FullMachine>(system: M) {
     // terminate successfully, the information is in stdout
 }
 
-fn run_inner<M: FullMachine>(system: M) -> Result<ExecResult, anyhow::Error> {
-    let args = Args::parse();
+fn run_inner<M: FullMachine>(
+    system: M,
+    args: impl Iterator<Item = String>,
+) -> Result<ExecResult, anyhow::Error> {
+    let args = Args::parse_from(args);
     // logging to stderr, stdout will contain the result in batch mode
     let filter_level = match args.verbose {
         0 => log::LevelFilter::Info,
