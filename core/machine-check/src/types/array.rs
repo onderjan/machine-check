@@ -27,6 +27,23 @@ impl<const I: u32, const L: u32> BitvectorArray<I, L> {
             inner: LightArray::new_filled(element, Self::SIZE),
         }
     }
+
+    /// Creates the bitvector array from a correctly sized slice of bitvectors.
+    ///
+    /// Panics if the bitvector slice length is not equal to 2<sup>L</sup>.
+    ///
+    /// Cannot be used within the machine_description macro.
+    pub fn from_slice(slice: &[Bitvector<L>]) -> Self {
+        assert_eq!(Self::SIZE, slice.len());
+        // make zeroed first
+        let mut inner = LightArray::new_filled(Bitvector::new(0), Self::SIZE);
+        // assign each element
+        for (index, element) in slice.iter().cloned().enumerate() {
+            inner[index] = element;
+        }
+
+        Self { inner }
+    }
 }
 
 impl<const I: u32, const L: u32> Index<Bitvector<I>> for BitvectorArray<I, L> {

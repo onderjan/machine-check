@@ -46,7 +46,7 @@ On the other hand, `machine-check` tells us that the counter value is NOT always
 ```
 $ cargo run -- --property "AG[unsigned_lt(value,156)]"
 
-$ cargo run --example counter -- --property "AG[unsigned_lt(value,156)]"
+$ cargo run -- --property "AG[unsigned_lt(value,156)]"
 [2024-03-07T22:45:47Z INFO  machine_check_exec] Starting verification.
 [2024-03-07T22:45:47Z INFO  machine_check_exec] Verification ended.
 {"result":{"Ok":false},"stats":{"num_states":178,"num_refinements":308}}
@@ -62,14 +62,14 @@ can be executed during the course of the program. A simple example is in the
 [conditional_panic](
     https://docs.rs/crate/machine-check/0.2.0-alpha.1/source/examples/conditional_panic.rs) 
 example, which should panic with message 
-"Test panic 2" if the input is equal to 1. You can copy it into your crate, then run it with 
+"Example panic 2" if the input is equal to 1. You can copy it into your crate, then run it with 
 parameter "--inherent", which signifies that you are only interested about the inherent 
 panics of the system:
 ```
-$ cargo run --example conditional_panic -- --inherent
+$ cargo run -- --inherent
 [2024-03-07T22:59:26Z INFO  machine_check_exec] Starting verification.
 [2024-03-07T22:59:26Z ERROR machine_check_exec] Verification failed.
-{"result":{"Err":{"InherentPanic":"Test panic 2"}},"stats":{"num_states":3,"num_refinements":8}}
+{"result":{"Err":{"InherentPanic":"Example panic 2"}},"stats":{"num_states":3,"num_refinements":8}}
 ```
 Currently, presence of inherent panic precludes verification of a property, as it is 
 a more pressing issue to fix.
