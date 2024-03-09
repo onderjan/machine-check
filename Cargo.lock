@@ -388,7 +388,7 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "machine-check"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "machine-check-exec",
  "machine-check-macros",
@@ -397,7 +397,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-avr"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "ihex",
  "machine-check",
@@ -405,7 +405,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-bitmask-switch"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "num",
  "prettyplease",
@@ -417,7 +417,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-common"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "serde",
  "thiserror",
@@ -425,7 +425,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-compile"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "camino",
  "cargo_metadata",
@@ -442,7 +442,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-exec"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bimap",
@@ -459,7 +459,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-hw"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "btor2rs",
  "camino",
@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-machine"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "machine-check-bitmask-switch",
  "prettyplease",
@@ -498,7 +498,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-macros"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "machine-check-bitmask-switch",
  "machine-check-machine",
@@ -511,7 +511,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-table"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "camino",
@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "mck"
-version = "0.2.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "seq-macro",
 ]
