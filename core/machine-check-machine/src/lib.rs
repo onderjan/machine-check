@@ -48,6 +48,7 @@ pub fn default_main() -> Item {
     Item::Fn(main_fn)
 }
 
+#[allow(dead_code)]
 fn out_dir() -> Option<PathBuf> {
     // TODO: disable creation of temporary files unless specifically requested
     let mut args = std::env::args();
@@ -72,6 +73,7 @@ fn out_dir() -> Option<PathBuf> {
     Some(out_dir)
 }
 
+#[allow(dead_code)]
 fn unparse(machine: &MachineDescription) -> String {
     prettyplease::unparse(&syn::File {
         shebang: None,
@@ -81,22 +83,22 @@ fn unparse(machine: &MachineDescription) -> String {
 }
 
 fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
-    println!("Machine-check-machine starting processing");
+    //println!("Machine-check-machine starting processing");
 
-    let out_dir = out_dir();
+    //let out_dir = out_dir();
 
     let ssa_machine = ssa::create_ssa_machine(items.clone())?;
-    if let Some(out_dir) = &out_dir {
+    /*if let Some(out_dir) = &out_dir {
         std::fs::write(out_dir.join("machine_ssa.rs"), unparse(&ssa_machine))
             .expect("SSA machine file should be writable");
-    }
+    }*/
 
     let mut abstract_machine = abstr::create_abstract_machine(&ssa_machine)?;
 
-    if let Some(out_dir) = &out_dir {
+    /*if let Some(out_dir) = &out_dir {
         std::fs::write(out_dir.join("machine_abstr.rs"), unparse(&abstract_machine))
             .expect("Abstract machine file should be writable");
-    }
+    }*/
 
     let refinement_machine = refin::create_refinement_machine(&abstract_machine)?;
 
@@ -113,7 +115,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
 
     redirect_mck(items)?;
 
-    if let Some(out_dir) = &out_dir {
+    /*if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("machine_full.rs"),
             unparse(&MachineDescription {
@@ -122,9 +124,9 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
             }),
         )
         .expect("Full machine file should be writable");
-    }
+    }*/
 
-    println!("Machine-check-machine ending processing");
+    //println!("Machine-check-machine ending processing");
 
     Ok(())
 }
