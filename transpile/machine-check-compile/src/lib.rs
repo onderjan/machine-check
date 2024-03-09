@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use std::{path::PathBuf, process::ExitStatus};
 
 use camino::Utf8PathBuf;

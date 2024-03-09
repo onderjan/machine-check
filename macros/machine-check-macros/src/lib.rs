@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 extern crate proc_macro;
 
 use machine_check_bitmask_switch::BitmaskSwitch;
