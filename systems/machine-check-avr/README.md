@@ -1,15 +1,15 @@
 # AVR microcontroller machine-code verification using machine-check
 
 The executable in this crate allows formal verification of machine-code 
-programs for the AVR ATmega328P microcontroller via [machine-check](https://crates.io/crates/machine-check).
+programs for the AVR ATmega328P microcontroller via [machine-check](https://docs.rs/machine-check).
 
-In addition to common [machine-check](https://crates.io/crates/machine-check) executable arguments,
+In addition to common [machine-check](https://docs.rs/machine-check) executable arguments,
 the executable takes a pair of arguments specifying path to Intel HEX file 
 containing the ATmega328P program code: `--hex-file abc.hex`.
 
-See [machine-check](https://crates.io/crates/machine-check) for details on verifying specifications.
+See [machine-check](https://docs.rs/machine-check) for details on verifying specifications.
 
-Note that both [machine-check](https://crates.io/crates/machine-check) and this crate are currently 
+Note that both [machine-check](https://docs.rs/machine-check) and this crate are currently 
 experimental and awaiting further improvement and stabilization.
 
 ## Known system problems

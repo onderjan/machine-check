@@ -1,22 +1,22 @@
-# `Machine-check`: a formal verification tool for digital systems
+# **Machine-check**: a formal verification tool for digital systems
 
-`Machine-check` is a tool for formal verification of digital system properties, currently 
+**Machine-check** is a tool for formal verification of digital system properties, currently 
 in experimental stage.
 
 Unlike classic software testing, which can find bugs but not prove their absence,
 formal verification can prove that specified undesirable behaviours can never occur
 in the system. Unfortunately, formal verification requires complicated reasoning 
 (e.g. with intervals instead of just numbers) and advanced techniques are necessary 
-for its automation. `Machine-check` aims to provide these techniques, but shield 
+for its automation. **Machine-check** aims to provide these techniques, but shield 
 the user from them as much as possible.
 
-The main intended use-case of `machine-check` is formal verification of machine-code programs 
+The main intended use-case of **machine-check** is formal verification of machine-code programs 
 on simple microcontrollers, but the approach is highly general, allowing verification 
 of arbitrary digital systems as long as they are described in a subset of valid Rust code 
-that `machine-check` understands.
+that **machine-check** understands.
 
 ## Examples
-A very simple example of a system verifiable by `machine-check` is [counter](
+A very simple example of a system verifiable by **machine-check** is [counter](
     https://docs.rs/crate/machine-check/0.2.0-alpha.2/source/examples/counter.rs), 
 a simple [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine) which contains 
 an eight-bit `value`, which is initialized to zero on initialization and then is incremented 
@@ -24,14 +24,14 @@ if the `increment` single-bit input is 1. If the value reaches 157, it is immedi
 The system is very simple, so it is complicated a little by a large unused bitvector array,
 which would make simple kinds of automated verification impossible.
 
-The magic of `machine-check` is unlocked by the [`machine_description`] macro, which adds verification 
-analogues to the code it is applied to, allowing simply running `machine-check` by calling [`run`] in the main 
+The magic of **machine-check** is unlocked by the [`machine_description`] macro, which adds verification 
+analogues to the code it is applied to, allowing simply running **machine-check** by calling [`run`] in the main 
 function after constructing the system.
 
-If you put the [counter](examples/counter.rs) inside your own Rust crate (with `machine-check` as a dependency)
+If you put the [counter](examples/counter.rs) inside your own Rust crate (with **machine-check** as a dependency)
 , you can  verify that the counter is always lesser than 157 in each system state, using a specification property 
 based on [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic). Let's use 
-`machine-check` to prove the property: 
+**machine-check** to prove the property: 
 ```
 $ cargo run -- --property "AG[unsigned_lt(value,157)]"
 
@@ -42,7 +42,7 @@ $ cargo run -- --property "AG[unsigned_lt(value,157)]"
 (Note that the final specification and output formats are still under construction 
 and will be nicer than this.)
 
-On the other hand, `machine-check` tells us that the counter value is NOT always lesser than 156:
+On the other hand, **machine-check** tells us that the counter value is NOT always lesser than 156:
 ```
 $ cargo run -- --property "AG[unsigned_lt(value,156)]"
 
@@ -82,13 +82,13 @@ can be used for elegant transcription of microcontroller behaviour depending on 
 opcodes.
 
 A more proper implementation of an actual microcontroller is present in the crate 
-[machine-check-avr](https://crates.io/crates/machine-check-avr), allowing verification 
+[machine-check-avr](https://docs.rs/machine-check-avr), allowing verification 
 of some simple machine-code programs for the AVR ATmega328P microcontroller 
 (notably used in Arduino Uno R3).
 
 
 ## Current status
-`Machine-check` is still in experimental phase, with limitations in user experience 
+**Machine-check** is still in experimental phase, with limitations in user experience 
 and verification power.
 
 The [`machine_description`] macro, in particular, is currently very finicky and errors
@@ -97,8 +97,8 @@ step by step, slowly adding and modifying pieces of example code. Temporarily co
 the macro may also reveal an underlying Rust error with a more sensible error message.
 
 ## Further notes
-Unlike some other formal verification tools, `machine-check` is designed be sound 
-and complete, i.e. you should either get an error or a correct true/false result in finite 
+Unlike some other formal verification tools, **machine-check** is designed be sound 
+and complete. You should either get an error or a correct true/false result in finite 
 (but practically unbounded) time. Of course, there may be bugs or design oversights.
 
 ## License

@@ -2,11 +2,11 @@
 # Utility compilation crate for machine-check
 
 This crate contains routines for compilation of systems as part of the
-verification tool [machine-check](https://crates.io/crates/machine-check).
+verification tool [machine-check](https://docs.rs/machine-check).
 
 # Usage and Compatibility
 
-This crate is a utility crate for [machine-check](https://crates.io/crates/machine-check)
+This crate is a utility crate for [machine-check](https://docs.rs/machine-check)
 and should not be used on its own. No compatibility guarantees are made.
 
 # License

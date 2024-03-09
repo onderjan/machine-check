@@ -1,8 +1,8 @@
 # machine-check-hw: formal verification of hardware digital systems
 
-[machine-check](https://crates.io/crates/machine-check) is a tool for formal verification of digital system properties, currently in a proof-of-concept stage. 
+[machine-check](https://docs.rs/machine-check) is a tool for formal verification of digital system properties, currently in a proof-of-concept stage. 
 
-This crate provides support for verification of hardware systems written in the [Btor2 language](https://doi.org/10.1007/978-3-319-96145-3_32) using the formal verification tool [machine-check](https://crates.io/crates/machine-check). The systems can be verified against [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic) properties.
+This crate provides support for verification of hardware systems written in the [Btor2 language](https://doi.org/10.1007/978-3-319-96145-3_32) using the formal verification tool [machine-check](https://docs.rs/machine-check). The systems can be verified against [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic) properties.
 
 **Hardware verification via machine-check is in a proof-of-concept stage, with poor performance compared to state-of-the-art tools for hardware system verification. Use tools such as [ABC](https://github.com/berkeley-abc/abc) or [AVR](https://github.com/aman-goel/avr) if you want to actually verify Btor2 systems.**
 
@@ -143,8 +143,8 @@ machine-check-hw still in an early stage of development and thus subject to dras
 
 # License
 
-This tool and its constituent crates [machine-check](https://crates.io/crates/machine-check), [mck](https://crates.io/crates/mck), [machine-check-common](https://crates.io/crates/machine-check-common), and [machine-check-exec](https://crates.io/crates/machine-check-exec) are licensed under Apache 2.0 License or MIT License at your discretion.
+This tool and its constituent crates [machine-check](https://docs.rs/machine-check), [mck](https://docs.rs/mck), [machine-check-common](https://docs.rs/machine-check-common), and [machine-check-exec](https://docs.rs/machine-check-exec) are licensed under Apache 2.0 License or MIT License at your discretion.
 
 # See also
 
-[btor2rs](https://crates.io/crates/btor2rs): Btor2 parsing library written for use in machine-check
+[btor2rs](https://docs.rs/btor2rs): Btor2 parsing library written for use in machine-check

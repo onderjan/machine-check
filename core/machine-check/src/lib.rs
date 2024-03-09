@@ -12,9 +12,9 @@ pub use ::mck::concr::Input;
 /// State of [`Machine`].
 pub use ::mck::concr::State;
 
-/// Finite-state machine intended to be verifiable by `machine-check`.
+/// Finite-state machine intended to be verifiable by **machine-check**.
 ///
-/// To actually be verifiable by `machine-check`, further processing must be done by enclosing the structures
+/// To actually be verifiable by **machine-check**, further processing must be done by enclosing the structures
 /// and [`Input`], [`State`], and [`Machine`] implementations within the [`machine_description`] macro.
 ///
 pub use ::mck::concr::Machine;
@@ -58,9 +58,9 @@ pub use ::mck::concr::Machine;
 ///
 pub use ::machine_check_macros::bitmask_switch;
 
-/// Processes a module so that it can be used in `machine-check` verification.
+/// Processes a module so that it can be used in **machine-check** verification.
 ///
-/// To efficiently verify a system with `machine-check`, verification equivalents of the system that allow
+/// To efficiently verify a system with **machine-check**, verification equivalents of the system that allow
 /// more advanced reasoning (e.g. not caring about the value of some variable unless found to be necessary)
 /// must be created, which is done by enclosing the system code in a module and applying this macro on it.
 ///
@@ -82,7 +82,7 @@ pub use ::machine_check_macros::bitmask_switch;
 ///
 pub use ::machine_check_macros::machine_description;
 
-/// Runs machine-check with the given constructed system.
+/// Runs **machine-check** with the given constructed system.
 ///  
 /// The system must implement [`Machine`]. The system structures and [`Input`], [`State`], and [`Machine`]
 /// implementations must be enclosed within the [`machine_description`] macro, which processes them to enable
@@ -91,9 +91,9 @@ pub use ::machine_check_macros::machine_description;
 /// The behaviour of machine-check is controlled by command-line arguments.
 pub use ::machine_check_exec::run;
 
-/// Runs `machine-check` with the given constructed system and custom arguments.
+/// Runs **machine-check** with the given constructed system and custom arguments.
 ///
-/// Custom arguments are used to run `machine-check`. Otherwise, this method behaves the same as [`run`].
+/// Custom arguments are used to run **machine-check**. Otherwise, this method behaves the same as [`run`].
 pub use ::machine_check_exec::run_with_args;
 
 #[doc(hidden)]

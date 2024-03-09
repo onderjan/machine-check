@@ -1,11 +1,11 @@
 # Utility type/operation crate for machine-check
 
 This crate is used to define concrete, abstract, etc. types and forward/backward operations
-for the formal verification tool [machine-check](https://crates.io/crates/machine-check).
+for the formal verification tool [machine-check](https://docs.rs/machine-check).
 
 ## Usage and Compatibility
 
-This crate is a utility crate for [machine-check](https://crates.io/crates/machine-check)
+This crate is a utility crate for [machine-check](https://docs.rs/machine-check)
 and should not be used on its own. No compatibility guarantees are made.
 
 ## License

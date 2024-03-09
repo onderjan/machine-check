@@ -1,11 +1,11 @@
 # Utility bitmask switch crate for machine-check
 
 This crate implements the internal behaviour of the bitmask switch macro defined 
-in the formal verification tool [machine-check](https://crates.io/crates/machine-check).
+in the formal verification tool [machine-check](https://docs.rs/machine-check).
 
 ## Usage and Compatibility
 
-This crate is a utility crate for [machine-check](https://crates.io/crates/machine-check)
+This crate is a utility crate for [machine-check](https://docs.rs/machine-check)
 and should not be used on its own. No compatibility guarantees are made.
 
 ## License
