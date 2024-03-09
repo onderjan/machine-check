@@ -35,7 +35,7 @@ mod machine_module {
         // Microcontroller program counter.
         // Stores the address of instruction
         // in program memory that will be executed next.
-        pc: Bitvector<8>,
+        pc: Bitvector<7>,
         // Four (2^2) 8-bit working registers.
         reg: BitvectorArray<2, 8>,
         // 256 (2^8) 8-bit data cells.
@@ -44,8 +44,8 @@ mod machine_module {
     impl ::machine_check::State for State {}
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {
-        // 256 (2^8) 12-bit program memory instructions.
-        pub progmem: BitvectorArray<8, 12>,
+        // 128 (2^7) 12-bit program memory instructions.
+        pub progmem: BitvectorArray<7, 12>,
     }
     impl ::machine_check::Machine for System {
         type Input = Input;
@@ -55,7 +55,7 @@ mod machine_module {
             // Only initialize Program Counter to 0 at reset.
             // Leave working registers and data uninitialized.
             State {
-                pc: Bitvector::<8>::new(0),
+                pc: Bitvector::<7>::new(0),
                 reg: Clone::clone(&input.uninit_reg),
                 data: Clone::clone(&input.uninit_data),
             }
@@ -64,32 +64,32 @@ mod machine_module {
             // Fetch the instruction to execute from program memory.
             let instruction = self.progmem[state.pc];
             // Increment the program counter.
-            let mut pc = state.pc + Bitvector::<8>::new(1);
+            let mut pc = state.pc + Bitvector::<7>::new(1);
             // Clone registers and data.
             let mut reg = Clone::clone(&state.reg);
             let mut data = Clone::clone(&state.data);
 
             // Perform instruction-specific behaviour.
             ::machine_check::bitmask_switch!(instruction {
-                "00dd_0---_aabb" => { // subtract
-                    reg[d] = reg[a] - reg[b];
+                "00dd_00--_aabb" => { // add
+                    reg[d] = reg[a] + reg[b];
                 }
-                "00dd_1---_gggg" => { // read input
+                "00dd_01--_gggg" => { // read input
                     reg[d] = input.gpio_read[g];
                 }
-                "01rr_kkkk_kkkk" => { // jump if zero
+                "00rr_1kkk_kkkk" => { // jump if zero
                     if reg[r] == Bitvector::<8>::new(0) {
                         pc = k;
                     };
                 }
-                "10dd_kkkk_kkkk" => { // load immediate
+                "01dd_kkkk_kkkk" => { // load immediate
                     reg[d] = k;
                 }
-                "11dd_0---_--nn" => { // load indirect
-                    reg[d] = data[reg[n]];
+                "10dd_nnnn_nnnn" => { // load direct
+                    reg[d] = data[n];
                 }
-                "11ss_1---_--nn" => { // store indirect
-                    data[reg[n]] = reg[s];
+                "11ss_nnnn_nnnn" => { // store direct
+                    data[n] = reg[s];
                 }
             });
 
@@ -104,26 +104,27 @@ use machine_check::{Bitvector, BitvectorArray};
 fn main() {
     let toy_program = [
         // (0) set r0 to zero
-        Bitvector::new(0b1000_0000_0000),
+        Bitvector::new(0b0100_0000_0000),
         // (1) set r1 to one
-        Bitvector::new(0b1001_0000_0001),
+        Bitvector::new(0b0101_0000_0001),
         // (2) set r2 to zero
-        Bitvector::new(0b1010_0000_0000),
-        // (3) store r1 content to data location 0
-        Bitvector::new(0b1100_1000_0001),
-        // (4) store r2 content to data location 1
-        Bitvector::new(0b1110_1000_0001),
+        Bitvector::new(0b0110_0000_0000),
         // --- main loop ---
+        // (3) store r1 content to data location 0
+        Bitvector::new(0b1100_0000_0000),
+        // (4) store r2 content to data location 1
+        Bitvector::new(0b1100_0000_0001),
         // (5) read input location 0 to r3
-        Bitvector::new(0b0011_1000_0000),
+        Bitvector::new(0b0011_0100_0000),
         // (6) jump to program location 3 if r3 is zero
-        Bitvector::new(0b0111_0000_0011),
+        //Bitvector::new(0b0011_1000_0011),
+        Bitvector::new(0b0011_1000_0101),
         // (7) increment r2
-        Bitvector::new(0b0010_0000_1001),
+        //Bitvector::new(0b0010_0000_1001),
         // (8) store r2 content to data location 1
-        Bitvector::new(0b1110_1000_0001),
+        //Bitvector::new(0b1110_0000_0001),
         // (9) jump to program location 3
-        Bitvector::new(0b0100_0000_0011),
+        Bitvector::new(0b0000_1000_0011),
     ];
 
     // load toy program to program memory, filling unused locations with 0

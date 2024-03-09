@@ -35,7 +35,7 @@ impl<T: Debug + Clone> LightArray<T> {
     }
 
     pub fn lattice_bi_fold<B: Copy>(&self, other: &Self, init: B, func: fn(B, &T, &T) -> B) -> B {
-        Self::bi_func(
+        Self::immutable_bi_func(
             self.inner.iter().map(|e| (*e.0, e.1)),
             other.inner.iter().map(|e| (*e.0, e.1)),
             |accumulator, lhs, rhs| ControlFlow::Continue(func(accumulator, lhs, rhs)),
@@ -44,11 +44,11 @@ impl<T: Debug + Clone> LightArray<T> {
     }
 
     pub fn subsume(&mut self, other: Self, func: fn(&mut T, T)) {
-        Self::bi_func(
-            self.inner.iter_mut().map(|e| (*e.0, e.1)),
+        Self::mutable_bi_func(
+            self,
             other.inner.into_iter(),
             |_, lhs, rhs| {
-                (func)(*lhs, rhs.clone());
+                (func)(lhs, rhs);
                 ControlFlow::Continue(())
             },
             (),
@@ -67,51 +67,138 @@ impl<T: Debug + Clone> LightArray<T> {
         }
     }
 
-    pub fn involve<U: Debug + Clone>(&mut self, other: &LightArray<U>, func: fn(&mut T, &U)) {
-        Self::bi_func(
-            self.inner.iter_mut().map(|e| (*e.0, e.1)),
-            other.inner.iter().map(|e| (*e.0, e.1)),
+    pub fn involve<V: Debug + Clone>(&mut self, other: &LightArray<V>, func: fn(&mut T, &V)) {
+        self.involve_with_flow(
+            other,
             |_, lhs, rhs| {
-                (func)(*lhs, *rhs);
+                (func)(lhs, rhs);
                 ControlFlow::Continue(())
             },
             (),
         );
     }
 
-    pub fn involve_with_flow<U: Debug + Clone, R>(
+    pub fn involve_with_flow<V: Debug + Clone, R>(
         &mut self,
-        other: &LightArray<U>,
-        func: fn(R, &mut T, &U) -> ControlFlow<R, R>,
+        other: &LightArray<V>,
+        func: impl Fn(R, &mut T, &V) -> ControlFlow<R, R>,
         default_result: R,
     ) -> R {
-        Self::bi_func(
-            self.inner.iter_mut().map(|e| (*e.0, e.1)),
+        Self::mutable_bi_func(
+            self,
             other.inner.iter().map(|e| (*e.0, e.1)),
-            |result, lhs, rhs| func(result, *lhs, *rhs),
+            |result, lhs, rhs| func(result, lhs, rhs),
             default_result,
         )
     }
 
-    fn bi_func<U, V, R>(
-        lhs_iter: impl Iterator<Item = (usize, U)>,
+    fn mutable_bi_func<U: Debug + Clone, V: Clone, R>(
+        lhs: &mut LightArray<U>,
         rhs_iter: impl Iterator<Item = (usize, V)>,
-        func: impl Fn(R, &mut U, &mut V) -> ControlFlow<R, R>,
+        func: impl Fn(R, &mut U, V) -> ControlFlow<R, R>,
+        default_result: R,
+    ) -> R {
+        let mut rhs_iter = rhs_iter.peekable();
+        let (mut index, mut rhs_current) = rhs_iter
+            .next()
+            .expect("Expected at least one light map entry");
+        assert_eq!(index, 0);
+
+        let mut lhs_previous = lhs
+            .inner
+            .get(&index)
+            .expect("Expected light map entry at index 0")
+            .clone();
+
+        let mut result = default_result;
+        let mut next_break = false;
+        loop {
+            use std::ops::Bound::{Excluded, Unbounded};
+
+            // if there is no current lhs at the index, insert it from previous
+            let lhs_current = if let Some(lhs_current) = lhs.inner.get_mut(&index) {
+                lhs_current
+            } else {
+                lhs.inner.insert(index, lhs_previous);
+                lhs.inner.get_mut(&index).unwrap()
+            };
+            lhs_previous = lhs_current.clone();
+
+            if next_break {
+                break result;
+            }
+
+            match (func)(result, lhs_current, rhs_current.clone()) {
+                ControlFlow::Continue(next_result) => {
+                    // continue normally
+                    result = next_result;
+                }
+                ControlFlow::Break(next_result) => {
+                    // break only after updating the next element
+                    result = next_result;
+                    next_break = true;
+                }
+            }
+
+            // move to the next index
+            let lhs_next_index = lhs
+                .inner
+                .range_mut((Excluded(index), Unbounded))
+                .next()
+                .map(|a| *a.0);
+            let rhs_next_index = rhs_iter.peek().map(|a| a.0);
+
+            let (next_index, move_rhs) = match (lhs_next_index, rhs_next_index) {
+                (None, None) => break result,
+                (Some(next_index), None) => (next_index, false),
+                (None, Some(next_index)) => (next_index, true),
+                (Some(lhs_next_index), Some(rhs_next_index)) => {
+                    match lhs_next_index.cmp(&rhs_next_index) {
+                        std::cmp::Ordering::Less => {
+                            // next lhs index is smaller
+                            (lhs_next_index, false)
+                        }
+                        std::cmp::Ordering::Equal => {
+                            // both next indices are equal, move rhs
+                            (rhs_next_index, true)
+                        }
+                        std::cmp::Ordering::Greater => {
+                            // next rhs index is smaller, move rhs
+                            (rhs_next_index, true)
+                        }
+                    }
+                }
+            };
+
+            if move_rhs {
+                rhs_current = rhs_iter.next().unwrap().1;
+            }
+
+            index = next_index;
+        }
+    }
+
+    fn immutable_bi_func<'a, U: 'a, V: 'a, R>(
+        lhs_iter: impl Iterator<Item = (usize, &'a U)>,
+        rhs_iter: impl Iterator<Item = (usize, &'a V)>,
+        func: impl Fn(R, &U, &V) -> ControlFlow<R, R>,
         default_result: R,
     ) -> R {
         let mut lhs_iter = lhs_iter.peekable();
         let mut rhs_iter = rhs_iter.peekable();
 
-        let mut lhs_current = lhs_iter
+        let (lhs_index, mut lhs_current) = lhs_iter
             .next()
             .expect("Expected at least one light map entry");
-        let mut rhs_current = rhs_iter
+        assert_eq!(lhs_index, 0);
+        let (rhs_index, mut rhs_current) = rhs_iter
             .next()
             .expect("Expected at least one light map entry");
+        assert_eq!(rhs_index, 0);
 
         let mut result = default_result;
-        let result = loop {
-            match (func)(result, &mut lhs_current.1, &mut rhs_current.1) {
+        loop {
+            match (func)(result, lhs_current, rhs_current) {
                 ControlFlow::Continue(next_result) => {
                     // continue normally
                     result = next_result;
@@ -122,30 +209,35 @@ impl<T: Debug + Clone> LightArray<T> {
             // move to the next index
             let lhs_next_index = lhs_iter.peek().map(|e| e.0);
             let rhs_next_index = rhs_iter.peek().map(|e| e.0);
-            match (lhs_next_index, rhs_next_index) {
+
+            let (move_lhs, move_rhs) = match (lhs_next_index, rhs_next_index) {
                 (None, None) => break result,
-                (None, Some(_)) => rhs_current = rhs_iter.next().unwrap(),
-                (Some(_), None) => lhs_current = lhs_iter.next().unwrap(),
+                (Some(_), None) => (true, false),
+                (None, Some(_)) => (false, true),
                 (Some(lhs_next_index), Some(rhs_next_index)) => {
                     match lhs_next_index.cmp(&rhs_next_index) {
                         std::cmp::Ordering::Less => {
                             // next lhs index is smaller, move it
-                            lhs_current = lhs_iter.next().unwrap();
+                            (true, false)
                         }
                         std::cmp::Ordering::Equal => {
                             // both next indices are equal, move both
-                            lhs_current = lhs_iter.next().unwrap();
-                            rhs_current = rhs_iter.next().unwrap();
+                            (true, true)
                         }
                         std::cmp::Ordering::Greater => {
                             // next rhs index is smaller, move it
-                            rhs_current = rhs_iter.next().unwrap();
+                            (false, true)
                         }
                     }
                 }
+            };
+            if move_lhs {
+                lhs_current = lhs_iter.next().unwrap().1;
             }
-        };
-        result
+            if move_rhs {
+                rhs_current = rhs_iter.next().unwrap().1;
+            }
+        }
     }
 }
 

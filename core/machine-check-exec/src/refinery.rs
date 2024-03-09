@@ -129,9 +129,9 @@ impl<M: FullMachine> Refinery<M> {
         if log_enabled!(log::Level::Debug) {
             self.space.mark_and_sweep();
             if assume_no_panic {
-                debug!("Inherent no-panic checking final space: {:#?}", self.space);
-            } else {
                 debug!("Property checking final space: {:#?}", self.space);
+            } else {
+                trace!("Inherent no-panic checking final space: {:#?}", self.space);
             }
         }
 
@@ -140,10 +140,19 @@ impl<M: FullMachine> Refinery<M> {
 
     fn refine(&mut self, culprit: &Culprit, assume_no_panic: bool) -> bool {
         self.num_refinements += 1;
+        /*if self.num_refinements % 100 == 99 {
+            self.space.mark_and_sweep();
+            debug!(
+                "Space after {} refinements: {:#?}",
+                self.num_refinements, self.space
+            );
+        }*/
         //info!("Refinement number: {}", self.num_refinements);
         // compute marking
         let mut current_state_mark =
             mck::refin::PanicResult::<<M::Refin as refin::Machine<M>>::State>::clean();
+
+        //println!("Refining culprit {:?}", culprit);
 
         // TODO: rework panic name kludge
         if culprit.literal.name() == "__panic" {
@@ -161,8 +170,12 @@ impl<M: FullMachine> Refinery<M> {
         let mut iter = culprit.path.iter().cloned().rev().peekable();
 
         while let Some(current_state_id) = iter.next() {
-            //info!("State mark: {:?}", current_state_mark);
-            //assert_ne!(current_state_mark, S::default());
+            //println!("State mark: {:?}", current_state_mark);
+            /*let mut proto_first = current_state_mark.result.proto_first();
+            if !current_state_mark.result.proto_increment(&mut proto_first) {
+                //panic!("Incomplete");
+                return false;
+            }*/
 
             let previous_state_id = iter.peek();
             let previous_node_id = match previous_state_id {
@@ -193,21 +206,18 @@ impl<M: FullMachine> Refinery<M> {
                 // the previous state must definitely be non-panicking
                 let previous_state = &previous_state.result;
 
-                /*info!("Previous state: {:?}", previous_state);
-                info!("Step cur state mark: {:?}", current_state_mark);
-                if self.num_refinements == 22 && i == 4 {
-                    info!("HERE");
-                }*/
+                //println!("Previous state: {:?}", previous_state);
+                //println!("Step current state mark: {:?}", current_state_mark);
                 let (_refinement_machine, new_state_mark, input_mark) = M::Refin::next(
                     (&self.abstract_system, previous_state, input),
                     current_state_mark,
                 );
-                //info!("Step new state mark: {:?}", new_state_mark);
+                //println!("Step new state mark: {:?}", new_state_mark);
 
                 (input_mark, Some(new_state_mark))
             } else {
                 // use init function
-                //info!("Init");
+                //println!("Init");
 
                 // increasing state precision failed, try increasing init precision
                 let (_refinement_machine, input_mark) =
@@ -217,9 +227,11 @@ impl<M: FullMachine> Refinery<M> {
 
             let input_precision = self.precision.mut_input(previous_node_id);
 
-            //info!("Input mark: {:?}", input_mark);
-            //info!("Input prec: {:?}", input_precision);
+            //println!("Input mark: {:?}", input_mark);
+            //println!("Input precision: {:?}", input_precision);
             if input_precision.apply_refin(&input_mark) {
+                //println!("Applied input mark: {:?}", input_mark);
+                //println!("Input precision: {:?}", input_precision);
                 // single mark applied, regenerate
                 self.regenerate(previous_node_id, assume_no_panic);
                 return true;

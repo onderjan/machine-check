@@ -219,12 +219,12 @@ impl super::StatementConverter {
         // swap parameter and result
         // the parameter is a reference
         let mut call = call.clone();
-        if let Expr::Reference(ref mut arg_ref) = call.args[0] {
+        let orig_call_param = if let Expr::Reference(ref mut arg_ref) = call.args[0] {
             let orig_call_param = extract_expr_ident(&arg_ref.expr)
                 .expect("Clone argument in reference should be ident")
                 .clone();
             *arg_ref.expr = backward_later.clone();
-            stmts.push(create_let(orig_call_param.clone(), Expr::Call(call), None));
+            orig_call_param
         } else {
             let arg = &mut call.args[0];
             let orig_call_param = extract_expr_ident(arg)
@@ -236,8 +236,12 @@ impl super::StatementConverter {
                 mutability: None,
                 expr: Box::new(backward_later.clone()),
             });
-            stmts.push(create_let(orig_call_param.clone(), Expr::Call(call), None));
-        }
+            orig_call_param
+        };
+        let mut refine_join_left = create_expr_ident(orig_call_param.clone());
+        self.backward_scheme.apply_to_expr(&mut refine_join_left)?;
+
+        stmts.push(create_refine_join_stmt(refine_join_left, Expr::Call(call)));
 
         Ok(())
     }
