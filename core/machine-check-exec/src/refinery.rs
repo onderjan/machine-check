@@ -139,20 +139,21 @@ impl<M: FullMachine> Refinery<M> {
     }
 
     fn refine(&mut self, culprit: &Culprit, assume_no_panic: bool) -> bool {
+        /*self.space.mark_and_sweep();
+        debug!(
+            "Space after {} refinements: {:#?}",
+            self.num_refinements, self.space
+        );*/
+
         self.num_refinements += 1;
-        /*if self.num_refinements % 100 == 99 {
-            self.space.mark_and_sweep();
-            debug!(
-                "Space after {} refinements: {:#?}",
-                self.num_refinements, self.space
-            );
-        }*/
+        //if self.num_refinements % 100 == 99 {
+        //}
         //info!("Refinement number: {}", self.num_refinements);
         // compute marking
         let mut current_state_mark =
             mck::refin::PanicResult::<<M::Refin as refin::Machine<M>>::State>::clean();
 
-        //println!("Refining culprit {:?}", culprit);
+        //debug!("Refining culprit {:?}", culprit);
 
         // TODO: rework panic name kludge
         if culprit.literal.name() == "__panic" {

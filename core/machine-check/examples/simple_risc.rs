@@ -77,8 +77,9 @@ mod machine_module {
                 "00dd_01--_gggg" => { // read input
                     reg[d] = input.gpio_read[g];
                 }
-                "00rr_1kkk_kkkk" => { // jump if zero
-                    if reg[r] == Bitvector::<8>::new(0) {
+                "00rr_1kkk_kkkk" => { // jump if bit 0 is set
+                    if reg[r] & Bitvector::<8>::new(1)
+                        == Bitvector::<8>::new(1) {
                         pc = k;
                     };
                 }
@@ -116,15 +117,14 @@ fn main() {
         Bitvector::new(0b1100_0000_0001),
         // (5) read input location 0 to r3
         Bitvector::new(0b0011_0100_0000),
-        // (6) jump to program location 3 if r3 is zero
-        //Bitvector::new(0b0011_1000_0011),
-        Bitvector::new(0b0011_1000_0101),
+        // (6) jump to program location 3 if r3 bit 0 is set
+        Bitvector::new(0b0011_1000_0011),
         // (7) increment r2
-        //Bitvector::new(0b0010_0000_1001),
+        Bitvector::new(0b0010_0000_1001),
         // (8) store r2 content to data location 1
-        //Bitvector::new(0b1110_0000_0001),
+        Bitvector::new(0b1110_0000_0001),
         // (9) jump to program location 3
-        Bitvector::new(0b0000_1000_0011),
+        Bitvector::new(0b0001_1000_0011),
     ];
 
     // load toy program to program memory, filling unused locations with 0
