@@ -17,7 +17,7 @@ that `machine-check` understands.
 
 ## Examples
 A very simple example of a system verifiable by `machine-check` is [counter](
-    https://docs.rs/crate/machine-check/0.2.0-alpha.1/source/examples/counter.rs), 
+    https://docs.rs/crate/machine-check/0.2.0-alpha.2/source/examples/counter.rs), 
 a simple [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine) which contains 
 an eight-bit `value`, which is initialized to zero on initialization and then is incremented 
 if the `increment` single-bit input is 1. If the value reaches 157, it is immediately zeroed again. 
@@ -60,7 +60,7 @@ It is also possible to detect system panics, which is useful e.g. for machine-co
 take the machine-code file from command line and should detect that it a reserved instruction
 can be executed during the course of the program. A simple example is in the 
 [conditional_panic](
-    https://docs.rs/crate/machine-check/0.2.0-alpha.1/source/examples/conditional_panic.rs) 
+    https://docs.rs/crate/machine-check/0.2.0-alpha.2/source/examples/conditional_panic.rs) 
 example, which should panic with message 
 "Example panic 2" if the input is equal to 1. You can copy it into your crate, then run it with 
 parameter "--inherent", which signifies that you are only interested about the inherent 
@@ -76,7 +76,7 @@ a more pressing issue to fix.
 
 ### Machine-code verification
 There is also an example of an extremely simplified RISC microcontroller 
-in [simple_risc](https://docs.rs/crate/machine-check/0.2.0-alpha.1/source/examples/simple_risc.rs), 
+in [simple_risc](https://docs.rs/crate/machine-check/0.2.0-alpha.2/source/examples/simple_risc.rs), 
 showcasing the [`bitmask_switch`] macro that 
 can be used for elegant transcription of microcontroller behaviour depending on instruction 
 opcodes.

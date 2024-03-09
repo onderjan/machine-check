@@ -1,12 +1,12 @@
 [package]
 name = "machine-check-avr"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Crate for the formal verification of AVR microcontrollers by machine-check"
 rust-version = "1.75"
 
 [dependencies]
-machine-check = "=0.2.0-alpha.1"
+machine-check = "=0.2.0-alpha.2"
 
 ihex = "3.0.0"

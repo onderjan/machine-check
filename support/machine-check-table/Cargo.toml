@@ -1,12 +1,12 @@
 [package]
 name = "machine-check-table"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-machine-check-hw = "=0.2.0-alpha.1"
+machine-check-hw = "=0.2.0-alpha.2"
 
 anyhow = "1.0.75"
 yaml-rust = "0.4"

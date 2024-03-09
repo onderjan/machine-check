@@ -1,6 +1,6 @@
 [package]
 name = "machine-check"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -8,6 +8,6 @@ description = "Formal verification tool for digital systems"
 rust-version = "1.75"
 
 [dependencies]
-mck = "=0.2.0-alpha.1"
-machine-check-macros = "=0.2.0-alpha.1"
-machine-check-exec = "=0.2.0-alpha.1"
+mck = "=0.2.0-alpha.2"
+machine-check-macros = "=0.2.0-alpha.2"
+machine-check-exec = "=0.2.0-alpha.2"
