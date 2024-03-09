@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    abstr::{self, Abstr, Phi},
+    abstr::{self, Abstr, ManipField, Phi},
     forward::ReadWrite,
     traits::misc::MetaEq,
 };
@@ -107,5 +107,34 @@ impl<const I: u32, const L: u32> Phi for Array<I, L> {
 impl<const I: u32, const L: u32> Debug for Array<I, L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
+    }
+}
+
+impl<const I: u32, const L: u32> ManipField for Array<I, L> {
+    fn index(&self, index: u64) -> Option<&dyn ManipField> {
+        if index >= Self::SIZE as u64 {
+            return None;
+        }
+        Some(&self.inner[index as usize])
+    }
+
+    fn num_bits(&self) -> Option<u32> {
+        None
+    }
+
+    fn min_unsigned(&self) -> Option<u64> {
+        None
+    }
+
+    fn max_unsigned(&self) -> Option<u64> {
+        None
+    }
+
+    fn min_signed(&self) -> Option<i64> {
+        None
+    }
+
+    fn max_signed(&self) -> Option<i64> {
+        None
     }
 }

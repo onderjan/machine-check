@@ -88,6 +88,19 @@ impl PropositionParser {
         let Some(PropositionLexItem::Ident(left_name)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
+        let index = if let Some(PropositionLexItem::OpeningParen('[')) = self.lex_items.front() {
+            self.lex_items.pop_front();
+            let Some(PropositionLexItem::Number(index)) = self.lex_items.pop_front() else {
+                return Err(ExecError::PropertyNotParseable(self.input.clone()));
+            };
+            let Some(PropositionLexItem::ClosingParen(']')) = self.lex_items.pop_front() else {
+                return Err(ExecError::PropertyNotParseable(self.input.clone()));
+            };
+
+            Some(index)
+        } else {
+            None
+        };
         let Some(PropositionLexItem::Comma) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
@@ -101,7 +114,12 @@ impl PropositionParser {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         }
 
-        Ok(Literal::new(left_name, comparison_type, right_number))
+        Ok(Literal::new(
+            left_name,
+            comparison_type,
+            right_number,
+            index,
+        ))
     }
 
     fn parse_proposition(&mut self) -> Result<Proposition, ExecError> {
@@ -120,6 +138,14 @@ impl PropositionParser {
                 match ident.as_ref() {
                     "and" => Proposition::And(self.parse_bi()?),
                     "or" => Proposition::Or(self.parse_bi()?),
+                    "implies" => {
+                        // P => Q is equivalent to (!P) | Q
+                        let PropBi { a: p, b: q } = self.parse_bi()?;
+                        Proposition::Or(PropBi {
+                            a: Box::new(Proposition::Negation(PropUni(p))),
+                            b: q,
+                        })
+                    }
                     "not" => Proposition::Negation(self.parse_uni()?),
                     "eq" => Proposition::Literal(self.parse_comparison(ComparisonType::Eq)?),
                     "neq" => Proposition::Literal(self.parse_comparison(ComparisonType::Neq)?),

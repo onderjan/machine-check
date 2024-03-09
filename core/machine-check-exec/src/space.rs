@@ -268,9 +268,20 @@ impl<M: FullMachine> Space<M> {
                     None => return Some(Err(())),
                 }
             };
+            let manip_field = if let Some(index) = literal.index() {
+                let Some(indexed_manip_field) = manip_field.index(index) else {
+                    return Some(Err(()));
+                };
+                indexed_manip_field
+            } else {
+                manip_field
+            };
 
-            let min_unsigned = manip_field.min_unsigned();
-            let max_unsigned = manip_field.max_unsigned();
+            let (Some(min_unsigned), Some(max_unsigned)) =
+                (manip_field.min_unsigned(), manip_field.max_unsigned())
+            else {
+                return Some(Err(()));
+            };
             let right_unsigned = literal.right_number_unsigned();
             let comparison_result = match literal.comparison_type() {
                 crate::proposition::ComparisonType::Eq => {
@@ -296,8 +307,11 @@ impl<M: FullMachine> Space<M> {
                     )
                 }
                 crate::proposition::ComparisonType::Signed(inequality_type) => {
-                    let min_signed = manip_field.min_signed();
-                    let max_signed = manip_field.max_signed();
+                    let (Some(min_signed), Some(max_signed)) =
+                        (manip_field.min_signed(), manip_field.max_signed())
+                    else {
+                        return Some(Err(()));
+                    };
                     let right_signed = literal.right_number_signed();
                     Self::resolve_inequality(inequality_type, min_signed, max_signed, right_signed)
                 }

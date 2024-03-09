@@ -65,7 +65,9 @@ where
 }
 
 pub trait ManipField {
-    fn num_bits(&self) -> u32;
+    fn index(&self, index: u64) -> Option<&dyn ManipField>;
+    fn index_mut(&mut self, index: u64) -> Option<&mut dyn ManipField>;
+    fn num_bits(&self) -> Option<u32>;
     fn mark(&mut self);
 }
 pub trait Manipulatable {

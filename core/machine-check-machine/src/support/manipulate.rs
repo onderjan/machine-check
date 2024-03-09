@@ -118,11 +118,13 @@ fn field_manipulatable_ident(field: &Field, kind: ManipulateKind) -> Option<Iden
     if path_type.qself.is_some() || path_type.path.leading_colon.is_none() {
         return None;
     }
-    if !path_matches_global_names(&path_type.path, &["mck", kind.str(), "Bitvector"]) {
-        return None;
+    if path_matches_global_names(&path_type.path, &["mck", kind.str(), "Bitvector"])
+        || path_matches_global_names(&path_type.path, &["mck", kind.str(), "Array"])
+    {
+        Some(field_ident.clone())
+    } else {
+        None
     }
-
-    Some(field_ident.clone())
 }
 
 fn create_fn(

@@ -47,11 +47,12 @@ where
 }
 
 pub trait ManipField {
-    fn num_bits(&self) -> u32;
-    fn min_unsigned(&self) -> u64;
-    fn max_unsigned(&self) -> u64;
-    fn min_signed(&self) -> i64;
-    fn max_signed(&self) -> i64;
+    fn index(&self, index: u64) -> Option<&dyn ManipField>;
+    fn num_bits(&self) -> Option<u32>;
+    fn min_unsigned(&self) -> Option<u64>;
+    fn max_unsigned(&self) -> Option<u64>;
+    fn min_signed(&self) -> Option<i64>;
+    fn max_signed(&self) -> Option<i64>;
 }
 pub trait Manipulatable {
     #[must_use]

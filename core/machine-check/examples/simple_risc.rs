@@ -6,8 +6,17 @@
 // Only the things specific to the microcontroller will
 // be commented here. See the example "counter"
 // for a basic description of a machine-check system.
+//
+// Some of the properties that hold and are verifiable:
+//  - Register 1 is set to 1 before reaching the start
+//    of the main loop:
+//    "AF[and(eq(reg[1], 1), unsigned_lt(pc,3))]"
+//  - It is always possible to reach program location 9:
+//    "AG[EF(eq(pc, 9))]"
+//  - Program locations above 9 are never reached.
+//    "AG[unsigned_le(pc, 9)]"
 
-#[::machine_check::machine_description]
+#[machine_check::machine_description]
 mod machine_module {
     use ::machine_check::{Bitvector, BitvectorArray};
     use ::std::{
@@ -117,13 +126,13 @@ fn main() {
         Bitvector::new(0b1100_0000_0001),
         // (5) read input location 0 to r3
         Bitvector::new(0b0011_0100_0000),
-        // (6) jump to program location 3 if r3 bit 0 is set
+        // (6) jump to (3) if r3 bit 0 is set
         Bitvector::new(0b0011_1000_0011),
         // (7) increment r2
         Bitvector::new(0b0010_0000_1001),
         // (8) store r2 content to data location 1
         Bitvector::new(0b1110_0000_0001),
-        // (9) jump to program location 3
+        // (9) jump to (3)
         Bitvector::new(0b0001_1000_0011),
     ];
 

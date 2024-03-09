@@ -56,6 +56,7 @@ impl<M: FullMachine> Refinery<M> {
                 String::from("__panic"),
                 crate::proposition::ComparisonType::Eq,
                 0,
+                None,
             ),
         )))));
         let inherent_never_panic = self.verify_inner(&never_panic_prop, false)?;
@@ -160,11 +161,20 @@ impl<M: FullMachine> Refinery<M> {
             current_state_mark.panic = refin::Bitvector::new_marked();
         } else {
             // TODO: mark more adequately
-            let manipulatable_mark = current_state_mark
+            let manip_mark = current_state_mark
                 .result
                 .get_mut(culprit.literal.name())
                 .expect("Culprit mark should be manipulatable");
-            manipulatable_mark.mark();
+
+            let manip_mark = if let Some(index) = culprit.literal.index() {
+                let Some(indexed_manip_mark) = manip_mark.index_mut(index) else {
+                    panic!("Indexed culprit mark should be indexable");
+                };
+                indexed_manip_mark
+            } else {
+                manip_mark
+            };
+            manip_mark.mark();
         }
 
         // try increasing precision of the state preceding current mark

@@ -60,12 +60,20 @@ impl<const L: u32> MetaEq for MarkBitvector<L> {
 }
 
 impl<const L: u32> ManipField for MarkBitvector<L> {
-    fn num_bits(&self) -> u32 {
-        L
+    fn num_bits(&self) -> Option<u32> {
+        Some(L)
     }
 
     fn mark(&mut self) {
         *self = Self::new_marked();
+    }
+
+    fn index(&self, _index: u64) -> Option<&dyn ManipField> {
+        None
+    }
+
+    fn index_mut(&mut self, _index: u64) -> Option<&mut dyn ManipField> {
+        None
     }
 }
 

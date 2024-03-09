@@ -67,6 +67,18 @@ fn deduce_end<M: FullMachine>(
                 deduce_end(checker, b.as_ref(), path)
             }
         }
+        Proposition::And(PropBi { a, b }) => {
+            // the state should be unknown in p or q
+            let state_index = *path.back().unwrap();
+            let a_interpretation = checker.get_state_interpretation(a.as_ref(), state_index);
+            if a_interpretation.is_none() {
+                deduce_end(checker, a, path)
+            } else {
+                let b_interpretation = checker.get_state_interpretation(b.as_ref(), state_index);
+                assert!(b_interpretation.is_none());
+                deduce_end(checker, b.as_ref(), path)
+            }
+        }
         Proposition::E(prop_temp) => match prop_temp {
             PropTemp::X(inner) => deduce_end_ex(checker, path, inner),
             PropTemp::G(inner) => deduce_end_eg(checker, path, inner),

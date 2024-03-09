@@ -53,15 +53,22 @@ pub struct Literal {
     left_name: String,
     comparison_type: ComparisonType,
     right_number: u64,
+    index: Option<u64>,
 }
 
 impl Literal {
-    pub fn new(left_name: String, comparison_type: ComparisonType, right_number: u64) -> Literal {
+    pub fn new(
+        left_name: String,
+        comparison_type: ComparisonType,
+        right_number: u64,
+        index: Option<u64>,
+    ) -> Literal {
         Literal {
             complementary: false,
             left_name,
             comparison_type,
             right_number,
+            index,
         }
     }
 
@@ -83,6 +90,10 @@ impl Literal {
 
     pub fn is_complementary(&self) -> bool {
         self.complementary
+    }
+
+    pub fn index(&self) -> Option<u64> {
+        self.index
     }
 }
 

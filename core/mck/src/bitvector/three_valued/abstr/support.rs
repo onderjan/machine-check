@@ -261,24 +261,28 @@ impl<const L: u32> Phi for ThreeValuedBitvector<L> {
 }
 
 impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
-    fn num_bits(&self) -> u32 {
-        L
+    fn num_bits(&self) -> Option<u32> {
+        Some(L)
     }
 
-    fn min_unsigned(&self) -> u64 {
-        self.umin().as_unsigned()
+    fn min_unsigned(&self) -> Option<u64> {
+        Some(self.umin().as_unsigned())
     }
 
-    fn max_unsigned(&self) -> u64 {
-        self.umax().as_unsigned()
+    fn max_unsigned(&self) -> Option<u64> {
+        Some(self.umax().as_unsigned())
     }
 
-    fn min_signed(&self) -> i64 {
-        self.smin().as_signed()
+    fn min_signed(&self) -> Option<i64> {
+        Some(self.smin().as_signed())
     }
 
-    fn max_signed(&self) -> i64 {
-        self.smax().as_signed()
+    fn max_signed(&self) -> Option<i64> {
+        Some(self.smax().as_signed())
+    }
+
+    fn index(&self, _index: u64) -> Option<&dyn ManipField> {
+        None
     }
 }
 

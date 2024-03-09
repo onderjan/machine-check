@@ -84,6 +84,13 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                 let b_labelling = self.get_labelling(b);
                 a_labelling.union(b_labelling).cloned().collect()
             }
+            Proposition::And(PropBi { a, b }) => {
+                self.compute_labelling(a)?;
+                self.compute_labelling(b)?;
+                let a_labelling = self.get_labelling(a);
+                let b_labelling = self.get_labelling(b);
+                a_labelling.intersection(b_labelling).cloned().collect()
+            }
             Proposition::E(prop_temp) => match prop_temp {
                 PropTemp::X(inner) => self.compute_ex_labelling(inner)?,
                 PropTemp::G(inner) => self.compute_eg_labelling(inner)?,

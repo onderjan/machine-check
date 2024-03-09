@@ -5,7 +5,7 @@ use std::ops::ControlFlow;
 use crate::{
     abstr,
     backward::ReadWrite,
-    refin::{self, Bitvector, Boolean, Refine},
+    refin::{self, Bitvector, Boolean, ManipField, Refine},
     traits::misc::{Meta, MetaEq},
 };
 
@@ -201,5 +201,29 @@ impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
 impl<const I: u32, const L: u32> Debug for Array<I, L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
+    }
+}
+
+impl<const I: u32, const L: u32> ManipField for Array<I, L> {
+    fn index(&self, index: u64) -> Option<&dyn ManipField> {
+        if index > usize::MAX as u64 {
+            return None;
+        }
+        Some(&self.inner[index as usize])
+    }
+
+    fn index_mut(&mut self, index: u64) -> Option<&mut dyn ManipField> {
+        if index > usize::MAX as u64 {
+            return None;
+        }
+        Some(&mut self.inner[index as usize])
+    }
+
+    fn num_bits(&self) -> Option<u32> {
+        None
+    }
+
+    fn mark(&mut self) {
+        self.inner = LightArray::new_filled(refin::Bitvector::<L>::new_marked(), Self::SIZE);
     }
 }
