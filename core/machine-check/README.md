@@ -28,10 +28,11 @@ The magic of **machine-check** is unlocked by the [`machine_description`] macro,
 analogues to the code it is applied to, allowing simply running **machine-check** by calling [`run`] in the main 
 function after constructing the system.
 
-If you put the [counter](examples/counter.rs) inside your own Rust crate (with **machine-check** as a dependency)
-, you can  verify that the counter is always lesser than 157 in each system state, using a specification property 
-based on [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic). Let's use 
-**machine-check** to prove the property: 
+If you put the [counter](https://docs.rs/crate/machine-check/0.2.0/source/examples/counter.rs) 
+inside your own Rust crate (with **machine-check** as a dependency), you can  verify that the counter is always 
+lesser than 157 in each system state, using a specification property based on 
+[Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic). Let's use **machine-check** 
+to prove the property: 
 ```
 $ cargo run -- --property "AG[unsigned_lt(value,157)]"
 
