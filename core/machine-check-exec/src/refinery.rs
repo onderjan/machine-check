@@ -29,23 +29,28 @@ use mck::abstr::Machine as AbstrMachine;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Refine;
 
+pub struct Settings {
+    pub naive_inputs: bool,
+    pub use_decay: bool,
+}
+
 pub struct Refinery<M: FullMachine> {
     abstract_system: M::Abstr,
     precision: Precision<M>,
     space: Space<M>,
     num_refinements: usize,
-    use_decay: bool,
+    settings: Settings,
 }
 
 impl<M: FullMachine> Refinery<M> {
-    pub fn new(system: M, use_decay: bool) -> Self {
+    pub fn new(system: M, settings: Settings) -> Self {
         let abstract_system = M::Abstr::from_concrete(system);
         Refinery {
             abstract_system,
-            precision: Precision::new(),
+            precision: Precision::new(settings.naive_inputs),
             space: Space::new(),
             num_refinements: 0,
-            use_decay,
+            settings,
         }
     }
 
@@ -87,7 +92,7 @@ impl<M: FullMachine> Refinery<M> {
     ) -> Result<bool, ExecError> {
         // completely regenerate
         self.space = Space::new();
-        self.precision = Precision::new();
+        self.precision = Precision::new(self.settings.naive_inputs);
         self.regenerate(NodeId::START, assume_no_panic);
 
         trace!("Original proposition: {:#?}", prop);
@@ -194,7 +199,7 @@ impl<M: FullMachine> Refinery<M> {
                 None => NodeId::START,
             };
 
-            if self.use_decay {
+            if self.settings.use_decay {
                 // decay is applied last in forward direction, so we will apply it first
                 let decay_precision = self.precision.mut_decay(previous_node_id);
                 //info!("Decay prec: {:?}", decay_precision);
@@ -316,7 +321,7 @@ impl<M: FullMachine> Refinery<M> {
                     next_state.panic = abstr::Bitvector::new(0);
                 }
 
-                if self.use_decay {
+                if self.settings.use_decay {
                     decay_precision.force_decay(&mut next_state);
                 }
 
@@ -332,8 +337,11 @@ impl<M: FullMachine> Refinery<M> {
 
     pub fn info(&self) -> ExecStats {
         ExecStats {
-            num_states: self.space.num_states(),
             num_refinements: self.num_refinements,
+            num_generated_states: self.space.num_generated_states(),
+            num_final_states: self.space.num_states(),
+            num_generated_transitions: self.space.num_generated_transitions(),
+            num_final_transitions: self.space.num_transitions(),
         }
     }
 }

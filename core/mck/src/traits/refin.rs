@@ -17,6 +17,7 @@ where
     fn to_condition(&self) -> Boolean;
     fn force_decay(&self, target: &mut A);
     fn clean() -> Self;
+    fn dirty() -> Self;
 }
 
 pub trait Input<C: FullMachine>:

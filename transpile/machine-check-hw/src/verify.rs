@@ -59,7 +59,7 @@ pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> 
     // print interesting facts
     info!(
         "Used {} states and {} refinements.",
-        exec_result.stats.num_states, exec_result.stats.num_refinements
+        exec_result.stats.num_final_states, exec_result.stats.num_refinements
     );
     // print conclusion or return exec error
     let conclusion = exec_result.result.map_err(CheckError::ExecError)?;

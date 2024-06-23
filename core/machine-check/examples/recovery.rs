@@ -13,7 +13,7 @@ mod machine_module {
     pub struct Input {
         value: Unsigned<8>,
         reset: Bitvector<1>,
-        unused: BitvectorArray<16, 8>,
+        //unused: BitvectorArray<16, 8>,
     }
 
     impl ::machine_check::Input for Input {}
@@ -21,7 +21,8 @@ mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         max_value: Unsigned<8>,
-        unused: BitvectorArray<16, 8>,
+        //unused: BitvectorArray<16, 8>,
+        free_counter: Unsigned<2>,
     }
 
     impl ::machine_check::State for State {}
@@ -37,7 +38,8 @@ mod machine_module {
         fn init(&self, input: &Input) -> State {
             State {
                 max_value: Unsigned::<8>::new(0),
-                unused: Clone::clone(&input.unused),
+                //unused: Clone::clone(&input.unused),
+                free_counter: Unsigned::<2>::new(0),
             }
         }
 
@@ -55,10 +57,12 @@ mod machine_module {
                 next_max = Unsigned::<8>::new(0);
             }
 
-            let unused = Clone::clone(&input.unused);
+            //let unused = Clone::clone(&input.unused);
+            let free_counter = state.free_counter + Unsigned::<2>::new(1);
             State {
                 max_value: next_max,
-                unused,
+                //unused,
+                free_counter,
             }
         }
     }

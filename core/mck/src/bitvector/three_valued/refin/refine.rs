@@ -50,4 +50,8 @@ impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
     fn clean() -> Self {
         Self::new_unmarked()
     }
+
+    fn dirty() -> Self {
+        Self::new_marked()
+    }
 }

@@ -10,25 +10,39 @@ use crate::space::NodeId;
 pub struct Precision<M: FullMachine> {
     input: BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input>,
     decay: BTreeMap<NodeId, refin::PanicResult<<M::Refin as refin::Machine<M>>::State>>,
+    naive_inputs: bool,
 }
 
 impl<M: FullMachine> Precision<M> {
-    pub fn new() -> Self {
+    pub fn new(naive_inputs: bool) -> Self {
         Precision {
             input: BTreeMap::new(),
             decay: BTreeMap::new(),
+            naive_inputs,
         }
     }
 
     pub fn get_input(&self, node_id: NodeId) -> <M::Refin as refin::Machine<M>>::Input {
         match self.input.get(&node_id) {
             Some(input) => input.clone(),
-            None => Refine::clean(),
+            None => {
+                if self.naive_inputs {
+                    Refine::dirty()
+                } else {
+                    Refine::clean()
+                }
+            }
         }
     }
 
     pub fn mut_input(&mut self, node_id: NodeId) -> &mut <M::Refin as refin::Machine<M>>::Input {
-        self.input.entry(node_id).or_insert_with(Refine::clean)
+        self.input
+            .entry(node_id)
+            .or_insert_with(if self.naive_inputs {
+                Refine::dirty
+            } else {
+                Refine::clean
+            })
     }
 
     pub fn get_decay(

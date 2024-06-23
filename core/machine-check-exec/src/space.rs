@@ -83,6 +83,7 @@ pub struct Space<M: FullMachine> {
     state_map: BiMap<StateId, Rc<WrappedState<M>>>,
     num_states_for_sweep: usize,
     next_state_id: StateId,
+    num_generated_edges: usize,
 }
 
 impl<M: FullMachine> Debug for Space<M> {
@@ -126,7 +127,16 @@ impl<M: FullMachine> Space<M> {
             state_map: BiMap::new(),
             num_states_for_sweep: 32,
             next_state_id: StateId(NonZeroUsize::MIN),
+            num_generated_edges: 0,
         }
+    }
+
+    pub fn num_generated_states(&self) -> usize {
+        self.next_state_id.0.get() - 1
+    }
+
+    pub fn num_generated_transitions(&self) -> usize {
+        self.num_generated_edges
     }
 
     pub fn get_state_by_id(&self, state_id: StateId) -> &PanicState<M> {
@@ -202,6 +212,7 @@ impl<M: FullMachine> Space<M> {
         to: NodeId,
         input: &<M::Abstr as abstr::Machine<M>>::Input,
     ) {
+        self.num_generated_edges += 1;
         if self.node_graph.contains_edge(from, to) {
             // do nothing
             return;
@@ -246,6 +257,10 @@ impl<M: FullMachine> Space<M> {
 
     pub fn num_states(&self) -> usize {
         self.state_map.len()
+    }
+
+    pub fn num_transitions(&self) -> usize {
+        self.node_graph.edge_count()
     }
 
     pub fn state_id_iter(&self) -> impl Iterator<Item = StateId> + '_ {

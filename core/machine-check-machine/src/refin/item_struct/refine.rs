@@ -27,7 +27,8 @@ pub(crate) fn refine_impl(
     let join_fn = apply_join_fn(item_struct)?;
     let decay_fn = force_decay_fn(item_struct, abstr_type_path)?;
     let to_condition_fn = to_condition_fn(item_struct)?;
-    let clean_fn = clean_fn(item_struct)?;
+    let clean_fn = mark_creation_fn(item_struct, "clean", path!(::mck::refin::Refine::clean))?;
+    let dirty_fn = mark_creation_fn(item_struct, "dirty", path!(::mck::refin::Refine::dirty))?;
 
     let refine_trait: Path = path!(::mck::refin::Refine);
     let refine_trait =
@@ -42,6 +43,7 @@ pub(crate) fn refine_impl(
             ImplItem::Fn(decay_fn),
             ImplItem::Fn(to_condition_fn),
             ImplItem::Fn(clean_fn),
+            ImplItem::Fn(dirty_fn),
         ],
     )))
 }
@@ -211,15 +213,18 @@ fn to_condition_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
     ))
 }
 
-fn clean_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
+fn mark_creation_fn(
+    s: &ItemStruct,
+    name: &str,
+    name_path: Path,
+) -> Result<ImplItemFn, BackwardError> {
     let mut local_stmts = Vec::new();
     let mut assign_stmts = Vec::new();
     let mut struct_field_values = Vec::new();
 
     for (index, field) in s.fields.iter().enumerate() {
-        let uninit_expr =
-            create_expr_call(create_expr_path(path!(::mck::refin::Refine::clean)), vec![]);
-        let temp_ident = create_ident(&format!("__mck_clean_{}", index));
+        let uninit_expr = create_expr_call(create_expr_path(name_path.clone()), vec![]);
+        let temp_ident = create_ident(&format!("__mck_{}_{}", name, index));
         local_stmts.push(create_let_bare(temp_ident.clone(), None));
         assign_stmts.push(create_assign(temp_ident.clone(), uninit_expr, true));
         struct_field_values.push(create_field_value(
@@ -242,7 +247,7 @@ fn clean_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
     local_stmts.push(Stmt::Expr(struct_expr, None));
 
     Ok(create_impl_item_fn(
-        create_ident("clean"),
+        create_ident(name),
         vec![],
         Some(create_type_path(path!(Self))),
         local_stmts,

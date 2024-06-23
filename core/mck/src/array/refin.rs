@@ -165,6 +165,13 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
             inner: LightArray::new_filled(Bitvector::clean(), Self::SIZE),
         }
     }
+
+    fn dirty() -> Self {
+        assert!(I < isize::BITS);
+        Self {
+            inner: LightArray::new_filled(Bitvector::dirty(), Self::SIZE),
+        }
+    }
 }
 
 impl<const I: u32, const L: u32> MetaEq for Array<I, L> {

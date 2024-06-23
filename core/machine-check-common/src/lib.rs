@@ -25,6 +25,9 @@ pub struct ExecResult {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ExecStats {
-    pub num_states: usize,
     pub num_refinements: usize,
+    pub num_generated_states: usize,
+    pub num_final_states: usize,
+    pub num_generated_transitions: usize,
+    pub num_final_transitions: usize,
 }

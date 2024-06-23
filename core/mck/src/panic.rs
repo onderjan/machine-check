@@ -75,5 +75,12 @@ pub mod refin {
                 result: T::clean(),
             }
         }
+
+        fn dirty() -> Self {
+            Self {
+                panic: crate::refin::Bitvector::new_marked(),
+                result: T::dirty(),
+            }
+        }
     }
 }

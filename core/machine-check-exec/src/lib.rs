@@ -12,7 +12,7 @@ use mck::concr::FullMachine;
 
 use clap::{ArgGroup, Args, Parser};
 use proposition::Proposition;
-use refinery::Refinery;
+use refinery::{Refinery, Settings};
 
 #[derive(Parser, Debug)]
 #[clap(group(ArgGroup::new("property-group")
@@ -20,7 +20,6 @@ use refinery::Refinery;
 .multiple(true)
 .args(&["property", "inherent"]),
 ))]
-
 pub struct RunArgs {
     #[arg(short, long)]
     batch: bool,
@@ -34,8 +33,11 @@ pub struct RunArgs {
     #[arg(long)]
     inherent: bool,
 
+    // experimental flags
     #[arg(long)]
     use_decay: bool,
+    #[arg(long)]
+    naive_inputs: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -77,7 +79,7 @@ fn run_inner<M: FullMachine>(system: M, run_args: RunArgs) -> Result<ExecResult,
 
     info!("Starting verification.");
 
-    let verification_result = verify(system, run_args.property.as_ref(), run_args.use_decay);
+    let verification_result = verify(system, run_args);
 
     if log_enabled!(log::Level::Trace) {
         trace!("Verification result: {:?}", verification_result);
@@ -96,9 +98,13 @@ fn run_inner<M: FullMachine>(system: M, run_args: RunArgs) -> Result<ExecResult,
     Ok(verification_result)
 }
 
-fn verify<M: FullMachine>(system: M, property: Option<&String>, use_decay: bool) -> ExecResult {
-    let mut refinery = Refinery::<M>::new(system, use_decay);
-    let proposition = select_proposition(property);
+fn verify<M: FullMachine>(system: M, run_args: RunArgs) -> ExecResult {
+    let settings = Settings {
+        naive_inputs: run_args.naive_inputs,
+        use_decay: run_args.use_decay,
+    };
+    let mut refinery = Refinery::<M>::new(system, settings);
+    let proposition = select_proposition(run_args.property.as_ref());
     let result = match proposition {
         Ok(proposition) => refinery.verify_property(&proposition),
         Err(err) => Err(err),

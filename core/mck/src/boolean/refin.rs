@@ -37,6 +37,10 @@ impl Refine<super::abstr::Boolean> for Boolean {
     fn clean() -> Self {
         Self(Bitvector::clean())
     }
+
+    fn dirty() -> Self {
+        Self(Bitvector::dirty())
+    }
 }
 
 impl Bitwise for abstr::Boolean {
