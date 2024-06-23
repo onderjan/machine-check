@@ -1,36 +1,16 @@
+use clap::Args;
 use machine_check::{Bitvector, BitvectorArray};
 
+#[derive(Args)]
+pub struct SystemArgs {
+    #[arg(long)]
+    hex_file: String,
+}
+
 fn main() {
-    // TODO: rework argument parsing for systems to mesh well with machine-check
-    let args: Vec<String> = std::env::args().collect();
+    let (run_args, system_args) = machine_check::parse_args::<SystemArgs>(std::env::args());
 
-    let mut processed_args = Vec::new();
-    let mut first = true;
-    let mut next_arg_hex_file = false;
-    let mut hex_file = None;
-    for arg in args.into_iter() {
-        if first {
-            // do not process first parameter
-            processed_args.push(arg);
-            first = false;
-            continue;
-        }
-        if next_arg_hex_file {
-            hex_file = Some(arg);
-            next_arg_hex_file = false;
-        } else if arg == "--hex-file" {
-            next_arg_hex_file = true;
-        } else {
-            processed_args.push(arg);
-        }
-    }
-
-    let Some(hex_file) = hex_file else {
-        eprintln!("No hex file parameter pair, specify it");
-        return;
-    };
-
-    let hex = match std::fs::read_to_string(hex_file) {
+    let hex = match std::fs::read_to_string(system_args.hex_file) {
         Ok(ok) => ok,
         Err(err) => {
             eprintln!("Could not read hex file: {}", err);
@@ -46,5 +26,5 @@ fn main() {
     machine_check_avr::read_hex_into_progmem(&mut progmem, &hex);
 
     let system = machine_check_avr::ATmega328P { PROGMEM: progmem };
-    machine_check::run_with_args(system, processed_args.into_iter());
+    machine_check::run_with_parsed_args(system, run_args);
 }

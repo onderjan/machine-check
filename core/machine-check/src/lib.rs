@@ -91,10 +91,14 @@ pub use ::machine_check_macros::machine_description;
 /// The behaviour of machine-check is controlled by command-line arguments.
 pub use ::machine_check_exec::run;
 
-/// Runs **machine-check** with the given constructed system and custom arguments.
+/// Parses arguments to run **machine-check** with custom clap arguments augmenting the ones used to run
+/// **machine-check**.
+pub use ::machine_check_exec::parse_args;
+
+/// Runs **machine-check** with the given constructed system and parsed arguments.
 ///
-/// Custom arguments are used to run **machine-check**. Otherwise, this method behaves the same as [`run`].
-pub use ::machine_check_exec::run_with_args;
+/// Parsed arguments are used to run **machine-check**. Otherwise, this method behaves the same as [`run`].
+pub use ::machine_check_exec::run_with_parsed_args;
 
 #[doc(hidden)]
 pub mod mck {

@@ -10,7 +10,7 @@ use log::{error, info, log_enabled, trace};
 use machine_check_common::{ExecError, ExecResult};
 use mck::concr::FullMachine;
 
-use clap::{ArgGroup, Parser};
+use clap::{ArgGroup, Args, Parser};
 use proposition::Proposition;
 use refinery::Refinery;
 
@@ -20,7 +20,8 @@ use refinery::Refinery;
 .multiple(true)
 .args(&["property", "inherent"]),
 ))]
-struct Args {
+
+pub struct RunArgs {
     #[arg(short, long)]
     batch: bool,
 
@@ -37,12 +38,26 @@ struct Args {
     use_decay: bool,
 }
 
-pub fn run<M: FullMachine>(system: M) {
-    run_with_args(system, std::env::args())
+#[derive(Parser, Debug)]
+struct ProgramArgs<A: Args> {
+    #[clap(flatten)]
+    run_args: RunArgs,
+    #[clap(flatten)]
+    system_args: A,
 }
 
-pub fn run_with_args<M: FullMachine>(system: M, args: impl Iterator<Item = String>) {
-    if let Err(err) = run_inner(system, args) {
+pub fn parse_args<A: Args>(args: impl Iterator<Item = String>) -> (RunArgs, A) {
+    let parsed_args = ProgramArgs::<A>::parse_from(args);
+    (parsed_args.run_args, parsed_args.system_args)
+}
+
+pub fn run<M: FullMachine>(system: M) {
+    let parsed_args = RunArgs::parse_from(std::env::args());
+    run_with_parsed_args(system, parsed_args)
+}
+
+pub fn run_with_parsed_args<M: FullMachine>(system: M, run_args: RunArgs) {
+    if let Err(err) = run_inner(system, run_args) {
         // log root error
         error!("{:#?}", err);
         // terminate with non-success code
@@ -51,13 +66,9 @@ pub fn run_with_args<M: FullMachine>(system: M, args: impl Iterator<Item = Strin
     // terminate successfully, the information is in stdout
 }
 
-fn run_inner<M: FullMachine>(
-    system: M,
-    args: impl Iterator<Item = String>,
-) -> Result<ExecResult, anyhow::Error> {
-    let args = Args::parse_from(args);
+fn run_inner<M: FullMachine>(system: M, run_args: RunArgs) -> Result<ExecResult, anyhow::Error> {
     // logging to stderr, stdout will contain the result in batch mode
-    let filter_level = match args.verbose {
+    let filter_level = match run_args.verbose {
         0 => log::LevelFilter::Info,
         1 => log::LevelFilter::Debug,
         _ => log::LevelFilter::Trace,
@@ -66,7 +77,7 @@ fn run_inner<M: FullMachine>(
 
     info!("Starting verification.");
 
-    let verification_result = verify(system, args.property.as_ref(), args.use_decay);
+    let verification_result = verify(system, run_args.property.as_ref(), run_args.use_decay);
 
     if log_enabled!(log::Level::Trace) {
         trace!("Verification result: {:?}", verification_result);
