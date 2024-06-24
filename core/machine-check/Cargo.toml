@@ -8,6 +8,7 @@ description = "Formal verification tool for digital systems"
 rust-version = "1.75"
 
 [dependencies]
+machine-check-common = "=0.2.0"
 mck = "=0.2.0"
 machine-check-macros = "=0.2.0"
 machine-check-exec = "=0.2.0"
@@ -16,3 +17,4 @@ machine-check-exec = "=0.2.0"
 clap = { version = "4.4.6", features = ["derive"] }
 clap-num = "1.1.1"
 seq-macro = "0.3.5"
+strum = { version = "0.26", features = ["derive"] }

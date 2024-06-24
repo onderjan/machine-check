@@ -1,7 +1,11 @@
+use std::time::Instant;
+
 use clap::Args;
 use machine_check::{Bitvector, Unsigned};
-seq_macro::seq!(V in 0..=2 {
-    seq_macro::seq!(U in 0..=2 {
+use machine_check_exec::RunArgs;
+use strum::IntoEnumIterator;
+seq_macro::seq!(V in 0..=8 {
+    seq_macro::seq!(U in 0..=8 {
     #[machine_check::machine_description]
     mod machine_module~V~U {
         use ::machine_check::{Bitvector, Unsigned};
@@ -42,7 +46,7 @@ seq_macro::seq!(V in 0..=2 {
             fn init(&self, input: &Input) -> State {
                 State {
                     max_value: Unsigned::<V>::new(0),
-                    unused: input.unused,
+                    unused: Bitvector::<U>::new(0),
                     free_counter: Unsigned::<16>::new(0),
                 }
             }
@@ -94,10 +98,10 @@ struct SystemArgs {
     enable_reset: bool,
 }
 
-// Main entry point of the executable.
-fn main() {
-    let (run_args, system_args) = machine_check::parse_args::<SystemArgs>(std::env::args());
-
+fn run(
+    run_args: machine_check_exec::RunArgs,
+    system_args: SystemArgs,
+) -> machine_check::ExecResult {
     let enable_reset = Bitvector::<1>::new(system_args.enable_reset as u64);
     let free_counter_max = Unsigned::<16>::new(
         1u16.checked_shl(system_args.num_counter_bits.into())
@@ -106,14 +110,127 @@ fn main() {
             .into(),
     );
 
-    seq_macro::seq!(V in 0..=2 {
-        seq_macro::seq!(U in 0..=2 {
+    seq_macro::seq!(V in 0..=8 {
+        seq_macro::seq!(U in 0..=8 {
             if V == system_args.num_value_bits && U == system_args.num_unused_bits {
-                machine_check::run_with_parsed_args(machine_module~V~U::System { enable_reset, free_counter_max }, run_args);
-                return;
+                return machine_check::run_with_parsed_args(machine_module~V~U::System { enable_reset, free_counter_max }, run_args);
             }
         });
     });
 
     panic!("Unexpected parameters");
+}
+
+#[derive(Clone, Copy, strum::Display, strum::EnumIter)]
+enum RefinementConfig {
+    Naive,
+    Input,
+    #[strum(to_string = "Input&Decay")]
+    InputAndDecay,
+}
+
+fn measure(
+    enable_reset: bool,
+    config: RefinementConfig,
+    num_value_bits: u8,
+    num_unused_bits: u8,
+    num_counter_bits: u8,
+    dry_run: bool,
+) {
+    let run_args = RunArgs {
+        batch: false,
+        silent: true,
+        verbose: 0,
+        property: Some(String::from("AG[EF[eq(max_value,0)]]")),
+        inherent: false,
+        naive_inputs: matches!(config, RefinementConfig::Naive),
+        use_decay: matches!(config, RefinementConfig::InputAndDecay),
+    };
+
+    let system_args = SystemArgs {
+        num_value_bits,
+        num_unused_bits,
+        num_counter_bits,
+        enable_reset,
+    };
+    if !dry_run {
+        print!(
+            "{}, {}, {}, {}, {}, {}, ",
+            enable_reset as u64,
+            config as u64,
+            config,
+            num_value_bits,
+            num_unused_bits,
+            num_counter_bits
+        );
+    }
+
+    let start = Instant::now();
+    let exec_result = run(run_args, system_args);
+    let walltime = start.elapsed();
+    match exec_result.result {
+        Ok(ok) => {
+            if ok != enable_reset {
+                panic!("Wrong execution result {}", ok);
+            }
+        }
+        Err(err) => panic!("Execution error {:?}", err),
+    }
+    if !dry_run {
+        println!(
+            "{}, {}, {}, {}, {}, {}",
+            walltime.as_secs_f64(),
+            exec_result.stats.num_refinements,
+            exec_result.stats.num_generated_states,
+            exec_result.stats.num_final_states,
+            exec_result.stats.num_final_states,
+            exec_result.stats.num_generated_transitions,
+        );
+    }
+}
+
+fn main() {
+    //let (run_args, system_args) = machine_check::parse_args::<SystemArgs>(std::env::args());
+    measure(false, RefinementConfig::Naive, 4, 4, 4, true);
+
+    println!("--- Parameter: value bits ---");
+    for enable_reset in [false, true] {
+        for config in RefinementConfig::iter() {
+            for num_value_bits in 1..=8 {
+                measure(enable_reset, config, num_value_bits, 0, 0, false);
+            }
+        }
+    }
+    let default_num_value_bits = 4;
+    println!("--- Parameter: unknown bits ---");
+    for enable_reset in [false, true] {
+        for config in RefinementConfig::iter() {
+            for num_unused_bits in 0..=8 {
+                measure(
+                    enable_reset,
+                    config,
+                    default_num_value_bits,
+                    num_unused_bits,
+                    0,
+                    false,
+                );
+            }
+        }
+    }
+
+    println!("--- Parameter: counter bits ---");
+    for enable_reset in [false, true] {
+        for config in RefinementConfig::iter() {
+            for num_counter_bits in 0..=8 {
+                measure(
+                    enable_reset,
+                    config,
+                    default_num_value_bits,
+                    0,
+                    num_counter_bits,
+                    false,
+                );
+            }
+        }
+    }
 }

@@ -20,24 +20,32 @@ use refinery::{Refinery, Settings};
 .multiple(true)
 .args(&["property", "inherent"]),
 ))]
+#[clap(group(ArgGroup::new("verbosity-group")
+.required(false)
+.multiple(false)
+.args(&["silent", "verbose"]),
+))]
 pub struct RunArgs {
-    #[arg(short, long)]
-    batch: bool,
+    #[arg(long)]
+    pub silent: bool,
 
     #[arg(short, long, action = clap::ArgAction::Count)]
-    verbose: u8,
+    pub verbose: u8,
 
     #[arg(long)]
-    property: Option<String>,
+    pub batch: bool,
 
     #[arg(long)]
-    inherent: bool,
+    pub property: Option<String>,
+
+    #[arg(long)]
+    pub inherent: bool,
 
     // experimental flags
     #[arg(long)]
-    use_decay: bool,
+    pub naive_inputs: bool,
     #[arg(long)]
-    naive_inputs: bool,
+    pub use_decay: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -53,29 +61,38 @@ pub fn parse_args<A: Args>(args: impl Iterator<Item = String>) -> (RunArgs, A) {
     (parsed_args.run_args, parsed_args.system_args)
 }
 
-pub fn run<M: FullMachine>(system: M) {
+pub fn run<M: FullMachine>(system: M) -> ExecResult {
     let parsed_args = RunArgs::parse_from(std::env::args());
     run_with_parsed_args(system, parsed_args)
 }
 
-pub fn run_with_parsed_args<M: FullMachine>(system: M, run_args: RunArgs) {
-    if let Err(err) = run_inner(system, run_args) {
-        // log root error
-        error!("{:#?}", err);
-        // terminate with non-success code
-        std::process::exit(-1);
+pub fn run_with_parsed_args<M: FullMachine>(system: M, run_args: RunArgs) -> ExecResult {
+    match run_inner(system, run_args) {
+        Ok(ok) => ok,
+        Err(err) => {
+            // log root error
+            error!("{:#?}", err);
+            // terminate with non-success code
+            std::process::exit(-1);
+        }
     }
-    // terminate successfully, the information is in stdout
 }
 
 fn run_inner<M: FullMachine>(system: M, run_args: RunArgs) -> Result<ExecResult, anyhow::Error> {
     // logging to stderr, stdout will contain the result in batch mode
-    let filter_level = match run_args.verbose {
+    let silent = run_args.silent;
+    let batch = run_args.batch;
+    let mut filter_level = match run_args.verbose {
         0 => log::LevelFilter::Info,
         1 => log::LevelFilter::Debug,
         _ => log::LevelFilter::Trace,
     };
-    env_logger::builder().filter_level(filter_level).init();
+    if silent {
+        filter_level = log::LevelFilter::Off;
+    }
+
+    // initialize logger, but do not panic if it was already initialized
+    let _ = env_logger::builder().filter_level(filter_level).try_init();
 
     info!("Starting verification.");
 
@@ -93,8 +110,15 @@ fn run_inner<M: FullMachine>(system: M, run_args: RunArgs) -> Result<ExecResult,
         }
     }
 
-    // serialize the verification result to stdout
-    serde_json::to_writer(std::io::stdout(), &verification_result)?;
+    if !silent {
+        if batch {
+            // serialize the verification result to stdout
+            serde_json::to_writer(std::io::stdout(), &verification_result)?;
+        } else {
+            // TODO: nicer result printing
+            info!("Verification result: {:?}", verification_result);
+        }
+    }
     Ok(verification_result)
 }
 
