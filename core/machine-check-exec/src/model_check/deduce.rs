@@ -10,6 +10,7 @@ use crate::{
 
 use super::{Culprit, ThreeValuedChecker};
 
+/// Deduces the culprit of unknown three-valued model-checking result.
 pub(super) fn deduce_culprit<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     prop: &Proposition,
@@ -31,6 +32,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     panic!("no interpretation culprit found");
 }
 
+/// Deduces the ending states of the culprit, after the ones already found.
 fn deduce_end<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     prop: &Proposition,

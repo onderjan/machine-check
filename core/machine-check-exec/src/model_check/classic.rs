@@ -16,6 +16,7 @@ pub struct ClassicChecker<'a, M: FullMachine> {
 }
 
 impl<'a, M: FullMachine> ClassicChecker<'a, M> {
+    /// Classic two-valued model checker with chosen interpretation of unknown labellings.
     pub fn new(space: &'a Space<M>, optimistic: bool) -> Self {
         ClassicChecker {
             space,
