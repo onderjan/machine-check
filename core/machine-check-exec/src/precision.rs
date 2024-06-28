@@ -7,9 +7,14 @@ use mck::{
 
 use crate::space::NodeId;
 
+/// Current abstract state space precision.
+///
 pub struct Precision<M: FullMachine> {
+    /// Input precision. Determines which inputs are qualified to be used.
     input: BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input>,
+    /// Step decay. Determines which parts of the state decay after using the step function.
     decay: BTreeMap<NodeId, refin::PanicResult<<M::Refin as refin::Machine<M>>::State>>,
+    /// Whether each input should immediately cover only a single concrete input.
     naive_inputs: bool,
 }
 
@@ -60,6 +65,10 @@ impl<M: FullMachine> Precision<M> {
         node_id: NodeId,
     ) -> &mut refin::PanicResult<<M::Refin as refin::Machine<M>>::State> {
         self.decay.entry(node_id).or_insert_with(Refine::clean)
+    }
+
+    pub fn naive_inputs(&self) -> bool {
+        self.naive_inputs
     }
 
     pub fn retain_indices<F>(&mut self, predicate: F)

@@ -47,8 +47,8 @@ pub struct Framework<M: FullMachine> {
     space: Space<M>,
     /// Number of refinements made until now.
     num_refinements: usize,
-    /// Abstraction and refinement strategy.
-    strategy: Strategy,
+    /// Whether each step output should decay to fully-unknown by default.
+    pub use_decay: bool,
 }
 
 impl<M: FullMachine> Framework<M> {
@@ -60,7 +60,7 @@ impl<M: FullMachine> Framework<M> {
             precision: Precision::new(strategy.naive_inputs),
             space: Space::new(),
             num_refinements: 0,
-            strategy,
+            use_decay: strategy.use_decay,
         }
     }
 
@@ -97,7 +97,8 @@ impl<M: FullMachine> Framework<M> {
     ) -> Result<bool, ExecError> {
         // completely regenerate
         self.space = Space::new();
-        self.precision = Precision::new(self.strategy.naive_inputs);
+        let naive_inputs = self.precision.naive_inputs();
+        self.precision = Precision::new(naive_inputs);
         self.regenerate(NodeId::START, assume_no_panic);
 
         trace!("Original proposition: {:#?}", prop);
@@ -187,7 +188,7 @@ impl<M: FullMachine> Framework<M> {
                 None => NodeId::START,
             };
 
-            if self.strategy.use_decay {
+            if self.use_decay {
                 // decay is applied last in forward direction, so we will apply it first
                 let decay_precision = self.precision.mut_decay(previous_node_id);
                 //info!("Decay prec: {:?}", decay_precision);
@@ -300,7 +301,7 @@ impl<M: FullMachine> Framework<M> {
                     next_state.panic = abstr::Bitvector::new(0);
                 }
 
-                if self.strategy.use_decay {
+                if self.use_decay {
                     decay_precision.force_decay(&mut next_state);
                 }
 
