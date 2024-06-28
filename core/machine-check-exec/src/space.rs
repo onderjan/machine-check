@@ -8,117 +8,40 @@ use std::{
 
 use bimap::BiMap;
 use mck::{
-    abstr::{self, ManipField, Manipulatable, PanicResult},
+    abstr::{self, PanicResult},
     concr::FullMachine,
-    misc::MetaEq,
 };
 use petgraph::{prelude::GraphMap, Directed};
-use std::hash::Hash;
 
-use crate::proposition::{InequalityType, Literal};
+mod labelling;
+mod meta_wrap;
+mod state;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StateId(pub NonZeroUsize);
+use meta_wrap::MetaWrap;
+pub use state::{NodeId, StateId};
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct NodeId(Option<NonZeroUsize>);
-
-impl Debug for NodeId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.0 {
-            Some(id) => write!(f, "{}", id),
-            None => write!(f, "0"),
-        }
-    }
-}
-
-impl NodeId {
-    pub const START: NodeId = NodeId(None);
-}
-
-impl From<StateId> for NodeId {
-    fn from(state_id: StateId) -> Self {
-        NodeId(Some(state_id.0))
-    }
-}
-
-impl TryFrom<NodeId> for StateId {
-    type Error = ();
-
-    fn try_from(value: NodeId) -> Result<Self, ()> {
-        match value.0 {
-            Some(id) => Ok(StateId(id)),
-            None => Err(()),
-        }
-    }
-}
-
-pub struct Edge<AI> {
-    pub representative_input: AI,
-}
-
-#[derive(Clone)]
-pub struct MetaWrap<E: MetaEq + Debug + Clone + Hash>(E);
-
-impl<E: MetaEq + Debug + Clone + Hash> PartialEq for MetaWrap<E> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.meta_eq(&other.0)
-    }
-}
-impl<E: MetaEq + Debug + Clone + Hash> Eq for MetaWrap<E> {}
-
-impl<E: MetaEq + Debug + Clone + Hash> Hash for MetaWrap<E> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
-
-type PanicState<M> = PanicResult<<<M as FullMachine>::Abstr as abstr::Machine<M>>::State>;
-
-type WrappedInput<M> = MetaWrap<<<M as FullMachine>::Abstr as abstr::Machine<M>>::Input>;
-type WrappedState<M> = MetaWrap<PanicState<M>>;
-
+/// Abstract state space.
 pub struct Space<M: FullMachine> {
+    /// Graph of node ids. Contains the dummy initial node and other states.
     node_graph: GraphMap<NodeId, Edge<WrappedInput<M>>, Directed>,
+    /// Bidirectional map from state ids to the states.
     state_map: BiMap<StateId, Rc<WrappedState<M>>>,
+    /// How many states should be reached for a mark-and-sweep.
     num_states_for_sweep: usize,
+    /// Next state id.
     next_state_id: StateId,
+    /// Number of total generated edges.
     num_generated_edges: usize,
 }
 
-impl<M: FullMachine> Debug for Space<M> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // build sorted nodes first
-        let mut node_ids: Vec<_> = self.node_graph.nodes().collect();
-        node_ids.sort();
-
-        writeln!(f, "Space {{")?;
-
-        // print node states
-        for node_id in node_ids {
-            let mut outgoing: Vec<_> = self
-                .node_graph
-                .neighbors_directed(node_id, petgraph::Direction::Outgoing)
-                .collect();
-            outgoing.sort();
-
-            write!(f, "{:?} (-> {:?}): ", node_id, outgoing)?;
-
-            let state_id = match StateId::try_from(node_id) {
-                Ok(state_id) => state_id,
-                Err(_) => {
-                    writeln!(f, "_,")?;
-                    continue;
-                }
-            };
-            let state = &self.state_map.get_by_left(&state_id).unwrap().0;
-            state.fmt(f)?;
-            writeln!(f)?;
-        }
-
-        writeln!(f, "}}")
-    }
+// Abstract state space edge.
+pub struct Edge<AI> {
+    // Representative abstract input for finding culprits.
+    pub representative_input: AI,
 }
+type PanicState<M> = PanicResult<<<M as FullMachine>::Abstr as abstr::Machine<M>>::State>;
+type WrappedInput<M> = MetaWrap<<<M as FullMachine>::Abstr as abstr::Machine<M>>::Input>;
+type WrappedState<M> = MetaWrap<PanicState<M>>;
 
 impl<M: FullMachine> Space<M> {
     pub fn new() -> Self {
@@ -129,14 +52,6 @@ impl<M: FullMachine> Space<M> {
             next_state_id: StateId(NonZeroUsize::MIN),
             num_generated_edges: 0,
         }
-    }
-
-    pub fn num_generated_states(&self) -> usize {
-        self.next_state_id.0.get() - 1
-    }
-
-    pub fn num_generated_transitions(&self) -> usize {
-        self.num_generated_edges
     }
 
     pub fn get_state_by_id(&self, state_id: StateId) -> &PanicState<M> {
@@ -267,171 +182,6 @@ impl<M: FullMachine> Space<M> {
         self.state_map.left_values().cloned()
     }
 
-    pub fn labelled_iter<'a>(
-        &'a self,
-        literal: &'a Literal,
-        optimistic: bool,
-    ) -> impl Iterator<Item = Result<StateId, ()>> + 'a {
-        self.state_map.iter().filter_map(move |(state_id, state)| {
-            let name = literal.name();
-            let manip_field = if name == "__panic" {
-                let manip_field: &dyn ManipField = &state.0.panic;
-                manip_field
-            } else {
-                match state.0.result.get(name) {
-                    Some(manip_field) => manip_field,
-                    None => return Some(Err(())),
-                }
-            };
-            let manip_field = if let Some(index) = literal.index() {
-                let Some(indexed_manip_field) = manip_field.index(index) else {
-                    return Some(Err(()));
-                };
-                indexed_manip_field
-            } else {
-                manip_field
-            };
-
-            let (Some(min_unsigned), Some(max_unsigned)) =
-                (manip_field.min_unsigned(), manip_field.max_unsigned())
-            else {
-                return Some(Err(()));
-            };
-            let right_unsigned = literal.right_number_unsigned();
-            let comparison_result = match literal.comparison_type() {
-                crate::proposition::ComparisonType::Eq => {
-                    if min_unsigned == max_unsigned {
-                        Some(min_unsigned == right_unsigned)
-                    } else {
-                        None
-                    }
-                }
-                crate::proposition::ComparisonType::Neq => {
-                    if min_unsigned == max_unsigned {
-                        Some(min_unsigned != right_unsigned)
-                    } else {
-                        None
-                    }
-                }
-                crate::proposition::ComparisonType::Unsigned(inequality_type) => {
-                    Self::resolve_inequality(
-                        inequality_type,
-                        min_unsigned,
-                        max_unsigned,
-                        right_unsigned,
-                    )
-                }
-                crate::proposition::ComparisonType::Signed(inequality_type) => {
-                    let (Some(min_signed), Some(max_signed)) =
-                        (manip_field.min_signed(), manip_field.max_signed())
-                    else {
-                        return Some(Err(()));
-                    };
-                    let right_signed = literal.right_number_signed();
-                    Self::resolve_inequality(inequality_type, min_signed, max_signed, right_signed)
-                }
-            };
-
-            let labelled = match comparison_result {
-                Some(comparison_result) => {
-                    // negate if necessary
-                    if literal.is_complementary() {
-                        !comparison_result
-                    } else {
-                        comparison_result
-                    }
-                }
-                None => {
-                    // never negate here, just consider if it is optimistic
-                    // see https://patricegodefroid.github.io/public_psfiles/marktoberdorf2013.pdf
-                    optimistic
-                }
-            };
-            if labelled {
-                Some(Ok(*state_id))
-            } else {
-                None
-            }
-        })
-    }
-
-    fn resolve_inequality<T: Ord>(
-        inequality_type: &InequalityType,
-        min_left: T,
-        max_left: T,
-        right: T,
-    ) -> Option<bool> {
-        match inequality_type {
-            InequalityType::Lt => {
-                if max_left < right {
-                    Some(true)
-                } else if min_left >= right {
-                    Some(false)
-                } else {
-                    None
-                }
-            }
-            InequalityType::Le => {
-                if max_left <= right {
-                    Some(true)
-                } else if min_left > right {
-                    Some(false)
-                } else {
-                    None
-                }
-            }
-            InequalityType::Gt => {
-                if max_left > right {
-                    Some(true)
-                } else if min_left <= right {
-                    Some(false)
-                } else {
-                    None
-                }
-            }
-            InequalityType::Ge => {
-                if max_left <= right {
-                    Some(true)
-                } else if min_left > right {
-                    Some(false)
-                } else {
-                    None
-                }
-            }
-        }
-    }
-
-    pub fn labelled_nontrivial_scc_indices(
-        &self,
-        labelled: &BTreeSet<StateId>,
-    ) -> BTreeSet<StateId> {
-        // construct a new state graph that only contains labelled vertices and transitions between them
-        let mut labelled_graph = GraphMap::<StateId, (), Directed>::new();
-
-        for labelled_id in labelled.iter().cloned() {
-            labelled_graph.add_node(labelled_id);
-            for direct_successor_id in self.direct_successor_iter(labelled_id.into()) {
-                labelled_graph.add_edge(labelled_id, direct_successor_id, ());
-            }
-        }
-
-        // get out the indices in trivial SCC
-        let sccs = petgraph::algo::tarjan_scc(&labelled_graph);
-        let mut result = BTreeSet::new();
-        for scc in sccs {
-            if scc.len() == 1 {
-                let state_id = scc[0];
-                if !labelled_graph.contains_edge(state_id, state_id) {
-                    // trivial SCC, do not add to result, but continue over other SCCs
-                    continue;
-                }
-            }
-            // we only labelled states, so they must be
-            result.extend(scc.into_iter());
-        }
-        result
-    }
-
     pub fn garbage_collect(&mut self) -> bool {
         if self.state_map.len() >= self.num_states_for_sweep {
             self.mark_and_sweep();
@@ -499,5 +249,47 @@ impl<M: FullMachine> Space<M> {
             }
         }
         None
+    }
+
+    pub fn num_generated_states(&self) -> usize {
+        self.next_state_id.0.get() - 1
+    }
+
+    pub fn num_generated_transitions(&self) -> usize {
+        self.num_generated_edges
+    }
+}
+
+impl<M: FullMachine> Debug for Space<M> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // build sorted nodes first
+        let mut node_ids: Vec<_> = self.node_graph.nodes().collect();
+        node_ids.sort();
+
+        writeln!(f, "Space {{")?;
+
+        // print node states
+        for node_id in node_ids {
+            let mut outgoing: Vec<_> = self
+                .node_graph
+                .neighbors_directed(node_id, petgraph::Direction::Outgoing)
+                .collect();
+            outgoing.sort();
+
+            write!(f, "{:?} (-> {:?}): ", node_id, outgoing)?;
+
+            let state_id = match StateId::try_from(node_id) {
+                Ok(state_id) => state_id,
+                Err(_) => {
+                    writeln!(f, "_,")?;
+                    continue;
+                }
+            };
+            let state = &self.state_map.get_by_left(&state_id).unwrap().0;
+            state.fmt(f)?;
+            writeln!(f)?;
+        }
+
+        writeln!(f, "}}")
     }
 }

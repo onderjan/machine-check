@@ -5,6 +5,7 @@ mod misc;
 mod parser;
 mod pnf;
 
+/// CTL proposition.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Proposition {
     Const(bool),
@@ -16,6 +17,7 @@ pub enum Proposition {
     A(PropTemp),
 }
 
+/// Temporal operator within CTL path quantifier.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum PropTemp {
     X(PropUni),
