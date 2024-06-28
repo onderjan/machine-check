@@ -29,31 +29,44 @@ use mck::abstr::Machine as AbstrMachine;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Refine;
 
-pub struct Settings {
+/// Abstraction and refinement strategy.
+pub struct Strategy {
+    /// Whether each input should immediately cover only a single concrete input.
     pub naive_inputs: bool,
+    /// Whether each step output should decay to fully-unknown by default.
     pub use_decay: bool,
 }
 
-pub struct Refinery<M: FullMachine> {
+/// Three-valued abstraction refinement framework.
+pub struct Framework<M: FullMachine> {
+    /// Abstract system.
     abstract_system: M::Abstr,
+    /// Refinement precision.
     precision: Precision<M>,
+    ///
     space: Space<M>,
+    /// Number of refinements made until now.
     num_refinements: usize,
-    settings: Settings,
+    /// Abstraction and refinement strategy.
+    strategy: Strategy,
 }
 
-impl<M: FullMachine> Refinery<M> {
-    pub fn new(system: M, settings: Settings) -> Self {
+impl<M: FullMachine> Framework<M> {
+    /// Constructs the framework with a given system and strategy.
+    pub fn new(system: M, strategy: Strategy) -> Self {
         let abstract_system = M::Abstr::from_concrete(system);
-        Refinery {
+        Framework {
             abstract_system,
-            precision: Precision::new(settings.naive_inputs),
+            precision: Precision::new(strategy.naive_inputs),
             space: Space::new(),
             num_refinements: 0,
-            settings,
+            strategy,
         }
     }
 
+    /// Verifies a CTL property.
+    ///
+    /// First verifies that the system does not panic, if it does, it is an execution error.
     pub fn verify_property(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
         // verify inherent non-panicking of system first
         let never_panic_prop = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
@@ -77,14 +90,6 @@ impl<M: FullMachine> Refinery<M> {
         self.verify_inner(prop, true)
     }
 
-    fn find_panic_string(&mut self) -> Option<&'static str> {
-        // TODO: this approach does not work if there are multiple macro invocations
-        let Some(panic_id) = self.space.find_panic_id() else {
-            return None;
-        };
-        Some(M::panic_message(panic_id))
-    }
-
     pub fn verify_inner(
         &mut self,
         prop: &Proposition,
@@ -92,7 +97,7 @@ impl<M: FullMachine> Refinery<M> {
     ) -> Result<bool, ExecError> {
         // completely regenerate
         self.space = Space::new();
-        self.precision = Precision::new(self.settings.naive_inputs);
+        self.precision = Precision::new(self.strategy.naive_inputs);
         self.regenerate(NodeId::START, assume_no_panic);
 
         trace!("Original proposition: {:#?}", prop);
@@ -144,22 +149,12 @@ impl<M: FullMachine> Refinery<M> {
         result
     }
 
+    /// Refines the precision and the state space given a culprit of unknown verification result.
     fn refine(&mut self, culprit: &Culprit, assume_no_panic: bool) -> bool {
-        /*self.space.mark_and_sweep();
-        debug!(
-            "Space after {} refinements: {:#?}",
-            self.num_refinements, self.space
-        );*/
-
         self.num_refinements += 1;
-        //if self.num_refinements % 100 == 99 {
-        //}
-        //info!("Refinement number: {}", self.num_refinements);
         // compute marking
         let mut current_state_mark =
             mck::refin::PanicResult::<<M::Refin as refin::Machine<M>>::State>::clean();
-
-        //debug!("Refining culprit {:?}", culprit);
 
         // TODO: rework panic name kludge
         if culprit.literal.name() == "__panic" {
@@ -186,20 +181,13 @@ impl<M: FullMachine> Refinery<M> {
         let mut iter = culprit.path.iter().cloned().rev().peekable();
 
         while let Some(current_state_id) = iter.next() {
-            //println!("State mark: {:?}", current_state_mark);
-            /*let mut proto_first = current_state_mark.result.proto_first();
-            if !current_state_mark.result.proto_increment(&mut proto_first) {
-                //panic!("Incomplete");
-                return false;
-            }*/
-
             let previous_state_id = iter.peek();
             let previous_node_id = match previous_state_id {
                 Some(previous_state_id) => (*previous_state_id).into(),
                 None => NodeId::START,
             };
 
-            if self.settings.use_decay {
+            if self.strategy.use_decay {
                 // decay is applied last in forward direction, so we will apply it first
                 let decay_precision = self.precision.mut_decay(previous_node_id);
                 //info!("Decay prec: {:?}", decay_precision);
@@ -222,19 +210,13 @@ impl<M: FullMachine> Refinery<M> {
                 // the previous state must definitely be non-panicking
                 let previous_state = &previous_state.result;
 
-                //println!("Previous state: {:?}", previous_state);
-                //println!("Step current state mark: {:?}", current_state_mark);
                 let (_refinement_machine, new_state_mark, input_mark) = M::Refin::next(
                     (&self.abstract_system, previous_state, input),
                     current_state_mark,
                 );
-                //println!("Step new state mark: {:?}", new_state_mark);
 
                 (input_mark, Some(new_state_mark))
             } else {
-                // use init function
-                //println!("Init");
-
                 // increasing state precision failed, try increasing init precision
                 let (_refinement_machine, input_mark) =
                     M::Refin::init((&self.abstract_system, input), current_state_mark);
@@ -243,11 +225,7 @@ impl<M: FullMachine> Refinery<M> {
 
             let input_precision = self.precision.mut_input(previous_node_id);
 
-            //println!("Input mark: {:?}", input_mark);
-            //println!("Input precision: {:?}", input_precision);
             if input_precision.apply_refin(&input_mark) {
-                //println!("Applied input mark: {:?}", input_mark);
-                //println!("Input precision: {:?}", input_precision);
                 // single mark applied, regenerate
                 self.regenerate(previous_node_id, assume_no_panic);
                 return true;
@@ -271,6 +249,7 @@ impl<M: FullMachine> Refinery<M> {
         false
     }
 
+    /// Regenerates the state space from a given node, keeping its other parts.
     pub fn regenerate(&mut self, from_node_id: NodeId, assume_no_panic: bool) {
         let mut queue = VecDeque::new();
         queue.push_back(from_node_id);
@@ -321,7 +300,7 @@ impl<M: FullMachine> Refinery<M> {
                     next_state.panic = abstr::Bitvector::new(0);
                 }
 
-                if self.settings.use_decay {
+                if self.strategy.use_decay {
                     decay_precision.force_decay(&mut next_state);
                 }
 
@@ -333,6 +312,14 @@ impl<M: FullMachine> Refinery<M> {
                 }
             }
         }
+    }
+
+    fn find_panic_string(&mut self) -> Option<&'static str> {
+        // TODO: this approach does not work if there are multiple macro invocations
+        let Some(panic_id) = self.space.find_panic_id() else {
+            return None;
+        };
+        Some(M::panic_message(panic_id))
     }
 
     pub fn info(&self) -> ExecStats {

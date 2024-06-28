@@ -12,7 +12,7 @@ use mck::concr::FullMachine;
 
 use clap::{ArgGroup, Args, Parser};
 use proposition::Proposition;
-use refinery::{Refinery, Settings};
+use refinery::{Framework, Strategy};
 
 /// Arguments for executing machine-check.
 #[derive(Parser, Debug)]
@@ -125,11 +125,11 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
 
 /// Verifies the given system with given arguments.
 fn verify<M: FullMachine>(system: M, run_args: ExecArgs) -> ExecResult {
-    let settings = Settings {
+    let strategy = Strategy {
         naive_inputs: run_args.naive_inputs,
         use_decay: run_args.use_decay,
     };
-    let mut refinery = Refinery::<M>::new(system, settings);
+    let mut refinery = Framework::<M>::new(system, strategy);
 
     let result = if let Some(property_str) = run_args.property {
         Proposition::parse(&property_str)
