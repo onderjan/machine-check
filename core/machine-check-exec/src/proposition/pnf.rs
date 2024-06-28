@@ -1,6 +1,7 @@
 use super::{PropBi, PropF, PropG, PropR, PropTemp, PropU, PropUni, Proposition};
 
 impl Proposition {
+    /// Converts to Positive Normal Form, with all negations propagated inside literals.
     #[must_use]
     pub fn pnf(&self) -> Self {
         let result = self.pnf_inner(false);

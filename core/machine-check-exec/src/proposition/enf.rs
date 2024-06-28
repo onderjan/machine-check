@@ -1,6 +1,7 @@
 use super::{PropBi, PropF, PropG, PropR, PropTemp, PropU, PropUni, Proposition};
 
 impl Proposition {
+    /// Converts to Existential Normal Form.
     #[must_use]
     pub fn enf(&self) -> Self {
         match self {

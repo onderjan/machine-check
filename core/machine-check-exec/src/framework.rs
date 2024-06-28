@@ -101,13 +101,7 @@ impl<M: FullMachine> Framework<M> {
         self.precision = Precision::new(naive_inputs);
         self.regenerate(NodeId::START, assume_no_panic);
 
-        trace!("Original proposition: {:#?}", prop);
-        // transform proposition to positive normal form to move negations to literals
-        let prop = prop.pnf();
-        trace!("Positive normal form: {:#?}", prop);
-        // transform proposition to existential normal form to be able to verify
-        let prop = prop.enf();
-        trace!("Existential normal form: {:#?}", prop);
+        let prepared_prop = model_check::prepare_prop(prop);
 
         // main refinement loop
         let result = loop {
@@ -115,7 +109,7 @@ impl<M: FullMachine> Framework<M> {
                 trace!("State space: {:#?}", self.space);
             }
 
-            let conclusion = model_check::check_prop::<M>(&self.space, &prop)?;
+            let conclusion = model_check::check_prop::<M>(&self.space, &prepared_prop)?;
             // if verification was incomplete, try to refine the culprit
             let culprit = match conclusion {
                 Conclusion::Known(conclusion) => break Ok(conclusion),
