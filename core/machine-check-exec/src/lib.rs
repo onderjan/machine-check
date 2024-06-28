@@ -1,9 +1,9 @@
 #![doc = include_str!("../README.md")]
 
+mod framework;
 mod model_check;
 mod precision;
 mod proposition;
-mod refinery;
 mod space;
 
 use log::{error, info, log_enabled, trace};
@@ -11,8 +11,8 @@ use machine_check_common::ExecResult;
 use mck::concr::FullMachine;
 
 use clap::{ArgGroup, Args, Parser};
+use framework::{Framework, Strategy};
 use proposition::Proposition;
-use refinery::{Framework, Strategy};
 
 /// Arguments for executing machine-check.
 #[derive(Parser, Debug)]
