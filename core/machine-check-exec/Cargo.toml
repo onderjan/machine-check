@@ -1,14 +1,14 @@
 [package]
 name = "machine-check-exec"
-version = "0.2.0"
+version = "0.3.0-alpha-1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Utility crate for the formal verification tool machine-check"
 rust-version = "1.75"
 
 [dependencies]
-mck = "=0.2.0"
-machine-check-common = "=0.2.0"
+mck = "=0.3.0-alpha-1"
+machine-check-common = "=0.3.0-alpha-1"
 
 thiserror = "1.0.49"
 anyhow = "1.0.75"
