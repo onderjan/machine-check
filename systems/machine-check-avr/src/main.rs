@@ -26,5 +26,5 @@ fn main() {
     machine_check_avr::read_hex_into_progmem(&mut progmem, &hex);
 
     let system = machine_check_avr::ATmega328P { PROGMEM: progmem };
-    machine_check::run_with_parsed_args(system, run_args);
+    machine_check::execute(system, run_args);
 }

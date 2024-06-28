@@ -96,12 +96,12 @@ pub use ::machine_check_exec::run;
 pub use ::machine_check_exec::parse_args;
 
 pub use ::machine_check_common::ExecResult;
-pub use ::machine_check_exec::RunArgs;
+pub use ::machine_check_exec::ExecArgs;
 
 /// Runs **machine-check** with the given constructed system and parsed arguments.
 ///
 /// Parsed arguments are used to run **machine-check**. Otherwise, this method behaves the same as [`run`].
-pub use ::machine_check_exec::run_with_parsed_args;
+pub use ::machine_check_exec::execute;
 
 #[doc(hidden)]
 pub mod mck {

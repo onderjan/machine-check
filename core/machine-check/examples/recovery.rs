@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use clap::Args;
 use machine_check::{Bitvector, Unsigned};
-use machine_check_exec::RunArgs;
+use machine_check_exec::ExecArgs;
 use strum::IntoEnumIterator;
 seq_macro::seq!(V in 0..=8 {
     seq_macro::seq!(U in 0..=8 {
@@ -99,7 +99,7 @@ struct SystemArgs {
 }
 
 fn run(
-    run_args: machine_check_exec::RunArgs,
+    run_args: machine_check_exec::ExecArgs,
     system_args: SystemArgs,
 ) -> machine_check::ExecResult {
     let enable_reset = Bitvector::<1>::new(system_args.enable_reset as u64);
@@ -113,7 +113,7 @@ fn run(
     seq_macro::seq!(V in 0..=8 {
         seq_macro::seq!(U in 0..=8 {
             if V == system_args.num_value_bits && U == system_args.num_unused_bits {
-                return machine_check::run_with_parsed_args(machine_module~V~U::System { enable_reset, free_counter_max }, run_args);
+                return machine_check::execute(machine_module~V~U::System { enable_reset, free_counter_max }, run_args);
             }
         });
     });
@@ -137,7 +137,7 @@ fn measure(
     num_counter_bits: u8,
     dry_run: bool,
 ) {
-    let run_args = RunArgs {
+    let run_args = ExecArgs {
         batch: false,
         silent: true,
         verbose: 0,
