@@ -244,27 +244,47 @@ fn lex(input: &str) -> Result<VecDeque<PropositionLexItem>, ExecError> {
                 result.push_back(PropositionLexItem::Ident(ident));
             }
             '0'..='9' => {
-                let mut str_val = String::from(c);
+                let mut str_val = String::new();
                 it.next();
+                let hexadecimal = if let Some('x') = it.peek() {
+                    it.next();
+                    true
+                } else {
+                    str_val.push(c);
+                    false
+                };
+
                 while let Some(&c) = it.peek() {
                     match c {
                         '0'..='9' => {
                             it.next();
                             str_val.push(c);
                         }
+                        'A'..='F' | 'a'..='f' => {
+                            if hexadecimal {
+                                it.next();
+                                str_val.push(c);
+                            } else {
+                                break;
+                            }
+                        }
                         _ => break,
                     }
                 }
-                let unsigned_val: Result<u64, _> = str_val.parse();
+
+                let unsigned_val: Result<u64, _> =
+                    u64::from_str_radix(&str_val, if hexadecimal { 16 } else { 10 });
                 let val = if let Ok(unsigned_val) = unsigned_val {
                     unsigned_val
-                } else {
+                } else if !hexadecimal {
                     let signed_val: Result<i64, _> = str_val.parse();
                     if let Ok(signed_val) = signed_val {
                         signed_val as u64
                     } else {
                         return Err(ExecError::PropertyNotParseable(String::from(input)));
                     }
+                } else {
+                    return Err(ExecError::PropertyNotParseable(String::from(input)));
                 };
                 result.push_back(PropositionLexItem::Number(val));
             }
