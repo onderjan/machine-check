@@ -118,7 +118,7 @@ impl<M: FullMachine> Space<M> {
         }
 
         // get out the indices in trivial SCC
-        let sccs = petgraph::algo::tarjan_scc(&labelled_graph);
+        let sccs = petgraph::algo::kosaraju_scc(&labelled_graph);
         let mut result = BTreeSet::new();
         for scc in sccs {
             if scc.len() == 1 {
