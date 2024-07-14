@@ -38,6 +38,11 @@ pub fn read_hex_into_progmem<const I: u32>(progmem: &mut BitvectorArray<I, 16>, 
                     word_index += 1;
                 }
             }
+            ihex::Record::ExtendedSegmentAddress(offset) => {
+                if offset != 0 {
+                    panic!("Unexpected nonzero extended segment address");
+                }
+            }
             ihex::Record::EndOfFile => {}
             _ => panic!("Unexpected type of record {:#?}", record),
         }
