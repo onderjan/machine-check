@@ -2289,12 +2289,15 @@ pub mod machine_module {
                         panic!("Stack address higher than data memory on call");
                     };
 
+                    // the address after the 2-byte call instruction is loaded
+                    // PC was already incremented once, increment a second time to get the return address
                     let pc_unsigned = Into::<Unsigned<14>>::into(PC);
-                    let pc_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(pc_unsigned));
-                    let pc_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(pc_unsigned >> Unsigned::<14>::new(8)));
+                    let return_address_unsigned = pc_unsigned + Unsigned::<14>::new(1);
+                    let return_address_lo = Into::<Bitvector<8>>::into(Ext::<8>::ext(return_address_unsigned));
+                    let return_address_hi = Into::<Bitvector<8>>::into(Ext::<8>::ext(return_address_unsigned >> Unsigned::<14>::new(8)));
 
-                    SRAM[Into::<Bitvector<11>>::into(stack_sram_address)] = pc_lo;
-                    SRAM[Into::<Bitvector<11>>::into(stack_sram_address_minus_1)] = pc_hi;
+                    SRAM[Into::<Bitvector<11>>::into(stack_sram_address)] = return_address_lo;
+                    SRAM[Into::<Bitvector<11>>::into(stack_sram_address_minus_1)] = return_address_hi;
 
                     // update PC
                     PC = Into::<Bitvector<14>>::into(target_pc);
@@ -2315,14 +2318,15 @@ pub mod machine_module {
 
                     let old_stack_lo = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPL));
                     let old_stack_hi = Ext::<16>::ext(Into::<Unsigned<8>>::into(SPH));
-                    let address_pc_hi = (old_stack_hi << Unsigned::<16>::new(8)) | old_stack_lo;
+                    let old_stack = (old_stack_hi << Unsigned::<16>::new(8)) | old_stack_lo;
+                    let address_pc_hi = old_stack + Unsigned::<16>::new(1);
                     let address_pc_lo = address_pc_hi + Unsigned::<16>::new(1);
 
-                    let stack = address_pc_lo + Unsigned::<16>::new(2);
+                    let new_stack = address_pc_lo;
 
                     // update SPL/SPH
-                    SPL = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack));
-                    SPH = Into::<Bitvector<8>>::into(Ext::<8>::ext(stack >> Unsigned::<16>::new(8)));
+                    SPL = Into::<Bitvector<8>>::into(Ext::<8>::ext(new_stack));
+                    SPH = Into::<Bitvector<8>>::into(Ext::<8>::ext(new_stack >> Unsigned::<16>::new(8)));
 
                     // stack should be in data memory
                     if address_pc_hi < Unsigned::<16>::new(0x0100) {
