@@ -30,8 +30,6 @@ pub struct Space<M: FullMachine> {
     num_states_for_sweep: usize,
     /// Next state id.
     next_state_id: StateId,
-    /// Number of total generated edges.
-    num_generated_edges: usize,
 }
 
 // Abstract state space edge.
@@ -50,7 +48,6 @@ impl<M: FullMachine> Space<M> {
             state_map: BiMap::new(),
             num_states_for_sweep: 32,
             next_state_id: StateId(NonZeroUsize::MIN),
-            num_generated_edges: 0,
         }
     }
 
@@ -127,7 +124,6 @@ impl<M: FullMachine> Space<M> {
         to: NodeId,
         input: &<M::Abstr as abstr::Machine<M>>::Input,
     ) {
-        self.num_generated_edges += 1;
         if self.node_graph.contains_edge(from, to) {
             // do nothing
             return;
@@ -249,14 +245,6 @@ impl<M: FullMachine> Space<M> {
             }
         }
         None
-    }
-
-    pub fn num_generated_states(&self) -> usize {
-        self.next_state_id.0.get() - 1
-    }
-
-    pub fn num_generated_transitions(&self) -> usize {
-        self.num_generated_edges
     }
 }
 

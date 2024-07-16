@@ -47,6 +47,10 @@ pub struct Framework<M: FullMachine> {
     space: Space<M>,
     /// Number of refinements made until now.
     num_refinements: usize,
+    /// Number of states generated until now.
+    num_generated_states: usize,
+    /// Number of transitions generated until now.
+    num_generated_transitions: usize,
     /// Whether each step output should decay to fully-unknown by default.
     pub use_decay: bool,
 }
@@ -60,6 +64,8 @@ impl<M: FullMachine> Framework<M> {
             precision: Precision::new(strategy.naive_inputs),
             space: Space::new(),
             num_refinements: 0,
+            num_generated_states: 0,
+            num_generated_transitions: 0,
             use_decay: strategy.use_decay,
         }
     }
@@ -299,9 +305,11 @@ impl<M: FullMachine> Framework<M> {
                     decay_precision.force_decay(&mut next_state);
                 }
 
+                self.num_generated_transitions += 1;
                 let (next_state_index, added) = self.space.add_step(node_id, next_state, &input);
 
                 if added {
+                    self.num_generated_states += 1;
                     // add to queue
                     queue.push_back(next_state_index.into());
                 }
@@ -320,9 +328,9 @@ impl<M: FullMachine> Framework<M> {
     pub fn info(&self) -> ExecStats {
         ExecStats {
             num_refinements: self.num_refinements,
-            num_generated_states: self.space.num_generated_states(),
+            num_generated_states: self.num_generated_states,
             num_final_states: self.space.num_states(),
-            num_generated_transitions: self.space.num_generated_transitions(),
+            num_generated_transitions: self.num_generated_transitions,
             num_final_transitions: self.space.num_transitions(),
         }
     }
