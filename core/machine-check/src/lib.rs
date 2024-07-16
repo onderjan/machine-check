@@ -95,7 +95,9 @@ pub use ::machine_check_exec::run;
 /// **machine-check**.
 pub use ::machine_check_exec::parse_args;
 
+pub use ::machine_check_common::ExecError;
 pub use ::machine_check_common::ExecResult;
+pub use ::machine_check_common::ExecStats;
 pub use ::machine_check_exec::ExecArgs;
 
 /// Runs **machine-check** with the given constructed system and parsed arguments.

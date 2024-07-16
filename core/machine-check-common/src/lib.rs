@@ -15,6 +15,8 @@ pub enum ExecError {
     PropertyNotParseable(String),
     #[error("inherent machine panic")]
     InherentPanic(String),
+    #[error("{0}")]
+    OtherError(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -23,7 +25,7 @@ pub struct ExecResult {
     pub stats: ExecStats,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct ExecStats {
     pub num_refinements: usize,
     pub num_generated_states: usize,
