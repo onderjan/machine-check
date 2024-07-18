@@ -170,9 +170,9 @@ impl<M: FullMachine> Space<M> {
                 }
             }
             InequalityType::Ge => {
-                if max_left <= right {
+                if max_left >= right {
                     Some(true)
-                } else if min_left > right {
+                } else if min_left < right {
                     Some(false)
                 } else {
                     None
