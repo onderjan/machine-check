@@ -2665,9 +2665,8 @@ pub mod machine_module {
 
                     // determine if we should skip
                     if (read_bits & b_mask) == b_value {
-                        // skip by incrementing PC
-
-                        PC = PC + Bitvector::<14>::new(1);
+                        // skip next instruction
+                        PC = Self::instruction_skip(self, PC);
                     }
 
                     result =
