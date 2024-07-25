@@ -78,9 +78,13 @@ pub mod refin {
 
         fn dirty() -> Self {
             Self {
-                panic: crate::refin::Bitvector::new_marked(),
+                panic: crate::refin::Bitvector::dirty(),
                 result: T::dirty(),
             }
+        }
+
+        fn importance(&self) -> u8 {
+            self.panic.importance().max(self.result.importance())
         }
     }
 }

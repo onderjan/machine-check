@@ -31,8 +31,12 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
 
     fn arith_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         if L == 0 {
-            // avoid problems with zero-width bitvectors
-            return (MarkBitvector::new_marked(), MarkBitvector::new_marked());
+            // avoid problems with zero-width bitvectors+
+            let importance = mark_later.importance();
+            return (
+                MarkBitvector::new_marked(importance),
+                MarkBitvector::new_marked(importance),
+            );
         }
 
         // we have to reverse the shift direction, as we are going from later to earlier mark
@@ -63,7 +67,10 @@ fn shift<const L: u32>(
     }
     if L == 0 {
         // avoid problems with zero-width bitvectors
-        return (MarkBitvector::new_marked(), MarkBitvector::new_marked());
+        return (
+            MarkBitvector::new_marked(mark_later.importance),
+            MarkBitvector::new_marked(mark_later.importance),
+        );
     }
 
     // for now, only do detailed marking of value to be shifted, not the shift amount
@@ -81,12 +88,15 @@ fn shift<const L: u32>(
         let machine_i = ConcreteBitvector::new(i);
         if amount_input.contains_concr(&machine_i) {
             // shift the mark
-            let shifted_mark = shift_fn(mark_later.0, machine_i);
-            shifted_mark_earlier.apply_join(&MarkBitvector(shifted_mark));
+            let shifted_mark = shift_fn(mark_later.mark, machine_i);
+            shifted_mark_earlier.apply_join(&MarkBitvector {
+                mark: shifted_mark,
+                importance: mark_later.importance,
+            });
         }
     }
     (
         shifted_mark_earlier.limit(normal_input.0),
-        MarkBitvector::new_marked().limit(normal_input.1),
+        MarkBitvector::new_marked(mark_later.importance).limit(normal_input.1),
     )
 }

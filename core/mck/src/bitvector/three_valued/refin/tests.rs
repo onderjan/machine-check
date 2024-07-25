@@ -14,13 +14,13 @@ use super::*;
 #[test]
 pub fn support() {
     let unmarked = MarkBitvector::<16>::new_unmarked();
-    assert_eq!(unmarked.0, ConcreteBitvector::new(0x0000));
+    assert_eq!(unmarked.mark, ConcreteBitvector::new(0x0000));
 
-    let marked = MarkBitvector::<16>::new_marked();
-    assert_eq!(marked.0, ConcreteBitvector::new(0xFFFF));
+    let marked = MarkBitvector::<16>::new_marked(0);
+    assert_eq!(marked.mark, ConcreteBitvector::new(0xFFFF));
 
     let cafe = MarkBitvector::<16>::new_from_flag(ConcreteBitvector::new(0xCAFE));
-    assert_eq!(cafe.0, ConcreteBitvector::new(0xCAFE));
+    assert_eq!(cafe.mark, ConcreteBitvector::new(0xCAFE));
 
     let known = ThreeValuedBitvector::new(0xBABE);
     assert_eq!(unmarked.limit(known), unmarked);

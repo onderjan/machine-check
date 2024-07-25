@@ -18,6 +18,7 @@ where
     fn force_decay(&self, target: &mut A);
     fn clean() -> Self;
     fn dirty() -> Self;
+    fn importance(&self) -> u8;
 }
 
 pub trait Input<C: FullMachine>:

@@ -12,8 +12,12 @@ impl Boolean {
         Self(Bitvector::new_unmarked())
     }
 
-    pub fn new_marked() -> Self {
-        Self(Bitvector::new_marked())
+    pub fn new_marked(importance: u8) -> Self {
+        Self(Bitvector::new_marked(importance))
+    }
+
+    pub(crate) fn set_importance(&mut self, importance: u8) {
+        self.0.set_importance(importance);
     }
 }
 
@@ -40,6 +44,10 @@ impl Refine<super::abstr::Boolean> for Boolean {
 
     fn dirty() -> Self {
         Self(Bitvector::dirty())
+    }
+
+    fn importance(&self) -> u8 {
+        self.0.importance()
     }
 }
 

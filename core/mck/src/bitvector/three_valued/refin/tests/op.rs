@@ -65,7 +65,7 @@ fn exact_uni_mark<const L: u32, const X: u32>(
 ) -> MarkBitvector<L> {
     // the result marks exactly those bits of input which, if changed in operation input,
     // can change bits masked by mark_a in the operation result
-    let mark_mask = a_mark.0.as_unsigned();
+    let mark_mask = a_mark.mark.as_unsigned();
     // determine for each input bit separately
     let mut result = 0;
     for i in 0..L {
@@ -85,7 +85,7 @@ fn exact_uni_mark<const L: u32, const X: u32>(
             }
         }
     }
-    MarkBitvector(ConcreteBitvector::new(result))
+    MarkBitvector::new_from_flag(ConcreteBitvector::new(result))
 }
 
 fn eval_mark<const L: u32>(
@@ -99,25 +99,25 @@ fn eval_mark<const L: u32>(
         if exact_earlier != our_earlier {
             panic!(
                 "Non-exact, expected {}, got {}",
-                exact_earlier.0, our_earlier.0
+                exact_earlier.mark, our_earlier.mark
             );
         }
     } else {
         // test whether our earlier mark is at least as marked as the exact one
         // if not, the marking will be incomplete
-        let exact = exact_earlier.0.as_unsigned();
-        let our = our_earlier.0.as_unsigned();
+        let exact = exact_earlier.mark.as_unsigned();
+        let our = our_earlier.mark.as_unsigned();
         if our & exact != exact {
             panic!(
                 "Incomplete, expected {}, got {}",
-                exact_earlier.0, our_earlier.0
+                exact_earlier.mark, our_earlier.mark
             );
         }
         // test unprovoked marking
-        if !provoked && our_earlier.0.is_nonzero() {
+        if !provoked && our_earlier.mark.is_nonzero() {
             panic!(
                 "Unprovoked, expected {}, got {}",
-                exact_earlier.0, our_earlier.0
+                exact_earlier.mark, our_earlier.mark
             );
         }
     }
@@ -132,7 +132,7 @@ pub(super) fn exec_uni_check<const L: u32, const X: u32>(
     // test this for all concretizations of the input
 
     for a_later in ConcreteBitvector::all_with_length_iter() {
-        let a_later = MarkBitvector(a_later);
+        let a_later = MarkBitvector::new_from_flag(a_later);
 
         for a_abstr in ThreeValuedBitvector::all_with_length_iter() {
             let exact_earlier = exact_uni_mark(a_abstr, a_later, concr_func);
@@ -141,7 +141,7 @@ pub(super) fn exec_uni_check<const L: u32, const X: u32>(
                 want_exact,
                 exact_earlier,
                 our_earlier,
-                a_later.0.is_nonzero(),
+                a_later.mark.is_nonzero(),
             );
         }
     }
@@ -156,7 +156,7 @@ fn exact_left_mark<const L: u32, const X: u32>(
     let right_abstr = abstr.1;
     // the result marks exactly those bits of input which, if changed in operation input,
     // can change bits masked by mark_a in the operation result
-    let mark_mask = mark.0.as_unsigned();
+    let mark_mask = mark.mark.as_unsigned();
     // determine for each input bit separately
     let mut left_result = 0;
     for i in 0..L {
@@ -182,7 +182,7 @@ fn exact_left_mark<const L: u32, const X: u32>(
             }
         }
     }
-    MarkBitvector(ConcreteBitvector::new(left_result))
+    MarkBitvector::new_from_flag(ConcreteBitvector::new(left_result))
 }
 
 fn exec_left_check<const L: u32, const X: u32>(
@@ -197,7 +197,7 @@ fn exec_left_check<const L: u32, const X: u32>(
     // test this for all concretizations of the input
 
     for a_later in ConcreteBitvector::all_with_length_iter() {
-        let a_later = MarkBitvector(a_later);
+        let a_later = MarkBitvector::new_from_flag(a_later);
 
         for a_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
             for b_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
@@ -208,7 +208,7 @@ fn exec_left_check<const L: u32, const X: u32>(
                     want_exact,
                     exact_earlier,
                     our_earlier,
-                    a_later.0.is_nonzero(),
+                    a_later.mark.is_nonzero(),
                 );
             }
         }

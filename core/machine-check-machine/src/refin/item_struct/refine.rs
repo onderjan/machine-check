@@ -1,8 +1,8 @@
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, BinOp, Expr, ExprBinary, ExprLit,
-    ExprStruct, GenericArgument, ImplItem, ImplItemFn, Item, ItemStruct, Lit, LitInt, Path,
-    PathArguments, Stmt,
+    punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, BinOp, Expr,
+    ExprBinary, ExprLit, ExprStruct, GenericArgument, ImplItem, ImplItemFn, Item, ItemStruct, Lit,
+    LitInt, Path, PathArguments, Stmt,
 };
 use syn_path::path;
 
@@ -12,7 +12,7 @@ use crate::{
     util::{
         create_arg, create_assign, create_expr_call, create_expr_field, create_expr_ident,
         create_expr_path, create_field_value, create_ident, create_impl_item_fn, create_item_impl,
-        create_let_bare, create_let_mut, create_path_from_ident,
+        create_let_bare, create_let_mut, create_path_from_ident, create_path_from_name,
         create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
         ArgType,
     },
@@ -29,6 +29,7 @@ pub(crate) fn refine_impl(
     let to_condition_fn = to_condition_fn(item_struct)?;
     let clean_fn = mark_creation_fn(item_struct, "clean", path!(::mck::refin::Refine::clean))?;
     let dirty_fn = mark_creation_fn(item_struct, "dirty", path!(::mck::refin::Refine::dirty))?;
+    let importance_fn = importance_fn(item_struct)?;
 
     let refine_trait: Path = path!(::mck::refin::Refine);
     let refine_trait =
@@ -44,6 +45,7 @@ pub(crate) fn refine_impl(
             ImplItem::Fn(to_condition_fn),
             ImplItem::Fn(clean_fn),
             ImplItem::Fn(dirty_fn),
+            ImplItem::Fn(importance_fn),
         ],
     )))
 }
@@ -251,5 +253,48 @@ fn mark_creation_fn(
         vec![],
         Some(create_type_path(path!(Self))),
         local_stmts,
+    ))
+}
+
+fn importance_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
+    let span = s.span();
+    let fn_ident = create_ident("importance");
+
+    let result_ident = create_ident("__mck_result");
+    let self_input = create_self_arg(ArgType::Reference);
+
+    let importance_ty = create_type_path(create_path_from_name("u8"));
+
+    let mut stmts = Vec::new();
+    stmts.push(create_let_mut(
+        result_ident.clone(),
+        Expr::Lit(ExprLit {
+            attrs: vec![],
+            lit: Lit::Int(LitInt::new("0", span)),
+        }),
+        Some(importance_ty.clone()),
+    ));
+    for (index, field) in s.fields.iter().enumerate() {
+        let field_expr = create_expr_field(create_self(), index, field);
+        let field_importance = create_expr_call(
+            create_expr_path(path!(::mck::refin::Refine::importance)),
+            vec![(ArgType::Reference, field_expr)],
+        );
+        let max_importance = create_expr_call(
+            create_expr_path(path!(::std::cmp::max)),
+            vec![
+                (ArgType::Normal, create_expr_ident(result_ident.clone())),
+                (ArgType::Normal, field_importance),
+            ],
+        );
+        stmts.push(create_assign(result_ident.clone(), max_importance, true));
+    }
+    stmts.push(Stmt::Expr(create_expr_ident(result_ident), None));
+
+    Ok(create_impl_item_fn(
+        fn_ident,
+        vec![self_input],
+        Some(importance_ty),
+        stmts,
     ))
 }

@@ -14,4 +14,7 @@ mod shift;
 mod support;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct MarkBitvector<const L: u32>(ConcreteBitvector<L>);
+pub struct MarkBitvector<const L: u32> {
+    mark: ConcreteBitvector<L>,
+    importance: u8,
+}

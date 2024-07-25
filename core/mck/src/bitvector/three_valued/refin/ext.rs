@@ -13,7 +13,10 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
         // we are going in reverse
         // but unsigned extension does not transport any unknown bit
         // propagate marking of given bits with limitation
-        let extended = MarkBitvector(crate::forward::Ext::uext(mark_later.0));
+        let extended = MarkBitvector {
+            mark: crate::forward::Ext::uext(mark_later.mark),
+            importance: mark_later.importance,
+        };
         (extended.limit(normal_input.0),)
     }
 
@@ -28,17 +31,23 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
 
         // do unsigned extension and then treat the potential high bits specially
 
-        let mut extended = crate::forward::Ext::<L>::uext(mark_later.0);
+        let mut extended = crate::forward::Ext::<L>::uext(mark_later.mark);
 
         if X > L {
-            let back = MarkBitvector(crate::forward::Ext::<X>::uext(extended));
+            let back = MarkBitvector {
+                mark: crate::forward::Ext::<X>::uext(extended),
+                importance: mark_later.importance,
+            };
             if mark_later != back {
                 // propagate marking to the sign bit
                 extended = crate::forward::Bitwise::bit_or(extended, ConcreteBitvector::bit_mask());
             }
         }
 
-        let extended = MarkBitvector(extended);
+        let extended = MarkBitvector {
+            mark: extended,
+            importance: mark_later.importance,
+        };
 
         (extended.limit(normal_input.0),)
     }

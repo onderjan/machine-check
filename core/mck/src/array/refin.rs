@@ -64,9 +64,11 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
             earlier_array_mark.inner[min_index] = mark_later.limit(normal_input.0.inner[min_index]);
             (earlier_array_mark, Self::IndexMark::new_unmarked())
         } else {
+            // mark index with higher importance
             (
                 Self::Mark::new_unmarked(),
-                Self::IndexMark::new_marked().limit(normal_input.1),
+                Self::IndexMark::new_marked(index_importance(mark_later.importance()))
+                    .limit(normal_input.1),
             )
         }
     }
@@ -91,18 +93,23 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
             )
         } else {
             // the index is the most important, mark it if we have some mark within the elements
-            let mut is_marked = false;
+            let mut maximum_importance = None;
             for current_index in min_index..=max_index {
                 if mark_later.inner[current_index] != Self::ElementMark::new_unmarked() {
-                    is_marked = true;
+                    let importance = mark_later.inner[current_index].importance();
+                    maximum_importance = maximum_importance
+                        .map_or(Some(importance), |maximum_importance: u8| {
+                            Some(maximum_importance.max(importance))
+                        });
                     break;
                 }
             }
-            if is_marked {
-                // do not mark anything else to force index to have a single concretization
+            if let Some(maximum_importance) = maximum_importance {
+                // do not mark anything else and mark index with index importance
                 (
                     Self::Mark::new_unmarked(),
-                    Self::IndexMark::new_marked().limit(normal_input.1),
+                    Self::IndexMark::new_marked(index_importance(maximum_importance))
+                        .limit(normal_input.1),
                     Self::ElementMark::new_unmarked(),
                 )
             } else {
@@ -125,14 +132,17 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
 
     fn to_condition(&self) -> Boolean {
         // marked if we have any marking
-        self.inner
+        let mut result = self
+            .inner
             .lattice_fold(Boolean::new_unmarked(), |result, element| {
                 if *element != Bitvector::<L>::new_unmarked() {
-                    Boolean::new_marked()
+                    Boolean::new_marked(0)
                 } else {
                     result
                 }
-            })
+            });
+        result.set_importance(self.importance());
+        result
     }
 
     fn apply_refin(&mut self, offer: &Self) -> bool {
@@ -171,6 +181,11 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
         Self {
             inner: LightArray::new_filled(Bitvector::dirty(), Self::SIZE),
         }
+    }
+
+    fn importance(&self) -> u8 {
+        self.inner
+            .lattice_fold(0, |accum, mark| accum.max(mark.importance()))
     }
 }
 
@@ -231,6 +246,10 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
     }
 
     fn mark(&mut self) {
-        self.inner = LightArray::new_filled(refin::Bitvector::<L>::new_marked(), Self::SIZE);
+        self.inner = LightArray::new_filled(refin::Bitvector::<L>::dirty(), Self::SIZE);
     }
+}
+
+fn index_importance(element_importance: u8) -> u8 {
+    element_importance.saturating_add(1)
 }

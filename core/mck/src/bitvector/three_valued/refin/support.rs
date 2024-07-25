@@ -1,7 +1,7 @@
 use crate::{
     bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
     forward,
-    refin::{Boolean, ManipField},
+    refin::{Boolean, ManipField, Refine},
     traits::misc::MetaEq,
 };
 
@@ -9,24 +9,40 @@ use super::MarkBitvector;
 
 impl<const L: u32> MarkBitvector<L> {
     pub fn new_unmarked() -> Self {
-        MarkBitvector(ConcreteBitvector::new(0))
+        Self {
+            mark: ConcreteBitvector::new(0),
+            importance: 0,
+        }
     }
-    pub fn new_marked() -> Self {
+    pub fn new_marked(importance: u8) -> Self {
         if L == 0 {
-            return Self(ConcreteBitvector::new(0));
+            return Self {
+                mark: ConcreteBitvector::new(0),
+                importance: 0,
+            };
         }
         let zero = ConcreteBitvector::new(0);
         let one = ConcreteBitvector::new(1);
-        MarkBitvector(forward::HwArith::sub(zero, one))
+        MarkBitvector {
+            mark: forward::HwArith::sub(zero, one),
+            importance,
+        }
     }
     pub fn new_from_flag(marked_flag: ConcreteBitvector<L>) -> Self {
-        MarkBitvector(marked_flag)
+        MarkBitvector {
+            mark: marked_flag,
+            importance: 0,
+        }
     }
-    pub(crate) fn limit(&self, abstract_bitvec: ThreeValuedBitvector<L>) -> MarkBitvector<L> {
-        MarkBitvector(forward::Bitwise::bit_and(
-            self.0,
-            abstract_bitvec.get_unknown_bits(),
-        ))
+    pub fn limit(&self, abstract_bitvec: ThreeValuedBitvector<L>) -> MarkBitvector<L> {
+        MarkBitvector {
+            mark: forward::Bitwise::bit_and(self.mark, abstract_bitvec.get_unknown_bits()),
+            importance: self.importance,
+        }
+    }
+
+    pub fn set_importance(&mut self, importance: u8) {
+        self.importance = importance;
     }
 }
 
@@ -37,7 +53,7 @@ pub(super) fn default_uni_mark<const L: u32, const X: u32>(
     if mark_later == MarkBitvector::new_unmarked() {
         return (MarkBitvector::new_unmarked(),);
     }
-    (MarkBitvector::new_marked().limit(normal_input.0),)
+    (MarkBitvector::new_marked(mark_later.importance).limit(normal_input.0),)
 }
 
 pub(super) fn default_bi_mark<const L: u32, const X: u32>(
@@ -48,14 +64,14 @@ pub(super) fn default_bi_mark<const L: u32, const X: u32>(
         return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
     }
     (
-        MarkBitvector::new_marked().limit(normal_input.0),
-        MarkBitvector::new_marked().limit(normal_input.1),
+        MarkBitvector::new_marked(mark_later.importance).limit(normal_input.0),
+        MarkBitvector::new_marked(mark_later.importance).limit(normal_input.1),
     )
 }
 
 impl<const L: u32> MetaEq for MarkBitvector<L> {
     fn meta_eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        (self.mark, self.importance) == (other.mark, other.importance)
     }
 }
 
@@ -65,7 +81,7 @@ impl<const L: u32> ManipField for MarkBitvector<L> {
     }
 
     fn mark(&mut self) {
-        *self = Self::new_marked();
+        *self = Self::dirty();
     }
 
     fn index(&self, _index: u64) -> Option<&dyn ManipField> {

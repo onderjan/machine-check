@@ -14,7 +14,11 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         // every unknown bit may be responsible
-        let extended = MarkBitvector(forward::Ext::sext(mark_later.0 .0));
+        // copy importance
+        let extended = MarkBitvector {
+            mark: forward::Ext::sext(mark_later.0.mark),
+            importance: mark_later.0.importance,
+        };
         (
             extended.limit(normal_input.0),
             extended.limit(normal_input.1),
@@ -26,7 +30,11 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         // every unknown bit may be responsible
-        let extended = MarkBitvector(forward::Ext::sext(mark_later.0 .0));
+        // copy importance
+        let extended = MarkBitvector {
+            mark: forward::Ext::sext(mark_later.0.mark),
+            importance: mark_later.0.importance,
+        };
         (
             extended.limit(normal_input.0),
             extended.limit(normal_input.1),
