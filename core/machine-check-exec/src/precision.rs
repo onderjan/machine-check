@@ -9,6 +9,7 @@ use crate::space::NodeId;
 
 /// Current abstract state space precision.
 ///
+#[derive(Debug)]
 pub struct Precision<M: FullMachine> {
     /// Input precision. Determines which inputs are qualified to be used.
     input: BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input>,
@@ -77,5 +78,9 @@ impl<M: FullMachine> Precision<M> {
     {
         self.input.retain(|k, _| predicate(*k));
         self.decay.retain(|k, _| predicate(*k));
+    }
+
+    pub fn input_precision(&self) -> &BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input> {
+        &self.input
     }
 }

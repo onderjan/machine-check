@@ -252,6 +252,12 @@ impl<M: FullMachine> Framework<M> {
 
     /// Regenerates the state space from a given node, keeping its other parts.
     pub fn regenerate(&mut self, from_node_id: NodeId, assume_no_panic: bool) {
+        if log_enabled!(log::Level::Trace) {
+            trace!(
+                "Regenerating with input precision {:?}",
+                self.precision.input_precision()
+            );
+        }
         let mut queue = VecDeque::new();
         queue.push_back(from_node_id);
         // construct state space by breadth-first search
