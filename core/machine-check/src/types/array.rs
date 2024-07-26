@@ -39,7 +39,7 @@ impl<const I: u32, const L: u32> BitvectorArray<I, L> {
         let mut inner = LightArray::new_filled(Bitvector::new(0), Self::SIZE);
         // assign each element
         for (index, element) in slice.iter().cloned().enumerate() {
-            inner[index] = element;
+            inner.write(index, element);
         }
 
         Self { inner }
@@ -56,7 +56,7 @@ impl<const I: u32, const L: u32> Index<Bitvector<I>> for BitvectorArray<I, L> {
 
 impl<const I: u32, const L: u32> IndexMut<Bitvector<I>> for BitvectorArray<I, L> {
     fn index_mut(&mut self, index: Bitvector<I>) -> &mut Self::Output {
-        &mut self.inner[coerce_index(index)]
+        self.inner.mutable_index(coerce_index(index))
     }
 }
 

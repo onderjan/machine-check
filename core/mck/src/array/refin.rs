@@ -64,9 +64,11 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
         let (min_index, max_index) = extract_bounds(normal_input.1);
         if min_index == max_index {
             // mark array element
+            let limited_mark = mark_later.limit(normal_input.0.inner[min_index].0);
             let mut earlier_array_mark = Self::Mark::new_unmarked();
-            earlier_array_mark.inner[min_index] =
-                MetaWrap(mark_later.limit(normal_input.0.inner[min_index].0));
+            earlier_array_mark
+                .inner
+                .write(min_index, MetaWrap(limited_mark));
             (earlier_array_mark, Self::IndexMark::new_unmarked())
         } else {
             // mark index with higher importance
@@ -90,7 +92,9 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
             // propagate its marking
             let mut earlier_array_mark = mark_later.clone();
             let earlier_element_mark = earlier_array_mark.inner[min_index].0;
-            earlier_array_mark.inner[min_index] = MetaWrap(Self::ElementMark::new_unmarked());
+            earlier_array_mark
+                .inner
+                .write(min_index, MetaWrap(Self::ElementMark::new_unmarked()));
             (
                 earlier_array_mark,
                 Self::IndexMark::new_unmarked(),
@@ -98,24 +102,29 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
             )
         } else {
             // the index is the most important, mark it if we have some mark within the elements
-            let mut maximum_importance = None;
-            // TODO: rewrite this not to use a loop
-            for current_index in min_index..=max_index {
-                let current_element = &mark_later.inner[current_index].0;
-                if current_element.is_marked() {
-                    let importance = current_element.importance();
-                    maximum_importance = maximum_importance
-                        .map_or(Some(importance), |maximum_importance: u8| {
-                            Some(maximum_importance.max(importance))
-                        });
-                    break;
-                }
-            }
-            if let Some(maximum_importance) = maximum_importance {
+            let max_importance = mark_later.inner.fold_indexed(
+                min_index,
+                Some(max_index),
+                None,
+                |max_importance: Option<u8>, value| {
+                    if value.0.is_marked() {
+                        let importance = value.0.importance();
+                        if let Some(max_importance) = max_importance {
+                            Some(max_importance.max(importance))
+                        } else {
+                            Some(importance)
+                        }
+                    } else {
+                        max_importance
+                    }
+                },
+            );
+
+            if let Some(max_importance) = max_importance {
                 // do not mark anything else and mark index with index importance
                 (
                     Self::Mark::new_unmarked(),
-                    Self::IndexMark::new_marked(index_importance(maximum_importance))
+                    Self::IndexMark::new_marked(index_importance(max_importance))
                         .limit(normal_input.1),
                     Self::ElementMark::new_unmarked(),
                 )
@@ -246,7 +255,7 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
             return None;
         }
         // TODO: figure out how to do this without a mutable index
-        Some(&mut self.inner[index as usize].0)
+        Some(&mut self.inner.mutable_index(index as usize).0)
     }
 
     fn num_bits(&self) -> Option<u32> {

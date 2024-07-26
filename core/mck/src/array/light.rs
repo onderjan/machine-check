@@ -2,8 +2,11 @@ use std::borrow::BorrowMut;
 use std::{
     collections::BTreeMap,
     fmt::Debug,
-    ops::{ControlFlow, Index, IndexMut},
+    ops::{ControlFlow, Index},
 };
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct LightArray<T: Debug + Clone + PartialEq + Eq> {
@@ -118,6 +121,84 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
             result = (func)(result, value);
         }
         result
+    }
+
+    pub fn map_inplace_indexed(
+        &mut self,
+        min_index: usize,
+        max_index: Option<usize>,
+        map_fn: impl Fn(T) -> T,
+    ) {
+        // the lower element may not be within the range, find it specifically
+        use std::ops::Bound::{Excluded, Included, Unbounded};
+
+        let below_low_value = self
+            .inner
+            .range((Unbounded, Excluded(min_index)))
+            .last()
+            .map(|(_, value)| value.clone());
+
+        // insert the minimum index if not already present, will be pruned after mapping if necessary
+        if let Some(ref below_low_value) = below_low_value {
+            self.inner
+                .entry(min_index)
+                .or_insert(below_low_value.clone());
+        }
+
+        // also find the previous value of the high element in this range
+        // to be used when deciding if a backstop should be added after this range
+        let max_bound = if let Some(max_index) = max_index {
+            assert!(min_index <= max_index);
+            Included(max_index)
+        } else {
+            Unbounded
+        };
+
+        let old_high_value = self
+            .inner
+            .range((Unbounded, max_bound))
+            .last()
+            .expect("Expected upper bound entry when mapping")
+            .1
+            .clone();
+
+        let range_vec: Vec<usize> = self
+            .inner
+            .range((Included(min_index), max_bound))
+            .map(|a| *a.0)
+            .collect();
+
+        // find the previous value before the first element, there will not be any if the min index is 0
+        let mut previous_value = below_low_value;
+
+        for index in range_vec {
+            // map the value
+            let value = self
+                .inner
+                .get_mut(&index)
+                .expect("The index should be in map");
+            *value = map_fn(value.clone());
+            let current_value = value.clone();
+            // remove the entry if its value is the same as the previous value
+            if let Some(previous_value) = previous_value {
+                if current_value == previous_value {
+                    self.inner.remove(&index);
+                }
+            }
+            // update the previous value
+            previous_value = Some(current_value);
+        }
+
+        // if the old high value is not the same as the previous value,
+        // insert it if necessary
+        if let (Some(previous_value), Some(max_index)) = (previous_value, max_index) {
+            if old_high_value != previous_value {
+                let above_max_index = max_index + 1;
+                if above_max_index < self.len {
+                    self.inner.entry(above_max_index).or_insert(old_high_value);
+                }
+            }
+        }
     }
 
     pub fn bi_fold<B: Copy>(&self, other: &Self, init: B, func: fn(B, &T, &T) -> B) -> B {
@@ -329,6 +410,33 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
             }
         }
     }
+
+    pub fn mutable_index(&mut self, index: usize) -> &mut T {
+        // currently retained but not available by IndexMut
+        // TODO: remove as it does not keep representation compact
+        assert!(index < self.len);
+
+        use std::ops::Bound::{Included, Unbounded};
+
+        // we have to insert both the value and also the next value
+        // if it is within array bounds and does not exist
+
+        let element = self
+            .inner
+            .range((Unbounded, Included(index)))
+            .last()
+            .expect("Expected lower bound entry when indexing")
+            .1
+            .clone();
+
+        let next_index = index + 1;
+        if next_index < self.len {
+            // needed to preserve the next elements
+            self.inner.entry(next_index).or_insert(element.clone());
+        }
+
+        self.inner.entry(index).or_insert(element).borrow_mut()
+    }
 }
 
 impl<T: Debug + Clone + PartialEq + Eq> Debug for LightArray<T> {
@@ -379,32 +487,5 @@ impl<T: Debug + Clone + PartialEq + Eq> Index<usize> for LightArray<T> {
             .expect("Expected lower bound entry when indexing");
 
         lower_bound_entry.1
-    }
-}
-
-impl<T: Debug + Clone + PartialEq + Eq> IndexMut<usize> for LightArray<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        assert!(index < self.len);
-
-        use std::ops::Bound::{Included, Unbounded};
-
-        // we have to insert both the value and also the next value
-        // if it is within array bounds and does not exist
-
-        let element = self
-            .inner
-            .range((Unbounded, Included(index)))
-            .last()
-            .expect("Expected lower bound entry when indexing")
-            .1
-            .clone();
-
-        let next_index = index + 1;
-        if next_index < self.len {
-            // needed to preserve the next elements
-            self.inner.entry(next_index).or_insert(element.clone());
-        }
-
-        self.inner.entry(index).or_insert(element).borrow_mut()
     }
 }

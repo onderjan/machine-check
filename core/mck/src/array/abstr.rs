@@ -58,12 +58,19 @@ impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
         // TODO: rewrite this not to use a loop
         if min_index == max_index {
             // just set the single element
-            result.inner[min_index] = MetaWrap(element);
+            //result.inner[min_index] = MetaWrap(element);
+            result.inner.write(min_index, MetaWrap(element));
         } else {
             // unsure which element is being set, join the previous values
-            for current_index in min_index..=max_index {
+            result
+                .inner
+                .map_inplace_indexed(min_index, Some(max_index), |value| {
+                    MetaWrap(value.0.phi(element))
+                });
+
+            /*for current_index in min_index..=max_index {
                 result.inner[current_index] = MetaWrap(result.inner[current_index].0.phi(element));
-            }
+            }*/
         }
         result
     }
