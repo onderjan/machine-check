@@ -1,4 +1,5 @@
 use std::borrow::BorrowMut;
+use std::rc::Rc;
 use std::{
     collections::BTreeMap,
     fmt::Debug,
@@ -11,12 +12,12 @@ mod tests;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct LightArray<T: Debug + Clone + PartialEq + Eq> {
     len: usize,
-    inner: BTreeMap<usize, T>,
+    inner: Rc<BTreeMap<usize, T>>,
 }
 
 impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
     pub fn new_filled(element: T, len: usize) -> Self {
-        let inner = BTreeMap::from_iter([(0, element)]);
+        let inner = Rc::new(BTreeMap::from_iter([(0, element)]));
         Self { len, inner }
     }
 
@@ -50,7 +51,8 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
         let previous_value = previous_value.clone();
 
         // insert the written value
-        self.inner.insert(index, value);
+        let inner = Rc::make_mut(&mut self.inner);
+        inner.insert(index, value);
 
         // we need to preserve the previous value of the next elements
         // insert the previous value immediately after the written one
@@ -58,7 +60,7 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
 
         let next_index = index + 1;
         if next_index < self.len {
-            self.inner.entry(next_index).or_insert(previous_value);
+            inner.entry(next_index).or_insert(previous_value);
         }
 
         // it is guaranteed that we have not created a situation with successive two map entries
@@ -132,17 +134,16 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
         // the lower element may not be within the range, find it specifically
         use std::ops::Bound::{Excluded, Included, Unbounded};
 
-        let below_low_value = self
-            .inner
+        let inner = Rc::make_mut(&mut self.inner);
+
+        let below_low_value = inner
             .range((Unbounded, Excluded(min_index)))
             .last()
             .map(|(_, value)| value.clone());
 
         // insert the minimum index if not already present, will be pruned after mapping if necessary
         if let Some(ref below_low_value) = below_low_value {
-            self.inner
-                .entry(min_index)
-                .or_insert(below_low_value.clone());
+            inner.entry(min_index).or_insert(below_low_value.clone());
         }
 
         // also find the previous value of the high element in this range
@@ -154,16 +155,14 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
             Unbounded
         };
 
-        let old_high_value = self
-            .inner
+        let old_high_value = inner
             .range((Unbounded, max_bound))
             .last()
             .expect("Expected upper bound entry when mapping")
             .1
             .clone();
 
-        let range_vec: Vec<usize> = self
-            .inner
+        let range_vec: Vec<usize> = inner
             .range((Included(min_index), max_bound))
             .map(|a| *a.0)
             .collect();
@@ -173,16 +172,13 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
 
         for index in range_vec {
             // map the value
-            let value = self
-                .inner
-                .get_mut(&index)
-                .expect("The index should be in map");
+            let value = inner.get_mut(&index).expect("The index should be in map");
             *value = map_fn(value.clone());
             let current_value = value.clone();
             // remove the entry if its value is the same as the previous value
             if let Some(previous_value) = previous_value {
                 if current_value == previous_value {
-                    self.inner.remove(&index);
+                    inner.remove(&index);
                 }
             }
             // update the previous value
@@ -195,7 +191,7 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
             if old_high_value != previous_value {
                 let above_max_index = max_index + 1;
                 if above_max_index < self.len {
-                    self.inner.entry(above_max_index).or_insert(old_high_value);
+                    inner.entry(above_max_index).or_insert(old_high_value);
                 }
             }
         }
@@ -211,9 +207,12 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
     }
 
     pub fn subsume(&mut self, other: Self, func: fn(&mut T, T)) {
+        // unwrap or clone other so it can be mutated
+        let other_inner = Rc::try_unwrap(other.inner).unwrap_or_else(|rc| (*rc).clone());
+
         Self::mutable_bi_func(
             self,
-            other.inner.into_iter(),
+            other_inner.into_iter(),
             |_, lhs, rhs| {
                 (func)(lhs, rhs);
                 ControlFlow::Continue(())
@@ -230,7 +229,7 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
         }
         LightArray {
             len: self.len,
-            inner: result_inner,
+            inner: Rc::new(result_inner),
         }
     }
 
@@ -269,14 +268,15 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
         func: impl Fn(R, &mut U, V) -> ControlFlow<R, R>,
         default_result: R,
     ) -> R {
+        let lhs_inner = Rc::make_mut(&mut lhs.inner);
+
         let mut rhs_iter = rhs_iter.peekable();
         let (mut index, mut rhs_current) = rhs_iter
             .next()
             .expect("Expected at least one light map entry");
         assert_eq!(index, 0);
 
-        let mut lhs_previous = lhs
-            .inner
+        let mut lhs_previous = lhs_inner
             .get(&index)
             .expect("Expected light map entry at index 0")
             .clone();
@@ -287,11 +287,11 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
             use std::ops::Bound::{Excluded, Unbounded};
 
             // if there is no current lhs at the index, insert it from previous
-            let lhs_current = if let Some(lhs_current) = lhs.inner.get_mut(&index) {
+            let lhs_current = if let Some(lhs_current) = lhs_inner.get_mut(&index) {
                 lhs_current
             } else {
-                lhs.inner.insert(index, lhs_previous);
-                lhs.inner.get_mut(&index).unwrap()
+                lhs_inner.insert(index, lhs_previous);
+                lhs_inner.get_mut(&index).unwrap()
             };
             lhs_previous = lhs_current.clone();
 
@@ -312,8 +312,7 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
             }
 
             // move to the next index
-            let lhs_next_index = lhs
-                .inner
+            let lhs_next_index = lhs_inner
                 .range_mut((Excluded(index), Unbounded))
                 .next()
                 .map(|a| *a.0);
@@ -418,11 +417,12 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
 
         use std::ops::Bound::{Included, Unbounded};
 
+        let inner = Rc::make_mut(&mut self.inner);
+
         // we have to insert both the value and also the next value
         // if it is within array bounds and does not exist
 
-        let element = self
-            .inner
+        let element = inner
             .range((Unbounded, Included(index)))
             .last()
             .expect("Expected lower bound entry when indexing")
@@ -432,10 +432,10 @@ impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
         let next_index = index + 1;
         if next_index < self.len {
             // needed to preserve the next elements
-            self.inner.entry(next_index).or_insert(element.clone());
+            inner.entry(next_index).or_insert(element.clone());
         }
 
-        self.inner.entry(index).or_insert(element).borrow_mut()
+        inner.entry(index).or_insert(element).borrow_mut()
     }
 }
 
