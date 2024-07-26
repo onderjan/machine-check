@@ -28,6 +28,11 @@ impl<const L: u32> MarkBitvector<L> {
             importance,
         }
     }
+
+    pub fn is_marked(&self) -> bool {
+        self.mark.is_nonzero()
+    }
+
     pub fn new_from_flag(marked_flag: ConcreteBitvector<L>) -> Self {
         MarkBitvector {
             mark: marked_flag,

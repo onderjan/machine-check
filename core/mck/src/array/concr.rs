@@ -37,7 +37,7 @@ impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
 
     fn write(self, index: Self::Index, element: Self::Element) -> Self::Deref {
         let mut result = self.clone();
-        result.inner[coerce_index(index)] = element;
+        result.inner.write(coerce_index(index), element);
         result
     }
 }

@@ -5,6 +5,7 @@ use std::ops::ControlFlow;
 use crate::{
     abstr,
     backward::ReadWrite,
+    misc::MetaWrap,
     refin::{self, Bitvector, Boolean, ManipField, Refine},
     traits::misc::{Meta, MetaEq},
 };
@@ -13,7 +14,7 @@ use super::{abstr::extract_bounds, light::LightArray};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const L: u32> {
-    inner: LightArray<refin::Bitvector<L>>,
+    inner: LightArray<MetaWrap<refin::Bitvector<L>>>,
 }
 
 impl<const I: u32, const L: u32> Array<I, L> {
@@ -21,7 +22,10 @@ impl<const I: u32, const L: u32> Array<I, L> {
 
     pub fn new_unmarked() -> Self {
         Array {
-            inner: LightArray::new_filled(refin::Bitvector::<L>::new_unmarked(), Self::SIZE),
+            inner: LightArray::new_filled(
+                MetaWrap(refin::Bitvector::<L>::new_unmarked()),
+                Self::SIZE,
+            ),
         }
     }
 }
@@ -32,10 +36,10 @@ impl<const I: u32, const L: u32> Array<I, L> {
         mark_later: Self,
     ) -> (refin::Bitvector<L>,) {
         // join marks and propagate them to the new element
-        let earlier_element = mark_later.inner.lattice_fold(
+        let earlier_element = mark_later.inner.fold(
             refin::Bitvector::<L>::new_unmarked(),
             |mut earlier_element, later_element| {
-                earlier_element.apply_join(later_element);
+                earlier_element.apply_join(&later_element.0);
                 earlier_element
             },
         );
@@ -61,7 +65,8 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
         if min_index == max_index {
             // mark array element
             let mut earlier_array_mark = Self::Mark::new_unmarked();
-            earlier_array_mark.inner[min_index] = mark_later.limit(normal_input.0.inner[min_index]);
+            earlier_array_mark.inner[min_index] =
+                MetaWrap(mark_later.limit(normal_input.0.inner[min_index].0));
             (earlier_array_mark, Self::IndexMark::new_unmarked())
         } else {
             // mark index with higher importance
@@ -84,8 +89,8 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
             // no index marking
             // propagate its marking
             let mut earlier_array_mark = mark_later.clone();
-            let earlier_element_mark = earlier_array_mark.inner[min_index];
-            earlier_array_mark.inner[min_index] = Self::ElementMark::new_unmarked();
+            let earlier_element_mark = earlier_array_mark.inner[min_index].0;
+            earlier_array_mark.inner[min_index] = MetaWrap(Self::ElementMark::new_unmarked());
             (
                 earlier_array_mark,
                 Self::IndexMark::new_unmarked(),
@@ -94,9 +99,11 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
         } else {
             // the index is the most important, mark it if we have some mark within the elements
             let mut maximum_importance = None;
+            // TODO: rewrite this not to use a loop
             for current_index in min_index..=max_index {
-                if mark_later.inner[current_index] != Self::ElementMark::new_unmarked() {
-                    let importance = mark_later.inner[current_index].importance();
+                let current_element = &mark_later.inner[current_index].0;
+                if current_element.is_marked() {
+                    let importance = current_element.importance();
                     maximum_importance = maximum_importance
                         .map_or(Some(importance), |maximum_importance: u8| {
                             Some(maximum_importance.max(importance))
@@ -127,20 +134,20 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
 
 impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
     fn apply_join(&mut self, other: &Self) {
-        self.inner.involve(&other.inner, Bitvector::apply_join);
+        self.inner.involve(&other.inner, |our, other| {
+            Bitvector::apply_join(&mut our.0, &other.0)
+        });
     }
 
     fn to_condition(&self) -> Boolean {
         // marked if we have any marking
-        let mut result = self
-            .inner
-            .lattice_fold(Boolean::new_unmarked(), |result, element| {
-                if *element != Bitvector::<L>::new_unmarked() {
-                    Boolean::new_marked(0)
-                } else {
-                    result
-                }
-            });
+        let mut result = self.inner.fold(Boolean::new_unmarked(), |result, element| {
+            if element.0.is_marked() {
+                Boolean::new_marked(0)
+            } else {
+                result
+            }
+        });
         result.set_importance(self.importance());
         result
     }
@@ -150,7 +157,7 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
         self.inner.involve_with_flow(
             &offer.inner,
             |result, lhs, rhs| {
-                if lhs.apply_refin(rhs) {
+                if lhs.0.apply_refin(&rhs.0) {
                     ControlFlow::Break(true)
                 } else {
                     ControlFlow::Continue(result)
@@ -165,35 +172,35 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
         target
             .inner
             .involve(&self.inner, |abstr_element, refin_element| {
-                refin_element.force_decay(abstr_element);
+                refin_element.0.force_decay(&mut abstr_element.0);
             });
     }
 
     fn clean() -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(Bitvector::clean(), Self::SIZE),
+            inner: LightArray::new_filled(MetaWrap(Bitvector::clean()), Self::SIZE),
         }
     }
 
     fn dirty() -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(Bitvector::dirty(), Self::SIZE),
+            inner: LightArray::new_filled(MetaWrap(Bitvector::dirty()), Self::SIZE),
         }
     }
 
     fn importance(&self) -> u8 {
         self.inner
-            .lattice_fold(0, |accum, mark| accum.max(mark.importance()))
+            .fold(0, |accum, element| accum.max(element.0.importance()))
     }
 }
 
 impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.inner
-            .lattice_bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
-                can_be_eq && (lhs.meta_eq(rhs))
+            .bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
+                can_be_eq && (lhs == rhs)
             })
     }
 }
@@ -201,7 +208,7 @@ impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
 impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
     fn proto_first(&self) -> abstr::Array<I, L> {
         abstr::Array {
-            inner: self.inner.map(|element| element.proto_first()),
+            inner: self.inner.map(|element| MetaWrap(element.0.proto_first())),
         }
     }
 
@@ -209,7 +216,7 @@ impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
         proto.inner.involve_with_flow(
             &self.inner,
             |result, abstr_element, refin_element| {
-                if refin_element.proto_increment(abstr_element) {
+                if refin_element.0.proto_increment(&mut abstr_element.0) {
                     ControlFlow::Break(true)
                 } else {
                     ControlFlow::Continue(result)
@@ -231,14 +238,15 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
         if index > usize::MAX as u64 {
             return None;
         }
-        Some(&self.inner[index as usize])
+        Some(&self.inner[index as usize].0)
     }
 
     fn index_mut(&mut self, index: u64) -> Option<&mut dyn ManipField> {
         if index > usize::MAX as u64 {
             return None;
         }
-        Some(&mut self.inner[index as usize])
+        // TODO: figure out how to do this without a mutable index
+        Some(&mut self.inner[index as usize].0)
     }
 
     fn num_bits(&self) -> Option<u32> {
@@ -246,7 +254,7 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
     }
 
     fn mark(&mut self) {
-        self.inner = LightArray::new_filled(refin::Bitvector::<L>::dirty(), Self::SIZE);
+        self.inner = LightArray::new_filled(MetaWrap(refin::Bitvector::<L>::dirty()), Self::SIZE);
     }
 }
 

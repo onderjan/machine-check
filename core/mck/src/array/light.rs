@@ -1,17 +1,17 @@
+use std::borrow::BorrowMut;
 use std::{
-    borrow::BorrowMut,
     collections::BTreeMap,
     fmt::Debug,
     ops::{ControlFlow, Index, IndexMut},
 };
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct LightArray<T: Debug + Clone> {
+pub struct LightArray<T: Debug + Clone + PartialEq + Eq> {
     len: usize,
     inner: BTreeMap<usize, T>,
 }
 
-impl<T: Debug + Clone> LightArray<T> {
+impl<T: Debug + Clone + PartialEq + Eq> LightArray<T> {
     pub fn new_filled(element: T, len: usize) -> Self {
         let inner = BTreeMap::from_iter([(0, element)]);
         Self { len, inner }
@@ -26,15 +26,101 @@ impl<T: Debug + Clone> LightArray<T> {
         self.len == 0
     }
 
-    pub fn lattice_fold<B>(&self, init: B, func: fn(B, &T) -> B) -> B {
+    pub fn write(&mut self, index: usize, value: T) {
+        assert!(index < self.len);
+
+        use std::ops::Bound::{Included, Unbounded};
+
+        // first, we will get the previous value
+        let previous_value = self
+            .inner
+            .range((Unbounded, Included(index)))
+            .last()
+            .expect("Expected lower bound entry when reading for write")
+            .1;
+
+        // if the previous value is equal to the written value, do nothing
+        if *previous_value == value {
+            return;
+        }
+
+        let previous_value = previous_value.clone();
+
+        // insert the written value
+        self.inner.insert(index, value);
+
+        // we need to preserve the previous value of the next elements
+        // insert the previous value immediately after the written one
+        // if it does not already exist
+
+        let next_index = index + 1;
+        if next_index < self.len {
+            self.inner.entry(next_index).or_insert(previous_value);
+        }
+
+        // it is guaranteed that we have not created a situation with successive two map entries
+        // that have the same values
+    }
+
+    fn indexed_iter(&self, min_index: usize, max_index: Option<usize>) -> impl Iterator<Item = &T> {
+        // the lower element may not be within the range, find it specifically
+        use std::ops::Bound::{Excluded, Included, Unbounded};
+        let lower_element = self
+            .inner
+            .range((Unbounded, Included(min_index)))
+            .last()
+            .expect("Expected lower bound entry when iterator-indexing")
+            .1;
+
+        let max_bound = if let Some(max_index) = max_index {
+            assert!(min_index <= max_index);
+            Included(max_index)
+        } else {
+            Unbounded
+        };
+        let other_elements_iter = self
+            .inner
+            .range((Excluded(min_index), max_bound))
+            .map(|(_index, value)| value);
+        std::iter::once(lower_element).chain(other_elements_iter)
+    }
+
+    pub fn fold_indexed<B>(
+        &self,
+        min_index: usize,
+        max_index: Option<usize>,
+        init: B,
+        func: fn(B, &T) -> B,
+    ) -> B {
         let mut accumulator = init;
-        for value in self.inner.values() {
+        for value in self.indexed_iter(min_index, max_index) {
             accumulator = (func)(accumulator, value);
         }
         accumulator
     }
 
-    pub fn lattice_bi_fold<B: Copy>(&self, other: &Self, init: B, func: fn(B, &T, &T) -> B) -> B {
+    pub fn fold<B>(&self, init: B, func: fn(B, &T) -> B) -> B {
+        self.fold_indexed(0, None, init, func)
+    }
+
+    pub fn reduce_indexed(
+        &self,
+        min_index: usize,
+        max_index: Option<usize>,
+        func: fn(T, &T) -> T,
+    ) -> T {
+        let mut result = self
+            .indexed_iter(min_index, max_index)
+            .next()
+            .cloned()
+            .expect("Indexed iterator should have at least one element");
+        for value in self.indexed_iter(min_index, max_index) {
+            result = (func)(result, value);
+        }
+        result
+    }
+
+    pub fn bi_fold<B: Copy>(&self, other: &Self, init: B, func: fn(B, &T, &T) -> B) -> B {
         Self::immutable_bi_func(
             self.inner.iter().map(|e| (*e.0, e.1)),
             other.inner.iter().map(|e| (*e.0, e.1)),
@@ -55,7 +141,7 @@ impl<T: Debug + Clone> LightArray<T> {
         );
     }
 
-    pub fn map<U: Debug + Clone>(&self, func: fn(&T) -> U) -> LightArray<U> {
+    pub fn map<U: Debug + Clone + PartialEq + Eq>(&self, func: fn(&T) -> U) -> LightArray<U> {
         let mut result_inner = BTreeMap::new();
 
         for entry in self.inner.iter() {
@@ -67,7 +153,11 @@ impl<T: Debug + Clone> LightArray<T> {
         }
     }
 
-    pub fn involve<V: Debug + Clone>(&mut self, other: &LightArray<V>, func: fn(&mut T, &V)) {
+    pub fn involve<V: Debug + Clone + PartialEq + Eq>(
+        &mut self,
+        other: &LightArray<V>,
+        func: fn(&mut T, &V),
+    ) {
         self.involve_with_flow(
             other,
             |_, lhs, rhs| {
@@ -78,7 +168,7 @@ impl<T: Debug + Clone> LightArray<T> {
         );
     }
 
-    pub fn involve_with_flow<V: Debug + Clone, R>(
+    pub fn involve_with_flow<V: Debug + Clone + PartialEq + Eq, R>(
         &mut self,
         other: &LightArray<V>,
         func: impl Fn(R, &mut T, &V) -> ControlFlow<R, R>,
@@ -92,7 +182,7 @@ impl<T: Debug + Clone> LightArray<T> {
         )
     }
 
-    fn mutable_bi_func<U: Debug + Clone, V: Clone, R>(
+    fn mutable_bi_func<U: Debug + Clone + PartialEq + Eq, V: Clone, R>(
         lhs: &mut LightArray<U>,
         rhs_iter: impl Iterator<Item = (usize, V)>,
         func: impl Fn(R, &mut U, V) -> ControlFlow<R, R>,
@@ -241,7 +331,7 @@ impl<T: Debug + Clone> LightArray<T> {
     }
 }
 
-impl<T: Debug + Clone> Debug for LightArray<T> {
+impl<T: Debug + Clone + PartialEq + Eq> Debug for LightArray<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
         for ((current_index, current_element), next_index) in self.inner.iter().zip(
@@ -272,7 +362,7 @@ impl<T: Debug + Clone> Debug for LightArray<T> {
     }
 }
 
-impl<T: Debug + Clone> Index<usize> for LightArray<T> {
+impl<T: Debug + Clone + PartialEq + Eq> Index<usize> for LightArray<T> {
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -292,7 +382,7 @@ impl<T: Debug + Clone> Index<usize> for LightArray<T> {
     }
 }
 
-impl<T: Debug + Clone> IndexMut<usize> for LightArray<T> {
+impl<T: Debug + Clone + PartialEq + Eq> IndexMut<usize> for LightArray<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         assert!(index < self.len);
 

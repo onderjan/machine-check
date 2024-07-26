@@ -10,14 +10,13 @@ use bimap::BiMap;
 use mck::{
     abstr::{self, PanicResult},
     concr::FullMachine,
+    misc::MetaWrap,
 };
 use petgraph::{prelude::GraphMap, Directed};
 
 mod labelling;
-mod meta_wrap;
 mod state;
 
-use meta_wrap::MetaWrap;
 pub use state::{NodeId, StateId};
 
 /// Abstract state space.
