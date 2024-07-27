@@ -65,7 +65,7 @@ fn exact_uni_mark<const L: u32, const X: u32>(
 ) -> MarkBitvector<L> {
     // the result marks exactly those bits of input which, if changed in operation input,
     // can change bits masked by mark_a in the operation result
-    let mark_mask = a_mark.mark.as_unsigned();
+    let mark_mask = a_mark.marked_bits().as_unsigned();
     // determine for each input bit separately
     let mut result = 0;
     for i in 0..L {
@@ -99,25 +99,28 @@ fn eval_mark<const L: u32>(
         if exact_earlier != our_earlier {
             panic!(
                 "Non-exact, expected {}, got {}",
-                exact_earlier.mark, our_earlier.mark
+                exact_earlier.marked_bits(),
+                our_earlier.marked_bits()
             );
         }
     } else {
         // test whether our earlier mark is at least as marked as the exact one
         // if not, the marking will be incomplete
-        let exact = exact_earlier.mark.as_unsigned();
-        let our = our_earlier.mark.as_unsigned();
+        let exact = exact_earlier.marked_bits().as_unsigned();
+        let our = our_earlier.marked_bits().as_unsigned();
         if our & exact != exact {
             panic!(
                 "Incomplete, expected {}, got {}",
-                exact_earlier.mark, our_earlier.mark
+                exact_earlier.marked_bits(),
+                our_earlier.marked_bits()
             );
         }
         // test unprovoked marking
-        if !provoked && our_earlier.mark.is_nonzero() {
+        if !provoked && our_earlier.marked_bits().is_nonzero() {
             panic!(
                 "Unprovoked, expected {}, got {}",
-                exact_earlier.mark, our_earlier.mark
+                exact_earlier.marked_bits(),
+                our_earlier.marked_bits()
             );
         }
     }
@@ -137,12 +140,7 @@ pub(super) fn exec_uni_check<const L: u32, const X: u32>(
         for a_abstr in ThreeValuedBitvector::all_with_length_iter() {
             let exact_earlier = exact_uni_mark(a_abstr, a_later, concr_func);
             let our_earlier = mark_func(a_abstr, a_later);
-            eval_mark(
-                want_exact,
-                exact_earlier,
-                our_earlier,
-                a_later.mark.is_nonzero(),
-            );
+            eval_mark(want_exact, exact_earlier, our_earlier, a_later.is_marked());
         }
     }
 }
@@ -156,7 +154,7 @@ fn exact_left_mark<const L: u32, const X: u32>(
     let right_abstr = abstr.1;
     // the result marks exactly those bits of input which, if changed in operation input,
     // can change bits masked by mark_a in the operation result
-    let mark_mask = mark.mark.as_unsigned();
+    let mark_mask = mark.marked_bits().as_unsigned();
     // determine for each input bit separately
     let mut left_result = 0;
     for i in 0..L {
@@ -204,12 +202,7 @@ fn exec_left_check<const L: u32, const X: u32>(
                 let exact_earlier = exact_left_mark((a_abstr, b_abstr), a_later, &concr_func);
                 let our_earlier = mark_func((a_abstr, b_abstr), a_later);
 
-                eval_mark(
-                    want_exact,
-                    exact_earlier,
-                    our_earlier,
-                    a_later.mark.is_nonzero(),
-                );
+                eval_mark(want_exact, exact_earlier, our_earlier, a_later.is_marked());
             }
         }
     }

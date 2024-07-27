@@ -1,3 +1,5 @@
+use std::num::NonZeroU8;
+
 use crate::bitvector::concrete::ConcreteBitvector;
 
 #[cfg(test)]
@@ -13,8 +15,12 @@ mod refine;
 mod shift;
 mod support;
 
+// TODO: remove equality in favour of meta-equality
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct MarkBitvector<const L: u32> {
-    mark: ConcreteBitvector<L>,
-    importance: u8,
+pub struct MarkBitvector<const L: u32>(Option<BitvectorMark<L>>);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BitvectorMark<const L: u32> {
+    pub importance: NonZeroU8,
+    pub mark: ConcreteBitvector<L>,
 }

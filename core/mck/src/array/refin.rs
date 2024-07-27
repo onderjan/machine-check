@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, num::NonZeroU8};
 
 use std::ops::ControlFlow;
 
@@ -56,6 +56,11 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
         normal_input: (&Self, Self::Index),
         mark_later: Self::ElementMark,
     ) -> (Self::Mark, Self::IndexMark) {
+        let Some(later_mark) = mark_later.get() else {
+            // no marking
+            return (Self::Mark::new_unmarked(), Self::IndexMark::new_unmarked());
+        };
+
         // prefer marking index
         let (min_index, max_index) = extract_bounds(normal_input.1);
         if min_index == max_index {
@@ -70,7 +75,7 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
             // mark index with higher importance
             (
                 Self::Mark::new_unmarked(),
-                Self::IndexMark::new_marked(index_importance(mark_later.importance()))
+                Self::IndexMark::new_marked(index_importance(later_mark.importance))
                     .limit(normal_input.1),
             )
         }
@@ -102,13 +107,12 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
                 min_index,
                 Some(max_index),
                 None,
-                |max_importance: Option<u8>, value| {
-                    if value.0.is_marked() {
-                        let importance = value.0.importance();
+                |max_importance: Option<NonZeroU8>, value| {
+                    if let Some(value) = value.0.get() {
                         if let Some(max_importance) = max_importance {
-                            Some(max_importance.max(importance))
+                            Some(max_importance.max(value.importance))
                         } else {
-                            Some(importance)
+                            Some(value.importance)
                         }
                     } else {
                         max_importance
@@ -145,16 +149,20 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
     }
 
     fn to_condition(&self) -> Boolean {
-        // marked if we have any marking
-        let mut result = self.inner.fold(Boolean::new_unmarked(), |result, element| {
-            if element.0.is_marked() {
-                Boolean::new_marked(0)
+        // marked with the highest marking importance
+        self.inner.fold(Boolean::new_unmarked(), |result, value| {
+            if let Some(value) = value.0.get() {
+                assert!(value.mark.is_nonzero());
+                let value_importance: u8 = value.importance.into();
+                if value_importance > result.importance() {
+                    Boolean::new_marked(value.importance)
+                } else {
+                    result
+                }
             } else {
                 result
             }
-        });
-        result.set_importance(self.importance());
-        result
+        })
     }
 
     fn apply_refin(&mut self, offer: &Self) -> bool {
@@ -264,6 +272,6 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
     }
 }
 
-fn index_importance(element_importance: u8) -> u8 {
+fn index_importance(element_importance: NonZeroU8) -> NonZeroU8 {
     element_importance.saturating_add(1)
 }

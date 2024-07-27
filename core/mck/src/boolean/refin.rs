@@ -1,3 +1,5 @@
+use std::num::NonZeroU8;
+
 use crate::{
     backward::Bitwise,
     refin::{Bitvector, Refine},
@@ -12,12 +14,12 @@ impl Boolean {
         Self(Bitvector::new_unmarked())
     }
 
-    pub fn new_marked(importance: u8) -> Self {
+    pub fn new_marked(importance: NonZeroU8) -> Self {
         Self(Bitvector::new_marked(importance))
     }
 
-    pub(crate) fn set_importance(&mut self, importance: u8) {
-        self.0.set_importance(importance);
+    pub fn new_marked_unimportant() -> Self {
+        Self(Bitvector::new_marked_unimportant())
     }
 }
 

@@ -8,12 +8,16 @@ use crate::{
     traits::refin::Refine,
 };
 
-use super::MarkBitvector;
+use super::{BitvectorMark, MarkBitvector};
 
 impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
     type Mark = MarkBitvector<L>;
 
     fn logic_shl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        let Some(mark_later) = mark_later.0 else {
+            return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
+        };
+
         // we have to reverse the shift direction, as we are going from later to earlier mark
         // use srl
         shift(normal_input, mark_later, |a, b| {
@@ -22,6 +26,10 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
     }
 
     fn logic_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        let Some(mark_later) = mark_later.0 else {
+            return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
+        };
+
         // we have to reverse the shift direction, as we are going from later to earlier mark
         // use sll
         shift(normal_input, mark_later, |a, b| {
@@ -30,9 +38,13 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
     }
 
     fn arith_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        let Some(mark_later) = mark_later.0 else {
+            return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
+        };
+
         if L == 0 {
             // avoid problems with zero-width bitvectors+
-            let importance = mark_later.importance();
+            let importance = mark_later.importance;
             return (
                 MarkBitvector::new_marked(importance),
                 MarkBitvector::new_marked(importance),
@@ -58,13 +70,9 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
 
 fn shift<const L: u32>(
     normal_input: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
-    mark_later: MarkBitvector<L>,
+    mark_later: BitvectorMark<L>,
     shift_fn: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<L>,
 ) -> (MarkBitvector<L>, MarkBitvector<L>) {
-    if mark_later == MarkBitvector::new_unmarked() {
-        // avoid spurious marking of shift amount
-        return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
-    }
     if L == 0 {
         // avoid problems with zero-width bitvectors
         return (
@@ -89,10 +97,10 @@ fn shift<const L: u32>(
         if amount_input.contains_concr(&machine_i) {
             // shift the mark
             let shifted_mark = shift_fn(mark_later.mark, machine_i);
-            shifted_mark_earlier.apply_join(&MarkBitvector {
+            shifted_mark_earlier.apply_join(&MarkBitvector(Some(BitvectorMark {
                 mark: shifted_mark,
                 importance: mark_later.importance,
-            });
+            })));
         }
     }
     (
