@@ -5,6 +5,7 @@ use std::ops::ControlFlow;
 use crate::{
     abstr,
     backward::ReadWrite,
+    concr::{self, UnsignedBitvector},
     misc::MetaWrap,
     refin::{self, Bitvector, Boolean, ManipField, Refine},
     traits::misc::{Meta, MetaEq},
@@ -14,18 +15,13 @@ use super::{abstr::extract_bounds, light::LightArray};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const L: u32> {
-    inner: LightArray<usize, MetaWrap<refin::Bitvector<L>>>,
+    inner: LightArray<UnsignedBitvector<I>, MetaWrap<refin::Bitvector<L>>>,
 }
 
 impl<const I: u32, const L: u32> Array<I, L> {
-    const SIZE: usize = 1 << I;
-
     pub fn new_unmarked() -> Self {
         Array {
-            inner: LightArray::new_filled(
-                MetaWrap(refin::Bitvector::<L>::new_unmarked()),
-                Self::SIZE,
-            ),
+            inner: LightArray::new_filled(MetaWrap(refin::Bitvector::<L>::new_unmarked())),
         }
     }
 }
@@ -188,14 +184,14 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
     fn clean() -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(MetaWrap(Bitvector::clean()), Self::SIZE),
+            inner: LightArray::new_filled(MetaWrap(Bitvector::clean())),
         }
     }
 
     fn dirty() -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(MetaWrap(Bitvector::dirty()), Self::SIZE),
+            inner: LightArray::new_filled(MetaWrap(Bitvector::dirty())),
         }
     }
 
@@ -244,18 +240,19 @@ impl<const I: u32, const L: u32> Debug for Array<I, L> {
 
 impl<const I: u32, const L: u32> ManipField for Array<I, L> {
     fn index(&self, index: u64) -> Option<&dyn ManipField> {
-        if index > usize::MAX as u64 {
+        let Some(index) = concr::Bitvector::try_new(index) else {
             return None;
-        }
-        Some(&self.inner[index as usize].0)
+        };
+        let index = UnsignedBitvector::from_bitvector(index);
+        Some(&self.inner[index].0)
     }
 
     fn index_mut(&mut self, index: u64) -> Option<&mut dyn ManipField> {
-        if index > usize::MAX as u64 {
+        let Some(index) = concr::Bitvector::try_new(index) else {
             return None;
-        }
-        // TODO: figure out how to do this without a mutable index
-        Some(&mut self.inner.mutable_index(index as usize).0)
+        };
+        let index = UnsignedBitvector::from_bitvector(index);
+        Some(&mut self.inner.mutable_index(index).0)
     }
 
     fn num_bits(&self) -> Option<u32> {
@@ -263,7 +260,7 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
     }
 
     fn mark(&mut self) {
-        self.inner = LightArray::new_filled(MetaWrap(refin::Bitvector::<L>::dirty()), Self::SIZE);
+        self.inner = LightArray::new_filled(MetaWrap(refin::Bitvector::<L>::dirty()));
     }
 }
 

@@ -3,6 +3,8 @@ use std::{
     ops::{Add, Div, Mul, Rem, Shl, Shr, Sub},
 };
 
+use num::{One, Zero};
+
 use crate::{
     bitvector::concr,
     forward::{HwArith, HwShift},
@@ -98,6 +100,22 @@ impl<const L: u32> PartialOrd for UnsignedBitvector<L> {
 impl<const L: u32> Ord for UnsignedBitvector<L> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.unsigned_cmp(&other.0)
+    }
+}
+
+impl<const L: u32> Zero for UnsignedBitvector<L> {
+    fn zero() -> Self {
+        UnsignedBitvector(concr::Bitvector::zero())
+    }
+
+    fn is_zero(&self) -> bool {
+        self.0.is_zero()
+    }
+}
+
+impl<const L: u32> One for UnsignedBitvector<L> {
+    fn one() -> Self {
+        UnsignedBitvector(concr::Bitvector::one())
     }
 }
 

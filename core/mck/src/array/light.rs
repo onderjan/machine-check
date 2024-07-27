@@ -26,7 +26,6 @@ pub struct LightArray<
         + Sub<Output = I>,
     E: Clone + PartialEq + Eq,
 > {
-    len: I,
     inner: Rc<BTreeMap<I, E>>,
 }
 
@@ -44,19 +43,13 @@ impl<
         E: Clone + PartialEq + Eq,
     > LightArray<I, E>
 {
-    pub fn new_filled(element: E, len: I) -> Self {
+    pub fn new_filled(element: E) -> Self {
         let zero_index = <I as Zero>::zero();
         let inner = Rc::new(BTreeMap::from_iter([(zero_index, element)]));
-        Self { len, inner }
-    }
-
-    pub fn len(&self) -> I {
-        self.len
+        Self { inner }
     }
 
     pub fn write(&mut self, index: I, value: E) {
-        assert!(index < self.len);
-
         use std::ops::Bound::{Included, Unbounded};
 
         // first, we will get the previous value
@@ -83,7 +76,7 @@ impl<
         // if it does not already exist
 
         let next_index = index + <I as One>::one();
-        if next_index < self.len {
+        if next_index != <I as Zero>::zero() {
             inner.entry(next_index).or_insert(previous_value);
         }
 
@@ -211,7 +204,7 @@ impl<
         if let (Some(previous_value), Some(max_index)) = (previous_value, max_index) {
             if old_high_value != previous_value {
                 let above_max_index = max_index + index_one;
-                if above_max_index < self.len {
+                if above_max_index != <I as Zero>::zero() {
                     inner.entry(above_max_index).or_insert(old_high_value);
                 }
             }
@@ -249,7 +242,6 @@ impl<
             result_inner.insert(*entry.0, (func)(entry.1));
         }
         LightArray {
-            len: self.len,
             inner: Rc::new(result_inner),
         }
     }
@@ -434,7 +426,6 @@ impl<
     pub fn mutable_index(&mut self, index: I) -> &mut E {
         // currently retained but not available by IndexMut
         // TODO: remove as it does not keep representation compact
-        assert!(index < self.len);
 
         use std::ops::Bound::{Included, Unbounded};
 
@@ -451,7 +442,7 @@ impl<
             .clone();
 
         let next_index = index + <I as One>::one();
-        if next_index < self.len {
+        if next_index != <I as Zero>::zero() {
             // needed to preserve the next elements
             inner.entry(next_index).or_insert(element.clone());
         }
@@ -484,18 +475,16 @@ impl<
                 .map(|v| Some(v.0))
                 .chain(std::iter::once(None)),
         ) {
-            let next_index = if let Some(next_index) = next_index {
-                *next_index
+            let next_index_minus_one = if let Some(next_index) = next_index {
+                *next_index - <I as One>::one()
             } else {
-                self.len
+                <I as Zero>::zero() - <I as One>::one()
             };
-            if next_index != *current_index + <I as One>::one() {
+            if next_index_minus_one != *current_index {
                 write!(
                     f,
                     "{:?}..={:?}: {:?}, ",
-                    current_index,
-                    next_index - <I as One>::one(),
-                    current_element
+                    current_index, next_index_minus_one, current_element
                 )?;
             } else {
                 write!(f, "{:?}: {:?}, ", current_index, current_element)?;
@@ -522,8 +511,6 @@ impl<
     type Output = E;
 
     fn index(&self, index: I) -> &Self::Output {
-        assert!(index < self.len);
-
         use std::ops::Bound::{Included, Unbounded};
 
         // we can return the lower bound

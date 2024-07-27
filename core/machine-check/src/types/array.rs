@@ -1,6 +1,9 @@
 use std::ops::{Index, IndexMut};
 
-use mck::{concr::IntoMck, misc::LightArray};
+use mck::{
+    concr::{IntoMck, UnsignedBitvector},
+    misc::LightArray,
+};
 
 use crate::Bitvector;
 
@@ -14,17 +17,14 @@ use crate::Bitvector;
 ///
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct BitvectorArray<const I: u32, const L: u32> {
-    pub(super) inner: LightArray<usize, Bitvector<L>>,
+    pub(super) inner: LightArray<UnsignedBitvector<I>, Bitvector<L>>,
 }
 
 impl<const I: u32, const L: u32> BitvectorArray<I, L> {
-    const SIZE: usize = 1 << I;
-
     /// Creates a new array filled with the given element.
     pub fn new_filled(element: Bitvector<L>) -> Self {
-        assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(element, Self::SIZE),
+            inner: LightArray::new_filled(element),
         }
     }
 
@@ -34,12 +34,15 @@ impl<const I: u32, const L: u32> BitvectorArray<I, L> {
     ///
     /// Cannot be used within the machine_description macro.
     pub fn from_slice(slice: &[Bitvector<L>]) -> Self {
-        assert_eq!(Self::SIZE, slice.len());
+        assert!(I < usize::BITS);
+        assert_eq!(1 << I, slice.len());
         // make zeroed first
-        let mut inner = LightArray::new_filled(Bitvector::new(0), Self::SIZE);
+        let mut inner = LightArray::new_filled(Bitvector::new(0));
         // assign each element
-        for (index, element) in slice.iter().cloned().enumerate() {
+        let mut index = UnsignedBitvector::zero();
+        for element in slice.iter().cloned() {
             inner.write(index, element);
+            index = index + UnsignedBitvector::one();
         }
 
         Self { inner }
@@ -50,23 +53,15 @@ impl<const I: u32, const L: u32> Index<Bitvector<I>> for BitvectorArray<I, L> {
     type Output = Bitvector<L>;
 
     fn index(&self, index: Bitvector<I>) -> &Self::Output {
-        &self.inner[coerce_index(index)]
+        &self.inner[UnsignedBitvector::from_bitvector(index.into_mck())]
     }
 }
 
 impl<const I: u32, const L: u32> IndexMut<Bitvector<I>> for BitvectorArray<I, L> {
     fn index_mut(&mut self, index: Bitvector<I>) -> &mut Self::Output {
-        self.inner.mutable_index(coerce_index(index))
+        self.inner
+            .mutable_index(UnsignedBitvector::from_bitvector(index.into_mck()))
     }
-}
-
-fn coerce_index<const I: u32>(index: Bitvector<I>) -> usize {
-    let index: usize = index
-        .0
-        .as_unsigned()
-        .try_into()
-        .expect("Index should be within usize");
-    index
 }
 
 impl<const I: u32, const L: u32> IntoMck for BitvectorArray<I, L> {

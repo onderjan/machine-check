@@ -2,16 +2,18 @@ use std::fmt::Debug;
 
 use crate::{
     abstr::{self, Abstr, ManipField, Phi},
+    concr,
+    concr::UnsignedBitvector,
     forward::ReadWrite,
     misc::MetaWrap,
     traits::misc::MetaEq,
 };
 
-use super::{concr, light::LightArray};
+use super::light::LightArray;
 
 #[derive(Clone, Hash)]
 pub struct Array<const I: u32, const L: u32> {
-    pub(super) inner: LightArray<usize, MetaWrap<abstr::Bitvector<L>>>,
+    pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<L>>>,
 }
 
 impl<const I: u32, const L: u32> Abstr<concr::Array<I, L>> for Array<I, L> {
@@ -25,12 +27,10 @@ impl<const I: u32, const L: u32> Abstr<concr::Array<I, L>> for Array<I, L> {
 }
 
 impl<const I: u32, const L: u32> Array<I, L> {
-    const SIZE: usize = 1 << I;
-
     pub fn new_filled(element: abstr::Bitvector<L>) -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(MetaWrap(element), Self::SIZE),
+            inner: LightArray::new_filled(MetaWrap(element)),
         }
     }
 }
@@ -67,22 +67,19 @@ impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
                 .map_inplace_indexed(min_index, Some(max_index), |value| {
                     MetaWrap(value.0.phi(element))
                 });
-
-            /*for current_index in min_index..=max_index {
-                result.inner[current_index] = MetaWrap(result.inner[current_index].0.phi(element));
-            }*/
         }
         result
     }
 }
 
-pub(super) fn extract_bounds<const I: u32>(index: abstr::Bitvector<I>) -> (usize, usize) {
-    let umin = index.umin().as_unsigned();
-    let umax = index.umax().as_unsigned();
+pub(super) fn extract_bounds<const I: u32>(
+    index: abstr::Bitvector<I>,
+) -> (UnsignedBitvector<I>, UnsignedBitvector<I>) {
+    let umin = UnsignedBitvector::from_bitvector(index.umin());
+    let umax = UnsignedBitvector::from_bitvector(index.umax());
     assert!(umin <= umax);
-    assert!(umax <= usize::MAX as u64);
 
-    (umin as usize, umax as usize)
+    (umin, umax)
 }
 
 impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
@@ -123,10 +120,11 @@ impl<const I: u32, const L: u32> Debug for Array<I, L> {
 
 impl<const I: u32, const L: u32> ManipField for Array<I, L> {
     fn index(&self, index: u64) -> Option<&dyn ManipField> {
-        if index >= Self::SIZE as u64 {
+        let Some(index) = concr::Bitvector::try_new(index) else {
             return None;
-        }
-        Some(&self.inner[index as usize].0)
+        };
+        let index = UnsignedBitvector::from_bitvector(index);
+        Some(&self.inner[index].0)
     }
 
     fn num_bits(&self) -> Option<u32> {

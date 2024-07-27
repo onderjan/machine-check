@@ -9,7 +9,6 @@ use crate::forward::TypedCmp;
 use super::ConcreteBitvector;
 
 impl<const L: u32> ConcreteBitvector<L> {
-    #[allow(dead_code)]
     pub fn new(value: u64) -> Self {
         let mask: u64 = Self::bit_mask().0;
         if (value & !mask) != 0 {
@@ -20,6 +19,15 @@ impl<const L: u32> ConcreteBitvector<L> {
         }
 
         Self(value)
+    }
+
+    pub fn try_new(value: u64) -> Option<Self> {
+        let mask: u64 = Self::bit_mask().0;
+        if (value & !mask) != 0 {
+            return None;
+        }
+
+        Some(Self(value))
     }
 
     // not for use where it may be replaced by abstraction
@@ -44,12 +52,25 @@ impl<const L: u32> ConcreteBitvector<L> {
         self.0 ^ (1 << (L - 1))
     }
 
+    pub fn zero() -> Self {
+        Self(0)
+    }
+
     pub fn is_zero(&self) -> bool {
         self.0 == 0
     }
 
     pub fn is_nonzero(&self) -> bool {
         self.0 != 0
+    }
+
+    pub fn one() -> Self {
+        if L > 0 {
+            Self(1)
+        } else {
+            // 1 is not a valid value for zero-bit bitvector
+            Self(0)
+        }
     }
 
     pub fn is_full_mask(&self) -> bool {
@@ -91,14 +112,7 @@ impl<const L: u32> ConcreteBitvector<L> {
 
 impl<const L: u32> Debug for ConcreteBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "0x{:X}", self.0)
-        /*write!(f, "'")?;
-        for little_k in 0..L {
-            let big_k = L - little_k - 1;
-            let bit = (self.0 >> (big_k)) & 1;
-            write!(f, "{}", bit)?;
-        }
-        write!(f, "'")*/
+        std::fmt::Debug::fmt(&self.0, f)
     }
 }
 
