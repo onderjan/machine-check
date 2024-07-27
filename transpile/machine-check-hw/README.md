@@ -33,7 +33,7 @@ $ machine-check-hw prepare --clean
 # Reachability verification
 
 To actually verify something, obtain a simple Btor2 system, e.g. [recount4.btor2](https://gitlab.com/sosy-lab/research/data/word-level-hwmc-benchmarks/-/blob/991551e58cfc85358dc820fd98ecbd9a1e7e28f8/bv/btor2/btor2tools-examples/recount4.btor2). By pointing machine-check-hw to a Btor2 file, it will by default verify reachability properties specified in that file:
-```
+```console
 $ machine-check-hw verify ./recount4.btor2
 [2023-10-16T19:18:41Z INFO  machine_check::verify::work] Transcribing the system into a machine.
 [2023-10-16T19:18:41Z INFO  machine_check::verify::work] Building a machine verifier.
@@ -47,7 +47,7 @@ $ machine-check-hw verify ./recount4.btor2
 # CTL property verification
 
 Instead of verifying reachability properties in the file, we can verify custom Computation Tree Logic properties. In the property, we can use single-bit states as atomic labellings. For example, the following Btor2 file has three bead positions and a single input. If the input is 0, the beads stay in their positions, if it is 1, they move to the next position:
-```
+```console
 1 sort bitvec 1 ; bit type
 
 10 zero 1 ; bit zero

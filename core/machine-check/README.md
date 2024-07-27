@@ -33,7 +33,7 @@ inside your own Rust crate (with **machine-check** as a dependency), you can  ve
 lesser than 157 in each system state, using a specification property based on 
 [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic). Let's use **machine-check** 
 to prove the property: 
-```
+```console
 $ cargo run -- --property "AG[unsigned_lt(value,157)]"
 
 [2024-03-07T22:44:44Z INFO  machine_check_exec] Starting verification.
@@ -44,7 +44,7 @@ $ cargo run -- --property "AG[unsigned_lt(value,157)]"
 and will be nicer than this.)
 
 On the other hand, **machine-check** tells us that the counter value is NOT always lesser than 156:
-```
+```console
 $ cargo run -- --property "AG[unsigned_lt(value,156)]"
 
 $ cargo run -- --property "AG[unsigned_lt(value,156)]"
@@ -66,7 +66,7 @@ example, which should panic with message
 "Example panic 2" if the input is equal to 1. You can copy it into your crate, then run it with 
 parameter "--inherent", which signifies that you are only interested about the inherent 
 panics of the system:
-```
+```console
 $ cargo run -- --inherent
 [2024-03-07T22:59:26Z INFO  machine_check_exec] Starting verification.
 [2024-03-07T22:59:26Z ERROR machine_check_exec] Verification failed.
