@@ -55,10 +55,8 @@ impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
 
         let mut result = self.clone();
 
-        // TODO: rewrite this not to use a loop
         if min_index == max_index {
-            // just set the single element
-            //result.inner[min_index] = MetaWrap(element);
+            // just set the single elementW
             result.inner.write(min_index, MetaWrap(element));
         } else {
             // unsure which element is being set, join the previous values
