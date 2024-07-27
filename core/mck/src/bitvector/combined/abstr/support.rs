@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display};
 
 use crate::{
     abstr::Abstr,
-    bitvector::{concr, support::Unsigned, three_valued, wrap_interval},
+    bitvector::{concr, support::UnsignedBitvector, three_valued, wrap_interval},
 };
 
 use super::Bitvector;
@@ -22,8 +22,8 @@ impl<const L: u32> Bitvector<L> {
         w: wrap_interval::AbstractBitvector<L>,
     ) -> Self {
         let t_interval = wrap_interval::interval::Interval::new(
-            Unsigned::from_bitvector(t.umin()),
-            Unsigned::from_bitvector(t.umax()),
+            UnsignedBitvector::from_bitvector(t.umin()),
+            UnsignedBitvector::from_bitvector(t.umax()),
         );
         let new_w = wrap_interval::AbstractBitvector::from_unsigned_intervals(
             w.unsigned_intervals()

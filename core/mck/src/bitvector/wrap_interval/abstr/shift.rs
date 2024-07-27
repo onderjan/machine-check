@@ -1,5 +1,5 @@
 use crate::{
-    bitvector::support::Unsigned,
+    bitvector::support::UnsignedBitvector,
     bitvector::{concrete::ConcreteBitvector, wrap_interval::interval::Interval},
     forward::{HwArith, HwShift},
 };
@@ -16,33 +16,33 @@ impl<const L: u32> HwShift for Bitvector<L> {
         // shifting left logically
         let mut intervals = Vec::new();
 
-        let large_amount = Unsigned::new(L as u64);
+        let large_amount = UnsignedBitvector::new(L as u64);
 
         for amount_interval in amount.unsigned_intervals() {
             // adjust too large amounts first
             let amount_interval = if amount_interval.max >= large_amount {
                 // amount too large, add zero interval
-                intervals.push(Interval::new(Unsigned::zero(), Unsigned::zero()));
+                intervals.push(Interval::new(UnsignedBitvector::zero(), UnsignedBitvector::zero()));
                 if amount_interval.min >= large_amount {
                     // any value from the amount interval will result in zero
                     continue;
                 }
-                Interval::new(amount_interval.min, Unsigned::new((L - 1) as u64))
+                Interval::new(amount_interval.min, UnsignedBitvector::new((L - 1) as u64))
             } else {
                 amount_interval
             };
 
             for amount in amount_interval.iter() {
                 // we will multiply bound diff by 2^amount and see if this results in interval overflow
-                let multiplier = Unsigned::one() << amount;
+                let multiplier = UnsignedBitvector::one() << amount;
                 if self
                     .bound_diff()
                     .checked_mul(multiplier.as_bitvector())
                     .is_some()
                 {
                     // not full
-                    let start = Unsigned::from_bitvector(self.start) << amount;
-                    let end = Unsigned::from_bitvector(self.end) << amount;
+                    let start = UnsignedBitvector::from_bitvector(self.start) << amount;
+                    let end = UnsignedBitvector::from_bitvector(self.end) << amount;
                     let result =
                         Bitvector::from_wrap_interval(start.as_bitvector(), end.as_bitvector());
                     intervals.extend(result.unsigned_intervals());
@@ -63,18 +63,18 @@ impl<const L: u32> HwShift for Bitvector<L> {
         // shifting right logically
         let mut intervals = Vec::new();
 
-        let large_amount = Unsigned::new(L as u64);
+        let large_amount = UnsignedBitvector::new(L as u64);
 
         for amount_interval in amount.unsigned_intervals() {
             // adjust too large amounts first
             let amount_interval = if amount_interval.max >= large_amount {
                 // amount too large, add zero interval
-                intervals.push(Interval::new(Unsigned::zero(), Unsigned::zero()));
+                intervals.push(Interval::new(UnsignedBitvector::zero(), UnsignedBitvector::zero()));
                 if amount_interval.min >= large_amount {
                     // any value from the amount interval will result in zero
                     continue;
                 }
-                Interval::new(amount_interval.min, Unsigned::new((L - 1) as u64))
+                Interval::new(amount_interval.min, UnsignedBitvector::new((L - 1) as u64))
             } else {
                 amount_interval
             };
@@ -100,7 +100,7 @@ impl<const L: u32> HwShift for Bitvector<L> {
         // shifting right arithmetically
         let mut intervals = Vec::new();
 
-        let large_amount = Unsigned::new(L as u64);
+        let large_amount = UnsignedBitvector::new(L as u64);
 
         for amount_interval in amount.unsigned_intervals() {
             // adjust too large amounts first
@@ -111,20 +111,20 @@ impl<const L: u32> HwShift for Bitvector<L> {
                     Self::representable_umax(),
                 )) {
                     let all_ones =
-                        Unsigned::from_bitvector(ConcreteBitvector::<L>::new(1).arith_neg());
+                        UnsignedBitvector::from_bitvector(ConcreteBitvector::<L>::new(1).arith_neg());
                     intervals.push(Interval::new(all_ones, all_ones));
                 }
                 if self.intersects(&Bitvector::from_wrap_interval(
                     Self::representable_umin(),
                     Self::representable_smax(),
                 )) {
-                    intervals.push(Interval::new(Unsigned::zero(), Unsigned::zero()));
+                    intervals.push(Interval::new(UnsignedBitvector::zero(), UnsignedBitvector::zero()));
                 }
                 if amount_interval.min >= large_amount {
                     // any value from the amount interval is too large
                     continue;
                 }
-                Interval::new(amount_interval.min, Unsigned::new((L - 1) as u64))
+                Interval::new(amount_interval.min, UnsignedBitvector::new((L - 1) as u64))
             } else {
                 amount_interval
             };
@@ -156,8 +156,8 @@ impl<const L: u32> HwShift for Bitvector<L> {
                         .as_bitvector()
                         .arith_shr(amount.as_bitvector());
                     intervals.push(Interval::new(
-                        Unsigned::from_bitvector(min),
-                        Unsigned::from_bitvector(max),
+                        UnsignedBitvector::from_bitvector(min),
+                        UnsignedBitvector::from_bitvector(max),
                     ));
                 }
             }

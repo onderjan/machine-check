@@ -1,6 +1,6 @@
 use super::Bitvector;
 use crate::{
-    bitvector::support::Unsigned,
+    bitvector::support::UnsignedBitvector,
     bitvector::{concrete::ConcreteBitvector, wrap_interval::interval::Interval},
     concr::Test,
     forward::{HwArith, TypedCmp},
@@ -91,10 +91,13 @@ impl<const L: u32> HwArith for Bitvector<L> {
         let mut rhs_intervals = rhs.unsigned_intervals();
 
         if let Some(rhs_first) = rhs_intervals.first() {
-            if rhs_first.min == Unsigned::zero() {
-                let mut new_rhs_intervals = vec![Interval::new(Unsigned::zero(), Unsigned::zero())];
-                if rhs_first.max != Unsigned::zero() {
-                    new_rhs_intervals.push(Interval::new(Unsigned::one(), rhs_first.max));
+            if rhs_first.min == UnsignedBitvector::zero() {
+                let mut new_rhs_intervals = vec![Interval::new(
+                    UnsignedBitvector::zero(),
+                    UnsignedBitvector::zero(),
+                )];
+                if rhs_first.max != UnsignedBitvector::zero() {
+                    new_rhs_intervals.push(Interval::new(UnsignedBitvector::one(), rhs_first.max));
                 }
                 new_rhs_intervals.extend(rhs_intervals.iter().skip(1));
                 rhs_intervals = new_rhs_intervals;
@@ -254,8 +257,8 @@ impl<const L: u32> Bitvector<L> {
         interval_results: &mut Vec<Bitvector<L>>,
         op: fn(Bitvector<L>, Bitvector<L>) -> Bitvector<L>,
         positive_sign: bool,
-        lhs_intervals: &[Interval<Unsigned<L>>],
-        rhs_intervals: &[Interval<Unsigned<L>>],
+        lhs_intervals: &[Interval<UnsignedBitvector<L>>],
+        rhs_intervals: &[Interval<UnsignedBitvector<L>>],
     ) {
         for lhs_interval in lhs_intervals.iter().cloned() {
             for rhs_interval in rhs_intervals.iter().cloned() {

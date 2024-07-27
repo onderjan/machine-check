@@ -6,7 +6,7 @@ use std::{
 use crate::{
     abstr::{Boolean, Test},
     bitvector::concrete::ConcreteBitvector,
-    bitvector::support::Unsigned,
+    bitvector::support::UnsignedBitvector,
     bitvector::{util, wrap_interval::interval::Interval},
     forward::HwArith,
 };
@@ -29,14 +29,16 @@ impl<const L: u32> Bitvector<L> {
         Self { start, end }
     }
 
-    pub(crate) fn from_unsigned_interval(interval: Interval<Unsigned<L>>) -> Self {
+    pub(crate) fn from_unsigned_interval(interval: Interval<UnsignedBitvector<L>>) -> Self {
         Self {
             start: interval.min.as_bitvector(),
             end: interval.max.as_bitvector(),
         }
     }
 
-    pub(crate) fn from_unsigned_intervals(mut intervals: Vec<Interval<Unsigned<L>>>) -> Self {
+    pub(crate) fn from_unsigned_intervals(
+        mut intervals: Vec<Interval<UnsignedBitvector<L>>>,
+    ) -> Self {
         assert!(!intervals.is_empty());
 
         intervals.sort_unstable_by(|a, b| a.min.cmp(&b.min));
@@ -266,12 +268,12 @@ impl<const L: u32> Bitvector<L> {
         }
     }
 
-    pub(crate) fn unsigned_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
+    pub(crate) fn unsigned_intervals(&self) -> Vec<Interval<UnsignedBitvector<L>>> {
         if self.start.as_unsigned() <= self.end.as_unsigned() {
             // single interval
             vec![Interval::new(
-                Unsigned::from_bitvector(self.start),
-                Unsigned::from_bitvector(self.end),
+                UnsignedBitvector::from_bitvector(self.start),
+                UnsignedBitvector::from_bitvector(self.end),
             )]
         } else {
             // start with lowest
@@ -279,57 +281,57 @@ impl<const L: u32> Bitvector<L> {
             // interval from start to representable maximum
             vec![
                 Interval::new(
-                    Unsigned::from_bitvector(Self::representable_umin()),
-                    Unsigned::from_bitvector(self.end),
+                    UnsignedBitvector::from_bitvector(Self::representable_umin()),
+                    UnsignedBitvector::from_bitvector(self.end),
                 ),
                 Interval::new(
-                    Unsigned::from_bitvector(self.start),
-                    Unsigned::from_bitvector(Self::representable_umax()),
+                    UnsignedBitvector::from_bitvector(self.start),
+                    UnsignedBitvector::from_bitvector(Self::representable_umax()),
                 ),
             ]
         }
     }
 
-    pub(crate) fn unsigned_interval(&self) -> Interval<Unsigned<L>> {
+    pub(crate) fn unsigned_interval(&self) -> Interval<UnsignedBitvector<L>> {
         let start = self.start;
         let end = self.end;
         if start.as_unsigned() <= end.as_unsigned() {
             // single interval
             Interval::new(
-                Unsigned::from_bitvector(start),
-                Unsigned::from_bitvector(end),
+                UnsignedBitvector::from_bitvector(start),
+                UnsignedBitvector::from_bitvector(end),
             )
         } else {
             // full interval
             Interval::new(
-                Unsigned::from_bitvector(Self::representable_umin()),
-                Unsigned::from_bitvector(Self::representable_umax()),
+                UnsignedBitvector::from_bitvector(Self::representable_umin()),
+                UnsignedBitvector::from_bitvector(Self::representable_umax()),
             )
         }
     }
 
-    pub(crate) fn offset_signed_interval(&self) -> Interval<Unsigned<L>> {
+    pub(crate) fn offset_signed_interval(&self) -> Interval<UnsignedBitvector<L>> {
         let start = self.start.as_offset_signed();
         let end = self.end.as_offset_signed();
 
         if start <= end {
             // single interval
-            Interval::new(Unsigned::new(start), Unsigned::new(end))
+            Interval::new(UnsignedBitvector::new(start), UnsignedBitvector::new(end))
         } else {
             // full interval
             Interval::new(
-                Unsigned::from_bitvector(Self::representable_umin()),
-                Unsigned::from_bitvector(Self::representable_umax()),
+                UnsignedBitvector::from_bitvector(Self::representable_umin()),
+                UnsignedBitvector::from_bitvector(Self::representable_umax()),
             )
         }
     }
 
-    pub(crate) fn negative_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
+    pub(crate) fn negative_intervals(&self) -> Vec<Interval<UnsignedBitvector<L>>> {
         self.unsigned_intervals()
             .iter()
             .filter_map(|v| {
                 if v.max.as_bitvector().as_unsigned() >= Self::representable_smin().as_unsigned() {
-                    let min = Unsigned::<L>::new(
+                    let min = UnsignedBitvector::<L>::new(
                         v.min
                             .as_bitvector()
                             .as_unsigned()
@@ -344,12 +346,12 @@ impl<const L: u32> Bitvector<L> {
             .collect()
     }
 
-    pub(crate) fn absolute_negative_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
+    pub(crate) fn absolute_negative_intervals(&self) -> Vec<Interval<UnsignedBitvector<L>>> {
         self.unsigned_intervals()
             .iter()
             .filter_map(|v| {
                 if v.max.as_bitvector().as_unsigned() >= Self::representable_smin().as_unsigned() {
-                    let unsigned_min = Unsigned::<L>::new(
+                    let unsigned_min = UnsignedBitvector::<L>::new(
                         v.min
                             .as_bitvector()
                             .as_unsigned()
@@ -360,8 +362,8 @@ impl<const L: u32> Bitvector<L> {
                     let absolute_negative_max = unsigned_min.as_bitvector().arith_neg();
 
                     Some(Interval::new(
-                        Unsigned::from_bitvector(absolute_negative_min),
-                        Unsigned::from_bitvector(absolute_negative_max),
+                        UnsignedBitvector::from_bitvector(absolute_negative_min),
+                        UnsignedBitvector::from_bitvector(absolute_negative_max),
                     ))
                 } else {
                     None
@@ -370,14 +372,14 @@ impl<const L: u32> Bitvector<L> {
             .collect()
     }
 
-    pub(crate) fn nonnegative_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
+    pub(crate) fn nonnegative_intervals(&self) -> Vec<Interval<UnsignedBitvector<L>>> {
         self.unsigned_intervals()
             .iter()
             .filter_map(|v| {
                 if v.min.as_bitvector().as_unsigned() <= Self::representable_smax().as_unsigned() {
                     Some(Interval::new(
                         v.min,
-                        Unsigned::new(
+                        UnsignedBitvector::new(
                             v.max
                                 .as_bitvector()
                                 .as_unsigned()
@@ -391,17 +393,17 @@ impl<const L: u32> Bitvector<L> {
             .collect()
     }
 
-    pub(crate) fn positive_intervals(&self) -> Vec<Interval<Unsigned<L>>> {
+    pub(crate) fn positive_intervals(&self) -> Vec<Interval<UnsignedBitvector<L>>> {
         self.unsigned_intervals()
             .iter()
             .filter_map(|v| {
-                if v.max > Unsigned::zero()
-                    && v.min <= Unsigned::new(Self::representable_smax().as_unsigned())
+                if v.max > UnsignedBitvector::zero()
+                    && v.min <= UnsignedBitvector::new(Self::representable_smax().as_unsigned())
                 {
                     let min_val = v.min.as_bitvector().as_unsigned().max(1);
                     Some(Interval::new(
-                        Unsigned::new(v.min.as_bitvector().as_unsigned().max(1)),
-                        Unsigned::new(
+                        UnsignedBitvector::new(v.min.as_bitvector().as_unsigned().max(1)),
+                        UnsignedBitvector::new(
                             v.max
                                 .as_bitvector()
                                 .as_unsigned()
@@ -419,7 +421,7 @@ impl<const L: u32> Bitvector<L> {
     #[must_use]
     pub fn contains_concrete(&self, a: &ConcreteBitvector<L>) -> bool {
         for interval in self.unsigned_intervals() {
-            if interval.contains_single(Unsigned::from_bitvector(*a)) {
+            if interval.contains_single(UnsignedBitvector::from_bitvector(*a)) {
                 return true;
             }
         }

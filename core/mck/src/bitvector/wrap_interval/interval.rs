@@ -3,7 +3,7 @@ mod bitwise;
 use core::fmt::Debug;
 use core::fmt::Display;
 
-use crate::bitvector::support::Unsigned;
+use crate::bitvector::support::UnsignedBitvector;
 
 #[derive(Clone, Copy, Hash)]
 pub(crate) struct Interval<T: Ord + Clone + Copy> {
@@ -99,8 +99,8 @@ impl<T: Ord + Clone + Copy + Display> Display for Interval<T> {
     }
 }
 
-impl<const L: u32> Interval<Unsigned<L>> {
-    pub fn iter(&self) -> impl Iterator<Item = Unsigned<L>> {
+impl<const L: u32> Interval<UnsignedBitvector<L>> {
+    pub fn iter(&self) -> impl Iterator<Item = UnsignedBitvector<L>> {
         IntervalIterator {
             current: Some(self.min),
             max: self.max,
@@ -112,8 +112,8 @@ struct IntervalIterator<T> {
     pub max: T,
 }
 
-impl<const L: u32> Iterator for IntervalIterator<Unsigned<L>> {
-    type Item = Unsigned<L>;
+impl<const L: u32> Iterator for IntervalIterator<UnsignedBitvector<L>> {
+    type Item = UnsignedBitvector<L>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let Some(current) = self.current else {
@@ -124,7 +124,7 @@ impl<const L: u32> Iterator for IntervalIterator<Unsigned<L>> {
             return Some(current);
         }
 
-        self.current = Some(current + Unsigned::one());
+        self.current = Some(current + UnsignedBitvector::one());
         Some(current)
     }
 }
