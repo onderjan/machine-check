@@ -14,7 +14,7 @@ use crate::Bitvector;
 ///
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct BitvectorArray<const I: u32, const L: u32> {
-    pub(super) inner: LightArray<Bitvector<L>>,
+    pub(super) inner: LightArray<usize, Bitvector<L>>,
 }
 
 impl<const I: u32, const L: u32> BitvectorArray<I, L> {

@@ -14,7 +14,7 @@ use super::{abstr::extract_bounds, light::LightArray};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const L: u32> {
-    inner: LightArray<MetaWrap<refin::Bitvector<L>>>,
+    inner: LightArray<usize, MetaWrap<refin::Bitvector<L>>>,
 }
 
 impl<const I: u32, const L: u32> Array<I, L> {

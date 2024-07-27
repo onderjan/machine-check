@@ -8,7 +8,7 @@ use super::light::LightArray;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const L: u32> {
-    pub(super) inner: LightArray<concr::Bitvector<L>>,
+    pub(super) inner: LightArray<usize, concr::Bitvector<L>>,
 }
 
 impl<const I: u32, const L: u32> Array<I, L> {
@@ -21,7 +21,7 @@ impl<const I: u32, const L: u32> Array<I, L> {
         }
     }
 
-    pub fn from_inner(inner: LightArray<concr::Bitvector<L>>) -> Self {
+    pub fn from_inner(inner: LightArray<usize, concr::Bitvector<L>>) -> Self {
         Self { inner }
     }
 }

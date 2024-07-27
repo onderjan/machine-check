@@ -11,7 +11,7 @@ use super::{concr, light::LightArray};
 
 #[derive(Clone, Hash)]
 pub struct Array<const I: u32, const L: u32> {
-    pub(super) inner: LightArray<MetaWrap<abstr::Bitvector<L>>>,
+    pub(super) inner: LightArray<usize, MetaWrap<abstr::Bitvector<L>>>,
 }
 
 impl<const I: u32, const L: u32> Abstr<concr::Array<I, L>> for Array<I, L> {

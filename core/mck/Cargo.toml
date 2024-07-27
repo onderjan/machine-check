@@ -8,3 +8,4 @@ rust-version = "1.75"
 
 [dependencies]
 seq-macro = "0.3.5"
+num = "0.4.3"
