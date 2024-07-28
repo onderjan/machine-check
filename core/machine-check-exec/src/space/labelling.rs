@@ -161,18 +161,18 @@ impl<M: FullMachine> Space<M> {
                 }
             }
             InequalityType::Gt => {
-                if max_left > right {
+                if min_left > right {
                     Some(true)
-                } else if min_left <= right {
+                } else if max_left <= right {
                     Some(false)
                 } else {
                     None
                 }
             }
             InequalityType::Ge => {
-                if max_left >= right {
+                if min_left >= right {
                     Some(true)
-                } else if min_left < right {
+                } else if max_left < right {
                     Some(false)
                 } else {
                     None
