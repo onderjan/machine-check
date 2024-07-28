@@ -26,6 +26,12 @@ use proposition::Proposition;
 .multiple(false)
 .args(&["silent", "verbose"]),
 ))]
+#[clap(group(ArgGroup::new("assume-inherent-group")
+.required(false)
+.multiple(false)
+.conflicts_with("inherent")
+.args(&["assume_inherent"]),
+))]
 pub struct ExecArgs {
     #[arg(long)]
     pub silent: bool,
@@ -47,6 +53,8 @@ pub struct ExecArgs {
     pub naive_inputs: bool,
     #[arg(long)]
     pub use_decay: bool,
+    #[arg(long)]
+    pub assume_inherent: bool,
 }
 
 #[derive(Parser, Debug)]
@@ -132,12 +140,13 @@ fn verify<M: FullMachine>(system: M, run_args: ExecArgs) -> ExecResult {
     let mut refinery = Framework::<M>::new(system, strategy);
 
     let result = if let Some(property_str) = run_args.property {
-        Proposition::parse(&property_str)
+        Proposition::parse(&property_str).map(Some)
     } else {
         // check for inherent panics without really checking a property, use constant true
-        Ok(Proposition::Const(true))
+        Ok(None)
     };
-    let result = result.and_then(|proposition| refinery.verify_property(&proposition));
+    let result = result
+        .and_then(|proposition| refinery.verify_property(&proposition, run_args.assume_inherent));
 
     ExecResult {
         result,

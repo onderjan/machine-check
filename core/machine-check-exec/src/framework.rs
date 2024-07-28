@@ -1,8 +1,10 @@
 use std::collections::VecDeque;
 
 use log::debug;
+use log::info;
 use log::log_enabled;
 use log::trace;
+use log::warn;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use mck::abstr;
@@ -73,7 +75,11 @@ impl<M: FullMachine> Framework<M> {
     /// Verifies a CTL property.
     ///
     /// First verifies that the system does not panic, if it does, it is an execution error.
-    pub fn verify_property(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
+    pub fn verify_property(
+        &mut self,
+        prop: &Option<Proposition>,
+        assume_inherent: bool,
+    ) -> Result<bool, ExecError> {
         // verify inherent non-panicking of system first
         let never_panic_prop = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
             Literal::new(
@@ -83,17 +89,52 @@ impl<M: FullMachine> Framework<M> {
                 None,
             ),
         )))));
-        let inherent_never_panic = self.verify_inner(&never_panic_prop, false)?;
-        if !inherent_never_panic {
-            let Some(panic_string) = self.find_panic_string() else {
-                panic!("Panic string should be found");
-            };
-            // TODO: panic string
-            return Err(ExecError::InherentPanic(String::from(panic_string)));
-        }
 
-        // verify the property afterwards
-        self.verify_inner(prop, true)
+        let inherent_result = if assume_inherent {
+            None
+        } else {
+            info!("Verifying the inherent property.");
+            Some(self.verify_inner(&never_panic_prop, false)?)
+        };
+
+        match prop {
+            Some(prop) => {
+                if let Some(inherent_result) = inherent_result {
+                    if !inherent_result {
+                        // inherent property does not hold, return error
+                        let Some(panic_str) = self.find_panic_string() else {
+                            panic!("Panic string should be found");
+                        };
+                        return Err(ExecError::InherentPanic(String::from(panic_str)));
+                    }
+                    info!("The inherent property holds, verifying the given property.");
+                } else {
+                    warn!("Assuming that the inherent property holds. If it does not, the verification result will be unusable.");
+                }
+
+                // inherent property holds
+                // verify the property, assuming no panic can occur
+                self.verify_inner(prop, true)
+            }
+            None => {
+                // ensure that we have verified the inherent property
+                // log the panic string if necessary and return the result
+                let Some(inherent_result) = inherent_result else {
+                    panic!("Cannot perform inherent property verification while assuming it");
+                };
+
+                if !inherent_result {
+                    let Some(panic_str) = self.find_panic_string() else {
+                        panic!("Panic string should be found");
+                    };
+                    info!(
+                        "Inherent property does not hold, panic string: '{}'",
+                        panic_str
+                    );
+                }
+                Ok(inherent_result)
+            }
+        }
     }
 
     pub fn verify_inner(
@@ -105,6 +146,9 @@ impl<M: FullMachine> Framework<M> {
         self.space = Space::new();
         let naive_inputs = self.precision.naive_inputs();
         self.precision = Precision::new(naive_inputs);
+        self.num_refinements = 0;
+        self.num_generated_states = 0;
+        self.num_generated_transitions = 0;
         self.regenerate(NodeId::START, assume_no_panic);
 
         let prepared_prop = model_check::prepare_prop(prop);
