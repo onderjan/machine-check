@@ -102,6 +102,15 @@ Unlike some other formal verification tools, **machine-check** is designed be so
 and complete. You should either get an error or a correct true/false result in finite 
 (but practically unbounded) time. Of course, there may be bugs or design oversights.
 
+## Changelog
+ - 0.3.0: Soundness fixes, optimisation, refinement choice tweaks for reasonable
+ verification of machine-code systems.
+ - 0.2.0: Significant rewrite, arbitrary finite-state systems now can be described 
+ as finite-state machines in Rust code. Conditional branches are supported.
+ - 0.1.0: Initial version, only verification of [Btor2]
+ (https://link.springer.com/chapter/10.1007/978-3-319-96145-3_32) hardware systems 
+ supported through translation to Rust code.
+
 ## License
 
 Licensed under either of Apache License, Version 2.0 or MIT license at your option.
