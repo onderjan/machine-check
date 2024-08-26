@@ -7,9 +7,9 @@ rust-version = "1.75"
 publish = false
 
 [dependencies]
-mck = "=0.3.0-alpha-1"
-machine-check = "=0.3.0-alpha-1"
-machine-check-exec = "=0.3.0-alpha-1"
+mck = "=0.3.0"
+machine-check = "=0.3.0"
+machine-check-exec = "=0.3.0"
 
 [workspace]
 # disallow workspace hijinks

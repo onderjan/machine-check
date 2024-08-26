@@ -8,7 +8,7 @@ description = "Utility crate for formal verification tool for digital systems"
 rust-version = "1.75"
 
 [dependencies]
-machine-check-common = "=0.3.0-alpha-1"
+machine-check-common = "=0.3.0"
 
 syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }
 serde = "1.0.188"

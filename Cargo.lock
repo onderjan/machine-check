@@ -289,27 +289,27 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "machine-check"
-version = "0.3.0-alpha-1"
+version = "0.3.0"
 dependencies = [
  "clap",
- "machine-check-common",
- "machine-check-exec",
- "machine-check-macros",
- "mck",
+ "machine-check-common 0.3.0",
+ "machine-check-exec 0.3.0",
+ "machine-check-macros 0.3.0",
+ "mck 0.3.0",
 ]
 
 [[package]]
 name = "machine-check-avr"
-version = "0.3.0-alpha-1"
+version = "0.3.0"
 dependencies = [
  "clap",
  "ihex",
- "machine-check",
+ "machine-check 0.3.0",
 ]
 
 [[package]]
 name = "machine-check-bitmask-switch"
-version = "0.3.0-alpha-1"
+version = "0.3.0"
 dependencies = [
  "num",
  "prettyplease",
@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-common"
-version = "0.3.0-alpha-1"
+version = "0.3.0"
 dependencies = [
  "serde",
  "thiserror",
@@ -335,7 +335,7 @@ dependencies = [
  "cargo_metadata",
  "env_logger",
  "log",
- "machine-check-common",
+ "machine-check-common 0.3.0",
  "prettyplease",
  "serde",
  "serde_json",
@@ -346,15 +346,15 @@ dependencies = [
 
 [[package]]
 name = "machine-check-exec"
-version = "0.3.0-alpha-1"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "bimap",
  "clap",
  "env_logger",
  "log",
- "machine-check-common",
- "mck",
+ "machine-check-common 0.3.0",
+ "mck 0.3.0",
  "petgraph",
  "serde",
  "serde_json",
@@ -371,11 +371,11 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
- "machine-check",
- "machine-check-common",
+ "machine-check 0.3.0",
+ "machine-check-common 0.3.0",
  "machine-check-compile",
- "machine-check-machine",
- "mck",
+ "machine-check-machine 0.3.0",
+ "mck 0.3.0",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -389,9 +389,9 @@ dependencies = [
 
 [[package]]
 name = "machine-check-machine"
-version = "0.3.0-alpha-1"
+version = "0.3.0"
 dependencies = [
- "machine-check-bitmask-switch",
+ "machine-check-bitmask-switch 0.3.0",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -402,10 +402,10 @@ dependencies = [
 
 [[package]]
 name = "machine-check-macros"
-version = "0.3.0-alpha-1"
+version = "0.3.0"
 dependencies = [
- "machine-check-bitmask-switch",
- "machine-check-machine",
+ "machine-check-bitmask-switch 0.3.0",
+ "machine-check-machine 0.3.0",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -415,7 +415,7 @@ dependencies = [
 
 [[package]]
 name = "mck"
-version = "0.3.0-alpha-1"
+version = "0.3.0"
 dependencies = [
  "num",
  "seq-macro",
