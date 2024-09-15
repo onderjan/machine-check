@@ -292,10 +292,10 @@ name = "machine-check"
 version = "0.3.0"
 dependencies = [
  "clap",
- "machine-check-common 0.3.0",
- "machine-check-exec 0.3.0",
- "machine-check-macros 0.3.0",
- "mck 0.3.0",
+ "machine-check-common",
+ "machine-check-exec",
+ "machine-check-macros",
+ "mck",
 ]
 
 [[package]]
@@ -304,7 +304,7 @@ version = "0.3.0"
 dependencies = [
  "clap",
  "ihex",
- "machine-check 0.3.0",
+ "machine-check",
 ]
 
 [[package]]
@@ -335,7 +335,7 @@ dependencies = [
  "cargo_metadata",
  "env_logger",
  "log",
- "machine-check-common 0.3.0",
+ "machine-check-common",
  "prettyplease",
  "serde",
  "serde_json",
@@ -353,8 +353,8 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
- "machine-check-common 0.3.0",
- "mck 0.3.0",
+ "machine-check-common",
+ "mck",
  "petgraph",
  "serde",
  "serde_json",
@@ -371,11 +371,11 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
- "machine-check 0.3.0",
- "machine-check-common 0.3.0",
+ "machine-check",
+ "machine-check-common",
  "machine-check-compile",
- "machine-check-machine 0.3.0",
- "mck 0.3.0",
+ "machine-check-machine",
+ "mck",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -391,7 +391,7 @@ dependencies = [
 name = "machine-check-machine"
 version = "0.3.0"
 dependencies = [
- "machine-check-bitmask-switch 0.3.0",
+ "machine-check-bitmask-switch",
  "prettyplease",
  "proc-macro2",
  "quote",
@@ -404,8 +404,8 @@ dependencies = [
 name = "machine-check-macros"
 version = "0.3.0"
 dependencies = [
- "machine-check-bitmask-switch 0.3.0",
- "machine-check-machine 0.3.0",
+ "machine-check-bitmask-switch",
+ "machine-check-machine",
  "prettyplease",
  "proc-macro2",
  "quote",

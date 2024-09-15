@@ -11,7 +11,7 @@ rust-version = "1.75"
 mck = "=0.3.0"
 machine-check-common = "=0.3.0"
 machine-check-machine = "=0.3.0"
-machine-check-compile = "=0.3.0"
+machine-check-compile = "=0.3.0-alpha-1"
 machine-check = "=0.3.0"
 
 btor2rs = "=0.1.0"
