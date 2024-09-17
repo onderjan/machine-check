@@ -1,10 +1,12 @@
+use std::borrow::Cow;
+
 use gui::Gui;
-use http::{header::CONTENT_TYPE, Request, Response};
+use http::{header::CONTENT_TYPE, Method, Request, Response};
 use log::{debug, error};
 
 mod gui;
 
-fn main() -> wry::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // initialise the logger
     env_logger::builder()
         .filter_level(log::LevelFilter::Debug)
@@ -23,12 +25,14 @@ fn main() -> wry::Result<()> {
 }
 
 const INDEX_HTML: &str = include_str!("../content/index.html");
+const SCRIPT_JS: &str = include_str!("../content/script.js");
 
 fn get_response(
     request: Request<Vec<u8>>,
-) -> Result<http::Response<std::borrow::Cow<'static, [u8]>>, Box<dyn std::error::Error>> {
+) -> Result<http::Response<Cow<'static, [u8]>>, Box<dyn std::error::Error>> {
     // read URI path
     let uri_path = request.uri().path();
+    let method = request.method();
     debug!("Serving: {}", uri_path);
 
     // strip the leading slash
@@ -49,27 +53,72 @@ fn get_response(
     // if the stripped path is empty, serve index.html
     let path = if path.is_empty() { "index.html" } else { path };
 
-    let content = match path {
-        "index.html" => std::borrow::Cow::Borrowed(INDEX_HTML.as_bytes()),
-        _ => return Err(anyhow::anyhow!("Not found: {}", path).into()),
+    let (content, content_type) = match path.strip_prefix("api/") {
+        Some(api_path) => {
+            let content = match api_path {
+                "refine" => {
+                    if method != Method::POST {
+                        return Err(
+                            anyhow::anyhow!("Refine API command method must be POST").into()
+                        );
+                    }
+                    // TODO
+                    Cow::Borrowed("{}".as_bytes())
+                }
+                "reset" => {
+                    if method != Method::POST {
+                        return Err(anyhow::anyhow!("Reset API command method must be POST").into());
+                    }
+                    // TODO
+                    Cow::Borrowed("{}".as_bytes())
+                }
+                "content" => {
+                    if method != Method::GET {
+                        return Err(
+                            anyhow::anyhow!("Content API command method must be GET").into()
+                        );
+                    }
+                    // TODO
+                    Cow::Borrowed("{\"space\": {\"states\": {}, \"edges\": {}}}".as_bytes())
+                }
+                _ => return Err(anyhow::anyhow!("Unknown API command: {}", path).into()),
+            };
+            let content_type = Cow::Borrowed("text/json");
+            (content, content_type)
+        }
+        None => {
+            if method != Method::GET {
+                return Err(anyhow::anyhow!("Expected method GET: {}", path).into());
+            }
+            let content = match path {
+                "index.html" => Cow::Borrowed(INDEX_HTML.as_bytes()),
+                "script.js" => Cow::Borrowed(SCRIPT_JS.as_bytes()),
+                _ => return Err(anyhow::anyhow!("Not found: {}", path).into()),
+            };
+
+            let content_type = Cow::Owned(
+                mime_guess::from_path(path)
+                    .first()
+                    .expect("Content should have known content type")
+                    .to_string(),
+            );
+            (content, content_type)
+        }
     };
-    let content_type = mime_guess::from_path(path).first().unwrap().to_string();
 
     Response::builder()
-        .header(CONTENT_TYPE, content_type)
+        .header(CONTENT_TYPE, content_type.as_ref())
         .body(content)
         .map_err(Into::into)
 }
 
-fn get_http_response(request: Request<Vec<u8>>) -> http::Response<std::borrow::Cow<'static, [u8]>> {
+fn get_http_response(request: Request<Vec<u8>>) -> http::Response<Cow<'static, [u8]>> {
     get_response(request).unwrap_or_else(|err| {
         error!("{}", err);
         let response = http::Response::builder()
             .header(CONTENT_TYPE, "text/plain")
             .status(500)
-            .body(std::borrow::Cow::Borrowed(
-                "Internal Server Error".as_bytes(),
-            ))
+            .body(Cow::Borrowed("Internal Server Error".as_bytes()))
             .expect("Internal server error response should be constructable");
         response
     })

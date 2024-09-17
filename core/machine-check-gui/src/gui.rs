@@ -17,13 +17,14 @@ pub struct Gui {
 type ResponseFn = http::Response<std::borrow::Cow<'static, [u8]>>;
 
 impl Gui {
-    pub fn new(response_fn: fn(http::Request<Vec<u8>>) -> ResponseFn) -> Result<Gui, wry::Error> {
+    pub fn new(
+        response_fn: fn(http::Request<Vec<u8>>) -> ResponseFn,
+    ) -> Result<Gui, Box<dyn std::error::Error>> {
         // build the GUI using the packages wry and tao
         let event_loop = EventLoop::new();
         let window = WindowBuilder::new()
             .with_title(std::env!("CARGO_BIN_NAME"))
-            .build(&event_loop)
-            .unwrap();
+            .build(&event_loop)?;
 
         #[cfg(any(
             target_os = "windows",
@@ -42,7 +43,7 @@ impl Gui {
         let builder = {
             use tao::platform::unix::WindowExtUnix;
             use wry::WebViewBuilderExtUnix;
-            let vbox = window.default_vbox().unwrap();
+            let vbox = window.default_vbox()?;
             WebViewBuilder::new_gtk(vbox)
         };
         let web_view = builder
