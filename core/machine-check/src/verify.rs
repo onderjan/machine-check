@@ -1,7 +1,7 @@
 use crate::{ExecArgs, ExecError, ExecResult, FullMachine};
 use log::{info, warn};
 use machine_check_common::ExecStats;
-use machine_check_exec::{Framework, Proposition, Strategy};
+use machine_check_exec::{Framework, Proposition, Strategy, VerificationType};
 
 /// Verifies the given system with given arguments.
 ///
@@ -51,8 +51,9 @@ fn verify_inner<M: FullMachine>(
             }
         } else {
             info!("Verifying the inherent property.");
-            let mut framework = Framework::<M>::new(&abstract_system, &strategy, assume_inherent);
-            let result = framework.verify_inherent().map(|_| true);
+            let mut framework =
+                Framework::<M>::new(&abstract_system, VerificationType::Inherent, &strategy);
+            let result = framework.verify();
             ExecResult {
                 result,
                 stats: framework.info(),
@@ -81,9 +82,13 @@ fn verify_inner<M: FullMachine>(
 
             // create a new framework for the property checking so that running inherent verification and then assuming inherent
             // has the same logic as verifying a property without assuming inherent
-            let mut framework = Framework::<M>::new(&abstract_system, &strategy, assume_inherent);
+            let mut framework = Framework::<M>::new(
+                &abstract_system,
+                VerificationType::Property(prop.clone()),
+                &strategy,
+            );
             // verify the property, assuming no panic can occur
-            let result = framework.verify_property(prop);
+            let result = framework.verify();
 
             // inform about the given property result if it was ok
             match result {

@@ -6,5 +6,5 @@ mod precision;
 mod proposition;
 mod space;
 
-pub use framework::{Framework, Strategy};
+pub use framework::{Framework, Strategy, VerificationType};
 pub use proposition::Proposition;

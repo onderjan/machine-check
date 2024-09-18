@@ -68,10 +68,6 @@ impl<M: FullMachine> Precision<M> {
         self.decay.entry(node_id).or_insert_with(Refine::clean)
     }
 
-    pub fn naive_inputs(&self) -> bool {
-        self.naive_inputs
-    }
-
     pub fn retain_indices<F>(&mut self, predicate: F)
     where
         F: Fn(NodeId) -> bool,

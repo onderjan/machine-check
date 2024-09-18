@@ -245,6 +245,10 @@ impl<M: FullMachine> Space<M> {
         }
         None
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.node_graph.node_count() == 0
+    }
 }
 
 impl<M: FullMachine> Debug for Space<M> {

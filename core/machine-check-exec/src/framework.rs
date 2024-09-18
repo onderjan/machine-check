@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
+use std::ops::ControlFlow;
 
-use log::debug;
 use log::log_enabled;
 use log::trace;
 use machine_check_common::ExecError;
@@ -13,6 +13,7 @@ use mck::refin::{self};
 
 use crate::model_check::Conclusion;
 use crate::model_check::Culprit;
+use crate::model_check::PreparedProposition;
 use crate::proposition::Literal;
 use crate::proposition::PropG;
 use crate::proposition::PropTemp;
@@ -36,122 +37,144 @@ pub struct Strategy {
     pub use_decay: bool,
 }
 
+pub enum VerificationType {
+    Inherent,
+    Property(Proposition),
+}
+
 /// Three-valued abstraction refinement framework.
 pub struct Framework<'a, M: FullMachine> {
     /// Abstract system.
     abstract_system: &'a M::Abstr,
+    /// Property to be verified.
+    property: PreparedProposition,
+    // Whether the framework assumes there is no inherent panic.
+    assume_inherent: bool,
+    /// Whether each step output should decay to fully-unknown by default.
+    use_decay: bool,
+
     /// Refinement precision.
     precision: Precision<M>,
     /// Current state space.
     space: Space<M>,
+    /// Culprit of verification returning unknown.
+    culprit: Option<Culprit>,
+
     /// Number of refinements made until now.
     num_refinements: usize,
     /// Number of states generated until now.
     num_generated_states: usize,
     /// Number of transitions generated until now.
     num_generated_transitions: usize,
-    /// Whether each step output should decay to fully-unknown by default.
-    use_decay: bool,
-    /// Whether the framework assumes there is no inherent panic.
-    assume_no_panic: bool,
 }
 
 impl<'a, M: FullMachine> Framework<'a, M> {
     /// Constructs the framework with a given system and strategy.
-    pub fn new(abstract_system: &'a M::Abstr, strategy: &Strategy, assume_no_panic: bool) -> Self {
-        let mut framework = Framework {
+    pub fn new(
+        abstract_system: &'a M::Abstr,
+        verification_type: VerificationType,
+        strategy: &Strategy,
+    ) -> Self {
+        let (property, assume_inherent) = match verification_type {
+            VerificationType::Inherent => {
+                // the inherent property is that there is no panic, i.e. AG[panic=0]
+                let property = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
+                    Literal::new(
+                        String::from("__panic"),
+                        crate::proposition::ComparisonType::Eq,
+                        0,
+                        None,
+                    ),
+                )))));
+                (property, false)
+            }
+            VerificationType::Property(property) => (property, true),
+        };
+
+        let property = model_check::prepare_prop(&property);
+
+        // return the framework with empty state space, before any construction
+        Framework {
             abstract_system,
+            property,
+            assume_inherent,
+            use_decay: strategy.use_decay,
             precision: Precision::new(strategy.naive_inputs),
             space: Space::new(),
+            culprit: None,
             num_refinements: 0,
             num_generated_states: 0,
             num_generated_transitions: 0,
-            use_decay: strategy.use_decay,
-            assume_no_panic,
-        };
-        framework.regenerate(NodeId::START);
-        framework
-    }
-
-    /// Verifies the inherent property, i.e. that no panic occurs.
-    ///
-    /// If the inherent property does not hold, returns `ExecError` instead of false.
-    pub fn verify_inherent(&mut self) -> Result<(), ExecError> {
-        if self.assume_no_panic {
-            // cannot verify inherent property if it is assumed
-            return Err(ExecError::VerifiedInherentAssumed);
-        }
-
-        // the inherent property is that there is no panic, i.e. AG[panic=0]
-        let inherent_prop = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
-            Literal::new(
-                String::from("__panic"),
-                crate::proposition::ComparisonType::Eq,
-                0,
-                None,
-            ),
-        )))));
-        let result = self.verify_proposition(&inherent_prop);
-        match result {
-            Ok(true) => Ok(()),
-            Ok(false) => {
-                // find the panic string
-                let Some(panic_str) = self.find_panic_string() else {
-                    panic!("Panic string should be found");
-                };
-                Err(ExecError::InherentPanic(String::from(panic_str)))
-            }
-            Err(err) => Err(err),
         }
     }
 
-    /// Verifies a property without caring about the inherent property.
-    pub fn verify_property(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
-        self.verify_proposition(prop)
+    pub fn verify(&mut self) -> Result<bool, ExecError> {
+        // loop verification steps until some conclusion is reached
+        loop {
+            match self.step_verification() {
+                ControlFlow::Continue(()) => {}
+                ControlFlow::Break(result) => break result,
+            }
+        }
     }
 
-    fn verify_proposition(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
-        let prepared_prop = model_check::prepare_prop(prop);
-
-        // main refinement loop
-        let result = loop {
-            if log_enabled!(log::Level::Trace) {
-                trace!("State space: {:#?}", self.space);
-            }
-
-            let conclusion = model_check::check_prop::<M>(&self.space, &prepared_prop)?;
-            // if verification was incomplete, try to refine the culprit
-            let culprit = match conclusion {
-                Conclusion::Known(conclusion) => break Ok(conclusion),
-                Conclusion::Unknown(culprit) => culprit,
-            };
+    pub fn step_verification(&mut self) -> ControlFlow<Result<bool, ExecError>> {
+        // if the space is empty (just after construction), regenerate it
+        if self.space.is_empty() {
+            self.regenerate(NodeId::START);
+        } else if let Some(culprit) = self.culprit.take() {
+            // we have a culprit, refine on it
             if !self.refine(&culprit) {
-                // it really is incomplete
-                break Err(ExecError::Incomplete);
+                // the refinement is incomplete
+                return ControlFlow::Break(Err(ExecError::Incomplete));
             }
-            if self.space.garbage_collect() {
-                self.precision.retain_indices(|node_id| {
-                    if let Ok(state_id) = StateId::try_from(node_id) {
-                        // only retain those states that are contained
-                        self.space.contains_state_id(state_id)
-                    } else {
-                        // always retain start precision
-                        true
-                    }
-                });
-            }
-        };
-
-        if log_enabled!(log::Level::Debug) {
-            self.space.mark_and_sweep();
-            if self.assume_no_panic {
-                debug!("Property checking final space: {:#?}", self.space);
-            } else {
-                trace!("Inherent no-panic checking final space: {:#?}", self.space);
-            }
+            // run garbage collection
+            self.garbage_collect();
         }
 
-        result
+        if log_enabled!(log::Level::Trace) {
+            trace!("Model-checking state space: {:#?}", self.space);
+        }
+
+        // perform model-checking
+        match model_check::check_prop::<M>(&self.space, &self.property) {
+            Ok(Conclusion::Known(conclusion)) => {
+                // conclude the result
+                // if the inherent property is being verified, replace false result with inherent panic
+                if !self.assume_inherent && !conclusion {
+                    // find the panic string
+                    let Some(panic_str) = self.find_panic_string() else {
+                        panic!("Panic string should be found");
+                    };
+                    ControlFlow::Break(Err(ExecError::InherentPanic(String::from(panic_str))))
+                } else {
+                    ControlFlow::Break(Ok(conclusion))
+                }
+            }
+            Ok(Conclusion::Unknown(culprit)) => {
+                // we have a new culprit, continue the control flow
+                self.culprit = Some(culprit);
+                ControlFlow::Continue(())
+            }
+            Err(err) => {
+                // propagate the error
+                ControlFlow::Break(Err(err))
+            }
+        }
+    }
+
+    fn garbage_collect(&mut self) {
+        if self.space.garbage_collect() {
+            self.precision.retain_indices(|node_id| {
+                if let Ok(state_id) = StateId::try_from(node_id) {
+                    // only retain those states that are contained
+                    self.space.contains_state_id(state_id)
+                } else {
+                    // always retain start precision
+                    true
+                }
+            });
+        }
     }
 
     /// Refines the precision and the state space given a culprit of unknown verification result.
@@ -348,7 +371,7 @@ impl<'a, M: FullMachine> Framework<'a, M> {
             // prepare precision
             let input_precision = self.precision.get_input(node_id);
             let mut decay_precision = self.precision.get_decay(node_id);
-            if self.assume_no_panic {
+            if self.assuming_no_panic() {
                 decay_precision.panic = refin::Bitvector::dirty();
             }
 
@@ -383,7 +406,7 @@ impl<'a, M: FullMachine> Framework<'a, M> {
                         M::Abstr::init(self.abstract_system, &input)
                     }
                 };
-                if self.assume_no_panic {
+                if self.assuming_no_panic() {
                     next_state.panic = abstr::Bitvector::new(0);
                 }
 
@@ -409,6 +432,10 @@ impl<'a, M: FullMachine> Framework<'a, M> {
             return None;
         };
         Some(M::panic_message(panic_id))
+    }
+
+    fn assuming_no_panic(&self) -> bool {
+        self.assume_inherent
     }
 
     pub fn info(&self) -> ExecStats {
