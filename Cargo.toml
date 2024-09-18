@@ -14,6 +14,7 @@ machine-check-macros = { path = "./macros/machine-check-macros" }
 
 machine-check-machine = { path = "./core/machine-check-machine" }
 machine-check-exec = { path = "./core/machine-check-exec" }
+machine-check-gui = { path = "./core/machine-check-gui" }
 machine-check = { path = "./core/machine-check" }
 
 machine-check-compile = { path = "./transpile/machine-check-compile" }

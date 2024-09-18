@@ -1199,6 +1199,7 @@ dependencies = [
  "log",
  "machine-check-common",
  "machine-check-exec",
+ "machine-check-gui",
  "machine-check-macros",
  "mck",
  "serde",
@@ -1264,12 +1265,13 @@ dependencies = [
 
 [[package]]
 name = "machine-check-gui"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "env_logger",
  "http",
  "log",
+ "machine-check-common",
  "mime_guess",
  "tao",
  "wry",

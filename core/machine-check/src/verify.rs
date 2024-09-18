@@ -29,6 +29,9 @@ pub fn verify<M: FullMachine>(system: M, run_args: ExecArgs) -> ExecResult {
         // check for inherent panics
         None
     };
+    if prop.is_none() != run_args.inherent {
+        panic!("Expected exactly one of property or inherent");
+    }
     verify_inner(system, &prop, run_args.assume_inherent, strategy)
 }
 

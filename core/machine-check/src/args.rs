@@ -2,10 +2,10 @@ use clap::{ArgGroup, Args, Parser};
 
 /// Arguments for executing machine-check.
 #[derive(Parser, Debug)]
-#[clap(group(ArgGroup::new("property-group")
+#[clap(group(ArgGroup::new("action-group")
 .required(true)
-.multiple(true)
-.args(&["property", "inherent"]),
+.multiple(false)
+.args(&["property", "inherent", "gui"]),
 ))]
 #[clap(group(ArgGroup::new("verbosity-group")
 .required(false)
@@ -18,6 +18,11 @@ use clap::{ArgGroup, Args, Parser};
 .conflicts_with("inherent")
 .args(&["assume_inherent"]),
 ))]
+#[clap(group(ArgGroup::new("nongui-group")
+.required(false)
+.multiple(true)
+.conflicts_with("gui")
+.args(&["batch", "property", "inherent", "naive_inputs", "use_decay", "assume_inherent"])))]
 pub struct ExecArgs {
     #[arg(long)]
     pub silent: bool,
@@ -27,6 +32,8 @@ pub struct ExecArgs {
 
     #[arg(long)]
     pub batch: bool,
+    #[arg(long)]
+    pub gui: bool,
 
     #[arg(long)]
     pub property: Option<String>,

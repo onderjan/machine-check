@@ -141,34 +141,56 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     // initialize logger, but do not panic if it was already initialized
     let _ = env_logger::builder().filter_level(filter_level).try_init();
 
-    info!("Starting verification.");
-
-    let verification_result = verify::verify(system, exec_args);
-
-    if log_enabled!(log::Level::Trace) {
-        trace!("Verification result: {:?}", verification_result);
-    }
-
-    if log_enabled!(log::Level::Info) {
-        // the result will be propagated, just inform that we ended somehow
-        match verification_result.result {
-            Ok(_) => info!("Verification ended."),
-            Err(_) => error!("Verification failed."),
+    let result = if exec_args.gui {
+        // start the GUI instead of verifying
+        ExecResult {
+            result: Err(start_gui()),
+            stats: ExecStats::default(),
         }
-    }
+    } else {
+        info!("Starting verification.");
+
+        let result = verify::verify(system, exec_args);
+
+        if log_enabled!(log::Level::Trace) {
+            trace!("Verification result: {:?}", result);
+        }
+
+        if log_enabled!(log::Level::Info) {
+            // the result will be propagated, just inform that we ended somehow
+            match result.result {
+                Ok(_) => info!("Verification ended."),
+                Err(_) => error!("Verification failed."),
+            }
+        }
+        result
+    };
 
     if !silent {
         if batch {
             // serialize the verification result to stdout
-            if let Err(err) = serde_json::to_writer(std::io::stdout(), &verification_result) {
+            if let Err(err) = serde_json::to_writer(std::io::stdout(), &result) {
                 panic!("Could not serialize verification result: {:?}", err);
             }
         } else {
             // TODO: nicer result printing
-            info!("Verification result: {:?}", verification_result);
+            if !matches!(result.result, Err(ExecError::NoResult)) {
+                info!("Verification result: {:?}", result);
+            }
         }
     }
-    verification_result
+    result
+}
+
+fn start_gui() -> ExecError {
+    // the GUI will, at best, return no result
+    #[cfg(feature = "gui")]
+    match machine_check_gui::run() {
+        Ok(()) => ExecError::NoResult,
+        Err(err) => err,
+    }
+    #[cfg(not(feature = "gui"))]
+    ExecError::GuiError(String::from("The GUI feature was not enabled during build"))
 }
 
 #[doc(hidden)]

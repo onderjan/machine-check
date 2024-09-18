@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Error, Debug, Serialize, Deserialize, Clone)]
+#[non_exhaustive]
 pub enum ExecError {
     #[error("incomplete verification")]
     Incomplete,
@@ -17,6 +18,10 @@ pub enum ExecError {
     InherentPanic(String),
     #[error("cannot verify inherent property while assuming it")]
     VerifiedInherentAssumed,
+    #[error("GUI error: {0}")]
+    GuiError(String),
+    #[error("no result")]
+    NoResult,
     #[error("{0}")]
     OtherError(String),
 }

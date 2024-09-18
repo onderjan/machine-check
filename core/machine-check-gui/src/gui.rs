@@ -22,8 +22,9 @@ impl Gui {
     ) -> Result<Gui, Box<dyn std::error::Error>> {
         // build the GUI using the packages wry and tao
         let event_loop = EventLoop::new();
+        // TODO: set a reasonable title that changes depending on the binary
         let window = WindowBuilder::new()
-            .with_title(std::env!("CARGO_BIN_NAME"))
+            .with_title("machine-check GUI")
             .build(&event_loop)?;
 
         #[cfg(any(

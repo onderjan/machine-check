@@ -3,21 +3,17 @@ use std::borrow::Cow;
 use gui::Gui;
 use http::{header::CONTENT_TYPE, Method, Request, Response};
 use log::{debug, error};
+use machine_check_common::ExecError;
 
 mod gui;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // initialise the logger
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
-        .init();
-
+pub fn run() -> Result<(), ExecError> {
     // initialise the GUI
     let gui = match Gui::new(get_http_response) {
         Ok(ok) => ok,
         Err(err) => {
             error!("Cannot create GUI: {}", err);
-            return Err(err);
+            return Err(ExecError::GuiError(err.to_string()));
         }
     };
     // run the GUI, never returns
