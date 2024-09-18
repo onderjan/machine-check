@@ -8,14 +8,14 @@ description = "Formal verification tool for digital systems"
 rust-version = "1.75"
 
 [features]
-gui = []
+gui = ["machine-check-gui"]
 
 [dependencies]
 machine-check-common = "=0.3.0"
 mck = "=0.3.0"
 machine-check-macros = "=0.3.0"
 machine-check-exec = "=0.3.0"
-machine-check-gui = "=0.3.0"
+machine-check-gui = { version = "=0.3.0", optional = true }
 
 log = "0.4.20"
 env_logger = "0.10.0"

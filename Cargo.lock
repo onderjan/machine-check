@@ -1272,7 +1272,11 @@ dependencies = [
  "http",
  "log",
  "machine-check-common",
+ "machine-check-exec",
+ "mck",
  "mime_guess",
+ "serde",
+ "serde_json",
  "tao",
  "wry",
 ]

@@ -144,7 +144,7 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     let result = if exec_args.gui {
         // start the GUI instead of verifying
         ExecResult {
-            result: Err(start_gui()),
+            result: Err(start_gui(system)),
             stats: ExecStats::default(),
         }
     } else {
@@ -182,15 +182,19 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     result
 }
 
-fn start_gui() -> ExecError {
+fn start_gui<M: FullMachine>(system: M) -> ExecError {
     // the GUI will, at best, return no result
     #[cfg(feature = "gui")]
-    match machine_check_gui::run() {
+    match machine_check_gui::run(system) {
         Ok(()) => ExecError::NoResult,
         Err(err) => err,
     }
     #[cfg(not(feature = "gui"))]
-    ExecError::GuiError(String::from("The GUI feature was not enabled during build"))
+    {
+        // make sure there is no warning about unused variables
+        let _ = system;
+        ExecError::GuiError(String::from("The GUI feature was not enabled during build"))
+    }
 }
 
 #[doc(hidden)]

@@ -14,11 +14,11 @@ pub struct Gui {
     web_view: wry::WebView,
 }
 
-type ResponseFn = http::Response<std::borrow::Cow<'static, [u8]>>;
+type ResponseCow = http::Response<std::borrow::Cow<'static, [u8]>>;
 
 impl Gui {
     pub fn new(
-        response_fn: fn(http::Request<Vec<u8>>) -> ResponseFn,
+        response_fn: impl Fn(http::Request<Vec<u8>>) -> ResponseCow + 'static,
     ) -> Result<Gui, Box<dyn std::error::Error>> {
         // build the GUI using the packages wry and tao
         let event_loop = EventLoop::new();

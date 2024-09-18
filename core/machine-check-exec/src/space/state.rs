@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::num::NonZeroUsize;
 
 /// State identifier. Represents an actual system state.
@@ -37,5 +37,11 @@ impl Debug for NodeId {
             Some(id) => write!(f, "{}", id),
             None => write!(f, "0"),
         }
+    }
+}
+
+impl Display for NodeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <NodeId as Debug>::fmt(self, f)
     }
 }

@@ -46,21 +46,27 @@ fn verify_inner<M: FullMachine>(
     // verify inherent property first
     // if assumed, it would return `ExecError::VerifiedInherentAssumed`, short-circuit that
     // so that the framework is not even constructed, we will resolve it later
-    let inherent_result = {
+    let (inherent_result, abstract_system) = {
         if assume_inherent {
-            ExecResult {
-                result: Err(ExecError::VerifiedInherentAssumed),
-                stats: ExecStats::default(),
-            }
+            (
+                ExecResult {
+                    result: Err(ExecError::VerifiedInherentAssumed),
+                    stats: ExecStats::default(),
+                },
+                abstract_system,
+            )
         } else {
             info!("Verifying the inherent property.");
             let mut framework =
-                Framework::<M>::new(&abstract_system, VerificationType::Inherent, &strategy);
+                Framework::<M>::new(abstract_system, VerificationType::Inherent, &strategy);
             let result = framework.verify();
-            ExecResult {
-                result,
-                stats: framework.info(),
-            }
+            (
+                ExecResult {
+                    result,
+                    stats: framework.info(),
+                },
+                framework.release_abstract_system(),
+            )
         }
     };
 
@@ -86,7 +92,7 @@ fn verify_inner<M: FullMachine>(
             // create a new framework for the property checking so that running inherent verification and then assuming inherent
             // has the same logic as verifying a property without assuming inherent
             let mut framework = Framework::<M>::new(
-                &abstract_system,
+                abstract_system,
                 VerificationType::Property(prop.clone()),
                 &strategy,
             );

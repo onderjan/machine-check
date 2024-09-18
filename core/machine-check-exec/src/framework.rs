@@ -43,9 +43,9 @@ pub enum VerificationType {
 }
 
 /// Three-valued abstraction refinement framework.
-pub struct Framework<'a, M: FullMachine> {
+pub struct Framework<M: FullMachine> {
     /// Abstract system.
-    abstract_system: &'a M::Abstr,
+    abstract_system: M::Abstr,
     /// Property to be verified.
     property: PreparedProposition,
     // Whether the framework assumes there is no inherent panic.
@@ -68,10 +68,10 @@ pub struct Framework<'a, M: FullMachine> {
     num_generated_transitions: usize,
 }
 
-impl<'a, M: FullMachine> Framework<'a, M> {
+impl<M: FullMachine> Framework<M> {
     /// Constructs the framework with a given system and strategy.
     pub fn new(
-        abstract_system: &'a M::Abstr,
+        abstract_system: M::Abstr,
         verification_type: VerificationType,
         strategy: &Strategy,
     ) -> Self {
@@ -106,6 +106,10 @@ impl<'a, M: FullMachine> Framework<'a, M> {
             num_generated_states: 0,
             num_generated_transitions: 0,
         }
+    }
+
+    pub fn release_abstract_system(self) -> M::Abstr {
+        self.abstract_system
     }
 
     pub fn verify(&mut self) -> Result<bool, ExecError> {
@@ -401,9 +405,9 @@ impl<'a, M: FullMachine> Framework<'a, M> {
             for input in input_precision.into_proto_iter() {
                 let mut next_state = {
                     if let Some(current_state) = &current_state {
-                        M::Abstr::next(self.abstract_system, &current_state.result, &input)
+                        M::Abstr::next(&self.abstract_system, &current_state.result, &input)
                     } else {
-                        M::Abstr::init(self.abstract_system, &input)
+                        M::Abstr::init(&self.abstract_system, &input)
                     }
                 };
                 if self.assuming_no_panic() {
@@ -446,5 +450,9 @@ impl<'a, M: FullMachine> Framework<'a, M> {
             num_generated_transitions: self.num_generated_transitions,
             num_final_transitions: self.space.num_transitions(),
         }
+    }
+
+    pub fn space(&self) -> &Space<M> {
+        &self.space
     }
 }

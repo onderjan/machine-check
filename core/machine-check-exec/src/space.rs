@@ -249,6 +249,14 @@ impl<M: FullMachine> Space<M> {
     pub fn is_empty(&self) -> bool {
         self.node_graph.node_count() == 0
     }
+
+    pub fn node_graph(&self) -> &GraphMap<NodeId, Edge<WrappedInput<M>>, Directed> {
+        &self.node_graph
+    }
+
+    pub fn state_map(&self) -> &BiMap<StateId, Rc<WrappedState<M>>> {
+        &self.state_map
+    }
 }
 
 impl<M: FullMachine> Debug for Space<M> {
@@ -282,5 +290,11 @@ impl<M: FullMachine> Debug for Space<M> {
         }
 
         writeln!(f, "}}")
+    }
+}
+
+impl<M: FullMachine> Default for Space<M> {
+    fn default() -> Self {
+        Self::new()
     }
 }

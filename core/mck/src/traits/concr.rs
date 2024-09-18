@@ -9,7 +9,7 @@ pub trait State: Debug + PartialEq + Eq + Hash + Clone {}
 
 pub trait Machine
 where
-    Self: std::marker::Sized,
+    Self: std::marker::Sized + 'static,
 {
     /**
      * Machine input.
