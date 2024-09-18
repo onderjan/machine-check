@@ -13,8 +13,10 @@ pub enum ExecError {
     PropertyNotLexable(String, String),
     #[error("property '{0}' could not be parsed")]
     PropertyNotParseable(String),
-    #[error("inherent machine panic")]
+    #[error("inherent machine panic: '{0}'")]
     InherentPanic(String),
+    #[error("cannot verify inherent property while assuming it")]
+    VerifiedInherentAssumed,
     #[error("{0}")]
     OtherError(String),
 }

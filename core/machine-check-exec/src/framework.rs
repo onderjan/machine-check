@@ -1,10 +1,8 @@
 use std::collections::VecDeque;
 
 use log::debug;
-use log::info;
 use log::log_enabled;
 use log::trace;
-use log::warn;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use mck::abstr;
@@ -72,16 +70,12 @@ impl<M: FullMachine> Framework<M> {
         }
     }
 
-    /// Verifies a CTL property.
+    /// Verifies the inherent property, i.e. that no panic occurs.
     ///
-    /// First verifies that the system does not panic, if it does, it is an execution error.
-    pub fn verify_property(
-        &mut self,
-        prop: &Option<Proposition>,
-        assume_inherent: bool,
-    ) -> Result<bool, ExecError> {
-        // verify inherent non-panicking of system first
-        let never_panic_prop = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
+    /// If the inherent property does not hold, returns `ExecError` instead of false.
+    pub fn verify_inherent(&mut self) -> Result<(), ExecError> {
+        // the inherent property is that there is no panic, i.e. AG[panic=0]
+        let inherent_prop = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
             Literal::new(
                 String::from("__panic"),
                 crate::proposition::ComparisonType::Eq,
@@ -89,55 +83,26 @@ impl<M: FullMachine> Framework<M> {
                 None,
             ),
         )))));
-
-        let inherent_result = if assume_inherent {
-            None
-        } else {
-            info!("Verifying the inherent property.");
-            Some(self.verify_inner(&never_panic_prop, false)?)
-        };
-
-        match prop {
-            Some(prop) => {
-                if let Some(inherent_result) = inherent_result {
-                    if !inherent_result {
-                        // inherent property does not hold, return error
-                        let Some(panic_str) = self.find_panic_string() else {
-                            panic!("Panic string should be found");
-                        };
-                        return Err(ExecError::InherentPanic(String::from(panic_str)));
-                    }
-                    info!("The inherent property holds, verifying the given property.");
-                } else {
-                    warn!("Assuming that the inherent property holds. If it does not, the verification result will be unusable.");
-                }
-
-                // inherent property holds
-                // verify the property, assuming no panic can occur
-                self.verify_inner(prop, true)
-            }
-            None => {
-                // ensure that we have verified the inherent property
-                // log the panic string if necessary and return the result
-                let Some(inherent_result) = inherent_result else {
-                    panic!("Cannot perform inherent property verification while assuming it");
+        let result = self.verify_proposition(&inherent_prop, false);
+        match result {
+            Ok(true) => Ok(()),
+            Ok(false) => {
+                // find the panic string
+                let Some(panic_str) = self.find_panic_string() else {
+                    panic!("Panic string should be found");
                 };
-
-                if !inherent_result {
-                    let Some(panic_str) = self.find_panic_string() else {
-                        panic!("Panic string should be found");
-                    };
-                    info!(
-                        "Inherent property does not hold, panic string: '{}'",
-                        panic_str
-                    );
-                }
-                Ok(inherent_result)
+                Err(ExecError::InherentPanic(String::from(panic_str)))
             }
+            Err(err) => Err(err),
         }
     }
 
-    pub fn verify_inner(
+    /// Verifies a property without caring about the inherent property.
+    pub fn verify_property(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
+        self.verify_proposition(prop, true)
+    }
+
+    fn verify_proposition(
         &mut self,
         prop: &Proposition,
         assume_no_panic: bool,
