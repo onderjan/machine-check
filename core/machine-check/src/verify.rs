@@ -1,5 +1,6 @@
 use crate::{ExecArgs, ExecError, ExecResult, FullMachine};
 use log::{info, warn};
+use machine_check_common::ExecStats;
 use machine_check_exec::{Framework, Proposition, Strategy};
 
 /// Verifies the given system with given arguments.
@@ -13,68 +14,111 @@ pub fn verify<M: FullMachine>(system: M, run_args: ExecArgs) -> ExecResult {
         naive_inputs: run_args.naive_inputs,
         use_decay: run_args.use_decay,
     };
-    let mut framework = Framework::<M>::new(system, strategy);
 
-    let result = if let Some(property_str) = run_args.property {
-        Proposition::parse(&property_str).map(Some)
+    let prop = if let Some(property_str) = run_args.property {
+        match Proposition::parse(&property_str) {
+            Ok(prop) => Some(prop),
+            Err(err) => {
+                return ExecResult {
+                    result: Err(err),
+                    stats: ExecStats::default(),
+                }
+            }
+        }
     } else {
-        // check for inherent panics without really checking a property, use constant true
-        Ok(None)
+        // check for inherent panics
+        None
     };
-    let result = result.and_then(|proposition| {
-        verify_inner(&mut framework, &proposition, run_args.assume_inherent)
-    });
-
-    ExecResult {
-        result,
-        stats: framework.info(),
-    }
+    verify_inner(system, &prop, run_args.assume_inherent, strategy)
 }
 
 fn verify_inner<M: FullMachine>(
-    framework: &mut Framework<M>,
+    system: M,
     prop: &Option<Proposition>,
     assume_inherent: bool,
-) -> Result<bool, ExecError> {
-    // verify inherent property first if not assumed
-    let inherent_result = if assume_inherent {
-        None
-    } else {
-        info!("Verifying the inherent property.");
-        Some(framework.verify_inherent())
+    strategy: Strategy,
+) -> ExecResult {
+    let abstract_system = <M::Abstr as mck::abstr::Abstr<M>>::from_concrete(system);
+
+    // verify inherent property first
+    // if assumed, it would return `ExecError::VerifiedInherentAssumed`, short-circuit that
+    // so that the framework is not even constructed, we will resolve it later
+    let inherent_result = {
+        if assume_inherent {
+            ExecResult {
+                result: Err(ExecError::VerifiedInherentAssumed),
+                stats: ExecStats::default(),
+            }
+        } else {
+            info!("Verifying the inherent property.");
+            let mut framework = Framework::<M>::new(&abstract_system, &strategy, assume_inherent);
+            let result = framework.verify_inherent().map(|_| true);
+            ExecResult {
+                result,
+                stats: framework.info(),
+            }
+        }
     };
 
     match prop {
         Some(prop) => {
-            if let Some(inherent_result) = inherent_result {
-                // return the inherent error if necessary
-                inherent_result?;
-            } else {
-                warn!("Assuming that the inherent property holds. If it does not, the verification result will be unusable.");
+            match inherent_result.result {
+                Ok(_inherent_stats) => {
+                    // we are fine, ignore the inherent result stats
+                    info!("The inherent property holds.");
+                }
+                Err(ExecError::VerifiedInherentAssumed) => {
+                    // assuming that inherent property holds is okay here
+                    warn!("Assuming that the inherent property holds. If it does not, the verification result will be unusable.");
+                }
+                Err(_) => {
+                    // return the other errors
+                    return inherent_result;
+                }
             }
 
-            // inherent property holds
+            info!("Verifying the given property.");
+
+            // create a new framework for the property checking so that running inherent verification and then assuming inherent
+            // has the same logic as verifying a property without assuming inherent
+            let mut framework = Framework::<M>::new(&abstract_system, &strategy, assume_inherent);
             // verify the property, assuming no panic can occur
-            framework.verify_property(prop)
+            let result = framework.verify_property(prop);
+
+            // inform about the given property result if it was ok
+            match result {
+                Ok(true) => info!("The given property holds."),
+                Ok(false) => info!("The given property does not hold."),
+                Err(_) => {}
+            }
+
+            // also return framework stats
+            ExecResult {
+                result,
+                stats: framework.info(),
+            }
         }
         None => {
-            // ensure that we have verified the inherent property
-            let Some(inherent_result) = inherent_result else {
-                return Err(ExecError::VerifiedInherentAssumed);
-            };
-
-            if let Err(ExecError::InherentPanic(panic_string)) = inherent_result {
-                // inherent property does not hold
-                // log the panic string and return false
-                info!(
-                    "Inherent property does not hold, panic string: '{}'",
-                    panic_string
-                );
-                return Ok(false);
+            match inherent_result.result {
+                Ok(_) => {
+                    // inform for parity with non-inherent property checking
+                    info!("The inherent property holds.");
+                    inherent_result
+                }
+                Err(ExecError::InherentPanic(panic_string)) => {
+                    // inherent property does not hold
+                    // log the panic string and return false instead
+                    info!(
+                        "The inherent property does not hold, panic string: '{}'",
+                        panic_string
+                    );
+                    ExecResult {
+                        result: Ok(false),
+                        stats: inherent_result.stats,
+                    }
+                }
+                Err(_) => inherent_result,
             }
-            // inherent property holds
-            // return true
-            inherent_result.map(|_| true)
         }
     }
 }

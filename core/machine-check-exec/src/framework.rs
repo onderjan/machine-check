@@ -24,7 +24,6 @@ use crate::{
     precision::Precision,
     space::Space,
 };
-use mck::abstr::Abstr;
 use mck::abstr::Machine as AbstrMachine;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Refine;
@@ -38,12 +37,12 @@ pub struct Strategy {
 }
 
 /// Three-valued abstraction refinement framework.
-pub struct Framework<M: FullMachine> {
+pub struct Framework<'a, M: FullMachine> {
     /// Abstract system.
-    abstract_system: M::Abstr,
+    abstract_system: &'a M::Abstr,
     /// Refinement precision.
     precision: Precision<M>,
-    ///
+    /// Current state space.
     space: Space<M>,
     /// Number of refinements made until now.
     num_refinements: usize,
@@ -52,14 +51,15 @@ pub struct Framework<M: FullMachine> {
     /// Number of transitions generated until now.
     num_generated_transitions: usize,
     /// Whether each step output should decay to fully-unknown by default.
-    pub use_decay: bool,
+    use_decay: bool,
+    /// Whether the framework assumes there is no inherent panic.
+    assume_no_panic: bool,
 }
 
-impl<M: FullMachine> Framework<M> {
+impl<'a, M: FullMachine> Framework<'a, M> {
     /// Constructs the framework with a given system and strategy.
-    pub fn new(system: M, strategy: Strategy) -> Self {
-        let abstract_system = M::Abstr::from_concrete(system);
-        Framework {
+    pub fn new(abstract_system: &'a M::Abstr, strategy: &Strategy, assume_no_panic: bool) -> Self {
+        let mut framework = Framework {
             abstract_system,
             precision: Precision::new(strategy.naive_inputs),
             space: Space::new(),
@@ -67,13 +67,21 @@ impl<M: FullMachine> Framework<M> {
             num_generated_states: 0,
             num_generated_transitions: 0,
             use_decay: strategy.use_decay,
-        }
+            assume_no_panic,
+        };
+        framework.regenerate(NodeId::START);
+        framework
     }
 
     /// Verifies the inherent property, i.e. that no panic occurs.
     ///
     /// If the inherent property does not hold, returns `ExecError` instead of false.
     pub fn verify_inherent(&mut self) -> Result<(), ExecError> {
+        if self.assume_no_panic {
+            // cannot verify inherent property if it is assumed
+            return Err(ExecError::VerifiedInherentAssumed);
+        }
+
         // the inherent property is that there is no panic, i.e. AG[panic=0]
         let inherent_prop = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
             Literal::new(
@@ -83,7 +91,7 @@ impl<M: FullMachine> Framework<M> {
                 None,
             ),
         )))));
-        let result = self.verify_proposition(&inherent_prop, false);
+        let result = self.verify_proposition(&inherent_prop);
         match result {
             Ok(true) => Ok(()),
             Ok(false) => {
@@ -99,23 +107,10 @@ impl<M: FullMachine> Framework<M> {
 
     /// Verifies a property without caring about the inherent property.
     pub fn verify_property(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
-        self.verify_proposition(prop, true)
+        self.verify_proposition(prop)
     }
 
-    fn verify_proposition(
-        &mut self,
-        prop: &Proposition,
-        assume_no_panic: bool,
-    ) -> Result<bool, ExecError> {
-        // completely regenerate
-        self.space = Space::new();
-        let naive_inputs = self.precision.naive_inputs();
-        self.precision = Precision::new(naive_inputs);
-        self.num_refinements = 0;
-        self.num_generated_states = 0;
-        self.num_generated_transitions = 0;
-        self.regenerate(NodeId::START, assume_no_panic);
-
+    fn verify_proposition(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
         let prepared_prop = model_check::prepare_prop(prop);
 
         // main refinement loop
@@ -130,7 +125,7 @@ impl<M: FullMachine> Framework<M> {
                 Conclusion::Known(conclusion) => break Ok(conclusion),
                 Conclusion::Unknown(culprit) => culprit,
             };
-            if !self.refine(&culprit, assume_no_panic) {
+            if !self.refine(&culprit) {
                 // it really is incomplete
                 break Err(ExecError::Incomplete);
             }
@@ -149,7 +144,7 @@ impl<M: FullMachine> Framework<M> {
 
         if log_enabled!(log::Level::Debug) {
             self.space.mark_and_sweep();
-            if assume_no_panic {
+            if self.assume_no_panic {
                 debug!("Property checking final space: {:#?}", self.space);
             } else {
                 trace!("Inherent no-panic checking final space: {:#?}", self.space);
@@ -160,7 +155,7 @@ impl<M: FullMachine> Framework<M> {
     }
 
     /// Refines the precision and the state space given a culprit of unknown verification result.
-    fn refine(&mut self, culprit: &Culprit, assume_no_panic: bool) -> bool {
+    fn refine(&mut self, culprit: &Culprit) -> bool {
         self.num_refinements += 1;
         // compute marking
         let mut current_state_mark =
@@ -207,7 +202,7 @@ impl<M: FullMachine> Framework<M> {
                 //info!("Decay prec: {:?}", decay_precision);
                 if decay_precision.apply_refin(&current_state_mark) {
                     // single mark applied to decay, regenerate
-                    self.regenerate(previous_node_id, assume_no_panic);
+                    self.regenerate(previous_node_id);
                     return true;
                 }
             }
@@ -325,7 +320,7 @@ impl<M: FullMachine> Framework<M> {
                 *input_precision_mut = refined_input_precision;
 
                 // single mark applied, regenerate
-                self.regenerate(node_id, assume_no_panic);
+                self.regenerate(node_id);
                 true
             }
             None => {
@@ -336,7 +331,7 @@ impl<M: FullMachine> Framework<M> {
     }
 
     /// Regenerates the state space from a given node, keeping its other parts.
-    pub fn regenerate(&mut self, from_node_id: NodeId, assume_no_panic: bool) {
+    fn regenerate(&mut self, from_node_id: NodeId) {
         if log_enabled!(log::Level::Trace) {
             trace!(
                 "Regenerating with input precision {:?}",
@@ -353,7 +348,7 @@ impl<M: FullMachine> Framework<M> {
             // prepare precision
             let input_precision = self.precision.get_input(node_id);
             let mut decay_precision = self.precision.get_decay(node_id);
-            if assume_no_panic {
+            if self.assume_no_panic {
                 decay_precision.panic = refin::Bitvector::dirty();
             }
 
@@ -383,12 +378,12 @@ impl<M: FullMachine> Framework<M> {
             for input in input_precision.into_proto_iter() {
                 let mut next_state = {
                     if let Some(current_state) = &current_state {
-                        M::Abstr::next(&self.abstract_system, &current_state.result, &input)
+                        M::Abstr::next(self.abstract_system, &current_state.result, &input)
                     } else {
-                        M::Abstr::init(&self.abstract_system, &input)
+                        M::Abstr::init(self.abstract_system, &input)
                     }
                 };
-                if assume_no_panic {
+                if self.assume_no_panic {
                     next_state.panic = abstr::Bitvector::new(0);
                 }
 
