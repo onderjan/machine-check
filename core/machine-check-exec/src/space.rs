@@ -59,14 +59,15 @@ impl<M: FullMachine> Space<M> {
             .0
     }
 
-    pub fn remove_outgoing_edges(&mut self, node_id: NodeId) {
+    pub fn remove_outgoing_edges(&mut self, node_id: NodeId) -> Vec<NodeId> {
         let direct_successor_indices: Vec<_> = self
             .node_graph
             .neighbors_directed(node_id, petgraph::Direction::Outgoing)
             .collect();
-        for direct_successor_id in direct_successor_indices {
+        for direct_successor_id in direct_successor_indices.clone() {
             self.node_graph.remove_edge(node_id, direct_successor_id);
         }
+        direct_successor_indices
     }
 
     pub fn add_step(

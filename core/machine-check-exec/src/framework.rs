@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::collections::VecDeque;
 
 use log::debug;
@@ -165,9 +166,9 @@ impl<M: FullMachine> Framework<M> {
                 Conclusion::Known(conclusion) => break Ok(conclusion),
                 Conclusion::Unknown(culprit) => culprit,
             };
-            if !self.refine(&culprit, assume_no_panic) {
-                // it really is incomplete
-                break Err(ExecError::Incomplete);
+            if let Err(err) = self.refine(&culprit, assume_no_panic) {
+                // refinement failed
+                break Err(err);
             }
             if self.space.garbage_collect() {
                 self.precision.retain_indices(|node_id| {
@@ -195,7 +196,14 @@ impl<M: FullMachine> Framework<M> {
     }
 
     /// Refines the precision and the state space given a culprit of unknown verification result.
-    fn refine(&mut self, culprit: &Culprit, assume_no_panic: bool) -> bool {
+    fn refine(&mut self, culprit: &Culprit, assume_no_panic: bool) -> Result<(), ExecError> {
+        // subrefine bits until the state space changes.
+        while !self.subrefine(culprit, assume_no_panic)? {}
+        Ok(())
+    }
+
+    /// Refines a single bit. OK result contains whether the state space changed.
+    fn subrefine(&mut self, culprit: &Culprit, assume_no_panic: bool) -> Result<bool, ExecError> {
         self.num_refinements += 1;
         // compute marking
         let mut current_state_mark =
@@ -242,8 +250,7 @@ impl<M: FullMachine> Framework<M> {
                 //info!("Decay prec: {:?}", decay_precision);
                 if decay_precision.apply_refin(&current_state_mark) {
                     // single mark applied to decay, regenerate
-                    self.regenerate(previous_node_id, assume_no_panic);
-                    return true;
+                    return Ok(self.regenerate(previous_node_id, assume_no_panic));
                 }
             }
 
@@ -360,18 +367,17 @@ impl<M: FullMachine> Framework<M> {
                 *input_precision_mut = refined_input_precision;
 
                 // single mark applied, regenerate
-                self.regenerate(node_id, assume_no_panic);
-                true
+                Ok(self.regenerate(node_id, assume_no_panic))
             }
             None => {
                 // cannot apply any refinement, verification incomplete
-                false
+                Err(ExecError::Incomplete)
             }
         }
     }
 
-    /// Regenerates the state space from a given node, keeping its other parts.
-    pub fn regenerate(&mut self, from_node_id: NodeId, assume_no_panic: bool) {
+    /// Regenerates the state space from a given node, keeping its other parts. Returns whether the state space changed.
+    pub fn regenerate(&mut self, from_node_id: NodeId, assume_no_panic: bool) -> bool {
         if log_enabled!(log::Level::Trace) {
             trace!(
                 "Regenerating with input precision {:?}",
@@ -380,10 +386,12 @@ impl<M: FullMachine> Framework<M> {
         }
         let mut queue = VecDeque::new();
         queue.push_back(from_node_id);
+
+        let mut changed = false;
         // construct state space by breadth-first search
         while let Some(node_id) = queue.pop_front() {
             // remove outgoing edges
-            self.space.remove_outgoing_edges(node_id);
+            let removed_direct_successors = self.space.remove_outgoing_edges(node_id);
 
             // prepare precision
             let input_precision = self.precision.get_input(node_id);
@@ -440,7 +448,23 @@ impl<M: FullMachine> Framework<M> {
                     queue.push_back(next_state_index.into());
                 }
             }
+
+            // make sure changed is true if the target nodes are different from the removed ones
+            // ignore the edges changing, currently only used for representative inputs
+            // which has no impact on verification
+            if !changed {
+                // compare sets of node ids
+                let direct_successors: HashSet<NodeId> = self
+                    .space
+                    .direct_successor_iter(node_id)
+                    .map(|state_id| state_id.into())
+                    .collect();
+                let removed_direct_successors: HashSet<NodeId> =
+                    HashSet::from_iter(removed_direct_successors.into_iter());
+                changed = direct_successors != removed_direct_successors;
+            }
         }
+        changed
     }
 
     fn find_panic_string(&mut self) -> Option<&'static str> {
