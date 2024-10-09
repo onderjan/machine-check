@@ -289,39 +289,27 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "machine-check"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a9e14ffaecfd6b615fd27d7e68848bd4c0525a1fc683857ee5e5b27b58b16aa"
-dependencies = [
- "machine-check-common",
- "machine-check-exec 0.3.0",
- "machine-check-macros",
- "mck",
-]
-
-[[package]]
-name = "machine-check"
-version = "0.3.1-alpha.1"
+version = "0.3.1"
 dependencies = [
  "clap",
  "machine-check-common",
- "machine-check-exec 0.3.1-alpha.1",
+ "machine-check-exec",
  "machine-check-macros",
  "mck",
 ]
 
 [[package]]
 name = "machine-check-avr"
-version = "0.3.1-alpha.1"
+version = "0.3.1"
 dependencies = [
  "clap",
  "ihex",
- "machine-check 0.3.1-alpha.1",
+ "machine-check",
 ]
 
 [[package]]
 name = "machine-check-bitmask-switch"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "num",
  "prettyplease",
@@ -333,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-common"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "serde",
  "thiserror",
@@ -341,7 +329,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-compile"
-version = "0.3.0-alpha-1"
+version = "0.3.1-alpha-1"
 dependencies = [
  "camino",
  "cargo_metadata",
@@ -358,26 +346,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-exec"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13c177dd07640ca333c754ef5b734e85a87d493d08f297a8c6ce6b78e1aca552"
-dependencies = [
- "anyhow",
- "bimap",
- "clap",
- "env_logger",
- "log",
- "machine-check-common",
- "mck",
- "petgraph",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "machine-check-exec"
-version = "0.3.1-alpha.1"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "bimap",
@@ -394,7 +363,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-hw"
-version = "0.3.0-alpha-1"
+version = "0.3.1-alpha-1"
 dependencies = [
  "btor2rs",
  "camino",
@@ -402,7 +371,7 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
- "machine-check 0.3.0",
+ "machine-check",
  "machine-check-common",
  "machine-check-compile",
  "machine-check-machine",
@@ -420,7 +389,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-machine"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "machine-check-bitmask-switch",
  "prettyplease",
@@ -433,7 +402,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-macros"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "machine-check-bitmask-switch",
  "machine-check-machine",
@@ -446,7 +415,7 @@ dependencies = [
 
 [[package]]
 name = "mck"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "num",
  "seq-macro",

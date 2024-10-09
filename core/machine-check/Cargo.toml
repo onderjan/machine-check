@@ -1,6 +1,6 @@
 [package]
 name = "machine-check"
-version = "0.3.1-alpha.1"
+version = "0.3.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -8,10 +8,10 @@ description = "Formal verification tool for digital systems"
 rust-version = "1.75"
 
 [dependencies]
-machine-check-common = "=0.3.0"
-mck = "=0.3.0"
-machine-check-macros = "=0.3.0"
-machine-check-exec = "=0.3.1-alpha.1"
+machine-check-common = "=0.3.1"
+mck = "=0.3.1"
+machine-check-macros = "=0.3.1"
+machine-check-exec = "=0.3.1"
 
 [dev-dependencies]
 clap = { version = "4.4.6", features = ["derive"] }
