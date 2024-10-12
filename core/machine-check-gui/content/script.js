@@ -64,6 +64,11 @@ async function render(content) {
 
         var i = 0;
         for (const successor_id of nodes[node_id].outgoing) {
+            if (successor_id == node_id) {
+                // trivial successor, do not stage a tile
+                continue;
+            }
+
             if (!visited.has(successor_id)) {
                 nodes[successor_id].render = {
                     pred: node_id,
@@ -83,7 +88,11 @@ async function render(content) {
     const tileSizePx = [30, 30];
     const tilePaddingPx = [16, 16];
     const tileDifferencePx = [tileSizePx[0] + tilePaddingPx[0], tileSizePx[1] + tilePaddingPx[1]];
-    const arrowSizePx = [4, 4];
+
+    const basePx = tilePaddingPx;
+
+    const arrowLengthPx = 4;
+    const arrowWidthPx = 4;
 
     mainContext.textAlign = "center";
     mainContext.textBaseline = "middle";
@@ -96,7 +105,7 @@ async function render(content) {
         }
 
         const node_tile = node.render.tile;
-        const startPx = node.render.tile.map((e, i) => e * tileDifferencePx[i]);
+        const startPx = node.render.tile.map((e, i) => basePx[i] + e * tileDifferencePx[i]);
         const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
         console.log(node, "rect", startPx, tileSizePx);
 
@@ -110,9 +119,22 @@ async function render(content) {
         const outgoingPx = [startPx[0] + tileSizePx[0], startPx[1] + tileSizePx[1] / 2];
         const stagingStartPx = [startPx[0] + tileSizePx[0] + tilePaddingPx[0] / 2, startPx[1] + tileSizePx[1] / 2];
 
-        // render the staging part of the arrow
+        // treat identity successors specially 
+        var nonIdentitySuccessors = 0;
+        for (const successor_id of nodes[node_id].outgoing) {
+            if (successor_id != node_id) {
+                nonIdentitySuccessors += 1;
+            }
+        }
+
+        // render the staging part of the arrow if there are at some successors
         if (nodes[node_id].outgoing.length) {
-            const stagingEndPx = [stagingStartPx[0], stagingStartPx[1] + (node.outgoing.length - 1) * tileDifferencePx[1]];
+            var numStagedTiles = 0;
+            if (nonIdentitySuccessors) {
+                numStagedTiles = nonIdentitySuccessors - 1;
+            }
+
+            const stagingEndPx = [stagingStartPx[0], stagingStartPx[1] + numStagedTiles * tileDifferencePx[1]];
             mainContext.beginPath();
             mainContext.moveTo(outgoingPx[0], outgoingPx[1]);
             mainContext.lineTo(stagingStartPx[0], stagingStartPx[1]);
@@ -124,6 +146,29 @@ async function render(content) {
         // render the end part of the arrow
         var i = 0;
         for (const successor_id of nodes[node_id].outgoing) {
+            if (successor_id == node_id) {
+                // identity successor, render as a loop
+                const loopStartPx = [stagingStartPx[0], startPx[1] - tilePaddingPx[1] / 2];
+                const loopMiddlePx = [middlePx[0], loopStartPx[1]];
+                const loopEndPx = [loopMiddlePx[0], startPx[1]];
+
+                // draw the lines
+                mainContext.beginPath();
+                mainContext.moveTo(stagingStartPx[0], stagingStartPx[1]);
+                mainContext.lineTo(loopStartPx[0], loopStartPx[1]);
+                mainContext.lineTo(loopMiddlePx[0], loopMiddlePx[1]);
+                mainContext.lineTo(loopEndPx[0], loopEndPx[1]);
+                mainContext.stroke();
+
+                // draw the arrowhead
+                mainContext.beginPath();
+                mainContext.lineTo(loopEndPx[0] - arrowWidthPx / 2, loopEndPx[1] - arrowLengthPx);
+                mainContext.lineTo(loopEndPx[0] + arrowWidthPx / 2, loopEndPx[1] - arrowLengthPx);
+                mainContext.lineTo(loopEndPx[0], loopEndPx[1]);
+                mainContext.fill();
+
+                continue;
+            }
 
             const restagingPx = [stagingStartPx[0], stagingStartPx[1] + i * tileDifferencePx[1]];
             const ingoingPx = [startPx[0] + tileSizePx[0] + tilePaddingPx[0], restagingPx[1]];
@@ -137,8 +182,8 @@ async function render(content) {
 
             // draw the arrowhead
             mainContext.beginPath();
-            mainContext.lineTo(ingoingPx[0] - arrowSizePx[0], ingoingPx[1] - arrowSizePx[1] / 2);
-            mainContext.lineTo(ingoingPx[0] - arrowSizePx[0], ingoingPx[1] + arrowSizePx[1] / 2);
+            mainContext.lineTo(ingoingPx[0] - arrowLengthPx, ingoingPx[1] - arrowWidthPx / 2);
+            mainContext.lineTo(ingoingPx[0] - arrowLengthPx, ingoingPx[1] + arrowWidthPx / 2);
             mainContext.lineTo(ingoingPx[0], ingoingPx[1]);
             mainContext.fill();
 
@@ -146,7 +191,7 @@ async function render(content) {
             const successor = nodes[successor_id];
             if (successor.render.pred != node_id) {
                 const referenceTile = [node_tile[0] + 1, node_tile[1] + i]
-                const startPx = referenceTile.map((e, i) => e * (tilePaddingPx[i] + tileSizePx[i]));
+                const startPx = referenceTile.map((e, i) => basePx[i] + e * (tilePaddingPx[i] + tileSizePx[i]));
                 const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
 
                 mainContext.beginPath();
