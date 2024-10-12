@@ -15,6 +15,13 @@ const mainContext = mainCanvas.getContext("2d");
 // make sure we stroke true pixels
 mainContext.translate(0.5, 0.5);
 
+const tileSizePx = [30, 30];
+const tilePaddingPx = [16, 16];
+const tileDifferencePx = [tileSizePx[0] + tilePaddingPx[0], tileSizePx[1] + tilePaddingPx[1]];
+
+const arrowLengthPx = 4;
+const arrowWidthPx = 4;
+
 
 async function callApi(action, method) {
     try {
@@ -33,7 +40,31 @@ async function callApi(action, method) {
     }
 }
 
-async function render(content) {
+function drawPredecessorReference(node_id, middle) {
+    mainContext.beginPath();
+    mainContext.moveTo(middle[0] - tileSizePx[0] / 2, middle[1] - tileSizePx[0] / 3);
+    mainContext.lineTo(middle[0] + tileSizePx[0] / 4, middle[1] - tileSizePx[0] / 3);
+    mainContext.lineTo(middle[0] + tileSizePx[0] / 2, middle[1]);
+    mainContext.lineTo(middle[0] + tileSizePx[0] / 4, middle[1] + tileSizePx[0] / 3);
+    mainContext.lineTo(middle[0] - tileSizePx[0] / 2, middle[1] + tileSizePx[0] / 3);
+    mainContext.lineTo(middle[0] - tileSizePx[0] / 2, middle[1] - tileSizePx[0] / 3);
+    mainContext.stroke();
+    mainContext.fillText(node_id, middle[0] - tileSizePx[0] / 16, middle[1]);
+}
+
+function drawSuccessorReference(node_id, middle) {
+    mainContext.beginPath();
+    mainContext.moveTo(middle[0] + tileSizePx[0] / 2, middle[1] - tileSizePx[0] / 3);
+    mainContext.lineTo(middle[0] - tileSizePx[0] / 4, middle[1] - tileSizePx[0] / 3);
+    mainContext.lineTo(middle[0] - tileSizePx[0] / 2, middle[1]);
+    mainContext.lineTo(middle[0] - tileSizePx[0] / 4, middle[1] + tileSizePx[0] / 3);
+    mainContext.lineTo(middle[0] + tileSizePx[0] / 2, middle[1] + tileSizePx[0] / 3);
+    mainContext.lineTo(middle[0] + tileSizePx[0] / 2, middle[1] - tileSizePx[0] / 3);
+    mainContext.stroke();
+    mainContext.fillText(node_id, middle[0] + tileSizePx[0] / 16, middle[1]);
+}
+
+function render(content) {
     console.log("Rendering", JSON.stringify(content));
     if (content === null) {
         return;
@@ -156,6 +187,13 @@ async function render(content) {
 
         const node_tile = nodes[node_id].render.tile;
 
+        var numNonidentityCanonicalSuccessors = 0;
+        for (const successor_id of nodes[node_id].outgoing) {
+            if (successor_id != node_id && nodes[successor_id].render.pred == successor_id) {
+                numNonidentityCanonicalSuccessors += 1;
+            }
+        }
+
         var y_position_add = 0;
         for (const successor_id of nodes[node_id].outgoing) {
             if (successor_id == node_id) {
@@ -165,10 +203,16 @@ async function render(content) {
 
             if (!visited.has(successor_id)) {
                 // offset the tile if it has a non-identity non-canonical predecessor
+                // and there is more than one non-identity canonical successor of the original node
+                // (otherwise, the staging lines of incoming references to the successor
+                // and outgoing transitions from the predecessor would overlap)
+
                 var offset = 0;
-                for (const sibling_id of nodes[successor_id].incoming) {
-                    if (sibling_id != node_id && sibling_id != successor_id) {
-                        offset += 1;
+                if (numNonidentityCanonicalSuccessors > 1) {
+                    for (const sibling_id of nodes[successor_id].incoming) {
+                        if (sibling_id != node_id && sibling_id != successor_id) {
+                            offset = 1;
+                        }
                     }
                 }
 
@@ -184,14 +228,9 @@ async function render(content) {
 
     // render the nodes at the computed tiles
 
-    const tileSizePx = [30, 30];
-    const tilePaddingPx = [16, 16];
-    const tileDifferencePx = [tileSizePx[0] + tilePaddingPx[0], tileSizePx[1] + tilePaddingPx[1]];
 
     const basePx = tilePaddingPx;
 
-    const arrowLengthPx = 4;
-    const arrowWidthPx = 4;
 
     mainContext.textAlign = "center";
     mainContext.textBaseline = "middle";
@@ -230,10 +269,8 @@ async function render(content) {
             // draw a reference
             const referenceMiddlePx = [middlePx[0] - tileDifferencePx[0], middlePx[1] + predecessor_y_position_add * tileDifferencePx[1]];
 
-            mainContext.beginPath();
-            mainContext.ellipse(referenceMiddlePx[0], referenceMiddlePx[1], tileSizePx[0] / 2, tileSizePx[1] / 2, 0, 0, 2 * Math.PI);
-            mainContext.stroke();
-            mainContext.fillText(predecessor_id, referenceMiddlePx[0], referenceMiddlePx[1]);
+
+            drawPredecessorReference(predecessor_id, referenceMiddlePx);
 
             // outward line
             mainContext.beginPath();
@@ -324,10 +361,7 @@ async function render(content) {
                 const startPx = referenceTile.map((e, i) => basePx[i] + e * (tilePaddingPx[i] + tileSizePx[i]));
                 const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
 
-                mainContext.beginPath();
-                mainContext.ellipse(middlePx[0], middlePx[1], tileSizePx[0] / 2, tileSizePx[1] / 2, 0, 0, 2 * Math.PI);
-                mainContext.stroke();
-                mainContext.fillText(successor_id, middlePx[0], middlePx[1]);
+                drawSuccessorReference(successor_id, middlePx);
             }
             previous_y_position_add = y_position_add;
             y_position_add += nodes[successor_id].render.reserve;
