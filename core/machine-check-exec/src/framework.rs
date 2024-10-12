@@ -1,6 +1,8 @@
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::ops::ControlFlow;
 
+use log::debug;
 use log::log_enabled;
 use log::trace;
 use machine_check_common::ExecError;
@@ -114,12 +116,21 @@ impl<M: FullMachine> Framework<M> {
 
     pub fn verify(&mut self) -> Result<bool, ExecError> {
         // loop verification steps until some conclusion is reached
-        loop {
+        let result = loop {
             match self.step_verification() {
                 ControlFlow::Continue(()) => {}
                 ControlFlow::Break(result) => break result,
             }
+        };
+
+        if log_enabled!(log::Level::Debug) {
+            if !self.assume_inherent {
+                debug!("Property checking final space: {:#?}", self.space);
+            } else {
+                trace!("Inherent no-panic checking final space: {:#?}", self.space);
+            }
         }
+        result
     }
 
     pub fn step_verification(&mut self) -> ControlFlow<Result<bool, ExecError>> {
@@ -128,9 +139,9 @@ impl<M: FullMachine> Framework<M> {
             self.regenerate(NodeId::START);
         } else if let Some(culprit) = self.culprit.take() {
             // we have a culprit, refine on it
-            if !self.refine(&culprit) {
+            if let Err(err) = self.refine(&culprit) {
                 // the refinement is incomplete
-                return ControlFlow::Break(Err(ExecError::Incomplete));
+                return ControlFlow::Break(Err(err));
             }
             // run garbage collection
             self.garbage_collect();
@@ -182,7 +193,14 @@ impl<M: FullMachine> Framework<M> {
     }
 
     /// Refines the precision and the state space given a culprit of unknown verification result.
-    fn refine(&mut self, culprit: &Culprit) -> bool {
+    fn refine(&mut self, culprit: &Culprit) -> Result<(), ExecError> {
+        // subrefine bits until the state space changes.
+        while !self.subrefine(culprit)? {}
+        Ok(())
+    }
+
+    /// Refines a single bit. OK result contains whether the state space changed.
+    fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
         self.num_refinements += 1;
         // compute marking
         let mut current_state_mark =
@@ -229,8 +247,7 @@ impl<M: FullMachine> Framework<M> {
                 //info!("Decay prec: {:?}", decay_precision);
                 if decay_precision.apply_refin(&current_state_mark) {
                     // single mark applied to decay, regenerate
-                    self.regenerate(previous_node_id);
-                    return true;
+                    return Ok(self.regenerate(previous_node_id));
                 }
             }
 
@@ -347,18 +364,17 @@ impl<M: FullMachine> Framework<M> {
                 *input_precision_mut = refined_input_precision;
 
                 // single mark applied, regenerate
-                self.regenerate(node_id);
-                true
+                Ok(self.regenerate(node_id))
             }
             None => {
                 // cannot apply any refinement, verification incomplete
-                false
+                Err(ExecError::Incomplete)
             }
         }
     }
 
-    /// Regenerates the state space from a given node, keeping its other parts.
-    fn regenerate(&mut self, from_node_id: NodeId) {
+    /// Regenerates the state space from a given node, keeping its other parts. Returns whether the state space changed.
+    pub fn regenerate(&mut self, from_node_id: NodeId) -> bool {
         if log_enabled!(log::Level::Trace) {
             trace!(
                 "Regenerating with input precision {:?}",
@@ -367,10 +383,12 @@ impl<M: FullMachine> Framework<M> {
         }
         let mut queue = VecDeque::new();
         queue.push_back(from_node_id);
+
+        let mut changed = false;
         // construct state space by breadth-first search
         while let Some(node_id) = queue.pop_front() {
             // remove outgoing edges
-            self.space.remove_outgoing_edges(node_id);
+            let removed_direct_successors = self.space.remove_outgoing_edges(node_id);
 
             // prepare precision
             let input_precision = self.precision.get_input(node_id);
@@ -427,7 +445,23 @@ impl<M: FullMachine> Framework<M> {
                     queue.push_back(next_state_index.into());
                 }
             }
+
+            // make sure changed is true if the target nodes are different from the removed ones
+            // ignore the edges changing, currently only used for representative inputs
+            // which has no impact on verification
+            if !changed {
+                // compare sets of node ids
+                let direct_successors: HashSet<NodeId> = self
+                    .space
+                    .direct_successor_iter(node_id)
+                    .map(|state_id| state_id.into())
+                    .collect();
+                let removed_direct_successors: HashSet<NodeId> =
+                    HashSet::from_iter(removed_direct_successors.into_iter());
+                changed = direct_successors != removed_direct_successors;
+            }
         }
+        changed
     }
 
     fn find_panic_string(&mut self) -> Option<&'static str> {

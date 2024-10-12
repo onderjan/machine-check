@@ -17,7 +17,7 @@ that **machine-check** understands.
 
 ## Examples
 A very simple example of a system verifiable by **machine-check** is [counter](
-    https://docs.rs/crate/machine-check/0.3.0/source/examples/counter.rs), 
+    https://docs.rs/crate/machine-check/0.3.1/source/examples/counter.rs), 
 a simple [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine) which contains 
 an eight-bit `value`, which is initialized to zero on initialization and then is incremented 
 if the `increment` single-bit input is 1. If the value reaches 157, it is immediately zeroed again. 
@@ -28,7 +28,7 @@ The magic of **machine-check** is unlocked by the [`machine_description`] macro,
 analogues to the code it is applied to, allowing simply running **machine-check** by calling [`run`] in the main 
 function after constructing the system.
 
-If you put the [counter](https://docs.rs/crate/machine-check/0.3.0/source/examples/counter.rs) 
+If you put the [counter](https://docs.rs/crate/machine-check/0.3.1/source/examples/counter.rs) 
 inside your own Rust crate (with **machine-check** as a dependency), you can  verify that the counter is always 
 lesser than 157 in each system state, using a specification property based on 
 [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic). Let's use **machine-check** 
@@ -61,7 +61,7 @@ It is also possible to detect system panics, which is useful e.g. for machine-co
 take the machine-code file from command line and should detect that it a reserved instruction
 can be executed during the course of the program. A simple example is in the 
 [conditional_panic](
-    https://docs.rs/crate/machine-check/0.3.0/source/examples/conditional_panic.rs) 
+    https://docs.rs/crate/machine-check/0.3.1/source/examples/conditional_panic.rs) 
 example, which should panic with message 
 "Example panic 2" if the input is equal to 1. You can copy it into your crate, then run it with 
 parameter "--inherent", which signifies that you are only interested about the inherent 
@@ -103,6 +103,8 @@ and complete. You should either get an error or a correct true/false result in f
 (but practically unbounded) time. Of course, there may be bugs or design oversights.
 
 ## Changelog
+ - 0.3.1: Continuing a refinement until the state space changes. This improves 
+ performance a bit in some scenarios.
  - 0.3.0: Soundness fixes, optimisation, refinement choice tweaks for reasonable
  verification of machine-code systems.
  - 0.2.0: Significant rewrite, arbitrary finite-state systems now can be described 
