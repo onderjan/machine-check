@@ -164,7 +164,15 @@ async function render(content) {
             }
 
             if (!visited.has(successor_id)) {
-                nodes[successor_id].render.tile = [node_tile[0] + 1, node_tile[1] + y_position_add];
+                // offset the tile if it has a non-identity non-canonical predecessor
+                var offset = 0;
+                for (const sibling_id of nodes[successor_id].incoming) {
+                    if (sibling_id != node_id && sibling_id != successor_id) {
+                        offset += 1;
+                    }
+                }
+
+                nodes[successor_id].render.tile = [node_tile[0] + 1 + offset, node_tile[1] + y_position_add];
                 queue.push(successor_id);
             }
             y_position_add += nodes[successor_id].render.reserve;
@@ -195,6 +203,8 @@ async function render(content) {
             continue;
         }
 
+        // --- TILE ---
+
         const node_tile = node.render.tile;
         const startPx = node.render.tile.map((e, i) => basePx[i] + e * tileDifferencePx[i]);
         const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
@@ -207,7 +217,44 @@ async function render(content) {
 
 
         const outgoingPx = [startPx[0] + tileSizePx[0], startPx[1] + tileSizePx[1] / 2];
-        const stagingStartPx = [startPx[0] + tileSizePx[0] + tilePaddingPx[0] / 2, startPx[1] + tileSizePx[1] / 2];
+        const stagingStartPx = [startPx[0] + tileSizePx[0] + tilePaddingPx[0] / 2 - arrowLengthPx / 2, startPx[1] + tileSizePx[1] / 2];
+
+        // --- PREDECESSORS ---
+        var predecessor_y_position_add = 1;
+        for (const predecessor_id of nodes[node_id].incoming) {
+            // do not draw references for identity or canonical predecessors
+            if (predecessor_id == node_id || predecessor_id == nodes[node_id].render.pred) {
+                continue;
+            }
+
+            // draw a reference
+            const referenceMiddlePx = [middlePx[0] - tileDifferencePx[0], middlePx[1] + predecessor_y_position_add * tileDifferencePx[1]];
+
+            mainContext.beginPath();
+            mainContext.ellipse(referenceMiddlePx[0], referenceMiddlePx[1], tileSizePx[0] / 2, tileSizePx[1] / 2, 0, 0, 2 * Math.PI);
+            mainContext.stroke();
+            mainContext.fillText(predecessor_id, referenceMiddlePx[0], referenceMiddlePx[1]);
+
+            // outward line
+            mainContext.beginPath();
+            mainContext.moveTo(referenceMiddlePx[0] + tileSizePx[0] / 2, referenceMiddlePx[1]);
+            mainContext.lineTo(referenceMiddlePx[0] + tileDifferencePx[0] / 2 - arrowLengthPx / 2, referenceMiddlePx[1]);
+            mainContext.stroke();
+
+
+            predecessor_y_position_add += 1;
+        }
+
+        // draw a staging line if necessary
+        if (predecessor_y_position_add != 1) {
+            mainContext.beginPath();
+            mainContext.moveTo(startPx[0] - tilePaddingPx[0] / 2 - arrowLengthPx / 2, middlePx[1]);
+            mainContext.lineTo(startPx[0] - tilePaddingPx[0] / 2 - arrowLengthPx / 2, middlePx[1] + (predecessor_y_position_add - 1) * tileDifferencePx[1]);
+            mainContext.stroke();
+        }
+
+
+        // --- SUCCESSORS ---
 
         // treat identity successors specially 
         var nonIdentitySuccessors = 0;
@@ -246,7 +293,16 @@ async function render(content) {
             }
 
             const restagingPx = [stagingStartPx[0], stagingStartPx[1] + y_position_add * tileDifferencePx[1]];
-            const ingoingPx = [startPx[0] + tileSizePx[0] + tilePaddingPx[0], restagingPx[1]];
+
+            const successor = nodes[successor_id];
+
+            var ingoingXPx = startPx[0] + tileSizePx[0] + tilePaddingPx[0];
+            // adjust if this is the canonical occurence
+            if (successor.render.pred == node_id) {
+                ingoingXPx = basePx[0] + nodes[successor_id].render.tile[0] * tileDifferencePx[0];
+            }
+
+            const ingoingPx = [ingoingXPx, restagingPx[1]];
 
 
             // draw the line
@@ -263,7 +319,6 @@ async function render(content) {
             mainContext.fill();
 
             // if this is not the canonical occurence of the successor, render a reference
-            const successor = nodes[successor_id];
             if (successor.render.pred != node_id) {
                 const referenceTile = [node_tile[0] + 1, node_tile[1] + y_position_add]
                 const startPx = referenceTile.map((e, i) => basePx[i] + e * (tilePaddingPx[i] + tileSizePx[i]));
