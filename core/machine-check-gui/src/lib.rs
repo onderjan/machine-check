@@ -174,6 +174,7 @@ impl<M: FullMachine> Business<M> {
 
 #[derive(Serialize, Deserialize)]
 struct Node {
+    incoming: BTreeSet<String>,
     outgoing: BTreeSet<String>,
 }
 
@@ -204,6 +205,10 @@ fn framework_response<M: FullMachine>(
             (
                 node_id.to_string(),
                 Node {
+                    incoming: node_graph
+                        .neighbors_directed(node_id, petgraph::Direction::Incoming)
+                        .map(|incoming_id| incoming_id.to_string())
+                        .collect(),
                     outgoing: node_graph
                         .neighbors_directed(node_id, petgraph::Direction::Outgoing)
                         .map(|outgoing_id| outgoing_id.to_string())

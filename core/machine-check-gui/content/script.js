@@ -40,29 +40,123 @@ async function render(content) {
     }
     const nodes = content.state_space.nodes;
 
+    var topologicalIncomingDegree = {};
+    var topologicalOutgoing = {};
+
     // toss out the previous rendering data
     for (node_id in Object.values(nodes)) {
         nodes[node_id].render = {};
+        topologicalIncomingDegree[node_id] = 0;
+        topologicalOutgoing[node_id] = [];
+
     }
 
 
     //mainContext.strokeStyle = "black";
     //mainContext.fillStyle = "black";
 
-    nodes["0"].render = { tile: [0, 0] };
+    // find the leaves in the visualisation directed acyclic graph
 
-
-    // assign tile positions by depth-first search
-
-    const queue = ["0"];
-    const visited = new Set();
+    var queue = ["0"];
+    var visited = new Set();
     while (queue.length) {
         const node_id = queue.shift();
-        const node_tile = nodes[node_id].render.tile;
-
         visited.add(node_id);
 
-        var i = 0;
+        for (const successor_id of nodes[node_id].outgoing) {
+
+            if (!visited.has(successor_id)) {
+                topologicalOutgoing[node_id].push(successor_id);
+                topologicalIncomingDegree[successor_id] += 1;
+
+                nodes[successor_id].render = {
+                    pred: node_id,
+                };
+                queue.push(successor_id);
+            }
+        }
+    }
+
+    console.log("Topological outgoing", topologicalOutgoing);
+
+    // create the topological sort using Kahn's algorithm
+    // so that there is no recursion
+
+    queue = ["0"];
+    sorted = [];
+
+    while (queue.length) {
+        const node_id = queue.shift();
+        sorted.push(node_id);
+
+        for (const successor_id of topologicalOutgoing[node_id]) {
+            // only queue the successor if has no other topological edges
+            console.log("going from", node_id, "to", successor_id, "topological incoming degree", topologicalIncomingDegree[successor_id]);
+            topologicalIncomingDegree[successor_id] -= 1;
+            if (topologicalIncomingDegree[successor_id] == 0) {
+                queue.push(successor_id);
+            }
+        }
+    }
+
+    console.log("Topologically sorted", sorted);
+
+    // compute the number of reserved tile y-positions for each node
+    // using reverse topological sort
+    for (let index = sorted.length - 1; index >= 0; index--) {
+        const node_id = sorted[index];
+
+        var predecessor_reserve = 0;
+        var successor_reserve = 0;
+
+        for (const predecessor_id of nodes[node_id].incoming) {
+            if (predecessor_id != node_id) {
+                // reserve one position for each non-identity predecessor
+                predecessor_reserve += 1;
+            }
+        }
+
+        for (const successor_id of nodes[node_id].outgoing) {
+            if (successor_id != node_id) {
+                // reserve the y-positions of each non-identity successor
+                // but reserve only one if they do not consider this a canonical precedessor
+                console.log("Node/successor", node_id, nodes[node_id], successor_id, nodes[successor_id]);
+                if (nodes[successor_id].render.pred == node_id) {
+                    successor_reserve += nodes[successor_id].render.reserve;
+                } else {
+                    successor_reserve += 1;
+                }
+            }
+        }
+
+        console.log("Reserves for node", node_id, predecessor_reserve, successor_reserve);
+
+        // reserve the maximal one but at least one y-position
+        nodes[node_id].render.reserve = Math.max(predecessor_reserve, successor_reserve, 1);
+
+        for (const predecessor_id of nodes[node_id].incoming) {
+            if (!visited.has(predecessor_id)) {
+                // breadth first search here to 
+                queue.push(predecessor_id);
+            }
+        }
+    }
+
+    // we now have everything topologically sorted
+    // stage tile positions according to the reverse topological sort
+
+    // stage tile positions by depth-first search, taking the reserved y-positions into account
+    queue = ["0"];
+    visited = new Set();
+    nodes["0"].render.tile = [0, 0];
+
+    while (queue.length) {
+        const node_id = queue.shift();
+        visited.add(node_id);
+
+        const node_tile = nodes[node_id].render.tile;
+
+        var y_position_add = 0;
         for (const successor_id of nodes[node_id].outgoing) {
             if (successor_id == node_id) {
                 // trivial successor, do not stage a tile
@@ -70,13 +164,10 @@ async function render(content) {
             }
 
             if (!visited.has(successor_id)) {
-                nodes[successor_id].render = {
-                    pred: node_id,
-                    tile: [node_tile[0] + 1, node_tile[1] + i]
-                };
+                nodes[successor_id].render.tile = [node_tile[0] + 1, node_tile[1] + y_position_add];
                 queue.push(successor_id);
             }
-            i += 1;
+            y_position_add += nodes[successor_id].render.reserve;
         }
     }
 
@@ -107,7 +198,6 @@ async function render(content) {
         const node_tile = node.render.tile;
         const startPx = node.render.tile.map((e, i) => basePx[i] + e * tileDifferencePx[i]);
         const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
-        console.log(node, "rect", startPx, tileSizePx);
 
         // render the node tile
         mainContext.beginPath();
@@ -127,24 +217,9 @@ async function render(content) {
             }
         }
 
-        // render the staging part of the arrow if there are at some successors
-        if (nodes[node_id].outgoing.length) {
-            var numStagedTiles = 0;
-            if (nonIdentitySuccessors) {
-                numStagedTiles = nonIdentitySuccessors - 1;
-            }
-
-            const stagingEndPx = [stagingStartPx[0], stagingStartPx[1] + numStagedTiles * tileDifferencePx[1]];
-            mainContext.beginPath();
-            mainContext.moveTo(outgoingPx[0], outgoingPx[1]);
-            mainContext.lineTo(stagingStartPx[0], stagingStartPx[1]);
-            mainContext.lineTo(stagingEndPx[0], stagingEndPx[1]);
-            mainContext.stroke();
-        }
-
-
         // render the end part of the arrow
-        var i = 0;
+        var y_position_add = 0;
+        var previous_y_position_add = 0;
         for (const successor_id of nodes[node_id].outgoing) {
             if (successor_id == node_id) {
                 // identity successor, render as a loop
@@ -170,7 +245,7 @@ async function render(content) {
                 continue;
             }
 
-            const restagingPx = [stagingStartPx[0], stagingStartPx[1] + i * tileDifferencePx[1]];
+            const restagingPx = [stagingStartPx[0], stagingStartPx[1] + y_position_add * tileDifferencePx[1]];
             const ingoingPx = [startPx[0] + tileSizePx[0] + tilePaddingPx[0], restagingPx[1]];
 
 
@@ -190,7 +265,7 @@ async function render(content) {
             // if this is not the canonical occurence of the successor, render a reference
             const successor = nodes[successor_id];
             if (successor.render.pred != node_id) {
-                const referenceTile = [node_tile[0] + 1, node_tile[1] + i]
+                const referenceTile = [node_tile[0] + 1, node_tile[1] + y_position_add]
                 const startPx = referenceTile.map((e, i) => basePx[i] + e * (tilePaddingPx[i] + tileSizePx[i]));
                 const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
 
@@ -199,9 +274,20 @@ async function render(content) {
                 mainContext.stroke();
                 mainContext.fillText(successor_id, middlePx[0], middlePx[1]);
             }
-
-            i += 1;
+            previous_y_position_add = y_position_add;
+            y_position_add += nodes[successor_id].render.reserve;
         }
+
+        // render the staging part of the arrow if there are at some successors
+        if (nodes[node_id].outgoing.length) {
+            const stagingEndPx = [stagingStartPx[0], stagingStartPx[1] + previous_y_position_add * tileDifferencePx[1]];
+            mainContext.beginPath();
+            mainContext.moveTo(outgoingPx[0], outgoingPx[1]);
+            mainContext.lineTo(stagingStartPx[0], stagingStartPx[1]);
+            mainContext.lineTo(stagingEndPx[0], stagingEndPx[1]);
+            mainContext.stroke();
+        }
+
     }
 
     document.getElementById("state_space").innerText = JSON.stringify(content);
