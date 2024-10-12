@@ -1,13 +1,27 @@
 use std::fmt::{Debug, Display};
-use std::num::NonZeroUsize;
+use std::num::NonZeroU128;
 
 /// State identifier. Represents an actual system state.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StateId(pub NonZeroUsize);
+/// 128 bits so there is no realistic possibility of overflow when generating.
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StateId(pub NonZeroU128);
+
+impl Debug for StateId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl Display for StateId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <StateId as Debug>::fmt(self, f)
+    }
+}
 
 /// Node identifier. Either a dummy initial node or an actual system state.
+/// 128 bits so there is no realistic possibility of overflow when generating.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct NodeId(Option<NonZeroUsize>);
+pub struct NodeId(Option<NonZeroU128>);
 
 impl NodeId {
     /// Dummy initial node.

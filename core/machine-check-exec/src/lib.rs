@@ -8,3 +8,4 @@ mod space;
 
 pub use framework::{Framework, Strategy, VerificationType};
 pub use proposition::Proposition;
+pub use space::{NodeId, StateId};

@@ -1,11 +1,16 @@
-use std::{borrow::Cow, sync::RwLock};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+    sync::RwLock,
+};
 
 use gui::Gui;
 use http::{header::CONTENT_TYPE, Method, Request, Response};
 use log::{debug, error};
 use machine_check_common::ExecError;
-use machine_check_exec::Framework;
+use machine_check_exec::{Framework, NodeId};
 use mck::concr::FullMachine;
+use serde::{Deserialize, Serialize};
 
 mod gui;
 
@@ -167,18 +172,52 @@ impl<M: FullMachine> Business<M> {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct Node {
+    outgoing: BTreeSet<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct StateSpace {
+    // represent the IDs by strings for now
+    nodes: BTreeMap<String, Node>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Content {
+    state_space: StateSpace,
+}
+
 fn framework_response<M: FullMachine>(
     framework: &Framework<M>,
 ) -> Result<Cow<'static, [u8]>, Box<dyn std::error::Error>> {
-    let edges: Vec<String> = framework
-        .space()
-        .node_graph()
-        .all_edges()
-        .flat_map(|(source, target, _edge)| [source.to_string(), target.to_string()])
+    let state_map = framework.space().state_map();
+    let node_graph = framework.space().node_graph();
+
+    let nodes = std::iter::once((NodeId::START, None))
+        .chain(
+            state_map
+                .iter()
+                .map(|(state_id, state)| ((*state_id).into(), Some(state))),
+        )
+        .map(|(node_id, _state)| {
+            (
+                node_id.to_string(),
+                Node {
+                    outgoing: node_graph
+                        .neighbors_directed(node_id, petgraph::Direction::Outgoing)
+                        .map(|outgoing_id| outgoing_id.to_string())
+                        .collect(),
+                },
+            )
+        })
         .collect();
 
-    let edges_json = serde_json::to_string(&edges)?;
+    let state_space = StateSpace { nodes };
 
-    //Cow::Borrowed("{\"space\": {\"states\": {}, \"edges\": {}}}".as_bytes())
-    Ok(Cow::Owned(edges_json.into_bytes()))
+    let content = Content { state_space };
+
+    let content_json = serde_json::to_string(&content)?;
+
+    Ok(Cow::Owned(content_json.into_bytes()))
 }

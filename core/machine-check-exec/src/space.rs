@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
     fmt::Debug,
-    num::NonZeroUsize,
+    num::NonZeroU128,
     ops::Shr,
     rc::Rc,
 };
@@ -15,7 +15,7 @@ use mck::{
 use petgraph::{prelude::GraphMap, Directed};
 
 mod labelling;
-mod state;
+pub mod state;
 
 pub use state::{NodeId, StateId};
 
@@ -46,7 +46,7 @@ impl<M: FullMachine> Space<M> {
             node_graph: GraphMap::new(),
             state_map: BiMap::new(),
             num_states_for_sweep: 32,
-            next_state_id: StateId(NonZeroUsize::MIN),
+            next_state_id: StateId(NonZeroU128::MIN),
         }
     }
 
@@ -102,7 +102,10 @@ impl<M: FullMachine> Space<M> {
             self.state_map.insert(state_id, state);
             match self.next_state_id.0.checked_add(1) {
                 Some(result) => self.next_state_id.0 = result,
-                None => panic!("Number of states does not fit in usize"),
+                None => {
+                    // should never reasonably happen
+                    panic!("Number of states does not fit in u128")
+                }
             }
             state_id
         };

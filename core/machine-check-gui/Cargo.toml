@@ -8,6 +8,8 @@ machine-check-common = "=0.3.1"
 mck = "=0.3.1"
 machine-check-exec = "=0.3.1"
 
+petgraph = "0.6.4"
+
 anyhow = "1.0.89"
 
 log = "0.4.20"

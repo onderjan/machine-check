@@ -1275,6 +1275,7 @@ dependencies = [
  "machine-check-exec",
  "mck",
  "mime_guess",
+ "petgraph",
  "serde",
  "serde_json",
  "tao",
