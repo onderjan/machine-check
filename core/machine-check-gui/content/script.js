@@ -1,26 +1,4 @@
-const mainCanvas = document.getElementById("main_canvas");
 
-// fix for device pixel ratio
-const devicePixelRatio = window.devicePixelRatio || 1
-var mainCanvasRect = mainCanvas.getBoundingClientRect();
-mainCanvas.width = mainCanvasRect.width * devicePixelRatio
-mainCanvas.height = mainCanvasRect.height * devicePixelRatio
-mainCanvas.style.width = mainCanvasRect.width + 'px'
-mainCanvas.style.height = mainCanvasRect.height + 'px'
-
-
-const mainContext = mainCanvas.getContext("2d");
-//mainContext.scale(devicePixelRatio, devicePixelRatio)
-
-// make sure we stroke true pixels
-mainContext.translate(0.5, 0.5);
-
-const tileSizePx = [30, 30];
-const tilePaddingPx = [16, 16];
-const tileDifferencePx = [tileSizePx[0] + tilePaddingPx[0], tileSizePx[1] + tilePaddingPx[1]];
-
-const arrowLengthPx = 4;
-const arrowWidthPx = 4;
 
 
 async function callApi(action, method) {

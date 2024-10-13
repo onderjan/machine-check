@@ -1,3 +1,45 @@
+//const mainArea = document.getElementById("main_area");
+const mainCanvas = document.getElementById("main_canvas");
+
+var mainContext = mainCanvas.getContext("2d");
+//mainContext.scale(devicePixelRatio, devicePixelRatio)
+
+
+const tileSizePx = [30, 30];
+const tilePaddingPx = [16, 16];
+const tileDifferencePx = [tileSizePx[0] + tilePaddingPx[0], tileSizePx[1] + tilePaddingPx[1]];
+
+const arrowLengthPx = 4;
+const arrowWidthPx = 4;
+
+var storedContent = null;
+
+function fixResizedCanvas() {
+    // TODO: it is possible to resize the window so that the canvas pushes the bottom down 
+    // fix for device pixel ratio
+    var mainCanvasRect = mainCanvas.getBoundingClientRect();
+    const devicePixelRatio = window.devicePixelRatio || 1;
+
+    mainCanvas.width = mainCanvasRect.width * devicePixelRatio;
+    mainCanvas.height = mainCanvasRect.height * devicePixelRatio;
+    //mainCanvas.style.width = mainCanvasRect.width + 'px'
+    //mainCanvas.style.height = mainCanvasRect.height + 'px'
+
+    // make sure we stroke true pixels
+    mainContext.resetTransform();
+    mainContext.translate(0.5, 0.5);
+}
+
+function onResize() {
+    fixResizedCanvas();
+    render(storedContent);
+}
+
+
+window.addEventListener("resize", onResize);
+
+fixResizedCanvas();
+
 
 function drawPredecessorReference(node_id, middle) {
     mainContext.beginPath();
@@ -25,9 +67,11 @@ function drawSuccessorReference(node_id, middle) {
 
 function render(content) {
     console.log("Rendering", JSON.stringify(content));
-    if (content === null) {
+    if (content == null) {
         return;
     }
+    storedContent = content;
+
     const nodes = content.state_space.nodes;
 
     var topologicalIncomingDegree = {};
