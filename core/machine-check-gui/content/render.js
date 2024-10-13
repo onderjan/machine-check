@@ -1,9 +1,9 @@
-//const mainArea = document.getElementById("main_area");
+const mainArea = document.getElementById("main_area");
 const mainCanvas = document.getElementById("main_canvas");
 
 var mainContext = mainCanvas.getContext("2d");
-//mainContext.scale(devicePixelRatio, devicePixelRatio)
 
+const devicePixelRatio = window.devicePixelRatio || 1;
 
 const tileSizePx = [30, 30];
 const tilePaddingPx = [16, 16];
@@ -17,13 +17,12 @@ var storedContent = null;
 function fixResizedCanvas() {
     // TODO: it is possible to resize the window so that the canvas pushes the bottom down 
     // fix for device pixel ratio
-    var mainCanvasRect = mainCanvas.getBoundingClientRect();
-    const devicePixelRatio = window.devicePixelRatio || 1;
+    var mainAreaRect = mainArea.getBoundingClientRect();
 
-    mainCanvas.width = mainCanvasRect.width * devicePixelRatio;
-    mainCanvas.height = mainCanvasRect.height * devicePixelRatio;
-    //mainCanvas.style.width = mainCanvasRect.width + 'px'
-    //mainCanvas.style.height = mainCanvasRect.height + 'px'
+    mainCanvas.width = mainAreaRect.width * devicePixelRatio;
+    mainCanvas.height = mainAreaRect.height * devicePixelRatio;
+    mainCanvas.style.width = mainAreaRect.width + 'px'
+    mainCanvas.style.height = mainAreaRect.height + 'px'
 
     // make sure we stroke true pixels
     mainContext.resetTransform();
