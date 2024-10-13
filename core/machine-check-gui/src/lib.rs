@@ -46,6 +46,7 @@ pub fn run<M: FullMachine>(system: M) -> Result<(), ExecError> {
 
 const INDEX_HTML: &str = include_str!("../content/index.html");
 const SCRIPT_JS: &str = include_str!("../content/script.js");
+const STYLE_CSS: &str = include_str!("../content/style.css");
 
 struct Business<M: FullMachine> {
     framework: Framework<M>,
@@ -137,6 +138,7 @@ impl<M: FullMachine> Business<M> {
                 let content = match path {
                     "index.html" => Cow::Borrowed(INDEX_HTML.as_bytes()),
                     "script.js" => Cow::Borrowed(SCRIPT_JS.as_bytes()),
+                    "style.css" => Cow::Borrowed(STYLE_CSS.as_bytes()),
                     _ => return Err(anyhow::anyhow!("Not found: {}", path).into()),
                 };
 

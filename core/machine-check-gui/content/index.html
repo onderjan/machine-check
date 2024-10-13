@@ -3,16 +3,32 @@
 
 <head>
   <meta charset="utf-8">
-  <title>blah</title>
+  <title>machine-check</title>
+  <link rel="stylesheet" href="style.css">
   <script src="script.js" defer></script>
 </head>
 
 <body>
-  <h2>State space</h2>
-  <canvas id="main_canvas" width="1600px" height="200px"></canvas>
-  <p id="state_space">(not available yet)</p>
-  <a href="/index.html">To self</a>
-  <button type="button" id="step_verification" onclick="stepVerification()">Step verification</button>
+  <div id="container">
+    <div id="top_bar">
+      <h2>State space</h2>
+    </div>
+    <div id="left_bar">
+      Left bar
+    </div>
+    <div id="main_area">
+      <canvas id="main_canvas"></canvas>
+    </div>
+    <div id="right_bar">
+      Right bar
+    </div>
+    <div id="bottom_bar">
+      Bottom bar
+      <p id="state_space">(not available yet)</p>
+      <a href="/index.html">To self</a>
+      <button type="button" id="step_verification" onclick="stepVerification()">Step verification</button>
+    </div>
+  </div>
 
 </body>
 

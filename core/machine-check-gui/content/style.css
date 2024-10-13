@@ -1,0 +1,59 @@
+html {
+    height: 100%;
+    width: 100%;
+}
+
+
+body {
+    margin: 0;
+    padding: 0;
+}
+
+#container {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: 1fr 8fr 1fr;
+    grid-template-rows: 1fr 8fr 2fr;
+    gap: 0px 0px;
+    grid-template-areas:
+        "top_bar top_bar top_bar"
+        "left_bar main_area right_bar"
+        "left_bar bottom_bar bottom_bar";
+}
+
+#top_bar {
+    grid-area: top_bar;
+}
+
+#left_bar {
+    grid-area: left_bar;
+}
+
+#bottom_bar {
+    grid-area: bottom_bar;
+}
+
+#right_bar {
+    grid-area: right_bar;
+}
+
+#main_area {
+    grid-area: main_area;
+}
+
+
+
+/* for debug */
+#top_bar,
+#bottom_bar {
+    background-color: #ddd;
+}
+
+#left_bar,
+#right_bar {
+    background-color: #bbb;
+}
