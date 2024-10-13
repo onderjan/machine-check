@@ -25,6 +25,7 @@ impl Gui {
         // TODO: set a reasonable title that changes depending on the binary
         let window = WindowBuilder::new()
             .with_title("machine-check GUI")
+            .with_maximized(true)
             .build(&event_loop)?;
 
         #[cfg(any(
