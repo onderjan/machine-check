@@ -5,12 +5,21 @@ var mainContext = mainCanvas.getContext("2d");
 
 const devicePixelRatio = window.devicePixelRatio || 1;
 
-const tileSizePx = [30, 30];
-const tilePaddingPx = [16, 16];
+function adjustForPixelRatio(v) {
+    if (Array.isArray(v)) {
+        return v.map((e, i) => Math.round(e * devicePixelRatio));
+    }
+    return Math.round(v * devicePixelRatio);
+}
+
+const tileSizePx = adjustForPixelRatio([30, 30]);
+const tilePaddingPx = adjustForPixelRatio([16, 16]);
 const tileDifferencePx = [tileSizePx[0] + tilePaddingPx[0], tileSizePx[1] + tilePaddingPx[1]];
 
-const arrowLengthPx = 4;
-const arrowWidthPx = 4;
+const arrowLengthPx = adjustForPixelRatio(4);
+const arrowWidthPx = adjustForPixelRatio(4);
+
+const fontSizePx = adjustForPixelRatio(12);
 
 var storedContent = null;
 
@@ -23,6 +32,8 @@ function fixResizedCanvas() {
     mainCanvas.height = mainAreaRect.height * devicePixelRatio;
     mainCanvas.style.width = mainAreaRect.width + 'px'
     mainCanvas.style.height = mainAreaRect.height + 'px'
+
+    mainContext.font = fontSizePx + "px sans-serif";
 
     // make sure we stroke true pixels
     mainContext.resetTransform();
