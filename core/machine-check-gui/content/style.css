@@ -20,34 +20,44 @@ body {
     display: grid;
     grid-template-columns: 1fr 8fr 1fr;
     grid-template-rows: 1fr 8fr 2fr;
-    gap: 0px 0px;
     grid-template-areas:
         "top_bar top_bar top_bar"
         "left_bar main_area right_bar"
         "left_bar bottom_bar bottom_bar";
 }
 
+.bar {
+    padding: 1em;
+    box-sizing: content-box;
+}
+
 #top_bar {
     grid-area: top_bar;
+    border-bottom: 1px solid gray;
 }
 
 #left_bar {
     grid-area: left_bar;
+    border-right: 1px solid gray;
 }
 
 #bottom_bar {
     grid-area: bottom_bar;
     overflow-x: auto;
     overflow-y: scroll;
+    border-top: 1px solid gray;
 }
 
 #right_bar {
     grid-area: right_bar;
+    border-left: 1px solid gray;
 }
 
 #main_area {
     grid-area: main_area;
     position: relative;
+    background-color: white;
+    box-sizing: content-box;
 }
 
 #main_canvas {
@@ -58,7 +68,7 @@ body {
 }
 
 
-/* for debug */
+/* a little styling never hurt anyone */
 #top_bar,
 #bottom_bar {
     background-color: #ddd;
@@ -66,5 +76,5 @@ body {
 
 #left_bar,
 #right_bar {
-    background-color: #bbb;
+    background-color: #ddd;
 }
