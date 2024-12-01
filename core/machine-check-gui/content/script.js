@@ -33,6 +33,12 @@ async function stepVerification() {
 async function init() {
     mainCanvas.addEventListener('click', handleClick, false);
     mainCanvas.addEventListener('contextmenu', handleClick, false);
+
+    mainCanvas.addEventListener('mousedown', handleMouseDown, false);
+    mainCanvas.addEventListener('mousemove', handleMouseMove, false);
+    mainCanvas.addEventListener('mouseup', handleMouseUp, false);
+    mainCanvas.addEventListener('mouseout', handleMouseOut, false);
+
     showInitialContent();
 }
 

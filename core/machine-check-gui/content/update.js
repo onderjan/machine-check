@@ -215,3 +215,70 @@ function handleClick(event) {
 
     render();
 }
+
+var translationStartMouse = null;
+var translationStartOffsetPx = null;
+
+function handleMouseDown(event) {
+    event.preventDefault();
+    console.log("Mouse down", event);
+
+    // change the viewpoint translation if using the auxiliary (middle) button
+    if (event.button != 1) {
+        return;
+    }
+
+    translationStartMouse = [event.offsetX, event.offsetY];
+    translationStartOffsetPx = currentOffsetPx;
+    console.log("Translation start", translationStart);
+}
+
+function handleMouseMove(event) {
+    event.preventDefault();
+
+    if (translationStartMouse == null) {
+        return;
+    }
+
+    const offsetTranslation = [event.offsetX - translationStartMouse[0], event.offsetY - translationStartMouse[1]];
+    const adjustedOffsetTranslation = adjustForPixelRatio(offsetTranslation);
+
+    // apply translation
+    currentOffsetPx = translationStartOffsetPx.map((e, i) => e + adjustedOffsetTranslation[i]);
+
+    // render
+    render();
+}
+
+function handleMouseUp(event) {
+    event.preventDefault();
+
+    // change the viewpoint translation if using the auxiliary (middle) button
+    if (event.button != 1) {
+        return;
+    }
+
+    if (translationStartMouse == null) {
+        return;
+    }
+    console.log("Applying translation");
+    console.log("Before: " + translationStartOffsetPx);
+
+    const offsetTranslation = [event.offsetX - translationStartMouse[0], event.offsetY - translationStartMouse[1]];
+    const adjustedOffsetTranslation = adjustForPixelRatio(offsetTranslation);
+
+    // apply translation
+    currentOffsetPx = translationStartOffsetPx.map((e, i) => e + adjustedOffsetTranslation[i]);
+    translationStartMouse = null;
+    translationStartOffsetPx = null;
+
+    console.log("After: " + currentOffsetPx);
+    // render
+    render();
+}
+
+
+function handleMouseOut(event) {
+    // cancel any translation
+    translationStart = null;
+}
