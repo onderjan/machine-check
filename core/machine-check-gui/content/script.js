@@ -30,4 +30,10 @@ async function stepVerification() {
     update(content);
 }
 
-showInitialContent();
+async function init() {
+    mainCanvas.addEventListener('click', handleClick, false);
+    mainCanvas.addEventListener('contextmenu', handleClick, false);
+    showInitialContent();
+}
+
+init();

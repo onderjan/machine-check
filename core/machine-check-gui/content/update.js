@@ -6,13 +6,15 @@ function update(content) {
     }
     storedContent = content;
 
-    const nodes = content.state_space.nodes;
+    const nodes = storedContent.state_space.nodes;
 
     var topologicalIncomingDegree = {};
     var topologicalOutgoing = {};
 
     // toss out the previous rendering data
-    for (node_id in Object.values(nodes)) {
+    for (node_id of Object.keys(nodes)) {
+        console.log(nodes);
+        console.log(nodes[node_id], "node", node_id, nodes[node_id]);
         nodes[node_id].internal = {};
         topologicalIncomingDegree[node_id] = 0;
         topologicalOutgoing[node_id] = [];
@@ -160,6 +162,56 @@ function update(content) {
         }
     }
 
+    // map tiles to nodes
+    storedContent.internal = { tileMap: {} };
+
+    for (node_id of Object.keys(nodes)) {
+        const tile = nodes[node_id].internal.tile;
+        console.log("Tile", tile);
+
+        if (!storedContent.internal.tileMap[tile[0]]) {
+            storedContent.internal.tileMap[tile[0]] = {};
+        }
+
+        storedContent.internal.tileMap[tile[0]][tile[1]] = node_id;
+    }
+
+    console.log("Tile map", storedContent.internal.tileMap);
+
+    document.getElementById("state_space").innerText = JSON.stringify(storedContent);
+
     // render the updated content
+    render();
+}
+
+function handleClick(event) {
+    event.preventDefault();
+
+
+    if (storedContent == null) {
+        return;
+    }
+
+    const adjustedPx = adjustForPixelRatio([event.offsetX, event.offsetY]);
+
+    const tile = canvasPxToTile(adjustedPx);
+
+    const startPx = tile.map((e, i) => currentOffsetPx[i] + e * tileDifferencePx[i]);
+    const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
+
+    // render the node tile
+    mainContext.beginPath();
+    mainContext.rect(startPx[0], startPx[1], tileSizePx[0], tileSizePx[1]);
+    mainContext.stroke();
+
+    const node_column = storedContent.internal.tileMap[tile[0]];
+    if (!node_column) {
+        selectedNodeId = null;
+        render();
+        return;
+    }
+    const node_id = node_column[tile[1]];
+    selectedNodeId = node_id;
+
     render();
 }

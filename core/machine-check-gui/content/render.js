@@ -12,6 +12,14 @@ function adjustForPixelRatio(v) {
     return Math.round(v * devicePixelRatio);
 }
 
+function adjustFromPixelRatio(v) {
+    if (Array.isArray(v)) {
+        return v.map((e, i) => Math.round(e / devicePixelRatio));
+    }
+    return Math.round(v / devicePixelRatio);
+}
+
+
 const tileSizePx = adjustForPixelRatio([30, 30]);
 const tilePaddingPx = adjustForPixelRatio([16, 16]);
 const tileDifferencePx = [tileSizePx[0] + tilePaddingPx[0], tileSizePx[1] + tilePaddingPx[1]];
@@ -22,6 +30,13 @@ const arrowWidthPx = adjustForPixelRatio(4);
 const fontSizePx = adjustForPixelRatio(12);
 
 var storedContent = null;
+var currentOffsetPx = tilePaddingPx;
+var selectedNodeId = null;
+
+function canvasPxToTile(coords) {
+    return [Math.floor((coords[0] - currentOffsetPx[0] + tilePaddingPx[0] / 2) / tileDifferencePx[0]),
+    Math.floor((coords[1] - currentOffsetPx[1] + tilePaddingPx[1] / 2) / tileDifferencePx[1])];
+}
 
 function fixResizedCanvas() {
     // fix for device pixel ratio
@@ -85,8 +100,7 @@ function render() {
     const nodes = storedContent.state_space.nodes;
 
     // render the nodes at the computed tiles
-    const basePx = tilePaddingPx;
-
+    const basePx = currentOffsetPx;
 
     mainContext.textAlign = "center";
     mainContext.textBaseline = "middle";
@@ -104,10 +118,20 @@ function render() {
         const startPx = node.internal.tile.map((e, i) => basePx[i] + e * tileDifferencePx[i]);
         const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
 
+        if (node_id == selectedNodeId) {
+            mainContext.fillStyle = "lightblue";
+        } else {
+            mainContext.fillStyle = "white";
+
+        }
+
         // render the node tile
         mainContext.beginPath();
         mainContext.rect(startPx[0], startPx[1], tileSizePx[0], tileSizePx[1]);
+        mainContext.fill();
         mainContext.stroke();
+
+        mainContext.fillStyle = "black";
         mainContext.fillText(node_id, middlePx[0], middlePx[1]);
 
 
@@ -234,6 +258,4 @@ function render() {
         }
 
     }
-
-    document.getElementById("state_space").innerText = JSON.stringify(content);
 }
