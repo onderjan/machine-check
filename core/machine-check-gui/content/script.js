@@ -21,13 +21,13 @@ async function callApi(action, method) {
 async function showInitialContent() {
     console.log("Getting the initial content");
     const content = await callApi("content", "GET");
-    render(content);
+    update(content);
 }
 
 async function stepVerification() {
     console.log("Stepping verification");
     const content = await callApi("step_verification", "POST");
-    render(content);
+    update(content);
 }
 
 showInitialContent();
