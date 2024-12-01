@@ -13,7 +13,7 @@ function update(content) {
 
     // toss out the previous rendering data
     for (node_id in Object.values(nodes)) {
-        nodes[node_id].render = {};
+        nodes[node_id].internal = {};
         topologicalIncomingDegree[node_id] = 0;
         topologicalOutgoing[node_id] = [];
 
@@ -37,7 +37,7 @@ function update(content) {
                 topologicalOutgoing[node_id].push(successor_id);
                 topologicalIncomingDegree[successor_id] += 1;
 
-                nodes[successor_id].render = {
+                nodes[successor_id].internal = {
                     pred: node_id,
                 };
                 queue.push(successor_id);
@@ -89,8 +89,8 @@ function update(content) {
                 // reserve the y-positions of each non-identity successor
                 // but reserve only one if they do not consider this a canonical precedessor
                 console.log("Node/successor", node_id, nodes[node_id], successor_id, nodes[successor_id]);
-                if (nodes[successor_id].render.pred == node_id) {
-                    successor_reserve += nodes[successor_id].render.reserve;
+                if (nodes[successor_id].internal.pred == node_id) {
+                    successor_reserve += nodes[successor_id].internal.reserve;
                 } else {
                     successor_reserve += 1;
                 }
@@ -100,7 +100,7 @@ function update(content) {
         console.log("Reserves for node", node_id, predecessor_reserve, successor_reserve);
 
         // reserve the maximal one but at least one y-position
-        nodes[node_id].render.reserve = Math.max(predecessor_reserve, successor_reserve, 1);
+        nodes[node_id].internal.reserve = Math.max(predecessor_reserve, successor_reserve, 1);
 
         for (const predecessor_id of nodes[node_id].incoming) {
             if (!visited.has(predecessor_id)) {
@@ -116,17 +116,17 @@ function update(content) {
     // stage tile positions by depth-first search, taking the reserved y-positions into account
     queue = ["0"];
     visited = new Set();
-    nodes["0"].render.tile = [0, 0];
+    nodes["0"].internal.tile = [0, 0];
 
     while (queue.length) {
         const node_id = queue.shift();
         visited.add(node_id);
 
-        const node_tile = nodes[node_id].render.tile;
+        const node_tile = nodes[node_id].internal.tile;
 
         var numNonidentityCanonicalSuccessors = 0;
         for (const successor_id of nodes[node_id].outgoing) {
-            if (successor_id != node_id && nodes[successor_id].render.pred == successor_id) {
+            if (successor_id != node_id && nodes[successor_id].internal.pred == successor_id) {
                 numNonidentityCanonicalSuccessors += 1;
             }
         }
@@ -153,10 +153,10 @@ function update(content) {
                     }
                 }
 
-                nodes[successor_id].render.tile = [node_tile[0] + 1 + offset, node_tile[1] + y_position_add];
+                nodes[successor_id].internal.tile = [node_tile[0] + 1 + offset, node_tile[1] + y_position_add];
                 queue.push(successor_id);
             }
-            y_position_add += nodes[successor_id].render.reserve;
+            y_position_add += nodes[successor_id].internal.reserve;
         }
     }
 

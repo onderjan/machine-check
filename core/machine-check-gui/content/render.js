@@ -93,15 +93,15 @@ function render() {
 
     for (const node_id of Object.keys(nodes)) {
         const node = nodes[node_id];
-        if (!node.render.tile) {
+        if (!node.internal.tile) {
             // node not reachable
             continue;
         }
 
         // --- TILE ---
 
-        const node_tile = node.render.tile;
-        const startPx = node.render.tile.map((e, i) => basePx[i] + e * tileDifferencePx[i]);
+        const node_tile = node.internal.tile;
+        const startPx = node.internal.tile.map((e, i) => basePx[i] + e * tileDifferencePx[i]);
         const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
 
         // render the node tile
@@ -118,7 +118,7 @@ function render() {
         var predecessor_y_position_add = 1;
         for (const predecessor_id of nodes[node_id].incoming) {
             // do not draw references for identity or canonical predecessors
-            if (predecessor_id == node_id || predecessor_id == nodes[node_id].render.pred) {
+            if (predecessor_id == node_id || predecessor_id == nodes[node_id].internal.pred) {
                 continue;
             }
 
@@ -191,8 +191,8 @@ function render() {
 
             var ingoingXPx = startPx[0] + tileSizePx[0] + tilePaddingPx[0];
             // adjust if this is the canonical occurence
-            if (successor.render.pred == node_id) {
-                ingoingXPx = basePx[0] + nodes[successor_id].render.tile[0] * tileDifferencePx[0];
+            if (successor.internal.pred == node_id) {
+                ingoingXPx = basePx[0] + nodes[successor_id].internal.tile[0] * tileDifferencePx[0];
             }
 
             const ingoingPx = [ingoingXPx, restagingPx[1]];
@@ -212,7 +212,7 @@ function render() {
             mainContext.fill();
 
             // if this is not the canonical occurence of the successor, render a reference
-            if (successor.render.pred != node_id) {
+            if (successor.internal.pred != node_id) {
                 const referenceTile = [node_tile[0] + 1, node_tile[1] + y_position_add]
                 const startPx = referenceTile.map((e, i) => basePx[i] + e * (tilePaddingPx[i] + tileSizePx[i]));
                 const middlePx = startPx.map((e, i) => e + tileSizePx[i] / 2);
@@ -220,7 +220,7 @@ function render() {
                 drawSuccessorReference(successor_id, middlePx);
             }
             previous_y_position_add = y_position_add;
-            y_position_add += nodes[successor_id].render.reserve;
+            y_position_add += nodes[successor_id].internal.reserve;
         }
 
         // render the staging part of the arrow if there are at some successors
