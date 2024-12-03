@@ -1,10 +1,12 @@
 use std::collections::HashSet;
 
-use proc_macro2::Span;
+use proc_macro2::{Literal, Span};
+use quote::ToTokens;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, Arm, Expr, ExprLit, ExprMatch, Field, Ident,
-    ImplItem, ImplItemFn, Item, ItemImpl, ItemStruct, Lit, LitStr, Pat, Path, PathArguments,
-    PathSegment, Stmt, Token, TraitBound, Type, TypeParamBound, TypeTraitObject,
+    punctuated::Punctuated, spanned::Spanned, token::Comma, Arm, Expr, ExprLit, ExprMacro,
+    ExprMatch, Field, Ident, ImplItem, ImplItemFn, Item, ItemImpl, ItemStruct, Lifetime, Lit,
+    LitStr, Macro, Pat, Path, PathArguments, PathSegment, Stmt, Token, TraitBound, Type,
+    TypeParamBound, TypeReference, TypeTraitObject,
 };
 use syn_path::path;
 
@@ -74,15 +76,21 @@ pub fn create_manipulatable_impl(item_struct: &ItemStruct, kind: ManipulateKind)
         }
     }
 
-    let get_fn = create_fn(false, &manipulable_field_idents, kind, item_struct.span());
-    let get_mut_fn = create_fn(true, &manipulable_field_idents, kind, item_struct.span());
+    let span = item_struct.span();
+    let get_fn = create_fn(false, &manipulable_field_idents, kind, span);
+    let get_mut_fn = create_fn(true, &manipulable_field_idents, kind, span);
+    let create_field_names_fn = create_field_names_fn(&manipulable_field_idents, span);
 
-    let trait_path = kind_path(kind, "Manipulatable", item_struct.span());
+    let trait_path = kind_path(kind, "Manipulatable", span);
 
     create_item_impl(
         Some(trait_path),
         create_path_from_ident(item_struct.ident.clone()),
-        vec![ImplItem::Fn(get_fn), ImplItem::Fn(get_mut_fn)],
+        vec![
+            ImplItem::Fn(get_fn),
+            ImplItem::Fn(get_mut_fn),
+            ImplItem::Fn(create_field_names_fn),
+        ],
     )
 }
 
@@ -210,5 +218,43 @@ fn create_fn(
         vec![self_arg, name_arg],
         Some(return_type),
         vec![Stmt::Expr(match_expr, None)],
+    )
+}
+
+fn create_field_names_fn(field_idents: &[Ident], span: Span) -> ImplItemFn {
+    let fn_ident: Ident = Ident::new("field_names", span);
+
+    let str_type = create_type_path(path!(::std::primitive::str));
+    let str_ref_type = Type::Reference(TypeReference {
+        and_token: Token![&](span),
+        lifetime: Some(Lifetime::new("'static", span)),
+        mutability: None,
+        elem: Box::new(str_type),
+    });
+
+    let vec_path = path!(::std::vec::Vec);
+    let vec_path = create_path_with_last_generic_type(vec_path, str_ref_type);
+    let return_type = create_type_path(vec_path);
+
+    let mut punctuated = Punctuated::<Literal, Comma>::new();
+    for field_ident in field_idents {
+        punctuated.push(Literal::string(&field_ident.to_string()));
+    }
+
+    let result_expr = Expr::Macro(ExprMacro {
+        attrs: vec![],
+        mac: Macro {
+            path: path!(::std::vec),
+            bang_token: Token![!](span),
+            delimiter: syn::MacroDelimiter::Bracket(Default::default()),
+            tokens: punctuated.into_token_stream(),
+        },
+    });
+
+    create_impl_item_fn(
+        fn_ident,
+        vec![],
+        Some(return_type),
+        vec![Stmt::Expr(result_expr, None)],
     )
 }

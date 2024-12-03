@@ -77,4 +77,6 @@ pub trait Manipulatable {
     fn get(&self, name: &str) -> Option<&dyn ManipField>;
     #[must_use]
     fn get_mut(&mut self, name: &str) -> Option<&mut dyn ManipField>;
+    #[must_use]
+    fn field_names() -> Vec<&'static str>;
 }
