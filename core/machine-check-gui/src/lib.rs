@@ -179,9 +179,22 @@ impl<M: FullMachine> Business<M> {
 }
 
 #[derive(Serialize, Deserialize)]
+struct ThreeValuedBool {
+    zero: bool,
+    one: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Field {
+    description: String,
+}
+
+#[derive(Serialize, Deserialize)]
 struct Node {
     incoming: BTreeSet<String>,
     outgoing: BTreeSet<String>,
+    panic: Option<ThreeValuedBool>,
+    fields: BTreeMap<String, Field>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -191,42 +204,83 @@ struct StateSpace {
 }
 
 #[derive(Serialize, Deserialize)]
+struct StateInfo {
+    field_names: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
 struct Content {
     state_space: StateSpace,
+    state_info: StateInfo,
 }
 
 fn framework_response<M: FullMachine>(
     framework: &Framework<M>,
 ) -> Result<Cow<'static, [u8]>, Box<dyn std::error::Error>> {
+    let state_field_names: Vec<String> =
+        <<M::Abstr as mck::abstr::Machine<M>>::State as mck::abstr::Manipulatable>::field_names()
+            .into_iter()
+            .map(String::from)
+            .collect();
+
+    let state_info = StateInfo {
+        field_names: state_field_names.clone(),
+    };
+
     let state_map = framework.space().state_map();
     let node_graph = framework.space().node_graph();
 
-    let nodes = std::iter::once((NodeId::START, None))
-        .chain(
-            state_map
-                .iter()
-                .map(|(state_id, state)| ((*state_id).into(), Some(state))),
-        )
-        .map(|(node_id, _state)| {
-            (
-                node_id.to_string(),
-                Node {
-                    incoming: node_graph
-                        .neighbors_directed(node_id, petgraph::Direction::Incoming)
-                        .map(|incoming_id| incoming_id.to_string())
-                        .collect(),
-                    outgoing: node_graph
-                        .neighbors_directed(node_id, petgraph::Direction::Outgoing)
-                        .map(|outgoing_id| outgoing_id.to_string())
-                        .collect(),
-                },
-            )
-        })
-        .collect();
+    let node_iter = std::iter::once((NodeId::START, None)).chain(
+        state_map
+            .iter()
+            .map(|(state_id, state)| ((*state_id).into(), Some(state))),
+    );
+
+    let mut nodes = BTreeMap::new();
+    for (node_id, state) in node_iter {
+        let incoming = node_graph
+            .neighbors_directed(node_id, petgraph::Direction::Incoming)
+            .map(|incoming_id| incoming_id.to_string())
+            .collect();
+        let outgoing = node_graph
+            .neighbors_directed(node_id, petgraph::Direction::Outgoing)
+            .map(|outgoing_id| outgoing_id.to_string())
+            .collect();
+        let (fields, panic) = if let Some(state) = state {
+            let panic_result = &state.0;
+            let panic = ThreeValuedBool {
+                zero: panic_result.panic.umin().is_zero(),
+                one: panic_result.panic.umax().is_nonzero(),
+            };
+            let mut fields = BTreeMap::new();
+            for field_name in state_field_names.iter() {
+                let field_get = mck::abstr::Manipulatable::get(&panic_result.result, field_name)
+                    .expect("Field name should correspond to a field");
+                // TODO: get a reasonable description
+                let description = format!("{:?}", field_get.num_bits());
+
+                fields.insert(field_name.clone(), Field { description });
+            }
+            (fields, Some(panic))
+        } else {
+            (BTreeMap::new(), None)
+        };
+
+        let node_info = Node {
+            incoming,
+            outgoing,
+            panic,
+            fields,
+        };
+        nodes.insert(node_id.to_string(), node_info);
+    }
 
     let state_space = StateSpace { nodes };
 
-    let content = Content { state_space };
+    let content = Content {
+        state_space,
+        state_info,
+    };
 
     let content_json = serde_json::to_string(&content)?;
 
