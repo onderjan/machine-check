@@ -449,6 +449,10 @@ impl<
 
         inner.entry(index).or_insert(element).borrow_mut()
     }
+
+    pub fn light_iter(&self) -> impl Iterator<Item = (&I, &E)> {
+        self.inner.iter()
+    }
 }
 
 impl<

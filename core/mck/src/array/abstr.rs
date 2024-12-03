@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use serde_json::json;
+
 use crate::{
     abstr::{self, Abstr, ManipField, Phi},
     concr,
@@ -143,5 +145,21 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
 
     fn max_signed(&self) -> Option<i64> {
         None
+    }
+
+    fn json_description(&self) -> serde_json::Value {
+        let mut map = serde_json::Map::new();
+        for (index, element) in self.inner.light_iter() {
+            map.insert(index.to_string(), element.0.json_domains());
+        }
+
+        let result = json!({
+            "type": "array",
+            "width_bits": L,
+            "length_bits": I,
+            "map": map,
+        });
+
+        result
     }
 }

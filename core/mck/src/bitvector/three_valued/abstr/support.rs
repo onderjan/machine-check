@@ -1,5 +1,7 @@
 use std::fmt::{Debug, Display};
 
+use serde_json::json;
+
 use crate::{
     abstr::ManipField,
     abstr::{Abstr, Boolean, Phi, Test},
@@ -206,6 +208,13 @@ impl<const L: u32> ThreeValuedBitvector<L> {
             ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
         })
     }
+
+    pub fn json_domains(&self) -> serde_json::Value {
+        json!({"tv": {
+            "ones": self.ones.as_unsigned(),
+            "zeros": self.zeros.as_unsigned(),
+        }})
+    }
 }
 
 impl<const L: u32> MetaEq for ThreeValuedBitvector<L> {
@@ -283,6 +292,13 @@ impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
 
     fn index(&self, _index: u64) -> Option<&dyn ManipField> {
         None
+    }
+
+    fn json_description(&self) -> serde_json::Value {
+        let domains = self.json_domains();
+        json!({ "type": "bitvector",
+        "width_bits": L,
+        "domains": domains })
     }
 }
 

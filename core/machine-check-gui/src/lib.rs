@@ -185,16 +185,11 @@ struct ThreeValuedBool {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Field {
-    description: String,
-}
-
-#[derive(Serialize, Deserialize)]
 struct Node {
     incoming: BTreeSet<String>,
     outgoing: BTreeSet<String>,
     panic: Option<ThreeValuedBool>,
-    fields: BTreeMap<String, Field>,
+    fields: BTreeMap<String, serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -256,10 +251,9 @@ fn framework_response<M: FullMachine>(
             for field_name in state_field_names.iter() {
                 let field_get = mck::abstr::Manipulatable::get(&panic_result.result, field_name)
                     .expect("Field name should correspond to a field");
-                // TODO: get a reasonable description
-                let description = format!("{:?}", field_get.num_bits());
+                let description = field_get.json_description();
 
-                fields.insert(field_name.clone(), Field { description });
+                fields.insert(field_name.clone(), description);
             }
             (fields, Some(panic))
         } else {

@@ -53,6 +53,7 @@ pub trait ManipField {
     fn max_unsigned(&self) -> Option<u64>;
     fn min_signed(&self) -> Option<i64>;
     fn max_signed(&self) -> Option<i64>;
+    fn json_description(&self) -> serde_json::Value;
 }
 pub trait Manipulatable {
     #[must_use]
