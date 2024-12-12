@@ -297,7 +297,7 @@ impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
     fn json_description(&self) -> serde_json::Value {
         let domains = self.json_domains();
         json!({ "type": "bitvector",
-        "width_bits": L,
+        "bit_width": L,
         "domains": domains })
     }
 }

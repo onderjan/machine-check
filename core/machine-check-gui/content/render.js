@@ -1,5 +1,6 @@
 const mainArea = document.getElementById("main_area");
 const mainCanvas = document.getElementById("main_canvas");
+const stateFields = document.getElementById("state_fields");
 
 var mainContext = mainCanvas.getContext("2d");
 
@@ -89,7 +90,14 @@ function drawSuccessorReference(node_id, middle) {
     mainContext.fillText(node_id, middle[0] + tileSizePx[0] / 16, middle[1]);
 }
 
+
 function render() {
+    // clear the state fields
+    const elements = stateFields.getElementsByClassName("dynamic");
+    while (elements[0]) {
+        elements[0].parentNode.removeChild(elements[0]);
+    }
+
     // clear the canvas
     mainContext.clearRect(-0.5, -0.5, mainCanvas.width - 0.5, mainCanvas.height - 0.5);
 
@@ -97,6 +105,14 @@ function render() {
     if (storedContent == null) {
         return;
     }
+
+    renderCanvas();
+    renderStateFields();
+
+}
+
+
+function renderCanvas() {
     const nodes = storedContent.state_space.nodes;
 
     // render the nodes at the computed tiles
@@ -257,5 +273,122 @@ function render() {
             mainContext.stroke();
         }
 
+    }
+}
+
+function addStateFieldsRow(field, value, classes) {
+    if (value == null) {
+        value = "(display error)";
+        console.error("Value null for field", field);
+    }
+
+    const row = stateFields.insertRow();
+    row.classList.add("dynamic");
+    const fieldCell = row.insertCell(0);
+    fieldCell.innerText = field;
+    const valueCell = row.insertCell(1);
+    valueCell.innerText = value;
+    if (classes != null) {
+        for (cls of classes) {
+            valueCell.classList.add(cls);
+        }
+    }
+}
+
+function addAuxiliaryStateFieldsRow(text) {
+    const row = stateFields.insertRow();
+    row.classList.add("dynamic");
+    const fieldCell = row.insertCell(0);
+    fieldCell.innerText = text;
+    fieldCell.colSpan = 2;
+}
+
+function renderStateFields() {
+    const nodes = storedContent.state_space.nodes;
+
+    var selectedNode = null;
+    if (selectedNodeId != null) {
+        selectedNode = nodes[selectedNodeId];
+    }
+    if (selectedNode == null) {
+        addAuxiliaryStateFieldsRow("(no node selected)");
+        return;
+    }
+
+    console.log("Selected node", selectedNode, selectedNode.fields.size);
+    if (Object.keys(selectedNode.fields).length == 0 && selectedNode.panic == null) {
+        if (selectedNodeId == 0) {
+            addAuxiliaryStateFieldsRow("(inital state has no fields)");
+        } else {
+            addAuxiliaryStateFieldsRow("(state has no fields)");
+        }
+        return;
+    }
+
+    for (const fieldName in selectedNode.fields) {
+        const field = selectedNode.fields[fieldName];
+        var value = null;
+
+        if (Object.keys(field.domains).length == 1 && field.domains["tv"] != null) {
+            value = "ABC";
+            if (field.type == "bitvector") {
+                const bitWidth = field.bit_width;
+                value = "";
+                const tv = field.domains["tv"];
+                var ones = tv.ones;
+                var zeros = tv.zeros;
+                for (var i = 0; i < bitWidth; ++i) {
+                    var bitValue;
+                    if (ones % 2 == 1) {
+                        if (zeros % 2 == 1) {
+                            bitValue = 'X';
+                        } else {
+                            bitValue = '1';
+                        }
+                    } else {
+                        if (zeros % 2 == 1) {
+                            bitValue = '0';
+                        } else {
+                            // should never occur
+                            bitValue = null;
+                        }
+
+                    }
+                    if (bitValue != null) {
+                        value = bitValue + value;
+                    } else {
+                        value = null;
+                    }
+                    ones = Math.floor(ones / 2);
+                    zeros = Math.floor(zeros / 2);
+                }
+                if (value != null) {
+                    value = "\"" + value + "\"";
+                }
+            }
+        }
+
+        addStateFieldsRow(fieldName, value, ["monospace"]);
+    }
+
+    if (selectedNode.panic != null) {
+        var value = null;
+        const zero = selectedNode.panic.zero;
+        const one = selectedNode.panic.one;
+        if (one == true) {
+            if (zero == true) {
+                value = "unknown";
+            } else {
+                value = "true";
+            }
+        } else {
+            if (zero == true) {
+                value = "false";
+            } else {
+                // should never occur
+            }
+        }
+
+        addStateFieldsRow("panic", value);
     }
 }

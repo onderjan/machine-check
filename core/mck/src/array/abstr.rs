@@ -155,8 +155,8 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
 
         let result = json!({
             "type": "array",
-            "width_bits": L,
-            "length_bits": I,
+            "bit_width": L,
+            "bit_length": I,
             "map": map,
         });
 

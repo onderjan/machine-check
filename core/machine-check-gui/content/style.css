@@ -67,6 +67,22 @@ body {
     overflow: hidden;
 }
 
+#state_fields {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+
+#state_fields tr {
+    text-align: left;
+}
+
+#state_fields th,
+#state_fields td {
+    border: 1px solid black;
+    padding: 0.5em;
+}
+
 
 /* a little styling never hurt anyone */
 #top_bar,
@@ -77,4 +93,8 @@ body {
 #left_bar,
 #right_bar {
     background-color: #ddd;
+}
+
+.monospace {
+    font-family: monospace;
 }
