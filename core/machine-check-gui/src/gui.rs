@@ -21,6 +21,7 @@ type ResponseCow = http::Response<std::borrow::Cow<'static, [u8]>>;
 impl Gui {
     pub fn new(
         response_fn: impl Fn(http::Request<Vec<u8>>) -> ResponseCow + 'static,
+        exec_name: &str,
     ) -> Result<Gui, Box<dyn std::error::Error>> {
         // build the GUI using the packages wry and tao
         let event_loop = EventLoop::new();
@@ -46,9 +47,8 @@ impl Gui {
             .flat_map(|chunk| [chunk[2], chunk[1], chunk[0], chunk[3]])
             .collect();
 
-        // TODO: set a reasonable title that changes depending on the binary
         let window = WindowBuilder::new()
-            .with_title("Machine-check")
+            .with_title(format!("{} (machine-check)", exec_name))
             .with_maximized(true)
             .with_window_icon(Some(
                 Icon::from_rgba(icon_rgba, icon_width as u32, icon_height as u32)

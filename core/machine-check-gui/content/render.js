@@ -1,5 +1,6 @@
 const mainArea = document.getElementById("main_area");
 const mainCanvas = document.getElementById("main_canvas");
+const execName = document.getElementById("exec_name");
 const stateFields = document.getElementById("state_fields");
 
 var mainContext = mainCanvas.getContext("2d");
@@ -105,6 +106,8 @@ function render() {
     if (storedContent == null) {
         return;
     }
+
+    execName.innerText = storedContent.exec_name;
 
     renderCanvas();
     renderStateFields();

@@ -1,6 +1,8 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
+    ffi::OsStr,
+    path::Path,
     sync::RwLock,
 };
 
@@ -15,6 +17,16 @@ use serde::{Deserialize, Serialize};
 mod gui;
 
 pub fn run<M: FullMachine>(system: M) -> Result<(), ExecError> {
+    // TODO: allow setting custom titles instead of relying on the binary name
+    let exec_name = std::env::current_exe()
+        .ok()
+        .as_ref()
+        .map(Path::new)
+        .and_then(Path::file_stem)
+        .and_then(OsStr::to_str)
+        .map(String::from)
+        .unwrap_or(String::from("Unknown executable"));
+
     let abstract_system = <M::Abstr as mck::abstr::Abstr<M>>::from_concrete(system);
     // create the business logic
     let business = RwLock::new(Business::<M> {
@@ -26,6 +38,7 @@ pub fn run<M: FullMachine>(system: M) -> Result<(), ExecError> {
                 use_decay: false,
             },
         ),
+        exec_name: exec_name.clone(),
     });
 
     //let business = Arc::new(business);
@@ -33,7 +46,7 @@ pub fn run<M: FullMachine>(system: M) -> Result<(), ExecError> {
     let response_fn = move |request| Business::get_http_response(&business, request);
 
     // initialise the GUI
-    let gui = match Gui::new(response_fn) {
+    let gui = match Gui::new(response_fn, &exec_name) {
         Ok(ok) => ok,
         Err(err) => {
             error!("Cannot create GUI: {}", err);
@@ -53,6 +66,7 @@ const FAVICON_ICO: &[u8] = include_bytes!("../content/favicon.ico");
 
 struct Business<M: FullMachine> {
     framework: Framework<M>,
+    exec_name: String,
 }
 
 impl<M: FullMachine> Business<M> {
@@ -97,12 +111,9 @@ impl<M: FullMachine> Business<M> {
                         }
 
                         // step verification
-                        let framework = &mut business
-                            .write()
-                            .expect("Lock should not be poisoned")
-                            .framework;
-                        framework.step_verification();
-                        framework_response(framework)?
+                        let business = &mut business.write().expect("Lock should not be poisoned");
+                        business.framework.step_verification();
+                        framework_response(business)?
                     }
                     "reset" => {
                         if method != Method::POST {
@@ -123,11 +134,8 @@ impl<M: FullMachine> Business<M> {
                             .into());
                         }
                         // read the current framework state
-                        let framework = &business
-                            .read()
-                            .expect("Lock should not be poisoned")
-                            .framework;
-                        framework_response(framework)?
+                        let business = &business.read().expect("Lock should not be poisoned");
+                        framework_response(business)?
                     }
                     _ => return Err(anyhow::anyhow!("Unknown API command: {}", path).into()),
                 };
@@ -207,12 +215,13 @@ struct StateInfo {
 
 #[derive(Serialize, Deserialize)]
 struct Content {
+    exec_name: String,
     state_space: StateSpace,
     state_info: StateInfo,
 }
 
 fn framework_response<M: FullMachine>(
-    framework: &Framework<M>,
+    business: &Business<M>,
 ) -> Result<Cow<'static, [u8]>, Box<dyn std::error::Error>> {
     let state_field_names: Vec<String> =
         <<M::Abstr as mck::abstr::Machine<M>>::State as mck::abstr::Manipulatable>::field_names()
@@ -223,6 +232,8 @@ fn framework_response<M: FullMachine>(
     let state_info = StateInfo {
         field_names: state_field_names.clone(),
     };
+
+    let framework = &business.framework;
 
     let state_map = framework.space().state_map();
     let node_graph = framework.space().node_graph();
@@ -274,6 +285,7 @@ fn framework_response<M: FullMachine>(
     let state_space = StateSpace { nodes };
 
     let content = Content {
+        exec_name: business.exec_name.clone(),
         state_space,
         state_info,
     };

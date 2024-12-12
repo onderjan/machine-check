@@ -42,6 +42,10 @@ body {
     border-right: 1px solid gray;
 }
 
+#exec_name {
+    text-align: center;
+}
+
 #bottom_bar {
     grid-area: bottom_bar;
     overflow-x: auto;
