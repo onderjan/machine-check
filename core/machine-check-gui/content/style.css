@@ -68,6 +68,7 @@ body {
 }
 
 #state_fields {
+    background-color: white;
     border-collapse: collapse;
     width: 100%;
 }
@@ -97,4 +98,12 @@ body {
 
 .monospace {
     font-family: monospace;
+}
+
+.italic {
+    font-style: italic;
+}
+
+.bold {
+    font-weight: bold;
 }

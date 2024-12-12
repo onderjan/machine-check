@@ -280,7 +280,7 @@ function renderCanvas() {
     }
 }
 
-function addStateFieldsRow(field, value, classes) {
+function addStateFieldsRow(field, value, fieldClasses, valueClasses) {
     if (value == null) {
         value = "(display error)";
         console.error("Value null for field", field);
@@ -292,8 +292,13 @@ function addStateFieldsRow(field, value, classes) {
     fieldCell.innerText = field;
     const valueCell = row.insertCell(1);
     valueCell.innerText = value;
-    if (classes != null) {
-        for (cls of classes) {
+    if (fieldClasses != null) {
+        for (cls of fieldClasses) {
+            fieldCell.classList.add(cls);
+        }
+    }
+    if (valueClasses != null) {
+        for (cls of valueClasses) {
             valueCell.classList.add(cls);
         }
     }
@@ -317,6 +322,29 @@ function renderStateFields() {
     if (selectedNode == null) {
         addAuxiliaryStateFieldsRow("(no node selected)");
         return;
+    }
+
+    addStateFieldsRow("id", selectedNodeId, ["italic", "bold"], null);
+
+    if (selectedNode.panic != null) {
+        var value = null;
+        const zero = selectedNode.panic.zero;
+        const one = selectedNode.panic.one;
+        if (one == true) {
+            if (zero == true) {
+                value = "unknown";
+            } else {
+                value = "true";
+            }
+        } else {
+            if (zero == true) {
+                value = "false";
+            } else {
+                // should never occur
+            }
+        }
+
+        addStateFieldsRow("panic", value, ["italic", "bold"], ["bold"]);
     }
 
     console.log("Selected node", selectedNode, selectedNode.fields.size);
@@ -372,27 +400,6 @@ function renderStateFields() {
             }
         }
 
-        addStateFieldsRow(fieldName, value, ["monospace"]);
-    }
-
-    if (selectedNode.panic != null) {
-        var value = null;
-        const zero = selectedNode.panic.zero;
-        const one = selectedNode.panic.one;
-        if (one == true) {
-            if (zero == true) {
-                value = "unknown";
-            } else {
-                value = "true";
-            }
-        } else {
-            if (zero == true) {
-                value = "false";
-            } else {
-                // should never occur
-            }
-        }
-
-        addStateFieldsRow("panic", value);
+        addStateFieldsRow(fieldName, value, null, ["monospace"]);
     }
 }
