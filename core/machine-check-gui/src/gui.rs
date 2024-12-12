@@ -48,7 +48,7 @@ impl Gui {
 
         // TODO: set a reasonable title that changes depending on the binary
         let window = WindowBuilder::new()
-            .with_title("machine-check")
+            .with_title("Machine-check")
             .with_maximized(true)
             .with_window_icon(Some(
                 Icon::from_rgba(icon_rgba, icon_width as u32, icon_height as u32)
