@@ -155,10 +155,17 @@ function update(content) {
                     }
                 }
 
-                nodes[successor_id].internal.tile = [node_tile[0] + 1 + offset, node_tile[1] + y_position_add];
-                queue.push(successor_id);
+                if (nodes[successor_id].internal.pred == node_id) {
+                    nodes[successor_id].internal.tile = [node_tile[0] + 1 + offset, node_tile[1] + y_position_add];
+                    queue.push(successor_id);
+                }
             }
-            y_position_add += nodes[successor_id].internal.reserve;
+            if (nodes[successor_id].internal.pred == node_id) {
+                y_position_add += nodes[successor_id].internal.reserve;
+            } else {
+                y_position_add += 1;
+
+            }
         }
     }
 

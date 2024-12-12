@@ -260,7 +260,11 @@ function renderCanvas() {
                 drawSuccessorReference(successor_id, middlePx);
             }
             previous_y_position_add = y_position_add;
-            y_position_add += nodes[successor_id].internal.reserve;
+            if (successor.internal.pred == node_id) {
+                y_position_add += nodes[successor_id].internal.reserve;
+            } else {
+                y_position_add += 1;
+            }
         }
 
         // render the staging part of the arrow if there are at some successors
