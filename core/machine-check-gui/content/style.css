@@ -19,7 +19,7 @@ body {
     top: 0;
     bottom: 0;
     display: grid;
-    grid-template-columns: 1fr 8fr 1fr;
+    grid-template-columns: 1fr 8fr 1.5fr;
     grid-template-rows: 1fr 8fr 2fr;
     grid-template-areas:
         "top_bar top_bar top_bar"
@@ -40,6 +40,8 @@ body {
 #left_bar {
     grid-area: left_bar;
     border-right: 1px solid gray;
+    overflow-x: auto;
+    overflow-y: auto;
 }
 
 #exec_name {
@@ -56,6 +58,8 @@ body {
 #right_bar {
     grid-area: right_bar;
     border-left: 1px solid gray;
+    overflow-x: auto;
+    overflow-y: auto;
 }
 
 #main_area {

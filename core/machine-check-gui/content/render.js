@@ -315,6 +315,46 @@ function addAuxiliaryStateFieldsRow(text) {
     fieldCell.colSpan = 2;
 }
 
+function computeBitvectorValue(bitWidth, domains) {
+    if (domains == null || Object.keys(domains).length != 1 || domains["tv"] == null) {
+        return null;
+    }
+
+    var value = "";
+    const tv = domains["tv"];
+    var ones = tv.ones;
+    var zeros = tv.zeros;
+    for (var i = 0; i < bitWidth; ++i) {
+        var bitValue;
+        if (ones % 2 == 1) {
+            if (zeros % 2 == 1) {
+                bitValue = 'X';
+            } else {
+                bitValue = '1';
+            }
+        } else {
+            if (zeros % 2 == 1) {
+                bitValue = '0';
+            } else {
+                // should never occur
+                bitValue = null;
+            }
+
+        }
+        if (bitValue != null) {
+            value = bitValue + value;
+        } else {
+            value = null;
+        }
+        ones = Math.floor(ones / 2);
+        zeros = Math.floor(zeros / 2);
+    }
+    if (value != null) {
+        value = "\"" + value + "\"";
+    }
+    return value;
+}
+
 function renderStateFields() {
     const nodes = storedContent.state_space.nodes;
 
@@ -362,44 +402,43 @@ function renderStateFields() {
 
     for (const fieldName in selectedNode.fields) {
         const field = selectedNode.fields[fieldName];
-        var value = null;
 
-        if (field.type == "bitvector" && field.domains != null && Object.keys(field.domains).length == 1 && field.domains["tv"] != null) {
+        if (field.type == "bitvector") {
+            const value = computeBitvectorValue(field.bit_width, field.domains);
+            addStateFieldsRow(fieldName, value, null, ["monospace"]);
+        } else if (field.type == "array") {
             const bitWidth = field.bit_width;
-            value = "";
-            const tv = field.domains["tv"];
-            var ones = tv.ones;
-            var zeros = tv.zeros;
-            for (var i = 0; i < bitWidth; ++i) {
-                var bitValue;
-                if (ones % 2 == 1) {
-                    if (zeros % 2 == 1) {
-                        bitValue = 'X';
-                    } else {
-                        bitValue = '1';
-                    }
-                } else {
-                    if (zeros % 2 == 1) {
-                        bitValue = '0';
-                    } else {
-                        // should never occur
-                        bitValue = null;
-                    }
+            const bitLength = field.bit_length;
 
-                }
-                if (bitValue != null) {
-                    value = bitValue + value;
+            const arrayLength = Math.pow(2, bitLength);
+            console.log(fieldName, "array length", arrayLength);
+
+            const mapKeys = Object.keys(field.map);
+            for (var i = 0; i < mapKeys.length; ++i) {
+                var currentIndex = parseInt(mapKeys[i]);
+                var nextIndex;
+                if (i + 1 < mapKeys.length) {
+                    nextIndex = parseInt(mapKeys[i + 1]);
                 } else {
-                    value = null;
+                    nextIndex = arrayLength;
                 }
-                ones = Math.floor(ones / 2);
-                zeros = Math.floor(zeros / 2);
+
+                var sliceString;
+                console.log(fieldName, currentIndex, nextIndex);
+                if ((currentIndex + 1) == nextIndex) {
+                    sliceString = currentIndex;
+                } else {
+                    sliceString = currentIndex + "..=" + (nextIndex - 1);
+                }
+
+                const domains = field.map[currentIndex];
+                const value = computeBitvectorValue(bitWidth, domains);
+                addStateFieldsRow(fieldName + "[" + sliceString + "]", value, null, ["monospace"]);
             }
-            if (value != null) {
-                value = "\"" + value + "\"";
-            }
+        } else {
+            // unknown type, show error by passing a null value
+            addStateFieldsRow(fieldName, null, null, ["monospace"]);
         }
 
-        addStateFieldsRow(fieldName, value, null, ["monospace"]);
     }
 }
