@@ -55,6 +55,14 @@ body {
     border-top: 1px solid gray;
 }
 
+#step_verification {
+    font-size: 1.75em;
+    padding-top: 0.25em;
+    padding-bottom: 0.25em;
+    padding-left: 3em;
+    padding-right: 3em;
+}
+
 #right_bar {
     grid-area: right_bar;
     border-left: 1px solid gray;
