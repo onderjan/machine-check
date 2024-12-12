@@ -174,6 +174,9 @@ function update(content) {
 
     for (node_id of Object.keys(nodes)) {
         const tile = nodes[node_id].internal.tile;
+        if (tile == null) {
+            continue;
+        }
         console.log("Tile", tile);
 
         if (!storedContent.internal.tileMap[tile[0]]) {

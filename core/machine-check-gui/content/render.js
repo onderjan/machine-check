@@ -364,42 +364,39 @@ function renderStateFields() {
         const field = selectedNode.fields[fieldName];
         var value = null;
 
-        if (Object.keys(field.domains).length == 1 && field.domains["tv"] != null) {
-            value = "ABC";
-            if (field.type == "bitvector") {
-                const bitWidth = field.bit_width;
-                value = "";
-                const tv = field.domains["tv"];
-                var ones = tv.ones;
-                var zeros = tv.zeros;
-                for (var i = 0; i < bitWidth; ++i) {
-                    var bitValue;
-                    if (ones % 2 == 1) {
-                        if (zeros % 2 == 1) {
-                            bitValue = 'X';
-                        } else {
-                            bitValue = '1';
-                        }
+        if (field.type == "bitvector" && field.domains != null && Object.keys(field.domains).length == 1 && field.domains["tv"] != null) {
+            const bitWidth = field.bit_width;
+            value = "";
+            const tv = field.domains["tv"];
+            var ones = tv.ones;
+            var zeros = tv.zeros;
+            for (var i = 0; i < bitWidth; ++i) {
+                var bitValue;
+                if (ones % 2 == 1) {
+                    if (zeros % 2 == 1) {
+                        bitValue = 'X';
                     } else {
-                        if (zeros % 2 == 1) {
-                            bitValue = '0';
-                        } else {
-                            // should never occur
-                            bitValue = null;
-                        }
+                        bitValue = '1';
+                    }
+                } else {
+                    if (zeros % 2 == 1) {
+                        bitValue = '0';
+                    } else {
+                        // should never occur
+                        bitValue = null;
+                    }
 
-                    }
-                    if (bitValue != null) {
-                        value = bitValue + value;
-                    } else {
-                        value = null;
-                    }
-                    ones = Math.floor(ones / 2);
-                    zeros = Math.floor(zeros / 2);
                 }
-                if (value != null) {
-                    value = "\"" + value + "\"";
+                if (bitValue != null) {
+                    value = bitValue + value;
+                } else {
+                    value = null;
                 }
+                ones = Math.floor(ones / 2);
+                zeros = Math.floor(zeros / 2);
+            }
+            if (value != null) {
+                value = "\"" + value + "\"";
             }
         }
 
