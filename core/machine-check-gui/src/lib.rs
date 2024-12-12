@@ -49,6 +49,7 @@ const SCRIPT_JS: &str = include_str!("../content/script.js");
 const RENDER_JS: &str = include_str!("../content/render.js");
 const UPDATE_JS: &str = include_str!("../content/update.js");
 const STYLE_CSS: &str = include_str!("../content/style.css");
+const FAVICON_ICO: &[u8] = include_bytes!("../content/favicon.ico");
 
 struct Business<M: FullMachine> {
     framework: Framework<M>,
@@ -143,6 +144,7 @@ impl<M: FullMachine> Business<M> {
                     "render.js" => Cow::Borrowed(RENDER_JS.as_bytes()),
                     "update.js" => Cow::Borrowed(UPDATE_JS.as_bytes()),
                     "style.css" => Cow::Borrowed(STYLE_CSS.as_bytes()),
+                    "favicon.ico" => Cow::Borrowed(FAVICON_ICO),
                     _ => return Err(anyhow::anyhow!("Not found: {}", path).into()),
                 };
 
