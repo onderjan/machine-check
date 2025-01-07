@@ -171,6 +171,8 @@ fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
         Ident::new(name, Span::call_site()),
         machine.items,
     );
+    // Turn off some warnings due to the form of the rewritten modules.
+    // Note that they can still fire for the original code.
     module.attrs.push(Attribute {
         pound_token: Default::default(),
         style: syn::AttrStyle::Outer,
@@ -179,8 +181,8 @@ fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
             path: path!(allow),
             delimiter: syn::MacroDelimiter::Paren(Default::default()),
             tokens: quote!(
-                clippy::needless_late_init,
-                clippy::suspicious_else_formatting
+                non_snake_case, // _a can become __mck__a and violate snake-casing
+                clippy::all,    // turn off clippy altogether to speed up
             ),
         }),
     });
