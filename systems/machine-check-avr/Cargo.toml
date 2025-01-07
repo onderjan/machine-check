@@ -4,7 +4,7 @@ version = "0.3.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Crate for the formal verification of AVR microcontrollers by machine-check"
-rust-version = "1.75"
+rust-version = "1.83"
 
 [dependencies]
 machine-check = "=0.3.1"
