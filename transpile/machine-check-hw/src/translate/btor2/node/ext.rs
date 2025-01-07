@@ -5,7 +5,7 @@ use crate::translate::btor2::{util::create_rnid_expr, Error};
 
 use super::NodeTranslator;
 
-impl<'a> NodeTranslator<'a> {
+impl NodeTranslator<'_> {
     pub fn ext_op_expr(&mut self, op: &ExtOp) -> Result<(syn::Expr, Vec<syn::Stmt>), Error> {
         let a_expr = create_rnid_expr(op.a);
 

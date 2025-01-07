@@ -61,9 +61,7 @@ fn out_dir() -> Option<PathBuf> {
             out_dir = args.next();
         }
     }
-    let Some(out_dir) = out_dir else {
-        return None;
-    };
+    let out_dir = out_dir?;
     // find target directory
     let mut out_dir = PathBuf::from(out_dir);
     while !out_dir.ends_with("target") {

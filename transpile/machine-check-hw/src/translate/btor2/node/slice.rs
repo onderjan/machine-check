@@ -5,7 +5,7 @@ use crate::translate::btor2::{util::create_rnid_expr, Error};
 
 use super::{constant::create_value_expr, NodeTranslator};
 
-impl<'a> NodeTranslator<'a> {
+impl NodeTranslator<'_> {
     pub fn slice_op_expr(&mut self, op: &SliceOp) -> Result<(syn::Expr, Vec<syn::Stmt>), Error> {
         let a_sort = self.get_nid_bitvec(op.a.nid())?;
         let a_length = a_sort.length.get();

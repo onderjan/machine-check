@@ -7,7 +7,7 @@ use crate::translate::btor2::Error;
 
 use super::NodeTranslator;
 
-impl<'a> NodeTranslator<'a> {
+impl NodeTranslator<'_> {
     pub(super) fn get_sort(&self, sid: Sid) -> Result<&Sort, Error> {
         self.translator
             .btor2
@@ -19,8 +19,8 @@ impl<'a> NodeTranslator<'a> {
     pub(super) fn get_bitvec(&self, sid: Sid) -> Result<&Bitvec, Error> {
         let sort = self.get_sort(sid)?;
         let Sort::Bitvec(bitvec) = sort else {
-        return Err(Error::ExpectBitvecSort(sid));
-    };
+            return Err(Error::ExpectBitvecSort(sid));
+        };
         Ok(bitvec)
     }
 

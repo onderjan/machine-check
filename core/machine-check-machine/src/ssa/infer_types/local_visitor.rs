@@ -72,10 +72,10 @@ impl VisitMut for LocalVisitor<'_> {
         }
 
         let inferred_type = match expr_assign.right.as_ref() {
-            syn::Expr::Path(right_path) => self.infer_path_result_type(right_path),
-            syn::Expr::Call(right_call) => self.infer_call_result_type(right_call),
-            syn::Expr::Field(right_field) => self.infer_field_result_type(right_field),
-            syn::Expr::Reference(right_reference) => {
+            syn::Expr::Path(ref right_path) => self.infer_path_result_type(right_path),
+            syn::Expr::Call(ref right_call) => self.infer_call_result_type(right_call),
+            syn::Expr::Field(ref right_field) => self.infer_field_result_type(right_field),
+            syn::Expr::Reference(ref right_reference) => {
                 self.infer_reference_result_type(right_reference)
             }
             syn::Expr::Struct(right_struct) => Some(create_type_path(right_struct.path.clone())),
@@ -116,9 +116,7 @@ impl LocalVisitor<'_> {
             // not a local ident, skip
             return None;
         };
-        let Some(mut base_type) = base_type.as_ref() else {
-            return None;
-        };
+        let mut base_type: &Type = base_type.as_ref()?;
         // dereference first
         while let Type::Reference(ref_type) = base_type {
             base_type = ref_type.elem.as_ref();
@@ -129,30 +127,24 @@ impl LocalVisitor<'_> {
         };
 
         let base_struct = self.structs.get(&base_type_path);
-        let Some(base_struct) = base_struct else {
-            return None;
-        };
+        let base_struct = base_struct?;
         match &base_struct.fields {
             syn::Fields::Named(fields) => {
                 // match ident
                 let Member::Named(member_ident) = &expr_field.member else {
                     return None;
                 };
-                let Some(field) = fields.named.iter().find(|field| {
+                let field = fields.named.iter().find(|field| {
                     let field_ident = field.ident.as_ref().unwrap();
                     field_ident == member_ident
-                }) else {
-                    return None;
-                };
+                })?;
                 Some(field.ty.clone())
             }
             syn::Fields::Unnamed(fields) => {
                 let Member::Unnamed(member_index) = &expr_field.member else {
                     return None;
                 };
-                let Some(field) = fields.unnamed.iter().nth(member_index.index as usize) else {
-                    return None;
-                };
+                let field = fields.unnamed.iter().nth(member_index.index as usize)?;
                 Some(field.ty.clone())
             }
             syn::Fields::Unit => None,
@@ -172,10 +164,8 @@ impl LocalVisitor<'_> {
     }
 
     fn infer_reference_result_type(&self, expr_reference: &ExprReference) -> Option<Type> {
-        if let Expr::Field(expr_field) = expr_reference.expr.as_ref() {
-            let Some(field_result_type) = self.infer_field_result_type(expr_field) else {
-                return None;
-            };
+        if let Expr::Field(ref expr_field) = expr_reference.expr.as_ref() {
+            let field_result_type = self.infer_field_result_type(expr_field)?;
 
             return Some(Type::Reference(TypeReference {
                 and_token: Default::default(),

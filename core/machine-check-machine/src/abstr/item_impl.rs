@@ -26,10 +26,10 @@ pub fn preprocess_item_impl(item_impl: &ItemImpl) -> Result<Option<Type>, Machin
 
 pub fn process_item_impl(
     mut item_impl: ItemImpl,
-    machine_types: &Vec<Type>,
+    machine_types: &[Type],
 ) -> Result<Vec<Item>, MachineError> {
     for impl_item in item_impl.items.iter_mut() {
-        if let ImplItem::Fn(impl_item_fn) = impl_item {
+        if let ImplItem::Fn(ref mut impl_item_fn) = impl_item {
             process_impl_item_fn(impl_item_fn)?;
         }
     }

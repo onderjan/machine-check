@@ -40,7 +40,7 @@ struct NodeTranslator<'a> {
     temp_counter: u64,
 }
 
-impl<'a> NodeTranslator<'a> {
+impl NodeTranslator<'_> {
     pub fn translate_node(&mut self, nid: Nid, node: &Node) -> Result<(), Error> {
         // most nodes return single expression to assign to result
         // some also create statements before it

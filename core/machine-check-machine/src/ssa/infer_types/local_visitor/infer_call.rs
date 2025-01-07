@@ -109,9 +109,7 @@ impl super::LocalVisitor<'_> {
         let Ok(arg_type) = self.get_arg_type(expr_call, 0, 1) else {
             return None;
         };
-        let Some(arg_type) = arg_type else {
-            return None;
-        };
+        let arg_type = arg_type?;
         // the argument type is a reference, dereference it
         let Type::Reference(type_reference) = arg_type else {
             self.push_error(MachineError::new(
@@ -122,7 +120,7 @@ impl super::LocalVisitor<'_> {
             ));
             return None;
         };
-        return Some(type_reference.elem.as_ref().clone());
+        Some(type_reference.elem.as_ref().clone())
     }
 
     fn infer_array_read(&mut self, expr_call: &ExprCall, func_path: &Path) -> Option<Type> {
@@ -133,9 +131,7 @@ impl super::LocalVisitor<'_> {
         let Ok(arg_type) = self.get_arg_type(expr_call, 0, 2) else {
             return None;
         };
-        let Some(arg_type) = arg_type else {
-            return None;
-        };
+        let arg_type = arg_type?;
         // the argument type is a reference to the array, construct the bitvector type
         let Type::Reference(type_reference) = arg_type else {
             // array read reference argument is produced internally, so this is an internal error
@@ -179,16 +175,14 @@ impl super::LocalVisitor<'_> {
         let Ok(arg_type) = self.get_arg_type(expr_call, 0, 3) else {
             return None;
         };
-        let Some(arg_type) = arg_type else {
-            return None;
-        };
+        let arg_type = arg_type?;
         // the argument type is a reference to the array, construct the bitvector type
         let Type::Reference(type_reference) = arg_type else {
             // array write reference argument is produced internally, so this is an internal error
             panic!("First argument of array write should be a reference");
         };
 
-        return Some(type_reference.elem.as_ref().clone());
+        Some(type_reference.elem.as_ref().clone())
     }
 
     fn infer_ext(&mut self, expr_call: &ExprCall, func_path: &Path) -> Option<Type> {

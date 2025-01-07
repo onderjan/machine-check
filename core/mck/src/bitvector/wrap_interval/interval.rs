@@ -116,9 +116,7 @@ impl<const L: u32> Iterator for IntervalIterator<UnsignedBitvector<L>> {
     type Item = UnsignedBitvector<L>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(current) = self.current else {
-            return None;
-        };
+        let current = self.current?;
         if current == self.max {
             self.current = None;
             return Some(current);

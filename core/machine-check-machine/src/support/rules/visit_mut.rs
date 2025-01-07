@@ -2,7 +2,7 @@ use syn::{punctuated::Punctuated, visit_mut::VisitMut, Expr, Ident, Member};
 
 use crate::util::create_path_from_ident;
 
-impl<'a> VisitMut for super::Visitor<'a> {
+impl VisitMut for super::Visitor<'_> {
     fn visit_item_struct_mut(&mut self, node: &mut syn::ItemStruct) {
         for it in &mut node.attrs {
             self.visit_attribute_mut(it);

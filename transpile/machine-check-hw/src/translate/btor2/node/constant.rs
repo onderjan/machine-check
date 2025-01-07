@@ -5,7 +5,7 @@ use crate::translate::btor2::Error;
 
 use super::{uni::create_arith_neg_expr, NodeTranslator};
 
-impl<'a> NodeTranslator<'a> {
+impl NodeTranslator<'_> {
     pub fn const_expr(&self, value: &Const) -> Result<Expr, Error> {
         let result_bitvec = self.get_bitvec(value.sid)?;
 

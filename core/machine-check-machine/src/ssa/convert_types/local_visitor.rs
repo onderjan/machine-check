@@ -15,6 +15,7 @@ use crate::{
 
 pub struct LocalVisitor<'a> {
     pub local_ident_types: HashMap<Ident, Type>,
+    #[allow(dead_code)]
     pub structs: &'a HashMap<Path, ItemStruct>,
     pub result: Result<(), MachineError>,
 }

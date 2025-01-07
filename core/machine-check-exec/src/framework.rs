@@ -466,9 +466,7 @@ impl<M: FullMachine> Framework<M> {
 
     fn find_panic_string(&mut self) -> Option<&'static str> {
         // TODO: this approach does not work if there are multiple macro invocations
-        let Some(panic_id) = self.space.find_panic_id() else {
-            return None;
-        };
+        let panic_id = self.space.find_panic_id()?;
         Some(M::panic_message(panic_id))
     }
 

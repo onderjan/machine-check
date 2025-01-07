@@ -13,7 +13,7 @@ use super::{
     NodeTranslator,
 };
 
-impl<'a> NodeTranslator<'a> {
+impl NodeTranslator<'_> {
     pub fn uni_op_expr(&mut self, op: &UniOp) -> Result<(syn::Expr, Vec<syn::Stmt>), Error> {
         let result_bitvec = self.get_bitvec(op.sid)?;
         let a_bitvec = self.get_nid_bitvec(op.a.nid())?;

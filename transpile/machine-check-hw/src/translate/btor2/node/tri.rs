@@ -5,7 +5,7 @@ use crate::translate::btor2::{node::bi::create_bit_and, util::create_rnid_expr, 
 
 use super::{bi::create_bit_or, uni::create_bit_not, NodeTranslator};
 
-impl<'a> NodeTranslator<'a> {
+impl NodeTranslator<'_> {
     pub fn tri_op_expr(&mut self, op: &TriOp) -> Result<(syn::Expr, Vec<syn::Stmt>), Error> {
         let a_length = self.get_nid_bitvec(op.a.nid())?.length.get();
 

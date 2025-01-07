@@ -8,7 +8,7 @@ use crate::translate::btor2::{util::create_rnid_expr, Error};
 
 use super::{constant::create_value_expr, uni::create_bit_not, NodeTranslator};
 
-impl<'a> NodeTranslator<'a> {
+impl NodeTranslator<'_> {
     pub fn bi_op_expr(&mut self, op: &BiOp) -> Result<(syn::Expr, Vec<syn::Stmt>), Error> {
         let a_expr = create_rnid_expr(op.a);
         let b_expr = create_rnid_expr(op.b);

@@ -533,9 +533,7 @@ impl<const L: u32> Iterator for BitvectorIterator<L> {
     type Item = ConcreteBitvector<L>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(result) = self.current else {
-            return None;
-        };
+        let result = self.current?;
         if result != self.end {
             self.current = Some(result.add(ConcreteBitvector::new(1)));
         } else {
