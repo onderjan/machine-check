@@ -55,7 +55,7 @@ use ::mck::concr::FullMachine;
 /// - '0' or '1': the bit must match,
 /// - dash ('-'): the bit can have any value (don't care),
 /// - ASCII letter: same as don't care, but a new variable is created containing the bits with given letter.
-/// Underscore ('_') can be used to visually separate the bits.
+/// - Underscore ('_') used to visually separate the bits.
 ///
 /// Unlike Rust match, overlapping choices are not permitted, so that it is certain which arm is taken.
 /// In case there is no default arm, there must be full coverage.
@@ -90,17 +90,13 @@ pub use ::machine_check_macros::bitmask_switch;
 ///
 pub use ::machine_check_macros::machine_description;
 
-/// Runs **machine-check** with the given constructed system.
-///  
-/// The system must implement [`Machine`]. The system structures and [`Input`], [`State`], and [`Machine`]
-/// implementations must be enclosed within the [`machine_description`] macro, which processes them to enable
-/// fast and efficient formal verification.
-///
-/// The behaviour of machine-check is controlled by command-line arguments.
-
 /// Executes machine-check with system environment arguments.
 ///
 /// Is supposed to be used for simple systems that do not take arguments.
+///
+/// The system must implement [`Machine`]. The system structures and [`Input`], [`State`], and [`Machine`]
+/// implementations must be enclosed within the [`machine_description`] macro, which processes them to enable
+/// fast and efficient formal verification.
 pub fn run<M: FullMachine>(system: M) -> ExecResult {
     let parsed_args = <ExecArgs as clap::Parser>::parse_from(std::env::args());
     execute(system, parsed_args)
