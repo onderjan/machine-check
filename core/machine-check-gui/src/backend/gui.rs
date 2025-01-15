@@ -6,7 +6,7 @@ use tao::{
 };
 use wry::WebViewBuilder;
 
-use crate::FAVICON_ICO;
+use super::FAVICON_ICO;
 
 pub struct Gui {
     event_loop: tao::event_loop::EventLoop<()>,

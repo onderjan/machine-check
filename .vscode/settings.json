@@ -1,8 +1,5 @@
 {
-    "rust-analyzer.linkedProjects": [
-        ".\\core\\mck\\Cargo.toml"
-    ],
     "rust-analyzer.files.excludeDirs": [
-        "core/machine-check-avr/src"
+        "generated/machine-check-gui-wasm/src"
     ]
 }
