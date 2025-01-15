@@ -1,10 +1,14 @@
 use std::fmt::{Debug, Display};
-use std::num::NonZeroU128;
+use std::num::NonZeroU64;
 
 /// State identifier. Represents an actual system state.
-/// 128 bits so there is no realistic possibility of overflow when generating.
+///
+/// The identifier has 64 bits so there is no realistic possibility of overflow.
+/// Even generating states at a rate of 10 giga per second, it would take
+/// 58.45 years to overflow.
+///
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StateId(pub NonZeroU128);
+pub struct StateId(pub NonZeroU64);
 
 impl Debug for StateId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -19,9 +23,12 @@ impl Display for StateId {
 }
 
 /// Node identifier. Either a dummy initial node or an actual system state.
-/// 128 bits so there is no realistic possibility of overflow when generating.
+///
+/// The identifier has 64 bits so there is no realistic possibility of overflow.
+/// Even generating states at a rate of 10 giga per second, it would take
+/// 58.45 years to overflow.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct NodeId(Option<NonZeroU128>);
+pub struct NodeId(Option<NonZeroU64>);
 
 impl NodeId {
     /// Dummy initial node.

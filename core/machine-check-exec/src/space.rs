@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
     fmt::Debug,
-    num::NonZeroU128,
+    num::NonZeroU64,
     ops::Shr,
     rc::Rc,
 };
@@ -46,7 +46,7 @@ impl<M: FullMachine> Space<M> {
             node_graph: GraphMap::new(),
             state_map: BiMap::new(),
             num_states_for_sweep: 32,
-            next_state_id: StateId(NonZeroU128::MIN),
+            next_state_id: StateId(NonZeroU64::MIN),
         }
     }
 
@@ -104,7 +104,7 @@ impl<M: FullMachine> Space<M> {
                 Some(result) => self.next_state_id.0 = result,
                 None => {
                     // should never reasonably happen
-                    panic!("Number of states does not fit in u128")
+                    panic!("The state ID counter has overflowed its maximum value");
                 }
             }
             state_id
