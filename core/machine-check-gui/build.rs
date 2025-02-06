@@ -390,11 +390,16 @@ fn compile_frontend_package(
     // Execute wasm-bindgen to obtain the final WASM with proper bindings.
     std::env::set_current_dir(this_package_dir)?;
     let mut wasm_bindgen = Command::new("wasm-bindgen");
+    let target_path = format!(
+        "wasm32-unknown-unknown/{}/machine_check_gui_wasm.wasm",
+        profile
+    );
+
     wasm_bindgen
         .current_dir(this_package_dir)
         .arg("--target=web")
         .arg(bindgen_out_dir_arg)
-        .arg(cargo_target_dir.join("wasm32-unknown-unknown/release/machine_check_gui_wasm.wasm"));
+        .arg(cargo_target_dir.join(target_path));
     execute_command("wasm-bindgen", wasm_bindgen)?;
     Ok(None)
 }
