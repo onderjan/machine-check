@@ -1,10 +1,4 @@
-use std::{
-    borrow::Cow,
-    collections::{BTreeMap, BTreeSet},
-    ffi::OsStr,
-    path::Path,
-    sync::RwLock,
-};
+use std::{borrow::Cow, collections::BTreeMap, ffi::OsStr, path::Path, sync::RwLock};
 
 use gui::Gui;
 use http::{header::CONTENT_TYPE, Method, Request, Response};
@@ -13,7 +7,8 @@ use log::{debug, error};
 use machine_check_common::ExecError;
 use machine_check_exec::{Framework, NodeId};
 use mck::concr::FullMachine;
-use serde::{Deserialize, Serialize};
+
+use crate::frontend::view;
 
 mod gui;
 
@@ -182,38 +177,6 @@ impl<M: FullMachine> Business<M> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-struct ThreeValuedBool {
-    zero: bool,
-    one: bool,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Node {
-    incoming: BTreeSet<String>,
-    outgoing: BTreeSet<String>,
-    panic: Option<ThreeValuedBool>,
-    fields: BTreeMap<String, serde_json::Value>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct StateSpace {
-    // represent the IDs by strings for now
-    nodes: BTreeMap<String, Node>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct StateInfo {
-    field_names: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct Content {
-    exec_name: String,
-    state_space: StateSpace,
-    state_info: StateInfo,
-}
-
 fn framework_response<M: FullMachine>(
     business: &Business<M>,
 ) -> Result<Cow<'static, [u8]>, Box<dyn std::error::Error>> {
@@ -223,7 +186,7 @@ fn framework_response<M: FullMachine>(
             .map(String::from)
             .collect();
 
-    let state_info = StateInfo {
+    let state_info = view::StateInfo {
         field_names: state_field_names.clone(),
     };
 
@@ -250,7 +213,7 @@ fn framework_response<M: FullMachine>(
             .collect();
         let (fields, panic) = if let Some(state) = state {
             let panic_result = &state.0;
-            let panic = ThreeValuedBool {
+            let panic = view::ThreeValuedBool {
                 zero: panic_result.panic.umin().is_zero(),
                 one: panic_result.panic.umax().is_nonzero(),
             };
@@ -267,7 +230,7 @@ fn framework_response<M: FullMachine>(
             (BTreeMap::new(), None)
         };
 
-        let node_info = Node {
+        let node_info = view::Node {
             incoming,
             outgoing,
             panic,
@@ -276,9 +239,9 @@ fn framework_response<M: FullMachine>(
         nodes.insert(node_id.to_string(), node_info);
     }
 
-    let state_space = StateSpace { nodes };
+    let state_space = view::StateSpace { nodes };
 
-    let content = Content {
+    let content = view::Content {
         exec_name: business.exec_name.clone(),
         state_space,
         state_info,

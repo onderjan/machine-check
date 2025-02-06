@@ -5,15 +5,15 @@
   <meta charset="utf-8">
   <title>machine-check</title>
   <link rel="stylesheet" href="style.css">
-  <script src="render.js" defer></script>
+  <!-- <script src="render.js" defer></script>
   <script src="update.js" defer></script>
-  <script src="script.js" defer></script>
+  <script src="script.js" defer></script> -->
   <script type="module">
-    import init, { greet } from './wasm/machine_check_gui_wasm.js';
+    import init, { exec } from './wasm/machine_check_gui_wasm.js';
 
     async function run() {
       await init();
-      greet();
+      exec();
     }
 
     run();
