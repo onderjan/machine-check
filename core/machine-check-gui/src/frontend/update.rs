@@ -41,11 +41,14 @@ struct Tile {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 enum TileType {
     Node(String),
+    IncomingReference(String),
+    OutgoingReference(String),
 }
 
 struct View {
     content: Content,
     tiling: BiHashMap<Tile, TileType>,
+    split_lengths: HashMap<String, u64>,
 }
 
 impl View {
@@ -60,50 +63,61 @@ impl View {
         }
 
         // stage tile positions by depth-first search, taking the reserved y-positions into account
-        let tiling = {
-            let mut tiling = BiHashMap::new();
-            tiling.insert(Tile { x: 0, y: 0 }, TileType::Node(String::from("0")));
-            let mut stack = Vec::new();
-            stack.push(String::from("0"));
+        let mut tiling = BiHashMap::new();
+        let mut split_lengths = HashMap::new();
+        tiling.insert(Tile { x: 0, y: 0 }, TileType::Node(String::from("0")));
+        let mut stack = Vec::new();
+        stack.push(String::from("0"));
 
-            while let Some(node_id) = stack.pop() {
-                let node_tile = *tiling
-                    .get_by_right(&TileType::Node(node_id.clone()))
-                    .expect("Node should be in tiling");
+        while let Some(node_id) = stack.pop() {
+            let node_tile = *tiling
+                .get_by_right(&TileType::Node(node_id.clone()))
+                .expect("Node should be in tiling");
 
-                let mut y_add = 0;
+            let mut y_add = 0;
 
-                for successor_id in content
-                    .state_space
-                    .nodes
-                    .get(&node_id)
-                    .unwrap()
-                    .outgoing
-                    .iter()
-                {
-                    if !tiling.contains_right(&TileType::Node(successor_id.clone())) {
-                        tiling.insert(
-                            Tile {
-                                x: node_tile.x + 1,
-                                y: node_tile.y + y_add,
-                            },
-                            TileType::Node(successor_id.clone()),
-                        );
-                        stack.push(successor_id.clone());
-                    }
-
-                    y_add += 1;
+            for successor_id in content
+                .state_space
+                .nodes
+                .get(&node_id)
+                .unwrap()
+                .outgoing
+                .iter()
+            {
+                if !tiling.contains_right(&TileType::Node(successor_id.clone())) {
+                    tiling.insert(
+                        Tile {
+                            x: node_tile.x + 1,
+                            y: node_tile.y + y_add,
+                        },
+                        TileType::Node(successor_id.clone()),
+                    );
+                    stack.push(successor_id.clone());
+                } else {
+                    tiling.insert(
+                        Tile {
+                            x: node_tile.x + 1,
+                            y: node_tile.y + y_add,
+                        },
+                        TileType::OutgoingReference(successor_id.clone()),
+                    );
                 }
-            }
 
-            tiling
-        };
+                y_add += 1;
+            }
+            split_lengths.insert(node_id, y_add.saturating_sub(1));
+        }
+
         let cons = Array::new_with_length(2);
         cons.set(0, JsValue::from_str("Tiling"));
         cons.set(1, JsValue::from_str(&format!("{:?}", tiling)));
         web_sys::console::log(&cons);
 
-        View { content, tiling }
+        View {
+            content,
+            tiling,
+            split_lengths,
+        }
     }
 }
 
