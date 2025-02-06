@@ -8,13 +8,15 @@
   <!-- <script src="render.js" defer></script>
   <script src="update.js" defer></script>
   <script src="script.js" defer></script> -->
-  <script type="module">
-    import init, { exec } from './wasm/machine_check_gui_wasm.js';
+  <script type="module" defer>
+    import init, { exec, step_verification } from './wasm/machine_check_gui_wasm.js';
 
     async function run() {
       await init();
-      exec();
+      await exec();
     }
+
+    document.querySelector('#step_verification').addEventListener('click', step_verification);
 
     run();
   </script>
@@ -45,8 +47,7 @@
       </table>
     </div>
     <div id="bottom_bar" class="bar">
-      <button type="button" id="step_verification" onclick="stepVerification()"
-        title="Step verification once">&#x23F5;</button>
+      <button type="button" id="step_verification" title="Step verification once">&#x23F5;</button>
       <p id="state_space">(not available yet)</p>
     </div>
   </div>
