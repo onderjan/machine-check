@@ -23,7 +23,6 @@ impl Renderer<'_> {
         // TODO: only do this when resizing canvas
         self.fix_resized_canvas();
 
-        // TODO: render nodes properly
         for (tile, tile_type) in &self.view.tiling {
             match tile_type {
                 super::TileType::Node(node_id) => {
@@ -34,22 +33,30 @@ impl Renderer<'_> {
                         .nodes
                         .get(node_id)
                         .expect("Tiling should have a node");
+                    let aux = self.view.node_aux.get(node_id).unwrap();
 
                     self.render_node(*tile, node_id);
 
                     if !node.outgoing.is_empty() {
-                        self.render_arrow_start(*tile);
+                        self.render_arrow_start(*tile, aux.successor_x_offset);
                     }
-                    let split_length = *self.view.split_lengths.get(node_id).unwrap();
-                    self.render_arrow_split(*tile, split_length);
+                    self.render_arrow_split(*tile, 0, aux.predecessor_split_len);
+                    self.render_arrow_split(
+                        *tile,
+                        aux.successor_x_offset as i64,
+                        aux.successor_split_len,
+                    );
 
                     if !node.incoming.is_empty() {
                         self.render_arrow_end(*tile);
                     }
+                    if aux.self_loop {
+                        self.render_self_loop(*tile);
+                    }
                 }
                 super::TileType::IncomingReference(node_id) => {
                     self.render_reference(*tile, node_id, false);
-                    self.render_arrow_start(*tile);
+                    self.render_arrow_start(*tile, 1);
                 }
                 super::TileType::OutgoingReference(node_id) => {
                     self.render_arrow_end(*tile);
@@ -57,16 +64,6 @@ impl Renderer<'_> {
                 }
             }
         }
-
-        /*for (index, (node_id, _node)) in self.view.content.state_space.nodes.iter().enumerate() {
-            self.render_node(
-                Tile {
-                    x: index as u64,
-                    y: 0,
-                },
-                node_id,
-            );
-        }*/
     }
 
     fn adjust_size(unadjusted: f64) -> f64 {
@@ -109,7 +106,6 @@ impl Renderer<'_> {
 
     fn render_reference(&self, tile: Tile, node_id: &str, outgoing: bool) {
         let outgoing = if outgoing { 1. } else { -1. };
-
         let context = &self.local.main_context;
         context.begin_path();
 
@@ -119,9 +115,9 @@ impl Renderer<'_> {
         let middle_y = tile.y as f64 * tile_size + tile_size / 2.;
         let upper_y = (middle_y - node_size / 3.).round();
         let lower_y = (middle_y + node_size / 3.).round();
-        let sharp_x = middle_x + (outgoing * node_size / 4.);
-        let sharper_x = middle_x + (outgoing * node_size / 2.);
-        let blunt_x = middle_x - (outgoing * node_size / 2.);
+        let sharp_x = middle_x - outgoing * (node_size / 4.);
+        let sharper_x = middle_x - outgoing * (node_size / 2.);
+        let blunt_x = middle_x + outgoing * (node_size / 2.);
 
         context.move_to(blunt_x, upper_y);
         context.line_to(sharp_x, upper_y);
@@ -132,38 +128,36 @@ impl Renderer<'_> {
         context.stroke();
 
         context
-            .fill_text(node_id, middle_x - (outgoing * node_size / 12.), middle_y)
+            .fill_text(node_id, middle_x + outgoing * (node_size / 12.), middle_y)
             .unwrap();
-
-        // TODO
-        //self.render_node(tile, node_id);
     }
 
-    fn render_arrow_start(&self, head_tile: Tile) {
+    fn render_arrow_start(&self, head_tile: Tile, successor_x_offset: u64) {
         let context = &self.local.main_context;
 
         let (tile_size, node_size) = (self.tile_size(), self.node_size());
 
         // draw the arrowshaft
         context.begin_path();
-        let tile_right_x = head_tile.x as f64 * tile_size + tile_size;
-        let tile_right_border_x = tile_right_x - (tile_size - node_size) / 2.;
+        let right_x = head_tile.x as f64 * tile_size + (successor_x_offset as f64 * tile_size);
+        let tile_right_border_x =
+            head_tile.x as f64 * tile_size + tile_size - (tile_size - node_size) / 2.;
         let tile_middle_y = head_tile.y as f64 * tile_size + tile_size / 2.;
         context.move_to(tile_right_border_x, tile_middle_y);
-        context.line_to(tile_right_x, tile_middle_y);
+        context.line_to(right_x, tile_middle_y);
         context.stroke();
     }
 
-    fn render_arrow_split(&self, node_tile: Tile, split_length: u64) {
+    fn render_arrow_split(&self, node_tile: Tile, x_offset: i64, split_len: u64) {
         let context = &self.local.main_context;
 
-        let (tile_size, node_size) = (self.tile_size(), self.node_size());
+        let tile_size = self.tile_size();
 
         // draw the arrow split
         context.begin_path();
-        let split_x = node_tile.x as f64 * tile_size + tile_size;
+        let split_x = node_tile.x as f64 * tile_size + tile_size * x_offset as f64;
         let split_upper_y = node_tile.y as f64 * tile_size + tile_size / 2.;
-        let split_lower_y = split_upper_y + split_length as f64 * tile_size;
+        let split_lower_y = split_upper_y + split_len as f64 * tile_size;
         context.move_to(split_x, split_upper_y);
         context.line_to(split_x, split_lower_y);
         context.stroke();
@@ -193,6 +187,38 @@ impl Renderer<'_> {
         context.move_to(tile_left_border_x, tile_middle_y);
         context.line_to(arrowhead_left_x, arrowhead_upper_y);
         context.line_to(arrowhead_left_x, arrowhead_lower_y);
+        context.close_path();
+        context.fill();
+    }
+
+    fn render_self_loop(&self, node_tile: Tile) {
+        let context = &self.local.main_context;
+
+        let (tile_size, node_size) = (self.tile_size(), self.node_size());
+
+        // draw the arrowshaft
+        context.begin_path();
+        let tile_right_x = node_tile.x as f64 * tile_size + tile_size;
+        let tile_middle_x = node_tile.x as f64 * tile_size + tile_size / 2.;
+        let tile_middle_y = node_tile.y as f64 * tile_size + tile_size / 2.;
+        let tile_upper_y = node_tile.y as f64 * tile_size;
+        let tile_upper_border_y = tile_upper_y + (tile_size - node_size) / 2.;
+        context.move_to(tile_right_x, tile_middle_y);
+        context.line_to(tile_right_x, tile_upper_y);
+        context.line_to(tile_middle_x, tile_upper_y);
+        context.line_to(tile_middle_x, tile_upper_border_y);
+        context.stroke();
+
+        // draw the arrowhead
+        let arrowhead_size = self.arrowhead_size();
+
+        let arrowhead_left_x = tile_middle_x - arrowhead_size / 2.;
+        let arrowhead_right_x = tile_middle_x + arrowhead_size / 2.;
+        let arrowhead_upper_y = tile_upper_border_y - arrowhead_size;
+        context.begin_path();
+        context.move_to(tile_middle_x, tile_upper_border_y);
+        context.line_to(arrowhead_left_x, arrowhead_upper_y);
+        context.line_to(arrowhead_right_x, arrowhead_upper_y);
         context.close_path();
         context.fill();
     }
