@@ -1,17 +1,11 @@
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{js_sys, CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
-use crate::frontend::view::Content;
+use super::{Tile, View};
 
-#[derive(Clone, Copy)]
-struct Tile {
-    x: u64,
-    y: u64,
-}
-
-pub fn render(content: &Content) {
+pub fn render(view: &View) {
     LOCAL.with(|local| {
-        Renderer { content, local }.render();
+        Renderer { view, local }.render();
     });
 }
 
@@ -19,7 +13,7 @@ const RAW_TILE_SIZE: f64 = 46.;
 const RAW_NODE_SIZE: f64 = 30.;
 
 struct Renderer<'a> {
-    content: &'a Content,
+    view: &'a View,
     local: &'a Local,
 }
 
@@ -29,7 +23,23 @@ impl Renderer<'_> {
         self.fix_resized_canvas();
 
         // TODO: render nodes properly
-        for (index, (node_id, _node)) in self.content.state_space.nodes.iter().enumerate() {
+        for (tile, tile_type) in &self.view.tiling {
+            match tile_type {
+                super::TileType::Node(node_id) => {
+                    let node = self
+                        .view
+                        .content
+                        .state_space
+                        .nodes
+                        .get(node_id)
+                        .expect("Tiling should have a node");
+
+                    self.render_node(*tile, node_id);
+                }
+            }
+        }
+
+        /*for (index, (node_id, _node)) in self.view.content.state_space.nodes.iter().enumerate() {
             self.render_node(
                 Tile {
                     x: index as u64,
@@ -37,7 +47,7 @@ impl Renderer<'_> {
                 },
                 node_id,
             );
-        }
+        }*/
     }
 
     fn tile_size(&self) -> f64 {

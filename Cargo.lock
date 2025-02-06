@@ -1330,6 +1330,7 @@ name = "machine-check-gui"
 version = "0.3.1"
 dependencies = [
  "anyhow",
+ "bimap",
  "console_error_panic_hook",
  "env_logger",
  "http",
