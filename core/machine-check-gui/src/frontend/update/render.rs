@@ -17,6 +17,22 @@ pub fn render(view: &View, point_of_view: &PointOfView, resize: bool) {
     });
 }
 
+pub fn get_tile_from_px(x: f64, y: f64) -> Option<Tile> {
+    LOCAL.with(|local| {
+        let tile_size = adjust_size(RAW_TILE_SIZE * local.pixel_ratio);
+        let tile_x = x * local.pixel_ratio / tile_size;
+        let tile_y = y * local.pixel_ratio / tile_size;
+        if tile_x >= 0. && tile_y >= 0. {
+            Some(Tile {
+                x: tile_x as u64,
+                y: tile_y as u64,
+            })
+        } else {
+            None
+        }
+    })
+}
+
 const RAW_TILE_SIZE: f64 = 46.;
 const RAW_NODE_SIZE: f64 = 30.;
 const RAW_ARROWHEAD_SIZE: f64 = 4.;
@@ -93,25 +109,28 @@ impl Renderer<'_> {
         self.local.main_context.restore();
     }
 
-    fn adjust_size(unadjusted: f64) -> f64 {
-        // make sure half-size is even
-        (unadjusted / 2.).round() * 2.
-    }
-
     fn tile_size(&self) -> f64 {
-        Self::adjust_size(RAW_TILE_SIZE * self.local.pixel_ratio)
+        adjust_size(RAW_TILE_SIZE * self.local.pixel_ratio)
     }
 
     fn node_size(&self) -> f64 {
-        Self::adjust_size(RAW_NODE_SIZE * self.local.pixel_ratio)
+        adjust_size(RAW_NODE_SIZE * self.local.pixel_ratio)
     }
 
     fn arrowhead_size(&self) -> f64 {
-        Self::adjust_size(RAW_ARROWHEAD_SIZE * self.local.pixel_ratio)
+        adjust_size(RAW_ARROWHEAD_SIZE * self.local.pixel_ratio)
     }
 
     fn render_node(&self, tile: Tile, node_id: &str) {
         let context = &self.local.main_context;
+
+        let is_selected = if let Some(selected_node_id) = &self.point_of_view.selected_node_id {
+            selected_node_id == node_id
+        } else {
+            false
+        };
+
+        context.set_fill_style_str(if is_selected { "lightblue" } else { "white" });
 
         context.begin_path();
 
@@ -120,7 +139,10 @@ impl Renderer<'_> {
         let node_start_x = tile.x as f64 * tile_size + (tile_size - node_size) / 2.;
         let node_start_y = tile.y as f64 * tile_size + (tile_size - node_size) / 2.;
 
+        context.fill_rect(node_start_x, node_start_y, node_size, node_size);
         context.stroke_rect(node_start_x, node_start_y, node_size, node_size);
+
+        context.set_fill_style_str("black");
 
         context
             .fill_text(
@@ -333,4 +355,9 @@ impl Local {
 
 thread_local! {
     static LOCAL: Local = Local::new();
+}
+
+fn adjust_size(unadjusted: f64) -> f64 {
+    // make sure half-size is even
+    (unadjusted / 2.).round() * 2.
 }

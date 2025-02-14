@@ -21,6 +21,7 @@ pub struct PointOfView {
     pub translation_px: (f64, f64),
     mouse_down_px: Option<(i32, i32)>,
     mouse_current_px: Option<(i32, i32)>,
+    selected_node_id: Option<String>,
 }
 
 impl PointOfView {
@@ -56,17 +57,6 @@ pub async fn render(resize: bool) {
     }
 
     render_current(resize);
-}
-
-fn render_if_available(resize: bool) {
-    VIEW.with(|view| {
-        let view_guard = view.borrow();
-        if let Some(ref view) = *view_guard {
-            POINT_OF_VIEW.with(|point_of_view| {
-                render::render(view, &point_of_view.borrow(), resize);
-            });
-        }
-    });
 }
 
 fn render_current(resize: bool) {
@@ -123,10 +113,17 @@ pub async fn call_backend(action: Action) -> Result<JsValue, JsValue> {
 }
 
 pub async fn on_mouse(mouse: super::MouseEvent, event: web_sys::Event) {
-    let render =
-        POINT_OF_VIEW.with_borrow_mut(|point_of_view| mouse::on_mouse(point_of_view, mouse, event));
+    let render = VIEW.with_borrow(|view| {
+        // only process mouse events if we have a view
+        if let Some(view) = view {
+            POINT_OF_VIEW
+                .with_borrow_mut(|point_of_view| mouse::on_mouse(view, point_of_view, mouse, event))
+        } else {
+            false
+        }
+    });
 
     if render {
-        render_if_available(true);
+        render_current(true);
     }
 }
