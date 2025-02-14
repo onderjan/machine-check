@@ -3,12 +3,17 @@ use web_sys::{js_sys, CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
 use super::{
     view::{Tile, TileType},
-    View,
+    PointOfView, View,
 };
 
-pub fn render(view: &View, resize: bool) {
+pub fn render(view: &View, point_of_view: &PointOfView, resize: bool) {
     LOCAL.with(|local| {
-        Renderer { view, local }.render(resize);
+        Renderer {
+            view,
+            point_of_view,
+            local,
+        }
+        .render(resize);
     });
 }
 
@@ -18,6 +23,7 @@ const RAW_ARROWHEAD_SIZE: f64 = 4.;
 
 struct Renderer<'a> {
     view: &'a View,
+    point_of_view: &'a PointOfView,
     local: &'a Local,
 }
 
@@ -34,6 +40,13 @@ impl Renderer<'_> {
             self.local.main_canvas.width() as f64,
             self.local.main_canvas.height() as f64,
         );
+
+        self.local.main_context.save();
+        let (translation_x, translation_y) = self.point_of_view.translation();
+        self.local
+            .main_context
+            .translate(translation_x, translation_y)
+            .unwrap();
 
         for (tile, tile_type) in &self.view.tiling {
             match tile_type {
@@ -76,6 +89,8 @@ impl Renderer<'_> {
                 }
             }
         }
+
+        self.local.main_context.restore();
     }
 
     fn adjust_size(unadjusted: f64) -> f64 {

@@ -28,6 +28,7 @@ web-sys = { version = "0.3.76", features = [
     "Document",
     "HtmlElement",
     "Event",
+    "MouseEvent",
     "Node",
     "CanvasRenderingContext2d",
     "HtmlCanvasElement",

@@ -1,3 +1,4 @@
+mod mouse;
 mod render;
 mod view;
 
@@ -15,8 +16,32 @@ pub enum Action {
     Step,
 }
 
+#[derive(Debug, Default)]
+pub struct PointOfView {
+    pub translation_px: (f64, f64),
+    mouse_down_px: Option<(i32, i32)>,
+    mouse_current_px: Option<(i32, i32)>,
+}
+
+impl PointOfView {
+    fn translation(&self) -> (f64, f64) {
+        let mut x = self.translation_px.0;
+        let mut y = self.translation_px.1;
+        if let (Some(mouse_down_px), Some(mouse_current_px)) =
+            (self.mouse_down_px, self.mouse_current_px)
+        {
+            let offset_x = mouse_current_px.0 - mouse_down_px.0;
+            let offset_y = mouse_current_px.1 - mouse_down_px.1;
+            x += offset_x as f64;
+            y += offset_y as f64;
+        }
+        (x, y)
+    }
+}
+
 thread_local! {
-    static LOCAL: RefCell<Option<View>> = const { RefCell::new(None) };
+    static VIEW: RefCell<Option<View>> = const { RefCell::new(None) };
+    static POINT_OF_VIEW: RefCell<PointOfView> = RefCell::default();
 }
 
 pub async fn update(action: Action, resize: bool) {
@@ -25,7 +50,7 @@ pub async fn update(action: Action, resize: bool) {
 }
 
 pub async fn render(resize: bool) {
-    let should_execute = LOCAL.with(|view| view.borrow().is_none());
+    let should_execute = VIEW.with(|view| view.borrow().is_none());
     if should_execute {
         execute_action(Action::GetContent).await;
     }
@@ -33,13 +58,26 @@ pub async fn render(resize: bool) {
     render_current(resize);
 }
 
+fn render_if_available(resize: bool) {
+    VIEW.with(|view| {
+        let view_guard = view.borrow();
+        if let Some(ref view) = *view_guard {
+            POINT_OF_VIEW.with(|point_of_view| {
+                render::render(view, &point_of_view.borrow(), resize);
+            });
+        }
+    });
+}
+
 fn render_current(resize: bool) {
-    LOCAL.with(|view| {
+    VIEW.with(|view| {
         let view_guard = view.borrow();
         let Some(ref view) = *view_guard else {
             panic!("View should be loaded");
         };
-        render::render(view, resize);
+        POINT_OF_VIEW.with(|point_of_view| {
+            render::render(view, &point_of_view.borrow(), resize);
+        });
     });
 }
 
@@ -57,7 +95,7 @@ async fn execute_action(action: Action) {
     cons.set(0, JsValue::from_str(&format!("{:?}", view)));
     web_sys::console::log(&cons);
 
-    LOCAL.replace(Some(view));
+    VIEW.replace(Some(view));
 }
 
 pub async fn call_backend(action: Action) -> Result<JsValue, JsValue> {
@@ -82,4 +120,13 @@ pub async fn call_backend(action: Action) -> Result<JsValue, JsValue> {
     let json = JsFuture::from(resp.json()?).await?;
 
     Ok(json)
+}
+
+pub async fn on_mouse(mouse: super::MouseEvent, event: web_sys::Event) {
+    let render =
+        POINT_OF_VIEW.with_borrow_mut(|point_of_view| mouse::on_mouse(point_of_view, mouse, event));
+
+    if render {
+        render_if_available(true);
+    }
 }

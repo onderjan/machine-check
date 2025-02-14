@@ -3,6 +3,7 @@ mod local;
 mod update;
 
 use wasm_bindgen::prelude::*;
+use web_sys::Event;
 
 #[wasm_bindgen]
 pub async fn exec() {
@@ -14,9 +15,6 @@ pub async fn exec() {
 }
 
 pub async fn resize() {
-    let cons = web_sys::js_sys::Array::new_with_length(1);
-    cons.set(0, JsValue::from_str("resize"));
-    web_sys::console::log(&cons);
     update::render(true).await;
 }
 
@@ -24,18 +22,56 @@ pub async fn step_verification() {
     update::update(update::Action::Step, false).await;
 }
 
-fn setup_listeners() {
-    setup_element_listener("#step_verification", "click", |_e| {
-        wasm_bindgen_futures::spawn_local(step_verification());
-    });
-
-    setup_window_listener("resize", |_e| {
-        wasm_bindgen_futures::spawn_local(resize());
-    });
+#[derive(Clone, Copy, Debug)]
+enum MouseEvent {
+    Click,
+    ContextMenu,
+    Down,
+    Move,
+    Up,
+    Out,
 }
 
-fn setup_element_listener(selector: &str, ty: &str, func: fn(web_sys::Event)) {
-    let closure = Closure::wrap(Box::new(func) as Box<dyn FnMut(_)>);
+async fn on_mouse(mouse: MouseEvent, event: Event) {
+    update::on_mouse(mouse, event).await;
+}
+
+fn setup_listeners() {
+    setup_element_listener(
+        "#step_verification",
+        "click",
+        Box::new(|_e| {
+            wasm_bindgen_futures::spawn_local(step_verification());
+        }),
+    );
+
+    setup_window_listener(
+        "resize",
+        Box::new(|_e| {
+            wasm_bindgen_futures::spawn_local(resize());
+        }),
+    );
+
+    for (event_type, event_name) in [
+        (MouseEvent::Click, "click"),
+        (MouseEvent::ContextMenu, "contextmenu"),
+        (MouseEvent::Down, "mousedown"),
+        (MouseEvent::Move, "mousemove"),
+        (MouseEvent::Up, "mouseup"),
+        (MouseEvent::Out, "mouseout"),
+    ] {
+        setup_element_listener(
+            "#main_canvas",
+            event_name,
+            Box::new(move |e| {
+                wasm_bindgen_futures::spawn_local(on_mouse(event_type, e));
+            }),
+        );
+    }
+}
+
+fn setup_element_listener(selector: &str, ty: &str, func: Box<dyn FnMut(web_sys::Event)>) {
+    let closure = Closure::wrap(func);
 
     let window = web_sys::window().expect("HTML Window should exist");
     let document = window.document().expect("HTML document should exist");
@@ -49,8 +85,8 @@ fn setup_element_listener(selector: &str, ty: &str, func: fn(web_sys::Event)) {
     closure.forget();
 }
 
-fn setup_window_listener(ty: &str, func: fn(web_sys::Event)) {
-    let closure = Closure::wrap(Box::new(func) as Box<dyn FnMut(_)>);
+fn setup_window_listener(ty: &str, func: Box<dyn FnMut(web_sys::Event)>) {
+    let closure = Closure::wrap(func);
 
     let window = web_sys::window().expect("HTML Window should exist");
     window
