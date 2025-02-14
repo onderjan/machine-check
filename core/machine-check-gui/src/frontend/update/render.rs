@@ -3,9 +3,9 @@ use web_sys::{js_sys, CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
 use super::{Tile, View};
 
-pub fn render(view: &View) {
+pub fn render(view: &View, resize: bool) {
     LOCAL.with(|local| {
-        Renderer { view, local }.render();
+        Renderer { view, local }.render(resize);
     });
 }
 
@@ -19,9 +19,18 @@ struct Renderer<'a> {
 }
 
 impl Renderer<'_> {
-    fn render(&self) {
-        // TODO: only do this when resizing canvas
-        self.fix_resized_canvas();
+    fn render(&self, resize: bool) {
+        if resize {
+            self.fix_resized_canvas();
+        }
+
+        // clear canvas
+        self.local.main_context.clear_rect(
+            0.,
+            0.,
+            self.local.main_canvas.width() as f64,
+            self.local.main_canvas.height() as f64,
+        );
 
         for (tile, tile_type) in &self.view.tiling {
             match tile_type {
@@ -229,12 +238,16 @@ impl Renderer<'_> {
         let main_area_rect = self.local.main_area.get_bounding_client_rect();
         let width = main_area_rect.width();
         let height = main_area_rect.height();
-        self.local
-            .main_canvas
-            .set_width((width * pixel_ratio) as u32);
-        self.local
-            .main_canvas
-            .set_height((height * pixel_ratio) as u32);
+
+        // the actual canvas width and height must be a whole number
+        let pr_width = (width * pixel_ratio) as u32;
+        let pr_height = (height * pixel_ratio) as u32;
+        self.local.main_canvas.set_width(pr_width);
+        self.local.main_canvas.set_height(pr_height);
+
+        // set canvas element width and height exactly as divided by the pixel ratio so there is no error
+        let width = pr_width as f64 / pixel_ratio;
+        let height = pr_height as f64 / pixel_ratio;
 
         let canvas_style = self.local.main_canvas.style();
         canvas_style

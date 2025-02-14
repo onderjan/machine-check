@@ -9,15 +9,12 @@
   <script src="update.js" defer></script>
   <script src="script.js" defer></script> -->
   <script type="module" defer>
-    import init, { exec, step_verification } from './wasm/machine_check_gui_wasm.js';
+    import init, { exec } from './wasm/machine_check_gui_wasm.js';
 
     async function run() {
       await init();
       await exec();
     }
-
-    document.querySelector('#step_verification').addEventListener('click', step_verification);
-
     run();
   </script>
 

@@ -1,6 +1,9 @@
 mod render;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
+};
 
 use bimap::BiHashMap;
 use wasm_bindgen::{JsCast, JsValue};
@@ -14,7 +17,35 @@ pub enum Action {
     Step,
 }
 
-pub async fn update(action: Action) {
+thread_local! {
+    static LOCAL: RefCell<Option<View>> = const { RefCell::new(None) };
+}
+
+pub async fn update(action: Action, resize: bool) {
+    execute_action(action).await;
+    render_current(resize);
+}
+
+pub async fn render(resize: bool) {
+    let should_execute = LOCAL.with(|view| view.borrow().is_none());
+    if should_execute {
+        execute_action(Action::GetContent).await;
+    }
+
+    render_current(resize);
+}
+
+fn render_current(resize: bool) {
+    LOCAL.with(|view| {
+        let view_guard = view.borrow();
+        let Some(ref view) = *view_guard else {
+            panic!("View should be loaded");
+        };
+        render::render(view, resize);
+    });
+}
+
+async fn execute_action(action: Action) {
     let result = call_backend(action).await;
     let json = match result {
         Ok(ok) => ok,
@@ -23,13 +54,12 @@ pub async fn update(action: Action) {
     let content: Content =
         serde_wasm_bindgen::from_value(json).expect("Content should be convertible from JSON");
 
+    let view = View::new(content);
     let cons = Array::new_with_length(1);
-    cons.set(0, JsValue::from_str(&format!("{:?}", content)));
+    cons.set(0, JsValue::from_str(&format!("{:?}", view)));
     web_sys::console::log(&cons);
 
-    let view = View::new(content);
-
-    render::render(&view);
+    LOCAL.replace(Some(view));
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -53,6 +83,7 @@ struct NodeAux {
     self_loop: bool,
 }
 
+#[derive(Debug)]
 struct View {
     content: Content,
     tiling: BiHashMap<Tile, TileType>,

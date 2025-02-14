@@ -27,6 +27,7 @@ web-sys = { version = "0.3.76", features = [
     "Window",
     "Document",
     "HtmlElement",
+    "Event",
     "Node",
     "CanvasRenderingContext2d",
     "HtmlCanvasElement",
@@ -35,7 +36,6 @@ web-sys = { version = "0.3.76", features = [
     "RequestInit",
     "RequestMode",
     "Response",
-    "Window",
     "DomRect",
     "CssStyleDeclaration",
 ] }
