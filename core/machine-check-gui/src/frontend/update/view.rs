@@ -80,14 +80,14 @@ impl View {
             );
         }
 
-        // stage tile positions by depth-first search, taking the reserved y-positions into account
+        // stage tile positions by topological sort, taking the reserved y-positions into account
         let mut tiling = BiHashMap::new();
         let mut node_aux = HashMap::new();
         tiling.insert(Tile { x: 0, y: 0 }, TileType::Node(String::from("0")));
         let mut stack = Vec::new();
         stack.push(String::from("0"));
 
-        while let Some(node_id) = stack.pop() {
+        for node_id in sorted {
             let node = content.state_space.nodes.get(&node_id).unwrap();
             let node_tile = *tiling
                 .get_by_right(&TileType::Node(node_id.clone()))
@@ -112,7 +112,12 @@ impl View {
                     TileType::IncomingReference(predecessor_id.clone()),
                 );
 
-                assert!(!tiling.insert(left, right).did_overwrite());
+                if tiling.insert(left, right).did_overwrite() {
+                    panic!(
+                        "Should not overwrite tile {:?} by an ingoing reference",
+                        left
+                    );
+                }
                 predecessor_split_len = y_add;
                 y_add += 1;
             }
@@ -185,7 +190,13 @@ impl View {
                         TileType::OutgoingReference(successor_id.clone()),
                     )
                 };
-                assert!(!tiling.insert(left, right).did_overwrite());
+
+                if tiling.insert(left, right).did_overwrite() {
+                    panic!(
+                        "Should not overwrite tile {:?} by a node or outgoing reference",
+                        left
+                    );
+                }
 
                 successor_split_len = y_add;
 
@@ -223,6 +234,7 @@ fn topological_sort(content: &Content) -> (Vec<String>, HashMap<String, String>)
     // construct a topological ordering using Kahn's algorithm on a DAG
     // the node without any incoming edge is the root
     let (mut dag_outgoing, mut dag_incoming_degree, canonical_predecessors) = {
+        let mut seen = HashSet::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
         queue.push_back(String::from("0"));
@@ -234,10 +246,12 @@ fn topological_sort(content: &Content) -> (Vec<String>, HashMap<String, String>)
         let mut canonical_predecessors = HashMap::new();
 
         while let Some(node_id) = queue.pop_front() {
+            seen.insert(node_id.clone());
             visited.insert(node_id.clone());
 
             for successor_id in &content.state_space.nodes.get(&node_id).unwrap().outgoing {
-                if !visited.contains(successor_id) {
+                if !seen.contains(successor_id) {
+                    seen.insert(successor_id.clone());
                     dag_outgoing
                         .entry(node_id.clone())
                         .or_default()
