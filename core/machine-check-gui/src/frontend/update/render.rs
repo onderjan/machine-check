@@ -1,7 +1,10 @@
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{js_sys, CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
-use super::{Tile, View};
+use super::{
+    view::{Tile, TileType},
+    View,
+};
 
 pub fn render(view: &View, resize: bool) {
     LOCAL.with(|local| {
@@ -34,7 +37,7 @@ impl Renderer<'_> {
 
         for (tile, tile_type) in &self.view.tiling {
             match tile_type {
-                super::TileType::Node(node_id) => {
+                TileType::Node(node_id) => {
                     let node = self
                         .view
                         .content
@@ -63,11 +66,11 @@ impl Renderer<'_> {
                         self.render_self_loop(*tile);
                     }
                 }
-                super::TileType::IncomingReference(node_id) => {
+                TileType::IncomingReference(node_id) => {
                     self.render_reference(*tile, node_id, false);
                     self.render_arrow_start(*tile, 1);
                 }
-                super::TileType::OutgoingReference(node_id) => {
+                TileType::OutgoingReference(node_id) => {
                     self.render_arrow_end(*tile);
                     self.render_reference(*tile, node_id, true);
                 }

@@ -8,7 +8,7 @@ use machine_check_common::ExecError;
 use machine_check_exec::{Framework, NodeId};
 use mck::concr::FullMachine;
 
-use crate::frontend::view;
+use crate::frontend::content;
 
 mod gui;
 
@@ -186,7 +186,7 @@ fn framework_response<M: FullMachine>(
             .map(String::from)
             .collect();
 
-    let state_info = view::StateInfo {
+    let state_info = content::StateInfo {
         field_names: state_field_names.clone(),
     };
 
@@ -213,7 +213,7 @@ fn framework_response<M: FullMachine>(
             .collect();
         let (fields, panic) = if let Some(state) = state {
             let panic_result = &state.0;
-            let panic = view::ThreeValuedBool {
+            let panic = content::ThreeValuedBool {
                 zero: panic_result.panic.umin().is_zero(),
                 one: panic_result.panic.umax().is_nonzero(),
             };
@@ -230,7 +230,7 @@ fn framework_response<M: FullMachine>(
             (BTreeMap::new(), None)
         };
 
-        let node_info = view::Node {
+        let node_info = content::Node {
             incoming,
             outgoing,
             panic,
@@ -239,9 +239,9 @@ fn framework_response<M: FullMachine>(
         nodes.insert(node_id.to_string(), node_info);
     }
 
-    let state_space = view::StateSpace { nodes };
+    let state_space = content::StateSpace { nodes };
 
-    let content = view::Content {
+    let content = content::Content {
         exec_name: business.exec_name.clone(),
         state_space,
         state_info,

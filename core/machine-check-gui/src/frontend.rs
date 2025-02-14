@@ -1,6 +1,6 @@
+pub mod content;
 mod local;
 mod update;
-pub mod view;
 
 use wasm_bindgen::prelude::*;
 
