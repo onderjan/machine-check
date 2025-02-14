@@ -1,5 +1,4 @@
 pub mod content;
-mod local;
 mod update;
 
 use wasm_bindgen::prelude::*;
@@ -11,11 +10,11 @@ pub async fn exec() {
 
     setup_listeners();
 
-    update::render(true).await;
+    update::display(true).await;
 }
 
 pub async fn resize() {
-    update::render(true).await;
+    update::display(true).await;
 }
 
 pub async fn step_verification() {

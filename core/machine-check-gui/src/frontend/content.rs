@@ -2,6 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+use mck::abstr::Field;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ThreeValuedBool {
     pub zero: bool,
@@ -13,7 +15,7 @@ pub struct Node {
     pub incoming: BTreeSet<String>,
     pub outgoing: BTreeSet<String>,
     pub panic: Option<ThreeValuedBool>,
-    pub fields: BTreeMap<String, serde_json::Value>,
+    pub fields: BTreeMap<String, Field>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

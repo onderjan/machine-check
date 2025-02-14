@@ -1,11 +1,8 @@
-use std::fmt::Debug;
-
-use serde_json::json;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
-    abstr::{self, Abstr, ManipField, Phi},
-    concr,
-    concr::UnsignedBitvector,
+    abstr::{self, Abstr, ArrayField, Field, ManipField, Phi},
+    concr::{self, UnsignedBitvector},
     forward::ReadWrite,
     misc::MetaWrap,
     traits::misc::MetaEq,
@@ -145,19 +142,19 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
         None
     }
 
-    fn json_description(&self) -> serde_json::Value {
-        let mut map = serde_json::Map::new();
+    fn description(&self) -> Field {
+        let mut inner = BTreeMap::new();
         for (index, element) in self.inner.light_iter() {
-            map.insert(index.to_string(), element.0.json_domains());
+            inner.insert(
+                index.as_bitvector().as_unsigned().to_string(),
+                element.0.element_description(),
+            );
         }
 
-        let result = json!({
-            "type": "array",
-            "bit_width": L,
-            "bit_length": I,
-            "map": map,
-        });
-
-        result
+        Field::Array(ArrayField {
+            bit_width: L,
+            bit_length: I,
+            inner,
+        })
     }
 }

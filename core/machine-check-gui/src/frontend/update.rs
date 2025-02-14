@@ -1,3 +1,4 @@
+mod fields;
 mod mouse;
 mod render;
 mod view;
@@ -47,26 +48,28 @@ thread_local! {
 
 pub async fn update(action: Action, resize: bool) {
     execute_action(action).await;
-    render_current(resize);
+    display_current(resize);
 }
 
-pub async fn render(resize: bool) {
+pub async fn display(resize: bool) {
     let should_execute = VIEW.with(|view| view.borrow().is_none());
     if should_execute {
         execute_action(Action::GetContent).await;
     }
 
-    render_current(resize);
+    display_current(resize);
 }
 
-fn render_current(resize: bool) {
+fn display_current(resize: bool) {
     VIEW.with(|view| {
         let view_guard = view.borrow();
         let Some(ref view) = *view_guard else {
             panic!("View should be loaded");
         };
         POINT_OF_VIEW.with(|point_of_view| {
-            render::render(view, &point_of_view.borrow(), resize);
+            let point_of_view = point_of_view.borrow();
+            fields::display(view, &point_of_view);
+            render::render(view, &point_of_view, resize);
         });
     });
 }
@@ -77,6 +80,9 @@ async fn execute_action(action: Action) {
         Ok(ok) => ok,
         Err(err) => panic!("{:?}", err),
     };
+    let cons = Array::new_with_length(1);
+    cons.set(0, JsValue::from_str(&format!("Received JSON: {:?}", json)));
+    web_sys::console::log(&cons);
     let content: Content =
         serde_wasm_bindgen::from_value(json).expect("Content should be convertible from JSON");
 
@@ -124,6 +130,6 @@ pub async fn on_mouse(mouse: super::MouseEvent, event: web_sys::Event) {
     });
 
     if render {
-        render_current(true);
+        display_current(true);
     }
 }

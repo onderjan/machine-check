@@ -11,6 +11,7 @@ pub mod concr {
 }
 pub mod abstr {
     pub type Bitvector<const L: u32> = super::three_valued::AbstractBitvector<L>;
+    pub(crate) use super::three_valued::format_zeros_ones;
 }
 pub mod refin {
     pub type Bitvector<const L: u32> = super::three_valued::RefinementBitvector<L>;

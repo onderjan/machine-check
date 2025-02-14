@@ -1,10 +1,7 @@
 use std::fmt::{Debug, Display};
 
-use serde_json::json;
-
 use crate::{
-    abstr::ManipField,
-    abstr::{Abstr, Boolean, Phi, Test},
+    abstr::{Abstr, ArrayFieldBitvector, BitvectorField, Boolean, Field, ManipField, Phi, Test},
     bitvector::{concrete::ConcreteBitvector, util},
     concr,
     forward::Bitwise,
@@ -209,11 +206,11 @@ impl<const L: u32> ThreeValuedBitvector<L> {
         })
     }
 
-    pub fn json_domains(&self) -> serde_json::Value {
-        json!({"tv": {
-            "ones": self.ones.as_unsigned(),
-            "zeros": self.zeros.as_unsigned(),
-        }})
+    pub(crate) fn element_description(&self) -> ArrayFieldBitvector {
+        ArrayFieldBitvector {
+            zeros: self.zeros.as_unsigned(),
+            ones: self.ones.as_unsigned(),
+        }
     }
 }
 
@@ -294,34 +291,18 @@ impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
         None
     }
 
-    fn json_description(&self) -> serde_json::Value {
-        let domains = self.json_domains();
-        json!({ "type": "bitvector",
-        "bit_width": L,
-        "domains": domains })
+    fn description(&self) -> Field {
+        Field::Bitvector(BitvectorField {
+            bit_width: L,
+            zeros: self.zeros.as_unsigned(),
+            ones: self.ones.as_unsigned(),
+        })
     }
 }
 
 impl<const L: u32> Debug for ThreeValuedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(concrete) = self.concrete_value() {
-            return write!(f, "{:?}", concrete);
-        }
-
-        write!(f, "\"")?;
-        for little_k in 0..L {
-            let big_k = L - little_k - 1;
-            let zero = (self.zeros.as_unsigned() >> (big_k as usize)) & 1 != 0;
-            let one = (self.ones.as_unsigned() >> (big_k as usize)) & 1 != 0;
-            let c = match (zero, one) {
-                (true, true) => 'X',
-                (true, false) => '0',
-                (false, true) => '1',
-                (false, false) => 'V',
-            };
-            write!(f, "{}", c)?;
-        }
-        write!(f, "\"")
+        format_zeros_ones(f, L, self.zeros.as_unsigned(), self.ones.as_unsigned())
     }
 }
 
@@ -329,4 +310,32 @@ impl<const L: u32> Display for ThreeValuedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
     }
+}
+
+pub fn format_zeros_ones(
+    f: &mut std::fmt::Formatter<'_>,
+    bit_width: u32,
+    zeros: u64,
+    ones: u64,
+) -> std::fmt::Result {
+    let nxor = !(ones ^ zeros);
+    if nxor == 0 {
+        // concrete value
+        return write!(f, "{:?}", ones);
+    }
+
+    write!(f, "\"")?;
+    for little_k in 0..bit_width {
+        let big_k = bit_width - little_k - 1;
+        let zero = (zeros >> (big_k as usize)) & 1 != 0;
+        let one = (ones >> (big_k as usize)) & 1 != 0;
+        let c = match (zero, one) {
+            (true, true) => 'X',
+            (true, false) => '0',
+            (false, true) => '1',
+            (false, false) => 'V',
+        };
+        write!(f, "{}", c)?;
+    }
+    write!(f, "\"")
 }

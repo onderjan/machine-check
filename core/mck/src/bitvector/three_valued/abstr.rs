@@ -16,3 +16,5 @@ pub struct ThreeValuedBitvector<const L: u32> {
     zeros: ConcreteBitvector<L>,
     ones: ConcreteBitvector<L>,
 }
+
+pub(crate) use support::format_zeros_ones;

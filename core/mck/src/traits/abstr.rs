@@ -1,6 +1,9 @@
-use crate::abstr::PanicResult;
+use serde::{Deserialize, Serialize};
+
+use crate::abstr::{format_zeros_ones, PanicResult};
 use crate::concr::FullMachine;
-use std::fmt::Debug;
+use std::collections::BTreeMap;
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 
 use super::misc::MetaEq;
@@ -46,6 +49,39 @@ where
     fn uninit() -> Self;
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BitvectorField {
+    pub bit_width: u32,
+    pub ones: u64,
+    pub zeros: u64,
+}
+
+impl Display for BitvectorField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        format_zeros_ones(f, self.bit_width, self.ones, self.zeros)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ArrayFieldBitvector {
+    pub ones: u64,
+    pub zeros: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ArrayField {
+    pub bit_width: u32,
+    pub bit_length: u32,
+    // TODO: u64 keys
+    pub inner: BTreeMap<String, ArrayFieldBitvector>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Field {
+    Bitvector(BitvectorField),
+    Array(ArrayField),
+}
+
 pub trait ManipField {
     fn index(&self, index: u64) -> Option<&dyn ManipField>;
     fn num_bits(&self) -> Option<u32>;
@@ -53,7 +89,7 @@ pub trait ManipField {
     fn max_unsigned(&self) -> Option<u64>;
     fn min_signed(&self) -> Option<i64>;
     fn max_signed(&self) -> Option<i64>;
-    fn json_description(&self) -> serde_json::Value;
+    fn description(&self) -> Field;
 }
 pub trait Manipulatable {
     #[must_use]
