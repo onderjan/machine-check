@@ -1,5 +1,6 @@
 pub mod content;
 mod update;
+mod util;
 
 use wasm_bindgen::prelude::*;
 use web_sys::Event;

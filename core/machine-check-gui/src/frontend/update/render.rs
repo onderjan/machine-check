@@ -1,7 +1,7 @@
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{js_sys, CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
-use crate::frontend::content::Node;
+use crate::frontend::{content::Node, util::PixelPoint};
 
 use super::{
     view::{Tile, TileType},
@@ -19,15 +19,18 @@ pub fn render(view: &View, point_of_view: &PointOfView, resize: bool) {
     });
 }
 
-pub fn get_tile_from_px(x: f64, y: f64) -> Option<Tile> {
+pub fn get_tile_from_px(point: PixelPoint) -> Option<Tile> {
     LOCAL.with(|local| {
-        let tile_size = adjust_size(RAW_TILE_SIZE * local.pixel_ratio);
-        let tile_x = x / tile_size;
-        let tile_y = y / tile_size;
-        if tile_x >= 0. && tile_y >= 0. {
+        let tile_size = adjust_size(RAW_TILE_SIZE * local.pixel_ratio) as i64;
+        let tile_pos = point / tile_size;
+
+        let tile_x: Result<u64, _> = tile_pos.x.try_into();
+        let tile_y: Result<u64, _> = tile_pos.y.try_into();
+
+        if let (Ok(tile_x), Ok(tile_y)) = (tile_x, tile_y) {
             Some(Tile {
-                x: tile_x as u64,
-                y: tile_y as u64,
+                x: tile_x,
+                y: tile_y,
             })
         } else {
             None
@@ -60,10 +63,11 @@ impl Renderer<'_> {
         );
 
         self.local.main_context.save();
-        let (offset_x, offset_y) = self.point_of_view.view_offset();
+        let view_offset = self.point_of_view.view_offset();
+        // the view offset must be subtracted to render to the viewport
         self.local
             .main_context
-            .translate(-offset_x, -offset_y)
+            .translate(-view_offset.x as f64, -view_offset.y as f64)
             .unwrap();
 
         for (tile, tile_type) in &self.view.tiling {

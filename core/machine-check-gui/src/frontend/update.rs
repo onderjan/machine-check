@@ -10,40 +10,46 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{js_sys::Array, Request, RequestInit, RequestMode, Response};
 
-use super::content::Content;
+use super::{content::Content, util::PixelPoint};
 
 pub enum Action {
     GetContent,
     Step,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct PointOfView {
-    pub offset_px: (f64, f64),
-    mouse_down_px: Option<(f64, f64)>,
-    mouse_current_px: Option<(f64, f64)>,
+    pub view_offset: PixelPoint,
+    mouse_current_coords: Option<PixelPoint>,
+    mouse_down_coords: Option<PixelPoint>,
     selected_node_id: Option<String>,
 }
 
 impl PointOfView {
-    fn view_offset(&self) -> (f64, f64) {
-        let mut x = self.offset_px.0;
-        let mut y = self.offset_px.1;
-        if let (Some(mouse_down_px), Some(mouse_current_px)) =
-            (self.mouse_down_px, self.mouse_current_px)
-        {
-            let offset_x = mouse_current_px.0 - mouse_down_px.0;
-            let offset_y = mouse_current_px.1 - mouse_down_px.1;
-            x -= offset_x;
-            y -= offset_y;
+    fn new() -> Self {
+        PointOfView {
+            view_offset: PixelPoint { x: 0, y: 0 },
+            mouse_current_coords: None,
+            mouse_down_coords: None,
+            selected_node_id: None,
         }
-        (x, y)
+    }
+
+    fn view_offset(&self) -> PixelPoint {
+        let mut result = self.view_offset;
+        if let (Some(mouse_down_px), Some(mouse_current_px)) =
+            (self.mouse_down_coords, self.mouse_current_coords)
+        {
+            let mouse_offset = mouse_current_px - mouse_down_px;
+            result -= mouse_offset;
+        }
+        result
     }
 }
 
 thread_local! {
     static VIEW: RefCell<Option<View>> = const { RefCell::new(None) };
-    static POINT_OF_VIEW: RefCell<PointOfView> = RefCell::default();
+    static POINT_OF_VIEW: RefCell<PointOfView> = RefCell::new(PointOfView::new());
 }
 
 pub async fn update(action: Action, resize: bool) {
