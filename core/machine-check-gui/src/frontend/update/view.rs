@@ -15,8 +15,8 @@ pub struct Tile {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum TileType {
     Node(String),
-    IncomingReference(String),
-    OutgoingReference(String),
+    IncomingReference(String, String),
+    OutgoingReference(String, String),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -109,7 +109,7 @@ impl View {
                         x: node_tile.x - 1,
                         y: node_tile.y + y_add,
                     },
-                    TileType::IncomingReference(predecessor_id.clone()),
+                    TileType::IncomingReference(predecessor_id.clone(), node_id.clone()),
                 );
 
                 if tiling.insert(left, right).did_overwrite() {
@@ -187,7 +187,7 @@ impl View {
                             x: node_tile.x + successor_x_offset,
                             y: node_tile.y + y_add,
                         },
-                        TileType::OutgoingReference(successor_id.clone()),
+                        TileType::OutgoingReference(node_id.clone(), successor_id.clone()),
                     )
                 };
 

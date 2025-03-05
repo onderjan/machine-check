@@ -1,6 +1,8 @@
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{js_sys, CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
+use crate::frontend::content::Node;
+
 use super::{
     view::{Tile, TileType},
     PointOfView, View,
@@ -76,7 +78,7 @@ impl Renderer<'_> {
                         .expect("Tiling should have a node");
                     let aux = self.view.node_aux.get(node_id).unwrap();
 
-                    self.render_node(*tile, node_id);
+                    self.render_node(*tile, node_id, node);
 
                     if !node.outgoing.is_empty() {
                         self.render_arrow_start(*tile, aux.successor_x_offset);
@@ -95,13 +97,13 @@ impl Renderer<'_> {
                         self.render_self_loop(*tile);
                     }
                 }
-                TileType::IncomingReference(node_id) => {
-                    self.render_reference(*tile, node_id, false);
+                TileType::IncomingReference(head_node_id, tail_node_id) => {
+                    self.render_reference(*tile, head_node_id, tail_node_id, false);
                     self.render_arrow_start(*tile, 1);
                 }
-                TileType::OutgoingReference(node_id) => {
+                TileType::OutgoingReference(head_node_id, tail_node_id) => {
                     self.render_arrow_end(*tile);
-                    self.render_reference(*tile, node_id, true);
+                    self.render_reference(*tile, head_node_id, tail_node_id, true);
                 }
             }
         }
@@ -121,7 +123,7 @@ impl Renderer<'_> {
         adjust_size(RAW_ARROWHEAD_SIZE * self.local.pixel_ratio)
     }
 
-    fn render_node(&self, tile: Tile, node_id: &str) {
+    fn render_node(&self, tile: Tile, node_id: &str, node: &Node) {
         let context = &self.local.main_context;
 
         let is_selected = if let Some(selected_node_id) = &self.point_of_view.selected_node_id {
@@ -130,18 +132,34 @@ impl Renderer<'_> {
             false
         };
 
-        context.set_fill_style_str(if is_selected { "lightblue" } else { "white" });
-
-        context.begin_path();
+        context.set_fill_style_str(match &node.panic {
+            None => "lightblue",
+            Some(tv) => match (tv.zero, tv.one) {
+                (true, true) => "#CCCCCC",  // grey
+                (false, true) => "#CC2222", // red
+                (true, false) => "#4CBF50", // green
+                (false, false) => "blue",
+            },
+        });
+        //if is_selected { "lightblue" } else { "white" });
 
         let (tile_size, node_size) = (self.tile_size(), self.node_size());
 
         let node_start_x = tile.x as f64 * tile_size + (tile_size - node_size) / 2.;
         let node_start_y = tile.y as f64 * tile_size + (tile_size - node_size) / 2.;
 
-        context.fill_rect(node_start_x, node_start_y, node_size, node_size);
-        context.stroke_rect(node_start_x, node_start_y, node_size, node_size);
+        let radius = 4.;
 
+        context.set_line_width(if is_selected { 3. } else { 1. });
+
+        context.begin_path();
+        context
+            .round_rect_with_f64(node_start_x, node_start_y, node_size, node_size, radius)
+            .unwrap();
+        context.fill();
+        context.stroke();
+
+        context.set_line_width(1.);
         context.set_fill_style_str("black");
 
         context
@@ -153,7 +171,7 @@ impl Renderer<'_> {
             .unwrap();
     }
 
-    fn render_reference(&self, tile: Tile, node_id: &str, outgoing: bool) {
+    fn render_reference(&self, tile: Tile, head_node_id: &str, tail_node_id: &str, outgoing: bool) {
         let outgoing = if outgoing { 1. } else { -1. };
         let context = &self.local.main_context;
         context.begin_path();
@@ -168,16 +186,25 @@ impl Renderer<'_> {
         let sharper_x = middle_x - outgoing * (node_size / 2.);
         let blunt_x = middle_x + outgoing * (node_size / 2.);
 
+        context.set_fill_style_str("#F5F5DC"); // very light yellow
+
         context.move_to(blunt_x, upper_y);
         context.line_to(sharp_x, upper_y);
         context.line_to(sharper_x, middle_y);
         context.line_to(sharp_x, lower_y);
         context.line_to(blunt_x, lower_y);
         context.close_path();
+        context.fill();
         context.stroke();
 
+        context.set_fill_style_str("black");
+
         context
-            .fill_text(node_id, middle_x + outgoing * (node_size / 12.), middle_y)
+            .fill_text(
+                &format!("{}|{}", head_node_id, tail_node_id),
+                middle_x + outgoing * (node_size / 12.),
+                middle_y,
+            )
             .unwrap();
     }
 
