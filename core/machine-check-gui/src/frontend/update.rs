@@ -19,23 +19,23 @@ pub enum Action {
 
 #[derive(Debug, Default)]
 pub struct PointOfView {
-    pub translation_px: (f64, f64),
-    mouse_down_px: Option<(i32, i32)>,
-    mouse_current_px: Option<(i32, i32)>,
+    pub offset_px: (f64, f64),
+    mouse_down_px: Option<(f64, f64)>,
+    mouse_current_px: Option<(f64, f64)>,
     selected_node_id: Option<String>,
 }
 
 impl PointOfView {
-    fn translation(&self) -> (f64, f64) {
-        let mut x = self.translation_px.0;
-        let mut y = self.translation_px.1;
+    fn view_offset(&self) -> (f64, f64) {
+        let mut x = self.offset_px.0;
+        let mut y = self.offset_px.1;
         if let (Some(mouse_down_px), Some(mouse_current_px)) =
             (self.mouse_down_px, self.mouse_current_px)
         {
             let offset_x = mouse_current_px.0 - mouse_down_px.0;
             let offset_y = mouse_current_px.1 - mouse_down_px.1;
-            x += offset_x as f64;
-            y += offset_y as f64;
+            x -= offset_x;
+            y -= offset_y;
         }
         (x, y)
     }

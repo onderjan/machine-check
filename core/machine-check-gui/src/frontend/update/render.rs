@@ -22,8 +22,8 @@ pub fn render(view: &View, point_of_view: &PointOfView, resize: bool) {
 pub fn get_tile_from_px(x: f64, y: f64) -> Option<Tile> {
     LOCAL.with(|local| {
         let tile_size = adjust_size(RAW_TILE_SIZE * local.pixel_ratio);
-        let tile_x = x * local.pixel_ratio / tile_size;
-        let tile_y = y * local.pixel_ratio / tile_size;
+        let tile_x = x / tile_size;
+        let tile_y = y / tile_size;
         if tile_x >= 0. && tile_y >= 0. {
             Some(Tile {
                 x: tile_x as u64,
@@ -60,10 +60,10 @@ impl Renderer<'_> {
         );
 
         self.local.main_context.save();
-        let (translation_x, translation_y) = self.point_of_view.translation();
+        let (offset_x, offset_y) = self.point_of_view.view_offset();
         self.local
             .main_context
-            .translate(translation_x, translation_y)
+            .translate(-offset_x, -offset_y)
             .unwrap();
 
         for (tile, tile_type) in &self.view.tiling {

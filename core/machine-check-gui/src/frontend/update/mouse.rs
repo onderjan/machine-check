@@ -1,4 +1,5 @@
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
+use web_sys::js_sys::Array;
 
 use crate::frontend::{update::view::TileType, MouseEvent};
 
@@ -12,7 +13,11 @@ pub fn on_mouse(
 ) -> bool {
     event.prevent_default();
     let event: web_sys::MouseEvent = event.dyn_into().expect("Mouse event should be MouseEvent");
-    let mouse_coords_px = (event.offset_x(), event.offset_y());
+    let device_pixel_ratio = web_sys::window().unwrap().device_pixel_ratio();
+    let mouse_coords_px = (
+        event.offset_x() as f64 * device_pixel_ratio,
+        event.offset_y() as f64 * device_pixel_ratio,
+    );
 
     const MAIN_BUTTON: i16 = 0;
     const MIDDLE_BUTTON: i16 = 1;
@@ -20,9 +25,22 @@ pub fn on_mouse(
     match mouse {
         MouseEvent::Click => {
             if event.button() == MAIN_BUTTON {
-                let mut absolute_px = point_of_view.translation();
-                absolute_px.0 += mouse_coords_px.0 as f64;
-                absolute_px.1 += mouse_coords_px.1 as f64;
+                let mut absolute_px = (mouse_coords_px.0 as f64, mouse_coords_px.1 as f64);
+
+                let cons = Array::new_with_length(1);
+                cons.set(
+                    0,
+                    JsValue::from_str(&format!(
+                        "Translation: {:?}, Click: {:?}, Page: {:?}",
+                        point_of_view.view_offset(),
+                        mouse_coords_px,
+                        (event.page_x(), event.page_y())
+                    )),
+                );
+                web_sys::console::log(&cons);
+
+                absolute_px.0 += point_of_view.view_offset().0;
+                absolute_px.1 += point_of_view.view_offset().1;
 
                 let tile = super::render::get_tile_from_px(absolute_px.0, absolute_px.1);
                 let mut selected_node_id = None;
@@ -58,11 +76,11 @@ pub fn on_mouse(
             if event.button() == MIDDLE_BUTTON {
                 if let Some(mouse_down_px) = point_of_view.mouse_down_px.take() {
                     let offset = (
-                        mouse_coords_px.0.wrapping_sub(mouse_down_px.0),
-                        mouse_coords_px.1.wrapping_sub(mouse_down_px.1),
+                        mouse_coords_px.0 - mouse_down_px.0,
+                        mouse_coords_px.1 - mouse_down_px.1,
                     );
-                    point_of_view.translation_px.0 += offset.0 as f64;
-                    point_of_view.translation_px.1 += offset.1 as f64;
+                    point_of_view.offset_px.0 -= offset.0 as f64;
+                    point_of_view.offset_px.1 -= offset.1 as f64;
                 };
                 true
             } else {
