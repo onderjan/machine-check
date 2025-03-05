@@ -8,7 +8,7 @@ use wry::WebViewBuilder;
 
 use super::FAVICON_ICO;
 
-pub struct Gui {
+pub struct Window {
     event_loop: tao::event_loop::EventLoop<()>,
     #[allow(dead_code)]
     window: tao::window::Window,
@@ -18,11 +18,11 @@ pub struct Gui {
 
 type ResponseCow = http::Response<std::borrow::Cow<'static, [u8]>>;
 
-impl Gui {
+impl Window {
     pub fn new(
         response_fn: impl Fn(http::Request<Vec<u8>>) -> ResponseCow + 'static,
         exec_name: &str,
-    ) -> Result<Gui, Box<dyn std::error::Error>> {
+    ) -> Result<Window, Box<dyn std::error::Error>> {
         // build the GUI using the packages wry and tao
         let event_loop = EventLoop::new();
 
@@ -81,7 +81,7 @@ impl Gui {
             // tell the webview to load the custom protocol
             .with_url("gui://localhost")
             .build()?;
-        Ok(Gui {
+        Ok(Window {
             event_loop,
             window,
             web_view,
