@@ -8,7 +8,10 @@ use std::cell::RefCell;
 use view::View;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Request, RequestInit, RequestMode, Response};
+use web_sys::{
+    js_sys::{ArrayBuffer, Uint8Array},
+    Request, RequestInit, RequestMode, Response,
+};
 
 use super::{content::Content, util::PixelPoint};
 
@@ -82,20 +85,24 @@ fn display_current(resize: bool) {
 
 async fn execute_action(action: Action) {
     let result = call_backend(action).await;
-    let json = match result {
+    let response = match result {
         Ok(ok) => ok,
         Err(err) => panic!("{:?}", err),
     };
 
+    console_log!(&format!("Response byte length: {}", response.byte_length()));
+
+    let response = Uint8Array::new(&response);
+    let response = response.to_vec();
     let content: Content =
-        serde_wasm_bindgen::from_value(json).expect("Content should be convertible from JSON");
+        rmp_serde::from_slice(&response).expect("Content should be convertible from Messagepack");
 
     let view = View::new(content);
     console_log!(&format!("View: {:?}", view));
     VIEW.replace(Some(view));
 }
 
-pub async fn call_backend(action: Action) -> Result<JsValue, JsValue> {
+pub async fn call_backend(action: Action) -> Result<ArrayBuffer, JsValue> {
     let (method, url_action) = match action {
         Action::GetContent => ("GET", "content"),
         Action::Step => ("POST", "step_verification"),
@@ -112,11 +119,13 @@ pub async fn call_backend(action: Action) -> Result<JsValue, JsValue> {
     let window = web_sys::window().unwrap();
     let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
 
-    let resp: Response = resp_value.dyn_into().unwrap();
+    let response: Response = resp_value.dyn_into().unwrap();
 
-    let json = JsFuture::from(resp.json()?).await?;
+    console_log!(&format!("WebSys Response: {:?}", response));
 
-    Ok(json)
+    let response: ArrayBuffer = JsFuture::from(response.array_buffer()?).await?.into();
+
+    Ok(response)
 }
 
 pub async fn on_mouse(mouse: super::MouseEvent, event: web_sys::Event) {

@@ -75,7 +75,6 @@ pub fn api_response<M: FullMachine>(
         state_info,
     };
 
-    let content_json = serde_json::to_string(&content)?;
-
-    Ok(Cow::Owned(content_json.into_bytes()))
+    let content_msgpack = rmp_serde::to_vec(&content)?;
+    Ok(Cow::Owned(content_msgpack))
 }
