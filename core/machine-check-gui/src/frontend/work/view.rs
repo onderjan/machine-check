@@ -1,6 +1,7 @@
 pub mod camera;
 mod canvas;
 mod compute;
+mod constants;
 mod fields;
 
 use std::collections::HashMap;

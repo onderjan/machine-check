@@ -1,11 +1,13 @@
-use machine_check_common::ThreeValued;
 use machine_check_exec::NodeId;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
 use crate::frontend::snapshot::Node;
 
-use super::{Tile, TileType, View};
+use super::{
+    constants::{self, colors},
+    Tile, TileType, View,
+};
 
 pub fn render(view: &View, force: bool) {
     LOCAL.with(|local| {
@@ -94,15 +96,6 @@ impl Renderer<'_> {
             false
         };
 
-        context.set_fill_style_str(match &node.panic {
-            None => "lightblue",
-            Some(tv) => match tv {
-                ThreeValued::Unknown => "#CCCCCC", // grey
-                ThreeValued::True => "#CC2222",    // red
-                ThreeValued::False => "#4CBF50",   // green
-            },
-        });
-
         let scheme = &self.view.camera.scheme;
         let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
@@ -111,7 +104,8 @@ impl Renderer<'_> {
 
         let radius = 4.;
 
-        context.set_line_width(if is_selected { 3. } else { 1. });
+        context.save();
+        constants::setup_node_context(context, node, is_selected);
 
         context.begin_path();
         context
@@ -120,8 +114,7 @@ impl Renderer<'_> {
         context.fill();
         context.stroke();
 
-        context.set_line_width(1.);
-        context.set_fill_style_str("black");
+        context.restore();
 
         context
             .fill_text(
@@ -141,7 +134,6 @@ impl Renderer<'_> {
     ) {
         let outgoing = if outgoing { 1. } else { -1. };
         let context = &self.local.main_context;
-        context.begin_path();
 
         let scheme = &self.view.camera.scheme;
         let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
@@ -154,8 +146,10 @@ impl Renderer<'_> {
         let sharper_x = middle_x - outgoing * (node_size / 2.);
         let blunt_x = middle_x + outgoing * (node_size / 2.);
 
-        context.set_fill_style_str("#F5F5DC"); // very light yellow
+        context.save();
+        context.set_fill_style_str(colors::REFERENCE);
 
+        context.begin_path();
         context.move_to(blunt_x, upper_y);
         context.line_to(sharp_x, upper_y);
         context.line_to(sharper_x, middle_y);
@@ -165,7 +159,7 @@ impl Renderer<'_> {
         context.fill();
         context.stroke();
 
-        context.set_fill_style_str("black");
+        context.restore();
 
         context
             .fill_text(
@@ -274,7 +268,7 @@ impl Renderer<'_> {
 
     fn fix_resized_canvas(&self) {
         // fix for device pixel ratio
-        let pixel_ratio = self.local.pixel_ratio;
+        let pixel_ratio = self.view.camera.scheme.pixel_ratio;
         let main_area_rect = self.local.main_area.get_bounding_client_rect();
         let width = main_area_rect.width();
         let height = main_area_rect.height();
@@ -298,10 +292,10 @@ impl Renderer<'_> {
             .unwrap();
 
         // set font size
-        let font_size = 12. * pixel_ratio;
-        self.local
-            .main_context
-            .set_font(&format!("{}px sans-serif", font_size));
+        self.local.main_context.set_font(&format!(
+            "{}px sans-serif",
+            self.view.camera.scheme.font_size
+        ));
         self.local.main_context.set_text_align("center");
         self.local.main_context.set_text_baseline("middle");
 
@@ -315,7 +309,6 @@ struct Local {
     main_area: Element,
     main_canvas: HtmlCanvasElement,
     main_context: CanvasRenderingContext2d,
-    pixel_ratio: f64,
 }
 
 impl Local {
@@ -337,13 +330,11 @@ impl Local {
             .expect("Main canvas should have a 2D context")
             .dyn_into()
             .expect("Main canvas 2D rendering context should be castable");
-        let pixel_ratio = window.device_pixel_ratio();
 
         Local {
             main_area,
             main_canvas,
             main_context,
-            pixel_ratio,
         }
     }
 }

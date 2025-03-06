@@ -2,7 +2,10 @@ use machine_check_exec::NodeId;
 
 use crate::frontend::util::PixelPoint;
 
-use super::Tile;
+use super::{
+    constants::{RAW_ARROWHEAD_SIZE, RAW_FONT_SIZE, RAW_NODE_SIZE, RAW_TILE_SIZE},
+    Tile,
+};
 
 #[derive(Debug, Clone)]
 pub struct Camera {
@@ -20,6 +23,7 @@ pub struct Scheme {
     pub tile_size: u64,
     pub node_size: u64,
     pub arrowhead_size: f64,
+    pub font_size: f64,
 }
 
 impl Scheme {
@@ -32,11 +36,14 @@ impl Scheme {
         let node_size = adjust_size(RAW_NODE_SIZE * pixel_ratio) as u64;
         let arrowhead_size = adjust_size(RAW_ARROWHEAD_SIZE * pixel_ratio);
 
+        let font_size = RAW_FONT_SIZE * pixel_ratio;
+
         Scheme {
             pixel_ratio,
             tile_size,
             node_size,
             arrowhead_size,
+            font_size,
         }
     }
 
@@ -57,10 +64,6 @@ impl Scheme {
         }
     }
 }
-
-const RAW_TILE_SIZE: f64 = 46.;
-const RAW_NODE_SIZE: f64 = 30.;
-const RAW_ARROWHEAD_SIZE: f64 = 4.;
 
 fn adjust_size(unadjusted: f64) -> f64 {
     // make sure half-size is even
