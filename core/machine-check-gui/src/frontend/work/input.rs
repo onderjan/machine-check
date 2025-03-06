@@ -19,7 +19,6 @@ pub fn on_mouse(view: &mut View, mouse: MouseEvent, event: web_sys::Event) -> bo
     const MAIN_BUTTON: i16 = 0;
     /// Typically the middle button.
     const DRAG_BUTTON: i16 = 1;
-    console_log!("Mouse event");
 
     match mouse {
         MouseEvent::Click => {
@@ -55,11 +54,9 @@ pub fn on_mouse(view: &mut View, mouse: MouseEvent, event: web_sys::Event) -> bo
             true
         }
         MouseEvent::Move => {
-            console_log!("Mouse move");
             // update current mouse coords for camera drag
             view.camera.mouse_current_coords = Some(mouse_coords);
 
-            console_log!(&format!("Current mouse coords: {:?}", mouse_coords));
             // redraw if dragging
             view.camera.mouse_down_coords.is_some()
         }

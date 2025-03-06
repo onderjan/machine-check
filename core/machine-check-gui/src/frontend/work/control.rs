@@ -20,6 +20,7 @@ pub async fn command(request: Request) -> Snapshot {
     let response = response.to_vec();
     let response: Response =
         rmp_serde::from_slice(&response).expect("Content should be convertible from Messagepack");
+    console_log!(&format!("Response snapshot: {:?}", response.snapshot));
 
     response.snapshot
 }

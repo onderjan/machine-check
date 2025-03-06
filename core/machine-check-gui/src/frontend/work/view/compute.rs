@@ -1,8 +1,6 @@
 use bimap::BiHashMap;
 use std::collections::HashMap;
 use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
-use wasm_bindgen::JsValue;
-use web_sys::js_sys::Array;
 
 use super::{NodeAux, Tile, TileType};
 use crate::frontend::snapshot::Snapshot;
@@ -179,11 +177,6 @@ pub fn compute_tiling_aux(
             },
         );
     }
-
-    let cons = Array::new_with_length(2);
-    cons.set(0, JsValue::from_str("Tiling"));
-    cons.set(1, JsValue::from_str(&format!("{:?}", tiling)));
-    web_sys::console::log(&cons);
 
     (tiling, node_aux)
 }
