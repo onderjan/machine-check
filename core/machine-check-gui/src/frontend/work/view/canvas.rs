@@ -1,44 +1,39 @@
-use machine_check_exec::NodeId;
+mod primitives;
+
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
-use crate::frontend::snapshot::Node;
-
-use super::{
-    constants::{self, colors},
-    Tile, TileType, View,
-};
+use super::{TileType, View};
 
 pub fn render(view: &View, force: bool) {
-    LOCAL.with(|local| {
-        Renderer { view, local }.render(force);
-    });
+    CanvasRenderer::new(view).render(force);
 }
 
-struct Renderer<'a> {
+struct CanvasRenderer<'a> {
     view: &'a View,
-    local: &'a Local,
+    main_area: Element,
+    main_canvas: HtmlCanvasElement,
+    main_context: CanvasRenderingContext2d,
 }
 
-impl Renderer<'_> {
+impl CanvasRenderer<'_> {
     fn render(&self, force: bool) {
         if force {
             self.fix_resized_canvas();
         }
 
         // clear canvas
-        self.local.main_context.clear_rect(
+        self.main_context.clear_rect(
             0.,
             0.,
-            self.local.main_canvas.width() as f64,
-            self.local.main_canvas.height() as f64,
+            self.main_canvas.width() as f64,
+            self.main_canvas.height() as f64,
         );
 
-        self.local.main_context.save();
+        self.main_context.save();
         let view_offset = self.view.camera.view_offset();
         // the view offset must be subtracted to render to the viewport
-        self.local
-            .main_context
+        self.main_context
             .translate(-view_offset.x as f64, -view_offset.y as f64)
             .unwrap();
 
@@ -84,235 +79,10 @@ impl Renderer<'_> {
             }
         }
 
-        self.local.main_context.restore();
+        self.main_context.restore();
     }
 
-    fn render_node(&self, tile: Tile, node_id: NodeId, node: &Node) {
-        let context = &self.local.main_context;
-
-        let is_selected = if let Some(selected_node_id) = self.view.camera.selected_node_id {
-            selected_node_id == node_id
-        } else {
-            false
-        };
-
-        let scheme = &self.view.camera.scheme;
-        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
-
-        let node_start_x = tile.x as f64 * tile_size + (tile_size - node_size) / 2.;
-        let node_start_y = tile.y as f64 * tile_size + (tile_size - node_size) / 2.;
-
-        let radius = 4.;
-
-        context.save();
-        constants::setup_node_context(context, node, is_selected);
-
-        context.begin_path();
-        context
-            .round_rect_with_f64(node_start_x, node_start_y, node_size, node_size, radius)
-            .unwrap();
-        context.fill();
-        context.stroke();
-
-        context.restore();
-
-        context
-            .fill_text(
-                &node_id.to_string(),
-                node_start_x + node_size / 2.,
-                node_start_y + node_size / 2.,
-            )
-            .unwrap();
-    }
-
-    fn render_reference(
-        &self,
-        tile: Tile,
-        head_node_id: NodeId,
-        tail_node_id: NodeId,
-        outgoing: bool,
-    ) {
-        let outgoing = if outgoing { 1. } else { -1. };
-        let context = &self.local.main_context;
-
-        let scheme = &self.view.camera.scheme;
-        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
-
-        let middle_x = tile.x as f64 * tile_size + tile_size / 2.;
-        let middle_y = tile.y as f64 * tile_size + tile_size / 2.;
-        let upper_y = (middle_y - node_size / 3.).round();
-        let lower_y = (middle_y + node_size / 3.).round();
-        let sharp_x = middle_x - outgoing * (node_size / 4.);
-        let sharper_x = middle_x - outgoing * (node_size / 2.);
-        let blunt_x = middle_x + outgoing * (node_size / 2.);
-
-        context.save();
-        context.set_fill_style_str(colors::REFERENCE);
-
-        context.begin_path();
-        context.move_to(blunt_x, upper_y);
-        context.line_to(sharp_x, upper_y);
-        context.line_to(sharper_x, middle_y);
-        context.line_to(sharp_x, lower_y);
-        context.line_to(blunt_x, lower_y);
-        context.close_path();
-        context.fill();
-        context.stroke();
-
-        context.restore();
-
-        context
-            .fill_text(
-                &format!("{}|{}", head_node_id, tail_node_id),
-                middle_x + outgoing * (node_size / 12.),
-                middle_y,
-            )
-            .unwrap();
-    }
-
-    fn render_arrow_start(&self, head_tile: Tile, successor_x_offset: u64) {
-        let context = &self.local.main_context;
-
-        let scheme = &self.view.camera.scheme;
-        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
-
-        // draw the arrowshaft
-        context.begin_path();
-        let right_x = head_tile.x as f64 * tile_size + (successor_x_offset as f64 * tile_size);
-        let tile_right_border_x =
-            head_tile.x as f64 * tile_size + tile_size - (tile_size - node_size) / 2.;
-        let tile_middle_y = head_tile.y as f64 * tile_size + tile_size / 2.;
-        context.move_to(tile_right_border_x, tile_middle_y);
-        context.line_to(right_x, tile_middle_y);
-        context.stroke();
-    }
-
-    fn render_arrow_split(&self, node_tile: Tile, x_offset: i64, split_len: u64) {
-        let context = &self.local.main_context;
-
-        let scheme = &self.view.camera.scheme;
-        let tile_size = scheme.tile_size as f64;
-
-        // draw the arrow split
-        context.begin_path();
-        let split_x = node_tile.x as f64 * tile_size + tile_size * x_offset as f64;
-        let split_upper_y = node_tile.y as f64 * tile_size + tile_size / 2.;
-        let split_lower_y = split_upper_y + split_len as f64 * tile_size;
-        context.move_to(split_x, split_upper_y);
-        context.line_to(split_x, split_lower_y);
-        context.stroke();
-    }
-
-    fn render_arrow_end(&self, tail_tile: Tile) {
-        let context = &self.local.main_context;
-
-        let scheme = &self.view.camera.scheme;
-        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
-
-        // draw the arrowshaft
-        context.begin_path();
-        let tile_left_x = tail_tile.x as f64 * tile_size;
-        let tile_left_border_x = tile_left_x + (tile_size - node_size) / 2.;
-        let tile_middle_y = tail_tile.y as f64 * tile_size + tile_size / 2.;
-        context.move_to(tile_left_x, tile_middle_y);
-        context.line_to(tile_left_border_x, tile_middle_y);
-        context.stroke();
-
-        // draw the arrowhead
-        let arrowhead_size = scheme.arrowhead_size;
-
-        let arrowhead_left_x = tile_left_border_x - arrowhead_size;
-        let arrowhead_upper_y = tile_middle_y - arrowhead_size / 2.;
-        let arrowhead_lower_y = tile_middle_y + arrowhead_size / 2.;
-        context.begin_path();
-        context.move_to(tile_left_border_x, tile_middle_y);
-        context.line_to(arrowhead_left_x, arrowhead_upper_y);
-        context.line_to(arrowhead_left_x, arrowhead_lower_y);
-        context.close_path();
-        context.fill();
-    }
-
-    fn render_self_loop(&self, node_tile: Tile) {
-        let context = &self.local.main_context;
-
-        let scheme = &self.view.camera.scheme;
-        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
-
-        // draw the arrowshaft
-        context.begin_path();
-        let tile_right_x = node_tile.x as f64 * tile_size + tile_size;
-        let tile_middle_x = node_tile.x as f64 * tile_size + tile_size / 2.;
-        let tile_middle_y = node_tile.y as f64 * tile_size + tile_size / 2.;
-        let tile_upper_y = node_tile.y as f64 * tile_size;
-        let tile_upper_border_y = tile_upper_y + (tile_size - node_size) / 2.;
-        context.move_to(tile_right_x, tile_middle_y);
-        context.line_to(tile_right_x, tile_upper_y);
-        context.line_to(tile_middle_x, tile_upper_y);
-        context.line_to(tile_middle_x, tile_upper_border_y);
-        context.stroke();
-
-        // draw the arrowhead
-        let scheme = &self.view.camera.scheme;
-        let arrowhead_size = scheme.arrowhead_size;
-
-        let arrowhead_left_x = tile_middle_x - arrowhead_size / 2.;
-        let arrowhead_right_x = tile_middle_x + arrowhead_size / 2.;
-        let arrowhead_upper_y = tile_upper_border_y - arrowhead_size;
-        context.begin_path();
-        context.move_to(tile_middle_x, tile_upper_border_y);
-        context.line_to(arrowhead_left_x, arrowhead_upper_y);
-        context.line_to(arrowhead_right_x, arrowhead_upper_y);
-        context.close_path();
-        context.fill();
-    }
-
-    fn fix_resized_canvas(&self) {
-        // fix for device pixel ratio
-        let pixel_ratio = self.view.camera.scheme.pixel_ratio;
-        let main_area_rect = self.local.main_area.get_bounding_client_rect();
-        let width = main_area_rect.width();
-        let height = main_area_rect.height();
-
-        // the actual canvas width and height must be a whole number
-        let pr_width = (width * pixel_ratio) as u32;
-        let pr_height = (height * pixel_ratio) as u32;
-        self.local.main_canvas.set_width(pr_width);
-        self.local.main_canvas.set_height(pr_height);
-
-        // set canvas element width and height exactly as divided by the pixel ratio so there is no error
-        let width = pr_width as f64 / pixel_ratio;
-        let height = pr_height as f64 / pixel_ratio;
-
-        let canvas_style = self.local.main_canvas.style();
-        canvas_style
-            .set_property("width", &format!("{}px", width))
-            .unwrap();
-        canvas_style
-            .set_property("height", &format!("{}px", height))
-            .unwrap();
-
-        // set font size
-        self.local.main_context.set_font(&format!(
-            "{}px sans-serif",
-            self.view.camera.scheme.font_size
-        ));
-        self.local.main_context.set_text_align("center");
-        self.local.main_context.set_text_baseline("middle");
-
-        // make sure we stroke true pixels
-        self.local.main_context.reset_transform().unwrap();
-        self.local.main_context.translate(0.5, 0.5).unwrap();
-    }
-}
-
-struct Local {
-    main_area: Element,
-    main_canvas: HtmlCanvasElement,
-    main_context: CanvasRenderingContext2d,
-}
-
-impl Local {
-    fn new() -> Local {
+    fn new(view: &View) -> CanvasRenderer {
         let window = web_sys::window().expect("HTML Window should exist");
         let document = window.document().expect("HTML document should exist");
         let main_area = document
@@ -331,14 +101,49 @@ impl Local {
             .dyn_into()
             .expect("Main canvas 2D rendering context should be castable");
 
-        Local {
+        CanvasRenderer {
+            view,
             main_area,
             main_canvas,
             main_context,
         }
     }
-}
 
-thread_local! {
-    static LOCAL: Local = Local::new();
+    fn fix_resized_canvas(&self) {
+        // fix for device pixel ratio
+        let pixel_ratio = self.view.camera.scheme.pixel_ratio;
+        let main_area_rect = self.main_area.get_bounding_client_rect();
+        let width = main_area_rect.width();
+        let height = main_area_rect.height();
+
+        // the actual canvas width and height must be a whole number
+        let pr_width = (width * pixel_ratio) as u32;
+        let pr_height = (height * pixel_ratio) as u32;
+        self.main_canvas.set_width(pr_width);
+        self.main_canvas.set_height(pr_height);
+
+        // set canvas element width and height exactly as divided by the pixel ratio so there is no error
+        let width = pr_width as f64 / pixel_ratio;
+        let height = pr_height as f64 / pixel_ratio;
+
+        let canvas_style = self.main_canvas.style();
+        canvas_style
+            .set_property("width", &format!("{}px", width))
+            .unwrap();
+        canvas_style
+            .set_property("height", &format!("{}px", height))
+            .unwrap();
+
+        // set font size
+        self.main_context.set_font(&format!(
+            "{}px sans-serif",
+            self.view.camera.scheme.font_size
+        ));
+        self.main_context.set_text_align("center");
+        self.main_context.set_text_baseline("middle");
+
+        // make sure we stroke true pixels
+        self.main_context.reset_transform().unwrap();
+        self.main_context.translate(0.5, 0.5).unwrap();
+    }
 }
