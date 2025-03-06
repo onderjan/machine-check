@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use machine_check_common::ThreeValued;
 use machine_check_exec::NodeId;
 use serde::{Deserialize, Serialize};
 
@@ -26,12 +27,6 @@ pub struct StateSpace {
 pub struct Node {
     pub incoming: BTreeSet<NodeId>,
     pub outgoing: BTreeSet<NodeId>,
-    pub panic: Option<ThreeValuedBool>,
+    pub panic: Option<ThreeValued>,
     pub fields: BTreeMap<String, Field>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ThreeValuedBool {
-    pub zero: bool,
-    pub one: bool,
 }

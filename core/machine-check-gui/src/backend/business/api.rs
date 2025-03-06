@@ -1,10 +1,11 @@
+use machine_check_common::ThreeValued;
 use machine_check_exec::NodeId;
 use mck::concr::FullMachine;
 use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::frontend::{
     interaction::Response,
-    snapshot::{Node, Snapshot, StateInfo, StateSpace, ThreeValuedBool},
+    snapshot::{Node, Snapshot, StateInfo, StateSpace},
 };
 
 use super::Business;
@@ -43,9 +44,13 @@ pub fn api_response<M: FullMachine>(
             .collect();
         let (fields, panic) = if let Some(state) = state {
             let panic_result = &state.0;
-            let panic = ThreeValuedBool {
-                zero: panic_result.panic.umin().is_zero(),
-                one: panic_result.panic.umax().is_nonzero(),
+            let can_be_nonpanic = panic_result.panic.umin().is_zero();
+            let can_be_panic = panic_result.panic.umax().is_nonzero();
+            let panic = match (can_be_nonpanic, can_be_panic) {
+                (true, true) => ThreeValued::Unknown,
+                (false, true) => ThreeValued::True,
+                (true, false) => ThreeValued::False,
+                (false, false) => panic!("Panic result should always contain some value"),
             };
             let mut fields = BTreeMap::new();
             for field_name in state_field_names.iter() {

@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -39,4 +41,22 @@ pub struct ExecStats {
     pub num_final_states: usize,
     pub num_generated_transitions: usize,
     pub num_final_transitions: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ThreeValued {
+    True,
+    False,
+    Unknown,
+}
+
+impl Display for ThreeValued {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            ThreeValued::True => "true",
+            ThreeValued::False => "false",
+            ThreeValued::Unknown => "unknown",
+        };
+        write!(f, "{}", str)
+    }
 }

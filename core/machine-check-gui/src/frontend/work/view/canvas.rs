@@ -1,3 +1,4 @@
+use machine_check_common::ThreeValued;
 use machine_check_exec::NodeId;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
@@ -95,14 +96,12 @@ impl Renderer<'_> {
 
         context.set_fill_style_str(match &node.panic {
             None => "lightblue",
-            Some(tv) => match (tv.zero, tv.one) {
-                (true, true) => "#CCCCCC",  // grey
-                (false, true) => "#CC2222", // red
-                (true, false) => "#4CBF50", // green
-                (false, false) => "blue",
+            Some(tv) => match tv {
+                ThreeValued::Unknown => "#CCCCCC", // grey
+                ThreeValued::True => "#CC2222",    // red
+                ThreeValued::False => "#4CBF50",   // green
             },
         });
-        //if is_selected { "lightblue" } else { "white" });
 
         let scheme = &self.view.camera.scheme;
         let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);

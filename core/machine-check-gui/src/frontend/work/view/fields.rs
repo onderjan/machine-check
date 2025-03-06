@@ -34,16 +34,11 @@ fn display_node_fields(local: &Local, node_id: NodeId, node: &Node) {
     add_field_row(local, "id", &node_id.to_string(), &["bold", "italic"], &[]);
 
     let panic_value = match &node.panic {
-        Some(tvb) => match (tvb.zero, tvb.one) {
-            (true, true) => "unknown",
-            (true, false) => "false",
-            (false, true) => "true",
-            (false, false) => "???",
-        },
-        None => "?!?",
+        Some(tvb) => tvb.to_string(),
+        None => String::from("(none)"),
     };
 
-    add_field_row(local, "panic", panic_value, &["bold", "italic"], &["bold"]);
+    add_field_row(local, "panic", &panic_value, &["bold", "italic"], &["bold"]);
 
     let standard_field_classes = &[];
     let standard_value_classes = &["monospace"];
