@@ -12,6 +12,8 @@ pub mod content;
 mod update;
 mod util;
 
+pub use update::Action;
+
 use wasm_bindgen::prelude::*;
 use web_sys::Event;
 

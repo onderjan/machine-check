@@ -6,6 +6,7 @@ mod view;
 use std::cell::RefCell;
 
 use machine_check_exec::NodeId;
+use serde::{Deserialize, Serialize};
 use view::View;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
@@ -16,6 +17,7 @@ use web_sys::{
 
 use super::{content::Content, util::PixelPoint};
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Action {
     GetContent,
     Step,
@@ -104,26 +106,20 @@ async fn execute_action(action: Action) {
 }
 
 pub async fn call_backend(action: Action) -> Result<ArrayBuffer, JsValue> {
-    let (method, url_action) = match action {
-        Action::GetContent => ("GET", "content"),
-        Action::Step => ("POST", "step_verification"),
-    };
-
     let opts = RequestInit::new();
-    opts.set_method(method);
+    opts.set_method("POST");
     opts.set_mode(RequestMode::Cors);
 
-    let url = format!("/api/{}", url_action);
+    let body = rmp_serde::to_vec(&action).expect("Action should be serializable");
+    let body = Uint8Array::from(body.as_slice());
 
-    let request = Request::new_with_str_and_init(&url, &opts)?;
+    opts.set_body(&body);
+
+    let request = Request::new_with_str_and_init("/api", &opts)?;
 
     let window = web_sys::window().unwrap();
-    let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
-
-    let response: Response = resp_value.dyn_into().unwrap();
-
-    console_log!(&format!("WebSys Response: {:?}", response));
-
+    let response = JsFuture::from(window.fetch_with_request(&request)).await?;
+    let response: Response = response.dyn_into().unwrap();
     let response: ArrayBuffer = JsFuture::from(response.array_buffer()?).await?.into();
 
     Ok(response)

@@ -6,6 +6,8 @@ use log::{debug, error};
 use machine_check_exec::Framework;
 use mck::concr::FullMachine;
 
+use crate::frontend::Action;
+
 mod api;
 
 const CONTENT_DIR: Dir = include_dir!("content");
@@ -67,73 +69,64 @@ impl<M: FullMachine> Business<M> {
         // if the stripped path is empty, serve index.html
         let path = if path.is_empty() { "index.html" } else { path };
 
-        let (content, content_type) = match path.strip_prefix("api/") {
-            Some(api_path) => {
-                let content = match api_path {
-                    "step_verification" => {
-                        if method != Method::POST {
-                            return Err(anyhow::anyhow!(
-                                "Verification step API command method must be POST"
-                            )
-                            .into());
-                        }
-
-                        // step verification
-                        let business = &mut business.write().expect("Lock should not be poisoned");
-                        business.framework.step_verification();
-                        api::api_response(business)?
-                    }
-                    "reset" => {
-                        if method != Method::POST {
-                            return Err(anyhow::anyhow!(
-                                "Reset API command method must be POST, is {}",
-                                method
-                            )
-                            .into());
-                        }
-                        todo!("Reset the verification");
-                    }
-                    "content" => {
-                        if method != Method::GET {
-                            return Err(anyhow::anyhow!(
-                                "Content API command method must be GET, is {}",
-                                method
-                            )
-                            .into());
-                        }
-                        // read the current framework state
-                        let business = &business.read().expect("Lock should not be poisoned");
-                        api::api_response(business)?
-                    }
-                    _ => return Err(anyhow::anyhow!("Unknown API command: {}", path).into()),
-                };
-                let content_type = Cow::Borrowed("text/json");
-                (content, content_type)
+        if path == "api" {
+            // API call
+            if method != Method::POST {
+                return Err(anyhow::anyhow!("API method must be POST").into());
             }
 
-            None => {
-                if method != Method::GET {
-                    return Err(anyhow::anyhow!("Expected method GET: {}", path).into());
-                }
-
-                let content = match CONTENT_DIR.get_file(path) {
-                    Some(file) => file.contents(),
-                    None => return Err(anyhow::anyhow!("Not found: {}", path).into()),
-                };
-
-                let content_type = Cow::Owned(
-                    mime_guess::from_path(path)
-                        .first()
-                        .expect("Content should have known content type")
-                        .to_string(),
-                );
-                (Cow::Borrowed(content), content_type)
+            Self::get_api_response(business, request)
+        } else {
+            // not an API call, return content
+            if method != Method::GET {
+                return Err(anyhow::anyhow!("Expected method GET: {}", path).into());
             }
+
+            Self::get_content_response(path)
+        }
+    }
+
+    fn get_api_response(
+        business: &RwLock<Self>,
+        request: Request<Vec<u8>>,
+    ) -> Result<http::Response<Cow<'static, [u8]>>, Box<dyn std::error::Error>> {
+        let action: Action = rmp_serde::from_slice(request.body())?;
+
+        let business = &mut business.write().expect("Lock should not be poisoned");
+        match action {
+            Action::GetContent => {}
+            Action::Step => {
+                business.framework.step_verification();
+            }
+        }
+
+        // read the current framework state
+        let content = api::api_response(business)?;
+
+        Response::builder()
+            .header(CONTENT_TYPE, "application/vnd.msgpack")
+            .body(content)
+            .map_err(Into::into)
+    }
+
+    fn get_content_response(
+        path: &str,
+    ) -> Result<http::Response<Cow<'static, [u8]>>, Box<dyn std::error::Error>> {
+        let content = match CONTENT_DIR.get_file(path) {
+            Some(file) => file.contents(),
+            None => return Err(anyhow::anyhow!("Not found: {}", path).into()),
         };
+
+        let content_type: Cow<str> = Cow::Owned(
+            mime_guess::from_path(path)
+                .first()
+                .expect("Content should have known content type")
+                .to_string(),
+        );
 
         Response::builder()
             .header(CONTENT_TYPE, content_type.as_ref())
-            .body(content)
+            .body(Cow::Borrowed(content))
             .map_err(Into::into)
     }
 }
