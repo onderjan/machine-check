@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use machine_check_exec::NodeId;
 use mck::abstr::{ArrayFieldBitvector, BitvectorField, Field};
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlTableCellElement, HtmlTableElement, HtmlTableRowElement};
@@ -15,8 +16,8 @@ pub fn display(view: &View, point_of_view: &PointOfView) {
 
         let mut selected = false;
 
-        if let Some(ref node_id) = point_of_view.selected_node_id {
-            let node = view.content.state_space.nodes.get(node_id);
+        if let Some(node_id) = point_of_view.selected_node_id {
+            let node = view.content.state_space.nodes.get(&node_id);
             if let Some(node) = node {
                 selected = true;
                 display_node_fields(local, node_id, node);
@@ -29,8 +30,8 @@ pub fn display(view: &View, point_of_view: &PointOfView) {
     });
 }
 
-fn display_node_fields(local: &Local, node_id: &str, node: &Node) {
-    add_field_row(local, "id", node_id, &["bold", "italic"], &[]);
+fn display_node_fields(local: &Local, node_id: NodeId, node: &Node) {
+    add_field_row(local, "id", &node_id.to_string(), &["bold", "italic"], &[]);
 
     let panic_value = match &node.panic {
         Some(tvb) => match (tvb.zero, tvb.one) {

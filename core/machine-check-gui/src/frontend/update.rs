@@ -5,6 +5,7 @@ mod view;
 
 use std::cell::RefCell;
 
+use machine_check_exec::NodeId;
 use view::View;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
@@ -25,7 +26,7 @@ pub struct PointOfView {
     pub view_offset: PixelPoint,
     mouse_current_coords: Option<PixelPoint>,
     mouse_down_coords: Option<PixelPoint>,
-    selected_node_id: Option<String>,
+    selected_node_id: Option<NodeId>,
 }
 
 impl PointOfView {

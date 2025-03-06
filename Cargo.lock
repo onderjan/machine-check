@@ -1323,6 +1323,7 @@ dependencies = [
  "machine-check-common",
  "mck",
  "petgraph",
+ "serde",
 ]
 
 [[package]]

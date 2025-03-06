@@ -30,7 +30,7 @@ pub fn on_mouse(
                 let mut selected_node_id = None;
                 if let Some(tile) = tile {
                     if let Some(TileType::Node(node)) = view.tiling.get_by_left(&tile) {
-                        selected_node_id = Some(node.clone());
+                        selected_node_id = Some(*node);
                     }
                 }
                 point_of_view.selected_node_id = selected_node_id;

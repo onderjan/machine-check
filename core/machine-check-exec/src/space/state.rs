@@ -1,6 +1,8 @@
 use std::fmt::{Debug, Display};
 use std::num::NonZeroU64;
 
+use serde::{Deserialize, Serialize};
+
 /// State identifier. Represents an actual system state.
 ///
 /// The identifier has 64 bits so there is no realistic possibility of overflow.
@@ -27,7 +29,7 @@ impl Display for StateId {
 /// The identifier has 64 bits so there is no realistic possibility of overflow.
 /// Even generating states at a rate of 10 giga per second, it would take
 /// 58.45 years to overflow.
-#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NodeId(Option<NonZeroU64>);
 
 impl NodeId {

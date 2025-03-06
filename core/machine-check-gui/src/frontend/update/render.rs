@@ -1,3 +1,4 @@
+use machine_check_exec::NodeId;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
@@ -82,7 +83,7 @@ impl Renderer<'_> {
                         .expect("Tiling should have a node");
                     let aux = self.view.node_aux.get(node_id).unwrap();
 
-                    self.render_node(*tile, node_id, node);
+                    self.render_node(*tile, *node_id, node);
 
                     if !node.outgoing.is_empty() {
                         self.render_arrow_start(*tile, aux.successor_x_offset);
@@ -102,12 +103,12 @@ impl Renderer<'_> {
                     }
                 }
                 TileType::IncomingReference(head_node_id, tail_node_id) => {
-                    self.render_reference(*tile, head_node_id, tail_node_id, false);
+                    self.render_reference(*tile, *head_node_id, *tail_node_id, false);
                     self.render_arrow_start(*tile, 1);
                 }
                 TileType::OutgoingReference(head_node_id, tail_node_id) => {
                     self.render_arrow_end(*tile);
-                    self.render_reference(*tile, head_node_id, tail_node_id, true);
+                    self.render_reference(*tile, *head_node_id, *tail_node_id, true);
                 }
             }
         }
@@ -127,10 +128,10 @@ impl Renderer<'_> {
         adjust_size(RAW_ARROWHEAD_SIZE * self.local.pixel_ratio)
     }
 
-    fn render_node(&self, tile: Tile, node_id: &str, node: &Node) {
+    fn render_node(&self, tile: Tile, node_id: NodeId, node: &Node) {
         let context = &self.local.main_context;
 
-        let is_selected = if let Some(selected_node_id) = &self.point_of_view.selected_node_id {
+        let is_selected = if let Some(selected_node_id) = self.point_of_view.selected_node_id {
             selected_node_id == node_id
         } else {
             false
@@ -168,14 +169,20 @@ impl Renderer<'_> {
 
         context
             .fill_text(
-                node_id,
+                &node_id.to_string(),
                 node_start_x + node_size / 2.,
                 node_start_y + node_size / 2.,
             )
             .unwrap();
     }
 
-    fn render_reference(&self, tile: Tile, head_node_id: &str, tail_node_id: &str, outgoing: bool) {
+    fn render_reference(
+        &self,
+        tile: Tile,
+        head_node_id: NodeId,
+        tail_node_id: NodeId,
+        outgoing: bool,
+    ) {
         let outgoing = if outgoing { 1. } else { -1. };
         let context = &self.local.main_context;
         context.begin_path();

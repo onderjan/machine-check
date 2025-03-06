@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use machine_check_exec::NodeId;
 use serde::{Deserialize, Serialize};
 
 use mck::abstr::Field;
@@ -12,8 +13,8 @@ pub struct ThreeValuedBool {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Node {
-    pub incoming: BTreeSet<String>,
-    pub outgoing: BTreeSet<String>,
+    pub incoming: BTreeSet<NodeId>,
+    pub outgoing: BTreeSet<NodeId>,
     pub panic: Option<ThreeValuedBool>,
     pub fields: BTreeMap<String, Field>,
 }
@@ -21,7 +22,7 @@ pub struct Node {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StateSpace {
     // represent the IDs by strings for now
-    pub nodes: BTreeMap<String, Node>,
+    pub nodes: BTreeMap<NodeId, Node>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

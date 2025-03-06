@@ -33,11 +33,9 @@ pub fn api_response<M: FullMachine>(
     for (node_id, state) in node_iter {
         let incoming = node_graph
             .neighbors_directed(node_id, petgraph::Direction::Incoming)
-            .map(|incoming_id| incoming_id.to_string())
             .collect();
         let outgoing = node_graph
             .neighbors_directed(node_id, petgraph::Direction::Outgoing)
-            .map(|outgoing_id| outgoing_id.to_string())
             .collect();
         let (fields, panic) = if let Some(state) = state {
             let panic_result = &state.0;
@@ -64,7 +62,7 @@ pub fn api_response<M: FullMachine>(
             panic,
             fields,
         };
-        nodes.insert(node_id.to_string(), node_info);
+        nodes.insert(node_id, node_info);
     }
 
     let state_space = content::StateSpace { nodes };
