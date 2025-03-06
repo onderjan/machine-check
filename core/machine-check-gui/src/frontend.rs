@@ -1,3 +1,13 @@
+#[macro_export]
+macro_rules! console_log {
+    ($a: expr) => {
+        let a = $a;
+        let cons = ::web_sys::js_sys::Array::new_with_length(1);
+        cons.set(0, ::wasm_bindgen::JsValue::from_str(a));
+        ::web_sys::console::log(&cons);
+    };
+}
+
 pub mod content;
 mod update;
 mod util;

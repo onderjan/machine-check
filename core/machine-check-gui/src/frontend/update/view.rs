@@ -57,14 +57,6 @@ impl View {
                     continue;
                 }
 
-                let cons = Array::new_with_length(2);
-                cons.set(0, JsValue::from_str("Node/successor"));
-                cons.set(
-                    1,
-                    JsValue::from_str(&format!("{:?}, {:?}", node_id, successor_id)),
-                );
-                web_sys::console::log(&cons);
-
                 // reserve the y-positions of each non-identity successor
                 // but reserve only one if they do not consider this a canonical precedessor
                 if canonical_predecessors.get(successor_id).unwrap() == node_id {
@@ -285,18 +277,6 @@ fn topological_sort(content: &Content) -> (Vec<String>, HashMap<String, String>)
             }
         }
     }
-    let cons = Array::new_with_length(2);
-    cons.set(0, JsValue::from_str("Topologically sorted"));
-    cons.set(1, JsValue::from_str(&format!("{:?}", sorted)));
-    web_sys::console::log(&cons);
-
-    let cons = Array::new_with_length(2);
-    cons.set(0, JsValue::from_str("Canonical predecessors"));
-    cons.set(
-        1,
-        JsValue::from_str(&format!("{:?}", canonical_predecessors)),
-    );
-    web_sys::console::log(&cons);
 
     (sorted, canonical_predecessors)
 }

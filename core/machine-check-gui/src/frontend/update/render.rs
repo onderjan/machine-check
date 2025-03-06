@@ -1,5 +1,5 @@
-use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{js_sys, CanvasRenderingContext2d, Element, HtmlCanvasElement};
+use wasm_bindgen::JsCast;
+use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
 use crate::frontend::{content::Node, util::PixelPoint};
 
@@ -369,11 +369,6 @@ impl Local {
             .dyn_into()
             .expect("Main canvas 2D rendering context should be castable");
         let pixel_ratio = window.device_pixel_ratio();
-
-        let cons = js_sys::Array::new_with_length(1);
-        cons.set(0, JsValue::from_str("Pixel ratio"));
-        cons.set(1, JsValue::from_f64(pixel_ratio));
-        web_sys::console::log(&cons);
 
         Local {
             main_area,

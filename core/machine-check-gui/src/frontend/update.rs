@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use view::View;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{js_sys::Array, Request, RequestInit, RequestMode, Response};
+use web_sys::{Request, RequestInit, RequestMode, Response};
 
 use super::{content::Content, util::PixelPoint};
 
@@ -86,17 +86,12 @@ async fn execute_action(action: Action) {
         Ok(ok) => ok,
         Err(err) => panic!("{:?}", err),
     };
-    let cons = Array::new_with_length(1);
-    cons.set(0, JsValue::from_str(&format!("Received JSON: {:?}", json)));
-    web_sys::console::log(&cons);
+
     let content: Content =
         serde_wasm_bindgen::from_value(json).expect("Content should be convertible from JSON");
 
     let view = View::new(content);
-    let cons = Array::new_with_length(1);
-    cons.set(0, JsValue::from_str(&format!("{:?}", view)));
-    web_sys::console::log(&cons);
-
+    console_log!(&format!("View: {:?}", view));
     VIEW.replace(Some(view));
 }
 
