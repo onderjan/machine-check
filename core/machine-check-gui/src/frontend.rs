@@ -8,12 +8,12 @@ macro_rules! console_log {
     };
 }
 
-pub mod content;
+pub mod interaction;
+pub mod snapshot;
 mod update;
 mod util;
 
-pub use update::Action;
-
+use interaction::Request;
 use wasm_bindgen::prelude::*;
 use web_sys::Event;
 
@@ -31,7 +31,7 @@ pub async fn resize() {
 }
 
 pub async fn step_verification() {
-    update::update(update::Action::Step, false).await;
+    update::update(Request::Step, false).await;
 }
 
 #[derive(Clone, Copy, Debug)]

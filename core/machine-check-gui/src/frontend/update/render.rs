@@ -2,7 +2,7 @@ use machine_check_exec::NodeId;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
-use crate::frontend::{content::Node, util::PixelPoint};
+use crate::frontend::{snapshot::Node, util::PixelPoint};
 
 use super::{
     view::{Tile, TileType},
@@ -76,7 +76,7 @@ impl Renderer<'_> {
                 TileType::Node(node_id) => {
                     let node = self
                         .view
-                        .content
+                        .snapshot
                         .state_space
                         .nodes
                         .get(node_id)

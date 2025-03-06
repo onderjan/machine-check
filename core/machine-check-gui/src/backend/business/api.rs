@@ -1,7 +1,11 @@
-use crate::frontend::content;
 use machine_check_exec::NodeId;
 use mck::concr::FullMachine;
 use std::{borrow::Cow, collections::BTreeMap};
+
+use crate::frontend::{
+    interaction::Response,
+    snapshot::{Node, Snapshot, StateInfo, StateSpace, ThreeValuedBool},
+};
 
 use super::Business;
 
@@ -14,7 +18,7 @@ pub fn api_response<M: FullMachine>(
             .map(String::from)
             .collect();
 
-    let state_info = content::StateInfo {
+    let state_info = StateInfo {
         field_names: state_field_names.clone(),
     };
 
@@ -39,7 +43,7 @@ pub fn api_response<M: FullMachine>(
             .collect();
         let (fields, panic) = if let Some(state) = state {
             let panic_result = &state.0;
-            let panic = content::ThreeValuedBool {
+            let panic = ThreeValuedBool {
                 zero: panic_result.panic.umin().is_zero(),
                 one: panic_result.panic.umax().is_nonzero(),
             };
@@ -56,7 +60,7 @@ pub fn api_response<M: FullMachine>(
             (BTreeMap::new(), None)
         };
 
-        let node_info = content::Node {
+        let node_info = Node {
             incoming,
             outgoing,
             panic,
@@ -65,14 +69,16 @@ pub fn api_response<M: FullMachine>(
         nodes.insert(node_id, node_info);
     }
 
-    let state_space = content::StateSpace { nodes };
+    let state_space = StateSpace { nodes };
 
-    let content = content::Content {
+    let snapshot = Snapshot {
         exec_name: business.exec_name.clone(),
         state_space,
         state_info,
     };
 
-    let content_msgpack = rmp_serde::to_vec(&content)?;
+    let response = Response { snapshot };
+
+    let content_msgpack = rmp_serde::to_vec(&response)?;
     Ok(Cow::Owned(content_msgpack))
 }

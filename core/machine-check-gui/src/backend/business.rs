@@ -1,12 +1,12 @@
 use std::{borrow::Cow, sync::RwLock};
 
-use http::{header::CONTENT_TYPE, Method, Request, Response};
+use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
 use machine_check_exec::Framework;
 use mck::concr::FullMachine;
 
-use crate::frontend::Action;
+use crate::frontend::interaction::Request;
 
 mod api;
 
@@ -27,7 +27,7 @@ impl<M: FullMachine> Business<M> {
 
     pub fn get_http_response(
         business: &RwLock<Self>,
-        request: Request<Vec<u8>>,
+        request: http::Request<Vec<u8>>,
     ) -> http::Response<Cow<'static, [u8]>> {
         Business::get_response(business, request).unwrap_or_else(|err| {
             error!("{}", err);
@@ -42,7 +42,7 @@ impl<M: FullMachine> Business<M> {
 
     fn get_response(
         business: &RwLock<Self>,
-        request: Request<Vec<u8>>,
+        request: http::Request<Vec<u8>>,
     ) -> Result<http::Response<Cow<'static, [u8]>>, Box<dyn std::error::Error>> {
         // read URI path
         let uri_path = request.uri().path();
@@ -88,14 +88,14 @@ impl<M: FullMachine> Business<M> {
 
     fn get_api_response(
         business: &RwLock<Self>,
-        request: Request<Vec<u8>>,
+        request: http::Request<Vec<u8>>,
     ) -> Result<http::Response<Cow<'static, [u8]>>, Box<dyn std::error::Error>> {
-        let action: Action = rmp_serde::from_slice(request.body())?;
+        let request: Request = rmp_serde::from_slice(request.body())?;
 
         let business = &mut business.write().expect("Lock should not be poisoned");
-        match action {
-            Action::GetContent => {}
-            Action::Step => {
+        match request {
+            Request::GetContent => {}
+            Request::Step => {
                 business.framework.step_verification();
             }
         }
@@ -103,7 +103,7 @@ impl<M: FullMachine> Business<M> {
         // read the current framework state
         let content = api::api_response(business)?;
 
-        Response::builder()
+        http::Response::builder()
             .header(CONTENT_TYPE, "application/vnd.msgpack")
             .body(content)
             .map_err(Into::into)
@@ -124,7 +124,7 @@ impl<M: FullMachine> Business<M> {
                 .to_string(),
         );
 
-        Response::builder()
+        http::Response::builder()
             .header(CONTENT_TYPE, content_type.as_ref())
             .body(Cow::Borrowed(content))
             .map_err(Into::into)

@@ -6,22 +6,14 @@ mod view;
 use std::cell::RefCell;
 
 use machine_check_exec::NodeId;
-use serde::{Deserialize, Serialize};
 use view::View;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{
-    js_sys::{ArrayBuffer, Uint8Array},
-    Request, RequestInit, RequestMode, Response,
-};
+use web_sys::js_sys::{ArrayBuffer, Uint8Array};
 
-use super::{content::Content, util::PixelPoint};
+use crate::frontend::interaction::Response;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Action {
-    GetContent,
-    Step,
-}
+use super::{interaction::Request, util::PixelPoint};
 
 #[derive(Debug)]
 pub struct PointOfView {
@@ -58,15 +50,15 @@ thread_local! {
     static POINT_OF_VIEW: RefCell<PointOfView> = RefCell::new(PointOfView::new());
 }
 
-pub async fn update(action: Action, resize: bool) {
-    execute_action(action).await;
+pub async fn update(request: Request, resize: bool) {
+    execute_request(request).await;
     display_current(resize);
 }
 
 pub async fn display(resize: bool) {
     let should_execute = VIEW.with(|view| view.borrow().is_none());
     if should_execute {
-        execute_action(Action::GetContent).await;
+        execute_request(Request::GetContent).await;
     }
 
     display_current(resize);
@@ -86,8 +78,8 @@ fn display_current(resize: bool) {
     });
 }
 
-async fn execute_action(action: Action) {
-    let result = call_backend(action).await;
+async fn execute_request(request: Request) {
+    let result = call_backend(request).await;
     let response = match result {
         Ok(ok) => ok,
         Err(err) => panic!("{:?}", err),
@@ -97,29 +89,29 @@ async fn execute_action(action: Action) {
 
     let response = Uint8Array::new(&response);
     let response = response.to_vec();
-    let content: Content =
+    let response: Response =
         rmp_serde::from_slice(&response).expect("Content should be convertible from Messagepack");
 
-    let view = View::new(content);
+    let view = View::new(response.snapshot);
     console_log!(&format!("View: {:?}", view));
     VIEW.replace(Some(view));
 }
 
-pub async fn call_backend(action: Action) -> Result<ArrayBuffer, JsValue> {
-    let opts = RequestInit::new();
+pub async fn call_backend(request: Request) -> Result<ArrayBuffer, JsValue> {
+    let opts = web_sys::RequestInit::new();
     opts.set_method("POST");
-    opts.set_mode(RequestMode::Cors);
+    opts.set_mode(web_sys::RequestMode::Cors);
 
-    let body = rmp_serde::to_vec(&action).expect("Action should be serializable");
+    let body = rmp_serde::to_vec(&request).expect("Action should be serializable");
     let body = Uint8Array::from(body.as_slice());
 
     opts.set_body(&body);
 
-    let request = Request::new_with_str_and_init("/api", &opts)?;
+    let request = web_sys::Request::new_with_str_and_init("/api", &opts)?;
 
     let window = web_sys::window().unwrap();
     let response = JsFuture::from(window.fetch_with_request(&request)).await?;
-    let response: Response = response.dyn_into().unwrap();
+    let response: web_sys::Response = response.dyn_into().unwrap();
     let response: ArrayBuffer = JsFuture::from(response.array_buffer()?).await?.into();
 
     Ok(response)

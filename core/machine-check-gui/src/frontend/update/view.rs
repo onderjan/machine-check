@@ -5,7 +5,7 @@ use machine_check_exec::NodeId;
 use wasm_bindgen::JsValue;
 use web_sys::js_sys::Array;
 
-use crate::frontend::content::Content;
+use crate::frontend::snapshot::Snapshot;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Tile {
@@ -30,19 +30,19 @@ pub struct NodeAux {
 
 #[derive(Debug)]
 pub struct View {
-    pub content: Content,
+    pub snapshot: Snapshot,
     pub tiling: BiHashMap<Tile, TileType>,
     pub node_aux: HashMap<NodeId, NodeAux>,
 }
 
 impl View {
-    pub fn new(content: Content) -> View {
+    pub fn new(snapshot: Snapshot) -> View {
         // compute predecessor/successor reserved y-positions using reverse topological sort
-        let (sorted, canonical_predecessors) = topological_sort(&content);
+        let (sorted, canonical_predecessors) = topological_sort(&snapshot);
         let mut reserved = HashMap::<NodeId, usize>::new();
 
         for node_id in sorted.iter().rev().cloned() {
-            let node = content.state_space.nodes.get(&node_id).unwrap();
+            let node = snapshot.state_space.nodes.get(&node_id).unwrap();
             // reserve one position for each non-identity predecessor
             let predecessor_reserve = node
                 .incoming
@@ -78,7 +78,7 @@ impl View {
         stack.push(NodeId::START);
 
         for node_id in sorted {
-            let node = content.state_space.nodes.get(&node_id).unwrap();
+            let node = snapshot.state_space.nodes.get(&node_id).unwrap();
             let node_tile = *tiling
                 .get_by_right(&TileType::Node(node_id))
                 .expect("Node should be in tiling");
@@ -128,7 +128,7 @@ impl View {
                     if *successor_id != node_id
                         && *canonical_predecessors.get(successor_id).unwrap() == node_id
                     {
-                        let successor = content.state_space.nodes.get(successor_id).unwrap();
+                        let successor = snapshot.state_space.nodes.get(successor_id).unwrap();
                         successor
                             .incoming
                             .iter()
@@ -147,7 +147,7 @@ impl View {
 
             let mut successor_split_len = 0;
             let mut self_loop = false;
-            for successor_id in content
+            for successor_id in snapshot
                 .state_space
                 .nodes
                 .get(&node_id)
@@ -213,14 +213,14 @@ impl View {
         web_sys::console::log(&cons);
 
         View {
-            content,
+            snapshot,
             tiling,
             node_aux,
         }
     }
 }
 
-fn topological_sort(content: &Content) -> (Vec<NodeId>, HashMap<NodeId, NodeId>) {
+fn topological_sort(content: &Snapshot) -> (Vec<NodeId>, HashMap<NodeId, NodeId>) {
     // construct a topological ordering using Kahn's algorithm on a DAG
     // the node without any incoming edge is the root
     let (mut dag_outgoing, mut dag_incoming_degree, canonical_predecessors) = {

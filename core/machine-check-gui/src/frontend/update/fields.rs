@@ -5,7 +5,7 @@ use mck::abstr::{ArrayFieldBitvector, BitvectorField, Field};
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlTableCellElement, HtmlTableElement, HtmlTableRowElement};
 
-use crate::frontend::content::Node;
+use crate::frontend::snapshot::Node;
 
 use super::{view::View, PointOfView};
 
@@ -17,7 +17,7 @@ pub fn display(view: &View, point_of_view: &PointOfView) {
         let mut selected = false;
 
         if let Some(node_id) = point_of_view.selected_node_id {
-            let node = view.content.state_space.nodes.get(&node_id);
+            let node = view.snapshot.state_space.nodes.get(&node_id);
             if let Some(node) = node {
                 selected = true;
                 display_node_fields(local, node_id, node);
