@@ -7,16 +7,16 @@ use web_sys::{HtmlTableCellElement, HtmlTableElement, HtmlTableRowElement};
 
 use crate::frontend::snapshot::Node;
 
-use super::{view::View, PointOfView};
+use super::View;
 
-pub fn display(view: &View, point_of_view: &PointOfView) {
+pub fn display(view: &View) {
     LOCAL.with(|local| {
         // remove all children
         local.state_fields.set_inner_html("");
 
         let mut selected = false;
 
-        if let Some(node_id) = point_of_view.selected_node_id {
+        if let Some(node_id) = view.camera.selected_node_id {
             let node = view.snapshot.state_space.nodes.get(&node_id);
             if let Some(node) = node {
                 selected = true;

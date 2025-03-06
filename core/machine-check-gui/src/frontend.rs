@@ -10,8 +10,9 @@ macro_rules! console_log {
 
 pub mod interaction;
 pub mod snapshot;
-mod update;
+
 mod util;
+mod work;
 
 use interaction::Request;
 use wasm_bindgen::prelude::*;
@@ -23,15 +24,16 @@ pub async fn exec() {
 
     setup_listeners();
 
-    update::display(true).await;
+    work::command(Request::GetContent, true).await;
 }
 
 pub async fn resize() {
-    update::display(true).await;
+    // force complete re-render
+    work::render(true);
 }
 
 pub async fn step_verification() {
-    update::update(Request::Step, false).await;
+    work::command(Request::Step, false).await;
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -45,7 +47,7 @@ enum MouseEvent {
 }
 
 async fn on_mouse(mouse: MouseEvent, event: Event) {
-    update::on_mouse(mouse, event).await;
+    work::on_mouse(mouse, event);
 }
 
 fn setup_listeners() {

@@ -2,56 +2,24 @@ use machine_check_exec::NodeId;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
-use crate::frontend::{snapshot::Node, util::PixelPoint};
+use crate::frontend::snapshot::Node;
 
-use super::{
-    view::{Tile, TileType},
-    PointOfView, View,
-};
+use super::{Tile, TileType, View};
 
-pub fn render(view: &View, point_of_view: &PointOfView, resize: bool) {
+pub fn render(view: &View, force: bool) {
     LOCAL.with(|local| {
-        Renderer {
-            view,
-            point_of_view,
-            local,
-        }
-        .render(resize);
+        Renderer { view, local }.render(force);
     });
 }
 
-pub fn get_tile_from_px(point: PixelPoint) -> Option<Tile> {
-    LOCAL.with(|local| {
-        let tile_size = adjust_size(RAW_TILE_SIZE * local.pixel_ratio) as i64;
-        let tile_pos = point / tile_size;
-
-        let tile_x: Result<u64, _> = tile_pos.x.try_into();
-        let tile_y: Result<u64, _> = tile_pos.y.try_into();
-
-        if let (Ok(tile_x), Ok(tile_y)) = (tile_x, tile_y) {
-            Some(Tile {
-                x: tile_x,
-                y: tile_y,
-            })
-        } else {
-            None
-        }
-    })
-}
-
-const RAW_TILE_SIZE: f64 = 46.;
-const RAW_NODE_SIZE: f64 = 30.;
-const RAW_ARROWHEAD_SIZE: f64 = 4.;
-
 struct Renderer<'a> {
     view: &'a View,
-    point_of_view: &'a PointOfView,
     local: &'a Local,
 }
 
 impl Renderer<'_> {
-    fn render(&self, resize: bool) {
-        if resize {
+    fn render(&self, force: bool) {
+        if force {
             self.fix_resized_canvas();
         }
 
@@ -64,7 +32,7 @@ impl Renderer<'_> {
         );
 
         self.local.main_context.save();
-        let view_offset = self.point_of_view.view_offset();
+        let view_offset = self.view.camera.view_offset();
         // the view offset must be subtracted to render to the viewport
         self.local
             .main_context
@@ -116,22 +84,10 @@ impl Renderer<'_> {
         self.local.main_context.restore();
     }
 
-    fn tile_size(&self) -> f64 {
-        adjust_size(RAW_TILE_SIZE * self.local.pixel_ratio)
-    }
-
-    fn node_size(&self) -> f64 {
-        adjust_size(RAW_NODE_SIZE * self.local.pixel_ratio)
-    }
-
-    fn arrowhead_size(&self) -> f64 {
-        adjust_size(RAW_ARROWHEAD_SIZE * self.local.pixel_ratio)
-    }
-
     fn render_node(&self, tile: Tile, node_id: NodeId, node: &Node) {
         let context = &self.local.main_context;
 
-        let is_selected = if let Some(selected_node_id) = self.point_of_view.selected_node_id {
+        let is_selected = if let Some(selected_node_id) = self.view.camera.selected_node_id {
             selected_node_id == node_id
         } else {
             false
@@ -148,7 +104,8 @@ impl Renderer<'_> {
         });
         //if is_selected { "lightblue" } else { "white" });
 
-        let (tile_size, node_size) = (self.tile_size(), self.node_size());
+        let scheme = &self.view.camera.scheme;
+        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         let node_start_x = tile.x as f64 * tile_size + (tile_size - node_size) / 2.;
         let node_start_y = tile.y as f64 * tile_size + (tile_size - node_size) / 2.;
@@ -187,7 +144,8 @@ impl Renderer<'_> {
         let context = &self.local.main_context;
         context.begin_path();
 
-        let (tile_size, node_size) = (self.tile_size(), self.node_size());
+        let scheme = &self.view.camera.scheme;
+        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         let middle_x = tile.x as f64 * tile_size + tile_size / 2.;
         let middle_y = tile.y as f64 * tile_size + tile_size / 2.;
@@ -222,7 +180,8 @@ impl Renderer<'_> {
     fn render_arrow_start(&self, head_tile: Tile, successor_x_offset: u64) {
         let context = &self.local.main_context;
 
-        let (tile_size, node_size) = (self.tile_size(), self.node_size());
+        let scheme = &self.view.camera.scheme;
+        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         // draw the arrowshaft
         context.begin_path();
@@ -238,7 +197,8 @@ impl Renderer<'_> {
     fn render_arrow_split(&self, node_tile: Tile, x_offset: i64, split_len: u64) {
         let context = &self.local.main_context;
 
-        let tile_size = self.tile_size();
+        let scheme = &self.view.camera.scheme;
+        let tile_size = scheme.tile_size as f64;
 
         // draw the arrow split
         context.begin_path();
@@ -253,7 +213,8 @@ impl Renderer<'_> {
     fn render_arrow_end(&self, tail_tile: Tile) {
         let context = &self.local.main_context;
 
-        let (tile_size, node_size) = (self.tile_size(), self.node_size());
+        let scheme = &self.view.camera.scheme;
+        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         // draw the arrowshaft
         context.begin_path();
@@ -265,7 +226,7 @@ impl Renderer<'_> {
         context.stroke();
 
         // draw the arrowhead
-        let arrowhead_size = self.arrowhead_size();
+        let arrowhead_size = scheme.arrowhead_size;
 
         let arrowhead_left_x = tile_left_border_x - arrowhead_size;
         let arrowhead_upper_y = tile_middle_y - arrowhead_size / 2.;
@@ -281,7 +242,8 @@ impl Renderer<'_> {
     fn render_self_loop(&self, node_tile: Tile) {
         let context = &self.local.main_context;
 
-        let (tile_size, node_size) = (self.tile_size(), self.node_size());
+        let scheme = &self.view.camera.scheme;
+        let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         // draw the arrowshaft
         context.begin_path();
@@ -297,7 +259,8 @@ impl Renderer<'_> {
         context.stroke();
 
         // draw the arrowhead
-        let arrowhead_size = self.arrowhead_size();
+        let scheme = &self.view.camera.scheme;
+        let arrowhead_size = scheme.arrowhead_size;
 
         let arrowhead_left_x = tile_middle_x - arrowhead_size / 2.;
         let arrowhead_right_x = tile_middle_x + arrowhead_size / 2.;
@@ -388,9 +351,4 @@ impl Local {
 
 thread_local! {
     static LOCAL: Local = Local::new();
-}
-
-fn adjust_size(unadjusted: f64) -> f64 {
-    // make sure half-size is even
-    (unadjusted / 2.).round() * 2.
 }
