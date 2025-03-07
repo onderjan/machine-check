@@ -5,7 +5,7 @@ use view::{camera::Camera, View};
 use super::interaction::Request;
 
 mod control;
-mod input;
+pub mod input;
 mod view;
 
 pub async fn command(request: Request, force: bool) {
@@ -30,11 +30,21 @@ pub fn render(force: bool) {
     }
 }
 
+pub fn on_keyboard(keyboard: super::KeyboardEvent, event: web_sys::Event) {
+    let mut view_guard = VIEW.lock().expect("View should not be poisoned");
+    let view = view_guard.as_mut();
+    if let Some(view) = view {
+        if input::keyboard::on_keyboard(view, keyboard, event) {
+            view.render(false);
+        }
+    }
+}
+
 pub fn on_mouse(mouse: super::MouseEvent, event: web_sys::Event) {
     let mut view_guard = VIEW.lock().expect("View should not be poisoned");
     let view = view_guard.as_mut();
     if let Some(view) = view {
-        if input::on_mouse(view, mouse, event) {
+        if input::mouse::on_mouse(view, mouse, event) {
             view.render(false);
         }
     }

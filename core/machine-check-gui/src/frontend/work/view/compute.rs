@@ -50,6 +50,7 @@ pub fn compute_tiling_aux(
     stack.push(NodeId::START);
 
     for node_id in sorted {
+        let parent_node_id = canonical_predecessors.get(&node_id).copied();
         let node = snapshot.state_space.nodes.get(&node_id).unwrap();
         let node_tile = *tiling
             .get_by_right(&TileType::Node(node_id))
@@ -59,9 +60,7 @@ pub fn compute_tiling_aux(
 
         let mut predecessor_split_len = 0;
         for predecessor_id in node.incoming.iter().cloned() {
-            if predecessor_id == node_id
-                || predecessor_id == *canonical_predecessors.get(&node_id).unwrap()
-            {
+            if predecessor_id == node_id || predecessor_id == parent_node_id.unwrap() {
                 // ignore loops and canonical predecessors
                 continue;
             }
@@ -118,6 +117,7 @@ pub fn compute_tiling_aux(
 
         let mut successor_split_len = 0;
         let mut self_loop = false;
+        let mut tiling_children = Vec::new();
         for successor_id in snapshot
             .state_space
             .nodes
@@ -134,7 +134,9 @@ pub fn compute_tiling_aux(
             }
 
             let (left, right) = if !tiling.contains_right(&TileType::Node(successor_id)) {
+                tiling_children.push(successor_id);
                 stack.push(successor_id);
+
                 (
                     Tile {
                         x: node_tile.x + successor_x_offset,
@@ -170,6 +172,8 @@ pub fn compute_tiling_aux(
         node_aux.insert(
             node_id,
             NodeAux {
+                tiling_parent: parent_node_id,
+                tiling_children,
                 predecessor_split_len,
                 successor_split_len,
                 successor_x_offset,

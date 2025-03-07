@@ -17,6 +17,7 @@ mod work;
 use interaction::{Request, StepSettings};
 use wasm_bindgen::prelude::*;
 use web_sys::{Event, HtmlInputElement};
+use work::input::{keyboard::KeyboardEvent, mouse::MouseEvent};
 
 #[wasm_bindgen]
 pub async fn exec() {
@@ -61,14 +62,8 @@ pub async fn run() {
     work::command(Request::Step(StepSettings { num_steps: None }), false).await;
 }
 
-#[derive(Clone, Copy, Debug)]
-enum MouseEvent {
-    Click,
-    ContextMenu,
-    Down,
-    Move,
-    Up,
-    Out,
+async fn on_keyboard(keyboard: KeyboardEvent, event: Event) {
+    work::on_keyboard(keyboard, event);
 }
 
 async fn on_mouse(mouse: MouseEvent, event: Event) {
@@ -120,6 +115,26 @@ fn setup_listeners() {
             event_name,
             Box::new(move |e| {
                 wasm_bindgen_futures::spawn_local(on_mouse(event_type, e));
+            }),
+        );
+    }
+
+    for (event_type, event_name) in [
+        (KeyboardEvent::Down, "keydown"),
+        (KeyboardEvent::Up, "keyup"),
+    ] {
+        setup_element_listener(
+            "#main_area",
+            event_name,
+            Box::new(move |e| {
+                wasm_bindgen_futures::spawn_local(on_keyboard(event_type, e));
+            }),
+        );
+        setup_element_listener(
+            "#main_canvas",
+            event_name,
+            Box::new(move |e| {
+                wasm_bindgen_futures::spawn_local(on_keyboard(event_type, e));
             }),
         );
     }
