@@ -95,8 +95,10 @@ impl<M: FullMachine> Business<M> {
         let business = &mut business.write().expect("Lock should not be poisoned");
         match request {
             Request::GetContent => {}
-            Request::Step => {
-                business.framework.step_verification();
+            Request::Step(step_settings) => {
+                business
+                    .framework
+                    .step_verification(step_settings.num_steps);
             }
         }
 

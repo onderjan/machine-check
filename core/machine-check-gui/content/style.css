@@ -55,7 +55,7 @@ body {
     border-top: 1px solid gray;
 }
 
-#step_verification {
+#bottom_bar button {
     font-size: 1.75em;
     padding-top: 0.25em;
     padding-bottom: 0.25em;

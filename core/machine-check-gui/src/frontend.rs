@@ -14,9 +14,9 @@ pub mod snapshot;
 mod util;
 mod work;
 
-use interaction::Request;
+use interaction::{Request, StepSettings};
 use wasm_bindgen::prelude::*;
-use web_sys::Event;
+use web_sys::{Event, HtmlInputElement};
 
 #[wasm_bindgen]
 pub async fn exec() {
@@ -32,8 +32,29 @@ pub async fn resize() {
     work::render(true);
 }
 
-pub async fn step_verification() {
-    work::command(Request::Step, false).await;
+pub async fn step() {
+    let input: HtmlInputElement = web_sys::window()
+        .unwrap()
+        .document()
+        .unwrap()
+        .get_element_by_id("num_steps")
+        .expect("The number of steps element should exist")
+        .dyn_into()
+        .expect("The number of steps element should be an input");
+
+    let num_steps = (input.value_as_number() as u64).max(1);
+
+    work::command(
+        Request::Step(StepSettings {
+            num_steps: Some(num_steps),
+        }),
+        false,
+    )
+    .await;
+}
+
+pub async fn run() {
+    work::command(Request::Step(StepSettings { num_steps: None }), false).await;
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -52,10 +73,18 @@ async fn on_mouse(mouse: MouseEvent, event: Event) {
 
 fn setup_listeners() {
     setup_element_listener(
-        "#step_verification",
+        "#step",
         "click",
         Box::new(|_e| {
-            wasm_bindgen_futures::spawn_local(step_verification());
+            wasm_bindgen_futures::spawn_local(step());
+        }),
+    );
+
+    setup_element_listener(
+        "#run",
+        "click",
+        Box::new(|_e| {
+            wasm_bindgen_futures::spawn_local(run());
         }),
     );
 

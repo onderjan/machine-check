@@ -117,7 +117,7 @@ impl<M: FullMachine> Framework<M> {
     pub fn verify(&mut self) -> Result<bool, ExecError> {
         // loop verification steps until some conclusion is reached
         let result = loop {
-            match self.step_verification() {
+            match self.single_step_verification() {
                 ControlFlow::Continue(()) => {}
                 ControlFlow::Break(result) => break result,
             }
@@ -133,7 +133,26 @@ impl<M: FullMachine> Framework<M> {
         result
     }
 
-    pub fn step_verification(&mut self) -> ControlFlow<Result<bool, ExecError>> {
+    pub fn step_verification(&mut self, num_steps: Option<u64>) {
+        let mut loop_index = 0;
+        loop {
+            // if the number of steps is bounded, stop stepping when it is reached
+            if let Some(num_steps) = num_steps {
+                if loop_index >= num_steps {
+                    return;
+                }
+            }
+
+            // stop stepping when we are done
+            if let ControlFlow::Break(_) = self.single_step_verification() {
+                return;
+            }
+
+            loop_index += 1;
+        }
+    }
+
+    fn single_step_verification(&mut self) -> ControlFlow<Result<bool, ExecError>> {
         // if the space is empty (just after construction), regenerate it
         if self.space.is_empty() {
             self.regenerate(NodeId::START);
