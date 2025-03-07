@@ -3,6 +3,8 @@ mod primitives;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
+use crate::frontend::util::PixelPoint;
+
 use super::{TileType, View};
 
 pub fn render(view: &View, force: bool) {
@@ -32,10 +34,13 @@ impl CanvasRenderer<'_> {
 
         self.main_context.save();
         let view_offset = self.view.camera.view_offset();
+
         // the view offset must be subtracted to render to the viewport
         self.main_context
             .translate(-view_offset.x as f64, -view_offset.y as f64)
             .unwrap();
+
+        self.render_background();
 
         for (tile, tile_type) in &self.view.tiling {
             match tile_type {
@@ -76,6 +81,56 @@ impl CanvasRenderer<'_> {
                     self.render_arrow_end(*tile);
                     self.render_reference(*tile, *head_node_id, *tail_node_id, true);
                 }
+            }
+        }
+
+        self.main_context.restore();
+    }
+
+    fn render_background(&self) {
+        self.main_context.save();
+
+        self.main_context.set_fill_style_str("#FAFAFA");
+        self.main_context.set_stroke_style_str("#DDD");
+
+        let tile_size = self.view.camera.scheme.tile_size;
+
+        let lesser_visible_point = self.view.camera.view_offset();
+        let greater_visible_point = lesser_visible_point
+            + PixelPoint {
+                x: self.main_canvas.width() as i64,
+                y: self.main_canvas.height() as i64,
+            };
+
+        let lesser_tile_x = (lesser_visible_point.x as f64 / tile_size as f64).floor() as i64;
+        let lesser_tile_y = (lesser_visible_point.y as f64 / tile_size as f64).floor() as i64;
+
+        let greater_tile_x = (greater_visible_point.x as f64 / tile_size as f64).ceil() as i64;
+        let greater_tile_y = (greater_visible_point.y as f64 / tile_size as f64).ceil() as i64;
+
+        for tile_x in lesser_tile_x..greater_tile_x {
+            for tile_y in lesser_tile_y..greater_tile_y {
+                /*if (tile_x as u64).wrapping_add(tile_y as u64) % 2 == 1 {
+                    self.main_context.set_fill_style_str("#FFFFFF");
+                } else {
+                    self.main_context.set_fill_style_str("#FAFAFA");
+                }*/
+
+                let start = PixelPoint {
+                    x: tile_x * tile_size as i64,
+                    y: tile_y * tile_size as i64,
+                };
+
+                self.main_context.begin_path();
+                self.main_context.rect(
+                    start.x as f64,
+                    start.y as f64,
+                    tile_size as f64,
+                    tile_size as f64,
+                );
+
+                self.main_context.fill();
+                self.main_context.stroke();
             }
         }
 
