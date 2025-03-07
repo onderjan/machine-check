@@ -79,4 +79,8 @@ impl<M: FullMachine> Precision<M> {
     pub fn input_precision(&self) -> &BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input> {
         &self.input
     }
+
+    pub fn naive_inputs(&self) -> bool {
+        self.naive_inputs
+    }
 }

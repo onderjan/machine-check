@@ -95,6 +95,9 @@ impl<M: FullMachine> Business<M> {
         let business = &mut business.write().expect("Lock should not be poisoned");
         match request {
             Request::GetContent => {}
+            Request::Reset => {
+                business.framework.reset();
+            }
             Request::Step(step_settings) => {
                 business
                     .framework

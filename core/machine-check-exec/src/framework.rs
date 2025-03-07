@@ -55,6 +55,12 @@ pub struct Framework<M: FullMachine> {
     /// Whether each step output should decay to fully-unknown by default.
     use_decay: bool,
 
+    /// Work state containing the structures that change during verification.
+    work_state: WorkState<M>,
+}
+
+/// Work state, i.e. the meta-state of the whole verification.
+struct WorkState<M: FullMachine> {
     /// Refinement precision.
     precision: Precision<M>,
     /// Current state space.
@@ -68,6 +74,29 @@ pub struct Framework<M: FullMachine> {
     num_generated_states: usize,
     /// Number of transitions generated until now.
     num_generated_transitions: usize,
+}
+
+impl<M: FullMachine> WorkState<M> {
+    fn new(naive_inputs: bool) -> Self {
+        Self {
+            precision: Precision::new(naive_inputs),
+            space: Space::new(),
+            culprit: None,
+            num_refinements: 0,
+            num_generated_states: 0,
+            num_generated_transitions: 0,
+        }
+    }
+
+    fn info(&self) -> ExecStats {
+        ExecStats {
+            num_refinements: self.num_refinements,
+            num_generated_states: self.num_generated_states,
+            num_final_states: self.space.num_states(),
+            num_generated_transitions: self.num_generated_transitions,
+            num_final_transitions: self.space.num_transitions(),
+        }
+    }
 }
 
 impl<M: FullMachine> Framework<M> {
@@ -101,13 +130,13 @@ impl<M: FullMachine> Framework<M> {
             property,
             assume_inherent,
             use_decay: strategy.use_decay,
-            precision: Precision::new(strategy.naive_inputs),
-            space: Space::new(),
-            culprit: None,
-            num_refinements: 0,
-            num_generated_states: 0,
-            num_generated_transitions: 0,
+            work_state: WorkState::new(strategy.naive_inputs),
         }
+    }
+
+    pub fn reset(&mut self) {
+        // reset the work state
+        self.work_state = WorkState::new(self.work_state.precision.naive_inputs())
     }
 
     pub fn release_abstract_system(self) -> M::Abstr {
@@ -125,9 +154,15 @@ impl<M: FullMachine> Framework<M> {
 
         if log_enabled!(log::Level::Debug) {
             if !self.assume_inherent {
-                debug!("Property checking final space: {:#?}", self.space);
+                debug!(
+                    "Property checking final space: {:#?}",
+                    self.work_state.space
+                );
             } else {
-                trace!("Inherent no-panic checking final space: {:#?}", self.space);
+                trace!(
+                    "Inherent no-panic checking final space: {:#?}",
+                    self.work_state.space
+                );
             }
         }
         result
@@ -154,9 +189,9 @@ impl<M: FullMachine> Framework<M> {
 
     fn single_step_verification(&mut self) -> ControlFlow<Result<bool, ExecError>> {
         // if the space is empty (just after construction), regenerate it
-        if self.space.is_empty() {
+        if self.work_state.space.is_empty() {
             self.regenerate(NodeId::START);
-        } else if let Some(culprit) = self.culprit.take() {
+        } else if let Some(culprit) = self.work_state.culprit.take() {
             // we have a culprit, refine on it
             if let Err(err) = self.refine(&culprit) {
                 // the refinement is incomplete
@@ -167,11 +202,11 @@ impl<M: FullMachine> Framework<M> {
         }
 
         if log_enabled!(log::Level::Trace) {
-            trace!("Model-checking state space: {:#?}", self.space);
+            trace!("Model-checking state space: {:#?}", self.work_state.space);
         }
 
         // perform model-checking
-        match model_check::check_prop::<M>(&self.space, &self.property) {
+        match model_check::check_prop::<M>(&self.work_state.space, &self.property) {
             Ok(Conclusion::Known(conclusion)) => {
                 // conclude the result
                 // if the inherent property is being verified, replace false result with inherent panic
@@ -187,7 +222,7 @@ impl<M: FullMachine> Framework<M> {
             }
             Ok(Conclusion::Unknown(culprit)) => {
                 // we have a new culprit, continue the control flow
-                self.culprit = Some(culprit);
+                self.work_state.culprit = Some(culprit);
                 ControlFlow::Continue(())
             }
             Err(err) => {
@@ -198,11 +233,11 @@ impl<M: FullMachine> Framework<M> {
     }
 
     fn garbage_collect(&mut self) {
-        if self.space.garbage_collect() {
-            self.precision.retain_indices(|node_id| {
+        if self.work_state.space.garbage_collect() {
+            self.work_state.precision.retain_indices(|node_id| {
                 if let Ok(state_id) = StateId::try_from(node_id) {
                     // only retain those states that are contained
-                    self.space.contains_state_id(state_id)
+                    self.work_state.space.contains_state_id(state_id)
                 } else {
                     // always retain start precision
                     true
@@ -220,7 +255,7 @@ impl<M: FullMachine> Framework<M> {
 
     /// Refines a single bit. OK result contains whether the state space changed.
     fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
-        self.num_refinements += 1;
+        self.work_state.num_refinements += 1;
         // compute marking
         let mut current_state_mark =
             mck::refin::PanicResult::<<M::Refin as refin::Machine<M>>::State>::clean();
@@ -262,7 +297,7 @@ impl<M: FullMachine> Framework<M> {
 
             if self.use_decay {
                 // decay is applied last in forward direction, so we will apply it first
-                let decay_precision = self.precision.mut_decay(previous_node_id);
+                let decay_precision = self.work_state.precision.mut_decay(previous_node_id);
                 //info!("Decay prec: {:?}", decay_precision);
                 if decay_precision.apply_refin(&current_state_mark) {
                     // single mark applied to decay, regenerate
@@ -271,6 +306,7 @@ impl<M: FullMachine> Framework<M> {
             }
 
             let input = self
+                .work_state
                 .space
                 .get_representative_input(previous_node_id, current_state_id);
 
@@ -283,11 +319,11 @@ impl<M: FullMachine> Framework<M> {
                         current_state_id
                     );
                     // use step function
-                    let previous_state = self.space.get_state_by_id(previous_state_id);
+                    let previous_state = self.work_state.space.get_state_by_id(previous_state_id);
 
                     if log_enabled!(log::Level::Trace) {
                         trace!("Earlier state: {:?}", previous_state);
-                        let current_state = self.space.get_state_by_id(current_state_id);
+                        let current_state = self.work_state.space.get_state_by_id(current_state_id);
                         trace!("Later state: {:?}", current_state);
                         trace!("Later mark: {:?}", current_state_mark);
                     }
@@ -309,7 +345,7 @@ impl<M: FullMachine> Framework<M> {
                     );
 
                     if log_enabled!(log::Level::Trace) {
-                        let current_state = self.space.get_state_by_id(current_state_id);
+                        let current_state = self.work_state.space.get_state_by_id(current_state_id);
                         trace!("Later state: {:?}", current_state);
                         trace!("Later mark: {:?}", current_state_mark);
                     }
@@ -320,7 +356,7 @@ impl<M: FullMachine> Framework<M> {
                 }
             };
 
-            let mut input_precision = self.precision.get_input(previous_node_id);
+            let mut input_precision = self.work_state.precision.get_input(previous_node_id);
 
             trace!("Input mark: {:?}", input_mark);
 
@@ -331,7 +367,7 @@ impl<M: FullMachine> Framework<M> {
                         trace!(
                             "Step candidate id: {:?} node: {:?}, input mark: {:?}",
                             previous_state_id,
-                            self.space.get_state_by_id(previous_state_id),
+                            self.work_state.space.get_state_by_id(previous_state_id),
                             input_mark
                         );
                     } else {
@@ -379,7 +415,7 @@ impl<M: FullMachine> Framework<M> {
         // if there is an input precision refinement candidate, apply it
         match input_precision_refinement {
             Some((node_id, refined_input_precision)) => {
-                let input_precision_mut = self.precision.mut_input(node_id);
+                let input_precision_mut = self.work_state.precision.mut_input(node_id);
                 *input_precision_mut = refined_input_precision;
 
                 // single mark applied, regenerate
@@ -397,7 +433,7 @@ impl<M: FullMachine> Framework<M> {
         if log_enabled!(log::Level::Trace) {
             trace!(
                 "Regenerating with input precision {:?}",
-                self.precision.input_precision()
+                self.work_state.precision.input_precision()
             );
         }
         let mut queue = VecDeque::new();
@@ -407,18 +443,18 @@ impl<M: FullMachine> Framework<M> {
         // construct state space by breadth-first search
         while let Some(node_id) = queue.pop_front() {
             // remove outgoing edges
-            let removed_direct_successors = self.space.remove_outgoing_edges(node_id);
+            let removed_direct_successors = self.work_state.space.remove_outgoing_edges(node_id);
 
             // prepare precision
-            let input_precision = self.precision.get_input(node_id);
-            let mut decay_precision = self.precision.get_decay(node_id);
+            let input_precision = self.work_state.precision.get_input(node_id);
+            let mut decay_precision = self.work_state.precision.get_decay(node_id);
             if self.assuming_no_panic() {
                 decay_precision.panic = refin::Bitvector::dirty();
             }
 
             // get current state, none if we are at start node
             let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
-                let current_state = self.space.get_state_by_id(state_id).clone();
+                let current_state = self.work_state.space.get_state_by_id(state_id).clone();
 
                 let mut can_be_panic = true;
                 if let Some(panic_value) = current_state.panic.concrete_value() {
@@ -429,7 +465,8 @@ impl<M: FullMachine> Framework<M> {
                 if can_be_panic {
                     // skip generation from state
                     // loop back to itself instead to retain left-totality
-                    self.space
+                    self.work_state
+                        .space
                         .add_loop(state_id, &input_precision.into_proto_iter().nth(0).unwrap());
                     continue;
                 }
@@ -455,11 +492,12 @@ impl<M: FullMachine> Framework<M> {
                     decay_precision.force_decay(&mut next_state);
                 }
 
-                self.num_generated_transitions += 1;
-                let (next_state_index, added) = self.space.add_step(node_id, next_state, &input);
+                self.work_state.num_generated_transitions += 1;
+                let (next_state_index, added) =
+                    self.work_state.space.add_step(node_id, next_state, &input);
 
                 if added {
-                    self.num_generated_states += 1;
+                    self.work_state.num_generated_states += 1;
                     // add to queue
                     queue.push_back(next_state_index.into());
                 }
@@ -471,6 +509,7 @@ impl<M: FullMachine> Framework<M> {
             if !changed {
                 // compare sets of node ids
                 let direct_successors: HashSet<NodeId> = self
+                    .work_state
                     .space
                     .direct_successor_iter(node_id)
                     .map(|state_id| state_id.into())
@@ -485,7 +524,7 @@ impl<M: FullMachine> Framework<M> {
 
     fn find_panic_string(&mut self) -> Option<&'static str> {
         // TODO: this approach does not work if there are multiple macro invocations
-        let panic_id = self.space.find_panic_id()?;
+        let panic_id = self.work_state.space.find_panic_id()?;
         Some(M::panic_message(panic_id))
     }
 
@@ -494,16 +533,10 @@ impl<M: FullMachine> Framework<M> {
     }
 
     pub fn info(&self) -> ExecStats {
-        ExecStats {
-            num_refinements: self.num_refinements,
-            num_generated_states: self.num_generated_states,
-            num_final_states: self.space.num_states(),
-            num_generated_transitions: self.num_generated_transitions,
-            num_final_transitions: self.space.num_transitions(),
-        }
+        self.work_state.info()
     }
 
     pub fn space(&self) -> &Space<M> {
-        &self.space
+        &self.work_state.space
     }
 }

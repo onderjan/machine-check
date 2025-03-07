@@ -32,6 +32,10 @@ pub async fn resize() {
     work::render(true);
 }
 
+pub async fn reset() {
+    work::command(Request::Reset, false).await;
+}
+
 pub async fn step() {
     let input: HtmlInputElement = web_sys::window()
         .unwrap()
@@ -72,6 +76,14 @@ async fn on_mouse(mouse: MouseEvent, event: Event) {
 }
 
 fn setup_listeners() {
+    setup_element_listener(
+        "#reset",
+        "click",
+        Box::new(|_e| {
+            wasm_bindgen_futures::spawn_local(reset());
+        }),
+    );
+
     setup_element_listener(
         "#step",
         "click",
