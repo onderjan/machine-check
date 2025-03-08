@@ -15,6 +15,7 @@ pub struct Camera {
     pub mouse_current_coords: Option<PixelPoint>,
     pub mouse_down_coords: Option<PixelPoint>,
     pub selected_node_id: Option<NodeId>,
+    pub selected_property_index: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +79,7 @@ impl Camera {
             mouse_current_coords: None,
             mouse_down_coords: None,
             selected_node_id: None,
+            selected_property_index: None,
         }
     }
 
@@ -96,6 +98,27 @@ impl Camera {
         let global_point = viewport_point + self.view_offset;
 
         self.scheme.global_px_tile(global_point)
+    }
+
+    pub fn apply_snapshot(&mut self, snapshot: &crate::frontend::snapshot::Snapshot) {
+        // make sure the selected things are still available
+        if let Some(selected_node_id) = self.selected_node_id {
+            if !snapshot.state_space.nodes.contains_key(&selected_node_id) {
+                self.selected_node_id = None;
+            }
+        }
+
+        let num_total_properties = snapshot.num_total_properties();
+        if let Some(selected_property_index) = self.selected_property_index {
+            if selected_property_index >= num_total_properties {
+                self.selected_property_index = None;
+            }
+        }
+
+        // if no property is selected but there is at least one available, select the first one
+        if self.selected_property_index.is_none() && num_total_properties > 0 {
+            self.selected_property_index = Some(0);
+        }
     }
 }
 

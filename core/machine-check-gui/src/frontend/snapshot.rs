@@ -39,3 +39,48 @@ pub struct PropertySnapshot {
     pub labellings: HashMap<StateId, ThreeValued>,
     pub children: Vec<PropertySnapshot>,
 }
+
+impl Snapshot {
+    pub fn num_total_properties(&self) -> usize {
+        fn recurse(property: &PropertySnapshot, count: &mut usize) {
+            *count += 1;
+            for child in &property.children {
+                recurse(child, count);
+            }
+        }
+        let mut result = 0;
+        for property in &self.properties {
+            recurse(property, &mut result);
+        }
+        result
+    }
+
+    pub fn select_property(&self, index: usize) -> &PropertySnapshot {
+        fn recurse<'a>(
+            property: &'a PropertySnapshot,
+            index: usize,
+            count: &mut usize,
+        ) -> Option<&'a PropertySnapshot> {
+            if *count == index {
+                return Some(property);
+            }
+            *count += 1;
+            for child in &property.children {
+                if let Some(property) = recurse(child, index, count) {
+                    return Some(property);
+                }
+            }
+            None
+        }
+        let mut count = 0;
+        for property in &self.properties {
+            if let Some(property) = recurse(property, index, &mut count) {
+                return property;
+            }
+        }
+        panic!(
+            "Property index out of bounds: the len is {} but the index is {}",
+            count, index
+        );
+    }
+}

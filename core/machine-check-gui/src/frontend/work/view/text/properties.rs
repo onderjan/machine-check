@@ -1,7 +1,11 @@
 use wasm_bindgen::JsCast;
-use web_sys::Element;
+use web_sys::{Element, Event};
 
-use crate::frontend::{snapshot::PropertySnapshot, work::view::View};
+use crate::frontend::{
+    setup_element_listener,
+    snapshot::PropertySnapshot,
+    work::{lock_view, view::View},
+};
 
 pub fn display(view: &View) {
     PropertiesDisplayer::new(view).display();
@@ -30,34 +34,114 @@ impl PropertiesDisplayer<'_> {
         // remove all children
         self.properties_element.set_inner_html("");
 
+        let mut id_index = 0;
         for property in self.view.snapshot.properties.iter() {
-            Self::display_property(property, &self.properties_element);
+            Self::display_property(
+                property,
+                &self.properties_element,
+                self.view.camera.selected_property_index,
+                &mut id_index,
+            );
         }
     }
 
-    fn display_property(property_snapshot: &PropertySnapshot, parent_element: &Element) {
-        let property_li = web_sys::window()
+    fn display_property(
+        property_snapshot: &PropertySnapshot,
+        parent_element: &Element,
+        selected_property: Option<usize>,
+        id_index: &mut usize,
+    ) {
+        let outer_div = web_sys::window()
             .unwrap()
             .document()
             .unwrap()
-            .create_element("li")
+            .create_element("div")
+            .unwrap();
+        outer_div.class_list().add_1("property_outer").unwrap();
+
+        let radio_input = web_sys::window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .create_element("input")
+            .unwrap();
+        radio_input.set_attribute("type", "radio").unwrap();
+        radio_input.set_attribute("name", "property_group").unwrap();
+        radio_input
+            .set_attribute("data-index", &id_index.to_string())
+            .unwrap();
+        let radio_input_id = &format!("property_radio_{}", id_index);
+        radio_input.set_id(radio_input_id);
+
+        if let Some(selected_property) = selected_property {
+            if selected_property == *id_index {
+                radio_input.set_attribute("checked", "true").unwrap();
+            }
+        }
+
+        setup_element_listener(
+            &radio_input,
+            "change",
+            Box::new(move |e| {
+                wasm_bindgen_futures::spawn_local(on_radio_change(e));
+            }),
+        );
+
+        let radio_label = web_sys::window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .create_element("label")
             .unwrap();
 
-        property_li.set_text_content(Some(&property_snapshot.property.to_string()));
+        radio_label.set_attribute("for", radio_input_id).unwrap();
+        radio_label.set_text_content(Some(&property_snapshot.property.to_string()));
+
+        outer_div.append_child(&radio_input).unwrap();
+        outer_div.append_child(&radio_label).unwrap();
 
         let property_ul = web_sys::window()
             .unwrap()
             .document()
             .unwrap()
-            .create_element("ul")
+            .create_element("div")
             .unwrap();
 
-        property_li.append_child(&property_ul).unwrap();
+        outer_div.append_child(&property_ul).unwrap();
+
+        parent_element.append_child(&outer_div).unwrap();
+
+        *id_index += 1;
 
         for child in &property_snapshot.children {
-            Self::display_property(child, &property_ul);
+            Self::display_property(child, &property_ul, selected_property, id_index);
+            *id_index += 1;
         }
-
-        parent_element.append_child(&property_li).unwrap();
     }
+}
+
+async fn on_radio_change(event: Event) {
+    let mut view_guard = lock_view();
+    let Some(view) = view_guard.as_mut() else {
+        return;
+    };
+
+    let element: Element = event.current_target().unwrap().dyn_into().unwrap();
+
+    let index: usize = element
+        .get_attribute("data-index")
+        .unwrap()
+        .parse()
+        .unwrap();
+
+    if let Some(current_selected) = view.camera.selected_property_index {
+        if current_selected == index {
+            // already selected, do nothing
+            return;
+        }
+    }
+
+    // change and redraw
+    view.camera.selected_property_index = Some(index);
+    view.render(false);
 }

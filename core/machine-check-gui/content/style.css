@@ -101,6 +101,13 @@ body {
     padding: 0.5em;
 }
 
+.property_outer {
+    margin-left: 2em;
+}
+
+#properties>.property_outer {
+    margin-left: 0em;
+}
 
 /* a little styling never hurt anyone */
 #top_bar,

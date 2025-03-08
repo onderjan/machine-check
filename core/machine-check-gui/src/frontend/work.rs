@@ -1,4 +1,4 @@
-use std::sync::{LazyLock, Mutex};
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use view::{camera::Camera, View};
 
@@ -76,3 +76,7 @@ async fn command(request: Request, force: bool) {
 }
 
 static VIEW: LazyLock<Mutex<Option<View>>> = LazyLock::new(|| Mutex::new(None));
+
+fn lock_view() -> MutexGuard<'static, Option<View>> {
+    VIEW.lock().expect("View should not be poisoned")
+}

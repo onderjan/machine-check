@@ -43,7 +43,17 @@ impl CanvasRenderer<'_> {
         self.render_background();
 
         // TODO: use the selected property
-        let labellings = &self.view.snapshot.properties.first().unwrap().labellings;
+        let labellings = self
+            .view
+            .camera
+            .selected_property_index
+            .map(|selected_property_index| {
+                &self
+                    .view
+                    .snapshot
+                    .select_property(selected_property_index)
+                    .labellings
+            });
 
         for (tile, tile_type) in &self.view.tiling {
             match tile_type {
@@ -57,7 +67,9 @@ impl CanvasRenderer<'_> {
                         .expect("Tiling should have a node");
                     let aux = self.view.node_aux.get(node_id).unwrap();
 
-                    let labelling = if let Ok(state_id) = (*node_id).try_into() {
+                    let labelling = if let (Some(labellings), Ok(state_id)) =
+                        (labellings, (*node_id).try_into())
+                    {
                         labellings.get(&state_id).copied()
                     } else {
                         None

@@ -53,8 +53,11 @@ pub enum NavigationTarget {
 }
 
 impl View {
-    pub fn new(snapshot: Snapshot, camera: Camera) -> View {
+    pub fn new(snapshot: Snapshot, mut camera: Camera) -> View {
         let (tiling, node_aux) = compute::compute_tiling_aux(&snapshot);
+
+        camera.apply_snapshot(&snapshot);
+
         View {
             snapshot,
             tiling,

@@ -15,7 +15,7 @@ mod util;
 mod work;
 
 use wasm_bindgen::prelude::*;
-use web_sys::{Event, HtmlInputElement};
+use web_sys::{Element, Event, HtmlInputElement};
 use work::input::{keyboard::KeyboardEvent, mouse::MouseEvent};
 
 #[wasm_bindgen]
@@ -64,7 +64,7 @@ async fn on_mouse(mouse: MouseEvent, event: Event) {
 }
 
 fn setup_listeners() {
-    setup_element_listener(
+    setup_selector_listener(
         "#reset",
         "click",
         Box::new(|_e| {
@@ -72,7 +72,7 @@ fn setup_listeners() {
         }),
     );
 
-    setup_element_listener(
+    setup_selector_listener(
         "#step",
         "click",
         Box::new(|_e| {
@@ -80,7 +80,7 @@ fn setup_listeners() {
         }),
     );
 
-    setup_element_listener(
+    setup_selector_listener(
         "#run",
         "click",
         Box::new(|_e| {
@@ -103,7 +103,7 @@ fn setup_listeners() {
         (MouseEvent::Up, "mouseup"),
         (MouseEvent::Out, "mouseout"),
     ] {
-        setup_element_listener(
+        setup_selector_listener(
             "#main_canvas",
             event_name,
             Box::new(move |e| {
@@ -116,14 +116,14 @@ fn setup_listeners() {
         (KeyboardEvent::Down, "keydown"),
         (KeyboardEvent::Up, "keyup"),
     ] {
-        setup_element_listener(
+        setup_selector_listener(
             "#main_area",
             event_name,
             Box::new(move |e| {
                 wasm_bindgen_futures::spawn_local(on_keyboard(event_type, e));
             }),
         );
-        setup_element_listener(
+        setup_selector_listener(
             "#main_canvas",
             event_name,
             Box::new(move |e| {
@@ -133,19 +133,15 @@ fn setup_listeners() {
     }
 }
 
-fn setup_element_listener(selector: &str, ty: &str, func: Box<dyn FnMut(web_sys::Event)>) {
-    let closure = Closure::wrap(func);
-
+fn setup_selector_listener(selector: &str, event_name: &str, func: Box<dyn FnMut(web_sys::Event)>) {
     let window = web_sys::window().expect("HTML Window should exist");
     let document = window.document().expect("HTML document should exist");
-    document
+    let element = document
         .query_selector(selector)
         .expect("Selector should succeed")
-        .expect("Selector should select")
-        .add_event_listener_with_callback(ty, closure.as_ref().unchecked_ref())
-        .expect("Adding a listener should succeed");
-    // the closure must be explicitely forgotten so it remains accessible
-    closure.forget();
+        .expect("Selector should select some element");
+
+    setup_element_listener(&element, event_name, func);
 }
 
 fn setup_window_listener(ty: &str, func: Box<dyn FnMut(web_sys::Event)>) {
@@ -153,7 +149,20 @@ fn setup_window_listener(ty: &str, func: Box<dyn FnMut(web_sys::Event)>) {
 
     let window = web_sys::window().expect("HTML Window should exist");
     window
-        .add_event_listener_with_callback(ty, closure.as_ref().unchecked_ref())
+        .add_event_listener_with_callback(ty, closure.as_ref().dyn_ref().unwrap())
+        .expect("Adding a listener should succeed");
+    // the closure must be explicitely forgotten so it remains accessible
+    closure.forget();
+}
+
+fn setup_element_listener(
+    element: &Element,
+    event_name: &str,
+    func: Box<dyn FnMut(web_sys::Event)>,
+) {
+    let closure = Closure::wrap(func);
+    element
+        .add_event_listener_with_callback(event_name, closure.as_ref().dyn_ref().unwrap())
         .expect("Adding a listener should succeed");
     // the closure must be explicitely forgotten so it remains accessible
     closure.forget();
