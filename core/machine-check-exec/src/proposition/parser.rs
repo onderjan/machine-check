@@ -75,8 +75,8 @@ impl PropositionParser {
     fn parse_r(&mut self) -> Result<PropR, ExecError> {
         let bi = self.parse_bi()?;
         Ok(PropR {
-            hold: bi.a,
-            release: bi.b,
+            releaser: bi.a,
+            releasee: bi.b,
         })
     }
 

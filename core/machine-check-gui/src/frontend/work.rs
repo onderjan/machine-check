@@ -1,6 +1,7 @@
 use std::sync::{LazyLock, Mutex};
 
-use view::{camera::Camera, View};
+use machine_check_exec::Proposition;
+use view::{camera::Camera, PropertiesView, View};
 
 use super::interaction::Request;
 
@@ -14,9 +15,10 @@ pub async fn command(request: Request, force: bool) {
     let mut view = VIEW.lock().expect("View should not be poisoned");
 
     let new_view = if let Some(view) = view.take() {
-        View::new(new_snapshot, view.camera)
+        View::new(new_snapshot, view.camera, view.properties)
     } else {
-        View::new(new_snapshot, Camera::new())
+        let properties = PropertiesView::new(vec![Proposition::inherent()]);
+        View::new(new_snapshot, Camera::new(), properties)
     };
     new_view.render(force);
     view.replace(new_view);

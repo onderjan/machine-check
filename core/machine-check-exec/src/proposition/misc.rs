@@ -22,7 +22,7 @@ impl PropTemp {
             PropTemp::G(inner) => inner.0.contains_negation(),
             PropTemp::U(inner) => inner.hold.contains_negation() || inner.until.contains_negation(),
             PropTemp::R(inner) => {
-                inner.hold.contains_negation() || inner.release.contains_negation()
+                inner.releaser.contains_negation() || inner.releasee.contains_negation()
             }
         }
     }

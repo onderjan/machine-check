@@ -16,9 +16,6 @@ use mck::refin::{self};
 use crate::model_check::Conclusion;
 use crate::model_check::Culprit;
 use crate::model_check::PreparedProposition;
-use crate::proposition::Literal;
-use crate::proposition::PropG;
-use crate::proposition::PropTemp;
 use crate::proposition::Proposition;
 use crate::space::NodeId;
 use crate::space::StateId;
@@ -109,14 +106,7 @@ impl<M: FullMachine> Framework<M> {
         let (property, assume_inherent) = match verification_type {
             VerificationType::Inherent => {
                 // the inherent property is that there is no panic, i.e. AG[panic=0]
-                let property = Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
-                    Literal::new(
-                        String::from("__panic"),
-                        crate::proposition::ComparisonType::Eq,
-                        0,
-                        None,
-                    ),
-                )))));
+                let property = Proposition::inherent();
                 (property, false)
             }
             VerificationType::Property(property) => (property, true),

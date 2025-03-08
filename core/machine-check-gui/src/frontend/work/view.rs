@@ -2,15 +2,41 @@ pub mod camera;
 mod canvas;
 mod compute;
 mod constants;
-mod fields;
+mod text;
 
 use std::collections::HashMap;
 
 use bimap::BiHashMap;
 use camera::Camera;
-use machine_check_exec::NodeId;
+use machine_check_exec::{NodeId, Proposition};
 
 use crate::frontend::snapshot::Snapshot;
+
+#[derive(Debug)]
+pub struct PropertyView {
+    prop: Proposition,
+    children: Vec<PropertyView>,
+}
+
+impl PropertyView {
+    fn new(prop: Proposition) -> PropertyView {
+        let children = prop.children().into_iter().map(PropertyView::new).collect();
+        PropertyView { prop, children }
+    }
+}
+
+#[derive(Debug)]
+pub struct PropertiesView {
+    vec: Vec<PropertyView>,
+}
+
+impl PropertiesView {
+    pub fn new(properties: Vec<Proposition>) -> Self {
+        PropertiesView {
+            vec: properties.into_iter().map(PropertyView::new).collect(),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct View {
@@ -18,6 +44,7 @@ pub struct View {
     pub tiling: BiHashMap<Tile, TileType>,
     pub node_aux: HashMap<NodeId, NodeAux>,
     pub camera: Camera,
+    pub properties: PropertiesView,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -53,19 +80,20 @@ pub enum NavigationTarget {
 }
 
 impl View {
-    pub fn new(snapshot: Snapshot, camera: Camera) -> View {
+    pub fn new(snapshot: Snapshot, camera: Camera, properties: PropertiesView) -> View {
         let (tiling, node_aux) = compute::compute_tiling_aux(&snapshot);
         View {
             snapshot,
             tiling,
             node_aux,
             camera,
+            properties,
         }
     }
 
     pub fn render(&self, force: bool) {
         canvas::render(self, force);
-        fields::display(self);
+        text::display(self);
     }
 
     pub fn navigate(&mut self, target: NavigationTarget) {

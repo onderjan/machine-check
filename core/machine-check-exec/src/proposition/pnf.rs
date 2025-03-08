@@ -174,8 +174,8 @@ impl PropU {
     #[must_use]
     pub fn pnf_with_complement(&self) -> PropR {
         PropR {
-            hold: Box::new(self.hold.pnf_inner(true)),
-            release: Box::new(self.until.pnf_inner(true)),
+            releaser: Box::new(self.hold.pnf_inner(true)),
+            releasee: Box::new(self.until.pnf_inner(true)),
         }
     }
 
@@ -192,16 +192,16 @@ impl PropR {
     #[must_use]
     pub fn pnf_with_complement(&self) -> PropU {
         PropU {
-            hold: Box::new(self.hold.pnf_inner(true)),
-            until: Box::new(self.release.pnf_inner(true)),
+            hold: Box::new(self.releaser.pnf_inner(true)),
+            until: Box::new(self.releasee.pnf_inner(true)),
         }
     }
 
     #[must_use]
     pub fn pnf_no_complement(&self) -> Self {
         PropR {
-            hold: Box::new(self.hold.pnf_inner(false)),
-            release: Box::new(self.release.pnf_inner(false)),
+            releaser: Box::new(self.releaser.pnf_inner(false)),
+            releasee: Box::new(self.releasee.pnf_inner(false)),
         }
     }
 }

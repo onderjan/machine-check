@@ -132,8 +132,8 @@ impl PropR {
     #[must_use]
     pub fn negated(&self) -> PropU {
         PropU {
-            hold: Box::new(make_negated((*self.hold).clone())),
-            until: Box::new(make_negated((*self.release).clone())),
+            hold: Box::new(make_negated((*self.releaser).clone())),
+            until: Box::new(make_negated((*self.releasee).clone())),
         }
     }
 }
