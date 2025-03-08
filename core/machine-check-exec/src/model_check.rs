@@ -4,7 +4,7 @@ mod deduce;
 use std::collections::VecDeque;
 
 use log::trace;
-use machine_check_common::ExecError;
+use machine_check_common::{ExecError, ThreeValued};
 use mck::concr::FullMachine;
 use serde::{Deserialize, Serialize};
 
@@ -102,17 +102,17 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         }
     }
 
-    fn get_state_interpretation(&self, prop: &Proposition, state_index: StateId) -> Option<bool> {
+    fn get_state_interpretation(&self, prop: &Proposition, state_index: StateId) -> ThreeValued {
         let pessimistic_interpretation =
             self.pessimistic.get_labelling(prop).contains(&state_index);
         let optimistic_interpretation = self.optimistic.get_labelling(prop).contains(&state_index);
         match (pessimistic_interpretation, optimistic_interpretation) {
-            (false, false) => Some(false),
-            (false, true) => None,
-            (true, true) => Some(true),
+            (false, false) => ThreeValued::False,
+            (false, true) => ThreeValued::Unknown,
+            (true, true) => ThreeValued::True,
             (true, false) => {
-                // do not panic here, intermediate result
-                None
+                // do not panic here, there can be such a result for intermediate propositions
+                ThreeValued::Unknown
             }
         }
     }

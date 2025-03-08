@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, VecDeque};
 
-use machine_check_common::ExecError;
+use machine_check_common::{ExecError, ThreeValued};
 use mck::concr::FullMachine;
 
 use crate::{
@@ -20,7 +20,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     for initial_index in checker.space.initial_iter() {
         if checker
             .get_state_interpretation(prop, initial_index)
-            .is_none()
+            .is_unknown()
         {
             // unknown initial state, compute culprit from it
             let mut path = VecDeque::new();
@@ -40,7 +40,7 @@ fn deduce_end<M: FullMachine>(
 ) -> Result<Culprit, ExecError> {
     assert!(checker
         .get_state_interpretation(prop, *path.back().unwrap())
-        .is_none());
+        .is_unknown());
     match prop {
         Proposition::Const(_) => {
             // never ends in const
@@ -61,11 +61,11 @@ fn deduce_end<M: FullMachine>(
             // the state should be unknown in p or q
             let state_index = *path.back().unwrap();
             let a_interpretation = checker.get_state_interpretation(a.as_ref(), state_index);
-            if a_interpretation.is_none() {
+            if a_interpretation.is_unknown() {
                 deduce_end(checker, a, path)
             } else {
                 let b_interpretation = checker.get_state_interpretation(b.as_ref(), state_index);
-                assert!(b_interpretation.is_none());
+                assert!(b_interpretation.is_unknown());
                 deduce_end(checker, b.as_ref(), path)
             }
         }
@@ -73,11 +73,11 @@ fn deduce_end<M: FullMachine>(
             // the state should be unknown in p or q
             let state_index = *path.back().unwrap();
             let a_interpretation = checker.get_state_interpretation(a.as_ref(), state_index);
-            if a_interpretation.is_none() {
+            if a_interpretation.is_unknown() {
                 deduce_end(checker, a, path)
             } else {
                 let b_interpretation = checker.get_state_interpretation(b.as_ref(), state_index);
-                assert!(b_interpretation.is_none());
+                assert!(b_interpretation.is_unknown());
                 deduce_end(checker, b.as_ref(), path)
             }
         }
@@ -108,7 +108,7 @@ fn deduce_end_ex<M: FullMachine>(
     for direct_successor_index in checker.space.direct_successor_iter(path_back_index.into()) {
         let direct_successor_interpretation =
             checker.get_state_interpretation(inner.0.as_ref(), direct_successor_index);
-        if direct_successor_interpretation.is_none() {
+        if direct_successor_interpretation.is_unknown() {
             // add to path
             let mut path = path.clone();
             path.push_back(direct_successor_index);
@@ -133,7 +133,7 @@ fn deduce_end_eg<M: FullMachine>(
     while let Some(state_index) = queue.pop_front() {
         let inner_interpretation = checker.get_state_interpretation(&inner.0, state_index);
         match inner_interpretation {
-            Some(true) => {
+            ThreeValued::True => {
                 // continue down this path
                 for direct_successor in checker.space.direct_successor_iter(state_index.into()) {
                     backtrack_map.entry(direct_successor).or_insert_with(|| {
@@ -142,10 +142,10 @@ fn deduce_end_eg<M: FullMachine>(
                     });
                 }
             }
-            Some(false) => {
+            ThreeValued::False => {
                 // do not continue down this path, nothing can change that EG definitely does not hold here
             }
-            None => {
+            ThreeValued::Unknown => {
                 // reconstruct the path to the state
                 let mut suffix = VecDeque::new();
                 let mut backtrack_state_index = state_index;
@@ -186,14 +186,18 @@ fn deduce_end_eu<M: FullMachine>(
     while let Some(state_index) = queue.pop_front() {
         let hold_interpretation = checker.get_state_interpretation(&inner.hold, state_index);
         let until_interpretation = checker.get_state_interpretation(&inner.until, state_index);
-        if let Some(false) = hold_interpretation {
+        if hold_interpretation.is_false() {
+            // hold is false, so this state must have a known labelling that resolves this path
+            // so it is pointless to continue here
             continue;
         }
-        if let Some(true) = until_interpretation {
+        if until_interpretation.is_true() {
+            // until is true, so this state must have a known labelling that resolves this path
+            // so it is pointless to continue here
             continue;
         }
-        if hold_interpretation.is_some() && until_interpretation.is_some() {
-            // continue down the path
+        if hold_interpretation.is_known() && until_interpretation.is_known() {
+            // everything is known about this state, so it is not the culprit, continue down the path
             for direct_successor in checker.space.direct_successor_iter(state_index.into()) {
                 backtrack_map.entry(direct_successor).or_insert_with(|| {
                     queue.push_back(direct_successor);
@@ -219,10 +223,10 @@ fn deduce_end_eu<M: FullMachine>(
         let mut path = path.clone();
         path.append(&mut suffix);
 
-        return if hold_interpretation.is_none() {
+        return if hold_interpretation.is_unknown() {
             deduce_end(checker, &inner.hold, &path)
         } else {
-            assert!(until_interpretation.is_none());
+            assert!(until_interpretation.is_unknown());
             deduce_end(checker, &inner.until, &path)
         };
     }

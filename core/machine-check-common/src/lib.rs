@@ -50,6 +50,24 @@ pub enum ThreeValued {
     Unknown,
 }
 
+impl ThreeValued {
+    pub fn is_unknown(&self) -> bool {
+        matches!(self, ThreeValued::Unknown)
+    }
+
+    pub fn is_known(&self) -> bool {
+        !self.is_unknown()
+    }
+
+    pub fn is_false(&self) -> bool {
+        matches!(self, ThreeValued::False)
+    }
+
+    pub fn is_true(&self) -> bool {
+        matches!(self, ThreeValued::True)
+    }
+}
+
 impl Not for ThreeValued {
     type Output = Self;
 
