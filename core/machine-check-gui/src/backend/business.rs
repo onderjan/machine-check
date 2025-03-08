@@ -3,7 +3,7 @@ use std::{borrow::Cow, sync::RwLock};
 use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
-use machine_check_exec::Framework;
+use machine_check_exec::{Framework, PreparedProperty, Proposition};
 use mck::concr::FullMachine;
 
 use crate::frontend::interaction::Request;
@@ -15,6 +15,25 @@ const CONTENT_DIR: Dir = include_dir!("content");
 pub struct Business<M: FullMachine> {
     framework: Framework<M>,
     exec_name: String,
+    properties: Vec<BusinessProperty>,
+    log: String,
+}
+
+struct BusinessProperty {
+    property: PreparedProperty,
+    children: Vec<BusinessProperty>,
+}
+
+impl BusinessProperty {
+    fn new(property: PreparedProperty) -> BusinessProperty {
+        let children = property
+            .original()
+            .children()
+            .into_iter()
+            .map(|child| BusinessProperty::new(PreparedProperty::new(child)))
+            .collect();
+        BusinessProperty { property, children }
+    }
 }
 
 impl<M: FullMachine> Business<M> {
@@ -22,6 +41,10 @@ impl<M: FullMachine> Business<M> {
         Business {
             framework,
             exec_name,
+            properties: vec![BusinessProperty::new(PreparedProperty::new(
+                Proposition::inherent(),
+            ))],
+            log: String::new(),
         }
     }
 

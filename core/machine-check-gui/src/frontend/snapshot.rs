@@ -1,7 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use machine_check_common::ThreeValued;
-use machine_check_exec::NodeId;
+use machine_check_exec::{NodeId, PreparedProperty, StateId};
 use serde::{Deserialize, Serialize};
 
 use mck::abstr::Field;
@@ -11,6 +11,8 @@ pub struct Snapshot {
     pub exec_name: String,
     pub state_space: StateSpace,
     pub state_info: StateInfo,
+    pub properties: Vec<PropertySnapshot>,
+    pub log: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,4 +31,11 @@ pub struct Node {
     pub outgoing: BTreeSet<NodeId>,
     pub panic: Option<ThreeValued>,
     pub fields: BTreeMap<String, Field>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PropertySnapshot {
+    pub property: PreparedProperty,
+    pub labellings: HashMap<StateId, ThreeValued>,
+    pub children: Vec<PropertySnapshot>,
 }

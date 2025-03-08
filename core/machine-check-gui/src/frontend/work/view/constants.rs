@@ -1,8 +1,6 @@
 use machine_check_common::ThreeValued;
 use web_sys::CanvasRenderingContext2d;
 
-use crate::frontend::snapshot::Node;
-
 pub const RAW_TILE_SIZE: f64 = 46.;
 pub const RAW_NODE_SIZE: f64 = 30.;
 pub const RAW_ARROWHEAD_SIZE: f64 = 4.;
@@ -19,7 +17,7 @@ pub mod colors {
 pub const NODE_LINE_WIDTH_SELECTED: f64 = 3.;
 pub const NODE_LINE_WIDTH_UNSELECTED: f64 = 1.;
 
-pub fn three_valued_color(value: ThreeValued) -> &'static str {
+pub fn labelling_color(value: ThreeValued) -> &'static str {
     match value {
         ThreeValued::Unknown => colors::UNKNOWN,
         ThreeValued::True => colors::TRUE,
@@ -27,10 +25,14 @@ pub fn three_valued_color(value: ThreeValued) -> &'static str {
     }
 }
 
-pub fn setup_node_context(context: &CanvasRenderingContext2d, node: &Node, is_selected: bool) {
-    let node_color = match node.panic {
+pub fn setup_node_context(
+    context: &CanvasRenderingContext2d,
+    labelling: Option<ThreeValued>,
+    is_selected: bool,
+) {
+    let node_color = match labelling {
         None => colors::NOT_APPLICABLE,
-        Some(panic) => three_valued_color(!panic),
+        Some(labelling) => labelling_color(labelling),
     };
     context.set_fill_style_str(node_color);
     context.set_line_width(if is_selected {

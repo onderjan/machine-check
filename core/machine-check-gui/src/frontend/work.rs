@@ -1,7 +1,6 @@
 use std::sync::{LazyLock, Mutex};
 
-use machine_check_exec::Proposition;
-use view::{camera::Camera, PropertiesView, View};
+use view::{camera::Camera, View};
 
 use super::interaction::{Request, StepSettings};
 
@@ -22,7 +21,7 @@ pub async fn step(num_steps: Option<u64>) {
         };
 
         // TODO: real property selection
-        view.properties.vec.first().unwrap().prepared().clone()
+        view.snapshot.properties.first().unwrap().property.clone()
     };
 
     command(
@@ -68,10 +67,9 @@ async fn command(request: Request, force: bool) {
     let mut view_guard = VIEW.lock().expect("View should not be poisoned");
 
     let new_view = if let Some(view) = view_guard.take() {
-        View::new(new_snapshot, view.camera, view.properties)
+        View::new(new_snapshot, view.camera)
     } else {
-        let properties = PropertiesView::new(vec![Proposition::inherent()]);
-        View::new(new_snapshot, Camera::new(), properties)
+        View::new(new_snapshot, Camera::new())
     };
     new_view.render(force);
     view_guard.replace(new_view);

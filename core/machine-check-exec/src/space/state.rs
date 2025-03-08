@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 /// Even generating states at a rate of 10 giga per second, it would take
 /// 58.45 years to overflow.
 ///
-#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StateId(pub NonZeroU64);
 
 impl Debug for StateId {

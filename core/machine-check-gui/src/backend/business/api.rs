@@ -1,17 +1,21 @@
 use machine_check_common::ThreeValued;
-use machine_check_exec::NodeId;
+use machine_check_exec::{Framework, NodeId};
 use mck::concr::FullMachine;
-use std::{borrow::Cow, collections::BTreeMap};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, HashMap},
+    fmt::Write,
+};
 
 use crate::frontend::{
     interaction::Response,
-    snapshot::{Node, Snapshot, StateInfo, StateSpace},
+    snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace},
 };
 
-use super::Business;
+use super::{Business, BusinessProperty};
 
 pub fn api_response<M: FullMachine>(
-    business: &Business<M>,
+    business: &mut Business<M>,
 ) -> Result<Cow<'static, [u8]>, Box<dyn std::error::Error>> {
     let state_field_names: Vec<String> =
         <<M::Abstr as mck::abstr::Machine<M>>::State as mck::abstr::Manipulatable>::field_names()
@@ -76,14 +80,49 @@ pub fn api_response<M: FullMachine>(
 
     let state_space = StateSpace { nodes };
 
+    let mut properties = Vec::new();
+    for business_property in &business.properties {
+        properties.push(create_property_snapshot(
+            &business.framework,
+            business_property,
+            &mut business.log,
+        ));
+    }
+
     let snapshot = Snapshot {
         exec_name: business.exec_name.clone(),
         state_space,
         state_info,
+        properties,
+        log: business.log.clone(),
     };
 
     let response = Response { snapshot };
 
     let content_msgpack = rmp_serde::to_vec(&response)?;
     Ok(Cow::Owned(content_msgpack))
+}
+
+fn create_property_snapshot<M: FullMachine>(
+    framework: &Framework<M>,
+    business_property: &BusinessProperty,
+    business_log: &mut String,
+) -> PropertySnapshot {
+    let labellings = match framework.compute_property_labelling(&business_property.property) {
+        Ok(ok) => ok,
+        Err(err) => {
+            writeln!(business_log, "{}", err).unwrap();
+            HashMap::new()
+        }
+    };
+    let children = business_property
+        .children
+        .iter()
+        .map(|child| create_property_snapshot(framework, child, business_log))
+        .collect();
+    PropertySnapshot {
+        property: business_property.property.clone(),
+        labellings,
+        children,
+    }
 }

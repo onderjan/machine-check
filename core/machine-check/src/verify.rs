@@ -32,12 +32,12 @@ pub fn verify<M: FullMachine>(system: M, run_args: ExecArgs) -> ExecResult {
     if prop.is_none() != run_args.inherent {
         panic!("Expected exactly one of property or inherent");
     }
-    verify_inner(system, &prop, run_args.assume_inherent, strategy)
+    verify_inner(system, prop, run_args.assume_inherent, strategy)
 }
 
 fn verify_inner<M: FullMachine>(
     system: M,
-    prop: &Option<Proposition>,
+    prop: Option<Proposition>,
     assume_inherent: bool,
     strategy: Strategy,
 ) -> ExecResult {
@@ -61,7 +61,7 @@ fn verify_inner<M: FullMachine>(
     // verify inherent property first
     let mut framework = Framework::<M>::new(abstract_system, &strategy);
 
-    let inherent_property = PreparedProperty::new(&Proposition::inherent());
+    let inherent_property = PreparedProperty::new(Proposition::inherent());
 
     match prop {
         Some(prop) => {

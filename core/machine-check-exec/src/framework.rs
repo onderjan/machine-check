@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::ops::ControlFlow;
@@ -7,6 +8,7 @@ use log::log_enabled;
 use log::trace;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
+use machine_check_common::ThreeValued;
 use mck::abstr;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
@@ -192,7 +194,7 @@ impl<M: FullMachine> Framework<M> {
         }
 
         // perform model-checking
-        match model_check::check_prop::<M>(&self.work_state.space, property) {
+        match model_check::check_property::<M>(&self.work_state.space, property) {
             Ok(Conclusion::Known(conclusion)) => {
                 // conclude the result
                 ControlFlow::Break(Ok(conclusion))
@@ -497,6 +499,13 @@ impl<M: FullMachine> Framework<M> {
             }
         }
         changed
+    }
+
+    pub fn compute_property_labelling(
+        &self,
+        property: &PreparedProperty,
+    ) -> Result<HashMap<StateId, ThreeValued>, ExecError> {
+        model_check::compute_property_labelling(&self.work_state.space, property)
     }
 
     pub fn find_panic_string(&mut self) -> Option<&'static str> {

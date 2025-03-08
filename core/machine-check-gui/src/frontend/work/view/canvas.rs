@@ -42,6 +42,9 @@ impl CanvasRenderer<'_> {
 
         self.render_background();
 
+        // TODO: use the selected property
+        let labellings = &self.view.snapshot.properties.first().unwrap().labellings;
+
         for (tile, tile_type) in &self.view.tiling {
             match tile_type {
                 TileType::Node(node_id) => {
@@ -54,7 +57,13 @@ impl CanvasRenderer<'_> {
                         .expect("Tiling should have a node");
                     let aux = self.view.node_aux.get(node_id).unwrap();
 
-                    self.render_node(*tile, *node_id, node);
+                    let labelling = if let Ok(state_id) = (*node_id).try_into() {
+                        labellings.get(&state_id).copied()
+                    } else {
+                        None
+                    };
+
+                    self.render_node(*tile, *node_id, labelling);
 
                     if !node.outgoing.is_empty() {
                         self.render_arrow_start(*tile, aux.successor_x_offset);

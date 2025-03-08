@@ -1,7 +1,7 @@
 use wasm_bindgen::JsCast;
 use web_sys::Element;
 
-use crate::frontend::work::view::{PropertyView, View};
+use crate::frontend::{snapshot::PropertySnapshot, work::view::View};
 
 pub fn display(view: &View) {
     PropertiesDisplayer::new(view).display();
@@ -30,12 +30,12 @@ impl PropertiesDisplayer<'_> {
         // remove all children
         self.properties_element.set_inner_html("");
 
-        for property in self.view.properties.vec.iter() {
+        for property in self.view.snapshot.properties.iter() {
             Self::display_property(property, &self.properties_element);
         }
     }
 
-    fn display_property(property: &PropertyView, parent_element: &Element) {
+    fn display_property(property_snapshot: &PropertySnapshot, parent_element: &Element) {
         let property_li = web_sys::window()
             .unwrap()
             .document()
@@ -43,7 +43,7 @@ impl PropertiesDisplayer<'_> {
             .create_element("li")
             .unwrap();
 
-        property_li.set_text_content(Some(&property.prop.to_string()));
+        property_li.set_text_content(Some(&property_snapshot.property.to_string()));
 
         let property_ul = web_sys::window()
             .unwrap()
@@ -54,7 +54,7 @@ impl PropertiesDisplayer<'_> {
 
         property_li.append_child(&property_ul).unwrap();
 
-        for child in &property.children {
+        for child in &property_snapshot.children {
             Self::display_property(child, &property_ul);
         }
 

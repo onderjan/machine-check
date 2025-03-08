@@ -1,14 +1,12 @@
+use machine_check_common::ThreeValued;
 use machine_check_exec::NodeId;
 
-use crate::frontend::{
-    snapshot::Node,
-    work::view::{constants, Tile},
-};
+use crate::frontend::work::view::{constants, Tile};
 
 use super::CanvasRenderer;
 
 impl CanvasRenderer<'_> {
-    pub fn render_node(&self, tile: Tile, node_id: NodeId, node: &Node) {
+    pub fn render_node(&self, tile: Tile, node_id: NodeId, labelling: Option<ThreeValued>) {
         let context = &self.main_context;
 
         let is_selected = if let Some(selected_node_id) = self.view.camera.selected_node_id {
@@ -26,7 +24,7 @@ impl CanvasRenderer<'_> {
         let radius = 4.;
 
         context.save();
-        constants::setup_node_context(context, node, is_selected);
+        constants::setup_node_context(context, labelling, is_selected);
 
         context.begin_path();
         context

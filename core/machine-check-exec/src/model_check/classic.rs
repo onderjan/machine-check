@@ -43,6 +43,14 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
             .expect("labelling should be present")
     }
 
+    pub fn compute_and_get_labelling(
+        &mut self,
+        prop: &Proposition,
+    ) -> Result<&BTreeSet<StateId>, ExecError> {
+        self.compute_labelling(prop)?;
+        Ok(self.get_labelling(prop))
+    }
+
     fn compute_labelling(&mut self, prop: &Proposition) -> Result<(), ExecError> {
         if self.labelling_map.contains_key(prop) {
             // already contained

@@ -8,45 +8,9 @@ use std::collections::HashMap;
 
 use bimap::BiHashMap;
 use camera::Camera;
-use machine_check_exec::{NodeId, PreparedProperty, Proposition};
+use machine_check_exec::NodeId;
 
 use crate::frontend::snapshot::Snapshot;
-
-#[derive(Debug)]
-pub struct PropertyView {
-    prop: Proposition,
-    prepared: PreparedProperty,
-    children: Vec<PropertyView>,
-}
-
-impl PropertyView {
-    fn new(prop: Proposition) -> PropertyView {
-        let prepared = PreparedProperty::new(&prop);
-        let children = prop.children().into_iter().map(PropertyView::new).collect();
-        PropertyView {
-            prop,
-            prepared,
-            children,
-        }
-    }
-
-    pub fn prepared(&self) -> &PreparedProperty {
-        &self.prepared
-    }
-}
-
-#[derive(Debug)]
-pub struct PropertiesView {
-    pub vec: Vec<PropertyView>,
-}
-
-impl PropertiesView {
-    pub fn new(properties: Vec<Proposition>) -> Self {
-        PropertiesView {
-            vec: properties.into_iter().map(PropertyView::new).collect(),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct View {
@@ -54,7 +18,6 @@ pub struct View {
     pub tiling: BiHashMap<Tile, TileType>,
     pub node_aux: HashMap<NodeId, NodeAux>,
     pub camera: Camera,
-    pub properties: PropertiesView,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -90,14 +53,13 @@ pub enum NavigationTarget {
 }
 
 impl View {
-    pub fn new(snapshot: Snapshot, camera: Camera, properties: PropertiesView) -> View {
+    pub fn new(snapshot: Snapshot, camera: Camera) -> View {
         let (tiling, node_aux) = compute::compute_tiling_aux(&snapshot);
         View {
             snapshot,
             tiling,
             node_aux,
             camera,
-            properties,
         }
     }
 
