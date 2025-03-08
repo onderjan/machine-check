@@ -459,6 +459,11 @@ fn canonicalize_paths(
                 "Adjusting {} path to canonical {:?}",
                 package_key, canonical_path
             );
+            let canonical_path_string = canonical_path.to_str().ok_or_else(|| {
+                anyhow!("Unexpected non-UTF-8 dependency path: {:?}", canonical_path)
+            })?;
+            // rerun the build script if the dependency changes
+            println!("cargo::rerun-if-changed={}", canonical_path_string);
             *value = toml_edit::Value::String(toml_edit::Formatted::new(
                 canonical_path.into_os_string().into_string().unwrap(),
             ));
