@@ -8,26 +8,36 @@ use std::collections::HashMap;
 
 use bimap::BiHashMap;
 use camera::Camera;
-use machine_check_exec::{NodeId, Proposition};
+use machine_check_exec::{NodeId, PreparedProperty, Proposition};
 
 use crate::frontend::snapshot::Snapshot;
 
 #[derive(Debug)]
 pub struct PropertyView {
     prop: Proposition,
+    prepared: PreparedProperty,
     children: Vec<PropertyView>,
 }
 
 impl PropertyView {
     fn new(prop: Proposition) -> PropertyView {
+        let prepared = PreparedProperty::new(&prop);
         let children = prop.children().into_iter().map(PropertyView::new).collect();
-        PropertyView { prop, children }
+        PropertyView {
+            prop,
+            prepared,
+            children,
+        }
+    }
+
+    pub fn prepared(&self) -> &PreparedProperty {
+        &self.prepared
     }
 }
 
 #[derive(Debug)]
 pub struct PropertiesView {
-    vec: Vec<PropertyView>,
+    pub vec: Vec<PropertyView>,
 }
 
 impl PropertiesView {

@@ -14,7 +14,6 @@ pub mod snapshot;
 mod util;
 mod work;
 
-use interaction::{Request, StepSettings};
 use wasm_bindgen::prelude::*;
 use web_sys::{Event, HtmlInputElement};
 use work::input::{keyboard::KeyboardEvent, mouse::MouseEvent};
@@ -25,7 +24,7 @@ pub async fn exec() {
 
     setup_listeners();
 
-    work::command(Request::GetContent, true).await;
+    work::init().await;
 }
 
 pub async fn resize() {
@@ -34,7 +33,7 @@ pub async fn resize() {
 }
 
 pub async fn reset() {
-    work::command(Request::Reset, false).await;
+    work::reset().await;
 }
 
 pub async fn step() {
@@ -49,17 +48,11 @@ pub async fn step() {
 
     let num_steps = (input.value_as_number() as u64).max(1);
 
-    work::command(
-        Request::Step(StepSettings {
-            num_steps: Some(num_steps),
-        }),
-        false,
-    )
-    .await;
+    work::step(Some(num_steps)).await;
 }
 
 pub async fn run() {
-    work::command(Request::Step(StepSettings { num_steps: None }), false).await;
+    work::step(None).await;
 }
 
 async fn on_keyboard(keyboard: KeyboardEvent, event: Event) {

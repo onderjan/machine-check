@@ -28,7 +28,6 @@ pub fn run<M: FullMachine>(system: M) -> Result<(), ExecError> {
     let business = RwLock::new(Business::<M>::new(
         Framework::new(
             abstract_system,
-            machine_check_exec::VerificationType::Inherent,
             &machine_check_exec::Strategy {
                 naive_inputs: false,
                 use_decay: false,

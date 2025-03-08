@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use machine_check_common::ExecError;
+use serde::{Deserialize, Serialize};
 
 mod enf;
 mod misc;
@@ -8,7 +9,7 @@ mod parser;
 mod pnf;
 
 /// CTL proposition.
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Proposition {
     Const(bool),
     Literal(Literal),
@@ -20,7 +21,7 @@ pub enum Proposition {
 }
 
 /// Temporal operator within CTL path quantifier.
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum PropTemp {
     X(PropUni),
     F(PropF),
@@ -130,7 +131,7 @@ impl Display for PropTemp {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum InequalityType {
     Lt,
     Le,
@@ -151,7 +152,7 @@ impl Display for InequalityType {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum ComparisonType {
     Eq,
     Neq,
@@ -159,7 +160,7 @@ pub enum ComparisonType {
     Signed(InequalityType),
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct Literal {
     complementary: bool,
     left_name: String,
@@ -244,7 +245,7 @@ impl Display for Literal {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct PropUni(pub Box<Proposition>);
 
 impl PropUni {
@@ -253,25 +254,25 @@ impl PropUni {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct PropBi {
     pub a: Box<Proposition>,
     pub b: Box<Proposition>,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct PropF(pub Box<Proposition>);
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct PropG(pub Box<Proposition>);
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct PropU {
     pub hold: Box<Proposition>,
     pub until: Box<Proposition>,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct PropR {
     pub releaser: Box<Proposition>,
     pub releasee: Box<Proposition>,

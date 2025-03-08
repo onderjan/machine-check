@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use log::trace;
 use machine_check_common::ExecError;
 use mck::concr::FullMachine;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     proposition::{Literal, Proposition},
@@ -16,24 +17,27 @@ use self::{classic::ClassicChecker, deduce::deduce_culprit};
 
 use super::space::Space;
 
-pub(super) struct PreparedProposition(Proposition);
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PreparedProperty(Proposition);
 
-/// Turns the CTL proposition into a form suitable for three-valued checking.
-///
-/// The proposition must be first converted to Positive Normal Form so that
-/// negations are turned into complementary literals, then converted to
-/// Existential Normal Form. This way, the complementary literals can be used
-/// for optimistic/pessimistic labelling while a normal ENF model-checking
-/// algorithm can be used.
-pub(super) fn prepare_prop(prop: &Proposition) -> PreparedProposition {
-    trace!("Original proposition: {:#?}", prop);
-    // transform proposition to positive normal form to move negations to literals
-    let prop = prop.pnf();
-    trace!("Positive normal form: {:#?}", prop);
-    // transform proposition to existential normal form to be able to verify
-    let prop = prop.enf();
-    trace!("Existential normal form: {:#?}", prop);
-    PreparedProposition(prop)
+impl PreparedProperty {
+    /// Turns the CTL proposition into a form suitable for three-valued checking.
+    ///
+    /// The proposition must be first converted to Positive Normal Form so that
+    /// negations are turned into complementary literals, then converted to
+    /// Existential Normal Form. This way, the complementary literals can be used
+    /// for optimistic/pessimistic labelling while a normal ENF model-checking
+    /// algorithm can be used.
+    pub fn new(prop: &Proposition) -> Self {
+        trace!("Original proposition: {:#?}", prop);
+        // transform proposition to positive normal form to move negations to literals
+        let prop = prop.pnf();
+        trace!("Positive normal form: {:#?}", prop);
+        // transform proposition to existential normal form to be able to verify
+        let prop = prop.enf();
+        trace!("Existential normal form: {:#?}", prop);
+        PreparedProperty(prop)
+    }
 }
 
 /// Perform three-valued model checking.
@@ -41,7 +45,7 @@ pub(super) fn prepare_prop(prop: &Proposition) -> PreparedProposition {
 /// The proposition must be prepared beforehand.
 pub(super) fn check_prop<M: FullMachine>(
     space: &Space<M>,
-    prop: &PreparedProposition,
+    prop: &PreparedProperty,
 ) -> Result<Conclusion, ExecError> {
     let mut checker = ThreeValuedChecker::new(space);
     checker.check_prop(prop)
@@ -84,7 +88,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     /// Model-checks a CTL proposition.
     ///
     /// The proposition must be prepared beforehand.
-    fn check_prop(&mut self, prop: &PreparedProposition) -> Result<Conclusion, ExecError> {
+    fn check_prop(&mut self, prop: &PreparedProperty) -> Result<Conclusion, ExecError> {
         let prop = &prop.0;
         // compute optimistic and pessimistic interpretation and get the conclusion from that
         let pessimistic_interpretation = self.pessimistic.compute_interpretation(prop)?;

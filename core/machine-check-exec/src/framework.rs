@@ -15,7 +15,7 @@ use mck::refin::{self};
 
 use crate::model_check::Conclusion;
 use crate::model_check::Culprit;
-use crate::model_check::PreparedProposition;
+use crate::model_check::PreparedProperty;
 use crate::proposition::Proposition;
 use crate::space::NodeId;
 use crate::space::StateId;
@@ -45,10 +45,6 @@ pub enum VerificationType {
 pub struct Framework<M: FullMachine> {
     /// Abstract system.
     abstract_system: M::Abstr,
-    /// Property to be verified.
-    property: PreparedProposition,
-    // Whether the framework assumes there is no inherent panic.
-    assume_inherent: bool,
     /// Whether each step output should decay to fully-unknown by default.
     use_decay: bool,
 
@@ -100,25 +96,12 @@ impl<M: FullMachine> Framework<M> {
     /// Constructs the framework with a given system and strategy.
     pub fn new(
         abstract_system: M::Abstr,
-        verification_type: VerificationType,
+        //verification_type: VerificationType,
         strategy: &Strategy,
     ) -> Self {
-        let (property, assume_inherent) = match verification_type {
-            VerificationType::Inherent => {
-                // the inherent property is that there is no panic, i.e. AG[panic=0]
-                let property = Proposition::inherent();
-                (property, false)
-            }
-            VerificationType::Property(property) => (property, true),
-        };
-
-        let property = model_check::prepare_prop(&property);
-
         // return the framework with empty state space, before any construction
         Framework {
             abstract_system,
-            property,
-            assume_inherent,
             use_decay: strategy.use_decay,
             work_state: WorkState::new(strategy.naive_inputs),
         }
@@ -133,17 +116,21 @@ impl<M: FullMachine> Framework<M> {
         self.abstract_system
     }
 
-    pub fn verify(&mut self) -> Result<bool, ExecError> {
+    pub fn verify(
+        &mut self,
+        property: &PreparedProperty,
+        assume_inherent: bool,
+    ) -> Result<bool, ExecError> {
         // loop verification steps until some conclusion is reached
         let result = loop {
-            match self.single_step_verification() {
+            match self.step_verification(property, assume_inherent) {
                 ControlFlow::Continue(()) => {}
                 ControlFlow::Break(result) => break result,
             }
         };
 
         if log_enabled!(log::Level::Debug) {
-            if !self.assume_inherent {
+            if !assume_inherent {
                 debug!(
                     "Property checking final space: {:#?}",
                     self.work_state.space
@@ -158,7 +145,12 @@ impl<M: FullMachine> Framework<M> {
         result
     }
 
-    pub fn step_verification(&mut self, num_steps: Option<u64>) {
+    pub fn multi_step_verification(
+        &mut self,
+        property: &PreparedProperty,
+        assume_inherent: bool,
+        num_steps: Option<u64>,
+    ) {
         let mut loop_index = 0;
         loop {
             // if the number of steps is bounded, stop stepping when it is reached
@@ -169,7 +161,7 @@ impl<M: FullMachine> Framework<M> {
             }
 
             // stop stepping when we are done
-            if let ControlFlow::Break(_) = self.single_step_verification() {
+            if let ControlFlow::Break(_) = self.step_verification(property, assume_inherent) {
                 return;
             }
 
@@ -177,13 +169,17 @@ impl<M: FullMachine> Framework<M> {
         }
     }
 
-    fn single_step_verification(&mut self) -> ControlFlow<Result<bool, ExecError>> {
+    fn step_verification(
+        &mut self,
+        property: &PreparedProperty,
+        assume_inherent: bool,
+    ) -> ControlFlow<Result<bool, ExecError>> {
         // if the space is empty (just after construction), regenerate it
         if self.work_state.space.is_empty() {
-            self.regenerate(NodeId::START);
+            self.regenerate(assume_inherent, NodeId::START);
         } else if let Some(culprit) = self.work_state.culprit.take() {
             // we have a culprit, refine on it
-            if let Err(err) = self.refine(&culprit) {
+            if let Err(err) = self.refine(assume_inherent, &culprit) {
                 // the refinement is incomplete
                 return ControlFlow::Break(Err(err));
             }
@@ -196,19 +192,10 @@ impl<M: FullMachine> Framework<M> {
         }
 
         // perform model-checking
-        match model_check::check_prop::<M>(&self.work_state.space, &self.property) {
+        match model_check::check_prop::<M>(&self.work_state.space, property) {
             Ok(Conclusion::Known(conclusion)) => {
                 // conclude the result
-                // if the inherent property is being verified, replace false result with inherent panic
-                if !self.assume_inherent && !conclusion {
-                    // find the panic string
-                    let Some(panic_str) = self.find_panic_string() else {
-                        panic!("Panic string should be found");
-                    };
-                    ControlFlow::Break(Err(ExecError::InherentPanic(String::from(panic_str))))
-                } else {
-                    ControlFlow::Break(Ok(conclusion))
-                }
+                ControlFlow::Break(Ok(conclusion))
             }
             Ok(Conclusion::Unknown(culprit)) => {
                 // we have a new culprit, continue the control flow
@@ -237,14 +224,14 @@ impl<M: FullMachine> Framework<M> {
     }
 
     /// Refines the precision and the state space given a culprit of unknown verification result.
-    fn refine(&mut self, culprit: &Culprit) -> Result<(), ExecError> {
+    fn refine(&mut self, assume_inherent: bool, culprit: &Culprit) -> Result<(), ExecError> {
         // subrefine bits until the state space changes.
-        while !self.subrefine(culprit)? {}
+        while !self.subrefine(assume_inherent, culprit)? {}
         Ok(())
     }
 
     /// Refines a single bit. OK result contains whether the state space changed.
-    fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
+    fn subrefine(&mut self, assume_inherent: bool, culprit: &Culprit) -> Result<bool, ExecError> {
         self.work_state.num_refinements += 1;
         // compute marking
         let mut current_state_mark =
@@ -291,7 +278,7 @@ impl<M: FullMachine> Framework<M> {
                 //info!("Decay prec: {:?}", decay_precision);
                 if decay_precision.apply_refin(&current_state_mark) {
                     // single mark applied to decay, regenerate
-                    return Ok(self.regenerate(previous_node_id));
+                    return Ok(self.regenerate(assume_inherent, previous_node_id));
                 }
             }
 
@@ -409,7 +396,7 @@ impl<M: FullMachine> Framework<M> {
                 *input_precision_mut = refined_input_precision;
 
                 // single mark applied, regenerate
-                Ok(self.regenerate(node_id))
+                Ok(self.regenerate(assume_inherent, node_id))
             }
             None => {
                 // cannot apply any refinement, verification incomplete
@@ -419,7 +406,7 @@ impl<M: FullMachine> Framework<M> {
     }
 
     /// Regenerates the state space from a given node, keeping its other parts. Returns whether the state space changed.
-    pub fn regenerate(&mut self, from_node_id: NodeId) -> bool {
+    pub fn regenerate(&mut self, assume_inherent: bool, from_node_id: NodeId) -> bool {
         if log_enabled!(log::Level::Trace) {
             trace!(
                 "Regenerating with input precision {:?}",
@@ -438,7 +425,7 @@ impl<M: FullMachine> Framework<M> {
             // prepare precision
             let input_precision = self.work_state.precision.get_input(node_id);
             let mut decay_precision = self.work_state.precision.get_decay(node_id);
-            if self.assuming_no_panic() {
+            if assume_inherent {
                 decay_precision.panic = refin::Bitvector::dirty();
             }
 
@@ -474,7 +461,7 @@ impl<M: FullMachine> Framework<M> {
                         M::Abstr::init(&self.abstract_system, &input)
                     }
                 };
-                if self.assuming_no_panic() {
+                if assume_inherent {
                     next_state.panic = abstr::Bitvector::new(0);
                 }
 
@@ -512,14 +499,10 @@ impl<M: FullMachine> Framework<M> {
         changed
     }
 
-    fn find_panic_string(&mut self) -> Option<&'static str> {
+    pub fn find_panic_string(&mut self) -> Option<&'static str> {
         // TODO: this approach does not work if there are multiple macro invocations
         let panic_id = self.work_state.space.find_panic_id()?;
         Some(M::panic_message(panic_id))
-    }
-
-    fn assuming_no_panic(&self) -> bool {
-        self.assume_inherent
     }
 
     pub fn info(&self) -> ExecStats {

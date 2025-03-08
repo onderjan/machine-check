@@ -99,9 +99,11 @@ impl<M: FullMachine> Business<M> {
                 business.framework.reset();
             }
             Request::Step(step_settings) => {
-                business
-                    .framework
-                    .step_verification(step_settings.num_steps);
+                business.framework.multi_step_verification(
+                    &step_settings.selected_property,
+                    false,
+                    step_settings.num_steps,
+                );
             }
         }
 
