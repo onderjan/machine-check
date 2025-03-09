@@ -153,7 +153,7 @@ impl<M: FullMachine> Business<M> {
                     .push(BusinessProperty::new(prepared_property));
             }
             Request::RemoveProperty(property_index) => {
-                business.properties.remove(property_index);
+                business.properties.remove(property_index.0);
             }
         }
 

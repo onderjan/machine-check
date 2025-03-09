@@ -62,14 +62,14 @@ async fn on_delete_property_click() {
         let Some(view) = view_guard.as_ref() else {
             return;
         };
-        let Some(property_subindex) = view.camera.selected_property_subindex else {
+        let Some(property_subindex) = view.camera.selected_subproperty else {
             return;
         };
-        view.snapshot.property_subindex_to_index(property_subindex)
+        view.snapshot.subindex_to_root_index(property_subindex)
     };
 
     // TODO: disallow removing the inherent property more elegantly
-    if property_index == 0 {
+    if property_index.0 == 0 {
         return;
     }
 

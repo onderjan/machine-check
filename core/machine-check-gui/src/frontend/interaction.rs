@@ -1,7 +1,7 @@
 use machine_check_exec::PreparedProperty;
 use serde::{Deserialize, Serialize};
 
-use super::snapshot::Snapshot;
+use super::snapshot::{RootPropertyIndex, Snapshot};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepSettings {
@@ -15,7 +15,7 @@ pub enum Request {
     Reset,
     Step(StepSettings),
     AddProperty(PreparedProperty),
-    RemoveProperty(usize),
+    RemoveProperty(RootPropertyIndex),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

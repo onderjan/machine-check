@@ -1,6 +1,6 @@
 use machine_check_exec::NodeId;
 
-use crate::frontend::util::PixelPoint;
+use crate::frontend::{snapshot::SubpropertyIndex, util::PixelPoint};
 
 use super::{
     constants::{RAW_ARROWHEAD_SIZE, RAW_FONT_SIZE, RAW_NODE_SIZE, RAW_TILE_SIZE},
@@ -15,7 +15,7 @@ pub struct Camera {
     pub mouse_current_coords: Option<PixelPoint>,
     pub mouse_down_coords: Option<PixelPoint>,
     pub selected_node_id: Option<NodeId>,
-    pub selected_property_subindex: Option<usize>,
+    pub selected_subproperty: Option<SubpropertyIndex>,
 }
 
 #[derive(Debug, Clone)]
@@ -79,7 +79,7 @@ impl Camera {
             mouse_current_coords: None,
             mouse_down_coords: None,
             selected_node_id: None,
-            selected_property_subindex: None,
+            selected_subproperty: None,
         }
     }
 
@@ -108,19 +108,17 @@ impl Camera {
             }
         }
 
-        let num_subproperties = snapshot.num_subproperties();
-        if let Some(selected_property_index) = self.selected_property_subindex {
-            if selected_property_index >= num_subproperties {
-                self.selected_property_subindex = None;
+        if let Some(selected_property_index) = self.selected_subproperty {
+            if !snapshot.contains_subindex(selected_property_index) {
+                self.selected_subproperty = None;
             }
         }
 
-        // if no property is selected but there is at least one available, select the last one
-        if self.selected_property_subindex.is_none() && !snapshot.properties.is_empty() {
-            let last_property_subindex =
-                snapshot.property_index_to_subindex(snapshot.properties.len() - 1);
-
-            self.selected_property_subindex = Some(last_property_subindex);
+        // if no property is selected, select the last one if it is available
+        if self.selected_subproperty.is_none() {
+            if let Some(last_property_subindex) = snapshot.last_property_subindex() {
+                self.selected_subproperty = Some(last_property_subindex);
+            }
         }
     }
 }

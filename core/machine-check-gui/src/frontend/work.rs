@@ -21,8 +21,15 @@ pub async fn step(max_refinements: Option<u64>) {
             return;
         };
 
-        // TODO: real property selection
-        view.snapshot.properties.first().unwrap().property.clone()
+        // select the property to use for stepping
+        // use the root property, not the subproperty, as we are interested
+        // in whether the root property holds or not
+        let Some(selected_property) = view.selected_root_property() else {
+            // if no property is selected, just quietly return
+            return;
+        };
+
+        selected_property.property.clone()
     };
 
     command(

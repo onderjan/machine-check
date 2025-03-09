@@ -10,7 +10,7 @@ use bimap::BiHashMap;
 use camera::Camera;
 use machine_check_exec::NodeId;
 
-use crate::frontend::snapshot::Snapshot;
+use crate::frontend::snapshot::{PropertySnapshot, Snapshot};
 
 #[derive(Debug)]
 pub struct View {
@@ -135,5 +135,25 @@ impl View {
         } else {
             self.camera.selected_node_id = Some(NodeId::ROOT);
         }
+    }
+
+    pub fn selected_subproperty(&self) -> Option<&PropertySnapshot> {
+        self.camera
+            .selected_subproperty
+            .map(|selected_property_index| {
+                self.snapshot.select_subproperty(selected_property_index)
+            })
+    }
+
+    pub fn selected_root_property(&self) -> Option<&PropertySnapshot> {
+        self.camera
+            .selected_subproperty
+            .map(|selected_subproperty_index| {
+                let selected_property_index = self
+                    .snapshot
+                    .subindex_to_root_index(selected_subproperty_index);
+
+                self.snapshot.select_root_property(selected_property_index)
+            })
     }
 }

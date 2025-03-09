@@ -88,13 +88,13 @@ pub fn api_response<M: FullMachine>(
         ));
     }
 
-    let snapshot = Snapshot {
-        exec_name: business.exec_name.clone(),
+    let snapshot = Snapshot::new(
+        business.exec_name.clone(),
         state_space,
         state_info,
         properties,
-        log: business.log.clone(),
-    };
+        business.log.clone(),
+    );
 
     let response = Response { snapshot };
 

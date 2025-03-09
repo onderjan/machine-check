@@ -3,7 +3,7 @@ use web_sys::{Element, Event, HtmlElement};
 
 use crate::frontend::{
     setup_element_listener,
-    snapshot::PropertySnapshot,
+    snapshot::{PropertySnapshot, SubpropertyIndex},
     work::{lock_view, view::View},
 };
 
@@ -45,11 +45,11 @@ impl PropertiesDisplayer<'_> {
         self.properties_element.set_inner_html("");
 
         let mut id_index = 0;
-        for property in self.view.snapshot.properties.iter() {
+        for property in self.view.snapshot.root_properties_iter() {
             Self::display_property(
                 property,
                 &self.properties_element,
-                self.view.camera.selected_property_subindex,
+                self.view.camera.selected_subproperty,
                 &mut id_index,
                 was_focused,
             );
@@ -59,7 +59,7 @@ impl PropertiesDisplayer<'_> {
     fn display_property(
         property_snapshot: &PropertySnapshot,
         parent_element: &Element,
-        selected_property: Option<usize>,
+        selected_subproperty: Option<SubpropertyIndex>,
         id_index: &mut usize,
         was_focused: bool,
     ) {
@@ -111,8 +111,8 @@ impl PropertiesDisplayer<'_> {
 
         parent_element.append_child(&outer_div).unwrap();
 
-        if let Some(selected_property) = selected_property {
-            if selected_property == *id_index {
+        if let Some(selected_subproperty) = selected_subproperty {
+            if selected_subproperty.0 == *id_index {
                 radio_input.set_attribute("checked", "true").unwrap();
                 // if a radio button was focused, focus on the currently checked
                 console_log!("Checking radio button");
@@ -137,7 +137,7 @@ impl PropertiesDisplayer<'_> {
             Self::display_property(
                 child,
                 &property_ul,
-                selected_property,
+                selected_subproperty,
                 id_index,
                 was_focused,
             );
@@ -159,14 +159,14 @@ async fn on_radio_change(event: Event) {
         .parse()
         .unwrap();
 
-    if let Some(current_selected) = view.camera.selected_property_subindex {
-        if current_selected == index {
+    if let Some(current_selected_subproperty) = view.camera.selected_subproperty {
+        if current_selected_subproperty.0 == index {
             // already selected, do nothing
             return;
         }
     }
 
     // change and redraw
-    view.camera.selected_property_subindex = Some(index);
+    view.camera.selected_subproperty = Some(SubpropertyIndex(index));
     view.render(false);
 }
