@@ -6,6 +6,7 @@ use machine_check_common::ExecError;
 use machine_check_exec::{Framework, Proposition, Strategy};
 use mck::concr::FullMachine;
 use window::Window;
+use wry::WebViewId;
 
 mod business;
 mod window;
@@ -34,7 +35,9 @@ pub fn run<M: FullMachine>(
         exec_name.clone(),
         property,
     ));
-    let response_fn = move |request| Business::get_http_response(&business, request);
+    let response_fn = move |_web_view_id: WebViewId, request: http::Request<Vec<u8>>| {
+        Business::get_http_response(&business, request)
+    };
 
     // initialise the GUI
     let gui = match Window::new(response_fn, &exec_name) {

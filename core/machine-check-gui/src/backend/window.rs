@@ -4,7 +4,7 @@ use tao::{
     event_loop::{ControlFlow, EventLoop},
     window::{Icon, WindowBuilder},
 };
-use wry::WebViewBuilder;
+use wry::{WebViewBuilder, WebViewId};
 
 use super::FAVICON_ICO;
 
@@ -20,7 +20,7 @@ type ResponseCow = http::Response<std::borrow::Cow<'static, [u8]>>;
 
 impl Window {
     pub fn new(
-        response_fn: impl Fn(http::Request<Vec<u8>>) -> ResponseCow + 'static,
+        response_fn: impl Fn(WebViewId, http::Request<Vec<u8>>) -> ResponseCow + 'static,
         exec_name: &str,
     ) -> Result<Window, Box<dyn std::error::Error>> {
         // build the GUI using the packages wry and tao
@@ -56,35 +56,20 @@ impl Window {
             ))
             .build(&event_loop)?;
 
-        #[cfg(any(
-            target_os = "windows",
-            target_os = "macos",
-            target_os = "ios",
-            target_os = "android"
-        ))]
-        let builder = WebViewBuilder::new(&window);
+        let builder = WebViewBuilder::new();
 
-        #[cfg(not(any(
-            target_os = "windows",
-            target_os = "macos",
-            target_os = "ios",
-            target_os = "android"
-        )))]
-        let builder = {
-            use tao::platform::unix::WindowExtUnix;
-            use wry::WebViewBuilderExtUnix;
-            let vbox = window.default_vbox()?;
-            WebViewBuilder::new_gtk(vbox)
-        };
-        let web_view = builder
+        let builder = builder
             .with_custom_protocol("gui".into(), response_fn)
             // tell the webview to load the custom protocol
-            .with_url("gui://localhost")
-            .build()?;
+            .with_url("gui://localhost");
+        #[cfg(not(target_os = "linux"))]
+        let webview = builder.build(&window)?;
+        #[cfg(target_os = "linux")]
+        let webview = builder.build_gtk(window.gtk_window())?;
         Ok(Window {
             event_loop,
             window,
-            web_view,
+            web_view: webview,
         })
     }
 

@@ -69,8 +69,8 @@ petgraph = "0.6.4"
 log = "0.4.20"
 env_logger = "0.10.0"
 
-wry = { version = "0.43.1", features = ["devtools"] }
-tao = "0.30.0"
+wry = { version = "0.50.4", features = ["devtools"] }
+tao = "0.32.8"
 http = "1.1.0"
 mime_guess = "2.0.5"
 
