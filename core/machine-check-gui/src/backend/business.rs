@@ -132,7 +132,7 @@ impl<M: FullMachine> Business<M> {
                 business.framework.multi_step_verification(
                     &step_settings.selected_property,
                     false,
-                    step_settings.num_steps,
+                    step_settings.max_refinements,
                 );
             }
             Request::AddProperty(prepared_property) => {

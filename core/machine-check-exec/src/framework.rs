@@ -151,13 +151,13 @@ impl<M: FullMachine> Framework<M> {
         &mut self,
         property: &PreparedProperty,
         assume_inherent: bool,
-        num_steps: Option<u64>,
+        max_refinements: Option<u64>,
     ) {
         let mut loop_index = 0;
         loop {
-            // if the number of steps is bounded, stop stepping when it is reached
-            if let Some(num_steps) = num_steps {
-                if loop_index >= num_steps {
+            // if the maximum number of refinements is given, stop stepping when it is reached
+            if let Some(max_refinements) = max_refinements {
+                if loop_index >= max_refinements {
                     return;
                 }
             }

@@ -5,7 +5,7 @@ use super::snapshot::Snapshot;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepSettings {
-    pub num_steps: Option<u64>,
+    pub max_refinements: Option<u64>,
     pub selected_property: PreparedProperty,
 }
 

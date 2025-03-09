@@ -41,14 +41,14 @@ pub async fn step() {
         .unwrap()
         .document()
         .unwrap()
-        .get_element_by_id("num_steps")
+        .get_element_by_id("max_refinements")
         .expect("The number of steps element should exist")
         .dyn_into()
         .expect("The number of steps element should be an input");
 
-    let num_steps = (input.value_as_number() as u64).max(1);
+    let max_refinements = (input.value_as_number() as u64).max(1);
 
-    work::step(Some(num_steps)).await;
+    work::step(Some(max_refinements)).await;
 }
 
 pub async fn run() {

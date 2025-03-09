@@ -13,7 +13,7 @@ pub async fn init() {
     control::init();
 }
 
-pub async fn step(num_steps: Option<u64>) {
+pub async fn step(max_refinements: Option<u64>) {
     let selected_property = {
         let view_guard = VIEW.lock().expect("View should not be poisoned");
 
@@ -27,7 +27,7 @@ pub async fn step(num_steps: Option<u64>) {
 
     command(
         Request::Step(StepSettings {
-            num_steps,
+            max_refinements,
             selected_property,
         }),
         false,
