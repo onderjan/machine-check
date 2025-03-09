@@ -1,10 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use log::Log;
 use machine_check_common::ThreeValued;
 use machine_check_exec::{NodeId, PreparedProperty, StateId};
 use serde::{Deserialize, Serialize};
 
 use mck::abstr::Field;
+
+pub mod log;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Snapshot {
@@ -12,7 +15,7 @@ pub struct Snapshot {
     pub state_space: StateSpace,
     pub state_info: StateInfo,
     pub properties: Vec<PropertySnapshot>,
-    pub log: String,
+    pub log: Log,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

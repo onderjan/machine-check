@@ -4,12 +4,11 @@ use mck::concr::FullMachine;
 use std::{
     borrow::Cow,
     collections::{BTreeMap, HashMap},
-    fmt::Write,
 };
 
 use crate::frontend::{
     interaction::Response,
-    snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace},
+    snapshot::{log::Log, Node, PropertySnapshot, Snapshot, StateInfo, StateSpace},
 };
 
 use super::{Business, BusinessProperty};
@@ -106,12 +105,13 @@ pub fn api_response<M: FullMachine>(
 fn create_property_snapshot<M: FullMachine>(
     framework: &Framework<M>,
     business_property: &BusinessProperty,
-    business_log: &mut String,
+    business_log: &mut Log,
 ) -> PropertySnapshot {
     let labellings = match framework.compute_property_labelling(&business_property.property) {
         Ok(ok) => ok,
         Err(err) => {
-            writeln!(business_log, "{}", err).unwrap();
+            business_log.error(err.to_string());
+
             HashMap::new()
         }
     };

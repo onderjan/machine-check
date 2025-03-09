@@ -5,7 +5,7 @@ use clap::{ArgGroup, Args, Parser};
 #[clap(group(ArgGroup::new("property-group")
 .required(true)
 .multiple(false)
-.args(&["property", "inherent"]),
+.args(&["property", "inherent","gui"]),
 ))]
 #[clap(group(ArgGroup::new("verbosity-group")
 .required(false)

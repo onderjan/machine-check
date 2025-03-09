@@ -152,22 +152,22 @@ impl<M: FullMachine> Framework<M> {
         property: &PreparedProperty,
         assume_inherent: bool,
         max_refinements: Option<u64>,
-    ) {
-        let mut loop_index = 0;
+    ) -> u64 {
+        let mut num_refinements = 0;
         loop {
             // if the maximum number of refinements is given, stop stepping when it is reached
             if let Some(max_refinements) = max_refinements {
-                if loop_index >= max_refinements {
-                    return;
+                if num_refinements >= max_refinements {
+                    return num_refinements;
                 }
             }
 
             // stop stepping when we are done
             if let ControlFlow::Break(_) = self.step_verification(property, assume_inherent) {
-                return;
+                return num_refinements;
             }
 
-            loop_index += 1;
+            num_refinements += 1;
         }
     }
 

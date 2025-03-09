@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::RwLock};
+use std::{borrow::Cow, sync::RwLock, time::Instant};
 
 use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
@@ -6,7 +6,10 @@ use log::{debug, error};
 use machine_check_exec::{Framework, PreparedProperty, Proposition};
 use mck::concr::FullMachine;
 
-use crate::frontend::interaction::Request;
+use crate::frontend::{
+    interaction::Request,
+    snapshot::log::{Log, MessageType, StepMessage},
+};
 
 mod api;
 
@@ -16,7 +19,7 @@ pub struct Business<M: FullMachine> {
     framework: Framework<M>,
     exec_name: String,
     properties: Vec<BusinessProperty>,
-    log: String,
+    log: Log,
 }
 
 struct BusinessProperty {
@@ -51,7 +54,7 @@ impl<M: FullMachine> Business<M> {
             framework,
             exec_name,
             properties,
-            log: String::new(),
+            log: Log::new(),
         }
     }
 
@@ -129,11 +132,20 @@ impl<M: FullMachine> Business<M> {
                 business.framework.reset();
             }
             Request::Step(step_settings) => {
-                business.framework.multi_step_verification(
+                let start_instant = Instant::now();
+
+                let num_refinements = business.framework.multi_step_verification(
                     &step_settings.selected_property,
                     false,
                     step_settings.max_refinements,
                 );
+
+                let duration = start_instant.elapsed();
+
+                business.log.add_message(MessageType::Step(StepMessage {
+                    num_refinements,
+                    duration,
+                }));
             }
             Request::AddProperty(prepared_property) => {
                 business
