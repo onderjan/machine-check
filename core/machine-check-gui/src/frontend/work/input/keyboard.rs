@@ -19,7 +19,6 @@ mod codes {
 pub fn on_keyboard(view: &mut View, keyboard: KeyboardEvent, event: web_sys::Event) -> bool {
     console_log!(&format!("Keyboard event received: {:?}", event));
 
-    event.prevent_default();
     let event: web_sys::KeyboardEvent = event
         .dyn_into()
         .expect("Keyboard event should be KeyboardEvent");
@@ -32,6 +31,10 @@ pub fn on_keyboard(view: &mut View, keyboard: KeyboardEvent, event: web_sys::Eve
         codes::ARROW_RIGHT => NavigationTarget::Right,
         _ => return false,
     };
+
+    // prevent default action only for the handled events
+    // to prevent keyboard traps
+    event.prevent_default();
 
     match keyboard {
         KeyboardEvent::Down => {
