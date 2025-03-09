@@ -1,4 +1,4 @@
-use crate::{ExecArgs, ExecError, ExecResult, FullMachine};
+use crate::{ExecError, ExecResult, FullMachine};
 use log::{info, warn};
 use machine_check_common::ExecStats;
 use machine_check_exec::{Framework, PreparedProperty, Proposition, Strategy};
@@ -9,33 +9,7 @@ use machine_check_exec::{Framework, PreparedProperty, Proposition, Strategy};
 ///
 /// If verifying a standard property and the inherent property is not assumed,
 /// it is verified first. If it does not hold, it is an execution error.
-pub fn verify<M: FullMachine>(system: M, run_args: ExecArgs) -> ExecResult {
-    let strategy = Strategy {
-        naive_inputs: run_args.naive_inputs,
-        use_decay: run_args.use_decay,
-    };
-
-    let prop = if let Some(property_str) = run_args.property {
-        match Proposition::parse(&property_str) {
-            Ok(prop) => Some(prop),
-            Err(err) => {
-                return ExecResult {
-                    result: Err(err),
-                    stats: ExecStats::default(),
-                }
-            }
-        }
-    } else {
-        // check for inherent panics
-        None
-    };
-    if prop.is_none() != run_args.inherent {
-        panic!("Expected exactly one of property or inherent");
-    }
-    verify_inner(system, prop, run_args.assume_inherent, strategy)
-}
-
-fn verify_inner<M: FullMachine>(
+pub fn verify<M: FullMachine>(
     system: M,
     prop: Option<Proposition>,
     assume_inherent: bool,

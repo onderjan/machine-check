@@ -9,6 +9,8 @@ use log::error;
 use log::info;
 use log::log_enabled;
 use log::trace;
+use machine_check_exec::Proposition;
+use machine_check_exec::Strategy;
 pub use traits::Ext;
 pub use types::{Bitvector, BitvectorArray, Signed, Unsigned};
 
@@ -137,16 +139,40 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     // initialize logger, but do not panic if it was already initialized
     let _ = env_logger::builder().filter_level(filter_level).try_init();
 
+    let strategy = Strategy {
+        naive_inputs: exec_args.naive_inputs,
+        use_decay: exec_args.use_decay,
+    };
+
+    // determine the proposition to verify
+    let prop = if let Some(property_str) = exec_args.property {
+        match Proposition::parse(&property_str) {
+            Ok(prop) => Some(prop),
+            Err(err) => {
+                return ExecResult {
+                    result: Err(err),
+                    stats: ExecStats::default(),
+                }
+            }
+        }
+    } else {
+        // check for inherent panics
+        None
+    };
+    if prop.is_none() && !exec_args.gui && !exec_args.inherent {
+        panic!("Expected either a property or inherent verification");
+    }
+
     let result = if exec_args.gui {
         // start the GUI instead of verifying
         ExecResult {
-            result: Err(start_gui(system)),
+            result: Err(start_gui(system, prop, strategy)),
             stats: ExecStats::default(),
         }
     } else {
         info!("Starting verification.");
 
-        let result = verify::verify(system, exec_args);
+        let result = verify::verify(system, prop, exec_args.assume_inherent, strategy);
 
         if log_enabled!(log::Level::Trace) {
             trace!("Verification result: {:?}", result);
@@ -178,17 +204,21 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     result
 }
 
-fn start_gui<M: FullMachine>(system: M) -> ExecError {
+fn start_gui<M: FullMachine>(
+    system: M,
+    property: Option<Proposition>,
+    strategy: Strategy,
+) -> ExecError {
     // the GUI will, at best, return no result
     #[cfg(feature = "gui")]
-    match machine_check_gui::run(system) {
+    match machine_check_gui::run(system, property, strategy) {
         Ok(()) => ExecError::NoResult,
         Err(err) => err,
     }
     #[cfg(not(feature = "gui"))]
     {
         // make sure there is no warning about unused variables
-        let _ = system;
+        let _ = (system, property, strategy);
         ExecError::GuiError(String::from("The GUI feature was not enabled during build"))
     }
 }

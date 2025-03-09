@@ -37,13 +37,20 @@ impl BusinessProperty {
 }
 
 impl<M: FullMachine> Business<M> {
-    pub fn new(framework: Framework<M>, exec_name: String) -> Self {
+    pub fn new(framework: Framework<M>, exec_name: String, property: Option<Proposition>) -> Self {
+        // always put the inherent property first, add the other property afterwards if there is one
+        let mut properties = vec![BusinessProperty::new(PreparedProperty::new(
+            Proposition::inherent(),
+        ))];
+
+        if let Some(property) = property {
+            properties.push(BusinessProperty::new(PreparedProperty::new(property)));
+        }
+
         Business {
             framework,
             exec_name,
-            properties: vec![BusinessProperty::new(PreparedProperty::new(
-                Proposition::inherent(),
-            ))],
+            properties,
             log: String::new(),
         }
     }

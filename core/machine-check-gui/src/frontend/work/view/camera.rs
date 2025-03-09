@@ -115,9 +115,12 @@ impl Camera {
             }
         }
 
-        // if no property is selected but there is at least one available, select the first one
-        if self.selected_property_subindex.is_none() && num_subproperties > 0 {
-            self.selected_property_subindex = Some(0);
+        // if no property is selected but there is at least one available, select the last one
+        if self.selected_property_subindex.is_none() && !snapshot.properties.is_empty() {
+            let last_property_subindex =
+                snapshot.property_index_to_subindex(snapshot.properties.len() - 1);
+
+            self.selected_property_subindex = Some(last_property_subindex);
         }
     }
 }

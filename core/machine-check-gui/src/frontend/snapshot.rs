@@ -79,7 +79,7 @@ impl Snapshot {
             }
         }
         panic!(
-            "Property subindex out of bounds: the len is {} but the index is {}",
+            "Property subindex out of bounds: the len is {} but the subindex is {}",
             count, subindex
         );
     }
@@ -98,16 +98,37 @@ impl Snapshot {
             false
         }
         let mut count = 0;
-        let mut property_index = 0;
-        for property in &self.properties {
+        for (property_index, property) in self.properties.iter().enumerate() {
             if recurse(property, subindex, &mut count) {
                 return property_index;
             }
-            property_index += 1;
         }
         panic!(
-            "Property subindex out of bounds: the len is {} but the index is {}",
-            count, property_index
+            "Property subindex out of bounds: the len is {} but the subindex is {}",
+            count, subindex
+        );
+    }
+
+    pub fn property_index_to_subindex(&self, index: usize) -> usize {
+        fn recurse(property: &PropertySnapshot, count: &mut usize) {
+            *count += 1;
+            for child in &property.children {
+                recurse(child, count);
+            }
+        }
+        let mut current_subindex = 0;
+        let mut current_index = 0;
+        for property in &self.properties {
+            if current_index == index {
+                return current_subindex;
+            }
+            recurse(property, &mut current_subindex);
+            current_index += 1;
+        }
+        panic!(
+            "Property index out of bounds: the number of properties is {} but the index is {}",
+            self.properties.len(),
+            current_index
         );
     }
 }
