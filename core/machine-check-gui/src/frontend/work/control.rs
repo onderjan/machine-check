@@ -7,6 +7,12 @@ use crate::frontend::{
     snapshot::Snapshot,
 };
 
+mod properties;
+
+pub fn init() {
+    properties::init();
+}
+
 pub async fn command(request: Request) -> Snapshot {
     let result = call_backend(request).await;
     let response = match result {

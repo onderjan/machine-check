@@ -14,6 +14,8 @@ pub enum Request {
     GetContent,
     Reset,
     Step(StepSettings),
+    AddProperty(PreparedProperty),
+    RemoveProperty(usize),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

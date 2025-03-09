@@ -39,7 +39,7 @@ impl PropertiesDisplayer<'_> {
             Self::display_property(
                 property,
                 &self.properties_element,
-                self.view.camera.selected_property_index,
+                self.view.camera.selected_property_subindex,
                 &mut id_index,
             );
         }
@@ -115,7 +115,6 @@ impl PropertiesDisplayer<'_> {
 
         for child in &property_snapshot.children {
             Self::display_property(child, &property_ul, selected_property, id_index);
-            *id_index += 1;
         }
     }
 }
@@ -134,7 +133,7 @@ async fn on_radio_change(event: Event) {
         .parse()
         .unwrap();
 
-    if let Some(current_selected) = view.camera.selected_property_index {
+    if let Some(current_selected) = view.camera.selected_property_subindex {
         if current_selected == index {
             // already selected, do nothing
             return;
@@ -142,6 +141,6 @@ async fn on_radio_change(event: Event) {
     }
 
     // change and redraw
-    view.camera.selected_property_index = Some(index);
+    view.camera.selected_property_subindex = Some(index);
     view.render(false);
 }

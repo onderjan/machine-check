@@ -15,7 +15,7 @@ pub struct Camera {
     pub mouse_current_coords: Option<PixelPoint>,
     pub mouse_down_coords: Option<PixelPoint>,
     pub selected_node_id: Option<NodeId>,
-    pub selected_property_index: Option<usize>,
+    pub selected_property_subindex: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -79,7 +79,7 @@ impl Camera {
             mouse_current_coords: None,
             mouse_down_coords: None,
             selected_node_id: None,
-            selected_property_index: None,
+            selected_property_subindex: None,
         }
     }
 
@@ -108,16 +108,16 @@ impl Camera {
             }
         }
 
-        let num_total_properties = snapshot.num_total_properties();
-        if let Some(selected_property_index) = self.selected_property_index {
-            if selected_property_index >= num_total_properties {
-                self.selected_property_index = None;
+        let num_subproperties = snapshot.num_subproperties();
+        if let Some(selected_property_index) = self.selected_property_subindex {
+            if selected_property_index >= num_subproperties {
+                self.selected_property_subindex = None;
             }
         }
 
         // if no property is selected but there is at least one available, select the first one
-        if self.selected_property_index.is_none() && num_total_properties > 0 {
-            self.selected_property_index = Some(0);
+        if self.selected_property_subindex.is_none() && num_subproperties > 0 {
+            self.selected_property_subindex = Some(0);
         }
     }
 }

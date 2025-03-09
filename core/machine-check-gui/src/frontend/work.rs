@@ -10,6 +10,7 @@ mod view;
 
 pub async fn init() {
     command(Request::GetContent, true).await;
+    control::init();
 }
 
 pub async fn step(num_steps: Option<u64>) {

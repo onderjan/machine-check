@@ -43,17 +43,17 @@ impl CanvasRenderer<'_> {
         self.render_background();
 
         // TODO: use the selected property
-        let labellings = self
-            .view
-            .camera
-            .selected_property_index
-            .map(|selected_property_index| {
-                &self
-                    .view
-                    .snapshot
-                    .select_property(selected_property_index)
-                    .labellings
-            });
+        let labellings =
+            self.view
+                .camera
+                .selected_property_subindex
+                .map(|selected_property_index| {
+                    &self
+                        .view
+                        .snapshot
+                        .select_property_by_subindex(selected_property_index)
+                        .labellings
+                });
 
         for (tile, tile_type) in &self.view.tiling {
             match tile_type {

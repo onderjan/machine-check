@@ -128,6 +128,14 @@ impl<M: FullMachine> Business<M> {
                     step_settings.num_steps,
                 );
             }
+            Request::AddProperty(prepared_property) => {
+                business
+                    .properties
+                    .push(BusinessProperty::new(prepared_property));
+            }
+            Request::RemoveProperty(property_index) => {
+                business.properties.remove(property_index);
+            }
         }
 
         // read the current framework state
