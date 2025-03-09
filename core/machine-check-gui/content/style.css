@@ -24,7 +24,7 @@ body {
     grid-template-areas:
         "top_bar top_bar top_bar"
         "left_bar main_area right_bar"
-        "left_bar bottom_bar bottom_bar";
+        "left_bar bottom_bar right_bar";
 }
 
 .bar {
