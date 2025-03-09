@@ -271,6 +271,9 @@ fn prepare_frontend_package(
     // For simplicity, only process [dependencies].
     canonicalize_paths(&package_toml_path, &mut cargo_toml["dependencies"])?;
 
+    let mut patched_repository_package_paths: HashMap<String, HashMap<String, String>> =
+        HashMap::new();
+
     // Adjust using the workspace Cargo.toml if there is one.
     if let Some(workspace_toml_path) = workspace_toml_path {
         // Read and parse the workspace.
@@ -314,11 +317,54 @@ fn prepare_frontend_package(
                 ));
             };
 
-            for (_repository_key, repository_value) in patch_table.iter_mut() {
-                canonicalize_paths(&workspace_toml_path, repository_value)?;
+            for (repository_key, repository_value) in patch_table.iter_mut() {
+                let patched_package_paths =
+                    canonicalize_paths(&workspace_toml_path, repository_value)?;
+                let entry = patched_repository_package_paths
+                    .entry(repository_key.to_string())
+                    .or_default();
+
+                entry.extend(patched_package_paths.into_iter());
             }
             debug!("Applying workspace patch to WASM package");
             cargo_toml.insert("patch", patch);
+        }
+    }
+
+    // Ensure build.rs is rebuilt when something is changed in patched dependency paths.
+
+    let dependencies = cargo_toml
+        .get("dependencies")
+        .ok_or(anyhow!("Expected dependencies in Cargo.toml"))?;
+    let dependencies = dependencies
+        .as_table()
+        .ok_or(anyhow!("Unexpected non-table dependencies in Cargo.toml"))?;
+
+    for (dependency_name, dependency) in dependencies {
+        let registry = if let Some(dependency) = dependency.as_table_like() {
+            if let Some(registry) = dependency.get("registry") {
+                Some(
+                    registry
+                        .as_str()
+                        .ok_or(anyhow!("Unexpected non-string registry in Cargo.toml"))?,
+                )
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let registry = registry.unwrap_or("crates-io");
+
+        if let Some(patched_package_paths) = patched_repository_package_paths.get(registry) {
+            if let Some(patched_path) = patched_package_paths.get(dependency_name) {
+                debug!(
+                    "Ensuring rebuild on repository {} dependency {} patched path {:?}",
+                    dependency_name, registry, patched_path
+                );
+                // rerun the build script if the dependency changes
+                println!("cargo::rerun-if-changed={}", patched_path);
+            }
         }
     }
 
@@ -408,11 +454,12 @@ fn compile_frontend_package(
 
 /// Make Cargo.toml paths inside a package list absolute from the given Cargo.toml path.
 ///
-/// This function changes the working directory.
+/// This function changes the working directory. Returns a map of package names to
+/// corresponding paths that were patched.
 fn canonicalize_paths(
     orig_toml_path: &Path,
     package_list: &mut toml_edit::Item,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<HashMap<String, String>> {
     // Set the current directory to the parent of the original TOML file.
     let Some(orig_directory) = orig_toml_path.parent() else {
         return Err(anyhow!("No parent of TOML file path {:?}", orig_toml_path));
@@ -434,6 +481,9 @@ fn canonicalize_paths(
             orig_toml_path
         ));
     };
+
+    let mut package_name_paths = HashMap::new();
+
     for (package_key, package_value) in package_list.iter_mut() {
         let Some(package_value) = package_value.as_inline_table_mut() else {
             if package_value.is_str() {
@@ -462,15 +512,16 @@ fn canonicalize_paths(
             let canonical_path_string = canonical_path.to_str().ok_or_else(|| {
                 anyhow!("Unexpected non-UTF-8 dependency path: {:?}", canonical_path)
             })?;
-            // rerun the build script if the dependency changes
-            println!("cargo::rerun-if-changed={}", canonical_path_string);
+
+            package_name_paths.insert(package_key.to_string(), canonical_path_string.to_string());
+
             *value = toml_edit::Value::String(toml_edit::Formatted::new(
                 canonical_path.into_os_string().into_string().unwrap(),
             ));
         }
     }
     // We are done.
-    Ok(())
+    Ok(package_name_paths)
 }
 
 // Return the workspace/package path for the current working directory.
