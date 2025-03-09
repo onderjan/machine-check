@@ -87,7 +87,7 @@ impl FieldDisplayer<'_> {
             array
                 .inner
                 .iter()
-                .map(|(key, value)| (key.parse::<u64>().unwrap(), *value)),
+                .map(|(index, bitvector)| (*index, *bitvector)),
         );
 
         // we need to be able to look at the successive two elements, so we use peeking

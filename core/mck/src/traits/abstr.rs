@@ -72,8 +72,7 @@ pub struct ArrayFieldBitvector {
 pub struct ArrayField {
     pub bit_width: u32,
     pub bit_length: u32,
-    // TODO: u64 keys
-    pub inner: BTreeMap<String, ArrayFieldBitvector>,
+    pub inner: BTreeMap<u64, ArrayFieldBitvector>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
