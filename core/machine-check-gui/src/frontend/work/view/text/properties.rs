@@ -1,5 +1,5 @@
 use wasm_bindgen::JsCast;
-use web_sys::{Element, Event};
+use web_sys::{Element, Event, HtmlElement};
 
 use crate::frontend::{
     setup_element_listener,
@@ -31,6 +31,16 @@ impl PropertiesDisplayer<'_> {
     }
 
     fn display(&self) {
+        // determine if some radio button was focused
+        let window = web_sys::window().expect("HTML Window should exist");
+        let document = window.document().expect("HTML document should exist");
+        let mut was_focused = false;
+        if let Some(active_element) = document.active_element() {
+            if active_element.class_list().contains("property-radio") {
+                was_focused = true;
+            }
+        }
+
         // remove all children
         self.properties_element.set_inner_html("");
 
@@ -41,6 +51,7 @@ impl PropertiesDisplayer<'_> {
                 &self.properties_element,
                 self.view.camera.selected_property_subindex,
                 &mut id_index,
+                was_focused,
             );
         }
     }
@@ -50,6 +61,7 @@ impl PropertiesDisplayer<'_> {
         parent_element: &Element,
         selected_property: Option<usize>,
         id_index: &mut usize,
+        was_focused: bool,
     ) {
         let outer_div = web_sys::window()
             .unwrap()
@@ -65,6 +77,7 @@ impl PropertiesDisplayer<'_> {
             .unwrap()
             .create_element("input")
             .unwrap();
+        let radio_input: HtmlElement = radio_input.dyn_into().unwrap();
         radio_input.set_attribute("type", "radio").unwrap();
         radio_input.set_attribute("name", "property_group").unwrap();
         radio_input
@@ -72,20 +85,7 @@ impl PropertiesDisplayer<'_> {
             .unwrap();
         let radio_input_id = &format!("property_radio_{}", id_index);
         radio_input.set_id(radio_input_id);
-
-        if let Some(selected_property) = selected_property {
-            if selected_property == *id_index {
-                radio_input.set_attribute("checked", "true").unwrap();
-            }
-        }
-
-        setup_element_listener(
-            &radio_input,
-            "change",
-            Box::new(move |e| {
-                wasm_bindgen_futures::spawn_local(on_radio_change(e));
-            }),
-        );
+        radio_input.class_list().add_1("property-radio").unwrap();
 
         let radio_label = web_sys::window()
             .unwrap()
@@ -111,10 +111,36 @@ impl PropertiesDisplayer<'_> {
 
         parent_element.append_child(&outer_div).unwrap();
 
+        if let Some(selected_property) = selected_property {
+            if selected_property == *id_index {
+                radio_input.set_attribute("checked", "true").unwrap();
+                // if a radio button was focused, focus on the currently checked
+                console_log!("Checking radio button");
+                if was_focused {
+                    console_log!("Focusing radio button");
+                    radio_input.focus().unwrap();
+                }
+            }
+        }
+
+        setup_element_listener(
+            &radio_input,
+            "change",
+            Box::new(move |e| {
+                wasm_bindgen_futures::spawn_local(on_radio_change(e));
+            }),
+        );
+
         *id_index += 1;
 
         for child in &property_snapshot.children {
-            Self::display_property(child, &property_ul, selected_property, id_index);
+            Self::display_property(
+                child,
+                &property_ul,
+                selected_property,
+                id_index,
+                was_focused,
+            );
         }
     }
 }
