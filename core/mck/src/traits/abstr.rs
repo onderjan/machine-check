@@ -52,13 +52,13 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BitvectorField {
     pub bit_width: u32,
-    pub ones: u64,
     pub zeros: u64,
+    pub ones: u64,
 }
 
 impl Display for BitvectorField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        format_zeros_ones(f, self.bit_width, self.ones, self.zeros)
+        format_zeros_ones(f, self.bit_width, self.zeros, self.ones)
     }
 }
 
