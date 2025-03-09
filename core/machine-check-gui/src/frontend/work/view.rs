@@ -81,7 +81,7 @@ impl View {
             match target {
                 NavigationTarget::Root => {
                     // go to the root node
-                    self.camera.selected_node_id = Some(NodeId::START);
+                    self.camera.selected_node_id = Some(NodeId::ROOT);
                 }
                 NavigationTarget::Up => {
                     // go to the previous child of the tiling parent
@@ -133,7 +133,7 @@ impl View {
                 }
             }
         } else {
-            self.camera.selected_node_id = Some(NodeId::START);
+            self.camera.selected_node_id = Some(NodeId::ROOT);
         }
     }
 }

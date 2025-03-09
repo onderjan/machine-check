@@ -24,7 +24,7 @@ impl Display for StateId {
     }
 }
 
-/// Node identifier. Either a dummy initial node or an actual system state.
+/// Node identifier. Either a root node or an actual system state.
 ///
 /// The identifier has 64 bits so there is no realistic possibility of overflow.
 /// Even generating states at a rate of 10 giga per second, it would take
@@ -33,8 +33,8 @@ impl Display for StateId {
 pub struct NodeId(Option<NonZeroU64>);
 
 impl NodeId {
-    /// Dummy initial node.
-    pub const START: NodeId = NodeId(None);
+    /// A node that roots the state space. Its children are exactly the initial states.
+    pub const ROOT: NodeId = NodeId(None);
 }
 
 impl From<StateId> for NodeId {

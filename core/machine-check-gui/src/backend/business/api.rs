@@ -32,7 +32,7 @@ pub fn api_response<M: FullMachine>(
     let state_map = framework.space().state_map();
     let node_graph = framework.space().node_graph();
 
-    let node_iter = std::iter::once((NodeId::START, None)).chain(
+    let node_iter = std::iter::once((NodeId::ROOT, None)).chain(
         state_map
             .iter()
             .map(|(state_id, state)| ((*state_id).into(), Some(state))),

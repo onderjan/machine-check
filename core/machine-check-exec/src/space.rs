@@ -166,7 +166,7 @@ impl<M: FullMachine> Space<M> {
     }
 
     pub fn initial_iter(&self) -> impl Iterator<Item = StateId> + '_ {
-        self.direct_successor_iter(NodeId::START)
+        self.direct_successor_iter(NodeId::ROOT)
     }
 
     pub fn num_states(&self) -> usize {
@@ -194,7 +194,7 @@ impl<M: FullMachine> Space<M> {
         let mut unmarked = BTreeSet::from_iter(self.state_map.left_values().cloned());
         // remove all of the reachable nodes by depth-first search
         let mut stack = Vec::<NodeId>::new();
-        stack.push(NodeId::START);
+        stack.push(NodeId::ROOT);
         while let Some(node_id) = stack.pop() {
             if let Ok(state_id) = StateId::try_from(node_id) {
                 if !unmarked.remove(&state_id) {
@@ -229,7 +229,7 @@ impl<M: FullMachine> Space<M> {
         // find the earliest-occuring definite panic id by breadth-first search
         let mut queue = VecDeque::<NodeId>::new();
         let mut processed = HashSet::<NodeId>::new();
-        queue.push_back(NodeId::START);
+        queue.push_back(NodeId::ROOT);
         while let Some(node_id) = queue.pop_front() {
             if let Ok(state_id) = StateId::try_from(node_id) {
                 let state = self.get_state_by_id(state_id);

@@ -178,7 +178,7 @@ impl<M: FullMachine> Framework<M> {
     ) -> ControlFlow<Result<bool, ExecError>> {
         // if the space is empty (just after construction), regenerate it
         if self.work_state.space.is_empty() {
-            self.regenerate(assume_inherent, NodeId::START);
+            self.regenerate(assume_inherent, NodeId::ROOT);
         } else if let Some(culprit) = self.work_state.culprit.take() {
             // we have a culprit, refine on it
             if let Err(err) = self.refine(assume_inherent, &culprit) {
@@ -271,7 +271,7 @@ impl<M: FullMachine> Framework<M> {
         while let Some(current_state_id) = iter.next() {
             let previous_node_id = match iter.peek() {
                 Some(previous_state_id) => (*previous_state_id).into(),
-                None => NodeId::START,
+                None => NodeId::ROOT,
             };
 
             if self.use_decay {

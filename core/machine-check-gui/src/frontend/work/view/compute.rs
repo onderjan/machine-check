@@ -45,9 +45,9 @@ pub fn compute_tiling_aux(
     // stage tile positions by topological sort, taking the reserved y-positions into account
     let mut tiling = BiHashMap::new();
     let mut node_aux = HashMap::new();
-    tiling.insert(Tile { x: 0, y: 0 }, TileType::Node(NodeId::START));
+    tiling.insert(Tile { x: 0, y: 0 }, TileType::Node(NodeId::ROOT));
     let mut stack = Vec::new();
-    stack.push(NodeId::START);
+    stack.push(NodeId::ROOT);
 
     for node_id in sorted {
         let parent_node_id = canonical_predecessors.get(&node_id).copied();
@@ -192,7 +192,7 @@ fn topological_sort(content: &Snapshot) -> (Vec<NodeId>, HashMap<NodeId, NodeId>
         let mut seen = HashSet::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
-        queue.push_back(NodeId::START);
+        queue.push_back(NodeId::ROOT);
 
         // construct Directed Acyclic Graph
 
@@ -232,7 +232,7 @@ fn topological_sort(content: &Snapshot) -> (Vec<NodeId>, HashMap<NodeId, NodeId>
     // use Kahn's algorithn
 
     let mut queue = VecDeque::new();
-    queue.push_back(NodeId::START);
+    queue.push_back(NodeId::ROOT);
     let mut sorted = Vec::new();
 
     while let Some(node_id) = queue.pop_front() {
