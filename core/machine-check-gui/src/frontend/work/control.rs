@@ -4,7 +4,7 @@ use web_sys::js_sys::{ArrayBuffer, Uint8Array};
 
 use crate::frontend::{
     interaction::{Request, Response},
-    window,
+    util::web_idl::window,
 };
 
 mod properties;

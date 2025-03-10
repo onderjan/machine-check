@@ -3,10 +3,9 @@ use web_sys::HtmlElement;
 
 use crate::frontend::{
     util::{
-        web_idl::{get_element_by_id, setup_selector_listener},
+        web_idl::{get_element_by_id, setup_selector_listener, window},
         PixelPoint,
     },
-    window,
     work::{view::TileType, VIEW},
 };
 

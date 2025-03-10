@@ -1,6 +1,9 @@
 use machine_check_exec::NodeId;
 
-use crate::frontend::{snapshot::SubpropertyIndex, util::PixelPoint, window};
+use crate::frontend::{
+    snapshot::SubpropertyIndex,
+    util::{web_idl::window, PixelPoint},
+};
 
 use super::{
     constants::{RAW_ARROWHEAD_SIZE, RAW_FONT_SIZE, RAW_NODE_SIZE, RAW_TILE_SIZE},

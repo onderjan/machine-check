@@ -3,34 +3,22 @@ use std::sync::{LazyLock, Mutex, MutexGuard};
 use view::{camera::Camera, View};
 
 use super::{
-    get_element_by_id,
     interaction::{BackendStatus, Request},
+    util::web_idl::get_element_by_id,
 };
 
+mod canvas;
 mod control;
-pub mod input;
+mod input;
+mod tick;
 mod view;
 
 pub async fn init() {
     issue_command(Request::GetContent, true).await;
+    canvas::init();
     input::init();
     control::init();
-}
-
-pub async fn tick() {
-    // if the backend is running, try to get the content to see if it finished
-    let backend_running = {
-        let mut backend_running = false;
-        let view_guard = VIEW.lock().expect("View should not be poisoned");
-        if let Some(view) = view_guard.as_ref() {
-            backend_running = matches!(view.backend_status, BackendStatus::Running);
-        }
-        backend_running
-    };
-
-    if backend_running {
-        issue_command(Request::Query, false).await;
-    }
+    tick::init();
 }
 
 pub fn render(force: bool) {

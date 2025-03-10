@@ -2,8 +2,8 @@ use wasm_bindgen::JsCast;
 use web_sys::{Element, Event, HtmlElement};
 
 use crate::frontend::{
-    create_element, document, get_element_by_id, setup_element_listener,
     snapshot::{PropertySnapshot, SubpropertyIndex},
+    util::web_idl::{create_element, document, get_element_by_id, setup_element_listener},
     work::{lock_view, view::View},
 };
 

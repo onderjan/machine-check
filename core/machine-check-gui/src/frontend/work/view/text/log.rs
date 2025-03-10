@@ -4,7 +4,10 @@ use chrono::{DateTime, Local, Timelike};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlTableRowElement};
 
-use crate::frontend::{document, get_element_by_id, work::view::View};
+use crate::frontend::{
+    util::web_idl::{document, get_element_by_id},
+    work::view::View,
+};
 
 pub fn display(view: &View) {
     LogDisplayer::new(view).display();

@@ -14,16 +14,6 @@ pub fn setup_selector_listener(
     setup_element_listener(&element, event_name, func);
 }
 
-pub fn setup_window_listener(ty: &str, func: Box<dyn FnMut(web_sys::Event)>) {
-    let closure = Closure::wrap(func);
-
-    window()
-        .add_event_listener_with_callback(ty, closure.as_ref().dyn_ref().unwrap())
-        .expect("Adding a listener should succeed");
-    // the closure must be explicitely forgotten so it remains accessible
-    closure.forget();
-}
-
 pub fn setup_element_listener(
     element: &Element,
     event_name: &str,

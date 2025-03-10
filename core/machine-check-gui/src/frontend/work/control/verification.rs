@@ -2,9 +2,8 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 
 use crate::frontend::{
-    get_element_by_id,
     interaction::{Request, StepSettings},
-    setup_selector_listener,
+    util::web_idl::{get_element_by_id, setup_selector_listener},
     work::{issue_command, VIEW},
 };
 

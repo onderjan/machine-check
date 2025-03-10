@@ -1,9 +1,8 @@
 use machine_check_exec::{PreparedProperty, Proposition};
 
 use crate::frontend::{
-    get_element_by_id,
     interaction::Request,
-    setup_element_listener, window,
+    util::web_idl::{get_element_by_id, setup_element_listener, window},
     work::{self, lock_view},
 };
 
@@ -25,7 +24,6 @@ pub fn init() {
             wasm_bindgen_futures::spawn_local(on_delete_property_click());
         }),
     );
-    console_log!("New property element has been set up");
 }
 
 async fn on_new_property_click() {

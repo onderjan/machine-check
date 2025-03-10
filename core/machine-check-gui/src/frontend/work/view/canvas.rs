@@ -3,7 +3,7 @@ mod primitives;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
-use crate::frontend::{get_element_by_id, util::PixelPoint};
+use crate::frontend::util::{web_idl::get_element_by_id, PixelPoint};
 
 use super::{TileType, View};
 
