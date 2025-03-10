@@ -121,9 +121,7 @@ impl PropertiesDisplayer<'_> {
 
 async fn on_radio_change(event: Event) {
     let mut view_guard = lock_view();
-    let Some(view) = view_guard.as_mut() else {
-        return;
-    };
+    let view = view_guard.as_mut();
 
     let element: Element = event.current_target().unwrap().dyn_into().unwrap();
 

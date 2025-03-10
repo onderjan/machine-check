@@ -51,9 +51,7 @@ async fn on_new_property_click() {
 async fn on_delete_property_click() {
     let property_index = {
         let view_guard = lock_view();
-        let Some(view) = view_guard.as_ref() else {
-            return;
-        };
+        let view = view_guard.as_ref();
         let Some(property_subindex) = view.camera.selected_subproperty else {
             return;
         };

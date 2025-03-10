@@ -11,11 +11,22 @@ mod text;
 mod tick;
 
 pub async fn init() {
+    // get the initial content first to provide the initial view
+    let response = control::call_backend(Request::GetContent).await;
+    let Some(snapshot) = response.snapshot else {
+        panic!("Initial content should have a snapshot");
+    };
+    let initial_view = View::new(snapshot, response.backend_status, Camera::new());
+    view_singleton::provide_initial_view(initial_view);
+
     canvas::init();
-    issue_command(Request::GetContent).await;
     input::init();
     control::init();
     tick::init();
+
+    // make sure rendering occurs
+    let view_guard = lock_view();
+    render(view_guard.as_ref());
 }
 
 async fn issue_command(request: Request) {
@@ -24,9 +35,7 @@ async fn issue_command(request: Request) {
     if is_query {
         {
             let mut view_guard = lock_view();
-            let Some(view) = view_guard.as_mut() else {
-                return;
-            };
+            let view = view_guard.as_mut();
             if matches!(view.backend_status, BackendStatus::Waiting)
                 || !matches!(response.backend_status, BackendStatus::Waiting)
             {
@@ -49,15 +58,11 @@ async fn issue_command(request: Request) {
 
     // update the view with the snapshot and backend status
     if let Some(snapshot) = response.snapshot {
-        let new_view = if let Some(view) = view_guard.take() {
-            View::new(snapshot, response.backend_status, view.camera)
-        } else {
-            View::new(snapshot, response.backend_status, Camera::new())
-        };
-
-        render(&new_view);
-        view_guard.replace(new_view);
-    } else if let Some(view) = view_guard.as_mut() {
+        view_guard
+            .map_inplace(move |view| View::new(snapshot, response.backend_status, view.camera));
+        render(view_guard.as_ref());
+    } else {
+        let view = view_guard.as_mut();
         view.backend_status = response.backend_status;
     }
 }
@@ -75,8 +80,43 @@ mod view_singleton {
 
     static VIEW: LazyLock<Mutex<Option<View>>> = LazyLock::new(|| Mutex::new(None));
 
-    pub fn lock_view() -> MutexGuard<'static, Option<View>> {
-        VIEW.lock().expect("View should not be poisoned")
+    pub struct ViewGuard {
+        guard: MutexGuard<'static, Option<View>>,
+    }
+
+    impl ViewGuard {
+        pub fn as_ref(&self) -> &View {
+            self.guard
+                .as_ref()
+                .expect("View should be initially provided")
+        }
+
+        pub fn as_mut(&mut self) -> &mut View {
+            self.guard
+                .as_mut()
+                .expect("View should be initially provided")
+        }
+
+        pub fn map_inplace(&mut self, map_fn: impl FnOnce(View) -> View) {
+            let view = self
+                .guard
+                .take()
+                .expect("View should be initially provided");
+            let view = map_fn(view);
+            self.guard.replace(view);
+        }
+    }
+
+    pub fn lock_view() -> ViewGuard {
+        ViewGuard {
+            guard: VIEW.lock().expect("View should not be poisoned"),
+        }
+    }
+
+    pub(super) fn provide_initial_view(view: View) {
+        VIEW.lock()
+            .expect("View should not be poisoned")
+            .replace(view);
     }
 }
 

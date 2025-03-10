@@ -29,13 +29,13 @@ pub fn init() {
     // while the main area is a normal element that can be resized
     let main_area = get_element_by_id("main_area");
     resize_observer.observe(&main_area);
+
+    // setup the canvas so it can be rendered to
+    setup();
 }
 
 async fn on_resize() {
     // force a complete setup and re-render
     setup();
-    let view_guard = lock_view();
-    if let Some(view) = view_guard.as_ref() {
-        render(view);
-    }
+    render(lock_view().as_ref());
 }

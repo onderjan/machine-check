@@ -17,12 +17,8 @@ pub fn init() {
 async fn tick() {
     // if the backend is running, query to see when it finished
     let backend_running = {
-        let mut backend_running = false;
         let view_guard = lock_view();
-        if let Some(view) = view_guard.as_ref() {
-            backend_running = matches!(view.backend_status, BackendStatus::Running);
-        }
-        backend_running
+        matches!(view_guard.as_ref().backend_status, BackendStatus::Running)
     };
 
     if backend_running {

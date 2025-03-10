@@ -56,9 +56,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
 
     // lock the view
     let mut view_guard = lock_view();
-    let Some(view) = view_guard.as_mut() else {
-        return;
-    };
+    let view = view_guard.as_mut();
 
     match mouse {
         MouseEvent::Click => {
