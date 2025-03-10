@@ -131,6 +131,13 @@ fn setup_listeners() {
             }),
         );
     }
+
+    setup_interval(
+        Box::new(move |_| {
+            wasm_bindgen_futures::spawn_local(work::tick());
+        }),
+        10,
+    );
 }
 
 fn setup_selector_listener(selector: &str, event_name: &str, func: Box<dyn FnMut(web_sys::Event)>) {
@@ -164,6 +171,17 @@ fn setup_element_listener(
     element
         .add_event_listener_with_callback(event_name, closure.as_ref().dyn_ref().unwrap())
         .expect("Adding a listener should succeed");
+    // the closure must be explicitely forgotten so it remains accessible
+    closure.forget();
+}
+
+fn setup_interval(func: Box<dyn FnMut(web_sys::Event)>, interval: i32) {
+    let window = web_sys::window().expect("HTML Window should exist");
+    let closure = Closure::wrap(func);
+    let handler = closure.as_ref().dyn_ref().unwrap();
+    window
+        .set_interval_with_callback_and_timeout_and_arguments_0(handler, interval)
+        .unwrap();
     // the closure must be explicitely forgotten so it remains accessible
     closure.forget();
 }

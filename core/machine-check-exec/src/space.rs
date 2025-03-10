@@ -3,7 +3,7 @@ use std::{
     fmt::Debug,
     num::NonZeroU64,
     ops::Shr,
-    rc::Rc,
+    sync::Arc,
 };
 
 use bimap::BiMap;
@@ -24,7 +24,7 @@ pub struct Space<M: FullMachine> {
     /// Graph of node ids. Contains the dummy initial node and other states.
     node_graph: GraphMap<NodeId, Edge<WrappedInput<M>>, Directed>,
     /// Bidirectional map from state ids to the states.
-    state_map: BiMap<StateId, Rc<WrappedState<M>>>,
+    state_map: BiMap<StateId, Arc<WrappedState<M>>>,
     /// How many states should be reached for a mark-and-sweep.
     num_states_for_sweep: usize,
     /// Next state id.
@@ -90,7 +90,7 @@ impl<M: FullMachine> Space<M> {
     }
 
     fn add_state(&mut self, state: PanicState<M>) -> (StateId, bool) {
-        let state = Rc::new(MetaWrap(state));
+        let state = Arc::new(MetaWrap(state));
         let state_id = if let Some(state_id) = self.state_map.get_by_right(&state) {
             // state already present in state map and consequentially next precision map
             // might not be in state graph
@@ -258,7 +258,7 @@ impl<M: FullMachine> Space<M> {
         &self.node_graph
     }
 
-    pub fn state_map(&self) -> &BiMap<StateId, Rc<WrappedState<M>>> {
+    pub fn state_map(&self) -> &BiMap<StateId, Arc<WrappedState<M>>> {
         &self.state_map
     }
 }

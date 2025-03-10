@@ -19,6 +19,13 @@ pub enum Request {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum BackendStatus {
+    Waiting,
+    Running,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Response {
-    pub snapshot: Snapshot,
+    pub backend_status: BackendStatus,
+    pub snapshot: Option<Snapshot>,
 }

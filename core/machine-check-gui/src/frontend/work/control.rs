@@ -2,10 +2,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::js_sys::{ArrayBuffer, Uint8Array};
 
-use crate::frontend::{
-    interaction::{Request, Response},
-    snapshot::Snapshot,
-};
+use crate::frontend::interaction::{Request, Response};
 
 mod properties;
 
@@ -13,7 +10,7 @@ pub fn init() {
     properties::init();
 }
 
-pub async fn command(request: Request) -> Snapshot {
+pub async fn command(request: Request) -> Response {
     let result = call_backend(request).await;
     let response = match result {
         Ok(ok) => ok,
@@ -26,9 +23,10 @@ pub async fn command(request: Request) -> Snapshot {
     let response = response.to_vec();
     let response: Response =
         rmp_serde::from_slice(&response).expect("Content should be convertible from Messagepack");
-    console_log!(&format!("Response snapshot: {:?}", response.snapshot));
 
-    response.snapshot
+    console_log!(&format!("Response: {:?}", response));
+
+    response
 }
 
 pub async fn call_backend(request: Request) -> Result<ArrayBuffer, JsValue> {

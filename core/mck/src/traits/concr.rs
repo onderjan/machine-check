@@ -3,13 +3,13 @@ use std::hash::Hash;
 
 use super::{abstr, misc::PanicMessage, refin};
 
-pub trait Input: Debug + PartialEq + Eq + Hash + Clone {}
+pub trait Input: Debug + PartialEq + Eq + Hash + Clone + Send + Sync {}
 
-pub trait State: Debug + PartialEq + Eq + Hash + Clone {}
+pub trait State: Debug + PartialEq + Eq + Hash + Clone + Send + Sync {}
 
 pub trait Machine
 where
-    Self: std::marker::Sized + 'static,
+    Self: Sized + 'static + Send + Sync,
 {
     /**
      * Machine input.

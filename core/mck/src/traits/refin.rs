@@ -29,6 +29,8 @@ pub trait Input<C: FullMachine>:
     + Meta<<C::Abstr as abstr::Machine<C>>::Input>
     + Refine<<C::Abstr as abstr::Machine<C>>::Input>
     + Manipulatable
+    + Send
+    + Sync
 {
 }
 
@@ -39,12 +41,14 @@ pub trait State<C: FullMachine>:
     + Refine<<C::Abstr as abstr::Machine<C>>::State>
     + Meta<<C::Abstr as abstr::Machine<C>>::State>
     + Manipulatable
+    + Send
+    + Sync
 {
 }
 
 pub trait Machine<C: FullMachine>
 where
-    Self: std::marker::Sized,
+    Self: Sized + Send + Sync,
 {
     type Input: Input<C>;
     type State: State<C>;

@@ -10,11 +10,15 @@ use bimap::BiHashMap;
 use camera::Camera;
 use machine_check_exec::NodeId;
 
-use crate::frontend::snapshot::{PropertySnapshot, Snapshot};
+use crate::frontend::{
+    interaction::BackendStatus,
+    snapshot::{PropertySnapshot, Snapshot},
+};
 
 #[derive(Debug)]
 pub struct View {
     pub snapshot: Snapshot,
+    pub backend_status: BackendStatus,
     pub tiling: BiHashMap<Tile, TileType>,
     pub node_aux: HashMap<NodeId, NodeAux>,
     pub camera: Camera,
@@ -53,13 +57,14 @@ pub enum NavigationTarget {
 }
 
 impl View {
-    pub fn new(snapshot: Snapshot, mut camera: Camera) -> View {
+    pub fn new(snapshot: Snapshot, backend_status: BackendStatus, mut camera: Camera) -> View {
         let (tiling, node_aux) = compute::compute_tiling_aux(&snapshot);
 
         camera.apply_snapshot(&snapshot);
 
         View {
             snapshot,
+            backend_status,
             tiling,
             node_aux,
             camera,

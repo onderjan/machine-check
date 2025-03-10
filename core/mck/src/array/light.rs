@@ -1,6 +1,5 @@
-use std::borrow::BorrowMut;
 use std::ops::{Add, Sub};
-use std::rc::Rc;
+use std::sync::Arc;
 use std::{
     collections::BTreeMap,
     fmt::Debug,
@@ -26,7 +25,7 @@ pub struct LightArray<
         + Sub<Output = I>,
     E: Clone + PartialEq + Eq,
 > {
-    inner: Rc<BTreeMap<I, E>>,
+    inner: Arc<BTreeMap<I, E>>,
 }
 
 impl<
@@ -45,7 +44,7 @@ impl<
 {
     pub fn new_filled(element: E) -> Self {
         let zero_index = <I as Zero>::zero();
-        let inner = Rc::new(BTreeMap::from_iter([(zero_index, element)]));
+        let inner = Arc::new(BTreeMap::from_iter([(zero_index, element)]));
         Self { inner }
     }
 
@@ -68,7 +67,7 @@ impl<
         let previous_value = previous_value.clone();
 
         // insert the written value
-        let inner = Rc::make_mut(&mut self.inner);
+        let inner = Arc::make_mut(&mut self.inner);
         inner.insert(index, value);
 
         // we need to preserve the previous value of the next elements
@@ -146,7 +145,7 @@ impl<
         // the lower element may not be within the range, find it specifically
         use std::ops::Bound::{Excluded, Included, Unbounded};
 
-        let inner = Rc::make_mut(&mut self.inner);
+        let inner = Arc::make_mut(&mut self.inner);
 
         let below_low_value = inner
             .range((Unbounded, Excluded(min_index)))
@@ -222,7 +221,7 @@ impl<
 
     pub fn subsume(&mut self, other: Self, func: fn(&mut E, E)) {
         // unwrap or clone other so it can be mutated
-        let other_inner = Rc::try_unwrap(other.inner).unwrap_or_else(|rc| (*rc).clone());
+        let other_inner = Arc::try_unwrap(other.inner).unwrap_or_else(|rc| (*rc).clone());
 
         Self::mutable_bi_func(
             self,
@@ -242,7 +241,7 @@ impl<
             result_inner.insert(*entry.0, (func)(entry.1));
         }
         LightArray {
-            inner: Rc::new(result_inner),
+            inner: Arc::new(result_inner),
         }
     }
 
@@ -281,7 +280,7 @@ impl<
         func: impl Fn(R, &mut U, V) -> ControlFlow<R, R>,
         default_result: R,
     ) -> R {
-        let lhs_inner = Rc::make_mut(&mut lhs.inner);
+        let lhs_inner = Arc::make_mut(&mut lhs.inner);
 
         let mut rhs_iter = rhs_iter.peekable();
         let (mut index, mut rhs_current) = rhs_iter
@@ -429,7 +428,7 @@ impl<
 
         use std::ops::Bound::{Included, Unbounded};
 
-        let inner = Rc::make_mut(&mut self.inner);
+        let inner = Arc::make_mut(&mut self.inner);
 
         // we have to insert both the value and also the next value
         // if it is within array bounds and does not exist
@@ -447,7 +446,7 @@ impl<
             inner.entry(next_index).or_insert(element.clone());
         }
 
-        inner.entry(index).or_insert(element).borrow_mut()
+        inner.entry(index).or_insert(element)
     }
 
     pub fn light_iter(&self) -> impl Iterator<Item = (&I, &E)> {

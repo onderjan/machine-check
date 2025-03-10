@@ -20,16 +20,19 @@
 <body>
   <div id="container">
     <div id="top_bar" class="bar">
-      <h2 id="exec_name"></h2>
       <div id="verification_control">
         <button type="button" id="reset" title="Reset verification">&#x21BA;</button>
         <button type="button" id="step" title="Step verification">&#x2192;</button>
         <button type="button" id="run" title="Run verification until done">&#x23F5;</button>
+        <div id="verification_status">Loading</div>
         <div id="max_refinements_container">
           <label for="max_refinements">Max refinements:</label>
           <input type="number" id="max_refinements" title="Maximum number of refinements per step" min="1" step="1"
             value="1">
         </div>
+      </div>
+      <div id="top_bar_misc">
+        <div id="exec_name"></div>
       </div>
     </div>
     <div id="left_bar" class="bar">

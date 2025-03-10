@@ -14,18 +14,18 @@ pub trait Abstr<C> {
 }
 
 pub trait Input<C: FullMachine>:
-    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Input>
+    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Input> + Send + Sync
 {
 }
 
 pub trait State<C: FullMachine>:
-    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State>
+    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State> + Send + Sync
 {
 }
 
 pub trait Machine<C: FullMachine>: Abstr<C>
 where
-    Self: std::marker::Sized,
+    Self: Sized + Send + Sync,
 {
     type Input: Input<C>;
     type State: State<C>;

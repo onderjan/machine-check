@@ -46,13 +46,16 @@ body {
     display: flex;
 }
 
-#verification_control button {
-    font-size: 1.5em;
+#verification_control>* {
     padding-left: 2em;
     padding-right: 2em;
     height: 100%;
     margin-left: 0.1em;
     margin-right: 0.1em;
+}
+
+#verification_control>button {
+    font-size: 1.5em;
 }
 
 #max_refinements_container {
