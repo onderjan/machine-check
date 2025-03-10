@@ -1,6 +1,9 @@
 use wasm_bindgen::JsCast;
 
-use crate::frontend::work::view::{NavigationTarget, View};
+use crate::frontend::{
+    util::web_idl::setup_selector_listener,
+    work::{view::NavigationTarget, VIEW},
+};
 
 #[derive(Clone, Copy, Debug)]
 pub enum KeyboardEvent {
@@ -16,7 +19,33 @@ mod codes {
     pub const ARROW_DOWN: &str = "ArrowDown";
 }
 
-pub fn on_keyboard(view: &mut View, keyboard: KeyboardEvent, event: web_sys::Event) -> bool {
+pub fn init() {
+    for (event_type, event_name) in [
+        (KeyboardEvent::Down, "keydown"),
+        (KeyboardEvent::Up, "keyup"),
+    ] {
+        setup_selector_listener(
+            "#main_area",
+            event_name,
+            Box::new(move |e| {
+                wasm_bindgen_futures::spawn_local(on_keyboard(event_type, e));
+            }),
+        );
+        setup_selector_listener(
+            "#main_canvas",
+            event_name,
+            Box::new(move |e| {
+                wasm_bindgen_futures::spawn_local(on_keyboard(event_type, e));
+            }),
+        );
+    }
+}
+
+async fn on_keyboard(keyboard: KeyboardEvent, event: web_sys::Event) {
+    let mut view_guard = VIEW.lock().expect("View should not be poisoned");
+    let Some(view) = view_guard.as_mut() else {
+        return;
+    };
     console_log!(&format!("Keyboard event received: {:?}", event));
 
     let event: web_sys::KeyboardEvent = event
@@ -29,7 +58,7 @@ pub fn on_keyboard(view: &mut View, keyboard: KeyboardEvent, event: web_sys::Eve
         codes::ARROW_DOWN => NavigationTarget::Down,
         codes::ARROW_LEFT => NavigationTarget::Left,
         codes::ARROW_RIGHT => NavigationTarget::Right,
-        _ => return false,
+        _ => return,
     };
 
     // prevent default action only for the handled events
@@ -40,11 +69,10 @@ pub fn on_keyboard(view: &mut View, keyboard: KeyboardEvent, event: web_sys::Eve
         KeyboardEvent::Down => {
             view.navigate(navigation_target);
             // redraw
-            true
+            view.render(false);
         }
         KeyboardEvent::Up => {
             // nothing for now
-            false
         }
     }
 }

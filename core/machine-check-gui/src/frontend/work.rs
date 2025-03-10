@@ -13,6 +13,7 @@ mod view;
 
 pub async fn init() {
     issue_command(Request::GetContent, true).await;
+    input::init();
     control::init();
 }
 
@@ -36,24 +37,6 @@ pub fn render(force: bool) {
     let view_guard = VIEW.lock().expect("View should not be poisoned");
     if let Some(view) = view_guard.as_ref() {
         view.render(force);
-    }
-}
-
-pub fn on_keyboard(keyboard: super::KeyboardEvent, event: web_sys::Event) {
-    let mut view_guard = VIEW.lock().expect("View should not be poisoned");
-    if let Some(view) = view_guard.as_mut() {
-        if input::keyboard::on_keyboard(view, keyboard, event) {
-            view.render(false);
-        }
-    }
-}
-
-pub fn on_mouse(mouse: super::MouseEvent, event: web_sys::Event) {
-    let mut view_guard = VIEW.lock().expect("View should not be poisoned");
-    if let Some(view) = view_guard.as_mut() {
-        if input::mouse::on_mouse(view, mouse, event) {
-            view.render(false);
-        }
     }
 }
 
