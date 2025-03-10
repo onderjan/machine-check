@@ -8,9 +8,6 @@ macro_rules! console_log {
     };
 }
 
-pub mod interaction;
-pub mod snapshot;
-
 mod client;
 mod util;
 mod view;

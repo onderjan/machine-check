@@ -15,7 +15,7 @@ use window::Window;
 use workspace::Workspace;
 use wry::WebViewId;
 
-use crate::frontend::interaction::Request;
+use crate::shared::Request;
 
 mod api;
 mod window;

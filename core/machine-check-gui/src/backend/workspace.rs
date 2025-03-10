@@ -1,8 +1,6 @@
-use crate::frontend::snapshot::log::Log;
-use crate::{
-    backend::BackendSettings,
-    frontend::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace},
-};
+use crate::backend::BackendSettings;
+use crate::shared::snapshot::log::Log;
+use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
 use machine_check_common::ThreeValued;
 use machine_check_exec::NodeId;
 use machine_check_exec::{Framework, PreparedProperty, Proposition};

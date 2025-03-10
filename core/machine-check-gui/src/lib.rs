@@ -5,9 +5,10 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod backend;
 
-/// The backend of the Graphical User Interface.
-#[cfg(not(target_arch = "wasm32"))]
-pub use backend::*;
+pub use backend::run;
+
+/// Shared structures for interactions.
+pub mod shared;
 
 /// The frontend of the GUI is built on the WebAssembly (WASM) architecture, running in a browser
 /// and interacting with the backend.

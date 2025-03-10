@@ -1,10 +1,9 @@
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use log::Log;
+use crate::shared::snapshot::log::Log;
 use machine_check_common::ThreeValued;
 use machine_check_exec::{NodeId, PreparedProperty, StateId};
-use serde::{Deserialize, Serialize};
-
 use mck::abstr::Field;
 
 pub mod log;

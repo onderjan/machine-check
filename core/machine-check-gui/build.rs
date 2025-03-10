@@ -189,8 +189,8 @@ fn build() -> anyhow::Result<()> {
     Ok(())
 }
 
-const COPY_DIRECTORIES: [&str; 1] = ["src/frontend"];
-const COPY_FILES: [&str; 1] = ["src/frontend.rs"];
+const COPY_DIRECTORIES: [&str; 2] = ["src/shared", "src/frontend"];
+const COPY_FILES: [&str; 2] = ["src/frontend.rs", "src/shared.rs"];
 const LIB_RS: &str = "src/lib.rs";
 const CARGO_TOML: &str = "Cargo.toml";
 const SPECIAL_FILES: [&str; 2] = [LIB_RS, CARGO_TOML];
@@ -238,8 +238,11 @@ fn prepare_frontend_package(
         )?;
     }
 
-    // Handle lib.rs specially: just declare the frontend.
-    fs::write(frontend_package_dir.join(LIB_RS), "mod frontend;\n")?;
+    // Handle lib.rs specially: just declare the shared and frontend.
+    fs::write(
+        frontend_package_dir.join(LIB_RS),
+        "pub mod shared; mod frontend;\n",
+    )?;
 
     // Handle the package Cargo.toml specially.
     let cargo_toml = fs::read_to_string(this_package_dir.join(CARGO_TOML))?;

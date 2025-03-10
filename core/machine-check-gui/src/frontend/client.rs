@@ -1,8 +1,8 @@
 use super::{
-    interaction::{BackendStatus, Request},
     util::web_idl::get_element_by_id,
     view::{camera::Camera, View},
 };
+use crate::shared::{BackendStatus, Request};
 
 mod canvas;
 mod control;

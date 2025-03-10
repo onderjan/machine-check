@@ -1,12 +1,12 @@
 use machine_check_exec::NodeId;
 
-use crate::frontend::{
-    snapshot::SubpropertyIndex,
-    util::{
+use crate::{
+    frontend::util::{
         constants::{RAW_ARROWHEAD_SIZE, RAW_FONT_SIZE, RAW_NODE_SIZE, RAW_TILE_SIZE},
         web_idl::window,
         PixelPoint,
     },
+    shared::snapshot::{Snapshot, SubpropertyIndex},
 };
 
 use super::Tile;
@@ -102,7 +102,7 @@ impl Camera {
         self.scheme.global_px_tile(global_point)
     }
 
-    pub fn apply_snapshot(&mut self, snapshot: &crate::frontend::snapshot::Snapshot) {
+    pub fn apply_snapshot(&mut self, snapshot: &Snapshot) {
         // make sure the selected things are still available
         if let Some(selected_node_id) = self.selected_node_id {
             if !snapshot.state_space.nodes.contains_key(&selected_node_id) {

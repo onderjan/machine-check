@@ -1,7 +1,8 @@
 use machine_check_exec::PreparedProperty;
 use serde::{Deserialize, Serialize};
+use snapshot::{RootPropertyIndex, Snapshot};
 
-use super::snapshot::{RootPropertyIndex, Snapshot};
+pub mod snapshot;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepSettings {

@@ -2,9 +2,9 @@ use log::info;
 use mck::concr::FullMachine;
 use std::{sync::Arc, time::Instant};
 
-use crate::frontend::{
-    interaction::{BackendStatus, Request, Response},
+use crate::shared::{
     snapshot::log::{MessageType, StepMessage},
+    BackendStatus, Request, Response,
 };
 
 use super::{workspace::WorkspaceProperty, Backend};

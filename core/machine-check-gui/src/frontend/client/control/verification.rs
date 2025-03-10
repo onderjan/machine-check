@@ -3,9 +3,9 @@ use web_sys::HtmlInputElement;
 
 use crate::frontend::{
     client::{issue_command, view_singleton::lock_view},
-    interaction::{Request, StepSettings},
     util::web_idl::{get_element_by_id, setup_selector_listener},
 };
+use crate::shared::{Request, StepSettings};
 
 pub fn init() {
     setup_selector_listener(

@@ -2,9 +2,9 @@ use machine_check_exec::{PreparedProperty, Proposition};
 
 use crate::frontend::{
     client::{self, lock_view},
-    interaction::Request,
     util::web_idl::{get_element_by_id, setup_element_listener, window},
 };
+use crate::shared::Request;
 
 pub fn init() {
     let new_property_element = get_element_by_id("new_property");

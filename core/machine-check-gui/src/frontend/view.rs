@@ -7,9 +7,9 @@ use bimap::BiHashMap;
 use camera::Camera;
 use machine_check_exec::NodeId;
 
-use crate::frontend::{
-    interaction::BackendStatus,
+use crate::shared::{
     snapshot::{PropertySnapshot, Snapshot},
+    BackendStatus,
 };
 
 #[derive(Debug)]

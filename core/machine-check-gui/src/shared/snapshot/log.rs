@@ -41,3 +41,9 @@ impl Log {
         self.messages.push(Message { ty: msg, time });
     }
 }
+
+impl Default for Log {
+    fn default() -> Self {
+        Self::new()
+    }
+}

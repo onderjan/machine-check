@@ -4,9 +4,12 @@ use chrono::{DateTime, Local, Timelike};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlTableRowElement};
 
-use crate::frontend::{
-    util::web_idl::{document, get_element_by_id},
-    view::View,
+use crate::{
+    frontend::{
+        util::web_idl::{document, get_element_by_id},
+        view::View,
+    },
+    shared::snapshot::log::MessageType,
 };
 
 pub fn display(view: &View) {
@@ -49,11 +52,11 @@ impl LogDisplayer<'_> {
             time_element.set_text_content(Some(&pretty_time(&local_time)));
 
             match &message.ty {
-                crate::frontend::snapshot::log::MessageType::Error(msg) => {
+                MessageType::Error(msg) => {
                     type_element.set_text_content(Some("Error"));
                     message_element.set_text_content(Some(&format!("Error: {}", msg)));
                 }
-                crate::frontend::snapshot::log::MessageType::Step(step_message) => {
+                MessageType::Step(step_message) => {
                     duration_element
                         .set_text_content(Some(&pretty_duration(&step_message.duration)));
                     type_element.set_text_content(Some("Step"));

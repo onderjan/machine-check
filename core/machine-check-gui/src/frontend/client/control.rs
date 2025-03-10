@@ -2,9 +2,9 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::js_sys::{ArrayBuffer, Uint8Array};
 
-use crate::frontend::{
-    interaction::{Request, Response},
-    util::web_idl::window,
+use crate::{
+    frontend::util::web_idl::window,
+    shared::{Request, Response},
 };
 
 mod properties;

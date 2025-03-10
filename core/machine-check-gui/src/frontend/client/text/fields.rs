@@ -5,7 +5,7 @@ use mck::abstr::{ArrayField, ArrayFieldBitvector, BitvectorField, Field};
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlTableCellElement, HtmlTableElement, HtmlTableRowElement};
 
-use crate::frontend::{snapshot::Node, util::web_idl::get_element_by_id};
+use crate::{frontend::util::web_idl::get_element_by_id, shared::snapshot::Node};
 
 use super::View;
 

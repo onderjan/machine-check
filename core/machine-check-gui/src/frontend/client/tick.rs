@@ -1,6 +1,6 @@
-use crate::frontend::{
-    interaction::{BackendStatus, Request},
-    util::web_idl::setup_interval,
+use crate::{
+    frontend::util::web_idl::setup_interval,
+    shared::{BackendStatus, Request},
 };
 
 use super::{issue_command, lock_view};
