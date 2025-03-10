@@ -2,10 +2,10 @@ use wasm_bindgen::JsCast;
 use web_sys::{Element, Event, HtmlElement};
 
 use crate::frontend::{
+    client::{lock_view, render},
     snapshot::{PropertySnapshot, SubpropertyIndex},
     util::web_idl::{create_element, document, get_element_by_id, setup_element_listener},
     view::View,
-    work::{lock_view, render},
 };
 
 pub fn display(view: &View) {

@@ -11,9 +11,9 @@ macro_rules! console_log {
 pub mod interaction;
 pub mod snapshot;
 
+mod client;
 mod util;
 mod view;
-mod work;
 
 use wasm_bindgen::prelude::*;
 
@@ -21,5 +21,5 @@ use wasm_bindgen::prelude::*;
 pub async fn exec() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-    work::init().await;
+    client::init().await;
 }

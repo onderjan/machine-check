@@ -1,9 +1,9 @@
 use machine_check_exec::{PreparedProperty, Proposition};
 
 use crate::frontend::{
+    client::{self, lock_view},
     interaction::Request,
     util::web_idl::{get_element_by_id, setup_element_listener, window},
-    work::{self, lock_view},
 };
 
 pub fn init() {
@@ -45,7 +45,7 @@ async fn on_new_property_click() {
         }
     };
 
-    work::issue_command(Request::AddProperty(property)).await;
+    client::issue_command(Request::AddProperty(property)).await;
 }
 
 async fn on_delete_property_click() {
@@ -63,5 +63,5 @@ async fn on_delete_property_click() {
         return;
     }
 
-    work::issue_command(Request::RemoveProperty(property_index)).await;
+    client::issue_command(Request::RemoveProperty(property_index)).await;
 }

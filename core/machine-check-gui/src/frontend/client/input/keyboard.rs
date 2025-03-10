@@ -1,9 +1,9 @@
 use wasm_bindgen::JsCast;
 
 use crate::frontend::{
+    client::{render, view_singleton::lock_view},
     util::web_idl::setup_selector_listener,
     view::NavigationTarget,
-    work::{render, view_singleton::lock_view},
 };
 
 #[derive(Clone, Copy, Debug)]

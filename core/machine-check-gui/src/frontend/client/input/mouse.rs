@@ -2,12 +2,12 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 
 use crate::frontend::{
+    client::{lock_view, render},
     util::{
         web_idl::{get_element_by_id, setup_selector_listener, window},
         PixelPoint,
     },
     view::TileType,
-    work::{lock_view, render},
 };
 
 #[derive(Clone, Copy, Debug)]

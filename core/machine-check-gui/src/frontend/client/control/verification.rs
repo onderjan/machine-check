@@ -2,9 +2,9 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 
 use crate::frontend::{
+    client::{issue_command, view_singleton::lock_view},
     interaction::{Request, StepSettings},
     util::web_idl::{get_element_by_id, setup_selector_listener},
-    work::{issue_command, view_singleton::lock_view},
 };
 
 pub fn init() {
