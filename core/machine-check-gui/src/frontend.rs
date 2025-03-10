@@ -15,8 +15,13 @@ mod util;
 mod work;
 
 use wasm_bindgen::prelude::*;
-use web_sys::{Document, Element, Event, Window};
+use web_sys::Event;
 use work::input::{keyboard::KeyboardEvent, mouse::MouseEvent};
+
+use util::web_idl::{
+    create_element, document, get_element_by_id, setup_element_listener, setup_interval,
+    setup_selector_listener, setup_window_listener, window,
+};
 
 #[wasm_bindgen]
 pub async fn exec() {
@@ -91,70 +96,4 @@ fn setup_listeners() {
         }),
         10,
     );
-}
-
-fn setup_selector_listener(selector: &str, event_name: &str, func: Box<dyn FnMut(web_sys::Event)>) {
-    let element = document()
-        .query_selector(selector)
-        .expect("Selector should succeed")
-        .expect("Selector should select some element");
-
-    setup_element_listener(&element, event_name, func);
-}
-
-fn setup_window_listener(ty: &str, func: Box<dyn FnMut(web_sys::Event)>) {
-    let closure = Closure::wrap(func);
-
-    window()
-        .add_event_listener_with_callback(ty, closure.as_ref().dyn_ref().unwrap())
-        .expect("Adding a listener should succeed");
-    // the closure must be explicitely forgotten so it remains accessible
-    closure.forget();
-}
-
-fn setup_element_listener(
-    element: &Element,
-    event_name: &str,
-    func: Box<dyn FnMut(web_sys::Event)>,
-) {
-    let closure = Closure::wrap(func);
-    element
-        .add_event_listener_with_callback(event_name, closure.as_ref().dyn_ref().unwrap())
-        .expect("Adding a listener should succeed");
-    // the closure must be explicitely forgotten so it remains accessible
-    closure.forget();
-}
-
-fn setup_interval(func: Box<dyn FnMut(web_sys::Event)>, interval: i32) {
-    let closure = Closure::wrap(func);
-    let handler = closure.as_ref().dyn_ref().unwrap();
-    window()
-        .set_interval_with_callback_and_timeout_and_arguments_0(handler, interval)
-        .unwrap();
-    // the closure must be explicitely forgotten so it remains accessible
-    closure.forget();
-}
-
-fn window() -> Window {
-    web_sys::window().expect("HTML Window should exist")
-}
-
-fn document() -> Document {
-    window().document().expect("HTML document should exist")
-}
-
-fn get_element_by_id(element_id: &str) -> Element {
-    let element = document().get_element_by_id(element_id);
-    match element {
-        Some(element) => element,
-        None => panic!("Element '{}' should exist", element_id),
-    }
-}
-
-fn create_element(local_name: &str) -> Element {
-    let element = document().create_element(local_name);
-    match element {
-        Ok(element) => element,
-        Err(err) => panic!("Element '{}' could not be created: {:?}", local_name, err),
-    }
 }
