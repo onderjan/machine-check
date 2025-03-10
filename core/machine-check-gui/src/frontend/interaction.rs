@@ -12,6 +12,7 @@ pub struct StepSettings {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Request {
     GetContent,
+    Query,
     Reset,
     Step(StepSettings),
     AddProperty(PreparedProperty),

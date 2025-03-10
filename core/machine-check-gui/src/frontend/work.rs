@@ -58,7 +58,7 @@ pub async fn tick() {
     };
 
     if backend_running {
-        command(Request::GetContent, false).await;
+        command(Request::Query, false).await;
     }
 }
 
@@ -88,7 +88,23 @@ pub fn on_mouse(mouse: super::MouseEvent, event: web_sys::Event) {
 }
 
 async fn command(request: Request, force: bool) {
-    let response = control::command(request).await;
+    let is_query = matches!(request, Request::Query);
+    let mut response = control::command(request).await;
+    if is_query {
+        {
+            let mut view_guard = VIEW.lock().expect("View should not be poisoned");
+            let Some(view) = view_guard.as_mut() else {
+                return;
+            };
+            if matches!(view.backend_status, BackendStatus::Waiting)
+                || !matches!(response.backend_status, BackendStatus::Waiting)
+            {
+                return;
+            }
+            view.backend_status = BackendStatus::Waiting;
+        }
+        response = control::command(Request::GetContent).await;
+    }
 
     let mut view_guard = VIEW.lock().expect("View should not be poisoned");
 

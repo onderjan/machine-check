@@ -18,11 +18,16 @@ pub fn command<M: FullMachine>(backend: &Backend<M>, request: Request) -> Respon
     if stats_guard.running {
         // something is running, dismiss the command and signify it
 
+        if !matches!(request, Request::Query) {
+            info!("Running, dismissing {:?}", request);
+        }
         return Response {
             backend_status: BackendStatus::Running,
             snapshot: None,
         };
     }
+
+    info!("Processing {:?}", request);
 
     // the backend is waiting for a command, lock the workspace and execute
 
@@ -32,20 +37,33 @@ pub fn command<M: FullMachine>(backend: &Backend<M>, request: Request) -> Respon
         .expect("The workspace should not be poisoned");
 
     let (snapshot, running) = match request {
-        Request::GetContent => (workspace_guard.generate_snapshot(&backend.settings), false),
+        Request::Query => (None, false),
+        Request::GetContent => (
+            Some(workspace_guard.generate_snapshot(&backend.settings)),
+            false,
+        ),
         Request::Reset => {
             workspace_guard.framework.reset();
-            (workspace_guard.generate_snapshot(&backend.settings), false)
+            (
+                Some(workspace_guard.generate_snapshot(&backend.settings)),
+                false,
+            )
         }
         Request::AddProperty(prepared_property) => {
             workspace_guard
                 .properties
                 .push(WorkspaceProperty::new(prepared_property));
-            (workspace_guard.generate_snapshot(&backend.settings), false)
+            (
+                Some(workspace_guard.generate_snapshot(&backend.settings)),
+                false,
+            )
         }
         Request::RemoveProperty(property_index) => {
             workspace_guard.properties.remove(property_index.0);
-            (workspace_guard.generate_snapshot(&backend.settings), false)
+            (
+                Some(workspace_guard.generate_snapshot(&backend.settings)),
+                false,
+            )
         }
         Request::Step(step_settings) => {
             let snapshot = workspace_guard.generate_snapshot(&backend.settings);
@@ -94,7 +112,7 @@ pub fn command<M: FullMachine>(backend: &Backend<M>, request: Request) -> Respon
                 }
                 info!("Stepping ended.");
             });
-            (snapshot, true)
+            (Some(snapshot), true)
         }
     };
 
@@ -108,6 +126,6 @@ pub fn command<M: FullMachine>(backend: &Backend<M>, request: Request) -> Respon
         } else {
             BackendStatus::Waiting
         },
-        snapshot: Some(snapshot),
+        snapshot,
     }
 }
