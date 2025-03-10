@@ -3,7 +3,7 @@ use wasm_bindgen::JsCast;
 use crate::frontend::{
     util::web_idl::setup_selector_listener,
     view::NavigationTarget,
-    work::{render, VIEW},
+    work::{render, view_singleton::lock_view},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -43,7 +43,7 @@ pub fn init() {
 }
 
 async fn on_keyboard(keyboard: KeyboardEvent, event: web_sys::Event) {
-    let mut view_guard = VIEW.lock().expect("View should not be poisoned");
+    let mut view_guard = lock_view();
     let Some(view) = view_guard.as_mut() else {
         return;
     };

@@ -1,5 +1,3 @@
-use std::sync::{LazyLock, Mutex, MutexGuard};
-
 use super::{
     interaction::{BackendStatus, Request},
     util::web_idl::get_element_by_id,
@@ -25,7 +23,7 @@ async fn issue_command(request: Request) {
     let mut response = control::call_backend(request).await;
     if is_query {
         {
-            let mut view_guard = VIEW.lock().expect("View should not be poisoned");
+            let mut view_guard = lock_view();
             let Some(view) = view_guard.as_mut() else {
                 return;
             };
@@ -39,7 +37,7 @@ async fn issue_command(request: Request) {
         response = control::call_backend(Request::GetContent).await;
     }
 
-    let mut view_guard = VIEW.lock().expect("View should not be poisoned");
+    let mut view_guard = lock_view();
 
     let status_str = match response.backend_status {
         BackendStatus::Waiting => "Waiting",
@@ -65,15 +63,21 @@ async fn issue_command(request: Request) {
 }
 
 fn render(view: &View) {
-    //let view_guard = VIEW.lock().expect("View should not be poisoned");
-    //if let Some(view) = view_guard.as_ref() {
     canvas::render(view);
     text::display(view);
-    //}
 }
 
-static VIEW: LazyLock<Mutex<Option<View>>> = LazyLock::new(|| Mutex::new(None));
+// put the view singleton in its own scope so it cannot be manipulated otherwise
+mod view_singleton {
+    use std::sync::{LazyLock, Mutex, MutexGuard};
 
-fn lock_view() -> MutexGuard<'static, Option<View>> {
-    VIEW.lock().expect("View should not be poisoned")
+    use crate::frontend::view::View;
+
+    static VIEW: LazyLock<Mutex<Option<View>>> = LazyLock::new(|| Mutex::new(None));
+
+    pub fn lock_view() -> MutexGuard<'static, Option<View>> {
+        VIEW.lock().expect("View should not be poisoned")
+    }
 }
+
+use view_singleton::lock_view;

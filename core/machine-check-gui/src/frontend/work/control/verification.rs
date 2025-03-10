@@ -4,7 +4,7 @@ use web_sys::HtmlInputElement;
 use crate::frontend::{
     interaction::{Request, StepSettings},
     util::web_idl::{get_element_by_id, setup_selector_listener},
-    work::{issue_command, VIEW},
+    work::{issue_command, view_singleton::lock_view},
 };
 
 pub fn init() {
@@ -53,7 +53,7 @@ pub async fn on_run_click() {
 
 pub async fn issue_step(max_refinements: Option<u64>) {
     let selected_property = {
-        let view_guard = VIEW.lock().expect("View should not be poisoned");
+        let view_guard = lock_view();
 
         let Some(view) = view_guard.as_ref() else {
             return;

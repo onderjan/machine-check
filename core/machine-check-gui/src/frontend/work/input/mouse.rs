@@ -7,7 +7,7 @@ use crate::frontend::{
         PixelPoint,
     },
     view::TileType,
-    work::{render, VIEW},
+    work::{lock_view, render},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -55,7 +55,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
     const DRAG_BUTTON: i16 = 1;
 
     // lock the view
-    let mut view_guard = VIEW.lock().expect("View should not be poisoned");
+    let mut view_guard = lock_view();
     let Some(view) = view_guard.as_mut() else {
         return;
     };
