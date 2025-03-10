@@ -15,7 +15,7 @@ mod util;
 mod work;
 
 use wasm_bindgen::prelude::*;
-use web_sys::{Document, Element, Event, HtmlInputElement, Window};
+use web_sys::{Document, Element, Event, Window};
 use work::input::{keyboard::KeyboardEvent, mouse::MouseEvent};
 
 #[wasm_bindgen]
@@ -32,24 +32,6 @@ pub async fn resize() {
     work::render(true);
 }
 
-pub async fn reset() {
-    work::reset().await;
-}
-
-pub async fn step() {
-    let input: HtmlInputElement = get_element_by_id("max_refinements")
-        .dyn_into()
-        .expect("The number of steps element should be an input");
-
-    let max_refinements = (input.value_as_number() as u64).max(1);
-
-    work::step(Some(max_refinements)).await;
-}
-
-pub async fn run() {
-    work::step(None).await;
-}
-
 async fn on_keyboard(keyboard: KeyboardEvent, event: Event) {
     work::on_keyboard(keyboard, event);
 }
@@ -59,30 +41,6 @@ async fn on_mouse(mouse: MouseEvent, event: Event) {
 }
 
 fn setup_listeners() {
-    setup_selector_listener(
-        "#reset",
-        "click",
-        Box::new(|_e| {
-            wasm_bindgen_futures::spawn_local(reset());
-        }),
-    );
-
-    setup_selector_listener(
-        "#step",
-        "click",
-        Box::new(|_e| {
-            wasm_bindgen_futures::spawn_local(step());
-        }),
-    );
-
-    setup_selector_listener(
-        "#run",
-        "click",
-        Box::new(|_e| {
-            wasm_bindgen_futures::spawn_local(run());
-        }),
-    );
-
     setup_window_listener(
         "resize",
         Box::new(|_e| {

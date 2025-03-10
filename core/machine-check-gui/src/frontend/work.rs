@@ -4,7 +4,7 @@ use view::{camera::Camera, View};
 
 use super::{
     get_element_by_id,
-    interaction::{BackendStatus, Request, StepSettings},
+    interaction::{BackendStatus, Request},
 };
 
 mod control;
@@ -12,41 +12,8 @@ pub mod input;
 mod view;
 
 pub async fn init() {
-    command(Request::GetContent, true).await;
+    issue_command(Request::GetContent, true).await;
     control::init();
-}
-
-pub async fn step(max_refinements: Option<u64>) {
-    let selected_property = {
-        let view_guard = VIEW.lock().expect("View should not be poisoned");
-
-        let Some(view) = view_guard.as_ref() else {
-            return;
-        };
-
-        // select the property to use for stepping
-        // use the root property, not the subproperty, as we are interested
-        // in whether the root property holds or not
-        let Some(selected_property) = view.selected_root_property() else {
-            // if no property is selected, just quietly return
-            return;
-        };
-
-        selected_property.property.clone()
-    };
-
-    command(
-        Request::Step(StepSettings {
-            max_refinements,
-            selected_property,
-        }),
-        false,
-    )
-    .await;
-}
-
-pub async fn reset() {
-    command(Request::Reset, false).await;
 }
 
 pub async fn tick() {
@@ -61,7 +28,7 @@ pub async fn tick() {
     };
 
     if backend_running {
-        command(Request::Query, false).await;
+        issue_command(Request::Query, false).await;
     }
 }
 
@@ -90,9 +57,9 @@ pub fn on_mouse(mouse: super::MouseEvent, event: web_sys::Event) {
     }
 }
 
-async fn command(request: Request, force: bool) {
+async fn issue_command(request: Request, force: bool) {
     let is_query = matches!(request, Request::Query);
-    let mut response = control::command(request).await;
+    let mut response = control::call_backend(request).await;
     if is_query {
         {
             let mut view_guard = VIEW.lock().expect("View should not be poisoned");
@@ -106,7 +73,7 @@ async fn command(request: Request, force: bool) {
             }
             view.backend_status = BackendStatus::Waiting;
         }
-        response = control::command(Request::GetContent).await;
+        response = control::call_backend(Request::GetContent).await;
     }
 
     let mut view_guard = VIEW.lock().expect("View should not be poisoned");

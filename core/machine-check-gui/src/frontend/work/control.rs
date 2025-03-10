@@ -8,13 +8,15 @@ use crate::frontend::{
 };
 
 mod properties;
+mod verification;
 
 pub fn init() {
     properties::init();
+    verification::init();
 }
 
-pub async fn command(request: Request) -> Response {
-    let result = call_backend(request).await;
+pub async fn call_backend(request: Request) -> Response {
+    let result = call_backend_fetch(request).await;
     let response = match result {
         Ok(ok) => ok,
         Err(err) => panic!("{:?}", err),
@@ -32,7 +34,7 @@ pub async fn command(request: Request) -> Response {
     response
 }
 
-pub async fn call_backend(request: Request) -> Result<ArrayBuffer, JsValue> {
+pub async fn call_backend_fetch(request: Request) -> Result<ArrayBuffer, JsValue> {
     let opts = web_sys::RequestInit::new();
     opts.set_method("POST");
     opts.set_mode(web_sys::RequestMode::Cors);
