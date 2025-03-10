@@ -4,7 +4,8 @@ use web_sys::{Element, Event, HtmlElement};
 use crate::frontend::{
     snapshot::{PropertySnapshot, SubpropertyIndex},
     util::web_idl::{create_element, document, get_element_by_id, setup_element_listener},
-    work::{lock_view, view::View},
+    view::View,
+    work::{lock_view, render},
 };
 
 pub fn display(view: &View) {
@@ -141,5 +142,5 @@ async fn on_radio_change(event: Event) {
 
     // change and redraw
     view.camera.selected_subproperty = Some(SubpropertyIndex(index));
-    view.render(false);
+    render(view);
 }

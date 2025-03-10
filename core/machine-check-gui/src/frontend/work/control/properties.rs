@@ -45,7 +45,7 @@ async fn on_new_property_click() {
         }
     };
 
-    work::issue_command(Request::AddProperty(property), false).await;
+    work::issue_command(Request::AddProperty(property)).await;
 }
 
 async fn on_delete_property_click() {
@@ -65,5 +65,5 @@ async fn on_delete_property_click() {
         return;
     }
 
-    work::issue_command(Request::RemoveProperty(property_index), false).await;
+    work::issue_command(Request::RemoveProperty(property_index)).await;
 }

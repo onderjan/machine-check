@@ -12,6 +12,7 @@ pub mod interaction;
 pub mod snapshot;
 
 mod util;
+mod view;
 mod work;
 
 use wasm_bindgen::prelude::*;
@@ -20,9 +21,5 @@ use wasm_bindgen::prelude::*;
 pub async fn exec() {
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
-    setup_listeners();
-
     work::init().await;
 }
-
-fn setup_listeners() {}

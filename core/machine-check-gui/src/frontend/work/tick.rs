@@ -26,6 +26,6 @@ async fn tick() {
     };
 
     if backend_running {
-        issue_command(Request::Query, false).await;
+        issue_command(Request::Query).await;
     }
 }

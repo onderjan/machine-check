@@ -1,8 +1,5 @@
 pub mod camera;
-mod canvas;
 mod compute;
-mod constants;
-mod text;
 
 use std::collections::HashMap;
 
@@ -69,11 +66,6 @@ impl View {
             node_aux,
             camera,
         }
-    }
-
-    pub fn render(&self, force: bool) {
-        canvas::render(self, force);
-        text::display(self);
     }
 
     pub fn navigate(&mut self, target: NavigationTarget) {

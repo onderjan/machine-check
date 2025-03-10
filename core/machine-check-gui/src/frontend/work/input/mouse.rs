@@ -6,7 +6,8 @@ use crate::frontend::{
         web_idl::{get_element_by_id, setup_selector_listener, window},
         PixelPoint,
     },
-    work::{view::TileType, VIEW},
+    view::TileType,
+    work::{render, VIEW},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -78,7 +79,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
 
                 // redraw
 
-                view.render(false);
+                render(view);
             }
         }
         MouseEvent::ContextMenu => {
@@ -90,7 +91,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
                 view.camera.mouse_current_coords = Some(mouse_coords);
                 view.camera.mouse_down_coords = Some(mouse_coords);
                 // redraw
-                view.render(false);
+                render(view);
             }
         }
         MouseEvent::Move => {
@@ -99,7 +100,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
 
             // redraw if dragging
             if view.camera.mouse_down_coords.is_some() {
-                view.render(false);
+                render(view);
             }
         }
         MouseEvent::Up | MouseEvent::Out => {
@@ -110,7 +111,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
                     view.camera.view_offset -= offset;
 
                     // redraw
-                    view.render(false);
+                    render(view);
                 }
             }
         }

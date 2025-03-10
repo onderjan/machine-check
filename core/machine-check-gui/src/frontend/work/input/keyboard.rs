@@ -2,7 +2,8 @@ use wasm_bindgen::JsCast;
 
 use crate::frontend::{
     util::web_idl::setup_selector_listener,
-    work::{view::NavigationTarget, VIEW},
+    view::NavigationTarget,
+    work::{render, VIEW},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -69,7 +70,7 @@ async fn on_keyboard(keyboard: KeyboardEvent, event: web_sys::Event) {
         KeyboardEvent::Down => {
             view.navigate(navigation_target);
             // redraw
-            view.render(false);
+            render(view);
         }
         KeyboardEvent::Up => {
             // nothing for now

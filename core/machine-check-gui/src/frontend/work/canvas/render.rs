@@ -3,27 +3,30 @@ mod primitives;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
-use crate::frontend::util::{web_idl::get_element_by_id, PixelPoint};
+use crate::frontend::{
+    util::{
+        web_idl::{get_element_by_id, window},
+        PixelPoint,
+    },
+    view::{TileType, View},
+};
 
-use super::{TileType, View};
-
-pub fn render(view: &View, force: bool) {
-    CanvasRenderer::new(view).render(force);
+pub fn setup() {
+    CanvasRenderer::new().setup();
 }
 
-struct CanvasRenderer<'a> {
-    view: &'a View,
+pub fn render(view: &View) {
+    CanvasRenderer::new().render(view);
+}
+
+struct CanvasRenderer {
     main_area: Element,
     main_canvas: HtmlCanvasElement,
     main_context: CanvasRenderingContext2d,
 }
 
-impl CanvasRenderer<'_> {
-    fn render(&self, force: bool) {
-        if force {
-            self.fix_resized_canvas();
-        }
-
+impl CanvasRenderer {
+    fn render(&self, view: &View) {
         // clear canvas
         self.main_context.clear_rect(
             0.,
@@ -32,33 +35,38 @@ impl CanvasRenderer<'_> {
             self.main_canvas.height() as f64,
         );
 
-        self.main_context.save();
-        let view_offset = self.view.camera.view_offset();
+        // set font size
+        self.main_context
+            .set_font(&format!("{}px sans-serif", view.camera.scheme.font_size));
+        self.main_context.set_text_align("center");
+        self.main_context.set_text_baseline("middle");
 
         // the view offset must be subtracted to render to the viewport
+        self.main_context.save();
+        let view_offset = view.camera.view_offset();
         self.main_context
             .translate(-view_offset.x as f64, -view_offset.y as f64)
             .unwrap();
 
-        self.render_background();
+        self.render_background(view);
+
+        let scheme = &view.camera.scheme;
 
         // use the labellings corresponding to the selected subproperty
-        let labellings = self
-            .view
+        let labellings = view
             .selected_subproperty()
             .map(|selected_property| &selected_property.labellings);
 
-        for (tile, tile_type) in &self.view.tiling {
+        for (tile, tile_type) in &view.tiling {
             match tile_type {
                 TileType::Node(node_id) => {
-                    let node = self
-                        .view
+                    let node = view
                         .snapshot
                         .state_space
                         .nodes
                         .get(node_id)
                         .expect("Tiling should have a node");
-                    let aux = self.view.node_aux.get(node_id).unwrap();
+                    let aux = view.node_aux.get(node_id).unwrap();
 
                     let labelling = if let (Some(labellings), Ok(state_id)) =
                         (labellings, (*node_id).try_into())
@@ -68,32 +76,39 @@ impl CanvasRenderer<'_> {
                         None
                     };
 
-                    self.render_node(*tile, *node_id, labelling);
+                    let is_selected = if let Some(selected_node_id) = view.camera.selected_node_id {
+                        selected_node_id == *node_id
+                    } else {
+                        false
+                    };
+
+                    self.render_node(scheme, *tile, *node_id, labelling, is_selected);
 
                     if !node.outgoing.is_empty() {
-                        self.render_arrow_start(*tile, aux.successor_x_offset);
+                        self.render_arrow_start(scheme, *tile, aux.successor_x_offset);
                     }
-                    self.render_arrow_split(*tile, 0, aux.predecessor_split_len);
+                    self.render_arrow_split(scheme, *tile, 0, aux.predecessor_split_len);
                     self.render_arrow_split(
+                        scheme,
                         *tile,
                         aux.successor_x_offset as i64,
                         aux.successor_split_len,
                     );
 
                     if !node.incoming.is_empty() {
-                        self.render_arrow_end(*tile);
+                        self.render_arrow_end(scheme, *tile);
                     }
                     if aux.self_loop {
-                        self.render_self_loop(*tile);
+                        self.render_self_loop(scheme, *tile);
                     }
                 }
                 TileType::IncomingReference(head_node_id, tail_node_id) => {
-                    self.render_reference(*tile, *head_node_id, *tail_node_id, false);
-                    self.render_arrow_start(*tile, 1);
+                    self.render_reference(scheme, *tile, *head_node_id, *tail_node_id, false);
+                    self.render_arrow_start(scheme, *tile, 1);
                 }
                 TileType::OutgoingReference(head_node_id, tail_node_id) => {
-                    self.render_arrow_end(*tile);
-                    self.render_reference(*tile, *head_node_id, *tail_node_id, true);
+                    self.render_arrow_end(scheme, *tile);
+                    self.render_reference(scheme, *tile, *head_node_id, *tail_node_id, true);
                 }
             }
         }
@@ -101,15 +116,15 @@ impl CanvasRenderer<'_> {
         self.main_context.restore();
     }
 
-    fn render_background(&self) {
+    fn render_background(&self, view: &View) {
         self.main_context.save();
 
         self.main_context.set_fill_style_str("#FAFAFA");
         self.main_context.set_stroke_style_str("#DDD");
 
-        let tile_size = self.view.camera.scheme.tile_size;
+        let tile_size = view.camera.scheme.tile_size;
 
-        let lesser_visible_point = self.view.camera.view_offset();
+        let lesser_visible_point = view.camera.view_offset();
         let greater_visible_point = lesser_visible_point
             + PixelPoint {
                 x: self.main_canvas.width() as i64,
@@ -151,7 +166,7 @@ impl CanvasRenderer<'_> {
         self.main_context.restore();
     }
 
-    fn new(view: &View) -> CanvasRenderer {
+    fn new() -> CanvasRenderer {
         let main_area = get_element_by_id("main_area");
         let main_canvas = get_element_by_id("main_canvas");
         let main_canvas: HtmlCanvasElement = main_canvas
@@ -165,16 +180,15 @@ impl CanvasRenderer<'_> {
             .expect("Main canvas 2D rendering context should be castable");
 
         CanvasRenderer {
-            view,
             main_area,
             main_canvas,
             main_context,
         }
     }
 
-    fn fix_resized_canvas(&self) {
+    fn setup(&self) {
         // fix for device pixel ratio
-        let pixel_ratio = self.view.camera.scheme.pixel_ratio;
+        let pixel_ratio = window().device_pixel_ratio();
         let main_area_rect = self.main_area.get_bounding_client_rect();
         let width = main_area_rect.width();
         let height = main_area_rect.height();
@@ -196,14 +210,6 @@ impl CanvasRenderer<'_> {
         canvas_style
             .set_property("height", &format!("{}px", height))
             .unwrap();
-
-        // set font size
-        self.main_context.set_font(&format!(
-            "{}px sans-serif",
-            self.view.camera.scheme.font_size
-        ));
-        self.main_context.set_text_align("center");
-        self.main_context.set_text_baseline("middle");
 
         // make sure we stroke true pixels
         self.main_context.reset_transform().unwrap();

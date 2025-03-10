@@ -1,21 +1,24 @@
 use machine_check_common::ThreeValued;
 use machine_check_exec::NodeId;
 
-use crate::frontend::work::view::{constants, Tile};
+use crate::frontend::{
+    util::constants,
+    view::{camera::Scheme, Tile},
+};
 
 use super::CanvasRenderer;
 
-impl CanvasRenderer<'_> {
-    pub fn render_node(&self, tile: Tile, node_id: NodeId, labelling: Option<ThreeValued>) {
+impl CanvasRenderer {
+    pub fn render_node(
+        &self,
+        scheme: &Scheme,
+        tile: Tile,
+        node_id: NodeId,
+        labelling: Option<ThreeValued>,
+        is_selected: bool,
+    ) {
         let context = &self.main_context;
 
-        let is_selected = if let Some(selected_node_id) = self.view.camera.selected_node_id {
-            selected_node_id == node_id
-        } else {
-            false
-        };
-
-        let scheme = &self.view.camera.scheme;
         let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         let node_start_x = tile.x as f64 * tile_size + (tile_size - node_size) / 2.;
@@ -46,6 +49,7 @@ impl CanvasRenderer<'_> {
 
     pub fn render_reference(
         &self,
+        scheme: &Scheme,
         tile: Tile,
         head_node_id: NodeId,
         tail_node_id: NodeId,
@@ -54,7 +58,6 @@ impl CanvasRenderer<'_> {
         let outgoing = if outgoing { 1. } else { -1. };
         let context = &self.main_context;
 
-        let scheme = &self.view.camera.scheme;
         let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         let middle_x = tile.x as f64 * tile_size + tile_size / 2.;
@@ -89,10 +92,9 @@ impl CanvasRenderer<'_> {
             .unwrap();
     }
 
-    pub fn render_arrow_start(&self, head_tile: Tile, successor_x_offset: u64) {
+    pub fn render_arrow_start(&self, scheme: &Scheme, head_tile: Tile, successor_x_offset: u64) {
         let context = &self.main_context;
 
-        let scheme = &self.view.camera.scheme;
         let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         // draw the arrowshaft
@@ -106,10 +108,15 @@ impl CanvasRenderer<'_> {
         context.stroke();
     }
 
-    pub fn render_arrow_split(&self, node_tile: Tile, x_offset: i64, split_len: u64) {
+    pub fn render_arrow_split(
+        &self,
+        scheme: &Scheme,
+        node_tile: Tile,
+        x_offset: i64,
+        split_len: u64,
+    ) {
         let context = &self.main_context;
 
-        let scheme = &self.view.camera.scheme;
         let tile_size = scheme.tile_size as f64;
 
         // draw the arrow split
@@ -122,10 +129,9 @@ impl CanvasRenderer<'_> {
         context.stroke();
     }
 
-    pub fn render_arrow_end(&self, tail_tile: Tile) {
+    pub fn render_arrow_end(&self, scheme: &Scheme, tail_tile: Tile) {
         let context = &self.main_context;
 
-        let scheme = &self.view.camera.scheme;
         let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         // draw the arrowshaft
@@ -151,10 +157,9 @@ impl CanvasRenderer<'_> {
         context.fill();
     }
 
-    pub fn render_self_loop(&self, node_tile: Tile) {
+    pub fn render_self_loop(&self, scheme: &Scheme, node_tile: Tile) {
         let context = &self.main_context;
 
-        let scheme = &self.view.camera.scheme;
         let (tile_size, node_size) = (scheme.tile_size as f64, scheme.node_size as f64);
 
         // draw the arrowshaft
@@ -171,7 +176,6 @@ impl CanvasRenderer<'_> {
         context.stroke();
 
         // draw the arrowhead
-        let scheme = &self.view.camera.scheme;
         let arrowhead_size = scheme.arrowhead_size;
 
         let arrowhead_left_x = tile_middle_x - arrowhead_size / 2.;

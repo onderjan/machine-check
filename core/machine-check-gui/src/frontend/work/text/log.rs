@@ -6,7 +6,7 @@ use web_sys::{Element, HtmlTableRowElement};
 
 use crate::frontend::{
     util::web_idl::{document, get_element_by_id},
-    work::view::View,
+    view::View,
 };
 
 pub fn display(view: &View) {

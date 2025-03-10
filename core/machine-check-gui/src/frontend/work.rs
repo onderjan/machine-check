@@ -1,34 +1,26 @@
 use std::sync::{LazyLock, Mutex, MutexGuard};
 
-use view::{camera::Camera, View};
-
 use super::{
     interaction::{BackendStatus, Request},
     util::web_idl::get_element_by_id,
+    view::{camera::Camera, View},
 };
 
 mod canvas;
 mod control;
 mod input;
+mod text;
 mod tick;
-mod view;
 
 pub async fn init() {
-    issue_command(Request::GetContent, true).await;
     canvas::init();
+    issue_command(Request::GetContent).await;
     input::init();
     control::init();
     tick::init();
 }
 
-pub fn render(force: bool) {
-    let view_guard = VIEW.lock().expect("View should not be poisoned");
-    if let Some(view) = view_guard.as_ref() {
-        view.render(force);
-    }
-}
-
-async fn issue_command(request: Request, force: bool) {
+async fn issue_command(request: Request) {
     let is_query = matches!(request, Request::Query);
     let mut response = control::call_backend(request).await;
     if is_query {
@@ -64,11 +56,20 @@ async fn issue_command(request: Request, force: bool) {
         } else {
             View::new(snapshot, response.backend_status, Camera::new())
         };
-        new_view.render(force);
+
+        render(&new_view);
         view_guard.replace(new_view);
     } else if let Some(view) = view_guard.as_mut() {
         view.backend_status = response.backend_status;
     }
+}
+
+fn render(view: &View) {
+    //let view_guard = VIEW.lock().expect("View should not be poisoned");
+    //if let Some(view) = view_guard.as_ref() {
+    canvas::render(view);
+    text::display(view);
+    //}
 }
 
 static VIEW: LazyLock<Mutex<Option<View>>> = LazyLock::new(|| Mutex::new(None));

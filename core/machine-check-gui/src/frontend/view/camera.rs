@@ -2,13 +2,14 @@ use machine_check_exec::NodeId;
 
 use crate::frontend::{
     snapshot::SubpropertyIndex,
-    util::{web_idl::window, PixelPoint},
+    util::{
+        constants::{RAW_ARROWHEAD_SIZE, RAW_FONT_SIZE, RAW_NODE_SIZE, RAW_TILE_SIZE},
+        web_idl::window,
+        PixelPoint,
+    },
 };
 
-use super::{
-    constants::{RAW_ARROWHEAD_SIZE, RAW_FONT_SIZE, RAW_NODE_SIZE, RAW_TILE_SIZE},
-    Tile,
-};
+use super::Tile;
 
 #[derive(Debug, Clone)]
 pub struct Camera {

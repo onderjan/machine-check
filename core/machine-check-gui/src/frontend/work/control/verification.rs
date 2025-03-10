@@ -34,7 +34,7 @@ pub fn init() {
 }
 
 pub async fn on_reset_click() {
-    issue_command(Request::Reset, false).await;
+    issue_command(Request::Reset).await;
 }
 
 pub async fn on_step_click() {
@@ -70,12 +70,9 @@ pub async fn issue_step(max_refinements: Option<u64>) {
         selected_property.property.clone()
     };
 
-    issue_command(
-        Request::Step(StepSettings {
-            max_refinements,
-            selected_property,
-        }),
-        false,
-    )
+    issue_command(Request::Step(StepSettings {
+        max_refinements,
+        selected_property,
+    }))
     .await;
 }
