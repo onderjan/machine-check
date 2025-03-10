@@ -46,30 +46,31 @@ async fn issue_command(request: Request) {
         response = control::call_backend(Request::GetContent).await;
     }
 
+    // update the view with the snapshot and backend status and render
     let mut view_guard = lock_view();
-
-    let status_str = match response.backend_status {
-        BackendStatus::Waiting => "Waiting",
-        BackendStatus::Running => "Running",
-    };
-
-    let status_element = get_element_by_id("verification_status");
-    status_element.set_text_content(Some(status_str));
-
-    // update the view with the snapshot and backend status
+    let view = view_guard.as_mut();
+    view.backend_status = response.backend_status;
     if let Some(snapshot) = response.snapshot {
-        view_guard
-            .map_inplace(move |view| View::new(snapshot, response.backend_status, view.camera));
-        render(view_guard.as_ref());
+        view.apply_snapshot(snapshot);
+        render(view);
     } else {
-        let view = view_guard.as_mut();
-        view.backend_status = response.backend_status;
+        render_backend_status(view);
     }
 }
 
 fn render(view: &View) {
+    render_backend_status(view);
     canvas::render(view);
     text::display(view);
+}
+
+fn render_backend_status(view: &View) {
+    let status_str = match view.backend_status {
+        BackendStatus::Waiting => "Waiting",
+        BackendStatus::Running => "Running",
+    };
+    let status_element = get_element_by_id("verification_status");
+    status_element.set_text_content(Some(status_str));
 }
 
 // put the view singleton in its own scope so it cannot be manipulated otherwise
@@ -95,15 +96,6 @@ mod view_singleton {
             self.guard
                 .as_mut()
                 .expect("View should be initially provided")
-        }
-
-        pub fn map_inplace(&mut self, map_fn: impl FnOnce(View) -> View) {
-            let view = self
-                .guard
-                .take()
-                .expect("View should be initially provided");
-            let view = map_fn(view);
-            self.guard.replace(view);
         }
     }
 

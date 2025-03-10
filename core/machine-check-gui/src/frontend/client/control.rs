@@ -22,14 +22,14 @@ pub async fn call_backend(request: Request) -> Response {
         Err(err) => panic!("{:?}", err),
     };
 
-    console_log!(&format!("Response byte length: {}", response.byte_length()));
+    console_log!("Response byte length: {}", response.byte_length());
 
     let response = Uint8Array::new(&response);
     let response = response.to_vec();
     let response: Response =
         rmp_serde::from_slice(&response).expect("Content should be convertible from Messagepack");
 
-    console_log!(&format!("Response: {:?}", response));
+    console_log!("Response: {:?}", response);
 
     response
 }

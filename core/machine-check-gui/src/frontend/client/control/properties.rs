@@ -55,7 +55,7 @@ async fn on_delete_property_click() {
         let Some(property_subindex) = view.camera.selected_subproperty else {
             return;
         };
-        view.snapshot.subindex_to_root_index(property_subindex)
+        view.snapshot().subindex_to_root_index(property_subindex)
     };
 
     // TODO: disallow removing the inherent property more elegantly

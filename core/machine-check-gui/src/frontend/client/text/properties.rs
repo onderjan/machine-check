@@ -39,7 +39,7 @@ impl PropertiesDisplayer<'_> {
         self.properties_element.set_inner_html("");
 
         let mut id_index = 0;
-        for property in self.view.snapshot.root_properties_iter() {
+        for property in self.view.snapshot().root_properties_iter() {
             Self::display_property(
                 property,
                 &self.properties_element,

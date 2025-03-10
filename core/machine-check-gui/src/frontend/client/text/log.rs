@@ -37,7 +37,7 @@ impl LogDisplayer<'_> {
         self.log_body_element.set_inner_html("");
         self.log_body_element.append_child(&first_child).unwrap();
 
-        for message in &self.view.snapshot.log.messages {
+        for message in &self.view.snapshot().log.messages {
             let row_element: HtmlTableRowElement =
                 document().create_element("tr").unwrap().dyn_into().unwrap();
 

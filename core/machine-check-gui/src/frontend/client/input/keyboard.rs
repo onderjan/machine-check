@@ -45,7 +45,7 @@ pub fn init() {
 async fn on_keyboard(keyboard: KeyboardEvent, event: web_sys::Event) {
     let mut view_guard = lock_view();
     let view = view_guard.as_mut();
-    console_log!(&format!("Keyboard event received: {:?}", event));
+    console_log!("Keyboard event received: {:?}", event);
 
     let event: web_sys::KeyboardEvent = event
         .dyn_into()

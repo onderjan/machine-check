@@ -61,7 +61,7 @@ impl CanvasRenderer {
             match tile_type {
                 TileType::Node(node_id) => {
                     let node = view
-                        .snapshot
+                        .snapshot()
                         .state_space
                         .nodes
                         .get(node_id)

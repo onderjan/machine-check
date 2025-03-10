@@ -14,7 +14,7 @@ use crate::shared::{
 
 #[derive(Debug)]
 pub struct View {
-    pub snapshot: Snapshot,
+    snapshot: Snapshot,
     pub backend_status: BackendStatus,
     pub tiling: BiHashMap<Tile, TileType>,
     pub node_aux: HashMap<NodeId, NodeAux>,
@@ -66,6 +66,16 @@ impl View {
             node_aux,
             camera,
         }
+    }
+
+    pub fn apply_snapshot(&mut self, snapshot: Snapshot) {
+        (self.tiling, self.node_aux) = compute::compute_tiling_aux(&snapshot);
+        self.camera.apply_snapshot(&snapshot);
+        self.snapshot = snapshot;
+    }
+
+    pub fn snapshot(&self) -> &Snapshot {
+        &self.snapshot
     }
 
     pub fn navigate(&mut self, target: NavigationTarget) {
