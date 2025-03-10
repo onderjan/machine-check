@@ -1,18 +1,14 @@
 use machine_check_exec::{PreparedProperty, Proposition};
 
 use crate::frontend::{
+    get_element_by_id,
     interaction::Request,
-    setup_element_listener,
+    setup_element_listener, window,
     work::{self, lock_view},
 };
 
 pub fn init() {
-    let window = web_sys::window().expect("HTML Window should exist");
-    let document = window.document().expect("HTML document should exist");
-    let new_property_element = document
-        .get_element_by_id("new_property")
-        .expect("New property element should exist");
-
+    let new_property_element = get_element_by_id("new_property");
     setup_element_listener(
         &new_property_element,
         "click",
@@ -21,9 +17,7 @@ pub fn init() {
         }),
     );
 
-    let new_property_element = document
-        .get_element_by_id("delete_property")
-        .expect("Delete property element should exist");
+    let new_property_element = get_element_by_id("delete_property");
     setup_element_listener(
         &new_property_element,
         "click",
@@ -35,7 +29,7 @@ pub fn init() {
 }
 
 async fn on_new_property_click() {
-    let window = web_sys::window().expect("HTML Window should exist");
+    let window = window();
     let property = window
         .prompt_with_message("Enter the new property")
         .unwrap();

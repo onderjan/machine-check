@@ -1,6 +1,6 @@
 use machine_check_exec::NodeId;
 
-use crate::frontend::{snapshot::SubpropertyIndex, util::PixelPoint};
+use crate::frontend::{snapshot::SubpropertyIndex, util::PixelPoint, window};
 
 use super::{
     constants::{RAW_ARROWHEAD_SIZE, RAW_FONT_SIZE, RAW_NODE_SIZE, RAW_TILE_SIZE},
@@ -29,9 +29,7 @@ pub struct Scheme {
 
 impl Scheme {
     fn new() -> Self {
-        let pixel_ratio = web_sys::window()
-            .expect("Window should exist")
-            .device_pixel_ratio();
+        let pixel_ratio = window().device_pixel_ratio();
 
         let tile_size = adjust_size(RAW_TILE_SIZE * pixel_ratio) as u64;
         let node_size = adjust_size(RAW_NODE_SIZE * pixel_ratio) as u64;

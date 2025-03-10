@@ -4,7 +4,7 @@ use chrono::{DateTime, Local, Timelike};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlTableRowElement};
 
-use crate::frontend::work::view::View;
+use crate::frontend::{document, get_element_by_id, work::view::View};
 
 pub fn display(view: &View) {
     LogDisplayer::new(view).display();
@@ -17,13 +17,7 @@ struct LogDisplayer<'a> {
 
 impl LogDisplayer<'_> {
     fn new(view: &View) -> LogDisplayer {
-        let window = web_sys::window().expect("HTML Window should exist");
-        let document = window.document().expect("HTML document should exist");
-        let log_body_element = document
-            .get_element_by_id("log")
-            .expect("Log element should exist")
-            .first_element_child()
-            .unwrap();
+        let log_body_element = get_element_by_id("log").first_element_child().unwrap();
         let log_element = log_body_element.dyn_into().unwrap();
         LogDisplayer {
             view,
@@ -38,14 +32,8 @@ impl LogDisplayer<'_> {
         self.log_body_element.append_child(&first_child).unwrap();
 
         for message in &self.view.snapshot.log.messages {
-            let row_element: HtmlTableRowElement = web_sys::window()
-                .unwrap()
-                .document()
-                .unwrap()
-                .create_element("tr")
-                .unwrap()
-                .dyn_into()
-                .unwrap();
+            let row_element: HtmlTableRowElement =
+                document().create_element("tr").unwrap().dyn_into().unwrap();
 
             let time_element = row_element.insert_cell().unwrap();
             let duration_element = row_element.insert_cell().unwrap();

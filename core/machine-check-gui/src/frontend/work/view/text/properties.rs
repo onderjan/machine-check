@@ -2,7 +2,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{Element, Event, HtmlElement};
 
 use crate::frontend::{
-    setup_element_listener,
+    create_element, document, get_element_by_id, setup_element_listener,
     snapshot::{PropertySnapshot, SubpropertyIndex},
     work::{lock_view, view::View},
 };
@@ -18,12 +18,7 @@ struct PropertiesDisplayer<'a> {
 
 impl PropertiesDisplayer<'_> {
     fn new(view: &View) -> PropertiesDisplayer {
-        let window = web_sys::window().expect("HTML Window should exist");
-        let document = window.document().expect("HTML document should exist");
-        let properties_element = document
-            .get_element_by_id("properties")
-            .expect("Properties element should exist");
-        let properties_element = properties_element.dyn_into().unwrap();
+        let properties_element = get_element_by_id("properties").dyn_into().unwrap();
         PropertiesDisplayer {
             view,
             properties_element,
@@ -32,10 +27,8 @@ impl PropertiesDisplayer<'_> {
 
     fn display(&self) {
         // determine if some radio button was focused
-        let window = web_sys::window().expect("HTML Window should exist");
-        let document = window.document().expect("HTML document should exist");
         let mut was_focused = false;
-        if let Some(active_element) = document.active_element() {
+        if let Some(active_element) = document().active_element() {
             if active_element.class_list().contains("property-radio") {
                 was_focused = true;
             }
@@ -63,20 +56,10 @@ impl PropertiesDisplayer<'_> {
         id_index: &mut usize,
         was_focused: bool,
     ) {
-        let outer_div = web_sys::window()
-            .unwrap()
-            .document()
-            .unwrap()
-            .create_element("div")
-            .unwrap();
+        let outer_div = create_element("div");
         outer_div.class_list().add_1("property_outer").unwrap();
 
-        let radio_input = web_sys::window()
-            .unwrap()
-            .document()
-            .unwrap()
-            .create_element("input")
-            .unwrap();
+        let radio_input = create_element("input");
         let radio_input: HtmlElement = radio_input.dyn_into().unwrap();
         radio_input.set_attribute("type", "radio").unwrap();
         radio_input.set_attribute("name", "property_group").unwrap();
@@ -87,12 +70,7 @@ impl PropertiesDisplayer<'_> {
         radio_input.set_id(radio_input_id);
         radio_input.class_list().add_1("property-radio").unwrap();
 
-        let radio_label = web_sys::window()
-            .unwrap()
-            .document()
-            .unwrap()
-            .create_element("label")
-            .unwrap();
+        let radio_label = create_element("label");
 
         radio_label.set_attribute("for", radio_input_id).unwrap();
         radio_label.set_text_content(Some(&property_snapshot.property.to_string()));
@@ -100,12 +78,7 @@ impl PropertiesDisplayer<'_> {
         outer_div.append_child(&radio_input).unwrap();
         outer_div.append_child(&radio_label).unwrap();
 
-        let property_ul = web_sys::window()
-            .unwrap()
-            .document()
-            .unwrap()
-            .create_element("div")
-            .unwrap();
+        let property_ul = create_element("div");
 
         outer_div.append_child(&property_ul).unwrap();
 

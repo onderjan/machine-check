@@ -2,7 +2,10 @@ use std::sync::{LazyLock, Mutex, MutexGuard};
 
 use view::{camera::Camera, View};
 
-use super::interaction::{BackendStatus, Request, StepSettings};
+use super::{
+    get_element_by_id,
+    interaction::{BackendStatus, Request, StepSettings},
+};
 
 mod control;
 pub mod input;
@@ -113,11 +116,7 @@ async fn command(request: Request, force: bool) {
         BackendStatus::Running => "Running",
     };
 
-    let window = web_sys::window().expect("HTML Window should exist");
-    let document = window.document().expect("HTML document should exist");
-    let status_element = document
-        .get_element_by_id("verification_status")
-        .expect("Verification status element should exist");
+    let status_element = get_element_by_id("verification_status");
     status_element.set_text_content(Some(status_str));
 
     // update the view with the snapshot and backend status

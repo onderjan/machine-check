@@ -2,7 +2,9 @@ use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 
 use crate::frontend::{
+    get_element_by_id,
     util::PixelPoint,
+    window,
     work::view::{TileType, View},
 };
 
@@ -19,7 +21,7 @@ pub enum MouseEvent {
 pub fn on_mouse(view: &mut View, mouse: MouseEvent, event: web_sys::Event) -> bool {
     event.prevent_default();
     let event: web_sys::MouseEvent = event.dyn_into().expect("Mouse event should be MouseEvent");
-    let device_pixel_ratio = web_sys::window().unwrap().device_pixel_ratio();
+    let device_pixel_ratio = window().device_pixel_ratio();
     let mouse_coords = PixelPoint {
         x: (event.offset_x() as f64 * device_pixel_ratio).round() as i64,
         y: (event.offset_y() as f64 * device_pixel_ratio).round() as i64,
@@ -33,14 +35,7 @@ pub fn on_mouse(view: &mut View, mouse: MouseEvent, event: web_sys::Event) -> bo
     match mouse {
         MouseEvent::Click => {
             // focus the main area
-            let main_area: HtmlElement = web_sys::window()
-                .unwrap()
-                .document()
-                .unwrap()
-                .get_element_by_id("main_area")
-                .unwrap()
-                .dyn_into()
-                .unwrap();
+            let main_area: HtmlElement = get_element_by_id("main_area").dyn_into().unwrap();
             main_area.focus().unwrap();
 
             if event.button() == MAIN_BUTTON {

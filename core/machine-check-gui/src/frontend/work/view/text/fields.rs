@@ -5,7 +5,7 @@ use mck::abstr::{ArrayField, ArrayFieldBitvector, BitvectorField, Field};
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlTableCellElement, HtmlTableElement, HtmlTableRowElement};
 
-use crate::frontend::snapshot::Node;
+use crate::frontend::{get_element_by_id, snapshot::Node};
 
 use super::View;
 
@@ -23,11 +23,7 @@ struct FieldDisplayer<'a> {
 
 impl FieldDisplayer<'_> {
     fn new(view: &View) -> FieldDisplayer {
-        let window = web_sys::window().expect("HTML Window should exist");
-        let document = window.document().expect("HTML document should exist");
-        let state_fields = document
-            .get_element_by_id("state_fields")
-            .expect("State fields should exist");
+        let state_fields = get_element_by_id("state_fields");
         let state_fields = state_fields.dyn_into().unwrap();
         FieldDisplayer { view, state_fields }
     }

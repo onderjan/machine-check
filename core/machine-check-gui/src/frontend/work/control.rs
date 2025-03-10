@@ -2,7 +2,10 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::js_sys::{ArrayBuffer, Uint8Array};
 
-use crate::frontend::interaction::{Request, Response};
+use crate::frontend::{
+    interaction::{Request, Response},
+    window,
+};
 
 mod properties;
 
@@ -41,8 +44,7 @@ pub async fn call_backend(request: Request) -> Result<ArrayBuffer, JsValue> {
 
     let request = web_sys::Request::new_with_str_and_init("/api", &opts)?;
 
-    let window = web_sys::window().unwrap();
-    let response = JsFuture::from(window.fetch_with_request(&request)).await?;
+    let response = JsFuture::from(window().fetch_with_request(&request)).await?;
     let response: web_sys::Response = response.dyn_into().unwrap();
     let response: ArrayBuffer = JsFuture::from(response.array_buffer()?).await?.into();
 

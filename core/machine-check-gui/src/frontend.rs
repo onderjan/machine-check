@@ -15,7 +15,7 @@ mod util;
 mod work;
 
 use wasm_bindgen::prelude::*;
-use web_sys::{Element, Event, HtmlInputElement};
+use web_sys::{Document, Element, Event, HtmlInputElement, Window};
 use work::input::{keyboard::KeyboardEvent, mouse::MouseEvent};
 
 #[wasm_bindgen]
@@ -37,12 +37,7 @@ pub async fn reset() {
 }
 
 pub async fn step() {
-    let input: HtmlInputElement = web_sys::window()
-        .unwrap()
-        .document()
-        .unwrap()
-        .get_element_by_id("max_refinements")
-        .expect("The number of steps element should exist")
+    let input: HtmlInputElement = get_element_by_id("max_refinements")
         .dyn_into()
         .expect("The number of steps element should be an input");
 
@@ -141,9 +136,7 @@ fn setup_listeners() {
 }
 
 fn setup_selector_listener(selector: &str, event_name: &str, func: Box<dyn FnMut(web_sys::Event)>) {
-    let window = web_sys::window().expect("HTML Window should exist");
-    let document = window.document().expect("HTML document should exist");
-    let element = document
+    let element = document()
         .query_selector(selector)
         .expect("Selector should succeed")
         .expect("Selector should select some element");
@@ -154,8 +147,7 @@ fn setup_selector_listener(selector: &str, event_name: &str, func: Box<dyn FnMut
 fn setup_window_listener(ty: &str, func: Box<dyn FnMut(web_sys::Event)>) {
     let closure = Closure::wrap(func);
 
-    let window = web_sys::window().expect("HTML Window should exist");
-    window
+    window()
         .add_event_listener_with_callback(ty, closure.as_ref().dyn_ref().unwrap())
         .expect("Adding a listener should succeed");
     // the closure must be explicitely forgotten so it remains accessible
@@ -176,12 +168,35 @@ fn setup_element_listener(
 }
 
 fn setup_interval(func: Box<dyn FnMut(web_sys::Event)>, interval: i32) {
-    let window = web_sys::window().expect("HTML Window should exist");
     let closure = Closure::wrap(func);
     let handler = closure.as_ref().dyn_ref().unwrap();
-    window
+    window()
         .set_interval_with_callback_and_timeout_and_arguments_0(handler, interval)
         .unwrap();
     // the closure must be explicitely forgotten so it remains accessible
     closure.forget();
+}
+
+fn window() -> Window {
+    web_sys::window().expect("HTML Window should exist")
+}
+
+fn document() -> Document {
+    window().document().expect("HTML document should exist")
+}
+
+fn get_element_by_id(element_id: &str) -> Element {
+    let element = document().get_element_by_id(element_id);
+    match element {
+        Some(element) => element,
+        None => panic!("Element '{}' should exist", element_id),
+    }
+}
+
+fn create_element(local_name: &str) -> Element {
+    let element = document().create_element(local_name);
+    match element {
+        Ok(element) => element,
+        Err(err) => panic!("Element '{}' could not be created: {:?}", local_name, err),
+    }
 }

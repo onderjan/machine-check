@@ -3,7 +3,7 @@ mod primitives;
 use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, Element, HtmlCanvasElement};
 
-use crate::frontend::util::PixelPoint;
+use crate::frontend::{get_element_by_id, util::PixelPoint};
 
 use super::{TileType, View};
 
@@ -152,14 +152,8 @@ impl CanvasRenderer<'_> {
     }
 
     fn new(view: &View) -> CanvasRenderer {
-        let window = web_sys::window().expect("HTML Window should exist");
-        let document = window.document().expect("HTML document should exist");
-        let main_area = document
-            .get_element_by_id("main_area")
-            .expect("Main area should exist");
-        let main_canvas = document
-            .get_element_by_id("main_canvas")
-            .expect("Main canvas should exist");
+        let main_area = get_element_by_id("main_area");
+        let main_canvas = get_element_by_id("main_canvas");
         let main_canvas: HtmlCanvasElement = main_canvas
             .dyn_into()
             .expect("Main canvas should be a Canvas element");
