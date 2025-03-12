@@ -86,7 +86,7 @@ pub async fn on_run_click() {
     // depending on whether we are waiting, either run or cancel
     let waiting = {
         let view_guard = lock_view();
-        view_guard.as_ref().backend_status.is_waiting()
+        view_guard.as_ref().backend_info.status.is_waiting()
     };
 
     if waiting {

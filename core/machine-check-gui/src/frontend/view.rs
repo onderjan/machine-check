@@ -9,13 +9,13 @@ use machine_check_exec::NodeId;
 
 use crate::shared::{
     snapshot::{PropertySnapshot, Snapshot},
-    BackendStatus,
+    BackendInfo,
 };
 
 #[derive(Debug)]
 pub struct View {
     snapshot: Snapshot,
-    pub backend_status: BackendStatus,
+    pub backend_info: BackendInfo,
     pub tiling: BiHashMap<Tile, TileType>,
     pub node_aux: HashMap<NodeId, NodeAux>,
     pub camera: Camera,
@@ -54,14 +54,14 @@ pub enum NavigationTarget {
 }
 
 impl View {
-    pub fn new(snapshot: Snapshot, backend_status: BackendStatus, mut camera: Camera) -> View {
+    pub fn new(snapshot: Snapshot, backend_info: BackendInfo, mut camera: Camera) -> View {
         let (tiling, node_aux) = compute::compute_tiling_aux(&snapshot);
 
         camera.apply_snapshot(&snapshot);
 
         View {
             snapshot,
-            backend_status,
+            backend_info,
             tiling,
             node_aux,
             camera,

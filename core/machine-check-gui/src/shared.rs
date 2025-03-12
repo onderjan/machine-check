@@ -34,8 +34,20 @@ impl BackendStatus {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BackendSpaceInfo {
+    pub num_states: usize,
+    pub num_transitions: usize,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BackendInfo {
+    pub status: BackendStatus,
+    pub space_info: BackendSpaceInfo,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Response {
-    pub backend_status: BackendStatus,
+    pub info: BackendInfo,
     pub snapshot: Option<Snapshot>,
 }

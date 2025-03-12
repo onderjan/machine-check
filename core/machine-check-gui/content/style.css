@@ -105,9 +105,20 @@ body {
     display: flex;
 }
 
+#info.running {
+    background-color: #ffb900;
+    font-weight: bold;
+}
+
+#info.cancelling {
+    background-color: #dd3;
+    font-weight: bold;
+}
+
 #info_middle {
     flex-grow: 1;
 }
+
 
 #log_wrapper {
     overflow-x: auto;

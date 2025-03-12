@@ -15,7 +15,7 @@ use window::Window;
 use workspace::Workspace;
 use wry::WebViewId;
 
-use crate::shared::Request;
+use crate::shared::{BackendSpaceInfo, Request};
 
 mod api;
 mod window;
@@ -69,14 +69,25 @@ struct Backend<M: FullMachine> {
 struct BackendStats {
     running: bool,
     should_cancel: bool,
+    space_info: BackendSpaceInfo,
 }
 
 impl BackendStats {
-    fn new() -> Self {
+    fn new<M: FullMachine>(framework: &Framework<M>) -> Self {
         Self {
             running: false,
             should_cancel: false,
+            space_info: extract_space_info(framework),
         }
+    }
+}
+
+fn extract_space_info<M: FullMachine>(framework: &Framework<M>) -> BackendSpaceInfo {
+    let num_states = framework.info().num_final_states;
+    let num_transitions = framework.info().num_final_transitions;
+    BackendSpaceInfo {
+        num_states,
+        num_transitions,
     }
 }
 
@@ -88,9 +99,10 @@ const CONTENT_DIR: Dir = include_dir!("content");
 
 impl<M: FullMachine> Backend<M> {
     pub fn new(workspace: Workspace<M>, exec_name: String) -> Self {
+        let stats = BackendStats::new(&workspace.framework);
         Self {
             workspace: Arc::new(Mutex::new(workspace)),
-            stats: Arc::new(Mutex::new(BackendStats::new())),
+            stats: Arc::new(Mutex::new(stats)),
             settings: BackendSettings { exec_name },
         }
     }
