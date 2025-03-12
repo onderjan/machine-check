@@ -49,7 +49,7 @@ where
     fn uninit() -> Self;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BitvectorField {
     pub bit_width: u32,
     pub zeros: u64,
@@ -68,14 +68,14 @@ pub struct ArrayFieldBitvector {
     pub zeros: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ArrayField {
     pub bit_width: u32,
     pub bit_length: u32,
     pub inner: BTreeMap<u64, ArrayFieldBitvector>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Field {
     Bitvector(BitvectorField),
     Array(ArrayField),

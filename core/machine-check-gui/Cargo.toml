@@ -31,6 +31,7 @@ web-sys = { version = "0.3.76", features = [
     "Window",
     "Document",
     "HtmlElement",
+    "HtmlButtonElement",
     "HtmlTableElement",
     "HtmlTableRowElement",
     "HtmlTableCellElement",

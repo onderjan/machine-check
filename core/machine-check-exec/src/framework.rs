@@ -147,31 +147,7 @@ impl<M: FullMachine> Framework<M> {
         result
     }
 
-    pub fn multi_step_verification(
-        &mut self,
-        property: &PreparedProperty,
-        assume_inherent: bool,
-        max_refinements: Option<u64>,
-    ) -> u64 {
-        let mut num_refinements = 0;
-        loop {
-            // if the maximum number of refinements is given, stop stepping when it is reached
-            if let Some(max_refinements) = max_refinements {
-                if num_refinements >= max_refinements {
-                    return num_refinements;
-                }
-            }
-
-            // stop stepping when we are done
-            if let ControlFlow::Break(_) = self.step_verification(property, assume_inherent) {
-                return num_refinements;
-            }
-
-            num_refinements += 1;
-        }
-    }
-
-    fn step_verification(
+    pub fn step_verification(
         &mut self,
         property: &PreparedProperty,
         assume_inherent: bool,

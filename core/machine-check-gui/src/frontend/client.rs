@@ -36,9 +36,8 @@ async fn issue_command(request: Request) {
         {
             let mut view_guard = lock_view();
             let view = view_guard.as_mut();
-            if matches!(view.backend_status, BackendStatus::Waiting)
-                || !matches!(response.backend_status, BackendStatus::Waiting)
-            {
+            if view.backend_status.is_waiting() || !response.backend_status.is_waiting() {
+                // the query did not return an interesting result
                 return;
             }
             view.backend_status = BackendStatus::Waiting;
@@ -49,28 +48,31 @@ async fn issue_command(request: Request) {
     // update the view with the snapshot and backend status and render
     let mut view_guard = lock_view();
     let view = view_guard.as_mut();
-    view.backend_status = response.backend_status;
+    let previous_response_status =
+        std::mem::replace(&mut view.backend_status, response.backend_status);
     if let Some(snapshot) = response.snapshot {
         view.apply_snapshot(snapshot);
         render(view);
-    } else {
-        render_backend_status(view);
+    } else if previous_response_status != view.backend_status {
+        display_backend_status(view);
     }
 }
 
 fn render(view: &View) {
-    render_backend_status(view);
+    display_backend_status(view);
     canvas::render(view);
     text::display(view);
 }
 
-fn render_backend_status(view: &View) {
+fn display_backend_status(view: &View) {
     let status_str = match view.backend_status {
         BackendStatus::Waiting => "Waiting",
         BackendStatus::Running => "Running",
+        BackendStatus::Cancelling => "Cancelling",
     };
     let status_element = get_element_by_id("verification_status");
     status_element.set_text_content(Some(status_str));
+    control::display_backend_status(&view.backend_status);
 }
 
 // put the view singleton in its own scope so it cannot be manipulated otherwise

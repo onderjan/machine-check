@@ -1,11 +1,14 @@
 use wasm_bindgen::JsCast;
-use web_sys::HtmlInputElement;
+use web_sys::{HtmlButtonElement, HtmlInputElement};
 
-use crate::frontend::{
-    client::{issue_command, view_singleton::lock_view},
-    util::web_idl::{get_element_by_id, setup_selector_listener},
-};
 use crate::shared::{Request, StepSettings};
+use crate::{
+    frontend::{
+        client::{issue_command, view_singleton::lock_view},
+        util::web_idl::{get_element_by_id, setup_selector_listener},
+    },
+    shared::BackendStatus,
+};
 
 pub fn init() {
     setup_selector_listener(
@@ -33,6 +36,38 @@ pub fn init() {
     );
 }
 
+pub fn display_backend_status(backend_status: &BackendStatus) {
+    let reset_element: HtmlButtonElement = get_element_by_id("reset").dyn_into().unwrap();
+    let step_element: HtmlButtonElement = get_element_by_id("step").dyn_into().unwrap();
+    let run_element: HtmlButtonElement = get_element_by_id("run").dyn_into().unwrap();
+
+    match backend_status {
+        BackendStatus::Cancelling => {
+            reset_element.set_disabled(true);
+            step_element.set_disabled(true);
+            run_element.set_disabled(true);
+        }
+        BackendStatus::Waiting => {
+            reset_element.set_disabled(false);
+            step_element.set_disabled(false);
+            run_element.set_disabled(false);
+        }
+        BackendStatus::Running => {
+            reset_element.set_disabled(true);
+            step_element.set_disabled(true);
+            run_element.set_disabled(false);
+        }
+    }
+
+    if backend_status.is_waiting() {
+        // play symbol
+        run_element.set_inner_text("\u{23F5}");
+    } else {
+        // pause symbol
+        run_element.set_inner_text("\u{23F8}");
+    }
+}
+
 pub async fn on_reset_click() {
     issue_command(Request::Reset).await;
 }
@@ -48,7 +83,17 @@ pub async fn on_step_click() {
 }
 
 pub async fn on_run_click() {
-    issue_step(None).await;
+    // depending on whether we are waiting, either run or cancel
+    let waiting = {
+        let view_guard = lock_view();
+        view_guard.as_ref().backend_status.is_waiting()
+    };
+
+    if waiting {
+        issue_step(None).await;
+    } else {
+        issue_command(Request::Cancel).await;
+    }
 }
 
 pub async fn issue_step(max_refinements: Option<u64>) {

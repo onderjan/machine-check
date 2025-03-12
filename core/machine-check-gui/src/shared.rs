@@ -14,19 +14,27 @@ pub struct StepSettings {
 pub enum Request {
     GetContent,
     Query,
+    Cancel,
     Reset,
     Step(StepSettings),
     AddProperty(PreparedProperty),
     RemoveProperty(RootPropertyIndex),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BackendStatus {
+    Cancelling,
     Waiting,
     Running,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl BackendStatus {
+    pub fn is_waiting(&self) -> bool {
+        matches!(self, BackendStatus::Waiting)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Response {
     pub backend_status: BackendStatus,
     pub snapshot: Option<Snapshot>,

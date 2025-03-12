@@ -68,11 +68,15 @@ struct Backend<M: FullMachine> {
 
 struct BackendStats {
     running: bool,
+    should_cancel: bool,
 }
 
 impl BackendStats {
     fn new() -> Self {
-        Self { running: false }
+        Self {
+            running: false,
+            should_cancel: false,
+        }
     }
 }
 

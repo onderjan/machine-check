@@ -8,7 +8,7 @@ use mck::abstr::Field;
 
 pub mod log;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Snapshot {
     pub exec_name: String,
     pub state_space: StateSpace,
@@ -17,17 +17,17 @@ pub struct Snapshot {
     pub log: Log,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StateInfo {
     pub field_names: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StateSpace {
     pub nodes: BTreeMap<NodeId, Node>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Node {
     pub incoming: BTreeSet<NodeId>,
     pub outgoing: BTreeSet<NodeId>,
@@ -35,7 +35,7 @@ pub struct Node {
     pub fields: BTreeMap<String, Field>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PropertySnapshot {
     pub property: PreparedProperty,
     pub labellings: HashMap<StateId, ThreeValued>,

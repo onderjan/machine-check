@@ -3,7 +3,14 @@ use std::time::{Duration, SystemTime};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum StepStatus {
+    Completed,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepMessage {
+    pub status: StepStatus,
     pub num_refinements: u64,
     pub duration: Duration,
 }

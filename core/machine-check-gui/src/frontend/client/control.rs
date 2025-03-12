@@ -4,15 +4,15 @@ use web_sys::js_sys::{ArrayBuffer, Uint8Array};
 
 use crate::{
     frontend::util::web_idl::window,
-    shared::{Request, Response},
+    shared::{BackendStatus, Request, Response},
 };
 
 mod properties;
 mod verification;
 
 pub fn init() {
-    properties::init();
     verification::init();
+    properties::init();
 }
 
 pub async fn call_backend(request: Request) -> Response {
@@ -51,4 +51,9 @@ pub async fn call_backend_fetch(request: Request) -> Result<ArrayBuffer, JsValue
     let response: ArrayBuffer = JsFuture::from(response.array_buffer()?).await?.into();
 
     Ok(response)
+}
+
+pub fn display_backend_status(backend_status: &BackendStatus) {
+    verification::display_backend_status(backend_status);
+    properties::display_backend_status(backend_status);
 }

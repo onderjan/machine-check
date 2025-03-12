@@ -22,6 +22,10 @@ use clap::{ArgGroup, Args, Parser};
 .required(false)
 .multiple(false)
 .args(&["batch","gui"])))]
+#[clap(group(ArgGroup::new("assume-inherent-gui-group")
+.required(false)
+.multiple(false)
+.args(&["gui","assume_inherent"])))]
 pub struct ExecArgs {
     #[arg(long)]
     pub silent: bool,
