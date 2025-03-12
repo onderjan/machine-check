@@ -1,8 +1,9 @@
 use log::info;
 use tao::{
+    dpi::{LogicalUnit, PixelUnit},
     event::{Event, StartCause, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Icon, WindowBuilder},
+    window::{Icon, WindowBuilder, WindowSizeConstraints},
 };
 use wry::{WebViewBuilder, WebViewId};
 
@@ -50,6 +51,12 @@ impl Window {
         let window = WindowBuilder::new()
             .with_title(format!("{} (machine-check)", exec_name))
             .with_maximized(true)
+            .with_inner_size_constraints(WindowSizeConstraints::new(
+                Some(PixelUnit::Logical(LogicalUnit(800.))),
+                Some(PixelUnit::Logical(LogicalUnit(600.))),
+                None,
+                None,
+            ))
             .with_window_icon(Some(
                 Icon::from_rgba(icon_rgba, icon_width as u32, icon_height as u32)
                     .expect("Favicon should be loaded"),

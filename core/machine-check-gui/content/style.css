@@ -19,8 +19,8 @@ body {
     top: 0;
     bottom: 0;
     display: grid;
-    grid-template-columns: 1fr 8fr 1.5fr;
-    grid-template-rows: 1fr 8fr 20%;
+    grid-template-columns: 300px 1fr 300px;
+    grid-template-rows: auto 1fr 300px;
     grid-template-areas:
         "top_bar top_bar top_bar"
         "left_bar main_area right_bar"
@@ -30,6 +30,7 @@ body {
 .bar {
     padding: 1em;
     box-sizing: content-box;
+    overflow: auto;
 }
 
 #top_bar {
@@ -79,11 +80,10 @@ body {
     grid-area: bottom_bar;
     border-top: 1px solid gray;
     padding: 1em;
+    display: grid;
 }
 
 #log_wrapper {
-    width: 100%;
-    height: 100%;
     overflow-x: auto;
     overflow-y: scroll;
     border: 1px solid gray;
