@@ -3,6 +3,15 @@ html {
     width: 100%;
 }
 
+h2 {
+    text-align: center;
+    border-top: 1px solid gray;
+    border-bottom: 1px solid gray;
+    margin: 0;
+    margin-top: 0em;
+    margin-bottom: 0.5em;
+    padding: 0.5em;
+}
 
 body {
     margin: 0;
@@ -80,7 +89,24 @@ body {
     grid-area: bottom_bar;
     border-top: 1px solid gray;
     padding: 1em;
+
     display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+        "info"
+        "log_wrapper";
+}
+
+#info {
+    padding: 0.5em;
+    border-top: 1px solid gray;
+    border-bottom: 1px solid gray;
+    margin-bottom: 0.5em;
+    display: flex;
+}
+
+#info_middle {
+    flex-grow: 1;
 }
 
 #log_wrapper {
@@ -164,7 +190,6 @@ body {
     flex: auto;
 }
 
-/* a little styling never hurt anyone */
 #top_bar,
 #bottom_bar {
     background-color: #ddd;
@@ -185,8 +210,4 @@ body {
 
 .bold {
     font-weight: bold;
-}
-
-h2 {
-    text-align: center;
 }
