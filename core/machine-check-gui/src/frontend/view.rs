@@ -23,8 +23,8 @@ pub struct View {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Tile {
-    pub x: u64,
-    pub y: u64,
+    pub x: i64,
+    pub y: i64,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]

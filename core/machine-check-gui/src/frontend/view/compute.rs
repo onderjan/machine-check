@@ -57,9 +57,9 @@ pub fn compute_tiling_aux(
             .get_by_right(&TileType::Node(node_id))
             .expect("Node should be in tiling");
 
-        let mut y_add = 1;
+        let mut y_add = 1u64;
 
-        let mut predecessor_split_len = 0;
+        let mut predecessor_split_len = 0u64;
         for predecessor_id in node.incoming.iter().cloned() {
             if predecessor_id == node_id || predecessor_id == parent_node_id.unwrap() {
                 // ignore loops and canonical predecessors
@@ -69,7 +69,7 @@ pub fn compute_tiling_aux(
             let (left, right) = (
                 Tile {
                     x: node_tile.x - 1,
-                    y: node_tile.y + y_add,
+                    y: node_tile.y + y_add as i64,
                 },
                 TileType::IncomingReference(predecessor_id, node_id),
             );
@@ -84,7 +84,7 @@ pub fn compute_tiling_aux(
             y_add += 1;
         }
 
-        let mut y_add = 0;
+        let mut y_add = 0u64;
 
         let has_multiple_node_successors = node
             .outgoing
@@ -109,7 +109,7 @@ pub fn compute_tiling_aux(
             }
         });
 
-        let successor_x_offset =
+        let successor_x_offset: u64 =
             if has_multiple_node_successors && some_node_successor_has_complex_incoming {
                 2
             } else {
@@ -140,16 +140,16 @@ pub fn compute_tiling_aux(
 
                 (
                     Tile {
-                        x: node_tile.x + successor_x_offset,
-                        y: node_tile.y + y_add,
+                        x: node_tile.x + successor_x_offset as i64,
+                        y: node_tile.y + y_add as i64,
                     },
                     TileType::Node(successor_id),
                 )
             } else {
                 (
                     Tile {
-                        x: node_tile.x + successor_x_offset,
-                        y: node_tile.y + y_add,
+                        x: node_tile.x + successor_x_offset as i64,
+                        y: node_tile.y + y_add as i64,
                     },
                     TileType::OutgoingReference(node_id, successor_id),
                 )

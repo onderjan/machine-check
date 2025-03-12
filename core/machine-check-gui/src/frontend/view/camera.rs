@@ -50,20 +50,13 @@ impl Scheme {
         }
     }
 
-    pub fn global_px_tile(&self, global_point: PixelPoint) -> Option<Tile> {
+    pub fn global_px_tile(&self, global_point: PixelPoint) -> Tile {
         let tile_size = adjust_size(RAW_TILE_SIZE * self.pixel_ratio) as i64;
         let tile_pos = global_point / tile_size;
 
-        let tile_x: Result<u64, _> = tile_pos.x.try_into();
-        let tile_y: Result<u64, _> = tile_pos.y.try_into();
-
-        if let (Ok(tile_x), Ok(tile_y)) = (tile_x, tile_y) {
-            Some(Tile {
-                x: tile_x,
-                y: tile_y,
-            })
-        } else {
-            None
+        Tile {
+            x: tile_pos.x,
+            y: tile_pos.y,
         }
     }
 }
@@ -96,7 +89,7 @@ impl Camera {
         result
     }
 
-    pub fn viewport_px_tile(&self, viewport_point: PixelPoint) -> Option<Tile> {
+    pub fn viewport_px_tile(&self, viewport_point: PixelPoint) -> Tile {
         let global_point = viewport_point + self.view_offset;
 
         self.scheme.global_px_tile(global_point)
