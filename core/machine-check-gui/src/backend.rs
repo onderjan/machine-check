@@ -1,9 +1,4 @@
-use std::{
-    borrow::Cow,
-    ffi::OsStr,
-    path::Path,
-    sync::{Arc, Mutex},
-};
+use std::{borrow::Cow, ffi::OsStr, path::Path};
 
 use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
@@ -11,13 +6,14 @@ use log::{debug, error};
 use machine_check_common::ExecError;
 use machine_check_exec::{Framework, Proposition, Strategy};
 use mck::concr::FullMachine;
+use sync::BackendSync;
 use window::Window;
 use workspace::Workspace;
 use wry::WebViewId;
 
 use crate::shared::{BackendSpaceInfo, Request};
 
-mod api;
+mod sync;
 mod window;
 mod workspace;
 
@@ -60,14 +56,14 @@ pub fn run<M: FullMachine>(
     gui.run()
 }
 
-struct Backend<M: FullMachine> {
-    workspace: Arc<Mutex<Workspace<M>>>,
+struct Backend {
+    sync: BackendSync,
+    /*workspace: Arc<Mutex<Workspace<M>>>,
     stats: Arc<Mutex<BackendStats>>,
-    settings: BackendSettings,
+    settings: BackendSettings,*/
 }
 
 struct BackendStats {
-    running: bool,
     should_cancel: bool,
     space_info: BackendSpaceInfo,
 }
@@ -75,7 +71,6 @@ struct BackendStats {
 impl BackendStats {
     fn new<M: FullMachine>(framework: &Framework<M>) -> Self {
         Self {
-            running: false,
             should_cancel: false,
             space_info: extract_space_info(framework),
         }
@@ -97,13 +92,15 @@ struct BackendSettings {
 
 const CONTENT_DIR: Dir = include_dir!("content");
 
-impl<M: FullMachine> Backend<M> {
-    pub fn new(workspace: Workspace<M>, exec_name: String) -> Self {
+impl Backend {
+    pub fn new<M: FullMachine>(workspace: Workspace<M>, exec_name: String) -> Self {
         let stats = BackendStats::new(&workspace.framework);
+        let settings = BackendSettings { exec_name };
+        let sync = BackendSync::new(workspace, stats, settings);
         Self {
-            workspace: Arc::new(Mutex::new(workspace)),
-            stats: Arc::new(Mutex::new(stats)),
-            settings: BackendSettings { exec_name },
+            sync, /*workspace: Arc::new(Mutex::new(workspace)),
+                  stats: Arc::new(Mutex::new(stats)),
+                  settings: BackendSettings { exec_name },*/
         }
     }
 
@@ -198,7 +195,8 @@ impl<M: FullMachine> Backend<M> {
         let request: Request = rmp_serde::from_slice(request.body())?;
 
         // read the current framework state
-        let response = api::command(self, request);
+        //let response = api::command(self, request);
+        let response = self.sync.command(request);
 
         let content_msgpack = rmp_serde::to_vec(&response)?;
         http::Response::builder()
