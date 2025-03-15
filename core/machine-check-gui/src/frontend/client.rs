@@ -12,7 +12,7 @@ mod tick;
 
 pub async fn init() {
     // get the initial content first to provide the initial view
-    let response = control::call_backend(Request::GetContent).await;
+    let response = control::call_backend(Request::InitialContent).await;
     let Some(snapshot) = response.snapshot else {
         panic!("Initial content should have a snapshot");
     };

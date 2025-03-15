@@ -1,7 +1,7 @@
 use std::{
     ops::ControlFlow,
     sync::{
-        mpsc::{sync_channel, Receiver, SyncSender},
+        mpsc::{sync_channel, Receiver, SyncSender, TrySendError},
         Arc, RwLock,
     },
     time::Instant,
@@ -69,6 +69,7 @@ impl<M: FullMachine> BackendWorker<M> {
 
         // Perform synchronous processing first before sending the response.
         let asynchronous_request = match work_command.request {
+            Request::InitialContent => None,
             Request::GetContent => None,
             Request::Query => {
                 // do not waste time making a snapshot, just return the current stats
@@ -262,19 +263,30 @@ impl BackendSync {
         // As Rust does not provide a one-shot channel in std, just use a synchronous channel with bound 1.
         let (send_to_server, recv_from_worker) = sync_channel(1);
 
+        let is_initial_content_request = matches!(request, Request::InitialContent);
+
         let worker_request = WorkCommand {
             request,
             send_to_server,
         };
-        match self.send_to_worker.try_send(worker_request) {
-            Ok(_) => {}
-            Err(err) => match err {
-                std::sync::mpsc::TrySendError::Full(_) => return Err(()),
-                std::sync::mpsc::TrySendError::Disconnected(_) => {
-                    panic!("Backend worker should not disconnect (service sending)")
+
+        // The initial content request must have a snapshot inside its response. Ensure it does by blocking.
+        if is_initial_content_request {
+            if self.send_to_worker.send(worker_request).is_err() {
+                panic!("Backend worker should not disconnect (service sending)");
+            }
+        } else {
+            match self.send_to_worker.try_send(worker_request) {
+                Ok(_) => {}
+                Err(TrySendError::Full(_)) => {
+                    // the worker is busy
+                    return Err(());
                 }
-            },
-        };
+                Err(TrySendError::Disconnected(_)) => {
+                    panic!("Backend worker should not disconnect (service sending)");
+                }
+            };
+        }
 
         let response = recv_from_worker
             .recv()

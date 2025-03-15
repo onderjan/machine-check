@@ -12,6 +12,7 @@ pub struct StepSettings {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Request {
+    InitialContent,
     GetContent,
     Query,
     Cancel,
