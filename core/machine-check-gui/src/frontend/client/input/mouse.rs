@@ -100,7 +100,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
             }
         }
         MouseEvent::Up | MouseEvent::Out => {
-            if event.button() == DRAG_BUTTON {
+            if matches!(mouse, MouseEvent::Out) || event.button() == DRAG_BUTTON {
                 // finish dragging the camera
                 if let Some(mouse_down_coords) = view.camera.mouse_down_coords.take() {
                     let offset = mouse_coords - mouse_down_coords;
