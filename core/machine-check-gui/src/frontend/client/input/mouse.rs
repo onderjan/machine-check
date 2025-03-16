@@ -30,7 +30,7 @@ pub fn init() {
         (MouseEvent::Out, "mouseout"),
     ] {
         setup_selector_listener(
-            "#main_canvas",
+            "#main_area",
             event_name,
             Box::new(move |e| {
                 wasm_bindgen_futures::spawn_local(on_mouse(event_type, e));
