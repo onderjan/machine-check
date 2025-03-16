@@ -19,6 +19,7 @@ pub struct StepMessage {
 pub enum MessageType {
     Error(String),
     Step(StepMessage),
+    Reset,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

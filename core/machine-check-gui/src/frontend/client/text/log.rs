@@ -74,6 +74,11 @@ impl LogDisplayer<'_> {
                         step_message.num_refinements
                     )));
                 }
+                MessageType::Reset => {
+                    type_element.set_text_content(Some("Reset"));
+                    message_element
+                        .set_text_content(Some("The verification framework has been reset."));
+                }
             }
 
             self.log_body_element.append_child(&row_element).unwrap();

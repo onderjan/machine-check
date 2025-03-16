@@ -92,6 +92,7 @@ impl<M: FullMachine> BackendWorker<M> {
             }
             Request::Reset => {
                 self.workspace.framework.reset();
+                self.workspace.log.add_message(MessageType::Reset);
                 None
             }
             Request::Step(step_settings) => Some(AsynchronousRequest::Step(step_settings)),
