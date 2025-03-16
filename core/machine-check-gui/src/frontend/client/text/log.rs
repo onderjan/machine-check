@@ -18,20 +18,25 @@ pub fn display(view: &View) {
 
 struct LogDisplayer<'a> {
     view: &'a View,
+    log_wrapper_element: Element,
     log_body_element: Element,
 }
 
 impl LogDisplayer<'_> {
     fn new(view: &View) -> LogDisplayer {
+        let log_wrapper_element = get_element_by_id("log_wrapper");
         let log_body_element = get_element_by_id("log").first_element_child().unwrap();
-        let log_element = log_body_element.dyn_into().unwrap();
+        let log_body_element = log_body_element.dyn_into().unwrap();
         LogDisplayer {
             view,
-            log_body_element: log_element,
+            log_wrapper_element,
+            log_body_element,
         }
     }
 
     fn display(&self) {
+        let previous_num_children = self.log_body_element.child_element_count();
+
         // remove all children except the first (table header)
         let first_child = self.log_body_element.first_element_child().unwrap();
         self.log_body_element.set_inner_html("");
@@ -72,6 +77,14 @@ impl LogDisplayer<'_> {
             }
 
             self.log_body_element.append_child(&row_element).unwrap();
+        }
+
+        let num_children = self.log_body_element.child_element_count();
+
+        if num_children > previous_num_children {
+            // new messages, scroll down
+            self.log_wrapper_element
+                .set_scroll_top(self.log_wrapper_element.scroll_height());
         }
     }
 }
