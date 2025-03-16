@@ -155,7 +155,6 @@ body {
 #main_area {
     grid-area: main_area;
     position: relative;
-    background-color: white;
     box-sizing: content-box;
 }
 
@@ -164,6 +163,7 @@ body {
     top: 0;
     left: 0;
     overflow: hidden;
+    z-index: -1;
 }
 
 #state_fields {
