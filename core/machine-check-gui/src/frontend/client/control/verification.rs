@@ -1,6 +1,7 @@
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlButtonElement, HtmlInputElement};
 
+use crate::frontend::util::web_idl::document;
 use crate::shared::{Request, StepSettings};
 use crate::{
     frontend::{
@@ -41,21 +42,55 @@ pub fn display_backend_status(backend_status: &BackendStatus) {
     let step_element: HtmlButtonElement = get_element_by_id("step").dyn_into().unwrap();
     let run_element: HtmlButtonElement = get_element_by_id("run").dyn_into().unwrap();
 
+    let mut step_active = false;
+    let mut run_active = false;
+    let document = document();
+    if let Some(active_element) = document.active_element() {
+        if active_element == **step_element {
+            step_active = true;
+        } else if active_element == **run_element {
+            run_active = true;
+        }
+    }
+
+    const DATA_ACTIVE: &str = "data-active";
+
     match backend_status {
         BackendStatus::Cancelling => {
             reset_element.set_disabled(true);
             step_element.set_disabled(true);
             run_element.set_disabled(true);
+
+            if run_active && run_element.get_attribute(DATA_ACTIVE).is_none() {
+                run_element.set_attribute(DATA_ACTIVE, "run").unwrap();
+            }
         }
         BackendStatus::Waiting => {
             reset_element.set_disabled(false);
             step_element.set_disabled(false);
             run_element.set_disabled(false);
+
+            match run_element.get_attribute(DATA_ACTIVE).as_deref() {
+                Some("step") => {
+                    step_element.focus().unwrap();
+                }
+                Some("run") => {
+                    run_element.focus().unwrap();
+                }
+                _ => {}
+            };
+            run_element.remove_attribute(DATA_ACTIVE).unwrap();
         }
         BackendStatus::Running => {
             reset_element.set_disabled(true);
             step_element.set_disabled(true);
             run_element.set_disabled(false);
+
+            if step_active {
+                run_element.set_attribute(DATA_ACTIVE, "step").unwrap();
+                // refocus on the run element, which now acts as cancellation
+                run_element.focus().unwrap();
+            }
         }
     }
 
