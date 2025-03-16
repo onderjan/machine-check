@@ -8,17 +8,14 @@ use crate::frontend::{
         web_idl::{get_element_by_id, window},
         PixelPoint,
     },
-    view::{
-        camera::{Camera, Scheme},
-        Tile, TileType, View,
-    },
+    view::{Tile, TileType, View},
 };
 
 pub fn setup() {
     CanvasRenderer::new().setup();
 }
 
-pub fn render(view: &View) {
+pub fn render(view: &mut View) {
     CanvasRenderer::new().render(view);
 }
 
@@ -29,7 +26,9 @@ struct CanvasRenderer {
 }
 
 impl CanvasRenderer {
-    fn render(&self, view: &View) {
+    fn render(&self, view: &mut View) {
+        self.adjust_view(view);
+
         // clear canvas
         self.main_context.clear_rect(
             0.,
@@ -53,14 +52,12 @@ impl CanvasRenderer {
 
         self.render_background(view);
 
-        let scheme = &view.camera.scheme;
-
         // use the labellings corresponding to the selected subproperty
         let labellings = view
             .selected_subproperty()
             .map(|selected_property| &selected_property.labellings);
 
-        let (x_range, y_range) = self.visible_tile_range(&view.camera);
+        let (x_range, y_range) = self.visible_tile_range(view);
 
         for (tile, tile_type) in &view.tiling {
             let tile_visible = is_tile_visible(&x_range, &y_range, *tile);
@@ -91,17 +88,17 @@ impl CanvasRenderer {
                                 false
                             };
 
-                        self.render_node(scheme, *tile, *node_id, labelling, is_selected);
+                        self.render_node(view, *tile, *node_id, labelling, is_selected);
 
                         if !node.incoming.is_empty() {
-                            self.render_arrow_end(scheme, *tile);
+                            self.render_arrow_end(view, *tile);
                         }
                         if aux.self_loop {
-                            self.render_self_loop(scheme, *tile);
+                            self.render_self_loop(view, *tile);
                         }
 
                         if !node.outgoing.is_empty() {
-                            self.render_arrow_start(scheme, *tile, aux.successor_x_offset);
+                            self.render_arrow_start(view, *tile, aux.successor_x_offset);
                         }
                     }
 
@@ -112,7 +109,7 @@ impl CanvasRenderer {
 
                     if is_tile_rectangle_visible(&x_range, &y_range, *tile, predecessor_bound_tile)
                     {
-                        self.render_arrow_split(scheme, *tile, 0, aux.predecessor_split_len);
+                        self.render_arrow_split(view, *tile, 0, aux.predecessor_split_len);
                     }
 
                     let successor_bound_tile = Tile {
@@ -122,7 +119,7 @@ impl CanvasRenderer {
 
                     if is_tile_rectangle_visible(&x_range, &y_range, *tile, successor_bound_tile) {
                         self.render_arrow_split(
-                            scheme,
+                            view,
                             *tile,
                             aux.successor_x_offset as i64,
                             aux.successor_split_len,
@@ -131,14 +128,14 @@ impl CanvasRenderer {
                 }
                 TileType::IncomingReference(head_node_id, tail_node_id) => {
                     if tile_visible {
-                        self.render_reference(scheme, *tile, *head_node_id, *tail_node_id, false);
-                        self.render_arrow_start(scheme, *tile, 1);
+                        self.render_reference(view, *tile, *head_node_id, *tail_node_id, false);
+                        self.render_arrow_start(view, *tile, 1);
                     }
                 }
                 TileType::OutgoingReference(head_node_id, tail_node_id) => {
                     if tile_visible {
-                        self.render_arrow_end(scheme, *tile);
-                        self.render_reference(scheme, *tile, *head_node_id, *tail_node_id, true);
+                        self.render_arrow_end(view, *tile);
+                        self.render_reference(view, *tile, *head_node_id, *tail_node_id, true);
                     }
                 }
             }
@@ -149,20 +146,20 @@ impl CanvasRenderer {
 
     fn visible_tile_range(
         &self,
-        camera: &Camera,
+        view: &View,
     ) -> (std::ops::RangeInclusive<i64>, std::ops::RangeInclusive<i64>) {
-        let lesser_visible_point = camera.view_offset();
+        let lesser_visible_point = view.camera.view_offset();
         let greater_visible_point = lesser_visible_point
             + PixelPoint {
                 x: self.main_canvas.width() as i64,
                 y: self.main_canvas.height() as i64,
             };
 
-        let lesser_tile = tile_position_from_point(&camera.scheme, lesser_visible_point, false);
-        let greater_tile = tile_position_from_point(&camera.scheme, greater_visible_point, true);
+        let lesser_tile = view.global_point_to_tile(lesser_visible_point, false);
+        let greater_tile = view.global_point_to_tile(greater_visible_point, true);
 
-        let x_range = lesser_tile.0..=greater_tile.0;
-        let y_range = lesser_tile.1..=greater_tile.1;
+        let x_range = lesser_tile.x..=greater_tile.x;
+        let y_range = lesser_tile.y..=greater_tile.y;
 
         (x_range, y_range)
     }
@@ -173,12 +170,14 @@ impl CanvasRenderer {
         self.main_context.set_fill_style_str("#FAFAFA");
         self.main_context.set_stroke_style_str("#DDD");
 
-        let tile_size = view.camera.scheme.tile_size;
+        let tile_height = view.camera.scheme.tile_size;
 
-        let (range_x, range_y) = self.visible_tile_range(&view.camera);
+        let (range_x, range_y) = self.visible_tile_range(view);
 
         for tile_x in range_x {
             for tile_y in range_y.clone() {
+                let x = self.column_start(view, tile_x);
+                let tile_width = self.column_width(view, tile_x);
                 /*if (tile_x as u64).wrapping_add(tile_y as u64) % 2 == 1 {
                     self.main_context.set_fill_style_str("#FFFFFF");
                 } else {
@@ -186,16 +185,16 @@ impl CanvasRenderer {
                 }*/
 
                 let start = PixelPoint {
-                    x: tile_x * tile_size as i64,
-                    y: tile_y * tile_size as i64,
+                    x,
+                    y: tile_y * tile_height as i64,
                 };
 
                 self.main_context.begin_path();
                 self.main_context.rect(
                     start.x as f64,
                     start.y as f64,
-                    tile_size as f64,
-                    tile_size as f64,
+                    tile_width as f64,
+                    tile_height as f64,
                 );
 
                 self.main_context.fill();
@@ -204,6 +203,32 @@ impl CanvasRenderer {
         }
 
         self.main_context.restore();
+    }
+
+    fn column_width(&self, view: &View, column: i64) -> u64 {
+        if let Some(width) = view.column_widths.get(&column) {
+            return *width;
+        }
+        view.camera.scheme.tile_size
+    }
+
+    fn column_start(&self, view: &View, column: i64) -> i64 {
+        let tile_size = view.camera.scheme.tile_size;
+        if column < 0 {
+            return column * tile_size as i64;
+        }
+        if let Some(start) = view.column_starts.get(&column) {
+            return *start;
+        }
+
+        let (last_column, last_column_start) = view
+            .column_starts
+            .last_key_value()
+            .map(|(k, v)| (*k, *v))
+            .unwrap_or((0, 0));
+
+        let from_last_column = column - last_column;
+        last_column_start + from_last_column * tile_size as i64
     }
 
     fn new() -> CanvasRenderer {
@@ -255,16 +280,72 @@ impl CanvasRenderer {
         self.main_context.reset_transform().unwrap();
         self.main_context.translate(0.5, 0.5).unwrap();
     }
-}
 
-fn tile_position_from_point(scheme: &Scheme, point: PixelPoint, ceil: bool) -> (i64, i64) {
-    let tile_size = scheme.tile_size;
+    fn adjust_view(&self, view: &mut View) {
+        view.column_starts.clear();
+        view.column_widths.clear();
 
-    let func = if ceil { f64::ceil } else { f64::floor };
+        let default_tile_width = view.camera.scheme.tile_size;
 
-    let tile_x = func(point.x as f64 / tile_size as f64) as i64;
-    let tile_y = func(point.y as f64 / tile_size as f64) as i64;
-    (tile_x, tile_y)
+        for (tile, tile_type) in &view.tiling {
+            let (min_width, _min_height) = self.minimal_bounding_box(view, tile_type);
+
+            let column_width = view
+                .column_widths
+                .entry(tile.x)
+                .or_insert(default_tile_width);
+            if min_width > *column_width {
+                *column_width = min_width;
+            }
+        }
+        //console_log!("Column widths: {:?}", view.column_widths);
+
+        if let Some((last_width_column, _last_width)) = view.column_widths.last_key_value() {
+            let mut start = 0;
+            for column in 0..=*last_width_column {
+                view.column_starts.insert(column, start);
+                start += (*view
+                    .column_widths
+                    .get(&column)
+                    .unwrap_or(&default_tile_width)) as i64;
+            }
+            view.column_starts.insert(*last_width_column + 1, start);
+        }
+        //console_log!("Column starts: {:?}", view.column_starts);
+    }
+
+    fn minimal_bounding_box(&self, view: &View, tile_type: &TileType) -> (u64, u64) {
+        let text = match tile_type {
+            TileType::Node(node_id) => Self::node_text(*node_id),
+            TileType::IncomingReference(head_node_id, tail_node_id) => {
+                Self::reference_text(*head_node_id, *tail_node_id)
+            }
+            TileType::OutgoingReference(head_node_id, tail_node_id) => {
+                Self::reference_text(*head_node_id, *tail_node_id)
+            }
+        };
+        let text_metrics = self.main_context.measure_text(&text).unwrap();
+        let width =
+            text_metrics.actual_bounding_box_left() + text_metrics.actual_bounding_box_right();
+        let height =
+            text_metrics.actual_bounding_box_ascent() + text_metrics.actual_bounding_box_descent();
+
+        let mut width = width;
+        if matches!(
+            tile_type,
+            TileType::IncomingReference(_, _) | TileType::OutgoingReference(_, _)
+        ) {
+            width /= 0.75;
+        } else {
+            width /= 0.9;
+        }
+
+        width += (view.camera.scheme.tile_size - view.camera.scheme.node_size) as f64;
+
+        let (width, height) = (width.ceil() as u64, height.ceil() as u64);
+
+        (width, height)
+    }
 }
 
 fn is_tile_visible(

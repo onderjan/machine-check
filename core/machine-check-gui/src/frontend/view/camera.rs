@@ -9,8 +9,6 @@ use crate::{
     shared::snapshot::{Snapshot, SubpropertyIndex},
 };
 
-use super::Tile;
-
 #[derive(Debug, Clone)]
 pub struct Camera {
     pub scheme: Scheme,
@@ -24,7 +22,6 @@ pub struct Camera {
 
 #[derive(Debug, Clone)]
 pub struct Scheme {
-    pub pixel_ratio: f64,
     pub tile_size: u64,
     pub node_size: u64,
     pub arrowhead_size: f64,
@@ -42,7 +39,6 @@ impl Scheme {
         let font_size = RAW_FONT_SIZE * pixel_ratio;
 
         Scheme {
-            pixel_ratio,
             tile_size,
             node_size,
             arrowhead_size,
@@ -50,14 +46,12 @@ impl Scheme {
         }
     }
 
-    pub fn global_px_tile(&self, global_point: PixelPoint) -> Tile {
-        let tile_size = adjust_size(RAW_TILE_SIZE * self.pixel_ratio) as i64;
-        let tile_pos = global_point / tile_size;
+    pub fn node_margin(&self) -> f64 {
+        (self.tile_size - self.node_size) as f64
+    }
 
-        Tile {
-            x: tile_pos.x,
-            y: tile_pos.y,
-        }
+    pub fn node_half_margin(&self) -> f64 {
+        self.node_margin() / 2.
     }
 }
 
@@ -87,12 +81,6 @@ impl Camera {
             result -= mouse_offset;
         }
         result
-    }
-
-    pub fn viewport_px_tile(&self, viewport_point: PixelPoint) -> Tile {
-        let global_point = viewport_point + self.view_offset;
-
-        self.scheme.global_px_tile(global_point)
     }
 
     pub fn apply_snapshot(&mut self, snapshot: &Snapshot) {

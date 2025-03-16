@@ -43,6 +43,7 @@ web-sys = { version = "0.3.76", features = [
     "KeyboardEvent",
     "Node",
     "CanvasRenderingContext2d",
+    "TextMetrics",
     "HtmlCanvasElement",
     "Headers",
     "Request",

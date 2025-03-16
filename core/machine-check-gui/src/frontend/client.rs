@@ -25,8 +25,8 @@ pub async fn init() {
     tick::init();
 
     // make sure rendering occurs
-    let view_guard = lock_view();
-    render(view_guard.as_ref());
+    let mut view_guard = lock_view();
+    render(view_guard.as_mut());
 }
 
 async fn issue_command(request: Request) {
@@ -66,7 +66,7 @@ async fn issue_command(request: Request) {
     }
 }
 
-fn render(view: &View) {
+fn render(view: &mut View) {
     display_backend_info(&view.backend_info);
     canvas::render(view);
     text::display(view);

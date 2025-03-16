@@ -37,5 +37,5 @@ pub fn init() {
 async fn on_resize() {
     // force a complete setup and re-render
     setup();
-    render(lock_view().as_ref());
+    render(lock_view().as_mut());
 }

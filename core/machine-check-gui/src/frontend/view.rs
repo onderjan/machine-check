@@ -1,7 +1,7 @@
 pub mod camera;
 mod compute;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use bimap::BiHashMap;
 use camera::Camera;
@@ -12,6 +12,8 @@ use crate::shared::{
     BackendInfo,
 };
 
+use super::util::PixelPoint;
+
 #[derive(Debug)]
 pub struct View {
     snapshot: Snapshot,
@@ -19,6 +21,8 @@ pub struct View {
     pub tiling: BiHashMap<Tile, TileType>,
     pub node_aux: HashMap<NodeId, NodeAux>,
     pub camera: Camera,
+    pub column_widths: BTreeMap<i64, u64>,
+    pub column_starts: BTreeMap<i64, i64>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -59,12 +63,17 @@ impl View {
 
         camera.apply_snapshot(&snapshot);
 
+        let column_widths = BTreeMap::new();
+        let column_starts = BTreeMap::new();
+
         View {
             snapshot,
             backend_info,
             tiling,
             node_aux,
             camera,
+            column_widths,
+            column_starts,
         }
     }
 
@@ -162,5 +171,53 @@ impl View {
 
                 self.snapshot.select_root_property(selected_property_index)
             })
+    }
+
+    pub fn global_point_to_tile(&self, point: PixelPoint, ceil: bool) -> Tile {
+        let tile_size = self.camera.scheme.tile_size;
+
+        let func = if ceil { f64::ceil } else { f64::floor };
+
+        // TODO: constant-time tile position from point
+        let tile_x = if point.x < 0 {
+            func(point.x as f64 / tile_size as f64) as i64
+        } else {
+            let mut selected_column = None;
+            for (column, column_start) in self.column_starts.iter() {
+                if point.x < *column_start {
+                    if ceil {
+                        selected_column = Some(*column)
+                    } else {
+                        selected_column = Some(*column - 1)
+                    }
+                    break;
+                }
+            }
+
+            if let Some(selected_column) = selected_column {
+                selected_column
+            } else {
+                let (last_column, last_column_start) = self
+                    .column_starts
+                    .last_key_value()
+                    .map(|(k, v)| (*k, *v))
+                    .unwrap_or((0, 0));
+                last_column + (func((point.x - last_column_start) as f64 / tile_size as f64) as i64)
+            }
+        };
+
+        let tile_y = func(point.y as f64 / tile_size as f64) as i64;
+
+        Tile {
+            x: tile_x,
+            y: tile_y,
+        }
+
+        //let tile_x = func(point.x as f64 / tile_size as f64) as i64;
+    }
+
+    pub fn viewport_point_to_tile(&self, point: PixelPoint, ceil: bool) -> Tile {
+        let global_point = point + self.camera.view_offset();
+        self.global_point_to_tile(global_point, ceil)
     }
 }
