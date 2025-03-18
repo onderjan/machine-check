@@ -63,7 +63,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
                 // select a tile
                 let tile = view.viewport_point_to_tile(mouse_coords, false);
                 let mut selected_node_id = None;
-                if let Some(TileType::Node(node)) = view.tiling.get_by_left(&tile) {
+                if let Some(TileType::Node(node)) = view.tiling.at_tile(tile) {
                     selected_node_id = Some(*node);
                 }
                 view.camera.selected_node_id = selected_node_id;

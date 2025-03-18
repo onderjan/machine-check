@@ -1,11 +1,18 @@
 pub mod camera;
 mod compute;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    hash::Hash,
+};
 
 use bimap::BiHashMap;
 use camera::Camera;
 use machine_check_exec::NodeId;
+use rstar::{
+    primitives::{GeomWithData, Rectangle},
+    RTree, AABB,
+};
 
 use crate::shared::{
     snapshot::{PropertySnapshot, Snapshot},
@@ -15,10 +22,56 @@ use crate::shared::{
 use super::util::PixelPoint;
 
 #[derive(Debug)]
+pub struct Tiling {
+    tree: RTree<GeomWithData<Rectangle<(i64, i64)>, Tile>>,
+    pub map: BiHashMap<Tile, TileType>,
+}
+impl Tiling {
+    fn new(
+        map: bimap::BiHashMap<Tile, TileType>,
+        column_starts: &BTreeMap<i64, i64>,
+        tile_size: u64,
+    ) -> Self {
+        let tiles_vec: Vec<_> = map
+            .left_values()
+            .map(|tile| {
+                let rect = tile_rect(column_starts, tile_size, *tile);
+                GeomWithData::new(
+                    Rectangle::from_corners((rect.0.x, rect.0.y), (rect.1.x, rect.1.y)),
+                    *tile,
+                )
+            })
+            .collect();
+
+        let tree = RTree::bulk_load(tiles_vec);
+
+        Self { tree, map }
+    }
+
+    pub fn map_iter(&self) -> impl Iterator<Item = (&Tile, &TileType)> {
+        self.map.iter()
+    }
+
+    pub fn at_tile(&self, tile: Tile) -> Option<&TileType> {
+        self.map.get_by_left(&tile)
+    }
+
+    pub fn tiles_in_rect(
+        &self,
+        top_left: PixelPoint,
+        bottom_right: PixelPoint,
+    ) -> impl Iterator<Item = Tile> + use<'_> {
+        let aabb = AABB::from_corners((top_left.x, top_left.y), (bottom_right.x, bottom_right.y));
+        let located = self.tree.locate_in_envelope_intersecting(&aabb);
+        located.map(|geom_with_data| geom_with_data.data)
+    }
+}
+
+#[derive(Debug)]
 pub struct View {
     snapshot: Snapshot,
     pub backend_info: BackendInfo,
-    pub tiling: BiHashMap<Tile, TileType>,
+    pub tiling: Tiling,
     pub node_aux: HashMap<NodeId, NodeAux>,
     pub camera: Camera,
     pub column_widths: BTreeMap<i64, u64>,
@@ -60,12 +113,14 @@ pub enum NavigationTarget {
 
 impl View {
     pub fn new(snapshot: Snapshot, backend_info: BackendInfo, mut camera: Camera) -> View {
-        let (tiling, node_aux) = compute::compute_tiling_aux(&snapshot);
+        let (tiling_map, node_aux) = compute::compute_tiling_aux(&snapshot);
 
         camera.apply_snapshot(&snapshot);
 
         let column_widths = BTreeMap::new();
         let column_starts = BTreeMap::new();
+
+        let tiling = Self::create_tiling(tiling_map, &camera, &column_starts);
 
         View {
             snapshot,
@@ -79,9 +134,19 @@ impl View {
     }
 
     pub fn apply_snapshot(&mut self, snapshot: Snapshot) {
-        (self.tiling, self.node_aux) = compute::compute_tiling_aux(&snapshot);
+        let (tiling_map, node_aux) = compute::compute_tiling_aux(&snapshot);
+        self.node_aux = node_aux;
         self.camera.apply_snapshot(&snapshot);
         self.snapshot = snapshot;
+        self.tiling = Self::create_tiling(tiling_map, &self.camera, &self.column_starts);
+    }
+
+    fn create_tiling(
+        tiling_map: BiHashMap<Tile, TileType>,
+        camera: &Camera,
+        column_starts: &BTreeMap<i64, i64>,
+    ) -> Tiling {
+        Tiling::new(tiling_map, column_starts, camera.scheme.tile_size)
     }
 
     pub fn snapshot(&self) -> &Snapshot {
@@ -257,39 +322,48 @@ impl View {
     }
 
     pub fn column_start(&self, column: i64) -> i64 {
-        let tile_size = self.camera.scheme.tile_size;
-        if column < 0 {
-            return column * tile_size as i64;
-        }
-        if let Some(start) = self.column_starts.get(&column) {
-            return *start;
-        }
-
-        let (last_column, last_column_start) = self
-            .column_starts
-            .last_key_value()
-            .map(|(k, v)| (*k, *v))
-            .unwrap_or((0, 0));
-
-        let from_last_column = column - last_column;
-        last_column_start + from_last_column * tile_size as i64
+        column_start(&self.column_starts, self.camera.scheme.tile_size, column)
     }
 
     pub fn tile_rect(&self, tile: Tile) -> (PixelPoint, PixelPoint) {
-        let tile_size = self.camera.scheme.tile_size as i64;
-        let top_left_x = self.column_start(tile.x);
-        let top_left_y = tile_size * tile.y;
-        let bottom_right_x = self.column_start(tile.x + 1) - 1;
-        let bottom_right_y = tile_size * (tile.y + 1) - 1;
-        (
-            PixelPoint {
-                x: top_left_x,
-                y: top_left_y,
-            },
-            PixelPoint {
-                x: bottom_right_x,
-                y: bottom_right_y,
-            },
-        )
+        tile_rect(&self.column_starts, self.camera.scheme.tile_size, tile)
     }
+}
+
+fn tile_rect(
+    column_starts: &BTreeMap<i64, i64>,
+    tile_size: u64,
+    tile: Tile,
+) -> (PixelPoint, PixelPoint) {
+    let top_left_x = column_start(column_starts, tile_size, tile.x);
+    let top_left_y = tile_size as i64 * tile.y;
+    let bottom_right_x = column_start(column_starts, tile_size, tile.x + 1) - 1;
+    let bottom_right_y = tile_size as i64 * (tile.y + 1) - 1;
+    (
+        PixelPoint {
+            x: top_left_x,
+            y: top_left_y,
+        },
+        PixelPoint {
+            x: bottom_right_x,
+            y: bottom_right_y,
+        },
+    )
+}
+
+fn column_start(column_starts: &BTreeMap<i64, i64>, tile_size: u64, column: i64) -> i64 {
+    if column < 0 {
+        return column * tile_size as i64;
+    }
+    if let Some(start) = column_starts.get(&column) {
+        return *start;
+    }
+
+    let (last_column, last_column_start) = column_starts
+        .last_key_value()
+        .map(|(k, v)| (*k, *v))
+        .unwrap_or((0, 0));
+
+    let from_last_column = column - last_column;
+    last_column_start + from_last_column * tile_size as i64
 }

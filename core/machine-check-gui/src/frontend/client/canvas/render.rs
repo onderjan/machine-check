@@ -59,9 +59,29 @@ impl CanvasRenderer {
 
         let (x_range, y_range) = self.visible_tile_range(view);
 
-        for (tile, tile_type) in &view.tiling {
-            let tile_visible = is_tile_visible(&x_range, &y_range, *tile);
+        let lesser_visible_point = view.camera.view_offset();
+        let greater_visible_point = lesser_visible_point
+            + PixelPoint {
+                x: self.main_canvas.width() as i64,
+                y: self.main_canvas.height() as i64,
+            };
 
+        let tiles_in_view: Vec<_> = view
+            .tiling
+            .tiles_in_rect(lesser_visible_point, greater_visible_point)
+            .collect();
+
+        console_log!("Tiles in view: {:?}", tiles_in_view);
+
+        //for (tile, tile_type) in view.tiling.map_iter() {
+        //    let tile_visible = is_tile_visible(&x_range, &y_range, *tile);
+        for tile in view
+            .tiling
+            .tiles_in_rect(lesser_visible_point, greater_visible_point)
+        {
+            let tile = &tile;
+            let tile_type = view.tiling.map.get_by_left(&tile).unwrap();
+            let tile_visible = true;
             match tile_type {
                 TileType::Node(node_id) => {
                     let node = view
@@ -278,7 +298,7 @@ impl CanvasRenderer {
 
         let default_tile_width = view.camera.scheme.tile_size;
 
-        for (tile, tile_type) in &view.tiling {
+        for (tile, tile_type) in view.tiling.map_iter() {
             let (min_width, _min_height) = self.minimal_bounding_box(view, tile_type);
 
             let column_width = view
@@ -337,14 +357,6 @@ impl CanvasRenderer {
 
         (width, height)
     }
-}
-
-fn is_tile_visible(
-    x_range: &std::ops::RangeInclusive<i64>,
-    y_range: &std::ops::RangeInclusive<i64>,
-    tile: Tile,
-) -> bool {
-    x_range.contains(&tile.x) && y_range.contains(&tile.y)
 }
 
 fn is_tile_rectangle_visible(
