@@ -1,7 +1,7 @@
 pub mod camera;
 mod compute;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use bimap::BiHashMap;
 use camera::Camera;
@@ -34,7 +34,7 @@ pub struct Tile {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum TileType {
     Node(NodeId),
-    IncomingReference(NodeId, NodeId),
+    IncomingReference(BTreeSet<NodeId>, NodeId),
     OutgoingReference(NodeId, NodeId),
 }
 

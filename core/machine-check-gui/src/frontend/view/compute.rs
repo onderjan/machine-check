@@ -16,12 +16,13 @@ pub fn compute_tiling_aux(
 
     for node_id in sorted.iter().rev().cloned() {
         let node = snapshot.state_space.nodes.get(&node_id).unwrap();
-        // reserve one position for each non-identity predecessor
-        let predecessor_reserve = node
+        // reserve one position if there is one non-identity predecessor, two positions if there are two
+        let nonidentity_predecessors = node
             .incoming
             .iter()
             .filter(|successor_id| **successor_id != node_id)
             .count();
+        let predecessor_reserve = if nonidentity_predecessors > 1 { 2 } else { 1 };
 
         let mut successor_reserve = 0;
 
@@ -43,6 +44,8 @@ pub fn compute_tiling_aux(
         reserved.insert(node_id, predecessor_reserve.max(successor_reserve).max(1));
     }
 
+    console_log!("Reserved: {:?}", reserved);
+
     // stage tile positions by topological sort, taking the reserved y-positions into account
     let mut tiling = BiHashMap::new();
     let mut node_aux = HashMap::new();
@@ -57,21 +60,23 @@ pub fn compute_tiling_aux(
             .get_by_right(&TileType::Node(node_id))
             .expect("Node should be in tiling");
 
-        let mut y_add = 1u64;
+        // ignore loops and canonical predecessors for the incoming reference
+        let incoming_reference_predecessors: BTreeSet<NodeId> = node
+            .incoming
+            .iter()
+            .cloned()
+            .filter(|predecessor_id| {
+                *predecessor_id != node_id && *predecessor_id != parent_node_id.unwrap()
+            })
+            .collect();
 
-        let mut predecessor_split_len = 0u64;
-        for predecessor_id in node.incoming.iter().cloned() {
-            if predecessor_id == node_id || predecessor_id == parent_node_id.unwrap() {
-                // ignore loops and canonical predecessors
-                continue;
-            }
-
+        let predecessor_split_len = if !incoming_reference_predecessors.is_empty() {
             let (left, right) = (
                 Tile {
                     x: node_tile.x - 1,
-                    y: node_tile.y + y_add as i64,
+                    y: node_tile.y + 1 as i64,
                 },
-                TileType::IncomingReference(predecessor_id, node_id),
+                TileType::IncomingReference(incoming_reference_predecessors, node_id),
             );
 
             if tiling.insert(left, right).did_overwrite() {
@@ -80,9 +85,10 @@ pub fn compute_tiling_aux(
                     left
                 );
             }
-            predecessor_split_len = y_add;
-            y_add += 1;
-        }
+            1
+        } else {
+            0
+        };
 
         let mut y_add = 0u64;
 

@@ -62,7 +62,7 @@ impl CanvasRenderer {
         &self,
         view: &View,
         tile: Tile,
-        head_node_id: NodeId,
+        head_node_ids: impl Iterator<Item = NodeId>,
         tail_node_id: NodeId,
         outgoing: bool,
     ) {
@@ -102,15 +102,31 @@ impl CanvasRenderer {
 
         context
             .fill_text(
-                &Self::reference_text(head_node_id, tail_node_id),
+                &Self::reference_text(head_node_ids, tail_node_id),
                 middle_x + outgoing * (node_height / 12.),
                 middle_y,
             )
             .unwrap();
     }
 
-    pub fn reference_text(head_node_id: NodeId, tail_node_id: NodeId) -> String {
-        format!("{}|{}", head_node_id, tail_node_id)
+    pub fn reference_text(
+        head_node_ids: impl Iterator<Item = NodeId>,
+        tail_node_id: NodeId,
+    ) -> String {
+        let mut head_string = String::new();
+
+        let mut first = true;
+
+        for head_node_id in head_node_ids {
+            if first {
+                first = false;
+            } else {
+                head_string += ",";
+            }
+            head_string += &head_node_id.to_string();
+        }
+
+        format!("{}\u{1f852}{}", head_string, tail_node_id)
     }
 
     pub fn render_arrow_start(&self, view: &View, head_tile: Tile, successor_x_offset: u64) {

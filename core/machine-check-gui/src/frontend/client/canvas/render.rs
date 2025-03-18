@@ -126,16 +126,28 @@ impl CanvasRenderer {
                         );
                     }
                 }
-                TileType::IncomingReference(head_node_id, tail_node_id) => {
+                TileType::IncomingReference(head_node_ids, tail_node_id) => {
                     if tile_visible {
-                        self.render_reference(view, *tile, *head_node_id, *tail_node_id, false);
+                        self.render_reference(
+                            view,
+                            *tile,
+                            head_node_ids.iter().copied(),
+                            *tail_node_id,
+                            false,
+                        );
                         self.render_arrow_start(view, *tile, 1);
                     }
                 }
                 TileType::OutgoingReference(head_node_id, tail_node_id) => {
                     if tile_visible {
                         self.render_arrow_end(view, *tile);
-                        self.render_reference(view, *tile, *head_node_id, *tail_node_id, true);
+                        self.render_reference(
+                            view,
+                            *tile,
+                            std::iter::once(*head_node_id),
+                            *tail_node_id,
+                            true,
+                        );
                     }
                 }
             }
@@ -318,10 +330,10 @@ impl CanvasRenderer {
         let text = match tile_type {
             TileType::Node(node_id) => Self::node_text(*node_id),
             TileType::IncomingReference(head_node_id, tail_node_id) => {
-                Self::reference_text(*head_node_id, *tail_node_id)
+                Self::reference_text(head_node_id.iter().copied(), *tail_node_id)
             }
             TileType::OutgoingReference(head_node_id, tail_node_id) => {
-                Self::reference_text(*head_node_id, *tail_node_id)
+                Self::reference_text(std::iter::once(*head_node_id), *tail_node_id)
             }
         };
         let text_metrics = self.main_context.measure_text(&text).unwrap();
