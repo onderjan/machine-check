@@ -49,11 +49,6 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
         y: (event.offset_y() as f64 * device_pixel_ratio).round() as i64,
     };
 
-    /// Typically the left button.
-    const MAIN_BUTTON: i16 = 0;
-    /// Typically the middle button.
-    const DRAG_BUTTON: i16 = 1;
-
     // lock the view
     let mut view_guard = lock_view();
     let view = view_guard.as_mut();
@@ -82,7 +77,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
             // do nothing for now
         }
         MouseEvent::Down => {
-            if event.button() == DRAG_BUTTON {
+            if is_drag(&event) {
                 // start dragging the camera
                 view.camera.mouse_current_coords = Some(mouse_coords);
                 view.camera.mouse_down_coords = Some(mouse_coords);
@@ -100,7 +95,7 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
             }
         }
         MouseEvent::Up | MouseEvent::Out => {
-            if matches!(mouse, MouseEvent::Out) || event.button() == DRAG_BUTTON {
+            if matches!(mouse, MouseEvent::Out) || is_drag(&event) {
                 // finish dragging the camera
                 if let Some(mouse_down_coords) = view.camera.mouse_down_coords.take() {
                     let offset = mouse_coords - mouse_down_coords;
@@ -112,4 +107,16 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
             }
         }
     }
+}
+
+/// Typically the left button.
+const MAIN_BUTTON: i16 = 0;
+/// Typically the middle button.
+const AUX_BUTTON: i16 = 1;
+/// Typically the right button.
+const CONTEXT_BUTTON: i16 = 2;
+
+fn is_drag(event: &web_sys::MouseEvent) -> bool {
+    let button = event.button();
+    button == AUX_BUTTON || button == CONTEXT_BUTTON
 }
