@@ -40,6 +40,7 @@ pub enum TileType {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct NodeAux {
+    pub tile: Tile,
     pub tiling_parent: Option<NodeId>,
     pub tiling_children: Vec<NodeId>,
 
@@ -150,7 +151,34 @@ impl View {
             }
         } else {
             self.camera.selected_node_id = Some(NodeId::ROOT);
+        };
+
+        // make sure the newly selected node is in view
+
+        if let Some(selected_node_id) = self.camera.selected_node_id {
+            let selected_node_aux = self
+                .node_aux
+                .get(&selected_node_id)
+                .expect("Selected node id should point to a valid node aux");
+
+            // make sure the selected node is in view
+            self.show_tile(selected_node_aux.tile);
         }
+    }
+
+    fn show_tile(&mut self, tile: Tile) {
+        let (mut top_left, mut bottom_right) = self.tile_rect(tile);
+        // adjust by half of default tile size
+        let node_size = self.camera.scheme.tile_size / 2;
+        let node_size_point = PixelPoint {
+            x: node_size as i64,
+            y: node_size as i64,
+        };
+        top_left -= node_size_point;
+        bottom_right += node_size_point;
+
+        self.camera.ensure_in_view(top_left);
+        self.camera.ensure_in_view(bottom_right);
     }
 
     pub fn selected_subproperty(&self) -> Option<&PropertySnapshot> {
@@ -219,5 +247,49 @@ impl View {
     pub fn viewport_point_to_tile(&self, point: PixelPoint, ceil: bool) -> Tile {
         let global_point = point + self.camera.view_offset();
         self.global_point_to_tile(global_point, ceil)
+    }
+
+    pub fn column_width(&self, column: i64) -> u64 {
+        if let Some(width) = self.column_widths.get(&column) {
+            return *width;
+        }
+        self.camera.scheme.tile_size
+    }
+
+    pub fn column_start(&self, column: i64) -> i64 {
+        let tile_size = self.camera.scheme.tile_size;
+        if column < 0 {
+            return column * tile_size as i64;
+        }
+        if let Some(start) = self.column_starts.get(&column) {
+            return *start;
+        }
+
+        let (last_column, last_column_start) = self
+            .column_starts
+            .last_key_value()
+            .map(|(k, v)| (*k, *v))
+            .unwrap_or((0, 0));
+
+        let from_last_column = column - last_column;
+        last_column_start + from_last_column * tile_size as i64
+    }
+
+    pub fn tile_rect(&self, tile: Tile) -> (PixelPoint, PixelPoint) {
+        let tile_size = self.camera.scheme.tile_size as i64;
+        let top_left_x = self.column_start(tile.x);
+        let top_left_y = tile_size * tile.y;
+        let bottom_right_x = self.column_start(tile.x + 1) - 1;
+        let bottom_right_y = tile_size * (tile.y + 1) - 1;
+        (
+            PixelPoint {
+                x: top_left_x,
+                y: top_left_y,
+            },
+            PixelPoint {
+                x: bottom_right_x,
+                y: bottom_right_y,
+            },
+        )
     }
 }

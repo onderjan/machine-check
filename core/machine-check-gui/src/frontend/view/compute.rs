@@ -179,6 +179,7 @@ pub fn compute_tiling_aux(
         node_aux.insert(
             node_id,
             NodeAux {
+                tile: node_tile,
                 tiling_parent: parent_node_id,
                 tiling_children,
                 predecessor_split_len,

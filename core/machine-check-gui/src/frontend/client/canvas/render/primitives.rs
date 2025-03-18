@@ -24,11 +24,11 @@ impl CanvasRenderer {
         let (tile_height, node_height) = (scheme.tile_size as f64, scheme.node_size as f64);
         let node_half_margin = scheme.node_half_margin();
 
-        let tile_width = self.column_width(view, tile.x) as f64;
+        let tile_width = view.column_width(tile.x) as f64;
 
         let node_width = tile_width - scheme.node_margin();
 
-        let node_start_x = self.column_start(view, tile.x) as f64 + node_half_margin;
+        let node_start_x = view.column_start(tile.x) as f64 + node_half_margin;
         let node_start_y = tile.y as f64 * tile_height + node_half_margin;
 
         let radius = 4.;
@@ -73,9 +73,9 @@ impl CanvasRenderer {
 
         let (tile_height, node_height) = (scheme.tile_size as f64, scheme.node_size as f64);
 
-        let tile_width = self.column_width(view, tile.x) as f64;
+        let tile_width = view.column_width(tile.x) as f64;
         let node_width = tile_width - scheme.node_margin();
-        let start_x = self.column_start(view, tile.x) as f64;
+        let start_x = view.column_start(tile.x) as f64;
 
         let middle_x = start_x + tile_width / 2.;
         let middle_y = tile.y as f64 * tile_height + tile_height / 2.;
@@ -137,9 +137,9 @@ impl CanvasRenderer {
 
         // draw the arrowshaft
         context.begin_path();
-        let right_x = self.column_start(view, head_tile.x + successor_x_offset as i64) as f64;
+        let right_x = view.column_start(head_tile.x + successor_x_offset as i64) as f64;
         let tile_right_border_x =
-            self.column_start(view, head_tile.x + 1) as f64 - scheme.node_half_margin();
+            view.column_start(head_tile.x + 1) as f64 - scheme.node_half_margin();
         let tile_middle_y = head_tile.y as f64 * tile_height + tile_height / 2.;
         context.move_to(tile_right_border_x, tile_middle_y);
         context.line_to(right_x, tile_middle_y);
@@ -154,7 +154,7 @@ impl CanvasRenderer {
 
         // draw the arrow split
         context.begin_path();
-        let split_x = self.column_start(view, node_tile.x + x_offset) as f64;
+        let split_x = view.column_start(node_tile.x + x_offset) as f64;
         let split_upper_y = node_tile.y as f64 * tile_size + tile_size / 2.;
         let split_lower_y = split_upper_y + split_len as f64 * tile_size;
         context.move_to(split_x, split_upper_y);
@@ -170,7 +170,7 @@ impl CanvasRenderer {
 
         // draw the arrowshaft
         context.begin_path();
-        let tile_left_x = self.column_start(view, tail_tile.x) as f64;
+        let tile_left_x = view.column_start(tail_tile.x) as f64;
         let tile_left_border_x = tile_left_x + scheme.node_half_margin();
         let tile_middle_y = tail_tile.y as f64 * tile_height + tile_height / 2.;
         context.move_to(tile_left_x, tile_middle_y);
@@ -197,8 +197,8 @@ impl CanvasRenderer {
 
         let (tile_height, node_height) = (scheme.tile_size as f64, scheme.node_size as f64);
 
-        let tile_start_x = self.column_start(view, node_tile.x) as f64;
-        let tile_width = self.column_width(view, node_tile.x) as f64;
+        let tile_start_x = view.column_start(node_tile.x) as f64;
+        let tile_width = view.column_width(node_tile.x) as f64;
 
         // draw the arrowshaft
         context.begin_path();

@@ -188,8 +188,8 @@ impl CanvasRenderer {
 
         for tile_x in range_x {
             for tile_y in range_y.clone() {
-                let x = self.column_start(view, tile_x);
-                let tile_width = self.column_width(view, tile_x);
+                let x = view.column_start(tile_x);
+                let tile_width = view.column_width(tile_x);
                 /*if (tile_x as u64).wrapping_add(tile_y as u64) % 2 == 1 {
                     self.main_context.set_fill_style_str("#FFFFFF");
                 } else {
@@ -215,32 +215,6 @@ impl CanvasRenderer {
         }
 
         self.main_context.restore();
-    }
-
-    fn column_width(&self, view: &View, column: i64) -> u64 {
-        if let Some(width) = view.column_widths.get(&column) {
-            return *width;
-        }
-        view.camera.scheme.tile_size
-    }
-
-    fn column_start(&self, view: &View, column: i64) -> i64 {
-        let tile_size = view.camera.scheme.tile_size;
-        if column < 0 {
-            return column * tile_size as i64;
-        }
-        if let Some(start) = view.column_starts.get(&column) {
-            return *start;
-        }
-
-        let (last_column, last_column_start) = view
-            .column_starts
-            .last_key_value()
-            .map(|(k, v)| (*k, *v))
-            .unwrap_or((0, 0));
-
-        let from_last_column = column - last_column;
-        last_column_start + from_last_column * tile_size as i64
     }
 
     fn new() -> CanvasRenderer {
@@ -296,6 +270,11 @@ impl CanvasRenderer {
     fn adjust_view(&self, view: &mut View) {
         view.column_starts.clear();
         view.column_widths.clear();
+
+        view.camera.view_size = PixelPoint {
+            x: self.main_canvas.width() as i64,
+            y: self.main_canvas.height() as i64,
+        };
 
         let default_tile_width = view.camera.scheme.tile_size;
 

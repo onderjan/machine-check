@@ -13,6 +13,7 @@ use crate::{
 pub struct Camera {
     pub scheme: Scheme,
     pub view_offset: PixelPoint,
+    pub view_size: PixelPoint,
 
     pub mouse_current_coords: Option<PixelPoint>,
     pub mouse_down_coords: Option<PixelPoint>,
@@ -65,6 +66,7 @@ impl Camera {
         Camera {
             scheme: Scheme::new(),
             view_offset: PixelPoint { x: 0, y: 0 },
+            view_size: PixelPoint { x: 0, y: 0 },
             mouse_current_coords: None,
             mouse_down_coords: None,
             selected_node_id: None,
@@ -102,6 +104,23 @@ impl Camera {
             if let Some(last_property_subindex) = snapshot.last_property_subindex() {
                 self.selected_subproperty = Some(last_property_subindex);
             }
+        }
+    }
+
+    pub fn ensure_in_view(&mut self, point: PixelPoint) {
+        if self.view_offset.x > point.x {
+            self.view_offset.x = point.x;
+        }
+        if self.view_offset.y > point.y {
+            self.view_offset.y = point.y;
+        }
+        let min_offset_x = point.x - self.view_size.x;
+        if self.view_offset.x < min_offset_x {
+            self.view_offset.x = min_offset_x;
+        }
+        let min_offset_y = point.y - self.view_size.y;
+        if self.view_offset.y < min_offset_y {
+            self.view_offset.y = min_offset_y
         }
     }
 }
