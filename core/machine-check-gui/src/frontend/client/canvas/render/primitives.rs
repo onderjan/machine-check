@@ -77,13 +77,17 @@ impl CanvasRenderer {
         let node_width = tile_width - scheme.node_margin();
         let start_x = view.column_start(tile.x) as f64;
 
+        let reference_half_width = node_width / 2.;
+        let reference_half_height = node_height / 3.;
+        let reference_sharp_half_width = (reference_half_width - reference_half_height).max(0.);
+
         let middle_x = start_x + tile_width / 2.;
         let middle_y = tile.y as f64 * tile_height + tile_height / 2.;
-        let upper_y = (middle_y - node_height / 3.).round();
-        let lower_y = (middle_y + node_height / 3.).round();
-        let sharp_x = middle_x - outgoing * (node_width / 4.);
-        let sharper_x = middle_x - outgoing * (node_width / 2.);
-        let blunt_x = middle_x + outgoing * (node_width / 2.);
+        let upper_y = (middle_y - reference_half_height).round();
+        let lower_y = (middle_y + reference_half_height).round();
+        let sharp_x = middle_x - outgoing * reference_sharp_half_width;
+        let sharper_x = middle_x - outgoing * reference_half_width;
+        let blunt_x = middle_x + outgoing * reference_half_width;
 
         context.save();
         context.set_fill_style_str(constants::colors::REFERENCE);
