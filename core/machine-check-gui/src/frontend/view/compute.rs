@@ -74,7 +74,7 @@ pub fn compute_tiling_aux(
             let (left, right) = (
                 Tile {
                     x: node_tile.x - 1,
-                    y: node_tile.y + 1 as i64,
+                    y: node_tile.y + 1,
                 },
                 TileType::IncomingReference(incoming_reference_predecessors, node_id),
             );

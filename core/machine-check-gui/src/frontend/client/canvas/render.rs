@@ -80,7 +80,7 @@ impl CanvasRenderer {
             .tiles_in_rect(lesser_visible_point, greater_visible_point)
         {
             let tile = &tile;
-            let tile_type = view.tiling.map.get_by_left(&tile).unwrap();
+            let tile_type = view.tiling.map.get_by_left(tile).unwrap();
             let tile_visible = true;
             match tile_type {
                 TileType::Node(node_id) => {
