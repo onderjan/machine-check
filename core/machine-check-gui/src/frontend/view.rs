@@ -29,13 +29,23 @@ pub struct Tiling {
 impl Tiling {
     fn new(
         map: bimap::BiHashMap<Tile, TileType>,
+        node_aux: &HashMap<NodeId, NodeAux>,
         column_starts: &BTreeMap<i64, i64>,
         tile_size: u64,
     ) -> Self {
         let tiles_vec: Vec<_> = map
-            .left_values()
-            .map(|tile| {
-                let rect = tile_rect(column_starts, tile_size, *tile);
+            .iter()
+            .map(|(tile, tile_type)| {
+                let rect = if let TileType::Node(node_id) = tile_type {
+                    let (top_left, bottom_right) =
+                        node_aux.get(node_id).unwrap().rendering_bounds();
+                    let (top_left, _) = tile_rect(column_starts, tile_size, top_left);
+                    let (_, bottom_right) = tile_rect(column_starts, tile_size, bottom_right);
+                    (top_left, bottom_right)
+                } else {
+                    tile_rect(column_starts, tile_size, *tile)
+                };
+
                 GeomWithData::new(
                     Rectangle::from_corners((rect.0.x, rect.0.y), (rect.1.x, rect.1.y)),
                     *tile,
@@ -103,6 +113,20 @@ pub struct NodeAux {
     pub self_loop: bool,
 }
 
+impl NodeAux {
+    fn rendering_bounds(&self) -> (Tile, Tile) {
+        let top_left = Tile {
+            x: self.tile.x - 1,
+            y: self.tile.y,
+        };
+        let bottom_right = Tile {
+            x: self.tile.x + self.successor_x_offset as i64,
+            y: self.tile.y + self.predecessor_split_len.max(self.successor_split_len) as i64,
+        };
+        (top_left, bottom_right)
+    }
+}
+
 pub enum NavigationTarget {
     Root,
     Up,
@@ -120,7 +144,7 @@ impl View {
         let column_widths = BTreeMap::new();
         let column_starts = BTreeMap::new();
 
-        let tiling = Self::create_tiling(tiling_map, &camera, &column_starts);
+        let tiling = Self::create_tiling(tiling_map, &node_aux, &camera, &column_starts);
 
         View {
             snapshot,
@@ -138,15 +162,21 @@ impl View {
         self.node_aux = node_aux;
         self.camera.apply_snapshot(&snapshot);
         self.snapshot = snapshot;
-        self.tiling = Self::create_tiling(tiling_map, &self.camera, &self.column_starts);
+        self.tiling = Self::create_tiling(
+            tiling_map,
+            &self.node_aux,
+            &self.camera,
+            &self.column_starts,
+        );
     }
 
     fn create_tiling(
         tiling_map: BiHashMap<Tile, TileType>,
+        node_aux: &HashMap<NodeId, NodeAux>,
         camera: &Camera,
         column_starts: &BTreeMap<i64, i64>,
     ) -> Tiling {
-        Tiling::new(tiling_map, column_starts, camera.scheme.tile_size)
+        Tiling::new(tiling_map, node_aux, column_starts, camera.scheme.tile_size)
     }
 
     pub fn snapshot(&self) -> &Snapshot {

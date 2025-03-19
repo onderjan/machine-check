@@ -8,7 +8,7 @@ use crate::frontend::{
         web_idl::{get_element_by_id, window},
         PixelPoint,
     },
-    view::{Tile, TileType, View},
+    view::{TileType, View},
 };
 
 pub fn setup() {
@@ -57,8 +57,6 @@ impl CanvasRenderer {
             .selected_subproperty()
             .map(|selected_property| &selected_property.labellings);
 
-        let (x_range, y_range) = self.visible_tile_range(view);
-
         let lesser_visible_point = view.camera.view_offset();
         let greater_visible_point = lesser_visible_point
             + PixelPoint {
@@ -73,15 +71,12 @@ impl CanvasRenderer {
 
         console_log!("Tiles in view: {:?}", tiles_in_view);
 
-        //for (tile, tile_type) in view.tiling.map_iter() {
-        //    let tile_visible = is_tile_visible(&x_range, &y_range, *tile);
         for tile in view
             .tiling
             .tiles_in_rect(lesser_visible_point, greater_visible_point)
         {
             let tile = &tile;
             let tile_type = view.tiling.map.get_by_left(tile).unwrap();
-            let tile_visible = true;
             match tile_type {
                 TileType::Node(node_id) => {
                     let node = view
@@ -92,83 +87,61 @@ impl CanvasRenderer {
                         .expect("Tiling should have a node");
 
                     let aux = view.node_aux.get(node_id).unwrap();
-                    if tile_visible {
-                        let labelling = if let (Some(labellings), Ok(state_id)) =
-                            (labellings, (*node_id).try_into())
-                        {
-                            labellings.get(&state_id).copied()
-                        } else {
-                            None
-                        };
-
-                        let is_selected =
-                            if let Some(selected_node_id) = view.camera.selected_node_id {
-                                selected_node_id == *node_id
-                            } else {
-                                false
-                            };
-
-                        self.render_node(view, *tile, *node_id, labelling, is_selected);
-
-                        if !node.incoming.is_empty() {
-                            self.render_arrow_end(view, *tile);
-                        }
-                        if aux.self_loop {
-                            self.render_self_loop(view, *tile);
-                        }
-
-                        if !node.outgoing.is_empty() {
-                            self.render_arrow_start(view, *tile, aux.successor_x_offset);
-                        }
-                    }
-
-                    let predecessor_bound_tile = Tile {
-                        x: tile.x - 1,
-                        y: tile.y + aux.predecessor_split_len as i64,
-                    };
-
-                    if is_tile_rectangle_visible(&x_range, &y_range, *tile, predecessor_bound_tile)
+                    let labelling = if let (Some(labellings), Ok(state_id)) =
+                        (labellings, (*node_id).try_into())
                     {
-                        self.render_arrow_split(view, *tile, 0, aux.predecessor_split_len);
-                    }
-
-                    let successor_bound_tile = Tile {
-                        x: tile.x + aux.successor_x_offset as i64,
-                        y: tile.y + aux.successor_split_len as i64,
+                        labellings.get(&state_id).copied()
+                    } else {
+                        None
                     };
 
-                    if is_tile_rectangle_visible(&x_range, &y_range, *tile, successor_bound_tile) {
-                        self.render_arrow_split(
-                            view,
-                            *tile,
-                            aux.successor_x_offset as i64,
-                            aux.successor_split_len,
-                        );
+                    let is_selected = if let Some(selected_node_id) = view.camera.selected_node_id {
+                        selected_node_id == *node_id
+                    } else {
+                        false
+                    };
+
+                    self.render_node(view, *tile, *node_id, labelling, is_selected);
+
+                    if !node.incoming.is_empty() {
+                        self.render_arrow_end(view, *tile);
                     }
+                    if aux.self_loop {
+                        self.render_self_loop(view, *tile);
+                    }
+
+                    if !node.outgoing.is_empty() {
+                        self.render_arrow_start(view, *tile, aux.successor_x_offset);
+                    }
+
+                    self.render_arrow_split(view, *tile, 0, aux.predecessor_split_len);
+
+                    self.render_arrow_split(
+                        view,
+                        *tile,
+                        aux.successor_x_offset as i64,
+                        aux.successor_split_len,
+                    );
                 }
                 TileType::IncomingReference(head_node_ids, tail_node_id) => {
-                    if tile_visible {
-                        self.render_reference(
-                            view,
-                            *tile,
-                            head_node_ids.iter().copied(),
-                            *tail_node_id,
-                            false,
-                        );
-                        self.render_arrow_start(view, *tile, 1);
-                    }
+                    self.render_reference(
+                        view,
+                        *tile,
+                        head_node_ids.iter().copied(),
+                        *tail_node_id,
+                        false,
+                    );
+                    self.render_arrow_start(view, *tile, 1);
                 }
                 TileType::OutgoingReference(head_node_id, tail_node_id) => {
-                    if tile_visible {
-                        self.render_arrow_end(view, *tile);
-                        self.render_reference(
-                            view,
-                            *tile,
-                            std::iter::once(*head_node_id),
-                            *tail_node_id,
-                            true,
-                        );
-                    }
+                    self.render_arrow_end(view, *tile);
+                    self.render_reference(
+                        view,
+                        *tile,
+                        std::iter::once(*head_node_id),
+                        *tail_node_id,
+                        true,
+                    );
                 }
             }
         }
@@ -357,28 +330,4 @@ impl CanvasRenderer {
 
         (width, height)
     }
-}
-
-fn is_tile_rectangle_visible(
-    x_range: &std::ops::RangeInclusive<i64>,
-    y_range: &std::ops::RangeInclusive<i64>,
-    tile_a: Tile,
-    tile_b: Tile,
-) -> bool {
-    let low_x = tile_a.x.min(tile_b.x);
-    let high_x = tile_a.x.max(tile_b.x);
-    let tile_range_x = low_x..=high_x;
-
-    let low_y = tile_a.y.min(tile_b.y);
-    let high_y = tile_a.y.max(tile_b.y);
-    let tile_range_y = low_y..=high_y;
-
-    ranges_intersect(x_range, &tile_range_x) && ranges_intersect(y_range, &tile_range_y)
-}
-
-fn ranges_intersect(
-    range_a: &std::ops::RangeInclusive<i64>,
-    range_b: &std::ops::RangeInclusive<i64>,
-) -> bool {
-    range_a.start().max(range_b.start()) <= range_a.end().min(range_b.end())
 }
