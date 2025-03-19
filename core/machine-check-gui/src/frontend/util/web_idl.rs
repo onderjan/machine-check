@@ -1,5 +1,5 @@
 use wasm_bindgen::{prelude::Closure, JsCast};
-use web_sys::{Document, Element, Window};
+use web_sys::{CanvasRenderingContext2d, Document, Element, HtmlCanvasElement, Window};
 
 pub fn setup_selector_listener(
     selector: &str,
@@ -59,4 +59,18 @@ pub fn create_element(local_name: &str) -> Element {
         Ok(element) => element,
         Err(err) => panic!("Element '{}' could not be created: {:?}", local_name, err),
     }
+}
+
+pub fn main_canvas_with_context() -> (HtmlCanvasElement, CanvasRenderingContext2d) {
+    let main_canvas = get_element_by_id("main_canvas");
+    let main_canvas: HtmlCanvasElement = main_canvas
+        .dyn_into()
+        .expect("Main canvas should be a Canvas element");
+    let main_context: CanvasRenderingContext2d = main_canvas
+        .get_context("2d")
+        .expect("Main canvas 2D context should be obtainable without an error")
+        .expect("Main canvas should have a 2D context")
+        .dyn_into()
+        .expect("Main canvas 2D rendering context should be castable");
+    (main_canvas, main_context)
 }

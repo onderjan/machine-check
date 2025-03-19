@@ -1,9 +1,11 @@
 use machine_check_common::ThreeValued;
 use machine_check_exec::NodeId;
+use web_sys::CanvasRenderingContext2d;
 
 use crate::frontend::{
+    tiling::Tile,
     util::constants,
-    view::{Tile, View},
+    view::{camera::Scheme, View},
 };
 
 use super::CanvasRenderer;
@@ -19,18 +21,7 @@ impl CanvasRenderer {
     ) {
         let context = &self.main_context;
 
-        let scheme = &view.camera.scheme;
-
-        let (tile_height, node_height) = (scheme.tile_size as f64, scheme.node_size as f64);
-        let node_half_margin = scheme.node_half_margin();
-
-        let tile_width = view.column_width(tile.x) as f64;
-
-        let node_width = tile_width - scheme.node_margin();
-
-        let node_start_x = view.column_start(tile.x) as f64 + node_half_margin;
-        let node_start_y = tile.y as f64 * tile_height + node_half_margin;
-
+        let node_rect = view.node_rect(tile);
         let radius = 4.;
 
         context.save();
@@ -38,7 +29,13 @@ impl CanvasRenderer {
 
         context.begin_path();
         context
-            .round_rect_with_f64(node_start_x, node_start_y, node_width, node_height, radius)
+            .round_rect_with_f64(
+                node_rect.left_x() as f64,
+                node_rect.top_y() as f64,
+                node_rect.width() as f64,
+                node_rect.height() as f64,
+                radius,
+            )
             .unwrap();
         context.fill();
         context.stroke();
@@ -47,15 +44,11 @@ impl CanvasRenderer {
 
         context
             .fill_text(
-                &Self::node_text(node_id),
-                node_start_x + node_width / 2.,
-                node_start_y + node_height / 2.,
+                &Scheme::node_text(node_id),
+                node_rect.middle_x() as f64,
+                node_rect.middle_y() as f64,
             )
             .unwrap();
-    }
-
-    pub fn node_text(node_id: NodeId) -> String {
-        node_id.to_string()
     }
 
     pub fn render_reference(
@@ -66,168 +59,190 @@ impl CanvasRenderer {
         tail_node_id: NodeId,
         outgoing: bool,
     ) {
-        let scheme = &view.camera.scheme;
-
-        let outgoing = if outgoing { 1. } else { -1. };
+        let outgoing = if outgoing { 1 } else { -1 };
         let context = &self.main_context;
 
-        let (tile_height, node_height) = (scheme.tile_size as f64, scheme.node_size as f64);
+        let node_rect = view.node_rect(tile);
 
-        let tile_width = view.column_width(tile.x) as f64;
-        let node_width = tile_width - scheme.node_margin();
-        let start_x = view.column_start(tile.x) as f64;
+        let reference_half_width = node_rect.width() / 2;
+        let reference_half_height = node_rect.height() / 3;
+        let beak_size = reference_half_height;
+        let reference_sharp_half_width = reference_half_width.saturating_sub(beak_size);
 
-        let reference_half_width = node_width / 2.;
-        let reference_half_height = node_height / 3.;
-        let reference_sharp_half_width = (reference_half_width - reference_half_height).max(0.);
+        let middle_x = node_rect.middle_x();
+        let middle_y = node_rect.middle_y();
+        let upper_y = middle_y - reference_half_height as i64;
+        let lower_y = middle_y + reference_half_height as i64;
+        let sharp_x = middle_x - outgoing * reference_sharp_half_width as i64;
+        let sharper_x = middle_x - outgoing * reference_half_width as i64;
+        let blunt_x = middle_x + outgoing * reference_half_width as i64;
 
-        let middle_x = start_x + tile_width / 2.;
-        let middle_y = tile.y as f64 * tile_height + tile_height / 2.;
-        let upper_y = (middle_y - reference_half_height).round();
-        let lower_y = (middle_y + reference_half_height).round();
-        let sharp_x = middle_x - outgoing * reference_sharp_half_width;
-        let sharper_x = middle_x - outgoing * reference_half_width;
-        let blunt_x = middle_x + outgoing * reference_half_width;
+        let points = [
+            (blunt_x, upper_y),
+            (sharp_x, upper_y),
+            (sharper_x, middle_y),
+            (sharp_x, lower_y),
+            (blunt_x, lower_y),
+        ];
 
-        context.save();
-        context.set_fill_style_str(constants::colors::REFERENCE);
-
-        context.begin_path();
-        context.move_to(blunt_x, upper_y);
-        context.line_to(sharp_x, upper_y);
-        context.line_to(sharper_x, middle_y);
-        context.line_to(sharp_x, lower_y);
-        context.line_to(blunt_x, lower_y);
-        context.close_path();
-        context.fill();
-        context.stroke();
-
-        context.restore();
+        draw_primitive(context, Some(constants::colors::REFERENCE), &points);
 
         context
             .fill_text(
-                &Self::reference_text(head_node_ids, tail_node_id),
-                middle_x + outgoing * (node_height / 12.),
-                middle_y,
+                &Scheme::reference_text(head_node_ids, tail_node_id),
+                middle_x as f64
+                    + (outgoing as f64
+                        * ((beak_size as f64 / 2.) - view.scheme().font_margin / 2.)),
+                middle_y as f64,
             )
             .unwrap();
     }
 
-    pub fn reference_text(
-        head_node_ids: impl Iterator<Item = NodeId>,
-        tail_node_id: NodeId,
-    ) -> String {
-        let mut head_string = String::new();
-
-        let mut first = true;
-
-        for head_node_id in head_node_ids {
-            if first {
-                first = false;
-            } else {
-                head_string += ",";
-            }
-            head_string += &head_node_id.to_string();
-        }
-
-        format!("{}\u{1f852}{}", head_string, tail_node_id)
-    }
-
     pub fn render_arrow_start(&self, view: &View, head_tile: Tile, successor_x_offset: u64) {
-        let context = &self.main_context;
-        let scheme = &view.camera.scheme;
+        let successor_tile = Tile {
+            x: head_tile.x + successor_x_offset as i64,
+            y: head_tile.y,
+        };
 
-        let tile_height = scheme.tile_size as f64;
+        let head_node_rect = view.node_rect(head_tile);
+        let successor_tile_rect = view.tile_rect(successor_tile);
 
         // draw the arrowshaft
-        context.begin_path();
-        let right_x = view.column_start(head_tile.x + successor_x_offset as i64) as f64;
-        let tile_right_border_x =
-            view.column_start(head_tile.x + 1) as f64 - scheme.node_half_margin();
-        let tile_middle_y = head_tile.y as f64 * tile_height + tile_height / 2.;
-        context.move_to(tile_right_border_x, tile_middle_y);
-        context.line_to(right_x, tile_middle_y);
-        context.stroke();
+        let arrowshaft = [
+            (head_node_rect.right_x(), head_node_rect.middle_y()),
+            (successor_tile_rect.left_x(), head_node_rect.middle_y()),
+        ];
+        draw_simple(&self.main_context, &arrowshaft);
     }
 
     pub fn render_arrow_split(&self, view: &View, node_tile: Tile, x_offset: i64, split_len: u64) {
-        let context = &self.main_context;
-        let scheme = &view.camera.scheme;
+        let last_split_tile = Tile {
+            x: node_tile.x + x_offset,
+            y: node_tile.y + split_len as i64,
+        };
 
-        let tile_size = scheme.tile_size as f64;
+        let node_rect = view.node_rect(node_tile);
+        let last_split_tile_rect = view.tile_rect(last_split_tile);
 
         // draw the arrow split
-        context.begin_path();
-        let split_x = view.column_start(node_tile.x + x_offset) as f64;
-        let split_upper_y = node_tile.y as f64 * tile_size + tile_size / 2.;
-        let split_lower_y = split_upper_y + split_len as f64 * tile_size;
-        context.move_to(split_x, split_upper_y);
-        context.line_to(split_x, split_lower_y);
-        context.stroke();
+        let arrow_split = [
+            (last_split_tile_rect.left_x(), node_rect.middle_y()),
+            (
+                last_split_tile_rect.left_x(),
+                last_split_tile_rect.middle_y(),
+            ),
+        ];
+        draw_simple(&self.main_context, &arrow_split);
     }
 
     pub fn render_arrow_end(&self, view: &View, tail_tile: Tile) {
-        let context = &self.main_context;
-        let scheme = &view.camera.scheme;
+        let node_rect = view.node_rect(tail_tile);
+        let tile_rect = view.tile_rect(tail_tile);
 
-        let tile_height = scheme.tile_size as f64;
+        let middle_y = node_rect.middle_y();
 
         // draw the arrowshaft
-        context.begin_path();
-        let tile_left_x = view.column_start(tail_tile.x) as f64;
-        let tile_left_border_x = tile_left_x + scheme.node_half_margin();
-        let tile_middle_y = tail_tile.y as f64 * tile_height + tile_height / 2.;
-        context.move_to(tile_left_x, tile_middle_y);
-        context.line_to(tile_left_border_x, tile_middle_y);
-        context.stroke();
+        let arrowshaft = [
+            (tile_rect.left_x(), middle_y),
+            (node_rect.left_x(), middle_y),
+        ];
+        draw_simple(&self.main_context, &arrowshaft);
 
         // draw the arrowhead
-        let arrowhead_size = scheme.arrowhead_size;
+        let arrowhead_size = view.scheme().arrowhead_size;
 
-        let arrowhead_left_x = tile_left_border_x - arrowhead_size;
-        let arrowhead_upper_y = tile_middle_y - arrowhead_size / 2.;
-        let arrowhead_lower_y = tile_middle_y + arrowhead_size / 2.;
-        context.begin_path();
-        context.move_to(tile_left_border_x, tile_middle_y);
-        context.line_to(arrowhead_left_x, arrowhead_upper_y);
-        context.line_to(arrowhead_left_x, arrowhead_lower_y);
-        context.close_path();
-        context.fill();
+        let arrowhead_right_x = node_rect.left_x();
+        let arrowhead_left_x = node_rect.left_x() - arrowhead_size as i64;
+        let arrowhead_upper_y = middle_y - arrowhead_size as i64 / 2;
+        let arrowhead_lower_y = middle_y + arrowhead_size as i64 / 2;
+
+        let arrowhead = [
+            (arrowhead_right_x, middle_y),
+            (arrowhead_left_x, arrowhead_upper_y),
+            (arrowhead_left_x, arrowhead_lower_y),
+        ];
+        draw_primitive(
+            &self.main_context,
+            Some(constants::colors::ARROWHEAD),
+            &arrowhead,
+        );
     }
 
     pub fn render_self_loop(&self, view: &View, node_tile: Tile) {
-        let context = &self.main_context;
-        let scheme = &view.camera.scheme;
+        let next_tile = Tile {
+            x: node_tile.x + 1,
+            y: node_tile.y,
+        };
 
-        let (tile_height, node_height) = (scheme.tile_size as f64, scheme.node_size as f64);
+        // the arrow start goes to the left side of the next tile
+        let node_rect = view.node_rect(node_tile);
+        let next_tile_rect = view.tile_rect(next_tile);
 
-        let tile_start_x = view.column_start(node_tile.x) as f64;
-        let tile_width = view.column_width(node_tile.x) as f64;
+        let middle_x = node_rect.middle_x();
 
-        // draw the arrowshaft
-        context.begin_path();
-        let tile_right_x = tile_start_x + tile_width;
-        let tile_middle_x = tile_start_x + tile_width / 2.;
-        let tile_middle_y = node_tile.y as f64 * tile_height + tile_height / 2.;
-        let tile_upper_y = node_tile.y as f64 * tile_height;
-        let tile_upper_border_y = tile_upper_y + (tile_height - node_height) / 2.;
-        context.move_to(tile_right_x, tile_middle_y);
-        context.line_to(tile_right_x, tile_upper_y);
-        context.line_to(tile_middle_x, tile_upper_y);
-        context.line_to(tile_middle_x, tile_upper_border_y);
-        context.stroke();
+        let tile_top_y = next_tile_rect.top_y();
+        let node_top_y = node_rect.top_y();
+        let middle_y = node_rect.middle_y();
+
+        // draw the arrowshaft that snakes around from right to top
+        let arrowshaft = [
+            (node_rect.right_x(), middle_y),
+            (next_tile_rect.left_x(), middle_y),
+            (next_tile_rect.left_x(), tile_top_y),
+            (middle_x, tile_top_y),
+            (node_rect.middle_x(), node_top_y),
+        ];
+
+        draw_simple(&self.main_context, &arrowshaft);
 
         // draw the arrowhead
-        let arrowhead_size = scheme.arrowhead_size;
+        let arrowhead_size = view.scheme().arrowhead_size;
 
-        let arrowhead_left_x = tile_middle_x - arrowhead_size / 2.;
-        let arrowhead_right_x = tile_middle_x + arrowhead_size / 2.;
-        let arrowhead_upper_y = tile_upper_border_y - arrowhead_size;
-        context.begin_path();
-        context.move_to(tile_middle_x, tile_upper_border_y);
-        context.line_to(arrowhead_left_x, arrowhead_upper_y);
-        context.line_to(arrowhead_right_x, arrowhead_upper_y);
+        let arrowhead_left_x = middle_x - arrowhead_size as i64 / 2;
+        let arrowhead_right_x = middle_x + arrowhead_size as i64 / 2;
+        let arrowhead_upper_y = node_top_y - arrowhead_size as i64;
+
+        let arrowhead = [
+            (middle_x, node_top_y),
+            (arrowhead_left_x, arrowhead_upper_y),
+            (arrowhead_right_x, arrowhead_upper_y),
+        ];
+        draw_primitive(
+            &self.main_context,
+            Some(constants::colors::ARROWHEAD),
+            &arrowhead,
+        );
+    }
+}
+
+fn draw_primitive(
+    context: &CanvasRenderingContext2d,
+    fill_style: Option<&str>,
+    points: &[(i64, i64)],
+) {
+    let filling = if let Some(fill_style) = fill_style {
+        context.save();
+        context.set_fill_style_str(fill_style);
+        true
+    } else {
+        false
+    };
+
+    context.begin_path();
+    for (x, y) in points {
+        context.line_to(*x as f64, *y as f64);
+    }
+    if filling {
         context.close_path();
         context.fill();
     }
+    context.stroke();
+
+    if filling {
+        context.restore();
+    }
+}
+
+fn draw_simple(context: &CanvasRenderingContext2d, points: &[(i64, i64)]) {
+    draw_primitive(context, None, points);
 }

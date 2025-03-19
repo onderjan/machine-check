@@ -5,6 +5,7 @@ pub const RAW_TILE_SIZE: f64 = 46.;
 pub const RAW_NODE_SIZE: f64 = 30.;
 pub const RAW_ARROWHEAD_SIZE: f64 = 4.;
 pub const RAW_FONT_SIZE: f64 = 12.;
+pub const RAW_FONT_MARGIN: f64 = 4.;
 
 pub mod colors {
     pub const UNKNOWN: &str = "#CCCCCC"; // grey
@@ -12,6 +13,7 @@ pub mod colors {
     pub const FALSE: &str = "#CC2222"; // red
     pub const NOT_APPLICABLE: &str = "lightblue"; // light blue
     pub const REFERENCE: &str = "#F5F5DC"; // light yellow
+    pub const ARROWHEAD: &str = "#000"; // black
 }
 
 pub const NODE_LINE_WIDTH_SELECTED: f64 = 3.;

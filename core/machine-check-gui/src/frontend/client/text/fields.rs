@@ -34,7 +34,7 @@ impl FieldDisplayer<'_> {
 
         let mut selected = false;
 
-        if let Some(node_id) = self.view.camera.selected_node_id {
+        if let Some(node_id) = self.view.selected_node_id() {
             let node = self.view.snapshot().state_space.nodes.get(&node_id);
             if let Some(node) = node {
                 selected = true;

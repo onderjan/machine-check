@@ -4,12 +4,12 @@ use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
 
 use crate::shared::snapshot::Snapshot;
 
-use super::{NodeAux, Tile, TileType};
+use super::{NodeTileInfo, Tile, TileType};
 use machine_check_exec::NodeId;
 
 pub fn compute_tiling_aux(
     snapshot: &Snapshot,
-) -> (BiHashMap<Tile, TileType>, HashMap<NodeId, NodeAux>) {
+) -> (BiHashMap<Tile, TileType>, HashMap<NodeId, NodeTileInfo>) {
     // compute predecessor/successor reserved y-positions using reverse topological sort
     let (sorted, canonical_predecessors) = topological_sort(snapshot);
     let mut reserved = HashMap::<NodeId, usize>::new();
@@ -178,7 +178,7 @@ pub fn compute_tiling_aux(
         }
         node_aux.insert(
             node_id,
-            NodeAux {
+            NodeTileInfo {
                 tile: node_tile,
                 tiling_parent: parent_node_id,
                 tiling_children,

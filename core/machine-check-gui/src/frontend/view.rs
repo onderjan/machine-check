@@ -1,49 +1,205 @@
 pub mod camera;
-mod compute;
 
-use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
-    hash::Hash,
-};
+use std::collections::BTreeMap;
 
-use bimap::BiHashMap;
-use camera::Camera;
+use bimap::BiBTreeMap;
+use camera::{Camera, Scheme};
 use machine_check_exec::NodeId;
 use rstar::{
     primitives::{GeomWithData, Rectangle},
     RTree, AABB,
 };
 
-use crate::shared::{
-    snapshot::{PropertySnapshot, Snapshot},
-    BackendInfo,
+use crate::{
+    frontend::tiling::TileType,
+    shared::{
+        snapshot::{PropertySnapshot, Snapshot, SubpropertyIndex},
+        BackendInfo,
+    },
 };
 
-use super::util::PixelPoint;
+use super::{
+    tiling::{NodeTileInfo, Tile, Tiling},
+    util::{web_idl::main_canvas_with_context, PixelPoint, PixelRect},
+};
 
 #[derive(Debug)]
-pub struct Tiling {
-    tree: RTree<GeomWithData<Rectangle<(i64, i64)>, Tile>>,
-    pub map: BiHashMap<Tile, TileType>,
+struct AxisSizing {
+    normal_size: u64,
+    sizes: BTreeMap<i64, u64>,
+    starts: BiBTreeMap<i64, i64>,
 }
-impl Tiling {
-    fn new(
-        map: bimap::BiHashMap<Tile, TileType>,
-        node_aux: &HashMap<NodeId, NodeAux>,
-        column_starts: &BTreeMap<i64, i64>,
-        tile_size: u64,
-    ) -> Self {
-        let tiles_vec: Vec<_> = map
+
+impl AxisSizing {
+    fn new(normal_size: u64, sizes: BTreeMap<i64, u64>) -> Self {
+        let mut starts = BiBTreeMap::new();
+
+        if let (Some((smallest_size_index, _)), Some((largest_size_index, _))) =
+            (sizes.first_key_value(), sizes.last_key_value())
+        {
+            let (smallest_size_index, largest_size_index) =
+                (*smallest_size_index, *largest_size_index);
+
+            // the offset at the index 0 will be 0
+            // first, work down from it to the smallest size index
+            // do not process 0 in this manner and always pre-subtract the size at index one higher
+            {
+                let mut offset: i64 = 0;
+                for index in (smallest_size_index..0).rev() {
+                    offset -= sizes.get(&(index + 1)).copied().unwrap_or(normal_size) as i64;
+                    starts.insert(index, offset);
+                }
+            }
+
+            // next, work up from index 0 to the largest size index
+            // process 0 and always post-add the current element size
+            {
+                let mut offset: i64 = 0;
+                for index in 0..=largest_size_index + 1 {
+                    starts.insert(index, offset);
+                    offset += sizes.get(&index).copied().unwrap_or(normal_size) as i64;
+                }
+            }
+
+            // this should make sure that the offsets from min(smallest_size_index, 0)
+            // to max(0, largest_size_index) inclusive are present in the starts map
+        }
+
+        Self {
+            normal_size,
+            sizes,
+            starts,
+        }
+    }
+
+    fn index_size(&self, index: i64) -> u64 {
+        self.sizes.get(&index).copied().unwrap_or(self.normal_size)
+    }
+
+    fn index_lower_offset(&self, index: i64) -> i64 {
+        if let Some(start) = self.starts.get_by_left(&index) {
+            return *start;
+        }
+
+        let (boundary_index, boundary_start) = if index >= 0 {
+            // select last
+            self.starts.iter().next_back()
+        } else {
+            // select first
+            self.starts.iter().next()
+        }
+        .map(|(k, v)| (*k, *v))
+        .unwrap_or((0, 0));
+
+        let boundary_offset = index - boundary_index;
+        boundary_start + boundary_offset * self.normal_size as i64
+    }
+
+    fn index_higher_offset(&self, index: i64) -> i64 {
+        let lower_offset = self.index_lower_offset(index);
+        let width = self.index_size(index);
+        if width >= 1 {
+            lower_offset + width as i64 - 1
+        } else {
+            lower_offset
+        }
+    }
+
+    fn index_of(&self, offset: i64) -> i64 {
+        // search by offset: should be this or lower
+        let this_or_lower = self.starts.right_range(..=offset).next_back();
+
+        let index = if let Some((lower_index, lower_offset)) = this_or_lower {
+            // we have to make sure it is high enough
+            let lower_size = self.index_size(*lower_index);
+            if lower_offset + (lower_size as i64) < offset {
+                // we can assume the lower size is normal size
+                lower_index + (offset - lower_offset).div_euclid(self.normal_size as i64)
+            } else {
+                *lower_index
+            }
+        } else {
+            // no lower offset, get the lowest offset and compute from there
+            if let Some((lowest_index, lowest_offset)) = self.starts.iter().next() {
+                lowest_index + (offset - lowest_offset).div_euclid(self.normal_size as i64)
+            } else {
+                // no lowest offset, just compute from normal size
+                offset.div_euclid(self.normal_size as i64)
+            }
+        };
+        index
+    }
+}
+
+#[derive(Debug)]
+struct Selection {
+    selected_node_id: Option<NodeId>,
+    selected_subproperty: Option<SubpropertyIndex>,
+}
+
+impl Selection {
+    fn new(snapshot: &Snapshot) -> Self {
+        // select the last property if it is available
+        Self {
+            selected_node_id: None,
+            selected_subproperty: snapshot.last_property_subindex(),
+        }
+    }
+
+    fn apply_snapshot(&mut self, snapshot: &Snapshot) {
+        // make sure the selected things are still available
+        if let Some(selected_node_id) = self.selected_node_id {
+            if !snapshot.state_space.nodes.contains_key(&selected_node_id) {
+                self.selected_node_id = None;
+            }
+        }
+
+        if let Some(selected_property_index) = self.selected_subproperty {
+            if !snapshot.contains_subindex(selected_property_index) {
+                self.selected_subproperty = None;
+            }
+        }
+
+        // if no property is selected, select the last one if it is available
+        if self.selected_subproperty.is_none() {
+            if let Some(last_property_subindex) = snapshot.last_property_subindex() {
+                self.selected_subproperty = Some(last_property_subindex);
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Presentation {
+    tiling: Tiling,
+    column_sizing: AxisSizing,
+    row_sizing: AxisSizing,
+    visibility_tree: RTree<GeomWithData<Rectangle<(i64, i64)>, Tile>>,
+}
+
+impl Presentation {
+    fn new(snapshot: Snapshot, scheme: &Scheme) -> Self {
+        let tiling = Tiling::new(snapshot);
+
+        let (column_sizes, row_sizes) = Self::compute_column_row_sizes(&tiling, scheme);
+        let column_sizing = AxisSizing::new(scheme.tile_size, column_sizes);
+        let row_sizing = AxisSizing::new(scheme.tile_size, row_sizes);
+
+        let tiles_vec: Vec<_> = tiling
+            .tile_types()
             .iter()
             .map(|(tile, tile_type)| {
                 let rect = if let TileType::Node(node_id) = tile_type {
-                    let (top_left, bottom_right) =
-                        node_aux.get(node_id).unwrap().rendering_bounds();
-                    let (top_left, _) = tile_rect(column_starts, tile_size, top_left);
-                    let (_, bottom_right) = tile_rect(column_starts, tile_size, bottom_right);
+                    let (top_left, bottom_right) = tiling
+                        .node_tile_info()
+                        .get(node_id)
+                        .unwrap()
+                        .rendering_bounds();
+                    let (top_left, _) = tile_rect(&column_sizing, &row_sizing, top_left);
+                    let (_, bottom_right) = tile_rect(&column_sizing, &row_sizing, bottom_right);
                     (top_left, bottom_right)
                 } else {
-                    tile_rect(column_starts, tile_size, *tile)
+                    tile_rect(&column_sizing, &row_sizing, *tile)
                 };
 
                 GeomWithData::new(
@@ -53,78 +209,82 @@ impl Tiling {
             })
             .collect();
 
-        let tree = RTree::bulk_load(tiles_vec);
-
-        Self { tree, map }
+        let visibility_tree = RTree::bulk_load(tiles_vec);
+        Self {
+            tiling,
+            column_sizing,
+            row_sizing,
+            visibility_tree,
+        }
     }
 
-    pub fn map_iter(&self) -> impl Iterator<Item = (&Tile, &TileType)> {
-        self.map.iter()
+    fn compute_column_row_sizes(
+        tiling: &Tiling,
+        scheme: &Scheme,
+    ) -> (BTreeMap<i64, u64>, BTreeMap<i64, u64>) {
+        let default_tile_size = scheme.tile_size;
+        let mut column_sizes = BTreeMap::new();
+        let mut row_sizes = BTreeMap::new();
+
+        let context = main_canvas_with_context().1;
+        let context_scheme = scheme.context_scheme(&context);
+        for (tile, tile_type) in tiling.tile_types() {
+            let (required_column_size, required_row_size) =
+                context_scheme.required_tile_size(tile_type);
+            let column_size = column_sizes.entry(tile.x).or_insert(default_tile_size);
+            let row_size = row_sizes.entry(tile.y).or_insert(default_tile_size);
+            *column_size = (*column_size).max(required_column_size);
+            *row_size = (*row_size).max(required_row_size);
+        }
+        (column_sizes, row_sizes)
     }
 
-    pub fn at_tile(&self, tile: Tile) -> Option<&TileType> {
-        self.map.get_by_left(&tile)
-    }
-
-    pub fn tiles_in_rect(
-        &self,
-        top_left: PixelPoint,
-        bottom_right: PixelPoint,
-    ) -> impl Iterator<Item = Tile> + use<'_> {
-        let aabb = AABB::from_corners((top_left.x, top_left.y), (bottom_right.x, bottom_right.y));
-        let located = self.tree.locate_in_envelope_intersecting(&aabb);
+    fn tiles_in_pixel_rect(&self, rect: PixelRect) -> impl Iterator<Item = Tile> + use<'_> {
+        let aabb = AABB::from_corners(rect.top_left().to_tuple(), rect.bottom_right().to_tuple());
+        let located = self.visibility_tree.locate_in_envelope_intersecting(&aabb);
         located.map(|geom_with_data| geom_with_data.data)
     }
+
+    fn tile_rect(&self, tile: Tile) -> PixelRect {
+        let top_left = PixelPoint::new(
+            self.column_sizing.index_lower_offset(tile.x),
+            self.row_sizing.index_lower_offset(tile.y),
+        );
+        let bottom_right = PixelPoint::new(
+            self.column_sizing.index_higher_offset(tile.x),
+            self.row_sizing.index_higher_offset(tile.y),
+        );
+        PixelRect::new(top_left, bottom_right)
+    }
+}
+
+fn tile_rect(
+    column_sizing: &AxisSizing,
+    row_sizing: &AxisSizing,
+    tile: Tile,
+) -> (PixelPoint, PixelPoint) {
+    let top_left_x = column_sizing.index_lower_offset(tile.x);
+    let top_left_y = row_sizing.index_lower_offset(tile.y);
+    let bottom_right_x = column_sizing.index_higher_offset(tile.x);
+    let bottom_right_y = row_sizing.index_higher_offset(tile.y);
+    (
+        PixelPoint {
+            x: top_left_x,
+            y: top_left_y,
+        },
+        PixelPoint {
+            x: bottom_right_x,
+            y: bottom_right_y,
+        },
+    )
 }
 
 #[derive(Debug)]
 pub struct View {
-    snapshot: Snapshot,
-    pub backend_info: BackendInfo,
-    pub tiling: Tiling,
-    pub node_aux: HashMap<NodeId, NodeAux>,
+    backend_info: BackendInfo,
+    presentation: Presentation,
+    selection: Selection,
     pub camera: Camera,
-    pub column_widths: BTreeMap<i64, u64>,
-    pub column_starts: BTreeMap<i64, i64>,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct Tile {
-    pub x: i64,
-    pub y: i64,
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum TileType {
-    Node(NodeId),
-    IncomingReference(BTreeSet<NodeId>, NodeId),
-    OutgoingReference(NodeId, NodeId),
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct NodeAux {
-    pub tile: Tile,
-    pub tiling_parent: Option<NodeId>,
-    pub tiling_children: Vec<NodeId>,
-
-    pub predecessor_split_len: u64,
-    pub successor_split_len: u64,
-    pub successor_x_offset: u64,
-    pub self_loop: bool,
-}
-
-impl NodeAux {
-    fn rendering_bounds(&self) -> (Tile, Tile) {
-        let top_left = Tile {
-            x: self.tile.x - 1,
-            y: self.tile.y,
-        };
-        let bottom_right = Tile {
-            x: self.tile.x + self.successor_x_offset as i64,
-            y: self.tile.y + self.predecessor_split_len.max(self.successor_split_len) as i64,
-        };
-        (top_left, bottom_right)
-    }
 }
 
 pub enum NavigationTarget {
@@ -136,101 +296,82 @@ pub enum NavigationTarget {
 }
 
 impl View {
-    pub fn new(snapshot: Snapshot, backend_info: BackendInfo, mut camera: Camera) -> View {
-        let (tiling_map, node_aux) = compute::compute_tiling_aux(&snapshot);
+    pub fn backend_info(&self) -> &BackendInfo {
+        &self.backend_info
+    }
 
-        camera.apply_snapshot(&snapshot);
+    pub fn update_backend_info(&mut self, backend_info: BackendInfo) {
+        self.backend_info = backend_info;
+    }
 
-        let column_widths = BTreeMap::new();
-        let column_starts = BTreeMap::new();
+    pub fn new(snapshot: Snapshot, backend_info: BackendInfo) -> View {
+        let selection = Selection::new(&snapshot);
+        let camera = Camera::new();
+        let presentation = Presentation::new(snapshot, &camera.scheme);
 
-        let tiling = Self::create_tiling(tiling_map, &node_aux, &camera, &column_starts);
-
-        View {
-            snapshot,
+        Self {
             backend_info,
-            tiling,
-            node_aux,
+            presentation,
+            selection,
             camera,
-            column_widths,
-            column_starts,
         }
     }
 
     pub fn apply_snapshot(&mut self, snapshot: Snapshot) {
-        let (tiling_map, node_aux) = compute::compute_tiling_aux(&snapshot);
-        self.node_aux = node_aux;
-        self.camera.apply_snapshot(&snapshot);
-        self.snapshot = snapshot;
-        self.tiling = Self::create_tiling(
-            tiling_map,
-            &self.node_aux,
-            &self.camera,
-            &self.column_starts,
-        );
-    }
-
-    fn create_tiling(
-        tiling_map: BiHashMap<Tile, TileType>,
-        node_aux: &HashMap<NodeId, NodeAux>,
-        camera: &Camera,
-        column_starts: &BTreeMap<i64, i64>,
-    ) -> Tiling {
-        Tiling::new(tiling_map, node_aux, column_starts, camera.scheme.tile_size)
+        self.selection.apply_snapshot(&snapshot);
+        self.presentation = Presentation::new(snapshot, &self.camera.scheme);
     }
 
     pub fn snapshot(&self) -> &Snapshot {
-        &self.snapshot
+        self.presentation.tiling.snapshot()
     }
 
     pub fn navigate(&mut self, target: NavigationTarget) {
-        if let Some(selected_node_id) = self.camera.selected_node_id {
+        if let Some(selected_node_id) = self.selected_node_id() {
             let selected_node_aux = self
-                .node_aux
-                .get(&selected_node_id)
-                .expect("Selected node id should point to a valid node aux");
+                .node_tile_info(selected_node_id)
+                .expect("Selected node id should point to a valid node");
 
             match target {
                 NavigationTarget::Root => {
                     // go to the root node
-                    self.camera.selected_node_id = Some(NodeId::ROOT);
+                    self.set_selected_node_id(Some(NodeId::ROOT));
                 }
                 NavigationTarget::Up => {
                     // go to the previous child of the tiling parent
                     if let Some(tiling_parent_id) = selected_node_aux.tiling_parent {
                         let tiling_parent_aux = self
-                            .node_aux
-                            .get(&tiling_parent_id)
-                            .expect("Tiling parent id should point to a valid node aux");
+                            .node_tile_info(tiling_parent_id)
+                            .expect("Tiling parent id should point to a valid node");
                         let selected_index = tiling_parent_aux
                             .tiling_children
                             .iter()
                             .position(|e| *e == selected_node_id)
                             .unwrap();
                         let new_selected_index = selected_index.saturating_sub(1);
-                        self.camera.selected_node_id =
-                            Some(tiling_parent_aux.tiling_children[new_selected_index]);
+                        self.set_selected_node_id(Some(
+                            tiling_parent_aux.tiling_children[new_selected_index],
+                        ));
                     }
                 }
                 NavigationTarget::Left => {
                     // go to the tiling parent
                     if let Some(tiling_parent_id) = selected_node_aux.tiling_parent {
-                        self.camera.selected_node_id = Some(tiling_parent_id);
+                        self.set_selected_node_id(Some(tiling_parent_id));
                     }
                 }
                 NavigationTarget::Right => {
                     // go to first tiling child
                     if let Some(first_child_id) = selected_node_aux.tiling_children.first() {
-                        self.camera.selected_node_id = Some(*first_child_id);
+                        self.set_selected_node_id(Some(*first_child_id));
                     }
                 }
                 NavigationTarget::Down => {
                     // go to the next child of the tiling parent
                     if let Some(tiling_parent_id) = selected_node_aux.tiling_parent {
                         let tiling_parent_aux = self
-                            .node_aux
-                            .get(&tiling_parent_id)
-                            .expect("Tiling parent id should point to a valid node aux");
+                            .node_tile_info(tiling_parent_id)
+                            .expect("Tiling parent id should point to a valid node");
                         let selected_index = tiling_parent_aux
                             .tiling_children
                             .iter()
@@ -239,22 +380,21 @@ impl View {
                         if let Some(new_selected_node_id) =
                             tiling_parent_aux.tiling_children.get(selected_index + 1)
                         {
-                            self.camera.selected_node_id = Some(*new_selected_node_id);
+                            self.set_selected_node_id(Some(*new_selected_node_id));
                         }
                     }
                 }
             }
         } else {
-            self.camera.selected_node_id = Some(NodeId::ROOT);
+            self.set_selected_node_id(Some(NodeId::ROOT));
         };
 
         // make sure the newly selected node is in view
 
-        if let Some(selected_node_id) = self.camera.selected_node_id {
+        if let Some(selected_node_id) = self.selected_node_id() {
             let selected_node_aux = self
-                .node_aux
-                .get(&selected_node_id)
-                .expect("Selected node id should point to a valid node aux");
+                .node_tile_info(selected_node_id)
+                .expect("Selected node id should point to a valid node");
 
             // make sure the selected node is in view
             self.show_tile(selected_node_aux.tile);
@@ -262,7 +402,10 @@ impl View {
     }
 
     fn show_tile(&mut self, tile: Tile) {
-        let (mut top_left, mut bottom_right) = self.tile_rect(tile);
+        let tile_rect = self.tile_rect(tile);
+        console_log!("Ensuring in view: {:?}", tile_rect);
+        let mut top_left = tile_rect.top_left();
+        let mut bottom_right = tile_rect.bottom_right();
         // adjust by half of default tile size
         let node_size = self.camera.scheme.tile_size / 2;
         let node_size_point = PixelPoint {
@@ -277,123 +420,107 @@ impl View {
     }
 
     pub fn selected_subproperty(&self) -> Option<&PropertySnapshot> {
-        self.camera
+        self.selection
             .selected_subproperty
             .map(|selected_property_index| {
-                self.snapshot.select_subproperty(selected_property_index)
+                self.snapshot().select_subproperty(selected_property_index)
             })
+    }
+
+    pub fn selected_subproperty_index(&self) -> Option<SubpropertyIndex> {
+        self.selection.selected_subproperty
     }
 
     pub fn selected_root_property(&self) -> Option<&PropertySnapshot> {
-        self.camera
+        self.selection
             .selected_subproperty
             .map(|selected_subproperty_index| {
                 let selected_property_index = self
-                    .snapshot
+                    .snapshot()
                     .subindex_to_root_index(selected_subproperty_index);
 
-                self.snapshot.select_root_property(selected_property_index)
+                self.snapshot()
+                    .select_root_property(selected_property_index)
             })
     }
 
-    pub fn global_point_to_tile(&self, point: PixelPoint, ceil: bool) -> Tile {
-        let tile_size = self.camera.scheme.tile_size;
-
-        let func = if ceil { f64::ceil } else { f64::floor };
-
-        // TODO: constant-time tile position from point
-        let tile_x = if point.x < 0 {
-            func(point.x as f64 / tile_size as f64) as i64
-        } else {
-            let mut selected_column = None;
-            for (column, column_start) in self.column_starts.iter() {
-                if point.x < *column_start {
-                    if ceil {
-                        selected_column = Some(*column)
-                    } else {
-                        selected_column = Some(*column - 1)
-                    }
-                    break;
-                }
-            }
-
-            if let Some(selected_column) = selected_column {
-                selected_column
-            } else {
-                let (last_column, last_column_start) = self
-                    .column_starts
-                    .last_key_value()
-                    .map(|(k, v)| (*k, *v))
-                    .unwrap_or((0, 0));
-                last_column + (func((point.x - last_column_start) as f64 / tile_size as f64) as i64)
-            }
-        };
-
-        let tile_y = func(point.y as f64 / tile_size as f64) as i64;
-
-        Tile {
-            x: tile_x,
-            y: tile_y,
-        }
-
-        //let tile_x = func(point.x as f64 / tile_size as f64) as i64;
+    pub fn selected_node_id(&self) -> Option<NodeId> {
+        self.selection.selected_node_id
     }
 
-    pub fn viewport_point_to_tile(&self, point: PixelPoint, ceil: bool) -> Tile {
+    pub fn tile_at_global_point(&self, point: PixelPoint) -> Tile {
+        let x = self.presentation.column_sizing.index_of(point.x);
+        let y = self.presentation.row_sizing.index_of(point.y);
+        Tile { x, y }
+    }
+
+    pub fn tile_at_viewport_point(&self, point: PixelPoint) -> Tile {
         let global_point = point + self.camera.view_offset();
-        self.global_point_to_tile(global_point, ceil)
+        self.tile_at_global_point(global_point)
     }
 
-    pub fn column_width(&self, column: i64) -> u64 {
-        if let Some(width) = self.column_widths.get(&column) {
-            return *width;
+    pub fn select_subproperty_index(&mut self, index: Option<SubpropertyIndex>) {
+        self.selection.selected_subproperty = index;
+    }
+
+    pub fn scheme(&self) -> &Scheme {
+        &self.camera.scheme
+    }
+
+    pub fn tile_rect(&self, tile: Tile) -> PixelRect {
+        self.presentation.tile_rect(tile)
+    }
+
+    pub fn tiles_in_rect(&self, rect: PixelRect) -> impl Iterator<Item = Tile> + use<'_> {
+        self.presentation.tiles_in_pixel_rect(rect)
+    }
+
+    pub fn node_rect(&self, tile: Tile) -> PixelRect {
+        let node_half_margin = self.scheme().node_half_margin();
+        self.tile_rect(tile)
+            .without_half_margin(node_half_margin, node_half_margin)
+    }
+
+    pub fn view_offset(&self) -> PixelPoint {
+        self.camera.view_offset()
+    }
+
+    pub fn tile_type(&self, tile: Tile) -> Option<&TileType> {
+        self.presentation.tiling.at_tile(tile)
+    }
+
+    pub fn node_tile_info(&self, node_id: NodeId) -> Option<&NodeTileInfo> {
+        self.presentation.tiling.node_tile_info().get(&node_id)
+    }
+
+    pub fn set_selected_node_id(&mut self, node_id: Option<NodeId>) {
+        self.selection.selected_node_id = node_id;
+    }
+
+    pub fn mouse_drag_start(&mut self, mouse_coords: PixelPoint) -> bool {
+        self.camera.mouse_down_coords = Some(mouse_coords);
+        self.camera.mouse_current_coords = Some(mouse_coords);
+        true
+    }
+
+    pub fn mouse_drag_update(&mut self, mouse_coords: PixelPoint) -> bool {
+        self.camera.mouse_current_coords = Some(mouse_coords);
+        self.camera.mouse_down_coords.is_some()
+    }
+
+    pub fn mouse_drag_end(&mut self, mouse_coords: PixelPoint) -> bool {
+        let Some(mouse_down_coords) = self.camera.mouse_down_coords.take() else {
+            return false;
+        };
+        let offset = mouse_coords - mouse_down_coords;
+        self.camera.view_offset -= offset;
+        true
+    }
+
+    pub fn set_view_size(&mut self, width: u32, height: u32) {
+        self.camera.view_size = PixelPoint {
+            x: width as i64,
+            y: height as i64,
         }
-        self.camera.scheme.tile_size
     }
-
-    pub fn column_start(&self, column: i64) -> i64 {
-        column_start(&self.column_starts, self.camera.scheme.tile_size, column)
-    }
-
-    pub fn tile_rect(&self, tile: Tile) -> (PixelPoint, PixelPoint) {
-        tile_rect(&self.column_starts, self.camera.scheme.tile_size, tile)
-    }
-}
-
-fn tile_rect(
-    column_starts: &BTreeMap<i64, i64>,
-    tile_size: u64,
-    tile: Tile,
-) -> (PixelPoint, PixelPoint) {
-    let top_left_x = column_start(column_starts, tile_size, tile.x);
-    let top_left_y = tile_size as i64 * tile.y;
-    let bottom_right_x = column_start(column_starts, tile_size, tile.x + 1) - 1;
-    let bottom_right_y = tile_size as i64 * (tile.y + 1) - 1;
-    (
-        PixelPoint {
-            x: top_left_x,
-            y: top_left_y,
-        },
-        PixelPoint {
-            x: bottom_right_x,
-            y: bottom_right_y,
-        },
-    )
-}
-
-fn column_start(column_starts: &BTreeMap<i64, i64>, tile_size: u64, column: i64) -> i64 {
-    if column < 0 {
-        return column * tile_size as i64;
-    }
-    if let Some(start) = column_starts.get(&column) {
-        return *start;
-    }
-
-    let (last_column, last_column_start) = column_starts
-        .last_key_value()
-        .map(|(k, v)| (*k, *v))
-        .unwrap_or((0, 0));
-
-    let from_last_column = column - last_column;
-    last_column_start + from_last_column * tile_size as i64
 }

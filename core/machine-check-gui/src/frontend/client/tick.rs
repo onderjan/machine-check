@@ -15,7 +15,7 @@ async fn tick() {
     // if the backend is not waiting, query to see when it finishes
     let backend_waiting = {
         let view_guard = lock_view();
-        view_guard.as_ref().backend_info.status.is_waiting()
+        view_guard.as_ref().backend_info().status.is_waiting()
     };
 
     if !backend_waiting {

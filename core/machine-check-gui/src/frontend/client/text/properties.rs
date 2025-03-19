@@ -43,7 +43,7 @@ impl PropertiesDisplayer<'_> {
             Self::display_property(
                 property,
                 &self.properties_element,
-                self.view.camera.selected_subproperty,
+                self.view.selected_subproperty_index(),
                 &mut id_index,
                 was_focused,
             );
@@ -131,14 +131,14 @@ async fn on_radio_change(event: Event) {
         .parse()
         .unwrap();
 
-    if let Some(current_selected_subproperty) = view.camera.selected_subproperty {
-        if current_selected_subproperty.0 == index {
+    if let Some(current_selected_subproperty_index) = view.selected_subproperty_index() {
+        if current_selected_subproperty_index.0 == index {
             // already selected, do nothing
             return;
         }
     }
 
     // change and redraw
-    view.camera.selected_subproperty = Some(SubpropertyIndex(index));
+    view.select_subproperty_index(Some(SubpropertyIndex(index)));
     render(view);
 }

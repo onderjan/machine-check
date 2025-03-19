@@ -9,6 +9,7 @@ macro_rules! console_log {
 }
 
 mod client;
+mod tiling;
 mod util;
 mod view;
 

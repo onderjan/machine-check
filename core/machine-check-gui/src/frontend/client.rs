@@ -1,7 +1,4 @@
-use super::{
-    util::web_idl::get_element_by_id,
-    view::{camera::Camera, View},
-};
+use super::{util::web_idl::get_element_by_id, view::View};
 use crate::shared::{BackendInfo, BackendStatus, Request};
 
 mod canvas;
@@ -16,7 +13,7 @@ pub async fn init() {
     let Some(snapshot) = response.snapshot else {
         panic!("Initial content should have a snapshot");
     };
-    let initial_view = View::new(snapshot, response.info, Camera::new());
+    let initial_view = View::new(snapshot, response.info);
     view_singleton::provide_initial_view(initial_view);
 
     canvas::init();
@@ -37,19 +34,19 @@ async fn issue_command(request: Request) {
             let mut view_guard = lock_view();
             let view = view_guard.as_mut();
 
-            if view.backend_info == response.info {
+            if *view.backend_info() == response.info {
                 // no change, do nothing
                 return;
             }
 
-            if view.backend_info.status.is_waiting() || !response.info.status.is_waiting() {
+            if view.backend_info().status.is_waiting() || !response.info.status.is_waiting() {
                 // the query should not result in content get
                 // just update and display the info
-                view.backend_info = response.info;
-                display_backend_info(&view.backend_info);
+                view.update_backend_info(response.info);
+                display_backend_info(view.backend_info());
                 return;
             }
-            view.backend_info = response.info;
+            view.update_backend_info(response.info);
         }
         response = control::call_backend(Request::GetContent).await;
     }
@@ -57,17 +54,17 @@ async fn issue_command(request: Request) {
     // update the view with the snapshot and backend status and render
     let mut view_guard = lock_view();
     let view = view_guard.as_mut();
-    view.backend_info = response.info;
+    view.update_backend_info(response.info);
     if let Some(snapshot) = response.snapshot {
         view.apply_snapshot(snapshot);
         render(view);
     } else {
-        display_backend_info(&view.backend_info);
+        display_backend_info(view.backend_info());
     }
 }
 
 fn render(view: &mut View) {
-    display_backend_info(&view.backend_info);
+    display_backend_info(view.backend_info());
     canvas::render(view);
     text::display(view);
 }

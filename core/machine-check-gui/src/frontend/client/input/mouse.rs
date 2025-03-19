@@ -3,11 +3,11 @@ use web_sys::HtmlElement;
 
 use crate::frontend::{
     client::{lock_view, render},
+    tiling::TileType,
     util::{
         web_idl::{get_element_by_id, setup_selector_listener, window},
         PixelPoint,
     },
-    view::TileType,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -53,7 +53,8 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
     let mut view_guard = lock_view();
     let view = view_guard.as_mut();
 
-    match mouse {
+    // TODO
+    let should_redraw = match mouse {
         MouseEvent::Click => {
             // focus the main area
             let main_area: HtmlElement = get_element_by_id("main_area").dyn_into().unwrap();
@@ -61,51 +62,48 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
 
             if event.button() == MAIN_BUTTON {
                 // select a tile
-                let tile = view.viewport_point_to_tile(mouse_coords, false);
+                let tile = view.tile_at_viewport_point(mouse_coords);
                 let mut selected_node_id = None;
-                if let Some(TileType::Node(node)) = view.tiling.at_tile(tile) {
+                if let Some(TileType::Node(node)) = view.tile_type(tile) {
                     selected_node_id = Some(*node);
                 }
-                view.camera.selected_node_id = selected_node_id;
+                view.set_selected_node_id(selected_node_id);
 
                 // redraw
-
-                render(view);
+                true
+            } else {
+                false
             }
         }
         MouseEvent::ContextMenu => {
             // do nothing for now
+            false
         }
         MouseEvent::Down => {
             if is_drag(&event) {
                 // start dragging the camera
-                view.camera.mouse_current_coords = Some(mouse_coords);
-                view.camera.mouse_down_coords = Some(mouse_coords);
-                // redraw
-                render(view);
+                view.mouse_drag_start(mouse_coords)
+            } else {
+                false
             }
         }
         MouseEvent::Move => {
             // update current mouse coords for camera drag
-            view.camera.mouse_current_coords = Some(mouse_coords);
-
-            // redraw if dragging
-            if view.camera.mouse_down_coords.is_some() {
-                render(view);
-            }
+            view.mouse_drag_update(mouse_coords)
         }
         MouseEvent::Up | MouseEvent::Out => {
             if matches!(mouse, MouseEvent::Out) || is_drag(&event) {
                 // finish dragging the camera
-                if let Some(mouse_down_coords) = view.camera.mouse_down_coords.take() {
-                    let offset = mouse_coords - mouse_down_coords;
-                    view.camera.view_offset -= offset;
-
-                    // redraw
-                    render(view);
-                }
+                view.mouse_drag_end(mouse_coords)
+            } else {
+                false
             }
         }
+    };
+
+    if should_redraw {
+        // redraw
+        render(view);
     }
 }
 

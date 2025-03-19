@@ -1,6 +1,6 @@
 pub mod constants;
 pub mod web_idl;
 
-mod point;
+mod pixel;
 
-pub use point::PixelPoint;
+pub use pixel::{PixelPoint, PixelRect};
