@@ -526,7 +526,7 @@ fn compile_frontend_package(arrangement: &Arrangement) -> anyhow::Result<Option<
 
     // Prepare cargo build for the WASM target.
     std::env::set_current_dir(&arrangement.frontend_package_dir)?;
-    let mut cargo_build = Command::new(env!("CARGO"));
+    let mut cargo_build = Command::new("cargo");
     cargo_build
         .current_dir(&arrangement.frontend_package_dir)
         .args([
