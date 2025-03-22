@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use machine_check_common::ExecError;
 
-use super::Token;
+use super::{Bracket, Token};
 
 pub fn lex(input: &str) -> Result<VecDeque<Token>, ExecError> {
     let mut result = VecDeque::new();
@@ -18,12 +18,28 @@ pub fn lex(input: &str) -> Result<VecDeque<Token>, ExecError> {
                 result.push_back(Token::Comma);
                 it.next();
             }
-            '(' | '[' | '{' => {
-                result.push_back(Token::OpeningParen(c));
+            '(' => {
+                result.push_back(Token::OpeningBracket(Bracket::Parenthesis));
                 it.next();
             }
-            ')' | ']' | '}' => {
-                result.push_back(Token::ClosingParen(c));
+            '[' => {
+                result.push_back(Token::OpeningBracket(Bracket::Square));
+                it.next();
+            }
+            '{' => {
+                result.push_back(Token::OpeningBracket(Bracket::Curly));
+                it.next();
+            }
+            ')' => {
+                result.push_back(Token::ClosingBracket(Bracket::Parenthesis));
+                it.next();
+            }
+            ']' => {
+                result.push_back(Token::ClosingBracket(Bracket::Square));
+                it.next();
+            }
+            '}' => {
+                result.push_back(Token::ClosingBracket(Bracket::Curly));
                 it.next();
             }
             'A'..='Z' | 'a'..='z' | '_' => {

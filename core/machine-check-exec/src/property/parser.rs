@@ -22,32 +22,39 @@ struct PropertyParser {
     lex_items: VecDeque<Token>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Bracket {
+    Parenthesis,
+    Square,
+    Curly,
+}
+
 #[derive(Debug)]
-pub enum Token {
+enum Token {
     Comma,
-    OpeningParen(char),
-    ClosingParen(char),
+    OpeningBracket(Bracket),
+    ClosingBracket(Bracket),
     Ident(String),
     Number(u64),
 }
 
 impl PropertyParser {
     fn parse_uni(&mut self) -> Result<UniOperator, ExecError> {
-        let Some(Token::OpeningParen(opening)) = self.lex_items.pop_front() else {
+        let Some(Token::OpeningBracket(opening)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         let result = self.parse_property()?;
-        let Some(Token::ClosingParen(closing)) = self.lex_items.pop_front() else {
+        let Some(Token::ClosingBracket(closing)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        if corresponding_closing(opening) != closing {
+        if opening != closing {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         }
         Ok(UniOperator(Box::new(result)))
     }
 
     fn parse_bi(&mut self) -> Result<BiOperator, ExecError> {
-        let Some(Token::OpeningParen(opening)) = self.lex_items.pop_front() else {
+        let Some(Token::OpeningBracket(opening)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         let a = self.parse_property()?;
@@ -55,10 +62,10 @@ impl PropertyParser {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         let b = self.parse_property()?;
-        let Some(Token::ClosingParen(closing)) = self.lex_items.pop_front() else {
+        let Some(Token::ClosingBracket(closing)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        if corresponding_closing(opening) != closing {
+        if opening != closing {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         }
         Ok(BiOperator {
@@ -84,19 +91,19 @@ impl PropertyParser {
     }
 
     fn parse_comparison(&mut self, comparison_type: ComparisonType) -> Result<Literal, ExecError> {
-        let Some(Token::OpeningParen(opening)) = self.lex_items.pop_front() else {
+        let Some(Token::OpeningBracket(opening)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
 
         let Some(Token::Ident(left_name)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        let index = if let Some(Token::OpeningParen('[')) = self.lex_items.front() {
+        let index = if let Some(Token::OpeningBracket(Bracket::Square)) = self.lex_items.front() {
             self.lex_items.pop_front();
             let Some(Token::Number(index)) = self.lex_items.pop_front() else {
                 return Err(ExecError::PropertyNotParseable(self.input.clone()));
             };
-            let Some(Token::ClosingParen(']')) = self.lex_items.pop_front() else {
+            let Some(Token::ClosingBracket(Bracket::Square)) = self.lex_items.pop_front() else {
                 return Err(ExecError::PropertyNotParseable(self.input.clone()));
             };
 
@@ -110,10 +117,10 @@ impl PropertyParser {
         let Some(Token::Number(right_number)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        let Some(Token::ClosingParen(closing)) = self.lex_items.pop_front() else {
+        let Some(Token::ClosingBracket(closing)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        if corresponding_closing(opening) != closing {
+        if opening != closing {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         }
 
@@ -133,7 +140,7 @@ impl PropertyParser {
         Ok(match lex_item {
             Token::Ident(ident) => {
                 // opening parenthesis should be next
-                let Some(Token::OpeningParen(_)) = self.lex_items.front() else {
+                let Some(Token::OpeningBracket(_)) = self.lex_items.front() else {
                     // this should be a function
                     return Err(ExecError::PropertyNotParseable(self.input.clone()));
                 };
@@ -207,14 +214,5 @@ impl PropertyParser {
                 return Err(ExecError::PropertyNotParseable(self.input.clone()));
             }
         })
-    }
-}
-
-fn corresponding_closing(opening: char) -> char {
-    match opening {
-        '(' => ')',
-        '[' => ']',
-        '{' => '}',
-        _ => '\0',
     }
 }
