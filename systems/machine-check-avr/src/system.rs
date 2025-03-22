@@ -3150,6 +3150,12 @@ pub mod machine_module {
                 }
             });
 
+            // interrupts are not implemented, so make sure the Global Interrupt Flag
+            // is not enabled
+            if result.SREG & Bitvector::<8>::new(0x80) != Bitvector::<8>::new(0x00) {
+                unimplemented!("Interrupts");
+            }
+
             result
         }
     }
