@@ -2,7 +2,21 @@ use std::collections::VecDeque;
 
 use machine_check_common::ExecError;
 
-use super::{Bracket, Token};
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Bracket {
+    Parenthesis,
+    Square,
+    Curly,
+}
+
+#[derive(Debug)]
+pub enum Token {
+    Comma,
+    OpeningBracket(Bracket),
+    ClosingBracket(Bracket),
+    Ident(String),
+    Number(u64),
+}
 
 pub fn lex(input: &str) -> Result<VecDeque<Token>, ExecError> {
     let mut result = VecDeque::new();
