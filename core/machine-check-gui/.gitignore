@@ -1,3 +1,2 @@
 # Ignore generated WASM files.
 content/wasm
-prebuilt_wasm

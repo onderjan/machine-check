@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Utility crate for the formal verification tool machine-check"
 rust-version = "1.83"
-include = ["/**", "!/target/**", "!/content/wasm/**", "!/.gitignore"]
+include = ["/**", "!/target/**", "!/.gitignore"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
