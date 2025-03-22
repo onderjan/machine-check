@@ -3,25 +3,27 @@ use std::collections::VecDeque;
 use machine_check_common::ExecError;
 
 use super::{
-    ComparisonType, Literal, BiOperator, OperatorF, OperatorG, OperatorR, OperatorU, UniOperator, Property,
-    TemporalOperator,
+    BiOperator, ComparisonType, Literal, OperatorF, OperatorG, OperatorR, OperatorU, Property,
+    TemporalOperator, UniOperator,
 };
+
+mod lexer;
 
 pub fn parse(input: &str) -> Result<Property, ExecError> {
     let mut parser = PropertyParser {
         input: String::from(input),
-        lex_items: lex(input)?,
+        lex_items: lexer::lex(input)?,
     };
     parser.parse_property()
 }
 
 struct PropertyParser {
     input: String,
-    lex_items: VecDeque<PropertyLexItem>,
+    lex_items: VecDeque<Token>,
 }
 
 #[derive(Debug)]
-pub enum PropertyLexItem {
+pub enum Token {
     Comma,
     OpeningParen(char),
     ClosingParen(char),
@@ -31,11 +33,11 @@ pub enum PropertyLexItem {
 
 impl PropertyParser {
     fn parse_uni(&mut self) -> Result<UniOperator, ExecError> {
-        let Some(PropertyLexItem::OpeningParen(opening)) = self.lex_items.pop_front() else {
+        let Some(Token::OpeningParen(opening)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         let result = self.parse_property()?;
-        let Some(PropertyLexItem::ClosingParen(closing)) = self.lex_items.pop_front() else {
+        let Some(Token::ClosingParen(closing)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         if corresponding_closing(opening) != closing {
@@ -45,15 +47,15 @@ impl PropertyParser {
     }
 
     fn parse_bi(&mut self) -> Result<BiOperator, ExecError> {
-        let Some(PropertyLexItem::OpeningParen(opening)) = self.lex_items.pop_front() else {
+        let Some(Token::OpeningParen(opening)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         let a = self.parse_property()?;
-        let Some(PropertyLexItem::Comma) = self.lex_items.pop_front() else {
+        let Some(Token::Comma) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         let b = self.parse_property()?;
-        let Some(PropertyLexItem::ClosingParen(closing)) = self.lex_items.pop_front() else {
+        let Some(Token::ClosingParen(closing)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         if corresponding_closing(opening) != closing {
@@ -82,19 +84,19 @@ impl PropertyParser {
     }
 
     fn parse_comparison(&mut self, comparison_type: ComparisonType) -> Result<Literal, ExecError> {
-        let Some(PropertyLexItem::OpeningParen(opening)) = self.lex_items.pop_front() else {
+        let Some(Token::OpeningParen(opening)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
 
-        let Some(PropertyLexItem::Ident(left_name)) = self.lex_items.pop_front() else {
+        let Some(Token::Ident(left_name)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        let index = if let Some(PropertyLexItem::OpeningParen('[')) = self.lex_items.front() {
+        let index = if let Some(Token::OpeningParen('[')) = self.lex_items.front() {
             self.lex_items.pop_front();
-            let Some(PropertyLexItem::Number(index)) = self.lex_items.pop_front() else {
+            let Some(Token::Number(index)) = self.lex_items.pop_front() else {
                 return Err(ExecError::PropertyNotParseable(self.input.clone()));
             };
-            let Some(PropertyLexItem::ClosingParen(']')) = self.lex_items.pop_front() else {
+            let Some(Token::ClosingParen(']')) = self.lex_items.pop_front() else {
                 return Err(ExecError::PropertyNotParseable(self.input.clone()));
             };
 
@@ -102,13 +104,13 @@ impl PropertyParser {
         } else {
             None
         };
-        let Some(PropertyLexItem::Comma) = self.lex_items.pop_front() else {
+        let Some(Token::Comma) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        let Some(PropertyLexItem::Number(right_number)) = self.lex_items.pop_front() else {
+        let Some(Token::Number(right_number)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
-        let Some(PropertyLexItem::ClosingParen(closing)) = self.lex_items.pop_front() else {
+        let Some(Token::ClosingParen(closing)) = self.lex_items.pop_front() else {
             return Err(ExecError::PropertyNotParseable(self.input.clone()));
         };
         if corresponding_closing(opening) != closing {
@@ -129,9 +131,9 @@ impl PropertyParser {
         };
 
         Ok(match lex_item {
-            PropertyLexItem::Ident(ident) => {
+            Token::Ident(ident) => {
                 // opening parenthesis should be next
-                let Some(PropertyLexItem::OpeningParen(_)) = self.lex_items.front() else {
+                let Some(Token::OpeningParen(_)) = self.lex_items.front() else {
                     // this should be a function
                     return Err(ExecError::PropertyNotParseable(self.input.clone()));
                 };
@@ -206,93 +208,6 @@ impl PropertyParser {
             }
         })
     }
-}
-
-fn lex(input: &str) -> Result<VecDeque<PropertyLexItem>, ExecError> {
-    let mut result = VecDeque::new();
-
-    let mut it = input.chars().peekable();
-    while let Some(&c) = it.peek() {
-        if c.is_ascii_whitespace() {
-            it.next();
-            continue;
-        }
-        match c {
-            ',' => {
-                result.push_back(PropertyLexItem::Comma);
-                it.next();
-            }
-            '(' | '[' | '{' => {
-                result.push_back(PropertyLexItem::OpeningParen(c));
-                it.next();
-            }
-            ')' | ']' | '}' => {
-                result.push_back(PropertyLexItem::ClosingParen(c));
-                it.next();
-            }
-            'A'..='Z' | 'a'..='z' | '_' => {
-                let mut ident = String::from(c);
-                it.next();
-                while let Some(&c) = it.peek() {
-                    match c {
-                        'A'..='Z' | 'a'..='z' | '_' | '0'..='9' => {
-                            it.next();
-                            ident.push(c);
-                        }
-                        _ => break,
-                    }
-                }
-                result.push_back(PropertyLexItem::Ident(ident));
-            }
-            '0'..='9' => {
-                let mut str_val = String::new();
-                it.next();
-                let hexadecimal = if let Some('x') = it.peek() {
-                    it.next();
-                    true
-                } else {
-                    str_val.push(c);
-                    false
-                };
-
-                while let Some(&c) = it.peek() {
-                    match c {
-                        '0'..='9' => {
-                            it.next();
-                            str_val.push(c);
-                        }
-                        'A'..='F' | 'a'..='f' => {
-                            if hexadecimal {
-                                it.next();
-                                str_val.push(c);
-                            } else {
-                                break;
-                            }
-                        }
-                        _ => break,
-                    }
-                }
-
-                let unsigned_val: Result<u64, _> =
-                    u64::from_str_radix(&str_val, if hexadecimal { 16 } else { 10 });
-                let val = if let Ok(unsigned_val) = unsigned_val {
-                    unsigned_val
-                } else if !hexadecimal {
-                    let signed_val: Result<i64, _> = str_val.parse();
-                    if let Ok(signed_val) = signed_val {
-                        signed_val as u64
-                    } else {
-                        return Err(ExecError::PropertyNotParseable(String::from(input)));
-                    }
-                } else {
-                    return Err(ExecError::PropertyNotParseable(String::from(input)));
-                };
-                result.push_back(PropertyLexItem::Number(val));
-            }
-            _ => return Err(ExecError::PropertyNotParseable(String::from(input))),
-        }
-    }
-    Ok(result)
 }
 
 fn corresponding_closing(opening: char) -> char {
