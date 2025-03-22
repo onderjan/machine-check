@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
-use crate::property::InequalityType;
-use crate::property::Literal;
+use crate::property::AtomicProperty;
+use crate::property::ComparisonType;
 
 use super::{Space, StateId};
 use mck::abstr::ManipField;
@@ -14,21 +14,22 @@ impl<M: FullMachine> Space<M> {
     /// Returns an iterator of state ids labelled by a given literal with an optimistic/pessimistic interpretation.
     pub fn labelled_iter<'a>(
         &'a self,
-        literal: &'a Literal,
+        atomic_property: &'a AtomicProperty,
         optimistic: bool,
     ) -> impl Iterator<Item = Result<StateId, ()>> + 'a {
         self.state_map.iter().filter_map(move |(state_id, state)| {
-            let name = literal.name();
-            let manip_field = if name == "__panic" {
+            let left = atomic_property.left();
+            let left_name = left.name();
+            let manip_field = if left_name == "__panic" {
                 let manip_field: &dyn ManipField = &state.0.panic;
                 manip_field
             } else {
-                match state.0.result.get(name) {
+                match state.0.result.get(left_name) {
                     Some(manip_field) => manip_field,
                     None => return Some(Err(())),
                 }
             };
-            let manip_field = if let Some(index) = literal.index() {
+            let manip_field = if let Some(index) = left.index() {
                 let Some(indexed_manip_field) = manip_field.index(index) else {
                     return Some(Err(()));
                 };
@@ -42,8 +43,8 @@ impl<M: FullMachine> Space<M> {
             else {
                 return Some(Err(()));
             };
-            let right_unsigned = literal.right_number_unsigned();
-            let comparison_result = match literal.comparison_type() {
+            let right_unsigned = atomic_property.right_number_unsigned();
+            let comparison_result = match atomic_property.comparison_type() {
                 crate::property::ComparisonType::Eq => {
                     if min_unsigned == max_unsigned {
                         Some(min_unsigned == right_unsigned)
@@ -51,36 +52,48 @@ impl<M: FullMachine> Space<M> {
                         None
                     }
                 }
-                crate::property::ComparisonType::Neq => {
+                crate::property::ComparisonType::Ne => {
                     if min_unsigned == max_unsigned {
                         Some(min_unsigned != right_unsigned)
                     } else {
                         None
                     }
                 }
-                crate::property::ComparisonType::Unsigned(inequality_type) => {
-                    Self::resolve_inequality(
-                        inequality_type,
-                        min_unsigned,
-                        max_unsigned,
-                        right_unsigned,
-                    )
-                }
-                crate::property::ComparisonType::Signed(inequality_type) => {
-                    let (Some(min_signed), Some(max_signed)) =
-                        (manip_field.min_signed(), manip_field.max_signed())
-                    else {
-                        return Some(Err(()));
-                    };
-                    let right_signed = literal.right_number_signed();
-                    Self::resolve_inequality(inequality_type, min_signed, max_signed, right_signed)
+                comparison_type => {
+                    match left.forced_signedness() {
+                        machine_check_common::Signedness::None => {
+                            // signedness not specified
+                            // TODO: better error message
+                            return Some(Err(()));
+                        }
+                        machine_check_common::Signedness::Unsigned => Self::resolve_inequality(
+                            comparison_type,
+                            min_unsigned,
+                            max_unsigned,
+                            right_unsigned,
+                        ),
+                        machine_check_common::Signedness::Signed => {
+                            let (Some(min_signed), Some(max_signed)) =
+                                (manip_field.min_signed(), manip_field.max_signed())
+                            else {
+                                return Some(Err(()));
+                            };
+                            let right_signed = atomic_property.right_number_signed();
+                            Self::resolve_inequality(
+                                comparison_type,
+                                min_signed,
+                                max_signed,
+                                right_signed,
+                            )
+                        }
+                    }
                 }
             };
 
             let labelled = match comparison_result {
                 Some(comparison_result) => {
                     // negate if necessary
-                    if literal.is_complementary() {
+                    if atomic_property.is_complementary() {
                         !comparison_result
                     } else {
                         comparison_result
@@ -135,14 +148,14 @@ impl<M: FullMachine> Space<M> {
     }
 
     fn resolve_inequality<T: Ord>(
-        inequality_type: &InequalityType,
+        inequality_type: &ComparisonType,
         min_left: T,
         max_left: T,
         right: T,
     ) -> Option<bool> {
         // TODO: resolve inequality using mck types
         match inequality_type {
-            InequalityType::Lt => {
+            ComparisonType::Lt => {
                 if max_left < right {
                     Some(true)
                 } else if min_left >= right {
@@ -151,7 +164,7 @@ impl<M: FullMachine> Space<M> {
                     None
                 }
             }
-            InequalityType::Le => {
+            ComparisonType::Le => {
                 if max_left <= right {
                     Some(true)
                 } else if min_left > right {
@@ -160,7 +173,7 @@ impl<M: FullMachine> Space<M> {
                     None
                 }
             }
-            InequalityType::Gt => {
+            ComparisonType::Gt => {
                 if min_left > right {
                     Some(true)
                 } else if max_left <= right {
@@ -169,7 +182,7 @@ impl<M: FullMachine> Space<M> {
                     None
                 }
             }
-            InequalityType::Ge => {
+            ComparisonType::Ge => {
                 if min_left >= right {
                     Some(true)
                 } else if max_left < right {
@@ -178,6 +191,7 @@ impl<M: FullMachine> Space<M> {
                     None
                 }
             }
+            _ => panic!("Inequality comparison should be supplied"),
         }
     }
 }

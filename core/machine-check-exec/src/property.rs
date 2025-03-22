@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use machine_check_common::ExecError;
+use machine_check_common::{ExecError, Signedness};
 use serde::{Deserialize, Serialize};
 
 mod enf;
@@ -8,11 +8,11 @@ mod misc;
 mod parser;
 mod pnf;
 
-/// CTL proposition.
+/// A Computation Tree Logic property.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Property {
     Const(bool),
-    Literal(Literal),
+    Atomic(AtomicProperty),
     Negation(UniOperator),
     Or(BiOperator),
     And(BiOperator),
@@ -36,20 +36,24 @@ impl Property {
     }
 
     pub fn inherent() -> Property {
-        Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Literal(
-            Literal::new(
-                String::from("__panic"),
-                crate::property::ComparisonType::Eq,
-                0,
-                None,
-            ),
+        let not_panicking = AtomicProperty::new(
+            ValueExpression {
+                name: String::from("__panic"),
+                index: None,
+                forced_signedness: Signedness::None,
+            },
+            crate::property::ComparisonType::Eq,
+            0,
+        );
+        Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Atomic(
+            not_panicking,
         )))))
     }
 
     pub fn children(&self) -> Vec<Property> {
         match self {
             Property::Const(_) => Vec::new(),
-            Property::Literal(_) => Vec::new(),
+            Property::Atomic(_) => Vec::new(),
             Property::Negation(prop_uni) => vec![*prop_uni.0.clone()],
             Property::Or(prop_bi) => vec![*prop_bi.a.clone(), *prop_bi.b.clone()],
             Property::And(prop_bi) => vec![*prop_bi.a.clone(), *prop_bi.b.clone()],
@@ -87,17 +91,17 @@ impl Display for Property {
             Property::Const(value) => {
                 write!(f, "{}", value)
             }
-            Property::Literal(literal) => {
+            Property::Atomic(literal) => {
                 write!(f, "{}", literal)
             }
             Property::Negation(prop_uni) => {
                 write!(f, "!({})", prop_uni.0)
             }
             Property::Or(prop_bi) => {
-                write!(f, "({}) | ({})", prop_bi.a, prop_bi.b)
+                write!(f, "{} || {}", prop_bi.a, prop_bi.b)
             }
             Property::And(prop_bi) => {
-                write!(f, "({}) & ({})", prop_bi.a, prop_bi.b)
+                write!(f, "{} && {}", prop_bi.a, prop_bi.b)
             }
             Property::E(prop_temp) => {
                 write!(f, "E{}", prop_temp)
@@ -131,62 +135,102 @@ impl Display for TemporalOperator {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub enum InequalityType {
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum ComparisonType {
+    Eq,
+    Ne,
     Lt,
     Le,
     Gt,
     Ge,
 }
 
-impl Display for InequalityType {
+impl Display for ComparisonType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let inequality_str = match self {
-            InequalityType::Lt => "<",
-            InequalityType::Le => "<=",
-            InequalityType::Gt => ">",
-            InequalityType::Ge => ">=",
+        let str = match self {
+            ComparisonType::Eq => "==",
+            ComparisonType::Ne => "!=",
+            ComparisonType::Lt => "<",
+            ComparisonType::Le => "<=",
+            ComparisonType::Gt => ">",
+            ComparisonType::Ge => ">=",
         };
 
-        write!(f, "{}", inequality_str)
+        write!(f, "{}", str)
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub enum ComparisonType {
-    Eq,
-    Neq,
-    Unsigned(InequalityType),
-    Signed(InequalityType),
+pub struct ValueExpression {
+    name: String,
+    index: Option<u64>,
+    forced_signedness: Signedness,
+}
+
+impl ValueExpression {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn index(&self) -> Option<u64> {
+        self.index
+    }
+
+    pub fn forced_signedness(&self) -> Signedness {
+        self.forced_signedness
+    }
+}
+
+impl Display for ValueExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let add_closing_parenthesis = match self.forced_signedness {
+            Signedness::Unsigned => {
+                write!(f, "as_unsigned(")?;
+                true
+            }
+            Signedness::Signed => {
+                write!(f, "as_signed(")?;
+                true
+            }
+            Signedness::None => false,
+        };
+
+        write!(f, "{}", self.name)?;
+
+        if let Some(index) = self.index {
+            write!(f, "[{}]", index)?;
+        }
+        if add_closing_parenthesis {
+            write!(f, ")")?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub struct Literal {
+pub struct AtomicProperty {
     complementary: bool,
-    left_name: String,
+    left: ValueExpression,
     comparison_type: ComparisonType,
-    right_number: u64,
-    index: Option<u64>,
+    right_number: i64,
 }
 
-impl Literal {
+impl AtomicProperty {
     pub fn new(
-        left_name: String,
+        left: ValueExpression,
         comparison_type: ComparisonType,
-        right_number: u64,
-        index: Option<u64>,
-    ) -> Literal {
-        Literal {
+        right_number: i64,
+    ) -> AtomicProperty {
+        AtomicProperty {
             complementary: false,
-            left_name,
+            left,
             comparison_type,
             right_number,
-            index,
         }
     }
 
-    pub fn name(&self) -> &str {
-        self.left_name.as_str()
+    pub fn left(&self) -> &ValueExpression {
+        &self.left
     }
 
     pub fn comparison_type(&self) -> &ComparisonType {
@@ -194,54 +238,25 @@ impl Literal {
     }
 
     pub fn right_number_unsigned(&self) -> u64 {
-        self.right_number
+        self.right_number as u64
     }
 
     pub fn right_number_signed(&self) -> i64 {
-        self.right_number as i64
+        self.right_number
     }
 
     pub fn is_complementary(&self) -> bool {
         self.complementary
     }
-
-    pub fn index(&self) -> Option<u64> {
-        self.index
-    }
-
-    fn left_string(&self) -> String {
-        if let Some(index) = self.index {
-            format!("{}[{}]", self.left_name, index)
-        } else {
-            self.left_name.clone()
-        }
-    }
 }
 
-impl Display for Literal {
+impl Display for AtomicProperty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.comparison_type {
-            ComparisonType::Eq => write!(f, "{} == {}", &self.left_string(), self.right_number),
-            ComparisonType::Neq => write!(f, "{} != {}", &self.left_string(), self.right_number),
-            ComparisonType::Unsigned(inequality_type) => {
-                write!(
-                    f,
-                    "unsigned({}) {} {}",
-                    &self.left_string(),
-                    &inequality_type.to_string(),
-                    self.right_number
-                )
-            }
-            ComparisonType::Signed(inequality_type) => {
-                write!(
-                    f,
-                    "signed({}) {} {}",
-                    &self.left_string(),
-                    &inequality_type.to_string(),
-                    self.right_number
-                )
-            }
-        }
+        write!(
+            f,
+            "{} {} {}",
+            self.left, self.comparison_type, self.right_number
+        )
     }
 }
 

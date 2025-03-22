@@ -12,7 +12,7 @@ use mck::concr::FullMachine;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    property::{Literal, Property},
+    property::{AtomicProperty, Property},
     space::StateId,
 };
 
@@ -94,7 +94,7 @@ pub(super) enum Conclusion {
 #[derive(Debug, Clone)]
 pub(super) struct Culprit {
     pub path: VecDeque<StateId>,
-    pub literal: Literal,
+    pub literal: AtomicProperty,
 }
 
 /// Three-valued model checker.

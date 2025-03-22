@@ -8,7 +8,7 @@ impl Property {
     pub fn enf(&self) -> Self {
         match self {
             Property::Const(_) => self.clone(),
-            Property::Literal(_) => self.clone(),
+            Property::Atomic(_) => self.clone(),
             Property::Negation(inner) => Property::Negation(inner.enf()),
             Property::Or(v) => Property::Or(v.enf()),
             Property::And(v) => Property::And(v.enf()),

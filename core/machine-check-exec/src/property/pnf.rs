@@ -23,13 +23,13 @@ impl Property {
                     self.clone()
                 }
             }
-            Property::Literal(lit) => {
+            Property::Atomic(lit) => {
                 if complement {
                     let mut lit = lit.clone();
                     if complement {
                         lit.complementary = !lit.complementary;
                     }
-                    Property::Literal(lit)
+                    Property::Atomic(lit)
                 } else {
                     self.clone()
                 }

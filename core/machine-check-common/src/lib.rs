@@ -90,3 +90,10 @@ impl Display for ThreeValued {
         write!(f, "{}", str)
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Signedness {
+    None,
+    Unsigned,
+    Signed,
+}

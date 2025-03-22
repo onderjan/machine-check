@@ -216,16 +216,16 @@ impl<M: FullMachine> Framework<M> {
             mck::refin::PanicResult::<<M::Refin as refin::Machine<M>>::State>::clean();
 
         // TODO: rework panic name kludge
-        if culprit.literal.name() == "__panic" {
+        if culprit.literal.left().name() == "__panic" {
             current_state_mark.panic = refin::Bitvector::dirty();
         } else {
             // TODO: mark more adequately
             let manip_mark = current_state_mark
                 .result
-                .get_mut(culprit.literal.name())
+                .get_mut(culprit.literal.left().name())
                 .expect("Culprit mark should be manipulatable");
 
-            let manip_mark = if let Some(index) = culprit.literal.index() {
+            let manip_mark = if let Some(index) = culprit.literal.left().index() {
                 let Some(indexed_manip_mark) = manip_mark.index_mut(index) else {
                     panic!("Indexed culprit mark should be indexable");
                 };

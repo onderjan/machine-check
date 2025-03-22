@@ -4,7 +4,7 @@ impl Property {
     pub(crate) fn contains_negation(&self) -> bool {
         match self {
             Property::Const(_) => false,
-            Property::Literal(_) => false,
+            Property::Atomic(_) => false,
             Property::Negation(_) => true,
             Property::Or(bi) => bi.a.contains_negation() || bi.b.contains_negation(),
             Property::And(bi) => bi.a.contains_negation() || bi.b.contains_negation(),

@@ -5,7 +5,7 @@ use machine_check_common::ExecError;
 use mck::concr::FullMachine;
 
 use crate::{
-    property::{OperatorU, Property, BiOperator, OperatorG, UniOperator, TemporalOperator},
+    property::{BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator},
     space::{Space, StateId},
 };
 
@@ -67,13 +67,19 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                     BTreeSet::new()
                 }
             }
-            Property::Literal(literal) => {
+            Property::Atomic(atomic_property) => {
                 // get from space
-                let labelled: Result<BTreeSet<_>, ()> =
-                    self.space.labelled_iter(literal, self.optimistic).collect();
+                let labelled: Result<BTreeSet<_>, ()> = self
+                    .space
+                    .labelled_iter(atomic_property, self.optimistic)
+                    .collect();
                 match labelled {
                     Ok(labelled) => labelled,
-                    Err(_) => return Err(ExecError::FieldNotFound(String::from(literal.name()))),
+                    Err(_) => {
+                        return Err(ExecError::FieldNotFound(String::from(
+                            atomic_property.left().name(),
+                        )))
+                    }
                 }
             }
             Property::Negation(inner) => {

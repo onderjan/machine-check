@@ -4,7 +4,7 @@ use machine_check_common::{ExecError, ThreeValued};
 use mck::concr::FullMachine;
 
 use crate::{
-    property::{Property, BiOperator, OperatorG, OperatorU, TemporalOperator, UniOperator},
+    property::{BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator},
     space::StateId,
 };
 
@@ -46,7 +46,7 @@ fn deduce_end<M: FullMachine>(
             // never ends in const
             panic!("const should never be the labelling culprit")
         }
-        Property::Literal(literal) => {
+        Property::Atomic(literal) => {
             // culprit ends here
             Ok(Culprit {
                 path: path.clone(),

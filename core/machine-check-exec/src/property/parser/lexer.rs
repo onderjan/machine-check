@@ -1,6 +1,8 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, iter::Peekable};
 
 use machine_check_common::ExecError;
+
+use crate::property::ComparisonType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bracket {
@@ -9,13 +11,32 @@ pub enum Bracket {
     Curly,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Keyword {
+    A,
+    E,
+    AX,
+    AF,
+    AG,
+    EX,
+    EF,
+    EG,
+    U,
+    R,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenType {
     Comma,
+    ExclamationMark,
+    LogicAnd,
+    LogicOr,
     OpeningBracket(Bracket),
     ClosingBracket(Bracket),
     Ident(String),
     Number(u64),
+    Comparison(ComparisonType),
+    Keyword(Keyword),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,76 +59,121 @@ pub fn lex(input: &str) -> Result<VecDeque<Token>, ExecError> {
         });
     }
 
+    fn add_token_with_peek(
+        tokens: &mut VecDeque<Token>,
+        it: &mut Peekable<impl Iterator<Item = (usize, char)>>,
+        start: usize,
+        condition_char: char,
+        then_ty: TokenType,
+        else_ty: TokenType,
+    ) {
+        if let Some((end, c)) = it.peek().cloned() {
+            if condition_char == c {
+                it.next();
+                add_token(tokens, start, end, then_ty);
+                return;
+            }
+        }
+        add_token(tokens, start, start, else_ty);
+    }
+
+    fn add_token_with_require(
+        input: &str,
+        tokens: &mut VecDeque<Token>,
+        it: &mut Peekable<impl Iterator<Item = (usize, char)>>,
+        start: usize,
+        require_char: char,
+        then_ty: TokenType,
+        else_msg: &str,
+    ) -> Result<(), ExecError> {
+        if let Some((end, c)) = it.next() {
+            if c == require_char {
+                add_token(tokens, start, end, then_ty);
+                return Ok(());
+            }
+        }
+        Err(ExecError::PropertyNotLexable(
+            String::from(input),
+            format!("In position {}, {}", start, else_msg),
+        ))
+    }
+
     let mut result = VecDeque::new();
 
     let mut it = input.chars().enumerate().peekable();
-    while let Some((start, c)) = it.peek().copied() {
+    while let Some((start, c)) = it.next() {
         if c.is_ascii_whitespace() {
-            it.next();
             continue;
         }
+        let simple_token = match c {
+            ',' => Some(TokenType::Comma),
+            '(' => Some(TokenType::OpeningBracket(Bracket::Parenthesis)),
+            '[' => Some(TokenType::OpeningBracket(Bracket::Square)),
+            '{' => Some(TokenType::OpeningBracket(Bracket::Curly)),
+            ')' => Some(TokenType::ClosingBracket(Bracket::Parenthesis)),
+            ']' => Some(TokenType::ClosingBracket(Bracket::Square)),
+            '}' => Some(TokenType::ClosingBracket(Bracket::Curly)),
+            _ => None,
+        };
+        if let Some(simple_token) = simple_token {
+            add_token(&mut result, start, start, simple_token);
+            continue;
+        }
+
         match c {
-            ',' => {
-                add_token(&mut result, start, start, TokenType::Comma);
-                it.next();
-            }
-            '(' => {
-                add_token(
-                    &mut result,
-                    start,
-                    start,
-                    TokenType::OpeningBracket(Bracket::Parenthesis),
-                );
-                it.next();
-            }
-            '[' => {
-                add_token(
-                    &mut result,
-                    start,
-                    start,
-                    TokenType::OpeningBracket(Bracket::Square),
-                );
-                it.next();
-            }
-            '{' => {
-                add_token(
-                    &mut result,
-                    start,
-                    start,
-                    TokenType::OpeningBracket(Bracket::Curly),
-                );
-                it.next();
-            }
-            ')' => {
-                add_token(
-                    &mut result,
-                    start,
-                    start,
-                    TokenType::ClosingBracket(Bracket::Parenthesis),
-                );
-                it.next();
-            }
-            ']' => {
-                add_token(
-                    &mut result,
-                    start,
-                    start,
-                    TokenType::ClosingBracket(Bracket::Square),
-                );
-                it.next();
-            }
-            '}' => {
-                add_token(
-                    &mut result,
-                    start,
-                    start,
-                    TokenType::ClosingBracket(Bracket::Curly),
-                );
-                it.next();
-            }
+            '=' => add_token_with_require(
+                input,
+                &mut result,
+                &mut it,
+                start,
+                '=',
+                TokenType::Comparison(ComparisonType::Eq),
+                "a single '=' cannot be used",
+            )?,
+            '!' => add_token_with_peek(
+                &mut result,
+                &mut it,
+                start,
+                '=',
+                TokenType::Comparison(ComparisonType::Ne),
+                TokenType::ExclamationMark,
+            ),
+            '<' => add_token_with_peek(
+                &mut result,
+                &mut it,
+                start,
+                '=',
+                TokenType::Comparison(ComparisonType::Le),
+                TokenType::Comparison(ComparisonType::Lt),
+            ),
+            '>' => add_token_with_peek(
+                &mut result,
+                &mut it,
+                start,
+                '=',
+                TokenType::Comparison(ComparisonType::Ge),
+                TokenType::Comparison(ComparisonType::Gt),
+            ),
+            '&' => add_token_with_require(
+                input,
+                &mut result,
+                &mut it,
+                start,
+                '&',
+                TokenType::LogicAnd,
+                "a single '&' cannot be used",
+            )?,
+            '|' => add_token_with_require(
+                input,
+                &mut result,
+                &mut it,
+                start,
+                '|',
+                TokenType::LogicOr,
+                "a single '|' cannot be used",
+            )?,
             'A'..='Z' | 'a'..='z' | '_' => {
                 let mut ident = String::from(c);
-                it.next();
                 let mut end_index = start;
                 while let Some((index, c)) = it.peek().copied() {
                     match c {
@@ -119,11 +185,29 @@ pub fn lex(input: &str) -> Result<VecDeque<Token>, ExecError> {
                     };
                     end_index = index;
                 }
-                add_token(&mut result, start, end_index, TokenType::Ident(ident));
+                let keyword = match ident.as_ref() {
+                    "A" => Some(Keyword::A),
+                    "E" => Some(Keyword::E),
+                    "AX" => Some(Keyword::AX),
+                    "AF" => Some(Keyword::AF),
+                    "AG" => Some(Keyword::AG),
+                    "EX" => Some(Keyword::EX),
+                    "EF" => Some(Keyword::EF),
+                    "EG" => Some(Keyword::EG),
+                    "U" => Some(Keyword::U),
+                    "R" => Some(Keyword::R),
+                    _ => None,
+                };
+                let ty = if let Some(keyword) = keyword {
+                    TokenType::Keyword(keyword)
+                } else {
+                    TokenType::Ident(ident)
+                };
+
+                add_token(&mut result, start, end_index, ty);
             }
-            '0'..='9' => {
+            '0'..='9' | '-' | '+' => {
                 let mut str_val = String::new();
-                it.next();
                 let hexadecimal = if let Some((_, 'x')) = it.peek() {
                     it.next();
                     true
