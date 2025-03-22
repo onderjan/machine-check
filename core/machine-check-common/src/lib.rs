@@ -12,10 +12,10 @@ pub enum ExecError {
     Incomplete,
     #[error("field '{0}' of bit type not found")]
     FieldNotFound(String),
-    #[error("property '{0}' part '{1}' could not be lexed")]
+    #[error("property '{0}' could not be lexed: {1}")]
     PropertyNotLexable(String, String),
-    #[error("property '{0}' could not be parsed")]
-    PropertyNotParseable(String),
+    #[error("property '{0}' could not be parsed: {1}")]
+    PropertyNotParseable(String, String),
     #[error("inherent machine panic: '{0}'")]
     InherentPanic(String),
     #[error("cannot verify inherent property while assuming it")]
