@@ -12,7 +12,7 @@ use mck::concr::FullMachine;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    proposition::{Literal, Proposition},
+    property::{Literal, Property},
     space::StateId,
 };
 
@@ -22,8 +22,8 @@ use super::space::Space;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct PreparedProperty {
-    original: Proposition,
-    prepared: Proposition,
+    original: Property,
+    prepared: Property,
 }
 
 impl PreparedProperty {
@@ -34,7 +34,7 @@ impl PreparedProperty {
     /// Existential Normal Form. This way, the complementary literals can be used
     /// for optimistic/pessimistic labelling while a normal ENF model-checking
     /// algorithm can be used.
-    pub fn new(original_prop: Proposition) -> Self {
+    pub fn new(original_prop: Property) -> Self {
         trace!("Original proposition: {:#?}", original_prop);
         // transform proposition to positive normal form to move negations to literals
         let prop = original_prop.pnf();
@@ -48,7 +48,7 @@ impl PreparedProperty {
         }
     }
 
-    pub fn original(&self) -> &Proposition {
+    pub fn original(&self) -> &Property {
         &self.original
     }
 }
@@ -160,7 +160,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         Ok(result)
     }
 
-    fn get_state_labelling(&self, prop: &Proposition, state_index: StateId) -> ThreeValued {
+    fn get_state_labelling(&self, prop: &Property, state_index: StateId) -> ThreeValued {
         let pessimistic_labelling = self.pessimistic.get_labelling(prop).contains(&state_index);
         let optimistic_labelling = self.optimistic.get_labelling(prop).contains(&state_index);
         match (pessimistic_labelling, optimistic_labelling) {

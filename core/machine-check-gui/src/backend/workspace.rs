@@ -3,7 +3,7 @@ use crate::shared::snapshot::log::Log;
 use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
 use machine_check_common::ThreeValued;
 use machine_check_exec::NodeId;
-use machine_check_exec::{Framework, PreparedProperty, Proposition};
+use machine_check_exec::{Framework, PreparedProperty, Property};
 use mck::concr::FullMachine;
 use std::collections::{BTreeMap, HashMap};
 
@@ -31,10 +31,10 @@ impl WorkspaceProperty {
 }
 
 impl<M: FullMachine> Workspace<M> {
-    pub fn new(framework: Framework<M>, property: Option<Proposition>) -> Self {
+    pub fn new(framework: Framework<M>, property: Option<Property>) -> Self {
         // always put the inherent property first, add the other property afterwards if there is one
         let mut properties = vec![WorkspaceProperty::new(PreparedProperty::new(
-            Proposition::inherent(),
+            Property::inherent(),
         ))];
 
         if let Some(property) = property {

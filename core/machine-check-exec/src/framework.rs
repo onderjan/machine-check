@@ -18,7 +18,7 @@ use mck::refin::{self};
 use crate::model_check::Conclusion;
 use crate::model_check::Culprit;
 use crate::model_check::PreparedProperty;
-use crate::proposition::Proposition;
+use crate::property::Property;
 use crate::space::NodeId;
 use crate::space::StateId;
 use crate::{
@@ -40,7 +40,7 @@ pub struct Strategy {
 
 pub enum VerificationType {
     Inherent,
-    Property(Proposition),
+    Property(Property),
 }
 
 /// Three-valued abstraction refinement framework.

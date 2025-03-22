@@ -5,14 +5,14 @@ use machine_check_common::ExecError;
 use mck::concr::FullMachine;
 
 use crate::{
-    proposition::{PropBi, PropG, PropTemp, PropU, PropUni, Proposition},
+    property::{OperatorU, Property, BiOperator, OperatorG, UniOperator, TemporalOperator},
     space::{Space, StateId},
 };
 
 pub struct ClassicChecker<'a, M: FullMachine> {
     space: &'a Space<M>,
     optimistic: bool,
-    labelling_map: HashMap<Proposition, BTreeSet<StateId>>,
+    labelling_map: HashMap<Property, BTreeSet<StateId>>,
 }
 
 impl<'a, M: FullMachine> ClassicChecker<'a, M> {
@@ -25,7 +25,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         }
     }
 
-    pub fn compute_interpretation(&mut self, prop: &Proposition) -> Result<bool, ExecError> {
+    pub fn compute_interpretation(&mut self, prop: &Property) -> Result<bool, ExecError> {
         self.compute_labelling(prop)?;
         let labelling = self.get_labelling(prop);
         // conventionally, the property must hold in all initial states
@@ -37,7 +37,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         Ok(true)
     }
 
-    pub fn get_labelling(&self, prop: &Proposition) -> &BTreeSet<StateId> {
+    pub fn get_labelling(&self, prop: &Property) -> &BTreeSet<StateId> {
         self.labelling_map
             .get(prop)
             .expect("labelling should be present")
@@ -45,20 +45,20 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
 
     pub fn compute_and_get_labelling(
         &mut self,
-        prop: &Proposition,
+        prop: &Property,
     ) -> Result<&BTreeSet<StateId>, ExecError> {
         self.compute_labelling(prop)?;
         Ok(self.get_labelling(prop))
     }
 
-    fn compute_labelling(&mut self, prop: &Proposition) -> Result<(), ExecError> {
+    fn compute_labelling(&mut self, prop: &Property) -> Result<(), ExecError> {
         if self.labelling_map.contains_key(prop) {
             // already contained
             return Ok(());
         }
 
         let computed_labelling = match prop {
-            Proposition::Const(c) => {
+            Property::Const(c) => {
                 if *c {
                     // holds in all state indices
                     BTreeSet::from_iter(self.space.state_id_iter())
@@ -67,7 +67,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                     BTreeSet::new()
                 }
             }
-            Proposition::Literal(literal) => {
+            Property::Literal(literal) => {
                 // get from space
                 let labelled: Result<BTreeSet<_>, ()> =
                     self.space.labelled_iter(literal, self.optimistic).collect();
@@ -76,7 +76,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                     Err(_) => return Err(ExecError::FieldNotFound(String::from(literal.name()))),
                 }
             }
-            Proposition::Negation(inner) => {
+            Property::Negation(inner) => {
                 // complement
                 let full_labelling = BTreeSet::from_iter(self.space.state_id_iter());
                 self.compute_labelling(&inner.0)?;
@@ -86,24 +86,24 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                     .cloned()
                     .collect()
             }
-            Proposition::Or(PropBi { a, b }) => {
+            Property::Or(BiOperator { a, b }) => {
                 self.compute_labelling(a)?;
                 self.compute_labelling(b)?;
                 let a_labelling = self.get_labelling(a);
                 let b_labelling = self.get_labelling(b);
                 a_labelling.union(b_labelling).cloned().collect()
             }
-            Proposition::And(PropBi { a, b }) => {
+            Property::And(BiOperator { a, b }) => {
                 self.compute_labelling(a)?;
                 self.compute_labelling(b)?;
                 let a_labelling = self.get_labelling(a);
                 let b_labelling = self.get_labelling(b);
                 a_labelling.intersection(b_labelling).cloned().collect()
             }
-            Proposition::E(prop_temp) => match prop_temp {
-                PropTemp::X(inner) => self.compute_ex_labelling(inner)?,
-                PropTemp::G(inner) => self.compute_eg_labelling(inner)?,
-                PropTemp::U(inner) => self.compute_eu_labelling(inner)?,
+            Property::E(prop_temp) => match prop_temp {
+                TemporalOperator::X(inner) => self.compute_ex_labelling(inner)?,
+                TemporalOperator::G(inner) => self.compute_eg_labelling(inner)?,
+                TemporalOperator::U(inner) => self.compute_eu_labelling(inner)?,
                 _ => {
                     panic!(
                         "expected {:?} to have only X, G, U temporal operators",
@@ -129,7 +129,10 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         Ok(())
     }
 
-    fn compute_ex_labelling(&mut self, inner: &PropUni) -> Result<BTreeSet<StateId>, ExecError> {
+    fn compute_ex_labelling(
+        &mut self,
+        inner: &UniOperator,
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         self.compute_labelling(&inner.0)?;
         let inner_labelling = self.get_labelling(&inner.0);
         let mut result = BTreeSet::new();
@@ -145,7 +148,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         Ok(result)
     }
 
-    fn compute_eg_labelling(&mut self, inner: &PropG) -> Result<BTreeSet<StateId>, ExecError> {
+    fn compute_eg_labelling(&mut self, inner: &OperatorG) -> Result<BTreeSet<StateId>, ExecError> {
         // Boolean SCC-based labelling procedure CheckEG from Model Checking 1999 by Clarke et al.
 
         // compute inner labelling
@@ -179,7 +182,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         Ok(eg_labelling)
     }
 
-    fn compute_eu_labelling(&mut self, prop: &PropU) -> Result<BTreeSet<StateId>, ExecError> {
+    fn compute_eu_labelling(&mut self, prop: &OperatorU) -> Result<BTreeSet<StateId>, ExecError> {
         // worklist-based labelling procedure CheckEU from Model Checking 1999 by Clarke et al.
 
         self.compute_labelling(&prop.hold)?;

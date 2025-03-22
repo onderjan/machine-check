@@ -1,6 +1,8 @@
-use super::{PropBi, PropF, PropG, PropR, PropTemp, PropU, PropUni, Proposition};
+use super::{
+    BiOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property, TemporalOperator, UniOperator,
+};
 
-impl Proposition {
+impl Property {
     /// Converts to Positive Normal Form, with all negations propagated inside literals.
     #[must_use]
     pub fn pnf(&self) -> Self {
@@ -14,166 +16,166 @@ impl Proposition {
     fn pnf_inner(&self, complement: bool) -> Self {
         // propagate negations into the literals / constants
         match self {
-            Proposition::Const(value) => {
+            Property::Const(value) => {
                 if complement {
-                    Proposition::Const(!value)
+                    Property::Const(!value)
                 } else {
                     self.clone()
                 }
             }
-            Proposition::Literal(lit) => {
+            Property::Literal(lit) => {
                 if complement {
                     let mut lit = lit.clone();
                     if complement {
                         lit.complementary = !lit.complementary;
                     }
-                    Proposition::Literal(lit)
+                    Property::Literal(lit)
                 } else {
                     self.clone()
                 }
             }
-            Proposition::Negation(inner) => {
+            Property::Negation(inner) => {
                 // remove this negation and flip complement
                 inner.0.pnf_inner(!complement)
             }
-            Proposition::Or(inner) => {
+            Property::Or(inner) => {
                 let inner = inner.pnf_inner(complement);
                 if complement {
                     // !(p or q) = (!p and !q)
-                    Proposition::And(inner)
+                    Property::And(inner)
                 } else {
-                    Proposition::Or(inner)
+                    Property::Or(inner)
                 }
             }
-            Proposition::And(inner) => {
+            Property::And(inner) => {
                 let inner = inner.pnf_inner(complement);
                 if complement {
                     // !(p and q) = (!p or !q)
-                    Proposition::Or(inner)
+                    Property::Or(inner)
                 } else {
-                    Proposition::And(inner)
+                    Property::And(inner)
                 }
             }
-            Proposition::E(inner) => {
+            Property::E(inner) => {
                 let inner = inner.pnf_inner(complement);
                 if complement {
                     // !E[t] = A[!t]
-                    Proposition::A(inner)
+                    Property::A(inner)
                 } else {
-                    Proposition::E(inner)
+                    Property::E(inner)
                 }
             }
-            Proposition::A(inner) => {
+            Property::A(inner) => {
                 let inner = inner.pnf_inner(complement);
                 if complement {
                     // !A[t] = E[!t]
-                    Proposition::E(inner)
+                    Property::E(inner)
                 } else {
-                    Proposition::A(inner)
+                    Property::A(inner)
                 }
             }
         }
     }
 }
 
-impl PropTemp {
+impl TemporalOperator {
     #[must_use]
     pub fn pnf_inner(&self, complement: bool) -> Self {
         match self {
-            PropTemp::X(inner) => {
+            TemporalOperator::X(inner) => {
                 // !X[p] = X[!p]
                 let inner = inner.pnf_inner(complement);
-                PropTemp::X(inner)
+                TemporalOperator::X(inner)
             }
-            PropTemp::F(inner) => {
+            TemporalOperator::F(inner) => {
                 // !F[p] = G[!p]
                 if complement {
                     let inner = inner.pnf_with_complement();
-                    PropTemp::G(inner)
+                    TemporalOperator::G(inner)
                 } else {
                     let inner = inner.pnf_no_complement();
-                    PropTemp::F(inner)
+                    TemporalOperator::F(inner)
                 }
             }
-            PropTemp::G(inner) => {
+            TemporalOperator::G(inner) => {
                 // !G[p] = F[!p]
                 if complement {
                     let inner = inner.pnf_with_complement();
-                    PropTemp::F(inner)
+                    TemporalOperator::F(inner)
                 } else {
                     let inner = inner.pnf_no_complement();
-                    PropTemp::G(inner)
+                    TemporalOperator::G(inner)
                 }
             }
-            PropTemp::U(inner) => {
+            TemporalOperator::U(inner) => {
                 // ![p U q] = [!p R !q]
                 if complement {
                     let inner = inner.pnf_with_complement();
-                    PropTemp::R(inner)
+                    TemporalOperator::R(inner)
                 } else {
                     let inner = inner.pnf_no_complement();
-                    PropTemp::U(inner)
+                    TemporalOperator::U(inner)
                 }
             }
-            PropTemp::R(inner) => {
+            TemporalOperator::R(inner) => {
                 // ![p R q] = [!p U !q]
                 if complement {
                     let inner = inner.pnf_with_complement();
-                    PropTemp::U(inner)
+                    TemporalOperator::U(inner)
                 } else {
                     let inner = inner.pnf_no_complement();
-                    PropTemp::R(inner)
+                    TemporalOperator::R(inner)
                 }
             }
         }
     }
 }
 
-impl PropUni {
+impl UniOperator {
     #[must_use]
     pub fn pnf_inner(&self, complement: bool) -> Self {
-        PropUni(Box::new(self.0.pnf_inner(complement)))
+        UniOperator(Box::new(self.0.pnf_inner(complement)))
     }
 }
 
-impl PropBi {
+impl BiOperator {
     #[must_use]
     pub fn pnf_inner(&self, complement: bool) -> Self {
-        PropBi {
+        BiOperator {
             a: Box::new(self.a.pnf_inner(complement)),
             b: Box::new(self.b.pnf_inner(complement)),
         }
     }
 }
 
-impl PropF {
+impl OperatorF {
     #[must_use]
-    pub fn pnf_with_complement(&self) -> PropG {
-        PropG(Box::new(self.0.pnf_inner(true)))
+    pub fn pnf_with_complement(&self) -> OperatorG {
+        OperatorG(Box::new(self.0.pnf_inner(true)))
     }
 
     #[must_use]
     pub fn pnf_no_complement(&self) -> Self {
-        PropF(Box::new(self.0.pnf_inner(false)))
+        OperatorF(Box::new(self.0.pnf_inner(false)))
     }
 }
 
-impl PropG {
+impl OperatorG {
     #[must_use]
-    pub fn pnf_with_complement(&self) -> PropF {
-        PropF(Box::new(self.0.pnf_inner(true)))
+    pub fn pnf_with_complement(&self) -> OperatorF {
+        OperatorF(Box::new(self.0.pnf_inner(true)))
     }
 
     #[must_use]
     pub fn pnf_no_complement(&self) -> Self {
-        PropG(Box::new(self.0.pnf_inner(false)))
+        OperatorG(Box::new(self.0.pnf_inner(false)))
     }
 }
 
-impl PropU {
+impl OperatorU {
     #[must_use]
-    pub fn pnf_with_complement(&self) -> PropR {
-        PropR {
+    pub fn pnf_with_complement(&self) -> OperatorR {
+        OperatorR {
             releaser: Box::new(self.hold.pnf_inner(true)),
             releasee: Box::new(self.until.pnf_inner(true)),
         }
@@ -181,17 +183,17 @@ impl PropU {
 
     #[must_use]
     pub fn pnf_no_complement(&self) -> Self {
-        PropU {
+        OperatorU {
             hold: Box::new(self.hold.pnf_inner(false)),
             until: Box::new(self.until.pnf_inner(false)),
         }
     }
 }
 
-impl PropR {
+impl OperatorR {
     #[must_use]
-    pub fn pnf_with_complement(&self) -> PropU {
-        PropU {
+    pub fn pnf_with_complement(&self) -> OperatorU {
+        OperatorU {
             hold: Box::new(self.releaser.pnf_inner(true)),
             until: Box::new(self.releasee.pnf_inner(true)),
         }
@@ -199,7 +201,7 @@ impl PropR {
 
     #[must_use]
     pub fn pnf_no_complement(&self) -> Self {
-        PropR {
+        OperatorR {
             releaser: Box::new(self.releaser.pnf_inner(false)),
             releasee: Box::new(self.releasee.pnf_inner(false)),
         }

@@ -1,4 +1,4 @@
-use machine_check_exec::{PreparedProperty, Proposition};
+use machine_check_exec::{PreparedProperty, Property};
 use wasm_bindgen::JsCast;
 use web_sys::HtmlButtonElement;
 
@@ -58,7 +58,7 @@ async fn on_new_property_click() {
         return;
     };
 
-    let property = match Proposition::parse(&property) {
+    let property = match Property::parse(&property) {
         Ok(ok) => PreparedProperty::new(ok),
         Err(err) => {
             window

@@ -1,7 +1,7 @@
 use crate::{ExecError, ExecResult, FullMachine};
 use log::{info, warn};
 use machine_check_common::ExecStats;
-use machine_check_exec::{Framework, PreparedProperty, Proposition, Strategy};
+use machine_check_exec::{Framework, PreparedProperty, Property, Strategy};
 
 /// Verifies the given system with given arguments.
 ///
@@ -11,7 +11,7 @@ use machine_check_exec::{Framework, PreparedProperty, Proposition, Strategy};
 /// it is verified first. If it does not hold, it is an execution error.
 pub fn verify<M: FullMachine>(
     system: M,
-    prop: Option<Proposition>,
+    prop: Option<Property>,
     assume_inherent: bool,
     strategy: Strategy,
 ) -> ExecResult {
@@ -35,7 +35,7 @@ pub fn verify<M: FullMachine>(
     // verify inherent property first
     let mut framework = Framework::<M>::new(abstract_system, &strategy);
 
-    let inherent_property = PreparedProperty::new(Proposition::inherent());
+    let inherent_property = PreparedProperty::new(Property::inherent());
 
     match prop {
         Some(prop) => {

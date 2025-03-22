@@ -9,7 +9,7 @@ use log::error;
 use log::info;
 use log::log_enabled;
 use log::trace;
-use machine_check_exec::Proposition;
+use machine_check_exec::Property;
 use machine_check_exec::Strategy;
 pub use traits::Ext;
 pub use types::{Bitvector, BitvectorArray, Signed, Unsigned};
@@ -146,7 +146,7 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
 
     // determine the proposition to verify
     let prop = if let Some(property_str) = exec_args.property {
-        match Proposition::parse(&property_str) {
+        match Property::parse(&property_str) {
             Ok(prop) => Some(prop),
             Err(err) => {
                 return ExecResult {
@@ -206,7 +206,7 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
 
 fn start_gui<M: FullMachine>(
     system: M,
-    property: Option<Proposition>,
+    property: Option<Property>,
     strategy: Strategy,
 ) -> ExecError {
     // the GUI will, at best, return no result

@@ -10,121 +10,121 @@ mod pnf;
 
 /// CTL proposition.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub enum Proposition {
+pub enum Property {
     Const(bool),
     Literal(Literal),
-    Negation(PropUni),
-    Or(PropBi),
-    And(PropBi),
-    E(PropTemp),
-    A(PropTemp),
+    Negation(UniOperator),
+    Or(BiOperator),
+    And(BiOperator),
+    E(TemporalOperator),
+    A(TemporalOperator),
 }
 
 /// Temporal operator within CTL path quantifier.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub enum PropTemp {
-    X(PropUni),
-    F(PropF),
-    G(PropG),
-    U(PropU),
-    R(PropR),
+pub enum TemporalOperator {
+    X(UniOperator),
+    F(OperatorF),
+    G(OperatorG),
+    U(OperatorU),
+    R(OperatorR),
 }
 
-impl Proposition {
-    pub fn parse(prop_str: &str) -> Result<Proposition, ExecError> {
+impl Property {
+    pub fn parse(prop_str: &str) -> Result<Property, ExecError> {
         parser::parse(prop_str)
     }
 
-    pub fn inherent() -> Proposition {
-        Proposition::A(PropTemp::G(PropG(Box::new(Proposition::Literal(
+    pub fn inherent() -> Property {
+        Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Literal(
             Literal::new(
                 String::from("__panic"),
-                crate::proposition::ComparisonType::Eq,
+                crate::property::ComparisonType::Eq,
                 0,
                 None,
             ),
         )))))
     }
 
-    pub fn children(&self) -> Vec<Proposition> {
+    pub fn children(&self) -> Vec<Property> {
         match self {
-            Proposition::Const(_) => Vec::new(),
-            Proposition::Literal(_) => Vec::new(),
-            Proposition::Negation(prop_uni) => vec![*prop_uni.0.clone()],
-            Proposition::Or(prop_bi) => vec![*prop_bi.a.clone(), *prop_bi.b.clone()],
-            Proposition::And(prop_bi) => vec![*prop_bi.a.clone(), *prop_bi.b.clone()],
-            Proposition::E(prop_temp) => prop_temp.children(),
-            Proposition::A(prop_temp) => prop_temp.children(),
+            Property::Const(_) => Vec::new(),
+            Property::Literal(_) => Vec::new(),
+            Property::Negation(prop_uni) => vec![*prop_uni.0.clone()],
+            Property::Or(prop_bi) => vec![*prop_bi.a.clone(), *prop_bi.b.clone()],
+            Property::And(prop_bi) => vec![*prop_bi.a.clone(), *prop_bi.b.clone()],
+            Property::E(prop_temp) => prop_temp.children(),
+            Property::A(prop_temp) => prop_temp.children(),
         }
     }
 }
 
-impl PropTemp {
-    pub fn children(&self) -> Vec<Proposition> {
+impl TemporalOperator {
+    pub fn children(&self) -> Vec<Property> {
         match self {
-            PropTemp::X(prop_uni) => {
+            TemporalOperator::X(prop_uni) => {
                 vec![*prop_uni.0.clone()]
             }
-            PropTemp::F(prop_f) => {
+            TemporalOperator::F(prop_f) => {
                 vec![*prop_f.0.clone()]
             }
-            PropTemp::G(prop_g) => {
+            TemporalOperator::G(prop_g) => {
                 vec![*prop_g.0.clone()]
             }
-            PropTemp::U(prop_u) => {
+            TemporalOperator::U(prop_u) => {
                 vec![*prop_u.hold.clone(), *prop_u.until.clone()]
             }
-            PropTemp::R(prop_r) => {
+            TemporalOperator::R(prop_r) => {
                 vec![*prop_r.releaser.clone(), *prop_r.releasee.clone()]
             }
         }
     }
 }
 
-impl Display for Proposition {
+impl Display for Property {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Proposition::Const(value) => {
+            Property::Const(value) => {
                 write!(f, "{}", value)
             }
-            Proposition::Literal(literal) => {
+            Property::Literal(literal) => {
                 write!(f, "{}", literal)
             }
-            Proposition::Negation(prop_uni) => {
+            Property::Negation(prop_uni) => {
                 write!(f, "!({})", prop_uni.0)
             }
-            Proposition::Or(prop_bi) => {
+            Property::Or(prop_bi) => {
                 write!(f, "({}) | ({})", prop_bi.a, prop_bi.b)
             }
-            Proposition::And(prop_bi) => {
+            Property::And(prop_bi) => {
                 write!(f, "({}) & ({})", prop_bi.a, prop_bi.b)
             }
-            Proposition::E(prop_temp) => {
+            Property::E(prop_temp) => {
                 write!(f, "E{}", prop_temp)
             }
-            Proposition::A(prop_temp) => {
+            Property::A(prop_temp) => {
                 write!(f, "A{}", prop_temp)
             }
         }
     }
 }
 
-impl Display for PropTemp {
+impl Display for TemporalOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PropTemp::X(prop_uni) => {
+            TemporalOperator::X(prop_uni) => {
                 write!(f, "X[{}]", prop_uni.0)
             }
-            PropTemp::F(prop_f) => {
+            TemporalOperator::F(prop_f) => {
                 write!(f, "F[{}]", prop_f.0)
             }
-            PropTemp::G(prop_g) => {
+            TemporalOperator::G(prop_g) => {
                 write!(f, "G[{}]", prop_g.0)
             }
-            PropTemp::U(prop_u) => {
+            TemporalOperator::U(prop_u) => {
                 write!(f, "[{}]U[{}]", prop_u.hold, prop_u.until)
             }
-            PropTemp::R(prop_r) => {
+            TemporalOperator::R(prop_r) => {
                 write!(f, "[{}]R[{}]", prop_r.releaser, prop_r.releasee)
             }
         }
@@ -246,34 +246,34 @@ impl Display for Literal {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub struct PropUni(pub Box<Proposition>);
+pub struct UniOperator(pub Box<Property>);
 
-impl PropUni {
-    pub fn new(prop: Proposition) -> Self {
-        PropUni(Box::new(prop))
+impl UniOperator {
+    pub fn new(prop: Property) -> Self {
+        UniOperator(Box::new(prop))
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub struct PropBi {
-    pub a: Box<Proposition>,
-    pub b: Box<Proposition>,
+pub struct BiOperator {
+    pub a: Box<Property>,
+    pub b: Box<Property>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub struct PropF(pub Box<Proposition>);
+pub struct OperatorF(pub Box<Property>);
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub struct PropG(pub Box<Proposition>);
+pub struct OperatorG(pub Box<Property>);
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub struct PropU {
-    pub hold: Box<Proposition>,
-    pub until: Box<Proposition>,
+pub struct OperatorU {
+    pub hold: Box<Property>,
+    pub until: Box<Property>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
-pub struct PropR {
-    pub releaser: Box<Proposition>,
-    pub releasee: Box<Proposition>,
+pub struct OperatorR {
+    pub releaser: Box<Property>,
+    pub releasee: Box<Property>,
 }

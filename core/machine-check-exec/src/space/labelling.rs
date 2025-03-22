@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
-use crate::proposition::InequalityType;
-use crate::proposition::Literal;
+use crate::property::InequalityType;
+use crate::property::Literal;
 
 use super::{Space, StateId};
 use mck::abstr::ManipField;
@@ -44,21 +44,21 @@ impl<M: FullMachine> Space<M> {
             };
             let right_unsigned = literal.right_number_unsigned();
             let comparison_result = match literal.comparison_type() {
-                crate::proposition::ComparisonType::Eq => {
+                crate::property::ComparisonType::Eq => {
                     if min_unsigned == max_unsigned {
                         Some(min_unsigned == right_unsigned)
                     } else {
                         None
                     }
                 }
-                crate::proposition::ComparisonType::Neq => {
+                crate::property::ComparisonType::Neq => {
                     if min_unsigned == max_unsigned {
                         Some(min_unsigned != right_unsigned)
                     } else {
                         None
                     }
                 }
-                crate::proposition::ComparisonType::Unsigned(inequality_type) => {
+                crate::property::ComparisonType::Unsigned(inequality_type) => {
                     Self::resolve_inequality(
                         inequality_type,
                         min_unsigned,
@@ -66,7 +66,7 @@ impl<M: FullMachine> Space<M> {
                         right_unsigned,
                     )
                 }
-                crate::proposition::ComparisonType::Signed(inequality_type) => {
+                crate::property::ComparisonType::Signed(inequality_type) => {
                     let (Some(min_signed), Some(max_signed)) =
                         (manip_field.min_signed(), manip_field.max_signed())
                     else {

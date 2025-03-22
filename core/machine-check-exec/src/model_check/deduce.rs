@@ -4,7 +4,7 @@ use machine_check_common::{ExecError, ThreeValued};
 use mck::concr::FullMachine;
 
 use crate::{
-    proposition::{PropBi, PropG, PropTemp, PropU, PropUni, Proposition},
+    property::{Property, BiOperator, OperatorG, OperatorU, TemporalOperator, UniOperator},
     space::StateId,
 };
 
@@ -13,7 +13,7 @@ use super::{Culprit, ThreeValuedChecker};
 /// Deduces the culprit of unknown three-valued model-checking result.
 pub(super) fn deduce_culprit<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
-    prop: &Proposition,
+    prop: &Property,
 ) -> Result<Culprit, ExecError> {
     // incomplete, compute culprit
     // it must start with one of the initial states
@@ -35,29 +35,29 @@ pub(super) fn deduce_culprit<M: FullMachine>(
 /// Deduces the ending states of the culprit, after the ones already found.
 fn deduce_end<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
-    prop: &Proposition,
+    prop: &Property,
     path: &VecDeque<StateId>,
 ) -> Result<Culprit, ExecError> {
     assert!(checker
         .get_state_labelling(prop, *path.back().unwrap())
         .is_unknown());
     match prop {
-        Proposition::Const(_) => {
+        Property::Const(_) => {
             // never ends in const
             panic!("const should never be the labelling culprit")
         }
-        Proposition::Literal(literal) => {
+        Property::Literal(literal) => {
             // culprit ends here
             Ok(Culprit {
                 path: path.clone(),
                 literal: literal.clone(),
             })
         }
-        Proposition::Negation(inner) => {
+        Property::Negation(inner) => {
             // propagate to inner
             deduce_end(checker, &inner.0, path)
         }
-        Proposition::Or(PropBi { a, b }) => {
+        Property::Or(BiOperator { a, b }) => {
             // the state should be unknown in p or q
             let state_index = *path.back().unwrap();
             let a_labelling = checker.get_state_labelling(a.as_ref(), state_index);
@@ -69,7 +69,7 @@ fn deduce_end<M: FullMachine>(
                 deduce_end(checker, b.as_ref(), path)
             }
         }
-        Proposition::And(PropBi { a, b }) => {
+        Property::And(BiOperator { a, b }) => {
             // the state should be unknown in p or q
             let state_index = *path.back().unwrap();
             let a_labelling = checker.get_state_labelling(a.as_ref(), state_index);
@@ -81,10 +81,10 @@ fn deduce_end<M: FullMachine>(
                 deduce_end(checker, b.as_ref(), path)
             }
         }
-        Proposition::E(prop_temp) => match prop_temp {
-            PropTemp::X(inner) => deduce_end_ex(checker, path, inner),
-            PropTemp::G(inner) => deduce_end_eg(checker, path, inner),
-            PropTemp::U(inner) => deduce_end_eu(checker, path, inner),
+        Property::E(prop_temp) => match prop_temp {
+            TemporalOperator::X(inner) => deduce_end_ex(checker, path, inner),
+            TemporalOperator::G(inner) => deduce_end_eg(checker, path, inner),
+            TemporalOperator::U(inner) => deduce_end_eu(checker, path, inner),
             _ => {
                 panic!(
                     "expected {:?} to have only X, G, U temporal operators",
@@ -101,7 +101,7 @@ fn deduce_end<M: FullMachine>(
 fn deduce_end_ex<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     path: &VecDeque<StateId>,
-    inner: &PropUni,
+    inner: &UniOperator,
 ) -> Result<Culprit, ExecError> {
     // lengthen by direct successor with unknown inner
     let path_back_index = *path.back().unwrap();
@@ -121,7 +121,7 @@ fn deduce_end_ex<M: FullMachine>(
 fn deduce_end_eg<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     path: &VecDeque<StateId>,
-    inner: &PropG,
+    inner: &OperatorG,
 ) -> Result<Culprit, ExecError> {
     // breadth-first search to find incomplete inner
     // if inner becomes false, we do not inspect the state or successors further
@@ -174,7 +174,7 @@ fn deduce_end_eg<M: FullMachine>(
 fn deduce_end_eu<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
     path: &VecDeque<StateId>,
-    inner: &PropU,
+    inner: &OperatorU,
 ) -> Result<Culprit, ExecError> {
     // breadth-first search to find the hold or until that is incomplete
     // if the hold becomes false or until becomes true, we do not inspect the state or successors further

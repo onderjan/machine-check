@@ -4,7 +4,7 @@ use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
 use machine_check_common::ExecError;
-use machine_check_exec::{Framework, Proposition, Strategy};
+use machine_check_exec::{Framework, Property, Strategy};
 use mck::concr::FullMachine;
 use sync::BackendSync;
 use window::Window;
@@ -21,7 +21,7 @@ const FAVICON_ICO: &[u8] = include_bytes!("../content/favicon.ico");
 
 pub fn run<M: FullMachine>(
     system: M,
-    property: Option<Proposition>,
+    property: Option<Property>,
     strategy: Strategy,
 ) -> Result<(), ExecError> {
     // TODO: allow setting custom titles instead of relying on the binary name
