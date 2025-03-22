@@ -6,6 +6,9 @@ license = "MIT OR Apache-2.0"
 description = "Crate for the formal verification of AVR microcontrollers by machine-check"
 rust-version = "1.83"
 
+[features]
+gui = ["machine-check/gui"]
+
 [dependencies]
 machine-check = "=0.4.0-alpha.1"
 
