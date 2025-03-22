@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-hw"
-version = "0.3.1-alpha-1"
+version = "0.4.0-alpha.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -8,11 +8,11 @@ description = "Formal verification tool for hardware digital systems"
 rust-version = "1.83"
 
 [dependencies]
-mck = "=0.3.1"
-machine-check-common = "=0.3.1"
-machine-check-machine = "=0.3.1"
-machine-check-compile = "=0.3.1-alpha-1"
-machine-check = "=0.3.1"
+mck = "=0.4.0-alpha.1"
+machine-check-common = "=0.4.0-alpha.1"
+machine-check-machine = "=0.4.0-alpha.1"
+machine-check-compile = "=0.4.0-alpha.1"
+machine-check = "=0.4.0-alpha.1"
 
 btor2rs = "=0.1.0"
 proc-macro2 = "1.0.67"

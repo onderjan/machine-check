@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-gui"
-version = "0.3.1"
+version = "0.4.0-alpha.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Utility crate for the formal verification tool machine-check"
@@ -20,9 +20,9 @@ build-log-debug = []
 # Note that we need to be also able to compile the frontend 
 # using the backend architecture, so this includes dependencies 
 # that are frontend-only in practice.
-machine-check-common = "=0.3.1"
-mck = "=0.3.1"
-machine-check-exec = "=0.3.1"
+machine-check-common = "=0.4.0-alpha.1"
+mck = "=0.4.0-alpha.1"
+machine-check-exec = "=0.4.0-alpha.1"
 
 anyhow = "1.0.89"
 wasm-bindgen = "0.2.100"
