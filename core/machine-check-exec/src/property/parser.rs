@@ -216,3 +216,47 @@ impl PropertyParser {
         })
     }
 }
+
+#[test]
+fn test_parse() {
+    let parsed = parse("AG[eq(a, 0)]").unwrap();
+    assert_eq!(
+        parsed,
+        Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Literal(
+            Literal {
+                complementary: false,
+                left_name: String::from("a"),
+                comparison_type: ComparisonType::Eq,
+                right_number: 0,
+                index: None
+            }
+        )))))
+    );
+    assert_eq!(&parsed.to_string(), "AG[a == 0]");
+
+    let parsed = parse("EU[signed_gt(prOpeRty, 37), unsigned_le(UNSIGNED, 0x5E)]").unwrap();
+    assert_eq!(
+        parsed,
+        Property::E(TemporalOperator::U(OperatorU {
+            hold: Box::new(Property::Literal(Literal {
+                complementary: false,
+                left_name: String::from("prOpeRty"),
+                comparison_type: ComparisonType::Signed(crate::property::InequalityType::Gt),
+                right_number: 37,
+                index: None
+            })),
+            until: Box::new(Property::Literal(Literal {
+                complementary: false,
+                left_name: String::from("UNSIGNED"),
+                comparison_type: ComparisonType::Unsigned(crate::property::InequalityType::Le),
+                right_number: 0x5E,
+                index: None
+            }))
+        }))
+    );
+    assert_eq!(0x5E, 94);
+    assert_eq!(
+        &parsed.to_string(),
+        "E[signed(prOpeRty) > 37]U[unsigned(UNSIGNED) <= 94]"
+    );
+}
