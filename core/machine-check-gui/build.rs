@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::anyhow;
+use tempfile::TempDir;
 use tinyjson::JsonValue;
 use toml_edit::Table;
 
@@ -28,6 +29,16 @@ macro_rules! debug {
         { let _ = format!($($tokens)*);}
     }
 }
+
+/// Whether to build the WebAssembly frontend.
+///
+///
+const ENV_BUILD_FRONTEND: &str = "MACHINE_CHECK_GUI_BUILD_FRONTEND";
+
+/// Whether to prepare the WebAssembly frontend artefacts for distribution.
+///
+///
+const ENV_PREPARE_FRONTEND: &str = "MACHINE_CHECK_GUI_PREPARE_FRONTEND";
 
 /// Name of the environment variable that determines where the frontend will be built.
 ///
@@ -58,11 +69,72 @@ const ENV_POSTPONE_ERRORS: &str = "MACHINE_CHECK_GUI_POSTPONE_ERRORS";
 
 const ENV_VARIABLES: [&str; 2] = [ENV_WASM_DIR, ENV_POSTPONE_ERRORS];
 
-// The main function. Simply builds the frontend and panics on error.
+/// The main function. Simply calls the run function and and panics on error.
 fn main() {
-    if let Err(err) = build() {
+    if let Err(err) = run() {
         panic!("Error building WASM frontend: {}", err);
     }
+}
+
+/// The run function.
+///
+/// Either builds the fronend or, by default, arranges the sources and checks if they match
+/// the prepared WebAssembly files. This alleviates the need for every user to install
+/// the appropriate WebAssembly build tools.
+fn run() -> anyhow::Result<()> {
+    let prepare = bool_env(ENV_PREPARE_FRONTEND, false)?;
+    let arrangement = arrange(prepare)?;
+    if bool_env(ENV_BUILD_FRONTEND, false)? {
+        build(&arrangement)?;
+    } else {
+        copy_prebuilt_wasm(arrangement.hex_hash.clone())?;
+    }
+
+    // Close and remove the temporary directory if we created it.
+    if let Some(frontend_package_tempdir) = arrangement.frontend_package_tempdir {
+        if let Err(err) = frontend_package_tempdir.close() {
+            // just warn if we did not succeed
+            warn!("Could not close WASM temporary directory: {}", err)
+        }
+    };
+    Ok(())
+}
+
+fn copy_prebuilt_wasm(hex_hash: String) -> anyhow::Result<()> {
+    // Change the current working directory to the cargo manifest directory of our package.
+    let this_package_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    std::env::set_current_dir(this_package_dir)
+        .expect("Should be able to move to manifest directory");
+
+    // Ensure that the prebuilt WASM binaries match the source code by comparing the hash to the arrangement.
+    let prebuilt_wasm_dir = this_package_dir.join(PREBUILT_WASM_DIR);
+    if !(std::fs::metadata(&prebuilt_wasm_dir).is_ok_and(|metadata| metadata.is_dir())) {
+        return Err(anyhow!(
+            "Cannot use prebuilt frontend WebAssembly as the folder does not exist."
+        ));
+    }
+    let prebuilt_hex_hash =
+        fs::read_to_string(prebuilt_wasm_dir.join(HASH_FILE_NAME)).map_err(|err| {
+            anyhow!(
+                "Could not read the file of prebuilt WebAssembly frontend: {}",
+                err
+            )
+        })?;
+    if hex_hash != prebuilt_hex_hash {
+        return Err(anyhow!(
+            "The prebuilt WebAssembly frontend does not match the source code"
+        ));
+    }
+
+    // We now have everything we need. Delete the previous artefacts.
+    let artifact_dir = this_package_dir.join(ARTIFACT_DIR);
+    let _ = fs::remove_dir_all(&artifact_dir);
+
+    // Copy the prebuilt WASM binaries to the artefact directory.
+    copy_dir_all(prebuilt_wasm_dir, artifact_dir)
+        .map_err(|err| anyhow!("Cannot copy the prebuilt frontend directory: {err}"))?;
+
+    Ok(())
 }
 
 /// Build the WebAssembly frontend.
@@ -71,9 +143,47 @@ fn main() {
 /// We also cannot call cargo build on the current package using a different target as this directory
 /// is already locked by cargo (and we would wait for the lock forever).
 ///
-/// So we need to be clever, prepare and build the frontend somewhere else. This function gets the
-/// relevant data and then hands it over for preparation and build.
-fn build() -> anyhow::Result<()> {
+/// So we need to be clever, arrange and build the frontend somewhere else. This function gets the
+/// arrangement data and and builds.
+fn build(arrangement: &Arrangement) -> anyhow::Result<()> {
+    // Compile the frontend package, only warning if we should postpone errors.
+    match compile_frontend_package(arrangement) {
+        Ok(None) => {}
+        Ok(Some(postponed)) => {
+            warn!(
+                "WASM frontend build failed (postponing error): {}",
+                postponed
+            )
+        }
+        Err(err) => return Err(anyhow!("Build failed: {}", err)),
+    }
+
+    if arrangement.prepare {
+        // copy the compiled content to the prebuilt WASM directory.
+        let prebuilt_wasm_dir = arrangement.this_package_dir.join(PREBUILT_WASM_DIR);
+        let artifact_dir = arrangement.this_package_dir.join(ARTIFACT_DIR);
+        let _ = fs::remove_dir_all(&prebuilt_wasm_dir);
+
+        // Copy the prebuilt WASM binaries to the artefact directory.
+        copy_dir_all(artifact_dir, prebuilt_wasm_dir)
+            .map_err(|err| anyhow!("Cannot copy the prebuilt frontend directory: {err}"))?;
+        warn!("Frontend WebAssembly prepared for deployment.")
+    }
+
+    Ok(())
+}
+
+struct Arrangement {
+    prepare: bool,
+    this_package_dir: PathBuf,
+    frontend_package_tempdir: Option<TempDir>,
+    frontend_package_dir: PathBuf,
+    artifact_dir: PathBuf,
+    postpone_build_errors: bool,
+    hex_hash: String,
+}
+
+fn arrange(prepare: bool) -> anyhow::Result<Arrangement> {
     // Change the current working directory to the cargo manifest directory of our package (not the workspace).
     let this_package_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     std::env::set_current_dir(this_package_dir)
@@ -96,22 +206,7 @@ fn build() -> anyhow::Result<()> {
     // In the standard case when we are not working on machine-check-gui, no errors should be present
     // at all, so we can just safely not postpone build errors.
 
-    let postpone_build_errors = if let Some(env_postpone_errors) =
-        std::env::var_os(ENV_POSTPONE_ERRORS)
-    {
-        // ignore case to give build scripts some leeway
-        if env_postpone_errors.eq_ignore_ascii_case("true") {
-            true
-        } else if env_postpone_errors.eq_ignore_ascii_case("false") {
-            false
-        } else {
-            panic!("Environment variable {} is defined, expected true/false ignoring case, but have: {:?}", 
-                ENV_POSTPONE_ERRORS, env_postpone_errors);
-        }
-    } else {
-        // do not postpone errors if the variable is undefined
-        false
-    };
+    let postpone_build_errors = bool_env(ENV_POSTPONE_ERRORS, false)?;
 
     // Get the location where frontend WASM package should be from an environment variable.
     let (frontend_package_dir, frontend_package_tempdir) = match std::env::var_os(ENV_WASM_DIR) {
@@ -139,22 +234,28 @@ fn build() -> anyhow::Result<()> {
     let workspace_toml_path = cargo_toml_path(true)?;
 
     // If the package and workspace Cargo.toml path is the same, the package is the root of the workspace.
-    let workspace_toml_path = if package_toml_path != workspace_toml_path {
+    let mut workspace_toml_path = if package_toml_path != workspace_toml_path {
         Some(workspace_toml_path)
     } else {
         None
     };
 
+    // If we are preparing for deployment, ignore workspace Cargo.toml.
+    if prepare {
+        warn!("Preparing the frontend WebAssembly for deployment. Make sure you know what you are doing.");
+        if workspace_toml_path.is_some() {
+            warn!("Overriding workspace build due to deployment preparation.");
+            workspace_toml_path = None;
+        }
+    }
+
     // We now have everything we need. Delete the previous artefacts.
     let artifact_dir = this_package_dir.join(ARTIFACT_DIR);
-    fs::create_dir_all(&artifact_dir)
-        .map_err(|err| anyhow!("Cannot create the artefact directory: {err}"))?;
-    fs::remove_dir_all(&artifact_dir)
-        .map_err(|err| anyhow!("Cannot remove the artefact directory: {}", err))?;
+    let _ = fs::remove_dir_all(&artifact_dir);
 
-    // Prepare the frontend package.
+    // Arrange the frontend package.
 
-    prepare_frontend_package(
+    arrange_frontend_package(
         this_package_dir,
         &frontend_package_dir,
         package_toml_path,
@@ -162,42 +263,38 @@ fn build() -> anyhow::Result<()> {
     )
     .map_err(|err| anyhow!("Package preparation failed: {}", err))?;
 
-    // Compile the frontend package, only warning if we should postpone errors.
-    match compile_frontend_package(
-        this_package_dir,
-        &frontend_package_dir,
-        &artifact_dir,
-        postpone_build_errors,
-    ) {
-        Ok(None) => {}
-        Ok(Some(postponed)) => {
-            warn!(
-                "WASM frontend build failed (postponing error): {}",
-                postponed
-            )
-        }
-        Err(err) => return Err(anyhow!("Build failed: {}", err)),
-    }
+    // Get the frontend package directory hash.
+    let hex_hash = directory_hex_hash(String::from(
+        frontend_package_dir
+            .to_str()
+            .expect("Frontend package dir should be Unicode"),
+    ))?;
 
-    // Close and remove the temporary directory if we created it.
-    if let Some(frontend_package_tempdir) = frontend_package_tempdir {
-        if let Err(err) = frontend_package_tempdir.close() {
-            // just warn if we did not succeed
-            warn!("Could not close WASM temporary directory: {}", err)
-        }
-    }
-    Ok(())
+    Ok(Arrangement {
+        prepare,
+        this_package_dir: this_package_dir.to_path_buf(),
+        frontend_package_tempdir,
+        frontend_package_dir: frontend_package_dir.to_path_buf(),
+        artifact_dir: artifact_dir.to_path_buf(),
+        postpone_build_errors,
+        hex_hash,
+    })
 }
 
 const COPY_DIRECTORIES: [&str; 2] = ["src/shared", "src/frontend"];
 const COPY_FILES: [&str; 2] = ["src/frontend.rs", "src/shared.rs"];
 const LIB_RS: &str = "src/lib.rs";
 const CARGO_TOML: &str = "Cargo.toml";
+const RUST_TOOLCHAIN_TOML: &str = "rust-toolchain.toml";
 const SPECIAL_FILES: [&str; 2] = [LIB_RS, CARGO_TOML];
 
 const ARTIFACT_DIR: &str = "content/wasm";
 
-/// Prepare the frontend package directory for building.
+const PREBUILT_WASM_DIR: &str = "prebuilt_wasm";
+
+const HASH_FILE_NAME: &str = "hash.hex";
+
+/// Arrange the frontend package directory for building.
 ///
 /// After cleaning the frontend package directory, we will copy the frontend sources to the frontend
 /// package directory appropriately, and add a custom lib.rs to ensure only the frontend is compiled.
@@ -217,12 +314,18 @@ const ARTIFACT_DIR: &str = "content/wasm";
 /// standalone and when building the official machine-check repository.
 ///
 /// This function can change the working directory.
-fn prepare_frontend_package(
+fn arrange_frontend_package(
     this_package_dir: &Path,
     frontend_package_dir: &Path,
     package_toml_path: PathBuf,
     workspace_toml_path: Option<PathBuf>,
 ) -> anyhow::Result<()> {
+    if this_package_dir.join(RUST_TOOLCHAIN_TOML).exists() {
+        return Err(anyhow!(
+            "A rust-toolchain.toml in the package directory is not supported"
+        ));
+    }
+
     // Copy the appropriate directories and files to the WASM package directory.
     for copy_directory in COPY_DIRECTORIES {
         copy_dir_all(
@@ -274,8 +377,8 @@ fn prepare_frontend_package(
     // For simplicity, only process [dependencies].
     canonicalize_paths(&package_toml_path, &mut cargo_toml["dependencies"])?;
 
-    let mut patched_repository_package_paths: HashMap<String, HashMap<String, String>> =
-        HashMap::new();
+    let mut patched_repository_package_paths: BTreeMap<String, BTreeMap<String, String>> =
+        BTreeMap::new();
 
     // Adjust using the workspace Cargo.toml if there is one.
     if let Some(workspace_toml_path) = workspace_toml_path {
@@ -332,6 +435,22 @@ fn prepare_frontend_package(
             debug!("Applying workspace patch to WASM package");
             cargo_toml.insert("patch", patch);
         }
+
+        // Copy workspace rust-toolchain.toml if it exists.
+        let workspace_rust_toolchain_toml = workspace_toml_path
+            .parent()
+            .ok_or(anyhow!("Workspace Cargo.toml should have a parent"))?
+            .join(RUST_TOOLCHAIN_TOML);
+        if workspace_rust_toolchain_toml.exists() {
+            fs::copy(
+                workspace_rust_toolchain_toml.clone(),
+                frontend_package_dir.join(RUST_TOOLCHAIN_TOML),
+            )
+            .map_err(|err| anyhow!("Workspace rust-toolchain.toml could not be copied: {}", err))?;
+        }
+        // rerun the build script if the workspace Cargo.toml or rust-toolchain.toml changes
+        cargo_rerun_if_path_changed(&workspace_toml_path)?;
+        cargo_rerun_if_path_changed(&workspace_rust_toolchain_toml)?;
     }
 
     // Ensure build.rs is rebuilt when something is changed in patched dependency paths.
@@ -385,31 +504,28 @@ fn prepare_frontend_package(
 
 /// Compile the frontend and process it with wasm-bindgen, producing the final artefacts.
 ///
-/// After preparing the frontend package, we will cargo build it with the WASM target, and run
+/// After arranging the frontend package, we will cargo build it with the WASM target, and run
 /// wasm-bindgen on the built artefacts afterwards, producing the WASM files into the directory
 /// from which they will be served. Before the build, we will empty the directory so that we never get
 /// stale artefacts. The artefact existence is checked in machine-check-gui lib.rs, producing an error
 /// if they do not exist after this build.rs executes normally.
-fn compile_frontend_package(
-    this_package_dir: &Path,
-    frontend_package_dir: &Path,
-    artifact_dir: &Path,
-    postpone_build_errors: bool,
-) -> anyhow::Result<Option<anyhow::Error>> {
+fn compile_frontend_package(arrangement: &Arrangement) -> anyhow::Result<Option<anyhow::Error>> {
     // Prepare arguments for cargo build.
     // We want the target-dir (where to build to) to be the frontend package target subdirectory.
-    let cargo_target_dir = frontend_package_dir.join("target");
+    let cargo_target_dir: PathBuf = arrangement.frontend_package_dir.join("target");
     let cargo_target_dir_arg = create_equals_arg("target-dir", &cargo_target_dir);
 
     // Prepare cargo build for the WASM target.
-    std::env::set_current_dir(frontend_package_dir)?;
+    std::env::set_current_dir(&arrangement.frontend_package_dir)?;
     let mut cargo_build = Command::new(env!("CARGO"));
-    cargo_build.current_dir(frontend_package_dir).args([
-        "build",
-        "--package",
-        "machine-check-gui-wasm",
-        "--target=wasm32-unknown-unknown",
-    ]);
+    cargo_build
+        .current_dir(&arrangement.frontend_package_dir)
+        .args([
+            "build",
+            "--package",
+            "machine-check-gui-wasm",
+            "--target=wasm32-unknown-unknown",
+        ]);
     // Set the profile according to the current build profile.
     // TODO: Set the exactly same profile as our build.
     // This currently cannot be done easily due to https://github.com/rust-lang/cargo/issues/11054.
@@ -425,7 +541,7 @@ fn compile_frontend_package(
 
     cargo_build.arg(cargo_target_dir_arg);
     if let Err(err) = execute_command("cargo build", cargo_build) {
-        if postpone_build_errors {
+        if arrangement.postpone_build_errors {
             // propagate the error
             return Ok(Some(err));
         } else {
@@ -434,10 +550,10 @@ fn compile_frontend_package(
     }
 
     // Prepare arguments for wasm-bindgen.
-    let bindgen_out_dir_arg = create_equals_arg("out-dir", artifact_dir);
+    let bindgen_out_dir_arg = create_equals_arg("out-dir", &arrangement.artifact_dir);
 
     // Execute wasm-bindgen to obtain the final WASM with proper bindings.
-    std::env::set_current_dir(this_package_dir)?;
+    std::env::set_current_dir(&arrangement.this_package_dir)?;
     let mut wasm_bindgen = Command::new("wasm-bindgen");
     let target_path = format!(
         "wasm32-unknown-unknown/{}/machine_check_gui_wasm.wasm",
@@ -445,11 +561,18 @@ fn compile_frontend_package(
     );
 
     wasm_bindgen
-        .current_dir(this_package_dir)
+        .current_dir(&arrangement.this_package_dir)
         .arg("--target=web")
         .arg(bindgen_out_dir_arg)
         .arg(cargo_target_dir.join(target_path));
     execute_command("wasm-bindgen", wasm_bindgen)?;
+
+    // Write the frontend package directory hash to the artefact directory.
+    fs::write(
+        arrangement.artifact_dir.join(HASH_FILE_NAME),
+        arrangement.hex_hash.clone(),
+    )
+    .map_err(|err| anyhow!("Cannot write frontend directory hash value: {err}"))?;
     Ok(None)
 }
 
@@ -462,7 +585,7 @@ fn compile_frontend_package(
 fn canonicalize_paths(
     orig_toml_path: &Path,
     package_list: &mut toml_edit::Item,
-) -> anyhow::Result<HashMap<String, String>> {
+) -> anyhow::Result<BTreeMap<String, String>> {
     // Set the current directory to the parent of the original TOML file.
     let Some(orig_directory) = orig_toml_path.parent() else {
         return Err(anyhow!("No parent of TOML file path {:?}", orig_toml_path));
@@ -485,7 +608,7 @@ fn canonicalize_paths(
         ));
     };
 
-    let mut package_name_paths = HashMap::new();
+    let mut package_name_paths = BTreeMap::new();
 
     for (package_key, package_value) in package_list.iter_mut() {
         let Some(package_value) = package_value.as_inline_table_mut() else {
@@ -548,7 +671,7 @@ fn cargo_toml_path(workspace: bool) -> anyhow::Result<PathBuf> {
         .map_err(|err| anyhow!("Output should be UTF-8: {}", err))?
         .parse()
         .map_err(|err| anyhow!("Output should be JSON: {}", err))?;
-    let json_object: &HashMap<_, _> = json_value
+    let json_object: &std::collections::HashMap<_, _> = json_value
         .get()
         .ok_or(anyhow!("Output should be an object"))?;
     let json_root = json_object
@@ -611,4 +734,40 @@ fn create_equals_arg(arg_name: &str, path: &Path) -> OsString {
     result.push("=");
     result.push(path.as_os_str());
     result
+}
+
+fn bool_env(name: &str, default: bool) -> anyhow::Result<bool> {
+    println!("cargo::rerun-if-env-changed={}", name);
+    let val = std::env::var_os(name);
+    debug!(
+        "Bool env var {} value: {:?} (default {})",
+        name, val, default
+    );
+    let Some(val) = val else { return Ok(default) };
+    // ignore case to give build scripts some leeway
+    if val.eq_ignore_ascii_case("true") {
+        Ok(true)
+    } else if val.eq_ignore_ascii_case("false") {
+        Ok(false)
+    } else {
+        Err(anyhow!("The environment variable '{}' should have a Boolean value (true or false ignoring case).", name))
+    }
+}
+
+fn directory_hex_hash(absolute_path: String) -> anyhow::Result<String> {
+    let hash_tree = merkle_hash::MerkleTree::builder(&absolute_path)
+        .hash_names(true)
+        .build()
+        .map_err(|err| anyhow!("Cannot hash-stamp files of interest: {}", err))?;
+    let path_hash = hash_tree.root.item.hash;
+
+    Ok(hex::encode(&path_hash))
+}
+
+fn cargo_rerun_if_path_changed(path: &Path) -> anyhow::Result<()> {
+    let path_str = path
+        .to_str()
+        .ok_or(anyhow!("Workspace Cargo.toml should have Unicode path"))?;
+    println!("cargo::rerun-if-changed={}", path_str);
+    Ok(())
 }

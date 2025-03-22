@@ -1,7 +1,11 @@
 [env]
+# Build the GUI frontend locally to react to the changes.
+MACHINE_CHECK_GUI_BUILD_FRONTEND = "true"
+
 # Place the generated WASM GUI frontend package into a known place 
 # so it can be quickly recompiled.
 MACHINE_CHECK_GUI_WASM_DIR = "../../generated/machine-check-gui-wasm"
+
 # Postpone errors for frontend so they do not prevent the package from being built
 # (and failing later), for a better development experience.
 MACHINE_CHECK_GUI_POSTPONE_ERRORS = "true"

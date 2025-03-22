@@ -5,6 +5,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Utility crate for the formal verification tool machine-check"
 rust-version = "1.83"
+include = ["/**", "!/target/**", "!/content/wasm/**", "!/.gitignore"]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -89,3 +90,5 @@ tempfile = "3.15.0"
 toml_edit = "0.22.22"
 anyhow = "1.0.89"
 tinyjson = "2"
+merkle_hash = "3.7.0"
+hex = "0.4.3"
