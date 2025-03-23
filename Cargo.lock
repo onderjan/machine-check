@@ -1378,6 +1378,23 @@ checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
 [[package]]
 name = "machine-check"
 version = "0.4.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "196b1a844ea313ad146de7ab77625d5766219be89f62f97b7c98b88fd45078a0"
+dependencies = [
+ "clap",
+ "env_logger",
+ "log",
+ "machine-check-common",
+ "machine-check-exec",
+ "machine-check-macros",
+ "mck",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "machine-check"
+version = "0.4.0-alpha.2"
 dependencies = [
  "clap",
  "env_logger",
@@ -1393,11 +1410,11 @@ dependencies = [
 
 [[package]]
 name = "machine-check-avr"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.2"
 dependencies = [
  "clap",
  "ihex",
- "machine-check",
+ "machine-check 0.4.0-alpha.2",
 ]
 
 [[package]]
@@ -1451,7 +1468,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-gui"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.2"
 dependencies = [
  "anyhow",
  "bimap",
@@ -1492,7 +1509,7 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
- "machine-check",
+ "machine-check 0.4.0-alpha.1",
  "machine-check-common",
  "machine-check-compile",
  "machine-check-machine",
