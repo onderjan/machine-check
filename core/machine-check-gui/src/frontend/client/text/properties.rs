@@ -105,9 +105,9 @@ impl PropertiesDisplayer<'_> {
         // TODO: remove the inherent property text kludge
         let property_text = if is_inherent {
             if is_subproperty {
-                String::from("No panic in state")
+                String::from("No panic in the state")
             } else {
-                String::from("Inherent")
+                String::from("Inherent property")
             }
         } else {
             property_snapshot.property.to_string()
