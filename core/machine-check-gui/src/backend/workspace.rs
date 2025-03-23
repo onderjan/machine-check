@@ -121,12 +121,15 @@ impl<M: FullMachine> Workspace<M> {
             ));
         }
 
+        let panic_message = self.framework.find_panic_string().map(String::from);
+
         Snapshot::new(
             settings.exec_name.clone(),
             state_space,
             state_info,
             properties,
             self.log.clone(),
+            panic_message,
         )
     }
 

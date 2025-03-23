@@ -58,6 +58,8 @@ impl PropertiesDisplayer<'_> {
             })
             .unwrap_or(ThreeValued::Unknown);
 
+        let panic_message = self.view.snapshot().panic_message.as_ref();
+
         let mut id_index = 0;
         for property in self.view.snapshot().root_properties_iter() {
             let is_inherent = id_index == 0;
@@ -69,6 +71,7 @@ impl PropertiesDisplayer<'_> {
                 was_focused,
                 is_inherent,
                 inherent_result,
+                panic_message,
                 false,
             );
         }
@@ -83,6 +86,7 @@ impl PropertiesDisplayer<'_> {
         was_focused: bool,
         is_inherent: bool,
         inherent_result: ThreeValued,
+        panic_message: Option<&String>,
         is_subproperty: bool,
     ) {
         let outer_div = create_element("div");
@@ -153,11 +157,16 @@ impl PropertiesDisplayer<'_> {
                     Conclusion::Known(true) => {
                         ("conclusion-true", "\u{2714}\u{FE0F}", String::from("Holds"))
                     }
-                    Conclusion::Known(false) => (
-                        "conclusion-false",
-                        "\u{274C}",
-                        String::from("Does not hold"),
-                    ),
+                    Conclusion::Known(false) => ("conclusion-false", "\u{274C}", {
+                        let mut conclusion_string = String::from("Does not hold");
+                        if is_inherent {
+                            if let Some(panic_message) = panic_message {
+                                conclusion_string =
+                                    format!("Does not hold, panic message: '{}'", panic_message);
+                            }
+                        }
+                        conclusion_string
+                    }),
                     Conclusion::Unknown(_culprit) => (
                         "conclusion-unknown",
                         "\u{2754}\u{FE0F}",
@@ -226,6 +235,7 @@ impl PropertiesDisplayer<'_> {
                 was_focused,
                 is_inherent,
                 inherent_result,
+                panic_message,
                 true,
             );
         }

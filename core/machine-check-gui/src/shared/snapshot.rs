@@ -15,6 +15,7 @@ pub struct Snapshot {
     pub state_info: StateInfo,
     properties: Vec<PropertySnapshot>,
     pub log: Log,
+    pub panic_message: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -55,6 +56,7 @@ impl Snapshot {
         state_info: StateInfo,
         properties: Vec<PropertySnapshot>,
         log: Log,
+        panic_message: Option<String>,
     ) -> Self {
         Self {
             exec_name,
@@ -62,6 +64,7 @@ impl Snapshot {
             state_info,
             properties,
             log,
+            panic_message,
         }
     }
 
