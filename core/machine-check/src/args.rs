@@ -1,4 +1,4 @@
-use clap::{ArgGroup, Args, Parser};
+use clap::{ArgGroup, Args, Parser, ValueEnum};
 
 /// Arguments for executing machine-check.
 #[derive(Parser, Debug)]
@@ -7,55 +7,45 @@ use clap::{ArgGroup, Args, Parser};
 .multiple(true)
 .args(&["property", "inherent","gui"]),
 ))]
-#[clap(group(ArgGroup::new("inherent-gui-group")
-.required(false)
-.multiple(false)
-.args(&["inherent","gui"]),
-))]
 #[clap(group(ArgGroup::new("verbosity-group")
 .required(false)
 .multiple(false)
 .args(&["silent", "verbose"]),
 ))]
-#[clap(group(ArgGroup::new("assume-inherent-group")
-.required(false)
-.multiple(false)
-.conflicts_with("inherent")
-.args(&["assume_inherent"]),
-))]
-#[clap(group(ArgGroup::new("interaction-group")
-.required(false)
-.multiple(false)
-.args(&["batch","gui"])))]
-#[clap(group(ArgGroup::new("assume-inherent-gui-group")
-.required(false)
-.multiple(false)
-.args(&["gui","assume_inherent"])))]
 pub struct ExecArgs {
     #[arg(long)]
     pub silent: bool,
-
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 
-    #[arg(long)]
+    #[arg(short, long)]
     pub batch: bool,
-    #[arg(long)]
+    #[arg(
+        short,
+        long,
+        conflicts_with("batch"),
+        conflicts_with("inherent"),
+        conflicts_with("assume_inherent")
+    )]
     pub gui: bool,
 
     #[arg(long)]
     pub property: Option<String>,
-
     #[arg(long)]
     pub inherent: bool,
 
-    // experimental flags
-    #[arg(long)]
-    pub naive_inputs: bool,
-    #[arg(long)]
-    pub use_decay: bool,
-    #[arg(long)]
+    #[arg(long, conflicts_with("inherent",))]
     pub assume_inherent: bool,
+
+    #[arg(long, default_value("default"))]
+    pub strategy: ExecStrategy,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ExecStrategy {
+    Default,
+    Naive,
+    Decay,
 }
 
 #[derive(Parser, Debug)]

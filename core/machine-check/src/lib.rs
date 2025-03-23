@@ -5,6 +5,7 @@ mod traits;
 mod types;
 mod verify;
 
+use args::ExecStrategy;
 use log::error;
 use log::info;
 use log::log_enabled;
@@ -140,8 +141,8 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     let _ = env_logger::builder().filter_level(filter_level).try_init();
 
     let strategy = Strategy {
-        naive_inputs: exec_args.naive_inputs,
-        use_decay: exec_args.use_decay,
+        naive_inputs: matches!(exec_args.strategy, ExecStrategy::Naive),
+        use_decay: matches!(exec_args.strategy, ExecStrategy::Decay),
     };
 
     // determine the property to verify
