@@ -183,16 +183,17 @@ body {
     padding: 0.5em;
 }
 
-.property_outer {
+.property-outer {
     margin-left: 2em;
 }
 
-#properties>.property_outer {
+#properties>.property-outer {
     margin-left: 0em;
 }
 
-.conclusion {
+.property-icons {
     float: right;
+
 }
 
 #properties_control {

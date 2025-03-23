@@ -1,3 +1,4 @@
+use machine_check_common::ThreeValued;
 use machine_check_exec::Conclusion;
 use wasm_bindgen::JsCast;
 use web_sys::{Element, Event, HtmlElement};
@@ -39,29 +40,53 @@ impl PropertiesDisplayer<'_> {
         // remove all children
         self.properties_element.set_inner_html("");
 
+        // TODO: do not force the inherent property to be the first
+        let inherent_property = self
+            .view
+            .snapshot()
+            .root_properties_iter()
+            .next()
+            .expect("The snapshot should have the inherent property");
+
+        let inherent_result: ThreeValued = inherent_property
+            .conclusion
+            .as_ref()
+            .map(|conclusion| match conclusion {
+                Conclusion::Known(false) => ThreeValued::False,
+                Conclusion::Known(true) => ThreeValued::True,
+                _ => ThreeValued::Unknown,
+            })
+            .unwrap_or(ThreeValued::Unknown);
+
         let mut id_index = 0;
         for property in self.view.snapshot().root_properties_iter() {
+            let is_inherent = id_index == 0;
             Self::display_property(
                 property,
                 &self.properties_element,
                 self.view.selected_subproperty_index(),
                 &mut id_index,
                 was_focused,
+                is_inherent,
+                inherent_result,
                 false,
             );
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn display_property(
         property_snapshot: &PropertySnapshot,
         parent_element: &Element,
         selected_subproperty: Option<SubpropertyIndex>,
         id_index: &mut usize,
         was_focused: bool,
+        is_inherent: bool,
+        inherent_result: ThreeValued,
         is_subproperty: bool,
     ) {
         let outer_div = create_element("div");
-        outer_div.class_list().add_1("property_outer").unwrap();
+        outer_div.class_list().add_1("property-outer").unwrap();
 
         let radio_input = create_element("input");
         let radio_input: HtmlElement = radio_input.dyn_into().unwrap();
@@ -80,37 +105,74 @@ impl PropertiesDisplayer<'_> {
         radio_label.set_text_content(Some(&property_snapshot.property.to_string()));
 
         if !is_subproperty {
+            let property_icons = create_element("span");
+            property_icons.class_list().add_1("property-icons").unwrap();
+
+            if !is_inherent {
+                // display a warning that the property value may be / is meaningless
+                // if the inherent property has not been proven
+                let inherent_warning_text = match inherent_result {
+                    ThreeValued::True => None,
+                    ThreeValued::False => Some(concat!(
+                        "The inherent property does not hold.\n",
+                        "This verification result is meaningless."
+                    )),
+                    ThreeValued::Unknown => Some(concat!(
+                        "The inherent property has not been proven to hold yet.\n",
+                        "If it does not hold, this verification result is meaningless."
+                    )),
+                };
+
+                if let Some(inherent_warning_text) = inherent_warning_text {
+                    let inherent_warning = create_element("span");
+
+                    inherent_warning
+                        .set_attribute("title", inherent_warning_text)
+                        .unwrap();
+                    inherent_warning.set_text_content(Some("\u{26A0}\u{FE0F}"));
+
+                    property_icons.append_child(&inherent_warning).unwrap();
+                }
+            }
+
             let conclusion_span = create_element("span");
             let (conclusion_class, conclusion_str, title_text) = match &property_snapshot.conclusion
             {
                 Ok(conclusion) => match conclusion {
                     Conclusion::Known(true) => {
-                        ("conclusion-true", "\u{2714}", String::from("Holds"))
+                        ("conclusion-true", "\u{2714}\u{FE0F}", String::from("Holds"))
                     }
                     Conclusion::Known(false) => (
                         "conclusion-false",
                         "\u{274C}",
                         String::from("Does not hold"),
                     ),
-                    Conclusion::Unknown(_culprit) => {
-                        ("conclusion-unknown", "\u{2754}", String::from("Unknown"))
-                    }
+                    Conclusion::Unknown(_culprit) => (
+                        "conclusion-unknown",
+                        "\u{2754}\u{FE0F}",
+                        String::from("Unknown"),
+                    ),
                     Conclusion::NotCheckable => (
                         "conclusion-not-checkable",
                         "\u{2754}",
                         String::from("Unknown (the state space is currently not checkable)"),
                     ),
                 },
-                Err(err) => ("conclusion-error", "\u{1F6D1}", format!("Error: {}", err)),
+                Err(err) => (
+                    "conclusion-error",
+                    "\u{1F6D1}\u{FE0F}",
+                    format!("Error: {}", err),
+                ),
             };
             conclusion_span
                 .class_list()
                 .add_2("conclusion", conclusion_class)
                 .unwrap();
             conclusion_span.set_attribute("title", &title_text).unwrap();
-
             conclusion_span.set_text_content(Some(conclusion_str));
-            radio_label.append_child(&conclusion_span).unwrap();
+            property_icons.append_child(&conclusion_span).unwrap();
+
+            radio_label.append_child(&property_icons).unwrap();
         }
 
         outer_div.append_child(&radio_input).unwrap();
@@ -151,6 +213,8 @@ impl PropertiesDisplayer<'_> {
                 selected_subproperty,
                 id_index,
                 was_focused,
+                is_inherent,
+                inherent_result,
                 true,
             );
         }
