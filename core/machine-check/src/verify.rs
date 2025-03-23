@@ -50,12 +50,8 @@ pub fn verify<M: FullMachine>(
                             // we are fine, ignore the inherent result stats
                             info!("The inherent property holds.");
                         } else {
-                            // find the panic string
-                            let Some(panic_str) = framework.find_panic_string() else {
-                                panic!("Panic string should be found as inherent property does not hold");
-                            };
                             return ExecResult {
-                                result: Err(ExecError::InherentPanic(String::from(panic_str))),
+                                result: Err(ExecError::InherentPanic),
                                 stats: framework.info(),
                             };
                         }

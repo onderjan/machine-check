@@ -69,7 +69,7 @@ struct BackendStats {
 }
 
 impl BackendStats {
-    fn new<M: FullMachine>(framework: &Framework<M>) -> Self {
+    fn new<M: FullMachine>(framework: &mut Framework<M>) -> Self {
         Self {
             should_cancel: false,
             space_info: extract_space_info(framework),
@@ -77,7 +77,7 @@ impl BackendStats {
     }
 }
 
-fn extract_space_info<M: FullMachine>(framework: &Framework<M>) -> BackendSpaceInfo {
+fn extract_space_info<M: FullMachine>(framework: &mut Framework<M>) -> BackendSpaceInfo {
     let num_states = framework.info().num_final_states;
     let num_transitions = framework.info().num_final_transitions;
     BackendSpaceInfo {
@@ -93,8 +93,8 @@ struct BackendSettings {
 const CONTENT_DIR: Dir = include_dir!("content");
 
 impl Backend {
-    pub fn new<M: FullMachine>(workspace: Workspace<M>, exec_name: String) -> Self {
-        let stats = BackendStats::new(&workspace.framework);
+    pub fn new<M: FullMachine>(mut workspace: Workspace<M>, exec_name: String) -> Self {
+        let stats = BackendStats::new(&mut workspace.framework);
         let settings = BackendSettings { exec_name };
         let sync = BackendSync::new(workspace, stats, settings);
         Self {

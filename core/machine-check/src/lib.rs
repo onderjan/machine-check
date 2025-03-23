@@ -206,7 +206,7 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
                 Err(err) => &format!("Result: ERROR ({})", err),
             };
 
-            let stats_cells = &[
+            let mut stats_cells: Vec<(&str, String)> = [
                 ("Refinements", result.stats.num_refinements),
                 ("Generated states", result.stats.num_generated_states),
                 ("Final states", result.stats.num_final_states),
@@ -215,7 +215,17 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
                     result.stats.num_generated_transitions,
                 ),
                 ("Final transitions", result.stats.num_final_transitions),
-            ];
+            ]
+            .into_iter()
+            .map(|(name, value)| (name, value.to_string()))
+            .collect();
+
+            if let Some(inherent_panic_message) = &result.stats.inherent_panic_message {
+                stats_cells.push((
+                    "Inherent panic message",
+                    format!("{:?}", inherent_panic_message),
+                ));
+            }
 
             let inner_table_width = stats_cells
                 .iter()

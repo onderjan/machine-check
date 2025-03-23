@@ -16,8 +16,8 @@ pub enum ExecError {
     PropertyNotLexable(String, String),
     #[error("property '{0}' could not be parsed: {1}")]
     PropertyNotParseable(String, String),
-    #[error("inherent machine panic: '{0}'")]
-    InherentPanic(String),
+    #[error("inherent panic")]
+    InherentPanic,
     #[error("cannot verify inherent property while assuming it")]
     VerifiedInherentAssumed,
     #[error("GUI error: {0}")]
@@ -41,6 +41,7 @@ pub struct ExecStats {
     pub num_final_states: usize,
     pub num_generated_transitions: usize,
     pub num_final_transitions: usize,
+    pub inherent_panic_message: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

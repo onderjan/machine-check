@@ -117,7 +117,7 @@ impl<M: FullMachine> BackendWorker<M> {
             // clear the cancellation flag before asynchronous processing
             stats.should_cancel = false;
 
-            stats.space_info = extract_space_info(&self.workspace.framework);
+            stats.space_info = extract_space_info(&mut self.workspace.framework);
             let worker_busy = asynchronous_request.is_some();
             let backend_info = backend_info(worker_busy, &stats);
 
@@ -192,12 +192,12 @@ impl<M: FullMachine> BackendWorker<M> {
         info!("Stepping done.");
     }
 
-    fn update_stats_check_cancel(&self) -> bool {
+    fn update_stats_check_cancel(&mut self) -> bool {
         let mut stats_guard = self
             .stats
             .write()
             .expect("Backend stats should not be poisoned");
-        stats_guard.space_info = extract_space_info(&self.workspace.framework);
+        stats_guard.space_info = extract_space_info(&mut self.workspace.framework);
         stats_guard.should_cancel
     }
 }

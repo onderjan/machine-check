@@ -83,14 +83,21 @@ impl<M: FullMachine> WorkState<M> {
         }
     }
 
-    fn info(&self) -> ExecStats {
+    fn info(&mut self) -> ExecStats {
         ExecStats {
             num_refinements: self.num_refinements,
             num_generated_states: self.num_generated_states,
             num_final_states: self.space.num_states(),
             num_generated_transitions: self.num_generated_transitions,
             num_final_transitions: self.space.num_transitions(),
+            inherent_panic_message: self.find_panic_string().map(String::from),
         }
+    }
+
+    fn find_panic_string(&mut self) -> Option<&'static str> {
+        // TODO: this approach does not work if there are multiple macro invocations
+        let panic_id = self.space.find_panic_id()?;
+        Some(M::panic_message(panic_id))
     }
 }
 
@@ -489,12 +496,10 @@ impl<M: FullMachine> Framework<M> {
     }
 
     pub fn find_panic_string(&mut self) -> Option<&'static str> {
-        // TODO: this approach does not work if there are multiple macro invocations
-        let panic_id = self.work_state.space.find_panic_id()?;
-        Some(M::panic_message(panic_id))
+        self.work_state.find_panic_string()
     }
 
-    pub fn info(&self) -> ExecStats {
+    pub fn info(&mut self) -> ExecStats {
         self.work_state.info()
     }
 
