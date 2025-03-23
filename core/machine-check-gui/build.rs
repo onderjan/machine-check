@@ -138,8 +138,10 @@ fn ensure_wasm_hash(artifact_dir: &Path, hex_hash: String) -> anyhow::Result<()>
 /// So we need to be clever, arrange and build the frontend somewhere else. This function gets the
 /// arrangement data and and builds.
 fn build(arrangement: &Arrangement) -> anyhow::Result<()> {
-    // We are building, delete the previous artefacts.
-    let _ = fs::remove_dir_all(&arrangement.artifact_dir);
+    // If we are preparing, delete the previous artefacts.
+    if arrangement.prepare {
+        let _ = fs::remove_dir_all(&arrangement.artifact_dir);
+    }
 
     // Compile the frontend package, only warning if we should postpone errors.
     match compile_frontend_package(arrangement) {
