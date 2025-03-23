@@ -153,18 +153,6 @@ fn build(arrangement: &Arrangement) -> anyhow::Result<()> {
         Err(err) => return Err(anyhow!("Build failed: {}", err)),
     }
 
-    if arrangement.prepare {
-        // copy the compiled content to the prebuilt WASM directory.
-        let prebuilt_wasm_dir = arrangement.this_package_dir.join(PREBUILT_WASM_DIR);
-        let artifact_dir = arrangement.this_package_dir.join(ARTIFACT_DIR);
-        let _ = fs::remove_dir_all(&prebuilt_wasm_dir);
-
-        // Copy the prebuilt WASM binaries to the artefact directory.
-        copy_dir_all(artifact_dir, prebuilt_wasm_dir)
-            .map_err(|err| anyhow!("Cannot copy the prebuilt frontend directory: {err}"))?;
-        warn!("Frontend WebAssembly prepared for deployment.")
-    }
-
     Ok(())
 }
 
@@ -287,8 +275,6 @@ const RUST_TOOLCHAIN_TOML: &str = "rust-toolchain.toml";
 const SPECIAL_FILES: [&str; 2] = [LIB_RS, CARGO_TOML];
 
 const ARTIFACT_DIR: &str = "content/wasm";
-
-const PREBUILT_WASM_DIR: &str = "prebuilt_wasm";
 
 const HASH_FILE_NAME: &str = "hash.hex";
 
@@ -577,11 +563,15 @@ fn compile_frontend_package(arrangement: &Arrangement) -> anyhow::Result<Option<
     execute_command("wasm-bindgen", wasm_bindgen)?;
 
     // Write the frontend package directory hash to the artefact directory.
-    fs::write(
-        arrangement.artifact_dir.join(HASH_FILE_NAME),
-        arrangement.hex_hash.clone(),
-    )
-    .map_err(|err| anyhow!("Cannot write frontend directory hash value: {err}"))?;
+
+    if arrangement.prepare {
+        fs::write(
+            arrangement.artifact_dir.join(HASH_FILE_NAME),
+            arrangement.hex_hash.clone(),
+        )
+        .map_err(|err| anyhow!("Cannot write frontend directory hash value: {err}"))?;
+        warn!("Frontend WebAssembly prepared for deployment.")
+    }
     Ok(None)
 }
 
