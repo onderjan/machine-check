@@ -47,6 +47,6 @@ pub fn execute(args: impl Iterator<Item = String>) -> ExecResult {
 
 #[derive(Args)]
 struct SystemArgs {
-    #[arg(long)]
+    #[arg(short = 'H', long = "system-hex-file")]
     hex_file: String,
 }
