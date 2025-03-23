@@ -118,7 +118,6 @@ impl<M: FullMachine> Workspace<M> {
             properties.push(Self::create_property_snapshot(
                 &self.framework,
                 business_property,
-                &mut self.log,
             ));
         }
 
@@ -134,23 +133,20 @@ impl<M: FullMachine> Workspace<M> {
     fn create_property_snapshot(
         framework: &Framework<M>,
         business_property: &WorkspaceProperty,
-        log: &mut Log,
     ) -> PropertySnapshot {
-        let labellings = match framework.compute_property_labelling(&business_property.property) {
-            Ok(ok) => ok,
-            Err(err) => {
-                log.error(err.to_string());
-
-                HashMap::new()
-            }
-        };
+        let (conclusion, labellings) =
+            match framework.check_property_with_labelling(&business_property.property) {
+                Ok((conclusion, labellings)) => (Ok(conclusion), labellings),
+                Err(error) => (Err(error), HashMap::new()),
+            };
         let children = business_property
             .children
             .iter()
-            .map(|child| Self::create_property_snapshot(framework, child, log))
+            .map(|child| Self::create_property_snapshot(framework, child))
             .collect();
         PropertySnapshot {
             property: business_property.property.clone(),
+            conclusion,
             labellings,
             children,
         }

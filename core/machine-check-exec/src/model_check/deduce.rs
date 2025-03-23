@@ -50,7 +50,7 @@ fn deduce_end<M: FullMachine>(
             // culprit ends here
             Ok(Culprit {
                 path: path.clone(),
-                literal: literal.clone(),
+                atomic_property: literal.clone(),
             })
         }
         Property::Negation(inner) => {

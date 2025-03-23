@@ -71,30 +71,34 @@ pub(super) fn check_property<M: FullMachine>(
     checker.check_property(prop)
 }
 
-pub(super) fn compute_property_labelling<M: FullMachine>(
+pub(super) fn check_property_with_labelling<M: FullMachine>(
     space: &Space<M>,
     property: &PreparedProperty,
-) -> Result<HashMap<StateId, ThreeValued>, ExecError> {
+) -> Result<(Conclusion, HashMap<StateId, ThreeValued>), ExecError> {
     let mut checker = ThreeValuedChecker::new(space);
-    checker.compute_property_labelling(property)
+    let conclusion = checker.check_property(property)?;
+    let labelling = checker.compute_property_labelling(property)?;
+    Ok((conclusion, labelling))
 }
 
 /// Three-valued model-checking result.
 ///
 /// If the result is unknown, the culprit is given.
-pub(super) enum Conclusion {
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Conclusion {
     Known(bool),
     Unknown(Culprit),
+    NotCheckable,
 }
 
 /// The culprit of an unknown three-valued model-checking result.
 ///
-/// Comprises of a path and a literal which is unknown in the last
+/// Comprises of a path and an atomic property which is unknown in the last
 /// state of the path.
-#[derive(Debug, Clone)]
-pub(super) struct Culprit {
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Culprit {
     pub path: VecDeque<StateId>,
-    pub literal: AtomicProperty,
+    pub atomic_property: AtomicProperty,
 }
 
 /// Three-valued model checker.
@@ -117,6 +121,10 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     ///
     /// The proposition must be prepared beforehand.
     fn check_property(&mut self, property: &PreparedProperty) -> Result<Conclusion, ExecError> {
+        if !self.space.is_valid() {
+            return Ok(Conclusion::NotCheckable);
+        }
+
         let prop = &property.prepared;
         // compute optimistic and pessimistic interpretation and get the conclusion from that
         let pessimistic_interpretation = self.pessimistic.compute_interpretation(prop)?;

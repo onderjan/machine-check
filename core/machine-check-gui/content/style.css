@@ -191,6 +191,10 @@ body {
     margin-left: 0em;
 }
 
+.conclusion {
+    float: right;
+}
+
 #properties_control {
     display: flex;
     height: 1.5em;

@@ -15,8 +15,6 @@ use mck::misc::Meta;
 use mck::refin::Manipulatable;
 use mck::refin::{self};
 
-use crate::model_check::Conclusion;
-use crate::model_check::Culprit;
 use crate::model_check::PreparedProperty;
 use crate::property::Property;
 use crate::space::NodeId;
@@ -29,6 +27,8 @@ use crate::{
 use mck::abstr::Machine as AbstrMachine;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Refine;
+
+pub use crate::model_check::{Conclusion, Culprit};
 
 /// Abstraction and refinement strategy.
 pub struct Strategy {
@@ -180,6 +180,10 @@ impl<M: FullMachine> Framework<M> {
                 self.work_state.culprit = Some(culprit);
                 ControlFlow::Continue(())
             }
+            Ok(Conclusion::NotCheckable) => {
+                // should never happen, the state space should be valid
+                panic!("The state space should be valid after stepping verification");
+            }
             Err(err) => {
                 // propagate the error
                 ControlFlow::Break(Err(err))
@@ -216,16 +220,16 @@ impl<M: FullMachine> Framework<M> {
             mck::refin::PanicResult::<<M::Refin as refin::Machine<M>>::State>::clean();
 
         // TODO: rework panic name kludge
-        if culprit.literal.left().name() == "__panic" {
+        if culprit.atomic_property.left().name() == "__panic" {
             current_state_mark.panic = refin::Bitvector::dirty();
         } else {
             // TODO: mark more adequately
             let manip_mark = current_state_mark
                 .result
-                .get_mut(culprit.literal.left().name())
+                .get_mut(culprit.atomic_property.left().name())
                 .expect("Culprit mark should be manipulatable");
 
-            let manip_mark = if let Some(index) = culprit.literal.left().index() {
+            let manip_mark = if let Some(index) = culprit.atomic_property.left().index() {
                 let Some(indexed_manip_mark) = manip_mark.index_mut(index) else {
                     panic!("Indexed culprit mark should be indexable");
                 };
@@ -477,11 +481,11 @@ impl<M: FullMachine> Framework<M> {
         changed
     }
 
-    pub fn compute_property_labelling(
+    pub fn check_property_with_labelling(
         &self,
         property: &PreparedProperty,
-    ) -> Result<HashMap<StateId, ThreeValued>, ExecError> {
-        model_check::compute_property_labelling(&self.work_state.space, property)
+    ) -> Result<(Conclusion, HashMap<StateId, ThreeValued>), ExecError> {
+        model_check::check_property_with_labelling(&self.work_state.space, property)
     }
 
     pub fn find_panic_string(&mut self) -> Option<&'static str> {

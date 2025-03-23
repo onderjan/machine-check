@@ -50,6 +50,10 @@ impl<M: FullMachine> Space<M> {
         }
     }
 
+    pub fn is_valid(&self) -> bool {
+        self.node_graph.node_count() > 0
+    }
+
     pub fn get_state_by_id(&self, state_id: StateId) -> &PanicState<M> {
         &self
             .state_map

@@ -6,7 +6,7 @@ mod precision;
 mod property;
 mod space;
 
-pub use framework::{Framework, Strategy, VerificationType};
+pub use framework::{Conclusion, Culprit, Framework, Strategy, VerificationType};
 pub use property::Property;
 pub use space::{NodeId, StateId};
 
