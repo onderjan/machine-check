@@ -35,14 +35,18 @@ pub async fn call_backend(request: Request) -> Response {
 }
 
 pub async fn call_backend_fetch(request: Request) -> Result<ArrayBuffer, JsValue> {
+    // as posting the request content in the body seems buggy (we can encounter
+    // an empty body instead), we instead send the request body is in the header
+    // X-Body, encoded into a hex
+    let body_msgpack = rmp_serde::to_vec(&request).expect("Action should be serializable");
+    let body_hex = hex::encode(body_msgpack);
+
+    let headers = web_sys::Headers::new()?;
+    headers.append("X-Body", &body_hex)?;
     let opts = web_sys::RequestInit::new();
+    opts.set_headers(&headers);
     opts.set_method("POST");
     opts.set_mode(web_sys::RequestMode::Cors);
-
-    let body = rmp_serde::to_vec(&request).expect("Action should be serializable");
-    let body = Uint8Array::from(body.as_slice());
-
-    opts.set_body(&body);
 
     let request = web_sys::Request::new_with_str_and_init("/api", &opts)?;
 

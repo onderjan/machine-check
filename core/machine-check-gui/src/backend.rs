@@ -111,7 +111,7 @@ impl Backend {
         // handle errors by printing them and sending 500
         self.get_http_response_or_error(request)
             .unwrap_or_else(|err| {
-                error!("{}", err);
+                error!("Cannot produce a response to frontend: {}", err);
                 let response = http::Response::builder()
                     .header(CONTENT_TYPE, "text/plain")
                     .status(500)
@@ -192,12 +192,30 @@ impl Backend {
         &self,
         request: http::Request<Vec<u8>>,
     ) -> Result<http::Response<Cow<'static, [u8]>>, Box<dyn std::error::Error>> {
-        let request: Request = rmp_serde::from_slice(request.body())?;
+        // as posting the request content in the body seems buggy (we can encounter
+        // an empty body instead), the request body is instead sent in the header
+        // X-Body, encoded into a hex
+        let x_body = request
+            .headers()
+            .get("X-Body")
+            .ok_or(anyhow::anyhow!("Request has no X-Body header"))?;
+        let x_body = x_body
+            .to_str()
+            .map_err(|_| anyhow::anyhow!("Request X-Body header is not ASCII"))?;
+        let decoded_body = hex::decode(x_body).map_err(|err| {
+            anyhow::anyhow!("Request X-Body header does not contain hex: {}", err)
+        })?;
+        let request: Request = rmp_serde::from_slice(&decoded_body).map_err(|err| {
+            anyhow::anyhow!(
+                "Request X-Body header does not contain valid MessagePack data: {}",
+                err
+            )
+        })?;
 
-        // read the current framework state
-        //let response = api::command(self, request);
+        // create the response
         let response = self.sync.command(request);
 
+        // msgpack the response
         let content_msgpack = rmp_serde::to_vec(&response)?;
         http::Response::builder()
             .header(CONTENT_TYPE, "application/vnd.msgpack")
