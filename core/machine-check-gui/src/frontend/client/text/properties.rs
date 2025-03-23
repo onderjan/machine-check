@@ -100,9 +100,20 @@ impl PropertiesDisplayer<'_> {
         radio_input.class_list().add_1("property-radio").unwrap();
 
         let radio_label = create_element("label");
-
         radio_label.set_attribute("for", radio_input_id).unwrap();
-        radio_label.set_text_content(Some(&property_snapshot.property.to_string()));
+
+        // TODO: remove the inherent property text kludge
+        let property_text = if is_inherent {
+            if is_subproperty {
+                String::from("No panic in state")
+            } else {
+                String::from("Inherent")
+            }
+        } else {
+            property_snapshot.property.to_string()
+        };
+
+        radio_label.set_text_content(Some(&property_text));
 
         if !is_subproperty {
             let property_icons = create_element("span");
