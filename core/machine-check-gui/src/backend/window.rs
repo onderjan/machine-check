@@ -69,10 +69,26 @@ impl Window {
             .with_custom_protocol("gui".into(), response_fn)
             // tell the webview to load the custom protocol
             .with_url("gui://localhost");
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "android"
+        ))]
         let webview = builder.build(&window)?;
-        #[cfg(target_os = "linux")]
-        let webview = builder.build_gtk(window.gtk_window())?;
+        #[cfg(not(any(
+            target_os = "windows",
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "android"
+        )))]
+        let webview = {
+            use tao::platform::unix::WindowExtUnix;
+            use wry::WebViewBuilderExtUnix;
+            let vbox = window.default_vbox().unwrap();
+            builder.build_gtk(vbox)?
+        };
+
         Ok(Window {
             event_loop,
             window,
