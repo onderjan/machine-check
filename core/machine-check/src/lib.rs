@@ -195,11 +195,51 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
             if let Err(err) = serde_json::to_writer(std::io::stdout(), &result) {
                 panic!("Could not serialize verification result: {:?}", err);
             }
-        } else {
-            // TODO: nicer result printing
-            if !matches!(result.result, Err(ExecError::NoResult)) {
-                info!("Verification result: {:?}", result);
+        } else if !matches!(result.result, Err(ExecError::NoResult))
+            && log_enabled!(log::Level::Info)
+        {
+            // print the verification result nicely
+            let result_title = match &result.result {
+                Ok(false) => "Result: DOES NOT HOLD",
+                Ok(true) => "Result: HOLDS",
+                Err(err) => &format!("Result: ERROR ({})", err),
+            };
+
+            let stats_cells = &[
+                ("Refinements", result.stats.num_refinements),
+                ("Generated states", result.stats.num_generated_states),
+                ("Final states", result.stats.num_final_states),
+                (
+                    "Generated transitions",
+                    result.stats.num_generated_transitions,
+                ),
+                ("Final transitions", result.stats.num_final_transitions),
+            ];
+
+            let inner_table_width = stats_cells
+                .iter()
+                .map(|(name, value)| format!("{}: {}", name, value).len())
+                .max()
+                .unwrap()
+                .max(result_title.len());
+
+            let result_title = format!(
+                "|   {:^width$}   |",
+                result_title,
+                width = inner_table_width
+            );
+            let table_bar = format!("+{}+", "-".repeat(result_title.len().saturating_sub(2)));
+
+            println!("{}\n{}\n{}", table_bar, result_title, table_bar);
+            for (name, value) in stats_cells {
+                println!(
+                    "|  {}: {:>width$}  |",
+                    name,
+                    value,
+                    width = inner_table_width - name.len()
+                )
             }
+            println!("{}", table_bar);
         }
     }
     result
