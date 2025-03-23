@@ -4,8 +4,13 @@ use clap::{ArgGroup, Args, Parser};
 #[derive(Parser, Debug)]
 #[clap(group(ArgGroup::new("property-group")
 .required(true)
-.multiple(false)
+.multiple(true)
 .args(&["property", "inherent","gui"]),
+))]
+#[clap(group(ArgGroup::new("inherent-gui-group")
+.required(false)
+.multiple(false)
+.args(&["inherent","gui"]),
 ))]
 #[clap(group(ArgGroup::new("verbosity-group")
 .required(false)

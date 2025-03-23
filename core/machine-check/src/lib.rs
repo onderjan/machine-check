@@ -144,15 +144,16 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
         use_decay: exec_args.use_decay,
     };
 
-    // determine the proposition to verify
+    // determine the property to verify
     let prop = if let Some(property_str) = exec_args.property {
         match Property::parse(&property_str) {
             Ok(prop) => Some(prop),
             Err(err) => {
+                error!("Cannot construct the property: {}", err);
                 return ExecResult {
                     result: Err(err),
                     stats: ExecStats::default(),
-                }
+                };
             }
         }
     } else {
