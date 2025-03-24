@@ -167,7 +167,7 @@ impl<M: FullMachine> BackendWorker<M> {
             if let ControlFlow::Break(_) = self
                 .workspace
                 .framework
-                .step_verification(&step_settings.selected_property, false)
+                .step_verification(&step_settings.selected_property)
             {
                 break;
             }

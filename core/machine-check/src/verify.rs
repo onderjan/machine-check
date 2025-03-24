@@ -38,7 +38,7 @@ pub fn verify<M: FullMachine>(
             info!("Verifying the inherent property.");
         }
         let inherent_property = PreparedProperty::new(Property::inherent());
-        Some(framework.verify(&inherent_property, false))
+        Some(framework.verify(&inherent_property))
     };
 
     let Some(property) = prop else {
@@ -82,7 +82,7 @@ pub fn verify<M: FullMachine>(
     let property = PreparedProperty::new(property);
 
     // verify the property, assuming no panic can occur
-    let result = framework.verify(&property, assume_inherent);
+    let result = framework.verify(&property);
 
     // also return framework stats
     ExecResult {

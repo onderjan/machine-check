@@ -15,7 +15,6 @@ use machine_check_common::ExecStats;
 use machine_check_common::NodeId;
 use machine_check_common::StateId;
 use machine_check_common::ThreeValued;
-use mck::abstr;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
 use mck::refin::Manipulatable;
@@ -125,31 +124,17 @@ impl<M: FullMachine> Framework<M> {
         self.abstract_system
     }
 
-    pub fn verify(
-        &mut self,
-        property: &PreparedProperty,
-        assume_inherent: bool,
-    ) -> Result<bool, ExecError> {
+    pub fn verify(&mut self, property: &PreparedProperty) -> Result<bool, ExecError> {
         // loop verification steps until some conclusion is reached
         let result = loop {
-            match self.step_verification(property, assume_inherent) {
+            match self.step_verification(property) {
                 ControlFlow::Continue(()) => {}
                 ControlFlow::Break(result) => break result,
             }
         };
 
         if log_enabled!(log::Level::Debug) {
-            if !assume_inherent {
-                debug!(
-                    "Property checking final space: {:#?}",
-                    self.work_state.space
-                );
-            } else {
-                trace!(
-                    "Inherent no-panic checking final space: {:#?}",
-                    self.work_state.space
-                );
-            }
+            debug!("Verification final space: {:#?}", self.work_state.space);
         }
         result
     }
@@ -157,14 +142,13 @@ impl<M: FullMachine> Framework<M> {
     pub fn step_verification(
         &mut self,
         property: &PreparedProperty,
-        assume_inherent: bool,
     ) -> ControlFlow<Result<bool, ExecError>> {
         // if the space is empty (just after construction), regenerate it
         if self.work_state.space.is_empty() {
-            self.regenerate(assume_inherent, NodeId::ROOT);
+            self.regenerate(NodeId::ROOT);
         } else if let Some(culprit) = self.work_state.culprit.take() {
             // we have a culprit, refine on it
-            if let Err(err) = self.refine(assume_inherent, &culprit) {
+            if let Err(err) = self.refine(&culprit) {
                 // the refinement is incomplete
                 return ControlFlow::Break(Err(err));
             }
@@ -213,14 +197,14 @@ impl<M: FullMachine> Framework<M> {
     }
 
     /// Refines the precision and the state space given a culprit of unknown verification result.
-    fn refine(&mut self, assume_inherent: bool, culprit: &Culprit) -> Result<(), ExecError> {
+    fn refine(&mut self, culprit: &Culprit) -> Result<(), ExecError> {
         // subrefine bits until the state space changes.
-        while !self.subrefine(assume_inherent, culprit)? {}
+        while !self.subrefine(culprit)? {}
         Ok(())
     }
 
     /// Refines a single bit. OK result contains whether the state space changed.
-    fn subrefine(&mut self, assume_inherent: bool, culprit: &Culprit) -> Result<bool, ExecError> {
+    fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
         self.work_state.num_refinements += 1;
         // compute marking
         let mut current_state_mark =
@@ -267,7 +251,7 @@ impl<M: FullMachine> Framework<M> {
                 //info!("Decay prec: {:?}", decay_precision);
                 if decay_precision.apply_refin(&current_state_mark) {
                     // single mark applied to decay, regenerate
-                    return Ok(self.regenerate(assume_inherent, previous_node_id));
+                    return Ok(self.regenerate(previous_node_id));
                 }
             }
 
@@ -385,7 +369,7 @@ impl<M: FullMachine> Framework<M> {
                 *input_precision_mut = refined_input_precision;
 
                 // single mark applied, regenerate
-                Ok(self.regenerate(assume_inherent, node_id))
+                Ok(self.regenerate(node_id))
             }
             None => {
                 // cannot apply any refinement, verification incomplete
@@ -395,7 +379,7 @@ impl<M: FullMachine> Framework<M> {
     }
 
     /// Regenerates the state space from a given node, keeping its other parts. Returns whether the state space changed.
-    pub fn regenerate(&mut self, assume_inherent: bool, from_node_id: NodeId) -> bool {
+    pub fn regenerate(&mut self, from_node_id: NodeId) -> bool {
         if log_enabled!(log::Level::Trace) {
             trace!(
                 "Regenerating with input precision {:?}",
@@ -413,10 +397,7 @@ impl<M: FullMachine> Framework<M> {
 
             // prepare precision
             let input_precision = self.work_state.precision.get_input(node_id);
-            let mut decay_precision = self.work_state.precision.get_decay(node_id);
-            if assume_inherent {
-                decay_precision.panic = refin::Bitvector::dirty();
-            }
+            let decay_precision = self.work_state.precision.get_decay(node_id);
 
             // get current state, none if we are at start node
             let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
@@ -434,9 +415,6 @@ impl<M: FullMachine> Framework<M> {
                         M::Abstr::init(&self.abstract_system, &input)
                     }
                 };
-                if assume_inherent {
-                    next_state.panic = abstr::Bitvector::new(0);
-                }
 
                 if self.use_decay {
                     decay_precision.force_decay(&mut next_state);
