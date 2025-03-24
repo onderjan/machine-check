@@ -1,5 +1,4 @@
-use machine_check_common::ThreeValued;
-use machine_check_exec::Conclusion;
+use machine_check_common::{check::Conclusion, ThreeValued};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, Event, HtmlElement};
 

@@ -1,4 +1,4 @@
-use machine_check_exec::NodeId;
+use machine_check_common::NodeId;
 use web_sys::CanvasRenderingContext2d;
 
 use crate::frontend::{

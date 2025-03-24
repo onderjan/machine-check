@@ -1,4 +1,4 @@
-use machine_check_exec::PreparedProperty;
+use machine_check_common::check::PreparedProperty;
 use serde::{Deserialize, Serialize};
 use snapshot::{RootPropertyIndex, Snapshot};
 

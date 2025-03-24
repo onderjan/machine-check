@@ -1,8 +1,7 @@
 use std::{collections::VecDeque, iter::Peekable};
 
-use machine_check_common::ExecError;
+use crate::{property::ComparisonType, ExecError};
 
-use crate::property::ComparisonType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bracket {

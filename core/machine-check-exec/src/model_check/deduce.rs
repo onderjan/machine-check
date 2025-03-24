@@ -1,14 +1,12 @@
 use std::collections::{BTreeMap, VecDeque};
 
-use machine_check_common::{ExecError, ThreeValued};
+use machine_check_common::{check::Culprit, ExecError, StateId, ThreeValued};
 use mck::concr::FullMachine;
 
-use crate::{
-    property::{BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator},
-    space::StateId,
-};
+use machine_check_common::
+    property::{BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator};
 
-use super::{Culprit, ThreeValuedChecker};
+use super::ThreeValuedChecker;
 
 /// Deduces the culprit of unknown three-valued model-checking result.
 pub(super) fn deduce_culprit<M: FullMachine>(

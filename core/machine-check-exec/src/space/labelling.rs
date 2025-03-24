@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
-use crate::property::AtomicProperty;
-use crate::property::ComparisonType;
-
 use super::{Space, StateId};
+use machine_check_common::property::AtomicProperty;
+use machine_check_common::property::ComparisonType;
+use machine_check_common::Signedness;
 use mck::abstr::ManipField;
 use mck::abstr::Manipulatable;
 use mck::concr::FullMachine;
@@ -45,14 +45,14 @@ impl<M: FullMachine> Space<M> {
             };
             let right_unsigned = atomic_property.right_number_unsigned();
             let comparison_result = match atomic_property.comparison_type() {
-                crate::property::ComparisonType::Eq => {
+                ComparisonType::Eq => {
                     if min_unsigned == max_unsigned {
                         Some(min_unsigned == right_unsigned)
                     } else {
                         None
                     }
                 }
-                crate::property::ComparisonType::Ne => {
+                ComparisonType::Ne => {
                     if min_unsigned == max_unsigned {
                         Some(min_unsigned != right_unsigned)
                     } else {
@@ -61,18 +61,18 @@ impl<M: FullMachine> Space<M> {
                 }
                 comparison_type => {
                     match left.forced_signedness() {
-                        machine_check_common::Signedness::None => {
+                        Signedness::None => {
                             // signedness not specified
                             // TODO: better error message
                             return Some(Err(()));
                         }
-                        machine_check_common::Signedness::Unsigned => Self::resolve_inequality(
+                        Signedness::Unsigned => Self::resolve_inequality(
                             comparison_type,
                             min_unsigned,
                             max_unsigned,
                             right_unsigned,
                         ),
-                        machine_check_common::Signedness::Signed => {
+                        Signedness::Signed => {
                             let (Some(min_signed), Some(max_signed)) =
                                 (manip_field.min_signed(), manip_field.max_signed())
                             else {

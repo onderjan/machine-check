@@ -7,6 +7,7 @@ use std::{
 };
 
 use bimap::BiMap;
+use machine_check_common::{NodeId, StateId};
 use mck::{
     abstr::{self, PanicResult},
     concr::FullMachine,
@@ -15,9 +16,6 @@ use mck::{
 use petgraph::{prelude::GraphMap, Directed};
 
 mod labelling;
-pub mod state;
-
-pub use state::{NodeId, StateId};
 
 /// Abstract state space.
 pub struct Space<M: FullMachine> {

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use machine_check_exec::NodeId;
+use machine_check_common::NodeId;
 use mck::abstr::{ArrayField, ArrayFieldBitvector, BitvectorField, Field};
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlTableCellElement, HtmlTableElement, HtmlTableRowElement};

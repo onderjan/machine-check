@@ -1,7 +1,7 @@
 use crate::{ExecError, ExecResult, FullMachine};
 use log::{info, warn};
-use machine_check_common::ExecStats;
-use machine_check_exec::{Framework, PreparedProperty, Property, Strategy};
+use machine_check_common::{check::PreparedProperty, property::Property, ExecStats};
+use machine_check_exec::{Framework, Strategy};
 
 /// Verifies the given system with given arguments.
 ///

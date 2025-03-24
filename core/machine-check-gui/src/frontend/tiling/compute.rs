@@ -1,11 +1,11 @@
 use bimap::BiHashMap;
+use machine_check_common::NodeId;
 use std::collections::HashMap;
 use std::collections::{BTreeMap, BTreeSet, HashSet, VecDeque};
 
 use crate::shared::snapshot::Snapshot;
 
 use super::{NodeTileInfo, Tile, TileType};
-use machine_check_exec::NodeId;
 
 pub fn compute_tiling_aux(
     snapshot: &Snapshot,

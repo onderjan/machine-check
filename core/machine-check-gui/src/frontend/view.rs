@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use bimap::BiBTreeMap;
 use camera::{Camera, Scheme};
-use machine_check_exec::NodeId;
+use machine_check_common::NodeId;
 use rstar::{
     primitives::{GeomWithData, Rectangle},
     RTree, AABB,

@@ -1,4 +1,5 @@
-use machine_check_exec::{PreparedProperty, Property};
+use machine_check_common::check::PreparedProperty;
+use machine_check_common::property::Property;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlButtonElement;
 

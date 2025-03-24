@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
+use machine_check_common::NodeId;
 use mck::{
     concr::FullMachine,
     refin::{self, Refine},
 };
 
-use crate::space::NodeId;
 
 /// Current abstract state space precision.
 ///

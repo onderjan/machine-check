@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use crate::shared::snapshot::log::Log;
-use machine_check_common::{ExecError, ThreeValued};
-use machine_check_exec::{Conclusion, NodeId, PreparedProperty, StateId};
+use machine_check_common::{check::{Conclusion, PreparedProperty}, ExecError, NodeId, StateId, ThreeValued};
 use mck::abstr::Field;
 
 pub mod log;

@@ -1,64 +1,14 @@
 mod classic;
 mod deduce;
 
-use std::{
-    collections::{HashMap, VecDeque},
-    fmt::Display,
-};
-
-use log::trace;
-use machine_check_common::{ExecError, ThreeValued};
+use std::collections::HashMap;
+use machine_check_common::{check::{Conclusion, PreparedProperty}, property::Property, ExecError, StateId, ThreeValued};
 use mck::concr::FullMachine;
-use serde::{Deserialize, Serialize};
-
-use crate::{
-    property::{AtomicProperty, Property},
-    space::StateId,
-};
 
 use self::{classic::ClassicChecker, deduce::deduce_culprit};
 
 use super::space::Space;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct PreparedProperty {
-    original: Property,
-    prepared: Property,
-}
-
-impl PreparedProperty {
-    /// Turns the CTL proposition into a form suitable for three-valued checking.
-    ///
-    /// The proposition must be first converted to Positive Normal Form so that
-    /// negations are turned into complementary literals, then converted to
-    /// Existential Normal Form. This way, the complementary literals can be used
-    /// for optimistic/pessimistic labelling while a normal ENF model-checking
-    /// algorithm can be used.
-    pub fn new(original_prop: Property) -> Self {
-        trace!("Original proposition: {:#?}", original_prop);
-        // transform proposition to positive normal form to move negations to literals
-        let prop = original_prop.pnf();
-        trace!("Positive normal form: {:#?}", prop);
-        // transform proposition to existential normal form to be able to verify
-        let prop = prop.enf();
-        trace!("Existential normal form: {:#?}", prop);
-        PreparedProperty {
-            original: original_prop,
-            prepared: prop,
-        }
-    }
-
-    pub fn original(&self) -> &Property {
-        &self.original
-    }
-}
-
-impl Display for PreparedProperty {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // the prepared property is just a reformulation of the original
-        write!(f, "{}", self.original)
-    }
-}
 
 /// Perform three-valued model checking.
 ///
@@ -81,25 +31,6 @@ pub(super) fn check_property_with_labelling<M: FullMachine>(
     Ok((conclusion, labelling))
 }
 
-/// Three-valued model-checking result.
-///
-/// If the result is unknown, the culprit is given.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Conclusion {
-    Known(bool),
-    Unknown(Culprit),
-    NotCheckable,
-}
-
-/// The culprit of an unknown three-valued model-checking result.
-///
-/// Comprises of a path and an atomic property which is unknown in the last
-/// state of the path.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Culprit {
-    pub path: VecDeque<StateId>,
-    pub atomic_property: AtomicProperty,
-}
 
 /// Three-valued model checker.
 struct ThreeValuedChecker<'a, M: FullMachine> {
@@ -125,7 +56,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             return Ok(Conclusion::NotCheckable);
         }
 
-        let prop = &property.prepared;
+        let prop = &property.prepared();
         // compute optimistic and pessimistic interpretation and get the conclusion from that
         let pessimistic_interpretation = self.pessimistic.compute_interpretation(prop)?;
         let optimistic_interpretation = self.optimistic.compute_interpretation(prop)?;
@@ -142,7 +73,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         &mut self,
         property: &PreparedProperty,
     ) -> Result<HashMap<StateId, ThreeValued>, ExecError> {
-        let prop = &property.prepared;
+        let prop = &property.prepared();
         // compute the optimistic and pessimistic interpretation labellings
         let pessimistic_labelling = self.pessimistic.compute_and_get_labelling(prop)?;
         let optimistic_labelling = self.optimistic.compute_and_get_labelling(prop)?;

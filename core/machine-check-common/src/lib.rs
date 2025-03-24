@@ -1,9 +1,14 @@
 #![doc = include_str!("../README.md")]
 
 use std::{fmt::Display, ops::Not};
-
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+mod node_id;
+pub mod property;
+pub mod check;
+
+pub use node_id::{StateId, NodeId};
 
 #[derive(Error, Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]

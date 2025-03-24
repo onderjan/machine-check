@@ -1,9 +1,10 @@
 use crate::backend::BackendSettings;
 use crate::shared::snapshot::log::Log;
 use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
-use machine_check_common::ThreeValued;
-use machine_check_exec::NodeId;
-use machine_check_exec::{Framework, PreparedProperty, Property};
+use machine_check_common::check::PreparedProperty;
+use machine_check_common::property::Property;
+use machine_check_common::{NodeId, ThreeValued};
+use machine_check_exec::Framework;
 use mck::concr::FullMachine;
 use std::collections::{BTreeMap, HashMap};
 

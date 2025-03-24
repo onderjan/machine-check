@@ -1,12 +1,12 @@
 use std::collections::{BTreeSet, HashMap};
 
 use log::{log_enabled, trace};
-use machine_check_common::ExecError;
+use machine_check_common::{ExecError, StateId, 
+    property::{BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator},};
 use mck::concr::FullMachine;
 
 use crate::{
-    property::{BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator},
-    space::{Space, StateId},
+    space::Space,
 };
 
 pub struct ClassicChecker<'a, M: FullMachine> {

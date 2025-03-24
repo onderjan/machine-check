@@ -22,11 +22,7 @@ build-log-debug = []
 # that are frontend-only in practice.
 machine-check-common = "=0.4.0-alpha.1"
 mck = "=0.4.0-alpha.1"
-machine-check-exec = "=0.4.0-alpha.1"
 
-anyhow = "1.0.89"
-wasm-bindgen = "0.2.100"
-wasm-bindgen-futures = "0.4.50"
 web-sys = { version = "0.3.76", features = [
     "console",
     "Window",
@@ -56,34 +52,30 @@ web-sys = { version = "0.3.76", features = [
     "DomTokenList",
     "ResizeObserver",
 ] }
-console_error_panic_hook = "0.1.7"
 
+anyhow = "1.0.89"
+wasm-bindgen = "0.2.100"
+wasm-bindgen-futures = "0.4.50"
+console_error_panic_hook = "0.1.7"
 serde = { version = "1.0.188", features = ["derive"] }
 rmp-serde = "1.3.0"
 serde-wasm-bindgen = "0.6"
-
 bimap = "0.6.3"
 rstar = "0.12.2"
-
 chrono = { version = "0.4.40", features = ["serde"] }
-
 hex = "0.4.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Backend-only dependencies.
+machine-check-exec = "=0.4.0-alpha.1"
 
 petgraph = "0.6.4"
-
-
 log = "0.4.20"
 env_logger = "0.10.0"
-
 wry = { version = "0.50.4", features = ["devtools"] }
 tao = "0.32.8"
 http = "1.1.0"
 mime_guess = "2.0.5"
-
-
 include_dir = "0.6.2"
 
 [build-dependencies]

@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use bimap::BiHashMap;
-use machine_check_exec::NodeId;
+use machine_check_common::NodeId;
 
 use crate::shared::snapshot::Snapshot;
 

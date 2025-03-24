@@ -1,11 +1,12 @@
 use std::collections::VecDeque;
 
+use crate::{ExecError, Signedness};
+
 use super::{
     AtomicProperty, BiOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property,
     TemporalOperator, UniOperator, ValueExpression,
 };
 use lexer::{Bracket, Keyword, Token, TokenType};
-use machine_check_common::{ExecError, Signedness};
 
 mod lexer;
 

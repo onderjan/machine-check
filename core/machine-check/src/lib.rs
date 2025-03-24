@@ -10,7 +10,7 @@ use log::error;
 use log::info;
 use log::log_enabled;
 use log::trace;
-use machine_check_exec::Property;
+use machine_check_common::property::Property;
 use machine_check_exec::Strategy;
 pub use traits::Ext;
 pub use types::{Bitvector, BitvectorArray, Signed, Unsigned};

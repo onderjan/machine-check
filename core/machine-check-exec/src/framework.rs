@@ -6,8 +6,14 @@ use std::ops::ControlFlow;
 use log::debug;
 use log::log_enabled;
 use log::trace;
+use machine_check_common::check::Conclusion;
+use machine_check_common::check::Culprit;
+use machine_check_common::check::PreparedProperty;
+use machine_check_common::property::Property;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
+use machine_check_common::NodeId;
+use machine_check_common::StateId;
 use machine_check_common::ThreeValued;
 use mck::abstr;
 use mck::concr::FullMachine;
@@ -15,10 +21,6 @@ use mck::misc::Meta;
 use mck::refin::Manipulatable;
 use mck::refin::{self};
 
-use crate::model_check::PreparedProperty;
-use crate::property::Property;
-use crate::space::NodeId;
-use crate::space::StateId;
 use crate::{
     model_check::{self},
     precision::Precision,
@@ -27,8 +29,6 @@ use crate::{
 use mck::abstr::Machine as AbstrMachine;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Refine;
-
-pub use crate::model_check::{Conclusion, Culprit};
 
 /// Abstraction and refinement strategy.
 pub struct Strategy {
