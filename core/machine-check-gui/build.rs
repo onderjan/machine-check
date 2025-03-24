@@ -138,9 +138,14 @@ fn ensure_wasm_hash(artifact_dir: &Path, hex_hash: String) -> anyhow::Result<()>
 /// So we need to be clever, arrange and build the frontend somewhere else. This function gets the
 /// arrangement data and and builds.
 fn build(arrangement: &Arrangement) -> anyhow::Result<()> {
-    // If we are preparing, delete the previous artefacts.
+    // Remove the artefact directory.
+    let _ = fs::remove_dir_all(&arrangement.artifact_dir);
+
+    // If we are preparing, delete the previous frontend package as well.
+    // Do not do this always as this may contain target build files that speed up compilation.
     if arrangement.prepare {
-        let _ = fs::remove_dir_all(&arrangement.artifact_dir);
+        warn!("Preparing WebAssembly frontend, removing frontend package.");
+        let _ = fs::remove_dir_all(&arrangement.frontend_package_dir);
     }
 
     // Compile the frontend package, only warning if we should postpone errors.
@@ -306,9 +311,9 @@ fn arrange_frontend_package(
     package_toml_path: PathBuf,
     workspace_toml_path: Option<PathBuf>,
 ) -> anyhow::Result<String> {
-    // Delete the previous content of the directory.
-    let _ = fs::remove_dir_all(frontend_package_dir);
 
+    // There should be no rust-toolchain.toml in our directory.
+    // It is OK if it is in a containing workspace.
     if this_package_dir.join(RUST_TOOLCHAIN_TOML).exists() {
         return Err(anyhow!(
             "A rust-toolchain.toml in the package directory is not supported"
@@ -333,7 +338,7 @@ fn arrange_frontend_package(
     // Handle lib.rs specially: just declare the shared and frontend.
     fs::write(
         frontend_package_dir.join(LIB_RS),
-        "pub mod shared; mod frontend;\n",
+        "#![allow(clippy::all)]\npub mod shared; mod frontend;\n",
     )?;
 
     // Handle the package Cargo.toml specially.
