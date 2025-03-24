@@ -2,7 +2,10 @@ use std::{collections::VecDeque, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{property::{AtomicProperty, Property}, StateId};
+use crate::{
+    property::{AtomicProperty, Property},
+    StateId,
+};
 
 /// A Computation Tree Logic property prepared for model-checking.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -10,7 +13,6 @@ pub struct PreparedProperty {
     original: Property,
     prepared: Property,
 }
-
 
 impl PreparedProperty {
     /// Turns the CTL proposition into a form suitable for three-valued checking.
@@ -46,8 +48,6 @@ impl Display for PreparedProperty {
         write!(f, "{}", self.original)
     }
 }
-
-
 
 /// Three-valued model-checking result.
 ///

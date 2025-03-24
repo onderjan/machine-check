@@ -3,8 +3,9 @@ use std::collections::{BTreeMap, VecDeque};
 use machine_check_common::{check::Culprit, ExecError, StateId, ThreeValued};
 use mck::concr::FullMachine;
 
-use machine_check_common::
-    property::{BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator};
+use machine_check_common::property::{
+    BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator,
+};
 
 use super::ThreeValuedChecker;
 

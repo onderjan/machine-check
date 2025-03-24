@@ -6,7 +6,6 @@ use mck::{
     refin::{self, Refine},
 };
 
-
 /// Current abstract state space precision.
 ///
 #[derive(Debug)]

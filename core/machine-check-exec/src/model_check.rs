@@ -1,14 +1,17 @@
 mod classic;
 mod deduce;
 
-use std::collections::HashMap;
-use machine_check_common::{check::{Conclusion, PreparedProperty}, property::Property, ExecError, StateId, ThreeValued};
+use machine_check_common::{
+    check::{Conclusion, PreparedProperty},
+    property::Property,
+    ExecError, StateId, ThreeValued,
+};
 use mck::concr::FullMachine;
+use std::collections::HashMap;
 
 use self::{classic::ClassicChecker, deduce::deduce_culprit};
 
 use super::space::Space;
-
 
 /// Perform three-valued model checking.
 ///
@@ -30,7 +33,6 @@ pub(super) fn check_property_with_labelling<M: FullMachine>(
     let labelling = checker.compute_property_labelling(property)?;
     Ok((conclusion, labelling))
 }
-
 
 /// Three-valued model checker.
 struct ThreeValuedChecker<'a, M: FullMachine> {

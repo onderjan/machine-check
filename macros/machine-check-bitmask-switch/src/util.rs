@@ -6,7 +6,6 @@ use syn::{
 };
 use syn_path::path;
 
-
 pub fn convert_bit_length(expr: Expr, new_length: usize, span: Span) -> Expr {
     let new_length_expr = Expr::Lit(ExprLit {
         attrs: vec![],

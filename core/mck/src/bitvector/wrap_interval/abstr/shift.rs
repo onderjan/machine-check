@@ -22,7 +22,10 @@ impl<const L: u32> HwShift for Bitvector<L> {
             // adjust too large amounts first
             let amount_interval = if amount_interval.max >= large_amount {
                 // amount too large, add zero interval
-                intervals.push(Interval::new(UnsignedBitvector::zero(), UnsignedBitvector::zero()));
+                intervals.push(Interval::new(
+                    UnsignedBitvector::zero(),
+                    UnsignedBitvector::zero(),
+                ));
                 if amount_interval.min >= large_amount {
                     // any value from the amount interval will result in zero
                     continue;
@@ -69,7 +72,10 @@ impl<const L: u32> HwShift for Bitvector<L> {
             // adjust too large amounts first
             let amount_interval = if amount_interval.max >= large_amount {
                 // amount too large, add zero interval
-                intervals.push(Interval::new(UnsignedBitvector::zero(), UnsignedBitvector::zero()));
+                intervals.push(Interval::new(
+                    UnsignedBitvector::zero(),
+                    UnsignedBitvector::zero(),
+                ));
                 if amount_interval.min >= large_amount {
                     // any value from the amount interval will result in zero
                     continue;
@@ -110,15 +116,19 @@ impl<const L: u32> HwShift for Bitvector<L> {
                     Self::representable_smin(),
                     Self::representable_umax(),
                 )) {
-                    let all_ones =
-                        UnsignedBitvector::from_bitvector(ConcreteBitvector::<L>::new(1).arith_neg());
+                    let all_ones = UnsignedBitvector::from_bitvector(
+                        ConcreteBitvector::<L>::new(1).arith_neg(),
+                    );
                     intervals.push(Interval::new(all_ones, all_ones));
                 }
                 if self.intersects(&Bitvector::from_wrap_interval(
                     Self::representable_umin(),
                     Self::representable_smax(),
                 )) {
-                    intervals.push(Interval::new(UnsignedBitvector::zero(), UnsignedBitvector::zero()));
+                    intervals.push(Interval::new(
+                        UnsignedBitvector::zero(),
+                        UnsignedBitvector::zero(),
+                    ));
                 }
                 if amount_interval.min >= large_amount {
                     // any value from the amount interval is too large

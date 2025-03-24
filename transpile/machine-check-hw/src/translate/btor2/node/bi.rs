@@ -155,16 +155,13 @@ impl NodeTranslator<'_> {
         Ok((a_expr, b_expr, a_length))
     }
 
-    fn create_condition(
-        &mut self,
-        cond_expr: Expr,
-    ) -> Result<(Expr, Vec<Stmt>), Error> {
+    fn create_condition(&mut self, cond_expr: Expr) -> Result<(Expr, Vec<Stmt>), Error> {
         let temp_ident = self.create_next_temporary();
         let local_stmt: Stmt = parse_quote!(let #temp_ident: ::machine_check::Bitvector<1>;);
-        let if_stmt: Stmt = parse_quote!(if #cond_expr { 
-            #temp_ident = ::machine_check::Bitvector::<1>::new(1); 
-        } else {  
-            #temp_ident = ::machine_check::Bitvector::<1>::new(0); 
+        let if_stmt: Stmt = parse_quote!(if #cond_expr {
+            #temp_ident = ::machine_check::Bitvector::<1>::new(1);
+        } else {
+            #temp_ident = ::machine_check::Bitvector::<1>::new(0);
         };);
 
         let result_expr: Expr = parse_quote!(#temp_ident);
@@ -178,20 +175,21 @@ impl NodeTranslator<'_> {
         a_expr: Expr,
         b_expr: Expr,
     ) -> Result<(Expr, Vec<Stmt>), Error> {
-    self.create_condition(parse_quote!(#a_expr == #b_expr))
+        self.create_condition(parse_quote!(#a_expr == #b_expr))
     }
     pub(crate) fn create_ne(
         &mut self,
         a_expr: Expr,
         b_expr: Expr,
     ) -> Result<(Expr, Vec<Stmt>), Error> {
-    self.create_condition(parse_quote!(#a_expr != #b_expr))
+        self.create_condition(parse_quote!(#a_expr != #b_expr))
     }
-    
-// comparison
+
+    // comparison
     pub(crate) fn create_comparison(
         &mut self,
-        a: Rnid, b: Rnid,
+        a: Rnid,
+        b: Rnid,
         signed: bool,
         can_be_equal: bool,
     ) -> Result<(Expr, Vec<Stmt>), Error> {
@@ -203,11 +201,13 @@ impl NodeTranslator<'_> {
         };
 
         let a_into_ident = self.create_next_temporary();
-        let a_into_stmt: Stmt = parse_quote!(let #a_into_ident: #ty = ::std::convert::Into::<#ty>::into(#a_expr););
-        
+        let a_into_stmt: Stmt =
+            parse_quote!(let #a_into_ident: #ty = ::std::convert::Into::<#ty>::into(#a_expr););
+
         let b_into_ident = self.create_next_temporary();
-        let b_into_stmt: Stmt = parse_quote!(let #b_into_ident: #ty = ::std::convert::Into::<#ty>::into(#b_expr););
-        
+        let b_into_stmt: Stmt =
+            parse_quote!(let #b_into_ident: #ty = ::std::convert::Into::<#ty>::into(#b_expr););
+
         let cond_expr = if can_be_equal {
             parse_quote!(#a_into_ident <= #b_into_ident)
         } else {
@@ -219,9 +219,7 @@ impl NodeTranslator<'_> {
         stmts.extend(condition_stmts);
         Ok((result_expr, stmts))
     }
-
 }
-
 
 // bitwise
 pub(super) fn create_bit_and(a_expr: Expr, b_expr: Expr) -> Expr {

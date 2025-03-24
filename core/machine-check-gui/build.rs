@@ -311,7 +311,6 @@ fn arrange_frontend_package(
     package_toml_path: PathBuf,
     workspace_toml_path: Option<PathBuf>,
 ) -> anyhow::Result<String> {
-
     // There should be no rust-toolchain.toml in our directory.
     // It is OK if it is in a containing workspace.
     if this_package_dir.join(RUST_TOOLCHAIN_TOML).exists() {
