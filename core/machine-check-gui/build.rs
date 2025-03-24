@@ -365,7 +365,7 @@ fn arrange_frontend_package(
 
     cargo_toml["package"]["name"] = "machine-check-gui-wasm".into();
     cargo_toml.insert("workspace", toml_edit::Item::Table(Table::new()));
-    cargo_toml["publish"] = false.into();
+    cargo_toml["package"]["publish"] = false.into();
 
     // Next, canonicalize the paths in the package Cargo.toml.
     // For simplicity, only process [dependencies].
