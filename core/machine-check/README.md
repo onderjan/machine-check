@@ -16,6 +16,7 @@ of arbitrary digital systems as long as they are described in a subset of valid 
 that **machine-check** understands.
 
 ## Examples
+
 A very simple example of a system verifiable by **machine-check** is [counter](
     https://docs.rs/crate/machine-check/0.3.1/source/examples/counter.rs), 
 a simple [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine) which contains 
@@ -57,6 +58,7 @@ You can use the "-v" command-line parameter to show the final abstract state spa
 requires some further knowledge.
 
 ### Inherent panics
+
 It is also possible to detect system panics, which is useful e.g. for machine-code systems, which
 take the machine-code file from command line and should detect that it a reserved instruction
 can be executed during the course of the program. A simple example is in the 
@@ -76,6 +78,7 @@ Currently, presence of inherent panic precludes verification of a property, as i
 a more pressing issue to fix.
 
 ### Machine-code verification
+
 There is also an example of an extremely simplified RISC microcontroller 
 in [simple_risc](https://docs.rs/crate/machine-check/0.3.0/source/examples/simple_risc.rs), 
 showcasing the [`bitmask_switch`] macro that 
@@ -89,6 +92,7 @@ of some simple machine-code programs for the AVR ATmega328P microcontroller
 
 
 ## Current status
+
 **Machine-check** is still in experimental phase, with limitations in user experience 
 and verification power.
 
@@ -98,20 +102,22 @@ step by step, slowly adding and modifying pieces of example code. Temporarily co
 the macro may also reveal an underlying Rust error with a more sensible error message.
 
 ## Further notes
+
 Unlike some other formal verification tools, **machine-check** is designed be sound 
 and complete. You should either get an error or a correct true/false result in finite 
 (but practically unbounded) time. Of course, there may be bugs or design oversights.
 
 ## Changelog
+
  - 0.3.1: Continuing a refinement until the state space changes. This improves 
- performance a bit in some scenarios.
+   performance a bit in some scenarios.
  - 0.3.0: Soundness fixes, optimisation, refinement choice tweaks for reasonable
- verification of machine-code systems.
+   verification of machine-code systems.
  - 0.2.0: Significant rewrite, arbitrary finite-state systems now can be described 
- as finite-state machines in Rust code. Conditional branches are supported.
+   as finite-state machines in Rust code. Conditional branches are supported.
  - 0.1.0: Initial version, only verification of [Btor2]
- (https://link.springer.com/chapter/10.1007/978-3-319-96145-3_32) hardware systems 
- supported through translation to Rust code.
+   (https://link.springer.com/chapter/10.1007/978-3-319-96145-3_32) hardware systems 
+   supported through translation to Rust code.
 
 ## License
 
