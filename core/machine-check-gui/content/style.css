@@ -52,14 +52,13 @@ body {
 
 #verification_control {
     margin-top: auto;
-    height: 3em;
     display: flex;
 }
 
 #verification_control>* {
+    padding: 0.5em;
     padding-left: 2em;
     padding-right: 2em;
-    height: 100%;
     margin-left: 0.1em;
     margin-right: 0.1em;
 }
@@ -183,6 +182,26 @@ body {
     padding: 0.5em;
 }
 
+#properties_control {
+    display: flex;
+    padding-bottom: 0.75em;
+    border-bottom: 1px solid grey;
+}
+
+#properties_control>button {
+    flex: auto;
+    padding: 0.25em;
+    padding-left: 2em;
+    padding-right: 2em;
+    margin-left: 0.1em;
+    margin-right: 0.1em;
+    font-size: 1.5em;
+}
+
+#properties {
+    padding-top: 0.75em;
+}
+
 .property-outer {
     margin-left: 2em;
 }
@@ -196,15 +215,6 @@ body {
 
 }
 
-#properties_control {
-    display: flex;
-    height: 1.5em;
-    padding-bottom: 1.5em;
-}
-
-#properties_control>button {
-    flex: auto;
-}
 
 #top_bar,
 #bottom_bar {
