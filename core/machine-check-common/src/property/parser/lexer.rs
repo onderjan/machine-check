@@ -2,26 +2,11 @@ use std::{collections::VecDeque, iter::Peekable};
 
 use crate::{property::ComparisonType, ExecError};
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bracket {
     Parenthesis,
     Square,
     Curly,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Keyword {
-    A,
-    E,
-    AX,
-    AF,
-    AG,
-    EX,
-    EF,
-    EG,
-    U,
-    R,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,7 +20,7 @@ pub enum TokenType {
     Ident(String),
     Number(u64),
     Comparison(ComparisonType),
-    Keyword(Keyword),
+    MacroInvocation(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -184,26 +169,16 @@ pub fn lex(input: &str) -> Result<VecDeque<Token>, ExecError> {
                     };
                     end_index = index;
                 }
-                let keyword = match ident.as_ref() {
-                    "A" => Some(Keyword::A),
-                    "E" => Some(Keyword::E),
-                    "AX" => Some(Keyword::AX),
-                    "AF" => Some(Keyword::AF),
-                    "AG" => Some(Keyword::AG),
-                    "EX" => Some(Keyword::EX),
-                    "EF" => Some(Keyword::EF),
-                    "EG" => Some(Keyword::EG),
-                    "U" => Some(Keyword::U),
-                    "R" => Some(Keyword::R),
-                    _ => None,
-                };
-                let ty = if let Some(keyword) = keyword {
-                    TokenType::Keyword(keyword)
+
+                let token_type = if let Some((_, '!')) = it.peek().copied() {
+                    // consume the bang but do not add it to the ident
+                    it.next();
+                    TokenType::MacroInvocation(ident)
                 } else {
                     TokenType::Ident(ident)
                 };
 
-                add_token(&mut result, start, end_index, ty);
+                add_token(&mut result, start, end_index, token_type);
             }
             '0'..='9' | '-' | '+' => {
                 let mut str_val = String::new();

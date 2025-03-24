@@ -97,12 +97,8 @@ impl Display for Property {
             Property::Negation(prop_uni) => {
                 write!(f, "!({})", prop_uni.0)
             }
-            Property::Or(prop_bi) => {
-                write!(f, "{} || {}", prop_bi.a, prop_bi.b)
-            }
-            Property::And(prop_bi) => {
-                write!(f, "{} && {}", prop_bi.a, prop_bi.b)
-            }
+            Property::Or(prop_bi) => write_logic_bi(f, prop_bi, "||"),
+            Property::And(prop_bi) => write_logic_bi(f, prop_bi, "&&"),
             Property::E(prop_temp) => {
                 write!(f, "E{}", prop_temp)
             }
@@ -113,23 +109,42 @@ impl Display for Property {
     }
 }
 
+fn write_logic_bi(
+    f: &mut std::fmt::Formatter<'_>,
+    prop_bi: &BiOperator,
+    op_str: &str,
+) -> std::fmt::Result {
+    // Make sure the inner and / or properties are in parentheses so the display is unambiguous.
+    let write_inner_prop = |f: &mut std::fmt::Formatter<'_>, prop: &Property| {
+        if matches!(prop, Property::And(_) | Property::Or(_)) {
+            write!(f, "({})", prop)
+        } else {
+            write!(f, "{}", prop)
+        }
+    };
+
+    write_inner_prop(f, &prop_bi.a)?;
+    write!(f, " {} ", op_str)?;
+    write_inner_prop(f, &prop_bi.b)
+}
+
 impl Display for TemporalOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TemporalOperator::X(prop_uni) => {
-                write!(f, "X[{}]", prop_uni.0)
+                write!(f, "X![{}]", prop_uni.0)
             }
             TemporalOperator::F(prop_f) => {
-                write!(f, "F[{}]", prop_f.0)
+                write!(f, "F![{}]", prop_f.0)
             }
             TemporalOperator::G(prop_g) => {
-                write!(f, "G[{}]", prop_g.0)
+                write!(f, "G![{}]", prop_g.0)
             }
             TemporalOperator::U(prop_u) => {
-                write!(f, "[{}]U[{}]", prop_u.hold, prop_u.until)
+                write!(f, "U![{}, {}]", prop_u.hold, prop_u.until)
             }
             TemporalOperator::R(prop_r) => {
-                write!(f, "[{}]R[{}]", prop_r.releaser, prop_r.releasee)
+                write!(f, "R![{}, {}]", prop_r.releaser, prop_r.releasee)
             }
         }
     }

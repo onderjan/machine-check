@@ -6,7 +6,7 @@ use super::{
     AtomicProperty, BiOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property,
     TemporalOperator, UniOperator, ValueExpression,
 };
-use lexer::{Bracket, Keyword, Token, TokenType};
+use lexer::{Bracket, Token, TokenType};
 
 mod lexer;
 
@@ -77,23 +77,25 @@ impl PropertyParser {
                 Property::Atomic(self.parse_atomic_property(ident)?)
             }
             Some(Token {
-                ty: TokenType::Keyword(keyword),
+                ty: TokenType::MacroInvocation(ref ident),
                 ..
             }) => {
                 // parse as a CTL operator
-                let property: Property = match keyword {
-                    lexer::Keyword::A => Property::A(self.parse_bi_operator()?),
-                    lexer::Keyword::E => Property::E(self.parse_bi_operator()?),
-                    lexer::Keyword::AX => Property::A(self.parse_x()?),
-                    lexer::Keyword::AF => Property::A(self.parse_f()?),
-                    lexer::Keyword::AG => Property::A(self.parse_g()?),
-                    lexer::Keyword::EX => Property::E(self.parse_x()?),
-                    lexer::Keyword::EF => Property::E(self.parse_f()?),
-                    lexer::Keyword::EG => Property::E(self.parse_g()?),
+                let property: Property = match ident.as_str() {
+                    "AX" => Property::A(self.parse_x()?),
+                    "AF" => Property::A(self.parse_f()?),
+                    "AG" => Property::A(self.parse_g()?),
+                    "EX" => Property::E(self.parse_x()?),
+                    "EF" => Property::E(self.parse_f()?),
+                    "AU" => Property::A(self.parse_bi_operator(true)?),
+                    "AR" => Property::A(self.parse_bi_operator(false)?),
+                    "EG" => Property::E(self.parse_g()?),
+                    "EU" => Property::E(self.parse_bi_operator(true)?),
+                    "ER" => Property::E(self.parse_bi_operator(false)?),
                     _ => {
                         return Err(self.not_parseable(
                             first_token,
-                            "Unexpected keyword when parsing a property",
+                            "Unexpected macro invocation when parsing a property",
                         ))
                     }
                 };
@@ -131,7 +133,7 @@ impl PropertyParser {
             token => {
                 return Err(self.not_parseable(
                     token,
-                    "Expected an identifier or a temporal operator when parsing a property",
+                    "Expected an identifier or a macro invocation when parsing a property",
                 ))
             }
         })
@@ -162,38 +164,14 @@ impl PropertyParser {
         Ok(UniOperator(Box::new(result)))
     }
 
-    fn parse_bi_operator(&mut self) -> Result<TemporalOperator, ExecError> {
-        self.expect(
-            TokenType::OpeningBracket(Bracket::Square),
-            "the first half of a binary operator",
-        )?;
+    fn parse_bi_operator(&mut self, is_until: bool) -> Result<TemporalOperator, ExecError> {
+        const WHEN_PARSING: &str = "a binary operator";
+
+        self.expect(TokenType::OpeningBracket(Bracket::Square), WHEN_PARSING)?;
         let a = Box::new(self.parse_property()?);
-        self.expect(
-            TokenType::ClosingBracket(Bracket::Square),
-            "the first half of a binary operator",
-        )?;
-
-        let is_until = match self.lex_items.pop_front() {
-            Some(Token {
-                ty: TokenType::Keyword(Keyword::U),
-                ..
-            }) => true,
-            Some(Token {
-                ty: TokenType::Keyword(Keyword::R),
-                ..
-            }) => false,
-            token => return Err(self.not_parseable(token, "Expected a number to use as an index")),
-        };
-
-        self.expect(
-            TokenType::OpeningBracket(Bracket::Square),
-            "the second half of a binary operator",
-        )?;
+        self.expect(TokenType::Comma, "a binary operator")?;
         let b = Box::new(self.parse_property()?);
-        self.expect(
-            TokenType::ClosingBracket(Bracket::Square),
-            "the second half of a binary operator",
-        )?;
+        self.expect(TokenType::ClosingBracket(Bracket::Square), WHEN_PARSING)?;
 
         Ok(if is_until {
             TemporalOperator::U(OperatorU { hold: a, until: b })
@@ -334,7 +312,7 @@ impl PropertyParser {
 #[test]
 fn test_parse() {
     {
-        let str = "AG[a == 0] && !(EF[as_signed(b[32]) != 3])";
+        let str = "AG![a == 0] && !(EF![as_signed(b[32]) != 3])";
         let parsed = parse(str).unwrap();
         let ag = Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Atomic(
             AtomicProperty {
@@ -372,7 +350,7 @@ fn test_parse() {
     }
     {
         let parsed =
-            parse("E[as_signed(prOpeRty) > 37]U[((ALREADY_UNSIGNED <= 0x5E)) || (!(abc >= -3))]")
+            parse("EU![as_signed(prOpeRty) > 37, ((ALREADY_UNSIGNED <= 0x5E)) || (!(abc >= -3))]")
                 .unwrap();
 
         let until = Property::Or(BiOperator {
@@ -418,7 +396,7 @@ fn test_parse() {
         assert_eq!(0x5E, 94);
         assert_eq!(
             &parsed.to_string(),
-            "E[as_signed(prOpeRty) > 37]U[ALREADY_UNSIGNED <= 94 || !(abc >= -3)]"
+            "EU![as_signed(prOpeRty) > 37, ALREADY_UNSIGNED <= 94 || !(abc >= -3)]"
         );
     }
     assert!(parse("property > 3 token_after_end").is_err());
