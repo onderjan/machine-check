@@ -184,7 +184,7 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
             // the result will be propagated, just inform that we ended somehow
             match result.result {
                 Ok(_) => info!("Verification ended."),
-                Err(_) => error!("Verification failed."),
+                Err(_) => error!("Verification returned an error."),
             }
         }
         result
@@ -241,16 +241,17 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
             );
             let table_bar = format!("+{}+", "-".repeat(result_title.len().saturating_sub(2)));
 
-            println!("{}\n{}\n{}", table_bar, result_title, table_bar);
+            // the log is printed to stderr, follow it
+            eprintln!("{}\n{}\n{}", table_bar, result_title, table_bar);
             for (name, value) in stats_cells {
-                println!(
+                eprintln!(
                     "|  {}: {:>width$}  |",
                     name,
                     value,
                     width = inner_table_width - name.len()
                 )
             }
-            println!("{}", table_bar);
+            eprintln!("{}", table_bar);
         }
     }
     result

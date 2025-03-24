@@ -17,86 +17,76 @@ pub fn verify<M: FullMachine>(
 ) -> ExecResult {
     let abstract_system = <M::Abstr as mck::abstr::Abstr<M>>::from_concrete(system);
 
-    /*let (property, assume_inherent) = match verification_type {
-        VerificationType::Inherent => {
-            // the inherent property is that there is no panic, i.e. AG[panic=0]
-            let property = Proposition::inherent();
-            (property, false)
-        }
-        VerificationType::Property(property) => (property, true),
-    };*/
-
+    // Short-circuit error on assumption of the inherent property that we are trying to verify.
     if prop.is_none() && assume_inherent {
         return ExecResult {
             result: Err(ExecError::VerifiedInherentAssumed),
             stats: ExecStats::default(),
         };
     }
-    // verify inherent property first
+
+    // Construct the framework.
     let mut framework = Framework::<M>::new(abstract_system, &strategy);
 
-    let inherent_property = PreparedProperty::new(Property::inherent());
-
-    match prop {
-        Some(prop) => {
-            if assume_inherent {
-                warn!("Assuming that the inherent property holds. If it does not, the verification result will be unusable.");
-            } else {
-                info!("Verifying the inherent property first.");
-                let inherent_result = framework.verify(&inherent_property, false);
-                match inherent_result {
-                    Ok(inherent_holds) => {
-                        if inherent_holds {
-                            // we are fine, ignore the inherent result stats
-                            info!("The inherent property holds.");
-                        } else {
-                            return ExecResult {
-                                result: Err(ExecError::InherentPanic),
-                                stats: framework.info(),
-                            };
-                        }
-                    }
-                    Err(_) => {
-                        // return the errors
-                        return ExecResult {
-                            result: inherent_result,
-                            stats: framework.info(),
-                        };
-                    }
-                }
-            }
-
-            info!("Verifying the given property.");
-            let property = PreparedProperty::new(prop);
-
-            // verify the property, assuming no panic can occur
-            let result = framework.verify(&property, assume_inherent);
-
-            // inform about the given property result if it was ok
-            match result {
-                Ok(true) => info!("The given property holds."),
-                Ok(false) => info!("The given property does not hold."),
-                Err(_) => {}
-            }
-
-            // also return framework stats
-            ExecResult {
-                result,
-                stats: framework.info(),
-            }
-        }
-        None => {
+    // Verify the inherent property first if not assumed.
+    let inherent_result = if assume_inherent {
+        None
+    } else {
+        if prop.is_some() {
+            info!("Verifying the inherent property first.");
+        } else {
             info!("Verifying the inherent property.");
-            let result = framework.verify(&inherent_property, false);
-            match result {
-                Ok(true) => info!("The inherent property holds."),
-                Ok(false) => info!("The inherent property does not hold."),
-                Err(_) => {}
+        }
+        let inherent_property = PreparedProperty::new(Property::inherent());
+        Some(framework.verify(&inherent_property, false))
+    };
+
+    let Some(property) = prop else {
+        // Inherent property verification only.
+        // Print info and return the inherent property verification result.
+        // The property should be verified as the short-circuit was done previously.
+        return ExecResult {
+            result: inherent_result.expect("Inherent property should not be assumed"),
+            stats: framework.info(),
+        };
+    };
+
+    // Standard property verification.
+
+    if let Some(inherent_result) = inherent_result {
+        match inherent_result {
+            Ok(true) => {
+                // Inherent holds, we can continue.
+                info!("The inherent property holds, proceeding to the given property.");
             }
-            ExecResult {
-                result,
-                stats: framework.info(),
+            Ok(false) => {
+                // inherent
+                return ExecResult {
+                    result: Err(ExecError::InherentPanic),
+                    stats: framework.info(),
+                };
+            }
+            Err(_) => {
+                // return the errors
+                return ExecResult {
+                    result: inherent_result,
+                    stats: framework.info(),
+                };
             }
         }
+    } else {
+        warn!("Assuming that the inherent property holds. If it does not, the verification result will be unusable.");
+    }
+
+    info!("Verifying the given property.");
+    let property = PreparedProperty::new(property);
+
+    // verify the property, assuming no panic can occur
+    let result = framework.verify(&property, assume_inherent);
+
+    // also return framework stats
+    ExecResult {
+        result,
+        stats: framework.info(),
     }
 }
