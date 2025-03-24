@@ -420,23 +420,7 @@ impl<M: FullMachine> Framework<M> {
 
             // get current state, none if we are at start node
             let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
-                let current_state = self.work_state.space.get_state_by_id(state_id).clone();
-
-                let mut can_be_panic = true;
-                if let Some(panic_value) = current_state.panic.concrete_value() {
-                    if panic_value.is_zero() {
-                        can_be_panic = false;
-                    }
-                }
-                if can_be_panic {
-                    // skip generation from state
-                    // loop back to itself instead to retain left-totality
-                    self.work_state
-                        .space
-                        .add_loop(state_id, &input_precision.into_proto_iter().nth(0).unwrap());
-                    continue;
-                }
-                Some(current_state)
+                Some(self.work_state.space.get_state_by_id(state_id).clone())
             } else {
                 None
             };
