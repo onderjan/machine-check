@@ -339,8 +339,9 @@ impl<M: FullMachine> Framework<M> {
         let mut changed = false;
         // construct state space by breadth-first search
         while let Some(node_id) = queue.pop_front() {
+            self.work_state.num_generated_states += 1;
             // remove outgoing edges
-            let removed_direct_successors = self.work_state.space.clear_steps(node_id);
+            let removed_direct_successors = self.work_state.space.clear_step(node_id);
 
             // prepare precision
             let input_precision: RefinInput<M> =
@@ -375,11 +376,17 @@ impl<M: FullMachine> Framework<M> {
 
                 // add the step to the state space
                 self.work_state.num_generated_transitions += 1;
-                let (added_state, next_state_index) =
-                    self.work_state.space.add_step(node_id, next_state, &input);
+                let next_state_index = self.work_state.space.add_step(node_id, next_state, &input);
 
-                if added_state {
-                    self.work_state.num_generated_states += 1;
+                // add the tail to the queue if it has no direct successors yet
+                let has_direct_successor = self
+                    .work_state
+                    .space
+                    .direct_successor_iter(next_state_index.into())
+                    .next()
+                    .is_some();
+
+                if !has_direct_successor {
                     // add to queue
                     queue.push_back(next_state_index.into());
                 }
@@ -398,6 +405,11 @@ impl<M: FullMachine> Framework<M> {
                 changed = direct_successors != removed_direct_successors;
             }
         }
+
+        // Each node now should have at least one direct successor.
+        // Assert it to be sure.
+        self.space().assert_left_total();
+
         changed
     }
 
@@ -420,6 +432,10 @@ impl<M: FullMachine> Framework<M> {
             .chain(self.work_state.step_precision.used_nodes())
             .filter_map(|node_id| StateId::try_from(node_id).ok());
         self.work_state.space.make_compact(precision_used_states);
+
+        // Each node now still should have at least one direct successor.
+        // Assert it to be sure.
+        self.space().assert_left_total();
     }
 
     fn garbage_collect(&mut self) {

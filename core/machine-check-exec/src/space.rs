@@ -42,11 +42,11 @@ impl<M: FullMachine> StateSpace<M> {
         head_id: NodeId,
         tail_data: AbstrPanicState<M>,
         representative_input: &AbstrInput<M>,
-    ) -> (bool, StateId) {
-        let (added_state, tail_id) = self.store.add_state(tail_data);
+    ) -> StateId {
+        let tail_id = self.store.state_id(tail_data);
 
         self.graph.add_step(head_id, tail_id, representative_input);
-        (added_state, tail_id)
+        tail_id
     }
 
     pub fn breadth_first_search<T>(
@@ -90,7 +90,7 @@ impl<M: FullMachine> StateSpace<M> {
         self.store.state_data(state_id)
     }
 
-    pub fn clear_steps(&mut self, head_id: NodeId) -> BTreeSet<StateId> {
+    pub fn clear_step(&mut self, head_id: NodeId) -> BTreeSet<StateId> {
         self.graph.clear_step(head_id)
     }
 
@@ -132,6 +132,17 @@ impl<M: FullMachine> StateSpace<M> {
 
     pub fn direct_successor_iter(&self, node_id: NodeId) -> impl Iterator<Item = StateId> + '_ {
         self.graph.direct_successor_iter(node_id)
+    }
+
+    pub fn assert_left_total(&self) {
+        for node_id in self.nodes() {
+            if self.direct_successor_iter(node_id).count() == 0 {
+                panic!(
+                    "State space should be left-total but node {} has no successor",
+                    node_id
+                );
+            }
+        }
     }
 }
 

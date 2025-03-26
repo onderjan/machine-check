@@ -1,6 +1,6 @@
 use std::{collections::BTreeSet, num::NonZeroU64};
 
-use bimap::BiMap;
+use bimap::{BiMap, Overwritten};
 use machine_check_common::StateId;
 
 use crate::{AbstrPanicState, WrappedState};
@@ -32,20 +32,21 @@ impl<M: FullMachine> StateStore<M> {
         }
     }
 
-    // Add state and get whether it was added and its id.
-    //
-    // Returns whether the state was added state id.
-    pub fn add_state(&mut self, state: AbstrPanicState<M>) -> (bool, StateId) {
+    // Get state id, add if necessary.
+    pub fn state_id(&mut self, state: AbstrPanicState<M>) -> StateId {
         // Check if the state already corresponds to some id.
         let state = MetaWrap(state);
         if let Some(state_id) = self.map.get_by_right(&state) {
             // return that we have not inserted and the id
-            return (false, *state_id);
+            return *state_id;
         };
 
         // Add state to the map with the next state id.
         let inserted_state_id = self.next_state_id;
-        self.map.insert(inserted_state_id, state);
+        assert!(matches!(
+            self.map.insert(inserted_state_id, state),
+            Overwritten::Neither
+        ));
 
         // Increment the next state id
         match self.next_state_id.0.checked_add(1) {
@@ -56,8 +57,8 @@ impl<M: FullMachine> StateStore<M> {
             }
         };
 
-        // We have inserted, return that we did and the id.
-        (true, inserted_state_id)
+        // Return the id.
+        inserted_state_id
     }
 
     pub fn state_data(&self, state_id: StateId) -> &AbstrPanicState<M> {
