@@ -14,40 +14,45 @@ pub struct Precision<M: FullMachine> {
     input: BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input>,
     /// Step decay. Determines which parts of the state decay after using the step function.
     decay: BTreeMap<NodeId, refin::PanicResult<<M::Refin as refin::Machine<M>>::State>>,
-    /// Whether each input should immediately cover only a single concrete input.
-    naive_inputs: bool,
 }
 
 impl<M: FullMachine> Precision<M> {
-    pub fn new(naive_inputs: bool) -> Self {
+    pub fn new() -> Self {
         Precision {
             input: BTreeMap::new(),
             decay: BTreeMap::new(),
-            naive_inputs,
         }
     }
 
-    pub fn get_input(&self, node_id: NodeId) -> <M::Refin as refin::Machine<M>>::Input {
+    pub fn get_input(
+        &self,
+        node_id: NodeId,
+        default: &<M::Refin as refin::Machine<M>>::Input,
+    ) -> <M::Refin as refin::Machine<M>>::Input {
         match self.input.get(&node_id) {
             Some(input) => input.clone(),
-            None => {
-                if self.naive_inputs {
-                    Refine::dirty()
-                } else {
-                    Refine::clean()
-                }
-            }
+            None => default.clone(),
+            /*{
+            if self.naive_inputs {
+                Refine::dirty()
+            } else {
+                Refine::clean()
+            }*/
         }
     }
 
-    pub fn mut_input(&mut self, node_id: NodeId) -> &mut <M::Refin as refin::Machine<M>>::Input {
-        self.input
-            .entry(node_id)
-            .or_insert_with(if self.naive_inputs {
-                Refine::dirty
-            } else {
-                Refine::clean
-            })
+    pub fn mut_input(
+        &mut self,
+        node_id: NodeId,
+        default: &<M::Refin as refin::Machine<M>>::Input,
+    ) -> &mut <M::Refin as refin::Machine<M>>::Input {
+        self.input.entry(node_id).or_insert_with(
+            || default.clone(), /*if self.naive_inputs {
+                                    Refine::dirty
+                                } else {
+                                    Refine::clean
+                                }*/
+        )
     }
 
     pub fn get_decay(
@@ -69,9 +74,5 @@ impl<M: FullMachine> Precision<M> {
 
     pub fn input_precision(&self) -> &BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input> {
         &self.input
-    }
-
-    pub fn naive_inputs(&self) -> bool {
-        self.naive_inputs
     }
 }

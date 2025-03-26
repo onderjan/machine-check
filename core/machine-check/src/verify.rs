@@ -26,7 +26,7 @@ pub fn verify<M: FullMachine>(
     }
 
     // Construct the framework.
-    let mut framework = Framework::<M>::new(abstract_system, &strategy);
+    let mut framework = Framework::<M>::new(abstract_system, strategy);
 
     // Verify the inherent property first if not assumed.
     let inherent_result = if assume_inherent {

@@ -46,8 +46,9 @@ pub enum VerificationType {
 pub struct Framework<M: FullMachine> {
     /// Abstract system.
     abstract_system: M::Abstr,
-    /// Whether each step output should decay to fully-unknown by default.
-    use_decay: bool,
+
+    /// Abstraction and refinement strategy.
+    strategy: Strategy,
 
     /// Work state containing the structures that change during verification.
     work_state: WorkState<M>,
@@ -71,9 +72,9 @@ struct WorkState<M: FullMachine> {
 }
 
 impl<M: FullMachine> WorkState<M> {
-    fn new(naive_inputs: bool) -> Self {
+    fn new() -> Self {
         Self {
-            precision: Precision::new(naive_inputs),
+            precision: Precision::new(),
             space: StateSpace::new(),
             culprit: None,
             num_refinements: 0,
@@ -110,22 +111,18 @@ impl<M: FullMachine> WorkState<M> {
 
 impl<M: FullMachine> Framework<M> {
     /// Constructs the framework with a given system and strategy.
-    pub fn new(
-        abstract_system: M::Abstr,
-        //verification_type: VerificationType,
-        strategy: &Strategy,
-    ) -> Self {
+    pub fn new(abstract_system: M::Abstr, strategy: Strategy) -> Self {
         // return the framework with empty state space, before any construction
         Framework {
             abstract_system,
-            use_decay: strategy.use_decay,
-            work_state: WorkState::new(strategy.naive_inputs),
+            strategy,
+            work_state: WorkState::new(),
         }
     }
 
     pub fn reset(&mut self) {
         // reset the work state
-        self.work_state = WorkState::new(self.work_state.precision.naive_inputs())
+        self.work_state = WorkState::new()
     }
 
     pub fn verify(&mut self, property: &PreparedProperty) -> Result<bool, ExecError> {
@@ -203,8 +200,18 @@ impl<M: FullMachine> Framework<M> {
         Ok(())
     }
 
+    fn default_input(&self) -> <M::Refin as refin::Machine<M>>::Input {
+        if self.strategy.naive_inputs {
+            Refine::dirty()
+        } else {
+            Refine::clean()
+        }
+    }
+
     /// Refines a single bit. OK result contains whether the state space changed.
     fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
+        let default_input = self.default_input();
+
         self.work_state.num_refinements += 1;
         // compute marking
         let mut current_state_mark =
@@ -245,7 +252,7 @@ impl<M: FullMachine> Framework<M> {
                 None => NodeId::ROOT,
             };
 
-            if self.use_decay {
+            if self.strategy.use_decay {
                 // decay is applied last in forward direction, so we will apply it first
                 let decay_precision = self.work_state.precision.mut_decay(previous_node_id);
                 //info!("Decay prec: {:?}", decay_precision);
@@ -306,7 +313,10 @@ impl<M: FullMachine> Framework<M> {
                 }
             };
 
-            let mut input_precision = self.work_state.precision.get_input(previous_node_id);
+            let mut input_precision = self
+                .work_state
+                .precision
+                .get_input(previous_node_id, &default_input);
 
             trace!("Input mark: {:?}", input_mark);
 
@@ -365,7 +375,8 @@ impl<M: FullMachine> Framework<M> {
         // if there is an input precision refinement candidate, apply it
         match input_precision_refinement {
             Some((node_id, refined_input_precision)) => {
-                let input_precision_mut = self.work_state.precision.mut_input(node_id);
+                let input_precision_mut =
+                    self.work_state.precision.mut_input(node_id, &default_input);
                 *input_precision_mut = refined_input_precision;
 
                 // single mark applied, regenerate
@@ -386,6 +397,9 @@ impl<M: FullMachine> Framework<M> {
                 self.work_state.precision.input_precision()
             );
         }
+
+        let default_input = self.default_input();
+
         let mut queue = VecDeque::new();
         queue.push_back(from_node_id);
 
@@ -396,7 +410,7 @@ impl<M: FullMachine> Framework<M> {
             let removed_direct_successors = self.work_state.space.clear_steps(node_id);
 
             // prepare precision
-            let input_precision = self.work_state.precision.get_input(node_id);
+            let input_precision = self.work_state.precision.get_input(node_id, &default_input);
             let decay_precision = self.work_state.precision.get_decay(node_id);
 
             // get current state, none if we are at start node
@@ -416,7 +430,7 @@ impl<M: FullMachine> Framework<M> {
                     }
                 };
 
-                if self.use_decay {
+                if self.strategy.use_decay {
                     decay_precision.force_decay(&mut next_state);
                 }
 

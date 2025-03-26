@@ -37,7 +37,7 @@ pub fn run<M: FullMachine>(
     let abstract_system = <M::Abstr as mck::abstr::Abstr<M>>::from_concrete(system);
     // create the backend
     let backend = Backend::new(
-        Workspace::<M>::new(Framework::new(abstract_system, &strategy), property),
+        Workspace::<M>::new(Framework::new(abstract_system, strategy), property),
         exec_name.clone(),
     );
     let response_fn = move |_web_view_id: WebViewId, request: http::Request<Vec<u8>>| {
