@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
 use std::ops::ControlFlow;
+use std::time::Instant;
 
 use log::debug;
 use log::log_enabled;
@@ -84,8 +85,8 @@ impl<M: FullMachine> Framework<M> {
         // make compact after verification for nice state space information
         self.make_compact();
 
-        if log_enabled!(log::Level::Debug) {
-            debug!("Verification final space: {:#?}", self.work_state.space);
+        if log_enabled!(log::Level::Trace) {
+            trace!("Verification final space: {:#?}", self.work_state.space);
         }
         result
     }
@@ -143,6 +144,11 @@ impl<M: FullMachine> Framework<M> {
     /// Refines a single bit. OK result contains whether the state space changed.
     fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
         self.work_state.num_refinements += 1;
+        let start_instant = if log_enabled!(log::Level::Debug) {
+            Some(Instant::now())
+        } else {
+            None
+        };
         // compute marking
         let mut current_state_mark =
             mck::refin::PanicResult::<<M::Refin as refin::Machine<M>>::State>::clean();
@@ -310,7 +316,7 @@ impl<M: FullMachine> Framework<M> {
         }
 
         // if there is an input precision refinement candidate, apply it
-        match input_precision_refinement {
+        let result = match input_precision_refinement {
             Some((node_id, refined_input_precision)) => {
                 // single mark applied, insert it back and regenerate
                 self.work_state
@@ -323,13 +329,21 @@ impl<M: FullMachine> Framework<M> {
                 // cannot apply any refinement, verification incomplete
                 Err(ExecError::Incomplete)
             }
+        };
+
+        if let Some(start_instant) = start_instant {
+            debug!(
+                "Refinement #{} took {:?}.",
+                self.work_state.num_refinements,
+                start_instant.elapsed()
+            );
         }
+
+        result
     }
 
     /// Regenerates the state space from a given node, keeping its other parts. Returns whether the state space changed.
     pub fn regenerate(&mut self, from_node_id: NodeId) -> bool {
-        trace!("Regenerating");
-
         let default_input_precision = &self.default_input_precision;
         let default_step_precision = &self.default_step_precision;
 
