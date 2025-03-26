@@ -174,6 +174,10 @@ impl<M: FullMachine> BackendWorker<M> {
 
             num_refinements += 1;
         }
+
+        // no longer stepping, compact the state space
+        self.workspace.framework.make_compact();
+
         let duration = start_instant.elapsed();
 
         self.workspace

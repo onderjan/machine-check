@@ -9,7 +9,6 @@ use log::trace;
 use machine_check_common::check::Conclusion;
 use machine_check_common::check::Culprit;
 use machine_check_common::check::PreparedProperty;
-use machine_check_common::property::Property;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use machine_check_common::NodeId;
@@ -19,30 +18,18 @@ use mck::concr::FullMachine;
 use mck::misc::Meta;
 use mck::refin::Manipulatable;
 use mck::refin::{self};
+use work_state::WorkState;
 
+use crate::model_check::{self};
 use crate::space::StateSpace;
 use crate::RefinInput;
 use crate::RefinPanicState;
-use crate::{
-    model_check::{self},
-    precision::Precision,
-};
+use crate::Strategy;
 use mck::abstr::Machine as AbstrMachine;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Refine;
 
-/// Abstraction and refinement strategy.
-pub struct Strategy {
-    /// Whether each input should immediately cover only a single concrete input.
-    pub naive_inputs: bool,
-    /// Whether each step output should decay to fully-unknown by default.
-    pub use_decay: bool,
-}
-
-pub enum VerificationType {
-    Inherent,
-    Property(Property),
-}
+mod work_state;
 
 /// Three-valued abstraction refinement framework.
 pub struct Framework<M: FullMachine> {
@@ -57,64 +44,6 @@ pub struct Framework<M: FullMachine> {
 
     /// Work state containing the structures that change during verification.
     work_state: WorkState<M>,
-}
-
-/// Work state, i.e. the meta-state of the whole verification.
-struct WorkState<M: FullMachine> {
-    /// Refinement precision for inputs (can make inputs more precise).
-    input_precision: Precision<RefinInput<M>>,
-    /// Refinement precision for steps (can add step decay).
-    step_precision: Precision<RefinPanicState<M>>,
-    /// Current state space.
-    space: StateSpace<M>,
-    /// Culprit of verification returning unknown.
-    culprit: Option<Culprit>,
-
-    /// Number of refinements made until now.
-    num_refinements: usize,
-    /// Number of states generated until now.
-    num_generated_states: usize,
-    /// Number of transitions generated until now.
-    num_generated_transitions: usize,
-}
-
-impl<M: FullMachine> WorkState<M> {
-    fn new() -> Self {
-        Self {
-            input_precision: Precision::new(),
-            step_precision: Precision::new(),
-            space: StateSpace::new(),
-            culprit: None,
-            num_refinements: 0,
-            num_generated_states: 0,
-            num_generated_transitions: 0,
-        }
-    }
-
-    fn info(&mut self) -> ExecStats {
-        ExecStats {
-            num_refinements: self.num_refinements,
-            num_generated_states: self.num_generated_states,
-            num_final_states: self.space.num_states(),
-            num_generated_transitions: self.num_generated_transitions,
-            num_final_transitions: self.space.num_transitions(),
-            inherent_panic_message: self.find_panic_string().map(String::from),
-        }
-    }
-
-    fn find_panic_string(&mut self) -> Option<&'static str> {
-        let panic_id = self.space.breadth_first_search(|_, state_data| {
-            if let Some(panic_value) = state_data.panic.concrete_value() {
-                if panic_value.is_nonzero() {
-                    return ControlFlow::Break(panic_value.as_unsigned() as u32);
-                }
-            }
-            ControlFlow::Continue(())
-        });
-
-        // TODO: panic_message approach does not work if there are multiple macro invocations
-        panic_id.map(|panic_id: u32| M::panic_message(panic_id))
-    }
 }
 
 impl<M: FullMachine> Framework<M> {
@@ -143,11 +72,6 @@ impl<M: FullMachine> Framework<M> {
         }
     }
 
-    pub fn reset(&mut self) {
-        // reset the work state
-        self.work_state = WorkState::new()
-    }
-
     pub fn verify(&mut self, property: &PreparedProperty) -> Result<bool, ExecError> {
         // loop verification steps until some conclusion is reached
         let result = loop {
@@ -157,6 +81,7 @@ impl<M: FullMachine> Framework<M> {
             }
         };
 
+        // make compact after verification for nice state space information
         self.make_compact();
 
         if log_enabled!(log::Level::Debug) {
@@ -206,14 +131,6 @@ impl<M: FullMachine> Framework<M> {
                 ControlFlow::Break(Err(err))
             }
         }
-    }
-
-    pub fn make_compact(&mut self) {
-        self.work_state.space.make_compact();
-    }
-
-    fn garbage_collect(&mut self) {
-        self.work_state.space.garbage_collect();
     }
 
     /// Refines the precision and the state space given a culprit of unknown verification result.
@@ -489,6 +406,19 @@ impl<M: FullMachine> Framework<M> {
 
     pub fn find_panic_string(&mut self) -> Option<&'static str> {
         self.work_state.find_panic_string()
+    }
+
+    pub fn make_compact(&mut self) {
+        self.work_state.space.make_compact();
+    }
+
+    fn garbage_collect(&mut self) {
+        self.work_state.space.garbage_collect();
+    }
+
+    pub fn reset(&mut self) {
+        // reset the work state
+        self.work_state = WorkState::new()
     }
 
     pub fn info(&mut self) -> ExecStats {
