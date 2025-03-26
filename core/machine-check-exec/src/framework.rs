@@ -183,13 +183,17 @@ impl<M: FullMachine> Framework<M> {
             };
 
             // decay is applied last in forward direction, so we will apply it first
-            let step_precision = self
+            let mut step_precision = self
                 .work_state
                 .step_precision
-                .get_mut(previous_node_id, &self.default_step_precision);
+                .get(previous_node_id, &self.default_step_precision);
 
             if step_precision.apply_refin(&current_state_mark) {
-                // single mark applied to decay, regenerate
+                // single mark applied to decay, insert it back and regenerate
+                self.work_state
+                    .step_precision
+                    .insert(previous_node_id, step_precision);
+
                 return Ok(self.regenerate(previous_node_id));
             }
 
@@ -306,13 +310,11 @@ impl<M: FullMachine> Framework<M> {
         // if there is an input precision refinement candidate, apply it
         match input_precision_refinement {
             Some((node_id, refined_input_precision)) => {
-                let input_precision_mut = self
-                    .work_state
+                // single mark applied, insert it back and regenerate
+                self.work_state
                     .input_precision
-                    .get_mut(node_id, &self.default_input_precision);
-                *input_precision_mut = refined_input_precision;
+                    .insert(node_id, refined_input_precision);
 
-                // single mark applied, regenerate
                 Ok(self.regenerate(node_id))
             }
             None => {
@@ -346,7 +348,7 @@ impl<M: FullMachine> Framework<M> {
             let step_precision = self
                 .work_state
                 .step_precision
-                .get_mut(node_id, default_step_precision);
+                .get(node_id, default_step_precision);
 
             // get current state, none if we are at start node
             let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
