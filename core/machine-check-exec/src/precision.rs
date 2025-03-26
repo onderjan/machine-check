@@ -67,14 +67,6 @@ impl<M: FullMachine> Precision<M> {
         self.decay.entry(node_id).or_insert_with(Refine::clean)
     }
 
-    pub fn retain_indices<F>(&mut self, predicate: F)
-    where
-        F: Fn(NodeId) -> bool,
-    {
-        self.input.retain(|k, _| predicate(*k));
-        self.decay.retain(|k, _| predicate(*k));
-    }
-
     pub fn input_precision(&self) -> &BTreeMap<NodeId, <M::Refin as refin::Machine<M>>::Input> {
         &self.input
     }

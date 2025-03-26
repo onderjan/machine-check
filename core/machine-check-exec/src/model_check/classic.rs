@@ -7,17 +7,17 @@ use machine_check_common::{
 };
 use mck::concr::FullMachine;
 
-use crate::space::Space;
+use crate::space::StateSpace;
 
 pub struct ClassicChecker<'a, M: FullMachine> {
-    space: &'a Space<M>,
+    space: &'a StateSpace<M>,
     optimistic: bool,
     labelling_map: HashMap<Property, BTreeSet<StateId>>,
 }
 
 impl<'a, M: FullMachine> ClassicChecker<'a, M> {
     /// Classic two-valued model checker with chosen interpretation of unknown labellings.
-    pub fn new(space: &'a Space<M>, optimistic: bool) -> Self {
+    pub fn new(space: &'a StateSpace<M>, optimistic: bool) -> Self {
         ClassicChecker {
             space,
             optimistic,

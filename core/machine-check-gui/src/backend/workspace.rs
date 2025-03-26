@@ -3,10 +3,10 @@ use crate::shared::snapshot::log::Log;
 use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
 use machine_check_common::check::PreparedProperty;
 use machine_check_common::property::Property;
-use machine_check_common::{NodeId, ThreeValued};
+use machine_check_common::ThreeValued;
 use machine_check_exec::Framework;
 use mck::concr::FullMachine;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 pub struct Workspace<M: FullMachine> {
     pub framework: Framework<M>,
@@ -60,29 +60,24 @@ impl<M: FullMachine> Workspace<M> {
             field_names: state_field_names.clone(),
         };
 
-        let framework = &self.framework;
-
-        let state_map = framework.space().state_map();
-        let node_graph = framework.space().node_graph();
-
-        let node_iter = std::iter::once((NodeId::ROOT, None)).chain(
-            state_map
-                .iter()
-                .map(|(state_id, state)| ((*state_id).into(), Some(state))),
-        );
+        let space = &self.framework.space();
 
         let mut nodes = BTreeMap::new();
-        for (node_id, state) in node_iter {
-            let incoming = node_graph
-                .neighbors_directed(node_id, petgraph::Direction::Incoming)
-                .collect();
-            let outgoing = node_graph
-                .neighbors_directed(node_id, petgraph::Direction::Outgoing)
-                .collect();
-            let (fields, panic) = if let Some(state) = state {
-                let panic_result = &state.0;
-                let can_be_nonpanic = panic_result.panic.umin().is_zero();
-                let can_be_panic = panic_result.panic.umax().is_nonzero();
+
+        //let graph_nodes = BTreeSet::from_iter();
+
+        for node_id in space.nodes() {
+            let incoming = BTreeSet::from_iter(space.direct_predecessor_iter(node_id));
+            let outgoing = BTreeSet::from_iter(
+                space
+                    .direct_successor_iter(node_id)
+                    .map(|state_id| state_id.into()),
+            );
+
+            let (fields, panic) = if let Ok(state_id) = node_id.try_into() {
+                let state = space.state_data(state_id);
+                let can_be_nonpanic = state.panic.umin().is_zero();
+                let can_be_panic = state.panic.umax().is_nonzero();
                 let panic = match (can_be_nonpanic, can_be_panic) {
                     (true, true) => ThreeValued::Unknown,
                     (false, true) => ThreeValued::True,
@@ -91,9 +86,8 @@ impl<M: FullMachine> Workspace<M> {
                 };
                 let mut fields = BTreeMap::new();
                 for field_name in state_field_names.iter() {
-                    let field_get =
-                        mck::abstr::Manipulatable::get(&panic_result.result, field_name)
-                            .expect("Field name should correspond to a field");
+                    let field_get = mck::abstr::Manipulatable::get(&state.result, field_name)
+                        .expect("Field name should correspond to a field");
                     let description = field_get.description();
 
                     fields.insert(field_name.clone(), description);
@@ -141,7 +135,7 @@ impl<M: FullMachine> Workspace<M> {
         let (conclusion, labellings) =
             match framework.check_property_with_labelling(&business_property.property) {
                 Ok((conclusion, labellings)) => (Ok(conclusion), labellings),
-                Err(error) => (Err(error), HashMap::new()),
+                Err(error) => (Err(error), BTreeMap::new()),
             };
         let children = business_property
             .children

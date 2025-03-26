@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::shared::snapshot::log::Log;
 use machine_check_common::{
@@ -42,7 +42,7 @@ pub struct Node {
 pub struct PropertySnapshot {
     pub property: PreparedProperty,
     pub conclusion: Result<Conclusion, ExecError>,
-    pub labellings: HashMap<StateId, ThreeValued>,
+    pub labellings: BTreeMap<StateId, ThreeValued>,
     pub children: Vec<PropertySnapshot>,
 }
 

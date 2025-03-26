@@ -1,23 +1,24 @@
 mod classic;
 mod deduce;
 
+use std::collections::BTreeMap;
+
 use machine_check_common::{
     check::{Conclusion, PreparedProperty},
     property::Property,
     ExecError, StateId, ThreeValued,
 };
 use mck::concr::FullMachine;
-use std::collections::HashMap;
+
+use crate::space::StateSpace;
 
 use self::{classic::ClassicChecker, deduce::deduce_culprit};
-
-use super::space::Space;
 
 /// Perform three-valued model checking.
 ///
 /// The proposition must be prepared beforehand.
 pub(super) fn check_property<M: FullMachine>(
-    space: &Space<M>,
+    space: &StateSpace<M>,
     prop: &PreparedProperty,
 ) -> Result<Conclusion, ExecError> {
     let mut checker = ThreeValuedChecker::new(space);
@@ -25,9 +26,9 @@ pub(super) fn check_property<M: FullMachine>(
 }
 
 pub(super) fn check_property_with_labelling<M: FullMachine>(
-    space: &Space<M>,
+    space: &StateSpace<M>,
     property: &PreparedProperty,
-) -> Result<(Conclusion, HashMap<StateId, ThreeValued>), ExecError> {
+) -> Result<(Conclusion, BTreeMap<StateId, ThreeValued>), ExecError> {
     let mut checker = ThreeValuedChecker::new(space);
     let conclusion = checker.check_property(property)?;
     let labelling = checker.compute_property_labelling(property)?;
@@ -36,13 +37,13 @@ pub(super) fn check_property_with_labelling<M: FullMachine>(
 
 /// Three-valued model checker.
 struct ThreeValuedChecker<'a, M: FullMachine> {
-    space: &'a Space<M>,
+    space: &'a StateSpace<M>,
     pessimistic: ClassicChecker<'a, M>,
     optimistic: ClassicChecker<'a, M>,
 }
 
 impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
-    fn new(space: &'a Space<M>) -> Self {
+    fn new(space: &'a StateSpace<M>) -> Self {
         Self {
             space,
             pessimistic: ClassicChecker::new(space, false),
@@ -74,13 +75,13 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     pub fn compute_property_labelling(
         &mut self,
         property: &PreparedProperty,
-    ) -> Result<HashMap<StateId, ThreeValued>, ExecError> {
+    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
         let prop = &property.prepared();
         // compute the optimistic and pessimistic interpretation labellings
         let pessimistic_labelling = self.pessimistic.compute_and_get_labelling(prop)?;
         let optimistic_labelling = self.optimistic.compute_and_get_labelling(prop)?;
 
-        let mut result = HashMap::new();
+        let mut result = BTreeMap::new();
 
         for state_id in self.space.state_id_iter() {
             let labelling = match (

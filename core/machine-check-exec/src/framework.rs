@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::collections::VecDeque;
 use std::ops::ControlFlow;
 
@@ -20,10 +20,10 @@ use mck::misc::Meta;
 use mck::refin::Manipulatable;
 use mck::refin::{self};
 
+use crate::space::StateSpace;
 use crate::{
     model_check::{self},
     precision::Precision,
-    space::Space,
 };
 use mck::abstr::Machine as AbstrMachine;
 use mck::refin::Machine as RefinMachine;
@@ -58,7 +58,7 @@ struct WorkState<M: FullMachine> {
     /// Refinement precision.
     precision: Precision<M>,
     /// Current state space.
-    space: Space<M>,
+    space: StateSpace<M>,
     /// Culprit of verification returning unknown.
     culprit: Option<Culprit>,
 
@@ -74,7 +74,7 @@ impl<M: FullMachine> WorkState<M> {
     fn new(naive_inputs: bool) -> Self {
         Self {
             precision: Precision::new(naive_inputs),
-            space: Space::new(),
+            space: StateSpace::new(),
             culprit: None,
             num_refinements: 0,
             num_generated_states: 0,
@@ -94,9 +94,17 @@ impl<M: FullMachine> WorkState<M> {
     }
 
     fn find_panic_string(&mut self) -> Option<&'static str> {
-        // TODO: this approach does not work if there are multiple macro invocations
-        let panic_id = self.space.find_panic_id()?;
-        Some(M::panic_message(panic_id))
+        let panic_id = self.space.breadth_first_search(|_, state_data| {
+            if let Some(panic_value) = state_data.panic.concrete_value() {
+                if panic_value.is_nonzero() {
+                    return ControlFlow::Break(panic_value.as_unsigned() as u32);
+                }
+            }
+            ControlFlow::Continue(())
+        });
+
+        // TODO: panic_message approach does not work if there are multiple macro invocations
+        panic_id.map(|panic_id: u32| M::panic_message(panic_id))
     }
 }
 
@@ -120,10 +128,6 @@ impl<M: FullMachine> Framework<M> {
         self.work_state = WorkState::new(self.work_state.precision.naive_inputs())
     }
 
-    pub fn release_abstract_system(self) -> M::Abstr {
-        self.abstract_system
-    }
-
     pub fn verify(&mut self, property: &PreparedProperty) -> Result<bool, ExecError> {
         // loop verification steps until some conclusion is reached
         let result = loop {
@@ -132,6 +136,8 @@ impl<M: FullMachine> Framework<M> {
                 ControlFlow::Break(result) => break result,
             }
         };
+
+        self.make_compact();
 
         if log_enabled!(log::Level::Debug) {
             debug!("Verification final space: {:#?}", self.work_state.space);
@@ -143,8 +149,8 @@ impl<M: FullMachine> Framework<M> {
         &mut self,
         property: &PreparedProperty,
     ) -> ControlFlow<Result<bool, ExecError>> {
-        // if the space is empty (just after construction), regenerate it
-        if self.work_state.space.is_empty() {
+        // if the space is invalid (just after construction), regenerate it
+        if !self.work_state.space.is_valid() {
             self.regenerate(NodeId::ROOT);
         } else if let Some(culprit) = self.work_state.culprit.take() {
             // we have a culprit, refine on it
@@ -182,18 +188,12 @@ impl<M: FullMachine> Framework<M> {
         }
     }
 
+    pub fn make_compact(&mut self) {
+        self.work_state.space.make_compact();
+    }
+
     fn garbage_collect(&mut self) {
-        if self.work_state.space.garbage_collect() {
-            self.work_state.precision.retain_indices(|node_id| {
-                if let Ok(state_id) = StateId::try_from(node_id) {
-                    // only retain those states that are contained
-                    self.work_state.space.contains_state_id(state_id)
-                } else {
-                    // always retain start precision
-                    true
-                }
-            });
-        }
+        self.work_state.space.garbage_collect();
     }
 
     /// Refines the precision and the state space given a culprit of unknown verification result.
@@ -258,7 +258,7 @@ impl<M: FullMachine> Framework<M> {
             let input = self
                 .work_state
                 .space
-                .get_representative_input(previous_node_id, current_state_id);
+                .representative_input(previous_node_id, current_state_id);
 
             let (input_mark, new_state_mark) = match TryInto::<StateId>::try_into(previous_node_id)
             {
@@ -269,11 +269,11 @@ impl<M: FullMachine> Framework<M> {
                         current_state_id
                     );
                     // use step function
-                    let previous_state = self.work_state.space.get_state_by_id(previous_state_id);
+                    let previous_state = self.work_state.space.state_data(previous_state_id);
 
                     if log_enabled!(log::Level::Trace) {
                         trace!("Earlier state: {:?}", previous_state);
-                        let current_state = self.work_state.space.get_state_by_id(current_state_id);
+                        let current_state = self.work_state.space.state_data(current_state_id);
                         trace!("Later state: {:?}", current_state);
                         trace!("Later mark: {:?}", current_state_mark);
                     }
@@ -295,7 +295,7 @@ impl<M: FullMachine> Framework<M> {
                     );
 
                     if log_enabled!(log::Level::Trace) {
-                        let current_state = self.work_state.space.get_state_by_id(current_state_id);
+                        let current_state = self.work_state.space.state_data(current_state_id);
                         trace!("Later state: {:?}", current_state);
                         trace!("Later mark: {:?}", current_state_mark);
                     }
@@ -317,7 +317,7 @@ impl<M: FullMachine> Framework<M> {
                         trace!(
                             "Step candidate id: {:?} node: {:?}, input mark: {:?}",
                             previous_state_id,
-                            self.work_state.space.get_state_by_id(previous_state_id),
+                            self.work_state.space.state_data(previous_state_id),
                             input_mark
                         );
                     } else {
@@ -393,7 +393,7 @@ impl<M: FullMachine> Framework<M> {
         // construct state space by breadth-first search
         while let Some(node_id) = queue.pop_front() {
             // remove outgoing edges
-            let removed_direct_successors = self.work_state.space.remove_outgoing_edges(node_id);
+            let removed_direct_successors = self.work_state.space.clear_steps(node_id);
 
             // prepare precision
             let input_precision = self.work_state.precision.get_input(node_id);
@@ -401,7 +401,7 @@ impl<M: FullMachine> Framework<M> {
 
             // get current state, none if we are at start node
             let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
-                Some(self.work_state.space.get_state_by_id(state_id).clone())
+                Some(self.work_state.space.state_data(state_id).clone())
             } else {
                 None
             };
@@ -421,10 +421,10 @@ impl<M: FullMachine> Framework<M> {
                 }
 
                 self.work_state.num_generated_transitions += 1;
-                let (next_state_index, added) =
+                let (added_state, next_state_index) =
                     self.work_state.space.add_step(node_id, next_state, &input);
 
-                if added {
+                if added_state {
                     self.work_state.num_generated_states += 1;
                     // add to queue
                     queue.push_back(next_state_index.into());
@@ -436,14 +436,11 @@ impl<M: FullMachine> Framework<M> {
             // which has no impact on verification
             if !changed {
                 // compare sets of node ids
-                let direct_successors: HashSet<NodeId> = self
+                let direct_successors: BTreeSet<StateId> = self
                     .work_state
                     .space
                     .direct_successor_iter(node_id)
-                    .map(|state_id| state_id.into())
                     .collect();
-                let removed_direct_successors: HashSet<NodeId> =
-                    HashSet::from_iter(removed_direct_successors.into_iter());
                 changed = direct_successors != removed_direct_successors;
             }
         }
@@ -453,7 +450,7 @@ impl<M: FullMachine> Framework<M> {
     pub fn check_property_with_labelling(
         &self,
         property: &PreparedProperty,
-    ) -> Result<(Conclusion, HashMap<StateId, ThreeValued>), ExecError> {
+    ) -> Result<(Conclusion, BTreeMap<StateId, ThreeValued>), ExecError> {
         model_check::check_property_with_labelling(&self.work_state.space, property)
     }
 
@@ -465,7 +462,7 @@ impl<M: FullMachine> Framework<M> {
         self.work_state.info()
     }
 
-    pub fn space(&self) -> &Space<M> {
+    pub fn space(&self) -> &StateSpace<M> {
         &self.work_state.space
     }
 }
