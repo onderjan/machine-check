@@ -1377,7 +1377,7 @@ checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
 
 [[package]]
 name = "machine-check"
-version = "0.4.0-alpha.2"
+version = "0.4.0-alpha.3"
 dependencies = [
  "clap",
  "env_logger",
@@ -1393,7 +1393,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-avr"
-version = "0.4.0-alpha.2"
+version = "0.4.0-alpha.3"
 dependencies = [
  "clap",
  "ihex",
@@ -1402,7 +1402,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-bitmask-switch"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.3"
 dependencies = [
  "num",
  "prettyplease",
@@ -1414,7 +1414,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-common"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.3"
 dependencies = [
  "serde",
  "thiserror 1.0.49",
@@ -1422,7 +1422,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-compile"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.3"
 dependencies = [
  "camino",
  "cargo_metadata",
@@ -1439,7 +1439,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-exec"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.3"
 dependencies = [
  "bimap",
  "log",
@@ -1451,7 +1451,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-gui"
-version = "0.4.0-alpha.2"
+version = "0.4.0-alpha.3"
 dependencies = [
  "anyhow",
  "bimap",
@@ -1484,7 +1484,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-hw"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.3"
 dependencies = [
  "btor2rs",
  "camino",
@@ -1510,7 +1510,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-machine"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.3"
 dependencies = [
  "machine-check-bitmask-switch",
  "prettyplease",
@@ -1523,7 +1523,7 @@ dependencies = [
 
 [[package]]
 name = "machine-check-macros"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.3"
 dependencies = [
  "machine-check-bitmask-switch",
  "machine-check-machine",
@@ -1556,7 +1556,7 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 
 [[package]]
 name = "mck"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.3"
 dependencies = [
  "num",
  "seq-macro",

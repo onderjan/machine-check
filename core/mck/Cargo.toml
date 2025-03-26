@@ -1,6 +1,6 @@
 [package]
 name = "mck"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.3"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Type/operation utility crate for the formal verification tool machine-check"
