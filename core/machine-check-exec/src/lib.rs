@@ -4,7 +4,6 @@ mod framework;
 mod model_check;
 mod precision;
 mod space;
-mod state_store;
 
 use mck::{abstr, abstr::PanicResult, concr::FullMachine, misc::MetaWrap};
 
