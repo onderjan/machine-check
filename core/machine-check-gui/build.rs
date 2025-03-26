@@ -141,13 +141,6 @@ fn build(arrangement: &Arrangement) -> anyhow::Result<()> {
     // Remove the artefact directory.
     let _ = fs::remove_dir_all(&arrangement.artifact_dir);
 
-    // If we are preparing, delete the previous frontend package as well.
-    // Do not do this always as this may contain target build files that speed up compilation.
-    if arrangement.prepare {
-        warn!("Preparing WebAssembly frontend, removing frontend package.");
-        let _ = fs::remove_dir_all(&arrangement.frontend_package_dir);
-    }
-
     // Compile the frontend package, only warning if we should postpone errors.
     match compile_frontend_package(arrangement) {
         Ok(None) => {}
@@ -246,6 +239,8 @@ fn arrange(build: bool, prepare: bool) -> anyhow::Result<Arrangement> {
     // If we are preparing for deployment, ignore workspace Cargo.toml.
     if prepare {
         warn!("Preparing the frontend WebAssembly for deployment. Make sure you know what you are doing.");
+        // If we are preparing, delete the previous frontend package first so that it is completely fresh.
+        let _ = fs::remove_dir_all(&frontend_package_dir);
         if workspace_toml_path.is_some() {
             warn!("Overriding workspace build due to deployment preparation.");
             workspace_toml_path = None;
@@ -517,7 +512,8 @@ fn compile_frontend_package(arrangement: &Arrangement) -> anyhow::Result<Option<
     let cargo_target_dir_arg = create_equals_arg("target-dir", &cargo_target_dir);
 
     // Prepare cargo build for the WASM target.
-    std::env::set_current_dir(&arrangement.frontend_package_dir)?;
+    std::env::set_current_dir(&arrangement.frontend_package_dir)
+        .map_err(|err| anyhow!("Cannot set current frontend package dir: {}", err))?;
     let mut cargo_build = Command::new("cargo");
     cargo_build
         .current_dir(&arrangement.frontend_package_dir)
@@ -542,6 +538,7 @@ fn compile_frontend_package(arrangement: &Arrangement) -> anyhow::Result<Option<
 
     cargo_build.arg(cargo_target_dir_arg);
     if let Err(err) = execute_command("cargo build", cargo_build) {
+        let err = anyhow!("Cannot build using cargo: {}", err);
         if arrangement.postpone_build_errors {
             // propagate the error
             return Ok(Some(err));
@@ -566,7 +563,7 @@ fn compile_frontend_package(arrangement: &Arrangement) -> anyhow::Result<Option<
         .arg("--target=web")
         .arg(bindgen_out_dir_arg)
         .arg(cargo_target_dir.join(target_path));
-    execute_command("wasm-bindgen", wasm_bindgen)?;
+    execute_command("wasm-bindgen", wasm_bindgen).map_err(|err| anyhow!("Cannot generate bindings using wasm-bindgen: {}", err))?;
 
     // Write the frontend package directory hash to the artefact directory.
 
