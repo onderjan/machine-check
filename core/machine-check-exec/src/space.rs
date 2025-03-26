@@ -5,7 +5,7 @@ use machine_check_common::{NodeId, StateId};
 use mck::concr::FullMachine;
 use store::StateStore;
 
-use crate::{AbstrInput, PanicState};
+use crate::{AbstrInput, AbstrPanicState};
 
 mod graph;
 mod labelling;
@@ -40,7 +40,7 @@ impl<M: FullMachine> StateSpace<M> {
     pub fn add_step(
         &mut self,
         head_id: NodeId,
-        tail_data: PanicState<M>,
+        tail_data: AbstrPanicState<M>,
         representative_input: &AbstrInput<M>,
     ) -> (bool, StateId) {
         let (added_state, tail_id) = self.store.add_state(tail_data);
@@ -51,7 +51,7 @@ impl<M: FullMachine> StateSpace<M> {
 
     pub fn breadth_first_search<T>(
         &self,
-        result_fn: impl Fn(StateId, &PanicState<M>) -> ControlFlow<T, ()>,
+        result_fn: impl Fn(StateId, &AbstrPanicState<M>) -> ControlFlow<T, ()>,
     ) -> Option<T> {
         self.graph.breadth_first_search(|state_id| {
             let state = self.store.state_data(state_id);
@@ -81,7 +81,7 @@ impl<M: FullMachine> StateSpace<M> {
         }
     }
 
-    pub fn state_data(&self, state_id: StateId) -> &PanicState<M> {
+    pub fn state_data(&self, state_id: StateId) -> &AbstrPanicState<M> {
         self.store.state_data(state_id)
     }
 

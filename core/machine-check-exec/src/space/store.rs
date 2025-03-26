@@ -3,7 +3,7 @@ use std::{collections::BTreeSet, num::NonZeroU64};
 use bimap::BiMap;
 use machine_check_common::StateId;
 
-use crate::{PanicState, WrappedState};
+use crate::{AbstrPanicState, WrappedState};
 
 use mck::{concr::FullMachine, misc::MetaWrap};
 use std::fmt::Debug;
@@ -35,7 +35,7 @@ impl<M: FullMachine> StateStore<M> {
     // Add state and get whether it was added and its id.
     //
     // Returns whether the state was added state id.
-    pub fn add_state(&mut self, state: PanicState<M>) -> (bool, StateId) {
+    pub fn add_state(&mut self, state: AbstrPanicState<M>) -> (bool, StateId) {
         // Check if the state already corresponds to some id.
         let state = MetaWrap(state);
         if let Some(state_id) = self.map.get_by_right(&state) {
@@ -60,7 +60,7 @@ impl<M: FullMachine> StateStore<M> {
         (true, inserted_state_id)
     }
 
-    pub fn state_data(&self, state_id: StateId) -> &PanicState<M> {
+    pub fn state_data(&self, state_id: StateId) -> &AbstrPanicState<M> {
         &self
             .map
             .get_by_left(&state_id)
@@ -72,7 +72,7 @@ impl<M: FullMachine> StateStore<M> {
         self.map.left_values().cloned()
     }
 
-    pub fn state_iter(&self) -> impl Iterator<Item = (StateId, &PanicState<M>)> + '_ {
+    pub fn state_iter(&self) -> impl Iterator<Item = (StateId, &AbstrPanicState<M>)> + '_ {
         self.map
             .iter()
             .map(|(state_id, state_data)| (*state_id, &state_data.0))
