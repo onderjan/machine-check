@@ -19,7 +19,7 @@ pub trait Input<C: FullMachine>:
 }
 
 pub trait State<C: FullMachine>:
-    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State> + Send + Sync
+    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State> + Send + Sync + Phi
 {
 }
 

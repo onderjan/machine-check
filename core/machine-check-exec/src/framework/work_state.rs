@@ -6,15 +6,17 @@ use mck::concr::FullMachine;
 
 use crate::precision::Precision;
 use crate::space::StateSpace;
+use crate::AbstrInput;
+use crate::AbstrPanicState;
 use crate::RefinInput;
 use crate::RefinPanicState;
 
 /// Work state, i.e. the meta-state of the whole verification.
 pub struct WorkState<M: FullMachine> {
     /// Refinement precision for inputs (can make inputs more precise).
-    pub input_precision: Precision<RefinInput<M>>,
+    pub input_precision: Precision<AbstrInput<M>, RefinInput<M>>,
     /// Refinement precision for steps (can add step decay).
-    pub step_precision: Precision<RefinPanicState<M>>,
+    pub step_precision: Precision<AbstrPanicState<M>, RefinPanicState<M>>,
     /// Current state space.
     pub space: StateSpace<M>,
     /// Culprit of verification returning unknown.

@@ -59,17 +59,21 @@ impl<M: FullMachine> StateSpace<M> {
         })
     }
 
-    pub fn garbage_collect(&mut self) -> bool {
+    pub fn should_compact(&mut self) -> bool {
         if self.graph.node_count() >= self.num_graph_nodes_for_sweep {
-            self.make_compact();
             return true;
         }
         false
     }
 
-    pub fn make_compact(&mut self) {
-        let graph_used_states = self.graph.make_compact();
-        self.store.retain_states(&graph_used_states);
+    pub fn make_compact(
+        &mut self,
+        outside_states: impl Iterator<Item = StateId>,
+    ) -> BTreeSet<StateId> {
+        let mut states = self.graph.make_compact();
+        states.extend(outside_states);
+
+        self.store.retain_states(&states);
 
         // update the number of nodes for sweep as 3/2 of current number of nodes
         // but at least the previous amount
@@ -79,6 +83,7 @@ impl<M: FullMachine> StateSpace<M> {
         if candidate > self.num_graph_nodes_for_sweep {
             self.num_graph_nodes_for_sweep = candidate;
         }
+        states
     }
 
     pub fn state_data(&self, state_id: StateId) -> &AbstrPanicState<M> {
@@ -107,6 +112,10 @@ impl<M: FullMachine> StateSpace<M> {
 
     pub fn is_valid(&self) -> bool {
         self.graph.num_transitions() > 0
+    }
+
+    pub fn state_iter(&self) -> impl Iterator<Item = (StateId, &AbstrPanicState<M>)> + '_ {
+        self.store.state_iter()
     }
 
     pub fn state_id_iter(&self) -> impl Iterator<Item = StateId> + '_ {

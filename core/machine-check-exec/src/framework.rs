@@ -183,10 +183,11 @@ impl<M: FullMachine> Framework<M> {
             };
 
             // decay is applied last in forward direction, so we will apply it first
-            let mut step_precision = self
-                .work_state
-                .step_precision
-                .get(previous_node_id, &self.default_step_precision);
+            let mut step_precision = self.work_state.step_precision.get(
+                self.space(),
+                previous_node_id,
+                &self.default_step_precision,
+            );
 
             if step_precision.apply_refin(&current_state_mark) {
                 // single mark applied to decay, insert it back and regenerate
@@ -248,10 +249,11 @@ impl<M: FullMachine> Framework<M> {
                 }
             };
 
-            let mut input_precision = self
-                .work_state
-                .input_precision
-                .get(previous_node_id, &self.default_input_precision);
+            let mut input_precision = self.work_state.input_precision.get(
+                self.space(),
+                previous_node_id,
+                &self.default_input_precision,
+            );
 
             trace!("Input mark: {:?}", input_mark);
 
@@ -341,14 +343,14 @@ impl<M: FullMachine> Framework<M> {
             let removed_direct_successors = self.work_state.space.clear_steps(node_id);
 
             // prepare precision
-            let input_precision: RefinInput<M> = self
-                .work_state
-                .input_precision
-                .get(node_id, default_input_precision);
-            let step_precision = self
-                .work_state
-                .step_precision
-                .get(node_id, default_step_precision);
+            let input_precision: RefinInput<M> =
+                self.work_state
+                    .input_precision
+                    .get(self.space(), node_id, default_input_precision);
+            let step_precision =
+                self.work_state
+                    .step_precision
+                    .get(self.space(), node_id, default_step_precision);
 
             // get current state, none if we are at start node
             let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
@@ -411,11 +413,19 @@ impl<M: FullMachine> Framework<M> {
     }
 
     pub fn make_compact(&mut self) {
-        self.work_state.space.make_compact();
+        let precision_used_states = self
+            .work_state
+            .input_precision
+            .used_nodes()
+            .chain(self.work_state.step_precision.used_nodes())
+            .filter_map(|node_id| StateId::try_from(node_id).ok());
+        self.work_state.space.make_compact(precision_used_states);
     }
 
     fn garbage_collect(&mut self) {
-        self.work_state.space.garbage_collect();
+        if self.work_state.space.should_compact() {
+            self.make_compact();
+        }
     }
 
     pub fn reset(&mut self) {
