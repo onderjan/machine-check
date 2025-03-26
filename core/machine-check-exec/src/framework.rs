@@ -21,8 +21,8 @@ use mck::refin::Manipulatable;
 use mck::refin::{self};
 
 use crate::space::StateSpace;
-use crate::AbstrRefinState;
 use crate::RefinInput;
+use crate::RefinPanicState;
 use crate::{
     model_check::{self},
     precision::Precision,
@@ -61,7 +61,7 @@ struct WorkState<M: FullMachine> {
     /// Refinement precision for inputs (can make inputs more precise).
     input_precision: Precision<RefinInput<M>>,
     /// Refinement precision for steps (can add step decay).
-    step_precision: Precision<AbstrRefinState<M>>,
+    step_precision: Precision<RefinPanicState<M>>,
     /// Current state space.
     space: StateSpace<M>,
     /// Culprit of verification returning unknown.
@@ -205,7 +205,7 @@ impl<M: FullMachine> Framework<M> {
         Ok(())
     }
 
-    fn default_input_precision(&self) -> <M::Refin as refin::Machine<M>>::Input {
+    fn default_input_precision(&self) -> RefinInput<M> {
         if self.strategy.naive_inputs {
             Refine::dirty()
         } else {
@@ -213,10 +213,18 @@ impl<M: FullMachine> Framework<M> {
         }
     }
 
+    fn default_step_precision(&self) -> RefinPanicState<M> {
+        if self.strategy.use_decay {
+            Refine::clean()
+        } else {
+            Refine::dirty()
+        }
+    }
+
     /// Refines a single bit. OK result contains whether the state space changed.
     fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
         let default_input_precision = self.default_input_precision();
-        let default_step_precision = Refine::clean();
+        let default_step_precision = self.default_step_precision();
 
         self.work_state.num_refinements += 1;
         // compute marking
@@ -258,17 +266,15 @@ impl<M: FullMachine> Framework<M> {
                 None => NodeId::ROOT,
             };
 
-            if self.strategy.use_decay {
-                // decay is applied last in forward direction, so we will apply it first
-                let step_precision = self
-                    .work_state
-                    .step_precision
-                    .get_mut(previous_node_id, &default_step_precision);
+            // decay is applied last in forward direction, so we will apply it first
+            let step_precision = self
+                .work_state
+                .step_precision
+                .get_mut(previous_node_id, &default_step_precision);
 
-                if step_precision.apply_refin(&current_state_mark) {
-                    // single mark applied to decay, regenerate
-                    return Ok(self.regenerate(previous_node_id));
-                }
+            if step_precision.apply_refin(&current_state_mark) {
+                // single mark applied to decay, regenerate
+                return Ok(self.regenerate(previous_node_id));
             }
 
             let input = self
@@ -405,7 +411,7 @@ impl<M: FullMachine> Framework<M> {
         trace!("Regenerating");
 
         let default_input_precision = self.default_input_precision();
-        let default_step_precision = Refine::clean();
+        let default_step_precision = self.default_step_precision();
 
         let mut queue = VecDeque::new();
         queue.push_back(from_node_id);
@@ -421,7 +427,7 @@ impl<M: FullMachine> Framework<M> {
                 .work_state
                 .input_precision
                 .get(node_id, &default_input_precision);
-            let decay_precision = self
+            let step_precision = self
                 .work_state
                 .step_precision
                 .get_mut(node_id, &default_step_precision);
@@ -435,6 +441,7 @@ impl<M: FullMachine> Framework<M> {
 
             // generate direct successors
             for input in input_precision.into_proto_iter() {
+                // compute the next state
                 let mut next_state = {
                     if let Some(current_state) = &current_state {
                         M::Abstr::next(&self.abstract_system, &current_state.result, &input)
@@ -443,10 +450,10 @@ impl<M: FullMachine> Framework<M> {
                     }
                 };
 
-                if self.strategy.use_decay {
-                    decay_precision.force_decay(&mut next_state);
-                }
+                // apply decay
+                step_precision.force_decay(&mut next_state);
 
+                // add the step to the state space
                 self.work_state.num_generated_transitions += 1;
                 let (added_state, next_state_index) =
                     self.work_state.space.add_step(node_id, next_state, &input);

@@ -11,7 +11,7 @@ pub use framework::{Framework, Strategy, VerificationType};
 
 type AbstrPanicState<M> =
     abstr::PanicResult<<<M as FullMachine>::Abstr as abstr::Machine<M>>::State>;
-type AbstrRefinState<M> =
+type RefinPanicState<M> =
     refin::PanicResult<<<M as mck::concr::FullMachine>::Refin as refin::Machine<M>>::State>;
 type AbstrInput<M> = <<M as FullMachine>::Abstr as abstr::Machine<M>>::Input;
 type RefinInput<M> = <<M as FullMachine>::Refin as refin::Machine<M>>::Input;
