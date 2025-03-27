@@ -197,9 +197,12 @@ impl<M: FullMachine> Framework<M> {
 
             if step_precision.apply_refin(&current_state_mark) {
                 // single mark applied to decay, insert it back and regenerate
-                self.work_state
-                    .step_precision
-                    .insert(previous_node_id, step_precision);
+                self.work_state.step_precision.insert(
+                    &mut self.work_state.space,
+                    previous_node_id,
+                    step_precision,
+                    &self.default_step_precision,
+                );
 
                 return Ok(self.regenerate(previous_node_id));
             }
@@ -319,9 +322,12 @@ impl<M: FullMachine> Framework<M> {
         let result = match input_precision_refinement {
             Some((node_id, refined_input_precision)) => {
                 // single mark applied, insert it back and regenerate
-                self.work_state
-                    .input_precision
-                    .insert(node_id, refined_input_precision);
+                self.work_state.input_precision.insert(
+                    &mut self.work_state.space,
+                    node_id,
+                    refined_input_precision,
+                    &self.default_input_precision,
+                );
 
                 Ok(self.regenerate(node_id))
             }
@@ -439,7 +445,8 @@ impl<M: FullMachine> Framework<M> {
     }
 
     pub fn make_compact(&mut self) {
-        let precision_used_states = self
+        // disable compaction for now
+        /*let precision_used_states = self
             .work_state
             .input_precision
             .used_nodes()
@@ -449,7 +456,7 @@ impl<M: FullMachine> Framework<M> {
 
         // Each node now still should have at least one direct successor.
         // Assert it to be sure.
-        self.space().assert_left_total();
+        self.space().assert_left_total();*/
     }
 
     fn garbage_collect(&mut self) {
