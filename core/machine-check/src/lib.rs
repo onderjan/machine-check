@@ -5,13 +5,15 @@ mod traits;
 mod types;
 mod verify;
 
-use args::ExecStrategy;
 use log::error;
 use log::info;
 use log::log_enabled;
 use log::trace;
 use machine_check_common::property::Property;
 use machine_check_exec::Strategy;
+
+use args::ProgramArgs;
+pub use args::{ExecArgs, ExecStrategy};
 pub use traits::Ext;
 pub use types::{Bitvector, BitvectorArray, Signed, Unsigned};
 
@@ -104,9 +106,6 @@ pub fn run<M: FullMachine>(system: M) -> ExecResult {
     let parsed_args = <ExecArgs as clap::Parser>::parse_from(std::env::args());
     execute(system, parsed_args)
 }
-
-pub use args::ExecArgs;
-use args::ProgramArgs;
 
 /// Parses machine-check and user-defined arguments.
 ///
