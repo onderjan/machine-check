@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::time::Duration;
@@ -58,19 +58,25 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
         let node_data = state_space.state_data(state_id);
 
         // Ensure that the precision is monotone with respect to other states.
-        // Do this by searching the graph (depth first) for all nodes.
+        // Do this by searching the graph (depth first) for all covering states.
 
         if let Some(ordering_root) = self.ordering_root {
             let mut stack = Vec::new();
+            let mut opened = BTreeSet::new();
             stack.push(ordering_root);
-            let mut opened = HashSet::new();
-            let mut important = HashSet::new();
+            opened.insert(ordering_root);
 
             while let Some(stack_id) = stack.pop() {
                 let stack_data = state_space.state_data(stack_id);
                 let phi = Phi::phi(node_data.clone(), stack_data.clone());
                 if stack_data.meta_eq(&phi) {
-                    important.insert(stack_id);
+                    // stack state covers our state, join the precision
+                    let important_precision = self
+                        .map
+                        .get(&NodeId::from(stack_id))
+                        .expect("Precision should contain state in ordering graph");
+                    mck::refin::Refine::apply_join(&mut node_precision, important_precision);
+
                     for child_id in self.ordering_graph.neighbors(stack_id) {
                         if !opened.contains(&child_id) {
                             opened.insert(child_id);
@@ -79,16 +85,7 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
                     }
                 }
             }
-
-            for important_id in important {
-                let important_precision = self
-                    .map
-                    .get(&NodeId::from(important_id))
-                    .expect("Precision should contain state in ordering graph");
-                mck::refin::Refine::apply_join(&mut node_precision, important_precision);
-            }
         }
-
         let elapsed = start.elapsed();
         let mut get_elapsed = self.get_elapsed.borrow_mut();
         *get_elapsed += elapsed;
@@ -106,7 +103,6 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
         let start = std::time::Instant::now();
 
         // if the node already exists, we do not need to change the graph
-
         if self.map.insert(target_id, value).is_some() {
             return;
         }

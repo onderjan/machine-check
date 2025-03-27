@@ -190,7 +190,7 @@ impl<M: FullMachine> Framework<M> {
 
             // decay is applied last in forward direction, so we will apply it first
             let mut step_precision = self.work_state.step_precision.get(
-                self.space(),
+                &self.work_state.space,
                 previous_node_id,
                 &self.default_step_precision,
             );
@@ -259,7 +259,7 @@ impl<M: FullMachine> Framework<M> {
             };
 
             let mut input_precision = self.work_state.input_precision.get(
-                self.space(),
+                &self.work_state.space,
                 previous_node_id,
                 &self.default_input_precision,
             );
@@ -364,14 +364,16 @@ impl<M: FullMachine> Framework<M> {
             let removed_direct_successors = self.work_state.space.clear_step(node_id);
 
             // prepare precision
-            let input_precision: RefinInput<M> =
-                self.work_state
-                    .input_precision
-                    .get(self.space(), node_id, default_input_precision);
-            let step_precision =
-                self.work_state
-                    .step_precision
-                    .get(self.space(), node_id, default_step_precision);
+            let input_precision: RefinInput<M> = self.work_state.input_precision.get(
+                &self.work_state.space,
+                node_id,
+                default_input_precision,
+            );
+            let step_precision = self.work_state.step_precision.get(
+                &self.work_state.space,
+                node_id,
+                default_step_precision,
+            );
 
             // get current state, none if we are at start node
             let current_state = if let Ok(state_id) = StateId::try_from(node_id) {
