@@ -12,7 +12,7 @@ mck = "=0.4.0-alpha.3"
 machine-check-common = "=0.4.0-alpha.3"
 machine-check-machine = "=0.4.0-alpha.3"
 machine-check-compile = "=0.4.0-alpha.3"
-machine-check = "=0.4.0-alpha.3"
+machine-check = "=0.4.0-alpha.4"
 
 btor2rs = "=0.1.0"
 proc-macro2 = "1.0.67"
