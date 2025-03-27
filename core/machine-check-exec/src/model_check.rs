@@ -83,7 +83,11 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
         let mut result = BTreeMap::new();
 
-        for state_id in self.space.state_id_iter() {
+        for node_id in self.space.nodes() {
+            let Ok(state_id) = StateId::try_from(node_id) else {
+                continue;
+            };
+
             let labelling = match (
                 pessimistic_labelling.contains(&state_id),
                 optimistic_labelling.contains(&state_id),

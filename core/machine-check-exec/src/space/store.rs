@@ -69,20 +69,6 @@ impl<M: FullMachine> StateStore<M> {
             .0
     }
 
-    pub fn state_id_iter(&self) -> impl Iterator<Item = StateId> + '_ {
-        self.map.left_values().cloned()
-    }
-
-    pub fn state_iter(&self) -> impl Iterator<Item = (StateId, &AbstrPanicState<M>)> + '_ {
-        self.map
-            .iter()
-            .map(|(state_id, state_data)| (*state_id, &state_data.0))
-    }
-
-    pub fn num_states(&self) -> usize {
-        self.map.len()
-    }
-
     pub fn retain_states(&mut self, states: &BTreeSet<StateId>) {
         self.map
             .retain(|state_id, _state_data| states.contains(state_id));

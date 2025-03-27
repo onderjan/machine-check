@@ -61,7 +61,11 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
             Property::Const(c) => {
                 if *c {
                     // holds in all state indices
-                    BTreeSet::from_iter(self.space.state_id_iter())
+                    BTreeSet::from_iter(
+                        self.space
+                            .nodes()
+                            .filter_map(|node_id| StateId::try_from(node_id).ok()),
+                    )
                 } else {
                     // holds nowhere
                     BTreeSet::new()
@@ -84,7 +88,11 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
             }
             Property::Negation(inner) => {
                 // complement
-                let full_labelling = BTreeSet::from_iter(self.space.state_id_iter());
+                let full_labelling = BTreeSet::from_iter(
+                    self.space
+                        .nodes()
+                        .filter_map(|node_id| StateId::try_from(node_id).ok()),
+                );
                 self.compute_labelling(&inner.0)?;
                 let inner_labelling = self.get_labelling(&inner.0);
                 full_labelling

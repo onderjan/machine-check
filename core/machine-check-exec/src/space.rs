@@ -102,8 +102,8 @@ impl<M: FullMachine> StateSpace<M> {
         self.graph.nodes()
     }
 
-    pub fn num_states(&self) -> usize {
-        self.store.num_states()
+    pub fn num_nodes(&self) -> usize {
+        self.graph.node_count()
     }
 
     pub fn num_transitions(&self) -> usize {
@@ -112,14 +112,6 @@ impl<M: FullMachine> StateSpace<M> {
 
     pub fn is_valid(&self) -> bool {
         self.graph.num_transitions() > 0
-    }
-
-    pub fn state_iter(&self) -> impl Iterator<Item = (StateId, &AbstrPanicState<M>)> + '_ {
-        self.store.state_iter()
-    }
-
-    pub fn state_id_iter(&self) -> impl Iterator<Item = StateId> + '_ {
-        self.store.state_id_iter()
     }
 
     pub fn initial_iter(&self) -> impl Iterator<Item = StateId> + '_ {

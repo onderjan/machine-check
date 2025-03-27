@@ -47,7 +47,7 @@ impl<M: FullMachine> WorkState<M> {
         ExecStats {
             num_refinements: self.num_refinements,
             num_generated_states: self.num_generated_states,
-            num_final_states: self.space.num_states(),
+            num_final_states: self.space.num_nodes().saturating_sub(1),
             num_generated_transitions: self.num_generated_transitions,
             num_final_transitions: self.space.num_transitions(),
             inherent_panic_message: self.find_panic_string().map(String::from),
