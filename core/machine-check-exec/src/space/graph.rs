@@ -123,6 +123,11 @@ impl<M: FullMachine> StateGraph<M> {
         let mut processed = HashSet::<NodeId>::new();
         queue.push_back(NodeId::ROOT);
         while let Some(node_id) = queue.pop_front() {
+            // if the node was already processed, do not process it again
+            if processed.contains(&node_id) {
+                continue;
+            }
+
             if let Ok(state_id) = StateId::try_from(node_id) {
                 if let ControlFlow::Break(result) = result_fn(state_id) {
                     return Some(result);
