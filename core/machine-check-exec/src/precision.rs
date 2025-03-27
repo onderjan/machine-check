@@ -12,6 +12,7 @@ use petgraph::prelude::GraphMap;
 use petgraph::Directed;
 
 use crate::space::StateSpace;
+use crate::AbstrPanicState;
 
 /// Precision configurable by state space nodes.
 ///
@@ -53,29 +54,12 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
             return node_precision;
         };
 
+        let start = std::time::Instant::now();
         let node_data = state_space.state_data(state_id);
 
         // Ensure that the precision is monotone with respect to other states.
+        // Do this by searching the graph (depth first) for all nodes.
 
-        let start = std::time::Instant::now();
-
-        /*for (map_id, map_precision) in self.map.iter() {
-            let Ok(map_id) = StateId::try_from(*map_id) else {
-                continue;
-            };
-
-            let map_data = state_space.state_data(map_id);
-
-            // if the map data covers the node data, we must join the precision
-            let phi_result = Phi::phi(node_data.clone(), map_data.clone());
-
-            if phi_result.meta_eq(map_data) {
-                // join the precision
-                mck::refin::Refine::apply_join(&mut node_precision, map_precision);
-            }
-        }*/
-
-        // search the graph
         if let Some(ordering_root) = self.ordering_root {
             let mut stack = Vec::new();
             stack.push(ordering_root);
@@ -109,81 +93,7 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
         let mut get_elapsed = self.get_elapsed.borrow_mut();
         *get_elapsed += elapsed;
 
-        /*if (self.map.len() % 10) == 1 {
-            log::debug!(
-                "GET: Map size: {}, Duration monotone application elapsed now: {:?}, total: {:?}",
-                self.map.len(),
-                elapsed,
-                *get_elapsed
-            );
-        }*/
-
         node_precision
-    }
-
-    pub fn find_parents_children<M: FullMachine>(
-        &mut self,
-        state_space: &mut StateSpace<M>,
-        ordering_root: StateId,
-        target_id: StateId,
-    ) -> (BTreeSet<StateId>, BTreeSet<StateId>) {
-        let target_data = state_space.state_data(target_id);
-
-        let mut parents = BTreeSet::new();
-        let mut children = BTreeSet::new();
-
-        let mut stack = Vec::new();
-
-        let mut resolve_current = |stack: &mut Vec<(StateId, bool)>, current_id: StateId| {
-            if current_id == target_id {
-                // the same id, i.e. the same state
-                return false;
-            }
-
-            // compare the state on stack with the target
-            let current_data = state_space.state_data(current_id);
-
-            let phi_result = Phi::phi(target_data.clone(), current_data.clone());
-            /*println!(
-                "Resolving current {}:\n{:?}\nagainst target {}:\n{:?}\nPhi result:\n{:?}",
-                current_id, current_data, target_id, target_data, phi_result
-            );*/
-            if phi_result.meta_eq(current_data) {
-                // ancestor, go further on this path and signal it is an ancestor
-                stack.push((current_id, true));
-                true
-            } else if phi_result.meta_eq(target_data) {
-                // this must be a descendant as it has a different id
-                // as we do not go further on this path, it is a child
-                children.insert(current_id);
-                false
-            } else {
-                // other relationship
-                // go further on this path as some descendant of stack node still can be a child
-                stack.push((current_id, false));
-                false
-            }
-        };
-
-        // resolve the ordering root
-        // there is no ancestor of the root, so we ignore the return value
-        resolve_current(&mut stack, ordering_root);
-
-        while let Some((stack_id, stack_is_ancestor)) = stack.pop() {
-            // compare the stack children
-            let direct_successors = BTreeSet::from_iter(self.ordering_graph.neighbors(stack_id));
-            let mut target_ancestor_in_direct_successors = false;
-            for current_id in direct_successors.into_iter() {
-                let current_is_target_ancestor = resolve_current(&mut stack, current_id);
-                target_ancestor_in_direct_successors |= current_is_target_ancestor;
-            }
-            if stack_is_ancestor && !target_ancestor_in_direct_successors {
-                // as this is an ancestor and there is no ancestor that is its child, this is a parent
-                parents.insert(stack_id);
-            }
-        }
-
-        (parents, children)
     }
 
     pub fn insert<M: FullMachine>(
@@ -206,112 +116,26 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
             return;
         };
 
-        let target_data = state_space.state_data(target_id);
+        let target_data = state_space.state_data(target_id).clone();
 
         // if we have no ordering root, just set it and add it to the graph
-        let Some(mut ordering_root) = self.ordering_root else {
+        if self.ordering_root.is_none() {
             self.ordering_root = Some(target_id);
             self.ordering_graph.add_node(target_id);
             return;
         };
 
-        // depth first search for a suitable candidate
-        let mut stack = Vec::new();
-        stack.push(ordering_root);
-
-        let mut join_state = None;
-
-        while let Some(stack_id) = stack.pop() {
-            // look at whether it has a new join
-            let stack_data = state_space.state_data(stack_id);
-
-            let phi_result = Phi::phi(target_data.clone(), stack_data.clone());
-
-            if !phi_result.meta_eq(target_data) && !phi_result.meta_eq(stack_data) {
-                // add to the map
-                let phi_id = state_space.state_id(phi_result);
-
-                // break with this join state
-                join_state = Some((phi_id, stack_id == ordering_root));
-                break;
-            }
-
-            // look at the descendants in the ordering graph
-            // the order of iteration can change the structure of the graph
-            let ordering_descendants = BTreeSet::from_iter(self.ordering_graph.neighbors(stack_id));
-            for descendant in ordering_descendants.into_iter() {
-                stack.push(descendant);
-            }
-        }
-
-        // fix the ordering graph
-
-        // add the join state to the graph first
-        if let Some((join_state_id, update_ordering_root)) = join_state {
-            //println!("Adding join state {}", join_state_id);
+        // Find the join candidate, which will serve to provide a hierarchy in the ordering graph.
+        let join_state_id = self.join_candidate(state_space, &target_data);
+        if let Some(join_state_id) = join_state_id {
+            // Add the join state to the graph first, as it may become the new ordering root.
             self.map.insert(join_state_id.into(), default.clone());
-            self.add_graph_node(state_space, ordering_root, join_state_id);
-
-            // update the ordering root if necessary
-            if update_ordering_root {
-                ordering_root = join_state_id;
-                self.ordering_root = Some(ordering_root);
-            }
+            self.add_graph_node(state_space, join_state_id);
         }
+        self.add_graph_node(state_space, target_id);
 
-        // then add the new state (perhaps with a new ordering root)
-        //println!("Adding new state {}", target_id);
-        self.add_graph_node(state_space, ordering_root, target_id);
-
-        // regenerate the ordering graph
-
-        /*self.ordering_graph = GraphMap::<StateId, (), Directed>::new();
-
-        let states = BTreeSet::from_iter(
-            self.map
-                .keys()
-                .filter_map(|node_id| StateId::try_from(*node_id).ok()),
-        );
-
-        for a in states.iter().cloned() {
-            for b in states.iter().cloned() {
-                let a_data = state_space.state_data(a);
-                let b_data = state_space.state_data(b);
-
-                let phi_result = Phi::phi(a_data.clone(), b_data.clone());
-
-                if phi_result.meta_eq(a_data) {
-                    self.ordering_graph.add_edge(a, b, ());
-                }
-            }
-            // reflexive reduction
-            self.ordering_graph.remove_edge(a, a);
-        }*/
-
-        // transitive reduction
-        //let start_transitive_reduction = std::time::Instant::now();
-
-        // additional expensive assertions, normally commented out
-        // use them if a bug in the graph is suspected
-        /*assert!(!petgraph::algo::is_cyclic_directed(&self.ordering_graph));
-        assert_eq!(
-            petgraph::algo::connected_components(&self.ordering_graph),
-            1
-        );
-        let ordering_graph_nodes = BTreeSet::from_iter(self.ordering_graph.nodes());
-        for a in ordering_graph_nodes.iter().cloned() {
-            for b in ordering_graph_nodes.iter().cloned() {
-                for c in ordering_graph_nodes.iter().cloned() {
-                    if self.ordering_graph.contains_edge(a, b)
-                        && self.ordering_graph.contains_edge(b, c)
-                        && self.ordering_graph.contains_edge(a, c)
-                    {
-                        panic!("Not transitively reduced: {} -> {} -> {}", a, b, c);
-                        //self.ordering_graph.remove_edge(a, c);
-                    }
-                }
-            }
-        }*/
+        // We are done, assert graph sanity.
+        self.assert_graph_sanity(target_id, join_state_id);
 
         let elapsed = start.elapsed();
         let get_elapsed = self.get_elapsed.borrow();
@@ -329,24 +153,69 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
         );*/
     }
 
+    fn join_candidate<M: FullMachine>(
+        &mut self,
+        state_space: &mut StateSpace<M>,
+        target_data: &AbstrPanicState<M>,
+    ) -> Option<StateId> {
+        // depth first search for a suitable candidate
+        let mut stack = Vec::new();
+        let Some(ordering_root) = self.ordering_root else {
+            panic!("Should have an ordering root when searching for the join candidate");
+        };
+        stack.push(ordering_root);
+
+        while let Some(stack_id) = stack.pop() {
+            // look at whether it has a new join
+            let stack_data = state_space.state_data(stack_id);
+
+            let phi_result = Phi::phi(target_data.clone(), stack_data.clone());
+
+            if !phi_result.meta_eq(target_data) && !phi_result.meta_eq(stack_data) {
+                // add to the map
+                let phi_id = state_space.state_id(phi_result);
+
+                // return this join candidate
+                return Some(phi_id);
+            }
+
+            // look at the descendants in the ordering graph
+            // the order of iteration can change the structure of the graph
+            let ordering_descendants = BTreeSet::from_iter(self.ordering_graph.neighbors(stack_id));
+            for descendant in ordering_descendants.into_iter() {
+                stack.push(descendant);
+            }
+        }
+        // no join candidate found
+        None
+    }
+
     fn add_graph_node<M: FullMachine>(
         &mut self,
         state_space: &mut StateSpace<M>,
-        ordering_root: StateId,
         target_id: StateId,
     ) {
-        // add the node
-        self.ordering_graph.add_node(target_id);
+        let Some(ordering_root) = self.ordering_root else {
+            panic!("Should have an ordering root when adding a graph node");
+        };
+
+        // if the node already exists, there is no need to add it
+        if self.ordering_graph.contains_node(target_id) {
+            return;
+        }
         // find the parents and children
-        let (parents, children) = self.find_parents_children(state_space, ordering_root, target_id);
+        let (parents, children) =
+            self.find_parents_and_children(state_space, ordering_root, target_id);
 
         // as we already have the ordering root, the node should have at least one parent or child
         assert!(!parents.is_empty() || !children.is_empty());
 
-        /*println!(
-            "Node: {}, parents: {:?}, children: {:?}",
-            target_id, parents, children
-        );*/
+        // update the ordering root if the new state has no parents
+        if parents.is_empty() {
+            self.ordering_root = Some(target_id);
+        }
+
+        // the node will be added together with the first edge (at least one exists)
         // add the edges from parents
         for parent in parents.iter().cloned() {
             self.ordering_graph.add_edge(parent, target_id, ());
@@ -363,10 +232,154 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
                 self.ordering_graph.remove_edge(parent, child);
             }
         }
+    }
 
-        /*println!(
-            "Added graph node {}, graph: {:?}",
-            target_id, self.ordering_graph
-        );*/
+    fn find_parents_and_children<M: FullMachine>(
+        &mut self,
+        state_space: &mut StateSpace<M>,
+        ordering_root: StateId,
+        target_id: StateId,
+    ) -> (BTreeSet<StateId>, BTreeSet<StateId>) {
+        let target_data = state_space.state_data(target_id);
+
+        let mut target_parents = BTreeSet::new();
+        let mut target_children = BTreeSet::new();
+
+        let mut neither = BTreeSet::new();
+        let mut stack = Vec::new();
+
+        // the root has no ancestor
+        stack.push((None, ordering_root));
+
+        while let Some((parent_id, current_id)) = stack.pop() {
+            if neither.contains(&current_id) {
+                // already processed and disqualified, continue
+                continue;
+            }
+
+            // if we are currently at the target, there is no need to compare, it is neither its parent nor child
+            if current_id != target_id {
+                // compare the state on stack with the target
+                let current_data = state_space.state_data(current_id);
+
+                let phi_result = Phi::phi(target_data.clone(), current_data.clone());
+                if phi_result.meta_eq(current_data) {
+                    // ancestor
+                    // remove the parent of current from target parents and disqualify it
+                    // then add current to target parents
+                    if let Some(parent_id) = parent_id {
+                        target_parents.remove(&parent_id);
+                        neither.insert(parent_id);
+                    }
+                    target_parents.insert(current_id);
+                } else if phi_result.meta_eq(target_data) {
+                    // descendant
+                    // this cannot be the target node as it has a different id
+                    // if the parent is a child, remove current from children and disqualify it
+                    // otherwise, add it to children
+                    let mut can_be_child = true;
+                    if let Some(parent_id) = parent_id {
+                        if target_children.contains(&parent_id) {
+                            target_children.remove(&current_id);
+                            neither.insert(current_id);
+                            can_be_child = false;
+                        }
+                    }
+                    if can_be_child {
+                        target_children.insert(current_id);
+                    }
+                } else {
+                    // neither an ancestor nor a descendant, disqualify it
+                    neither.insert(current_id);
+                }
+            } else {
+                // the target is neither its own ancestor nor a descendant
+                neither.insert(current_id);
+            }
+
+            let direct_successors = BTreeSet::from_iter(self.ordering_graph.neighbors(current_id));
+            for direct_successor_id in direct_successors.into_iter() {
+                if !neither.contains(&direct_successor_id) {
+                    stack.push((Some(current_id), direct_successor_id));
+                }
+            }
+        }
+
+        (target_parents, target_children)
+    }
+
+    fn assert_graph_sanity(&self, target_id: StateId, join_state_id: Option<StateId>) {
+        // We are done, make cheap assertions of graph sanity.
+        // The new ordering root should have no incoming edges.
+        if let Some(ordering_root) = self.ordering_root {
+            assert!(self
+                .ordering_graph
+                .neighbors_directed(ordering_root, petgraph::Direction::Incoming)
+                .next()
+                .is_none());
+        } else {
+            panic!("Should have an ordering root after adding nodes");
+        }
+
+        // ignore the target and join state id if expensive assertions are not enabled
+        let _ = (target_id, join_state_id);
+
+        // Expensive assertion that should ensure monotonicity, normally commented out.
+        // For every combination of states (a,b) where the join is a,
+        // there should be a path from a to b in the graph.
+
+        /*let map_states = BTreeSet::from_iter(
+            self.map
+                .keys()
+                .filter_map(|node_id| StateId::try_from(*node_id).ok()),
+        );
+
+        for a_id in map_states.iter().cloned() {
+            let paths = petgraph::algo::dijkstra::dijkstra(&self.ordering_graph, a_id, None, |_| 1);
+            for b_id in map_states.iter().cloned() {
+                let a_data = state_space.state_data(a_id);
+                let b_data = state_space.state_data(b_id);
+                let phi = Phi::phi(a_data.clone(), b_data.clone());
+                if phi.meta_eq(a_data) && !paths.contains_key(&b_id) {
+                    panic!(
+                        "State {} covers {}, but there is no corresponding path in the graph",
+                        a_id, b_id
+                    );
+                }
+            }
+        }*/
+
+        // Additional expensive assertions for the graph, normally commented out:
+        // - Should not be cyclic.
+        //   This also implies antireflexivity.
+        // - Should have exactly one connected component.
+        // - Should be antitransitive. This is currently only checked for edges,
+        //   not paths, Warshall would have to be applied first for that.
+        // Uncomment the assertions if a bug in the graph is suspected.
+        /*assert!(!petgraph::algo::is_cyclic_directed(&self.ordering_graph));
+        assert_eq!(
+            petgraph::algo::connected_components(&self.ordering_graph),
+            1
+        );
+        let ordering_graph_nodes = BTreeSet::from_iter(self.ordering_graph.nodes());
+        for a in ordering_graph_nodes.iter().cloned() {
+            for b in ordering_graph_nodes.iter().cloned() {
+                for c in ordering_graph_nodes.iter().cloned() {
+                    if self.ordering_graph.contains_edge(a, b)
+                        && self.ordering_graph.contains_edge(b, c)
+                        && self.ordering_graph.contains_edge(a, c)
+                    {
+                        println!("Target: {:?}, join: {:?}", target_id, join_state_id);
+                        println!("Ordering root: {:?}", self.ordering_root);
+                        println!(
+                            "{:?}",
+                            Dot::with_config(&self.ordering_graph, &[Config::EdgeNoLabel])
+                        );
+                        panic!("Not transitively reduced: {} -> {} -> {}", a, b, c);
+                        //self.ordering_graph.remove_edge(a, c);
+                    }
+                }
+            }
+        }*/
     }
 }
