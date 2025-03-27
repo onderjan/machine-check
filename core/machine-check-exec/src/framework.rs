@@ -354,11 +354,25 @@ impl<M: FullMachine> Framework<M> {
         let default_step_precision = &self.default_step_precision;
 
         let mut queue = VecDeque::new();
+
+        // clear the step from the initial node so it is processed
+        self.work_state.space.clear_step(from_node_id);
         queue.push_back(from_node_id);
 
         let mut changed = false;
         // construct state space by breadth-first search
         while let Some(node_id) = queue.pop_front() {
+            // if it has already been processed, continue
+            let current_has_direct_successor = self
+                .work_state
+                .space
+                .direct_successor_iter(node_id)
+                .next()
+                .is_some();
+            if current_has_direct_successor {
+                continue;
+            }
+
             self.work_state.num_generated_states += 1;
             // remove outgoing edges
             let removed_direct_successors = self.work_state.space.clear_step(node_id);
@@ -401,14 +415,14 @@ impl<M: FullMachine> Framework<M> {
                 let next_state_index = self.work_state.space.add_step(node_id, next_state, &input);
 
                 // add the tail to the queue if it has no direct successors yet
-                let has_direct_successor = self
+                let next_has_direct_successor = self
                     .work_state
                     .space
                     .direct_successor_iter(next_state_index.into())
                     .next()
                     .is_some();
 
-                if !has_direct_successor {
+                if !next_has_direct_successor {
                     // add to queue
                     queue.push_back(next_state_index.into());
                 }
