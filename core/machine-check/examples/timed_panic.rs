@@ -1,9 +1,9 @@
-// Example of a system that panics after some time.
-//
-// The inherent property verification should show that
-// the panic is reached after counter goes to 7
-// and the value is loaded from the input. In the next step,
-// it will be detected that the value is 3.
+//! Example of a system that panics after some time.
+//!
+//! The inherent property verification should show that
+//! the panic is reached after counter goes to 7
+//! and the value is loaded from the input. In the next step,
+//! it will be detected that the value is 3.
 
 #[machine_check::machine_description]
 mod machine_module {
@@ -63,7 +63,7 @@ mod machine_module {
     }
 }
 
-// Main entry point of the executable.
+/// Main entry point of the executable.
 fn main() {
     // Construct the system. This one has no unchanging data.
     let system = machine_module::System {};

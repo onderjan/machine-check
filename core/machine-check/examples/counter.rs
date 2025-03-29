@@ -1,8 +1,8 @@
-// An example of a very simple machine-check system.
-//
-// The used structs and implementations must be enclosed
-// within a module on which the machine_description macro
-// is applied.
+//! An example of a very simple machine-check system.
+//!
+//! The used structs and implementations must be enclosed
+//! within a module on which the machine_description macro
+//! is applied.
 
 #[machine_check::machine_description]
 mod machine_module {

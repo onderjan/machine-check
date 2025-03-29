@@ -1,22 +1,22 @@
-// An example system of an extremely simplified RISC
-// (Reduced Instruction Set Computer) microcontroller
-// with toy machine code, forming a system that
-// can be verified by machine-check.
-//
-// Only the things specific to the microcontroller will
-// be commented here. See the example "counter"
-// for a basic description of a machine-check system.
-//
-// Some of the properties that hold and are verifiable:
-//  - Register 1 is set to 1 before reaching the start
-//    of the main loop:
-//    "AF![reg[1] == 1 && as_unsigned(pc) < 3]"
-//  - It is always possible to reach program location 9:
-//    "AG![EF![pc == 9]]"
-//    (use the decay strategy when verifying this)
-//  - Program locations above 9 are never reached.
-//    "AG![as_unsigned(pc) <= 9]"
-//    (use the decay strategy when verifying this)
+//! An example system of an extremely simplified RISC
+//! (Reduced Instruction Set Computer) microcontroller
+//! with toy machine code, forming a system that
+//! can be verified by machine-check.
+//!
+//! Only the things specific to the microcontroller will
+//! be commented here. See the example "counter"
+//! for a basic description of a machine-check system.
+//!
+//! Some of the properties that hold and are verifiable:
+//!  - Register 1 is set to 1 before reaching the start
+//!    of the main loop:
+//!    "AF![reg[1] == 1 && as_unsigned(pc) < 3]"
+//!  - It is always possible to reach program location 9:
+//!    "AG![EF![pc == 9]]"
+//!    (use the decay strategy when verifying this)
+//!  - Program locations above 9 are never reached.
+//!    "AG![as_unsigned(pc) <= 9]"
+//!    (use the decay strategy when verifying this)
 
 #[machine_check::machine_description]
 mod machine_module {

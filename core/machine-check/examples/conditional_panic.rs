@@ -1,12 +1,12 @@
-// Example of inherently panicking system.
-//
-// Any machine-check formal verification of this system
-// should return an inherent panic error with "Example panic 2"
-// reached, as it is possible to reach it with a certain input.
-//
-// Only the things specific to the inherent panics will be commented
-// here. See the example "counter" for a basic description
-// of a machine-check system.
+//! Example of inherently panicking system.
+//!
+//! Any machine-check formal verification of this system
+//! should return an inherent panic error with "Example panic 2"
+//! reached, as it is possible to reach it with a certain input.
+//!
+//! Only the things specific to the inherent panics will be commented
+//! here. See the example "counter" for a basic description
+//! of a machine-check system.
 
 #[machine_check::machine_description]
 mod machine_module {
