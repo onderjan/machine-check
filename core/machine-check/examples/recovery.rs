@@ -69,12 +69,17 @@ mod machine_module {
 
 #[derive(Args)]
 struct SystemArgs {
-    #[arg(long)]
+    #[arg(long = "system-enable-reset")]
     enable_reset: bool,
 }
 
 fn main() {
     let (run_args, system_args) = machine_check::parse_args::<SystemArgs>(std::env::args());
+    if system_args.enable_reset {
+        println!("Reset input is enabled");
+    } else {
+        println!("Reset input is disabled");
+    }
     let enable_reset = Bitvector::<1>::new(system_args.enable_reset as u64);
     machine_check::execute(machine_module::System { enable_reset }, run_args);
 }
