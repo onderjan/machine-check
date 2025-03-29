@@ -4,21 +4,22 @@ The executable in this crate allows formal verification of machine-code
 programs for the AVR ATmega328P microcontroller via [machine-check](https://docs.rs/machine-check).
 
 In addition to common [machine-check](https://docs.rs/machine-check) executable arguments,
-the executable takes a pair of arguments specifying path to Intel HEX file 
-containing the ATmega328P program code: `--hex-file abc.hex`.
+the executable takes a flag specifying path to Intel HEX file 
+containing the ATmega328P program code: `--system-hex-file abc.hex` (or just `-H abc.hex`).
 
 See [machine-check](https://docs.rs/machine-check) for details on verifying specifications.
 
 Note that both [machine-check](https://docs.rs/machine-check) and this crate are currently 
-experimental and awaiting further improvement and stabilization.
+in developmental phase and awaiting further improvement.
 
 ## Known system problems
 
 - Some lesser-used instructions are unimplemented.
 - Only general-purpose I/O peripherals are supported.
-- The program counter is not always checked for overflow.
+- The program counter may not always be checked for overflow.
 
 ## Inherent panics
+
 - Jumps and calls outside program memory.
 - Execution of reserved or illegal opcodes.
 - Illegal or discouraged reads and writes.
@@ -26,6 +27,7 @@ experimental and awaiting further improvement and stabilization.
 - Unimplemented instructions, reads and writes.
 
 ## Used resources
+
 The system is written using the official [AVR instruction set manual](
 https://ww1.microchip.com/downloads/en/devicedoc/atmel-0856-avr-instruction-set-manual.pdf)
 and [non-automotive ATmega328P datasheet](
