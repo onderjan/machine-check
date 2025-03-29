@@ -35,6 +35,7 @@ pub struct Token {
     pub span: TokenSpan,
 }
 
+/// Lexes a property string to a sequence of tokens.
 pub fn lex(input: &str) -> Result<VecDeque<Token>, ExecError> {
     fn add_token(tokens: &mut VecDeque<Token>, start: usize, end: usize, ty: TokenType) {
         tokens.push_back(Token {

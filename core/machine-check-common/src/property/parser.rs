@@ -10,6 +10,9 @@ use lexer::{Bracket, Token, TokenType};
 
 mod lexer;
 
+/// Parses a verification property.
+///
+/// Returns an error if it was not parsed successfully.
 pub fn parse(input: &str) -> Result<Property, ExecError> {
     let parser = PropertyParser {
         input: String::from(input),

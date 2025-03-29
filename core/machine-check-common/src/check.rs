@@ -1,3 +1,4 @@
+//! Common structures concerning model-checking.
 use std::{collections::VecDeque, fmt::Display};
 
 use serde::{Deserialize, Serialize};

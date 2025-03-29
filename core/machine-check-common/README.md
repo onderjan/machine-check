@@ -3,8 +3,11 @@
 
 This crate contains types used for communication between the formal
 verification tool [machine-check](https://docs.rs/machine-check)
-and generated programs that call its utility crate [machine-check-exec](
-https://docs.rs/machine-check-exec).
+and its utility crates or programs that call its utility crates such as 
+[machine-check-exec](https://docs.rs/machine-check-exec).
+Note that directly using the utility crates should be avoided unless writing
+an artefact that is concerned with the internal behaviour of a specific version
+of [machine-check](https://docs.rs/machine-check).
 
 ## Usage and Compatibility
 

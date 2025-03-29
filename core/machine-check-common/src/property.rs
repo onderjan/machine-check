@@ -1,3 +1,4 @@
+//! Computation Tree Logic properties.
 use std::fmt::Display;
 
 use crate::{ExecError, Signedness};
@@ -20,7 +21,7 @@ pub enum Property {
     A(TemporalOperator),
 }
 
-/// Temporal operator within CTL path quantifier.
+/// A temporal operator within a CTL path quantifier.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum TemporalOperator {
     X(UniOperator),
@@ -150,6 +151,7 @@ impl Display for TemporalOperator {
     }
 }
 
+/// A type of comparison.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum ComparisonType {
     Eq,
@@ -175,6 +177,7 @@ impl Display for ComparisonType {
     }
 }
 
+/// A field name, potentially with indexing and forced signedness.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct ValueExpression {
     name: String,
@@ -222,6 +225,9 @@ impl Display for ValueExpression {
     }
 }
 
+/// An atomic property of Computation Tree Logic.
+///
+/// In our case, this is usually a field compared to a number.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AtomicProperty {
     complementary: bool,
