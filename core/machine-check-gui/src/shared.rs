@@ -37,6 +37,7 @@ impl BackendStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BackendSpaceInfo {
+    pub num_refinements: usize,
     pub num_states: usize,
     pub num_transitions: usize,
 }

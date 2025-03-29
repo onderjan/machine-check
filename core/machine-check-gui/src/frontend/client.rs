@@ -94,8 +94,8 @@ fn display_backend_info(backend_info: &BackendInfo) {
 
     let info = &backend_info.space_info;
     space_info_element.set_text_content(Some(&format!(
-        "{} states, {} transitions",
-        info.num_states, info.num_transitions
+        "{} refinements, {} states, {} transitions",
+        info.num_refinements, info.num_states, info.num_transitions
     )));
 }
 

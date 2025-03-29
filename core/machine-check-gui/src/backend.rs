@@ -78,9 +78,11 @@ impl BackendStats {
 }
 
 fn extract_space_info<M: FullMachine>(framework: &mut Framework<M>) -> BackendSpaceInfo {
+    let num_refinements = framework.info().num_refinements;
     let num_states = framework.info().num_final_states;
     let num_transitions = framework.info().num_final_transitions;
     BackendSpaceInfo {
+        num_refinements,
         num_states,
         num_transitions,
     }
