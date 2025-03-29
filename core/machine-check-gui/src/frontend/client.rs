@@ -7,6 +7,7 @@ mod input;
 mod text;
 mod tick;
 
+/// Initialises the frontend DOM page.
 pub async fn init() {
     // get the initial content first to provide the initial view
     let response = control::call_backend(Request::InitialContent).await;
@@ -26,6 +27,7 @@ pub async fn init() {
     render(view_guard.as_mut());
 }
 
+/// Issues a command to the backend and processes the result.
 async fn issue_command(request: Request) {
     let is_query = matches!(request, Request::Query);
     let mut response = control::call_backend(request).await;
@@ -63,12 +65,14 @@ async fn issue_command(request: Request) {
     }
 }
 
+/// Renders the frontend view into the DOM page.
 fn render(view: &mut View) {
     display_backend_info(view.backend_info());
     canvas::render(view);
     text::display(view);
 }
 
+/// Displays received backend info in the DOM page.
 fn display_backend_info(backend_info: &BackendInfo) {
     let backend_status = &backend_info.status;
     let (status_class, status_str) = match backend_status {
@@ -99,7 +103,9 @@ fn display_backend_info(backend_info: &BackendInfo) {
     )));
 }
 
-// put the view singleton in its own scope so it cannot be manipulated otherwise
+/// The view singleton.
+///
+/// In its own scope so it cannot be manipulated easily.
 mod view_singleton {
     use std::sync::{LazyLock, Mutex, MutexGuard};
 

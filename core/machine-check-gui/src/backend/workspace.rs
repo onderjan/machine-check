@@ -8,12 +8,16 @@ use machine_check_exec::Framework;
 use mck::concr::FullMachine;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Backend workspace.
+///
+/// Contains the verification framework among others.
 pub struct Workspace<M: FullMachine> {
     pub framework: Framework<M>,
     pub properties: Vec<WorkspaceProperty>,
     pub log: Log,
 }
 
+/// A property stored in the backend.
 pub struct WorkspaceProperty {
     pub property: PreparedProperty,
     pub children: Vec<WorkspaceProperty>,

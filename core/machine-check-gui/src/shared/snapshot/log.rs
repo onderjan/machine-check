@@ -28,6 +28,7 @@ pub struct Message {
     pub time: SystemTime,
 }
 
+/// A snapshot of backend log messages.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Log {
     pub messages: Vec<Message>,

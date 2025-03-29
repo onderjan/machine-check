@@ -15,6 +15,7 @@ pub fn init() {
     properties::init();
 }
 
+/// Calls the backend with the given request and returns a response.
 pub async fn call_backend(request: Request) -> Response {
     let result = call_backend_fetch(request).await;
     let response = match result {
@@ -34,6 +35,7 @@ pub async fn call_backend(request: Request) -> Response {
     response
 }
 
+/// Calls the backend with the given request and returns a response array buffer.
 pub async fn call_backend_fetch(request: Request) -> Result<ArrayBuffer, JsValue> {
     // as posting the request content in the body seems buggy (we can encounter
     // an empty body instead), we instead send the request body is in the header

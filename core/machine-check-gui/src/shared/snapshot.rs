@@ -10,6 +10,9 @@ use mck::abstr::Field;
 
 pub mod log;
 
+/// A snapshot of the current state of machine-check.
+///
+/// Provided by the backend to the frontend.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Snapshot {
     pub exec_name: String,

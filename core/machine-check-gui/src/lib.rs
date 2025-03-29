@@ -7,7 +7,7 @@ mod backend;
 
 pub use backend::run;
 
-/// Shared structures for interactions.
+/// Shared structures for interactions between the backend and the frontend.
 pub mod shared;
 
 /// The frontend of the GUI is built on the WebAssembly (WASM) architecture, running in a browser

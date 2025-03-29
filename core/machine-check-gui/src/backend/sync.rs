@@ -19,15 +19,28 @@ use crate::{
 
 use super::{extract_space_info, workspace::WorkspaceProperty};
 
+/// A command for the worker to work.
 struct WorkCommand {
+    /// The work request.
     request: Request,
+    /// A communication channel to send the response after the work is done.
     send_to_server: SyncSender<Response>,
 }
 
+/// A backend worker.
+///
+/// This is a structure for a separate thread that owns the workspace
+/// for verification and performs tasks on it. It is commanded by the
+/// main backend thread.
 struct BackendWorker<M: FullMachine> {
+    /// Verification workspace.
     workspace: Workspace<M>,
+    /// Simple stats that are updated during the work, providing responsiveness
+    /// to the frontend about the current situation.
     stats: Arc<RwLock<BackendStats>>,
+    /// Backend settings.
     settings: BackendSettings,
+    /// A communication channel for receiving work commands from the main backend thread.
     recv_from_server: Receiver<WorkCommand>,
 }
 
@@ -206,8 +219,15 @@ impl<M: FullMachine> BackendWorker<M> {
     }
 }
 
+/// A backend synchronisation structure.
+///
+/// It allows tasking the worker by a command channel
+/// and looking up the current basic situation.
 pub struct BackendSync {
+    /// Simple stats that are updated during the work, providing responsiveness
+    /// to the frontend about the current situation.
     stats: Arc<RwLock<BackendStats>>,
+    /// A channel to task the worker on.
     send_to_worker: SyncSender<WorkCommand>,
 }
 

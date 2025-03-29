@@ -9,6 +9,7 @@ use wry::{WebViewBuilder, WebViewId};
 
 use super::FAVICON_ICO;
 
+/// Backend window.
 pub struct Window {
     event_loop: tao::event_loop::EventLoop<()>,
     #[allow(dead_code)]
@@ -20,6 +21,9 @@ pub struct Window {
 type ResponseCow = http::Response<std::borrow::Cow<'static, [u8]>>;
 
 impl Window {
+    /// Constructs the backend window.
+    ///
+    /// Registers a custom protocol response function for interaction with the frontend.
     pub fn new(
         response_fn: impl Fn(WebViewId, http::Request<Vec<u8>>) -> ResponseCow + 'static,
         exec_name: &str,
@@ -96,6 +100,9 @@ impl Window {
         })
     }
 
+    /// Runs the event loop in the window.
+    ///
+    /// Never returns normally, hijacking the thread for the event loop.
     pub fn run(self) -> ! {
         // run the event loop, hijacking the thread
         self.event_loop.run(move |event, _, control_flow| {

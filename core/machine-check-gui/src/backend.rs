@@ -19,6 +19,7 @@ mod workspace;
 
 const FAVICON_ICO: &[u8] = include_bytes!("../content/favicon.ico");
 
+/// Runs the Graphical User Interface backend.
 pub fn run<M: FullMachine>(
     system: M,
     property: Option<Property>,
@@ -56,13 +57,15 @@ pub fn run<M: FullMachine>(
     gui.run()
 }
 
+/// The backend structure.
 struct Backend {
     sync: BackendSync,
-    /*workspace: Arc<Mutex<Workspace<M>>>,
-    stats: Arc<Mutex<BackendStats>>,
-    settings: BackendSettings,*/
 }
 
+/// Simple stats that are provided to the frontend upon request.
+///
+/// These are provided even if the backend is working and cannot
+/// generate a snapshot.
 struct BackendStats {
     should_cancel: bool,
     space_info: BackendSpaceInfo,
@@ -95,17 +98,17 @@ struct BackendSettings {
 const CONTENT_DIR: Dir = include_dir!("content");
 
 impl Backend {
+    /// Constructs the backend.
     pub fn new<M: FullMachine>(mut workspace: Workspace<M>, exec_name: String) -> Self {
         let stats = BackendStats::new(&mut workspace.framework);
         let settings = BackendSettings { exec_name };
         let sync = BackendSync::new(workspace, stats, settings);
-        Self {
-            sync, /*workspace: Arc::new(Mutex::new(workspace)),
-                  stats: Arc::new(Mutex::new(stats)),
-                  settings: BackendSettings { exec_name },*/
-        }
+        Self { sync }
     }
 
+    /// Provides a response to an HTTP request from the frontend.
+    ///
+    /// This is done using the custom WebView protocol, but still is in the HTTP format.
     fn get_http_response(
         &self,
         request: http::Request<Vec<u8>>,

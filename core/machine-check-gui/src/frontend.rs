@@ -1,3 +1,4 @@
+/// Logs to the frontend developer console.
 #[macro_export]
 macro_rules! console_log {
     ($($arg:tt)*) => {

@@ -131,6 +131,7 @@ impl AxisSizing {
     }
 }
 
+/// Determines what is currently selected in the frontend.
 #[derive(Debug)]
 struct Selection {
     selected_node_id: Option<NodeId>,
@@ -169,6 +170,7 @@ impl Selection {
     }
 }
 
+/// Presentation of a backend snapshot.
 #[derive(Debug)]
 struct Presentation {
     tiling: Tiling,
@@ -279,6 +281,9 @@ fn tile_rect(
     )
 }
 
+/// The frontend view of everything.
+///
+/// Does not render itself, leaving that to the client.
 #[derive(Debug)]
 pub struct View {
     backend_info: BackendInfo,

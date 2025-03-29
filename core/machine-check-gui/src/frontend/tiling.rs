@@ -46,6 +46,9 @@ impl NodeTileInfo {
     }
 }
 
+/// Snapshot tiling.
+///
+/// Determines how the snapshot should be presented as a graph in a table-style tiled formatting.
 #[derive(Debug)]
 pub struct Tiling {
     snapshot: Snapshot,

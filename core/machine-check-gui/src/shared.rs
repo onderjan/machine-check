@@ -4,12 +4,14 @@ use snapshot::{RootPropertyIndex, Snapshot};
 
 pub mod snapshot;
 
+/// Step settings.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepSettings {
     pub max_refinements: Option<u64>,
     pub selected_property: PreparedProperty,
 }
 
+/// Request for the backend to do something.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Request {
     InitialContent,
@@ -22,6 +24,7 @@ pub enum Request {
     RemoveProperty(RootPropertyIndex),
 }
 
+/// Backend status.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BackendStatus {
     Cancelling,
@@ -42,12 +45,14 @@ pub struct BackendSpaceInfo {
     pub num_transitions: usize,
 }
 
+/// Information about the backend.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BackendInfo {
     pub status: BackendStatus,
     pub space_info: BackendSpaceInfo,
 }
 
+/// Response from the backend to a request from the frontend.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Response {
     pub info: BackendInfo,
