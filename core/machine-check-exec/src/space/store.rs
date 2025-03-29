@@ -62,11 +62,11 @@ impl<M: FullMachine> StateStore<M> {
     }
 
     pub fn state_data(&self, state_id: StateId) -> &AbstrPanicState<M> {
-        &self
-            .map
-            .get_by_left(&state_id)
-            .expect("State should be in state map")
-            .0
+        if let Some(state) = &self.map.get_by_left(&state_id) {
+            &state.0
+        } else {
+            panic!("State {} should be in state map", state_id);
+        }
     }
 
     pub fn retain_states(&mut self, states: &BTreeSet<StateId>) {

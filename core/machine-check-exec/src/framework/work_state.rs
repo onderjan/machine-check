@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::ops::ControlFlow;
 
 use machine_check_common::check::Culprit;
@@ -66,5 +67,25 @@ impl<M: FullMachine> WorkState<M> {
 
         // TODO: panic_message approach does not work if there are multiple macro invocations
         panic_id.map(|panic_id: u32| M::panic_message(panic_id))
+    }
+
+    pub fn make_compact(&mut self) {
+        // make sure that all state ids used outside the state space but in work state are retained
+        // when making the state space compact
+        let mut outside_used_ids = if let Some(culprit) = &self.culprit {
+            BTreeSet::from_iter(culprit.path.iter().copied())
+        } else {
+            BTreeSet::new()
+        };
+
+        outside_used_ids.extend(self.input_precision.used_state_ids());
+        outside_used_ids.extend(self.step_precision.used_state_ids());
+        self.space.make_compact(outside_used_ids);
+    }
+
+    pub fn garbage_collect(&mut self) {
+        if self.space.should_compact() {
+            self.make_compact();
+        }
     }
 }

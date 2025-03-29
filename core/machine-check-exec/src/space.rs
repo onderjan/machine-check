@@ -66,12 +66,10 @@ impl<M: FullMachine> StateSpace<M> {
         false
     }
 
-    pub fn make_compact(
-        &mut self,
-        outside_states: impl Iterator<Item = StateId>,
-    ) -> BTreeSet<StateId> {
+    pub fn make_compact(&mut self, outside_used_state_ids: BTreeSet<StateId>) -> BTreeSet<StateId> {
         let mut states = self.graph.make_compact();
-        states.extend(outside_states);
+
+        states.extend(outside_used_state_ids);
 
         self.store.retain_states(&states);
 
@@ -132,14 +130,7 @@ impl<M: FullMachine> StateSpace<M> {
     }
 
     pub fn assert_left_total(&self) {
-        for node_id in self.nodes() {
-            if self.direct_successor_iter(node_id).count() == 0 {
-                panic!(
-                    "State space should be left-total but node {} has no successor",
-                    node_id
-                );
-            }
-        }
+        self.graph.assert_left_total();
     }
 }
 

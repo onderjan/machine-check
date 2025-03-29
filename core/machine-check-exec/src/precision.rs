@@ -38,6 +38,10 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
         }
     }
 
+    pub fn used_state_ids(&self) -> impl Iterator<Item = StateId> + '_ {
+        self.ordering_graph.nodes()
+    }
+
     pub fn get<M: FullMachine>(
         &self,
         state_space: &StateSpace<M>,
@@ -220,6 +224,9 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
         for child in children.iter().cloned() {
             self.ordering_graph.add_edge(target_id, child, ());
         }
+
+        // the ordering graph must not contain a self-loop
+        assert!(!self.ordering_graph.contains_edge(target_id, target_id));
 
         // perform a transitive reduction
         // only the transitions between parents and children can be problematic

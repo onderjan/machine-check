@@ -83,7 +83,7 @@ impl<M: FullMachine> Framework<M> {
         };
 
         // make compact after verification for nice state space information
-        self.make_compact();
+        self.work_state.make_compact();
 
         if log_enabled!(log::Level::Trace) {
             trace!("Verification final space: {:#?}", self.work_state.space);
@@ -105,7 +105,7 @@ impl<M: FullMachine> Framework<M> {
                 return ControlFlow::Break(Err(err));
             }
             // run garbage collection
-            self.garbage_collect();
+            self.work_state.garbage_collect();
         }
 
         if log_enabled!(log::Level::Trace) {
@@ -460,27 +460,6 @@ impl<M: FullMachine> Framework<M> {
         self.work_state.find_panic_string()
     }
 
-    pub fn make_compact(&mut self) {
-        // disable compaction for now
-        /*let precision_used_states = self
-            .work_state
-            .input_precision
-            .used_nodes()
-            .chain(self.work_state.step_precision.used_nodes())
-            .filter_map(|node_id| StateId::try_from(node_id).ok());
-        self.work_state.space.make_compact(precision_used_states);
-
-        // Each node now still should have at least one direct successor.
-        // Assert it to be sure.
-        self.space().assert_left_total();*/
-    }
-
-    fn garbage_collect(&mut self) {
-        if self.work_state.space.should_compact() {
-            self.make_compact();
-        }
-    }
-
     pub fn reset(&mut self) {
         // reset the work state
         self.work_state = WorkState::new()
@@ -492,5 +471,9 @@ impl<M: FullMachine> Framework<M> {
 
     pub fn space(&self) -> &StateSpace<M> {
         &self.work_state.space
+    }
+
+    pub fn make_compact(&mut self) {
+        self.work_state.make_compact();
     }
 }

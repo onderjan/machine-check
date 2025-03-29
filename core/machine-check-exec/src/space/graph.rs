@@ -111,6 +111,10 @@ impl<M: FullMachine> StateGraph<M> {
             self.node_graph.remove_node(state.into());
         }
 
+        // Each node now still should have at least one direct successor.
+        // Assert it to be sure.
+        self.assert_left_total();
+
         marked
     }
 
@@ -183,6 +187,17 @@ impl<M: FullMachine> StateGraph<M> {
 
     pub fn nodes(&self) -> impl Iterator<Item = NodeId> + '_ {
         self.node_graph.nodes()
+    }
+
+    pub fn assert_left_total(&self) {
+        for node_id in self.nodes() {
+            if self.direct_successor_iter(node_id).count() == 0 {
+                panic!(
+                    "State space should be left-total but node {} has no successor",
+                    node_id
+                );
+            }
+        }
     }
 }
 
