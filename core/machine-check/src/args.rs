@@ -24,18 +24,16 @@ pub struct ExecArgs {
         short,
         long,
         conflicts_with("batch"),
-        conflicts_with("inherent"),
         conflicts_with("assume_inherent")
     )]
     pub gui: bool,
 
     #[arg(long)]
-    pub property: Option<String>,
-    #[arg(long)]
     pub inherent: bool,
-
-    #[arg(long, conflicts_with("inherent",))]
+    #[arg(long, conflicts_with("inherent"))]
     pub assume_inherent: bool,
+    #[arg(long, conflicts_with("inherent"))]
+    pub property: Option<String>,
 
     #[arg(long, default_value("default"))]
     pub strategy: ExecStrategy,
