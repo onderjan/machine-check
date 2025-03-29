@@ -18,7 +18,7 @@ pub struct Strategy {
     pub use_decay: bool,
 }
 
-// Whether we are verifying the inherent property or a standard property.
+/// Whether we are verifying the inherent property or a standard property.
 pub enum VerificationType {
     Inherent,
     Property(Property),

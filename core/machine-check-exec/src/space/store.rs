@@ -8,6 +8,11 @@ use crate::{AbstrPanicState, WrappedState};
 use mck::{concr::FullMachine, misc::MetaWrap};
 use std::fmt::Debug;
 
+/// A structure that maps state data to the IDs.
+///
+/// Every state ID is guaranteed to map to the same state data.
+/// However, an ID may be invalidated to garbage-collect the state
+/// when it is not in use. The state can then get a new ID.
 pub struct StateStore<M: FullMachine> {
     /// Bidirectional map from state ids to the state values.
     map: BiMap<StateId, WrappedState<M>>,

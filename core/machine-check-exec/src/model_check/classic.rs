@@ -9,6 +9,9 @@ use mck::concr::FullMachine;
 
 use crate::space::StateSpace;
 
+/// Two-valued model-checker for the state space.
+///
+/// Acts as one part of a three-valued model-checker based on the value of `optimistic`.
 pub struct ClassicChecker<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
     optimistic: bool,
