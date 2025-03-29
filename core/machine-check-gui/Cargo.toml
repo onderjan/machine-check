@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-gui"
-version = "0.4.0-alpha.7"
+version = "0.4.0-alpha.8"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Utility crate for the formal verification tool machine-check"
@@ -67,7 +67,7 @@ hex = "0.4.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Backend-only dependencies.
-machine-check-exec = "=0.4.0-alpha.7"
+machine-check-exec = "=0.4.0-alpha.8"
 
 petgraph = "0.6.4"
 log = "0.4.20"
