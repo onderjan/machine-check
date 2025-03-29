@@ -138,12 +138,12 @@ impl<M: FullMachine> Framework<M> {
     fn refine(&mut self, culprit: &Culprit) -> Result<(), ExecError> {
         // subrefine bits until the state space changes.
         while !self.subrefine(culprit)? {}
+        self.work_state.num_refinements += 1;
         Ok(())
     }
 
     /// Refines a single bit. OK result contains whether the state space changed.
     fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
-        self.work_state.num_refinements += 1;
         let start_instant = if log_enabled!(log::Level::Debug) {
             Some(Instant::now())
         } else {
