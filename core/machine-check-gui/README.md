@@ -14,8 +14,12 @@ and issues.
 
 The frontend is not implemented in Javascript, but in Rust compiled to WebAssembly, interacting with 
 the Rust-based backend running natively. This speeds up development and prevents language-interaction
-bugs, but makes building the GUI more tricky: a wasm32-unknown-unknown Rust target is needed to build 
-the frontend, which is usually done in a temporary directory.
+bugs, but makes building the GUI more tricky: a `wasm32-unknown-unknown` Rust target is needed to build 
+the frontend, which is usually done in a temporary directory. A compatible `wasm-bindgen` is also needed.
+
+For these reasons, in the officially released versions, the compiled WebAssembly is already provided,
+which makes it possible to forgo installing the additional target and `wasm-bindgen` when only using
+[machine-check](https://docs.rs/machine-check) as a library.
 
 ## Usage and Compatibility
 
