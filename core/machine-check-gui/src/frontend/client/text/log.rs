@@ -66,7 +66,7 @@ impl LogDisplayer<'_> {
                         .set_text_content(Some(&pretty_duration(&step_message.duration)));
                     type_element.set_text_content(Some("Step"));
                     message_element.set_text_content(Some(&format!(
-                        "{}: {} refinements.",
+                        "{} after {} refinements.",
                         match step_message.status {
                             crate::shared::snapshot::log::StepStatus::Completed => "Completed",
                             crate::shared::snapshot::log::StepStatus::Cancelled => "Cancelled",
