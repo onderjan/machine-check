@@ -14,22 +14,33 @@ pub use node_id::{NodeId, StateId};
 #[derive(Error, Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
 pub enum ExecError {
+    /// The verification result could not be obtained as the abstraction is too coarse.
+    ///  
+    /// Currently, this should never happen, as only three-valued abstraction is supported.
     #[error("incomplete verification")]
     Incomplete,
+    /// The specified property field was not found in the system.
     #[error("field '{0}' of bit type not found")]
     FieldNotFound(String),
+    /// The specified property is invalid and could not be lexed into tokens.
     #[error("property '{0}' could not be lexed: {1}")]
     PropertyNotLexable(String, String),
+    /// The specified property is invalid and could not be parsed.
     #[error("property '{0}' could not be parsed: {1}")]
     PropertyNotParseable(String, String),
+    /// Verification of a standard property was requested, but the inherent property does not hold.
     #[error("inherent panic")]
     InherentPanic,
+    /// It was requested to verify an inherent property while assuming that it holds.
     #[error("cannot verify inherent property while assuming it")]
     VerifiedInherentAssumed,
+    /// The Graphical User Interface emitted an error.
     #[error("GUI error: {0}")]
     GuiError(String),
+    /// No verification was requested, so there is no verification result.
     #[error("no result")]
     NoResult,
+    /// Other error.
     #[error("{0}")]
     OtherError(String),
 }
@@ -65,8 +76,11 @@ pub struct ExecStats {
 /// An extension of a Boolean to three-valued logic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ThreeValued {
+    // Known false.
     False,
+    // Known true.
     True,
+    // Either false or true, but it is unknown which one.
     Unknown,
 }
 
