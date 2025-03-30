@@ -24,30 +24,40 @@ constructing the system and providing it to the function [`run`].
 A very simple example of a system verifiable by **machine-check** is 
 [counter](https://docs.rs/crate/machine-check/0.4.0/source/examples/counter.rs), 
 a simple [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine) which contains 
-an eight-bit `value`, which is initialized to zero and then is incremented in each step exactly
-if the `increment` single-bit input is 1. If the value reaches 157, it is immediately zeroed again. 
+an eight-bit state field `value`, which is initialized to zero and then is incremented in each step exactly
+if the single-bit input `increment` is set (1). If the value reaches 157, it is immediately zeroed. 
 The system is very simple, so it is complicated a little by a large unused bitvector array,
-which would make simple kinds of automated verification impossible.
+which would make simple kinds of automated formal verification impossible.
 
-You can install 
-[counter](https://docs.rs/crate/machine-check/0.4.0/source/examples/counter.rs) by running:
+To try things out, create a new package:
 ```console
-$ cargo install machine-check --example counter
-    Updating crates.io index
-  Installing machine-check v0.4.0
-  (...)
-   Installed package `machine-check v0.4.0` (executable `counter.exe`)
+$ cargo new my-example --bin
+    Creating binary (application) `my-example` package
+    (...)
+$ cd my-example
 ```
-You can then verify that the counter is always lesser than 157 in each system state, 
+Copy the source code of [counter](https://docs.rs/crate/machine-check/0.4.0/source/examples/counter.rs) 
+to `src/main` and add **machine-check** as a dependency to `Cargo.toml`:
+```toml
+[dependencies]
+machine-check = "0.4.0"
+```
+You can then verify that the counter is lesser than 157 in every reachable system state, 
 using a specification property based on 
 [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic):
 ```console
-$ counter --property "AG![as_unsigned(value) < 157]"
-[2025-03-29T22:09:44Z INFO  machine_check] Starting verification.
-[2025-03-29T22:09:44Z INFO  machine_check::verify] Verifying the inherent property first.
-[2025-03-29T22:09:44Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
-[2025-03-29T22:09:44Z INFO  machine_check::verify] Verifying the given property.
-[2025-03-29T22:09:45Z INFO  machine_check] Verification ended.
+$ cargo run --release -- --property 'AG![as_unsigned(value) < 157]'
+   Compiling autocfg v1.1.0
+   (...)
+   Compiling machine-check v0.4.0
+   Compiling my-example v0.1.0 ({your_path}\my-example)
+    Finished `release` profile [optimized] target(s) in 21.49s
+     Running `target\release\my-example.exe --property "AG![as_unsigned(value) < 157]"`
+[2025-03-29T23:51:38Z INFO  machine_check] Starting verification.
+[2025-03-29T23:51:38Z INFO  machine_check::verify] Verifying the inherent property first.
+[2025-03-29T23:51:38Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
+[2025-03-29T23:51:38Z INFO  machine_check::verify] Verifying the given property.
+[2025-03-29T23:51:39Z INFO  machine_check] Verification ended.
 +--------------------------------+
 |         Result: HOLDS          |
 +--------------------------------+
@@ -58,15 +68,17 @@ $ counter --property "AG![as_unsigned(value) < 157]"
 |  Final transitions:       315  |
 +--------------------------------+
 ```
-
-On the other hand, **machine-check** tells us that the counter value is NOT always lesser than 156:
+We were able to determine that the counter is lesser than 157 in every reachable state using **machine-check**.
+We can also be informed that the value is **NOT** lesser than 156 in every reachable state:
 ```console
-$ counter --property "AG![as_unsigned(value) < 156]"
-[2025-03-29T22:10:05Z INFO  machine_check] Starting verification.
-[2025-03-29T22:10:05Z INFO  machine_check::verify] Verifying the inherent property first.
-[2025-03-29T22:10:05Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
-[2025-03-29T22:10:05Z INFO  machine_check::verify] Verifying the given property.
-[2025-03-29T22:10:06Z INFO  machine_check] Verification ended.
+$ cargo run --release -- --property 'AG![as_unsigned(value) < 156]'
+    Finished `release` profile [optimized] target(s) in 0.15s
+     Running `target\release\my-example.exe --property "AG![as_unsigned(value) < 156]"`
+[2025-03-29T23:54:17Z INFO  machine_check] Starting verification.
+[2025-03-29T23:54:17Z INFO  machine_check::verify] Verifying the inherent property first.
+[2025-03-29T23:54:17Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
+[2025-03-29T23:54:17Z INFO  machine_check::verify] Verifying the given property.
+[2025-03-29T23:54:18Z INFO  machine_check] Verification ended.
 +--------------------------------+
 |     Result: DOES NOT HOLD      |
 +--------------------------------+
@@ -78,22 +90,10 @@ $ counter --property "AG![as_unsigned(value) < 156]"
 +--------------------------------+
 ```
 
-Once you are satisfied, you can uninstall the `counter` binary:
-```console
-$ cargo uninstall --package machine-check --bin counter
-```
-
-Alternatively to installing the example, you can just copy
-[counter](https://docs.rs/crate/machine-check/0.4.0/source/examples/counter.rs) to your crate
-and add **machine-check** as a dependency:
-```plain
-machine-check = "0.4.0"
-```
-
 See the [website](https://machine-check.org) and [user guide](https://book.machine-check.org)
 for more information.
 
-### Machine-code verification
+## Machine-code verification
 The crate [machine-check-avr](https://docs.rs/machine-check-avr) includes a system description
 of the AVR ATmega328P microcontroller (notably used in Arduino Uno R3), allowing verification
 of simple machine-code programs. More systems may come later.
@@ -102,7 +102,7 @@ of simple machine-code programs. More systems may come later.
 
 **Machine-check** is still in developmental phase, with limitations in user experience 
 and verification power. There may (and probably will be) some bugs or design oversights.
-Bug reports to the [repository](https://github.com/onderjan/machine-check) are welcome.
+Bug reports to the [repository](https://github.com/onderjan/machine-check) are very welcome.
 
 ## Changelog
  - `0.4.0`: An initial version of a Graphical User Interface, a monotonicity fix,
