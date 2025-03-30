@@ -17,6 +17,7 @@ of arbitrary digital systems as long as they are described in a subset of valid 
 that **machine-check** understands.
 
 ## A Quick Example
+
 The magic of **machine-check** is unlocked by the [`machine_description`] macro, which adds verification 
 analogues to the code it is applied to. You can then run **machine-check** from your own crate by 
 constructing the system and providing it to the function [`run`].
@@ -94,6 +95,7 @@ See the [website](https://machine-check.org) and [user guide](https://book.machi
 for more information.
 
 ## Machine-code verification
+
 The crate [machine-check-avr](https://docs.rs/machine-check-avr) includes a system description
 of the AVR ATmega328P microcontroller (notably used in Arduino Uno R3), allowing verification
 of simple machine-code programs. More systems may come later.
