@@ -76,16 +76,14 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
             }
             Property::Atomic(atomic_property) => {
                 // get from space
-                let labelled: Result<BTreeSet<_>, ()> = self
+                let labelled: Result<BTreeSet<_>, ExecError> = self
                     .space
                     .labelled_iter(atomic_property, self.optimistic)
                     .collect();
                 match labelled {
                     Ok(labelled) => labelled,
-                    Err(_) => {
-                        return Err(ExecError::FieldNotFound(String::from(
-                            atomic_property.left().name(),
-                        )))
+                    Err(err) => {
+                        return Err(err);
                     }
                 }
             }

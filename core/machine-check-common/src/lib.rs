@@ -20,8 +20,26 @@ pub enum ExecError {
     #[error("incomplete verification")]
     Incomplete,
     /// The specified property field was not found in the system.
-    #[error("field '{0}' of bit type not found")]
+    #[error("field '{0}' not found")]
     FieldNotFound(String),
+    /// The used index was invalid.
+    ///
+    /// This can happen either due to the field not being indexable
+    /// or the index being too high.
+    #[error("index {0} is invalid for the field '{1}'")]
+    IndexInvalid(u64, String),
+    /// The use of an index is required to use the field in an operation.
+    ///
+    /// This happens because an array type was used where a bit-vector type
+    /// was expected.
+    #[error("indexing is required for the field '{0}'")]
+    IndexRequired(String),
+    /// The signedness of the field was required for a comparison, but not estabilished.
+    ///
+    /// Currently, if needed, the signedness must be forced by `as_unsigned` or `as_signed`,
+    /// as field signedness currently does not yet propagate to property verification.
+    #[error("signedness of the use of field '{0}' was not estabilished")]
+    SignednessNotEstabilished(String),
     /// The specified property is invalid and could not be lexed into tokens.
     #[error("property '{0}' could not be lexed: {1}")]
     PropertyNotLexable(String, String),

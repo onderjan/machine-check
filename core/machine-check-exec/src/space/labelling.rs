@@ -4,6 +4,7 @@ use super::StateId;
 use super::StateSpace;
 use machine_check_common::property::AtomicProperty;
 use machine_check_common::property::ComparisonType;
+use machine_check_common::ExecError;
 use machine_check_common::Signedness;
 use mck::abstr::{ManipField, Manipulatable};
 use mck::concr::FullMachine;
@@ -16,7 +17,7 @@ impl<M: FullMachine> StateSpace<M> {
         &'a self,
         atomic_property: &'a AtomicProperty,
         optimistic: bool,
-    ) -> impl Iterator<Item = Result<StateId, ()>> + 'a {
+    ) -> impl Iterator<Item = Result<StateId, ExecError>> + 'a {
         self.nodes().filter_map(move |node_id| {
             let Ok(state_id) = StateId::try_from(node_id) else {
                 return None;
@@ -31,12 +32,12 @@ impl<M: FullMachine> StateSpace<M> {
             } else {
                 match state.result.get(left_name) {
                     Some(manip_field) => manip_field,
-                    None => return Some(Err(())),
+                    None => return Some(Err(ExecError::FieldNotFound(String::from(left_name)))),
                 }
             };
             let manip_field = if let Some(index) = left.index() {
                 let Some(indexed_manip_field) = manip_field.index(index) else {
-                    return Some(Err(()));
+                    return Some(Err(ExecError::IndexInvalid(index, String::from(left_name))));
                 };
                 indexed_manip_field
             } else {
@@ -46,7 +47,7 @@ impl<M: FullMachine> StateSpace<M> {
             let (Some(min_unsigned), Some(max_unsigned)) =
                 (manip_field.min_unsigned(), manip_field.max_unsigned())
             else {
-                return Some(Err(()));
+                return Some(Err(ExecError::IndexRequired(String::from(left_name))));
             };
             let right_unsigned = atomic_property.right_number_unsigned();
             let comparison_result = match atomic_property.comparison_type() {
@@ -68,8 +69,10 @@ impl<M: FullMachine> StateSpace<M> {
                     match left.forced_signedness() {
                         Signedness::None => {
                             // signedness not specified
-                            // TODO: better error message
-                            return Some(Err(()));
+                            // TODO: try to estabilish signedness by using the types in this case
+                            return Some(Err(ExecError::SignednessNotEstabilished(
+                                left.to_string(),
+                            )));
                         }
                         Signedness::Unsigned => Self::resolve_inequality(
                             comparison_type,
@@ -81,7 +84,9 @@ impl<M: FullMachine> StateSpace<M> {
                             let (Some(min_signed), Some(max_signed)) =
                                 (manip_field.min_signed(), manip_field.max_signed())
                             else {
-                                return Some(Err(()));
+                                return Some(Err(ExecError::IndexRequired(String::from(
+                                    left_name,
+                                ))));
                             };
                             let right_signed = atomic_property.right_number_signed();
                             Self::resolve_inequality(
