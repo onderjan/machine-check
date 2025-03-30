@@ -38,17 +38,17 @@ $ cargo new my-example --bin
 $ cd my-example
 ```
 Copy the source code of [counter](https://docs.rs/crate/machine-check/0.4.0/source/examples/counter.rs) 
-to `src/main` and add **machine-check** as a dependency to `Cargo.toml`:
+to `src/main.rs` and add **machine-check** as a dependency to `Cargo.toml`:
 ```toml
 [dependencies]
 machine-check = "0.4.0"
 ```
-You can then verify that the counter is lesser than 157 in every reachable system state, 
+We can then verify that the counter is lesser than 157 in every reachable system state, 
 using a specification property based on 
 [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic):
 ```console
 $ cargo run --release -- --property 'AG![as_unsigned(value) < 157]'
-   Compiling autocfg v1.1.0
+   Compiling autocfg v1.4.0
    (...)
    Compiling machine-check v0.4.0
    Compiling my-example v0.1.0 ({your_path}\my-example)
@@ -94,17 +94,22 @@ $ cargo run --release -- --property 'AG![as_unsigned(value) < 156]'
 See the [website](https://machine-check.org) and [user guide](https://book.machine-check.org)
 for more information.
 
-## Machine-code verification
+## Machine-code Verification
 
 The crate [machine-check-avr](https://docs.rs/machine-check-avr) includes a system description
 of the AVR ATmega328P microcontroller (notably used in Arduino Uno R3), allowing verification
 of simple machine-code programs. More systems may come later.
 
-## Current status
+## Current Status
 
 **Machine-check** is still in developmental phase, with limitations in user experience 
 and verification power. There may (and probably will be) some bugs or design oversights.
 Bug reports to the [repository](https://github.com/onderjan/machine-check) are very welcome.
+
+## Minimum Supported Rust Version
+The Minimum Supported Rust Version for **machine-check** `0.4.0` is `1.83`.
+This can be raised to any stable Rust version in a minor release.
+The MSRV will not be raised in a patch release.
 
 ## Changelog
  - `0.4.0`: An initial version of a Graphical User Interface, a monotonicity fix,
