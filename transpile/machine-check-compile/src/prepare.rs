@@ -129,9 +129,12 @@ pub fn prepare(config: Config) -> Result<(), Error> {
                 linked_paths.extend(build_script.linked_paths);
             }
             Message::CompilerArtifact(artifact) => {
+                // replace target name hyphens with underscores
+                // this will also be needed for rustc
+                let target_name = artifact.target.name.replace('-', "_");
                 if matches!(
-                    artifact.target.name.as_str(),
-                    "mck" | "machine-check" | "machine-check-exec"
+                    target_name.as_str(),
+                    "mck" | "machine_check" | "machine_check_exec"
                 ) {
                     for original_path in artifact.filenames {
                         // TODO: base addition of extern on Target_Cargo.toml

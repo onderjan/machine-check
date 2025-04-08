@@ -1,15 +1,15 @@
 [package]
 name = "machine-check-exec-prepare"
-version = "0.3.1-alpha-1"
+version = "0.4.0"
 edition = "2021"
 rust-version = "1.83"
 # internal artifact, do not publish
 publish = false
 
 [dependencies]
-mck = "=0.3.1"
-machine-check = "=0.3.1"
-machine-check-exec = "=0.3.1"
+mck = "=0.4.0"
+machine-check = "=0.4.0"
+machine-check-exec = "=0.4.0"
 
 [workspace]
 # disallow workspace hijinks

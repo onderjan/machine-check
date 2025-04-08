@@ -1,5 +1,6 @@
 use machine_check_common::ExecResult;
 use std::{
+    io::Write,
     path::Path,
     process::{Command, Stdio},
 };
@@ -12,12 +13,11 @@ pub(super) fn execute(config: &Config, artifact_path: &Path) -> Result<ExecResul
     let mut command = Command::new(artifact_path);
 
     command.arg("--property");
-    command.arg("AG[neq(safe,0)]");
+    command.arg("AG![safe == 1]");
 
-    // forward batch
-    if config.batch {
-        command.arg("--batch");
-    }
+    // batch output so we can parse it
+    command.arg("--batch");
+
     // forward property
     if let Some(property) = &config.property {
         command.arg("--property").arg(property);
@@ -38,6 +38,13 @@ pub(super) fn execute(config: &Config, artifact_path: &Path) -> Result<ExecResul
     command.stdout(Stdio::piped()).stderr(Stdio::inherit());
 
     let exec_output = command.output().map_err(Error::ExecRun)?;
+
+    if config.batch {
+        // echo the batch output written to stdout
+        std::io::stdout()
+            .write_all(&exec_output.stdout)
+            .map_err(Error::WriteStdout)?;
+    }
 
     if !exec_output.status.success() {
         // stderr is already piped, do not print any error log

@@ -141,7 +141,7 @@ impl Translator {
 
         let system = parse_quote!(
             #![no_implicit_prelude]
-            #![allow(dead_code, unused_variables, clippy::all)]
+            #![allow(dead_code, unused_variables, unused_parens, clippy::all)]
 
             #[::machine_check::machine_description]
             mod machine_module {
@@ -181,7 +181,7 @@ impl Translator {
 
             fn main() {
                 let system = machine_module::System {};
-                ::machine_check_exec::run(system);
+                ::machine_check::run(system);
             }
         );
         if log::log_enabled!(log::Level::Trace) {
