@@ -14,3 +14,4 @@ machine-check = "=0.4.0"
 
 ihex = "3.0.0"
 clap = { version = "4.4.6", features = ["derive"] }
+pastey = "0.1.0"
