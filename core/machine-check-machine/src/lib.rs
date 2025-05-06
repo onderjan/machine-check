@@ -85,20 +85,24 @@ fn unparse(machine: &MachineDescription) -> String {
 fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
     //println!("Machine-check-machine starting processing");
 
-    //let out_dir = out_dir();
+    #[cfg(feature = "write_machine")]
+    let out_dir = out_dir();
 
     let ssa_machine = ssa::create_ssa_machine(items.clone())?;
-    /*if let Some(out_dir) = &out_dir {
+
+    #[cfg(feature = "write_machine")]
+    if let Some(out_dir) = &out_dir {
         std::fs::write(out_dir.join("machine_ssa.rs"), unparse(&ssa_machine))
             .expect("SSA machine file should be writable");
-    }*/
+    }
 
     let mut abstract_machine = abstr::create_abstract_machine(&ssa_machine)?;
 
-    /*if let Some(out_dir) = &out_dir {
+    #[cfg(feature = "write_machine")]
+    if let Some(out_dir) = &out_dir {
         std::fs::write(out_dir.join("machine_abstr.rs"), unparse(&abstract_machine))
             .expect("Abstract machine file should be writable");
-    }*/
+    }
 
     let refinement_machine = refin::create_refinement_machine(&abstract_machine)?;
 
@@ -115,7 +119,8 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
 
     redirect_mck(items)?;
 
-    /*if let Some(out_dir) = &out_dir {
+    #[cfg(feature = "write_machine")]
+    if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("machine_full.rs"),
             unparse(&MachineDescription {
@@ -124,7 +129,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineError> {
             }),
         )
         .expect("Full machine file should be writable");
-    }*/
+    }
 
     //println!("Machine-check-machine ending processing");
 

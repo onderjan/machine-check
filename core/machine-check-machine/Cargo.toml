@@ -6,6 +6,10 @@ license = "MIT OR Apache-2.0"
 description = "Machine crate for the formal verification tool machine-check"
 rust-version = "1.83"
 
+[features]
+# A debug feature to write the intermediate machine description files to the Rust directory.
+write_machine = []
+
 [dependencies]
 machine-check-bitmask-switch = "=0.4.0"
 
