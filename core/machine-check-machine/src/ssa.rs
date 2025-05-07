@@ -34,6 +34,30 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
     subsume_blocks::subsume_blocks(&mut items);
     convert_indexing::convert_indexing(&mut items, &mut temporary_manager)?;
     convert_to_ssa::convert_to_ssa(&mut items)?;
+
+    let w_description = super::wir::WDescription::from_syn(items.clone().into_iter());
+
+    /*println!(
+        "Original syn string:\n{}",
+        quote::ToTokens::into_token_stream(syn::File {
+            shebang: None,
+            attrs: Vec::new(),
+            items: items.clone()
+        })
+    );
+    println!("---");
+    println!(
+        "Compared syn string:\n{}",
+        quote::ToTokens::into_token_stream(syn::File {
+            shebang: None,
+            attrs: Vec::new(),
+            items: w_description.clone().into_syn().collect(),
+        })
+    );
+    println!("---");*/
+
+    let mut items: Vec<Item> = w_description.into_syn().collect();
+
     infer_types::infer_types(&mut items)?;
     convert_types::convert_types(&mut items)?;
     convert_panic::convert_panic_typed(&mut items)?;

@@ -18,6 +18,7 @@ mod refin;
 mod ssa;
 mod support;
 mod util;
+mod wir;
 
 #[derive(Clone)]
 pub struct MachineDescription {
