@@ -11,45 +11,34 @@ pub fn infer_types(
 ) -> Result<WDescription<YInferred>, MachineError> {
     let mut structs = HashMap::new();
     // add structures first
-    for item in description.items.iter() {
-        if let WItem::Struct(item_struct) = item {
-            structs.insert(
-                WPath::from_ident(item_struct.ident.clone()),
-                item_struct.clone(),
-            );
-        }
+    for item in description.structs.iter() {
+        structs.insert(WPath::from_ident(item.ident.clone()), item.clone());
     }
 
-    let mut inferred_items = Vec::new();
+    let mut inferred_impls = Vec::new();
 
     // main inference
-    for item in description.items {
-        match item {
-            WItem::Struct(item) => {
-                inferred_items.push(WItem::Struct(item));
-            }
-            WItem::Impl(item_impl) => {
-                let self_path = &item_impl.self_ty;
-                let mut inferred_impl_items = Vec::new();
-                for impl_item in item_impl.items.into_iter() {
-                    let impl_item = match impl_item {
-                        WImplItem::Fn(impl_item) => {
-                            WImplItem::Fn(infer_fn_types(impl_item, &structs, self_path)?)
-                        }
-                        WImplItem::Type(impl_item) => WImplItem::Type(impl_item),
-                    };
-                    inferred_impl_items.push(impl_item);
+    for item_impl in description.impls {
+        let self_path = &item_impl.self_ty;
+        let mut inferred_impl_items = Vec::new();
+        for impl_item in item_impl.items.into_iter() {
+            let impl_item = match impl_item {
+                WImplItem::Fn(impl_item) => {
+                    WImplItem::Fn(infer_fn_types(impl_item, &structs, self_path)?)
                 }
-                inferred_items.push(WItem::Impl(WItemImpl {
-                    self_ty: item_impl.self_ty,
-                    trait_: item_impl.trait_,
-                    items: inferred_impl_items,
-                }));
-            }
+                WImplItem::Type(impl_item) => WImplItem::Type(impl_item),
+            };
+            inferred_impl_items.push(impl_item);
         }
+        inferred_impls.push(WItemImpl {
+            self_ty: item_impl.self_ty,
+            trait_: item_impl.trait_,
+            items: inferred_impl_items,
+        });
     }
     Ok(WDescription {
-        items: inferred_items,
+        structs: description.structs,
+        impls: inferred_impls,
     })
 }
 

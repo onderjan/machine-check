@@ -1,5 +1,5 @@
 use std::{fmt::Debug, hash::Hash};
-use syn::{File, Item, Lit};
+use syn::{File, Item, ItemImpl, Lit};
 
 mod expr;
 mod impl_item;
@@ -19,7 +19,8 @@ pub use ty::*;
 
 #[derive(Clone, Debug, Hash)]
 pub struct WDescription<Y: YStage> {
-    pub items: Vec<WItem<Y>>,
+    pub structs: Vec<WItemStruct>,
+    pub impls: Vec<WItemImpl<Y>>,
 }
 
 pub trait IntoSyn<T> {
@@ -28,13 +29,22 @@ pub trait IntoSyn<T> {
 
 impl<Y: YStage> IntoSyn<File> for WDescription<Y>
 where
-    WItem<Y>: IntoSyn<Item>,
+    WItemImpl<Y>: IntoSyn<ItemImpl>,
 {
     fn into_syn(self) -> File {
         File {
             shebang: None,
             attrs: Vec::new(),
-            items: self.items.into_iter().map(|item| item.into_syn()).collect(),
+            items: self
+                .structs
+                .into_iter()
+                .map(|item| Item::Struct(item.into_syn()))
+                .chain(
+                    self.impls
+                        .into_iter()
+                        .map(|item| Item::Impl(item.into_syn())),
+                )
+                .collect(),
         }
     }
 }

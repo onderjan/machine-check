@@ -12,17 +12,17 @@ use super::*;
 
 impl WDescription<YSsa> {
     pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> WDescription<YSsa> {
-        WDescription {
-            items: item_iter.map(fold_item).collect(),
+        let mut structs = Vec::new();
+        let mut impls = Vec::new();
+        for item in item_iter {
+            match item {
+                Item::Struct(item) => structs.push(fold_item_struct(item)),
+                Item::Impl(item) => impls.push(fold_item_impl(item)),
+                _ => panic!("Unexpected type of item: {:?}", item),
+            }
         }
-    }
-}
 
-fn fold_item(item: Item) -> WItem<YSsa> {
-    match item {
-        Item::Struct(item) => WItem::Struct(fold_item_struct(item)),
-        Item::Impl(item) => WItem::Impl(fold_item_impl(item)),
-        _ => panic!("Unexpected type of item: {:?}", item),
+        WDescription { structs, impls }
     }
 }
 
