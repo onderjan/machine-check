@@ -29,7 +29,7 @@ mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
         /// A value input that we track the maximum value of.
-        value: Unsigned<4>,
+        value: Unsigned<5>,
         /// A reset signal. May or may not be actually enabled.
         reset: Bitvector<1>,
         /// An unused input.
@@ -43,7 +43,7 @@ mod machine_module {
         /// The maximum value of the input `value`.
         ///
         /// Can be reset by the input `reset` if `enable_reset` is chosen.
-        max_value: Unsigned<4>,
+        max_value: Unsigned<5>,
         /// An unused value.
         unused: Bitvector<4>,
         /// An irrelevant free-running counter.
@@ -63,7 +63,7 @@ mod machine_module {
         #[allow(non_snake_case)]
         fn init(&self, _input: &Input) -> State {
             State {
-                max_value: Unsigned::<4>::new(0),
+                max_value: Unsigned::<5>::new(0),
                 unused: Bitvector::<4>::new(0),
                 free_counter: Unsigned::<4>::new(0),
             }
@@ -81,7 +81,7 @@ mod machine_module {
             // If the reset input is asserted and it is actually enabled in the system,
             // reset the maximum value to zero.
             if (input.reset & self.enable_reset) == Bitvector::<1>::new(1) {
-                next_max = Unsigned::<4>::new(0);
+                next_max = Unsigned::<5>::new(0);
             }
 
             // Increment the free-running counter. It will wrap around eventually.

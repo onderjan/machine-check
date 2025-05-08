@@ -401,6 +401,18 @@ fn fold_simple_type(ty: WSimpleType) -> Type {
             qself: None,
             path: path.into(),
         }),
+        WSimpleType::Boolean => Type::Path(TypePath {
+            qself: None,
+            path: Path {
+                leading_colon: Some(Token![::](span)),
+                segments: Punctuated::from_iter(["mck", "concr", "Boolean"].into_iter().map(
+                    |name| PathSegment {
+                        ident: Ident::new(name, span),
+                        arguments: PathArguments::None,
+                    },
+                )),
+            },
+        }),
     }
 }
 

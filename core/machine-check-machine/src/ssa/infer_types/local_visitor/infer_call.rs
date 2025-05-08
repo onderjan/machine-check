@@ -1,224 +1,241 @@
-use syn::{
-    punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, ExprCall,
-    GenericArgument, Path, PathArguments, Type,
-};
-use syn_path::path;
-
 use crate::{
-    ssa::infer_types::type_properties::is_type_fully_specified,
-    support::types::{boolean_type, is_machine_check_bitvector_related_path},
-    util::{
-        create_type_path, extract_expr_ident, extract_expr_path, extract_type_path,
-        path_matches_global_names,
-    },
+    ssa::infer_types::is_type_fully_specified,
+    wir::{WCallArg, WExprCall, WGeneric, WPath, WReference, WSimpleType, WType, WTypeArray},
     ErrorType, MachineError,
 };
 
 impl super::LocalVisitor<'_> {
-    pub(super) fn infer_call_result_type(&mut self, expr_call: &ExprCall) -> Option<Type> {
+    pub(super) fn infer_call_result_type(&mut self, expr_call: &WExprCall) -> Option<WType> {
         // discover the type based on the call function
-        let func_path = extract_expr_path(&expr_call.func).expect("Call function should be path");
-        if let Some(ty) = self.infer_init(func_path) {
+        if let Some(ty) = self.infer_init(&expr_call.fn_path) {
             return Some(ty);
         }
-        if let Some(ty) = self.infer_into(expr_call, func_path) {
+        if let Some(ty) = self.infer_into(expr_call) {
             return Some(ty);
         }
-        if let Some(ty) = self.infer_clone(expr_call, func_path) {
+        if let Some(ty) = self.infer_clone(expr_call) {
             return Some(ty);
         }
-        if let Some(ty) = self.infer_array_read(expr_call, func_path) {
+        if let Some(ty) = self.infer_array_read(expr_call) {
             return Some(ty);
         }
-        if let Some(ty) = self.infer_array_write(expr_call, func_path) {
+        if let Some(ty) = self.infer_array_write(expr_call) {
             return Some(ty);
         }
-        if let Some(ty) = self.infer_ext(expr_call, func_path) {
+        if let Some(ty) = self.infer_ext(expr_call) {
             return Some(ty);
         }
-        if let Some(ty) = self.infer_return_arg_fns(expr_call, func_path) {
+        if let Some(ty) = self.infer_return_arg_fns(expr_call) {
             return Some(ty);
         }
-        if let Some(ty) = self.infer_return_bool_fns(func_path) {
+        if let Some(ty) = self.infer_return_bool_fns(&expr_call.fn_path) {
             return Some(ty);
         }
         None
     }
 
-    fn infer_init(&mut self, func_path: &Path) -> Option<Type> {
+    fn infer_init(&mut self, fn_path: &WPath) -> Option<WType> {
+        let is_bitvector = fn_path.matches_absolute(&["machine_check", "Bitvector", "new"]);
+        let is_unsigned = fn_path.matches_absolute(&["machine_check", "Unsigned", "new"]);
+        let is_signed = fn_path.matches_absolute(&["machine_check", "Signed", "new"]);
+
         // bitvector initialization
-        if path_matches_global_names(func_path, &["machine_check", "Bitvector", "new"])
-            || path_matches_global_names(func_path, &["machine_check", "Unsigned", "new"])
-            || path_matches_global_names(func_path, &["machine_check", "Signed", "new"])
-        {
-            // infer bitvector type
-            let mut bitvector = func_path.clone();
-            bitvector.segments.pop();
-            bitvector.segments[1].arguments = func_path.segments[1].arguments.clone();
-            return Some(create_type_path(bitvector));
+        if is_bitvector || is_unsigned || is_signed {
+            // infer bitvector-style type
+            if let Some(generics) = &fn_path.segments[1].generics {
+                if generics.inner.len() == 1 {
+                    if let WGeneric::Const(width) = generics.inner[0] {
+                        let ty = if is_bitvector {
+                            WSimpleType::Bitvector(width)
+                        } else if is_unsigned {
+                            WSimpleType::Unsigned(width)
+                        } else {
+                            WSimpleType::Signed(width)
+                        };
+
+                        return Some(ty.into_type());
+                    }
+                }
+            }
         }
         // array initialization
-        if path_matches_global_names(
-            func_path,
-            &["machine_check", "BitvectorArray", "new_filled"],
-        ) {
+        if fn_path.matches_absolute(&["machine_check", "BitvectorArray", "new_filled"]) {
             // infer array type
-            let mut array = path!(::machine_check::BitvectorArray);
-            array.segments[1].arguments = func_path.segments[1].arguments.clone();
-            return Some(create_type_path(array));
+            if let Some(generics) = &fn_path.segments[1].generics {
+                if generics.inner.len() == 2 {
+                    if let (WGeneric::Const(index_width), WGeneric::Const(element_width)) =
+                        (&generics.inner[0], &generics.inner[1])
+                    {
+                        return Some(
+                            WSimpleType::BitvectorArray(WTypeArray {
+                                index_width: *index_width,
+                                element_width: *element_width,
+                            })
+                            .into_type(),
+                        );
+                    }
+                }
+            }
         }
         None
     }
 
-    fn infer_into(&mut self, expr_call: &ExprCall, func_path: &Path) -> Option<Type> {
+    fn infer_into(&mut self, call: &WExprCall) -> Option<WType> {
         // Into trait
-        if !path_matches_global_names(func_path, &["std", "convert", "Into", "into"]) {
+        if !call
+            .fn_path
+            .matches_absolute(&["std", "convert", "Into", "into"])
+        {
             return None;
         }
         // the argument can be given
-        let PathArguments::AngleBracketed(angle_bracketed) = &func_path.segments[2].arguments
-        else {
+        let Some(generics) = &call.fn_path.segments[2].generics else {
             return None;
         };
-        if angle_bracketed.args.len() != 1 {
+
+        if generics.inner.len() != 1 {
             self.push_error(MachineError::new(
                 ErrorType::UnsupportedConstruct(String::from(
                     "Into should have exactly one generic argument",
                 )),
-                expr_call.span(),
+                call.span(),
             ));
             return None;
         }
-        let GenericArgument::Type(ty) = &angle_bracketed.args[0] else {
+        let WGeneric::Type(ty) = &generics.inner[0] else {
             self.push_error(MachineError::new(
                 ErrorType::UnsupportedConstruct(String::from(
                     "Generic argument should contain a type",
                 )),
-                angle_bracketed.args[0].span(),
+                call.span(),
             ));
             return None;
         };
 
-        Some(ty.clone())
+        Some(ty.clone().into_type())
     }
 
-    fn infer_clone(&mut self, expr_call: &ExprCall, func_path: &Path) -> Option<Type> {
-        if !path_matches_global_names(func_path, &["std", "clone", "Clone", "clone"]) {
+    fn infer_clone(&mut self, call: &WExprCall) -> Option<WType> {
+        if !call
+            .fn_path
+            .matches_absolute(&["std", "clone", "Clone", "clone"])
+        {
             return None;
         }
-        let Ok(arg_type) = self.get_arg_type(expr_call, 0, 1) else {
+        let Ok(arg_type) = self.get_arg_type(call, 0, 1) else {
             return None;
         };
         let arg_type = arg_type?;
         // the argument type is a reference, dereference it
-        let Type::Reference(type_reference) = arg_type else {
+
+        if matches!(arg_type.reference, WReference::None) {
             self.push_error(MachineError::new(
                 ErrorType::UnsupportedConstruct(String::from(
                     "First argument of clone should be a reference",
                 )),
-                expr_call.span(),
+                call.span(),
+            ));
+            return None;
+        }
+        let mut result_type = arg_type.clone();
+        result_type.reference = WReference::None;
+        Some(result_type)
+    }
+
+    fn infer_array_read(&mut self, call: &WExprCall) -> Option<WType> {
+        if !call
+            .fn_path
+            .matches_absolute(&["mck", "forward", "ReadWrite", "read"])
+        {
+            return None;
+        }
+        // infer from first argument which should be a reference to the array
+        let Ok(Some(arg_type)) = self.get_arg_type(call, 0, 2) else {
+            return None;
+        };
+        // the argument type is a reference to the array, construct the bitvector type
+        if matches!(arg_type.reference, WReference::None) {
+            // array read reference argument is produced internally, so this is an internal error
+            panic!("First argument of array read should be a reference");
+        }
+
+        let WSimpleType::BitvectorArray(type_array) = &arg_type.inner else {
+            // unexpected type, do not infer
+            return None;
+        };
+        Some(WSimpleType::Bitvector(type_array.element_width).into_type())
+    }
+
+    fn infer_array_write(&mut self, call: &WExprCall) -> Option<WType> {
+        if !call
+            .fn_path
+            .matches_absolute(&["mck", "forward", "ReadWrite", "write"])
+        {
+            return None;
+        }
+        // infer from first argument which should be a reference to the array
+        let Ok(Some(arg_type)) = self.get_arg_type(call, 0, 3) else {
+            return None;
+        };
+        // the argument type is a reference to the array, construct the bitvector type
+        if matches!(arg_type.reference, WReference::None) {
+            // array write reference argument is produced internally, so this is an internal error
+            panic!("First argument of array read should be a reference");
+        }
+        // array write returns the array, just dereferenced
+        Some(arg_type.inner.clone().into_type())
+    }
+
+    fn infer_ext(&mut self, call: &WExprCall) -> Option<WType> {
+        // --- EXT ---
+
+        if !call
+            .fn_path
+            .matches_absolute(&["machine_check", "Ext", "ext"])
+        {
+            return None;
+        }
+
+        // find out the target width
+        let Some(generics) = &call.fn_path.segments[1].generics else {
+            return None;
+        };
+
+        if generics.inner.len() != 1 {
+            self.push_error(MachineError::new(
+                ErrorType::UnsupportedConstruct(String::from(
+                    "Ext should have exactly one generic argument",
+                )),
+                call.span(),
+            ));
+            return None;
+        }
+        let WGeneric::Const(width) = &generics.inner[0] else {
+            self.push_error(MachineError::new(
+                ErrorType::UnsupportedConstruct(String::from(
+                    "Ext generic argument should contain a constant",
+                )),
+                call.span(),
             ));
             return None;
         };
-        Some(type_reference.elem.as_ref().clone())
+
+        // change the width of the type in the argument
+
+        let Ok(Some(arg_type)) = self.get_arg_type(call, 0, 1) else {
+            return None;
+        };
+
+        match arg_type.inner {
+            WSimpleType::Bitvector(_) => Some(WSimpleType::Bitvector(*width)),
+            WSimpleType::Unsigned(_) => Some(WSimpleType::Unsigned(*width)),
+            WSimpleType::Signed(_) => Some(WSimpleType::Signed(*width)),
+            _ => None,
+        }
+        .map(|simple_type| simple_type.into_type())
     }
 
-    fn infer_array_read(&mut self, expr_call: &ExprCall, func_path: &Path) -> Option<Type> {
-        if !path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "read"]) {
-            return None;
-        }
-        // infer from first argument which should be a reference to the array
-        let Ok(arg_type) = self.get_arg_type(expr_call, 0, 2) else {
-            return None;
-        };
-        let arg_type = arg_type?;
-        // the argument type is a reference to the array, construct the bitvector type
-        let Type::Reference(type_reference) = arg_type else {
-            // array read reference argument is produced internally, so this is an internal error
-            panic!("First argument of array read should be a reference");
-        };
-        let array_type = type_reference.elem.as_ref();
-        let Some(array_path) = extract_type_path(array_type) else {
-            // unexpected type, do not infer
-            return None;
-        };
-        if !path_matches_global_names(&array_path, &["machine_check", "BitvectorArray"]) {
-            // unexpected type, do not infer
-            return None;
-        }
-        let PathArguments::AngleBracketed(generics) = &array_path.segments[1].arguments else {
-            // no generics, do not infer
-            return None;
-        };
-        if generics.args.len() != 2 {
-            // wrong number of generic arguments, do not infer
-            return None;
-        }
-        // element length is the second argument
-        let mut result_type_path = path!(::mck::concr::Bitvector);
-        result_type_path.segments[2].arguments =
-            PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                colon2_token: Default::default(),
-                lt_token: Default::default(),
-                args: Punctuated::from_iter(vec![generics.args[1].clone()]),
-                gt_token: Default::default(),
-            });
-
-        Some(create_type_path(result_type_path))
-    }
-
-    fn infer_array_write(&mut self, expr_call: &ExprCall, func_path: &Path) -> Option<Type> {
-        if !path_matches_global_names(func_path, &["mck", "forward", "ReadWrite", "write"]) {
-            return None;
-        }
-        // infer from first argument which should be a reference to the array
-        let Ok(arg_type) = self.get_arg_type(expr_call, 0, 3) else {
-            return None;
-        };
-        let arg_type = arg_type?;
-        // the argument type is a reference to the array, construct the bitvector type
-        let Type::Reference(type_reference) = arg_type else {
-            // array write reference argument is produced internally, so this is an internal error
-            panic!("First argument of array write should be a reference");
-        };
-
-        Some(type_reference.elem.as_ref().clone())
-    }
-
-    fn infer_ext(&mut self, expr_call: &ExprCall, func_path: &Path) -> Option<Type> {
-        // --- EXT ---
-
-        if !path_matches_global_names(func_path, &["machine_check", "Ext", "ext"]) {
-            return None;
-        }
-        // infer from the only argument and generic constant
-        let Ok(arg_type) = self.get_arg_type(expr_call, 0, 1) else {
-            return None;
-        };
-
-        let Some(Type::Path(ty_path)) = arg_type else {
-            // unexpected type, do not infer
-            return None;
-        };
-        if !is_machine_check_bitvector_related_path(&ty_path.path) {
-            // unexpected type, do not infer
-            return None;
-        }
-
-        if !matches!(
-            &func_path.segments[1].arguments,
-            PathArguments::AngleBracketed(_)
-        ) {
-            // no generics, do not infer
-            return None;
-        };
-        // move the ext generics to bitvector type
-        let mut ty_path = ty_path.clone();
-        ty_path.path.segments[1].arguments = func_path.segments[1].arguments.clone();
-        Some(Type::Path(ty_path))
-    }
-
-    fn infer_return_arg_fns(&mut self, expr_call: &ExprCall, func_path: &Path) -> Option<Type> {
+    fn infer_return_arg_fns(&mut self, call: &WExprCall) -> Option<WType> {
         let std_ops_fns: [(&str, &str); 12] = [
             // arithmetic
             ("Neg", "neg"),
@@ -239,13 +256,15 @@ impl super::LocalVisitor<'_> {
 
         // functions that retain return type in all arguments
         for (bit_result_trait, bit_result_fn) in std_ops_fns {
-            if path_matches_global_names(
-                func_path,
-                &["std", "ops", bit_result_trait, bit_result_fn],
-            ) {
+            if call
+                .fn_path
+                .matches_absolute(&["std", "ops", bit_result_trait, bit_result_fn])
+            {
                 // take the type from the first argument where the type is known and inferrable
-                for arg in &expr_call.args {
-                    let arg_ident = extract_expr_ident(arg).expect("Call argument should be ident");
+                for arg in &call.args {
+                    let WCallArg::Ident(arg_ident) = arg else {
+                        continue;
+                    };
                     let arg_type = self.local_ident_types.get(arg_ident).map(|a| a.as_ref());
                     if let Some(Some(arg_type)) = arg_type {
                         if is_type_fully_specified(arg_type) {
@@ -259,7 +278,7 @@ impl super::LocalVisitor<'_> {
         None
     }
 
-    fn infer_return_bool_fns(&mut self, func_path: &Path) -> Option<Type> {
+    fn infer_return_bool_fns(&mut self, fn_path: &WPath) -> Option<WType> {
         let std_cmp_fns: [(&str, &str); 6] = [
             ("PartialEq", "eq"),
             ("PartialEq", "ne"),
@@ -271,14 +290,40 @@ impl super::LocalVisitor<'_> {
 
         // functions that return bool
         for (bit_result_trait, bit_result_fn) in std_cmp_fns {
-            if path_matches_global_names(
-                func_path,
-                &["std", "cmp", bit_result_trait, bit_result_fn],
-            ) {
-                return Some(boolean_type("concr"));
+            if fn_path.matches_absolute(&["std", "cmp", bit_result_trait, bit_result_fn]) {
+                return Some(WSimpleType::Boolean.into_type());
             }
         }
 
         None
+    }
+
+    fn get_arg_type<'a>(
+        &'a mut self,
+        call: &WExprCall,
+        arg_index: usize,
+        num_args: usize,
+    ) -> Result<Option<&'a WType>, ()> {
+        assert!(arg_index < num_args);
+        if num_args != call.args.len() {
+            self.push_error(MachineError::new(
+                ErrorType::UnsupportedConstruct(format!(
+                    "Expected {} parameters, but {} supplied",
+                    num_args,
+                    call.args.len()
+                )),
+                call.span(),
+            ));
+            return Err(());
+        }
+        let arg = &call.args[arg_index];
+        let WCallArg::Ident(arg_ident) = arg else {
+            // TODO: this should not be a panic as it is not internal
+            panic!("Call argument should be ident");
+        };
+        Ok(self
+            .local_ident_types
+            .get(arg_ident)
+            .and_then(|ty| ty.as_ref()))
     }
 }
