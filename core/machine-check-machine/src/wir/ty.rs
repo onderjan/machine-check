@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, Expr, ExprLit, GenericArgument, Ident, Lit, LitInt, Path,
-    PathArguments, PathSegment, Token, Type, TypePath, TypeReference,
+    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, Ident,
+    Lit, LitInt, Path, PathArguments, PathSegment, Token, Type, TypePath, TypeReference,
 };
 
 use super::{IntoSyn, WPath};
@@ -13,6 +13,7 @@ pub enum WSimpleType {
     Unsigned(u32),
     Signed(u32),
     Boolean,
+    PanicResult(Option<Box<WSimpleType>>),
     Path(WPath),
 }
 
@@ -99,6 +100,34 @@ impl IntoSyn<Type> for WSimpleType {
                     )),
                 },
             }),
+            WSimpleType::PanicResult(inner) => {
+                let span = Span::call_site();
+                let mut segments = Punctuated::from_iter(
+                    ["machine_check", "internal", "PanicResult"]
+                        .into_iter()
+                        .map(|name| PathSegment {
+                            ident: Ident::new(name, span),
+                            arguments: PathArguments::None,
+                        }),
+                );
+                if let Some(inner) = inner {
+                    let inner = inner.into_syn();
+                    segments[2].arguments =
+                        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                            colon2_token: None,
+                            lt_token: Token![<](span),
+                            args: Punctuated::from_iter(vec![GenericArgument::Type(inner)]),
+                            gt_token: Token![>](span),
+                        });
+                }
+                Type::Path(TypePath {
+                    qself: None,
+                    path: Path {
+                        leading_colon: Some(Token![::](span)),
+                        segments,
+                    },
+                })
+            }
         }
     }
 }

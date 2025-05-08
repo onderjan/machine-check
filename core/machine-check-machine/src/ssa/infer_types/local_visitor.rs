@@ -3,8 +3,8 @@ use std::collections::HashMap;
 
 use crate::{
     wir::{
-        WBlock, WExpr, WExprField, WExprReference, WGeneric, WGenerics, WIdent, WImplItemFn,
-        WItemStruct, WPath, WReference, WSimpleType, WStmtAssign, WType, YSsa,
+        WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn, WItemStruct, WPath,
+        WReference, WSimpleType, WStmtAssign, WType, YSsa,
     },
     MachineError,
 };
@@ -58,21 +58,11 @@ impl LocalVisitor<'_> {
                     let left_type = ty.clone();
                     let base_ident = &right_field.base;
                     if let Some(Some(WType {
-                        inner: WSimpleType::Path(base_type_path),
+                        inner: WSimpleType::PanicResult(inner_type),
                         ..
                     })) = self.local_ident_types.get_mut(base_ident)
                     {
-                        if base_type_path.matches_absolute(&[
-                            "machine_check",
-                            "internal",
-                            "PanicResult",
-                        ]) {
-                            // infer the generics
-                            base_type_path.segments[2].generics = Some(WGenerics {
-                                leading_colon: false,
-                                inner: vec![WGeneric::Type(left_type.inner)],
-                            });
-                        }
+                        *inner_type = Some(Box::new(left_type.inner));
                     };
                 }
                 return;

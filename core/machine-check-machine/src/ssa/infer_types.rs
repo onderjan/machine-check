@@ -191,17 +191,14 @@ fn update_local_types(
 }
 
 fn is_type_fully_specified(ty: &WType) -> bool {
-    if let WSimpleType::Path(path) = &ty.inner {
-        // panic result is not fully specified if it does not have generics
-        if path.matches_absolute(&["machine_check", "internal", "PanicResult"]) {
-            return path.segments[2].generics.is_some();
+    match &ty.inner {
+        WSimpleType::PanicResult(inner) => inner.is_some(),
+        WSimpleType::Path(path) => {
+            // phi arg is not fully specified if it does not have generics
+            // however, since we never need to infer from phi arg,
+            // we can always reject it
+            !path.matches_absolute(&["mck", "forward", "PhiArg"])
         }
-
-        // phi arg is not fully specified if it does not have generics
-        // however, since we never need to infer from phi arg,
-        // we can always reject it
-        !path.matches_absolute(&["mck", "forward", "PhiArg"])
-    } else {
-        true
+        _ => true,
     }
 }

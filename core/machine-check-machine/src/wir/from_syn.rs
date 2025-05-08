@@ -422,39 +422,50 @@ fn fold_simple_type(ty: Type) -> WSimpleType {
             assert!(ty.qself.is_none());
 
             let mut known_type = None;
-            if ty.path.leading_colon.is_some() && ty.path.segments.len() == 2 {
+            if ty.path.leading_colon.is_some() {
                 let mut segments_iter = ty.path.segments.clone().into_pairs();
-                let first_segment = segments_iter.next().unwrap();
-                let second_segment = segments_iter.next().unwrap();
+                let first_segment = segments_iter.next().unwrap().into_value();
+                let second_segment = segments_iter.next().unwrap().into_value();
 
-                if &first_segment.value().ident.to_string() == "machine_check" {
-                    let second_segment = second_segment.into_value();
+                if &first_segment.ident.to_string() == "machine_check"
+                    && ty.path.segments.len() >= 2
+                {
                     let arguments = second_segment.arguments;
 
-                    known_type = match second_segment.ident.to_string().as_str() {
-                        "Bitvector" => Some(WSimpleType::Bitvector(
-                            extract_generic_sizes(arguments, 1)[0],
-                        )),
-                        "Unsigned" => Some(WSimpleType::Unsigned(
-                            extract_generic_sizes(arguments, 1)[0],
-                        )),
-                        "Signed" => {
-                            Some(WSimpleType::Signed(extract_generic_sizes(arguments, 1)[0]))
+                    if ty.path.segments.len() == 2 {
+                        known_type = match second_segment.ident.to_string().as_str() {
+                            "Bitvector" => Some(WSimpleType::Bitvector(
+                                extract_generic_sizes(arguments, 1)[0],
+                            )),
+                            "Unsigned" => Some(WSimpleType::Unsigned(
+                                extract_generic_sizes(arguments, 1)[0],
+                            )),
+                            "Signed" => {
+                                Some(WSimpleType::Signed(extract_generic_sizes(arguments, 1)[0]))
+                            }
+                            "BitvectorArray" => {
+                                let sizes = extract_generic_sizes(arguments, 2);
+                                Some(WSimpleType::BitvectorArray(WTypeArray {
+                                    index_width: sizes[0],
+                                    element_width: sizes[1],
+                                }))
+                            }
+                            _ => panic!("Unknown path type"),
+                        };
+                    } else if ty.path.segments.len() == 3 {
+                        let third_segment = segments_iter.next().unwrap().into_value();
+                        if second_segment.ident.to_string().as_str() == "internal"
+                            && third_segment.ident.to_string().as_str() == "PanicResult"
+                        {
+                            known_type = Some(WSimpleType::PanicResult(None));
                         }
-                        "BitvectorArray" => {
-                            let sizes = extract_generic_sizes(arguments, 2);
-                            Some(WSimpleType::BitvectorArray(WTypeArray {
-                                index_width: sizes[0],
-                                element_width: sizes[1],
-                            }))
-                        }
-                        _ => panic!("Unknown path type"),
-                    };
+                    }
                 }
             }
             if let Some(known_type) = known_type {
                 known_type
             } else {
+                //println!("Folded path type: {}", quote::quote!(#ty));
                 WSimpleType::Path(ty.path.into())
             }
         }
