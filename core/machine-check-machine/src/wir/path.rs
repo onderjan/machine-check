@@ -1,7 +1,11 @@
 use proc_macro2::Span;
 use std::hash::Hash;
+use syn::{
+    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, Ident,
+    Lit, LitInt, Path, PathArguments, PathSegment, Token,
+};
 
-use super::WSimpleType;
+use super::{IntoSyn, WSimpleType};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WPath {
@@ -102,6 +106,51 @@ impl WPath {
     }
 }
 
+impl From<WPath> for Path {
+    fn from(path: WPath) -> Self {
+        let span = Span::call_site();
+        Path {
+            leading_colon: if path.leading_colon {
+                Some(Token![::](span))
+            } else {
+                None
+            },
+
+            segments: Punctuated::from_iter(path.segments.into_iter().map(|segment| {
+                let arguments = match segment.generics {
+                    Some(generics) => {
+                        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                            colon2_token: if generics.leading_colon {
+                                Some(Token![::](span))
+                            } else {
+                                None
+                            },
+                            lt_token: Token![<](span),
+                            args: Punctuated::from_iter(generics.inner.into_iter().map(
+                                |generic| match generic {
+                                    WGeneric::Type(ty) => GenericArgument::Type(ty.into_syn()),
+                                    WGeneric::Const(value) => {
+                                        GenericArgument::Const(Expr::Lit(ExprLit {
+                                            attrs: Vec::new(),
+                                            lit: Lit::Int(LitInt::new(&value.to_string(), span)),
+                                        }))
+                                    }
+                                },
+                            )),
+                            gt_token: Token![>](span),
+                        })
+                    }
+                    None => PathArguments::None,
+                };
+                PathSegment {
+                    ident: segment.ident.into(),
+                    arguments,
+                }
+            })),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct WIdent {
     pub name: String,
@@ -129,5 +178,11 @@ impl Hash for WIdent {
 impl WIdent {
     pub fn into_path(self) -> WPath {
         WPath::from_ident(self)
+    }
+}
+
+impl From<WIdent> for Ident {
+    fn from(ident: WIdent) -> Self {
+        Ident::new(&ident.name, ident.span)
     }
 }

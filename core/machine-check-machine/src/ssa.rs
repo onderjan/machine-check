@@ -12,7 +12,9 @@ mod subsume_blocks;
 
 use syn::Item;
 
-use crate::{support::block_convert::TemporaryManager, MachineDescription, MachineError};
+use crate::{
+    support::block_convert::TemporaryManager, wir::IntoSyn, MachineDescription, MachineError,
+};
 
 pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescription, MachineError> {
     let mut temporary_manager = TemporaryManager::new();
@@ -48,17 +50,13 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
     println!("---");
     println!(
         "Compared syn string:\n{}",
-        quote::ToTokens::into_token_stream(syn::File {
-            shebang: None,
-            attrs: Vec::new(),
-            items: w_description.clone().into_syn().collect(),
-        })
+        quote::ToTokens::into_token_stream(w_description.clone().into_syn())
     );
     println!("---");*/
 
     infer_types::infer_types(&mut w_description)?;
 
-    let mut items: Vec<Item> = w_description.into_syn().collect();
+    let mut items: Vec<Item> = w_description.into_syn().items;
 
     convert_types::convert_types(&mut items)?;
     convert_panic::convert_panic_typed(&mut items)?;
