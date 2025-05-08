@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::{
     wir::{
         WBlock, WExpr, WExprField, WExprReference, WGeneric, WGenerics, WIdent, WImplItemFn,
-        WItemStruct, WPath, WReference, WSimpleType, WStmtAssign, WType,
+        WItemStruct, WPath, WReference, WSimpleType, WStmtAssign, WType, YSsa,
     },
     MachineError,
 };
@@ -21,7 +21,7 @@ pub struct LocalVisitor<'a> {
 }
 
 impl LocalVisitor<'_> {
-    pub fn visit_impl_item_fn(&mut self, impl_item: &WImplItemFn) {
+    pub fn visit_impl_item_fn(&mut self, impl_item: &WImplItemFn<YSsa>) {
         self.visit_block(&impl_item.block);
     }
 

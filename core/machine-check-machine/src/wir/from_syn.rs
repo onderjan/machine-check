@@ -10,15 +10,15 @@ use crate::util::{extract_expr_ident, extract_expr_path, extract_path_ident};
 
 use super::*;
 
-impl WDescription {
-    pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> WDescription {
+impl WDescription<YSsa> {
+    pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> WDescription<YSsa> {
         WDescription {
             items: item_iter.map(fold_item).collect(),
         }
     }
 }
 
-fn fold_item(item: Item) -> WItem {
+fn fold_item(item: Item) -> WItem<YSsa> {
     match item {
         Item::Struct(item) => WItem::Struct(fold_item_struct(item)),
         Item::Impl(item) => WItem::Impl(fold_item_impl(item)),
@@ -86,7 +86,7 @@ fn fold_item_struct(item: ItemStruct) -> WItemStruct {
     }
 }
 
-fn fold_item_impl(item: ItemImpl) -> WItemImpl {
+fn fold_item_impl(item: ItemImpl) -> WItemImpl<YSsa> {
     let self_ty = {
         match *item.self_ty {
             Type::Path(ty) => {
@@ -109,7 +109,7 @@ fn fold_item_impl(item: ItemImpl) -> WItemImpl {
     }
 }
 
-fn fold_impl_item(impl_item: ImplItem) -> WImplItem {
+fn fold_impl_item(impl_item: ImplItem) -> WImplItem<YSsa> {
     match impl_item {
         ImplItem::Fn(impl_item) => WImplItem::Fn(fold_impl_item_fn(impl_item)),
         ImplItem::Type(impl_item) => {
@@ -126,7 +126,7 @@ fn fold_impl_item(impl_item: ImplItem) -> WImplItem {
     }
 }
 
-fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn {
+fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
     let mut inputs = Vec::new();
 
     for input in impl_item.sig.inputs {
@@ -189,10 +189,56 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn {
         output,
     };
 
+    let mut locals = Vec::new();
+
+    for stmt in &impl_item.block.stmts {
+        if let Stmt::Local(local) = stmt {
+            let mut original_ident = None;
+            for attr in &local.attrs {
+                match &attr.meta {
+                    syn::Meta::Path(_path) => todo!("Local attr path"),
+                    syn::Meta::List(_meta) => todo!("Local attr list"),
+                    syn::Meta::NameValue(meta) => {
+                        if meta.path.segments.len() == 3
+                            && &meta.path.segments[0].ident.to_string() == "mck"
+                            && &meta.path.segments[1].ident.to_string() == "attr"
+                            && &meta.path.segments[2].ident.to_string() == "tmp_original"
+                        {
+                            let Expr::Path(ExprPath { ref path, .. }) = meta.value else {
+                                panic!("Tmp original should contain a path");
+                            };
+                            original_ident = path.get_ident().cloned();
+                        } else {
+                            todo!("Local attr name-value: {:?}", meta)
+                        }
+                    }
+                }
+            }
+
+            let mut pat = local.pat.clone();
+            let mut ty = None;
+            if let Pat::Type(pat_type) = pat {
+                ty = Some(fold_type(*pat_type.ty));
+                pat = *pat_type.pat;
+            }
+
+            let Pat::Ident(left_pat_ident) = pat else {
+                panic!("Local pattern should be an ident: {:?}", pat)
+            };
+
+            locals.push(WLocal {
+                ident: left_pat_ident.ident.into(),
+                original: original_ident.unwrap().into(),
+                ty: WPartialType(ty),
+            });
+        }
+    }
+
     let (block, result) = fold_block(impl_item.block);
 
     WImplItemFn {
         signature,
+        locals,
         block,
         result,
     }
@@ -212,50 +258,12 @@ fn fold_block(block: Block) -> (WBlock, Option<WExpr>) {
         None
     };
 
-    let mut locals = Vec::new();
     let mut stmts = Vec::new();
 
     for orig_stmt in orig_stmts {
         match orig_stmt {
-            Stmt::Local(local) => {
-                let mut original_ident = None;
-                for attr in local.attrs {
-                    match attr.meta {
-                        syn::Meta::Path(_path) => todo!("Local attr path"),
-                        syn::Meta::List(_meta) => todo!("Local attr list"),
-                        syn::Meta::NameValue(meta) => {
-                            if meta.path.segments.len() == 3
-                                && &meta.path.segments[0].ident.to_string() == "mck"
-                                && &meta.path.segments[1].ident.to_string() == "attr"
-                                && &meta.path.segments[2].ident.to_string() == "tmp_original"
-                            {
-                                let Expr::Path(ExprPath { path, .. }) = meta.value else {
-                                    panic!("Tmp original should contain a path");
-                                };
-                                original_ident = path.get_ident().cloned();
-                            } else {
-                                todo!("Local attr name-value: {:?}", meta)
-                            }
-                        }
-                    }
-                }
-
-                let mut pat = local.pat;
-                let mut ty = None;
-                if let Pat::Type(pat_type) = pat {
-                    ty = Some(fold_type(*pat_type.ty));
-                    pat = *pat_type.pat;
-                }
-
-                let Pat::Ident(left_pat_ident) = pat else {
-                    panic!("Local pattern should be an ident: {:?}", pat)
-                };
-
-                locals.push(WLocal {
-                    ident: left_pat_ident.ident.into(),
-                    original: original_ident.unwrap().into(),
-                    ty,
-                });
+            Stmt::Local(_) => {
+                // do not process here
             }
             Stmt::Expr(expr, semi) => {
                 assert!(semi.is_some());
@@ -291,7 +299,6 @@ fn fold_block(block: Block) -> (WBlock, Option<WExpr>) {
                         // TODO: there should not be nested blocks here
                         let (mut block, result) = fold_block(expr_block.block);
                         assert!(result.is_none());
-                        locals.append(&mut block.locals);
                         stmts.append(&mut block.stmts);
                     }
                     _ => panic!("Unexpected type of expression: {:?}", expr),
@@ -301,9 +308,7 @@ fn fold_block(block: Block) -> (WBlock, Option<WExpr>) {
         };
     }
 
-    // TODO: process
-
-    (WBlock { locals, stmts }, return_ident)
+    (WBlock { stmts }, return_ident)
 }
 
 fn fold_right_expr(expr: Expr) -> WExpr {

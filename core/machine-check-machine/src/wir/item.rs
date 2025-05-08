@@ -3,16 +3,16 @@ use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Bracket, Comma, Paren},
-    Attribute, Field, FieldsNamed, Generics, Ident, ImplItem, Item, ItemImpl, ItemStruct, MetaList,
-    Path, PathSegment, Token, Type, TypePath, Visibility,
+    Attribute, Field, FieldsNamed, Generics, Ident, ImplItem, ImplItemFn, Item, ItemImpl,
+    ItemStruct, MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
 };
 
-use super::{IntoSyn, WIdent, WImplItem, WPath, WSimpleType};
+use super::{IntoSyn, WIdent, WImplItem, WImplItemFn, WPath, WSimpleType, YStage};
 
 #[derive(Clone, Debug, Hash)]
-pub enum WItem {
+pub enum WItem<Y: YStage> {
     Struct(WItemStruct),
-    Impl(WItemImpl),
+    Impl(WItemImpl<Y>),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -36,13 +36,16 @@ pub struct WField {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WItemImpl {
+pub struct WItemImpl<Y: YStage> {
     pub self_ty: WPath,
     pub trait_: Option<WPath>,
-    pub items: Vec<WImplItem>,
+    pub items: Vec<WImplItem<Y>>,
 }
 
-impl IntoSyn<Item> for WItem {
+impl<Y: YStage> IntoSyn<Item> for WItem<Y>
+where
+    WItemImpl<Y>: IntoSyn<ItemImpl>,
+{
     fn into_syn(self) -> Item {
         match self {
             WItem::Struct(item) => Item::Struct(item.into_syn()),
@@ -110,7 +113,10 @@ impl IntoSyn<ItemStruct> for WItemStruct {
         }
     }
 }
-impl IntoSyn<ItemImpl> for WItemImpl {
+impl<Y: YStage> IntoSyn<ItemImpl> for WItemImpl<Y>
+where
+    WImplItemFn<Y>: IntoSyn<ImplItemFn>,
+{
     fn into_syn(self) -> ItemImpl {
         let span = Span::call_site();
 

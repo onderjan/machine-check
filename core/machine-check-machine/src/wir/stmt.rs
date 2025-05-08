@@ -1,18 +1,12 @@
 use proc_macro2::Span;
-use syn::{
-    token::{Brace, Bracket},
-    Attribute, Block, Expr, ExprAssign, ExprBlock, ExprIf, Local, MetaNameValue, Pat, PatIdent,
-    PatType, Stmt, Token,
-};
-use syn_path::path;
+use syn::{token::Brace, Block, Expr, ExprAssign, ExprBlock, ExprIf, Stmt, Token};
 
 use crate::util::{create_expr_path, create_path_from_ident};
 
-use super::{expr::WExpr, path::WIdent, ty::WType, IntoSyn};
+use super::{expr::WExpr, path::WIdent, IntoSyn, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WBlock {
-    pub locals: Vec<WLocal>,
     pub stmts: Vec<WStmt>,
 }
 
@@ -36,53 +30,15 @@ pub struct WStmtIf {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WLocal {
+pub struct WLocal<Y: YStage> {
     pub ident: WIdent,
     pub original: WIdent,
-    pub ty: Option<WType>,
+    pub ty: Y::LocalType,
 }
 
 impl IntoSyn<Block> for WBlock {
     fn into_syn(self) -> Block {
         let mut stmts = Vec::new();
-
-        for local in self.locals {
-            let span = local.ident.span;
-
-            let mut pat = Pat::Ident(PatIdent {
-                attrs: Vec::new(),
-                by_ref: None,
-                mutability: None,
-                ident: local.ident.into(),
-                subpat: None,
-            });
-
-            if let Some(ty) = local.ty {
-                pat = Pat::Type(PatType {
-                    attrs: Vec::new(),
-                    pat: Box::new(pat),
-                    colon_token: Token![:](span),
-                    ty: Box::new(ty.into_syn()),
-                });
-            }
-
-            stmts.push(syn::Stmt::Local(Local {
-                attrs: vec![Attribute {
-                    pound_token: Token![#](span),
-                    style: syn::AttrStyle::Outer,
-                    bracket_token: Bracket::default(),
-                    meta: syn::Meta::NameValue(MetaNameValue {
-                        path: path!(::mck::attr::tmp_original),
-                        eq_token: Token![=](span),
-                        value: create_expr_path(create_path_from_ident(local.original.into())),
-                    }),
-                }],
-                let_token: Token![let](span),
-                pat,
-                init: None,
-                semi_token: Token![;](span),
-            }));
-        }
 
         for stmt in self.stmts {
             let span = Span::call_site();

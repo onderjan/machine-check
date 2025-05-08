@@ -32,6 +32,9 @@ pub struct WType {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct WPartialType(pub Option<WType>);
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WReference {
     Mutable,
     Immutable,

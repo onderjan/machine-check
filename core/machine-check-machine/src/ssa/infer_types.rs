@@ -6,7 +6,9 @@ use crate::{wir::*, ErrorType, MachineError};
 
 use self::local_visitor::LocalVisitor;
 
-pub fn infer_types(description: &mut WDescription) -> Result<(), MachineError> {
+pub fn infer_types(
+    description: WDescription<YSsa>,
+) -> Result<WDescription<YInferred>, MachineError> {
     let mut structs = HashMap::new();
     // add structures first
     for item in description.items.iter() {
@@ -18,25 +20,44 @@ pub fn infer_types(description: &mut WDescription) -> Result<(), MachineError> {
         }
     }
 
+    let mut inferred_items = Vec::new();
+
     // main inference
-    for item in description.items.iter_mut() {
-        if let WItem::Impl(item_impl) = item {
-            let self_path = &item_impl.self_ty;
-            for impl_item in item_impl.items.iter_mut() {
-                if let WImplItem::Fn(impl_item_fn) = impl_item {
-                    infer_fn_types(impl_item_fn, &structs, self_path)?;
+    for item in description.items {
+        match item {
+            WItem::Struct(item) => {
+                inferred_items.push(WItem::Struct(item));
+            }
+            WItem::Impl(item_impl) => {
+                let self_path = &item_impl.self_ty;
+                let mut inferred_impl_items = Vec::new();
+                for impl_item in item_impl.items.into_iter() {
+                    let impl_item = match impl_item {
+                        WImplItem::Fn(impl_item) => {
+                            WImplItem::Fn(infer_fn_types(impl_item, &structs, self_path)?)
+                        }
+                        WImplItem::Type(impl_item) => WImplItem::Type(impl_item),
+                    };
+                    inferred_impl_items.push(impl_item);
                 }
+                inferred_items.push(WItem::Impl(WItemImpl {
+                    self_ty: item_impl.self_ty,
+                    trait_: item_impl.trait_,
+                    items: inferred_impl_items,
+                }));
             }
         }
     }
-    Ok(())
+    Ok(WDescription {
+        items: inferred_items,
+    })
 }
 
 fn infer_fn_types(
-    impl_item_fn: &mut WImplItemFn,
+    mut impl_item_fn: WImplItemFn<YSsa>,
     structs: &HashMap<WPath, WItemStruct>,
     self_path: &WPath,
-) -> Result<(), MachineError> {
+) -> Result<WImplItemFn<YInferred>, MachineError> {
     let mut local_ident_types = HashMap::new();
 
     // add param idents
@@ -48,11 +69,11 @@ fn infer_fn_types(
     }
 
     // determine local idents and initial types
-    for local in &mut impl_item_fn.block.locals {
-        if let Some(ty) = &mut local.ty {
+    for local in &mut impl_item_fn.locals {
+        if let WPartialType(Some(ty)) = &mut local.ty {
             convert_self(ty, self_path);
         }
-        local_ident_types.insert(local.ident.clone(), local.ty.clone());
+        local_ident_types.insert(local.ident.clone(), local.ty.0.clone());
     }
 
     // infer from statements
@@ -64,12 +85,10 @@ fn infer_fn_types(
     };
 
     // infer within a loop to allow for transitive inference
-    while let ControlFlow::Continue(()) = infer_fn_types_next(&mut visitor, impl_item_fn)? {}
+    while let ControlFlow::Continue(()) = infer_fn_types_next(&mut visitor, &impl_item_fn)? {}
 
     // update the local types
-    update_local_types(&mut visitor, impl_item_fn)?;
-
-    Ok(())
+    update_local_types(&mut visitor, impl_item_fn)
 }
 
 fn convert_self(ty: &mut WType, self_path: &WPath) {
@@ -82,7 +101,7 @@ fn convert_self(ty: &mut WType, self_path: &WPath) {
 
 fn infer_fn_types_next(
     visitor: &mut LocalVisitor<'_>,
-    impl_item_fn: &mut WImplItemFn,
+    impl_item_fn: &WImplItemFn<YSsa>,
 ) -> Result<ControlFlow<(), ()>, MachineError> {
     // visit first to infer as much as we can
     visitor.inferred_something = false;
@@ -98,7 +117,7 @@ fn infer_fn_types_next(
 
     // iterate over the locals to find temporary originals
     // and determined original types
-    for local in &impl_item_fn.block.locals {
+    for local in &impl_item_fn.locals {
         let mut local_type = None;
         // try to take the type from the visitor
         if let Some(ty) = visitor.local_ident_types.get(&local.ident).unwrap() {
@@ -118,13 +137,13 @@ fn infer_fn_types_next(
     }
 
     // iterate over locals once more to distribute the determined types of original
-    for local in &impl_item_fn.block.locals {
+    for local in &impl_item_fn.locals {
         // look at if we have an original with some type
         if let Some(orig_ident) = local_temp_origs.get(&local.ident) {
             if let Some(Some(orig_type)) = visitor.local_ident_types.get(orig_ident) {
                 let mut inferred_type = orig_type.clone();
                 // if temporary type is PhiArg, put the original type into generics
-                if let Some(ty) = &local.ty {
+                if let WPartialType(Some(ty)) = &local.ty {
                     if let WSimpleType::Path(type_path) = &ty.inner {
                         if type_path.matches_absolute(&["mck", "forward", "PhiArg"]) {
                             let mut with_generics = type_path.clone();
@@ -152,10 +171,11 @@ fn infer_fn_types_next(
 
 fn update_local_types(
     visitor: &mut LocalVisitor<'_>,
-    impl_item_fn: &mut WImplItemFn,
-) -> Result<(), MachineError> {
+    impl_item_fn: WImplItemFn<YSsa>,
+) -> Result<WImplItemFn<YInferred>, MachineError> {
+    let mut locals = Vec::new();
     // add inferred types to the definitions
-    for local in &mut impl_item_fn.block.locals {
+    for local in impl_item_fn.locals {
         let inferred_type = visitor.local_ident_types.remove(&local.ident).unwrap();
         let Some(inferred_type) = inferred_type else {
             // inference failure
@@ -166,10 +186,19 @@ fn update_local_types(
         };
 
         // add type
-        local.ty = Some(inferred_type);
+        locals.push(WLocal::<YInferred> {
+            ident: local.ident,
+            original: local.original,
+            ty: inferred_type,
+        });
     }
 
-    Ok(())
+    Ok(WImplItemFn {
+        signature: impl_item_fn.signature,
+        locals,
+        block: impl_item_fn.block,
+        result: impl_item_fn.result,
+    })
 }
 
 fn is_type_fully_specified(ty: &WType) -> bool {

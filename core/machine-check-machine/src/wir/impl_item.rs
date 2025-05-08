@@ -1,20 +1,28 @@
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, token::Paren, FnArg, Generics, ImplItemFn, ImplItemType, Pat, Receiver,
-    Signature, Stmt, Token, Type, TypePath,
+    punctuated::Punctuated,
+    token::{Bracket, Paren},
+    Attribute, FnArg, Generics, ImplItemFn, ImplItemType, Local, MetaNameValue, Pat, PatIdent,
+    PatType, Receiver, Signature, Stmt, Token, Type, TypePath,
+};
+use syn_path::path;
+
+use crate::util::{create_expr_path, create_path_from_ident};
+
+use super::{
+    IntoSyn, WBlock, WExpr, WIdent, WLocal, WPath, WReference, WSimpleType, WType, YStage,
 };
 
-use super::{IntoSyn, WBlock, WExpr, WIdent, WPath, WReference, WSimpleType, WType};
-
 #[derive(Clone, Debug, Hash)]
-pub enum WImplItem {
-    Fn(WImplItemFn),
+pub enum WImplItem<Y: YStage> {
+    Fn(WImplItemFn<Y>),
     Type(WImplItemType),
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WImplItemFn {
+pub struct WImplItemFn<Y: YStage> {
     pub signature: WSignature,
+    pub locals: Vec<WLocal<Y>>,
     pub block: WBlock,
     // TODO: only allow idents in fn result
     pub result: Option<WExpr>,
@@ -60,11 +68,54 @@ impl IntoSyn<ImplItemType> for WImplItemType {
     }
 }
 
-impl IntoSyn<ImplItemFn> for WImplItemFn {
+impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y>
+where
+    Y::LocalType: IntoSyn<Type>,
+{
     fn into_syn(self) -> ImplItemFn {
         let span = Span::call_site();
 
         let mut block = self.block.into_syn();
+
+        let standard_stmts: Vec<Stmt> = block.stmts.drain(..).collect();
+
+        for local in self.locals {
+            let span = local.ident.span;
+
+            let mut pat = Pat::Ident(PatIdent {
+                attrs: Vec::new(),
+                by_ref: None,
+                mutability: None,
+                ident: local.ident.into(),
+                subpat: None,
+            });
+
+            pat = Pat::Type(PatType {
+                attrs: Vec::new(),
+                pat: Box::new(pat),
+                colon_token: Token![:](span),
+                ty: Box::new(local.ty.into_syn()),
+            });
+
+            block.stmts.push(syn::Stmt::Local(Local {
+                attrs: vec![Attribute {
+                    pound_token: Token![#](span),
+                    style: syn::AttrStyle::Outer,
+                    bracket_token: Bracket::default(),
+                    meta: syn::Meta::NameValue(MetaNameValue {
+                        path: path!(::mck::attr::tmp_original),
+                        eq_token: Token![=](span),
+                        value: create_expr_path(create_path_from_ident(local.original.into())),
+                    }),
+                }],
+                let_token: Token![let](span),
+                pat,
+                init: None,
+                semi_token: Token![;](span),
+            }));
+        }
+
+        block.stmts.extend(standard_stmts);
 
         if let Some(result) = self.result {
             block.stmts.push(Stmt::Expr(result.into_syn(), None));
