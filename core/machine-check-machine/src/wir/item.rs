@@ -7,7 +7,7 @@ use syn::{
     MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
 };
 
-use super::{IntoSyn, WIdent, WImplItem, WImplItemFn, WPath, WSimpleType, YStage};
+use super::{IntoSyn, WBasicType, WIdent, WImplItem, WImplItemFn, WPath, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemStruct {
@@ -26,7 +26,7 @@ pub enum WVisibility {
 #[derive(Clone, Debug, Hash)]
 pub struct WField {
     pub ident: WIdent,
-    pub ty: WSimpleType,
+    pub ty: WBasicType,
 }
 
 #[derive(Clone, Debug, Hash)]

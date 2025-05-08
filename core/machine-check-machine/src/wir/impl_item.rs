@@ -9,9 +9,7 @@ use syn_path::path;
 
 use crate::util::{create_expr_path, create_path_from_ident};
 
-use super::{
-    IntoSyn, WBlock, WExpr, WIdent, WLocal, WPath, WReference, WSimpleType, WType, YStage,
-};
+use super::{IntoSyn, WBasicType, WBlock, WExpr, WIdent, WLocal, WPath, WReference, WType, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub enum WImplItem<Y: YStage> {
@@ -32,7 +30,7 @@ pub struct WImplItemFn<Y: YStage> {
 pub struct WSignature {
     pub ident: WIdent,
     pub inputs: Vec<WFnArg>,
-    pub output: WSimpleType,
+    pub output: WBasicType,
 }
 
 #[derive(Clone, Debug, Hash)]

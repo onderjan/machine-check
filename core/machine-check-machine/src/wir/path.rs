@@ -5,7 +5,7 @@ use syn::{
     Lit, LitInt, Path, PathArguments, PathSegment, Token,
 };
 
-use super::{IntoSyn, WSimpleType};
+use super::{IntoSyn, WType};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WPath {
@@ -26,7 +26,7 @@ pub struct WGenerics {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WGeneric {
-    Type(WSimpleType),
+    Type(WType),
     Const(u32),
 }
 

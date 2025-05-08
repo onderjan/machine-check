@@ -56,11 +56,11 @@ pub trait YStage {
 pub struct YSsa;
 
 impl YStage for YSsa {
-    type LocalType = WPartialType;
+    type LocalType = WPartialGeneralType;
 }
 
 pub struct YInferred;
 
 impl YStage for YInferred {
-    type LocalType = WType;
+    type LocalType = WGeneralType;
 }

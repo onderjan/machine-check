@@ -54,15 +54,18 @@ fn infer_fn_types(
         let mut arg_ty = fn_arg.ty.clone();
         convert_self(&mut arg_ty, self_path);
 
-        local_ident_types.insert(fn_arg.ident.clone(), Some(arg_ty.clone()));
+        local_ident_types.insert(
+            fn_arg.ident.clone(),
+            WPartialGeneralType::Normal(arg_ty.clone()),
+        );
     }
 
     // determine local idents and initial types
     for local in &mut impl_item_fn.locals {
-        if let WPartialType(Some(ty)) = &mut local.ty {
+        if let WPartialGeneralType::Normal(ty) = &mut local.ty {
             convert_self(ty, self_path);
         }
-        local_ident_types.insert(local.ident.clone(), local.ty.0.clone());
+        local_ident_types.insert(local.ident.clone(), local.ty.clone());
     }
 
     // infer from statements
@@ -81,7 +84,7 @@ fn infer_fn_types(
 }
 
 fn convert_self(ty: &mut WType, self_path: &WPath) {
-    if let WSimpleType::Basic(WBasicType::Path(path)) = &mut ty.inner {
+    if let WBasicType::Path(path) = &mut ty.inner {
         if path.matches_relative(&["Self"]) {
             *path = self_path.clone();
         }
@@ -109,10 +112,9 @@ fn infer_fn_types_next(
     for local in &impl_item_fn.locals {
         let mut local_type = None;
         // try to take the type from the visitor
-        if let Some(ty) = visitor.local_ident_types.get(&local.ident).unwrap() {
-            if is_type_fully_specified(ty) {
-                local_type = Some(ty.clone());
-            }
+        let visitor_type = visitor.local_ident_types.get(&local.ident).unwrap();
+        if is_type_fully_specified(visitor_type) {
+            local_type = Some(visitor_type.clone());
         }
 
         // remember that this temporary has an original with the same type
@@ -121,7 +123,7 @@ fn infer_fn_types_next(
         if let Some(local_type) = local_type {
             visitor
                 .local_ident_types
-                .insert(local.original.clone(), Some(local_type.clone()));
+                .insert(local.original.clone(), local_type.clone());
         }
     }
 
@@ -129,22 +131,23 @@ fn infer_fn_types_next(
     for local in &impl_item_fn.locals {
         // look at if we have an original with some type
         if let Some(orig_ident) = local_temp_origs.get(&local.ident) {
-            if let Some(Some(orig_type)) = visitor.local_ident_types.get(orig_ident) {
-                let mut inferred_type = orig_type.clone();
-                // if temporary type is PhiArg, put the original type into generics
-                if let WPartialType(Some(ty)) = &local.ty {
-                    if let WSimpleType::PhiArg(_) = &ty.inner {
-                        let WSimpleType::Basic(inferred_basic) = inferred_type.inner else {
-                            panic!("Phi arg should only infer basic types");
+            if let Some(visitor_orig_type) = visitor.local_ident_types.get(orig_ident) {
+                if !matches!(visitor_orig_type, WPartialGeneralType::Unknown) {
+                    let mut inferred_type = visitor_orig_type.clone();
+                    // if temporary type is PhiArg, put the original type into generics
+                    if let WPartialGeneralType::PhiArg(_) = &local.ty {
+                        let WPartialGeneralType::Normal(normal_inferred_type) = inferred_type
+                        else {
+                            panic!("Type in phi arg should be normal");
                         };
-                        inferred_type.inner = WSimpleType::PhiArg(Some(inferred_basic))
+                        inferred_type = WPartialGeneralType::PhiArg(Some(normal_inferred_type));
                     }
-                }
 
-                // update the type of the temporary
-                visitor
-                    .local_ident_types
-                    .insert(local.ident.clone(), Some(inferred_type));
+                    // update the type of the temporary
+                    visitor
+                        .local_ident_types
+                        .insert(local.ident.clone(), inferred_type);
+                }
             }
         }
     }
@@ -159,6 +162,14 @@ fn update_local_types(
     // add inferred types to the definitions
     for local in impl_item_fn.locals {
         let inferred_type = visitor.local_ident_types.remove(&local.ident).unwrap();
+
+        let inferred_type = match inferred_type {
+            WPartialGeneralType::Normal(ty) => Some(WGeneralType::Normal(ty)),
+            WPartialGeneralType::PanicResult(Some(ty)) => Some(WGeneralType::PanicResult(ty)),
+            WPartialGeneralType::PhiArg(Some(ty)) => Some(WGeneralType::PhiArg(ty)),
+            _ => None,
+        };
+
         let Some(inferred_type) = inferred_type else {
             // inference failure
             return Err(MachineError::new(
@@ -183,10 +194,11 @@ fn update_local_types(
     })
 }
 
-fn is_type_fully_specified(ty: &WType) -> bool {
-    match &ty.inner {
-        WSimpleType::PanicResult(inner) => inner.is_some(),
-        WSimpleType::PhiArg(inner) => inner.is_some(),
-        _ => true,
+fn is_type_fully_specified(ty: &WPartialGeneralType) -> bool {
+    match &ty {
+        WPartialGeneralType::Unknown => false,
+        WPartialGeneralType::Normal(_) => true,
+        WPartialGeneralType::PanicResult(inner) => inner.is_some(),
+        WPartialGeneralType::PhiArg(inner) => inner.is_some(),
     }
 }

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::{
     wir::{
         WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn, WItemStruct,
-        WPath, WReference, WSimpleType, WStmtAssign, WType, YSsa,
+        WPartialGeneralType, WPath, WReference, WStmtAssign, WType, YSsa,
     },
     MachineError,
 };
@@ -14,7 +14,7 @@ use super::is_type_fully_specified;
 mod infer_call;
 
 pub struct LocalVisitor<'a> {
-    pub local_ident_types: HashMap<WIdent, Option<WType>>,
+    pub local_ident_types: HashMap<WIdent, WPartialGeneralType>,
     pub structs: &'a HashMap<WPath, WItemStruct>,
     pub result: Result<(), MachineError>,
     pub inferred_something: bool,
@@ -49,26 +49,21 @@ impl LocalVisitor<'_> {
         };
 
         // check whether the left type has already a determined left type
-        if let Some(ty) = ty {
-            if is_type_fully_specified(ty) {
-                // we already have determined left type
-                // try to infer PanicResult type if it is field base
+        if is_type_fully_specified(ty) {
+            // we already have determined left type
+            // try to infer PanicResult type if it is field base
 
+            let ty = ty.clone();
+
+            if let WPartialGeneralType::Normal(left_type) = ty {
                 if let WExpr::Field(right_field) = &assign.right_expr {
-                    let left_type = ty.clone();
                     let base_ident = &right_field.base;
-                    if let Some(Some(WType {
-                        inner: WSimpleType::PanicResult(inner_type),
-                        ..
-                    })) = self.local_ident_types.get_mut(base_ident)
+                    if let Some(WPartialGeneralType::PanicResult(inner_type)) =
+                        self.local_ident_types.get_mut(base_ident)
                     {
-                        let WSimpleType::Basic(basic_left) = left_type.inner else {
-                            panic!("Panic result should have basic generic type");
-                        };
-                        *inner_type = Some(basic_left);
+                        *inner_type = Some(left_type.clone());
                     };
                 }
-                return;
             }
             return;
         }
@@ -78,9 +73,9 @@ impl LocalVisitor<'_> {
             WExpr::Call(right_call) => self.infer_call_result_type(right_call),
             WExpr::Field(right_field) => self.infer_field_result_type(right_field),
             WExpr::Reference(right_reference) => self.infer_reference_result_type(right_reference),
-            WExpr::Struct(right_struct) => Some(WType {
+            WExpr::Struct(right_struct) => WPartialGeneralType::Normal(WType {
                 reference: WReference::None,
-                inner: WSimpleType::Basic(WBasicType::Path(right_struct.type_path.clone())),
+                inner: WBasicType::Path(right_struct.type_path.clone()),
             }),
             _ => panic!(
                 "Unexpected local assignment expression: {:?}",
@@ -89,10 +84,10 @@ impl LocalVisitor<'_> {
         };
 
         // add inferred type
-        if let Some(inferred_type) = inferred_type {
+        if matches!(inferred_type, WPartialGeneralType::Normal(_)) {
             let mut_ty = self.local_ident_types.get_mut(left_ident).unwrap();
-            if mut_ty.is_none() {
-                *self.local_ident_types.get_mut(left_ident).unwrap() = Some(inferred_type);
+            if !is_type_fully_specified(mut_ty) {
+                *mut_ty = inferred_type;
                 self.inferred_something = true;
             }
         }
@@ -104,42 +99,47 @@ impl LocalVisitor<'_> {
         }
     }
 
-    fn infer_move_result_type(&self, right_ident: &WIdent) -> Option<WType> {
+    fn infer_move_result_type(&self, right_ident: &WIdent) -> WPartialGeneralType {
         // just infer from the identifier
         self.local_ident_types
             .get(right_ident)
-            .and_then(|opt| opt.as_ref())
-            .cloned()
+            .unwrap_or(&WPartialGeneralType::Unknown)
+            .clone()
     }
 
-    fn infer_field_result_type(&self, right_field: &WExprField) -> Option<WType> {
+    fn infer_field_result_type(&self, right_field: &WExprField) -> WPartialGeneralType {
         // get type of member from structs
         let Some(base_type) = self.local_ident_types.get(&right_field.base) else {
             // not a local ident, skip
-            return None;
+            return WPartialGeneralType::Unknown;
         };
-        let base_type = base_type.as_ref()?;
+        let WPartialGeneralType::Normal(base_type) = base_type else {
+            return WPartialGeneralType::Unknown;
+        };
         // ignore references for now
 
-        let WSimpleType::Basic(WBasicType::Path(base_type_path)) = &base_type.inner else {
+        let WBasicType::Path(base_type_path) = &base_type.inner else {
             // custom-behaviour type
-            return None;
+            return WPartialGeneralType::Unknown;
         };
 
-        let base_struct = self.structs.get(base_type_path)?;
+        let Some(base_struct) = self.structs.get(base_type_path) else {
+            // not a known struct
+            return WPartialGeneralType::Unknown;
+        };
         for field in &base_struct.fields {
             if field.ident == right_field.inner {
                 // this is the left type
-                return Some(WType {
+                return WPartialGeneralType::Normal(WType {
                     reference: WReference::None,
                     inner: field.ty.clone(),
                 });
             }
         }
-        None
+        WPartialGeneralType::Unknown
     }
 
-    fn infer_reference_result_type(&self, right_reference: &WExprReference) -> Option<WType> {
+    fn infer_reference_result_type(&self, right_reference: &WExprReference) -> WPartialGeneralType {
         let right_side_type = match right_reference {
             WExprReference::Ident(right_ident) => {
                 // this is a reference to move
@@ -149,11 +149,13 @@ impl LocalVisitor<'_> {
         };
 
         // TODO: error if there already is a reference in the right-side type
-        right_side_type.map(|mut ty| {
-            if matches!(ty.reference, WReference::None) {
-                ty.reference = WReference::Immutable;
+        if let WPartialGeneralType::Normal(right_side_type) = &right_side_type {
+            if matches!(right_side_type.reference, WReference::None) {
+                let mut right_side_type = right_side_type.clone();
+                right_side_type.reference = WReference::Immutable;
+                return WPartialGeneralType::Normal(right_side_type);
             }
-            ty
-        })
+        }
+        right_side_type
     }
 }

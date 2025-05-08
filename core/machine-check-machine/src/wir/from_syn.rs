@@ -71,7 +71,7 @@ fn fold_item_struct(item: ItemStruct) -> WItemStruct {
                 };
                 WField {
                     ident: field_ident.into(),
-                    ty: fold_simple_type(field.ty),
+                    ty: fold_basic_type(field.ty),
                 }
             })
             .collect(),
@@ -152,7 +152,7 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
                     },
                     ty: WType {
                         reference,
-                        inner: WSimpleType::Basic(WBasicType::Path(WPath {
+                        inner: WBasicType::Path(WPath {
                             leading_colon: false,
                             segments: vec![WPathSegment {
                                 ident: WIdent {
@@ -161,7 +161,7 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
                                 },
                                 generics: None,
                             }],
-                        })),
+                        }),
                     },
                 });
             }
@@ -180,7 +180,7 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
 
     let output = match impl_item.sig.output {
         syn::ReturnType::Default => panic!("Unexpected default function return type"),
-        syn::ReturnType::Type(_rarrow, ty) => fold_simple_type(*ty),
+        syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty),
     };
 
     let signature = WSignature {
@@ -216,9 +216,9 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
             }
 
             let mut pat = local.pat.clone();
-            let mut ty = None;
+            let mut ty = WPartialGeneralType::Unknown;
             if let Pat::Type(pat_type) = pat {
-                ty = Some(fold_type(*pat_type.ty));
+                ty = fold_partial_general_type(*pat_type.ty);
                 pat = *pat_type.pat;
             }
 
@@ -229,7 +229,7 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
             locals.push(WLocal {
                 ident: left_pat_ident.ident.into(),
                 original: original_ident.unwrap().into(),
-                ty: WPartialType(ty),
+                ty,
             });
         }
     }
@@ -412,11 +412,11 @@ fn fold_type(mut ty: Type) -> WType {
     };
     WType {
         reference,
-        inner: fold_simple_type(ty),
+        inner: fold_basic_type(ty),
     }
 }
 
-fn fold_simple_type(ty: Type) -> WSimpleType {
+fn fold_basic_type(ty: Type) -> WBasicType {
     match ty {
         Type::Path(ty) => {
             assert!(ty.qself.is_none());
@@ -434,30 +434,59 @@ fn fold_simple_type(ty: Type) -> WSimpleType {
 
                     if ty.path.segments.len() == 2 {
                         known_type = match second_segment.ident.to_string().as_str() {
-                            "Bitvector" => Some(WSimpleType::Basic(WBasicType::Bitvector(
+                            "Bitvector" => Some(WBasicType::Bitvector(
                                 extract_generic_sizes(arguments, 1)[0],
-                            ))),
-                            "Unsigned" => Some(WSimpleType::Basic(WBasicType::Unsigned(
-                                extract_generic_sizes(arguments, 1)[0],
-                            ))),
-                            "Signed" => Some(WSimpleType::Basic(WBasicType::Signed(
-                                extract_generic_sizes(arguments, 1)[0],
-                            ))),
+                            )),
+                            "Unsigned" => {
+                                Some(WBasicType::Unsigned(extract_generic_sizes(arguments, 1)[0]))
+                            }
+                            "Signed" => {
+                                Some(WBasicType::Signed(extract_generic_sizes(arguments, 1)[0]))
+                            }
                             "BitvectorArray" => {
                                 let sizes = extract_generic_sizes(arguments, 2);
-                                Some(WSimpleType::Basic(WBasicType::BitvectorArray(WTypeArray {
+                                Some(WBasicType::BitvectorArray(WTypeArray {
                                     index_width: sizes[0],
                                     element_width: sizes[1],
-                                })))
+                                }))
                             }
-                            _ => panic!("Unknown path type"),
+                            _ => panic!("Unknown machine-check path type"),
                         };
-                    } else if ty.path.segments.len() == 3 {
+                    }
+                }
+            }
+
+            if let Some(known_type) = known_type {
+                known_type
+            } else {
+                WBasicType::Path(ty.path.into())
+            }
+        }
+        _ => panic!("Unexpected non-path type: {:?}", ty),
+    }
+}
+
+fn fold_partial_general_type(ty: Type) -> WPartialGeneralType {
+    let result = match &ty {
+        Type::Path(ty) => {
+            assert!(ty.qself.is_none());
+
+            let mut known_type = None;
+            if ty.path.leading_colon.is_some() {
+                let mut segments_iter = ty.path.segments.clone().into_pairs();
+                let first_segment = segments_iter.next().unwrap().into_value();
+
+                if &first_segment.ident.to_string() == "machine_check"
+                    && ty.path.segments.len() >= 2
+                {
+                    let second_segment = segments_iter.next().unwrap().into_value();
+
+                    if ty.path.segments.len() == 3 {
                         let third_segment = segments_iter.next().unwrap().into_value();
                         if second_segment.ident.to_string().as_str() == "internal"
                             && third_segment.ident.to_string().as_str() == "PanicResult"
                         {
-                            known_type = Some(WSimpleType::PanicResult(None));
+                            known_type = Some(WPartialGeneralType::PanicResult(None));
                         }
                     }
                 } else if &first_segment.ident.to_string() == "mck" && ty.path.segments.len() == 3 {
@@ -470,26 +499,22 @@ fn fold_simple_type(ty: Type) -> WSimpleType {
                         if let PathArguments::AngleBracketed(generic_args) = third_segment.arguments
                         {
                             if let Some(GenericArgument::Type(inner)) = generic_args.args.first() {
-                                let WSimpleType::Basic(basic) = fold_simple_type(inner.clone())
-                                else {
-                                    panic!("PhiArg should only contain basic types");
-                                };
-
-                                inner_type = Some(basic);
+                                inner_type = Some(fold_type(inner.clone()));
                             }
                         }
 
-                        known_type = Some(WSimpleType::PhiArg(inner_type));
+                        known_type = Some(WPartialGeneralType::PhiArg(inner_type));
                     }
                 }
             }
-            if let Some(known_type) = known_type {
-                known_type
-            } else {
-                WSimpleType::Basic(WBasicType::Path(ty.path.into()))
-            }
+            known_type
         }
-        _ => panic!("Unexpected non-path type: {:?}", ty),
+        _ => None,
+    };
+    if let Some(result) = result {
+        result
+    } else {
+        WPartialGeneralType::Normal(fold_type(ty))
     }
 }
 
@@ -553,9 +578,7 @@ impl From<Path> for WPath {
                                 .args
                                 .into_pairs()
                                 .map(|pair| match pair.into_value() {
-                                    GenericArgument::Type(ty) => {
-                                        WGeneric::Type(fold_simple_type(ty))
-                                    }
+                                    GenericArgument::Type(ty) => WGeneric::Type(fold_type(ty)),
                                     GenericArgument::Const(expr) => {
                                         let Expr::Lit(expr) = expr else {
                                             panic!("Unexpected non-literal const generic argument");

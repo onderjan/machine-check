@@ -1,43 +1,43 @@
 use crate::{
     ssa::infer_types::is_type_fully_specified,
     wir::{
-        WBasicType, WCallArg, WExprCall, WGeneric, WPath, WReference, WSimpleType, WType,
+        WBasicType, WCallArg, WExprCall, WGeneric, WPartialGeneralType, WPath, WReference, WType,
         WTypeArray,
     },
     ErrorType, MachineError,
 };
 
 impl super::LocalVisitor<'_> {
-    pub(super) fn infer_call_result_type(&mut self, expr_call: &WExprCall) -> Option<WType> {
+    pub(super) fn infer_call_result_type(&mut self, expr_call: &WExprCall) -> WPartialGeneralType {
         // discover the type based on the call function
-        if let Some(ty) = self.infer_init(&expr_call.fn_path) {
-            return Some(ty);
+        if let Some(ty) = skip_unknown(self.infer_init(&expr_call.fn_path)) {
+            return ty;
         }
-        if let Some(ty) = self.infer_into(expr_call) {
-            return Some(ty);
+        if let Some(ty) = skip_unknown(self.infer_into(expr_call)) {
+            return ty;
         }
-        if let Some(ty) = self.infer_clone(expr_call) {
-            return Some(ty);
+        if let Some(ty) = skip_unknown(self.infer_clone(expr_call)) {
+            return ty;
         }
-        if let Some(ty) = self.infer_array_read(expr_call) {
-            return Some(ty);
+        if let Some(ty) = skip_unknown(self.infer_array_read(expr_call)) {
+            return ty;
         }
-        if let Some(ty) = self.infer_array_write(expr_call) {
-            return Some(ty);
+        if let Some(ty) = skip_unknown(self.infer_array_write(expr_call)) {
+            return ty;
         }
-        if let Some(ty) = self.infer_ext(expr_call) {
-            return Some(ty);
+        if let Some(ty) = skip_unknown(self.infer_ext(expr_call)) {
+            return ty;
         }
-        if let Some(ty) = self.infer_return_arg_fns(expr_call) {
-            return Some(ty);
+        if let Some(ty) = skip_unknown(self.infer_return_arg_fns(expr_call)) {
+            return ty;
         }
-        if let Some(ty) = self.infer_return_bool_fns(&expr_call.fn_path) {
-            return Some(ty);
+        if let Some(ty) = skip_unknown(self.infer_return_bool_fns(&expr_call.fn_path)) {
+            return ty;
         }
-        None
+        WPartialGeneralType::Unknown
     }
 
-    fn infer_init(&mut self, fn_path: &WPath) -> Option<WType> {
+    fn infer_init(&mut self, fn_path: &WPath) -> WPartialGeneralType {
         let is_bitvector = fn_path.matches_absolute(&["machine_check", "Bitvector", "new"]);
         let is_unsigned = fn_path.matches_absolute(&["machine_check", "Unsigned", "new"]);
         let is_signed = fn_path.matches_absolute(&["machine_check", "Signed", "new"]);
@@ -49,14 +49,14 @@ impl super::LocalVisitor<'_> {
                 if generics.inner.len() == 1 {
                     if let WGeneric::Const(width) = generics.inner[0] {
                         let ty = if is_bitvector {
-                            WSimpleType::Basic(WBasicType::Bitvector(width))
+                            WBasicType::Bitvector(width)
                         } else if is_unsigned {
-                            WSimpleType::Basic(WBasicType::Unsigned(width))
+                            WBasicType::Unsigned(width)
                         } else {
-                            WSimpleType::Basic(WBasicType::Signed(width))
+                            WBasicType::Signed(width)
                         };
 
-                        return Some(ty.into_type());
+                        return WPartialGeneralType::Normal(ty.into_type());
                     }
                 }
             }
@@ -69,31 +69,31 @@ impl super::LocalVisitor<'_> {
                     if let (WGeneric::Const(index_width), WGeneric::Const(element_width)) =
                         (&generics.inner[0], &generics.inner[1])
                     {
-                        return Some(
-                            WSimpleType::Basic(WBasicType::BitvectorArray(WTypeArray {
+                        return WPartialGeneralType::Normal(
+                            WBasicType::BitvectorArray(WTypeArray {
                                 index_width: *index_width,
                                 element_width: *element_width,
-                            }))
+                            })
                             .into_type(),
                         );
                     }
                 }
             }
         }
-        None
+        WPartialGeneralType::Unknown
     }
 
-    fn infer_into(&mut self, call: &WExprCall) -> Option<WType> {
+    fn infer_into(&mut self, call: &WExprCall) -> WPartialGeneralType {
         // Into trait
         if !call
             .fn_path
             .matches_absolute(&["std", "convert", "Into", "into"])
         {
-            return None;
+            return WPartialGeneralType::Unknown;
         }
         // the argument can be given
         let Some(generics) = &call.fn_path.segments[2].generics else {
-            return None;
+            return WPartialGeneralType::Unknown;
         };
 
         if generics.inner.len() != 1 {
@@ -103,7 +103,7 @@ impl super::LocalVisitor<'_> {
                 )),
                 call.span(),
             ));
-            return None;
+            return WPartialGeneralType::Unknown;
         }
         let WGeneric::Type(ty) = &generics.inner[0] else {
             self.push_error(MachineError::new(
@@ -112,23 +112,22 @@ impl super::LocalVisitor<'_> {
                 )),
                 call.span(),
             ));
-            return None;
+            return WPartialGeneralType::Unknown;
         };
 
-        Some(ty.clone().into_type())
+        WPartialGeneralType::Normal(ty.clone())
     }
 
-    fn infer_clone(&mut self, call: &WExprCall) -> Option<WType> {
+    fn infer_clone(&mut self, call: &WExprCall) -> WPartialGeneralType {
         if !call
             .fn_path
             .matches_absolute(&["std", "clone", "Clone", "clone"])
         {
-            return None;
+            return WPartialGeneralType::Unknown;
         }
-        let Ok(arg_type) = self.get_arg_type(call, 0, 1) else {
-            return None;
+        let Ok(Some(arg_type)) = self.get_normal_arg_type(call, 0, 1) else {
+            return WPartialGeneralType::Unknown;
         };
-        let arg_type = arg_type?;
         // the argument type is a reference, dereference it
 
         if matches!(arg_type.reference, WReference::None) {
@@ -138,23 +137,23 @@ impl super::LocalVisitor<'_> {
                 )),
                 call.span(),
             ));
-            return None;
+            return WPartialGeneralType::Unknown;
         }
         let mut result_type = arg_type.clone();
         result_type.reference = WReference::None;
-        Some(result_type)
+        WPartialGeneralType::Normal(result_type)
     }
 
-    fn infer_array_read(&mut self, call: &WExprCall) -> Option<WType> {
+    fn infer_array_read(&mut self, call: &WExprCall) -> WPartialGeneralType {
         if !call
             .fn_path
             .matches_absolute(&["mck", "forward", "ReadWrite", "read"])
         {
-            return None;
+            return WPartialGeneralType::Unknown;
         }
         // infer from first argument which should be a reference to the array
-        let Ok(Some(arg_type)) = self.get_arg_type(call, 0, 2) else {
-            return None;
+        let Ok(Some(arg_type)) = self.get_normal_arg_type(call, 0, 2) else {
+            return WPartialGeneralType::Unknown;
         };
         // the argument type is a reference to the array, construct the bitvector type
         if matches!(arg_type.reference, WReference::None) {
@@ -162,23 +161,23 @@ impl super::LocalVisitor<'_> {
             panic!("First argument of array read should be a reference");
         }
 
-        let WSimpleType::Basic(WBasicType::BitvectorArray(type_array)) = &arg_type.inner else {
+        let WBasicType::BitvectorArray(type_array) = &arg_type.inner else {
             // unexpected type, do not infer
-            return None;
+            return WPartialGeneralType::Unknown;
         };
-        Some(WSimpleType::Basic(WBasicType::Bitvector(type_array.element_width)).into_type())
+        WPartialGeneralType::Normal(WBasicType::Bitvector(type_array.element_width).into_type())
     }
 
-    fn infer_array_write(&mut self, call: &WExprCall) -> Option<WType> {
+    fn infer_array_write(&mut self, call: &WExprCall) -> WPartialGeneralType {
         if !call
             .fn_path
             .matches_absolute(&["mck", "forward", "ReadWrite", "write"])
         {
-            return None;
+            return WPartialGeneralType::Unknown;
         }
         // infer from first argument which should be a reference to the array
-        let Ok(Some(arg_type)) = self.get_arg_type(call, 0, 3) else {
-            return None;
+        let Ok(Some(arg_type)) = self.get_normal_arg_type(call, 0, 3) else {
+            return WPartialGeneralType::Unknown;
         };
         // the argument type is a reference to the array, construct the bitvector type
         if matches!(arg_type.reference, WReference::None) {
@@ -186,22 +185,22 @@ impl super::LocalVisitor<'_> {
             panic!("First argument of array read should be a reference");
         }
         // array write returns the array, just dereferenced
-        Some(arg_type.inner.clone().into_type())
+        WPartialGeneralType::Normal(arg_type.inner.clone().into_type())
     }
 
-    fn infer_ext(&mut self, call: &WExprCall) -> Option<WType> {
+    fn infer_ext(&mut self, call: &WExprCall) -> WPartialGeneralType {
         // --- EXT ---
 
         if !call
             .fn_path
             .matches_absolute(&["machine_check", "Ext", "ext"])
         {
-            return None;
+            return WPartialGeneralType::Unknown;
         }
 
         // find out the target width
         let Some(generics) = &call.fn_path.segments[1].generics else {
-            return None;
+            return WPartialGeneralType::Unknown;
         };
 
         if generics.inner.len() != 1 {
@@ -211,7 +210,7 @@ impl super::LocalVisitor<'_> {
                 )),
                 call.span(),
             ));
-            return None;
+            return WPartialGeneralType::Unknown;
         }
         let WGeneric::Const(width) = &generics.inner[0] else {
             self.push_error(MachineError::new(
@@ -220,31 +219,29 @@ impl super::LocalVisitor<'_> {
                 )),
                 call.span(),
             ));
-            return None;
+            return WPartialGeneralType::Unknown;
         };
 
         // change the width of the type in the argument
 
-        let Ok(Some(arg_type)) = self.get_arg_type(call, 0, 1) else {
-            return None;
+        let Ok(Some(arg_type)) = self.get_normal_arg_type(call, 0, 1) else {
+            return WPartialGeneralType::Unknown;
         };
 
-        match arg_type.inner {
-            WSimpleType::Basic(WBasicType::Bitvector(_)) => {
-                Some(WSimpleType::Basic(WBasicType::Bitvector(*width)))
-            }
-            WSimpleType::Basic(WBasicType::Unsigned(_)) => {
-                Some(WSimpleType::Basic(WBasicType::Unsigned(*width)))
-            }
-            WSimpleType::Basic(WBasicType::Signed(_)) => {
-                Some(WSimpleType::Basic(WBasicType::Signed(*width)))
-            }
+        let result = match arg_type.inner {
+            WBasicType::Bitvector(_) => Some(WBasicType::Bitvector(*width)),
+            WBasicType::Unsigned(_) => Some(WBasicType::Unsigned(*width)),
+            WBasicType::Signed(_) => Some(WBasicType::Signed(*width)),
             _ => None,
+        };
+        if let Some(result) = result {
+            WPartialGeneralType::Normal(result.into_type())
+        } else {
+            WPartialGeneralType::Unknown
         }
-        .map(|simple_type| simple_type.into_type())
     }
 
-    fn infer_return_arg_fns(&mut self, call: &WExprCall) -> Option<WType> {
+    fn infer_return_arg_fns(&mut self, call: &WExprCall) -> WPartialGeneralType {
         let std_ops_fns: [(&str, &str); 12] = [
             // arithmetic
             ("Neg", "neg"),
@@ -274,20 +271,20 @@ impl super::LocalVisitor<'_> {
                     let WCallArg::Ident(arg_ident) = arg else {
                         continue;
                     };
-                    let arg_type = self.local_ident_types.get(arg_ident).map(|a| a.as_ref());
-                    if let Some(Some(arg_type)) = arg_type {
+                    let arg_type = self.local_ident_types.get(arg_ident);
+                    if let Some(arg_type) = arg_type {
                         if is_type_fully_specified(arg_type) {
-                            return Some(arg_type.clone());
+                            return arg_type.clone();
                         }
                     }
                 }
-                return None;
+                return WPartialGeneralType::Unknown;
             }
         }
-        None
+        WPartialGeneralType::Unknown
     }
 
-    fn infer_return_bool_fns(&mut self, fn_path: &WPath) -> Option<WType> {
+    fn infer_return_bool_fns(&mut self, fn_path: &WPath) -> WPartialGeneralType {
         let std_cmp_fns: [(&str, &str); 6] = [
             ("PartialEq", "eq"),
             ("PartialEq", "ne"),
@@ -300,14 +297,14 @@ impl super::LocalVisitor<'_> {
         // functions that return bool
         for (bit_result_trait, bit_result_fn) in std_cmp_fns {
             if fn_path.matches_absolute(&["std", "cmp", bit_result_trait, bit_result_fn]) {
-                return Some(WSimpleType::Basic(WBasicType::Boolean).into_type());
+                return WPartialGeneralType::Normal(WBasicType::Boolean.into_type());
             }
         }
 
-        None
+        WPartialGeneralType::Unknown
     }
 
-    fn get_arg_type<'a>(
+    fn get_normal_arg_type<'a>(
         &'a mut self,
         call: &WExprCall,
         arg_index: usize,
@@ -330,9 +327,19 @@ impl super::LocalVisitor<'_> {
             // TODO: this should not be a panic as it is not internal
             panic!("Call argument should be ident");
         };
-        Ok(self
-            .local_ident_types
-            .get(arg_ident)
-            .and_then(|ty| ty.as_ref()))
+        let result = self.local_ident_types.get(arg_ident);
+        Ok(if let Some(WPartialGeneralType::Normal(result)) = result {
+            Some(result)
+        } else {
+            None
+        })
+    }
+}
+
+fn skip_unknown(ty: WPartialGeneralType) -> Option<WPartialGeneralType> {
+    if let WPartialGeneralType::Unknown = ty {
+        None
+    } else {
+        Some(ty)
     }
 }
