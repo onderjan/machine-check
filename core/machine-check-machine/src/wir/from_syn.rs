@@ -425,11 +425,11 @@ fn fold_simple_type(ty: Type) -> WSimpleType {
             if ty.path.leading_colon.is_some() {
                 let mut segments_iter = ty.path.segments.clone().into_pairs();
                 let first_segment = segments_iter.next().unwrap().into_value();
-                let second_segment = segments_iter.next().unwrap().into_value();
 
                 if &first_segment.ident.to_string() == "machine_check"
                     && ty.path.segments.len() >= 2
                 {
+                    let second_segment = segments_iter.next().unwrap().into_value();
                     let arguments = second_segment.arguments;
 
                     if ty.path.segments.len() == 2 {
@@ -459,6 +459,22 @@ fn fold_simple_type(ty: Type) -> WSimpleType {
                         {
                             known_type = Some(WSimpleType::PanicResult(None));
                         }
+                    }
+                } else if &first_segment.ident.to_string() == "mck" && ty.path.segments.len() == 3 {
+                    let second_segment = segments_iter.next().unwrap().into_value();
+                    let third_segment = segments_iter.next().unwrap().into_value();
+                    if second_segment.ident.to_string().as_str() == "forward"
+                        && third_segment.ident.to_string().as_str() == "PhiArg"
+                    {
+                        let mut inner_type = None;
+                        if let PathArguments::AngleBracketed(generic_args) = third_segment.arguments
+                        {
+                            if let Some(GenericArgument::Type(inner)) = generic_args.args.first() {
+                                inner_type = Some(Box::new(fold_simple_type(inner.clone())));
+                            }
+                        }
+
+                        known_type = Some(WSimpleType::PhiArg(inner_type));
                     }
                 }
             }

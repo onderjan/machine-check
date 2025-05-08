@@ -1,6 +1,6 @@
 mod local_visitor;
 
-use std::{collections::HashMap, ops::ControlFlow, vec};
+use std::{collections::HashMap, ops::ControlFlow};
 
 use crate::{wir::*, ErrorType, MachineError};
 
@@ -133,18 +133,9 @@ fn infer_fn_types_next(
                 let mut inferred_type = orig_type.clone();
                 // if temporary type is PhiArg, put the original type into generics
                 if let WPartialType(Some(ty)) = &local.ty {
-                    if let WSimpleType::Path(type_path) = &ty.inner {
-                        if type_path.matches_absolute(&["mck", "forward", "PhiArg"]) {
-                            let mut with_generics = type_path.clone();
-                            with_generics.segments[2].generics = Some(WGenerics {
-                                leading_colon: false,
-                                inner: vec![WGeneric::Type(inferred_type.inner)],
-                            });
-                            inferred_type = WType {
-                                reference: ty.reference.clone(),
-                                inner: WSimpleType::Path(with_generics),
-                            };
-                        }
+                    if let WSimpleType::PhiArg(_) = &ty.inner {
+                        inferred_type.inner =
+                            WSimpleType::PhiArg(Some(Box::new(inferred_type.inner)))
                     }
                 }
 
@@ -193,12 +184,7 @@ fn update_local_types(
 fn is_type_fully_specified(ty: &WType) -> bool {
     match &ty.inner {
         WSimpleType::PanicResult(inner) => inner.is_some(),
-        WSimpleType::Path(path) => {
-            // phi arg is not fully specified if it does not have generics
-            // however, since we never need to infer from phi arg,
-            // we can always reject it
-            !path.matches_absolute(&["mck", "forward", "PhiArg"])
-        }
+        WSimpleType::PhiArg(inner) => inner.is_some(),
         _ => true,
     }
 }
