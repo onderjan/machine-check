@@ -81,7 +81,7 @@ fn infer_fn_types(
 }
 
 fn convert_self(ty: &mut WType, self_path: &WPath) {
-    if let WSimpleType::Path(path) = &mut ty.inner {
+    if let WSimpleType::Basic(WBasicType::Path(path)) = &mut ty.inner {
         if path.matches_relative(&["Self"]) {
             *path = self_path.clone();
         }
@@ -134,8 +134,10 @@ fn infer_fn_types_next(
                 // if temporary type is PhiArg, put the original type into generics
                 if let WPartialType(Some(ty)) = &local.ty {
                     if let WSimpleType::PhiArg(_) = &ty.inner {
-                        inferred_type.inner =
-                            WSimpleType::PhiArg(Some(Box::new(inferred_type.inner)))
+                        let WSimpleType::Basic(inferred_basic) = inferred_type.inner else {
+                            panic!("Phi arg should only infer basic types");
+                        };
+                        inferred_type.inner = WSimpleType::PhiArg(Some(inferred_basic))
                     }
                 }
 

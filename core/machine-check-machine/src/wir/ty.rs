@@ -7,15 +7,20 @@ use syn::{
 use super::{IntoSyn, WPath};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WSimpleType {
+pub enum WBasicType {
     Bitvector(u32),
     BitvectorArray(WTypeArray),
     Unsigned(u32),
     Signed(u32),
     Boolean,
-    PanicResult(Option<Box<WSimpleType>>),
-    PhiArg(Option<Box<WSimpleType>>),
     Path(WPath),
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum WSimpleType {
+    Basic(WBasicType),
+    PanicResult(Option<WBasicType>),
+    PhiArg(Option<WBasicType>),
 }
 
 impl WSimpleType {
@@ -75,32 +80,8 @@ impl IntoSyn<Type> for WType {
 
 impl IntoSyn<Type> for WSimpleType {
     fn into_syn(self) -> Type {
-        let span = Span::call_site();
         match self {
-            WSimpleType::Bitvector(width) => create_mck_type("Bitvector", &[width], span),
-            WSimpleType::Unsigned(width) => create_mck_type("Unsigned", &[width], span),
-            WSimpleType::Signed(width) => create_mck_type("Signed", &[width], span),
-            WSimpleType::BitvectorArray(array) => create_mck_type(
-                "BitvectorArray",
-                &[array.index_width, array.element_width],
-                span,
-            ),
-            WSimpleType::Path(path) => Type::Path(TypePath {
-                qself: None,
-                path: path.into(),
-            }),
-            WSimpleType::Boolean => Type::Path(TypePath {
-                qself: None,
-                path: Path {
-                    leading_colon: Some(Token![::](span)),
-                    segments: Punctuated::from_iter(["mck", "concr", "Boolean"].into_iter().map(
-                        |name| PathSegment {
-                            ident: Ident::new(name, span),
-                            arguments: PathArguments::None,
-                        },
-                    )),
-                },
-            }),
+            WSimpleType::Basic(basic) => basic.into_syn(),
             WSimpleType::PanicResult(inner) => {
                 let span = Span::call_site();
                 let mut segments = Punctuated::from_iter(
@@ -156,6 +137,38 @@ impl IntoSyn<Type> for WSimpleType {
                     },
                 })
             }
+        }
+    }
+}
+
+impl IntoSyn<Type> for WBasicType {
+    fn into_syn(self) -> Type {
+        let span = Span::call_site();
+        match self {
+            WBasicType::Bitvector(width) => create_mck_type("Bitvector", &[width], span),
+            WBasicType::Unsigned(width) => create_mck_type("Unsigned", &[width], span),
+            WBasicType::Signed(width) => create_mck_type("Signed", &[width], span),
+            WBasicType::BitvectorArray(array) => create_mck_type(
+                "BitvectorArray",
+                &[array.index_width, array.element_width],
+                span,
+            ),
+            WBasicType::Path(path) => Type::Path(TypePath {
+                qself: None,
+                path: path.into(),
+            }),
+            WBasicType::Boolean => Type::Path(TypePath {
+                qself: None,
+                path: Path {
+                    leading_colon: Some(Token![::](span)),
+                    segments: Punctuated::from_iter(["mck", "concr", "Boolean"].into_iter().map(
+                        |name| PathSegment {
+                            ident: Ident::new(name, span),
+                            arguments: PathArguments::None,
+                        },
+                    )),
+                },
+            }),
         }
     }
 }

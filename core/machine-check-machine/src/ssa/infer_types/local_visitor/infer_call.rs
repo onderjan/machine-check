@@ -1,6 +1,9 @@
 use crate::{
     ssa::infer_types::is_type_fully_specified,
-    wir::{WCallArg, WExprCall, WGeneric, WPath, WReference, WSimpleType, WType, WTypeArray},
+    wir::{
+        WBasicType, WCallArg, WExprCall, WGeneric, WPath, WReference, WSimpleType, WType,
+        WTypeArray,
+    },
     ErrorType, MachineError,
 };
 
@@ -46,11 +49,11 @@ impl super::LocalVisitor<'_> {
                 if generics.inner.len() == 1 {
                     if let WGeneric::Const(width) = generics.inner[0] {
                         let ty = if is_bitvector {
-                            WSimpleType::Bitvector(width)
+                            WSimpleType::Basic(WBasicType::Bitvector(width))
                         } else if is_unsigned {
-                            WSimpleType::Unsigned(width)
+                            WSimpleType::Basic(WBasicType::Unsigned(width))
                         } else {
-                            WSimpleType::Signed(width)
+                            WSimpleType::Basic(WBasicType::Signed(width))
                         };
 
                         return Some(ty.into_type());
@@ -67,10 +70,10 @@ impl super::LocalVisitor<'_> {
                         (&generics.inner[0], &generics.inner[1])
                     {
                         return Some(
-                            WSimpleType::BitvectorArray(WTypeArray {
+                            WSimpleType::Basic(WBasicType::BitvectorArray(WTypeArray {
                                 index_width: *index_width,
                                 element_width: *element_width,
-                            })
+                            }))
                             .into_type(),
                         );
                     }
@@ -159,11 +162,11 @@ impl super::LocalVisitor<'_> {
             panic!("First argument of array read should be a reference");
         }
 
-        let WSimpleType::BitvectorArray(type_array) = &arg_type.inner else {
+        let WSimpleType::Basic(WBasicType::BitvectorArray(type_array)) = &arg_type.inner else {
             // unexpected type, do not infer
             return None;
         };
-        Some(WSimpleType::Bitvector(type_array.element_width).into_type())
+        Some(WSimpleType::Basic(WBasicType::Bitvector(type_array.element_width)).into_type())
     }
 
     fn infer_array_write(&mut self, call: &WExprCall) -> Option<WType> {
@@ -227,9 +230,15 @@ impl super::LocalVisitor<'_> {
         };
 
         match arg_type.inner {
-            WSimpleType::Bitvector(_) => Some(WSimpleType::Bitvector(*width)),
-            WSimpleType::Unsigned(_) => Some(WSimpleType::Unsigned(*width)),
-            WSimpleType::Signed(_) => Some(WSimpleType::Signed(*width)),
+            WSimpleType::Basic(WBasicType::Bitvector(_)) => {
+                Some(WSimpleType::Basic(WBasicType::Bitvector(*width)))
+            }
+            WSimpleType::Basic(WBasicType::Unsigned(_)) => {
+                Some(WSimpleType::Basic(WBasicType::Unsigned(*width)))
+            }
+            WSimpleType::Basic(WBasicType::Signed(_)) => {
+                Some(WSimpleType::Basic(WBasicType::Signed(*width)))
+            }
             _ => None,
         }
         .map(|simple_type| simple_type.into_type())
@@ -291,7 +300,7 @@ impl super::LocalVisitor<'_> {
         // functions that return bool
         for (bit_result_trait, bit_result_fn) in std_cmp_fns {
             if fn_path.matches_absolute(&["std", "cmp", bit_result_trait, bit_result_fn]) {
-                return Some(WSimpleType::Boolean.into_type());
+                return Some(WSimpleType::Basic(WBasicType::Boolean).into_type());
             }
         }
 

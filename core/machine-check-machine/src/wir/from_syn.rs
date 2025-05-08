@@ -152,7 +152,7 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
                     },
                     ty: WType {
                         reference,
-                        inner: WSimpleType::Path(WPath {
+                        inner: WSimpleType::Basic(WBasicType::Path(WPath {
                             leading_colon: false,
                             segments: vec![WPathSegment {
                                 ident: WIdent {
@@ -161,7 +161,7 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
                                 },
                                 generics: None,
                             }],
-                        }),
+                        })),
                     },
                 });
             }
@@ -434,21 +434,21 @@ fn fold_simple_type(ty: Type) -> WSimpleType {
 
                     if ty.path.segments.len() == 2 {
                         known_type = match second_segment.ident.to_string().as_str() {
-                            "Bitvector" => Some(WSimpleType::Bitvector(
+                            "Bitvector" => Some(WSimpleType::Basic(WBasicType::Bitvector(
                                 extract_generic_sizes(arguments, 1)[0],
-                            )),
-                            "Unsigned" => Some(WSimpleType::Unsigned(
+                            ))),
+                            "Unsigned" => Some(WSimpleType::Basic(WBasicType::Unsigned(
                                 extract_generic_sizes(arguments, 1)[0],
-                            )),
-                            "Signed" => {
-                                Some(WSimpleType::Signed(extract_generic_sizes(arguments, 1)[0]))
-                            }
+                            ))),
+                            "Signed" => Some(WSimpleType::Basic(WBasicType::Signed(
+                                extract_generic_sizes(arguments, 1)[0],
+                            ))),
                             "BitvectorArray" => {
                                 let sizes = extract_generic_sizes(arguments, 2);
-                                Some(WSimpleType::BitvectorArray(WTypeArray {
+                                Some(WSimpleType::Basic(WBasicType::BitvectorArray(WTypeArray {
                                     index_width: sizes[0],
                                     element_width: sizes[1],
-                                }))
+                                })))
                             }
                             _ => panic!("Unknown path type"),
                         };
@@ -470,7 +470,12 @@ fn fold_simple_type(ty: Type) -> WSimpleType {
                         if let PathArguments::AngleBracketed(generic_args) = third_segment.arguments
                         {
                             if let Some(GenericArgument::Type(inner)) = generic_args.args.first() {
-                                inner_type = Some(Box::new(fold_simple_type(inner.clone())));
+                                let WSimpleType::Basic(basic) = fold_simple_type(inner.clone())
+                                else {
+                                    panic!("PhiArg should only contain basic types");
+                                };
+
+                                inner_type = Some(basic);
                             }
                         }
 
@@ -481,8 +486,7 @@ fn fold_simple_type(ty: Type) -> WSimpleType {
             if let Some(known_type) = known_type {
                 known_type
             } else {
-                //println!("Folded path type: {}", quote::quote!(#ty));
-                WSimpleType::Path(ty.path.into())
+                WSimpleType::Basic(WBasicType::Path(ty.path.into()))
             }
         }
         _ => panic!("Unexpected non-path type: {:?}", ty),

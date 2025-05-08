@@ -3,8 +3,8 @@ use std::collections::HashMap;
 
 use crate::{
     wir::{
-        WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn, WItemStruct, WPath,
-        WReference, WSimpleType, WStmtAssign, WType, YSsa,
+        WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn, WItemStruct,
+        WPath, WReference, WSimpleType, WStmtAssign, WType, YSsa,
     },
     MachineError,
 };
@@ -62,7 +62,10 @@ impl LocalVisitor<'_> {
                         ..
                     })) = self.local_ident_types.get_mut(base_ident)
                     {
-                        *inner_type = Some(Box::new(left_type.inner));
+                        let WSimpleType::Basic(basic_left) = left_type.inner else {
+                            panic!("Panic result should have basic generic type");
+                        };
+                        *inner_type = Some(basic_left);
                     };
                 }
                 return;
@@ -77,7 +80,7 @@ impl LocalVisitor<'_> {
             WExpr::Reference(right_reference) => self.infer_reference_result_type(right_reference),
             WExpr::Struct(right_struct) => Some(WType {
                 reference: WReference::None,
-                inner: WSimpleType::Path(right_struct.type_path.clone()),
+                inner: WSimpleType::Basic(WBasicType::Path(right_struct.type_path.clone())),
             }),
             _ => panic!(
                 "Unexpected local assignment expression: {:?}",
@@ -118,7 +121,7 @@ impl LocalVisitor<'_> {
         let base_type = base_type.as_ref()?;
         // ignore references for now
 
-        let WSimpleType::Path(base_type_path) = &base_type.inner else {
+        let WSimpleType::Basic(WBasicType::Path(base_type_path)) = &base_type.inner else {
             // custom-behaviour type
             return None;
         };
