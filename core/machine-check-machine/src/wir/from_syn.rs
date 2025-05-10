@@ -26,7 +26,7 @@ impl WDescription<YSsa> {
     }
 }
 
-fn fold_item_struct(item: ItemStruct) -> WItemStruct {
+fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
     let mut derives = Vec::new();
 
     for attr in item.attrs {
@@ -244,19 +244,20 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
     }
 }
 
-fn fold_block(block: Block) -> (WBlock, Option<WExpr>) {
+fn fold_block(block: Block) -> (WBlock<WBasicType>, Option<WExpr<WBasicType>>) {
     let mut orig_stmts = block.stmts;
-    let return_ident: Option<WExpr> = if let Some(Stmt::Expr(_, None)) = orig_stmts.last() {
-        // has a return statement
-        orig_stmts.pop().map(|stmt| {
-            let Stmt::Expr(expr, None) = stmt else {
-                panic!("Return statement should be an expression: {:?}", stmt);
-            };
-            fold_right_expr(expr)
-        })
-    } else {
-        None
-    };
+    let return_ident: Option<WExpr<WBasicType>> =
+        if let Some(Stmt::Expr(_, None)) = orig_stmts.last() {
+            // has a return statement
+            orig_stmts.pop().map(|stmt| {
+                let Stmt::Expr(expr, None) = stmt else {
+                    panic!("Return statement should be an expression: {:?}", stmt);
+                };
+                fold_right_expr(expr)
+            })
+        } else {
+            None
+        };
 
     let mut stmts = Vec::new();
 
@@ -311,7 +312,7 @@ fn fold_block(block: Block) -> (WBlock, Option<WExpr>) {
     (WBlock { stmts }, return_ident)
 }
 
-fn fold_right_expr(expr: Expr) -> WExpr {
+fn fold_right_expr(expr: Expr) -> WExpr<WBasicType> {
     match expr {
         Expr::Call(expr_call) => {
             let args = expr_call
@@ -397,7 +398,7 @@ fn fold_right_expr(expr: Expr) -> WExpr {
     }
 }
 
-fn fold_type(mut ty: Type) -> WType {
+fn fold_type(mut ty: Type) -> WType<WBasicType> {
     let reference = match ty {
         Type::Reference(type_reference) => {
             let mutable = type_reference.mutability.is_some();
@@ -466,7 +467,7 @@ fn fold_basic_type(ty: Type) -> WBasicType {
     }
 }
 
-fn fold_partial_general_type(ty: Type) -> WPartialGeneralType {
+fn fold_partial_general_type(ty: Type) -> WPartialGeneralType<WBasicType> {
     let result = match &ty {
         Type::Path(ty) => {
             assert!(ty.qself.is_none());
@@ -562,7 +563,7 @@ impl From<Visibility> for WVisibility {
     }
 }
 
-impl From<Path> for WPath {
+impl From<Path> for WPath<WBasicType> {
     fn from(path: Path) -> Self {
         WPath {
             leading_colon: path.leading_colon.is_some(),

@@ -2,7 +2,7 @@ use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Paren},
-    Expr, ExprCall, ExprField, ExprLit, ExprReference, ExprStruct, FieldValue, Lit, Token,
+    Expr, ExprCall, ExprField, ExprLit, ExprReference, ExprStruct, FieldValue, Lit, Token, Type,
 };
 
 use crate::util::{create_expr_ident, create_expr_path};
@@ -10,22 +10,22 @@ use crate::util::{create_expr_ident, create_expr_path};
 use super::{IntoSyn, WIdent, WPath};
 
 #[derive(Clone, Debug, Hash)]
-pub enum WExpr {
+pub enum WExpr<FT: IntoSyn<Type>> {
     Move(WIdent),
-    Call(WExprCall),
+    Call(WExprCall<FT>),
     Field(WExprField),
-    Struct(WExprStruct),
+    Struct(WExprStruct<FT>),
     Reference(WExprReference),
     Lit(Lit),
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WExprCall {
-    pub fn_path: WPath,
+pub struct WExprCall<FT: IntoSyn<Type>> {
+    pub fn_path: WPath<FT>,
     pub args: Vec<WCallArg>,
 }
 
-impl WExprCall {
+impl<FT: IntoSyn<Type>> WExprCall<FT> {
     pub fn span(&self) -> Span {
         // TODO: correct span
         self.fn_path.span()
@@ -45,8 +45,8 @@ pub struct WExprField {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WExprStruct {
-    pub type_path: WPath,
+pub struct WExprStruct<FT: IntoSyn<Type>> {
+    pub type_path: WPath<FT>,
     pub fields: Vec<(WIdent, WIdent)>,
 }
 
@@ -56,7 +56,7 @@ pub enum WExprReference {
     Field(WExprField),
 }
 
-impl IntoSyn<Expr> for WExpr {
+impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExpr<FT> {
     fn into_syn(self) -> Expr {
         let span = Span::call_site();
         match self {

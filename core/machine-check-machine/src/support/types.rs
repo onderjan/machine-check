@@ -8,7 +8,7 @@ use syn::{
 
 use crate::util::{
     create_expr_call, create_expr_path, create_ident, create_path_segment, create_type_path,
-    extract_pat_ident, path_matches_global_names, ArgType,
+    extract_pat_ident, ArgType,
 };
 
 use super::local::extract_local_ident_with_type;
@@ -142,16 +142,4 @@ pub fn boolean_type(flavour: &str) -> Type {
         ]),
     };
     create_type_path(path)
-}
-
-pub fn is_machine_check_bitvector_related_path(path: &Path) -> bool {
-    path_matches_global_names(path, &["machine_check", "Bitvector"])
-        || path_matches_global_names(path, &["machine_check", "Unsigned"])
-        || path_matches_global_names(path, &["machine_check", "Signed"])
-}
-
-pub fn is_concr_bitvector_related_path(path: &Path) -> bool {
-    path_matches_global_names(path, &["mck", "concr", "Bitvector"])
-        || path_matches_global_names(path, &["mck", "concr", "Unsigned"])
-        || path_matches_global_names(path, &["mck", "concr", "Signed"])
 }

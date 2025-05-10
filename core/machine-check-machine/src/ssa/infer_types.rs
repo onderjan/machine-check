@@ -44,8 +44,8 @@ pub fn infer_types(
 
 fn infer_fn_types(
     mut impl_item_fn: WImplItemFn<YSsa>,
-    structs: &HashMap<WPath, WItemStruct>,
-    self_path: &WPath,
+    structs: &HashMap<WPath<WBasicType>, WItemStruct<WBasicType>>,
+    self_path: &WPath<WBasicType>,
 ) -> Result<WImplItemFn<YInferred>, MachineError> {
     let mut local_ident_types = HashMap::new();
 
@@ -83,7 +83,7 @@ fn infer_fn_types(
     update_local_types(&mut visitor, impl_item_fn)
 }
 
-fn convert_self(ty: &mut WType, self_path: &WPath) {
+fn convert_self(ty: &mut WType<WBasicType>, self_path: &WPath<WBasicType>) {
     if let WBasicType::Path(path) = &mut ty.inner {
         if path.matches_relative(&["Self"]) {
             *path = self_path.clone();
@@ -194,7 +194,7 @@ fn update_local_types(
     })
 }
 
-fn is_type_fully_specified(ty: &WPartialGeneralType) -> bool {
+fn is_type_fully_specified(ty: &WPartialGeneralType<WBasicType>) -> bool {
     match &ty {
         WPartialGeneralType::Unknown => false,
         WPartialGeneralType::Normal(_) => true,

@@ -14,8 +14,8 @@ use super::is_type_fully_specified;
 mod infer_call;
 
 pub struct LocalVisitor<'a> {
-    pub local_ident_types: HashMap<WIdent, WPartialGeneralType>,
-    pub structs: &'a HashMap<WPath, WItemStruct>,
+    pub local_ident_types: HashMap<WIdent, WPartialGeneralType<WBasicType>>,
+    pub structs: &'a HashMap<WPath<WBasicType>, WItemStruct<WBasicType>>,
     pub result: Result<(), MachineError>,
     pub inferred_something: bool,
 }
@@ -25,7 +25,7 @@ impl LocalVisitor<'_> {
         self.visit_block(&impl_item.block);
     }
 
-    fn visit_block(&mut self, block: &WBlock) {
+    fn visit_block(&mut self, block: &WBlock<WBasicType>) {
         for stmt in &block.stmts {
             match stmt {
                 crate::wir::WStmt::Assign(stmt) => {
@@ -40,7 +40,7 @@ impl LocalVisitor<'_> {
         }
     }
 
-    fn visit_assign(&mut self, assign: &WStmtAssign) {
+    fn visit_assign(&mut self, assign: &WStmtAssign<WBasicType>) {
         let left_ident = &assign.left_ident;
 
         let Some(ty) = self.local_ident_types.get_mut(left_ident) else {
@@ -99,7 +99,7 @@ impl LocalVisitor<'_> {
         }
     }
 
-    fn infer_move_result_type(&self, right_ident: &WIdent) -> WPartialGeneralType {
+    fn infer_move_result_type(&self, right_ident: &WIdent) -> WPartialGeneralType<WBasicType> {
         // just infer from the identifier
         self.local_ident_types
             .get(right_ident)
@@ -107,7 +107,7 @@ impl LocalVisitor<'_> {
             .clone()
     }
 
-    fn infer_field_result_type(&self, right_field: &WExprField) -> WPartialGeneralType {
+    fn infer_field_result_type(&self, right_field: &WExprField) -> WPartialGeneralType<WBasicType> {
         // get type of member from structs
         let Some(base_type) = self.local_ident_types.get(&right_field.base) else {
             // not a local ident, skip
@@ -139,7 +139,10 @@ impl LocalVisitor<'_> {
         WPartialGeneralType::Unknown
     }
 
-    fn infer_reference_result_type(&self, right_reference: &WExprReference) -> WPartialGeneralType {
+    fn infer_reference_result_type(
+        &self,
+        right_reference: &WExprReference,
+    ) -> WPartialGeneralType<WBasicType> {
         let right_side_type = match right_reference {
             WExprReference::Ident(right_ident) => {
                 // this is a reference to move

@@ -7,14 +7,14 @@ use syn::{
     MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
 };
 
-use super::{IntoSyn, WBasicType, WIdent, WImplItem, WImplItemFn, WPath, YStage};
+use super::{IntoSyn, WIdent, WImplItem, WImplItemFn, WPath, YStage};
 
 #[derive(Clone, Debug, Hash)]
-pub struct WItemStruct {
+pub struct WItemStruct<FT: IntoSyn<Type>> {
     pub visibility: WVisibility,
-    pub derives: Vec<WPath>,
+    pub derives: Vec<WPath<FT>>,
     pub ident: WIdent,
-    pub fields: Vec<WField>,
+    pub fields: Vec<WField<FT>>,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -24,19 +24,19 @@ pub enum WVisibility {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WField {
+pub struct WField<FT: IntoSyn<Type>> {
     pub ident: WIdent,
-    pub ty: WBasicType,
+    pub ty: FT,
 }
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemImpl<Y: YStage> {
-    pub self_ty: WPath,
-    pub trait_: Option<WPath>,
+    pub self_ty: WPath<Y::FundamentalType>,
+    pub trait_: Option<WPath<Y::FundamentalType>>,
     pub items: Vec<WImplItem<Y>>,
 }
 
-impl IntoSyn<ItemStruct> for WItemStruct {
+impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
     fn into_syn(self) -> ItemStruct {
         let span = Span::call_site();
 

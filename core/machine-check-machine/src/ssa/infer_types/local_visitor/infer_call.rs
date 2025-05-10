@@ -8,7 +8,10 @@ use crate::{
 };
 
 impl super::LocalVisitor<'_> {
-    pub(super) fn infer_call_result_type(&mut self, expr_call: &WExprCall) -> WPartialGeneralType {
+    pub(super) fn infer_call_result_type(
+        &mut self,
+        expr_call: &WExprCall<WBasicType>,
+    ) -> WPartialGeneralType<WBasicType> {
         // discover the type based on the call function
         if let Some(ty) = skip_unknown(self.infer_init(&expr_call.fn_path)) {
             return ty;
@@ -37,7 +40,7 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Unknown
     }
 
-    fn infer_init(&mut self, fn_path: &WPath) -> WPartialGeneralType {
+    fn infer_init(&mut self, fn_path: &WPath<WBasicType>) -> WPartialGeneralType<WBasicType> {
         let is_bitvector = fn_path.matches_absolute(&["machine_check", "Bitvector", "new"]);
         let is_unsigned = fn_path.matches_absolute(&["machine_check", "Unsigned", "new"]);
         let is_signed = fn_path.matches_absolute(&["machine_check", "Signed", "new"]);
@@ -83,7 +86,7 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Unknown
     }
 
-    fn infer_into(&mut self, call: &WExprCall) -> WPartialGeneralType {
+    fn infer_into(&mut self, call: &WExprCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
         // Into trait
         if !call
             .fn_path
@@ -118,7 +121,7 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Normal(ty.clone())
     }
 
-    fn infer_clone(&mut self, call: &WExprCall) -> WPartialGeneralType {
+    fn infer_clone(&mut self, call: &WExprCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
         if !call
             .fn_path
             .matches_absolute(&["std", "clone", "Clone", "clone"])
@@ -144,7 +147,10 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Normal(result_type)
     }
 
-    fn infer_array_read(&mut self, call: &WExprCall) -> WPartialGeneralType {
+    fn infer_array_read(
+        &mut self,
+        call: &WExprCall<WBasicType>,
+    ) -> WPartialGeneralType<WBasicType> {
         if !call
             .fn_path
             .matches_absolute(&["mck", "forward", "ReadWrite", "read"])
@@ -168,7 +174,10 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Normal(WBasicType::Bitvector(type_array.element_width).into_type())
     }
 
-    fn infer_array_write(&mut self, call: &WExprCall) -> WPartialGeneralType {
+    fn infer_array_write(
+        &mut self,
+        call: &WExprCall<WBasicType>,
+    ) -> WPartialGeneralType<WBasicType> {
         if !call
             .fn_path
             .matches_absolute(&["mck", "forward", "ReadWrite", "write"])
@@ -188,7 +197,7 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Normal(arg_type.inner.clone().into_type())
     }
 
-    fn infer_ext(&mut self, call: &WExprCall) -> WPartialGeneralType {
+    fn infer_ext(&mut self, call: &WExprCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
         // --- EXT ---
 
         if !call
@@ -241,7 +250,10 @@ impl super::LocalVisitor<'_> {
         }
     }
 
-    fn infer_return_arg_fns(&mut self, call: &WExprCall) -> WPartialGeneralType {
+    fn infer_return_arg_fns(
+        &mut self,
+        call: &WExprCall<WBasicType>,
+    ) -> WPartialGeneralType<WBasicType> {
         let std_ops_fns: [(&str, &str); 12] = [
             // arithmetic
             ("Neg", "neg"),
@@ -284,7 +296,10 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Unknown
     }
 
-    fn infer_return_bool_fns(&mut self, fn_path: &WPath) -> WPartialGeneralType {
+    fn infer_return_bool_fns(
+        &mut self,
+        fn_path: &WPath<WBasicType>,
+    ) -> WPartialGeneralType<WBasicType> {
         let std_cmp_fns: [(&str, &str); 6] = [
             ("PartialEq", "eq"),
             ("PartialEq", "ne"),
@@ -306,10 +321,10 @@ impl super::LocalVisitor<'_> {
 
     fn get_normal_arg_type<'a>(
         &'a mut self,
-        call: &WExprCall,
+        call: &WExprCall<WBasicType>,
         arg_index: usize,
         num_args: usize,
-    ) -> Result<Option<&'a WType>, ()> {
+    ) -> Result<Option<&'a WType<WBasicType>>, ()> {
         assert!(arg_index < num_args);
         if num_args != call.args.len() {
             self.push_error(MachineError::new(
@@ -336,7 +351,7 @@ impl super::LocalVisitor<'_> {
     }
 }
 
-fn skip_unknown(ty: WPartialGeneralType) -> Option<WPartialGeneralType> {
+fn skip_unknown(ty: WPartialGeneralType<WBasicType>) -> Option<WPartialGeneralType<WBasicType>> {
     if let WPartialGeneralType::Unknown = ty {
         None
     } else {

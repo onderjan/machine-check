@@ -47,18 +47,18 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
             items: items.clone()
         })
     );
-    println!("---");
-    println!(
+    println!("---");*/
+
+    let w_description = infer_types::infer_types(w_description)?;
+    let w_description = convert_types::convert_types(w_description)?;
+
+    /*println!(
         "Compared syn string:\n{}",
         quote::ToTokens::into_token_stream(w_description.clone().into_syn())
     );
     println!("---");*/
 
-    let w_description = infer_types::infer_types(w_description)?;
-
     let mut items: Vec<Item> = w_description.into_syn().items;
-
-    convert_types::convert_types(&mut items)?;
     convert_panic::convert_panic_typed(&mut items)?;
 
     Ok(MachineDescription {

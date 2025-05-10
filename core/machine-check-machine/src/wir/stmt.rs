@@ -1,32 +1,32 @@
 use proc_macro2::Span;
-use syn::{token::Brace, Block, Expr, ExprAssign, ExprBlock, ExprIf, Stmt, Token};
+use syn::{token::Brace, Block, Expr, ExprAssign, ExprBlock, ExprIf, Stmt, Token, Type};
 
 use crate::util::{create_expr_path, create_path_from_ident};
 
 use super::{expr::WExpr, path::WIdent, IntoSyn, YStage};
 
 #[derive(Clone, Debug, Hash)]
-pub struct WBlock {
-    pub stmts: Vec<WStmt>,
+pub struct WBlock<FT: IntoSyn<Type>> {
+    pub stmts: Vec<WStmt<FT>>,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub enum WStmt {
-    Assign(WStmtAssign),
-    If(WStmtIf),
+pub enum WStmt<FT: IntoSyn<Type>> {
+    Assign(WStmtAssign<FT>),
+    If(WStmtIf<FT>),
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WStmtAssign {
+pub struct WStmtAssign<FT: IntoSyn<Type>> {
     pub left_ident: WIdent,
-    pub right_expr: WExpr,
+    pub right_expr: WExpr<FT>,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WStmtIf {
-    pub condition: WExpr,
-    pub then_block: WBlock,
-    pub else_block: WBlock,
+pub struct WStmtIf<FT: IntoSyn<Type>> {
+    pub condition: WExpr<FT>,
+    pub then_block: WBlock<FT>,
+    pub else_block: WBlock<FT>,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -36,7 +36,7 @@ pub struct WLocal<Y: YStage> {
     pub ty: Y::LocalType,
 }
 
-impl IntoSyn<Block> for WBlock {
+impl<FT: IntoSyn<Type>> IntoSyn<Block> for WBlock<FT> {
     fn into_syn(self) -> Block {
         let mut stmts = Vec::new();
 

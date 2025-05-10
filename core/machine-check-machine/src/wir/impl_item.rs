@@ -9,43 +9,43 @@ use syn_path::path;
 
 use crate::util::{create_expr_path, create_path_from_ident};
 
-use super::{IntoSyn, WBasicType, WBlock, WExpr, WIdent, WLocal, WPath, WReference, WType, YStage};
+use super::{IntoSyn, WBlock, WExpr, WIdent, WLocal, WPath, WReference, WType, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub enum WImplItem<Y: YStage> {
     Fn(WImplItemFn<Y>),
-    Type(WImplItemType),
+    Type(WImplItemType<Y::FundamentalType>),
 }
 
 #[derive(Clone, Debug, Hash)]
 pub struct WImplItemFn<Y: YStage> {
-    pub signature: WSignature,
+    pub signature: WSignature<Y::FundamentalType>,
     pub locals: Vec<WLocal<Y>>,
-    pub block: WBlock,
+    pub block: WBlock<Y::FundamentalType>,
     // TODO: only allow idents in fn result
-    pub result: Option<WExpr>,
+    pub result: Option<WExpr<Y::FundamentalType>>,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WSignature {
+pub struct WSignature<FT: IntoSyn<Type>> {
     pub ident: WIdent,
-    pub inputs: Vec<WFnArg>,
-    pub output: WBasicType,
+    pub inputs: Vec<WFnArg<FT>>,
+    pub output: FT,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WFnArg {
+pub struct WFnArg<FT: IntoSyn<Type>> {
     pub ident: WIdent,
-    pub ty: WType,
+    pub ty: WType<FT>,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WImplItemType {
+pub struct WImplItemType<FT: IntoSyn<Type>> {
     pub left_ident: WIdent,
-    pub right_path: WPath,
+    pub right_path: WPath<FT>,
 }
 
-impl IntoSyn<ImplItemType> for WImplItemType {
+impl<FT: IntoSyn<Type>> IntoSyn<ImplItemType> for WImplItemType<FT> {
     fn into_syn(self) -> ImplItemType {
         let span = Span::call_site();
 

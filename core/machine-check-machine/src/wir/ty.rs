@@ -13,24 +13,32 @@ pub enum WBasicType {
     Unsigned(u32),
     Signed(u32),
     Boolean,
-    Path(WPath),
+    Path(WPath<WBasicType>),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WGeneralType {
-    Normal(WType),
-    PanicResult(WType),
-    PhiArg(WType),
+pub enum WElementaryType {
+    Bitvector(u32),
+    Array(WTypeArray),
+    Boolean,
+    Path(WPath<WElementaryType>),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WType {
+pub struct WType<FT: IntoSyn<Type>> {
     pub reference: WReference,
-    pub inner: WBasicType,
+    pub inner: FT,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum WGeneralType<FT: IntoSyn<Type>> {
+    Normal(WType<FT>),
+    PanicResult(WType<FT>),
+    PhiArg(WType<FT>),
 }
 
 impl WBasicType {
-    pub fn into_type(self) -> WType {
+    pub fn into_type(self) -> WType<WBasicType> {
         WType {
             reference: WReference::None,
             inner: self,
@@ -38,18 +46,18 @@ impl WBasicType {
     }
 }
 
-impl WType {
-    pub fn into_general(self) -> WGeneralType {
+impl<FT: IntoSyn<Type>> WType<FT> {
+    pub fn into_general(self) -> WGeneralType<FT> {
         WGeneralType::Normal(self)
     }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WPartialGeneralType {
+pub enum WPartialGeneralType<FT: IntoSyn<Type>> {
     Unknown,
-    Normal(WType),
-    PanicResult(Option<WType>),
-    PhiArg(Option<WType>),
+    Normal(WType<FT>),
+    PanicResult(Option<WType<FT>>),
+    PhiArg(Option<WType<FT>>),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -69,10 +77,10 @@ impl IntoSyn<Type> for WBasicType {
     fn into_syn(self) -> Type {
         let span = Span::call_site();
         match self {
-            WBasicType::Bitvector(width) => create_mck_type("Bitvector", &[width], span),
-            WBasicType::Unsigned(width) => create_mck_type("Unsigned", &[width], span),
-            WBasicType::Signed(width) => create_mck_type("Signed", &[width], span),
-            WBasicType::BitvectorArray(array) => create_mck_type(
+            WBasicType::Bitvector(width) => create_machine_check_type("Bitvector", &[width], span),
+            WBasicType::Unsigned(width) => create_machine_check_type("Unsigned", &[width], span),
+            WBasicType::Signed(width) => create_machine_check_type("Signed", &[width], span),
+            WBasicType::BitvectorArray(array) => create_machine_check_type(
                 "BitvectorArray",
                 &[array.index_width, array.element_width],
                 span,
@@ -81,23 +89,29 @@ impl IntoSyn<Type> for WBasicType {
                 qself: None,
                 path: path.into(),
             }),
-            WBasicType::Boolean => Type::Path(TypePath {
-                qself: None,
-                path: Path {
-                    leading_colon: Some(Token![::](span)),
-                    segments: Punctuated::from_iter(["mck", "concr", "Boolean"].into_iter().map(
-                        |name| PathSegment {
-                            ident: Ident::new(name, span),
-                            arguments: PathArguments::None,
-                        },
-                    )),
-                },
-            }),
+            WBasicType::Boolean => create_machine_check_type("Boolean", &[], span),
         }
     }
 }
 
-impl IntoSyn<Type> for WType {
+impl IntoSyn<Type> for WElementaryType {
+    fn into_syn(self) -> Type {
+        let span = Span::call_site();
+        match self {
+            WElementaryType::Bitvector(width) => create_mck_concr_type("Bitvector", &[width], span),
+            WElementaryType::Array(array) => {
+                create_mck_concr_type("Array", &[array.index_width, array.element_width], span)
+            }
+            WElementaryType::Path(path) => Type::Path(TypePath {
+                qself: None,
+                path: path.into(),
+            }),
+            WElementaryType::Boolean => create_mck_concr_type("Boolean", &[], span),
+        }
+    }
+}
+
+impl<FT: IntoSyn<Type>> IntoSyn<Type> for WType<FT> {
     fn into_syn(self) -> Type {
         let span = Span::call_site();
 
@@ -121,7 +135,7 @@ impl IntoSyn<Type> for WType {
     }
 }
 
-impl IntoSyn<Type> for WGeneralType {
+impl<FT: IntoSyn<Type>> IntoSyn<Type> for WGeneralType<FT> {
     fn into_syn(self) -> Type {
         match self {
             WGeneralType::Normal(ty) => WPartialGeneralType::Normal(ty).into_syn(),
@@ -131,20 +145,19 @@ impl IntoSyn<Type> for WGeneralType {
     }
 }
 
-impl IntoSyn<Type> for WPartialGeneralType {
+impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPartialGeneralType<FT> {
     fn into_syn(self) -> Type {
         let span = Span::call_site();
         match self {
             WPartialGeneralType::Normal(normal) => normal.into_syn(),
             WPartialGeneralType::PanicResult(inner) => {
-                let mut segments = Punctuated::from_iter(
-                    ["machine_check", "internal", "PanicResult"]
-                        .into_iter()
-                        .map(|name| PathSegment {
+                let mut segments =
+                    Punctuated::from_iter(["mck", "concr", "PanicResult"].into_iter().map(
+                        |name| PathSegment {
                             ident: Ident::new(name, span),
                             arguments: PathArguments::None,
-                        }),
-                );
+                        },
+                    ));
                 if let Some(inner) = inner {
                     let inner = inner.into_syn();
                     segments[2].arguments =
@@ -197,8 +210,24 @@ impl IntoSyn<Type> for WPartialGeneralType {
     }
 }
 
-fn create_mck_type(name: &str, widths: &[u32], span: Span) -> Type {
-    let width_arg = if !widths.is_empty() {
+fn create_machine_check_type(name: &str, widths: &[u32], span: Span) -> Type {
+    create_named_type(&["machine_check", name], widths, span)
+}
+
+fn create_mck_concr_type(name: &str, widths: &[u32], span: Span) -> Type {
+    create_named_type(&["mck", "concr", name], widths, span)
+}
+
+fn create_named_type(names: &[&str], widths: &[u32], span: Span) -> Type {
+    let mut path = Path {
+        leading_colon: Some(Token![::](span)),
+        segments: Punctuated::from_iter(names.iter().map(|name| PathSegment {
+            ident: Ident::new(name, span),
+            arguments: syn::PathArguments::None,
+        })),
+    };
+
+    if !widths.is_empty() {
         let widths = Punctuated::from_iter(widths.iter().map(|width| {
             GenericArgument::Const(Expr::Lit(ExprLit {
                 attrs: Vec::new(),
@@ -206,28 +235,16 @@ fn create_mck_type(name: &str, widths: &[u32], span: Span) -> Type {
             }))
         }));
 
-        syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
+        path.segments
+            .last_mut()
+            .expect("Named type with widths should have at least one name")
+            .arguments = syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments {
             colon2_token: None,
             lt_token: Token![<](span),
             args: widths,
             gt_token: Token![>](span),
-        })
-    } else {
-        syn::PathArguments::None
-    };
+        });
+    }
 
-    let path = Path {
-        leading_colon: Some(Token![::](span)),
-        segments: Punctuated::from_iter([
-            PathSegment {
-                ident: Ident::new("machine_check", span),
-                arguments: syn::PathArguments::None,
-            },
-            PathSegment {
-                ident: Ident::new(name, span),
-                arguments: width_arg,
-            },
-        ]),
-    };
     Type::Path(TypePath { qself: None, path })
 }

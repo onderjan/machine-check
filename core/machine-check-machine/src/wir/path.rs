@@ -2,35 +2,35 @@ use proc_macro2::Span;
 use std::hash::Hash;
 use syn::{
     punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, Ident,
-    Lit, LitInt, Path, PathArguments, PathSegment, Token,
+    Lit, LitInt, Path, PathArguments, PathSegment, Token, Type,
 };
 
 use super::{IntoSyn, WType};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WPath {
+pub struct WPath<FT: IntoSyn<Type>> {
     pub leading_colon: bool,
-    pub segments: Vec<WPathSegment>,
+    pub segments: Vec<WPathSegment<FT>>,
 }
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WPathSegment {
+pub struct WPathSegment<FT: IntoSyn<Type>> {
     pub ident: WIdent,
-    pub generics: Option<WGenerics>,
+    pub generics: Option<WGenerics<FT>>,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WGenerics {
+pub struct WGenerics<FT: IntoSyn<Type>> {
     pub leading_colon: bool,
-    pub inner: Vec<WGeneric>,
+    pub inner: Vec<WGeneric<FT>>,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WGeneric {
-    Type(WType),
+pub enum WGeneric<FT: IntoSyn<Type>> {
+    Type(WType<FT>),
     Const(u32),
 }
 
-impl WPath {
+impl<FT: IntoSyn<Type>> WPath<FT> {
     /// Returns true if the path is absolute and the segment idents match the given strings.
     ///
     /// Does not take generics into account.
@@ -39,6 +39,24 @@ impl WPath {
             return false;
         }
         if self.segments.len() != segments.len() {
+            return false;
+        }
+        for (self_segment, other_segment) in self.segments.iter().zip(segments.iter()) {
+            if self_segment.ident.name != *other_segment {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Returns true if the path is absolute and the segment idents start with the given strings.
+    ///
+    /// Does not take generics into account.
+    pub fn starts_with_absolute(&self, segments: &[&str]) -> bool {
+        if !self.leading_colon {
+            return false;
+        }
+        if self.segments.len() < segments.len() {
             return false;
         }
         for (self_segment, other_segment) in self.segments.iter().zip(segments.iter()) {
@@ -70,7 +88,7 @@ impl WPath {
     /// Creates a new absolute path from the given segment names with the given span.
     ///
     /// There are no generics in the path after creation.
-    pub fn new_absolute(segments: &[&str], span: Span) -> WPath {
+    pub fn new_absolute(segments: &[&str], span: Span) -> Self {
         WPath {
             leading_colon: true,
             segments: segments
@@ -104,10 +122,16 @@ impl WPath {
             Span::call_site()
         }
     }
+
+    pub fn segments_strs(&self) -> impl Iterator<Item = &str> {
+        self.segments
+            .iter()
+            .map(|segment| segment.ident.name.as_str())
+    }
 }
 
-impl From<WPath> for Path {
-    fn from(path: WPath) -> Self {
+impl<FT: IntoSyn<Type>> From<WPath<FT>> for Path {
+    fn from(path: WPath<FT>) -> Self {
         let span = Span::call_site();
         Path {
             leading_colon: if path.leading_colon {
@@ -175,8 +199,21 @@ impl Hash for WIdent {
     }
 }
 
+impl PartialOrd for WIdent {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for WIdent {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // do not consider span for comparison
+        self.name.cmp(&other.name)
+    }
+}
+
 impl WIdent {
-    pub fn into_path(self) -> WPath {
+    pub fn into_path<FT: IntoSyn<Type>>(self) -> WPath<FT> {
         WPath::from_ident(self)
     }
 }

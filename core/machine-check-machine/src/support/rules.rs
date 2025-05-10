@@ -165,6 +165,7 @@ impl<'a> Visitor<'a> {
 
             return Ok(());
         }
+        println!("No rule match for: {}", quote::quote! {#path});
         Err(NoRuleMatch(path.span()))
     }
 }
