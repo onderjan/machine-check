@@ -24,6 +24,15 @@ pub enum WElementaryType {
     Path(WPath<WElementaryType>),
 }
 
+impl WElementaryType {
+    pub fn into_type(self) -> WType<WElementaryType> {
+        WType {
+            reference: WReference::None,
+            inner: self,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WType<FT: IntoSyn<Type>> {
     pub reference: WReference,

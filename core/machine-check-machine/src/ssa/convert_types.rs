@@ -117,7 +117,13 @@ impl Converter {
             local_types.insert(input.ident.clone(), WGeneralType::Normal(input.ty.clone()));
         }
 
-        let signature = WSignature::<WElementaryType> {
+        // TODO: make the outputs PanicResult earlier when resolving panics
+        let output = WGeneralType::PanicResult(
+            self.convert_basic_type(impl_item.signature.output)
+                .into_type(),
+        );
+
+        let signature = WSignature {
             ident: impl_item.signature.ident,
             inputs: impl_item
                 .signature
@@ -128,7 +134,7 @@ impl Converter {
                     ty: self.convert_type(input.ty),
                 })
                 .collect(),
-            output: self.convert_basic_type(impl_item.signature.output),
+            output,
         };
 
         let block = self.convert_block(impl_item.block, &local_types);

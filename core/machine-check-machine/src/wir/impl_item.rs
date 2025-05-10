@@ -19,7 +19,7 @@ pub enum WImplItem<Y: YStage> {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WImplItemFn<Y: YStage> {
-    pub signature: WSignature<Y::FundamentalType>,
+    pub signature: WSignature<Y>,
     pub locals: Vec<WLocal<Y>>,
     pub block: WBlock<Y::FundamentalType>,
     // TODO: only allow idents in fn result
@@ -27,10 +27,10 @@ pub struct WImplItemFn<Y: YStage> {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WSignature<FT: IntoSyn<Type>> {
+pub struct WSignature<Y: YStage> {
     pub ident: WIdent,
-    pub inputs: Vec<WFnArg<FT>>,
-    pub output: FT,
+    pub inputs: Vec<WFnArg<Y::FundamentalType>>,
+    pub output: Y::OutputType,
 }
 
 #[derive(Clone, Debug, Hash)]

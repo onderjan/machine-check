@@ -186,8 +186,14 @@ fn update_local_types(
         });
     }
 
+    let signature = WSignature {
+        ident: impl_item_fn.signature.ident,
+        inputs: impl_item_fn.signature.inputs,
+        output: impl_item_fn.signature.output,
+    };
+
     Ok(WImplItemFn {
-        signature: impl_item_fn.signature,
+        signature,
         locals,
         block: impl_item_fn.block,
         result: impl_item_fn.result,
