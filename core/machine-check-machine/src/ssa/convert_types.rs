@@ -3,9 +3,9 @@ use std::collections::BTreeMap;
 use crate::{
     wir::{
         WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprStruct, WField,
-        WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItem, WImplItemFn, WImplItemType,
-        WItemImpl, WItemStruct, WLocal, WPath, WPathSegment, WSignature, WStmt, WStmtAssign,
-        WStmtIf, WType, YConverted, YInferred,
+        WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn, WImplItemType, WItemImpl,
+        WItemStruct, WLocal, WPath, WPathSegment, WSignature, WStmt, WStmtAssign, WStmtIf, WType,
+        YConverted, YInferred,
     },
     MachineError,
 };
@@ -55,18 +55,18 @@ impl Converter {
             impls.push(WItemImpl {
                 self_ty: self.convert_basic_path(item_impl.self_ty),
                 trait_: item_impl.trait_.map(|path| self.convert_basic_path(path)),
-                items: item_impl
-                    .items
+                type_items: item_impl
+                    .type_items
                     .into_iter()
-                    .map(|impl_item| match impl_item {
-                        WImplItem::Fn(impl_item) => {
-                            WImplItem::Fn(self.convert_impl_item_fn(impl_item))
-                        }
-                        WImplItem::Type(impl_item) => WImplItem::Type(WImplItemType {
-                            left_ident: impl_item.left_ident,
-                            right_path: self.convert_basic_path(impl_item.right_path),
-                        }),
+                    .map(|type_item| WImplItemType {
+                        left_ident: type_item.left_ident,
+                        right_path: self.convert_basic_path(type_item.right_path),
                     })
+                    .collect(),
+                fn_items: item_impl
+                    .fn_items
+                    .into_iter()
+                    .map(|fn_item| self.convert_impl_item_fn(fn_item))
                     .collect(),
             })
         }

@@ -2,8 +2,8 @@ use core::panic;
 
 use syn::{
     parse::Parser, punctuated::Punctuated, Block, Expr, ExprBlock, ExprPath, GenericArgument,
-    Ident, ImplItem, ImplItemFn, Item, ItemImpl, ItemStruct, Pat, Path, PathArguments, Stmt, Token,
-    Type, Visibility,
+    Ident, ImplItem, ImplItemFn, ImplItemType, Item, ItemImpl, ItemStruct, Pat, Path,
+    PathArguments, Stmt, Token, Type, Visibility,
 };
 
 use crate::util::{extract_expr_ident, extract_expr_path, extract_path_ident};
@@ -102,27 +102,33 @@ fn fold_item_impl(item: ItemImpl) -> WItemImpl<YSsa> {
         path.into()
     });
 
+    let mut type_items = Vec::new();
+    let mut fn_items = Vec::new();
+
+    for impl_item in item.items {
+        match impl_item {
+            ImplItem::Type(impl_item) => type_items.push(fold_impl_item_type(impl_item)),
+            ImplItem::Fn(impl_item) => fn_items.push(fold_impl_item_fn(impl_item)),
+            _ => panic!("Unexpected type of impl item: {:?}", impl_item),
+        }
+    }
+
     WItemImpl {
         self_ty,
         trait_,
-        items: item.items.into_iter().map(fold_impl_item).collect(),
+        type_items,
+        fn_items,
     }
 }
 
-fn fold_impl_item(impl_item: ImplItem) -> WImplItem<YSsa> {
-    match impl_item {
-        ImplItem::Fn(impl_item) => WImplItem::Fn(fold_impl_item_fn(impl_item)),
-        ImplItem::Type(impl_item) => {
-            let ty = impl_item.ty;
-            let Type::Path(ty) = ty else {
-                panic!("Unexpected non-path type: {:?}", ty);
-            };
-            WImplItem::Type(WImplItemType {
-                left_ident: impl_item.ident.into(),
-                right_path: ty.path.into(),
-            })
-        }
-        _ => panic!("Unexpected type of impl item: {:?}", impl_item),
+fn fold_impl_item_type(impl_item: ImplItemType) -> WImplItemType<WBasicType> {
+    let ty = impl_item.ty;
+    let Type::Path(ty) = ty else {
+        panic!("Unexpected non-path type: {:?}", ty);
+    };
+    WImplItemType {
+        left_ident: impl_item.ident.into(),
+        right_path: ty.path.into(),
     }
 }
 

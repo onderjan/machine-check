@@ -12,12 +12,6 @@ use crate::util::{create_expr_path, create_path_from_ident};
 use super::{IntoSyn, WBlock, WExpr, WIdent, WLocal, WPath, WReference, WType, YStage};
 
 #[derive(Clone, Debug, Hash)]
-pub enum WImplItem<Y: YStage> {
-    Fn(WImplItemFn<Y>),
-    Type(WImplItemType<Y::FundamentalType>),
-}
-
-#[derive(Clone, Debug, Hash)]
 pub struct WImplItemFn<Y: YStage> {
     pub signature: WSignature<Y>,
     pub locals: Vec<WLocal<Y>>,

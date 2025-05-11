@@ -7,7 +7,7 @@ use syn::{
     MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
 };
 
-use super::{IntoSyn, WIdent, WImplItem, WImplItemFn, WPath, YStage};
+use super::{IntoSyn, WIdent, WImplItemFn, WImplItemType, WPath, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemStruct<FT: IntoSyn<Type>> {
@@ -33,7 +33,8 @@ pub struct WField<FT: IntoSyn<Type>> {
 pub struct WItemImpl<Y: YStage> {
     pub self_ty: WPath<Y::FundamentalType>,
     pub trait_: Option<WPath<Y::FundamentalType>>,
-    pub items: Vec<WImplItem<Y>>,
+    pub fn_items: Vec<WImplItemFn<Y>>,
+    pub type_items: Vec<WImplItemType<Y::FundamentalType>>,
 }
 
 impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
@@ -103,12 +104,14 @@ where
         let span = Span::call_site();
 
         let items = self
-            .items
+            .type_items
             .into_iter()
-            .map(|impl_item| match impl_item {
-                WImplItem::Type(impl_item) => ImplItem::Type(impl_item.into_syn()),
-                WImplItem::Fn(impl_item) => ImplItem::Fn(impl_item.into_syn()),
-            })
+            .map(|type_item| ImplItem::Type(type_item.into_syn()))
+            .chain(
+                self.fn_items
+                    .into_iter()
+                    .map(|fn_item| ImplItem::Fn(fn_item.into_syn())),
+            )
             .collect();
 
         ItemImpl {
