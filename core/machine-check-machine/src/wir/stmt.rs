@@ -3,7 +3,7 @@ use syn::{token::Brace, Block, Expr, ExprAssign, ExprBlock, ExprIf, Stmt, Token,
 
 use crate::util::{create_expr_path, create_path_from_ident};
 
-use super::{expr::WExpr, path::WIdent, IntoSyn, YStage};
+use super::{expr::WExpr, path::WIdent, IntoSyn};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WBlock<FT: IntoSyn<Type>> {
@@ -27,13 +27,6 @@ pub struct WStmtIf<FT: IntoSyn<Type>> {
     pub condition: WExpr<FT>,
     pub then_block: WBlock<FT>,
     pub else_block: WBlock<FT>,
-}
-
-#[derive(Clone, Debug, Hash)]
-pub struct WLocal<Y: YStage> {
-    pub ident: WIdent,
-    pub original: WIdent,
-    pub ty: Y::LocalType,
 }
 
 impl<FT: IntoSyn<Type>> IntoSyn<Block> for WBlock<FT> {

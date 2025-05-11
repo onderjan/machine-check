@@ -4,8 +4,8 @@ use crate::{
     wir::{
         WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprStruct, WField,
         WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn, WImplItemType, WItemImpl,
-        WItemStruct, WLocal, WPath, WPathSegment, WSignature, WStmt, WStmtAssign, WStmtIf, WType,
-        YConverted, YInferred,
+        WItemStruct, WPath, WPathSegment, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
+        WType, YConverted, YInferred,
     },
     MachineError,
 };
@@ -55,16 +55,16 @@ impl Converter {
             impls.push(WItemImpl {
                 self_ty: self.convert_basic_path(item_impl.self_ty),
                 trait_: item_impl.trait_.map(|path| self.convert_basic_path(path)),
-                type_items: item_impl
-                    .type_items
+                impl_item_types: item_impl
+                    .impl_item_types
                     .into_iter()
                     .map(|type_item| WImplItemType {
                         left_ident: type_item.left_ident,
                         right_path: self.convert_basic_path(type_item.right_path),
                     })
                     .collect(),
-                fn_items: item_impl
-                    .fn_items
+                impl_item_fns: item_impl
+                    .impl_item_fns
                     .into_iter()
                     .map(|fn_item| self.convert_impl_item_fn(fn_item))
                     .collect(),
@@ -145,7 +145,7 @@ impl Converter {
         let locals = impl_item
             .locals
             .into_iter()
-            .map(|local| WLocal {
+            .map(|local| WSsaLocal {
                 ident: local.ident,
                 original: local.original,
                 ty: self.convert_general_type(local.ty),

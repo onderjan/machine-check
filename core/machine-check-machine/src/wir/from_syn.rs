@@ -1,17 +1,17 @@
 use core::panic;
 
 use syn::{
-    parse::Parser, punctuated::Punctuated, Block, Expr, ExprBlock, ExprPath, GenericArgument,
-    Ident, ImplItem, ImplItemFn, ImplItemType, Item, ItemImpl, ItemStruct, Pat, Path,
-    PathArguments, Stmt, Token, Type, Visibility,
+    parse::Parser, punctuated::Punctuated, Block, Expr, ExprBlock, GenericArgument, Ident,
+    ImplItem, ImplItemFn, ImplItemType, Item, ItemImpl, ItemStruct, Pat, Path, PathArguments, Stmt,
+    Token, Type, Visibility,
 };
 
 use crate::util::{extract_expr_ident, extract_expr_path, extract_path_ident};
 
 use super::*;
 
-impl WDescription<YSsa> {
-    pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> WDescription<YSsa> {
+impl WDescription<YNonindexed> {
+    pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> WDescription<YNonindexed> {
         let mut structs = Vec::new();
         let mut impls = Vec::new();
         for item in item_iter {
@@ -86,7 +86,7 @@ fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
     }
 }
 
-fn fold_item_impl(item: ItemImpl) -> WItemImpl<YSsa> {
+fn fold_item_impl(item: ItemImpl) -> WItemImpl<YNonindexed> {
     let self_ty = {
         match *item.self_ty {
             Type::Path(ty) => {
@@ -116,8 +116,8 @@ fn fold_item_impl(item: ItemImpl) -> WItemImpl<YSsa> {
     WItemImpl {
         self_ty,
         trait_,
-        type_items,
-        fn_items,
+        impl_item_types: type_items,
+        impl_item_fns: fn_items,
     }
 }
 
@@ -132,7 +132,7 @@ fn fold_impl_item_type(impl_item: ImplItemType) -> WImplItemType<WBasicType> {
     }
 }
 
-fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
+fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YNonindexed> {
     let mut inputs = Vec::new();
 
     for input in impl_item.sig.inputs {
@@ -199,28 +199,6 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
 
     for stmt in &impl_item.block.stmts {
         if let Stmt::Local(local) = stmt {
-            let mut original_ident = None;
-            for attr in &local.attrs {
-                match &attr.meta {
-                    syn::Meta::Path(_path) => todo!("Local attr path"),
-                    syn::Meta::List(_meta) => todo!("Local attr list"),
-                    syn::Meta::NameValue(meta) => {
-                        if meta.path.segments.len() == 3
-                            && &meta.path.segments[0].ident.to_string() == "mck"
-                            && &meta.path.segments[1].ident.to_string() == "attr"
-                            && &meta.path.segments[2].ident.to_string() == "tmp_original"
-                        {
-                            let Expr::Path(ExprPath { ref path, .. }) = meta.value else {
-                                panic!("Tmp original should contain a path");
-                            };
-                            original_ident = path.get_ident().cloned();
-                        } else {
-                            todo!("Local attr name-value: {:?}", meta)
-                        }
-                    }
-                }
-            }
-
             let mut pat = local.pat.clone();
             let mut ty = WPartialGeneralType::Unknown;
             if let Pat::Type(pat_type) = pat {
@@ -232,9 +210,8 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YSsa> {
                 panic!("Local pattern should be an ident: {:?}", pat)
             };
 
-            locals.push(WLocal {
+            locals.push(WTacLocal {
                 ident: left_pat_ident.ident.into(),
-                original: original_ident.unwrap().into(),
                 ty,
             });
         }

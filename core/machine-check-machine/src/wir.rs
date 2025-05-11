@@ -1,5 +1,5 @@
 use std::{fmt::Debug, hash::Hash};
-use syn::{File, Item, ItemImpl, Lit, Type};
+use syn::{File, Item, ItemImpl, Lit, Local, Type};
 
 mod expr;
 mod impl_item;
@@ -51,8 +51,19 @@ where
 
 pub trait YStage {
     type FundamentalType: IntoSyn<Type> + Clone + Debug + Hash;
-    type LocalType: IntoSyn<Type> + Clone + Debug + Hash;
     type OutputType: IntoSyn<Type> + Clone + Debug + Hash;
+
+    type Local: IntoSyn<Local> + Clone + Debug + Hash;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct YNonindexed;
+
+impl YStage for YNonindexed {
+    type FundamentalType = WBasicType;
+    type OutputType = WBasicType;
+
+    type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -60,8 +71,9 @@ pub struct YSsa;
 
 impl YStage for YSsa {
     type FundamentalType = WBasicType;
-    type LocalType = WPartialGeneralType<WBasicType>;
     type OutputType = WBasicType;
+
+    type Local = WSsaLocal<WPartialGeneralType<WBasicType>>;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -69,8 +81,9 @@ pub struct YInferred;
 
 impl YStage for YInferred {
     type FundamentalType = WBasicType;
-    type LocalType = WGeneralType<WBasicType>;
     type OutputType = WBasicType;
+
+    type Local = WSsaLocal<WGeneralType<WBasicType>>;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -78,6 +91,7 @@ pub struct YConverted;
 
 impl YStage for YConverted {
     type FundamentalType = WElementaryType;
-    type LocalType = WGeneralType<WElementaryType>;
     type OutputType = WGeneralType<WElementaryType>;
+
+    type Local = WSsaLocal<WGeneralType<WElementaryType>>;
 }

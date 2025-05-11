@@ -1,6 +1,7 @@
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated,
+    spanned::Spanned,
     token::{Bracket, Paren},
     Attribute, FnArg, Generics, ImplItemFn, ImplItemType, Local, MetaNameValue, Pat, PatIdent,
     PatType, Receiver, Signature, Stmt, Token, Type, TypePath,
@@ -9,12 +10,18 @@ use syn_path::path;
 
 use crate::util::{create_expr_path, create_path_from_ident};
 
-use super::{IntoSyn, WBlock, WExpr, WIdent, WLocal, WPath, WReference, WType, YStage};
+use super::{IntoSyn, WBlock, WExpr, WIdent, WPath, WReference, WType, YStage};
+
+#[derive(Clone, Debug, Hash)]
+pub struct WImplItemType<FT: IntoSyn<Type>> {
+    pub left_ident: WIdent,
+    pub right_path: WPath<FT>,
+}
 
 #[derive(Clone, Debug, Hash)]
 pub struct WImplItemFn<Y: YStage> {
     pub signature: WSignature<Y>,
-    pub locals: Vec<WLocal<Y>>,
+    pub locals: Vec<Y::Local>,
     pub block: WBlock<Y::FundamentalType>,
     // TODO: only allow idents in fn result
     pub result: Option<WExpr<Y::FundamentalType>>,
@@ -34,9 +41,16 @@ pub struct WFnArg<FT: IntoSyn<Type>> {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WImplItemType<FT: IntoSyn<Type>> {
-    pub left_ident: WIdent,
-    pub right_path: WPath<FT>,
+pub struct WTacLocal<LT: IntoSyn<Type>> {
+    pub ident: WIdent,
+    pub ty: LT,
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WSsaLocal<LT: IntoSyn<Type>> {
+    pub ident: WIdent,
+    pub original: WIdent,
+    pub ty: LT,
 }
 
 impl<FT: IntoSyn<Type>> IntoSyn<ImplItemType> for WImplItemType<FT> {
@@ -60,10 +74,7 @@ impl<FT: IntoSyn<Type>> IntoSyn<ImplItemType> for WImplItemType<FT> {
     }
 }
 
-impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y>
-where
-    Y::LocalType: IntoSyn<Type>,
-{
+impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
     fn into_syn(self) -> ImplItemFn {
         let span = Span::call_site();
 
@@ -72,39 +83,7 @@ where
         let standard_stmts: Vec<Stmt> = block.stmts.drain(..).collect();
 
         for local in self.locals {
-            let span = local.ident.span;
-
-            let mut pat = Pat::Ident(PatIdent {
-                attrs: Vec::new(),
-                by_ref: None,
-                mutability: None,
-                ident: local.ident.into(),
-                subpat: None,
-            });
-
-            pat = Pat::Type(PatType {
-                attrs: Vec::new(),
-                pat: Box::new(pat),
-                colon_token: Token![:](span),
-                ty: Box::new(local.ty.into_syn()),
-            });
-
-            block.stmts.push(syn::Stmt::Local(Local {
-                attrs: vec![Attribute {
-                    pound_token: Token![#](span),
-                    style: syn::AttrStyle::Outer,
-                    bracket_token: Bracket::default(),
-                    meta: syn::Meta::NameValue(MetaNameValue {
-                        path: path!(::mck::attr::tmp_original),
-                        eq_token: Token![=](span),
-                        value: create_expr_path(create_path_from_ident(local.original.into())),
-                    }),
-                }],
-                let_token: Token![let](span),
-                pat,
-                init: None,
-                semi_token: Token![;](span),
-            }));
+            block.stmts.push(Stmt::Local(local.into_syn()));
         }
 
         block.stmts.extend(standard_stmts);
@@ -171,5 +150,58 @@ where
             },
             block,
         }
+    }
+}
+
+impl<LT: IntoSyn<Type>> IntoSyn<Local> for WTacLocal<LT> {
+    fn into_syn(self) -> Local {
+        ident_type_local(self.ident, self.ty)
+    }
+}
+
+impl<LT: IntoSyn<Type>> IntoSyn<Local> for WSsaLocal<LT> {
+    fn into_syn(self) -> Local {
+        let mut local = ident_type_local(self.ident, self.ty);
+        let span = local.span();
+
+        local.attrs = vec![Attribute {
+            pound_token: Token![#](span),
+            style: syn::AttrStyle::Outer,
+            bracket_token: Bracket::default(),
+            meta: syn::Meta::NameValue(MetaNameValue {
+                path: path!(::mck::attr::tmp_original),
+                eq_token: Token![=](span),
+                value: create_expr_path(create_path_from_ident(self.original.into())),
+            }),
+        }];
+
+        local
+    }
+}
+
+fn ident_type_local<LT: IntoSyn<Type>>(ident: WIdent, ty: LT) -> Local {
+    let span = ident.span;
+
+    let mut pat = Pat::Ident(PatIdent {
+        attrs: Vec::new(),
+        by_ref: None,
+        mutability: None,
+        ident: ident.into(),
+        subpat: None,
+    });
+
+    pat = Pat::Type(PatType {
+        attrs: Vec::new(),
+        pat: Box::new(pat),
+        colon_token: Token![:](span),
+        ty: Box::new(ty.into_syn()),
+    });
+
+    Local {
+        attrs: Vec::new(),
+        let_token: Token![let](span),
+        pat,
+        init: None,
+        semi_token: Token![;](span),
     }
 }

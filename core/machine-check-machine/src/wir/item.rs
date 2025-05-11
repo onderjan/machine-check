@@ -33,8 +33,8 @@ pub struct WField<FT: IntoSyn<Type>> {
 pub struct WItemImpl<Y: YStage> {
     pub self_ty: WPath<Y::FundamentalType>,
     pub trait_: Option<WPath<Y::FundamentalType>>,
-    pub fn_items: Vec<WImplItemFn<Y>>,
-    pub type_items: Vec<WImplItemType<Y::FundamentalType>>,
+    pub impl_item_fns: Vec<WImplItemFn<Y>>,
+    pub impl_item_types: Vec<WImplItemType<Y::FundamentalType>>,
 }
 
 impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
@@ -104,11 +104,11 @@ where
         let span = Span::call_site();
 
         let items = self
-            .type_items
+            .impl_item_types
             .into_iter()
             .map(|type_item| ImplItem::Type(type_item.into_syn()))
             .chain(
-                self.fn_items
+                self.impl_item_fns
                     .into_iter()
                     .map(|fn_item| ImplItem::Fn(fn_item.into_syn())),
             )

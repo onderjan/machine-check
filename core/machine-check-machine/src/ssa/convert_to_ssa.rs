@@ -2,54 +2,48 @@ mod local_visitor;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{support::local::create_let_with_original, MachineError};
-use syn::visit_mut::VisitMut;
-use syn::{ImplItem, ImplItemFn, Item, Pat, Stmt};
+use crate::wir::{WDescription, WImplItemFn, WItemImpl, YNonindexed, YSsa};
+use crate::MachineError;
 
-pub fn convert_to_ssa(items: &mut [Item]) -> Result<(), MachineError> {
-    for item in items.iter_mut() {
-        if let Item::Impl(item_impl) = item {
-            for impl_item in item_impl.items.iter_mut() {
-                if let ImplItem::Fn(impl_item_fn) = impl_item {
-                    process_fn(impl_item_fn)?;
-                }
-            }
+pub fn convert_to_ssa(
+    description: WDescription<YNonindexed>,
+) -> Result<WDescription<YSsa>, MachineError> {
+    let mut impls = Vec::new();
+    for item_impl in description.impls {
+        let mut impl_item_fns = Vec::new();
+        for impl_item_fn in item_impl.impl_item_fns {
+            let impl_item_fn = process_fn(impl_item_fn)?;
+            impl_item_fns.push(impl_item_fn);
         }
+        impls.push(WItemImpl {
+            self_ty: item_impl.self_ty,
+            trait_: item_impl.trait_,
+            impl_item_fns,
+            impl_item_types: item_impl.impl_item_types,
+        });
     }
-    Ok(())
+
+    Ok(WDescription {
+        structs: description.structs,
+        impls,
+    })
 }
 
-fn process_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
+fn process_fn(impl_item_fn: WImplItemFn<YNonindexed>) -> Result<WImplItemFn<YSsa>, MachineError> {
     // TODO: process parameters
 
     // process mutable local idents
     let mut local_ident_counters = BTreeMap::new();
 
-    for stmt in Vec::from_iter(impl_item_fn.block.stmts.drain(..)) {
-        let mut retain_stmt = true;
-        if let Stmt::Local(local) = &stmt {
-            let (pat, ty) = if let Pat::Type(pat_ty) = &local.pat {
-                (pat_ty.pat.as_ref(), Some(pat_ty.ty.as_ref().clone()))
-            } else {
-                (&local.pat, None)
-            };
-            let Pat::Ident(pat_ident) = pat else {
-                panic!("Unexpected non-ident pattern {:?}", pat);
-            };
-            // do not retain the statement and insert to counters
-            local_ident_counters.insert(
-                pat_ident.ident.clone(),
-                local_visitor::Counter {
-                    present: BTreeSet::new(),
-                    next: 0,
-                    ty,
-                },
-            );
-            retain_stmt = false;
-        }
-        if retain_stmt {
-            impl_item_fn.block.stmts.push(stmt);
-        }
+    for local in &impl_item_fn.locals {
+        local_ident_counters.insert(
+            local.ident.clone(),
+            local_visitor::Counter {
+                present: BTreeSet::new(),
+                next: 0,
+                ty: local.ty.clone(),
+            },
+        );
     }
 
     // visit
@@ -60,21 +54,5 @@ fn process_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
         branch_counter: 0,
         uninit_counter: 0,
     };
-    local_visitor.visit_impl_item_fn_mut(impl_item_fn);
-    local_visitor.result?;
-
-    // add temporaries
-    let mut stmts = Vec::new();
-    for (phi_temp_ident, (orig_ident, ty)) in local_visitor.temps {
-        stmts.push(create_let_with_original(
-            phi_temp_ident,
-            orig_ident,
-            ty.clone(),
-        ));
-    }
-
-    stmts.append(&mut impl_item_fn.block.stmts);
-    impl_item_fn.block.stmts = stmts;
-
-    Ok(())
+    local_visitor.process(impl_item_fn)
 }

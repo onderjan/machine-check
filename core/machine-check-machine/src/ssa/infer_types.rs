@@ -23,15 +23,15 @@ pub fn infer_types(
 
         let mut fn_items = Vec::new();
 
-        for fn_item in item_impl.fn_items {
+        for fn_item in item_impl.impl_item_fns {
             fn_items.push(infer_fn_types(fn_item, &structs, self_path)?);
         }
 
         inferred_impls.push(WItemImpl {
             self_ty: item_impl.self_ty,
             trait_: item_impl.trait_,
-            type_items: item_impl.type_items,
-            fn_items,
+            impl_item_types: item_impl.impl_item_types,
+            impl_item_fns: fn_items,
         });
     }
     Ok(WDescription {
@@ -177,7 +177,7 @@ fn update_local_types(
         };
 
         // add type
-        locals.push(WLocal::<YInferred> {
+        locals.push(WSsaLocal {
             ident: local.ident,
             original: local.original,
             ty: inferred_type,
