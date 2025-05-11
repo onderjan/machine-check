@@ -37,12 +37,7 @@ impl VisitMut for LocalVisitor {
         // visit right side first
         visit_mut::visit_expr_mut(self, &mut expr_assign.right);
 
-        let left = if let Expr::Index(expr_index) = expr_assign.left.as_mut() {
-            visit_mut::visit_expr_mut(self, expr_index.index.as_mut());
-            expr_index.expr.as_mut()
-        } else {
-            expr_assign.left.as_mut()
-        };
+        let left = expr_assign.left.as_mut();
 
         // change left to temporary
         let left_ident =
