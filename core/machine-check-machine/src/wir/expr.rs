@@ -1,8 +1,9 @@
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated,
-    token::{Brace, Paren},
-    Expr, ExprCall, ExprField, ExprLit, ExprReference, ExprStruct, FieldValue, Lit, Token, Type,
+    token::{Brace, Bracket, Paren},
+    Expr, ExprCall, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, FieldValue, Lit,
+    Token, Type,
 };
 
 use crate::util::{create_expr_ident, create_expr_path};
@@ -41,7 +42,7 @@ pub enum WCallArg {
 #[derive(Clone, Debug, Hash)]
 pub struct WExprField {
     pub base: WIdent,
-    pub inner: WIdent,
+    pub member: WIdent,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -54,6 +55,24 @@ pub struct WExprStruct<FT: IntoSyn<Type>> {
 pub enum WExprReference {
     Ident(WIdent),
     Field(WExprField),
+}
+
+#[derive(Clone, Debug, Hash)]
+pub enum WIndexedExpr<FT: IntoSyn<Type>> {
+    Indexed(WArrayBaseExpr, WIdent),
+    NonIndexed(WExpr<FT>),
+}
+
+#[derive(Clone, Debug, Hash)]
+pub enum WArrayBaseExpr {
+    Ident(WIdent),
+    Field(WExprField),
+}
+
+#[derive(Clone, Debug, Hash)]
+pub enum WIndexedIdent {
+    Indexed(WIdent, WIdent),
+    NonIndexed(WIdent),
 }
 
 impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExpr<FT> {
@@ -81,7 +100,7 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExpr<FT> {
                 attrs: Vec::new(),
                 base: Box::new(create_expr_ident(expr.base.into())),
                 dot_token: Token![.](span),
-                member: syn::Member::Named(expr.inner.into()),
+                member: syn::Member::Named(expr.member.into()),
             }),
             WExpr::Struct(expr) => {
                 let fields = expr
@@ -112,7 +131,7 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExpr<FT> {
                         attrs: Vec::new(),
                         base: Box::new(create_expr_ident(expr.base.into())),
                         dot_token: Token![.](span),
-                        member: syn::Member::Named(expr.inner.into()),
+                        member: syn::Member::Named(expr.member.into()),
                     }),
                 };
                 Expr::Reference(ExprReference {
@@ -128,4 +147,45 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExpr<FT> {
             }),
         }
     }
+}
+
+impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WIndexedExpr<FT> {
+    fn into_syn(self) -> Expr {
+        match self {
+            WIndexedExpr::Indexed(array, index) => {
+                let array = match array {
+                    WArrayBaseExpr::Ident(ident) => ident.into_syn(),
+                    WArrayBaseExpr::Field(field) => Expr::Field(ExprField {
+                        attrs: Vec::new(),
+                        base: Box::new(field.base.into_syn()),
+                        dot_token: Token![.](index.span),
+                        member: syn::Member::Named(field.member.into()),
+                    }),
+                };
+                indexed_ident(array, index.into_syn())
+            }
+
+            WIndexedExpr::NonIndexed(expr) => expr.into_syn(),
+        }
+    }
+}
+
+impl IntoSyn<Expr> for WIndexedIdent {
+    fn into_syn(self) -> Expr {
+        match self {
+            WIndexedIdent::Indexed(array, index) => {
+                indexed_ident(array.into_syn(), index.into_syn())
+            }
+            WIndexedIdent::NonIndexed(ident) => ident.into_syn(),
+        }
+    }
+}
+
+fn indexed_ident(array: Expr, index: Expr) -> Expr {
+    Expr::Index(ExprIndex {
+        attrs: Vec::new(),
+        expr: Box::new(array),
+        bracket_token: Bracket::default(),
+        index: Box::new(index),
+    })
 }

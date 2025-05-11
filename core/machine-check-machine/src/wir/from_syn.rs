@@ -2,16 +2,16 @@ use core::panic;
 
 use syn::{
     parse::Parser, punctuated::Punctuated, Block, Expr, ExprBlock, GenericArgument, Ident,
-    ImplItem, ImplItemFn, ImplItemType, Item, ItemImpl, ItemStruct, Pat, Path, PathArguments, Stmt,
-    Token, Type, Visibility,
+    ImplItem, ImplItemFn, ImplItemType, Item, ItemImpl, ItemStruct, Member, Pat, Path,
+    PathArguments, Stmt, Token, Type, Visibility,
 };
 
 use crate::util::{extract_expr_ident, extract_expr_path, extract_path_ident};
 
 use super::*;
 
-impl WDescription<YNonindexed> {
-    pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> WDescription<YNonindexed> {
+impl WDescription<YSsa> {
+    pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> WDescription<YTac> {
         let mut structs = Vec::new();
         let mut impls = Vec::new();
         for item in item_iter {
@@ -86,7 +86,7 @@ fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
     }
 }
 
-fn fold_item_impl(item: ItemImpl) -> WItemImpl<YNonindexed> {
+fn fold_item_impl(item: ItemImpl) -> WItemImpl<YTac> {
     let self_ty = {
         match *item.self_ty {
             Type::Path(ty) => {
@@ -132,7 +132,7 @@ fn fold_impl_item_type(impl_item: ImplItemType) -> WImplItemType<WBasicType> {
     }
 }
 
-fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YNonindexed> {
+fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YTac> {
     let mut inputs = Vec::new();
 
     for input in impl_item.sig.inputs {
@@ -227,7 +227,7 @@ fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YNonindexed> {
     }
 }
 
-fn fold_block(block: Block) -> (WBlock<WBasicType>, Option<WExpr<WBasicType>>) {
+fn fold_block(block: Block) -> (WBlock<ZTac>, Option<WExpr<WBasicType>>) {
     let mut orig_stmts = block.stmts;
     let return_ident: Option<WExpr<WBasicType>> =
         if let Some(Stmt::Expr(_, None)) = orig_stmts.last() {
@@ -236,7 +236,10 @@ fn fold_block(block: Block) -> (WBlock<WBasicType>, Option<WExpr<WBasicType>>) {
                 let Stmt::Expr(expr, None) = stmt else {
                     panic!("Return statement should be an expression: {:?}", stmt);
                 };
-                fold_right_expr(expr)
+                let WIndexedExpr::NonIndexed(expr) = fold_right_expr(expr) else {
+                    panic!("Indexed return statement not supported");
+                };
+                expr
             })
         } else {
             None
@@ -253,16 +256,63 @@ fn fold_block(block: Block) -> (WBlock<WBasicType>, Option<WExpr<WBasicType>>) {
                 assert!(semi.is_some());
                 match expr {
                     syn::Expr::Assign(expr) => {
-                        let Expr::Path(left_path) = *expr.left else {
-                            panic!("Assignment left should be path");
+                        let left = match *expr.left {
+                            Expr::Index(expr_index) => {
+                                let Some(base_ident) =
+                                    extract_expr_ident(&expr_index.expr).cloned()
+                                else {
+                                    println!("Left expr: {}", quote::quote! {#expr_index});
+                                    panic!("Left expr base should be ident");
+                                };
+                                let Some(index_ident) =
+                                    extract_expr_ident(&expr_index.index).cloned()
+                                else {
+                                    println!("Left expr: {}", quote::quote! {#expr_index});
+                                    panic!("Left expr index should be ident");
+                                };
+                                WIndexedIdent::Indexed(base_ident.into(), index_ident.into())
+                            }
+                            Expr::Path(_) => {
+                                let Some(left_ident) = extract_expr_ident(&expr.left) else {
+                                    panic!("Assignment left should be ident");
+                                };
+                                WIndexedIdent::NonIndexed(left_ident.clone().into())
+                            }
+                            _ => panic!("Left expr should be ident or index"),
                         };
-                        let Some(left_ident) = left_path.path.get_ident() else {
-                            panic!("Assignment left should be ident");
-                        };
+                        /*
+                                let array_base = if let Some(array_ident) = extract_expr_ident(&expr.left) {
+                                    WArrayBaseExpr::Ident(array_ident.clone().into())
+                                } else {
+                                    match *expr.left {
+                                        Expr::Field(expr_field) => {
+                                            let field_base = extract_expr_ident(&expr_field.base)
+                                                .expect("Indexed field base should be ident")
+                                                .clone()
+                                                .into();
 
+                                            let Member::Named(field_member) = expr_field.member else {
+                                                panic!("Unnamed members not supported");
+                                            };
+                                            WArrayBaseExpr::Field(WExprField {
+                                                base: field_base,
+                                                member: field_member.into(),
+                                            })
+                                        }
+                                        _ => panic!("Expr index array should be ident or field"),
+                                    }
+                                };
+                                let index_ident = extract_expr_ident(&expr_index.index)
+                                    .expect("Expr index should be ident")
+                                    .clone()
+                                    .into();
+
+                        WIndexedExpr::Indexed(array_base, index_ident) */
+
+                        // TODO indexed
                         stmts.push(WStmt::Assign(WStmtAssign {
-                            left_ident: left_ident.clone().into(),
-                            right_expr: fold_right_expr(*expr.right),
+                            left,
+                            right: fold_right_expr(*expr.right),
                         }));
                     }
                     syn::Expr::If(expr_if) => {
@@ -273,8 +323,13 @@ fn fold_block(block: Block) -> (WBlock<WBasicType>, Option<WExpr<WBasicType>>) {
                             panic!("Else should have a block");
                         };
 
+                        let WIndexedExpr::NonIndexed(condition) = fold_right_expr(*expr_if.cond)
+                        else {
+                            panic!("Indexed expressions in conditions not supported");
+                        };
+
                         stmts.push(WStmt::If(WStmtIf {
-                            condition: fold_right_expr(*expr_if.cond),
+                            condition,
                             then_block: fold_block(expr_if.then_branch).0,
                             else_block: fold_block(else_block).0,
                         }));
@@ -295,7 +350,7 @@ fn fold_block(block: Block) -> (WBlock<WBasicType>, Option<WExpr<WBasicType>>) {
     (WBlock { stmts }, return_ident)
 }
 
-fn fold_right_expr(expr: Expr) -> WExpr<WBasicType> {
+fn fold_right_expr(expr: Expr) -> WIndexedExpr<WBasicType> {
     match expr {
         Expr::Call(expr_call) => {
             let args = expr_call
@@ -313,24 +368,24 @@ fn fold_right_expr(expr: Expr) -> WExpr<WBasicType> {
                 })
                 .collect();
 
-            WExpr::Call(WExprCall {
+            WIndexedExpr::NonIndexed(WExpr::Call(WExprCall {
                 fn_path: extract_expr_path(&expr_call.func).unwrap().clone().into(),
                 args,
-            })
+            }))
         }
         Expr::Field(expr_field) => {
             let inner = match expr_field.member {
                 syn::Member::Named(ident) => ident.into(),
                 syn::Member::Unnamed(_index) => panic!("Unnamed members not supported"),
             };
-            WExpr::Field(WExprField {
+            WIndexedExpr::NonIndexed(WExpr::Field(WExprField {
                 base: extract_expr_ident(&expr_field.base).unwrap().clone().into(),
-                inner,
-            })
+                member: inner,
+            }))
         }
-        Expr::Path(expr_path) => {
-            WExpr::Move(extract_path_ident(&expr_path.path).unwrap().clone().into())
-        }
+        Expr::Path(expr_path) => WIndexedExpr::NonIndexed(WExpr::Move(
+            extract_path_ident(&expr_path.path).unwrap().clone().into(),
+        )),
         Expr::Struct(expr_struct) => {
             let args = expr_struct
                 .fields
@@ -348,10 +403,10 @@ fn fold_right_expr(expr: Expr) -> WExpr<WBasicType> {
                     (left, right)
                 })
                 .collect();
-            WExpr::Struct(WExprStruct {
+            WIndexedExpr::NonIndexed(WExpr::Struct(WExprStruct {
                 type_path: expr_struct.path.into(),
                 fields: args,
-            })
+            }))
         }
         Expr::Reference(expr_reference) => match *expr_reference.expr {
             Expr::Path(expr_path) => {
@@ -359,24 +414,55 @@ fn fold_right_expr(expr: Expr) -> WExpr<WBasicType> {
                     panic!("Reference should be to an ident")
                 };
 
-                WExpr::Reference(WExprReference::Ident(ident.clone().into()))
+                WIndexedExpr::NonIndexed(WExpr::Reference(WExprReference::Ident(
+                    ident.clone().into(),
+                )))
             }
             Expr::Field(expr_field) => {
                 let inner = match expr_field.member {
                     syn::Member::Named(ident) => ident.into(),
                     syn::Member::Unnamed(_index) => panic!("Unnamed members not supported"),
                 };
-                WExpr::Reference(WExprReference::Field(WExprField {
+                WIndexedExpr::NonIndexed(WExpr::Reference(WExprReference::Field(WExprField {
                     base: extract_expr_ident(&expr_field.base).unwrap().clone().into(),
-                    inner,
-                }))
+                    member: inner,
+                })))
             }
             _ => panic!(
                 "Unexpected expression inside reference {:?}",
                 expr_reference.expr
             ),
         },
-        Expr::Lit(expr_lit) => WExpr::Lit(expr_lit.lit),
+        Expr::Lit(expr_lit) => WIndexedExpr::NonIndexed(WExpr::Lit(expr_lit.lit)),
+        Expr::Index(expr_index) => {
+            let array_base = if let Some(array_ident) = extract_expr_ident(&expr_index.expr) {
+                WArrayBaseExpr::Ident(array_ident.clone().into())
+            } else {
+                match *expr_index.expr {
+                    Expr::Field(expr_field) => {
+                        let field_base = extract_expr_ident(&expr_field.base)
+                            .expect("Indexed field base should be ident")
+                            .clone()
+                            .into();
+
+                        let Member::Named(field_member) = expr_field.member else {
+                            panic!("Unnamed members not supported");
+                        };
+                        WArrayBaseExpr::Field(WExprField {
+                            base: field_base,
+                            member: field_member.into(),
+                        })
+                    }
+                    _ => panic!("Expr index array should be ident or field"),
+                }
+            };
+            let index_ident = extract_expr_ident(&expr_index.index)
+                .expect("Expr index should be ident")
+                .clone()
+                .into();
+
+            WIndexedExpr::Indexed(array_base, index_ident)
+        }
         _ => panic!("Unexpected right expression {:?}", expr),
     }
 }

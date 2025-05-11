@@ -5,7 +5,7 @@ use crate::{
         WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprStruct, WField,
         WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn, WImplItemType, WItemImpl,
         WItemStruct, WPath, WPathSegment, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
-        WType, YConverted, YInferred,
+        WType, YConverted, YInferred, ZConverted, ZSsa,
     },
     MachineError,
 };
@@ -162,17 +162,17 @@ impl Converter {
 
     fn convert_block(
         &mut self,
-        block: WBlock<WBasicType>,
+        block: WBlock<ZSsa>,
         local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-    ) -> WBlock<WElementaryType> {
+    ) -> WBlock<ZConverted> {
         WBlock {
             stmts: block
                 .stmts
                 .into_iter()
                 .map(|stmt| match stmt {
                     WStmt::Assign(stmt) => WStmt::Assign(WStmtAssign {
-                        left_ident: stmt.left_ident,
-                        right_expr: self.convert_expr(stmt.right_expr, local_types),
+                        left: stmt.left,
+                        right: self.convert_expr(stmt.right, local_types),
                     }),
                     WStmt::If(stmt) => WStmt::If(WStmtIf {
                         condition: self.convert_expr(stmt.condition, local_types),

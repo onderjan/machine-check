@@ -103,7 +103,10 @@ fn convert_expr(
                         }
                     }
                 }
-                Expr::Index(_) => {
+                Expr::Index(expr_index) => {
+                    // force movement of the left index
+                    move_through_temp(temporary_manager, assign_stmts, expr_index.index.as_mut());
+
                     // force movement of right expression
                     convert_expr(temporary_manager, assign_stmts, assign.right.as_mut());
                 }

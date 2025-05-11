@@ -1,212 +1,200 @@
-use syn::Item;
+use proc_macro2::Span;
 
-use crate::{
-    support::block_convert::{block_convert, TemporaryManager},
-    MachineError,
-};
-use syn::{spanned::Spanned, Block, Expr, ExprAssign, ExprInfer, Stmt};
-use syn_path::path;
-
-use crate::{
-    util::{
-        create_expr_call, create_expr_ident, create_expr_path, create_expr_reference,
-        extract_else_block_mut, ArgType,
-    },
-    ErrorType,
+use crate::wir::{
+    WArrayBaseExpr, WBasicType, WBlock, WCallArg, WDescription, WExpr, WExprCall, WExprField,
+    WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl, WPath, WSignature,
+    WStmt, WStmtAssign, WStmtIf, WTacLocal, YNonindexed, YTac, ZSsa, ZTac,
 };
 
-use super::convert_to_tac::move_through_temp;
-
-pub fn convert_indexing(
-    items: &mut [Item],
-    temporary_manager: &mut TemporaryManager,
-) -> Result<(), MachineError> {
-    block_convert(items, temporary_manager, convert_block)
-}
-
-fn convert_block(
-    temporary_manager: &mut TemporaryManager,
-    block: &mut Block,
-) -> Result<(), MachineError> {
-    block.stmts = convert_stmts(temporary_manager, std::mem::take(&mut block.stmts))?;
-    Ok(())
-}
-
-fn convert_stmts(
-    temporary_manager: &mut TemporaryManager,
-    stmts: Vec<Stmt>,
-) -> Result<Vec<Stmt>, MachineError> {
-    let mut processed_stmts = Vec::new();
-    for mut stmt in stmts {
-        let added_stmts = convert_stmt(temporary_manager, &mut stmt)?;
-        processed_stmts.extend(convert_stmts(temporary_manager, added_stmts)?);
-        processed_stmts.push(stmt);
+pub fn convert_indexing(description: WDescription<YTac>) -> WDescription<YNonindexed> {
+    IndexingConverter {
+        created_temporaries: Vec::new(),
+        next_temp_counter: 0,
     }
-    Ok(processed_stmts)
+    .convert_indexing(description)
+}
+struct IndexingConverter {
+    created_temporaries: Vec<WIdent>,
+    next_temp_counter: u64,
 }
 
-fn convert_stmt(
-    temporary_manager: &mut TemporaryManager,
-    stmt: &mut Stmt,
-) -> Result<Vec<Stmt>, MachineError> {
-    let mut added_stmts = Vec::new();
-    match stmt {
-        Stmt::Expr(expr, _semi) => {
-            match expr {
-                syn::Expr::Path(_) | syn::Expr::Struct(_) => {
-                    // OK
-                }
-                syn::Expr::Block(ref mut expr_block) => {
-                    // convert the block
-                    convert_block(temporary_manager, &mut expr_block.block)?;
-                }
-                syn::Expr::If(ref mut expr_if) => {
-                    // convert then and else blocks
-                    convert_block(temporary_manager, &mut expr_if.then_branch)?;
-                    convert_block(
-                        temporary_manager,
-                        extract_else_block_mut(&mut expr_if.else_branch)
-                            .expect("Expected else block"),
-                    )?;
-                }
-                syn::Expr::Assign(ref mut expr_assign) => {
-                    convert_assign(temporary_manager, expr_assign, &mut added_stmts)?;
-                }
-                syn::Expr::Call(_) => {
-                    // no need to convert, the parameters are idents
-                }
-                _ => panic!(
-                    "Unexpected expression type in indexing conversion ({:?})",
-                    expr.span()
-                ),
+impl IndexingConverter {
+    pub fn convert_indexing(
+        &mut self,
+        description: WDescription<YTac>,
+    ) -> WDescription<YNonindexed> {
+        let mut impls = Vec::new();
+        for item_impl in description.impls {
+            let mut impl_item_fns = Vec::new();
+            for impl_item_fn in item_impl.impl_item_fns {
+                let impl_item_fn = self.fold_fn(impl_item_fn);
+                impl_item_fns.push(impl_item_fn);
+            }
+            impls.push(WItemImpl {
+                self_ty: item_impl.self_ty,
+                trait_: item_impl.trait_,
+                impl_item_fns,
+                impl_item_types: item_impl.impl_item_types,
+            });
+        }
+
+        WDescription {
+            structs: description.structs,
+            impls,
+        }
+    }
+
+    fn fold_fn(&mut self, impl_item_fn: WImplItemFn<YTac>) -> WImplItemFn<YNonindexed> {
+        let signature = WSignature {
+            ident: impl_item_fn.signature.ident,
+            inputs: impl_item_fn.signature.inputs,
+            output: impl_item_fn.signature.output,
+        };
+        let block = self.fold_block(impl_item_fn.block);
+        let mut locals = impl_item_fn.locals;
+        for created_temporary in self.created_temporaries.drain(..) {
+            locals.push(WTacLocal {
+                ident: created_temporary,
+                ty: crate::wir::WPartialGeneralType::Unknown,
+            });
+        }
+        WImplItemFn {
+            signature,
+            locals,
+            result: impl_item_fn.result,
+            block,
+        }
+    }
+
+    fn fold_block(&mut self, block: WBlock<ZTac>) -> WBlock<ZSsa> {
+        let mut stmts = Vec::new();
+        for stmt in block.stmts {
+            stmts.extend(self.fold_stmt(stmt));
+        }
+
+        WBlock { stmts }
+    }
+
+    fn fold_stmt(&mut self, stmt: WStmt<ZTac>) -> Vec<WStmt<ZSsa>> {
+        let mut new_stmts = Vec::new();
+        match stmt {
+            WStmt::Assign(stmt) => new_stmts.extend(self.fold_assign(stmt)),
+            WStmt::If(stmt) => {
+                // fold the then and else blocks
+                return vec![WStmt::If(WStmtIf {
+                    condition: stmt.condition,
+                    then_block: self.fold_block(stmt.then_block),
+                    else_block: self.fold_block(stmt.else_block),
+                })];
+            }
+        };
+        new_stmts
+    }
+
+    fn fold_assign(&mut self, stmt: WStmtAssign<ZTac>) -> Vec<WStmt<ZSsa>> {
+        let mut result_stmts = Vec::new();
+
+        let span = match &stmt.left {
+            WIndexedIdent::Indexed(left_array, _left_index) => left_array.span,
+            WIndexedIdent::NonIndexed(ident) => ident.span,
+        };
+
+        // convert indexing to ReadWrite
+
+        let right = match stmt.right {
+            WIndexedExpr::Indexed(right_array, right_index) => {
+                // create a temporary variable for reference to the right array
+                let array_ref_ident = self.create_temporary_ident(span);
+
+                // assign reference to the array
+                result_stmts.push(WStmt::Assign(WStmtAssign {
+                    left: array_ref_ident.clone(),
+                    right: WExpr::Reference(match right_array {
+                        WArrayBaseExpr::Ident(ident) => WExprReference::Ident(ident),
+                        WArrayBaseExpr::Field(wexpr_field) => WExprReference::Field(WExprField {
+                            base: wexpr_field.base,
+                            member: wexpr_field.member,
+                        }),
+                    }),
+                }));
+
+                // the read call consumes the reference and index
+                let read_call = WExprCall {
+                    fn_path: WPath::new_absolute(&["mck", "forward", "ReadWrite", "read"], span),
+                    args: vec![
+                        WCallArg::Ident(array_ref_ident),
+                        WCallArg::Ident(right_index),
+                    ],
+                };
+
+                WExpr::Call(read_call)
+            }
+            WIndexedExpr::NonIndexed(expr) => expr,
+        };
+
+        let (left, right) = match stmt.left {
+            WIndexedIdent::Indexed(left_array, left_index) => {
+                // force left index to become an ident
+
+                // force right to become an ident
+                let right = self.force_move(&mut result_stmts, right);
+
+                // convert to write
+                // create a temporary variable for reference to left array
+                let array_ref_ident = self.create_temporary_ident(span);
+                // assign reference to the array
+                result_stmts.push(WStmt::Assign(WStmtAssign {
+                    left: array_ref_ident.clone(),
+                    right: WExpr::Reference(WExprReference::Ident(left_array.clone())),
+                }));
+
+                // the base is let through
+
+                let write_call = WExprCall {
+                    fn_path: WPath::new_absolute(&["mck", "forward", "ReadWrite", "write"], span),
+                    args: vec![
+                        WCallArg::Ident(array_ref_ident),
+                        WCallArg::Ident(left_index),
+                        WCallArg::Ident(right),
+                    ],
+                };
+                (left_array, WExpr::Call(write_call))
+            }
+            WIndexedIdent::NonIndexed(left) => (left, right),
+        };
+        result_stmts.push(WStmt::Assign(WStmtAssign { left, right }));
+
+        result_stmts
+    }
+
+    fn force_move(&mut self, stmts: &mut Vec<WStmt<ZSsa>>, expr: WExpr<WBasicType>) -> WIdent {
+        let span = Span::call_site();
+        match expr {
+            WExpr::Move(ident) => ident,
+            _ => {
+                let expr_ident = self.create_temporary_ident(span);
+
+                // assign reference to the array
+                stmts.push(WStmt::Assign(WStmtAssign {
+                    left: expr_ident.clone(),
+                    right: expr,
+                }));
+                expr_ident
             }
         }
-        Stmt::Local(_) => {
-            // just retain
-        }
-        _ => {
-            panic!(
-                "Unexpected statement type in indexing conversion ({:?})",
-                stmt.span()
-            );
-        }
     }
-    Ok(added_stmts)
-}
 
-fn convert_assign(
-    temporary_manager: &mut TemporaryManager,
-    expr_assign: &mut ExprAssign,
-    added_stmts: &mut Vec<Stmt>,
-) -> Result<(), MachineError> {
-    // convert indexing to ReadWrite
-    if let Expr::Index(right_expr) = expr_assign.right.as_mut() {
-        // perform forced movement on index
-        move_through_temp(temporary_manager, added_stmts, right_expr.index.as_mut());
+    fn create_temporary_ident(&mut self, span: Span) -> WIdent {
+        let tmp_ident = WIdent {
+            name: format!("__mck_ixtmp_{}", self.next_temp_counter),
+            span,
+        };
+        self.created_temporaries.push(tmp_ident.clone());
 
-        let right_base = std::mem::replace(
-            right_expr.expr.as_mut(),
-            Expr::Infer(ExprInfer {
-                attrs: vec![],
-                underscore_token: Default::default(),
-            }),
-        );
-        let right_index = std::mem::replace(
-            right_expr.index.as_mut(),
-            Expr::Infer(ExprInfer {
-                attrs: vec![],
-                underscore_token: Default::default(),
-            }),
-        );
-
-        // create a temporary variable for reference to right base
-        let tmp_ident = temporary_manager.create_temporary_ident(right_base.span(), None);
-
-        // assign reference to the array
-        added_stmts.push(Stmt::Expr(
-            Expr::Assign(ExprAssign {
-                attrs: vec![],
-                left: Box::new(create_expr_ident(tmp_ident.clone())),
-                eq_token: Default::default(),
-                right: Box::new(create_expr_reference(false, right_base)),
-            }),
-            Some(Default::default()),
-        ));
-        // the read call consumes the reference and index
-        let read_call = create_expr_call(
-            create_expr_path(path!(::mck::forward::ReadWrite::read)),
-            vec![
-                (ArgType::Normal, create_expr_ident(tmp_ident)),
-                (ArgType::Normal, right_index),
-            ],
-        );
-        expr_assign.right = Box::new(read_call);
-    };
-
-    if let Expr::Index(left_expr) = expr_assign.left.as_mut() {
-        // perform forced movement on index and right
-        // perform forced movement on index
-        move_through_temp(temporary_manager, added_stmts, left_expr.index.as_mut());
-        move_through_temp(temporary_manager, added_stmts, &mut expr_assign.right);
-        // convert to write
-        // the base must be without side-effects
-        let left_base = std::mem::replace(
-            left_expr.expr.as_mut(),
-            Expr::Infer(ExprInfer {
-                attrs: vec![],
-                underscore_token: Default::default(),
-            }),
-        );
-        let left_index = std::mem::replace(
-            left_expr.index.as_mut(),
-            Expr::Infer(ExprInfer {
-                attrs: vec![],
-                underscore_token: Default::default(),
-            }),
-        );
-        let right = std::mem::replace(
-            expr_assign.right.as_mut(),
-            Expr::Infer(ExprInfer {
-                attrs: vec![],
-                underscore_token: Default::default(),
-            }),
-        );
-
-        if !matches!(left_base, Expr::Path(_)) {
-            // we do not support non-path bases in assignee expression
-            // this would be hard to detect when normalizing, so detect it here
-            return Err(MachineError::new(
-                ErrorType::UnsupportedConstruct(String::from(
-                    "Non-path base in assignee expression",
-                )),
-                left_base.span(),
-            ));
-        }
-
-        // create a temporary variable for reference to left base
-        let tmp_ident = temporary_manager.create_temporary_ident(left_base.span(), None);
-        // assign reference to the array
-        added_stmts.push(Stmt::Expr(
-            Expr::Assign(ExprAssign {
-                attrs: vec![],
-                left: Box::new(create_expr_ident(tmp_ident.clone())),
-                eq_token: Default::default(),
-                right: Box::new(create_expr_reference(false, left_base.clone())),
-            }),
-            Some(Default::default()),
-        ));
-
-        // the base is let through
-        let write_call = create_expr_call(
-            create_expr_path(path!(::mck::forward::ReadWrite::write)),
-            vec![
-                (ArgType::Normal, create_expr_ident(tmp_ident)),
-                (ArgType::Normal, left_index),
-                (ArgType::Normal, right),
-            ],
-        );
-        expr_assign.left = Box::new(left_base);
-        expr_assign.right = Box::new(write_call);
+        self.next_temp_counter = self
+            .next_temp_counter
+            .checked_add(1)
+            .expect("Temp counter should not overflow");
+        tmp_ident
     }
-    Ok(())
 }

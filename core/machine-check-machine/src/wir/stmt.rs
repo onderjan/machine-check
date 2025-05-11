@@ -1,35 +1,33 @@
 use proc_macro2::Span;
-use syn::{token::Brace, Block, Expr, ExprAssign, ExprBlock, ExprIf, Stmt, Token, Type};
+use syn::{token::Brace, Block, Expr, ExprAssign, ExprBlock, ExprIf, Stmt, Token};
 
-use crate::util::{create_expr_path, create_path_from_ident};
-
-use super::{expr::WExpr, path::WIdent, IntoSyn};
+use super::{expr::WExpr, IntoSyn, ZAssignTypes};
 
 #[derive(Clone, Debug, Hash)]
-pub struct WBlock<FT: IntoSyn<Type>> {
-    pub stmts: Vec<WStmt<FT>>,
+pub struct WBlock<Z: ZAssignTypes> {
+    pub stmts: Vec<WStmt<Z>>,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub enum WStmt<FT: IntoSyn<Type>> {
-    Assign(WStmtAssign<FT>),
-    If(WStmtIf<FT>),
+pub enum WStmt<Z: ZAssignTypes> {
+    Assign(WStmtAssign<Z>),
+    If(WStmtIf<Z>),
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WStmtAssign<FT: IntoSyn<Type>> {
-    pub left_ident: WIdent,
-    pub right_expr: WExpr<FT>,
+pub struct WStmtAssign<Z: ZAssignTypes> {
+    pub left: Z::AssignLeft,
+    pub right: Z::AssignRight,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WStmtIf<FT: IntoSyn<Type>> {
-    pub condition: WExpr<FT>,
-    pub then_block: WBlock<FT>,
-    pub else_block: WBlock<FT>,
+pub struct WStmtIf<Z: ZAssignTypes> {
+    pub condition: WExpr<Z::FundamentalType>,
+    pub then_block: WBlock<Z>,
+    pub else_block: WBlock<Z>,
 }
 
-impl<FT: IntoSyn<Type>> IntoSyn<Block> for WBlock<FT> {
+impl<Z: ZAssignTypes> IntoSyn<Block> for WBlock<Z> {
     fn into_syn(self) -> Block {
         let mut stmts = Vec::new();
 
@@ -37,14 +35,12 @@ impl<FT: IntoSyn<Type>> IntoSyn<Block> for WBlock<FT> {
             let span = Span::call_site();
             match stmt {
                 WStmt::Assign(stmt) => {
-                    let right = stmt.right_expr.into_syn();
+                    let right = stmt.right.into_syn();
 
                     stmts.push(Stmt::Expr(
                         Expr::Assign(ExprAssign {
                             attrs: Vec::new(),
-                            left: Box::new(create_expr_path(create_path_from_ident(
-                                stmt.left_ident.into(),
-                            ))),
+                            left: Box::new(stmt.left.into_syn()),
                             eq_token: Token![=](span),
                             right: Box::new(right),
                         }),

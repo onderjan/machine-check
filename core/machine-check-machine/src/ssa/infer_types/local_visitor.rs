@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::{
     wir::{
         WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn, WItemStruct,
-        WPartialGeneralType, WPath, WReference, WStmtAssign, WType, YSsa,
+        WPartialGeneralType, WPath, WReference, WStmtAssign, WType, YSsa, ZSsa,
     },
     MachineError,
 };
@@ -25,7 +25,7 @@ impl LocalVisitor<'_> {
         self.visit_block(&impl_item.block);
     }
 
-    fn visit_block(&mut self, block: &WBlock<WBasicType>) {
+    fn visit_block(&mut self, block: &WBlock<ZSsa>) {
         for stmt in &block.stmts {
             match stmt {
                 crate::wir::WStmt::Assign(stmt) => {
@@ -40,8 +40,8 @@ impl LocalVisitor<'_> {
         }
     }
 
-    fn visit_assign(&mut self, assign: &WStmtAssign<WBasicType>) {
-        let left_ident = &assign.left_ident;
+    fn visit_assign(&mut self, assign: &WStmtAssign<ZSsa>) {
+        let left_ident = &assign.left;
 
         let Some(ty) = self.local_ident_types.get_mut(left_ident) else {
             // not a local ident, skip
@@ -56,7 +56,7 @@ impl LocalVisitor<'_> {
             let ty = ty.clone();
 
             if let WPartialGeneralType::Normal(left_type) = ty {
-                if let WExpr::Field(right_field) = &assign.right_expr {
+                if let WExpr::Field(right_field) = &assign.right {
                     let base_ident = &right_field.base;
                     if let Some(WPartialGeneralType::PanicResult(inner_type)) =
                         self.local_ident_types.get_mut(base_ident)
@@ -68,7 +68,7 @@ impl LocalVisitor<'_> {
             return;
         }
 
-        let inferred_type = match &assign.right_expr {
+        let inferred_type = match &assign.right {
             WExpr::Move(right_ident) => self.infer_move_result_type(right_ident),
             WExpr::Call(right_call) => self.infer_call_result_type(right_call),
             WExpr::Field(right_field) => self.infer_field_result_type(right_field),
@@ -79,7 +79,7 @@ impl LocalVisitor<'_> {
             }),
             _ => panic!(
                 "Unexpected local assignment expression: {:?}",
-                &assign.right_expr
+                &assign.right
             ),
         };
 
@@ -128,7 +128,7 @@ impl LocalVisitor<'_> {
             return WPartialGeneralType::Unknown;
         };
         for field in &base_struct.fields {
-            if field.ident == right_field.inner {
+            if field.ident == right_field.member {
                 // this is the left type
                 return WPartialGeneralType::Normal(WType {
                     reference: WReference::None,

@@ -1,8 +1,8 @@
 use proc_macro2::Span;
 use std::hash::Hash;
 use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, Ident,
-    Lit, LitInt, Path, PathArguments, PathSegment, Token, Type,
+    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, ExprPath,
+    GenericArgument, Ident, Lit, LitInt, Path, PathArguments, PathSegment, Token, Type,
 };
 
 use super::{IntoSyn, WType};
@@ -221,5 +221,21 @@ impl WIdent {
 impl From<WIdent> for Ident {
     fn from(ident: WIdent) -> Self {
         Ident::new(&ident.name, ident.span)
+    }
+}
+
+impl IntoSyn<Expr> for WIdent {
+    fn into_syn(self) -> Expr {
+        Expr::Path(ExprPath {
+            attrs: Vec::new(),
+            qself: None,
+            path: Path {
+                leading_colon: None,
+                segments: Punctuated::from_iter(vec![PathSegment {
+                    ident: self.into(),
+                    arguments: PathArguments::None,
+                }]),
+            },
+        })
     }
 }

@@ -10,7 +10,7 @@ use syn_path::path;
 
 use crate::util::{create_expr_path, create_path_from_ident};
 
-use super::{IntoSyn, WBlock, WExpr, WIdent, WPath, WReference, WType, YStage};
+use super::{IntoSyn, WBlock, WExpr, WIdent, WPath, WReference, WType, YStage, ZAssignTypes};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WImplItemType<FT: IntoSyn<Type>> {
@@ -22,15 +22,15 @@ pub struct WImplItemType<FT: IntoSyn<Type>> {
 pub struct WImplItemFn<Y: YStage> {
     pub signature: WSignature<Y>,
     pub locals: Vec<Y::Local>,
-    pub block: WBlock<Y::FundamentalType>,
+    pub block: WBlock<Y::AssignTypes>,
     // TODO: only allow idents in fn result
-    pub result: Option<WExpr<Y::FundamentalType>>,
+    pub result: Option<WExpr<<Y::AssignTypes as ZAssignTypes>::FundamentalType>>,
 }
 
 #[derive(Clone, Debug, Hash)]
 pub struct WSignature<Y: YStage> {
     pub ident: WIdent,
-    pub inputs: Vec<WFnArg<Y::FundamentalType>>,
+    pub inputs: Vec<WFnArg<<Y::AssignTypes as ZAssignTypes>::FundamentalType>>,
     pub output: Y::OutputType,
 }
 

@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::{
     wir::{
         WBasicType, WBlock, WCallArg, WExpr, WExprCall, WIdent, WImplItemFn, WPartialGeneralType,
-        WPath, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, YNonindexed, YSsa,
+        WPath, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, YNonindexed, YSsa, ZSsa,
     },
     ErrorType, MachineError,
 };
@@ -59,7 +59,7 @@ impl LocalVisitor {
         })
     }
 
-    fn process_block(&mut self, block: &mut WBlock<WBasicType>) {
+    fn process_block(&mut self, block: &mut WBlock<ZSsa>) {
         let stmts: Vec<_> = block.stmts.drain(..).collect();
         for stmt in stmts {
             match stmt {
@@ -75,10 +75,7 @@ impl LocalVisitor {
         }
     }
 
-    fn process_if(
-        &mut self,
-        mut stmt: WStmtIf<WBasicType>,
-    ) -> impl Iterator<Item = WStmt<WBasicType>> {
+    fn process_if(&mut self, mut stmt: WStmtIf<ZSsa>) -> impl Iterator<Item = WStmt<ZSsa>> {
         // process condition
         self.process_expr(&mut stmt.condition);
 
@@ -196,8 +193,8 @@ impl LocalVisitor {
             let append_ident_span = append_ident.span;
 
             append_stmts.push(WStmt::Assign(WStmtAssign {
-                left_ident: append_ident,
-                right_expr: WExpr::Call(WExprCall {
+                left: append_ident,
+                right: WExpr::Call(WExprCall {
                     fn_path: WPath::new_absolute(
                         &["mck", "forward", "PhiArg", "phi"],
                         append_ident_span,
@@ -212,13 +209,13 @@ impl LocalVisitor {
         std::iter::once(WStmt::If(stmt)).chain(append_stmts)
     }
 
-    fn process_assign(&mut self, stmt: &mut WStmtAssign<WBasicType>) {
+    fn process_assign(&mut self, stmt: &mut WStmtAssign<ZSsa>) {
         // process right side first
-        self.process_expr(&mut stmt.right_expr);
+        self.process_expr(&mut stmt.right);
 
         // change left to temporary if needed
-        if let Some(counter) = self.local_ident_counters.get_mut(&stmt.left_ident) {
-            stmt.left_ident = create_new_temporary(&mut self.temps, &stmt.left_ident, counter);
+        if let Some(counter) = self.local_ident_counters.get_mut(&stmt.left) {
+            stmt.left = create_new_temporary(&mut self.temps, &stmt.left, counter);
         }
     }
 
@@ -279,22 +276,22 @@ impl LocalVisitor {
     }
 }
 
-fn create_taken_assign(phi_arg_ident: WIdent, taken_ident: WIdent) -> WStmt<WBasicType> {
+fn create_taken_assign(phi_arg_ident: WIdent, taken_ident: WIdent) -> WStmt<ZSsa> {
     let span = phi_arg_ident.span;
     WStmt::Assign(WStmtAssign {
-        left_ident: phi_arg_ident,
-        right_expr: WExpr::Call(WExprCall {
+        left: phi_arg_ident,
+        right: WExpr::Call(WExprCall {
             fn_path: WPath::new_absolute(&["mck", "forward", "PhiArg", "Taken"], span),
             args: vec![WCallArg::Ident(taken_ident)],
         }),
     })
 }
 
-fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<WBasicType> {
+fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
     let span = phi_arg_ident.span;
     WStmt::Assign(WStmtAssign {
-        left_ident: phi_arg_ident,
-        right_expr: WExpr::Call(WExprCall {
+        left: phi_arg_ident,
+        right: WExpr::Call(WExprCall {
             fn_path: WPath::new_absolute(&["mck", "forward", "PhiArg", "NotTaken"], span),
             args: vec![],
         }),
@@ -318,7 +315,7 @@ fn create_new_temporary(
 }
 
 fn create_existing_temporary(
-    block: &mut WBlock<WBasicType>,
+    block: &mut WBlock<ZSsa>,
     temps: &mut BTreeMap<WIdent, (WIdent, WPartialGeneralType<WBasicType>)>,
     orig_ident: &WIdent,
     current: Option<u32>,
@@ -332,8 +329,8 @@ fn create_existing_temporary(
         *uninit_counter += 1;
         let span = ident.span;
         let assign_stmt = WStmtAssign {
-            left_ident: ident.clone(),
-            right_expr: WExpr::Call(WExprCall {
+            left: ident.clone(),
+            right: WExpr::Call(WExprCall {
                 fn_path: WPath::new_absolute(&["mck", "concr", "Phi", "uninit"], span),
                 args: vec![],
             }),
