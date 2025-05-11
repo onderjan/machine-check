@@ -69,10 +69,6 @@ pub fn create_let_mut_bare(ident: Ident, ty: Option<Type>) -> Stmt {
     Stmt::Local(create_let_mut_choice(true, ident, None, ty))
 }
 
-pub fn create_local_bare(ident: Ident, ty: Option<Type>) -> Local {
-    create_let_mut_choice(false, ident, None, ty)
-}
-
 pub fn create_assign(left_ident: Ident, right_expr: Expr, semicolon: bool) -> Stmt {
     Stmt::Expr(
         create_assign_expr(left_ident, right_expr),

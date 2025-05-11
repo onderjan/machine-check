@@ -5,9 +5,7 @@ use syn::{
 };
 use syn_path::path;
 
-use super::{
-    create_path_from_ident, extract_path_ident, extract_path_ident_mut, get_field_member, ArgType,
-};
+use super::{create_path_from_ident, extract_path_ident, get_field_member, ArgType};
 
 pub fn create_unit_expr() -> Expr {
     Expr::Tuple(ExprTuple {
@@ -165,10 +163,6 @@ pub fn extract_expr_path_mut(expr: &mut Expr) -> Option<&mut Path> {
 
 pub fn extract_expr_ident(expr: &Expr) -> Option<&Ident> {
     extract_path_ident(extract_expr_path(expr)?)
-}
-
-pub fn extract_expr_ident_mut(expr: &mut Expr) -> Option<&mut Ident> {
-    extract_path_ident_mut(extract_expr_path_mut(expr)?)
 }
 
 pub fn extract_else_token_block(else_branch: &Option<(Else, Box<Expr>)>) -> Option<(Else, &Block)> {

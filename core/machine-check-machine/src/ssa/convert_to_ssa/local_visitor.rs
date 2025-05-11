@@ -261,25 +261,6 @@ impl LocalVisitor {
         }
     }
 
-    fn process_path(&mut self, path: &mut WPath<WBasicType>) {
-        if path.leading_colon {
-            // absolute path, do nothing
-            return;
-        }
-
-        let Some((first_segment, other_segments)) = path.segments.split_first_mut() else {
-            // no segments, do nothing
-            return;
-        };
-        if !other_segments.is_empty() {
-            // multiple segments, do nothing
-            return;
-        }
-
-        // single-ident path, process
-        self.process_ident(&mut first_segment.ident);
-    }
-
     fn process_ident(&mut self, ident: &mut WIdent) {
         // replace ident by temporary if necessary
         if let Some(counter) = self.local_ident_counters.get(ident) {
