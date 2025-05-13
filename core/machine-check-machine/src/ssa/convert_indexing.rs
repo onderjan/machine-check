@@ -1,21 +1,22 @@
 use proc_macro2::Span;
 
-use crate::wir::{
-    WArrayBaseExpr, WBasicType, WBlock, WCallArg, WDescription, WExpr, WExprCall, WExprField,
-    WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl, WPath, WSignature,
-    WStmt, WStmtAssign, WStmtIf, WTacLocal, YNonindexed, YTac, ZSsa, ZTac,
+use crate::{
+    support::ident_creator::IdentCreator,
+    wir::{
+        WArrayBaseExpr, WBasicType, WBlock, WCallArg, WDescription, WExpr, WExprCall, WExprField,
+        WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl, WPath,
+        WSignature, WStmt, WStmtAssign, WStmtIf, WTacLocal, YNonindexed, YTac, ZSsa, ZTac,
+    },
 };
 
 pub fn convert_indexing(description: WDescription<YTac>) -> WDescription<YNonindexed> {
     IndexingConverter {
-        created_temporaries: Vec::new(),
-        next_temp_counter: 0,
+        ident_creator: IdentCreator::new(String::from("index")),
     }
     .convert_indexing(description)
 }
 struct IndexingConverter {
-    created_temporaries: Vec<WIdent>,
-    next_temp_counter: u64,
+    ident_creator: IdentCreator,
 }
 
 impl IndexingConverter {
@@ -52,7 +53,7 @@ impl IndexingConverter {
         };
         let block = self.fold_block(impl_item_fn.block);
         let mut locals = impl_item_fn.locals;
-        for created_temporary in self.created_temporaries.drain(..) {
+        for created_temporary in self.ident_creator.drain_created_temporaries() {
             locals.push(WTacLocal {
                 ident: created_temporary,
                 ty: crate::wir::WPartialGeneralType::Unknown,
@@ -104,7 +105,7 @@ impl IndexingConverter {
         let right = match stmt.right {
             WIndexedExpr::Indexed(right_array, right_index) => {
                 // create a temporary variable for reference to the right array
-                let array_ref_ident = self.create_temporary_ident(span);
+                let array_ref_ident = self.ident_creator.create_temporary_ident(span);
 
                 // assign reference to the array
                 result_stmts.push(WStmt::Assign(WStmtAssign {
@@ -141,7 +142,7 @@ impl IndexingConverter {
 
                 // convert to write
                 // create a temporary variable for reference to left array
-                let array_ref_ident = self.create_temporary_ident(span);
+                let array_ref_ident = self.ident_creator.create_temporary_ident(span);
                 // assign reference to the array
                 result_stmts.push(WStmt::Assign(WStmtAssign {
                     left: array_ref_ident.clone(),
@@ -172,7 +173,7 @@ impl IndexingConverter {
         match expr {
             WExpr::Move(ident) => ident,
             _ => {
-                let expr_ident = self.create_temporary_ident(span);
+                let expr_ident = self.ident_creator.create_temporary_ident(span);
 
                 // assign reference to the array
                 stmts.push(WStmt::Assign(WStmtAssign {
@@ -182,19 +183,5 @@ impl IndexingConverter {
                 expr_ident
             }
         }
-    }
-
-    fn create_temporary_ident(&mut self, span: Span) -> WIdent {
-        let tmp_ident = WIdent {
-            name: format!("__mck_ixtmp_{}", self.next_temp_counter),
-            span,
-        };
-        self.created_temporaries.push(tmp_ident.clone());
-
-        self.next_temp_counter = self
-            .next_temp_counter
-            .checked_add(1)
-            .expect("Temp counter should not overflow");
-        tmp_ident
     }
 }
