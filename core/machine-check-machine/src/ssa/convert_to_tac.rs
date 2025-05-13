@@ -129,32 +129,8 @@ fn convert_expr(
             convert_block(temporary_manager, &mut expr_block.block);
         }
         syn::Expr::If(expr_if) => {
-            // move condition if it is not special
-            let mut should_move = true;
-            if let Expr::Call(cond_expr_call) = expr_if.cond.as_mut() {
-                if let Expr::Path(cond_expr_path) = cond_expr_call.func.as_ref() {
-                    if cond_expr_path.path.leading_colon.is_some() {
-                        let segments = &cond_expr_path.path.segments;
-
-                        // TODO: integrate the special conditions better
-                        if segments.len() == 4
-                            && &segments[0].ident.to_string() == "mck"
-                            && &segments[1].ident.to_string() == "concr"
-                            && &segments[2].ident.to_string() == "Test"
-                            && &segments[3].ident.to_string() == "into_bool"
-                        {
-                            // only move the inside
-                            should_move = false;
-                            for arg in cond_expr_call.args.iter_mut() {
-                                move_through_temp(temporary_manager, assign_stmts, arg);
-                            }
-                        }
-                    }
-                }
-            }
-            if should_move {
-                move_through_temp(temporary_manager, assign_stmts, &mut expr_if.cond);
-            }
+            // move condition
+            move_through_temp(temporary_manager, assign_stmts, &mut expr_if.cond);
             // process then and else blocks
             convert_block(temporary_manager, &mut expr_if.then_branch);
             convert_block(
