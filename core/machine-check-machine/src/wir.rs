@@ -1,5 +1,5 @@
 use std::{fmt::Debug, hash::Hash};
-use syn::{Expr, File, Item, ItemImpl, Lit, Local, Type};
+use syn::{Expr, File, Item, ItemImpl, Local, Type};
 
 mod expr;
 mod impl_item;
