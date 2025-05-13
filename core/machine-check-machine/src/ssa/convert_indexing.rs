@@ -96,8 +96,8 @@ impl IndexingConverter {
         let mut result_stmts = Vec::new();
 
         let span = match &stmt.left {
-            WIndexedIdent::Indexed(left_array, _left_index) => left_array.span,
-            WIndexedIdent::NonIndexed(ident) => ident.span,
+            WIndexedIdent::Indexed(left_array, _left_index) => left_array.span(),
+            WIndexedIdent::NonIndexed(ident) => ident.span(),
         };
 
         // convert indexing to ReadWrite

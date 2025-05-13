@@ -1,10 +1,7 @@
 use syn::{Block, Expr, ExprBlock, Stmt};
 
-use crate::{
-    util::extract_expr_ident,
-    wir::{
-        WBasicType, WBlock, WExpr, WIndexedExpr, WIndexedIdent, WStmt, WStmtAssign, WStmtIf, ZTac,
-    },
+use crate::wir::{
+    WBasicType, WBlock, WExpr, WIndexedExpr, WIndexedIdent, WStmt, WStmtAssign, WStmtIf, ZTac,
 };
 
 impl super::FunctionFolder<'_> {
@@ -57,26 +54,22 @@ impl super::FunctionFolder<'_> {
             syn::Expr::Assign(expr) => {
                 let left = match *expr.left {
                     Expr::Index(expr_index) => {
-                        let Some(base_ident) = extract_expr_ident(&expr_index.expr).cloned() else {
-                            println!("Left expr: {}", quote::quote! {#expr_index});
-                            panic!("Left expr base should be ident");
-                        };
+                        let base_ident = self.fold_expr_as_ident(*expr_index.expr);
+
                         let index_ident =
                             self.force_right_expr_to_ident(*expr_index.index, result_stmts);
-                        WIndexedIdent::Indexed(base_ident.into(), index_ident)
+                        WIndexedIdent::Indexed(base_ident, index_ident)
                     }
-                    Expr::Path(_) => {
-                        let Some(left_ident) = extract_expr_ident(&expr.left) else {
-                            panic!("Assignment left should be ident");
-                        };
-                        WIndexedIdent::NonIndexed(left_ident.clone().into())
+                    Expr::Path(expr_path) => {
+                        let left_ident = self.fold_expr_as_ident(Expr::Path(expr_path));
+
+                        WIndexedIdent::NonIndexed(left_ident.clone())
                     }
                     _ => panic!("Left expr should be ident or index"),
                 };
 
                 let right = self.fold_right_expr(*expr.right, result_stmts);
 
-                // TODO indexed
                 result_stmts.push(WStmt::Assign(WStmtAssign { left, right }));
             }
             syn::Expr::If(expr_if) => {
@@ -99,7 +92,7 @@ impl super::FunctionFolder<'_> {
                 }));
             }
             syn::Expr::Block(expr_block) => {
-                // TODO: there should not be nested blocks here
+                // handle nested blocks
                 let (mut block, result) = self.fold_block(expr_block.block);
                 assert!(result.is_none());
                 result_stmts.append(&mut block.stmts);

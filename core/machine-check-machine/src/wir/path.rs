@@ -177,8 +177,37 @@ impl<FT: IntoSyn<Type>> From<WPath<FT>> for Path {
 
 #[derive(Clone, Debug)]
 pub struct WIdent {
-    pub name: String,
-    pub span: Span,
+    name: String,
+    span: Span,
+}
+
+impl WIdent {
+    pub fn new(name: String, span: Span) -> Self {
+        Self { name, span }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    pub fn from_syn_ident(ident: Ident) -> Self {
+        Self {
+            name: ident.to_string(),
+            span: ident.span(),
+        }
+    }
+
+    pub fn into_path<FT: IntoSyn<Type>>(self) -> WPath<FT> {
+        WPath::from_ident(self)
+    }
 }
 
 impl PartialEq for WIdent {
@@ -209,12 +238,6 @@ impl Ord for WIdent {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // do not consider span for comparison
         self.name.cmp(&other.name)
-    }
-}
-
-impl WIdent {
-    pub fn into_path<FT: IntoSyn<Type>>(self) -> WPath<FT> {
-        WPath::from_ident(self)
     }
 }
 

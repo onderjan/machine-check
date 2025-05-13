@@ -73,22 +73,22 @@ impl super::Converter {
 
         // update
 
-        fn_path.segments[0].ident.name = String::from("mck");
-        fn_path.segments[1].ident.name = String::from("forward");
-        fn_path.segments[2].ident.name = String::from("Bitwise");
+        fn_path.segments[0].ident.set_name(String::from("mck"));
+        fn_path.segments[1].ident.set_name(String::from("forward"));
+        fn_path.segments[2].ident.set_name(String::from("Bitwise"));
 
         // --- Bitwise ---
         if is_bit_not {
-            fn_path.segments[3].ident.name = String::from("bit_not");
+            fn_path.segments[3].ident.set_name(String::from("bit_not"));
         }
         if is_bit_and {
-            fn_path.segments[3].ident.name = String::from("bit_and");
+            fn_path.segments[3].ident.set_name(String::from("bit_and"));
         }
         if is_bit_or {
-            fn_path.segments[3].ident.name = String::from("bit_or");
+            fn_path.segments[3].ident.set_name(String::from("bit_or"));
         }
         if is_bit_xor {
-            fn_path.segments[3].ident.name = String::from("bit_xor");
+            fn_path.segments[3].ident.set_name(String::from("bit_xor"));
         }
         Some(self.convert_basic_path(fn_path))
     }
@@ -96,10 +96,12 @@ impl super::Converter {
     fn convert_arith(&mut self, fn_path: &WPath<WBasicType>) -> Option<WPath<WElementaryType>> {
         if fn_path.matches_absolute(&["std", "ops", "Neg", "neg"]) {
             let mut fn_path = fn_path.clone();
-            fn_path.segments[0].ident.name = String::from("mck");
-            fn_path.segments[1].ident.name = String::from("forward");
-            fn_path.segments[2].ident.name = String::from("HwArith");
-            fn_path.segments[3].ident.name = String::from("arith_neg");
+            fn_path.segments[0].ident.set_name(String::from("mck"));
+            fn_path.segments[1].ident.set_name(String::from("forward"));
+            fn_path.segments[2].ident.set_name(String::from("HwArith"));
+            fn_path.segments[3]
+                .ident
+                .set_name(String::from("arith_neg"));
             return Some(self.convert_basic_path(fn_path));
         }
 
@@ -108,9 +110,9 @@ impl super::Converter {
             || fn_path.matches_absolute(&["std", "ops", "Mul", "mul"])
         {
             let mut fn_path = fn_path.clone();
-            fn_path.segments[0].ident.name = String::from("mck");
-            fn_path.segments[1].ident.name = String::from("forward");
-            fn_path.segments[2].ident.name = String::from("HwArith");
+            fn_path.segments[0].ident.set_name(String::from("mck"));
+            fn_path.segments[1].ident.set_name(String::from("forward"));
+            fn_path.segments[2].ident.set_name(String::from("HwArith"));
             // leave the last segment as-is
             return Some(self.convert_basic_path(fn_path));
         }
@@ -124,9 +126,9 @@ impl super::Converter {
             || fn_path.matches_absolute(&["std", "cmp", "PartialEq", "ne"])
         {
             let mut fn_path = fn_path.clone();
-            fn_path.segments[0].ident.name = String::from("mck");
-            fn_path.segments[1].ident.name = String::from("forward");
-            fn_path.segments[2].ident.name = String::from("TypedEq");
+            fn_path.segments[0].ident.set_name(String::from("mck"));
+            fn_path.segments[1].ident.set_name(String::from("forward"));
+            fn_path.segments[2].ident.set_name(String::from("TypedEq"));
             // leave the last segment as-is
             return Some(self.convert_basic_path(fn_path));
         }
@@ -147,9 +149,9 @@ impl super::Converter {
             return None;
         }
         let mut fn_path = fn_path.clone();
-        fn_path.segments[0].ident.name = String::from("mck");
-        fn_path.segments[1].ident.name = String::from("forward");
-        fn_path.segments[2].ident.name = String::from("TypedCmp");
+        fn_path.segments[0].ident.set_name(String::from("mck"));
+        fn_path.segments[1].ident.set_name(String::from("forward"));
+        fn_path.segments[2].ident.set_name(String::from("TypedCmp"));
 
         // need to know type signedness
         if args.len() != 2 {
@@ -185,7 +187,7 @@ impl super::Converter {
 
         // strength of inequality is preserved when arguments are swapped
         // i.e. a >= b becomes b <= a, a > b becomes b < a
-        let (fn_suffix, swap_args) = match fn_path.segments[3].ident.name.as_str() {
+        let (fn_suffix, swap_args) = match fn_path.segments[3].ident.name() {
             "lt" => ("lt", false),
             "le" => ("le", false),
             "gt" => ("lt", true),
@@ -196,7 +198,9 @@ impl super::Converter {
             args.swap(0, 1);
         }
 
-        fn_path.segments[3].ident.name = format!("{}{}", fn_prefix, fn_suffix);
+        fn_path.segments[3]
+            .ident
+            .set_name(format!("{}{}", fn_prefix, fn_suffix));
 
         Some(Ok(self.convert_basic_path(fn_path)))
     }
@@ -210,19 +214,21 @@ impl super::Converter {
         // --- Shl ---
         if fn_path.matches_absolute(&["std", "ops", "Shl", "shl"]) {
             let mut fn_path = fn_path.clone();
-            fn_path.segments[0].ident.name = String::from("mck");
-            fn_path.segments[1].ident.name = String::from("forward");
-            fn_path.segments[2].ident.name = String::from("HwShift");
-            fn_path.segments[3].ident.name = String::from("logic_shl");
+            fn_path.segments[0].ident.set_name(String::from("mck"));
+            fn_path.segments[1].ident.set_name(String::from("forward"));
+            fn_path.segments[2].ident.set_name(String::from("HwShift"));
+            fn_path.segments[3]
+                .ident
+                .set_name(String::from("logic_shl"));
             return Some(Ok(self.convert_basic_path(fn_path)));
         }
 
         // --- Shr ---
         if fn_path.matches_absolute(&["std", "ops", "Shr", "shr"]) {
             let mut fn_path = fn_path.clone();
-            fn_path.segments[0].ident.name = String::from("mck");
-            fn_path.segments[1].ident.name = String::from("forward");
-            fn_path.segments[2].ident.name = String::from("HwShift");
+            fn_path.segments[0].ident.set_name(String::from("mck"));
+            fn_path.segments[1].ident.set_name(String::from("forward"));
+            fn_path.segments[2].ident.set_name(String::from("HwShift"));
 
             // determine signedness from the first argument
             // note that in Rust, type inference depends on whether Shr is an operation or a call
@@ -246,7 +252,7 @@ impl super::Converter {
             };
 
             let fn_name = if is_signed { "arith_shr" } else { "logic_shr" };
-            fn_path.segments[3].ident.name = String::from(fn_name);
+            fn_path.segments[3].ident.set_name(String::from(fn_name));
             return Some(Ok(self.convert_basic_path(fn_path)));
         }
         None
@@ -283,7 +289,7 @@ impl super::Converter {
         };
 
         let fn_name = if is_signed { "sext" } else { "uext" };
-        fn_path.segments[3].ident.name = String::from(fn_name);
+        fn_path.segments[3].ident.set_name(String::from(fn_name));
         Some(Ok(self.convert_basic_path(fn_path)))
     }
 

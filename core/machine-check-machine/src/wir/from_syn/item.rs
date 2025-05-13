@@ -5,7 +5,10 @@ use syn::{
 
 use crate::{
     support::ident_creator::IdentCreator,
-    wir::{WBasicType, WField, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
+    wir::{
+        from_syn::path::fold_global_path, WBasicType, WField, WIdent, WImplItemType, WItemImpl,
+        WItemStruct, WVisibility, YTac,
+    },
 };
 
 use super::{impl_item_fn::fold_impl_item_fn, ty::fold_basic_type};
@@ -26,7 +29,7 @@ pub fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
                     };
                     derives = parsed
                         .into_pairs()
-                        .map(|pair| pair.into_value().into())
+                        .map(|pair| fold_global_path(pair.into_value()))
                         .collect();
                 } else {
                     todo!("Non-derive meta list");
@@ -54,7 +57,7 @@ pub fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
                     panic!("Unexpected tuple struct");
                 };
                 WField {
-                    ident: field_ident.into(),
+                    ident: WIdent::from_syn_ident(field_ident),
                     ty: fold_basic_type(field.ty),
                 }
             })
@@ -65,7 +68,7 @@ pub fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
     WItemStruct {
         visibility: item.vis.into(),
         derives,
-        ident: item.ident.into(),
+        ident: WIdent::from_syn_ident(item.ident),
         fields,
     }
 }
@@ -75,7 +78,7 @@ pub fn fold_item_impl(item: ItemImpl, ident_creator: &mut IdentCreator) -> WItem
         match *item.self_ty {
             Type::Path(ty) => {
                 assert!(ty.qself.is_none());
-                ty.path.into()
+                fold_global_path(ty.path)
             }
             _ => panic!("Unexpected non-path type: {:?}", *item.self_ty),
         }
@@ -83,7 +86,7 @@ pub fn fold_item_impl(item: ItemImpl, ident_creator: &mut IdentCreator) -> WItem
 
     let trait_ = item.trait_.map(|(not, path, _for_token)| {
         assert!(not.is_none());
-        path.into()
+        fold_global_path(path)
     });
 
     let mut type_items = Vec::new();
@@ -111,8 +114,8 @@ pub fn fold_impl_item_type(impl_item: ImplItemType) -> WImplItemType<WBasicType>
         panic!("Unexpected non-path type: {:?}", ty);
     };
     WImplItemType {
-        left_ident: impl_item.ident.into(),
-        right_path: ty.path.into(),
+        left_ident: WIdent::from_syn_ident(impl_item.ident),
+        right_path: fold_global_path(ty.path),
     }
 }
 

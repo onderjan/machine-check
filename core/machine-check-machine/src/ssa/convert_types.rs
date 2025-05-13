@@ -247,13 +247,13 @@ fn rewrite_basic_path(path: WPath<WBasicType>) -> WPath<WBasicType> {
         || path.starts_with_absolute(&["machine_check", "Signed"])
     {
         let mut path = path_start_to_mck_concr(path);
-        path.segments[2].ident.name = String::from("Bitvector");
+        path.segments[2].ident.set_name(String::from("Bitvector"));
         return path;
     }
 
     if path.starts_with_absolute(&["machine_check", "BitvectorArray"]) {
         let mut path = path_start_to_mck_concr(path);
-        path.segments[2].ident.name = String::from("Array");
+        path.segments[2].ident.set_name(String::from("Array"));
         return path;
     }
 
@@ -266,8 +266,8 @@ fn rewrite_basic_path(path: WPath<WBasicType>) -> WPath<WBasicType> {
 
     if path.starts_with_absolute(&["machine_check", "internal"]) {
         let mut path = path;
-        path.segments[0].ident.name = String::from("mck");
-        path.segments[1].ident.name = String::from("concr");
+        path.segments[0].ident.set_name(String::from("mck"));
+        path.segments[1].ident.set_name(String::from("concr"));
         return path;
     }
     path
@@ -283,15 +283,12 @@ fn path_start_to_mck_forward(path: WPath<WBasicType>) -> WPath<WBasicType> {
 
 fn path_start_to_mck_str(str: &str, mut path: WPath<WBasicType>) -> WPath<WBasicType> {
     let first_ident = &mut path.segments[0].ident;
-    first_ident.name = String::from("mck");
-    let first_ident_span = first_ident.span;
+    first_ident.set_name(String::from("mck"));
+    let first_ident_span = first_ident.span();
     path.segments.insert(
         1,
         WPathSegment {
-            ident: WIdent {
-                name: String::from(str),
-                span: first_ident_span,
-            },
+            ident: WIdent::new(String::from(str), first_ident_span),
             generics: None,
         },
     );

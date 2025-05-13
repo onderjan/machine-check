@@ -1,13 +1,16 @@
-use syn::{ImplItemFn, Pat, Stmt};
+use syn::{Expr, ImplItemFn, Pat, Stmt};
 
 use crate::{
     support::ident_creator::IdentCreator,
+    util::{extract_expr_ident, extract_expr_path},
     wir::{
         from_syn::ty::{fold_basic_type, fold_partial_general_type, fold_type},
         WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WPathSegment,
         WReference, WSignature, WTacLocal, WType, YTac,
     },
 };
+
+use super::path::fold_global_path;
 
 mod expr;
 mod stmt;
@@ -47,19 +50,13 @@ impl FunctionFolder<'_> {
                     };
 
                     inputs.push(WFnArg {
-                        ident: WIdent {
-                            name: String::from("self"),
-                            span,
-                        },
+                        ident: WIdent::new(String::from("self"), span),
                         ty: WType {
                             reference,
                             inner: WBasicType::Path(WPath {
                                 leading_colon: false,
                                 segments: vec![WPathSegment {
-                                    ident: WIdent {
-                                        name: String::from("Self"),
-                                        span,
-                                    },
+                                    ident: WIdent::new(String::from("Self"), span),
                                     generics: None,
                                 }],
                             }),
@@ -72,7 +69,7 @@ impl FunctionFolder<'_> {
                     };
 
                     inputs.push(WFnArg {
-                        ident: pat_ident.ident.into(),
+                        ident: WIdent::from_syn_ident(pat_ident.ident),
                         ty: fold_type(*pat_type.ty),
                     });
                 }
@@ -85,13 +82,14 @@ impl FunctionFolder<'_> {
         };
 
         let signature = WSignature {
-            ident: impl_item.sig.ident.into(),
+            ident: WIdent::from_syn_ident(impl_item.sig.ident),
             inputs,
             output,
         };
 
         let mut locals = Vec::new();
 
+        // TODO this will not work without scope normalisation
         for stmt in &impl_item.block.stmts {
             if let Stmt::Local(local) = stmt {
                 let mut pat = local.pat.clone();
@@ -106,7 +104,7 @@ impl FunctionFolder<'_> {
                 };
 
                 locals.push(WTacLocal {
-                    ident: left_pat_ident.ident.into(),
+                    ident: WIdent::from_syn_ident(left_pat_ident.ident),
                     ty,
                 });
             }
@@ -127,5 +125,31 @@ impl FunctionFolder<'_> {
             block,
             result,
         }
+    }
+
+    fn try_fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, Expr> {
+        if let Some(ident) = extract_expr_ident(&expr).cloned() {
+            // TODO: add scope here
+            Ok(WIdent::from_syn_ident(ident))
+        } else {
+            Err(expr)
+        }
+    }
+
+    fn fold_expr_as_ident(&mut self, expr: Expr) -> WIdent {
+        let Ok(ident) = self.try_fold_expr_as_ident(expr) else {
+            // TODO: this should be an error, not a panic
+            panic!("Expr should be ident");
+        };
+        ident
+    }
+
+    fn fold_expr_as_path(&mut self, expr: Expr) -> WPath<WBasicType> {
+        let Some(path) = extract_expr_path(&expr).cloned() else {
+            // TODO: this should be an error, not a panic
+            panic!("Expr should be path");
+        };
+        // TODO: add scope here
+        fold_global_path(path)
     }
 }

@@ -158,7 +158,7 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WIndexedExpr<FT> {
                     WArrayBaseExpr::Field(field) => Expr::Field(ExprField {
                         attrs: Vec::new(),
                         base: Box::new(field.base.into_syn()),
-                        dot_token: Token![.](index.span),
+                        dot_token: Token![.](index.span()),
                         member: syn::Member::Named(field.member.into()),
                     }),
                 };

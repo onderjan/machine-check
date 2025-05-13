@@ -1,6 +1,8 @@
 use syn::{Expr, GenericArgument, PathArguments, Type};
 
-use crate::wir::{WBasicType, WPartialGeneralType, WReference, WType, WTypeArray};
+use crate::wir::{
+    from_syn::path::fold_global_path, WBasicType, WPartialGeneralType, WReference, WType, WTypeArray,
+};
 
 pub fn fold_type(mut ty: Type) -> WType<WBasicType> {
     let reference = match ty {
@@ -64,7 +66,7 @@ pub fn fold_basic_type(ty: Type) -> WBasicType {
             if let Some(known_type) = known_type {
                 known_type
             } else {
-                WBasicType::Path(ty.path.into())
+                WBasicType::Path(fold_global_path(ty.path))
             }
         }
         _ => panic!("Unexpected non-path type: {:?}", ty),

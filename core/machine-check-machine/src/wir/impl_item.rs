@@ -108,7 +108,7 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
                 generics: Generics::default(),
                 paren_token: Paren::default(),
                 inputs: Punctuated::from_iter(self.signature.inputs.into_iter().map(|fn_arg| {
-                    if &fn_arg.ident.name == "self" {
+                    if fn_arg.ident.name() == "self" {
                         // TODO: prefer typed self once it is well-supported as it is more regular
                         FnArg::Receiver(Receiver {
                             attrs: Vec::new(),
@@ -180,7 +180,7 @@ impl<LT: IntoSyn<Type>> IntoSyn<Local> for WSsaLocal<LT> {
 }
 
 fn ident_type_local<LT: IntoSyn<Type>>(ident: WIdent, ty: LT) -> Local {
-    let span = ident.span;
+    let span = ident.span();
 
     let mut pat = Pat::Ident(PatIdent {
         attrs: Vec::new(),

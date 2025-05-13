@@ -172,7 +172,7 @@ fn update_local_types(
             // inference failure
             return Err(MachineError::new(
                 ErrorType::InferenceFailure,
-                local.ident.span,
+                local.ident.span(),
             ));
         };
 

@@ -251,7 +251,7 @@ impl LocalVisitor {
 
             // create temporary after the if that will phi the then and else temporaries
             let append_ident = create_new_temporary(&mut self.temps, ident, else_counter);
-            let append_ident_span = append_ident.span;
+            let append_ident_span = append_ident.span();
 
             append_stmts.push(WStmt::Assign(WStmtAssign {
                 left: append_ident,
@@ -328,7 +328,7 @@ impl LocalVisitor {
                     ErrorType::IllegalConstruct(String::from(
                         "Variable used before being assigned",
                     )),
-                    ident.span,
+                    ident.span(),
                 ));
                 return;
             };
@@ -338,7 +338,7 @@ impl LocalVisitor {
 }
 
 fn create_taken_assign(phi_arg_ident: WIdent, taken_ident: WIdent) -> WStmt<ZSsa> {
-    let span = phi_arg_ident.span;
+    let span = phi_arg_ident.span();
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprCall {
@@ -349,7 +349,7 @@ fn create_taken_assign(phi_arg_ident: WIdent, taken_ident: WIdent) -> WStmt<ZSsa
 }
 
 fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
-    let span = phi_arg_ident.span;
+    let span = phi_arg_ident.span();
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprCall {
@@ -388,7 +388,7 @@ fn create_existing_temporary(
     } else {
         let ident = construct_prefixed_ident(&format!("uninit_{}", *uninit_counter), orig_ident);
         *uninit_counter += 1;
-        let span = ident.span;
+        let span = ident.span();
         let assign_stmt = WStmtAssign {
             left: ident.clone(),
             right: WExpr::Call(WExprCall {
@@ -407,14 +407,14 @@ fn construct_temp_ident(orig_ident: &WIdent, counter: u32) -> WIdent {
 }
 
 fn construct_prefixed_ident(prefix: &str, orig_ident: &WIdent) -> WIdent {
-    let orig_ident_str = &orig_ident.name;
+    let orig_ident_str = orig_ident.name();
     // make sure everything is prefixed by __mck_ only once at the start
     let stripped_ident_str = orig_ident_str
         .strip_prefix("__mck_")
         .unwrap_or(orig_ident_str);
 
-    WIdent {
-        name: format!("__mck_{}_{}", prefix, stripped_ident_str),
-        span: orig_ident.span,
-    }
+    WIdent::new(
+        format!("__mck_{}_{}", prefix, stripped_ident_str),
+        orig_ident.span(),
+    )
 }

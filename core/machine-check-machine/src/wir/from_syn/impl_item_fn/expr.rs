@@ -2,12 +2,10 @@ use syn::{
     spanned::Spanned, Expr, ExprCall, ExprField, ExprIndex, ExprReference, ExprStruct, Member,
 };
 
-use crate::{
-    util::{extract_expr_ident, extract_expr_path, extract_path_ident},
-    wir::{
-        WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall, WExprField, WExprReference,
-        WExprStruct, WIdent, WIndexedExpr, WIndexedIdent, WStmt, WStmtAssign, ZTac,
-    },
+use crate::wir::{
+    from_syn::path::fold_global_path, WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall,
+    WExprField, WExprReference, WExprStruct, WIdent, WIndexedExpr, WIndexedIdent, WStmt,
+    WStmtAssign, ZTac,
 };
 
 use super::FunctionFolder;
@@ -68,12 +66,9 @@ impl RightExprFolder<'_, '_> {
             Expr::Field(expr_field) => {
                 WIndexedExpr::NonIndexed(WExpr::Field(self.fold_right_expr_field(expr_field)))
             }
-            Expr::Path(expr_path) => WIndexedExpr::NonIndexed(WExpr::Move(
-                extract_path_ident(&expr_path.path)
-                    .expect("Right expr path should be ident")
-                    .clone()
-                    .into(),
-            )),
+            Expr::Path(_) => {
+                WIndexedExpr::NonIndexed(WExpr::Move(self.fn_folder.fold_expr_as_ident(expr)))
+            }
             Expr::Struct(expr_struct) => {
                 WIndexedExpr::NonIndexed(WExpr::Struct(self.fold_right_expr_struct(expr_struct)))
             }
@@ -88,10 +83,8 @@ impl RightExprFolder<'_, '_> {
 
     fn fold_right_expr_call(&mut self, expr_call: ExprCall) -> WExprCall<WBasicType> {
         {
-            let fn_path = extract_expr_path(&expr_call.func)
-                .expect("Call function should be path")
-                .clone()
-                .into();
+            // the function path
+            let fn_path = self.fn_folder.fold_expr_as_path(*expr_call.func);
 
             let mut args = Vec::new();
             for arg in expr_call.args {
@@ -103,16 +96,14 @@ impl RightExprFolder<'_, '_> {
     }
 
     fn fold_right_expr_field(&mut self, expr_field: ExprField) -> WExprField {
-        let inner = match expr_field.member {
-            syn::Member::Named(ident) => ident.into(),
+        // the member is just a regular identifier
+        let member = match expr_field.member {
+            syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
             syn::Member::Unnamed(_index) => panic!("Unnamed members not supported"),
         };
         WExprField {
-            base: extract_expr_ident(&expr_field.base)
-                .expect("Field base should be ident")
-                .clone()
-                .into(),
-            member: inner,
+            base: self.fn_folder.fold_expr_as_ident(*expr_field.base),
+            member,
         }
     }
 
@@ -123,7 +114,7 @@ impl RightExprFolder<'_, '_> {
             .map(|pair| {
                 let field_value = pair.into_value();
                 let left = match field_value.member {
-                    syn::Member::Named(ident) => ident.into(),
+                    syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
                     syn::Member::Unnamed(_) => {
                         panic!("Unnamed struct members not supported")
                     }
@@ -133,7 +124,7 @@ impl RightExprFolder<'_, '_> {
             })
             .collect();
         WExprStruct {
-            type_path: expr_struct.path.into(),
+            type_path: fold_global_path(expr_struct.path),
             fields: args,
         }
     }
@@ -141,15 +132,11 @@ impl RightExprFolder<'_, '_> {
     fn fold_right_expr_reference(&mut self, expr_reference: ExprReference) -> WExprReference {
         match *expr_reference.expr {
             Expr::Path(expr_path) => {
-                let Some(ident) = extract_path_ident(&expr_path.path) else {
-                    panic!("Reference should be to an ident")
-                };
-
-                WExprReference::Ident(ident.clone().into())
+                WExprReference::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path)))
             }
             Expr::Field(expr_field) => {
                 let inner = match expr_field.member {
-                    syn::Member::Named(ident) => ident.into(),
+                    syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
                     syn::Member::Unnamed(_index) => panic!("Unnamed members not supported"),
                 };
                 WExprReference::Field(WExprField {
@@ -165,23 +152,22 @@ impl RightExprFolder<'_, '_> {
     }
 
     fn fold_right_expr_index(&mut self, expr_index: ExprIndex) -> WIndexedExpr<WBasicType> {
-        let array_base = if let Some(array_ident) = extract_expr_ident(&expr_index.expr) {
-            WArrayBaseExpr::Ident(array_ident.clone().into())
-        } else {
-            match *expr_index.expr {
-                Expr::Field(expr_field) => {
-                    let field_base = self.force_ident(*expr_field.base);
-
-                    let Member::Named(field_member) = expr_field.member else {
-                        panic!("Unnamed members not supported");
-                    };
-                    WArrayBaseExpr::Field(WExprField {
-                        base: field_base,
-                        member: field_member.into(),
-                    })
-                }
-                _ => panic!("Expr index array should be ident or field"),
+        let array_base = match *expr_index.expr {
+            Expr::Path(expr_path) => {
+                WArrayBaseExpr::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path)))
             }
+            Expr::Field(expr_field) => {
+                let field_base = self.force_ident(*expr_field.base);
+
+                let Member::Named(field_member) = expr_field.member else {
+                    panic!("Unnamed members not supported");
+                };
+                WArrayBaseExpr::Field(WExprField {
+                    base: field_base,
+                    member: WIdent::from_syn_ident(field_member),
+                })
+            }
+            _ => panic!("Expr index array should be ident or field"),
         };
         let index_ident = self.force_ident(*expr_index.index);
 
@@ -196,10 +182,10 @@ impl RightExprFolder<'_, '_> {
     }
 
     fn force_ident(&mut self, expr: Expr) -> WIdent {
-        if let Some(right) = extract_expr_ident(&expr) {
-            return WIdent::from(right.clone());
+        match self.fn_folder.try_fold_expr_as_ident(expr) {
+            Ok(ident) => ident,
+            Err(expr) => self.move_through_temp(expr),
         }
-        self.move_through_temp(expr)
     }
 
     fn move_through_temp(&mut self, expr: Expr) -> WIdent {
@@ -207,11 +193,8 @@ impl RightExprFolder<'_, '_> {
         // process the expression first before moving it through temporary
         let expr = match expr {
             syn::Expr::Path(_) => {
-                // just extract the identifier
-                let Some(ident) = extract_expr_ident(&expr) else {
-                    panic!("Cannot extract identifier from path expression: {:?}", expr);
-                };
-                return WIdent::from(ident.clone());
+                // just fold as ident
+                return self.fn_folder.fold_expr_as_ident(expr);
             }
             syn::Expr::Paren(paren) => {
                 // move statement in parentheses
