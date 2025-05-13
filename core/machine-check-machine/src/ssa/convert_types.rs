@@ -175,7 +175,7 @@ impl Converter {
                         right: self.convert_expr(stmt.right, local_types),
                     }),
                     WStmt::If(stmt) => WStmt::If(WStmtIf {
-                        condition: self.convert_expr(stmt.condition, local_types),
+                        condition: stmt.condition,
                         then_block: self.convert_block(stmt.then_block, local_types),
                         else_block: self.convert_block(stmt.else_block, local_types),
                     }),

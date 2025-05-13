@@ -1,7 +1,6 @@
 mod convert_indexing;
 mod convert_panic;
 mod convert_to_ssa;
-mod convert_to_tac;
 mod convert_types;
 mod expand_macros;
 mod infer_types;
@@ -11,13 +10,9 @@ mod resolve_use;
 
 use syn::Item;
 
-use crate::{
-    support::block_convert::TemporaryManager, wir::IntoSyn, MachineDescription, MachineError,
-};
+use crate::{wir::IntoSyn, MachineDescription, MachineError};
 
 pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescription, MachineError> {
-    let mut temporary_manager = TemporaryManager::new();
-
     let mut macro_expander = expand_macros::MacroExpander::new();
     loop {
         resolve_use::resolve_use(&mut items)?;
@@ -31,7 +26,6 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
     normalize_constructs::normalize_constructs(&mut items)?;
     convert_panic::convert_panic_demacroed(&mut items)?;
     normalize_scope::normalize_scope(&mut items);
-    convert_to_tac::convert_to_tac(&mut items, &mut temporary_manager);
 
     /*println!(
         "Original syn string:\n{}",

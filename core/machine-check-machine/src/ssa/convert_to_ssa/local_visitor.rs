@@ -76,8 +76,15 @@ impl LocalVisitor {
     }
 
     fn process_if(&mut self, mut stmt: WStmtIf<ZSsa>) -> impl Iterator<Item = WStmt<ZSsa>> {
-        // process condition
-        self.process_expr(&mut stmt.condition);
+        // process the condition if it is an identifier
+        match &mut stmt.condition {
+            WCallArg::Ident(ident) => self.process_ident(ident),
+            WCallArg::Literal(_) => {
+                // do nothing
+            }
+        }
+
+        // process the branches
 
         let current_branch_counter = self.branch_counter;
         self.branch_counter = self

@@ -7,7 +7,7 @@ use syn_path::path;
 
 use crate::util::create_expr_path;
 
-use super::{expr::WExpr, IntoSyn, ZAssignTypes};
+use super::{IntoSyn, WCallArg, ZAssignTypes};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WBlock<Z: ZAssignTypes> {
@@ -28,7 +28,7 @@ pub struct WStmtAssign<Z: ZAssignTypes> {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WStmtIf<Z: ZAssignTypes> {
-    pub condition: WExpr<Z::FundamentalType>,
+    pub condition: WCallArg,
     pub then_block: WBlock<Z>,
     pub else_block: WBlock<Z>,
 }
@@ -56,12 +56,12 @@ impl<Z: ZAssignTypes> IntoSyn<Block> for WBlock<Z> {
                 WStmt::If(stmt) => {
                     // TODO: do not add into_bool
                     let condition = match stmt.condition {
-                        WExpr::Lit(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
-                        _ => Expr::Call(ExprCall {
+                        WCallArg::Literal(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
+                        WCallArg::Ident(ident) => Expr::Call(ExprCall {
                             attrs: vec![],
                             func: Box::new(create_expr_path(path!(::mck::concr::Test::into_bool))),
                             paren_token: Default::default(),
-                            args: Punctuated::from_iter([stmt.condition.into_syn()]),
+                            args: Punctuated::from_iter([ident.into_syn()]),
                         }),
                     };
 
