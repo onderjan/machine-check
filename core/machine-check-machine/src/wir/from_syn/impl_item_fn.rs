@@ -1,24 +1,14 @@
-use syn::{ImplItemFn, ImplItemType, Pat, Stmt, Type};
+use stmt::fold_block;
+use syn::{ImplItemFn, Pat, Stmt};
 
 use crate::wir::{
-    from_syn::{
-        stmt::fold_block,
-        ty::{fold_basic_type, fold_partial_general_type, fold_type},
-    },
-    WBasicType, WFnArg, WIdent, WImplItemFn, WImplItemType, WPartialGeneralType, WPath,
-    WPathSegment, WReference, WSignature, WTacLocal, WType, YTac,
+    from_syn::ty::{fold_basic_type, fold_partial_general_type, fold_type},
+    WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WPathSegment, WReference,
+    WSignature, WTacLocal, WType, YTac,
 };
 
-pub fn fold_impl_item_type(impl_item: ImplItemType) -> WImplItemType<WBasicType> {
-    let ty = impl_item.ty;
-    let Type::Path(ty) = ty else {
-        panic!("Unexpected non-path type: {:?}", ty);
-    };
-    WImplItemType {
-        left_ident: impl_item.ident.into(),
-        right_path: ty.path.into(),
-    }
-}
+mod expr;
+mod stmt;
 
 pub fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YTac> {
     let mut inputs = Vec::new();

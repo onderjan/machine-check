@@ -1,14 +1,11 @@
 use syn::{
-    parse::Parser, punctuated::Punctuated, ImplItem, ItemImpl, ItemStruct, Path, Token, Type,
-    Visibility,
+    parse::Parser, punctuated::Punctuated, ImplItem, ImplItemType, ItemImpl, ItemStruct, Path,
+    Token, Type, Visibility,
 };
 
-use crate::wir::{WBasicType, WField, WItemImpl, WItemStruct, WVisibility, YTac};
+use crate::wir::{WBasicType, WField, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac};
 
-use super::{
-    impl_item::{fold_impl_item_fn, fold_impl_item_type},
-    ty::fold_basic_type,
-};
+use super::{impl_item_fn::fold_impl_item_fn, ty::fold_basic_type};
 
 pub fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
     let mut derives = Vec::new();
@@ -102,6 +99,17 @@ pub fn fold_item_impl(item: ItemImpl) -> WItemImpl<YTac> {
         trait_,
         impl_item_types: type_items,
         impl_item_fns: fn_items,
+    }
+}
+
+pub fn fold_impl_item_type(impl_item: ImplItemType) -> WImplItemType<WBasicType> {
+    let ty = impl_item.ty;
+    let Type::Path(ty) = ty else {
+        panic!("Unexpected non-path type: {:?}", ty);
+    };
+    WImplItemType {
+        left_ident: impl_item.ident.into(),
+        right_path: ty.path.into(),
     }
 }
 

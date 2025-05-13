@@ -5,11 +5,9 @@ use syn::Item;
 
 use super::{WDescription, YTac};
 
-pub mod expr;
-pub mod impl_item;
+pub mod impl_item_fn;
 pub mod item;
 pub mod path;
-pub mod stmt;
 pub mod ty;
 
 impl WDescription<YTac> {
