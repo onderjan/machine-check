@@ -278,18 +278,11 @@ impl PanicConverter {
             true,
         );
 
-        let if_cond_expr = Expr::Call(ExprCall {
-            attrs: vec![],
-            func: Box::new(create_expr_path(path!(::mck::concr::Test::into_bool))),
-            paren_token: Default::default(),
-            args: Punctuated::from_iter([create_expr_ident(cond_tmp_ident)]),
-        });
-
         processed_stmts.push(cond_stmt);
         let if_expr = Expr::If(ExprIf {
             attrs: vec![],
             if_token: Token![if](span),
-            cond: Box::new(if_cond_expr),
+            cond: Box::new(create_expr_ident(cond_tmp_ident)),
             then_branch: Block {
                 brace_token: Default::default(),
                 stmts: vec![assign_stmt],

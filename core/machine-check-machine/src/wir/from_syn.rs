@@ -280,34 +280,6 @@ fn fold_block(block: Block) -> (WBlock<ZTac>, Option<WExpr<WBasicType>>) {
                             }
                             _ => panic!("Left expr should be ident or index"),
                         };
-                        /*
-                                let array_base = if let Some(array_ident) = extract_expr_ident(&expr.left) {
-                                    WArrayBaseExpr::Ident(array_ident.clone().into())
-                                } else {
-                                    match *expr.left {
-                                        Expr::Field(expr_field) => {
-                                            let field_base = extract_expr_ident(&expr_field.base)
-                                                .expect("Indexed field base should be ident")
-                                                .clone()
-                                                .into();
-
-                                            let Member::Named(field_member) = expr_field.member else {
-                                                panic!("Unnamed members not supported");
-                                            };
-                                            WArrayBaseExpr::Field(WExprField {
-                                                base: field_base,
-                                                member: field_member.into(),
-                                            })
-                                        }
-                                        _ => panic!("Expr index array should be ident or field"),
-                                    }
-                                };
-                                let index_ident = extract_expr_ident(&expr_index.index)
-                                    .expect("Expr index should be ident")
-                                    .clone()
-                                    .into();
-
-                        WIndexedExpr::Indexed(array_base, index_ident) */
 
                         // TODO indexed
                         stmts.push(WStmt::Assign(WStmtAssign {

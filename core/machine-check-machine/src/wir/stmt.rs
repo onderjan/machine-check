@@ -1,5 +1,11 @@
 use proc_macro2::Span;
-use syn::{token::Brace, Block, Expr, ExprAssign, ExprBlock, ExprIf, Stmt, Token};
+use syn::{
+    punctuated::Punctuated, token::Brace, Block, Expr, ExprAssign, ExprBlock, ExprCall, ExprIf,
+    ExprLit, Stmt, Token,
+};
+use syn_path::path;
+
+use crate::util::create_expr_path;
 
 use super::{expr::WExpr, IntoSyn, ZAssignTypes};
 
@@ -48,11 +54,22 @@ impl<Z: ZAssignTypes> IntoSyn<Block> for WBlock<Z> {
                     ));
                 }
                 WStmt::If(stmt) => {
+                    // TODO: do not add into_bool
+                    let condition = match stmt.condition {
+                        WExpr::Lit(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
+                        _ => Expr::Call(ExprCall {
+                            attrs: vec![],
+                            func: Box::new(create_expr_path(path!(::mck::concr::Test::into_bool))),
+                            paren_token: Default::default(),
+                            args: Punctuated::from_iter([stmt.condition.into_syn()]),
+                        }),
+                    };
+
                     stmts.push(Stmt::Expr(
                         Expr::If(ExprIf {
                             attrs: Vec::new(),
                             if_token: Token![if](span),
-                            cond: Box::new(stmt.condition.into_syn()),
+                            cond: Box::new(condition),
                             then_branch: stmt.then_block.into_syn(),
                             else_branch: Some((
                                 Token![else](span),

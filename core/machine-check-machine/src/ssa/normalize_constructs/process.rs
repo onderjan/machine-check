@@ -1,7 +1,4 @@
-use syn::{
-    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprBinary, ExprBlock, ExprCall, ExprIf,
-    ExprInfer, ExprUnary, Pat, Stmt,
-};
+use syn::{spanned::Spanned, Block, Expr, ExprBinary, ExprBlock, ExprIf, ExprUnary, Pat, Stmt};
 use syn_path::path;
 
 use crate::util::{create_assign, create_expr_call, create_expr_path, ArgType};
@@ -109,22 +106,6 @@ impl super::Visitor {
                     },
                 })),
             ));
-        }
-
-        // add call to Test if the condition is not a literal
-        // do it after delegation so we do not trigger path error
-        if !matches!(*expr_if.cond, Expr::Lit(_)) {
-            let mut cond = Expr::Infer(ExprInfer {
-                attrs: vec![],
-                underscore_token: Default::default(),
-            });
-            std::mem::swap(&mut cond, &mut expr_if.cond);
-            expr_if.cond = Box::new(Expr::Call(ExprCall {
-                attrs: vec![],
-                func: Box::new(create_expr_path(path!(::mck::concr::Test::into_bool))),
-                paren_token: Default::default(),
-                args: Punctuated::from_iter([cond]),
-            }));
         }
     }
 
