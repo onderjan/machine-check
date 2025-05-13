@@ -29,7 +29,7 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
 
     resolve_use::remove_use(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
-    convert_panic::convert_panic_demacroed(&mut items, &mut temporary_manager)?;
+    convert_panic::convert_panic_demacroed(&mut items)?;
     normalize_scope::normalize_scope(&mut items);
     convert_to_tac::convert_to_tac(&mut items, &mut temporary_manager);
 
