@@ -208,6 +208,19 @@ impl WIdent {
     pub fn into_path<FT: IntoSyn<Type>>(self) -> WPath<FT> {
         WPath::from_ident(self)
     }
+
+    pub fn mck_prefixed(&self, prefix: &str) -> WIdent {
+        let orig_ident_str = self.name();
+        // make sure everything is prefixed by __mck_ only once at the start
+        let stripped_ident_str = orig_ident_str
+            .strip_prefix("__mck_")
+            .unwrap_or(orig_ident_str);
+
+        WIdent::new(
+            format!("__mck_{}_{}", prefix, stripped_ident_str),
+            self.span(),
+        )
+    }
 }
 
 impl PartialEq for WIdent {

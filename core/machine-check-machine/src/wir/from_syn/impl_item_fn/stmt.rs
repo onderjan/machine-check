@@ -1,11 +1,25 @@
-use syn::{Block, Expr, ExprBlock, Stmt};
+use std::collections::HashMap;
+
+use syn::{Block, Expr, ExprBlock, Pat, Stmt};
 
 use crate::wir::{
-    WBasicType, WBlock, WExpr, WIndexedExpr, WIndexedIdent, WStmt, WStmtAssign, WStmtIf, ZTac,
+    from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type},
+    WBasicType, WBlock, WExpr, WIdent, WIndexedExpr, WIndexedIdent, WPartialGeneralType, WStmt,
+    WStmtAssign, WStmtIf, ZTac,
 };
 
 impl super::FunctionFolder {
     pub fn fold_block(&mut self, block: Block) -> (WBlock<ZTac>, Option<WExpr<WBasicType>>) {
+        // push a local scope
+        let scope_id = self.next_scope_id;
+        self.next_scope_id = self
+            .next_scope_id
+            .checked_add(1)
+            .expect("Scope id should not overflow");
+        self.scopes.push(FunctionScope {
+            local_map: HashMap::new(),
+        });
+
         let mut orig_stmts = block.stmts;
 
         let result_stmt = if let Some(Stmt::Expr(_, None)) = orig_stmts.last() {
@@ -18,8 +32,20 @@ impl super::FunctionFolder {
 
         for orig_stmt in orig_stmts {
             match orig_stmt {
-                Stmt::Local(_) => {
-                    // do not process here
+                Stmt::Local(local) => {
+                    let mut pat = local.pat.clone();
+                    let mut ty = WPartialGeneralType::Unknown;
+                    if let Pat::Type(pat_type) = pat {
+                        ty = fold_partial_general_type(*pat_type.ty);
+                        pat = *pat_type.pat;
+                    }
+
+                    let Pat::Ident(left_pat_ident) = pat else {
+                        // TODO: this should be an error
+                        panic!("Local pattern should be an ident: {:?}", pat)
+                    };
+                    let original_ident = WIdent::from_syn_ident(left_pat_ident.ident);
+                    self.add_local_ident(scope_id, original_ident, ty);
                 }
                 Stmt::Expr(stmt_expr, semi) => {
                     assert!(semi.is_some());
@@ -45,6 +71,9 @@ impl super::FunctionFolder {
         } else {
             None
         };
+
+        // pop the local scope, it should exist
+        assert!(self.scopes.pop().is_some());
 
         (WBlock { stmts }, return_ident)
     }

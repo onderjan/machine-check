@@ -50,17 +50,6 @@ pub fn extract_path_ident(path: &Path) -> Option<&Ident> {
     }
 }
 
-pub fn extract_path_ident_mut(path: &mut Path) -> Option<&mut Ident> {
-    if path.leading_colon.is_none()
-        && path.segments.len() == 1
-        && path.segments[0].arguments.is_none()
-    {
-        Some(&mut path.segments[0].ident)
-    } else {
-        None
-    }
-}
-
 pub fn path_matches_global_names(path: &Path, names: &[&'static str]) -> bool {
     if path.leading_colon.is_none() || path.segments.len() != names.len() {
         return false;

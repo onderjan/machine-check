@@ -212,9 +212,9 @@ impl LocalVisitor {
             );
 
             let phi_then_ident =
-                construct_prefixed_ident(&format!("phi_then_{}", current_branch_counter), ident);
+                ident.mck_prefixed(&format!("phi_then_{}", current_branch_counter));
             let phi_else_ident =
-                construct_prefixed_ident(&format!("phi_else_{}", current_branch_counter), ident);
+                ident.mck_prefixed(&format!("phi_else_{}", current_branch_counter));
 
             let ty = match ty {
                 WPartialGeneralType::Unknown => None,
@@ -386,7 +386,7 @@ fn create_existing_temporary(
     if let Some(current) = current {
         construct_temp_ident(orig_ident, current)
     } else {
-        let ident = construct_prefixed_ident(&format!("uninit_{}", *uninit_counter), orig_ident);
+        let ident = orig_ident.mck_prefixed(&format!("uninit_{}", *uninit_counter));
         *uninit_counter += 1;
         let span = ident.span();
         let assign_stmt = WStmtAssign {
@@ -403,18 +403,5 @@ fn create_existing_temporary(
 }
 
 fn construct_temp_ident(orig_ident: &WIdent, counter: u32) -> WIdent {
-    construct_prefixed_ident(&format!("ssa_{}", counter), orig_ident)
-}
-
-fn construct_prefixed_ident(prefix: &str, orig_ident: &WIdent) -> WIdent {
-    let orig_ident_str = orig_ident.name();
-    // make sure everything is prefixed by __mck_ only once at the start
-    let stripped_ident_str = orig_ident_str
-        .strip_prefix("__mck_")
-        .unwrap_or(orig_ident_str);
-
-    WIdent::new(
-        format!("__mck_{}_{}", prefix, stripped_ident_str),
-        orig_ident.span(),
-    )
+    orig_ident.mck_prefixed(&format!("ssa_{}", counter))
 }

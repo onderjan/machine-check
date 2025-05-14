@@ -5,7 +5,6 @@ mod convert_types;
 mod expand_macros;
 mod infer_types;
 mod normalize_constructs;
-mod normalize_scope;
 mod resolve_use;
 
 use syn::Item;
@@ -25,7 +24,6 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
     resolve_use::remove_use(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
     convert_panic::convert_panic_demacroed(&mut items)?;
-    normalize_scope::normalize_scope(&mut items);
 
     /*println!(
         "Original syn string:\n{}",
