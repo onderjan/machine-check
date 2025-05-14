@@ -4,8 +4,8 @@ use crate::{
     wir::{
         WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprStruct, WField,
         WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn, WImplItemType, WItemImpl,
-        WItemStruct, WPanicResultExpr, WPanicResultType, WPath, WPathSegment, WSignature,
-        WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
+        WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt,
+        WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
     },
     MachineError,
 };
@@ -135,11 +135,6 @@ impl Converter {
         };
 
         let block = self.convert_block(impl_item.block, &local_types);
-        let result_expr = self.convert_expr(impl_item.result.expr, &local_types);
-        let result = WPanicResultExpr {
-            expr: result_expr,
-            panic_ident: impl_item.result.panic_ident,
-        };
 
         let locals = impl_item
             .locals
@@ -155,7 +150,7 @@ impl Converter {
             signature,
             locals,
             block,
-            result,
+            result: impl_item.result,
         }
     }
 

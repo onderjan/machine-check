@@ -91,7 +91,7 @@ impl LocalVisitor {
         };
 
         self.process_block(&mut impl_item_fn.block);
-        self.process_expr(&mut impl_item_fn.result.expr);
+        self.process_ident(&mut impl_item_fn.result.result_ident);
         self.process_ident(&mut impl_item_fn.result.panic_ident);
 
         self.result.clone()?;

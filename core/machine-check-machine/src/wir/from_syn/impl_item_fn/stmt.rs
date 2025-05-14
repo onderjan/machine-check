@@ -4,12 +4,11 @@ use syn::{Block, Expr, ExprBlock, Pat, Stmt};
 
 use crate::wir::{
     from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type},
-    WBasicType, WBlock, WExpr, WIdent, WIndexedIdent, WPartialGeneralType, WStmt, WStmtAssign,
-    WStmtIf, ZTac,
+    WBlock, WIdent, WIndexedIdent, WPartialGeneralType, WStmt, WStmtAssign, WStmtIf, ZTac,
 };
 
 impl super::FunctionFolder {
-    pub fn fold_block(&mut self, block: Block) -> (WBlock<ZTac>, Option<WExpr<WBasicType>>) {
+    pub fn fold_block(&mut self, block: Block) -> (WBlock<ZTac>, Option<WIdent>) {
         // push a local scope
         let scope_id = self.next_scope_id;
         self.next_scope_id = self
@@ -55,7 +54,7 @@ impl super::FunctionFolder {
             };
         }
 
-        let return_ident: Option<WExpr<WBasicType>> =
+        let return_ident =
             // has a return statement
             if let Some(result_stmt) = result_stmt {
                 let Stmt::Expr(expr, None) = result_stmt else {
@@ -65,7 +64,7 @@ impl super::FunctionFolder {
                     );
                 };
                 let ident= self.force_right_expr_to_ident(expr, &mut stmts);
-                Some(WExpr::Move(ident))
+                Some(ident)
         } else {
             None
         };

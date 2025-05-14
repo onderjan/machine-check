@@ -24,7 +24,7 @@ pub struct WImplItemFn<Y: YStage> {
     pub locals: Vec<Y::Local>,
     pub block: WBlock<Y::AssignTypes>,
     // TODO: only allow idents in fn result
-    pub result: Y::OutputExpr,
+    pub result: Y::FnResult,
 }
 
 #[derive(Clone, Debug, Hash)]

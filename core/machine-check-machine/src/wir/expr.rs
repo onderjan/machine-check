@@ -2,8 +2,8 @@ use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Bracket, Paren},
-    Expr, ExprCall, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, FieldValue, Ident,
-    Lit, Path, PathArguments, PathSegment, Token, Type,
+    Expr, ExprCall, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, FieldValue, Lit,
+    Token, Type,
 };
 
 use crate::util::{create_expr_ident, create_expr_path};
@@ -73,12 +73,6 @@ pub enum WArrayBaseExpr {
 pub enum WIndexedIdent {
     Indexed(WIdent, WIdent),
     NonIndexed(WIdent),
-}
-
-#[derive(Clone, Debug, Hash)]
-pub struct WPanicResultExpr<FT: IntoSyn<Type>> {
-    pub expr: WExpr<FT>,
-    pub panic_ident: WIdent,
 }
 
 impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExpr<FT> {
@@ -152,52 +146,6 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExpr<FT> {
                 lit,
             }),
         }
-    }
-}
-
-impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WPanicResultExpr<FT> {
-    fn into_syn(self) -> Expr {
-        let span = Span::call_site();
-        let panic_result_path = Path {
-            leading_colon: Some(Token![::](span)),
-            segments: Punctuated::<PathSegment, Token![::]>::from_iter([
-                PathSegment {
-                    ident: Ident::new("mck", span),
-                    arguments: PathArguments::None,
-                },
-                PathSegment {
-                    ident: Ident::new("concr", span),
-                    arguments: PathArguments::None,
-                },
-                PathSegment {
-                    ident: Ident::new("PanicResult", span),
-                    arguments: PathArguments::None,
-                },
-            ]),
-        };
-
-        Expr::Struct(ExprStruct {
-            attrs: vec![],
-            qself: None,
-            path: panic_result_path,
-            brace_token: Default::default(),
-            fields: Punctuated::<FieldValue, Token![,]>::from_iter([
-                FieldValue {
-                    attrs: vec![],
-                    member: syn::Member::Named(Ident::new("panic", span)),
-                    colon_token: Some(Default::default()),
-                    expr: self.panic_ident.into_syn(),
-                },
-                FieldValue {
-                    attrs: vec![],
-                    member: syn::Member::Named(Ident::new("result", span)),
-                    colon_token: Some(Default::default()),
-                    expr: self.expr.into_syn(),
-                },
-            ]),
-            dot2_token: None,
-            rest: None,
-        })
     }
 }
 

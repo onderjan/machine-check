@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 
 use crate::wir::{
-    WDescription, WIdent, WImplItemFn, WItemImpl, WPanicResultExpr, WPanicResultType, WSignature,
+    WDescription, WIdent, WImplItemFn, WItemImpl, WPanicResult, WPanicResultType, WSignature,
     YNonindexed, YTotal,
 };
 
@@ -26,8 +26,8 @@ pub fn convert_total(description: WDescription<YNonindexed>) -> WDescription<YTo
                 signature,
                 locals: item_impl_fn.locals,
                 block: item_impl_fn.block,
-                result: WPanicResultExpr {
-                    expr: item_impl_fn.result,
+                result: WPanicResult {
+                    result_ident: item_impl_fn.result,
                     panic_ident,
                 },
             });
