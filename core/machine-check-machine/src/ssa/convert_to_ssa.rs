@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::wir::{WDescription, WImplItemFn, WItemImpl, YNonindexed, YSsa};
+use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 use crate::MachineError;
 use crate::{
     wir::{
@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub fn convert_to_ssa(
-    description: WDescription<YNonindexed>,
+    description: WDescription<YTotal>,
 ) -> Result<WDescription<YSsa>, MachineError> {
     let mut impls = Vec::new();
     for item_impl in description.impls {
@@ -34,7 +34,7 @@ pub fn convert_to_ssa(
     })
 }
 
-fn process_fn(impl_item_fn: WImplItemFn<YNonindexed>) -> Result<WImplItemFn<YSsa>, MachineError> {
+fn process_fn(impl_item_fn: WImplItemFn<YTotal>) -> Result<WImplItemFn<YSsa>, MachineError> {
     // TODO: process parameters
 
     // process mutable local idents
@@ -80,7 +80,7 @@ struct Counter {
 impl LocalVisitor {
     pub fn process(
         &mut self,
-        mut impl_item_fn: WImplItemFn<YNonindexed>,
+        mut impl_item_fn: WImplItemFn<YTotal>,
     ) -> Result<WImplItemFn<YSsa>, MachineError> {
         let signature = WSignature {
             ident: impl_item_fn.signature.ident,

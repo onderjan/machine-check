@@ -107,11 +107,20 @@ impl YStage for YNonindexed {
 }
 
 #[derive(Clone, Debug, Hash)]
+pub struct YTotal;
+
+impl YStage for YTotal {
+    type AssignTypes = ZSsa;
+    type OutputType = WPanicResultType<WBasicType>;
+    type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
+}
+
+#[derive(Clone, Debug, Hash)]
 pub struct YSsa;
 
 impl YStage for YSsa {
     type AssignTypes = ZSsa;
-    type OutputType = WBasicType;
+    type OutputType = WPanicResultType<WBasicType>;
 
     type Local = WSsaLocal<WPartialGeneralType<WBasicType>>;
 }
@@ -121,7 +130,7 @@ pub struct YInferred;
 
 impl YStage for YInferred {
     type AssignTypes = ZSsa;
-    type OutputType = WBasicType;
+    type OutputType = WPanicResultType<WBasicType>;
     type Local = WSsaLocal<WGeneralType<WBasicType>>;
 }
 
@@ -130,7 +139,7 @@ pub struct YConverted;
 
 impl YStage for YConverted {
     type AssignTypes = ZConverted;
-    type OutputType = WGeneralType<WElementaryType>;
+    type OutputType = WPanicResultType<WElementaryType>;
 
     type Local = WSsaLocal<WGeneralType<WElementaryType>>;
 }

@@ -24,20 +24,14 @@ pub enum WElementaryType {
     Path(WPath<WElementaryType>),
 }
 
-impl WElementaryType {
-    pub fn into_type(self) -> WType<WElementaryType> {
-        WType {
-            reference: WReference::None,
-            inner: self,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WType<FT: IntoSyn<Type>> {
     pub reference: WReference,
     pub inner: FT,
 }
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct WPanicResultType<T: IntoSyn<Type>>(pub T);
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WGeneralType<FT: IntoSyn<Type>> {
@@ -154,37 +148,45 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WGeneralType<FT> {
     }
 }
 
+impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPanicResultType<FT> {
+    fn into_syn(self) -> Type {
+        panic_result_syn_type(Some(self.0))
+    }
+}
+
+fn panic_result_syn_type<FT: IntoSyn<Type>>(inner: Option<FT>) -> Type {
+    let span = Span::call_site();
+    let mut segments =
+        Punctuated::from_iter(["mck", "concr", "PanicResult"].into_iter().map(|name| {
+            PathSegment {
+                ident: Ident::new(name, span),
+                arguments: PathArguments::None,
+            }
+        }));
+    if let Some(inner) = inner {
+        let inner = inner.into_syn();
+        segments[2].arguments = PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+            colon2_token: None,
+            lt_token: Token![<](span),
+            args: Punctuated::from_iter(vec![GenericArgument::Type(inner)]),
+            gt_token: Token![>](span),
+        });
+    }
+    Type::Path(TypePath {
+        qself: None,
+        path: Path {
+            leading_colon: Some(Token![::](span)),
+            segments,
+        },
+    })
+}
+
 impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPartialGeneralType<FT> {
     fn into_syn(self) -> Type {
         let span = Span::call_site();
         match self {
             WPartialGeneralType::Normal(normal) => normal.into_syn(),
-            WPartialGeneralType::PanicResult(inner) => {
-                let mut segments =
-                    Punctuated::from_iter(["mck", "concr", "PanicResult"].into_iter().map(
-                        |name| PathSegment {
-                            ident: Ident::new(name, span),
-                            arguments: PathArguments::None,
-                        },
-                    ));
-                if let Some(inner) = inner {
-                    let inner = inner.into_syn();
-                    segments[2].arguments =
-                        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                            colon2_token: None,
-                            lt_token: Token![<](span),
-                            args: Punctuated::from_iter(vec![GenericArgument::Type(inner)]),
-                            gt_token: Token![>](span),
-                        });
-                }
-                Type::Path(TypePath {
-                    qself: None,
-                    path: Path {
-                        leading_colon: Some(Token![::](span)),
-                        segments,
-                    },
-                })
-            }
+            WPartialGeneralType::PanicResult(inner) => panic_result_syn_type(inner),
             WPartialGeneralType::PhiArg(inner) => {
                 let span = Span::call_site();
                 let mut segments =

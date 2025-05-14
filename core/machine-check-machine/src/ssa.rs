@@ -1,6 +1,7 @@
 mod convert_indexing;
 mod convert_panic;
 mod convert_to_ssa;
+mod convert_total;
 mod convert_types;
 mod expand_macros;
 mod infer_types;
@@ -38,6 +39,7 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
 
     let w_description = super::wir::WDescription::from_syn(items.clone().into_iter());
     let w_description = convert_indexing::convert_indexing(w_description);
+    let w_description = convert_total::convert_total(w_description);
     let w_description = convert_to_ssa::convert_to_ssa(w_description)?;
     let w_description = infer_types::infer_types(w_description)?;
     let w_description = convert_types::convert_types(w_description)?;

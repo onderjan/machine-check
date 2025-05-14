@@ -4,8 +4,8 @@ use crate::{
     wir::{
         WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprStruct, WField,
         WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn, WImplItemType, WItemImpl,
-        WItemStruct, WPath, WPathSegment, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
-        WType, YConverted, YInferred, ZConverted, ZSsa,
+        WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt,
+        WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
     },
     MachineError,
 };
@@ -117,11 +117,8 @@ impl Converter {
             local_types.insert(input.ident.clone(), WGeneralType::Normal(input.ty.clone()));
         }
 
-        // TODO: make the outputs PanicResult earlier when resolving panics
-        let output = WGeneralType::PanicResult(
-            self.convert_basic_type(impl_item.signature.output)
-                .into_type(),
-        );
+        // convert the type inside the panic result type to elementary type
+        let output = WPanicResultType(self.convert_basic_type(impl_item.signature.output.0));
 
         let signature = WSignature {
             ident: impl_item.signature.ident,
