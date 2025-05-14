@@ -15,21 +15,18 @@ use super::path::fold_global_path;
 mod expr;
 mod stmt;
 
-pub fn fold_impl_item_fn(
-    impl_item: ImplItemFn,
-    ident_creator: &mut IdentCreator,
-) -> WImplItemFn<YTac> {
-    // TODO: there should be a separate ident creator for every function
-    // there seems to be a problem in backward conversion type discovery
-    // if there are multiple same-ident temporaries in different functions
-    FunctionFolder { ident_creator }.fold(impl_item)
+pub fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YTac> {
+    FunctionFolder {
+        ident_creator: IdentCreator::new(String::from("")),
+    }
+    .fold(impl_item)
 }
 
-struct FunctionFolder<'a> {
-    ident_creator: &'a mut IdentCreator,
+struct FunctionFolder {
+    ident_creator: IdentCreator,
 }
 
-impl FunctionFolder<'_> {
+impl FunctionFolder {
     pub fn fold(mut self, impl_item: ImplItemFn) -> WImplItemFn<YTac> {
         let mut inputs = Vec::new();
 

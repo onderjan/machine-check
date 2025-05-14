@@ -10,7 +10,7 @@ use crate::wir::{
 
 use super::FunctionFolder;
 
-impl super::FunctionFolder<'_> {
+impl super::FunctionFolder {
     pub fn fold_right_expr(
         &mut self,
         expr: Expr,
@@ -52,12 +52,12 @@ impl super::FunctionFolder<'_> {
     }
 }
 
-struct RightExprFolder<'a, 'b> {
-    fn_folder: &'a mut FunctionFolder<'b>,
+struct RightExprFolder<'a> {
+    fn_folder: &'a mut FunctionFolder,
     stmts: &'a mut Vec<WStmt<ZTac>>,
 }
 
-impl RightExprFolder<'_, '_> {
+impl RightExprFolder<'_> {
     pub fn fold_right_expr(&mut self, expr: Expr) -> WIndexedExpr<WBasicType> {
         match expr {
             Expr::Call(expr_call) => {

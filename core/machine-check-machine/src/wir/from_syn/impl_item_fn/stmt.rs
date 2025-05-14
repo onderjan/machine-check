@@ -4,7 +4,7 @@ use crate::wir::{
     WBasicType, WBlock, WExpr, WIndexedExpr, WIndexedIdent, WStmt, WStmtAssign, WStmtIf, ZTac,
 };
 
-impl super::FunctionFolder<'_> {
+impl super::FunctionFolder {
     pub fn fold_block(&mut self, block: Block) -> (WBlock<ZTac>, Option<WExpr<WBasicType>>) {
         let mut orig_stmts = block.stmts;
 

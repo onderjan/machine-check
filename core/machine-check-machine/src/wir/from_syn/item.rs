@@ -3,12 +3,9 @@ use syn::{
     Token, Type, Visibility,
 };
 
-use crate::{
-    support::ident_creator::IdentCreator,
-    wir::{
-        from_syn::path::fold_global_path, WBasicType, WField, WIdent, WImplItemType, WItemImpl,
-        WItemStruct, WVisibility, YTac,
-    },
+use crate::wir::{
+    from_syn::path::fold_global_path, WBasicType, WField, WIdent, WImplItemType, WItemImpl,
+    WItemStruct, WVisibility, YTac,
 };
 
 use super::{impl_item_fn::fold_impl_item_fn, ty::fold_basic_type};
@@ -73,7 +70,7 @@ pub fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
     }
 }
 
-pub fn fold_item_impl(item: ItemImpl, ident_creator: &mut IdentCreator) -> WItemImpl<YTac> {
+pub fn fold_item_impl(item: ItemImpl) -> WItemImpl<YTac> {
     let self_ty = {
         match *item.self_ty {
             Type::Path(ty) => {
@@ -95,7 +92,7 @@ pub fn fold_item_impl(item: ItemImpl, ident_creator: &mut IdentCreator) -> WItem
     for impl_item in item.items {
         match impl_item {
             ImplItem::Type(impl_item) => type_items.push(fold_impl_item_type(impl_item)),
-            ImplItem::Fn(impl_item) => fn_items.push(fold_impl_item_fn(impl_item, ident_creator)),
+            ImplItem::Fn(impl_item) => fn_items.push(fold_impl_item_fn(impl_item)),
             _ => panic!("Unexpected type of impl item: {:?}", impl_item),
         }
     }
