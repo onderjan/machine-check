@@ -16,9 +16,8 @@ use crate::{
 };
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprBlock, ExprCall, ExprIf, ExprInfer,
-    ExprStruct, ExprTuple, FieldValue, Ident, ImplItem, ImplItemFn, Item, Path, PathArguments,
-    PathSegment, Stmt, Token, Type,
+    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprBlock, ExprCall, ExprIf, Ident,
+    ImplItem, ImplItemFn, Item, Path, PathArguments, PathSegment, Stmt, Token, Type,
 };
 use syn_path::path;
 
@@ -52,7 +51,7 @@ fn convert_demacroed_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineErro
     impl_item_fn.block.stmts.insert(1, assign_stmt);
 
     // return panic version of original result
-    let last_stmt = impl_item_fn.block.stmts.last_mut();
+    /*let last_stmt = impl_item_fn.block.stmts.last_mut();
     let last_expr = if let Some(Stmt::Expr(expr, None)) = last_stmt {
         // result expression
         ::std::mem::replace(
@@ -102,7 +101,7 @@ fn convert_demacroed_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineErro
         *last_expr = return_expr;
     } else {
         impl_item_fn.block.stmts.push(Stmt::Expr(return_expr, None));
-    }
+    }*/
 
     // convert the block
     let mut panic_converter = PanicConverter {

@@ -4,8 +4,8 @@ use syn::{Block, Expr, ExprBlock, Pat, Stmt};
 
 use crate::wir::{
     from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type},
-    WBasicType, WBlock, WExpr, WIdent, WIndexedExpr, WIndexedIdent, WPartialGeneralType, WStmt,
-    WStmtAssign, WStmtIf, ZTac,
+    WBasicType, WBlock, WExpr, WIdent, WIndexedIdent, WPartialGeneralType, WStmt, WStmtAssign,
+    WStmtIf, ZTac,
 };
 
 impl super::FunctionFolder {
@@ -64,10 +64,8 @@ impl super::FunctionFolder {
                         result_stmt
                     );
                 };
-                let WIndexedExpr::NonIndexed(last_expr) = self.fold_right_expr(expr, &mut stmts) else {
-                    panic!("Indexed result expression not supported");
-                };
-                Some(last_expr)
+                let ident= self.force_right_expr_to_ident(expr, &mut stmts);
+                Some(WExpr::Move(ident))
         } else {
             None
         };

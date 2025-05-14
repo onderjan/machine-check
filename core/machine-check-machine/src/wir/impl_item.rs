@@ -10,7 +10,7 @@ use syn_path::path;
 
 use crate::util::{create_expr_path, create_path_from_ident};
 
-use super::{IntoSyn, WBlock, WExpr, WIdent, WPath, WReference, WType, YStage, ZAssignTypes};
+use super::{IntoSyn, WBlock, WIdent, WPath, WReference, WType, YStage, ZAssignTypes};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WImplItemType<FT: IntoSyn<Type>> {
@@ -24,7 +24,7 @@ pub struct WImplItemFn<Y: YStage> {
     pub locals: Vec<Y::Local>,
     pub block: WBlock<Y::AssignTypes>,
     // TODO: only allow idents in fn result
-    pub result: Option<WExpr<<Y::AssignTypes as ZAssignTypes>::FundamentalType>>,
+    pub result: Y::OutputExpr,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -87,10 +87,7 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
         }
 
         block.stmts.extend(standard_stmts);
-
-        if let Some(result) = self.result {
-            block.stmts.push(Stmt::Expr(result.into_syn(), None));
-        }
+        block.stmts.push(Stmt::Expr(self.result.into_syn(), None));
 
         ImplItemFn {
             // TODO: attrs

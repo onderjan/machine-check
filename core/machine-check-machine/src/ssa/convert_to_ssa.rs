@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
+use syn::Type;
+
+use crate::wir::{IntoSyn, WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 use crate::MachineError;
 use crate::{
     wir::{
@@ -89,9 +91,8 @@ impl LocalVisitor {
         };
 
         self.process_block(&mut impl_item_fn.block);
-        if let Some(fn_result) = &mut impl_item_fn.result {
-            self.process_expr(fn_result);
-        }
+        self.process_expr(&mut impl_item_fn.result.expr);
+        self.process_ident(&mut impl_item_fn.result.panic_ident);
 
         self.result.clone()?;
 
@@ -280,7 +281,7 @@ impl LocalVisitor {
         }
     }
 
-    fn process_expr(&mut self, expr: &mut WExpr<WBasicType>) {
+    fn process_expr<T: IntoSyn<Type>>(&mut self, expr: &mut WExpr<T>) {
         match expr {
             WExpr::Move(ident) => self.process_ident(ident),
             WExpr::Call(expr) => {

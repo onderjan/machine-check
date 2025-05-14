@@ -85,6 +85,7 @@ impl ZAssignTypes for ZConverted {
 pub trait YStage {
     type AssignTypes: ZAssignTypes + Clone + Debug + Hash;
     type OutputType: IntoSyn<Type> + Clone + Debug + Hash;
+    type OutputExpr: IntoSyn<Expr> + Clone + Debug + Hash;
     type Local: IntoSyn<Local> + Clone + Debug + Hash;
 }
 
@@ -94,6 +95,7 @@ pub struct YTac;
 impl YStage for YTac {
     type AssignTypes = ZTac;
     type OutputType = WBasicType;
+    type OutputExpr = WExpr<WBasicType>;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
 }
 
@@ -103,6 +105,7 @@ pub struct YNonindexed;
 impl YStage for YNonindexed {
     type AssignTypes = ZSsa;
     type OutputType = WBasicType;
+    type OutputExpr = WExpr<WBasicType>;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
 }
 
@@ -112,6 +115,7 @@ pub struct YTotal;
 impl YStage for YTotal {
     type AssignTypes = ZSsa;
     type OutputType = WPanicResultType<WBasicType>;
+    type OutputExpr = WPanicResultExpr<WBasicType>;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
 }
 
@@ -121,7 +125,7 @@ pub struct YSsa;
 impl YStage for YSsa {
     type AssignTypes = ZSsa;
     type OutputType = WPanicResultType<WBasicType>;
-
+    type OutputExpr = WPanicResultExpr<WBasicType>;
     type Local = WSsaLocal<WPartialGeneralType<WBasicType>>;
 }
 
@@ -131,6 +135,7 @@ pub struct YInferred;
 impl YStage for YInferred {
     type AssignTypes = ZSsa;
     type OutputType = WPanicResultType<WBasicType>;
+    type OutputExpr = WPanicResultExpr<WBasicType>;
     type Local = WSsaLocal<WGeneralType<WBasicType>>;
 }
 
@@ -140,6 +145,6 @@ pub struct YConverted;
 impl YStage for YConverted {
     type AssignTypes = ZConverted;
     type OutputType = WPanicResultType<WElementaryType>;
-
+    type OutputExpr = WPanicResultExpr<WElementaryType>;
     type Local = WSsaLocal<WGeneralType<WElementaryType>>;
 }

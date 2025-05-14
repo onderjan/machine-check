@@ -119,6 +119,10 @@ impl FunctionFolder {
 
         let (block, result) = self.fold_block(impl_item.block);
 
+        let Some(result) = result else {
+            panic!("Functions without return statement not supported");
+        };
+
         // the only local scope remaining should be the outer one
         assert_eq!(self.scopes.len(), 1);
 
