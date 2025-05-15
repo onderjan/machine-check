@@ -120,7 +120,7 @@ impl FunctionFolder {
         }
         .map_err(MachineErrors::single);
 
-        let (inputs, output) = MachineErrors::combine_results(inputs, output)?;
+        let (inputs, output) = MachineErrors::combine(inputs, output)?;
 
         let signature = WSignature {
             ident: WIdent::from_syn_ident(impl_item.sig.ident),

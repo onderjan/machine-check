@@ -104,7 +104,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, MachineErrors> 
         }
     }
 
-    let (impl_item_types, impl_item_fns) = MachineErrors::combine_results(
+    let (impl_item_types, impl_item_fns) = MachineErrors::combine(
         MachineErrors::flat_single_result(impl_item_types),
         MachineErrors::flat_result(impl_item_fns),
     )?;

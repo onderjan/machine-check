@@ -22,19 +22,12 @@ pub fn machine_description(_attr: TokenStream, item: TokenStream) -> TokenStream
     match machine_check_machine::process_module(module) {
         Ok(ok) => ok.into_token_stream().into(),
         Err(err) => {
-            let errors = err.into_errors();
-            let mut current_error: Option<syn::Error> = None;
-            for error in errors {
-                let error = syn::Error::new(error.span, error.ty.to_string());
-                match &mut current_error {
-                    Some(current_error) => current_error.combine(error),
-                    None => current_error = Some(error),
-                }
+            let (first_error, other_errors) = err.into_errors().split_off_first();
+            let mut current_error = syn::Error::new(first_error.span, first_error.ty.to_string());
+            for error in other_errors {
+                current_error.combine(syn::Error::new(error.span, error.ty.to_string()));
             }
-            current_error
-                .expect("There should be at least one error if the result is error")
-                .to_compile_error()
-                .into()
+            current_error.to_compile_error().into()
         }
     }
 }
