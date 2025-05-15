@@ -1,10 +1,14 @@
 use syn::{Expr, GenericArgument, PathArguments, Type};
 
-use crate::wir::{
-    from_syn::path::fold_global_path, WBasicType, WPartialGeneralType, WReference, WType, WTypeArray,
+use crate::{
+    wir::{
+        from_syn::path::fold_global_path, WBasicType, WPartialGeneralType, WReference, WType,
+        WTypeArray,
+    },
+    MachineError,
 };
 
-pub fn fold_type(mut ty: Type) -> WType<WBasicType> {
+pub fn fold_type(mut ty: Type) -> Result<WType<WBasicType>, MachineError> {
     let reference = match ty {
         Type::Reference(type_reference) => {
             let mutable = type_reference.mutability.is_some();
@@ -17,13 +21,13 @@ pub fn fold_type(mut ty: Type) -> WType<WBasicType> {
         }
         _ => WReference::None,
     };
-    WType {
+    Ok(WType {
         reference,
-        inner: fold_basic_type(ty),
-    }
+        inner: fold_basic_type(ty)?,
+    })
 }
 
-pub fn fold_basic_type(ty: Type) -> WBasicType {
+pub fn fold_basic_type(ty: Type) -> Result<WBasicType, MachineError> {
     match ty {
         Type::Path(ty) => {
             assert!(ty.qself.is_none());
@@ -63,17 +67,19 @@ pub fn fold_basic_type(ty: Type) -> WBasicType {
                 }
             }
 
-            if let Some(known_type) = known_type {
+            Ok(if let Some(known_type) = known_type {
                 known_type
             } else {
-                WBasicType::Path(fold_global_path(ty.path))
-            }
+                WBasicType::Path(fold_global_path(ty.path)?)
+            })
         }
         _ => panic!("Unexpected non-path type: {:?}", ty),
     }
 }
 
-pub fn fold_partial_general_type(ty: Type) -> WPartialGeneralType<WBasicType> {
+pub fn fold_partial_general_type(
+    ty: Type,
+) -> Result<WPartialGeneralType<WBasicType>, MachineError> {
     let result = match &ty {
         Type::Path(ty) => {
             assert!(ty.qself.is_none());
@@ -106,7 +112,7 @@ pub fn fold_partial_general_type(ty: Type) -> WPartialGeneralType<WBasicType> {
                         if let PathArguments::AngleBracketed(generic_args) = third_segment.arguments
                         {
                             if let Some(GenericArgument::Type(inner)) = generic_args.args.first() {
-                                inner_type = Some(fold_type(inner.clone()));
+                                inner_type = Some(fold_type(inner.clone())?);
                             }
                         }
 
@@ -118,11 +124,11 @@ pub fn fold_partial_general_type(ty: Type) -> WPartialGeneralType<WBasicType> {
         }
         _ => None,
     };
-    if let Some(result) = result {
+    Ok(if let Some(result) = result {
         result
     } else {
-        WPartialGeneralType::Normal(fold_type(ty))
-    }
+        WPartialGeneralType::Normal(fold_type(ty)?)
+    })
 }
 
 pub fn extract_generic_sizes(arguments: PathArguments, expected_length: usize) -> Vec<u32> {

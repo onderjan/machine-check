@@ -1,16 +1,19 @@
 use syn::{
-    parse::Parser, punctuated::Punctuated, ImplItem, ImplItemType, ItemImpl, ItemStruct, Path,
-    Token, Type, Visibility,
+    parse::Parser, punctuated::Punctuated, Fields, ImplItem, ImplItemType, ItemImpl, ItemStruct,
+    Path, Token, Type, Visibility,
 };
 
-use crate::wir::{
-    from_syn::path::fold_global_path, WBasicType, WField, WIdent, WImplItemType, WItemImpl,
-    WItemStruct, WVisibility, YTac,
+use crate::{
+    wir::{
+        from_syn::path::fold_global_path, WBasicType, WField, WIdent, WImplItemType, WItemImpl,
+        WItemStruct, WVisibility, YTac,
+    },
+    MachineError, MachineErrors,
 };
 
 use super::{impl_item_fn::fold_impl_item_fn, ty::fold_basic_type};
 
-pub fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
+pub fn fold_item_struct(item: ItemStruct) -> Result<WItemStruct<WBasicType>, MachineErrors> {
     let mut derives = Vec::new();
 
     for attr in item.attrs {
@@ -24,10 +27,10 @@ pub fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
                     let Ok(parsed) = parser.parse2(meta_tokens) else {
                         panic!("Cannot parse derive macro");
                     };
-                    derives = parsed
-                        .into_pairs()
-                        .map(|pair| fold_global_path(pair.into_value()))
-                        .collect();
+
+                    for parsed_path in parsed {
+                        derives.push(fold_global_path(parsed_path)?);
+                    }
                 } else {
                     todo!("Non-derive meta list");
                 }
@@ -44,33 +47,37 @@ pub fn fold_item_struct(item: ItemStruct) -> WItemStruct<WBasicType> {
         }
     }
 
-    let fields = match item.fields {
-        syn::Fields::Named(fields_named) => fields_named
-            .named
-            .into_pairs()
-            .map(|pair| {
-                let field = pair.into_value();
-                let Some(field_ident) = field.ident else {
-                    panic!("Unexpected tuple struct");
-                };
-                WField {
-                    ident: WIdent::from_syn_ident(field_ident),
-                    ty: fold_basic_type(field.ty),
-                }
-            })
-            .collect(),
-        _ => panic!("Unexpected struct without named fields"),
+    let Fields::Named(fields_named) = item.fields else {
+        panic!("Unexpected struct without named fields");
     };
 
-    WItemStruct {
+    let mut fields = Vec::new();
+
+    for field in fields_named.named {
+        let Some(field_ident) = field.ident else {
+            panic!("Unexpected tuple struct");
+        };
+
+        let ident = WIdent::from_syn_ident(field_ident);
+        let field = match fold_basic_type(field.ty) {
+            Ok(ty) => Ok(WField { ident, ty }),
+            Err(err) => Err(err),
+        };
+
+        fields.push(field);
+    }
+
+    let fields = MachineErrors::vec_result(fields)?;
+
+    Ok(WItemStruct {
         visibility: item.vis.into(),
         derives,
         ident: WIdent::from_syn_ident(item.ident),
         fields,
-    }
+    })
 }
 
-pub fn fold_item_impl(item: ItemImpl) -> WItemImpl<YTac> {
+pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, MachineErrors> {
     let self_ty = {
         match *item.self_ty {
             Type::Path(ty) => {
@@ -79,41 +86,51 @@ pub fn fold_item_impl(item: ItemImpl) -> WItemImpl<YTac> {
             }
             _ => panic!("Unexpected non-path type: {:?}", *item.self_ty),
         }
+    }?;
+
+    let trait_ = match item.trait_ {
+        Some((not, path, _for_token)) => {
+            assert!(not.is_none());
+            Some(fold_global_path(path)?)
+        }
+        None => None,
     };
 
-    let trait_ = item.trait_.map(|(not, path, _for_token)| {
-        assert!(not.is_none());
-        fold_global_path(path)
-    });
-
-    let mut type_items = Vec::new();
-    let mut fn_items = Vec::new();
+    let mut impl_item_types = Vec::new();
+    let mut impl_item_fns = Vec::new();
 
     for impl_item in item.items {
         match impl_item {
-            ImplItem::Type(impl_item) => type_items.push(fold_impl_item_type(impl_item)),
-            ImplItem::Fn(impl_item) => fn_items.push(fold_impl_item_fn(impl_item)),
+            ImplItem::Type(impl_item) => impl_item_types.push(fold_impl_item_type(impl_item)),
+            ImplItem::Fn(impl_item) => impl_item_fns.push(fold_impl_item_fn(impl_item)),
             _ => panic!("Unexpected type of impl item: {:?}", impl_item),
         }
     }
 
-    WItemImpl {
+    let (impl_item_types, impl_item_fns) = MachineErrors::combine_results(
+        MachineErrors::flat_single_result(impl_item_types),
+        MachineErrors::flat_result(impl_item_fns),
+    )?;
+
+    Ok(WItemImpl {
         self_ty,
         trait_,
-        impl_item_types: type_items,
-        impl_item_fns: fn_items,
-    }
+        impl_item_types,
+        impl_item_fns,
+    })
 }
 
-pub fn fold_impl_item_type(impl_item: ImplItemType) -> WImplItemType<WBasicType> {
+pub fn fold_impl_item_type(
+    impl_item: ImplItemType,
+) -> Result<WImplItemType<WBasicType>, MachineError> {
     let ty = impl_item.ty;
     let Type::Path(ty) = ty else {
         panic!("Unexpected non-path type: {:?}", ty);
     };
-    WImplItemType {
+    Ok(WImplItemType {
         left_ident: WIdent::from_syn_ident(impl_item.ident),
-        right_path: fold_global_path(ty.path),
-    }
+        right_path: fold_global_path(ty.path)?,
+    })
 }
 
 impl From<Visibility> for WVisibility {

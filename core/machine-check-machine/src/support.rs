@@ -1,5 +1,6 @@
 pub mod ident_creator;
 pub mod local;
+pub mod machine_error;
 pub mod manipulate;
 pub mod meta_eq;
 pub mod rules;

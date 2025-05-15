@@ -9,9 +9,11 @@ mod resolve_use;
 
 use syn::Item;
 
-use crate::{wir::IntoSyn, MachineDescription, MachineError};
+use crate::{wir::IntoSyn, MachineDescription, MachineErrors};
 
-pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescription, MachineError> {
+pub(crate) fn create_ssa_machine(
+    mut items: Vec<Item>,
+) -> Result<MachineDescription, MachineErrors> {
     let mut macro_expander = expand_macros::MacroExpander::new();
     loop {
         resolve_use::resolve_use(&mut items)?;
@@ -22,7 +24,6 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
 
     resolve_use::remove_use(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
-    //convert_panic::convert_panic_demacroed(&mut items)?;
 
     /*println!(
         "Original syn string:\n{}",
@@ -35,7 +36,7 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
     println!("---");
     */
 
-    let w_description = super::wir::WDescription::from_syn(items.clone().into_iter());
+    let w_description = super::wir::WDescription::from_syn(items.clone().into_iter())?;
     let w_description = convert_indexing::convert_indexing(w_description);
     let (w_description, panic_messages) = convert_total::convert_total(w_description);
     let w_description = convert_to_ssa::convert_to_ssa(w_description)?;

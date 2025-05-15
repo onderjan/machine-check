@@ -2,10 +2,13 @@ use syn::{
     spanned::Spanned, Expr, ExprCall, ExprField, ExprIndex, ExprReference, ExprStruct, Member,
 };
 
-use crate::wir::{
-    from_syn::path::fold_global_path, WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall,
-    WExprField, WExprReference, WExprStruct, WIdent, WIndexedExpr, WIndexedIdent,
-    WMacroableCallFunc, WStmt, WStmtAssign, ZTac,
+use crate::{
+    wir::{
+        from_syn::path::fold_global_path, WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall,
+        WExprField, WExprReference, WExprStruct, WIdent, WIndexedExpr, WIndexedIdent,
+        WMacroableCallFunc, WStmt, WStmtAssign, ZTac,
+    },
+    MachineError,
 };
 
 use super::FunctionFolder;
@@ -15,7 +18,7 @@ impl super::FunctionFolder {
         &mut self,
         expr: Expr,
         stmts: &mut Vec<WStmt<ZTac>>,
-    ) -> WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>> {
+    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, MachineError> {
         RightExprFolder {
             fn_folder: self,
             stmts,
@@ -27,7 +30,7 @@ impl super::FunctionFolder {
         &'a mut self,
         expr: Expr,
         stmts: &'a mut Vec<WStmt<ZTac>>,
-    ) -> WIdent {
+    ) -> Result<WIdent, MachineError> {
         {
             RightExprFolder {
                 fn_folder: self,
@@ -41,7 +44,7 @@ impl super::FunctionFolder {
         &'a mut self,
         expr: Expr,
         stmts: &'a mut Vec<WStmt<ZTac>>,
-    ) -> WCallArg {
+    ) -> Result<WCallArg, MachineError> {
         {
             RightExprFolder {
                 fn_folder: self,
@@ -61,87 +64,90 @@ impl RightExprFolder<'_> {
     pub fn fold_right_expr(
         &mut self,
         expr: Expr,
-    ) -> WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>> {
-        match expr {
+    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, MachineError> {
+        Ok(match expr {
             Expr::Call(expr_call) => {
-                WIndexedExpr::NonIndexed(WExpr::Call(self.fold_right_expr_call(expr_call)))
+                WIndexedExpr::NonIndexed(WExpr::Call(self.fold_right_expr_call(expr_call)?))
             }
             Expr::Field(expr_field) => {
-                WIndexedExpr::NonIndexed(WExpr::Field(self.fold_right_expr_field(expr_field)))
+                WIndexedExpr::NonIndexed(WExpr::Field(self.fold_right_expr_field(expr_field)?))
             }
             Expr::Path(_) => {
-                WIndexedExpr::NonIndexed(WExpr::Move(self.fn_folder.fold_expr_as_ident(expr)))
+                WIndexedExpr::NonIndexed(WExpr::Move(self.fn_folder.fold_expr_as_ident(expr)?))
             }
             Expr::Struct(expr_struct) => {
-                WIndexedExpr::NonIndexed(WExpr::Struct(self.fold_right_expr_struct(expr_struct)))
+                WIndexedExpr::NonIndexed(WExpr::Struct(self.fold_right_expr_struct(expr_struct)?))
             }
             Expr::Reference(expr_reference) => WIndexedExpr::NonIndexed(WExpr::Reference(
-                self.fold_right_expr_reference(expr_reference),
+                self.fold_right_expr_reference(expr_reference)?,
             )),
             Expr::Lit(expr_lit) => WIndexedExpr::NonIndexed(WExpr::Lit(expr_lit.lit)),
-            Expr::Index(expr_index) => self.fold_right_expr_index(expr_index),
+            Expr::Index(expr_index) => self.fold_right_expr_index(expr_index)?,
             _ => panic!("Unexpected right expression {:?}", expr),
-        }
+        })
     }
 
     fn fold_right_expr_call(
         &mut self,
         expr_call: ExprCall,
-    ) -> WExprCall<WMacroableCallFunc<WBasicType>> {
+    ) -> Result<WExprCall<WMacroableCallFunc<WBasicType>>, MachineError> {
         {
             // the function path
-            let fn_path = self.fn_folder.fold_expr_as_path(*expr_call.func);
+            let fn_path = self.fn_folder.fold_expr_as_path(*expr_call.func)?;
 
             let mut args = Vec::new();
             for arg in expr_call.args {
-                args.push(self.force_call_arg(arg));
+                args.push(self.force_call_arg(arg)?);
             }
 
-            WExprCall {
+            Ok(WExprCall {
                 fn_path: WMacroableCallFunc::Call(fn_path),
                 args,
-            }
+            })
         }
     }
 
-    fn fold_right_expr_field(&mut self, expr_field: ExprField) -> WExprField {
+    fn fold_right_expr_field(&mut self, expr_field: ExprField) -> Result<WExprField, MachineError> {
         // the member is just a regular identifier
         let member = match expr_field.member {
             syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
             syn::Member::Unnamed(_index) => panic!("Unnamed members not supported"),
         };
-        WExprField {
-            base: self.fn_folder.fold_expr_as_ident(*expr_field.base),
+        Ok(WExprField {
+            base: self.fn_folder.fold_expr_as_ident(*expr_field.base)?,
             member,
-        }
+        })
     }
 
-    fn fold_right_expr_struct(&mut self, expr_struct: ExprStruct) -> WExprStruct<WBasicType> {
-        let args = expr_struct
-            .fields
-            .into_pairs()
-            .map(|pair| {
-                let field_value = pair.into_value();
-                let left = match field_value.member {
-                    syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
-                    syn::Member::Unnamed(_) => {
-                        panic!("Unnamed struct members not supported")
-                    }
-                };
-                let right = self.force_ident(field_value.expr);
-                (left, right)
-            })
-            .collect();
-        WExprStruct {
-            type_path: fold_global_path(expr_struct.path),
+    fn fold_right_expr_struct(
+        &mut self,
+        expr_struct: ExprStruct,
+    ) -> Result<WExprStruct<WBasicType>, MachineError> {
+        let mut args = Vec::new();
+        for field in expr_struct.fields {
+            let left = match field.member {
+                syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
+                syn::Member::Unnamed(_) => {
+                    panic!("Unnamed struct members not supported")
+                }
+            };
+            let right = self.force_ident(field.expr)?;
+            args.push((left, right))
+        }
+
+        Ok(WExprStruct {
+            type_path: fold_global_path(expr_struct.path)?,
             fields: args,
-        }
+        })
     }
 
-    fn fold_right_expr_reference(&mut self, expr_reference: ExprReference) -> WExprReference {
-        match *expr_reference.expr {
+    fn fold_right_expr_reference(
+        &mut self,
+        expr_reference: ExprReference,
+    ) -> Result<WExprReference, MachineError> {
+        Ok(match *expr_reference.expr {
             Expr::Path(expr_path) => {
-                WExprReference::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path)))
+                WExprReference::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path))?)
             }
             Expr::Field(expr_field) => {
                 let inner = match expr_field.member {
@@ -149,7 +155,7 @@ impl RightExprFolder<'_> {
                     syn::Member::Unnamed(_index) => panic!("Unnamed members not supported"),
                 };
                 WExprReference::Field(WExprField {
-                    base: self.force_ident(*expr_field.base),
+                    base: self.force_ident(*expr_field.base)?,
                     member: inner,
                 })
             }
@@ -157,19 +163,19 @@ impl RightExprFolder<'_> {
                 "Unexpected expression inside reference {:?}",
                 expr_reference.expr
             ),
-        }
+        })
     }
 
     fn fold_right_expr_index(
         &mut self,
         expr_index: ExprIndex,
-    ) -> WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>> {
+    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, MachineError> {
         let array_base = match *expr_index.expr {
             Expr::Path(expr_path) => {
-                WArrayBaseExpr::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path)))
+                WArrayBaseExpr::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path))?)
             }
             Expr::Field(expr_field) => {
-                let field_base = self.force_ident(*expr_field.base);
+                let field_base = self.force_ident(*expr_field.base)?;
 
                 let Member::Named(field_member) = expr_field.member else {
                     panic!("Unnamed members not supported");
@@ -181,26 +187,26 @@ impl RightExprFolder<'_> {
             }
             _ => panic!("Expr index array should be ident or field"),
         };
-        let index_ident = self.force_ident(*expr_index.index);
+        let index_ident = self.force_ident(*expr_index.index)?;
 
-        WIndexedExpr::Indexed(array_base, index_ident)
+        Ok(WIndexedExpr::Indexed(array_base, index_ident))
     }
 
-    fn force_call_arg(&mut self, expr: Expr) -> WCallArg {
+    fn force_call_arg(&mut self, expr: Expr) -> Result<WCallArg, MachineError> {
         if let Expr::Lit(lit) = expr {
-            return WCallArg::Literal(lit.lit);
+            return Ok(WCallArg::Literal(lit.lit));
         }
-        WCallArg::Ident(self.force_ident(expr))
+        Ok(WCallArg::Ident(self.force_ident(expr)?))
     }
 
-    fn force_ident(&mut self, expr: Expr) -> WIdent {
+    fn force_ident(&mut self, expr: Expr) -> Result<WIdent, MachineError> {
         match self.fn_folder.try_fold_expr_as_ident(expr) {
-            Ok(ident) => ident,
+            Ok(ident) => Ok(ident),
             Err(expr) => self.move_through_temp(expr),
         }
     }
 
-    fn move_through_temp(&mut self, expr: Expr) -> WIdent {
+    fn move_through_temp(&mut self, expr: Expr) -> Result<WIdent, MachineError> {
         let expr_span = expr.span();
         // process the expression first before moving it through temporary
         let expr = match expr {
@@ -215,7 +221,7 @@ impl RightExprFolder<'_> {
             _ => {
                 // fold the expression normally
                 // so that nested expressions are properly converted to SSA
-                self.fold_right_expr(expr)
+                self.fold_right_expr(expr)?
             }
         };
 
@@ -231,6 +237,6 @@ impl RightExprFolder<'_> {
         }));
 
         // return the temporary variable ident
-        tmp_ident
+        Ok(tmp_ident)
     }
 }

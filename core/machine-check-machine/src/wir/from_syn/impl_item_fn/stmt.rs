@@ -8,11 +8,14 @@ use crate::{
         from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type},
         WBlock, WExprCall, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc,
         WPanicMacroKind, WPartialGeneralType, WStmt, WStmtAssign, WStmtIf, ZTac,
-    },
+    }, MachineErrors,
 };
 
 impl super::FunctionFolder {
-    pub fn fold_block(&mut self, block: Block) -> (WBlock<ZTac>, Option<WIdent>) {
+    pub fn fold_block(
+        &mut self,
+        block: Block,
+    ) -> Result<(WBlock<ZTac>, Option<WIdent>), MachineErrors> {
         // push a local scope
         let scope_id = self.next_scope_id;
         self.next_scope_id = self
@@ -31,13 +34,14 @@ impl super::FunctionFolder {
             None
         };
 
-        let mut stmts = Vec::new();
+        let mut stmts: Vec<WStmt<ZTac>> = Vec::new();
+        let mut errors: Vec<MachineErrors> = Vec::new();
 
         for orig_stmt in orig_stmts {
             match orig_stmt {
                 Stmt::Local(local) => {
                     let mut pat = local.pat.clone();
-                    let mut ty = WPartialGeneralType::Unknown;
+                    let mut ty = Ok(WPartialGeneralType::Unknown);
                     if let Pat::Type(pat_type) = pat {
                         ty = fold_partial_general_type(*pat_type.ty);
                         pat = *pat_type.pat;
@@ -48,16 +52,23 @@ impl super::FunctionFolder {
                         panic!("Local pattern should be an ident: {:?}", pat)
                     };
                     let original_ident = WIdent::from_syn_ident(left_pat_ident.ident);
-                    self.add_local_ident(scope_id, original_ident, ty);
+                    match ty {
+                        Ok(ty) =>
+                    self.add_local_ident(scope_id, original_ident, ty),
+                    Err(err) => errors.push(MachineErrors::single(err)),
+                    }
                 }
                 Stmt::Expr(stmt_expr, semi) => {
                     assert!(semi.is_some());
-                    self.fold_stmt_expr(stmt_expr, &mut stmts);
+                    if let Err(err) = self.fold_stmt_expr(stmt_expr, &mut stmts) {
+                        errors.push(err);
+                    }
                 }
                 _ => panic!("Unexpected type of statement: {:?}", orig_stmt),
             };
         }
 
+        let mut pre_return_stmts = Vec::new();
         let return_ident =
             // has a return statement
             if let Some(result_stmt) = result_stmt {
@@ -67,38 +78,52 @@ impl super::FunctionFolder {
                         result_stmt
                     );
                 };
-                let ident= self.force_right_expr_to_ident(expr, &mut stmts);
-                Some(ident)
+                match self.force_right_expr_to_ident(expr, &mut pre_return_stmts) {
+                    Ok(ident) => Some(ident),
+                    Err(err) => {
+                        errors.push(MachineErrors::single(err));
+                        // the None value will never propagate out of the function
+                        None
+                    },
+                } 
         } else {
             None
         };
 
+        MachineErrors::errors_vec_to_result(errors)?;
+
+        stmts.extend(pre_return_stmts);
+
         // pop the local scope, it should exist
         assert!(self.scopes.pop().is_some());
 
-        (WBlock { stmts }, return_ident)
+        Ok((WBlock { stmts }, return_ident))
     }
 
-    fn fold_stmt_expr(&mut self, stmt_expr: Expr, result_stmts: &mut Vec<WStmt<ZTac>>) {
+    fn fold_stmt_expr(
+        &mut self,
+        stmt_expr: Expr,
+        result_stmts: &mut Vec<WStmt<ZTac>>,
+    ) -> Result<(), MachineErrors> {
         match stmt_expr {
             syn::Expr::Assign(expr) => {
                 let left = match *expr.left {
                     Expr::Index(expr_index) => {
-                        let base_ident = self.fold_expr_as_ident(*expr_index.expr);
+                        let base_ident = self.fold_expr_as_ident(*expr_index.expr)?;
 
                         let index_ident =
-                            self.force_right_expr_to_ident(*expr_index.index, result_stmts);
+                            self.force_right_expr_to_ident(*expr_index.index, result_stmts)?;
                         WIndexedIdent::Indexed(base_ident, index_ident)
                     }
                     Expr::Path(expr_path) => {
-                        let left_ident = self.fold_expr_as_ident(Expr::Path(expr_path));
+                        let left_ident = self.fold_expr_as_ident(Expr::Path(expr_path))?;
 
                         WIndexedIdent::NonIndexed(left_ident.clone())
                     }
                     _ => panic!("Left expr should be ident or index"),
                 };
 
-                let right = self.fold_right_expr(*expr.right, result_stmts);
+                let right = self.fold_right_expr(*expr.right, result_stmts)?;
 
                 result_stmts.push(WStmt::Assign(WStmtAssign { left, right }));
             }
@@ -113,17 +138,17 @@ impl super::FunctionFolder {
                     panic!("Else should have a block");
                 };
 
-                let condition = self.force_right_expr_to_call_arg(*expr_if.cond, result_stmts);
+                let condition = self.force_right_expr_to_call_arg(*expr_if.cond, result_stmts)?;
 
                 result_stmts.push(WStmt::If(WStmtIf {
                     condition,
-                    then_block: self.fold_block(expr_if.then_branch).0,
-                    else_block: self.fold_block(else_block).0,
+                    then_block: self.fold_block(expr_if.then_branch)?.0,
+                    else_block: self.fold_block(else_block)?.0,
                 }));
             }
             syn::Expr::Block(expr_block) => {
                 // handle nested blocks
-                let (mut block, result) = self.fold_block(expr_block.block);
+                let (mut block, result) = self.fold_block(expr_block.block)?;
                 assert!(result.is_none());
                 result_stmts.append(&mut block.stmts);
             }
@@ -166,5 +191,6 @@ impl super::FunctionFolder {
             }
             _ => panic!("Unexpected type of expression: {:?}", stmt_expr),
         };
+        Ok(())
     }
 }

@@ -3,6 +3,8 @@ use core::panic;
 use item::{fold_item_impl, fold_item_struct};
 use syn::Item;
 
+use crate::MachineErrors;
+
 use super::{WDescription, YTac};
 
 pub mod impl_item_fn;
@@ -11,7 +13,9 @@ pub mod path;
 pub mod ty;
 
 impl WDescription<YTac> {
-    pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> WDescription<YTac> {
+    pub fn from_syn(
+        item_iter: impl Iterator<Item = Item>,
+    ) -> Result<WDescription<YTac>, MachineErrors> {
         let mut structs = Vec::new();
         let mut impls = Vec::new();
         for item in item_iter {
@@ -22,6 +26,9 @@ impl WDescription<YTac> {
             }
         }
 
-        WDescription { structs, impls }
+        let structs = MachineErrors::flat_result(structs)?;
+        let impls = MachineErrors::flat_result(impls)?;
+
+        Ok(WDescription { structs, impls })
     }
 }

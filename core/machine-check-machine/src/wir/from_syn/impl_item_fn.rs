@@ -10,6 +10,7 @@ use crate::{
         WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WPathSegment,
         WReference, WSignature, WTacLocal, WType, YTac,
     },
+    MachineError, MachineErrors,
 };
 
 use super::path::fold_global_path;
@@ -17,7 +18,7 @@ use super::path::fold_global_path;
 mod expr;
 mod stmt;
 
-pub fn fold_impl_item_fn(impl_item: ImplItemFn) -> WImplItemFn<YTac> {
+pub fn fold_impl_item_fn(impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, MachineErrors> {
     FunctionFolder {
         ident_creator: IdentCreator::new(String::from("")),
         scopes: Vec::new(),
@@ -39,7 +40,7 @@ struct FunctionFolder {
 }
 
 impl FunctionFolder {
-    pub fn fold(mut self, impl_item: ImplItemFn) -> WImplItemFn<YTac> {
+    pub fn fold(mut self, impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, MachineErrors> {
         let mut inputs = Vec::new();
 
         let scope_id = 1;
@@ -80,10 +81,10 @@ impl FunctionFolder {
                         }),
                     };
 
-                    inputs.push(WFnArg {
+                    inputs.push(Ok(WFnArg {
                         ident: self_ident.clone(),
                         ty: self_type.clone(),
-                    });
+                    }));
 
                     self.add_unique_scoped_ident(self_ident.clone(), self_ident);
                 }
@@ -98,18 +99,28 @@ impl FunctionFolder {
 
                     let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
 
-                    inputs.push(WFnArg {
-                        ident: locally_unique_ident,
-                        ty,
-                    });
+                    let fn_arg = match ty {
+                        Ok(ty) => Ok(WFnArg {
+                            ident: locally_unique_ident,
+                            ty,
+                        }),
+                        Err(err) => Err(err),
+                    };
+
+                    inputs.push(fn_arg);
                 }
             }
         }
 
+        let inputs = MachineErrors::flat_single_result(inputs);
+
         let output = match impl_item.sig.output {
             syn::ReturnType::Default => panic!("Unexpected default function return type"),
             syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty),
-        };
+        }
+        .map_err(MachineErrors::single);
+
+        let (inputs, output) = MachineErrors::combine_results(inputs, output)?;
 
         let signature = WSignature {
             ident: WIdent::from_syn_ident(impl_item.sig.ident),
@@ -117,7 +128,7 @@ impl FunctionFolder {
             output,
         };
 
-        let (block, result) = self.fold_block(impl_item.block);
+        let (block, result) = self.fold_block(impl_item.block)?;
 
         let Some(result) = result else {
             panic!("Functions without return statement not supported");
@@ -140,12 +151,12 @@ impl FunctionFolder {
             });
         }
 
-        WImplItemFn {
+        Ok(WImplItemFn {
             signature,
             locals,
             block,
             result,
-        }
+        })
     }
 
     fn try_fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, Expr> {
@@ -161,22 +172,22 @@ impl FunctionFolder {
         }
     }
 
-    fn fold_expr_as_ident(&mut self, expr: Expr) -> WIdent {
+    fn fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, MachineError> {
         let Ok(ident) = self.try_fold_expr_as_ident(expr) else {
             // TODO: this should be an error, not a panic
             panic!("Expr should be ident");
         };
 
-        ident
+        Ok(ident)
     }
 
-    fn fold_expr_as_path(&mut self, expr: Expr) -> WPath<WBasicType> {
+    fn fold_expr_as_path(&mut self, expr: Expr) -> Result<WPath<WBasicType>, MachineError> {
         let Some(path) = extract_expr_path(&expr).cloned() else {
             // TODO: this should be an error, not a panic
             panic!("Expr should be path");
         };
 
-        let mut path = fold_global_path(path);
+        let mut path = fold_global_path(path)?;
         // convert to local-scoped ident if needed
         if !path.leading_colon && path.segments.len() == 1 {
             let ident = &path.segments[0].ident;
@@ -184,7 +195,7 @@ impl FunctionFolder {
                 path.segments[0].ident = local_ident.clone();
             }
         }
-        path
+        Ok(path)
     }
 
     fn lookup_local_ident(&self, ident: &WIdent) -> Option<&WIdent> {

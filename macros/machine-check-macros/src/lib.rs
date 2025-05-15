@@ -4,7 +4,7 @@ extern crate proc_macro;
 
 use machine_check_bitmask_switch::BitmaskSwitch;
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::ToTokens;
 use syn::{parse_macro_input, spanned::Spanned, Item};
 
 #[proc_macro_attribute]
@@ -19,19 +19,24 @@ pub fn machine_description(_attr: TokenStream, item: TokenStream) -> TokenStream
         .into();
     };
 
-    let module = match machine_check_machine::process_module(module) {
-        Ok(ok) => ok,
+    match machine_check_machine::process_module(module) {
+        Ok(ok) => ok.into_token_stream().into(),
         Err(err) => {
-            return syn::Error::new(err.span, err.ty.to_string())
+            let errors = err.into_errors();
+            let mut current_error: Option<syn::Error> = None;
+            for error in errors {
+                let error = syn::Error::new(error.span, error.ty.to_string());
+                match &mut current_error {
+                    Some(current_error) => current_error.combine(error),
+                    None => current_error = Some(error),
+                }
+            }
+            current_error
+                .expect("There should be at least one error if the result is error")
                 .to_compile_error()
-                .into();
+                .into()
         }
-    };
-
-    let expanded = quote! {
-        #module
-    };
-    TokenStream::from(expanded)
+    }
 }
 
 #[proc_macro]
