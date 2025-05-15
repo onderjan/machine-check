@@ -1,15 +1,18 @@
 use syn::{
-    spanned::Spanned, Expr, ExprCall, ExprField, ExprIndex, ExprReference, ExprStruct, Member,
+    spanned::Spanned, Expr, ExprBinary, ExprCall, ExprField, ExprIndex, ExprReference, ExprStruct,
+    ExprUnary, Member,
 };
+use syn_path::path;
 
 use crate::{
     ssa::from_syn::path::fold_global_path,
+    util::{create_expr_call, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall, WExprField, WExprReference,
         WExprStruct, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc, WStmt, WStmtAssign,
         ZTac,
     },
-    MachineError,
+    ErrorType, MachineError,
 };
 
 use super::FunctionFolder;
@@ -84,6 +87,8 @@ impl RightExprFolder<'_> {
             )),
             Expr::Lit(expr_lit) => WIndexedExpr::NonIndexed(WExpr::Lit(expr_lit.lit)),
             Expr::Index(expr_index) => self.fold_right_expr_index(expr_index)?,
+            Expr::Binary(expr_binary) => self.fold_right_expr(normalize_binary(expr_binary)?)?,
+            Expr::Unary(expr_unary) => self.fold_right_expr(normalize_unary(expr_unary)?)?,
             _ => panic!("Unexpected right expression {:?}", expr),
         })
     }
@@ -240,4 +245,97 @@ impl RightExprFolder<'_> {
         // return the temporary variable ident
         Ok(tmp_ident)
     }
+}
+
+fn normalize_unary(expr_unary: ExprUnary) -> Result<Expr, MachineError> {
+    let span = expr_unary.op.span();
+    let path = match expr_unary.op {
+        syn::UnOp::Deref(_) => {
+            return Err(MachineError::new(
+                ErrorType::ConcreteConversionError(String::from("Dereference not supported")),
+                span,
+            ))
+        }
+        syn::UnOp::Not(_) => path!(::std::ops::Not::not),
+        syn::UnOp::Neg(_) => path!(::std::ops::Neg::neg),
+        _ => {
+            return Err(MachineError::new(
+                ErrorType::ConcreteConversionError(String::from("Unknown unary operator")),
+                span,
+            ))
+        }
+    };
+    // construct the call
+    Ok(create_expr_call(
+        create_expr_path(path),
+        vec![(ArgType::Normal, *expr_unary.expr)],
+    ))
+}
+
+fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, MachineError> {
+    let span = expr_binary.op.span();
+    let call_func = match expr_binary.op {
+        syn::BinOp::Add(_) => path!(::std::ops::Add::add),
+        syn::BinOp::Sub(_) => path!(::std::ops::Sub::sub),
+        syn::BinOp::Mul(_) => path!(::std::ops::Mul::mul),
+        syn::BinOp::Div(_) => path!(::std::ops::Div::div),
+        syn::BinOp::Rem(_) => path!(::std::ops::Rem::rem),
+        syn::BinOp::And(_) => {
+            return Err(MachineError::new(
+                ErrorType::ConcreteConversionError(String::from(
+                    "Short-circuiting AND not supported",
+                )),
+                span,
+            ))
+        }
+        syn::BinOp::Or(_) => {
+            return Err(MachineError::new(
+                ErrorType::ConcreteConversionError(String::from(
+                    "Short-circuiting OR not supported",
+                )),
+                span,
+            ))
+        }
+        syn::BinOp::BitAnd(_) => path!(::std::ops::BitAnd::bitand),
+        syn::BinOp::BitOr(_) => path!(::std::ops::BitOr::bitor),
+        syn::BinOp::BitXor(_) => path!(::std::ops::BitXor::bitxor),
+        syn::BinOp::Shl(_) => path!(::std::ops::Shl::shl),
+        syn::BinOp::Shr(_) => path!(::std::ops::Shr::shr),
+        syn::BinOp::Eq(_) => path!(::std::cmp::PartialEq::eq),
+        syn::BinOp::Ne(_) => path!(::std::cmp::PartialEq::ne),
+        syn::BinOp::Lt(_) => path!(::std::cmp::PartialOrd::lt),
+        syn::BinOp::Le(_) => path!(::std::cmp::PartialOrd::le),
+        syn::BinOp::Gt(_) => path!(::std::cmp::PartialOrd::gt),
+        syn::BinOp::Ge(_) => path!(::std::cmp::PartialOrd::ge),
+        syn::BinOp::AddAssign(_)
+        | syn::BinOp::SubAssign(_)
+        | syn::BinOp::MulAssign(_)
+        | syn::BinOp::DivAssign(_)
+        | syn::BinOp::RemAssign(_)
+        | syn::BinOp::BitXorAssign(_)
+        | syn::BinOp::BitAndAssign(_)
+        | syn::BinOp::BitOrAssign(_)
+        | syn::BinOp::ShlAssign(_)
+        | syn::BinOp::ShrAssign(_) => {
+            return Err(MachineError::new(
+                ErrorType::ConcreteConversionError(String::from(
+                    "Assignment operators not supported",
+                )),
+                span,
+            ))
+        }
+        _ => {
+            return Err(MachineError::new(
+                ErrorType::ConcreteConversionError(String::from("Unknown binary operator")),
+                span,
+            ))
+        }
+    };
+    Ok(create_expr_call(
+        create_expr_path(call_func),
+        vec![
+            (ArgType::Normal, *expr_binary.left),
+            (ArgType::Normal, *expr_binary.right),
+        ],
+    ))
 }

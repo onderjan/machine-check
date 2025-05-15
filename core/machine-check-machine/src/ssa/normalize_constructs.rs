@@ -1,7 +1,6 @@
 use proc_macro2::Span;
-use syn::{visit_mut::VisitMut, Item};
+use syn::{visit::Visit, Item};
 
-mod process;
 mod visit_mut;
 
 use crate::{ErrorType, MachineError};
@@ -9,7 +8,7 @@ use crate::{ErrorType, MachineError};
 pub fn normalize_constructs(items: &mut [Item]) -> Result<(), MachineError> {
     let mut visitor = Visitor { result: Ok(()) };
     for item in items.iter_mut() {
-        visitor.visit_item_mut(item);
+        visitor.visit_item(item);
     }
 
     visitor.result

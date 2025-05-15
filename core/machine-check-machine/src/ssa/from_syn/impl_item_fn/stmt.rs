@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use syn::{punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprBlock, Pat, Stmt, Token};
+use syn::{punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, Pat, Stmt, Token};
 
 use crate::{
-    ssa::from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type}, util::path_matches_global_names, wir::{
+    ssa::from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type}, util::{create_expr_ident, path_matches_global_names}, wir::{
         WBlock, WExprCall, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc,
         WPanicMacroKind, WPartialGeneralType, WStmt, WStmtAssign, WStmtIf, ZTac,
     }, MachineErrors
@@ -36,34 +36,10 @@ impl super::FunctionFolder {
         let mut errors: Vec<MachineErrors> = Vec::new();
 
         for orig_stmt in orig_stmts {
-            match orig_stmt {
-                Stmt::Local(local) => {
-                    let mut pat = local.pat.clone();
-                    let mut ty = Ok(WPartialGeneralType::Unknown);
-                    if let Pat::Type(pat_type) = pat {
-                        ty = fold_partial_general_type(*pat_type.ty);
-                        pat = *pat_type.pat;
-                    }
-
-                    let Pat::Ident(left_pat_ident) = pat else {
-                        // TODO: this should be an error
-                        panic!("Local pattern should be an ident: {:?}", pat)
-                    };
-                    let original_ident = WIdent::from_syn_ident(left_pat_ident.ident);
-                    match ty {
-                        Ok(ty) =>
-                    self.add_local_ident(scope_id, original_ident, ty),
-                    Err(err) => errors.push(MachineErrors::single(err)),
-                    }
-                }
-                Stmt::Expr(stmt_expr, semi) => {
-                    assert!(semi.is_some());
-                    if let Err(err) = self.fold_stmt_expr(stmt_expr, &mut stmts) {
-                        errors.push(err);
-                    }
-                }
-                _ => panic!("Unexpected type of statement: {:?}", orig_stmt),
-            };
+            match self.fold_stmt(scope_id, orig_stmt, &mut stmts) {
+                Ok(()) => {},
+                Err(err) => errors.push(err),
+            }
         }
 
         let mut pre_return_stmts = Vec::new();
@@ -97,6 +73,50 @@ impl super::FunctionFolder {
 
         Ok((WBlock { stmts }, return_ident))
     }
+    
+    fn fold_stmt(
+        &mut self,
+        scope_id: u32,
+        stmt: Stmt,
+        result_stmts: &mut Vec<WStmt<ZTac>>,
+    ) -> Result<(), MachineErrors> {
+        match stmt {
+            Stmt::Local(local) => {
+                let mut pat = local.pat.clone();
+                let mut ty = WPartialGeneralType::Unknown;
+                if let Pat::Type(pat_type) = pat {
+                    ty = fold_partial_general_type(*pat_type.ty)?;
+                    pat = *pat_type.pat;
+                }
+
+                let Pat::Ident(left_pat_ident) = pat else {
+                    // TODO: this should be an error
+                    panic!("Local pattern should be an ident: {:?}", pat)
+                };
+                let local_syn_ident = left_pat_ident.ident;
+                let local_ident = WIdent::from_syn_ident(local_syn_ident.clone());
+                self.add_local_ident(scope_id, local_ident, ty);
+
+                if let Some(init) = local.init {
+                    if init.diverge.is_some() {
+                        panic!("Diverging let not supported");
+                    }
+                    self.fold_stmt_expr(Expr::Assign(ExprAssign { 
+                        attrs: vec![], 
+                        left: Box::new(create_expr_ident(local_syn_ident)),
+                        eq_token: init.eq_token,
+                        right: init.expr
+                    }), 
+                    result_stmts)?;
+                }
+            }
+            Stmt::Expr(stmt_expr, _) => {
+                self.fold_stmt_expr(stmt_expr, result_stmts)?
+            }
+            _ => panic!("Unexpected type of statement: {:?}", stmt),
+        };
+        Ok(())
+    }
 
     fn fold_stmt_expr(
         &mut self,
@@ -126,22 +146,19 @@ impl super::FunctionFolder {
                 result_stmts.push(WStmt::Assign(WStmtAssign { left, right }));
             }
             syn::Expr::If(expr_if) => {
-                let Expr::Block(ExprBlock {
-                    block: else_block, ..
-                }) = *expr_if
-                    .else_branch
-                    .expect("Else branch should be present")
-                    .1
-                else {
-                    panic!("Else should have a block");
-                };
-
                 let condition = self.force_right_expr_to_call_arg(*expr_if.cond, result_stmts)?;
+                let then_block = self.fold_block(expr_if.then_branch)?.0;
+
+                let mut else_stmts = Vec::new();
+                if let Some((_else_token, else_branch)) = expr_if.else_branch {
+                    self.fold_stmt_expr(*else_branch, &mut else_stmts)?;
+                }
+                let else_block = WBlock { stmts: else_stmts };
 
                 result_stmts.push(WStmt::If(WStmtIf {
                     condition,
-                    then_block: self.fold_block(expr_if.then_branch)?.0,
-                    else_block: self.fold_block(else_block)?.0,
+                    then_block,
+                    else_block,
                 }));
             }
             syn::Expr::Block(expr_block) => {
