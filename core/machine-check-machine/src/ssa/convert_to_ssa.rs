@@ -1,8 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use syn::Type;
-
-use crate::wir::{IntoSyn, WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
+use crate::wir::{WCallFunc, WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 use crate::MachineError;
 use crate::{
     wir::{
@@ -257,10 +255,10 @@ impl LocalVisitor {
             append_stmts.push(WStmt::Assign(WStmtAssign {
                 left: append_ident,
                 right: WExpr::Call(WExprCall {
-                    fn_path: WPath::new_absolute(
+                    fn_path: WCallFunc(WPath::new_absolute(
                         &["mck", "forward", "PhiArg", "phi"],
                         append_ident_span,
-                    ),
+                    )),
                     args: vec![
                         WCallArg::Ident(phi_then_ident),
                         WCallArg::Ident(phi_else_ident),
@@ -281,7 +279,7 @@ impl LocalVisitor {
         }
     }
 
-    fn process_expr<T: IntoSyn<Type>>(&mut self, expr: &mut WExpr<T>) {
+    fn process_expr(&mut self, expr: &mut WExpr<WBasicType, WCallFunc<WBasicType>>) {
         match expr {
             WExpr::Move(ident) => self.process_ident(ident),
             WExpr::Call(expr) => {
@@ -343,7 +341,10 @@ fn create_taken_assign(phi_arg_ident: WIdent, taken_ident: WIdent) -> WStmt<ZSsa
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprCall {
-            fn_path: WPath::new_absolute(&["mck", "forward", "PhiArg", "Taken"], span),
+            fn_path: WCallFunc(WPath::new_absolute(
+                &["mck", "forward", "PhiArg", "Taken"],
+                span,
+            )),
             args: vec![WCallArg::Ident(taken_ident)],
         }),
     })
@@ -354,7 +355,10 @@ fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprCall {
-            fn_path: WPath::new_absolute(&["mck", "forward", "PhiArg", "NotTaken"], span),
+            fn_path: WCallFunc(WPath::new_absolute(
+                &["mck", "forward", "PhiArg", "NotTaken"],
+                span,
+            )),
             args: vec![],
         }),
     })
@@ -393,7 +397,10 @@ fn create_existing_temporary(
         let assign_stmt = WStmtAssign {
             left: ident.clone(),
             right: WExpr::Call(WExprCall {
-                fn_path: WPath::new_absolute(&["mck", "concr", "Phi", "uninit"], span),
+                fn_path: WCallFunc(WPath::new_absolute(
+                    &["mck", "concr", "Phi", "uninit"],
+                    span,
+                )),
                 args: vec![],
             }),
         };

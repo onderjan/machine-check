@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 
 use crate::{
     wir::{
-        WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprStruct, WField,
-        WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn, WImplItemType, WItemImpl,
-        WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt,
-        WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
+        WBasicType, WBlock, WCallFunc, WDescription, WElementaryType, WExpr, WExprCall,
+        WExprStruct, WField, WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn,
+        WImplItemType, WItemImpl, WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature,
+        WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
     },
     MachineError,
 };
@@ -180,9 +180,9 @@ impl Converter {
 
     fn convert_expr(
         &mut self,
-        expr: WExpr<WBasicType>,
+        expr: WExpr<WBasicType, WCallFunc<WBasicType>>,
         local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-    ) -> WExpr<WElementaryType> {
+    ) -> WExpr<WElementaryType, WCallFunc<WElementaryType>> {
         match expr {
             WExpr::Move(ident) => WExpr::Move(ident),
             WExpr::Call(expr_call) => {
@@ -194,7 +194,7 @@ impl Converter {
                     Err(err) => {
                         self.errors.push(err);
                         WExpr::Call(WExprCall {
-                            fn_path: self.convert_basic_path(expr_call_clone.fn_path),
+                            fn_path: WCallFunc(self.convert_basic_path(expr_call_clone.fn_path.0)),
                             args: expr_call_clone.args,
                         })
                     }

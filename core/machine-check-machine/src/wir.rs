@@ -61,7 +61,16 @@ pub struct ZTac;
 impl ZAssignTypes for ZTac {
     type FundamentalType = WBasicType;
     type AssignLeft = WIndexedIdent;
-    type AssignRight = WIndexedExpr<WBasicType>;
+    type AssignRight = WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct ZNonindexed;
+
+impl ZAssignTypes for ZNonindexed {
+    type FundamentalType = WBasicType;
+    type AssignLeft = WIdent;
+    type AssignRight = WExpr<WBasicType, WMacroableCallFunc<WBasicType>>;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -70,7 +79,7 @@ pub struct ZSsa;
 impl ZAssignTypes for ZSsa {
     type FundamentalType = WBasicType;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WBasicType>;
+    type AssignRight = WExpr<WBasicType, WCallFunc<WBasicType>>;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -79,7 +88,7 @@ pub struct ZConverted;
 impl ZAssignTypes for ZConverted {
     type FundamentalType = WElementaryType;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WElementaryType>;
+    type AssignRight = WExpr<WElementaryType, WCallFunc<WElementaryType>>;
 }
 
 pub trait YStage {
@@ -103,7 +112,7 @@ impl YStage for YTac {
 pub struct YNonindexed;
 
 impl YStage for YNonindexed {
-    type AssignTypes = ZSsa;
+    type AssignTypes = ZNonindexed;
     type OutputType = WBasicType;
     type FnResult = WIdent;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;

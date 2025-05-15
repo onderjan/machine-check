@@ -191,6 +191,10 @@ impl VisitMut for super::Visitor {
                 // conversion cannot be done in binary expression visitor
                 self.normalize_binary(expr_binary)
             }
+            Expr::Macro(expr_macro) => {
+                // let through for now
+                Expr::Macro(expr_macro)
+            }
             _ => {
                 self.push_error(String::from("Expression type not supported"), expr.span());
                 taken_expr

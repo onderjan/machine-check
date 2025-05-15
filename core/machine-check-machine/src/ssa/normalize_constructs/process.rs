@@ -56,7 +56,8 @@ impl super::Visitor {
                         | Expr::Path(_)
                         | Expr::If(_)
                         | Expr::Block(_)
-                        | Expr::Call(_) => {}
+                        | Expr::Call(_)
+                        | Expr::Macro(_) => {}
                         _ => {
                             self.push_error(
                                 String::from("Unsupported expression-statement type"),

@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    wir::{WBasicType, WCallArg, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent, WPath},
+    wir::{
+        WBasicType, WCallArg, WCallFunc, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
+        WPath,
+    },
     ErrorType, MachineError,
 };
 
@@ -10,45 +13,45 @@ use super::path_start_to_mck_forward;
 impl super::Converter {
     pub fn convert_call_fn_path(
         &mut self,
-        call: WExprCall<WBasicType>,
+        call: WExprCall<WCallFunc<WBasicType>>,
         local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-    ) -> Result<WExpr<WElementaryType>, MachineError> {
-        let fn_path = call.fn_path.clone();
+    ) -> Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, MachineError> {
+        let fn_path = call.fn_path.0.clone();
 
         let orig_call = call.clone();
 
         let mut call = WExprCall {
-            fn_path: self.convert_basic_path(call.fn_path),
+            fn_path: WCallFunc(self.convert_basic_path(call.fn_path.0)),
             args: call.args,
         };
 
         if let Some(result) = self.convert_bitwise(&fn_path) {
-            call.fn_path = result;
+            call.fn_path = WCallFunc(result);
             return Ok(WExpr::Call(call));
         }
 
         if let Some(result) = self.convert_arith(&fn_path) {
-            call.fn_path = result;
+            call.fn_path = WCallFunc(result);
             return Ok(WExpr::Call(call));
         }
 
         if let Some(result) = self.convert_eq(&fn_path) {
-            call.fn_path = result;
+            call.fn_path = WCallFunc(result);
             return Ok(WExpr::Call(call));
         }
 
         if let Some(result) = self.convert_cmp(&fn_path, &mut call.args, local_types) {
-            call.fn_path = result?;
+            call.fn_path = WCallFunc(result?);
             return Ok(WExpr::Call(call));
         }
 
         if let Some(result) = self.convert_shift(&fn_path, &mut call.args, local_types) {
-            call.fn_path = result?;
+            call.fn_path = WCallFunc(result?);
             return Ok(WExpr::Call(call));
         }
 
         if let Some(result) = self.convert_ext(&fn_path, &call.args, local_types) {
-            call.fn_path = result?;
+            call.fn_path = WCallFunc(result?);
             return Ok(WExpr::Call(call));
         }
 
@@ -295,11 +298,12 @@ impl super::Converter {
 
     fn convert_into(
         &mut self,
-        call: WExprCall<WBasicType>,
+        call: WExprCall<WCallFunc<WBasicType>>,
         local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-    ) -> Option<Result<WExpr<WElementaryType>, MachineError>> {
+    ) -> Option<Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, MachineError>> {
         if !call
             .fn_path
+            .0
             .matches_absolute(&["std", "convert", "Into", "into"])
         {
             return None;
@@ -311,7 +315,7 @@ impl super::Converter {
                 ErrorType::ConcreteConversionError(String::from(
                     "Into should have exactly one argument",
                 )),
-                call.fn_path.span(),
+                call.fn_path.0.span(),
             )));
         }
 
@@ -339,7 +343,7 @@ impl super::Converter {
                 ErrorType::ConcreteConversionError(String::from(
                     "Unable to assure that argument to Into is a machine-check bitvector",
                 )),
-                call.fn_path.span(),
+                call.fn_path.0.span(),
             )));
         };
         // into is no-op for our converted types, so change to a move

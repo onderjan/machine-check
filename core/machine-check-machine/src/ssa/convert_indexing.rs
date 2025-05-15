@@ -4,8 +4,9 @@ use crate::{
     support::ident_creator::IdentCreator,
     wir::{
         WArrayBaseExpr, WBasicType, WBlock, WCallArg, WDescription, WExpr, WExprCall, WExprField,
-        WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl, WPath,
-        WSignature, WStmt, WStmtAssign, WStmtIf, WTacLocal, YNonindexed, YTac, ZSsa, ZTac,
+        WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl,
+        WMacroableCallFunc, WPath, WSignature, WStmt, WStmtAssign, WStmtIf, WTacLocal, YNonindexed,
+        YTac, ZNonindexed, ZTac,
     },
 };
 
@@ -67,7 +68,7 @@ impl IndexingConverter {
         }
     }
 
-    fn fold_block(&mut self, block: WBlock<ZTac>) -> WBlock<ZSsa> {
+    fn fold_block(&mut self, block: WBlock<ZTac>) -> WBlock<ZNonindexed> {
         let mut stmts = Vec::new();
         for stmt in block.stmts {
             stmts.extend(self.fold_stmt(stmt));
@@ -76,7 +77,7 @@ impl IndexingConverter {
         WBlock { stmts }
     }
 
-    fn fold_stmt(&mut self, stmt: WStmt<ZTac>) -> Vec<WStmt<ZSsa>> {
+    fn fold_stmt(&mut self, stmt: WStmt<ZTac>) -> Vec<WStmt<ZNonindexed>> {
         let mut new_stmts = Vec::new();
         match stmt {
             WStmt::Assign(stmt) => new_stmts.extend(self.fold_assign(stmt)),
@@ -92,7 +93,7 @@ impl IndexingConverter {
         new_stmts
     }
 
-    fn fold_assign(&mut self, stmt: WStmtAssign<ZTac>) -> Vec<WStmt<ZSsa>> {
+    fn fold_assign(&mut self, stmt: WStmtAssign<ZTac>) -> Vec<WStmt<ZNonindexed>> {
         let mut result_stmts = Vec::new();
 
         let span = match &stmt.left {
@@ -121,7 +122,10 @@ impl IndexingConverter {
 
                 // the read call consumes the reference and index
                 let read_call = WExprCall {
-                    fn_path: WPath::new_absolute(&["mck", "forward", "ReadWrite", "read"], span),
+                    fn_path: WMacroableCallFunc::Call(WPath::new_absolute(
+                        &["mck", "forward", "ReadWrite", "read"],
+                        span,
+                    )),
                     args: vec![
                         WCallArg::Ident(array_ref_ident),
                         WCallArg::Ident(right_index),
@@ -152,7 +156,10 @@ impl IndexingConverter {
                 // the base is let through
 
                 let write_call = WExprCall {
-                    fn_path: WPath::new_absolute(&["mck", "forward", "ReadWrite", "write"], span),
+                    fn_path: WMacroableCallFunc::Call(WPath::new_absolute(
+                        &["mck", "forward", "ReadWrite", "write"],
+                        span,
+                    )),
                     args: vec![
                         WCallArg::Ident(array_ref_ident),
                         WCallArg::Ident(left_index),
@@ -168,7 +175,11 @@ impl IndexingConverter {
         result_stmts
     }
 
-    fn force_move(&mut self, stmts: &mut Vec<WStmt<ZSsa>>, expr: WExpr<WBasicType>) -> WIdent {
+    fn force_move(
+        &mut self,
+        stmts: &mut Vec<WStmt<ZNonindexed>>,
+        expr: WExpr<WBasicType, WMacroableCallFunc<WBasicType>>,
+    ) -> WIdent {
         let span = Span::call_site();
         match expr {
             WExpr::Move(ident) => ident,

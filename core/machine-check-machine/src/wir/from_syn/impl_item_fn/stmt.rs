@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
-use syn::{Block, Expr, ExprBlock, Pat, Stmt};
+use syn::{punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprBlock, Pat, Stmt, Token};
 
-use crate::wir::{
-    from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type},
-    WBlock, WIdent, WIndexedIdent, WPartialGeneralType, WStmt, WStmtAssign, WStmtIf, ZTac,
+use crate::{
+    util::path_matches_global_names,
+    wir::{
+        from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type},
+        WBlock, WExprCall, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc,
+        WPanicMacroKind, WPartialGeneralType, WStmt, WStmtAssign, WStmtIf, ZTac,
+    },
 };
 
 impl super::FunctionFolder {
@@ -122,6 +126,43 @@ impl super::FunctionFolder {
                 let (mut block, result) = self.fold_block(expr_block.block);
                 assert!(result.is_none());
                 result_stmts.append(&mut block.stmts);
+            }
+            syn::Expr::Macro(expr_macro) => {
+                let span = expr_macro.span();
+                let mac = expr_macro.mac;
+                let kind = if path_matches_global_names(&mac.path, &["std", "panic"]) {
+                    Some(WPanicMacroKind::Panic)
+                } else if path_matches_global_names(&mac.path, &["std", "unimplemented"]) {
+                    Some(WPanicMacroKind::Unimplemented)
+                } else if path_matches_global_names(&mac.path, &["std", "todo"]) {
+                    Some(WPanicMacroKind::Todo)
+                } else {
+                    None
+                };
+                let args =
+                    match mac.parse_body_with(Punctuated::<Expr, Token![,]>::parse_terminated) {
+                        Ok(args) => args,
+                        Err(_) => panic!("Could not parse macro args"),
+                    };
+
+                let mut call_args = Vec::new();
+                for arg in args {
+                    let Expr::Lit(lit) = arg else {
+                        panic!("Unexpected non-literal arg");
+                    };
+                    call_args.push(crate::wir::WCallArg::Literal(lit.lit));
+                }
+
+                let Some(kind) = kind else {
+                    panic!("Unsupported macro");
+                };
+                result_stmts.push(WStmt::Assign(WStmtAssign {
+                    left: WIndexedIdent::NonIndexed(WIdent::new(String::from("__mck_x"), span)),
+                    right: WIndexedExpr::NonIndexed(crate::wir::WExpr::Call(WExprCall {
+                        fn_path: WMacroableCallFunc::PanicMacro(kind),
+                        args: call_args,
+                    })),
+                }));
             }
             _ => panic!("Unexpected type of expression: {:?}", stmt_expr),
         };

@@ -57,12 +57,14 @@ impl LocalVisitor<'_> {
 
             if let WPartialGeneralType::Normal(left_type) = ty {
                 if let WExpr::Field(right_field) = &assign.right {
-                    let base_ident = &right_field.base;
-                    if let Some(WPartialGeneralType::PanicResult(inner_type)) =
-                        self.local_ident_types.get_mut(base_ident)
-                    {
-                        *inner_type = Some(left_type.clone());
-                    };
+                    if right_field.member.name() == "result" {
+                        let base_ident = &right_field.base;
+                        if let Some(WPartialGeneralType::PanicResult(inner_type)) =
+                            self.local_ident_types.get_mut(base_ident)
+                        {
+                            *inner_type = Some(left_type.clone());
+                        };
+                    }
                 }
             }
             return;

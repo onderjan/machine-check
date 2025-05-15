@@ -1,5 +1,4 @@
 mod convert_indexing;
-mod convert_panic;
 mod convert_to_ssa;
 mod convert_total;
 mod convert_types;
@@ -20,11 +19,10 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
             break;
         }
     }
-    let panic_messages = macro_expander.panic_messages().clone();
 
     resolve_use::remove_use(&mut items)?;
     normalize_constructs::normalize_constructs(&mut items)?;
-    convert_panic::convert_panic_demacroed(&mut items)?;
+    //convert_panic::convert_panic_demacroed(&mut items)?;
 
     /*println!(
         "Original syn string:\n{}",
@@ -39,7 +37,7 @@ pub(crate) fn create_ssa_machine(mut items: Vec<Item>) -> Result<MachineDescript
 
     let w_description = super::wir::WDescription::from_syn(items.clone().into_iter());
     let w_description = convert_indexing::convert_indexing(w_description);
-    let w_description = convert_total::convert_total(w_description);
+    let (w_description, panic_messages) = convert_total::convert_total(w_description);
     let w_description = convert_to_ssa::convert_to_ssa(w_description)?;
     let w_description = infer_types::infer_types(w_description)?;
     let w_description = convert_types::convert_types(w_description)?;

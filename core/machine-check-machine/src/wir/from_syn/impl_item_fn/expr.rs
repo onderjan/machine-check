@@ -4,8 +4,8 @@ use syn::{
 
 use crate::wir::{
     from_syn::path::fold_global_path, WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall,
-    WExprField, WExprReference, WExprStruct, WIdent, WIndexedExpr, WIndexedIdent, WStmt,
-    WStmtAssign, ZTac,
+    WExprField, WExprReference, WExprStruct, WIdent, WIndexedExpr, WIndexedIdent,
+    WMacroableCallFunc, WStmt, WStmtAssign, ZTac,
 };
 
 use super::FunctionFolder;
@@ -15,7 +15,7 @@ impl super::FunctionFolder {
         &mut self,
         expr: Expr,
         stmts: &mut Vec<WStmt<ZTac>>,
-    ) -> WIndexedExpr<WBasicType> {
+    ) -> WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>> {
         RightExprFolder {
             fn_folder: self,
             stmts,
@@ -58,7 +58,10 @@ struct RightExprFolder<'a> {
 }
 
 impl RightExprFolder<'_> {
-    pub fn fold_right_expr(&mut self, expr: Expr) -> WIndexedExpr<WBasicType> {
+    pub fn fold_right_expr(
+        &mut self,
+        expr: Expr,
+    ) -> WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>> {
         match expr {
             Expr::Call(expr_call) => {
                 WIndexedExpr::NonIndexed(WExpr::Call(self.fold_right_expr_call(expr_call)))
@@ -81,7 +84,10 @@ impl RightExprFolder<'_> {
         }
     }
 
-    fn fold_right_expr_call(&mut self, expr_call: ExprCall) -> WExprCall<WBasicType> {
+    fn fold_right_expr_call(
+        &mut self,
+        expr_call: ExprCall,
+    ) -> WExprCall<WMacroableCallFunc<WBasicType>> {
         {
             // the function path
             let fn_path = self.fn_folder.fold_expr_as_path(*expr_call.func);
@@ -91,7 +97,10 @@ impl RightExprFolder<'_> {
                 args.push(self.force_call_arg(arg));
             }
 
-            WExprCall { fn_path, args }
+            WExprCall {
+                fn_path: WMacroableCallFunc::Call(fn_path),
+                args,
+            }
         }
     }
 
@@ -151,7 +160,10 @@ impl RightExprFolder<'_> {
         }
     }
 
-    fn fold_right_expr_index(&mut self, expr_index: ExprIndex) -> WIndexedExpr<WBasicType> {
+    fn fold_right_expr_index(
+        &mut self,
+        expr_index: ExprIndex,
+    ) -> WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>> {
         let array_base = match *expr_index.expr {
             Expr::Path(expr_path) => {
                 WArrayBaseExpr::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path)))
