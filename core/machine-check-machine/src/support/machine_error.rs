@@ -26,6 +26,9 @@ pub enum ErrorType {
     #[error("machine-check (backward conversion): {0}")]
     BackwardConversionError(String),
 
+    #[error("machine-check: {0}")]
+    DescriptionError(String),
+
     #[error("machine-check internal error (SSA translation): {0}")]
     SsaInternal(String),
     #[error("machine-check internal error (forward translation): {0}")]

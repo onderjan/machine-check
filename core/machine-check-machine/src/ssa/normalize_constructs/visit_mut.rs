@@ -10,7 +10,7 @@ impl Visit<'_> for super::Visitor {
     fn visit_item(&mut self, item: &syn::Item) {
         match item {
             Item::Struct(_) | Item::Impl(_) | Item::Use(_) => {}
-            _ => self.push_error(String::from("Item type not supported"), item.span()),
+            _ => self.push_error("Item type", item.span()),
         }
 
         // delegate
@@ -39,7 +39,7 @@ impl Visit<'_> for super::Visitor {
                 // do not mention documentation comments
                 // as those are usually not written as attributes
                 self.push_error(
-                    String::from("Only derive and allow attributes supported on structs"),
+                    "Attribute on struct that is not derive or allow",
                     attr.span(),
                 );
             }
@@ -54,7 +54,7 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_generics(&mut self, generics: &syn::Generics) {
         if generics.lt_token.is_some() || generics.where_clause.is_some() {
-            self.push_error(String::from("Generics not supported"), generics.span());
+            self.push_error("Generics", generics.span());
         }
 
         // delegate
@@ -63,13 +63,10 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_item_impl(&mut self, item_impl: &syn::ItemImpl) {
         if item_impl.defaultness.is_some() {
-            self.push_error(String::from("Defaultness not supported"), item_impl.span());
+            self.push_error("Defaultness", item_impl.span());
         }
         if item_impl.unsafety.is_some() {
-            self.push_error(
-                String::from("Implementation unsafety not supported"),
-                item_impl.span(),
-            );
+            self.push_error("Implementation unsafety", item_impl.span());
         }
 
         // delegate
@@ -82,10 +79,7 @@ impl Visit<'_> for super::Visitor {
                 // OK
             }
             _ => {
-                self.push_error(
-                    String::from("Only functions and types supported in implementation"),
-                    impl_item.span(),
-                );
+                self.push_error("Item that is not function or type", impl_item.span());
             }
         }
 
@@ -95,10 +89,7 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_impl_item_fn(&mut self, impl_item_fn: &syn::ImplItemFn) {
         if impl_item_fn.defaultness.is_some() {
-            self.push_error(
-                String::from("Defaultness not supported"),
-                impl_item_fn.span(),
-            );
+            self.push_error("Defaultness", impl_item_fn.span());
         }
 
         // delegate
@@ -107,29 +98,23 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_signature(&mut self, signature: &syn::Signature) {
         if signature.constness.is_some() {
-            self.push_error(String::from("Constness not supported"), signature.span());
+            self.push_error("Constness", signature.span());
         }
         if signature.asyncness.is_some() {
-            self.push_error(String::from("Asyncness not supported"), signature.span());
+            self.push_error("Asyncness", signature.span());
         }
         if signature.unsafety.is_some() {
-            self.push_error(String::from("Unsafety not supported"), signature.span());
+            self.push_error("Unsafety", signature.span());
         }
         if signature.abi.is_some() {
-            self.push_error(String::from("ABI not supported"), signature.span());
+            self.push_error("ABI", signature.span());
         }
         if signature.variadic.is_some() {
-            self.push_error(
-                String::from("Variadic argument not supported"),
-                signature.span(),
-            );
+            self.push_error("Variadic argument", signature.span());
         }
         match signature.output {
             syn::ReturnType::Default => {
-                self.push_error(
-                    String::from("Function must have return type"),
-                    signature.span(),
-                );
+                self.push_error("Function without return type", signature.span());
             }
             syn::ReturnType::Type(_, _) => {}
         }
@@ -140,16 +125,10 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_receiver(&mut self, receiver: &syn::Receiver) {
         if receiver.mutability.is_some() {
-            self.push_error(
-                String::from("Mutable self parameter not supported"),
-                receiver.mutability.span(),
-            );
+            self.push_error("Mutable self parameter", receiver.mutability.span());
         }
         if let Some((_and, Some(lifetime))) = &receiver.reference {
-            self.push_error(
-                String::from("Self parameter with lifetime not supported"),
-                lifetime.span(),
-            );
+            self.push_error("Self parameter with lifetime", lifetime.span());
         }
         // delegate
         visit::visit_receiver(self, receiver);
@@ -176,17 +155,14 @@ impl Visit<'_> for super::Visitor {
             | Expr::Binary(_)
             | Expr::Macro(_) => {}
             _ => {
-                self.push_error(String::from("Expression type not supported"), expr.span());
+                self.push_error("Expression type", expr.span());
             }
         }
     }
 
     fn visit_expr_call(&mut self, expr_call: &syn::ExprCall) {
         if !matches!(*expr_call.func, Expr::Path(_)) {
-            self.push_error(
-                String::from("Non-path call functions not supported"),
-                expr_call.span(),
-            );
+            self.push_error("Non-path function operand", expr_call.span());
         }
 
         // delegate
@@ -195,16 +171,10 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_expr_struct(&mut self, expr_struct: &syn::ExprStruct) {
         if expr_struct.qself.is_some() {
-            self.push_error(
-                String::from("Quantified self not supported"),
-                expr_struct.span(),
-            );
+            self.push_error("Quantified self", expr_struct.span());
         }
         if expr_struct.dot2_token.is_some() {
-            self.push_error(
-                String::from("Struct expressions with base not supported"),
-                expr_struct.span(),
-            );
+            self.push_error("Struct expressions with base", expr_struct.span());
         }
 
         // delegate
@@ -213,10 +183,7 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_expr_path(&mut self, expr_path: &syn::ExprPath) {
         if expr_path.qself.is_some() {
-            self.push_error(
-                String::from("Qualified self on path not supported"),
-                expr_path.span(),
-            );
+            self.push_error("Qualified self on path", expr_path.span());
         }
 
         // delegate
@@ -226,7 +193,7 @@ impl Visit<'_> for super::Visitor {
     fn visit_pat(&mut self, pat: &Pat) {
         match pat {
             Pat::Ident(_) | Pat::Lit(_) | Pat::Type(_) => {}
-            _ => self.push_error(String::from("Pattern type not supported"), pat.span()),
+            _ => self.push_error("Pattern type", pat.span()),
         };
 
         // delegate
@@ -235,14 +202,11 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_pat_ident(&mut self, pat_ident: &syn::PatIdent) {
         if pat_ident.by_ref.is_some() {
-            self.push_error(
-                String::from("Pattern binding to reference not supported"),
-                pat_ident.by_ref.span(),
-            );
+            self.push_error("Pattern binding to reference", pat_ident.by_ref.span());
         }
 
         if let Some((_at, subpat)) = &pat_ident.subpat {
-            self.push_error(String::from("Subpattern not supported"), subpat.span());
+            self.push_error("Subpattern", subpat.span());
         }
 
         // delegate
@@ -251,10 +215,7 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_pat_type(&mut self, pat_type: &syn::PatType) {
         if !matches!(*pat_type.pat, Pat::Ident(_)) {
-            self.push_error(
-                String::from("Non-identifier typed pattern not supported"),
-                pat_type.span(),
-            );
+            self.push_error("Pattern other than ident or typed ident", pat_type.span());
         }
 
         // delegate
@@ -268,29 +229,20 @@ impl Visit<'_> for super::Visitor {
             }
             syn::Type::Reference(ty_ref) => {
                 if ty_ref.mutability.is_some() {
-                    self.push_error(
-                        String::from("Mutable reference not supported in type"),
-                        ty_ref.span(),
-                    );
+                    self.push_error("Mutable reference", ty_ref.span());
                 }
                 if ty_ref.lifetime.is_some() {
-                    self.push_error(
-                        String::from("Lifetime not supported in type"),
-                        ty_ref.span(),
-                    );
+                    self.push_error("Lifetime", ty_ref.span());
                 }
                 if !matches!(*ty_ref.elem, syn::Type::Path(_)) {
                     self.push_error(
-                        String::from("Only single-reference and path types are supported"),
+                        "Type that is not path or single-reference path",
                         ty_ref.span(),
                     );
                 }
             }
             _ => {
-                self.push_error(
-                    String::from("Only single-reference and path types are supported"),
-                    ty.span(),
-                );
+                self.push_error("Type that is not path or single-reference path", ty.span());
             }
         }
 
@@ -300,10 +252,7 @@ impl Visit<'_> for super::Visitor {
 
     fn visit_member(&mut self, member: &syn::Member) {
         if !matches!(member, Member::Named(_)) {
-            self.push_error(
-                String::from("Only named members are supported"),
-                member.span(),
-            );
+            self.push_error("Unnamed member", member.span());
         }
 
         // delegate
@@ -329,10 +278,7 @@ impl Visit<'_> for super::Visitor {
         if !is_permitted {
             // do not mention documentation comments
             // as those are usually not written as attributes
-            self.push_error(
-                String::from("Only allow attribute supported in this context"),
-                attribute.span(),
-            );
+            self.push_error("Attributes except allow attribute", attribute.span());
         }
 
         // delegate
@@ -343,10 +289,7 @@ impl Visit<'_> for super::Visitor {
         // for now, disallow paths that can break out (super / crate / $crate)
         for segment in path.segments.iter() {
             if segment.ident == "super" || segment.ident == "crate" || segment.ident == "$crate" {
-                self.push_error(
-                    String::from("Paths with super / crate / $crate not supported"),
-                    path.span(),
-                );
+                self.push_error("Paths with super / crate / $crate", path.span());
             }
         }
         // disallow global paths to any other crates than machine_check and std
@@ -358,9 +301,7 @@ impl Visit<'_> for super::Visitor {
             let crate_ident = &crate_segment.ident;
             if crate_ident != "machine_check" && crate_ident != "std" {
                 self.push_error(
-                    String::from(
-                        "Only global paths starting with 'machine_check' and 'std' supported",
-                    ),
+                    "Global paths not starting with 'machine_check' and 'std'",
                     path.span(),
                 );
             }

@@ -3,14 +3,16 @@ use std::collections::{BTreeMap, HashMap};
 use syn::{Expr, ImplItemFn, Pat};
 
 use crate::{
-    ssa::from_syn::ty::{fold_basic_type, fold_type},
+    ssa::{
+        error::{DescriptionError, DescriptionErrors},
+        from_syn::ty::{fold_basic_type, fold_type},
+    },
     support::ident_creator::IdentCreator,
     util::{extract_expr_ident, extract_expr_path},
     wir::{
         WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WPathSegment,
         WReference, WSignature, WTacLocal, WType, YTac,
     },
-    MachineError, MachineErrors,
 };
 
 use super::path::fold_global_path;
@@ -18,7 +20,7 @@ use super::path::fold_global_path;
 mod expr;
 mod stmt;
 
-pub fn fold_impl_item_fn(impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, MachineErrors> {
+pub fn fold_impl_item_fn(impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, DescriptionErrors> {
     FunctionFolder {
         ident_creator: IdentCreator::new(String::from("")),
         scopes: Vec::new(),
@@ -40,7 +42,7 @@ struct FunctionFolder {
 }
 
 impl FunctionFolder {
-    pub fn fold(mut self, impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, MachineErrors> {
+    pub fn fold(mut self, impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, DescriptionErrors> {
         let mut inputs = Vec::new();
 
         let scope_id = 1;
@@ -112,15 +114,15 @@ impl FunctionFolder {
             }
         }
 
-        let inputs = MachineErrors::flat_single_result(inputs);
+        let inputs = DescriptionErrors::flat_single_result(inputs);
 
         let output = match impl_item.sig.output {
             syn::ReturnType::Default => panic!("Unexpected default function return type"),
             syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty),
         }
-        .map_err(MachineErrors::single);
+        .map_err(DescriptionErrors::single);
 
-        let (inputs, output) = MachineErrors::combine(inputs, output)?;
+        let (inputs, output) = DescriptionErrors::combine(inputs, output)?;
 
         let signature = WSignature {
             ident: WIdent::from_syn_ident(impl_item.sig.ident),
@@ -172,7 +174,7 @@ impl FunctionFolder {
         }
     }
 
-    fn fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, MachineError> {
+    fn fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, DescriptionError> {
         let Ok(ident) = self.try_fold_expr_as_ident(expr) else {
             // TODO: this should be an error, not a panic
             panic!("Expr should be ident");
@@ -181,7 +183,7 @@ impl FunctionFolder {
         Ok(ident)
     }
 
-    fn fold_expr_as_path(&mut self, expr: Expr) -> Result<WPath<WBasicType>, MachineError> {
+    fn fold_expr_as_path(&mut self, expr: Expr) -> Result<WPath<WBasicType>, DescriptionError> {
         let Some(path) = extract_expr_path(&expr).cloned() else {
             // TODO: this should be an error, not a panic
             panic!("Expr should be path");

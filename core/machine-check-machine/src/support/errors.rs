@@ -13,14 +13,15 @@ impl<E: Error> Errors<E> {
         }
     }
 
-    pub fn from_iter(mut iter: impl Iterator<Item = E>) -> Option<Self> {
+    pub fn iter_to_result(iter: impl IntoIterator<Item = E>) -> Result<(), Self> {
+        let mut iter = iter.into_iter();
         let Some(first_error) = iter.next() else {
             // no errors
-            return None;
+            return Ok(());
         };
         let mut errors = Vec1::new(first_error);
         errors.extend(iter);
-        Some(Self { errors })
+        Err(Self { errors })
     }
 
     pub fn combine<T, U>(a: Result<T, Self>, b: Result<U, Self>) -> Result<(T, U), Self> {
@@ -63,10 +64,7 @@ impl<E: Error> Errors<E> {
                 Err(err) => err_result.push(err),
             }
         }
-        match Self::from_iter(err_result.into_iter()) {
-            Some(err) => Err(err),
-            None => Ok(ok_result),
-        }
+        Self::iter_to_result(err_result).map(|_| ok_result)
     }
 
     pub fn flat_single_result<T>(vec: Vec<Result<T, E>>) -> Result<Vec<T>, Self> {
@@ -86,10 +84,7 @@ impl<E: Error> Errors<E> {
                 Err(err) => err_result.extend(err.into_iter()),
             }
         }
-        match Self::from_iter(err_result.into_iter()) {
-            Some(err) => Err(err),
-            None => Ok(ok_result),
-        }
+        Self::iter_to_result(err_result).map(|_| ok_result)
     }
 
     pub fn add_error(&mut self, error: E) {
@@ -98,6 +93,15 @@ impl<E: Error> Errors<E> {
 
     pub fn into_errors(self) -> Vec1<E> {
         self.errors
+    }
+
+    pub fn convert_inner<F: Error>(self) -> Errors<F>
+    where
+        E: std::convert::Into<F>,
+    {
+        Errors::<F> {
+            errors: self.errors.mapped(Into::into),
+        }
     }
 }
 

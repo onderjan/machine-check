@@ -1,18 +1,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::wir::{WCallFunc, WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
-use crate::MachineError;
-use crate::{
-    wir::{
-        WBasicType, WBlock, WCallArg, WExpr, WExprCall, WIdent, WPartialGeneralType, WPath,
-        WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa,
-    },
-    ErrorType,
+use crate::wir::{
+    WBasicType, WBlock, WCallArg, WExpr, WExprCall, WIdent, WPartialGeneralType, WPath, WSignature,
+    WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa,
 };
+use crate::wir::{WCallFunc, WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
+
+use super::error::{DescriptionError, DescriptionErrorType, DescriptionErrors};
 
 pub fn convert_to_ssa(
     description: WDescription<YTotal>,
-) -> Result<WDescription<YSsa>, MachineError> {
+) -> Result<WDescription<YSsa>, DescriptionErrors> {
     let mut impls = Vec::new();
     for item_impl in description.impls {
         let mut impl_item_fns = Vec::new();
@@ -34,7 +32,7 @@ pub fn convert_to_ssa(
     })
 }
 
-fn process_fn(impl_item_fn: WImplItemFn<YTotal>) -> Result<WImplItemFn<YSsa>, MachineError> {
+fn process_fn(impl_item_fn: WImplItemFn<YTotal>) -> Result<WImplItemFn<YSsa>, DescriptionErrors> {
     // TODO: process parameters
 
     // process mutable local idents
@@ -54,7 +52,7 @@ fn process_fn(impl_item_fn: WImplItemFn<YTotal>) -> Result<WImplItemFn<YSsa>, Ma
     // visit
     let mut local_visitor = LocalVisitor {
         local_ident_counters,
-        result: Ok(()),
+        errors: Vec::new(),
         temps: BTreeMap::new(),
         branch_counter: 0,
         uninit_counter: 0,
@@ -66,7 +64,7 @@ struct LocalVisitor {
     pub branch_counter: u32,
     pub local_ident_counters: BTreeMap<WIdent, Counter>,
     pub temps: BTreeMap<WIdent, (WIdent, WPartialGeneralType<WBasicType>)>,
-    pub result: Result<(), MachineError>,
+    pub errors: Vec<DescriptionError>,
     pub uninit_counter: u32,
 }
 
@@ -81,7 +79,7 @@ impl LocalVisitor {
     pub fn process(
         &mut self,
         mut impl_item_fn: WImplItemFn<YTotal>,
-    ) -> Result<WImplItemFn<YSsa>, MachineError> {
+    ) -> Result<WImplItemFn<YSsa>, DescriptionErrors> {
         let signature = WSignature {
             ident: impl_item_fn.signature.ident,
             inputs: impl_item_fn.signature.inputs,
@@ -92,7 +90,9 @@ impl LocalVisitor {
         self.process_ident(&mut impl_item_fn.result.result_ident);
         self.process_ident(&mut impl_item_fn.result.panic_ident);
 
-        self.result.clone()?;
+        let mut errors = Vec::new();
+        errors.append(&mut self.errors);
+        DescriptionErrors::iter_to_result(errors)?;
 
         // replace locals with the ones in temps
         let mut locals = Vec::new();
@@ -323,8 +323,8 @@ impl LocalVisitor {
         if let Some(counter) = self.local_ident_counters.get(ident) {
             // the variable must be assigned before being used
             let Some(current_counter) = counter.present.last() else {
-                self.result = Err(MachineError::new(
-                    ErrorType::IllegalConstruct(String::from(
+                self.errors.push(DescriptionError::new(
+                    DescriptionErrorType::IllegalConstruct(String::from(
                         "Variable used before being assigned",
                     )),
                     ident.span(),

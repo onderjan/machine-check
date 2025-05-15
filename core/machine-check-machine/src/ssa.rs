@@ -2,19 +2,25 @@ mod convert_indexing;
 mod convert_to_ssa;
 mod convert_total;
 mod convert_types;
+mod error;
 mod expand_macros;
 mod from_syn;
 mod infer_types;
 mod normalize_constructs;
 mod resolve_use;
 
+use error::DescriptionErrors;
 use syn::Item;
 
 use crate::{wir::IntoSyn, MachineDescription, MachineErrors};
 
-pub(crate) fn create_ssa_machine(
+pub fn create_ssa_machine(items: Vec<Item>) -> Result<MachineDescription, MachineErrors> {
+    create_ssa_machine_inner(items).map_err(DescriptionErrors::convert_inner)
+}
+
+pub(crate) fn create_ssa_machine_inner(
     mut items: Vec<Item>,
-) -> Result<MachineDescription, MachineErrors> {
+) -> Result<MachineDescription, DescriptionErrors> {
     let mut macro_expander = expand_macros::MacroExpander::new();
     loop {
         resolve_use::resolve_use(&mut items)?;

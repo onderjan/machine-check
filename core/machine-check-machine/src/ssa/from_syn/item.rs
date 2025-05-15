@@ -4,13 +4,13 @@ use syn::{
 };
 
 use crate::{
+    ssa::error::{DescriptionError, DescriptionErrors},
     wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
-    MachineError, MachineErrors,
 };
 
 use super::{impl_item_fn::fold_impl_item_fn, path::fold_global_path, ty::fold_basic_type};
 
-pub fn fold_item_struct(item: ItemStruct) -> Result<WItemStruct<WBasicType>, MachineErrors> {
+pub fn fold_item_struct(item: ItemStruct) -> Result<WItemStruct<WBasicType>, DescriptionErrors> {
     let mut derives = Vec::new();
 
     for attr in item.attrs {
@@ -64,7 +64,7 @@ pub fn fold_item_struct(item: ItemStruct) -> Result<WItemStruct<WBasicType>, Mac
         fields.push(field);
     }
 
-    let fields = MachineErrors::vec_result(fields)?;
+    let fields = DescriptionErrors::vec_result(fields)?;
 
     Ok(WItemStruct {
         visibility: item.vis.into(),
@@ -74,7 +74,7 @@ pub fn fold_item_struct(item: ItemStruct) -> Result<WItemStruct<WBasicType>, Mac
     })
 }
 
-pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, MachineErrors> {
+pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErrors> {
     let self_ty = {
         match *item.self_ty {
             Type::Path(ty) => {
@@ -104,9 +104,9 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, MachineErrors> 
         }
     }
 
-    let (impl_item_types, impl_item_fns) = MachineErrors::combine(
-        MachineErrors::flat_single_result(impl_item_types),
-        MachineErrors::flat_result(impl_item_fns),
+    let (impl_item_types, impl_item_fns) = DescriptionErrors::combine(
+        DescriptionErrors::flat_single_result(impl_item_types),
+        DescriptionErrors::flat_result(impl_item_fns),
     )?;
 
     Ok(WItemImpl {
@@ -119,7 +119,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, MachineErrors> 
 
 pub fn fold_impl_item_type(
     impl_item: ImplItemType,
-) -> Result<WImplItemType<WBasicType>, MachineError> {
+) -> Result<WImplItemType<WBasicType>, DescriptionError> {
     let ty = impl_item.ty;
     let Type::Path(ty) = ty else {
         panic!("Unexpected non-path type: {:?}", ty);

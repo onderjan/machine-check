@@ -1,13 +1,13 @@
 use syn::{Expr, GenericArgument, Lit, Path, PathArguments};
 
 use crate::{
+    ssa::error::DescriptionError,
     wir::{WBasicType, WGeneric, WGenerics, WIdent, WPath, WPathSegment},
-    MachineError,
 };
 
 use super::ty::fold_type;
 
-pub fn fold_global_path(path: Path) -> Result<WPath<WBasicType>, MachineError> {
+pub fn fold_global_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
     let mut segments = Vec::new();
 
     for segment in path.segments {

@@ -5,7 +5,9 @@ use syn::{
     Expr, ExprMacro, Item, Macro, Stmt,
 };
 
-use crate::{util::path_matches_global_names, ErrorType, MachineError};
+use crate::util::path_matches_global_names;
+
+use super::error::{DescriptionError, DescriptionErrorType};
 
 pub struct MacroExpander {}
 
@@ -14,7 +16,7 @@ impl MacroExpander {
         Self {}
     }
 
-    pub fn expand_macros(&mut self, items: &mut [Item]) -> Result<bool, MachineError> {
+    pub fn expand_macros(&mut self, items: &mut [Item]) -> Result<bool, DescriptionError> {
         let mut visitor = Visitor {
             result: Ok(()),
             expanded_some_macro: false,
@@ -29,12 +31,12 @@ impl MacroExpander {
 }
 
 struct Visitor {
-    result: Result<(), MachineError>,
+    result: Result<(), DescriptionError>,
     expanded_some_macro: bool,
 }
 
 impl Visitor {
-    fn push_error(&mut self, err: MachineError) {
+    fn push_error(&mut self, err: DescriptionError) {
         if self.result.is_ok() {
             self.result = Err(err);
         }
@@ -70,7 +72,7 @@ impl VisitMut for Visitor {
 }
 
 impl Visitor {
-    fn process_macro(&mut self, mac: Macro) -> Result<Expr, MachineError> {
+    fn process_macro(&mut self, mac: Macro) -> Result<Expr, DescriptionError> {
         if path_matches_global_names(&mac.path, &["machine_check", "bitmask_switch"]) {
             self.expanded_some_macro = true;
             return self.process_bitmask_switch(mac);
@@ -79,15 +81,19 @@ impl Visitor {
         Ok(Expr::Macro(ExprMacro { attrs: vec![], mac }))
     }
 
-    fn process_bitmask_switch(&self, mut mac: Macro) -> Result<Expr, MachineError> {
+    fn process_bitmask_switch(&self, mut mac: Macro) -> Result<Expr, DescriptionError> {
         let span = mac.span();
         let macro_result =
             match machine_check_bitmask_switch::process(::std::mem::take(&mut mac.tokens)) {
                 Ok(ok) => ok,
                 Err(err) => {
-                    return Err(MachineError::new(ErrorType::MacroError(err.msg()), span));
+                    return Err(DescriptionError::new(
+                        DescriptionErrorType::MacroError(err.msg()),
+                        span,
+                    ));
                 }
             };
-        parse2(macro_result).map_err(|err| MachineError::new(ErrorType::MacroParseError(err), span))
+        parse2(macro_result)
+            .map_err(|err| DescriptionError::new(DescriptionErrorType::MacroParseError(err), span))
     }
 }

@@ -5,14 +5,16 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    ssa::from_syn::path::fold_global_path,
+    ssa::{
+        error::{DescriptionError, DescriptionErrorType},
+        from_syn::path::fold_global_path,
+    },
     util::{create_expr_call, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall, WExprField, WExprReference,
         WExprStruct, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc, WStmt, WStmtAssign,
         ZTac,
     },
-    ErrorType, MachineError,
 };
 
 use super::FunctionFolder;
@@ -22,7 +24,7 @@ impl super::FunctionFolder {
         &mut self,
         expr: Expr,
         stmts: &mut Vec<WStmt<ZTac>>,
-    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, MachineError> {
+    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, DescriptionError> {
         RightExprFolder {
             fn_folder: self,
             stmts,
@@ -34,7 +36,7 @@ impl super::FunctionFolder {
         &'a mut self,
         expr: Expr,
         stmts: &'a mut Vec<WStmt<ZTac>>,
-    ) -> Result<WIdent, MachineError> {
+    ) -> Result<WIdent, DescriptionError> {
         {
             RightExprFolder {
                 fn_folder: self,
@@ -48,7 +50,7 @@ impl super::FunctionFolder {
         &'a mut self,
         expr: Expr,
         stmts: &'a mut Vec<WStmt<ZTac>>,
-    ) -> Result<WCallArg, MachineError> {
+    ) -> Result<WCallArg, DescriptionError> {
         {
             RightExprFolder {
                 fn_folder: self,
@@ -68,7 +70,7 @@ impl RightExprFolder<'_> {
     pub fn fold_right_expr(
         &mut self,
         expr: Expr,
-    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, MachineError> {
+    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, DescriptionError> {
         Ok(match expr {
             Expr::Call(expr_call) => {
                 WIndexedExpr::NonIndexed(WExpr::Call(self.fold_right_expr_call(expr_call)?))
@@ -96,7 +98,7 @@ impl RightExprFolder<'_> {
     fn fold_right_expr_call(
         &mut self,
         expr_call: ExprCall,
-    ) -> Result<WExprCall<WMacroableCallFunc<WBasicType>>, MachineError> {
+    ) -> Result<WExprCall<WMacroableCallFunc<WBasicType>>, DescriptionError> {
         {
             // the function path
             let fn_path = self.fn_folder.fold_expr_as_path(*expr_call.func)?;
@@ -113,7 +115,10 @@ impl RightExprFolder<'_> {
         }
     }
 
-    fn fold_right_expr_field(&mut self, expr_field: ExprField) -> Result<WExprField, MachineError> {
+    fn fold_right_expr_field(
+        &mut self,
+        expr_field: ExprField,
+    ) -> Result<WExprField, DescriptionError> {
         // the member is just a regular identifier
         let member = match expr_field.member {
             syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
@@ -128,7 +133,7 @@ impl RightExprFolder<'_> {
     fn fold_right_expr_struct(
         &mut self,
         expr_struct: ExprStruct,
-    ) -> Result<WExprStruct<WBasicType>, MachineError> {
+    ) -> Result<WExprStruct<WBasicType>, DescriptionError> {
         let mut args = Vec::new();
         for field in expr_struct.fields {
             let left = match field.member {
@@ -150,7 +155,7 @@ impl RightExprFolder<'_> {
     fn fold_right_expr_reference(
         &mut self,
         expr_reference: ExprReference,
-    ) -> Result<WExprReference, MachineError> {
+    ) -> Result<WExprReference, DescriptionError> {
         Ok(match *expr_reference.expr {
             Expr::Path(expr_path) => {
                 WExprReference::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path))?)
@@ -175,7 +180,7 @@ impl RightExprFolder<'_> {
     fn fold_right_expr_index(
         &mut self,
         expr_index: ExprIndex,
-    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, MachineError> {
+    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, DescriptionError> {
         let array_base = match *expr_index.expr {
             Expr::Path(expr_path) => {
                 WArrayBaseExpr::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path))?)
@@ -198,21 +203,21 @@ impl RightExprFolder<'_> {
         Ok(WIndexedExpr::Indexed(array_base, index_ident))
     }
 
-    fn force_call_arg(&mut self, expr: Expr) -> Result<WCallArg, MachineError> {
+    fn force_call_arg(&mut self, expr: Expr) -> Result<WCallArg, DescriptionError> {
         if let Expr::Lit(lit) = expr {
             return Ok(WCallArg::Literal(lit.lit));
         }
         Ok(WCallArg::Ident(self.force_ident(expr)?))
     }
 
-    fn force_ident(&mut self, expr: Expr) -> Result<WIdent, MachineError> {
+    fn force_ident(&mut self, expr: Expr) -> Result<WIdent, DescriptionError> {
         match self.fn_folder.try_fold_expr_as_ident(expr) {
             Ok(ident) => Ok(ident),
             Err(expr) => self.move_through_temp(expr),
         }
     }
 
-    fn move_through_temp(&mut self, expr: Expr) -> Result<WIdent, MachineError> {
+    fn move_through_temp(&mut self, expr: Expr) -> Result<WIdent, DescriptionError> {
         let expr_span = expr.span();
         // process the expression first before moving it through temporary
         let expr = match expr {
@@ -247,20 +252,20 @@ impl RightExprFolder<'_> {
     }
 }
 
-fn normalize_unary(expr_unary: ExprUnary) -> Result<Expr, MachineError> {
+fn normalize_unary(expr_unary: ExprUnary) -> Result<Expr, DescriptionError> {
     let span = expr_unary.op.span();
     let path = match expr_unary.op {
         syn::UnOp::Deref(_) => {
-            return Err(MachineError::new(
-                ErrorType::ConcreteConversionError(String::from("Dereference not supported")),
+            return Err(DescriptionError::new(
+                DescriptionErrorType::UnsupportedConstruct("Dereference"),
                 span,
             ))
         }
         syn::UnOp::Not(_) => path!(::std::ops::Not::not),
         syn::UnOp::Neg(_) => path!(::std::ops::Neg::neg),
         _ => {
-            return Err(MachineError::new(
-                ErrorType::ConcreteConversionError(String::from("Unknown unary operator")),
+            return Err(DescriptionError::new(
+                DescriptionErrorType::UnsupportedConstruct("Unary operator"),
                 span,
             ))
         }
@@ -272,7 +277,7 @@ fn normalize_unary(expr_unary: ExprUnary) -> Result<Expr, MachineError> {
     ))
 }
 
-fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, MachineError> {
+fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, DescriptionError> {
     let span = expr_binary.op.span();
     let call_func = match expr_binary.op {
         syn::BinOp::Add(_) => path!(::std::ops::Add::add),
@@ -281,18 +286,14 @@ fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, MachineError> {
         syn::BinOp::Div(_) => path!(::std::ops::Div::div),
         syn::BinOp::Rem(_) => path!(::std::ops::Rem::rem),
         syn::BinOp::And(_) => {
-            return Err(MachineError::new(
-                ErrorType::ConcreteConversionError(String::from(
-                    "Short-circuiting AND not supported",
-                )),
+            return Err(DescriptionError::new(
+                DescriptionErrorType::UnsupportedConstruct("Short-circuiting AND"),
                 span,
             ))
         }
         syn::BinOp::Or(_) => {
-            return Err(MachineError::new(
-                ErrorType::ConcreteConversionError(String::from(
-                    "Short-circuiting OR not supported",
-                )),
+            return Err(DescriptionError::new(
+                DescriptionErrorType::UnsupportedConstruct("Short-circuiting OR"),
                 span,
             ))
         }
@@ -317,16 +318,14 @@ fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, MachineError> {
         | syn::BinOp::BitOrAssign(_)
         | syn::BinOp::ShlAssign(_)
         | syn::BinOp::ShrAssign(_) => {
-            return Err(MachineError::new(
-                ErrorType::ConcreteConversionError(String::from(
-                    "Assignment operators not supported",
-                )),
+            return Err(DescriptionError::new(
+                DescriptionErrorType::UnsupportedConstruct("Assignment operators"),
                 span,
             ))
         }
         _ => {
-            return Err(MachineError::new(
-                ErrorType::ConcreteConversionError(String::from("Unknown binary operator")),
+            return Err(DescriptionError::new(
+                DescriptionErrorType::UnsupportedConstruct("Binary operator"),
                 span,
             ))
         }

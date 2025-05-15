@@ -1,12 +1,11 @@
 use syn::{Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
-    ssa::from_syn::path::fold_global_path,
+    ssa::{error::DescriptionError, from_syn::path::fold_global_path},
     wir::{WBasicType, WPartialGeneralType, WReference, WType, WTypeArray},
-    MachineError,
 };
 
-pub fn fold_type(mut ty: Type) -> Result<WType<WBasicType>, MachineError> {
+pub fn fold_type(mut ty: Type) -> Result<WType<WBasicType>, DescriptionError> {
     let reference = match ty {
         Type::Reference(type_reference) => {
             let mutable = type_reference.mutability.is_some();
@@ -25,7 +24,7 @@ pub fn fold_type(mut ty: Type) -> Result<WType<WBasicType>, MachineError> {
     })
 }
 
-pub fn fold_basic_type(ty: Type) -> Result<WBasicType, MachineError> {
+pub fn fold_basic_type(ty: Type) -> Result<WBasicType, DescriptionError> {
     match ty {
         Type::Path(ty) => {
             assert!(ty.qself.is_none());
@@ -77,7 +76,7 @@ pub fn fold_basic_type(ty: Type) -> Result<WBasicType, MachineError> {
 
 pub fn fold_partial_general_type(
     ty: Type,
-) -> Result<WPartialGeneralType<WBasicType>, MachineError> {
+) -> Result<WPartialGeneralType<WBasicType>, DescriptionError> {
     let result: Option<_> = match &ty {
         Type::Path(ty) => {
             assert!(ty.qself.is_none());

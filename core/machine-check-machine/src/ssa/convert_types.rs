@@ -1,237 +1,227 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    wir::{
-        WBasicType, WBlock, WCallFunc, WDescription, WElementaryType, WExpr, WExprCall,
-        WExprStruct, WField, WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn,
-        WImplItemType, WItemImpl, WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature,
-        WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
-    },
-    MachineError,
+use convert_calls::convert_call_fn_path;
+
+use crate::wir::{
+    WBasicType, WBlock, WCallFunc, WDescription, WElementaryType, WExpr, WExprStruct, WField,
+    WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn, WImplItemType, WItemImpl,
+    WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt, WStmtAssign,
+    WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
 };
+
+use super::error::DescriptionErrors;
 
 mod convert_calls;
 
-struct Converter {
-    errors: Vec<MachineError>,
-}
-
 pub fn convert_types(
     description: WDescription<YInferred>,
-) -> Result<WDescription<YConverted>, MachineError> {
-    let mut converter = Converter { errors: Vec::new() };
-    let description = converter.convert_types(description);
-    if let Some(first_error) = converter.errors.into_iter().next() {
-        return Err(first_error);
-    }
-    Ok(description)
-}
-
-impl Converter {
-    fn convert_types(&mut self, description: WDescription<YInferred>) -> WDescription<YConverted> {
-        let mut structs = Vec::new();
-        let mut impls = Vec::new();
-        for item_struct in description.structs {
-            structs.push(WItemStruct {
-                visibility: item_struct.visibility,
-                derives: item_struct
-                    .derives
-                    .into_iter()
-                    .map(|path| self.convert_basic_path(path))
-                    .collect(),
-                ident: item_struct.ident,
-                fields: item_struct
-                    .fields
-                    .into_iter()
-                    .map(|field| WField {
-                        ident: field.ident,
-                        ty: self.convert_basic_type(field.ty),
-                    })
-                    .collect(),
-            });
-        }
-
-        for item_impl in description.impls {
-            impls.push(WItemImpl {
-                self_ty: self.convert_basic_path(item_impl.self_ty),
-                trait_: item_impl.trait_.map(|path| self.convert_basic_path(path)),
-                impl_item_types: item_impl
-                    .impl_item_types
-                    .into_iter()
-                    .map(|type_item| WImplItemType {
-                        left_ident: type_item.left_ident,
-                        right_path: self.convert_basic_path(type_item.right_path),
-                    })
-                    .collect(),
-                impl_item_fns: item_impl
-                    .impl_item_fns
-                    .into_iter()
-                    .map(|fn_item| self.convert_impl_item_fn(fn_item))
-                    .collect(),
-            })
-        }
-
-        WDescription { structs, impls }
-    }
-
-    fn convert_basic_type(&mut self, ty: WBasicType) -> WElementaryType {
-        match ty {
-            WBasicType::Bitvector(width) => WElementaryType::Bitvector(width),
-            WBasicType::Unsigned(width) => WElementaryType::Bitvector(width),
-            WBasicType::Signed(width) => WElementaryType::Bitvector(width),
-            WBasicType::BitvectorArray(type_array) => WElementaryType::Array(type_array),
-            WBasicType::Boolean => WElementaryType::Boolean,
-            WBasicType::Path(path) => WElementaryType::Path(self.convert_basic_path(path)),
-        }
-    }
-
-    fn convert_type(&mut self, ty: WType<WBasicType>) -> WType<WElementaryType> {
-        WType {
-            reference: ty.reference,
-            inner: self.convert_basic_type(ty.inner),
-        }
-    }
-
-    fn convert_general_type(
-        &mut self,
-        ty: WGeneralType<WBasicType>,
-    ) -> WGeneralType<WElementaryType> {
-        match ty {
-            WGeneralType::Normal(ty) => WGeneralType::Normal(self.convert_type(ty)),
-            WGeneralType::PanicResult(ty) => WGeneralType::PanicResult(self.convert_type(ty)),
-            WGeneralType::PhiArg(ty) => WGeneralType::PhiArg(self.convert_type(ty)),
-        }
-    }
-
-    fn convert_impl_item_fn(
-        &mut self,
-        impl_item: WImplItemFn<YInferred>,
-    ) -> WImplItemFn<YConverted> {
-        let mut local_types = BTreeMap::from_iter(
-            impl_item
-                .locals
-                .iter()
-                .map(|local| (local.ident.clone(), local.ty.clone())),
-        );
-        for input in &impl_item.signature.inputs {
-            local_types.insert(input.ident.clone(), WGeneralType::Normal(input.ty.clone()));
-        }
-
-        // convert the type inside the panic result type to elementary type
-        let output = WPanicResultType(self.convert_basic_type(impl_item.signature.output.0));
-
-        let signature = WSignature {
-            ident: impl_item.signature.ident,
-            inputs: impl_item
-                .signature
-                .inputs
+) -> Result<WDescription<YConverted>, DescriptionErrors> {
+    let mut structs = Vec::new();
+    let mut impls = Vec::new();
+    for item_struct in description.structs {
+        structs.push(WItemStruct {
+            visibility: item_struct.visibility,
+            derives: item_struct
+                .derives
                 .into_iter()
-                .map(|input| WFnArg {
-                    ident: input.ident,
-                    ty: self.convert_type(input.ty),
+                .map(convert_basic_path)
+                .collect(),
+            ident: item_struct.ident,
+            fields: item_struct
+                .fields
+                .into_iter()
+                .map(|field| WField {
+                    ident: field.ident,
+                    ty: convert_basic_type(field.ty),
                 })
                 .collect(),
-            output,
-        };
+        });
+    }
 
-        let block = self.convert_block(impl_item.block, &local_types);
+    for item_impl in description.impls {
+        let mut impl_item_fns = Vec::new();
 
-        let locals = impl_item
-            .locals
+        for impl_item_fn in item_impl.impl_item_fns {
+            impl_item_fns.push(convert_impl_item_fn(impl_item_fn));
+        }
+
+        let impl_item_types = item_impl
+            .impl_item_types
             .into_iter()
-            .map(|local| WSsaLocal {
-                ident: local.ident,
-                original: local.original,
-                ty: self.convert_general_type(local.ty),
+            .map(|type_item| WImplItemType {
+                left_ident: type_item.left_ident,
+                right_path: convert_basic_path(type_item.right_path),
             })
             .collect();
 
-        WImplItemFn {
-            signature,
-            locals,
-            block,
-            result: impl_item.result,
-        }
+        let impl_item_fns = DescriptionErrors::flat_result(impl_item_fns);
+
+        impls.push(match impl_item_fns {
+            Ok(impl_item_fns) => Ok(WItemImpl {
+                self_ty: convert_basic_path(item_impl.self_ty),
+                trait_: item_impl.trait_.map(convert_basic_path),
+                impl_item_types,
+                impl_item_fns,
+            }),
+            Err(err) => Err(err),
+        });
     }
 
-    fn convert_block(
-        &mut self,
-        block: WBlock<ZSsa>,
-        local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-    ) -> WBlock<ZConverted> {
-        WBlock {
-            stmts: block
-                .stmts
-                .into_iter()
-                .map(|stmt| match stmt {
-                    WStmt::Assign(stmt) => WStmt::Assign(WStmtAssign {
-                        left: stmt.left,
-                        right: self.convert_expr(stmt.right, local_types),
-                    }),
-                    WStmt::If(stmt) => WStmt::If(WStmtIf {
+    let impls = DescriptionErrors::flat_result(impls)?;
+
+    Ok(WDescription { structs, impls })
+}
+
+fn convert_basic_type(ty: WBasicType) -> WElementaryType {
+    match ty {
+        WBasicType::Bitvector(width) => WElementaryType::Bitvector(width),
+        WBasicType::Unsigned(width) => WElementaryType::Bitvector(width),
+        WBasicType::Signed(width) => WElementaryType::Bitvector(width),
+        WBasicType::BitvectorArray(type_array) => WElementaryType::Array(type_array),
+        WBasicType::Boolean => WElementaryType::Boolean,
+        WBasicType::Path(path) => WElementaryType::Path(convert_basic_path(path)),
+    }
+}
+
+fn convert_type(ty: WType<WBasicType>) -> WType<WElementaryType> {
+    WType {
+        reference: ty.reference,
+        inner: convert_basic_type(ty.inner),
+    }
+}
+
+fn convert_general_type(ty: WGeneralType<WBasicType>) -> WGeneralType<WElementaryType> {
+    match ty {
+        WGeneralType::Normal(ty) => WGeneralType::Normal(convert_type(ty)),
+        WGeneralType::PanicResult(ty) => WGeneralType::PanicResult(convert_type(ty)),
+        WGeneralType::PhiArg(ty) => WGeneralType::PhiArg(convert_type(ty)),
+    }
+}
+
+fn convert_impl_item_fn(
+    impl_item: WImplItemFn<YInferred>,
+) -> Result<WImplItemFn<YConverted>, DescriptionErrors> {
+    let mut local_types = BTreeMap::from_iter(
+        impl_item
+            .locals
+            .iter()
+            .map(|local| (local.ident.clone(), local.ty.clone())),
+    );
+    for input in &impl_item.signature.inputs {
+        local_types.insert(input.ident.clone(), WGeneralType::Normal(input.ty.clone()));
+    }
+
+    // convert the type inside the panic result type to elementary type
+    let output = WPanicResultType(convert_basic_type(impl_item.signature.output.0));
+
+    let signature = WSignature {
+        ident: impl_item.signature.ident,
+        inputs: impl_item
+            .signature
+            .inputs
+            .into_iter()
+            .map(|input| WFnArg {
+                ident: input.ident,
+                ty: convert_type(input.ty),
+            })
+            .collect(),
+        output,
+    };
+
+    let block = convert_block(impl_item.block, &local_types)?;
+
+    let locals = impl_item
+        .locals
+        .into_iter()
+        .map(|local| WSsaLocal {
+            ident: local.ident,
+            original: local.original,
+            ty: convert_general_type(local.ty),
+        })
+        .collect();
+
+    Ok(WImplItemFn {
+        signature,
+        locals,
+        block,
+        result: impl_item.result,
+    })
+}
+
+fn convert_block(
+    block: WBlock<ZSsa>,
+    local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
+) -> Result<WBlock<ZConverted>, DescriptionErrors> {
+    let mut stmts = Vec::new();
+    let mut errors = Vec::new();
+
+    for stmt in block.stmts {
+        match stmt {
+            WStmt::Assign(stmt) => match convert_expr(stmt.right, local_types) {
+                Ok(right) => stmts.push(WStmt::Assign(WStmtAssign {
+                    left: stmt.left,
+                    right,
+                })),
+                Err(err) => errors.push(err),
+            },
+            WStmt::If(stmt) => {
+                let then_block =
+                    convert_block(stmt.then_block, local_types).map_err(|err| errors.push(err));
+                let else_block =
+                    convert_block(stmt.else_block, local_types).map_err(|err| errors.push(err));
+
+                if let (Ok(then_block), Ok(else_block)) = (then_block, else_block) {
+                    stmts.push(WStmt::If(WStmtIf {
                         condition: stmt.condition,
-                        then_block: self.convert_block(stmt.then_block, local_types),
-                        else_block: self.convert_block(stmt.else_block, local_types),
-                    }),
-                })
-                .collect(),
-        }
-    }
-
-    fn convert_expr(
-        &mut self,
-        expr: WExpr<WBasicType, WCallFunc<WBasicType>>,
-        local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-    ) -> WExpr<WElementaryType, WCallFunc<WElementaryType>> {
-        match expr {
-            WExpr::Move(ident) => WExpr::Move(ident),
-            WExpr::Call(expr_call) => {
-                let expr_call_clone = expr_call.clone();
-
-                let expr_result = self.convert_call_fn_path(expr_call, local_types);
-                match expr_result {
-                    Ok(expr) => expr,
-                    Err(err) => {
-                        self.errors.push(err);
-                        WExpr::Call(WExprCall {
-                            fn_path: WCallFunc(self.convert_basic_path(expr_call_clone.fn_path.0)),
-                            args: expr_call_clone.args,
-                        })
-                    }
+                        then_block,
+                        else_block,
+                    }))
                 }
             }
-            WExpr::Field(expr_field) => WExpr::Field(expr_field),
-            WExpr::Struct(expr_struct) => WExpr::Struct(WExprStruct {
-                type_path: self.convert_basic_path(expr_struct.type_path),
-                fields: expr_struct.fields,
-            }),
-            WExpr::Reference(expr_reference) => WExpr::Reference(expr_reference),
-            WExpr::Lit(lit) => WExpr::Lit(lit),
-        }
+        };
     }
-    fn convert_basic_path(&mut self, path: WPath<WBasicType>) -> WPath<WElementaryType> {
-        let path = rewrite_basic_path(path);
-        WPath {
-            leading_colon: path.leading_colon,
-            segments: path
-                .segments
-                .into_iter()
-                .map(|segment| WPathSegment {
-                    ident: segment.ident,
-                    generics: segment.generics.map(|generics| WGenerics {
-                        leading_colon: generics.leading_colon,
-                        inner: generics
-                            .inner
-                            .into_iter()
-                            .map(|generic| match generic {
-                                WGeneric::Type(ty) => WGeneric::Type(self.convert_type(ty)),
-                                WGeneric::Const(c) => WGeneric::Const(c),
-                            })
-                            .collect(),
-                    }),
-                })
-                .collect(),
-        }
+
+    Ok(WBlock { stmts })
+}
+
+fn convert_expr(
+    expr: WExpr<WBasicType, WCallFunc<WBasicType>>,
+    local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
+) -> Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, DescriptionErrors> {
+    match expr {
+        WExpr::Move(ident) => Ok(WExpr::Move(ident)),
+        WExpr::Call(expr_call) => Ok(convert_call_fn_path(expr_call, local_types)?),
+        WExpr::Field(expr_field) => Ok(WExpr::Field(expr_field)),
+        WExpr::Struct(expr_struct) => Ok(WExpr::Struct(WExprStruct {
+            type_path: convert_basic_path(expr_struct.type_path),
+            fields: expr_struct.fields,
+        })),
+        WExpr::Reference(expr_reference) => Ok(WExpr::Reference(expr_reference)),
+        WExpr::Lit(lit) => Ok(WExpr::Lit(lit)),
+    }
+}
+fn convert_basic_path(path: WPath<WBasicType>) -> WPath<WElementaryType> {
+    let path = rewrite_basic_path(path);
+    WPath {
+        leading_colon: path.leading_colon,
+        segments: path
+            .segments
+            .into_iter()
+            .map(|segment| WPathSegment {
+                ident: segment.ident,
+                generics: segment.generics.map(|generics| WGenerics {
+                    leading_colon: generics.leading_colon,
+                    inner: generics
+                        .inner
+                        .into_iter()
+                        .map(|generic| match generic {
+                            WGeneric::Type(ty) => WGeneric::Type(convert_type(ty)),
+                            WGeneric::Const(c) => WGeneric::Const(c),
+                        })
+                        .collect(),
+                }),
+            })
+            .collect(),
     }
 }
 
@@ -288,39 +278,3 @@ fn path_start_to_mck_str(str: &str, mut path: WPath<WBasicType>) -> WPath<WBasic
     );
     path
 }
-
-/*
-fn convert_fn_types(
-    impl_item_fn: &mut ImplItemFn,
-    structs: &HashMap<Path, ItemStruct>,
-) -> Result<(), MachineError> {
-    let mut visitor = LocalVisitor {
-        local_ident_types: find_local_types(impl_item_fn),
-        structs,
-        result: Ok(()),
-    };
-
-    for param in impl_item_fn.sig.inputs.iter_mut() {
-        visitor.visit_fn_arg_mut(param);
-    }
-
-    let mut local_ident_types = HashMap::new();
-
-    for stmt in &impl_item_fn.block.stmts {
-        let Stmt::Local(local) = stmt else {
-            break;
-        };
-        // add local ident
-        let (local_ident, Some(local_type)) = extract_local_ident_with_type(local) else {
-            panic!("Expected full local typing when converting types");
-        };
-
-        local_ident_types.insert(local_ident, local_type);
-    }
-
-    visitor.visit_impl_item_fn_mut(impl_item_fn);
-
-    visitor.result
-}
-
-*/

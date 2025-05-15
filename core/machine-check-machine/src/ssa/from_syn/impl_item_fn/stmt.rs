@@ -3,17 +3,17 @@ use std::collections::HashMap;
 use syn::{punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, Pat, Stmt, Token};
 
 use crate::{
-    ssa::from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type}, util::{create_expr_ident, path_matches_global_names}, wir::{
+    ssa::{error::{DescriptionErrors}, from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type}}, util::{create_expr_ident, path_matches_global_names}, wir::{
         WBlock, WExprCall, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc,
         WPanicMacroKind, WPartialGeneralType, WStmt, WStmtAssign, WStmtIf, ZTac,
-    }, MachineErrors
+    },
 };
 
 impl super::FunctionFolder {
     pub fn fold_block(
         &mut self,
         block: Block,
-    ) -> Result<(WBlock<ZTac>, Option<WIdent>), MachineErrors> {
+    ) -> Result<(WBlock<ZTac>, Option<WIdent>), DescriptionErrors> {
         // push a local scope
         let scope_id = self.next_scope_id;
         self.next_scope_id = self
@@ -33,7 +33,7 @@ impl super::FunctionFolder {
         };
 
         let mut stmts: Vec<WStmt<ZTac>> = Vec::new();
-        let mut errors: Vec<MachineErrors> = Vec::new();
+        let mut errors = Vec::new();
 
         for orig_stmt in orig_stmts {
             match self.fold_stmt(scope_id, orig_stmt, &mut stmts) {
@@ -55,7 +55,7 @@ impl super::FunctionFolder {
                 match self.force_right_expr_to_ident(expr, &mut pre_return_stmts) {
                     Ok(ident) => Some(ident),
                     Err(err) => {
-                        errors.push(MachineErrors::single(err));
+                        errors.push(DescriptionErrors::single(err));
                         // the None value will never propagate out of the function
                         None
                     },
@@ -64,7 +64,7 @@ impl super::FunctionFolder {
             None
         };
 
-        MachineErrors::errors_vec_to_result(errors)?;
+        DescriptionErrors::errors_vec_to_result(errors)?;
 
         stmts.extend(pre_return_stmts);
 
@@ -79,7 +79,7 @@ impl super::FunctionFolder {
         scope_id: u32,
         stmt: Stmt,
         result_stmts: &mut Vec<WStmt<ZTac>>,
-    ) -> Result<(), MachineErrors> {
+    ) -> Result<(), DescriptionErrors> {
         match stmt {
             Stmt::Local(local) => {
                 let mut pat = local.pat.clone();
@@ -122,7 +122,7 @@ impl super::FunctionFolder {
         &mut self,
         stmt_expr: Expr,
         result_stmts: &mut Vec<WStmt<ZTac>>,
-    ) -> Result<(), MachineErrors> {
+    ) -> Result<(), DescriptionErrors> {
         match stmt_expr {
             syn::Expr::Assign(expr) => {
                 let left = match *expr.left {

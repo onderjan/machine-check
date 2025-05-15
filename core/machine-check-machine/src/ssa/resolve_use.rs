@@ -9,9 +9,11 @@ use syn::{
     Ident, Item, Pat, Path, PathArguments, PathSegment, Token, UseTree,
 };
 
-use crate::{util::extract_path_ident, ErrorType, MachineError};
+use crate::util::extract_path_ident;
 
-pub fn resolve_use(items: &mut [Item]) -> Result<(), MachineError> {
+use super::error::{DescriptionError, DescriptionErrorType};
+
+pub fn resolve_use(items: &mut [Item]) -> Result<(), DescriptionError> {
     // construct the use map first
     let mut use_map = HashMap::<Ident, Path>::new();
 
@@ -39,7 +41,7 @@ pub fn resolve_use(items: &mut [Item]) -> Result<(), MachineError> {
     visitor.result
 }
 
-pub fn remove_use(items: &mut Vec<Item>) -> Result<(), MachineError> {
+pub fn remove_use(items: &mut Vec<Item>) -> Result<(), DescriptionError> {
     items.retain(|item| !matches!(item, Item::Use(_)));
     Ok(())
 }
@@ -48,7 +50,7 @@ fn recurse_use_tree(
     use_map: &mut HashMap<Ident, Path>,
     use_tree: &UseTree,
     mut use_prefix: Path,
-) -> Result<(), MachineError> {
+) -> Result<(), DescriptionError> {
     let use_ident = match use_tree {
         UseTree::Path(use_path) => {
             // recurse with the added segment
@@ -84,16 +86,16 @@ fn recurse_use_tree(
         }
         UseTree::Glob(use_glob) => {
             // not supported
-            return Err(MachineError::new(
-                ErrorType::UnsupportedConstruct(String::from("Wildcard use not supported")),
+            return Err(DescriptionError::new(
+                DescriptionErrorType::UnsupportedConstruct("Wildcard use"),
                 use_glob.span(),
             ));
         }
     };
 
     if let Some(_previous) = use_map.insert(use_ident.clone(), use_prefix) {
-        Err(MachineError::new(
-            ErrorType::UnsupportedConstruct(String::from("Duplicate use declaration")),
+        Err(DescriptionError::new(
+            DescriptionErrorType::UnsupportedConstruct("Duplicate use declaration"),
             use_ident.span(),
         ))
     } else {
@@ -102,7 +104,7 @@ fn recurse_use_tree(
 }
 
 struct Visitor {
-    result: Result<(), MachineError>,
+    result: Result<(), DescriptionError>,
     use_map: HashMap<Ident, Path>,
     local_scopes_idents: Vec<HashSet<Ident>>,
 }
@@ -210,8 +212,10 @@ impl VisitMut for Visitor {
         }
         let Pat::Ident(local_pat) = local_pat else {
             if self.result.is_ok() {
-                self.result = Err(MachineError::new(
-                    ErrorType::UnsupportedConstruct(String::from("Complex local pattern")),
+                self.result = Err(DescriptionError::new(
+                    DescriptionErrorType::UnsupportedConstruct(
+                        "Local pattern that is not ident or typed local",
+                    ),
                     local_pat.span(),
                 ));
             }

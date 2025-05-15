@@ -2,11 +2,11 @@ use core::panic;
 use std::collections::HashMap;
 
 use crate::{
+    ssa::error::DescriptionError,
     wir::{
         WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn, WItemStruct,
         WPartialGeneralType, WPath, WReference, WStmtAssign, WType, YSsa, ZSsa,
     },
-    MachineError,
 };
 
 use super::is_type_fully_specified;
@@ -16,7 +16,7 @@ mod infer_call;
 pub struct LocalVisitor<'a> {
     pub local_ident_types: HashMap<WIdent, WPartialGeneralType<WBasicType>>,
     pub structs: &'a HashMap<WPath<WBasicType>, WItemStruct<WBasicType>>,
-    pub result: Result<(), MachineError>,
+    pub result: Result<(), DescriptionError>,
     pub inferred_something: bool,
 }
 
@@ -95,7 +95,7 @@ impl LocalVisitor<'_> {
         }
     }
 
-    fn push_error(&mut self, error: MachineError) {
+    fn push_error(&mut self, error: DescriptionError) {
         if self.result.is_ok() {
             self.result = Err(error);
         }

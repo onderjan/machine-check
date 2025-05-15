@@ -2,13 +2,18 @@ mod local_visitor;
 
 use std::{collections::HashMap, ops::ControlFlow};
 
-use crate::{wir::*, ErrorType, MachineError};
+use crate::wir::{
+    WBasicType, WDescription, WGeneralType, WImplItemFn, WItemImpl, WItemStruct,
+    WPartialGeneralType, WPath, WSignature, WSsaLocal, WType, YInferred, YSsa,
+};
 
 use self::local_visitor::LocalVisitor;
 
+use super::error::{DescriptionError, DescriptionErrorType, DescriptionErrors};
+
 pub fn infer_types(
     description: WDescription<YSsa>,
-) -> Result<WDescription<YInferred>, MachineError> {
+) -> Result<WDescription<YInferred>, DescriptionErrors> {
     let mut structs = HashMap::new();
     // add structures first
     for item in description.structs.iter() {
@@ -24,16 +29,24 @@ pub fn infer_types(
         let mut fn_items = Vec::new();
 
         for fn_item in item_impl.impl_item_fns {
-            fn_items.push(infer_fn_types(fn_item, &structs, self_path)?);
+            fn_items.push(infer_fn_types(fn_item, &structs, self_path));
         }
 
-        inferred_impls.push(WItemImpl {
-            self_ty: item_impl.self_ty,
-            trait_: item_impl.trait_,
-            impl_item_types: item_impl.impl_item_types,
-            impl_item_fns: fn_items,
+        let fn_items = DescriptionErrors::flat_result(fn_items);
+
+        inferred_impls.push(match fn_items {
+            Ok(fn_items) => Ok(WItemImpl {
+                self_ty: item_impl.self_ty,
+                trait_: item_impl.trait_,
+                impl_item_types: item_impl.impl_item_types,
+                impl_item_fns: fn_items,
+            }),
+            Err(err) => Err(err),
         });
     }
+
+    let inferred_impls = DescriptionErrors::flat_result(inferred_impls)?;
+
     Ok(WDescription {
         structs: description.structs,
         impls: inferred_impls,
@@ -44,7 +57,7 @@ fn infer_fn_types(
     mut impl_item_fn: WImplItemFn<YSsa>,
     structs: &HashMap<WPath<WBasicType>, WItemStruct<WBasicType>>,
     self_path: &WPath<WBasicType>,
-) -> Result<WImplItemFn<YInferred>, MachineError> {
+) -> Result<WImplItemFn<YInferred>, DescriptionErrors> {
     let mut local_ident_types = HashMap::new();
 
     // add param idents
@@ -92,7 +105,7 @@ fn convert_self(ty: &mut WType<WBasicType>, self_path: &WPath<WBasicType>) {
 fn infer_fn_types_next(
     visitor: &mut LocalVisitor<'_>,
     impl_item_fn: &WImplItemFn<YSsa>,
-) -> Result<ControlFlow<(), ()>, MachineError> {
+) -> Result<ControlFlow<(), ()>, DescriptionError> {
     // visit first to infer as much as we can
     visitor.inferred_something = false;
     visitor.visit_impl_item_fn(impl_item_fn);
@@ -155,7 +168,9 @@ fn infer_fn_types_next(
 fn update_local_types(
     visitor: &mut LocalVisitor<'_>,
     impl_item_fn: WImplItemFn<YSsa>,
-) -> Result<WImplItemFn<YInferred>, MachineError> {
+) -> Result<WImplItemFn<YInferred>, DescriptionErrors> {
+    let mut errors = Vec::new();
+
     let mut locals = Vec::new();
     // add inferred types to the definitions
     for local in impl_item_fn.locals {
@@ -168,21 +183,26 @@ fn update_local_types(
             _ => None,
         };
 
-        let Some(inferred_type) = inferred_type else {
-            // inference failure
-            return Err(MachineError::new(
-                ErrorType::InferenceFailure,
-                local.ident.span(),
-            ));
-        };
-
-        // add type
-        locals.push(WSsaLocal {
-            ident: local.ident,
-            original: local.original,
-            ty: inferred_type,
-        });
+        match inferred_type {
+            Some(inferred_type) => {
+                // add type
+                locals.push(WSsaLocal {
+                    ident: local.ident,
+                    original: local.original,
+                    ty: inferred_type,
+                });
+            }
+            None => {
+                // inference failure
+                errors.push(DescriptionError::new(
+                    DescriptionErrorType::InferenceFailure,
+                    local.ident.span(),
+                ));
+            }
+        }
     }
+
+    DescriptionErrors::iter_to_result(errors)?;
 
     let signature = WSignature {
         ident: impl_item_fn.signature.ident,

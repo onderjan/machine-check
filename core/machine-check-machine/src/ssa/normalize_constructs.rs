@@ -3,9 +3,9 @@ use syn::{visit::Visit, Item};
 
 mod visit_mut;
 
-use crate::{ErrorType, MachineError};
+use super::error::{DescriptionError, DescriptionErrorType};
 
-pub fn normalize_constructs(items: &mut [Item]) -> Result<(), MachineError> {
+pub fn normalize_constructs(items: &mut [Item]) -> Result<(), DescriptionError> {
     let mut visitor = Visitor { result: Ok(()) };
     for item in items.iter_mut() {
         visitor.visit_item(item);
@@ -15,14 +15,14 @@ pub fn normalize_constructs(items: &mut [Item]) -> Result<(), MachineError> {
 }
 
 struct Visitor {
-    result: Result<(), MachineError>,
+    result: Result<(), DescriptionError>,
 }
 
 impl Visitor {
-    fn push_error(&mut self, msg: String, span: Span) {
+    fn push_error(&mut self, msg: &'static str, span: Span) {
         if self.result.is_ok() {
-            self.result = Err(MachineError::new(
-                ErrorType::UnsupportedConstruct(msg),
+            self.result = Err(DescriptionError::new(
+                DescriptionErrorType::UnsupportedConstruct(msg),
                 span,
             ));
         }
