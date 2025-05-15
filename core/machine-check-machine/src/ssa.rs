@@ -3,6 +3,7 @@ mod convert_to_ssa;
 mod convert_total;
 mod convert_types;
 mod expand_macros;
+mod from_syn;
 mod infer_types;
 mod normalize_constructs;
 mod resolve_use;
@@ -36,7 +37,7 @@ pub(crate) fn create_ssa_machine(
     println!("---");
     */
 
-    let w_description = super::wir::WDescription::from_syn(items.clone().into_iter())?;
+    let w_description = from_syn::from_syn(items.clone().into_iter())?;
     let w_description = convert_indexing::convert_indexing(w_description);
     let (w_description, panic_messages) = convert_total::convert_total(w_description);
     let w_description = convert_to_ssa::convert_to_ssa(w_description)?;

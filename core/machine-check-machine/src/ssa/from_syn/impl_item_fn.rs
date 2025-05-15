@@ -3,10 +3,10 @@ use std::collections::{BTreeMap, HashMap};
 use syn::{Expr, ImplItemFn, Pat};
 
 use crate::{
+    ssa::from_syn::ty::{fold_basic_type, fold_type},
     support::ident_creator::IdentCreator,
     util::{extract_expr_ident, extract_expr_path},
     wir::{
-        from_syn::ty::{fold_basic_type, fold_type},
         WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WPathSegment,
         WReference, WSignature, WTacLocal, WType, YTac,
     },

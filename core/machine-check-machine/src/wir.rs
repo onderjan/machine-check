@@ -8,8 +8,6 @@ mod path;
 mod stmt;
 mod ty;
 
-mod from_syn;
-
 pub use expr::*;
 pub use impl_item::*;
 pub use item::*;

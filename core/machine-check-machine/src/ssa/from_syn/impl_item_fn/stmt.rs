@@ -3,12 +3,10 @@ use std::collections::HashMap;
 use syn::{punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprBlock, Pat, Stmt, Token};
 
 use crate::{
-    util::path_matches_global_names,
-    wir::{
-        from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type},
+    ssa::from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type}, util::path_matches_global_names, wir::{
         WBlock, WExprCall, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc,
         WPanicMacroKind, WPartialGeneralType, WStmt, WStmtAssign, WStmtIf, ZTac,
-    }, MachineErrors,
+    }, MachineErrors
 };
 
 impl super::FunctionFolder {

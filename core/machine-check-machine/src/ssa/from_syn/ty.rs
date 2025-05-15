@@ -1,10 +1,8 @@
 use syn::{Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
-    wir::{
-        from_syn::path::fold_global_path, WBasicType, WPartialGeneralType, WReference, WType,
-        WTypeArray,
-    },
+    ssa::from_syn::path::fold_global_path,
+    wir::{WBasicType, WPartialGeneralType, WReference, WType, WTypeArray},
     MachineError,
 };
 
@@ -80,7 +78,7 @@ pub fn fold_basic_type(ty: Type) -> Result<WBasicType, MachineError> {
 pub fn fold_partial_general_type(
     ty: Type,
 ) -> Result<WPartialGeneralType<WBasicType>, MachineError> {
-    let result = match &ty {
+    let result: Option<_> = match &ty {
         Type::Path(ty) => {
             assert!(ty.qself.is_none());
 

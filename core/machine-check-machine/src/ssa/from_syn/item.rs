@@ -4,14 +4,11 @@ use syn::{
 };
 
 use crate::{
-    wir::{
-        from_syn::path::fold_global_path, WBasicType, WField, WIdent, WImplItemType, WItemImpl,
-        WItemStruct, WVisibility, YTac,
-    },
+    wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
     MachineError, MachineErrors,
 };
 
-use super::{impl_item_fn::fold_impl_item_fn, ty::fold_basic_type};
+use super::{impl_item_fn::fold_impl_item_fn, path::fold_global_path, ty::fold_basic_type};
 
 pub fn fold_item_struct(item: ItemStruct) -> Result<WItemStruct<WBasicType>, MachineErrors> {
     let mut derives = Vec::new();

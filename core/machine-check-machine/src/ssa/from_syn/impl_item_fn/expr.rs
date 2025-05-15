@@ -3,10 +3,11 @@ use syn::{
 };
 
 use crate::{
+    ssa::from_syn::path::fold_global_path,
     wir::{
-        from_syn::path::fold_global_path, WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall,
-        WExprField, WExprReference, WExprStruct, WIdent, WIndexedExpr, WIndexedIdent,
-        WMacroableCallFunc, WStmt, WStmtAssign, ZTac,
+        WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall, WExprField, WExprReference,
+        WExprStruct, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc, WStmt, WStmtAssign,
+        ZTac,
     },
     MachineError,
 };
