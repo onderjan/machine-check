@@ -153,14 +153,6 @@ pub fn extract_expr_path(expr: &Expr) -> Option<&Path> {
     }
 }
 
-pub fn extract_expr_path_mut(expr: &mut Expr) -> Option<&mut Path> {
-    if let Expr::Path(expr_path) = expr {
-        Some(&mut expr_path.path)
-    } else {
-        None
-    }
-}
-
 pub fn extract_expr_ident(expr: &Expr) -> Option<&Ident> {
     extract_path_ident(extract_expr_path(expr)?)
 }
