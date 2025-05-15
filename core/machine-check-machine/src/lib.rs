@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use proc_macro2::{Ident, Span};
 use quote::quote;
+use support::errors::Errors;
 use support::rules::NoRuleMatch;
 use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
@@ -20,7 +21,9 @@ mod support;
 mod util;
 mod wir;
 
-pub use support::machine_error::{ErrorType, MachineError, MachineErrors};
+pub use support::machine_error::{ErrorType, MachineError};
+
+pub type MachineErrors = Errors<MachineError>;
 
 #[derive(Clone)]
 pub struct MachineDescription {

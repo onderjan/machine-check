@@ -1,3 +1,4 @@
+pub mod errors;
 pub mod ident_creator;
 pub mod local;
 pub mod machine_error;
