@@ -18,3 +18,7 @@ syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }
 quote = "1.0.28"
 prettyplease = "0.2.15"
 syn-path = "2.0.0"
+
+[dev-dependencies]
+trybuild = "1.0.105"
+machine-check = "0.4.0"

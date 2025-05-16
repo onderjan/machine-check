@@ -1527,6 +1527,7 @@ dependencies = [
 name = "machine-check-macros"
 version = "0.4.0"
 dependencies = [
+ "machine-check",
  "machine-check-bitmask-switch",
  "machine-check-machine",
  "prettyplease",
@@ -1534,6 +1535,7 @@ dependencies = [
  "quote",
  "syn 2.0.95",
  "syn-path",
+ "trybuild",
 ]
 
 [[package]]
@@ -2466,11 +2468,12 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.107"
+version = "1.0.140"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b420ce6e3d8bd882e9b243c6eed35dbc9a6110c9769e74b584e0d68d1f20c65"
+checksum = "20068b6e96dc6c9bd23e01df8827e6c7e1f2fddd43c21810382803c136b99373"
 dependencies = [
  "itoa 1.0.9",
+ "memchr",
  "ryu",
  "serde",
 ]
@@ -2720,6 +2723,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
+name = "target-triple"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ac9aa371f599d22256307c24a9d748c041e548cbf599f35d890f9d365361790"
+
+[[package]]
 name = "tempdir"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2915,6 +2924,21 @@ dependencies = [
  "serde_spanned",
  "toml_datetime",
  "winnow 0.6.22",
+]
+
+[[package]]
+name = "trybuild"
+version = "1.0.105"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c9bf9513a2f4aeef5fdac8677d7d349c79fdbcc03b9c86da6e9d254f1e43be2"
+dependencies = [
+ "glob",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "target-triple",
+ "termcolor",
+ "toml",
 ]
 
 [[package]]
