@@ -30,7 +30,7 @@ impl From<DescriptionError> for MachineError {
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
-#[error("{span:?}: {ty}")]
+#[error("{ty}")]
 pub struct DescriptionError {
     pub ty: DescriptionErrorType,
     pub span: Span,
@@ -39,6 +39,10 @@ pub struct DescriptionError {
 impl DescriptionError {
     pub fn new(ty: DescriptionErrorType, span: Span) -> Self {
         Self { ty, span }
+    }
+
+    pub fn unsupported_construct(msg: &'static str, span: Span) -> Self {
+        Self::new(DescriptionErrorType::UnsupportedConstruct(msg), span)
     }
 }
 

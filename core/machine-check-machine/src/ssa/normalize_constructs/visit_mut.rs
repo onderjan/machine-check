@@ -1,22 +1,12 @@
 use syn::{
     spanned::Spanned,
     visit::{self, Visit},
-    Expr, Item, Member, Meta, Pat,
+    Expr, Member, Meta, Pat,
 };
 
 use crate::util::extract_path_ident;
 
 impl Visit<'_> for super::Visitor {
-    fn visit_item(&mut self, item: &syn::Item) {
-        match item {
-            Item::Struct(_) | Item::Impl(_) | Item::Use(_) => {}
-            _ => self.push_error("Item type", item.span()),
-        }
-
-        // delegate
-        visit::visit_item(self, item)
-    }
-
     fn visit_item_struct(&mut self, item_struct: &syn::ItemStruct) {
         // handle attributes specially
         for attr in &item_struct.attrs {
