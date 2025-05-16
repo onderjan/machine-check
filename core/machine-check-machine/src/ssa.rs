@@ -1,3 +1,4 @@
+mod attribute_disallower;
 mod convert_indexing;
 mod convert_to_ssa;
 mod convert_total;

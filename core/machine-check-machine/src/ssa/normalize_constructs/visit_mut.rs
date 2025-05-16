@@ -1,47 +1,10 @@
 use syn::{
     spanned::Spanned,
     visit::{self, Visit},
-    Expr, Member, Meta, Pat,
+    Expr, Member, Pat,
 };
 
-use crate::util::extract_path_ident;
-
 impl Visit<'_> for super::Visitor {
-    fn visit_item_struct(&mut self, item_struct: &syn::ItemStruct) {
-        // handle attributes specially
-        for attr in &item_struct.attrs {
-            let mut is_permitted = false;
-            if let Meta::List(meta_list) = &attr.meta {
-                if let Some(ident) = extract_path_ident(&meta_list.path) {
-                    if ident == "derive" || ident == "allow" {
-                        is_permitted = true;
-                    }
-                }
-            }
-            if let Meta::NameValue(name_value) = &attr.meta {
-                if let Some(ident) = extract_path_ident(&name_value.path) {
-                    if ident == "doc" {
-                        is_permitted = true;
-                    }
-                }
-            }
-            if !is_permitted {
-                // do not mention documentation comments
-                // as those are usually not written as attributes
-                self.push_error(
-                    "Attribute on struct that is not derive or allow",
-                    attr.span(),
-                );
-            }
-        }
-
-        // visit other fields
-        self.visit_visibility(&item_struct.vis);
-        self.visit_ident(&item_struct.ident);
-        self.visit_generics(&item_struct.generics);
-        self.visit_fields(&item_struct.fields);
-    }
-
     fn visit_generics(&mut self, generics: &syn::Generics) {
         if generics.lt_token.is_some() || generics.where_clause.is_some() {
             self.push_error("Generics", generics.span());
@@ -247,31 +210,5 @@ impl Visit<'_> for super::Visitor {
 
         // delegate
         visit::visit_member(self, member);
-    }
-
-    fn visit_attribute(&mut self, attribute: &syn::Attribute) {
-        let mut is_permitted = false;
-        if let Meta::List(meta_list) = &attribute.meta {
-            if let Some(ident) = extract_path_ident(&meta_list.path) {
-                if ident == "allow" {
-                    is_permitted = true;
-                }
-            }
-        }
-        if let Meta::NameValue(name_value) = &attribute.meta {
-            if let Some(ident) = extract_path_ident(&name_value.path) {
-                if ident == "doc" {
-                    is_permitted = true;
-                }
-            }
-        }
-        if !is_permitted {
-            // do not mention documentation comments
-            // as those are usually not written as attributes
-            self.push_error("Attributes except allow attribute", attribute.span());
-        }
-
-        // delegate
-        visit::visit_attribute(self, attribute);
     }
 }

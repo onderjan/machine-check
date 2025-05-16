@@ -1,0 +1,5 @@
+error: machine-check: This attribute not supported
+ --> tests/cases/05-struct-arbitrary-attribute.rs:3:5
+  |
+3 |     #[::machine_check_arbitrary]
+  |     ^

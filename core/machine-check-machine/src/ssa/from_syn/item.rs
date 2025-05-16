@@ -1,51 +1,102 @@
 use syn::{
-    parse::Parser, punctuated::Punctuated, Fields, ImplItem, ImplItemType, ItemImpl, ItemStruct,
-    Path, Token, Type, Visibility,
+    parse::Parser, punctuated::Punctuated, spanned::Spanned, visit::Visit, Fields, Generics, Ident,
+    ImplItem, ImplItemType, ItemImpl, ItemStruct, Path, Token, Type, Visibility,
 };
 
 use crate::{
-    ssa::error::{DescriptionError, DescriptionErrors},
+    ssa::{
+        attribute_disallower::AttributeDisallower,
+        error::{DescriptionError, DescriptionErrors},
+    },
     wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
 };
 
 use super::{impl_item_fn::fold_impl_item_fn, path::fold_path, ty::fold_basic_type};
 
-pub fn fold_item_struct(item: ItemStruct) -> Result<WItemStruct<WBasicType>, DescriptionErrors> {
+pub fn fold_item_struct(
+    mut item: ItemStruct,
+) -> Result<WItemStruct<WBasicType>, DescriptionErrors> {
+    let span = item.span();
+    if item.generics != Generics::default() {
+        return Err(DescriptionErrors::single(
+            DescriptionError::unsupported_construct("Struct generics", span),
+        ));
+    }
+
     let mut derives = Vec::new();
 
-    for attr in item.attrs {
-        match attr.meta {
-            syn::Meta::Path(_path) => todo!("path"),
+    let mut attrs = Vec::new();
+    attrs.append(&mut item.attrs);
+
+    for attr in attrs {
+        let mut allowed = false;
+        let path = match attr.meta {
+            syn::Meta::Path(path) => path,
             syn::Meta::List(meta) => {
                 if meta.path.is_ident("derive") {
+                    // allow derive macro
                     let meta_tokens = meta.tokens;
                     let parser = Punctuated::<Path, Token![,]>::parse_terminated;
 
                     let Ok(parsed) = parser.parse2(meta_tokens) else {
-                        panic!("Cannot parse derive macro");
+                        return Err(DescriptionErrors::single(DescriptionError::new(
+                            crate::ssa::error::DescriptionErrorType::IllegalConstruct(
+                                String::from("Unparseable derive macro content"),
+                            ),
+                            span,
+                        )));
                     };
 
                     for parsed_path in parsed {
                         derives.push(fold_path(parsed_path)?);
                     }
-                } else {
-                    todo!("Non-derive meta list");
+                    allowed = true;
+                } else if meta.path.is_ident("allow") {
+                    // we do not add allow to the generated code
+                    allowed = true;
                 }
+                meta.path
             }
             syn::Meta::NameValue(meta) => {
-                if meta.path.is_ident("allow") {
-                    // TODO: copy allow
-                } else if meta.path.is_ident("doc") {
-                    // skip
-                } else {
-                    todo!("Name-value: {:?}", meta.path)
+                if meta.path.is_ident("doc") {
+                    allowed = true;
                 }
+                meta.path
             }
+        };
+
+        let supported = ["derive", "allow", "doc"];
+        let mut path_supported = false;
+        for element in supported {
+            if path.is_ident(&Ident::new(element, span)) {
+                path_supported = true;
+            }
+        }
+
+        let err_msg = if allowed {
+            None
+        } else if path_supported {
+            Some("This usage of attribute")
+        } else {
+            Some("This attribute")
+        };
+
+        if let Some(err_msg) = err_msg {
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct(err_msg, span),
+            ));
         }
     }
 
+    // disallow attributes inside
+    let mut attribute_disallower = AttributeDisallower::new();
+    attribute_disallower.visit_item_struct(&item);
+    attribute_disallower.into_result()?;
+
     let Fields::Named(fields_named) = item.fields else {
-        panic!("Unexpected struct without named fields");
+        return Err(DescriptionErrors::single(
+            DescriptionError::unsupported_construct("Struct without named fields", span),
+        ));
     };
 
     let mut fields = Vec::new();

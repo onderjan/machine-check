@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
 
-use syn::{Expr, ImplItemFn, Pat};
+use syn::{visit::Visit, Expr, ImplItemFn, Pat};
 
 use crate::{
     ssa::{
+        attribute_disallower::AttributeDisallower,
         error::{DescriptionError, DescriptionErrors},
         from_syn::ty::{fold_basic_type, fold_type},
     },
@@ -42,7 +43,18 @@ struct FunctionFolder {
 }
 
 impl FunctionFolder {
-    pub fn fold(mut self, impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, DescriptionErrors> {
+    pub fn fold(
+        mut self,
+        mut impl_item: ImplItemFn,
+    ) -> Result<WImplItemFn<YTac>, DescriptionErrors> {
+        // TODO: handle function attributes
+        impl_item.attrs = Vec::new();
+
+        // disallow attributes inside
+        let mut attribute_disallower = AttributeDisallower::new();
+        attribute_disallower.visit_impl_item_fn(&impl_item);
+        attribute_disallower.into_result()?;
+
         let mut inputs = Vec::new();
 
         let scope_id = 1;
