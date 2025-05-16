@@ -284,30 +284,4 @@ impl Visit<'_> for super::Visitor {
         // delegate
         visit::visit_attribute(self, attribute);
     }
-
-    fn visit_path(&mut self, path: &syn::Path) {
-        // for now, disallow paths that can break out (super / crate / $crate)
-        for segment in path.segments.iter() {
-            if segment.ident == "super" || segment.ident == "crate" || segment.ident == "$crate" {
-                self.push_error("Paths with super / crate / $crate", path.span());
-            }
-        }
-        // disallow global paths to any other crates than machine_check and std
-        if path.leading_colon.is_some() {
-            let crate_segment = path
-                .segments
-                .first()
-                .expect("Global path should have at least one segment");
-            let crate_ident = &crate_segment.ident;
-            if crate_ident != "machine_check" && crate_ident != "std" {
-                self.push_error(
-                    "Global paths not starting with 'machine_check' and 'std'",
-                    path.span(),
-                );
-            }
-        }
-
-        // delegate
-        visit::visit_path(self, path);
-    }
 }

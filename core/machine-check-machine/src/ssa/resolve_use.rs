@@ -29,6 +29,9 @@ pub fn resolve_use(items: &mut [Item]) -> Result<(), DescriptionError> {
         recurse_use_tree(&mut use_map, &item_use.tree, use_prefix)?;
     }
 
+    // TODO: check that no path in the use tree is present except for 'machine_check' and 'std'
+    // we need to make sure there are no traits imported for future method call support
+
     let mut visitor = Visitor {
         result: Ok(()),
         use_map,

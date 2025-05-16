@@ -8,7 +8,7 @@ use crate::{
     wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
 };
 
-use super::{impl_item_fn::fold_impl_item_fn, path::fold_global_path, ty::fold_basic_type};
+use super::{impl_item_fn::fold_impl_item_fn, path::fold_path, ty::fold_basic_type};
 
 pub fn fold_item_struct(item: ItemStruct) -> Result<WItemStruct<WBasicType>, DescriptionErrors> {
     let mut derives = Vec::new();
@@ -26,7 +26,7 @@ pub fn fold_item_struct(item: ItemStruct) -> Result<WItemStruct<WBasicType>, Des
                     };
 
                     for parsed_path in parsed {
-                        derives.push(fold_global_path(parsed_path)?);
+                        derives.push(fold_path(parsed_path)?);
                     }
                 } else {
                     todo!("Non-derive meta list");
@@ -79,7 +79,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErro
         match *item.self_ty {
             Type::Path(ty) => {
                 assert!(ty.qself.is_none());
-                fold_global_path(ty.path)
+                fold_path(ty.path)
             }
             _ => panic!("Unexpected non-path type: {:?}", *item.self_ty),
         }
@@ -88,7 +88,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErro
     let trait_ = match item.trait_ {
         Some((not, path, _for_token)) => {
             assert!(not.is_none());
-            Some(fold_global_path(path)?)
+            Some(fold_path(path)?)
         }
         None => None,
     };
@@ -126,7 +126,7 @@ pub fn fold_impl_item_type(
     };
     Ok(WImplItemType {
         left_ident: WIdent::from_syn_ident(impl_item.ident),
-        right_path: fold_global_path(ty.path)?,
+        right_path: fold_path(ty.path)?,
     })
 }
 

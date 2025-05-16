@@ -7,7 +7,7 @@ use syn_path::path;
 use crate::{
     ssa::{
         error::{DescriptionError, DescriptionErrorType},
-        from_syn::path::fold_global_path,
+        from_syn::path::fold_path,
     },
     util::{create_expr_call, create_expr_path, ArgType},
     wir::{
@@ -147,7 +147,7 @@ impl RightExprFolder<'_> {
         }
 
         Ok(WExprStruct {
-            type_path: fold_global_path(expr_struct.path)?,
+            type_path: fold_path(expr_struct.path)?,
             fields: args,
         })
     }

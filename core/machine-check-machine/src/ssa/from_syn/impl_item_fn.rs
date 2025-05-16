@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-use super::path::fold_global_path;
+use super::path::fold_path;
 
 mod expr;
 mod stmt;
@@ -189,7 +189,7 @@ impl FunctionFolder {
             panic!("Expr should be path");
         };
 
-        let mut path = fold_global_path(path)?;
+        let mut path = fold_path(path)?;
         // convert to local-scoped ident if needed
         if !path.leading_colon && path.segments.len() == 1 {
             let ident = &path.segments[0].ident;
