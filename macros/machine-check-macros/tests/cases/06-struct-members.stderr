@@ -1,0 +1,17 @@
+error: machine-check: Struct without named fields not supported
+ --> tests/cases/06-struct-members.rs:3:5
+  |
+3 |     struct A;
+  |     ^^^^^^
+
+error: machine-check: Struct without named fields not supported
+ --> tests/cases/06-struct-members.rs:5:5
+  |
+5 |     struct B();
+  |     ^^^^^^
+
+error: machine-check: Struct without named fields not supported
+ --> tests/cases/06-struct-members.rs:7:5
+  |
+7 |     struct C(::machine_check::Bitvector<1>);
+  |     ^^^^^^
