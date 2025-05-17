@@ -19,7 +19,7 @@ pub fn fold_item_struct(
     let span = item.span();
     if item.generics != Generics::default() {
         return Err(DescriptionErrors::single(
-            DescriptionError::unsupported_construct("Struct generics", span),
+            DescriptionError::unsupported_construct("Generics", item.generics.span()),
         ));
     }
 
@@ -138,6 +138,11 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErro
             DescriptionError::unsupported_construct("Unsafety", item.unsafety.span()),
         ));
     }
+    if item.generics != Generics::default() {
+        return Err(DescriptionErrors::single(
+            DescriptionError::unsupported_construct("Generics", item.generics.span()),
+        ));
+    }
 
     let self_ty = {
         match *item.self_ty {
@@ -206,6 +211,16 @@ pub fn fold_impl_item_type(
     impl_item: ImplItemType,
 ) -> Result<WImplItemType<WBasicType>, DescriptionError> {
     let span = impl_item.span();
+
+    // TODO: visibility
+
+    if impl_item.generics != Generics::default() {
+        return Err(DescriptionError::unsupported_construct(
+            "Generics",
+            impl_item.generics.span(),
+        ));
+    }
+
     let ty = impl_item.ty;
     let Type::Path(ty) = ty else {
         return Err(DescriptionError::unsupported_construct(

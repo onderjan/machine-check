@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use syn::{spanned::Spanned, visit::Visit, Expr, FnArg, ImplItemFn, Pat, Signature};
+use syn::{spanned::Spanned, visit::Visit, Expr, FnArg, Generics, ImplItemFn, Pat, Signature};
 
 use crate::{
     ssa::{
@@ -135,6 +135,11 @@ impl FunctionFolder {
         if signature.abi.is_some() {
             return Err(DescriptionErrors::single(
                 DescriptionError::unsupported_construct("ABI", signature.abi.span()),
+            ));
+        }
+        if signature.generics != Generics::default() {
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct("Generics", signature.generics.span()),
             ));
         }
         if signature.variadic.is_some() {

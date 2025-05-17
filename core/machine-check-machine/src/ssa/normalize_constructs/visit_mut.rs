@@ -4,15 +4,6 @@ use syn::{
 };
 
 impl Visit<'_> for super::Visitor {
-    fn visit_generics(&mut self, generics: &syn::Generics) {
-        if generics.lt_token.is_some() || generics.where_clause.is_some() {
-            self.push_error("Generics", generics.span());
-        }
-
-        // delegate
-        visit::visit_generics(self, generics);
-    }
-
     fn visit_type(&mut self, ty: &syn::Type) {
         match ty {
             syn::Type::Path(_) => {

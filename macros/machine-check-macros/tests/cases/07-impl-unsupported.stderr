@@ -10,20 +10,32 @@ error: machine-check: Unsafety not supported
 7 |     unsafe impl A {}
   |     ^^^^^^
 
-error: machine-check: Non-path type not supported
- --> tests/cases/07-impl-unsupported.rs:9:10
+error: machine-check: Generics not supported
+ --> tests/cases/07-impl-unsupported.rs:9:9
   |
-9 |     impl &A {}
-  |          ^
+9 |     impl<G> A<G> {}
+  |         ^
+
+error: machine-check: Non-path type not supported
+  --> tests/cases/07-impl-unsupported.rs:11:10
+   |
+11 |     impl &A {}
+   |          ^
+
+error: machine-check: Generics not supported
+  --> tests/cases/07-impl-unsupported.rs:16:30
+   |
+16 |         type GenericAssocType<G> = u32;
+   |                              ^
 
 error: machine-check: Macro invocations in impl not supported
-  --> tests/cases/07-impl-unsupported.rs:12:9
+  --> tests/cases/07-impl-unsupported.rs:14:9
    |
-12 |         macro_invocation!();
+14 |         macro_invocation!();
    |         ^^^^^^^^^^^^^^^^
 
 error: machine-check: Associated consts not supported
-  --> tests/cases/07-impl-unsupported.rs:15:9
+  --> tests/cases/07-impl-unsupported.rs:17:9
    |
-15 |         const ASSOC_CONST: u32 = 0;
+17 |         const ASSOC_CONST: u32 = 0;
    |         ^^^^^

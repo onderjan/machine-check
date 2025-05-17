@@ -6,12 +6,14 @@ mod machine {
 
     unsafe impl A {}
 
+    impl<G> A<G> {}
+
     impl &A {}
 
     impl A {
         macro_invocation!();
 
-        type AssocType = u32;
+        type GenericAssocType<G> = u32;
         const ASSOC_CONST: u32 = 0;
     }
 }
