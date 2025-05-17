@@ -8,4 +8,5 @@ fn machine_description() {
     t.compile_fail("tests/cases/05-struct-arbitrary-attribute.rs");
     t.compile_fail("tests/cases/06-struct-members.rs");
     t.compile_fail("tests/cases/07-impl-unsupported.rs");
+    t.compile_fail("tests/cases/08-fn-unsupported.rs");
 }

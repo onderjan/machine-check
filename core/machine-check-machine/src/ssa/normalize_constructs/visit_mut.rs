@@ -14,53 +14,6 @@ impl Visit<'_> for super::Visitor {
         visit::visit_generics(self, generics);
     }
 
-    fn visit_impl_item_fn(&mut self, impl_item_fn: &syn::ImplItemFn) {
-        if impl_item_fn.defaultness.is_some() {
-            self.push_error("Defaultness", impl_item_fn.span());
-        }
-
-        // delegate
-        visit::visit_impl_item_fn(self, impl_item_fn);
-    }
-
-    fn visit_signature(&mut self, signature: &syn::Signature) {
-        if signature.constness.is_some() {
-            self.push_error("Constness", signature.span());
-        }
-        if signature.asyncness.is_some() {
-            self.push_error("Asyncness", signature.span());
-        }
-        if signature.unsafety.is_some() {
-            self.push_error("Unsafety", signature.span());
-        }
-        if signature.abi.is_some() {
-            self.push_error("ABI", signature.span());
-        }
-        if signature.variadic.is_some() {
-            self.push_error("Variadic argument", signature.span());
-        }
-        match signature.output {
-            syn::ReturnType::Default => {
-                self.push_error("Function without return type", signature.span());
-            }
-            syn::ReturnType::Type(_, _) => {}
-        }
-
-        // delegate
-        visit::visit_signature(self, signature);
-    }
-
-    fn visit_receiver(&mut self, receiver: &syn::Receiver) {
-        if receiver.mutability.is_some() {
-            self.push_error("Mutable self parameter", receiver.mutability.span());
-        }
-        if let Some((_and, Some(lifetime))) = &receiver.reference {
-            self.push_error("Self parameter with lifetime", lifetime.span());
-        }
-        // delegate
-        visit::visit_receiver(self, receiver);
-    }
-
     fn visit_expr(&mut self, expr: &Expr) {
         // delegate first to avoid spurious path errors
         visit::visit_expr(self, expr);

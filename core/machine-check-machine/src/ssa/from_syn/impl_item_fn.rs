@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use syn::{visit::Visit, Expr, ImplItemFn, Pat};
+use syn::{spanned::Spanned, visit::Visit, Expr, FnArg, ImplItemFn, Pat, Signature};
 
 use crate::{
     ssa::{
@@ -47,6 +47,17 @@ impl FunctionFolder {
         mut self,
         mut impl_item: ImplItemFn,
     ) -> Result<WImplItemFn<YTac>, DescriptionErrors> {
+        let impl_item_span = impl_item.span();
+
+        if impl_item.defaultness.is_some() {
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct(
+                    "Defaultness",
+                    impl_item.defaultness.span(),
+                ),
+            ));
+        }
+
         // TODO: handle function attributes
         impl_item.attrs = Vec::new();
 
@@ -55,97 +66,24 @@ impl FunctionFolder {
         attribute_disallower.visit_impl_item_fn(&impl_item);
         attribute_disallower.into_result()?;
 
-        let mut inputs = Vec::new();
-
         let scope_id = 1;
-
         let outer_scope = FunctionScope {
             local_map: HashMap::new(),
         };
         self.scopes.push(outer_scope);
-
         self.next_scope_id = scope_id + 1;
 
-        for input in impl_item.sig.inputs {
-            match input {
-                syn::FnArg::Receiver(receiver) => {
-                    let span = receiver.self_token.span;
-                    let reference = match receiver.reference {
-                        Some(_) => {
-                            if receiver.mutability.is_some() {
-                                WReference::Mutable
-                            } else {
-                                WReference::Immutable
-                            }
-                        }
-                        None => WReference::None,
-                    };
-
-                    // do not scope self, it is unnecessary
-                    let self_ident = WIdent::new(String::from("self"), span);
-
-                    let self_type = WType {
-                        reference,
-                        inner: WBasicType::Path(WPath {
-                            leading_colon: false,
-                            segments: vec![WPathSegment {
-                                ident: WIdent::new(String::from("Self"), span),
-                                generics: None,
-                            }],
-                        }),
-                    };
-
-                    inputs.push(Ok(WFnArg {
-                        ident: self_ident.clone(),
-                        ty: self_type.clone(),
-                    }));
-
-                    self.add_unique_scoped_ident(self_ident.clone(), self_ident);
-                }
-                syn::FnArg::Typed(pat_type) => {
-                    let Pat::Ident(pat_ident) = *pat_type.pat else {
-                        // TODO: this should be an error
-                        panic!("Unexpected non-ident pattern {:?}", pat_type);
-                    };
-
-                    let original_ident = WIdent::from_syn_ident(pat_ident.ident);
-                    let ty = fold_type(*pat_type.ty);
-
-                    let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
-
-                    let fn_arg = match ty {
-                        Ok(ty) => Ok(WFnArg {
-                            ident: locally_unique_ident,
-                            ty,
-                        }),
-                        Err(err) => Err(err),
-                    };
-
-                    inputs.push(fn_arg);
-                }
-            }
-        }
-
-        let inputs = DescriptionErrors::flat_single_result(inputs);
-
-        let output = match impl_item.sig.output {
-            syn::ReturnType::Default => panic!("Unexpected default function return type"),
-            syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty),
-        }
-        .map_err(DescriptionErrors::single);
-
-        let (inputs, output) = DescriptionErrors::combine(inputs, output)?;
-
-        let signature = WSignature {
-            ident: WIdent::from_syn_ident(impl_item.sig.ident),
-            inputs,
-            output,
-        };
+        let signature = self.fold_signature(scope_id, impl_item.sig)?;
 
         let (block, result) = self.fold_block(impl_item.block)?;
 
         let Some(result) = result else {
-            panic!("Functions without return statement not supported");
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct(
+                    "Functions without return statement",
+                    impl_item_span,
+                ),
+            ));
         };
 
         // the only local scope remaining should be the outer one
@@ -171,6 +109,147 @@ impl FunctionFolder {
             block,
             result,
         })
+    }
+
+    fn fold_signature(
+        &mut self,
+        scope_id: u32,
+        signature: Signature,
+    ) -> Result<WSignature<YTac>, DescriptionErrors> {
+        let signature_span = signature.span();
+
+        if signature.constness.is_some() {
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct("Constness", signature.constness.span()),
+            ));
+        }
+        if signature.asyncness.is_some() {
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct("Asyncness", signature.asyncness.span()),
+            ));
+        }
+        if signature.unsafety.is_some() {
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct("Unsafety", signature.unsafety.span()),
+            ));
+        }
+        if signature.abi.is_some() {
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct("ABI", signature.abi.span()),
+            ));
+        }
+        if signature.variadic.is_some() {
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct(
+                    "Variadic argument",
+                    signature.variadic.span(),
+                ),
+            ));
+        }
+
+        let inputs: Vec<_> = signature
+            .inputs
+            .into_iter()
+            .map(|fn_arg| self.fold_fn_arg(scope_id, fn_arg))
+            .collect();
+
+        let inputs = DescriptionErrors::flat_single_result(inputs);
+
+        let output = match signature.output {
+            syn::ReturnType::Default => {
+                return Err(DescriptionErrors::single(
+                    DescriptionError::unsupported_construct("Default return type", signature_span),
+                ))
+            }
+            syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty),
+        }
+        .map_err(DescriptionErrors::single);
+
+        let (inputs, output) = DescriptionErrors::combine(inputs, output)?;
+
+        Ok(WSignature {
+            ident: WIdent::from_syn_ident(signature.ident),
+            inputs,
+            output,
+        })
+    }
+
+    fn fold_fn_arg(
+        &mut self,
+        scope_id: u32,
+        fn_arg: FnArg,
+    ) -> Result<WFnArg<WBasicType>, DescriptionError> {
+        let fn_arg_span = fn_arg.span();
+        let fn_arg = match fn_arg {
+            syn::FnArg::Receiver(receiver) => {
+                let span = receiver.self_token.span;
+                let reference = match receiver.reference {
+                    Some((_and, lifetime)) => {
+                        if lifetime.is_some() {
+                            return Err(DescriptionError::unsupported_construct(
+                                "Lifetimes",
+                                lifetime.span(),
+                            ));
+                        }
+
+                        if receiver.mutability.is_some() {
+                            WReference::Mutable
+                        } else {
+                            WReference::Immutable
+                        }
+                    }
+                    None => WReference::None,
+                };
+
+                // do not scope self, it is unnecessary
+                let self_ident = WIdent::new(String::from("self"), span);
+
+                let self_type = WType {
+                    reference,
+                    inner: WBasicType::Path(WPath {
+                        leading_colon: false,
+                        segments: vec![WPathSegment {
+                            ident: WIdent::new(String::from("Self"), span),
+                            generics: None,
+                        }],
+                    }),
+                };
+
+                self.add_unique_scoped_ident(self_ident.clone(), self_ident.clone());
+
+                WFnArg {
+                    ident: self_ident,
+                    ty: self_type,
+                }
+            }
+            syn::FnArg::Typed(pat_type) => {
+                let Pat::Ident(pat_ident) = *pat_type.pat else {
+                    return Err(DescriptionError::unsupported_construct(
+                        "Non-ident typed pattern",
+                        pat_type.pat.span(),
+                    ));
+                };
+
+                let original_ident = WIdent::from_syn_ident(pat_ident.ident);
+                let ty = fold_type(*pat_type.ty)?;
+
+                let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
+
+                WFnArg {
+                    ident: locally_unique_ident,
+                    ty,
+                }
+            }
+        };
+
+        if matches!(fn_arg.ty.reference, WReference::Mutable) {
+            return Err(DescriptionError::unsupported_construct(
+                "Mutable function argument",
+                fn_arg_span,
+            ));
+        }
+
+        Ok(fn_arg)
     }
 
     fn try_fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, Expr> {
