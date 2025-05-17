@@ -1,0 +1,77 @@
+error: machine-check: Items inside function not supported
+ --> tests/cases/09-stmt-unsupported.rs:8:13
+  |
+8 |             fn item_inside_fn() {}
+  |             ^^
+
+error: machine-check: This macro not supported
+ --> tests/cases/09-stmt-unsupported.rs:9:13
+  |
+9 |             statement_macro! {}
+  |             ^^^^^^^^^^^^^^^
+
+error: machine-check: Block statements with result not supported
+  --> tests/cases/09-stmt-unsupported.rs:11:17
+   |
+11 |                 block_statement_with_result
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: machine-check: Diverging let not supported
+  --> tests/cases/09-stmt-unsupported.rs:16:35
+   |
+16 |             let diverging_let = 0 else {};
+   |                                   ^^^^
+
+error: machine-check: Pattern binding by reference not supported
+  --> tests/cases/09-stmt-unsupported.rs:17:17
+   |
+17 |             let ref x = y;
+   |                 ^^^
+
+error: machine-check: Subpatterns not supported
+  --> tests/cases/09-stmt-unsupported.rs:18:21
+   |
+18 |             let a @ b = c;
+   |                     ^
+
+error: machine-check: Expression kind not supported
+  --> tests/cases/09-stmt-unsupported.rs:21:13
+   |
+21 |             break;
+   |             ^^^^^
+
+error: machine-check: Non-ident expression not supported
+  --> tests/cases/09-stmt-unsupported.rs:24:13
+   |
+24 |             machine_check::non_ident_left_path = 0;
+   |             ^^^^^^^^^^^^^
+
+error: machine-check: Left expression that is not an identifier nor index not supported
+  --> tests/cases/09-stmt-unsupported.rs:25:13
+   |
+25 |             (non_ident_left_expression) = 0;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: machine-check: Left expression that is not an identifier nor index not supported
+  --> tests/cases/09-stmt-unsupported.rs:26:13
+   |
+26 |             (non_ident_left_base).index = 0;
+   |             ^^^^^^^^^^^^^^^^^^^^^
+
+error: machine-check: Left expression that is not an identifier nor index not supported
+  --> tests/cases/09-stmt-unsupported.rs:28:13
+   |
+28 |             0 = 0;
+   |             ^
+
+error: machine-check: This macro not supported
+  --> tests/cases/09-stmt-unsupported.rs:31:13
+   |
+31 |             unknown_macro!();
+   |             ^^^^^^^^^^^^^
+
+error: machine-check: Panic-like macro with a non-literal arg not supported
+  --> tests/cases/09-stmt-unsupported.rs:32:27
+   |
+32 |             ::std::panic!(non_literal_arg);
+   |                           ^^^^^^^^^^^^^^^

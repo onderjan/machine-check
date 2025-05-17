@@ -1,9 +1,17 @@
 use std::collections::HashMap;
 
-use syn::{punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, Pat, Stmt, Token};
+use syn::{
+    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, ExprIf, ExprMacro, Pat,
+    Stmt, Token,
+};
 
 use crate::{
-    ssa::{error::{DescriptionErrors}, from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type}}, util::{create_expr_ident, path_matches_global_names}, wir::{
+    ssa::{
+        error::{DescriptionError, DescriptionErrorType, DescriptionErrors},
+        from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type},
+    },
+    util::{create_expr_ident, path_matches_global_names},
+    wir::{
         WBlock, WExprCall, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc,
         WPanicMacroKind, WPartialGeneralType, WStmt, WStmtAssign, WStmtIf, ZTac,
     },
@@ -26,8 +34,13 @@ impl super::FunctionFolder {
 
         let mut orig_stmts = block.stmts;
 
-        let result_stmt = if let Some(Stmt::Expr(_, None)) = orig_stmts.last() {
-            orig_stmts.pop()
+        let result_expr = if let Some(Stmt::Expr(_, None)) = orig_stmts.last() {
+            let result_stmt = orig_stmts.pop();
+            let Some(Stmt::Expr(result_expr, None)) = result_stmt else {
+                // this has been confirmed previously
+                panic!("Last statement should be result expression");
+            };
+            Some(result_expr)
         } else {
             None
         };
@@ -37,7 +50,7 @@ impl super::FunctionFolder {
 
         for orig_stmt in orig_stmts {
             match self.fold_stmt(scope_id, orig_stmt, &mut stmts) {
-                Ok(()) => {},
+                Ok(()) => {}
                 Err(err) => errors.push(err),
             }
         }
@@ -45,24 +58,18 @@ impl super::FunctionFolder {
         let mut pre_return_stmts = Vec::new();
         let return_ident =
             // has a return statement
-            if let Some(result_stmt) = result_stmt {
-                let Stmt::Expr(expr, None) = result_stmt else {
-                    panic!(
-                        "Result statement should be an expression: {:?}",
-                        result_stmt
-                    );
-                };
-                match self.force_right_expr_to_ident(expr, &mut pre_return_stmts) {
+            if let Some(result_expr) = result_expr {
+                match self.force_right_expr_to_ident(result_expr, &mut pre_return_stmts) {
                     Ok(ident) => Some(ident),
                     Err(err) => {
                         errors.push(DescriptionErrors::single(err));
                         // the None value will never propagate out of the function
                         None
                     },
-                } 
-        } else {
-            None
-        };
+                }
+            } else {
+                None
+            };
 
         DescriptionErrors::errors_vec_to_result(errors)?;
 
@@ -73,13 +80,14 @@ impl super::FunctionFolder {
 
         Ok((WBlock { stmts }, return_ident))
     }
-    
+
     fn fold_stmt(
         &mut self,
         scope_id: u32,
         stmt: Stmt,
         result_stmts: &mut Vec<WStmt<ZTac>>,
     ) -> Result<(), DescriptionErrors> {
+        let stmt_span = stmt.span();
         match stmt {
             Stmt::Local(local) => {
                 let mut pat = local.pat.clone();
@@ -90,122 +98,201 @@ impl super::FunctionFolder {
                 }
 
                 let Pat::Ident(left_pat_ident) = pat else {
-                    // TODO: this should be an error
-                    panic!("Local pattern should be an ident: {:?}", pat)
+                    return Err(DescriptionErrors::single(
+                        DescriptionError::unsupported_construct(
+                            "Non-ident local pattern",
+                            pat.span(),
+                        ),
+                    ));
                 };
+                if left_pat_ident.by_ref.is_some() {
+                    return Err(DescriptionErrors::single(
+                        DescriptionError::unsupported_construct(
+                            "Pattern binding by reference",
+                            left_pat_ident.by_ref.span(),
+                        ),
+                    ));
+                }
+                // mutable patterns are supported
+                if let Some((_at, subpat)) = &left_pat_ident.subpat {
+                    return Err(DescriptionErrors::single(
+                        DescriptionError::unsupported_construct("Subpatterns", subpat.span()),
+                    ));
+                }
                 let local_syn_ident = left_pat_ident.ident;
                 let local_ident = WIdent::from_syn_ident(local_syn_ident.clone());
                 self.add_local_ident(scope_id, local_ident, ty);
 
                 if let Some(init) = local.init {
-                    if init.diverge.is_some() {
-                        panic!("Diverging let not supported");
+                    if let Some((else_token, _else_block)) = init.diverge {
+                        return Err(DescriptionErrors::single(
+                            DescriptionError::unsupported_construct(
+                                "Diverging let",
+                                else_token.span(),
+                            ),
+                        ));
                     }
-                    self.fold_stmt_expr(Expr::Assign(ExprAssign { 
-                        attrs: vec![], 
-                        left: Box::new(create_expr_ident(local_syn_ident)),
-                        eq_token: init.eq_token,
-                        right: init.expr
-                    }), 
-                    result_stmts)?;
+                    self.fold_stmt_expr(
+                        Expr::Assign(ExprAssign {
+                            attrs: vec![],
+                            left: Box::new(create_expr_ident(local_syn_ident)),
+                            eq_token: init.eq_token,
+                            right: init.expr,
+                        }),
+                        result_stmts,
+                    )?;
                 }
             }
-            Stmt::Expr(stmt_expr, _) => {
-                self.fold_stmt_expr(stmt_expr, result_stmts)?
+            Stmt::Expr(stmt_expr, _) => self.fold_stmt_expr(stmt_expr, result_stmts)?,
+            Stmt::Item(_) => {
+                return Err(DescriptionErrors::single(
+                    DescriptionError::unsupported_construct("Items inside function", stmt_span),
+                ))
             }
-            _ => panic!("Unexpected type of statement: {:?}", stmt),
+            Stmt::Macro(_) => {
+                return Err(DescriptionErrors::single(
+                    DescriptionError::unsupported_construct(
+                        "Macro invocations in statement position",
+                        stmt_span,
+                    ),
+                ))
+            }
         };
         Ok(())
     }
 
     fn fold_stmt_expr(
         &mut self,
-        stmt_expr: Expr,
+        expr: Expr,
         result_stmts: &mut Vec<WStmt<ZTac>>,
     ) -> Result<(), DescriptionErrors> {
-        match stmt_expr {
-            syn::Expr::Assign(expr) => {
-                let left = match *expr.left {
-                    Expr::Index(expr_index) => {
-                        let base_ident = self.fold_expr_as_ident(*expr_index.expr)?;
-
-                        let index_ident =
-                            self.force_right_expr_to_ident(*expr_index.index, result_stmts)?;
-                        WIndexedIdent::Indexed(base_ident, index_ident)
-                    }
-                    Expr::Path(expr_path) => {
-                        let left_ident = self.fold_expr_as_ident(Expr::Path(expr_path))?;
-
-                        WIndexedIdent::NonIndexed(left_ident.clone())
-                    }
-                    _ => panic!("Left expr should be ident or index"),
-                };
-
-                let right = self.fold_right_expr(*expr.right, result_stmts)?;
-
-                result_stmts.push(WStmt::Assign(WStmtAssign { left, right }));
-            }
-            syn::Expr::If(expr_if) => {
-                let condition = self.force_right_expr_to_call_arg(*expr_if.cond, result_stmts)?;
-                let then_block = self.fold_block(expr_if.then_branch)?.0;
-
-                let mut else_stmts = Vec::new();
-                if let Some((_else_token, else_branch)) = expr_if.else_branch {
-                    self.fold_stmt_expr(*else_branch, &mut else_stmts)?;
-                }
-                let else_block = WBlock { stmts: else_stmts };
-
-                result_stmts.push(WStmt::If(WStmtIf {
-                    condition,
-                    then_block,
-                    else_block,
-                }));
-            }
-            syn::Expr::Block(expr_block) => {
+        match expr {
+            syn::Expr::Assign(expr) => self.fold_assign(expr, result_stmts),
+            syn::Expr::If(expr) => self.fold_if(expr, result_stmts),
+            syn::Expr::Block(expr) => {
                 // handle nested blocks
-                let (mut block, result) = self.fold_block(expr_block.block)?;
+                let (mut block, result) = self.fold_block(expr.block)?;
+                if let Some(result) = result {
+                    return Err(DescriptionErrors::single(
+                        DescriptionError::unsupported_construct(
+                            "Block statements with result",
+                            result.span(),
+                        ),
+                    ));
+                };
                 assert!(result.is_none());
                 result_stmts.append(&mut block.stmts);
+                Ok(())
             }
-            syn::Expr::Macro(expr_macro) => {
-                let span = expr_macro.span();
-                let mac = expr_macro.mac;
-                let kind = if path_matches_global_names(&mac.path, &["std", "panic"]) {
-                    Some(WPanicMacroKind::Panic)
-                } else if path_matches_global_names(&mac.path, &["std", "unimplemented"]) {
-                    Some(WPanicMacroKind::Unimplemented)
-                } else if path_matches_global_names(&mac.path, &["std", "todo"]) {
-                    Some(WPanicMacroKind::Todo)
-                } else {
-                    None
-                };
-                let args =
-                    match mac.parse_body_with(Punctuated::<Expr, Token![,]>::parse_terminated) {
-                        Ok(args) => args,
-                        Err(_) => panic!("Could not parse macro args"),
-                    };
+            syn::Expr::Macro(expr) => self.fold_macro(expr, result_stmts),
+            _ => Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct("Expression kind", expr.span()),
+            )),
+        }
+    }
 
-                let mut call_args = Vec::new();
-                for arg in args {
-                    let Expr::Lit(lit) = arg else {
-                        panic!("Unexpected non-literal arg");
-                    };
-                    call_args.push(crate::wir::WCallArg::Literal(lit.lit));
-                }
-
-                let Some(kind) = kind else {
-                    panic!("Unsupported macro");
-                };
-                result_stmts.push(WStmt::Assign(WStmtAssign {
-                    left: WIndexedIdent::NonIndexed(WIdent::new(String::from("__mck_x"), span)),
-                    right: WIndexedExpr::NonIndexed(crate::wir::WExpr::Call(WExprCall {
-                        fn_path: WMacroableCallFunc::PanicMacro(kind),
-                        args: call_args,
-                    })),
-                }));
+    fn fold_assign(
+        &mut self,
+        expr: ExprAssign,
+        result_stmts: &mut Vec<WStmt<ZTac>>,
+    ) -> Result<(), DescriptionErrors> {
+        let left = match *expr.left {
+            Expr::Index(expr_index) => {
+                let base_ident = self.fold_expr_as_ident(*expr_index.expr)?;
+                let index_ident =
+                    self.force_right_expr_to_ident(*expr_index.index, result_stmts)?;
+                WIndexedIdent::Indexed(base_ident, index_ident)
             }
-            _ => panic!("Unexpected type of expression: {:?}", stmt_expr),
+            Expr::Path(expr_path) => {
+                let left_ident = self.fold_expr_as_ident(Expr::Path(expr_path))?;
+
+                WIndexedIdent::NonIndexed(left_ident.clone())
+            }
+            _ => {
+                return Err(DescriptionErrors::single(
+                    DescriptionError::unsupported_construct(
+                        "Left expression that is not an identifier nor index",
+                        expr.span(),
+                    ),
+                ))
+            }
         };
+
+        let right = self.fold_right_expr(*expr.right, result_stmts)?;
+        result_stmts.push(WStmt::Assign(WStmtAssign { left, right }));
+        Ok(())
+    }
+
+    fn fold_if(
+        &mut self,
+        expr: ExprIf,
+        result_stmts: &mut Vec<WStmt<ZTac>>,
+    ) -> Result<(), DescriptionErrors> {
+        let condition = self.force_right_expr_to_call_arg(*expr.cond, result_stmts)?;
+        let then_block = self.fold_block(expr.then_branch)?.0;
+
+        let mut else_stmts = Vec::new();
+        if let Some((_else_token, else_branch)) = expr.else_branch {
+            self.fold_stmt_expr(*else_branch, &mut else_stmts)?;
+        }
+        let else_block = WBlock { stmts: else_stmts };
+
+        result_stmts.push(WStmt::If(WStmtIf {
+            condition,
+            then_block,
+            else_block,
+        }));
+        Ok(())
+    }
+
+    fn fold_macro(
+        &mut self,
+        expr: ExprMacro,
+        result_stmts: &mut Vec<WStmt<ZTac>>,
+    ) -> Result<(), DescriptionErrors> {
+        let macro_span = expr.span();
+        let mac = expr.mac;
+        let kind = if path_matches_global_names(&mac.path, &["std", "panic"]) {
+            WPanicMacroKind::Panic
+        } else if path_matches_global_names(&mac.path, &["std", "unimplemented"]) {
+            WPanicMacroKind::Unimplemented
+        } else if path_matches_global_names(&mac.path, &["std", "todo"]) {
+            WPanicMacroKind::Todo
+        } else {
+            return Err(DescriptionErrors::single(
+                DescriptionError::unsupported_construct("This macro", mac.path.span()),
+            ));
+        };
+        let args = match mac.parse_body_with(Punctuated::<Expr, Token![,]>::parse_terminated) {
+            Ok(args) => args,
+            Err(err) => {
+                return Err(DescriptionErrors::single(DescriptionError::new(
+                    DescriptionErrorType::MacroParseError(err),
+                    mac.span(),
+                )))
+            }
+        };
+
+        let mut call_args = Vec::new();
+        for arg in args {
+            let Expr::Lit(lit) = arg else {
+                return Err(DescriptionErrors::single(
+                    DescriptionError::unsupported_construct(
+                        "Panic-like macro with a non-literal arg",
+                        arg.span(),
+                    ),
+                ));
+            };
+            call_args.push(crate::wir::WCallArg::Literal(lit.lit));
+        }
+
+        result_stmts.push(WStmt::Assign(WStmtAssign {
+            left: WIndexedIdent::NonIndexed(WIdent::new(String::from("__mck_x"), macro_span)),
+            right: WIndexedExpr::NonIndexed(crate::wir::WExpr::Call(WExprCall {
+                fn_path: WMacroableCallFunc::PanicMacro(kind),
+                args: call_args,
+            })),
+        }));
         Ok(())
     }
 }

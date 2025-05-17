@@ -71,6 +71,7 @@ impl RightExprFolder<'_> {
         &mut self,
         expr: Expr,
     ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, DescriptionError> {
+        let expr_span = expr.span();
         Ok(match expr {
             Expr::Call(expr_call) => {
                 WIndexedExpr::NonIndexed(WExpr::Call(self.fold_right_expr_call(expr_call)?))
@@ -91,7 +92,12 @@ impl RightExprFolder<'_> {
             Expr::Index(expr_index) => self.fold_right_expr_index(expr_index)?,
             Expr::Binary(expr_binary) => self.fold_right_expr(normalize_binary(expr_binary)?)?,
             Expr::Unary(expr_unary) => self.fold_right_expr(normalize_unary(expr_unary)?)?,
-            _ => panic!("Unexpected right expression {:?}", expr),
+            _ => {
+                return Err(DescriptionError::unsupported_construct(
+                    "Expression kind",
+                    expr_span,
+                ))
+            }
         })
     }
 

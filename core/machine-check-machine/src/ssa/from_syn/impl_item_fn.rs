@@ -266,18 +266,24 @@ impl FunctionFolder {
     }
 
     fn fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, DescriptionError> {
+        let expr_span = expr.span();
         let Ok(ident) = self.try_fold_expr_as_ident(expr) else {
-            // TODO: this should be an error, not a panic
-            panic!("Expr should be ident");
+            return Err(DescriptionError::unsupported_construct(
+                "Non-ident expression",
+                expr_span,
+            ));
         };
 
         Ok(ident)
     }
 
     fn fold_expr_as_path(&mut self, expr: Expr) -> Result<WPath<WBasicType>, DescriptionError> {
+        let expr_span = expr.span();
         let Some(path) = extract_expr_path(&expr).cloned() else {
-            // TODO: this should be an error, not a panic
-            panic!("Expr should be path");
+            return Err(DescriptionError::unsupported_construct(
+                "Non-path expression",
+                expr_span,
+            ));
         };
 
         let mut path = fold_path(path)?;
