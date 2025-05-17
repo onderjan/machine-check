@@ -110,14 +110,13 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
                         FnArg::Receiver(Receiver {
                             attrs: Vec::new(),
                             reference: match fn_arg.ty.reference {
-                                WReference::Mutable | WReference::Immutable => {
-                                    Some((Token![&](span), None))
-                                }
+                                //WReference::Mutable |
+                                WReference::Immutable => Some((Token![&](span), None)),
                                 WReference::None => None,
                             },
 
                             mutability: match fn_arg.ty.reference {
-                                WReference::Mutable => Some(Token![mut](span)),
+                                //WReference::Mutable => Some(Token![mut](span)),
                                 WReference::Immutable | WReference::None => None,
                             },
                             self_token: Token![self](span),

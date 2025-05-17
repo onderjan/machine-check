@@ -7,7 +7,6 @@ mod error;
 mod expand_macros;
 mod from_syn;
 mod infer_types;
-mod normalize_constructs;
 mod resolve_use;
 
 use error::DescriptionErrors;
@@ -31,7 +30,6 @@ pub(crate) fn create_ssa_machine_inner(
     }
 
     resolve_use::remove_use(&mut items)?;
-    normalize_constructs::normalize_constructs(&mut items)?;
 
     /*println!(
         "Original syn string:\n{}",

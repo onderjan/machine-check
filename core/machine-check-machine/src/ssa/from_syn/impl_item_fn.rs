@@ -183,10 +183,9 @@ impl FunctionFolder {
         scope_id: u32,
         fn_arg: FnArg,
     ) -> Result<WFnArg<WBasicType>, DescriptionError> {
-        let fn_arg_span = fn_arg.span();
         let fn_arg = match fn_arg {
             syn::FnArg::Receiver(receiver) => {
-                let span = receiver.self_token.span;
+                let receiver_span = receiver.span();
                 let reference = match receiver.reference {
                     Some((_and, lifetime)) => {
                         if lifetime.is_some() {
@@ -197,7 +196,10 @@ impl FunctionFolder {
                         }
 
                         if receiver.mutability.is_some() {
-                            WReference::Mutable
+                            return Err(DescriptionError::unsupported_construct(
+                                "Mutable receiver argument",
+                                receiver_span,
+                            ));
                         } else {
                             WReference::Immutable
                         }
@@ -206,14 +208,14 @@ impl FunctionFolder {
                 };
 
                 // do not scope self, it is unnecessary
-                let self_ident = WIdent::new(String::from("self"), span);
+                let self_ident = WIdent::new(String::from("self"), receiver_span);
 
                 let self_type = WType {
                     reference,
                     inner: WBasicType::Path(WPath {
                         leading_colon: false,
                         segments: vec![WPathSegment {
-                            ident: WIdent::new(String::from("Self"), span),
+                            ident: WIdent::new(String::from("Self"), receiver_span),
                             generics: None,
                         }],
                     }),
@@ -245,13 +247,6 @@ impl FunctionFolder {
                 }
             }
         };
-
-        if matches!(fn_arg.ty.reference, WReference::Mutable) {
-            return Err(DescriptionError::unsupported_construct(
-                "Mutable function argument",
-                fn_arg_span,
-            ));
-        }
 
         Ok(fn_arg)
     }

@@ -66,7 +66,6 @@ pub enum WPartialGeneralType<FT: IntoSyn<Type>> {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WReference {
-    Mutable,
     Immutable,
     None,
 }
@@ -122,12 +121,12 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WType<FT> {
         let simple_type = self.inner.into_syn();
 
         match self.reference {
-            WReference::Mutable => Type::Reference(TypeReference {
+            /*WReference::Mutable => Type::Reference(TypeReference {
                 and_token: Token![&](span),
                 lifetime: None,
                 mutability: Some(Token![mut](span)),
                 elem: Box::new(simple_type),
-            }),
+            }),*/
             WReference::Immutable => Type::Reference(TypeReference {
                 and_token: Token![&](span),
                 lifetime: None,
