@@ -36,6 +36,22 @@ impl<E: Error> Errors<E> {
         }
     }
 
+    pub fn combine_and_vec<T, U>(
+        a: Result<T, Self>,
+        b: Result<U, Self>,
+        errors: Vec<E>,
+    ) -> Result<(T, U), Self> {
+        let (a, b) = match Self::combine(a, b) {
+            Ok(ok) => ok,
+            Err(mut err) => {
+                err.extend(errors);
+                return Err(err);
+            }
+        };
+        Self::iter_to_result(errors)?;
+        Ok((a, b))
+    }
+
     pub fn errors_vec_to_result(errors: Vec<Self>) -> Result<(), Self> {
         if errors.is_empty() {
             return Ok(());

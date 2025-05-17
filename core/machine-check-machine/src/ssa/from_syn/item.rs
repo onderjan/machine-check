@@ -93,6 +93,8 @@ pub fn fold_item_struct(
     attribute_disallower.visit_item_struct(&item);
     attribute_disallower.into_result()?;
 
+    let visibility = fold_visibility(item.vis)?;
+
     let Fields::Named(fields_named) = item.fields else {
         return Err(DescriptionErrors::single(
             DescriptionError::unsupported_construct("Struct without named fields", span),
@@ -118,7 +120,7 @@ pub fn fold_item_struct(
     let fields = DescriptionErrors::vec_result(fields)?;
 
     Ok(WItemStruct {
-        visibility: item.vis.into(),
+        visibility,
         derives,
         ident: WIdent::from_syn_ident(item.ident),
         fields,
@@ -126,16 +128,14 @@ pub fn fold_item_struct(
 }
 
 pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErrors> {
-    let span = item.span();
-
     if item.defaultness.is_some() {
         return Err(DescriptionErrors::single(
-            DescriptionError::unsupported_construct("Defaultness", span),
+            DescriptionError::unsupported_construct("Defaultness", item.defaultness.span()),
         ));
     }
     if item.unsafety.is_some() {
         return Err(DescriptionErrors::single(
-            DescriptionError::unsupported_construct("Unsafety", span),
+            DescriptionError::unsupported_construct("Unsafety", item.unsafety.span()),
         ));
     }
 
@@ -145,7 +145,11 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErro
                 assert!(ty.qself.is_none());
                 fold_path(ty.path)
             }
-            _ => panic!("Unexpected non-path type: {:?}", *item.self_ty),
+            _ => {
+                return Err(DescriptionErrors::single(
+                    DescriptionError::unsupported_construct("Non-path type", item.self_ty.span()),
+                ))
+            }
         }
     }?;
 
@@ -160,18 +164,35 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErro
     let mut impl_item_types = Vec::new();
     let mut impl_item_fns = Vec::new();
 
+    let mut errors = Vec::new();
+
     for impl_item in item.items {
-        match impl_item {
-            ImplItem::Type(impl_item) => impl_item_types.push(fold_impl_item_type(impl_item)),
-            ImplItem::Fn(impl_item) => impl_item_fns.push(fold_impl_item_fn(impl_item)),
-            _ => panic!("Unexpected type of impl item: {:?}", impl_item),
+        let impl_item_span = impl_item.span();
+        let err_msg = match impl_item {
+            ImplItem::Type(impl_item) => {
+                impl_item_types.push(fold_impl_item_type(impl_item));
+                None
+            }
+            ImplItem::Fn(impl_item) => {
+                impl_item_fns.push(fold_impl_item_fn(impl_item));
+                None
+            }
+            ImplItem::Const(_) => Some("Associated consts"),
+            ImplItem::Macro(_) => Some("Macro invocations in impl"),
+            _ => Some("Implementation item kind"),
+        };
+        if let Some(err_msg) = err_msg {
+            errors.push(DescriptionError::unsupported_construct(
+                err_msg,
+                impl_item_span,
+            ));
         }
     }
+    let impl_item_types = DescriptionErrors::flat_single_result(impl_item_types);
+    let impl_item_fns = DescriptionErrors::flat_result(impl_item_fns);
 
-    let (impl_item_types, impl_item_fns) = DescriptionErrors::combine(
-        DescriptionErrors::flat_single_result(impl_item_types),
-        DescriptionErrors::flat_result(impl_item_fns),
-    )?;
+    let (impl_item_types, impl_item_fns) =
+        DescriptionErrors::combine_and_vec(impl_item_types, impl_item_fns, errors)?;
 
     Ok(WItemImpl {
         self_ty,
@@ -184,9 +205,13 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErro
 pub fn fold_impl_item_type(
     impl_item: ImplItemType,
 ) -> Result<WImplItemType<WBasicType>, DescriptionError> {
+    let span = impl_item.span();
     let ty = impl_item.ty;
     let Type::Path(ty) = ty else {
-        panic!("Unexpected non-path type: {:?}", ty);
+        return Err(DescriptionError::unsupported_construct(
+            "Non-path type",
+            span,
+        ));
     };
     Ok(WImplItemType {
         left_ident: WIdent::from_syn_ident(impl_item.ident),
@@ -194,14 +219,13 @@ pub fn fold_impl_item_type(
     })
 }
 
-impl From<Visibility> for WVisibility {
-    fn from(value: Visibility) -> Self {
-        match value {
-            syn::Visibility::Public(_) => WVisibility::Public,
-            syn::Visibility::Restricted(_) => {
-                panic!("Restricted visibility not supported")
-            }
-            syn::Visibility::Inherited => WVisibility::Inherited,
-        }
+pub fn fold_visibility(visibility: Visibility) -> Result<WVisibility, DescriptionError> {
+    match visibility {
+        syn::Visibility::Public(_) => Ok(WVisibility::Public),
+        syn::Visibility::Restricted(_) => Err(DescriptionError::unsupported_construct(
+            "Restricted visibility",
+            visibility.span(),
+        )),
+        syn::Visibility::Inherited => Ok(WVisibility::Inherited),
     }
 }

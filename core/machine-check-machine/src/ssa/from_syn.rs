@@ -29,15 +29,7 @@ pub fn from_syn(
 
     let structs = DescriptionErrors::flat_result(structs);
     let impls = DescriptionErrors::flat_result(impls);
-    let (structs, impls) = match DescriptionErrors::combine(structs, impls) {
-        Ok(ok) => ok,
-        Err(mut err) => {
-            err.extend(errors);
-            return Err(err);
-        }
-    };
-
-    DescriptionErrors::iter_to_result(errors)?;
+    let (structs, impls) = DescriptionErrors::combine_and_vec(structs, impls, errors)?;
 
     Ok(WDescription { structs, impls })
 }

@@ -7,5 +7,5 @@ fn machine_description() {
     t.pass("tests/cases/04-struct-accept-attributes.rs");
     t.compile_fail("tests/cases/05-struct-arbitrary-attribute.rs");
     t.compile_fail("tests/cases/06-struct-members.rs");
-    t.compile_fail("tests/cases/07-item_impl-unsupported.rs");
+    t.compile_fail("tests/cases/07-impl-unsupported.rs");
 }

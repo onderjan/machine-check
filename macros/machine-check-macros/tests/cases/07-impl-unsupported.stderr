@@ -1,0 +1,29 @@
+error: machine-check: Defaultness not supported
+ --> tests/cases/07-impl-unsupported.rs:5:5
+  |
+5 |     default impl A {}
+  |     ^^^^^^^
+
+error: machine-check: Unsafety not supported
+ --> tests/cases/07-impl-unsupported.rs:7:5
+  |
+7 |     unsafe impl A {}
+  |     ^^^^^^
+
+error: machine-check: Non-path type not supported
+ --> tests/cases/07-impl-unsupported.rs:9:10
+  |
+9 |     impl &A {}
+  |          ^
+
+error: machine-check: Macro invocations in impl not supported
+  --> tests/cases/07-impl-unsupported.rs:12:9
+   |
+12 |         macro_invocation!();
+   |         ^^^^^^^^^^^^^^^^
+
+error: machine-check: Associated consts not supported
+  --> tests/cases/07-impl-unsupported.rs:15:9
+   |
+15 |         const ASSOC_CONST: u32 = 0;
+   |         ^^^^^

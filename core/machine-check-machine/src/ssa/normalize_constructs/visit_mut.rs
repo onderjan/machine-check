@@ -14,20 +14,6 @@ impl Visit<'_> for super::Visitor {
         visit::visit_generics(self, generics);
     }
 
-    fn visit_impl_item(&mut self, impl_item: &syn::ImplItem) {
-        match impl_item {
-            syn::ImplItem::Fn(_) | syn::ImplItem::Type(_) => {
-                // OK
-            }
-            _ => {
-                self.push_error("Item that is not function or type", impl_item.span());
-            }
-        }
-
-        // delegate
-        visit::visit_impl_item(self, impl_item);
-    }
-
     fn visit_impl_item_fn(&mut self, impl_item_fn: &syn::ImplItemFn) {
         if impl_item_fn.defaultness.is_some() {
             self.push_error("Defaultness", impl_item_fn.span());
