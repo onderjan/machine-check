@@ -14,18 +14,6 @@ impl Visit<'_> for super::Visitor {
         visit::visit_generics(self, generics);
     }
 
-    fn visit_item_impl(&mut self, item_impl: &syn::ItemImpl) {
-        if item_impl.defaultness.is_some() {
-            self.push_error("Defaultness", item_impl.span());
-        }
-        if item_impl.unsafety.is_some() {
-            self.push_error("Implementation unsafety", item_impl.span());
-        }
-
-        // delegate
-        visit::visit_item_impl(self, item_impl);
-    }
-
     fn visit_impl_item(&mut self, impl_item: &syn::ImplItem) {
         match impl_item {
             syn::ImplItem::Fn(_) | syn::ImplItem::Type(_) => {

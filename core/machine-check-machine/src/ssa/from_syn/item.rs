@@ -126,6 +126,19 @@ pub fn fold_item_struct(
 }
 
 pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErrors> {
+    let span = item.span();
+
+    if item.defaultness.is_some() {
+        return Err(DescriptionErrors::single(
+            DescriptionError::unsupported_construct("Defaultness", span),
+        ));
+    }
+    if item.unsafety.is_some() {
+        return Err(DescriptionErrors::single(
+            DescriptionError::unsupported_construct("Unsafety", span),
+        ));
+    }
+
     let self_ty = {
         match *item.self_ty {
             Type::Path(ty) => {
