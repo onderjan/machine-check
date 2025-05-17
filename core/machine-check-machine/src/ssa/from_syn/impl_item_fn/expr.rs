@@ -106,9 +106,7 @@ impl RightExprFolder<'_> {
         expr_call: ExprCall,
     ) -> Result<WExprCall<WMacroableCallFunc<WBasicType>>, DescriptionError> {
         {
-            // the function path
             let fn_path = self.fn_folder.fold_expr_as_path(*expr_call.func)?;
-
             let mut args = Vec::new();
             for arg in expr_call.args {
                 args.push(self.force_call_arg(arg)?);
@@ -125,31 +123,33 @@ impl RightExprFolder<'_> {
         &mut self,
         expr_field: ExprField,
     ) -> Result<WExprField, DescriptionError> {
-        // the member is just a regular identifier
-        let member = match expr_field.member {
-            syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
-            syn::Member::Unnamed(_index) => panic!("Unnamed members not supported"),
-        };
-        Ok(WExprField {
-            base: self.fn_folder.fold_expr_as_ident(*expr_field.base)?,
-            member,
-        })
+        let base = self.fn_folder.fold_expr_as_ident(*expr_field.base)?;
+        let member = Self::extract_member(expr_field.member)?;
+        Ok(WExprField { base, member })
     }
 
     fn fold_right_expr_struct(
         &mut self,
         expr_struct: ExprStruct,
     ) -> Result<WExprStruct<WBasicType>, DescriptionError> {
+        if expr_struct.qself.is_some() {
+            return Err(DescriptionError::unsupported_construct(
+                "Quantified self",
+                expr_struct.span(),
+            ));
+        }
+        if expr_struct.rest.is_some() {
+            return Err(DescriptionError::unsupported_construct(
+                "Struct expressions with base",
+                expr_struct.rest.span(),
+            ));
+        }
+
         let mut args = Vec::new();
         for field in expr_struct.fields {
-            let left = match field.member {
-                syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
-                syn::Member::Unnamed(_) => {
-                    panic!("Unnamed struct members not supported")
-                }
-            };
-            let right = self.force_ident(field.expr)?;
-            args.push((left, right))
+            let member_ident = Self::extract_member(field.member)?;
+            let member_value = self.force_ident(field.expr)?;
+            args.push((member_ident, member_value))
         }
 
         Ok(WExprStruct {
@@ -167,19 +167,18 @@ impl RightExprFolder<'_> {
                 WExprReference::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path))?)
             }
             Expr::Field(expr_field) => {
-                let inner = match expr_field.member {
-                    syn::Member::Named(ident) => WIdent::from_syn_ident(ident),
-                    syn::Member::Unnamed(_index) => panic!("Unnamed members not supported"),
-                };
+                let member = Self::extract_member(expr_field.member)?;
                 WExprReference::Field(WExprField {
                     base: self.force_ident(*expr_field.base)?,
-                    member: inner,
+                    member,
                 })
             }
-            _ => panic!(
-                "Unexpected expression inside reference {:?}",
-                expr_reference.expr
-            ),
+            _ => {
+                return Err(DescriptionError::unsupported_construct(
+                    "Expression kind inside reference",
+                    expr_reference.expr.span(),
+                ))
+            }
         })
     }
 
@@ -193,20 +192,32 @@ impl RightExprFolder<'_> {
             }
             Expr::Field(expr_field) => {
                 let field_base = self.force_ident(*expr_field.base)?;
-
-                let Member::Named(field_member) = expr_field.member else {
-                    panic!("Unnamed members not supported");
-                };
+                let member = Self::extract_member(expr_field.member)?;
                 WArrayBaseExpr::Field(WExprField {
                     base: field_base,
-                    member: WIdent::from_syn_ident(field_member),
+                    member,
                 })
             }
-            _ => panic!("Expr index array should be ident or field"),
+            _ => {
+                return Err(DescriptionError::unsupported_construct(
+                    "Expression kind as array base",
+                    expr_index.expr.span(),
+                ))
+            }
         };
         let index_ident = self.force_ident(*expr_index.index)?;
 
         Ok(WIndexedExpr::Indexed(array_base, index_ident))
+    }
+
+    fn extract_member(member: Member) -> Result<WIdent, DescriptionError> {
+        match member {
+            Member::Named(ident) => Ok(WIdent::from_syn_ident(ident)),
+            Member::Unnamed(index) => Err(DescriptionError::unsupported_construct(
+                "Unnamed members",
+                index.span(),
+            )),
+        }
     }
 
     fn force_call_arg(&mut self, expr: Expr) -> Result<WCallArg, DescriptionError> {
@@ -217,10 +228,11 @@ impl RightExprFolder<'_> {
     }
 
     fn force_ident(&mut self, expr: Expr) -> Result<WIdent, DescriptionError> {
-        match self.fn_folder.try_fold_expr_as_ident(expr) {
-            Ok(ident) => Ok(ident),
-            Err(expr) => self.move_through_temp(expr),
+        // try to fold the expression as ident first
+        if let Ok(ident) = self.fn_folder.fold_expr_as_ident(expr.clone()) {
+            return Ok(ident);
         }
+        self.move_through_temp(expr)
     }
 
     fn move_through_temp(&mut self, expr: Expr) -> Result<WIdent, DescriptionError> {

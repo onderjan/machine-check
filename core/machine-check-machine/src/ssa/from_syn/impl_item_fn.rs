@@ -9,7 +9,6 @@ use crate::{
         from_syn::ty::{fold_basic_type, fold_type},
     },
     support::ident_creator::IdentCreator,
-    util::{extract_expr_ident, extract_expr_path},
     wir::{
         WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WPathSegment,
         WReference, WSignature, WTacLocal, WType, YTac,
@@ -252,41 +251,56 @@ impl FunctionFolder {
         Ok(fn_arg)
     }
 
-    fn try_fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, Expr> {
-        if let Some(ident) = extract_expr_ident(&expr).cloned() {
-            let ident = WIdent::from_syn_ident(ident);
-            // convert to local-scoped ident if needed
-            if let Some(local_ident) = self.lookup_local_ident(&ident) {
-                return Ok(local_ident.clone());
-            }
-            Ok(ident)
-        } else {
-            Err(expr)
-        }
-    }
-
     fn fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, DescriptionError> {
         let expr_span = expr.span();
-        let Ok(ident) = self.try_fold_expr_as_ident(expr) else {
+        let Expr::Path(expr_path) = expr else {
             return Err(DescriptionError::unsupported_construct(
-                "Non-ident expression",
-                expr_span,
+                "Non-path expression",
+                expr.span(),
             ));
         };
+        if expr_path.qself.is_some() {
+            return Err(DescriptionError::unsupported_construct(
+                "Qualified self",
+                expr_path.span(),
+            ));
+        }
 
-        Ok(ident)
+        let path = fold_path(expr_path.path)?;
+        let mut segments_iter = path.segments.into_iter();
+        if !path.leading_colon {
+            if let Some(first) = segments_iter.next() {
+                if segments_iter.next().is_none() {
+                    let ident = first.ident;
+                    if let Some(local_ident) = self.lookup_local_ident(&ident) {
+                        return Ok(local_ident.clone());
+                    } else {
+                        return Ok(ident);
+                    }
+                }
+            }
+        }
+        Err(DescriptionError::unsupported_construct(
+            "Non-ident expression",
+            expr_span,
+        ))
     }
 
     fn fold_expr_as_path(&mut self, expr: Expr) -> Result<WPath<WBasicType>, DescriptionError> {
-        let expr_span = expr.span();
-        let Some(path) = extract_expr_path(&expr).cloned() else {
+        let Expr::Path(expr_path) = expr else {
             return Err(DescriptionError::unsupported_construct(
                 "Non-path expression",
-                expr_span,
+                expr.span(),
             ));
         };
+        if expr_path.qself.is_some() {
+            return Err(DescriptionError::unsupported_construct(
+                "Qualified self",
+                expr_path.span(),
+            ));
+        }
 
-        let mut path = fold_path(path)?;
+        let mut path = fold_path(expr_path.path)?;
         // convert to local-scoped ident if needed
         if !path.leading_colon && path.segments.len() == 1 {
             let ident = &path.segments[0].ident;

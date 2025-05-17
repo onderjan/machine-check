@@ -1,0 +1,143 @@
+error: machine-check: Unnamed members not supported
+ --> tests/cases/10-expr-unsupported.rs:8:19
+  |
+8 |             a = x.0;
+  |                   ^
+
+error: machine-check: Non-ident expression not supported
+ --> tests/cases/10-expr-unsupported.rs:9:17
+  |
+9 |             a = nonident::path.0;
+  |                 ^^^^^^^^
+
+error: machine-check: Struct expressions with base not supported
+  --> tests/cases/10-expr-unsupported.rs:11:23
+   |
+11 |             a = Q { ..b };
+   |                       ^
+
+error: machine-check: Unnamed members not supported
+  --> tests/cases/10-expr-unsupported.rs:12:21
+   |
+12 |             a = Q { 0: b };
+   |                     ^
+
+error: machine-check: Expression kind inside reference not supported
+  --> tests/cases/10-expr-unsupported.rs:18:18
+   |
+18 |             a = &(b);
+   |                  ^^^
+
+error: machine-check: Unnamed members not supported
+  --> tests/cases/10-expr-unsupported.rs:19:20
+   |
+19 |             a = &b.0;
+   |                    ^
+
+error: machine-check: Expression kind inside reference not supported
+  --> tests/cases/10-expr-unsupported.rs:20:18
+   |
+20 |             a = &(nonident::path);
+   |                  ^^^^^^^^^^^^^^^^
+
+error: machine-check: Expression kind as array base not supported
+  --> tests/cases/10-expr-unsupported.rs:22:17
+   |
+22 |             a = (b)[10];
+   |                 ^^^
+
+error: machine-check: Unnamed members not supported
+  --> tests/cases/10-expr-unsupported.rs:23:19
+   |
+23 |             a = b.0[10];
+   |                   ^
+
+error: machine-check: Non-ident expression not supported
+  --> tests/cases/10-expr-unsupported.rs:24:17
+   |
+24 |             a = nonident::path[0];
+   |                 ^^^^^^^^
+
+error: machine-check: Non-ident expression not supported
+  --> tests/cases/10-expr-unsupported.rs:25:19
+   |
+25 |             a = b[nonident::path];
+   |                   ^^^^^^^^
+
+error: machine-check: Dereference not supported
+  --> tests/cases/10-expr-unsupported.rs:32:17
+   |
+32 |             a = *b;
+   |                 ^
+
+error: machine-check: Short-circuiting AND not supported
+  --> tests/cases/10-expr-unsupported.rs:34:19
+   |
+34 |             a = a && b;
+   |                   ^
+
+error: machine-check: Short-circuiting OR not supported
+  --> tests/cases/10-expr-unsupported.rs:35:19
+   |
+35 |             a = a || b;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:37:19
+   |
+37 |             a = b += c;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:38:19
+   |
+38 |             a = b -= c;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:39:19
+   |
+39 |             a = b *= c;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:40:19
+   |
+40 |             a = b /= c;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:41:19
+   |
+41 |             a = b %= c;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:43:19
+   |
+43 |             a = b ^= c;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:44:19
+   |
+44 |             a = b &= c;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:45:19
+   |
+45 |             a = b |= c;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:47:19
+   |
+47 |             a = b <<= c;
+   |                   ^
+
+error: machine-check: Assignment operators not supported
+  --> tests/cases/10-expr-unsupported.rs:48:19
+   |
+48 |             a = b >>= c;
+   |                   ^
