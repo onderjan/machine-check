@@ -22,23 +22,37 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
                         GenericArgument::Type(ty) => WGeneric::Type(fold_type(ty)?),
                         GenericArgument::Const(expr) => {
                             let Expr::Lit(expr) = expr else {
-                                panic!("Unexpected non-literal const generic argument");
+                                return Err(DescriptionError::unsupported_construct(
+                                    "Non-literal const generic argument",
+                                    path_span,
+                                ));
                             };
                             let parsed: Result<u32, _> = match expr.lit {
                                 Lit::Int(lit_int) => lit_int.base10_parse(),
                                 _ => {
-                                    panic!("Unexpected non-integer const generic argument")
+                                    return Err(DescriptionError::unsupported_construct(
+                                        "Non-integer const generic argument",
+                                        path_span,
+                                    ));
                                 }
                             };
                             let parsed = match parsed {
                                 Ok(ok) => ok,
-                                Err(err) => {
-                                    panic!("Could not parse const generic argument: {}", err)
+                                Err(_) => {
+                                    return Err(DescriptionError::unsupported_construct(
+                                        "Generic argument not parseable as u32",
+                                        path_span,
+                                    ));
                                 }
                             };
                             WGeneric::Const(parsed)
                         }
-                        _ => panic!("Unexpected type of generic argument"),
+                        _ => {
+                            return Err(DescriptionError::unsupported_construct(
+                                "Generic argument kind",
+                                path_span,
+                            ))
+                        }
                     });
                 }
                 Some(WGenerics {
@@ -48,7 +62,10 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
             }
 
             PathArguments::Parenthesized(_generics) => {
-                panic!("Unexpected parenthesized generic arguments")
+                return Err(DescriptionError::unsupported_construct(
+                    "Parenthesized generic arguments",
+                    path_span,
+                ));
             }
         };
 
@@ -64,10 +81,8 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
             || segment.ident.name() == "crate"
             || segment.ident.name() == "$crate"
         {
-            return Err(DescriptionError::new(
-                crate::ssa::error::DescriptionErrorType::UnsupportedConstruct(
-                    "Path segment super / crate / $crate",
-                ),
+            return Err(DescriptionError::unsupported_construct(
+                "Path segment super / crate / $crate",
                 segment.ident.span(),
             ));
         }
@@ -82,10 +97,8 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
             .expect("Global path should have at least one segment");
         let crate_ident = &crate_segment.ident;
         if crate_ident.name() != "machine_check" && crate_ident.name() != "std" {
-            return Err(DescriptionError::new(
-                crate::ssa::error::DescriptionErrorType::UnsupportedConstruct(
-                    "Absolute paths not starting with 'machine_check' or 'std'",
-                ),
+            return Err(DescriptionError::unsupported_construct(
+                "Absolute paths not starting with 'machine_check' or 'std'",
                 path_span,
             ));
         }
