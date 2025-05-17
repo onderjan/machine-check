@@ -8,7 +8,7 @@ use syn::{
 use crate::{
     ssa::{
         error::{DescriptionError, DescriptionErrorType, DescriptionErrors},
-        from_syn::{impl_item_fn::FunctionScope, ty::fold_partial_general_type},
+        from_syn::{impl_item_fn::FunctionScope, ty::fold_type},
     },
     util::{create_expr_ident, path_matches_global_names},
     wir::{
@@ -93,7 +93,9 @@ impl super::FunctionFolder {
                 let mut pat = local.pat.clone();
                 let mut ty = WPartialGeneralType::Unknown;
                 if let Pat::Type(pat_type) = pat {
-                    ty = fold_partial_general_type(*pat_type.ty)?;
+                    ty = fold_type(*pat_type.ty)
+                        .map(WPartialGeneralType::Normal)
+                        .map_err(DescriptionErrors::single)?;
                     pat = *pat_type.pat;
                 }
 

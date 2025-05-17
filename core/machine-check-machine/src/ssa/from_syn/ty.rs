@@ -5,7 +5,7 @@ use crate::{
         error::{DescriptionError, DescriptionErrorType},
         from_syn::path::fold_path,
     },
-    wir::{WBasicType, WPartialGeneralType, WReference, WType, WTypeArray},
+    wir::{WBasicType, WReference, WType, WTypeArray},
 };
 
 pub fn fold_type(mut ty: Type) -> Result<WType<WBasicType>, DescriptionError> {
@@ -92,65 +92,6 @@ pub fn fold_basic_type(ty: Type) -> Result<WBasicType, DescriptionError> {
             ty_span,
         )),
     }
-}
-
-pub fn fold_partial_general_type(
-    ty: Type,
-) -> Result<WPartialGeneralType<WBasicType>, DescriptionError> {
-    let result: Option<_> = match &ty {
-        Type::Path(ty) => {
-            if ty.qself.is_some() {
-                return Err(DescriptionError::unsupported_construct(
-                    "Quantified self",
-                    ty.span(),
-                ));
-            }
-
-            let mut known_type = None;
-            if ty.path.leading_colon.is_some() && !ty.path.segments.is_empty() {
-                let mut segments_iter = ty.path.segments.clone().into_pairs();
-                let first_segment = segments_iter.next().unwrap().into_value();
-
-                if &first_segment.ident.to_string() == "machine_check"
-                    && ty.path.segments.len() >= 2
-                {
-                    let second_segment = segments_iter.next().unwrap().into_value();
-
-                    if ty.path.segments.len() == 3 {
-                        let third_segment = segments_iter.next().unwrap().into_value();
-                        if second_segment.ident.to_string().as_str() == "internal"
-                            && third_segment.ident.to_string().as_str() == "PanicResult"
-                        {
-                            known_type = Some(WPartialGeneralType::PanicResult(None));
-                        }
-                    }
-                } else if &first_segment.ident.to_string() == "mck" && ty.path.segments.len() == 3 {
-                    let second_segment = segments_iter.next().unwrap().into_value();
-                    let third_segment = segments_iter.next().unwrap().into_value();
-                    if second_segment.ident.to_string().as_str() == "forward"
-                        && third_segment.ident.to_string().as_str() == "PhiArg"
-                    {
-                        let mut inner_type = None;
-                        if let PathArguments::AngleBracketed(generic_args) = third_segment.arguments
-                        {
-                            if let Some(GenericArgument::Type(inner)) = generic_args.args.first() {
-                                inner_type = Some(fold_type(inner.clone())?);
-                            }
-                        }
-
-                        known_type = Some(WPartialGeneralType::PhiArg(inner_type));
-                    }
-                }
-            }
-            known_type
-        }
-        _ => None,
-    };
-    Ok(if let Some(result) = result {
-        result
-    } else {
-        WPartialGeneralType::Normal(fold_type(ty)?)
-    })
 }
 
 pub fn extract_generic_sizes(
