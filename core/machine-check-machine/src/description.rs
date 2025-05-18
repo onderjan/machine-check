@@ -3,16 +3,15 @@ mod convert_indexing;
 mod convert_to_ssa;
 mod convert_total;
 mod convert_types;
-mod error;
 mod expand_macros;
 mod from_syn;
 mod infer_types;
 mod resolve_use;
 
-use error::Errors;
+use proc_macro2::Span;
 use syn::Item;
 
-use crate::{wir::IntoSyn, Description};
+use crate::{support::error_list::ErrorList, wir::IntoSyn, Description};
 
 pub fn create_description(items: Vec<Item>) -> Result<Description, crate::Errors> {
     create_description_inner(items).map_err(Errors::convert_inner)
@@ -60,3 +59,47 @@ fn create_description_inner(mut items: Vec<Item>) -> Result<Description, Errors>
         panic_messages,
     })
 }
+
+#[derive(thiserror::Error, Debug, Clone)]
+pub(super) enum DescriptionErrorType {
+    #[error("{0}")]
+    MacroError(String),
+    #[error("{0}")]
+    MacroParseError(syn::Error),
+    #[error("{0} not supported")]
+    UnsupportedConstruct(&'static str),
+    #[error("{0}")]
+    IllegalConstruct(String),
+    #[error("machine-check: Could not infer variable type")]
+    InferenceFailure,
+    #[error("{0}")]
+    TypeConversionError(&'static str),
+}
+
+impl From<Error> for crate::Error {
+    fn from(error: Error) -> crate::Error {
+        crate::Error {
+            ty: crate::ErrorType::DescriptionError(format!("{}", error)),
+            span: error.span,
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug, Clone)]
+#[error("{ty}")]
+pub(super) struct Error {
+    pub ty: DescriptionErrorType,
+    pub span: Span,
+}
+
+impl Error {
+    pub fn new(ty: DescriptionErrorType, span: Span) -> Self {
+        Self { ty, span }
+    }
+
+    pub fn unsupported_construct(msg: &'static str, span: Span) -> Self {
+        Self::new(DescriptionErrorType::UnsupportedConstruct(msg), span)
+    }
+}
+
+pub(super) type Errors = ErrorList<Error>;

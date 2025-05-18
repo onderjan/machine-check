@@ -1,7 +1,7 @@
 use crate::{
     description::{
-        error::{Error, DescriptionErrorType},
         infer_types::is_type_fully_specified,
+        {DescriptionErrorType, Error},
     },
     wir::{
         WBasicType, WCallArg, WCallFunc, WExprCall, WGeneric, WPartialGeneralType, WPath,

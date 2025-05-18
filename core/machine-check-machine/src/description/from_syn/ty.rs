@@ -1,10 +1,7 @@
 use syn::{spanned::Spanned, Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
-    description::{
-        error::{Error, DescriptionErrorType},
-        from_syn::path::fold_path,
-    },
+    description::{from_syn::path::fold_path, DescriptionErrorType, Error},
     wir::{WBasicType, WReference, WType, WTypeArray},
 };
 
@@ -33,10 +30,7 @@ pub fn fold_basic_type(ty: Type) -> Result<WBasicType, Error> {
     match ty {
         Type::Path(ty) => {
             if ty.qself.is_some() {
-                return Err(Error::unsupported_construct(
-                    "Quantified self",
-                    ty.span(),
-                ));
+                return Err(Error::unsupported_construct("Quantified self", ty.span()));
             }
 
             let mut known_type = None;
@@ -87,10 +81,7 @@ pub fn fold_basic_type(ty: Type) -> Result<WBasicType, Error> {
                 WBasicType::Path(fold_path(ty.path)?)
             })
         }
-        _ => Err(Error::unsupported_construct(
-            "Non-path type",
-            ty_span,
-        )),
+        _ => Err(Error::unsupported_construct("Non-path type", ty_span)),
     }
 }
 

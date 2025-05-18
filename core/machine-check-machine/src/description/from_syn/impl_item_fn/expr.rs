@@ -5,10 +5,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    description::{
-        error::{Error, DescriptionErrorType},
-        from_syn::path::fold_path,
-    },
+    description::{from_syn::path::fold_path, DescriptionErrorType, Error},
     util::{create_expr_call, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall, WExprField, WExprReference,
@@ -92,12 +89,7 @@ impl RightExprFolder<'_> {
             Expr::Index(expr_index) => self.fold_right_expr_index(expr_index)?,
             Expr::Binary(expr_binary) => self.fold_right_expr(normalize_binary(expr_binary)?)?,
             Expr::Unary(expr_unary) => self.fold_right_expr(normalize_unary(expr_unary)?)?,
-            _ => {
-                return Err(Error::unsupported_construct(
-                    "Expression kind",
-                    expr_span,
-                ))
-            }
+            _ => return Err(Error::unsupported_construct("Expression kind", expr_span)),
         })
     }
 
@@ -119,10 +111,7 @@ impl RightExprFolder<'_> {
         }
     }
 
-    fn fold_right_expr_field(
-        &mut self,
-        expr_field: ExprField,
-    ) -> Result<WExprField, Error> {
+    fn fold_right_expr_field(&mut self, expr_field: ExprField) -> Result<WExprField, Error> {
         let base = self.fn_folder.fold_expr_as_ident(*expr_field.base)?;
         let member = Self::extract_member(expr_field.member)?;
         Ok(WExprField { base, member })

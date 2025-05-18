@@ -7,8 +7,8 @@ use syn::{
 
 use crate::{
     description::{
-        error::{Error, DescriptionErrorType, Errors},
         from_syn::{impl_item_fn::FunctionScope, ty::fold_type},
+        DescriptionErrorType, Error, Errors,
     },
     util::{create_expr_ident, path_matches_global_names},
     wir::{
@@ -18,10 +18,7 @@ use crate::{
 };
 
 impl super::FunctionFolder {
-    pub fn fold_block(
-        &mut self,
-        block: Block,
-    ) -> Result<(WBlock<ZTac>, Option<WIdent>), Errors> {
+    pub fn fold_block(&mut self, block: Block) -> Result<(WBlock<ZTac>, Option<WIdent>), Errors> {
         // push a local scope
         let scope_id = self.next_scope_id;
         self.next_scope_id = self
@@ -100,26 +97,23 @@ impl super::FunctionFolder {
                 }
 
                 let Pat::Ident(left_pat_ident) = pat else {
-                    return Err(Errors::single(
-                        Error::unsupported_construct(
-                            "Non-ident local pattern",
-                            pat.span(),
-                        ),
-                    ));
+                    return Err(Errors::single(Error::unsupported_construct(
+                        "Non-ident local pattern",
+                        pat.span(),
+                    )));
                 };
                 if left_pat_ident.by_ref.is_some() {
-                    return Err(Errors::single(
-                        Error::unsupported_construct(
-                            "Pattern binding by reference",
-                            left_pat_ident.by_ref.span(),
-                        ),
-                    ));
+                    return Err(Errors::single(Error::unsupported_construct(
+                        "Pattern binding by reference",
+                        left_pat_ident.by_ref.span(),
+                    )));
                 }
                 // mutable patterns are supported
                 if let Some((_at, subpat)) = &left_pat_ident.subpat {
-                    return Err(Errors::single(
-                        Error::unsupported_construct("Subpatterns", subpat.span()),
-                    ));
+                    return Err(Errors::single(Error::unsupported_construct(
+                        "Subpatterns",
+                        subpat.span(),
+                    )));
                 }
                 let local_syn_ident = left_pat_ident.ident;
                 let local_ident = WIdent::from_syn_ident(local_syn_ident.clone());
@@ -127,12 +121,10 @@ impl super::FunctionFolder {
 
                 if let Some(init) = local.init {
                     if let Some((else_token, _else_block)) = init.diverge {
-                        return Err(Errors::single(
-                            Error::unsupported_construct(
-                                "Diverging let",
-                                else_token.span(),
-                            ),
-                        ));
+                        return Err(Errors::single(Error::unsupported_construct(
+                            "Diverging let",
+                            else_token.span(),
+                        )));
                     }
                     self.fold_stmt_expr(
                         Expr::Assign(ExprAssign {
@@ -147,17 +139,16 @@ impl super::FunctionFolder {
             }
             Stmt::Expr(stmt_expr, _) => self.fold_stmt_expr(stmt_expr, result_stmts)?,
             Stmt::Item(_) => {
-                return Err(Errors::single(
-                    Error::unsupported_construct("Items inside function", stmt_span),
-                ))
+                return Err(Errors::single(Error::unsupported_construct(
+                    "Items inside function",
+                    stmt_span,
+                )))
             }
             Stmt::Macro(_) => {
-                return Err(Errors::single(
-                    Error::unsupported_construct(
-                        "Macro invocations in statement position",
-                        stmt_span,
-                    ),
-                ))
+                return Err(Errors::single(Error::unsupported_construct(
+                    "Macro invocations in statement position",
+                    stmt_span,
+                )))
             }
         };
         Ok(())
@@ -175,21 +166,20 @@ impl super::FunctionFolder {
                 // handle nested blocks
                 let (mut block, result) = self.fold_block(expr.block)?;
                 if let Some(result) = result {
-                    return Err(Errors::single(
-                        Error::unsupported_construct(
-                            "Block statements with result",
-                            result.span(),
-                        ),
-                    ));
+                    return Err(Errors::single(Error::unsupported_construct(
+                        "Block statements with result",
+                        result.span(),
+                    )));
                 };
                 assert!(result.is_none());
                 result_stmts.append(&mut block.stmts);
                 Ok(())
             }
             syn::Expr::Macro(expr) => self.fold_macro(expr, result_stmts),
-            _ => Err(Errors::single(
-                Error::unsupported_construct("Expression kind", expr.span()),
-            )),
+            _ => Err(Errors::single(Error::unsupported_construct(
+                "Expression kind",
+                expr.span(),
+            ))),
         }
     }
 
@@ -211,12 +201,10 @@ impl super::FunctionFolder {
                 WIndexedIdent::NonIndexed(left_ident.clone())
             }
             _ => {
-                return Err(Errors::single(
-                    Error::unsupported_construct(
-                        "Left expression that is not an identifier nor index",
-                        expr.span(),
-                    ),
-                ))
+                return Err(Errors::single(Error::unsupported_construct(
+                    "Left expression that is not an identifier nor index",
+                    expr.span(),
+                )))
             }
         };
 
@@ -225,11 +213,7 @@ impl super::FunctionFolder {
         Ok(())
     }
 
-    fn fold_if(
-        &mut self,
-        expr: ExprIf,
-        result_stmts: &mut Vec<WStmt<ZTac>>,
-    ) -> Result<(), Errors> {
+    fn fold_if(&mut self, expr: ExprIf, result_stmts: &mut Vec<WStmt<ZTac>>) -> Result<(), Errors> {
         let condition = self.force_right_expr_to_call_arg(*expr.cond, result_stmts)?;
         let then_block = self.fold_block(expr.then_branch)?.0;
 
@@ -261,9 +245,10 @@ impl super::FunctionFolder {
         } else if path_matches_global_names(&mac.path, &["std", "todo"]) {
             WPanicMacroKind::Todo
         } else {
-            return Err(Errors::single(
-                Error::unsupported_construct("This macro", mac.path.span()),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(
+                "This macro",
+                mac.path.span(),
+            )));
         };
         let args = match mac.parse_body_with(Punctuated::<Expr, Token![,]>::parse_terminated) {
             Ok(args) => args,
@@ -278,12 +263,10 @@ impl super::FunctionFolder {
         let mut call_args = Vec::new();
         for arg in args {
             let Expr::Lit(lit) = arg else {
-                return Err(Errors::single(
-                    Error::unsupported_construct(
-                        "Panic-like macro with a non-literal arg",
-                        arg.span(),
-                    ),
-                ));
+                return Err(Errors::single(Error::unsupported_construct(
+                    "Panic-like macro with a non-literal arg",
+                    arg.span(),
+                )));
             };
             call_args.push(crate::wir::WCallArg::Literal(lit.lit));
         }

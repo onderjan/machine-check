@@ -1,6 +1,6 @@
 use syn::{spanned::Spanned, visit::Visit};
 
-use super::error::{Error, Errors};
+use super::{Error, Errors};
 
 pub struct AttributeDisallower {
     errors: Vec<Error>,

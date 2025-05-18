@@ -4,23 +4,19 @@ use syn::{
 };
 
 use crate::{
-    description::{
-        attribute_disallower::AttributeDisallower,
-        error::{Error, DescriptionErrorType, Errors},
-    },
+    description::{attribute_disallower::AttributeDisallower, DescriptionErrorType, Error, Errors},
     wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
 };
 
 use super::{impl_item_fn::fold_impl_item_fn, path::fold_path, ty::fold_basic_type};
 
-pub fn fold_item_struct(
-    mut item: ItemStruct,
-) -> Result<WItemStruct<WBasicType>, Errors> {
+pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>, Errors> {
     let span = item.span();
     if item.generics != Generics::default() {
-        return Err(Errors::single(
-            Error::unsupported_construct("Generics", item.generics.span()),
-        ));
+        return Err(Errors::single(Error::unsupported_construct(
+            "Generics",
+            item.generics.span(),
+        )));
     }
 
     let mut derives = Vec::new();
@@ -82,9 +78,7 @@ pub fn fold_item_struct(
         };
 
         if let Some(err_msg) = err_msg {
-            return Err(Errors::single(
-                Error::unsupported_construct(err_msg, span),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(err_msg, span)));
         }
     }
 
@@ -96,9 +90,10 @@ pub fn fold_item_struct(
     let visibility = fold_visibility(item.vis)?;
 
     let Fields::Named(fields_named) = item.fields else {
-        return Err(Errors::single(
-            Error::unsupported_construct("Struct without named fields", span),
-        ));
+        return Err(Errors::single(Error::unsupported_construct(
+            "Struct without named fields",
+            span,
+        )));
     };
 
     let mut fields = Vec::new();
@@ -129,19 +124,22 @@ pub fn fold_item_struct(
 
 pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
     if item.defaultness.is_some() {
-        return Err(Errors::single(
-            Error::unsupported_construct("Defaultness", item.defaultness.span()),
-        ));
+        return Err(Errors::single(Error::unsupported_construct(
+            "Defaultness",
+            item.defaultness.span(),
+        )));
     }
     if item.unsafety.is_some() {
-        return Err(Errors::single(
-            Error::unsupported_construct("Unsafety", item.unsafety.span()),
-        ));
+        return Err(Errors::single(Error::unsupported_construct(
+            "Unsafety",
+            item.unsafety.span(),
+        )));
     }
     if item.generics != Generics::default() {
-        return Err(Errors::single(
-            Error::unsupported_construct("Generics", item.generics.span()),
-        ));
+        return Err(Errors::single(Error::unsupported_construct(
+            "Generics",
+            item.generics.span(),
+        )));
     }
 
     let self_ty = {
@@ -151,9 +149,10 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
                 fold_path(ty.path)
             }
             _ => {
-                return Err(Errors::single(
-                    Error::unsupported_construct("Non-path type", item.self_ty.span()),
-                ))
+                return Err(Errors::single(Error::unsupported_construct(
+                    "Non-path type",
+                    item.self_ty.span(),
+                )))
             }
         }
     }?;
@@ -187,10 +186,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
             _ => Some("Implementation item kind"),
         };
         if let Some(err_msg) = err_msg {
-            errors.push(Error::unsupported_construct(
-                err_msg,
-                impl_item_span,
-            ));
+            errors.push(Error::unsupported_construct(err_msg, impl_item_span));
         }
     }
     let impl_item_types = Errors::flat_single_result(impl_item_types);
@@ -207,9 +203,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
     })
 }
 
-pub fn fold_impl_item_type(
-    impl_item: ImplItemType,
-) -> Result<WImplItemType<WBasicType>, Error> {
+pub fn fold_impl_item_type(impl_item: ImplItemType) -> Result<WImplItemType<WBasicType>, Error> {
     let span = impl_item.span();
 
     // TODO: visibility
@@ -223,10 +217,7 @@ pub fn fold_impl_item_type(
 
     let ty = impl_item.ty;
     let Type::Path(ty) = ty else {
-        return Err(Error::unsupported_construct(
-            "Non-path type",
-            span,
-        ));
+        return Err(Error::unsupported_construct("Non-path type", span));
     };
     Ok(WImplItemType {
         left_ident: WIdent::from_syn_ident(impl_item.ident),

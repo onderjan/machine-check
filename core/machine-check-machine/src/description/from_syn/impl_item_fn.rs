@@ -5,8 +5,8 @@ use syn::{spanned::Spanned, visit::Visit, Expr, FnArg, Generics, ImplItemFn, Pat
 use crate::{
     description::{
         attribute_disallower::AttributeDisallower,
-        error::{Error, Errors},
         from_syn::ty::{fold_basic_type, fold_type},
+        Error, Errors,
     },
     support::ident_creator::IdentCreator,
     wir::{
@@ -42,19 +42,14 @@ struct FunctionFolder {
 }
 
 impl FunctionFolder {
-    pub fn fold(
-        mut self,
-        mut impl_item: ImplItemFn,
-    ) -> Result<WImplItemFn<YTac>, Errors> {
+    pub fn fold(mut self, mut impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, Errors> {
         let impl_item_span = impl_item.span();
 
         if impl_item.defaultness.is_some() {
-            return Err(Errors::single(
-                Error::unsupported_construct(
-                    "Defaultness",
-                    impl_item.defaultness.span(),
-                ),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(
+                "Defaultness",
+                impl_item.defaultness.span(),
+            )));
         }
 
         // TODO: handle function attributes
@@ -77,12 +72,10 @@ impl FunctionFolder {
         let (block, result) = self.fold_block(impl_item.block)?;
 
         let Some(result) = result else {
-            return Err(Errors::single(
-                Error::unsupported_construct(
-                    "Functions without return statement",
-                    impl_item_span,
-                ),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(
+                "Functions without return statement",
+                impl_item_span,
+            )));
         };
 
         // the only local scope remaining should be the outer one
@@ -118,37 +111,40 @@ impl FunctionFolder {
         let signature_span = signature.span();
 
         if signature.constness.is_some() {
-            return Err(Errors::single(
-                Error::unsupported_construct("Constness", signature.constness.span()),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(
+                "Constness",
+                signature.constness.span(),
+            )));
         }
         if signature.asyncness.is_some() {
-            return Err(Errors::single(
-                Error::unsupported_construct("Asyncness", signature.asyncness.span()),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(
+                "Asyncness",
+                signature.asyncness.span(),
+            )));
         }
         if signature.unsafety.is_some() {
-            return Err(Errors::single(
-                Error::unsupported_construct("Unsafety", signature.unsafety.span()),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(
+                "Unsafety",
+                signature.unsafety.span(),
+            )));
         }
         if signature.abi.is_some() {
-            return Err(Errors::single(
-                Error::unsupported_construct("ABI", signature.abi.span()),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(
+                "ABI",
+                signature.abi.span(),
+            )));
         }
         if signature.generics != Generics::default() {
-            return Err(Errors::single(
-                Error::unsupported_construct("Generics", signature.generics.span()),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(
+                "Generics",
+                signature.generics.span(),
+            )));
         }
         if signature.variadic.is_some() {
-            return Err(Errors::single(
-                Error::unsupported_construct(
-                    "Variadic argument",
-                    signature.variadic.span(),
-                ),
-            ));
+            return Err(Errors::single(Error::unsupported_construct(
+                "Variadic argument",
+                signature.variadic.span(),
+            )));
         }
 
         let inputs: Vec<_> = signature
@@ -161,9 +157,10 @@ impl FunctionFolder {
 
         let output = match signature.output {
             syn::ReturnType::Default => {
-                return Err(Errors::single(
-                    Error::unsupported_construct("Default return type", signature_span),
-                ))
+                return Err(Errors::single(Error::unsupported_construct(
+                    "Default return type",
+                    signature_span,
+                )))
             }
             syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty),
         }
@@ -178,21 +175,14 @@ impl FunctionFolder {
         })
     }
 
-    fn fold_fn_arg(
-        &mut self,
-        scope_id: u32,
-        fn_arg: FnArg,
-    ) -> Result<WFnArg<WBasicType>, Error> {
+    fn fold_fn_arg(&mut self, scope_id: u32, fn_arg: FnArg) -> Result<WFnArg<WBasicType>, Error> {
         let fn_arg = match fn_arg {
             syn::FnArg::Receiver(receiver) => {
                 let receiver_span = receiver.span();
                 let reference = match receiver.reference {
                     Some((_and, lifetime)) => {
                         if lifetime.is_some() {
-                            return Err(Error::unsupported_construct(
-                                "Lifetimes",
-                                lifetime.span(),
-                            ));
+                            return Err(Error::unsupported_construct("Lifetimes", lifetime.span()));
                         }
 
                         if receiver.mutability.is_some() {

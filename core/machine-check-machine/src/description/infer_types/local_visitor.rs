@@ -2,7 +2,7 @@ use core::panic;
 use std::collections::HashMap;
 
 use crate::{
-    description::error::Error,
+    description::Error,
     wir::{
         WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn, WItemStruct,
         WPartialGeneralType, WPath, WReference, WStmtAssign, WType, YSsa, ZSsa,

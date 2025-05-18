@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    description::error::{Error, DescriptionErrorType},
+    description::{DescriptionErrorType, Error},
     wir::{
         WBasicType, WCallArg, WCallFunc, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
         WPath,

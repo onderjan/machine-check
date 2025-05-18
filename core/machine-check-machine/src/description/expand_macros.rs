@@ -7,7 +7,7 @@ use syn::{
 
 use crate::util::path_matches_global_names;
 
-use super::error::{DescriptionErrorType, Error};
+use super::{DescriptionErrorType, Error};
 
 pub struct MacroExpander {}
 

@@ -9,7 +9,7 @@ use crate::wir::{
     WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
 };
 
-use super::error::Errors;
+use super::Errors;
 
 mod convert_calls;
 

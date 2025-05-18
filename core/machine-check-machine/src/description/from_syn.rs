@@ -3,7 +3,7 @@ use syn::{spanned::Spanned, Item};
 
 use crate::wir::{WDescription, YTac};
 
-use super::error::{Error, Errors};
+use super::{Error, Errors};
 
 pub mod impl_item_fn;
 pub mod item;
@@ -18,10 +18,7 @@ pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> Result<WDescription<YT
         match item {
             Item::Struct(item) => structs.push(fold_item_struct(item)),
             Item::Impl(item) => impls.push(fold_item_impl(item)),
-            _ => errors.push(Error::unsupported_construct(
-                "Item kind",
-                item.span(),
-            )),
+            _ => errors.push(Error::unsupported_construct("Item kind", item.span())),
         }
     }
 

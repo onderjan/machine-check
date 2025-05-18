@@ -11,7 +11,7 @@ use syn::{
 
 use crate::util::extract_path_ident;
 
-use super::error::{Error, DescriptionErrorType};
+use super::{DescriptionErrorType, Error};
 
 pub fn resolve_use(items: &mut [Item]) -> Result<(), Error> {
     // construct the use map first

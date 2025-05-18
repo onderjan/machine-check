@@ -6,11 +6,9 @@ use crate::wir::{
 };
 use crate::wir::{WCallFunc, WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 
-use super::error::{Error, DescriptionErrorType, Errors};
+use super::{DescriptionErrorType, Error, Errors};
 
-pub fn convert_to_ssa(
-    description: WDescription<YTotal>,
-) -> Result<WDescription<YSsa>, Errors> {
+pub fn convert_to_ssa(description: WDescription<YTotal>) -> Result<WDescription<YSsa>, Errors> {
     let mut impls = Vec::new();
     for item_impl in description.impls {
         let mut impl_item_fns = Vec::new();
