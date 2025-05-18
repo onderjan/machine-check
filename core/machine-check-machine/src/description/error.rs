@@ -1,6 +1,6 @@
 use proc_macro2::Span;
 
-use crate::{support::errors::Errors, ErrorType, MachineError};
+use crate::{support::error_list::ErrorList, ErrorType, MachineError};
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum DescriptionErrorType {
@@ -46,4 +46,4 @@ impl DescriptionError {
     }
 }
 
-pub type DescriptionErrors = Errors<DescriptionError>;
+pub type DescriptionErrors = ErrorList<DescriptionError>;

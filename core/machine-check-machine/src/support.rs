@@ -1,4 +1,4 @@
-pub mod errors;
+pub mod error_list;
 pub mod ident_creator;
 pub mod local;
 pub mod machine_error;

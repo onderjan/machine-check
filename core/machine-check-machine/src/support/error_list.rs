@@ -2,13 +2,13 @@ use std::error::Error;
 
 use vec1::Vec1;
 
-pub struct Errors<E: Error> {
+pub struct ErrorList<E: Error> {
     errors: Vec1<E>,
 }
 
-impl<E: Error> Errors<E> {
+impl<E: Error> ErrorList<E> {
     pub fn single(error: E) -> Self {
-        Errors {
+        ErrorList {
             errors: Vec1::new(error),
         }
     }
@@ -111,23 +111,23 @@ impl<E: Error> Errors<E> {
         self.errors
     }
 
-    pub fn convert_inner<F: Error>(self) -> Errors<F>
+    pub fn convert_inner<F: Error>(self) -> ErrorList<F>
     where
         E: std::convert::Into<F>,
     {
-        Errors::<F> {
+        ErrorList::<F> {
             errors: self.errors.mapped(Into::into),
         }
     }
 }
 
-impl<E: Error> From<E> for Errors<E> {
+impl<E: Error> From<E> for ErrorList<E> {
     fn from(error: E) -> Self {
-        Errors::single(error)
+        ErrorList::single(error)
     }
 }
 
-impl<E: Error> IntoIterator for Errors<E> {
+impl<E: Error> IntoIterator for ErrorList<E> {
     type Item = E;
 
     type IntoIter = <Vec1<E> as IntoIterator>::IntoIter;
@@ -137,14 +137,14 @@ impl<E: Error> IntoIterator for Errors<E> {
     }
 }
 
-impl<E: Error> Extend<E> for Errors<E> {
+impl<E: Error> Extend<E> for ErrorList<E> {
     fn extend<T: IntoIterator<Item = E>>(&mut self, iter: T) {
         self.errors.extend(iter);
     }
 }
 
-impl<E: Error> Extend<Errors<E>> for Errors<E> {
-    fn extend<T: IntoIterator<Item = Errors<E>>>(&mut self, iter: T) {
+impl<E: Error> Extend<ErrorList<E>> for ErrorList<E> {
+    fn extend<T: IntoIterator<Item = ErrorList<E>>>(&mut self, iter: T) {
         for errors in iter {
             self.errors.extend(errors);
         }
