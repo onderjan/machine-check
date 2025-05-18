@@ -12,13 +12,13 @@ use crate::{
         create_path_from_ident, create_path_segment, create_type_path, extract_type_path,
         path_matches_global_names,
     },
-    MachineError,
+    Error,
 };
 
 pub fn process_item_impl(
     item_impl: &mut syn::ItemImpl,
     panic_messages: &[String],
-) -> Result<Vec<Item>, MachineError> {
+) -> Result<Vec<Item>, Error> {
     let mut concrete_impl = item_impl.clone();
     let Some((None, trait_path, _for_token)) = &mut concrete_impl.trait_ else {
         // not a positive trait impl, do nothing

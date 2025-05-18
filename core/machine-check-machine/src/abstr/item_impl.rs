@@ -5,12 +5,12 @@ use syn::{spanned::Spanned, GenericArgument, Ident, ImplItem, Item, ItemImpl, Ty
 use crate::{
     support::special_trait::{special_trait_impl, SpecialTrait},
     util::{create_angle_bracketed_path_arguments, create_path_segment, extract_type_path},
-    ErrorType, MachineError,
+    ErrorType, Error,
 };
 
 use self::impl_item_fn::process_impl_item_fn;
 
-pub fn preprocess_item_impl(item_impl: &ItemImpl) -> Result<Option<Type>, MachineError> {
+pub fn preprocess_item_impl(item_impl: &ItemImpl) -> Result<Option<Type>, Error> {
     let Some(SpecialTrait::Machine) = special_trait_impl(item_impl, "abstr") else {
         return Ok(None);
     };
@@ -27,7 +27,7 @@ pub fn preprocess_item_impl(item_impl: &ItemImpl) -> Result<Option<Type>, Machin
 pub fn process_item_impl(
     mut item_impl: ItemImpl,
     machine_types: &[Type],
-) -> Result<Vec<Item>, MachineError> {
+) -> Result<Vec<Item>, Error> {
     for impl_item in item_impl.items.iter_mut() {
         if let ImplItem::Fn(ref mut impl_item_fn) = impl_item {
             process_impl_item_fn(impl_item_fn)?;
@@ -39,7 +39,7 @@ pub fn process_item_impl(
         let span = item_impl.span();
 
         let Some(self_ty_path) = extract_type_path(&item_impl.self_ty) else {
-            return Err(MachineError::new(
+            return Err(Error::new(
                 ErrorType::ForwardConversionError(String::from(
                     "Unable to convert impl of non-path type",
                 )),

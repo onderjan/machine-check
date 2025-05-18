@@ -21,9 +21,9 @@ mod support;
 mod util;
 mod wir;
 
-pub use support::machine_error::{ErrorType, MachineError};
+pub use support::machine_error::{Error, ErrorType};
 
-pub type MachineErrors = ErrorList<MachineError>;
+pub type Errors = ErrorList<Error>;
 
 #[derive(Clone)]
 struct Description {
@@ -31,14 +31,14 @@ struct Description {
     pub panic_messages: Vec<String>,
 }
 
-pub fn process_file(mut file: syn::File) -> Result<syn::File, MachineErrors> {
+pub fn process_file(mut file: syn::File) -> Result<syn::File, Errors> {
     process_items(&mut file.items)?;
     Ok(file)
 }
 
-pub fn process_module(mut module: ItemMod) -> Result<ItemMod, MachineErrors> {
+pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Errors> {
     let Some((_, items)) = &mut module.content else {
-        return Err(MachineErrors::single(MachineError::new(
+        return Err(Errors::single(Error::new(
             ErrorType::ModuleWithoutContent,
             module.span(),
         )));
@@ -88,7 +88,7 @@ fn unparse(machine: &Description) -> String {
     })
 }
 
-fn process_items(items: &mut Vec<Item>) -> Result<(), MachineErrors> {
+fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     //println!("Machine-check-machine starting processing");
 
     #[cfg(feature = "write_machine")]
@@ -111,7 +111,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineErrors> {
     }
 
     let refinement_description =
-        refin::create_refinement_description(&abstract_description).map_err(MachineError::from)?;
+        refin::create_refinement_description(&abstract_description).map_err(Error::from)?;
 
     // create new module at the end of the file that will contain the refinement
     let refinement_module = create_machine_module("__mck_mod_refin", refinement_description);
@@ -143,7 +143,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineErrors> {
     Ok(())
 }
 
-fn redirect_mck(items: &mut [Item]) -> Result<(), MachineError> {
+fn redirect_mck(items: &mut [Item]) -> Result<(), Error> {
     let mut redirect_visitor = RedirectVisitor;
     for item in items.iter_mut() {
         redirect_visitor.visit_item_mut(item);

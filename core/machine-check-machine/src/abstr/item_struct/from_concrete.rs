@@ -10,13 +10,13 @@ use crate::{
         create_expr_path, create_field_value, create_ident, create_impl_item_fn, create_let_bare,
         create_type_path, extract_type_path, path_starts_with_global_names, ArgType,
     },
-    ErrorType, MachineError,
+    ErrorType, Error,
 };
 
 pub fn from_concrete_fn(
     item_struct: &ItemStruct,
     concr_ty: Type,
-) -> Result<ImplItemFn, MachineError> {
+) -> Result<ImplItemFn, Error> {
     let concr_ident = create_ident("concr");
     let concr_arg = create_arg(ArgType::Normal, concr_ident.clone(), Some(concr_ty));
 
@@ -29,7 +29,7 @@ pub fn from_concrete_fn(
             create_expr_field(create_expr_ident(concr_ident.clone()), index, field);
 
         let Some(mut concr_field_path) = extract_type_path(&field.ty) else {
-            return Err(MachineError::new(
+            return Err(Error::new(
                 ErrorType::ForwardConversionError(String::from(
                     "Unable to convert struct due to non-path concrete field",
                 )),

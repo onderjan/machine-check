@@ -12,9 +12,9 @@ mod resolve_use;
 use error::Errors;
 use syn::Item;
 
-use crate::{wir::IntoSyn, Description, MachineErrors};
+use crate::{wir::IntoSyn, Description};
 
-pub fn create_description(items: Vec<Item>) -> Result<Description, MachineErrors> {
+pub fn create_description(items: Vec<Item>) -> Result<Description, crate::Errors> {
     create_description_inner(items).map_err(Errors::convert_inner)
 }
 

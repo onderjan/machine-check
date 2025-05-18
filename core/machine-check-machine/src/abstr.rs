@@ -15,17 +15,17 @@ use self::{
     rules::path_rules,
 };
 
-use super::MachineError;
+use super::Error;
 
 pub(crate) fn create_abstract_description(
     description: &Description,
-) -> Result<Description, MachineError> {
+) -> Result<Description, Error> {
     let mut abstract_description = description.clone();
     // apply transcription to types using path rule transcriptor
     match path_rules().apply_to_items(&mut abstract_description.items) {
         Ok(()) => {}
         Err(err) => {
-            return Err(MachineError::new(
+            return Err(Error::new(
                 ErrorType::ForwardConversionError(String::from("Conversion not known")),
                 err.0,
             ));

@@ -39,9 +39,9 @@ pub enum ErrorType {
     RulesInternal(String),
 }
 
-impl From<BackwardError> for MachineError {
+impl From<BackwardError> for Error {
     fn from(error: BackwardError) -> Self {
-        MachineError {
+        Error {
             ty: ErrorType::BackwardConversionError(format!("{}", error)),
             span: error.span,
         }
@@ -50,12 +50,12 @@ impl From<BackwardError> for MachineError {
 
 #[derive(thiserror::Error, Debug, Clone)]
 #[error("{span:?}: {ty}")]
-pub struct MachineError {
+pub struct Error {
     pub ty: ErrorType,
     pub span: Span,
 }
 
-impl MachineError {
+impl Error {
     pub fn new(ty: ErrorType, span: Span) -> Self {
         Self { ty, span }
     }

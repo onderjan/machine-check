@@ -10,11 +10,11 @@ use crate::util::{
     extract_expr_ident, path_matches_global_names,
 };
 
-use super::MachineError;
+use super::Error;
 
 use syn::{Expr, ExprIf};
 
-pub fn process_impl_item_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), MachineError> {
+pub fn process_impl_item_fn(impl_item_fn: &mut ImplItemFn) -> Result<(), Error> {
     // visit
     let mut visitor = Visitor {};
     visitor.visit_impl_item_fn_mut(impl_item_fn);

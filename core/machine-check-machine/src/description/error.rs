@@ -1,6 +1,6 @@
 use proc_macro2::Span;
 
-use crate::{support::error_list::ErrorList, ErrorType, MachineError};
+use crate::support::error_list::ErrorList;
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub(super) enum DescriptionErrorType {
@@ -18,10 +18,10 @@ pub(super) enum DescriptionErrorType {
     TypeConversionError(&'static str),
 }
 
-impl From<Error> for MachineError {
-    fn from(error: Error) -> Self {
-        MachineError {
-            ty: ErrorType::DescriptionError(format!("{}", error)),
+impl From<Error> for crate::Error {
+    fn from(error: Error) -> crate::Error {
+        crate::Error {
+            ty: crate::ErrorType::DescriptionError(format!("{}", error)),
             span: error.span,
         }
     }

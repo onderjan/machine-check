@@ -13,7 +13,7 @@ use crate::{
         create_path_from_ident, create_path_segment, create_path_with_last_generic_type,
         create_type_path, path_matches_global_names,
     },
-    ErrorType, MachineError,
+    ErrorType, Error,
 };
 
 use self::from_concrete::from_concrete_fn;
@@ -21,7 +21,7 @@ use self::from_concrete::from_concrete_fn;
 mod from_concrete;
 mod phi;
 
-pub fn process_item_struct(mut item_struct: ItemStruct) -> Result<Vec<Item>, MachineError> {
+pub fn process_item_struct(mut item_struct: ItemStruct) -> Result<Vec<Item>, Error> {
     let mut has_derived_eq = false;
     let mut has_derived_partial_eq = false;
     // look for derives of PartialEq and Eq
@@ -63,7 +63,7 @@ pub fn process_item_struct(mut item_struct: ItemStruct) -> Result<Vec<Item>, Mac
                 if passthrough {
                     processed_punctuated.push(derive);
                 } else {
-                    return Err(MachineError::new(
+                    return Err(Error::new(
                         ErrorType::ForwardConversionError(String::from(
                             "Unable to passthrough derive attribute",
                         )),
@@ -93,7 +93,7 @@ pub fn process_item_struct(mut item_struct: ItemStruct) -> Result<Vec<Item>, Mac
     }
 }
 
-fn create_abstr(item_struct: &ItemStruct) -> Result<Item, MachineError> {
+fn create_abstr(item_struct: &ItemStruct) -> Result<Item, Error> {
     let span = item_struct.span();
 
     let mut concr_segments = Punctuated::new();

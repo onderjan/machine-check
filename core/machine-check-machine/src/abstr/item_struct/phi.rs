@@ -8,10 +8,10 @@ use crate::{
         create_let_bare, create_path_from_ident, create_self, create_self_arg, create_type_path,
         ArgType,
     },
-    MachineError,
+    Error,
 };
 
-pub fn phi_impl(item_struct: &ItemStruct) -> Result<Item, MachineError> {
+pub fn phi_impl(item_struct: &ItemStruct) -> Result<Item, Error> {
     let phi_fn = phi_fn(item_struct)?;
     let uninit_fn = uninit_fn(item_struct)?;
 
@@ -22,7 +22,7 @@ pub fn phi_impl(item_struct: &ItemStruct) -> Result<Item, MachineError> {
     )))
 }
 
-fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     // phi each field together
     let self_arg = create_self_arg(ArgType::Normal);
     let other_ident = create_ident("other");
@@ -106,7 +106,7 @@ fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
     ))
 }
 
-fn uninit_fn(s: &ItemStruct) -> Result<ImplItemFn, MachineError> {
+fn uninit_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
     // each field is uninitialized (using the Phi uninit function)
     let mut local_stmts = Vec::new();
     let mut assign_stmts = Vec::new();

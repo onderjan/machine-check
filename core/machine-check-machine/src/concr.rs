@@ -2,11 +2,11 @@ mod item_impl;
 
 use syn::Item;
 
-use crate::MachineError;
+use crate::Error;
 
 use self::item_impl::process_item_impl;
 
-pub fn process_items(items: &mut Vec<Item>, panic_messages: &[String]) -> Result<(), MachineError> {
+pub fn process_items(items: &mut Vec<Item>, panic_messages: &[String]) -> Result<(), Error> {
     let mut added_items = Vec::new();
     for item in items.iter_mut() {
         match item {
