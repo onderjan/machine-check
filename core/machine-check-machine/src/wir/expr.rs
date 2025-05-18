@@ -1,10 +1,10 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Bracket, Paren},
-    Expr, ExprCall, ExprField, ExprIndex, ExprLit, ExprMacro, ExprPath, ExprReference, ExprStruct,
-    FieldValue, Lit, Macro, Path, Token, Type,
+    Expr, ExprCall, ExprField, ExprIndex, ExprLit, ExprPath, ExprReference, ExprStruct, FieldValue,
+    Lit, Path, Token, Type,
 };
 
 use crate::util::create_expr_ident;
@@ -28,15 +28,8 @@ pub struct WExprCall<CF: IntoSyn<Expr>> {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub enum WMacroableCallFunc<FT: IntoSyn<Type>> {
-    PanicMacro(WPanicMacroKind),
+pub enum WHighLevelCallFunc<FT: IntoSyn<Type>> {
     Call(WPath<FT>),
-}
-#[derive(Clone, Debug, Hash)]
-pub enum WPanicMacroKind {
-    Panic,
-    Unimplemented,
-    Todo,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -203,27 +196,10 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WCallFunc<FT> {
     }
 }
 
-impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WMacroableCallFunc<FT> {
+impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WHighLevelCallFunc<FT> {
     fn into_syn(self) -> Expr {
-        let span = Span::call_site();
         match self {
-            WMacroableCallFunc::PanicMacro(kind) => {
-                let path = match kind {
-                    WPanicMacroKind::Panic => syn_path::path!(::std::panic),
-                    WPanicMacroKind::Unimplemented => syn_path::path!(::std::unimplemented),
-                    WPanicMacroKind::Todo => syn_path::path!(::std::todo),
-                };
-                Expr::Macro(ExprMacro {
-                    attrs: Vec::new(),
-                    mac: Macro {
-                        path,
-                        bang_token: Token![!](span),
-                        delimiter: syn::MacroDelimiter::Brace(Brace::default()),
-                        tokens: TokenStream::new(),
-                    },
-                })
-            }
-            WMacroableCallFunc::Call(path) => create_expr_call_without_args(path.into()),
+            WHighLevelCallFunc::Call(path) => create_expr_call_without_args(path.into()),
         }
     }
 }

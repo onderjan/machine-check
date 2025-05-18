@@ -1,15 +1,15 @@
 use std::collections::BTreeSet;
 
 use proc_macro2::Span;
-use syn::{Lit, LitInt};
+use syn::LitInt;
 
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WBasicType, WBlock, WCallArg, WCallFunc, WDescription, WExpr, WExprCall, WExprField,
-        WIdent, WImplItemFn, WItemImpl, WMacroableCallFunc, WPanicResult, WPanicResultType,
-        WPartialGeneralType, WPath, WReference, WSignature, WStmt, WStmtAssign, WStmtIf, WTacLocal,
-        WType, YNonindexed, YTotal, ZNonindexed, ZSsa,
+        WBasicType, WBlock, WCallArg, WDescription, WExpr, WExprCall, WExprField,
+        WHighLevelCallFunc, WIdent, WImplItemFn, WItemImpl, WMacroableStmt, WPanicResult,
+        WPanicResultType, WPartialGeneralType, WPath, WReference, WSignature, WStmt, WStmtAssign,
+        WStmtIf, WTacLocal, WType, YNonindexed, YTotal, ZNonindexed, ZTotal,
     },
 };
 
@@ -124,7 +124,7 @@ impl FnConverter<'_> {
         }
     }
 
-    fn fold_block(&mut self, block: WBlock<ZNonindexed>) -> WBlock<ZSsa> {
+    fn fold_block(&mut self, block: WBlock<ZNonindexed>) -> WBlock<ZTotal> {
         let mut stmts = Vec::new();
         for stmt in block.stmts {
             stmts.extend(self.fold_stmt(stmt));
@@ -133,11 +133,11 @@ impl FnConverter<'_> {
         WBlock { stmts }
     }
 
-    fn fold_stmt(&mut self, stmt: WStmt<ZNonindexed>) -> Vec<WStmt<ZSsa>> {
+    fn fold_stmt(&mut self, stmt: WMacroableStmt<ZNonindexed>) -> Vec<WStmt<ZTotal>> {
         let mut new_stmts = Vec::new();
         match stmt {
-            WStmt::Assign(stmt) => new_stmts.extend(self.fold_assign(stmt)),
-            WStmt::If(stmt) => {
+            WMacroableStmt::Assign(stmt) => new_stmts.extend(self.fold_assign(stmt)),
+            WMacroableStmt::If(stmt) => {
                 // fold the then and else blocks
                 return vec![WStmt::If(WStmtIf {
                     condition: stmt.condition,
@@ -145,54 +145,32 @@ impl FnConverter<'_> {
                     else_block: self.fold_block(stmt.else_block),
                 })];
             }
+            WMacroableStmt::PanicMacro(panic_macro) => {
+                // TODO: store the panic message as-is in the code
+
+                // push the message and assign the number to the panic ident
+                self.panic_messages.push(panic_macro.msg);
+                let message_index_plus_one: u32 = self
+                    .panic_messages
+                    .len()
+                    .try_into()
+                    .expect("The panic message index should fit into u32");
+                let span = Span::call_site();
+                let panic_assign = WStmt::Assign(WStmtAssign {
+                    left: self.panic_ident.clone(),
+                    right: create_panic_call(span, message_index_plus_one.to_string().as_str()),
+                });
+
+                return vec![panic_assign];
+            }
         };
         new_stmts
     }
 
-    fn fold_assign(&mut self, stmt: WStmtAssign<ZNonindexed>) -> Vec<WStmt<ZSsa>> {
+    fn fold_assign(&mut self, stmt: WStmtAssign<ZNonindexed>) -> Vec<WStmt<ZTotal>> {
         let right = match stmt.right {
             WExpr::Call(expr_call) => match expr_call.fn_path {
-                WMacroableCallFunc::PanicMacro(kind) => {
-                    let message = if expr_call.args.is_empty() {
-                        String::from(match kind {
-                            crate::wir::WPanicMacroKind::Panic => "explicit panic",
-                            crate::wir::WPanicMacroKind::Unimplemented => "not implemented",
-                            crate::wir::WPanicMacroKind::Todo => "not yet implemented",
-                        })
-                    } else if expr_call.args.len() == 1 {
-                        let WCallArg::Literal(Lit::Str(ref lit)) = expr_call.args[0] else {
-                            panic!("Panic macro argument must be a string literal")
-                        };
-
-                        match kind {
-                            crate::wir::WPanicMacroKind::Panic => lit.value(),
-                            crate::wir::WPanicMacroKind::Unimplemented => {
-                                format!("not implemented: {}", lit.value())
-                            }
-                            crate::wir::WPanicMacroKind::Todo => {
-                                format!("not yet implemented: {}", lit.value())
-                            }
-                        }
-                    } else {
-                        panic!("Panic macro with format arguments not supported");
-                    };
-
-                    // push the message and assign the number to the panic ident
-                    self.panic_messages.push(message);
-                    let message_index_plus_one: u32 = self
-                        .panic_messages
-                        .len()
-                        .try_into()
-                        .expect("The panic message index should fit into u32");
-                    let span = Span::call_site();
-                    let panic_assign = WStmt::Assign(WStmtAssign {
-                        left: self.panic_ident.clone(),
-                        right: create_panic_call(span, message_index_plus_one.to_string().as_str()),
-                    });
-
-                    return vec![panic_assign];
-                }
-                WMacroableCallFunc::Call(path) => {
+                WHighLevelCallFunc::Call(path) => {
                     return self.fold_fn_call(stmt.left, path, expr_call.args)
                 }
             },
@@ -215,7 +193,7 @@ impl FnConverter<'_> {
         original_left: WIdent,
         fn_path: WPath<WBasicType>,
         args: Vec<WCallArg>,
-    ) -> Vec<WStmt<ZSsa>> {
+    ) -> Vec<WStmt<ZTotal>> {
         if fn_path.starts_with_absolute(&["mck"])
             || fn_path.starts_with_absolute(&["std"])
             || fn_path.starts_with_absolute(&["machine_check"])
@@ -224,7 +202,7 @@ impl FnConverter<'_> {
             return vec![WStmt::Assign(WStmtAssign {
                 left: original_left,
                 right: WExpr::Call(WExprCall {
-                    fn_path: WCallFunc(fn_path),
+                    fn_path: WHighLevelCallFunc::Call(fn_path),
                     args,
                 }),
             })];
@@ -238,7 +216,7 @@ impl FnConverter<'_> {
         let returned_assign = WStmt::Assign(WStmtAssign {
             left: returned_ident.clone(),
             right: WExpr::Call(WExprCall {
-                fn_path: WCallFunc(fn_path),
+                fn_path: WHighLevelCallFunc::Call(fn_path),
                 args,
             }),
         });
@@ -257,7 +235,7 @@ impl FnConverter<'_> {
         let panic_is_zero_ident = self.ident_creator.create_temporary_ident(span);
 
         let panic_is_zero_call = WExprCall {
-            fn_path: WCallFunc(WPath::new_absolute(
+            fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
                 &["std", "cmp", "PartialEq", "eq"],
                 span,
             )),
@@ -297,9 +275,12 @@ impl FnConverter<'_> {
     }
 }
 
-fn create_panic_call(span: Span, int_str: &str) -> WExpr<WBasicType, WCallFunc<WBasicType>> {
+fn create_panic_call(
+    span: Span,
+    int_str: &str,
+) -> WExpr<WBasicType, WHighLevelCallFunc<WBasicType>> {
     WExpr::Call(WExprCall {
-        fn_path: WCallFunc(WPath::new_absolute(
+        fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
             &["mck", "concr", "Bitvector", "new"],
             span,
         )),

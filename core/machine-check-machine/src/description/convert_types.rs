@@ -4,9 +4,9 @@ use convert_calls::convert_call_fn_path;
 
 use crate::wir::{
     WBasicType, WBlock, WCallFunc, WDescription, WElementaryType, WExpr, WExprStruct, WField,
-    WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn, WImplItemType, WItemImpl,
-    WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt, WStmtAssign,
-    WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
+    WFnArg, WGeneralType, WGeneric, WGenerics, WHighLevelCallFunc, WIdent, WImplItemFn,
+    WImplItemType, WItemImpl, WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature,
+    WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
 };
 
 use super::Errors;
@@ -185,7 +185,7 @@ fn convert_block(
 }
 
 fn convert_expr(
-    expr: WExpr<WBasicType, WCallFunc<WBasicType>>,
+    expr: WExpr<WBasicType, WHighLevelCallFunc<WBasicType>>,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
 ) -> Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, Errors> {
     match expr {

@@ -4,8 +4,8 @@ use crate::{
     support::ident_creator::IdentCreator,
     wir::{
         WArrayBaseExpr, WBasicType, WBlock, WCallArg, WDescription, WExpr, WExprCall, WExprField,
-        WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl,
-        WMacroableCallFunc, WPath, WSignature, WStmt, WStmtAssign, WStmtIf, WTacLocal, YNonindexed,
+        WExprReference, WHighLevelCallFunc, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent,
+        WItemImpl, WMacroableStmt, WPath, WSignature, WStmtAssign, WStmtIf, WTacLocal, YNonindexed,
         YTac, ZNonindexed, ZTac,
     },
 };
@@ -71,29 +71,34 @@ impl IndexingConverter {
     fn fold_block(&mut self, block: WBlock<ZTac>) -> WBlock<ZNonindexed> {
         let mut stmts = Vec::new();
         for stmt in block.stmts {
-            stmts.extend(self.fold_stmt(stmt));
+            let folded = self.fold_stmt(stmt);
+            stmts.extend(folded);
         }
 
-        WBlock { stmts }
+        WBlock::<ZNonindexed> { stmts }
     }
 
-    fn fold_stmt(&mut self, stmt: WStmt<ZTac>) -> Vec<WStmt<ZNonindexed>> {
+    fn fold_stmt(&mut self, stmt: WMacroableStmt<ZTac>) -> Vec<WMacroableStmt<ZNonindexed>> {
         let mut new_stmts = Vec::new();
         match stmt {
-            WStmt::Assign(stmt) => new_stmts.extend(self.fold_assign(stmt)),
-            WStmt::If(stmt) => {
+            WMacroableStmt::Assign(stmt) => new_stmts.extend(self.fold_assign(stmt)),
+            WMacroableStmt::If(stmt) => {
                 // fold the then and else blocks
-                return vec![WStmt::If(WStmtIf {
+                return vec![WMacroableStmt::If(WStmtIf {
                     condition: stmt.condition,
                     then_block: self.fold_block(stmt.then_block),
                     else_block: self.fold_block(stmt.else_block),
                 })];
             }
+            WMacroableStmt::PanicMacro(panic_macro) => {
+                // the panic macro does not contain any indexing
+                new_stmts.push(WMacroableStmt::PanicMacro(panic_macro));
+            }
         };
         new_stmts
     }
 
-    fn fold_assign(&mut self, stmt: WStmtAssign<ZTac>) -> Vec<WStmt<ZNonindexed>> {
+    fn fold_assign(&mut self, stmt: WStmtAssign<ZTac>) -> Vec<WMacroableStmt<ZNonindexed>> {
         let mut result_stmts = Vec::new();
 
         let span = match &stmt.left {
@@ -109,7 +114,7 @@ impl IndexingConverter {
                 let array_ref_ident = self.ident_creator.create_temporary_ident(span);
 
                 // assign reference to the array
-                result_stmts.push(WStmt::Assign(WStmtAssign {
+                result_stmts.push(WMacroableStmt::Assign(WStmtAssign {
                     left: array_ref_ident.clone(),
                     right: WExpr::Reference(match right_array {
                         WArrayBaseExpr::Ident(ident) => WExprReference::Ident(ident),
@@ -122,7 +127,7 @@ impl IndexingConverter {
 
                 // the read call consumes the reference and index
                 let read_call = WExprCall {
-                    fn_path: WMacroableCallFunc::Call(WPath::new_absolute(
+                    fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
                         &["mck", "forward", "ReadWrite", "read"],
                         span,
                     )),
@@ -148,7 +153,7 @@ impl IndexingConverter {
                 // create a temporary variable for reference to left array
                 let array_ref_ident = self.ident_creator.create_temporary_ident(span);
                 // assign reference to the array
-                result_stmts.push(WStmt::Assign(WStmtAssign {
+                result_stmts.push(WMacroableStmt::Assign(WStmtAssign {
                     left: array_ref_ident.clone(),
                     right: WExpr::Reference(WExprReference::Ident(left_array.clone())),
                 }));
@@ -156,7 +161,7 @@ impl IndexingConverter {
                 // the base is let through
 
                 let write_call = WExprCall {
-                    fn_path: WMacroableCallFunc::Call(WPath::new_absolute(
+                    fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
                         &["mck", "forward", "ReadWrite", "write"],
                         span,
                     )),
@@ -170,15 +175,15 @@ impl IndexingConverter {
             }
             WIndexedIdent::NonIndexed(left) => (left, right),
         };
-        result_stmts.push(WStmt::Assign(WStmtAssign { left, right }));
+        result_stmts.push(WMacroableStmt::Assign(WStmtAssign { left, right }));
 
         result_stmts
     }
 
     fn force_move(
         &mut self,
-        stmts: &mut Vec<WStmt<ZNonindexed>>,
-        expr: WExpr<WBasicType, WMacroableCallFunc<WBasicType>>,
+        stmts: &mut Vec<WMacroableStmt<ZNonindexed>>,
+        expr: WExpr<WBasicType, WHighLevelCallFunc<WBasicType>>,
     ) -> WIdent {
         let span = Span::call_site();
         match expr {
@@ -187,7 +192,7 @@ impl IndexingConverter {
                 let expr_ident = self.ident_creator.create_temporary_ident(span);
 
                 // assign reference to the array
-                stmts.push(WStmt::Assign(WStmtAssign {
+                stmts.push(WMacroableStmt::Assign(WStmtAssign {
                     left: expr_ident.clone(),
                     right: expr,
                 }));

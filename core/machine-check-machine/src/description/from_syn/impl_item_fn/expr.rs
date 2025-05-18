@@ -5,12 +5,12 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    description::{from_syn::path::fold_path, ErrorType, Error},
+    description::{from_syn::path::fold_path, Error, ErrorType},
     util::{create_expr_call, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall, WExprField, WExprReference,
-        WExprStruct, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc, WStmt, WStmtAssign,
-        ZTac,
+        WExprStruct, WHighLevelCallFunc, WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt,
+        WStmtAssign, ZTac,
     },
 };
 
@@ -20,8 +20,8 @@ impl super::FunctionFolder {
     pub fn fold_right_expr(
         &mut self,
         expr: Expr,
-        stmts: &mut Vec<WStmt<ZTac>>,
-    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, Error> {
+        stmts: &mut Vec<WMacroableStmt<ZTac>>,
+    ) -> Result<WIndexedExpr<WBasicType, WHighLevelCallFunc<WBasicType>>, Error> {
         RightExprFolder {
             fn_folder: self,
             stmts,
@@ -32,7 +32,7 @@ impl super::FunctionFolder {
     pub fn force_right_expr_to_ident<'a>(
         &'a mut self,
         expr: Expr,
-        stmts: &'a mut Vec<WStmt<ZTac>>,
+        stmts: &'a mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<WIdent, Error> {
         {
             RightExprFolder {
@@ -46,7 +46,7 @@ impl super::FunctionFolder {
     pub fn force_right_expr_to_call_arg<'a>(
         &'a mut self,
         expr: Expr,
-        stmts: &'a mut Vec<WStmt<ZTac>>,
+        stmts: &'a mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<WCallArg, Error> {
         {
             RightExprFolder {
@@ -60,14 +60,14 @@ impl super::FunctionFolder {
 
 struct RightExprFolder<'a> {
     fn_folder: &'a mut FunctionFolder,
-    stmts: &'a mut Vec<WStmt<ZTac>>,
+    stmts: &'a mut Vec<WMacroableStmt<ZTac>>,
 }
 
 impl RightExprFolder<'_> {
     pub fn fold_right_expr(
         &mut self,
         expr: Expr,
-    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, Error> {
+    ) -> Result<WIndexedExpr<WBasicType, WHighLevelCallFunc<WBasicType>>, Error> {
         let expr_span = expr.span();
         Ok(match expr {
             Expr::Call(expr_call) => {
@@ -96,7 +96,7 @@ impl RightExprFolder<'_> {
     fn fold_right_expr_call(
         &mut self,
         expr_call: ExprCall,
-    ) -> Result<WExprCall<WMacroableCallFunc<WBasicType>>, Error> {
+    ) -> Result<WExprCall<WHighLevelCallFunc<WBasicType>>, Error> {
         {
             let fn_path = self.fn_folder.fold_expr_as_path(*expr_call.func)?;
             let mut args = Vec::new();
@@ -105,7 +105,7 @@ impl RightExprFolder<'_> {
             }
 
             Ok(WExprCall {
-                fn_path: WMacroableCallFunc::Call(fn_path),
+                fn_path: WHighLevelCallFunc::Call(fn_path),
                 args,
             })
         }
@@ -174,7 +174,7 @@ impl RightExprFolder<'_> {
     fn fold_right_expr_index(
         &mut self,
         expr_index: ExprIndex,
-    ) -> Result<WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>, Error> {
+    ) -> Result<WIndexedExpr<WBasicType, WHighLevelCallFunc<WBasicType>>, Error> {
         let array_base = match *expr_index.expr {
             Expr::Path(expr_path) => {
                 WArrayBaseExpr::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path))?)
@@ -249,7 +249,7 @@ impl RightExprFolder<'_> {
             .ident_creator
             .create_temporary_ident(expr_span);
         // add assignment statement; the temporary is only assigned to once here
-        self.stmts.push(WStmt::Assign(WStmtAssign {
+        self.stmts.push(WMacroableStmt::Assign(WStmtAssign {
             left: WIndexedIdent::NonIndexed(tmp_ident.clone()),
             right: expr,
         }));

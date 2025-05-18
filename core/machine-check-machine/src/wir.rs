@@ -1,5 +1,5 @@
 use std::{fmt::Debug, hash::Hash};
-use syn::{Expr, File, Item, ItemImpl, Local, Type};
+use syn::{Expr, File, Item, ItemImpl, Local, Stmt, Type};
 
 mod expr;
 mod impl_item;
@@ -48,6 +48,7 @@ where
 }
 
 pub trait ZAssignTypes {
+    type Stmt: IntoSyn<Stmt> + Clone + Debug + Hash;
     type FundamentalType: IntoSyn<Type> + Clone + Debug + Hash;
     type AssignLeft: IntoSyn<Expr> + Clone + Debug + Hash;
     type AssignRight: IntoSyn<Expr> + Clone + Debug + Hash;
@@ -57,33 +58,47 @@ pub trait ZAssignTypes {
 pub struct ZTac;
 
 impl ZAssignTypes for ZTac {
+    type Stmt = WMacroableStmt<ZTac>;
     type FundamentalType = WBasicType;
     type AssignLeft = WIndexedIdent;
-    type AssignRight = WIndexedExpr<WBasicType, WMacroableCallFunc<WBasicType>>;
+    type AssignRight = WIndexedExpr<WBasicType, WHighLevelCallFunc<WBasicType>>;
 }
 
 #[derive(Clone, Debug, Hash)]
 pub struct ZNonindexed;
 
 impl ZAssignTypes for ZNonindexed {
+    type Stmt = WMacroableStmt<ZNonindexed>;
     type FundamentalType = WBasicType;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WBasicType, WMacroableCallFunc<WBasicType>>;
+    type AssignRight = WExpr<WBasicType, WHighLevelCallFunc<WBasicType>>;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct ZTotal;
+
+impl ZAssignTypes for ZTotal {
+    type Stmt = WStmt<ZTotal>;
+    type FundamentalType = WBasicType;
+    type AssignLeft = WIdent;
+    type AssignRight = WExpr<WBasicType, WHighLevelCallFunc<WBasicType>>;
 }
 
 #[derive(Clone, Debug, Hash)]
 pub struct ZSsa;
 
 impl ZAssignTypes for ZSsa {
+    type Stmt = WStmt<ZSsa>;
     type FundamentalType = WBasicType;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WBasicType, WCallFunc<WBasicType>>;
+    type AssignRight = WExpr<WBasicType, WHighLevelCallFunc<WBasicType>>;
 }
 
 #[derive(Clone, Debug, Hash)]
 pub struct ZConverted;
 
 impl ZAssignTypes for ZConverted {
+    type Stmt = WStmt<ZConverted>;
     type FundamentalType = WElementaryType;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WElementaryType, WCallFunc<WElementaryType>>;
@@ -120,7 +135,7 @@ impl YStage for YNonindexed {
 pub struct YTotal;
 
 impl YStage for YTotal {
-    type AssignTypes = ZSsa;
+    type AssignTypes = ZTotal;
     type OutputType = WPanicResultType<WBasicType>;
     type FnResult = WPanicResult;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;

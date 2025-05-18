@@ -70,7 +70,7 @@ error: machine-check: This macro not supported
 31 |             unknown_macro!();
    |             ^^^^^^^^^^^^^
 
-error: machine-check: Panic-like macro with a non-literal arg not supported
+error: machine-check: The first argument must be a string literal
   --> tests/cases/09-stmt-unsupported.rs:32:27
    |
 32 |             ::std::panic!(non_literal_arg);

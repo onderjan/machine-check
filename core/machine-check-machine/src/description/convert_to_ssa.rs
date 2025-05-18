@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::wir::{
-    WBasicType, WBlock, WCallArg, WExpr, WExprCall, WIdent, WPartialGeneralType, WPath, WSignature,
-    WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa,
+    WBasicType, WBlock, WCallArg, WExpr, WExprCall, WHighLevelCallFunc, WIdent,
+    WPartialGeneralType, WPath, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
 };
-use crate::wir::{WCallFunc, WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
+use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 
-use super::{ErrorType, Error, Errors};
+use super::{Error, ErrorType, Errors};
 
 pub fn convert_to_ssa(description: WDescription<YTotal>) -> Result<WDescription<YSsa>, Errors> {
     let mut impls = Vec::new();
@@ -84,7 +84,7 @@ impl LocalVisitor {
             output: impl_item_fn.signature.output,
         };
 
-        self.process_block(&mut impl_item_fn.block);
+        let block = self.process_block(impl_item_fn.block);
         self.process_ident(&mut impl_item_fn.result.result_ident);
         self.process_ident(&mut impl_item_fn.result.panic_ident);
 
@@ -105,30 +105,31 @@ impl LocalVisitor {
         Ok(WImplItemFn {
             signature,
             locals,
-            block: impl_item_fn.block,
+            block,
             result: impl_item_fn.result,
         })
     }
 
-    fn process_block(&mut self, block: &mut WBlock<ZSsa>) {
-        let stmts: Vec<_> = block.stmts.drain(..).collect();
-        for stmt in stmts {
+    fn process_block(&mut self, block: WBlock<ZTotal>) -> WBlock<ZSsa> {
+        let mut stmts = Vec::new();
+        for stmt in block.stmts {
             match stmt {
-                crate::wir::WStmt::Assign(mut stmt) => {
-                    self.process_assign(&mut stmt);
-                    block.stmts.push(WStmt::Assign(stmt))
+                WStmt::Assign(stmt) => {
+                    stmts.push(WStmt::Assign(self.process_assign(stmt)));
                 }
-                crate::wir::WStmt::If(stmt) => {
+                WStmt::If(stmt) => {
                     // allow adding new statements after if expression statements
-                    block.stmts.extend(self.process_if(stmt));
+                    stmts.extend(self.process_if(stmt));
                 }
             }
         }
+        WBlock { stmts }
     }
 
-    fn process_if(&mut self, mut stmt: WStmtIf<ZSsa>) -> impl Iterator<Item = WStmt<ZSsa>> {
+    fn process_if(&mut self, stmt: WStmtIf<ZTotal>) -> impl Iterator<Item = WStmt<ZSsa>> {
         // process the condition if it is an identifier
-        match &mut stmt.condition {
+        let mut condition = stmt.condition;
+        match &mut condition {
             WCallArg::Ident(ident) => self.process_ident(ident),
             WCallArg::Literal(_) => {
                 // do nothing
@@ -147,7 +148,7 @@ impl LocalVisitor {
         let base_counters = self.local_ident_counters.clone();
 
         // process then block, retain then counters, backtrack current counters, but keep next counters
-        self.process_block(&mut stmt.then_block);
+        let mut then_block = self.process_block(stmt.then_block);
         let then_counters = self.local_ident_counters.clone();
         for (ident, counter) in self.local_ident_counters.iter_mut() {
             let base_counter = base_counters
@@ -157,7 +158,7 @@ impl LocalVisitor {
         }
 
         // visit else block
-        self.process_block(&mut stmt.else_block);
+        let mut else_block = self.process_block(stmt.else_block);
 
         // phi changed idents
         let mut append_stmts = Vec::new();
@@ -192,7 +193,7 @@ impl LocalVisitor {
             assert!(last_then != last_else);
 
             let last_then_ident = create_existing_temporary(
-                &mut stmt.then_block,
+                &mut then_block,
                 &mut self.temps,
                 ident,
                 last_then,
@@ -200,7 +201,7 @@ impl LocalVisitor {
                 &mut self.uninit_counter,
             );
             let last_else_ident = create_existing_temporary(
-                &mut stmt.else_block,
+                &mut else_block,
                 &mut self.temps,
                 ident,
                 last_else,
@@ -230,19 +231,19 @@ impl LocalVisitor {
                 .insert(phi_else_ident.clone(), (ident.clone(), phi_arg_type));
 
             // last then ident is taken in then block, but not in else block
-            stmt.then_block.stmts.push(create_taken_assign(
+            then_block.stmts.push(create_taken_assign(
                 phi_then_ident.clone(),
                 last_then_ident.clone(),
             ));
-            stmt.else_block
+            else_block
                 .stmts
                 .push(create_not_taken_assign(phi_then_ident.clone()));
 
             // last else ident is not taken in then block, but is taken in else block
-            stmt.then_block
+            then_block
                 .stmts
                 .push(create_not_taken_assign(phi_else_ident.clone()));
-            stmt.else_block
+            else_block
                 .stmts
                 .push(create_taken_assign(phi_else_ident.clone(), last_else_ident));
 
@@ -253,7 +254,7 @@ impl LocalVisitor {
             append_stmts.push(WStmt::Assign(WStmtAssign {
                 left: append_ident,
                 right: WExpr::Call(WExprCall {
-                    fn_path: WCallFunc(WPath::new_absolute(
+                    fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
                         &["mck", "forward", "PhiArg", "phi"],
                         append_ident_span,
                     )),
@@ -264,20 +265,29 @@ impl LocalVisitor {
                 }),
             }));
         }
+        let stmt = WStmtIf {
+            condition,
+            then_block,
+            else_block,
+        };
         std::iter::once(WStmt::If(stmt)).chain(append_stmts)
     }
 
-    fn process_assign(&mut self, stmt: &mut WStmtAssign<ZSsa>) {
+    fn process_assign(&mut self, stmt: WStmtAssign<ZTotal>) -> WStmtAssign<ZSsa> {
+        let mut left = stmt.left;
+        let mut right = stmt.right;
         // process right side first
-        self.process_expr(&mut stmt.right);
+        self.process_expr(&mut right);
 
         // change left to temporary if needed
-        if let Some(counter) = self.local_ident_counters.get_mut(&stmt.left) {
-            stmt.left = create_new_temporary(&mut self.temps, &stmt.left, counter);
+        if let Some(counter) = self.local_ident_counters.get_mut(&left) {
+            left = create_new_temporary(&mut self.temps, &left, counter);
         }
+
+        WStmtAssign { left, right }
     }
 
-    fn process_expr(&mut self, expr: &mut WExpr<WBasicType, WCallFunc<WBasicType>>) {
+    fn process_expr(&mut self, expr: &mut WExpr<WBasicType, WHighLevelCallFunc<WBasicType>>) {
         match expr {
             WExpr::Move(ident) => self.process_ident(ident),
             WExpr::Call(expr) => {
@@ -339,7 +349,7 @@ fn create_taken_assign(phi_arg_ident: WIdent, taken_ident: WIdent) -> WStmt<ZSsa
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprCall {
-            fn_path: WCallFunc(WPath::new_absolute(
+            fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
                 &["mck", "forward", "PhiArg", "Taken"],
                 span,
             )),
@@ -353,7 +363,7 @@ fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprCall {
-            fn_path: WCallFunc(WPath::new_absolute(
+            fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
                 &["mck", "forward", "PhiArg", "NotTaken"],
                 span,
             )),
@@ -395,7 +405,7 @@ fn create_existing_temporary(
         let assign_stmt = WStmtAssign {
             left: ident.clone(),
             right: WExpr::Call(WExprCall {
-                fn_path: WCallFunc(WPath::new_absolute(
+                fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
                     &["mck", "concr", "Phi", "uninit"],
                     span,
                 )),

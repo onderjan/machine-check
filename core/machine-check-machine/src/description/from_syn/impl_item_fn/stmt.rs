@@ -1,19 +1,19 @@
 use std::collections::HashMap;
 
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, ExprIf, ExprMacro, Pat,
-    Stmt, Token,
+    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, ExprIf, ExprLit, ExprMacro,
+    Lit, Pat, Stmt, Token,
 };
 
 use crate::{
     description::{
         from_syn::{impl_item_fn::FunctionScope, ty::fold_type},
-        ErrorType, Error, Errors,
+        Error, ErrorType, Errors,
     },
     util::{create_expr_ident, path_matches_global_names},
     wir::{
-        WBlock, WExprCall, WIdent, WIndexedExpr, WIndexedIdent, WMacroableCallFunc,
-        WPanicMacroKind, WPartialGeneralType, WStmt, WStmtAssign, WStmtIf, ZTac,
+        WBlock, WIdent, WIndexedIdent, WMacroableStmt, WPanicMacroKind, WPartialGeneralType,
+        WStmtAssign, WStmtIf, WStmtPanicMacro, ZTac,
     },
 };
 
@@ -42,7 +42,7 @@ impl super::FunctionFolder {
             None
         };
 
-        let mut stmts: Vec<WStmt<ZTac>> = Vec::new();
+        let mut stmts: Vec<WMacroableStmt<ZTac>> = Vec::new();
         let mut errors = Vec::new();
 
         for orig_stmt in orig_stmts {
@@ -82,7 +82,7 @@ impl super::FunctionFolder {
         &mut self,
         scope_id: u32,
         stmt: Stmt,
-        result_stmts: &mut Vec<WStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<(), Errors> {
         let stmt_span = stmt.span();
         match stmt {
@@ -157,7 +157,7 @@ impl super::FunctionFolder {
     fn fold_stmt_expr(
         &mut self,
         expr: Expr,
-        result_stmts: &mut Vec<WStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<(), Errors> {
         match expr {
             syn::Expr::Assign(expr) => self.fold_assign(expr, result_stmts),
@@ -186,7 +186,7 @@ impl super::FunctionFolder {
     fn fold_assign(
         &mut self,
         expr: ExprAssign,
-        result_stmts: &mut Vec<WStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<(), Errors> {
         let left = match *expr.left {
             Expr::Index(expr_index) => {
@@ -209,11 +209,15 @@ impl super::FunctionFolder {
         };
 
         let right = self.fold_right_expr(*expr.right, result_stmts)?;
-        result_stmts.push(WStmt::Assign(WStmtAssign { left, right }));
+        result_stmts.push(WMacroableStmt::Assign(WStmtAssign { left, right }));
         Ok(())
     }
 
-    fn fold_if(&mut self, expr: ExprIf, result_stmts: &mut Vec<WStmt<ZTac>>) -> Result<(), Errors> {
+    fn fold_if(
+        &mut self,
+        expr: ExprIf,
+        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
+    ) -> Result<(), Errors> {
         let condition = self.force_right_expr_to_call_arg(*expr.cond, result_stmts)?;
         let then_block = self.fold_block(expr.then_branch)?.0;
 
@@ -223,7 +227,7 @@ impl super::FunctionFolder {
         }
         let else_block = WBlock { stmts: else_stmts };
 
-        result_stmts.push(WStmt::If(WStmtIf {
+        result_stmts.push(WMacroableStmt::If(WStmtIf {
             condition,
             then_block,
             else_block,
@@ -234,9 +238,8 @@ impl super::FunctionFolder {
     fn fold_macro(
         &mut self,
         expr: ExprMacro,
-        result_stmts: &mut Vec<WStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<(), Errors> {
-        let macro_span = expr.span();
         let mac = expr.mac;
         let kind = if path_matches_global_names(&mac.path, &["std", "panic"]) {
             WPanicMacroKind::Panic
@@ -260,24 +263,47 @@ impl super::FunctionFolder {
             }
         };
 
-        let mut call_args = Vec::new();
-        for arg in args {
-            let Expr::Lit(lit) = arg else {
-                return Err(Errors::single(Error::unsupported_construct(
-                    "Panic-like macro with a non-literal arg",
-                    arg.span(),
-                )));
-            };
-            call_args.push(crate::wir::WCallArg::Literal(lit.lit));
+        if args.len() > 1 {
+            return Err(Errors::single(Error::unsupported_construct(
+                "Panic-like macro with more than one argument",
+                mac.path.span(),
+            )));
         }
 
-        result_stmts.push(WStmt::Assign(WStmtAssign {
-            left: WIndexedIdent::NonIndexed(WIdent::new(String::from("__mck_x"), macro_span)),
-            right: WIndexedExpr::NonIndexed(crate::wir::WExpr::Call(WExprCall {
-                fn_path: WMacroableCallFunc::PanicMacro(kind),
-                args: call_args,
-            })),
-        }));
+        let msg = if let Some(first_arg) = args.into_iter().next() {
+            let Expr::Lit(ExprLit {
+                lit: Lit::Str(lit_str),
+                ..
+            }) = first_arg
+            else {
+                return Err(Errors::single(Error::new(
+                    ErrorType::MacroError(String::from(
+                        "The first argument must be a string literal",
+                    )),
+                    first_arg.span(),
+                )));
+            };
+
+            let value = lit_str.value();
+
+            match kind {
+                crate::wir::WPanicMacroKind::Panic => value,
+                crate::wir::WPanicMacroKind::Unimplemented => {
+                    format!("not implemented: {}", value)
+                }
+                crate::wir::WPanicMacroKind::Todo => {
+                    format!("not yet implemented: {}", value)
+                }
+            }
+        } else {
+            String::from(match kind {
+                crate::wir::WPanicMacroKind::Panic => "explicit panic",
+                crate::wir::WPanicMacroKind::Unimplemented => "not implemented",
+                crate::wir::WPanicMacroKind::Todo => "not yet implemented",
+            })
+        };
+
+        result_stmts.push(WMacroableStmt::PanicMacro(WStmtPanicMacro { kind, msg }));
         Ok(())
     }
 }
