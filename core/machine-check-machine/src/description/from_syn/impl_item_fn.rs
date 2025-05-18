@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use syn::{spanned::Spanned, visit::Visit, Expr, FnArg, Generics, ImplItemFn, Pat, Signature};
 
 use crate::{
-    ssa::{
+    description::{
         attribute_disallower::AttributeDisallower,
         error::{DescriptionError, DescriptionErrors},
         from_syn::ty::{fold_basic_type, fold_type},

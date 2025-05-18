@@ -1,7 +1,7 @@
 use syn::{spanned::Spanned, Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
-    ssa::{
+    description::{
         error::{DescriptionError, DescriptionErrorType},
         from_syn::path::fold_path,
     },

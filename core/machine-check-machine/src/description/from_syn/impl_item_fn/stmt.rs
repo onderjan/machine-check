@@ -6,7 +6,7 @@ use syn::{
 };
 
 use crate::{
-    ssa::{
+    description::{
         error::{DescriptionError, DescriptionErrorType, DescriptionErrors},
         from_syn::{impl_item_fn::FunctionScope, ty::fold_type},
     },

@@ -4,9 +4,9 @@ use syn::{
 };
 
 use crate::{
-    ssa::{
+    description::{
         attribute_disallower::AttributeDisallower,
-        error::{DescriptionError, DescriptionErrors},
+        error::{DescriptionError, DescriptionErrorType, DescriptionErrors},
     },
     wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
 };
@@ -40,9 +40,9 @@ pub fn fold_item_struct(
 
                     let Ok(parsed) = parser.parse2(meta_tokens) else {
                         return Err(DescriptionErrors::single(DescriptionError::new(
-                            crate::ssa::error::DescriptionErrorType::IllegalConstruct(
-                                String::from("Unparseable derive macro content"),
-                            ),
+                            DescriptionErrorType::IllegalConstruct(String::from(
+                                "Unparseable derive macro content",
+                            )),
                             span,
                         )));
                     };

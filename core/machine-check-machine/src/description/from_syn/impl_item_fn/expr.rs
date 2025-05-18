@@ -5,7 +5,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    ssa::{
+    description::{
         error::{DescriptionError, DescriptionErrorType},
         from_syn::path::fold_path,
     },

@@ -1,7 +1,7 @@
 use syn::{spanned::Spanned, Expr, GenericArgument, Lit, Path, PathArguments};
 
 use crate::{
-    ssa::error::DescriptionError,
+    description::error::DescriptionError,
     wir::{WBasicType, WGeneric, WGenerics, WIdent, WPath, WPathSegment},
 };
 

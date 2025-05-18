@@ -1,5 +1,5 @@
 use crate::{
-    ssa::{
+    description::{
         error::{DescriptionError, DescriptionErrorType},
         infer_types::is_type_fully_specified,
     },

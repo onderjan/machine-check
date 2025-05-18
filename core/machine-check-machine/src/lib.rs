@@ -15,8 +15,8 @@ use crate::util::create_item_mod;
 
 mod abstr;
 mod concr;
+mod description;
 mod refin;
-mod ssa;
 mod support;
 mod util;
 mod wir;
@@ -94,7 +94,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineErrors> {
     #[cfg(feature = "write_machine")]
     let out_dir = out_dir();
 
-    let ssa_machine = ssa::create_ssa_machine(items.clone())?;
+    let ssa_machine = description::create_ssa_machine(items.clone())?;
 
     #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
