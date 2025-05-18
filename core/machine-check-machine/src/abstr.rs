@@ -6,7 +6,7 @@ use syn::Item;
 
 use crate::{
     support::manipulate::{self, ManipulateKind},
-    ErrorType, MachineDescription,
+    Description, ErrorType,
 };
 
 use self::{
@@ -18,8 +18,8 @@ use self::{
 use super::MachineError;
 
 pub(crate) fn create_abstract_description(
-    description: &MachineDescription,
-) -> Result<MachineDescription, MachineError> {
+    description: &Description,
+) -> Result<Description, MachineError> {
     let mut abstract_description = description.clone();
     // apply transcription to types using path rule transcriptor
     match path_rules().apply_to_items(&mut abstract_description.items) {

@@ -26,7 +26,7 @@ pub use support::machine_error::{ErrorType, MachineError};
 pub type MachineErrors = ErrorList<MachineError>;
 
 #[derive(Clone)]
-pub struct MachineDescription {
+struct Description {
     pub items: Vec<Item>,
     pub panic_messages: Vec<String>,
 }
@@ -80,7 +80,7 @@ fn out_dir() -> Option<PathBuf> {
 }
 
 #[allow(dead_code)]
-fn unparse(machine: &MachineDescription) -> String {
+fn unparse(machine: &Description) -> String {
     prettyplease::unparse(&syn::File {
         shebang: None,
         attrs: vec![],
@@ -130,7 +130,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineErrors> {
     if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("machine_full.rs"),
-            unparse(&MachineDescription {
+            unparse(&Description {
                 items: items.clone(),
                 panic_messages: ssa_machine.panic_messages.clone(),
             }),
@@ -177,7 +177,7 @@ impl VisitMut for RedirectVisitor {
     }
 }
 
-fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
+fn create_machine_module(name: &str, machine: Description) -> Item {
     let mut module = create_item_mod(
         syn::Visibility::Public(Default::default()),
         Ident::new(name, Span::call_site()),
@@ -204,7 +204,7 @@ fn create_machine_module(name: &str, machine: MachineDescription) -> Item {
 
 #[derive(thiserror::Error, Debug, Clone)]
 #[error("{0}")]
-pub enum BackwardErrorType {
+enum BackwardErrorType {
     #[error("Unable to convert")]
     NoRuleMatch,
     #[error("Identifier type discovery failed")]
@@ -215,7 +215,7 @@ pub enum BackwardErrorType {
 
 #[derive(thiserror::Error, Debug, Clone)]
 #[error("{ty}")]
-pub struct BackwardError {
+struct BackwardError {
     pub ty: BackwardErrorType,
     pub span: Span,
 }

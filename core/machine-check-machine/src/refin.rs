@@ -6,7 +6,7 @@ use syn::{Ident, Item, Type};
 use crate::{
     support::manipulate::{self, ManipulateKind},
     util::path_matches_global_names,
-    BackwardError, MachineDescription,
+    BackwardError, Description,
 };
 
 use super::support::special_trait::{special_trait_impl, SpecialTrait};
@@ -17,8 +17,8 @@ mod rules;
 mod util;
 
 pub(crate) fn create_refinement_description(
-    abstract_machine: &MachineDescription,
-) -> Result<MachineDescription, BackwardError> {
+    abstract_machine: &Description,
+) -> Result<Description, BackwardError> {
     // create items to add to the module
     let mut result_items = Vec::<Item>::new();
     let mut ident_special_traits = HashMap::<Ident, SpecialTrait>::new();
@@ -62,7 +62,7 @@ pub(crate) fn create_refinement_description(
     // add field manipulate
     manipulate::apply_to_items(&mut result_items, ManipulateKind::Refin);
 
-    let refinement_machine = MachineDescription {
+    let refinement_machine = Description {
         items: result_items,
         panic_messages: abstract_machine.panic_messages.clone(),
     };

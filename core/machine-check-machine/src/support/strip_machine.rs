@@ -3,9 +3,9 @@ use syn::{
     Attribute, Meta,
 };
 
-use crate::{MachineDescription, MachineError};
+use crate::{Description, MachineError};
 
-pub fn strip_machine(machine: &mut MachineDescription) -> Result<(), MachineError> {
+pub fn strip_machine(machine: &mut Description) -> Result<(), MachineError> {
     let mut visitor = BlockVisitor {};
     for item in machine.items.iter_mut() {
         visitor.visit_item_mut(item);

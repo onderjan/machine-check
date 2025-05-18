@@ -12,13 +12,13 @@ mod resolve_use;
 use error::Errors;
 use syn::Item;
 
-use crate::{wir::IntoSyn, MachineDescription, MachineErrors};
+use crate::{wir::IntoSyn, Description, MachineErrors};
 
-pub fn create_description(items: Vec<Item>) -> Result<MachineDescription, MachineErrors> {
+pub fn create_description(items: Vec<Item>) -> Result<Description, MachineErrors> {
     create_description_inner(items).map_err(Errors::convert_inner)
 }
 
-fn create_description_inner(mut items: Vec<Item>) -> Result<MachineDescription, Errors> {
+fn create_description_inner(mut items: Vec<Item>) -> Result<Description, Errors> {
     let mut macro_expander = expand_macros::MacroExpander::new();
     loop {
         resolve_use::resolve_use(&mut items)?;
@@ -55,7 +55,7 @@ fn create_description_inner(mut items: Vec<Item>) -> Result<MachineDescription, 
 
     let items: Vec<Item> = w_description.into_syn().items;
 
-    Ok(MachineDescription {
+    Ok(Description {
         items,
         panic_messages,
     })
