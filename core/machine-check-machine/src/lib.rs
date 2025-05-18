@@ -98,7 +98,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
-        std::fs::write(out_dir.join("machine_ssa.rs"), unparse(&ssa_machine))
+        std::fs::write(out_dir.join("description.rs"), unparse(&description))
             .expect("SSA machine file should be writable");
     }
 
@@ -106,8 +106,11 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
-        std::fs::write(out_dir.join("machine_abstr.rs"), unparse(&abstract_machine))
-            .expect("Abstract machine file should be writable");
+        std::fs::write(
+            out_dir.join("description_abstr.rs"),
+            unparse(&abstract_description),
+        )
+        .expect("Abstract machine file should be writable");
     }
 
     let refinement_description =
@@ -129,10 +132,10 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
         std::fs::write(
-            out_dir.join("machine_full.rs"),
+            out_dir.join("description_full.rs"),
             unparse(&Description {
                 items: items.clone(),
-                panic_messages: ssa_machine.panic_messages.clone(),
+                panic_messages: description.panic_messages.clone(),
             }),
         )
         .expect("Full machine file should be writable");
