@@ -1,6 +1,6 @@
 use crate::{
     description::{
-        error::{DescriptionError, DescriptionErrorType},
+        error::{Error, DescriptionErrorType},
         infer_types::is_type_fully_specified,
     },
     wir::{
@@ -106,7 +106,7 @@ impl super::LocalVisitor<'_> {
         };
 
         if generics.inner.len() != 1 {
-            self.push_error(DescriptionError::new(
+            self.push_error(Error::new(
                 DescriptionErrorType::UnsupportedConstruct(
                     "Into without exactly one generic argument",
                 ),
@@ -115,7 +115,7 @@ impl super::LocalVisitor<'_> {
             return WPartialGeneralType::Unknown;
         }
         let WGeneric::Type(ty) = &generics.inner[0] else {
-            self.push_error(DescriptionError::new(
+            self.push_error(Error::new(
                 DescriptionErrorType::UnsupportedConstruct("Into generic argument without a type"),
                 call.span(),
             ));
@@ -142,7 +142,7 @@ impl super::LocalVisitor<'_> {
         // the argument type is a reference, dereference it
 
         if matches!(arg_type.reference, WReference::None) {
-            self.push_error(DescriptionError::new(
+            self.push_error(Error::new(
                 DescriptionErrorType::UnsupportedConstruct(
                     "Clone first argument not being a reference",
                 ),
@@ -227,7 +227,7 @@ impl super::LocalVisitor<'_> {
         };
 
         if generics.inner.len() != 1 {
-            self.push_error(DescriptionError::new(
+            self.push_error(Error::new(
                 DescriptionErrorType::UnsupportedConstruct(
                     "Ext without exactly one generic argument",
                 ),
@@ -236,7 +236,7 @@ impl super::LocalVisitor<'_> {
             return WPartialGeneralType::Unknown;
         }
         let WGeneric::Const(width) = &generics.inner[0] else {
-            self.push_error(DescriptionError::new(
+            self.push_error(Error::new(
                 DescriptionErrorType::UnsupportedConstruct("Non-constant ext generic argument"),
                 call.span(),
             ));
@@ -340,7 +340,7 @@ impl super::LocalVisitor<'_> {
     ) -> Result<Option<&'a WType<WBasicType>>, ()> {
         assert!(arg_index < num_args);
         if num_args != call.args.len() {
-            self.push_error(DescriptionError::new(
+            self.push_error(Error::new(
                 DescriptionErrorType::IllegalConstruct(format!(
                     "Call must have exactly {} arguments",
                     call.args.len()

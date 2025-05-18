@@ -9,18 +9,16 @@ mod from_syn;
 mod infer_types;
 mod resolve_use;
 
-use error::DescriptionErrors;
+use error::Errors;
 use syn::Item;
 
 use crate::{wir::IntoSyn, MachineDescription, MachineErrors};
 
 pub fn create_description(items: Vec<Item>) -> Result<MachineDescription, MachineErrors> {
-    create_description_inner(items).map_err(DescriptionErrors::convert_inner)
+    create_description_inner(items).map_err(Errors::convert_inner)
 }
 
-pub(crate) fn create_description_inner(
-    mut items: Vec<Item>,
-) -> Result<MachineDescription, DescriptionErrors> {
+fn create_description_inner(mut items: Vec<Item>) -> Result<MachineDescription, Errors> {
     let mut macro_expander = expand_macros::MacroExpander::new();
     loop {
         resolve_use::resolve_use(&mut items)?;

@@ -5,7 +5,7 @@ use syn::{spanned::Spanned, visit::Visit, Expr, FnArg, Generics, ImplItemFn, Pat
 use crate::{
     description::{
         attribute_disallower::AttributeDisallower,
-        error::{DescriptionError, DescriptionErrors},
+        error::{Error, Errors},
         from_syn::ty::{fold_basic_type, fold_type},
     },
     support::ident_creator::IdentCreator,
@@ -20,7 +20,7 @@ use super::path::fold_path;
 mod expr;
 mod stmt;
 
-pub fn fold_impl_item_fn(impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, DescriptionErrors> {
+pub fn fold_impl_item_fn(impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, Errors> {
     FunctionFolder {
         ident_creator: IdentCreator::new(String::from("")),
         scopes: Vec::new(),
@@ -45,12 +45,12 @@ impl FunctionFolder {
     pub fn fold(
         mut self,
         mut impl_item: ImplItemFn,
-    ) -> Result<WImplItemFn<YTac>, DescriptionErrors> {
+    ) -> Result<WImplItemFn<YTac>, Errors> {
         let impl_item_span = impl_item.span();
 
         if impl_item.defaultness.is_some() {
-            return Err(DescriptionErrors::single(
-                DescriptionError::unsupported_construct(
+            return Err(Errors::single(
+                Error::unsupported_construct(
                     "Defaultness",
                     impl_item.defaultness.span(),
                 ),
@@ -77,8 +77,8 @@ impl FunctionFolder {
         let (block, result) = self.fold_block(impl_item.block)?;
 
         let Some(result) = result else {
-            return Err(DescriptionErrors::single(
-                DescriptionError::unsupported_construct(
+            return Err(Errors::single(
+                Error::unsupported_construct(
                     "Functions without return statement",
                     impl_item_span,
                 ),
@@ -114,37 +114,37 @@ impl FunctionFolder {
         &mut self,
         scope_id: u32,
         signature: Signature,
-    ) -> Result<WSignature<YTac>, DescriptionErrors> {
+    ) -> Result<WSignature<YTac>, Errors> {
         let signature_span = signature.span();
 
         if signature.constness.is_some() {
-            return Err(DescriptionErrors::single(
-                DescriptionError::unsupported_construct("Constness", signature.constness.span()),
+            return Err(Errors::single(
+                Error::unsupported_construct("Constness", signature.constness.span()),
             ));
         }
         if signature.asyncness.is_some() {
-            return Err(DescriptionErrors::single(
-                DescriptionError::unsupported_construct("Asyncness", signature.asyncness.span()),
+            return Err(Errors::single(
+                Error::unsupported_construct("Asyncness", signature.asyncness.span()),
             ));
         }
         if signature.unsafety.is_some() {
-            return Err(DescriptionErrors::single(
-                DescriptionError::unsupported_construct("Unsafety", signature.unsafety.span()),
+            return Err(Errors::single(
+                Error::unsupported_construct("Unsafety", signature.unsafety.span()),
             ));
         }
         if signature.abi.is_some() {
-            return Err(DescriptionErrors::single(
-                DescriptionError::unsupported_construct("ABI", signature.abi.span()),
+            return Err(Errors::single(
+                Error::unsupported_construct("ABI", signature.abi.span()),
             ));
         }
         if signature.generics != Generics::default() {
-            return Err(DescriptionErrors::single(
-                DescriptionError::unsupported_construct("Generics", signature.generics.span()),
+            return Err(Errors::single(
+                Error::unsupported_construct("Generics", signature.generics.span()),
             ));
         }
         if signature.variadic.is_some() {
-            return Err(DescriptionErrors::single(
-                DescriptionError::unsupported_construct(
+            return Err(Errors::single(
+                Error::unsupported_construct(
                     "Variadic argument",
                     signature.variadic.span(),
                 ),
@@ -157,19 +157,19 @@ impl FunctionFolder {
             .map(|fn_arg| self.fold_fn_arg(scope_id, fn_arg))
             .collect();
 
-        let inputs = DescriptionErrors::flat_single_result(inputs);
+        let inputs = Errors::flat_single_result(inputs);
 
         let output = match signature.output {
             syn::ReturnType::Default => {
-                return Err(DescriptionErrors::single(
-                    DescriptionError::unsupported_construct("Default return type", signature_span),
+                return Err(Errors::single(
+                    Error::unsupported_construct("Default return type", signature_span),
                 ))
             }
             syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty),
         }
-        .map_err(DescriptionErrors::single);
+        .map_err(Errors::single);
 
-        let (inputs, output) = DescriptionErrors::combine(inputs, output)?;
+        let (inputs, output) = Errors::combine(inputs, output)?;
 
         Ok(WSignature {
             ident: WIdent::from_syn_ident(signature.ident),
@@ -182,21 +182,21 @@ impl FunctionFolder {
         &mut self,
         scope_id: u32,
         fn_arg: FnArg,
-    ) -> Result<WFnArg<WBasicType>, DescriptionError> {
+    ) -> Result<WFnArg<WBasicType>, Error> {
         let fn_arg = match fn_arg {
             syn::FnArg::Receiver(receiver) => {
                 let receiver_span = receiver.span();
                 let reference = match receiver.reference {
                     Some((_and, lifetime)) => {
                         if lifetime.is_some() {
-                            return Err(DescriptionError::unsupported_construct(
+                            return Err(Error::unsupported_construct(
                                 "Lifetimes",
                                 lifetime.span(),
                             ));
                         }
 
                         if receiver.mutability.is_some() {
-                            return Err(DescriptionError::unsupported_construct(
+                            return Err(Error::unsupported_construct(
                                 "Mutable receiver argument",
                                 receiver_span,
                             ));
@@ -230,7 +230,7 @@ impl FunctionFolder {
             }
             syn::FnArg::Typed(pat_type) => {
                 let Pat::Ident(pat_ident) = *pat_type.pat else {
-                    return Err(DescriptionError::unsupported_construct(
+                    return Err(Error::unsupported_construct(
                         "Non-ident typed pattern",
                         pat_type.pat.span(),
                     ));
@@ -251,16 +251,16 @@ impl FunctionFolder {
         Ok(fn_arg)
     }
 
-    fn fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, DescriptionError> {
+    fn fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, Error> {
         let expr_span = expr.span();
         let Expr::Path(expr_path) = expr else {
-            return Err(DescriptionError::unsupported_construct(
+            return Err(Error::unsupported_construct(
                 "Non-path expression",
                 expr.span(),
             ));
         };
         if expr_path.qself.is_some() {
-            return Err(DescriptionError::unsupported_construct(
+            return Err(Error::unsupported_construct(
                 "Qualified self",
                 expr_path.span(),
             ));
@@ -280,21 +280,21 @@ impl FunctionFolder {
                 }
             }
         }
-        Err(DescriptionError::unsupported_construct(
+        Err(Error::unsupported_construct(
             "Non-ident expression",
             expr_span,
         ))
     }
 
-    fn fold_expr_as_path(&mut self, expr: Expr) -> Result<WPath<WBasicType>, DescriptionError> {
+    fn fold_expr_as_path(&mut self, expr: Expr) -> Result<WPath<WBasicType>, Error> {
         let Expr::Path(expr_path) = expr else {
-            return Err(DescriptionError::unsupported_construct(
+            return Err(Error::unsupported_construct(
                 "Non-path expression",
                 expr.span(),
             ));
         };
         if expr_path.qself.is_some() {
-            return Err(DescriptionError::unsupported_construct(
+            return Err(Error::unsupported_construct(
                 "Qualified self",
                 expr_path.span(),
             ));

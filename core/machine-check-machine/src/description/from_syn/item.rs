@@ -6,7 +6,7 @@ use syn::{
 use crate::{
     description::{
         attribute_disallower::AttributeDisallower,
-        error::{DescriptionError, DescriptionErrorType, DescriptionErrors},
+        error::{Error, DescriptionErrorType, Errors},
     },
     wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
 };
@@ -15,11 +15,11 @@ use super::{impl_item_fn::fold_impl_item_fn, path::fold_path, ty::fold_basic_typ
 
 pub fn fold_item_struct(
     mut item: ItemStruct,
-) -> Result<WItemStruct<WBasicType>, DescriptionErrors> {
+) -> Result<WItemStruct<WBasicType>, Errors> {
     let span = item.span();
     if item.generics != Generics::default() {
-        return Err(DescriptionErrors::single(
-            DescriptionError::unsupported_construct("Generics", item.generics.span()),
+        return Err(Errors::single(
+            Error::unsupported_construct("Generics", item.generics.span()),
         ));
     }
 
@@ -39,7 +39,7 @@ pub fn fold_item_struct(
                     let parser = Punctuated::<Path, Token![,]>::parse_terminated;
 
                     let Ok(parsed) = parser.parse2(meta_tokens) else {
-                        return Err(DescriptionErrors::single(DescriptionError::new(
+                        return Err(Errors::single(Error::new(
                             DescriptionErrorType::IllegalConstruct(String::from(
                                 "Unparseable derive macro content",
                             )),
@@ -82,8 +82,8 @@ pub fn fold_item_struct(
         };
 
         if let Some(err_msg) = err_msg {
-            return Err(DescriptionErrors::single(
-                DescriptionError::unsupported_construct(err_msg, span),
+            return Err(Errors::single(
+                Error::unsupported_construct(err_msg, span),
             ));
         }
     }
@@ -96,8 +96,8 @@ pub fn fold_item_struct(
     let visibility = fold_visibility(item.vis)?;
 
     let Fields::Named(fields_named) = item.fields else {
-        return Err(DescriptionErrors::single(
-            DescriptionError::unsupported_construct("Struct without named fields", span),
+        return Err(Errors::single(
+            Error::unsupported_construct("Struct without named fields", span),
         ));
     };
 
@@ -117,7 +117,7 @@ pub fn fold_item_struct(
         fields.push(field);
     }
 
-    let fields = DescriptionErrors::vec_result(fields)?;
+    let fields = Errors::vec_result(fields)?;
 
     Ok(WItemStruct {
         visibility,
@@ -127,20 +127,20 @@ pub fn fold_item_struct(
     })
 }
 
-pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErrors> {
+pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
     if item.defaultness.is_some() {
-        return Err(DescriptionErrors::single(
-            DescriptionError::unsupported_construct("Defaultness", item.defaultness.span()),
+        return Err(Errors::single(
+            Error::unsupported_construct("Defaultness", item.defaultness.span()),
         ));
     }
     if item.unsafety.is_some() {
-        return Err(DescriptionErrors::single(
-            DescriptionError::unsupported_construct("Unsafety", item.unsafety.span()),
+        return Err(Errors::single(
+            Error::unsupported_construct("Unsafety", item.unsafety.span()),
         ));
     }
     if item.generics != Generics::default() {
-        return Err(DescriptionErrors::single(
-            DescriptionError::unsupported_construct("Generics", item.generics.span()),
+        return Err(Errors::single(
+            Error::unsupported_construct("Generics", item.generics.span()),
         ));
     }
 
@@ -151,8 +151,8 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErro
                 fold_path(ty.path)
             }
             _ => {
-                return Err(DescriptionErrors::single(
-                    DescriptionError::unsupported_construct("Non-path type", item.self_ty.span()),
+                return Err(Errors::single(
+                    Error::unsupported_construct("Non-path type", item.self_ty.span()),
                 ))
             }
         }
@@ -187,17 +187,17 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErro
             _ => Some("Implementation item kind"),
         };
         if let Some(err_msg) = err_msg {
-            errors.push(DescriptionError::unsupported_construct(
+            errors.push(Error::unsupported_construct(
                 err_msg,
                 impl_item_span,
             ));
         }
     }
-    let impl_item_types = DescriptionErrors::flat_single_result(impl_item_types);
-    let impl_item_fns = DescriptionErrors::flat_result(impl_item_fns);
+    let impl_item_types = Errors::flat_single_result(impl_item_types);
+    let impl_item_fns = Errors::flat_result(impl_item_fns);
 
     let (impl_item_types, impl_item_fns) =
-        DescriptionErrors::combine_and_vec(impl_item_types, impl_item_fns, errors)?;
+        Errors::combine_and_vec(impl_item_types, impl_item_fns, errors)?;
 
     Ok(WItemImpl {
         self_ty,
@@ -209,13 +209,13 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, DescriptionErro
 
 pub fn fold_impl_item_type(
     impl_item: ImplItemType,
-) -> Result<WImplItemType<WBasicType>, DescriptionError> {
+) -> Result<WImplItemType<WBasicType>, Error> {
     let span = impl_item.span();
 
     // TODO: visibility
 
     if impl_item.generics != Generics::default() {
-        return Err(DescriptionError::unsupported_construct(
+        return Err(Error::unsupported_construct(
             "Generics",
             impl_item.generics.span(),
         ));
@@ -223,7 +223,7 @@ pub fn fold_impl_item_type(
 
     let ty = impl_item.ty;
     let Type::Path(ty) = ty else {
-        return Err(DescriptionError::unsupported_construct(
+        return Err(Error::unsupported_construct(
             "Non-path type",
             span,
         ));
@@ -234,10 +234,10 @@ pub fn fold_impl_item_type(
     })
 }
 
-pub fn fold_visibility(visibility: Visibility) -> Result<WVisibility, DescriptionError> {
+pub fn fold_visibility(visibility: Visibility) -> Result<WVisibility, Error> {
     match visibility {
         syn::Visibility::Public(_) => Ok(WVisibility::Public),
-        syn::Visibility::Restricted(_) => Err(DescriptionError::unsupported_construct(
+        syn::Visibility::Restricted(_) => Err(Error::unsupported_construct(
             "Restricted visibility",
             visibility.span(),
         )),

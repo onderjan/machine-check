@@ -1,9 +1,9 @@
 use syn::{spanned::Spanned, visit::Visit};
 
-use super::error::{DescriptionError, DescriptionErrors};
+use super::error::{Error, Errors};
 
 pub struct AttributeDisallower {
-    errors: Vec<DescriptionError>,
+    errors: Vec<Error>,
 }
 
 impl AttributeDisallower {
@@ -11,8 +11,8 @@ impl AttributeDisallower {
         Self { errors: Vec::new() }
     }
 
-    pub fn into_result(self) -> Result<(), DescriptionErrors> {
-        DescriptionErrors::iter_to_result(self.errors)
+    pub fn into_result(self) -> Result<(), Errors> {
+        Errors::iter_to_result(self.errors)
     }
 }
 
@@ -25,7 +25,7 @@ impl Visit<'_> for AttributeDisallower {
             }
         }
 
-        self.errors.push(DescriptionError::unsupported_construct(
+        self.errors.push(Error::unsupported_construct(
             "Attribute here",
             attribute.span(),
         ));

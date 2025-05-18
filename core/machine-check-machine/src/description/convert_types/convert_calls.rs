@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    description::error::{DescriptionError, DescriptionErrorType},
+    description::error::{Error, DescriptionErrorType},
     wir::{
         WBasicType, WCallArg, WCallFunc, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
         WPath,
@@ -13,7 +13,7 @@ use super::{convert_basic_path, path_start_to_mck_forward};
 pub fn convert_call_fn_path(
     call: WExprCall<WCallFunc<WBasicType>>,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, DescriptionError> {
+) -> Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, Error> {
     let fn_path = call.fn_path.0.clone();
 
     let orig_call = call.clone();
@@ -140,7 +140,7 @@ fn convert_cmp(
     fn_path: &WPath<WBasicType>,
     args: &mut [WCallArg],
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Option<Result<WPath<WElementaryType>, DescriptionError>> {
+) -> Option<Result<WPath<WElementaryType>, Error>> {
     if !fn_path.matches_absolute(&["std", "cmp", "PartialOrd", "lt"])
         && !fn_path.matches_absolute(&["std", "cmp", "PartialOrd", "le"])
         && !fn_path.matches_absolute(&["std", "cmp", "PartialOrd", "gt"])
@@ -155,7 +155,7 @@ fn convert_cmp(
 
     // need to know type signedness
     if args.len() != 2 {
-        return Some(Err(DescriptionError::new(
+        return Some(Err(Error::new(
             DescriptionErrorType::TypeConversionError(
                 "Comparison should have exactly two arguments",
             ),
@@ -167,13 +167,13 @@ fn convert_cmp(
         signedness(&args[0], local_types),
         signedness(&args[1], local_types),
     ) else {
-        return Some(Err(DescriptionError::new(
+        return Some(Err(Error::new(
             DescriptionErrorType::TypeConversionError("Cannot determine comparison signedness"),
             fn_path.span(),
         )));
     };
     if left_is_signed != right_is_signed {
-        return Some(Err(DescriptionError::new(
+        return Some(Err(Error::new(
             DescriptionErrorType::TypeConversionError(
                 "Signedness of compared types does not match",
             ),
@@ -207,7 +207,7 @@ fn convert_shift(
     fn_path: &WPath<WBasicType>,
     args: &mut [WCallArg],
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Option<Result<WPath<WElementaryType>, DescriptionError>> {
+) -> Option<Result<WPath<WElementaryType>, Error>> {
     // --- Shl ---
     if fn_path.matches_absolute(&["std", "ops", "Shl", "shl"]) {
         let mut fn_path = fn_path.clone();
@@ -231,7 +231,7 @@ fn convert_shift(
         // note that in Rust, type inference depends on whether Shr is an operation or a call
         // but this should not impact our simple bitvector-signed-unsigned types
         if args.len() != 2 {
-            return Some(Err(DescriptionError::new(
+            return Some(Err(Error::new(
                 DescriptionErrorType::TypeConversionError(
                     "Right shift should have exactly two arguments",
                 ),
@@ -240,7 +240,7 @@ fn convert_shift(
         }
 
         let Some(is_signed) = signedness(&args[0], local_types) else {
-            return Some(Err(DescriptionError::new(
+            return Some(Err(Error::new(
                 DescriptionErrorType::TypeConversionError(
                     "Cannot determine right shift signedness",
                 ),
@@ -259,14 +259,14 @@ fn convert_ext(
     fn_path: &WPath<WBasicType>,
     args: &[WCallArg],
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Option<Result<WPath<WElementaryType>, DescriptionError>> {
+) -> Option<Result<WPath<WElementaryType>, Error>> {
     if !fn_path.matches_absolute(&["machine_check", "Ext", "ext"]) {
         return None;
     }
 
     // need to know type signedness
     if args.len() != 1 {
-        return Some(Err(DescriptionError::new(
+        return Some(Err(Error::new(
             DescriptionErrorType::TypeConversionError(
                 "Bit extension should have exactly one argument",
             ),
@@ -276,7 +276,7 @@ fn convert_ext(
     let mut fn_path = path_start_to_mck_forward(fn_path.clone());
 
     let Some(is_signed) = signedness(&args[0], local_types) else {
-        return Some(Err(DescriptionError::new(
+        return Some(Err(Error::new(
             DescriptionErrorType::TypeConversionError("Cannot determine bit extension signedness"),
             fn_path.span(),
         )));
@@ -290,7 +290,7 @@ fn convert_ext(
 fn convert_into(
     call: WExprCall<WCallFunc<WBasicType>>,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Option<Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, DescriptionError>> {
+) -> Option<Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, Error>> {
     if !call
         .fn_path
         .0
@@ -301,7 +301,7 @@ fn convert_into(
     // make sure the argument is a bitvector-related type
     // we do not need to check generics as these will be handled by Rust
     if call.args.len() != 1 {
-        return Some(Err(DescriptionError::new(
+        return Some(Err(Error::new(
             DescriptionErrorType::TypeConversionError("Into should have exactly one argument"),
             call.fn_path.0.span(),
         )));
@@ -327,7 +327,7 @@ fn convert_into(
     };
 
     let Some(arg_ident) = arg_ident else {
-        return Some(Err(DescriptionError::new(
+        return Some(Err(Error::new(
             DescriptionErrorType::TypeConversionError(
                 "Unable to assure that argument to Into is a machine-check bitvector",
             ),

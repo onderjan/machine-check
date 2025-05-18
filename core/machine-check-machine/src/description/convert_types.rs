@@ -9,13 +9,13 @@ use crate::wir::{
     WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
 };
 
-use super::error::DescriptionErrors;
+use super::error::Errors;
 
 mod convert_calls;
 
 pub fn convert_types(
     description: WDescription<YInferred>,
-) -> Result<WDescription<YConverted>, DescriptionErrors> {
+) -> Result<WDescription<YConverted>, Errors> {
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     for item_struct in description.structs {
@@ -54,7 +54,7 @@ pub fn convert_types(
             })
             .collect();
 
-        let impl_item_fns = DescriptionErrors::flat_result(impl_item_fns);
+        let impl_item_fns = Errors::flat_result(impl_item_fns);
 
         impls.push(match impl_item_fns {
             Ok(impl_item_fns) => Ok(WItemImpl {
@@ -67,7 +67,7 @@ pub fn convert_types(
         });
     }
 
-    let impls = DescriptionErrors::flat_result(impls)?;
+    let impls = Errors::flat_result(impls)?;
 
     Ok(WDescription { structs, impls })
 }
@@ -100,7 +100,7 @@ fn convert_general_type(ty: WGeneralType<WBasicType>) -> WGeneralType<WElementar
 
 fn convert_impl_item_fn(
     impl_item: WImplItemFn<YInferred>,
-) -> Result<WImplItemFn<YConverted>, DescriptionErrors> {
+) -> Result<WImplItemFn<YConverted>, Errors> {
     let mut local_types = BTreeMap::from_iter(
         impl_item
             .locals
@@ -151,7 +151,7 @@ fn convert_impl_item_fn(
 fn convert_block(
     block: WBlock<ZSsa>,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WBlock<ZConverted>, DescriptionErrors> {
+) -> Result<WBlock<ZConverted>, Errors> {
     let mut stmts = Vec::new();
     let mut errors = Vec::new();
 
@@ -187,7 +187,7 @@ fn convert_block(
 fn convert_expr(
     expr: WExpr<WBasicType, WCallFunc<WBasicType>>,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, DescriptionErrors> {
+) -> Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, Errors> {
     match expr {
         WExpr::Move(ident) => Ok(WExpr::Move(ident)),
         WExpr::Call(expr_call) => Ok(convert_call_fn_path(expr_call, local_types)?),

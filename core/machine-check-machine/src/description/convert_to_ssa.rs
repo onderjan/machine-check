@@ -6,11 +6,11 @@ use crate::wir::{
 };
 use crate::wir::{WCallFunc, WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 
-use super::error::{DescriptionError, DescriptionErrorType, DescriptionErrors};
+use super::error::{Error, DescriptionErrorType, Errors};
 
 pub fn convert_to_ssa(
     description: WDescription<YTotal>,
-) -> Result<WDescription<YSsa>, DescriptionErrors> {
+) -> Result<WDescription<YSsa>, Errors> {
     let mut impls = Vec::new();
     for item_impl in description.impls {
         let mut impl_item_fns = Vec::new();
@@ -32,7 +32,7 @@ pub fn convert_to_ssa(
     })
 }
 
-fn process_fn(impl_item_fn: WImplItemFn<YTotal>) -> Result<WImplItemFn<YSsa>, DescriptionErrors> {
+fn process_fn(impl_item_fn: WImplItemFn<YTotal>) -> Result<WImplItemFn<YSsa>, Errors> {
     // TODO: process parameters
 
     // process mutable local idents
@@ -64,7 +64,7 @@ struct LocalVisitor {
     pub branch_counter: u32,
     pub local_ident_counters: BTreeMap<WIdent, Counter>,
     pub temps: BTreeMap<WIdent, (WIdent, WPartialGeneralType<WBasicType>)>,
-    pub errors: Vec<DescriptionError>,
+    pub errors: Vec<Error>,
     pub uninit_counter: u32,
 }
 
@@ -79,7 +79,7 @@ impl LocalVisitor {
     pub fn process(
         &mut self,
         mut impl_item_fn: WImplItemFn<YTotal>,
-    ) -> Result<WImplItemFn<YSsa>, DescriptionErrors> {
+    ) -> Result<WImplItemFn<YSsa>, Errors> {
         let signature = WSignature {
             ident: impl_item_fn.signature.ident,
             inputs: impl_item_fn.signature.inputs,
@@ -92,7 +92,7 @@ impl LocalVisitor {
 
         let mut errors = Vec::new();
         errors.append(&mut self.errors);
-        DescriptionErrors::iter_to_result(errors)?;
+        Errors::iter_to_result(errors)?;
 
         // replace locals with the ones in temps
         let mut locals = Vec::new();
@@ -323,7 +323,7 @@ impl LocalVisitor {
         if let Some(counter) = self.local_ident_counters.get(ident) {
             // the variable must be assigned before being used
             let Some(current_counter) = counter.present.last() else {
-                self.errors.push(DescriptionError::new(
+                self.errors.push(Error::new(
                     DescriptionErrorType::IllegalConstruct(String::from(
                         "Variable used before being assigned",
                     )),

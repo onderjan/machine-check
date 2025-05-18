@@ -1,13 +1,13 @@
 use syn::{spanned::Spanned, Expr, GenericArgument, Lit, Path, PathArguments};
 
 use crate::{
-    description::error::DescriptionError,
+    description::error::Error,
     wir::{WBasicType, WGeneric, WGenerics, WIdent, WPath, WPathSegment},
 };
 
 use super::ty::fold_type;
 
-pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
+pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, Error> {
     let path_span = path.span();
 
     let mut segments = Vec::new();
@@ -22,7 +22,7 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
                         GenericArgument::Type(ty) => WGeneric::Type(fold_type(ty)?),
                         GenericArgument::Const(expr) => {
                             let Expr::Lit(expr) = expr else {
-                                return Err(DescriptionError::unsupported_construct(
+                                return Err(Error::unsupported_construct(
                                     "Non-literal const generic argument",
                                     path_span,
                                 ));
@@ -30,7 +30,7 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
                             let parsed: Result<u32, _> = match expr.lit {
                                 Lit::Int(lit_int) => lit_int.base10_parse(),
                                 _ => {
-                                    return Err(DescriptionError::unsupported_construct(
+                                    return Err(Error::unsupported_construct(
                                         "Non-integer const generic argument",
                                         path_span,
                                     ));
@@ -39,7 +39,7 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
                             let parsed = match parsed {
                                 Ok(ok) => ok,
                                 Err(_) => {
-                                    return Err(DescriptionError::unsupported_construct(
+                                    return Err(Error::unsupported_construct(
                                         "Generic argument not parseable as u32",
                                         path_span,
                                     ));
@@ -48,7 +48,7 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
                             WGeneric::Const(parsed)
                         }
                         _ => {
-                            return Err(DescriptionError::unsupported_construct(
+                            return Err(Error::unsupported_construct(
                                 "Generic argument kind",
                                 path_span,
                             ))
@@ -62,7 +62,7 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
             }
 
             PathArguments::Parenthesized(_generics) => {
-                return Err(DescriptionError::unsupported_construct(
+                return Err(Error::unsupported_construct(
                     "Parenthesized generic arguments",
                     path_span,
                 ));
@@ -81,7 +81,7 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
             || segment.ident.name() == "crate"
             || segment.ident.name() == "$crate"
         {
-            return Err(DescriptionError::unsupported_construct(
+            return Err(Error::unsupported_construct(
                 "Path segment super / crate / $crate",
                 segment.ident.span(),
             ));
@@ -97,7 +97,7 @@ pub fn fold_path(path: Path) -> Result<WPath<WBasicType>, DescriptionError> {
             .expect("Global path should have at least one segment");
         let crate_ident = &crate_segment.ident;
         if crate_ident.name() != "machine_check" && crate_ident.name() != "std" {
-            return Err(DescriptionError::unsupported_construct(
+            return Err(Error::unsupported_construct(
                 "Absolute paths not starting with 'machine_check' or 'std'",
                 path_span,
             ));

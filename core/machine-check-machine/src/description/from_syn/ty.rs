@@ -2,17 +2,17 @@ use syn::{spanned::Spanned, Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
     description::{
-        error::{DescriptionError, DescriptionErrorType},
+        error::{Error, DescriptionErrorType},
         from_syn::path::fold_path,
     },
     wir::{WBasicType, WReference, WType, WTypeArray},
 };
 
-pub fn fold_type(mut ty: Type) -> Result<WType<WBasicType>, DescriptionError> {
+pub fn fold_type(mut ty: Type) -> Result<WType<WBasicType>, Error> {
     let reference = match ty {
         Type::Reference(type_reference) => {
             if type_reference.mutability.is_some() {
-                return Err(DescriptionError::unsupported_construct(
+                return Err(Error::unsupported_construct(
                     "Mutable references",
                     type_reference.mutability.span(),
                 ));
@@ -28,12 +28,12 @@ pub fn fold_type(mut ty: Type) -> Result<WType<WBasicType>, DescriptionError> {
     })
 }
 
-pub fn fold_basic_type(ty: Type) -> Result<WBasicType, DescriptionError> {
+pub fn fold_basic_type(ty: Type) -> Result<WBasicType, Error> {
     let ty_span = ty.span();
     match ty {
         Type::Path(ty) => {
             if ty.qself.is_some() {
-                return Err(DescriptionError::unsupported_construct(
+                return Err(Error::unsupported_construct(
                     "Quantified self",
                     ty.span(),
                 ));
@@ -69,7 +69,7 @@ pub fn fold_basic_type(ty: Type) -> Result<WBasicType, DescriptionError> {
                                 }))
                             }
                             _ => {
-                                return Err(DescriptionError::new(
+                                return Err(Error::new(
                                     DescriptionErrorType::IllegalConstruct(String::from(
                                         "Unknown machine-check type",
                                     )),
@@ -87,7 +87,7 @@ pub fn fold_basic_type(ty: Type) -> Result<WBasicType, DescriptionError> {
                 WBasicType::Path(fold_path(ty.path)?)
             })
         }
-        _ => Err(DescriptionError::unsupported_construct(
+        _ => Err(Error::unsupported_construct(
             "Non-path type",
             ty_span,
         )),
@@ -97,7 +97,7 @@ pub fn fold_basic_type(ty: Type) -> Result<WBasicType, DescriptionError> {
 pub fn extract_generic_sizes(
     arguments: PathArguments,
     expected_length: usize,
-) -> Result<Vec<u32>, DescriptionError> {
+) -> Result<Vec<u32>, Error> {
     let mut generic_sizes = Vec::new();
     match arguments {
         syn::PathArguments::None => {}
@@ -118,7 +118,7 @@ pub fn extract_generic_sizes(
                 if let Some(parsed) = parsed {
                     generic_sizes.push(parsed);
                 } else {
-                    return Err(DescriptionError::unsupported_construct(
+                    return Err(Error::unsupported_construct(
                         "Generic argument not parseable as u32",
                         arg_span,
                     ));
@@ -126,7 +126,7 @@ pub fn extract_generic_sizes(
             }
         }
         syn::PathArguments::Parenthesized(_) => {
-            return Err(DescriptionError::unsupported_construct(
+            return Err(Error::unsupported_construct(
                 "Parenthesized",
                 arguments.span(),
             ));

@@ -11,9 +11,9 @@ use syn::{
 
 use crate::util::extract_path_ident;
 
-use super::error::{DescriptionError, DescriptionErrorType};
+use super::error::{Error, DescriptionErrorType};
 
-pub fn resolve_use(items: &mut [Item]) -> Result<(), DescriptionError> {
+pub fn resolve_use(items: &mut [Item]) -> Result<(), Error> {
     // construct the use map first
     let mut use_map = HashMap::<Ident, Path>::new();
 
@@ -44,7 +44,7 @@ pub fn resolve_use(items: &mut [Item]) -> Result<(), DescriptionError> {
     visitor.result
 }
 
-pub fn remove_use(items: &mut Vec<Item>) -> Result<(), DescriptionError> {
+pub fn remove_use(items: &mut Vec<Item>) -> Result<(), Error> {
     items.retain(|item| !matches!(item, Item::Use(_)));
     Ok(())
 }
@@ -53,7 +53,7 @@ fn recurse_use_tree(
     use_map: &mut HashMap<Ident, Path>,
     use_tree: &UseTree,
     mut use_prefix: Path,
-) -> Result<(), DescriptionError> {
+) -> Result<(), Error> {
     let use_ident = match use_tree {
         UseTree::Path(use_path) => {
             // recurse with the added segment
@@ -89,7 +89,7 @@ fn recurse_use_tree(
         }
         UseTree::Glob(use_glob) => {
             // not supported
-            return Err(DescriptionError::new(
+            return Err(Error::new(
                 DescriptionErrorType::UnsupportedConstruct("Wildcard use"),
                 use_glob.span(),
             ));
@@ -97,7 +97,7 @@ fn recurse_use_tree(
     };
 
     if let Some(_previous) = use_map.insert(use_ident.clone(), use_prefix) {
-        Err(DescriptionError::new(
+        Err(Error::new(
             DescriptionErrorType::UnsupportedConstruct("Duplicate use declaration"),
             use_ident.span(),
         ))
@@ -107,7 +107,7 @@ fn recurse_use_tree(
 }
 
 struct Visitor {
-    result: Result<(), DescriptionError>,
+    result: Result<(), Error>,
     use_map: HashMap<Ident, Path>,
     local_scopes_idents: Vec<HashSet<Ident>>,
 }
@@ -215,7 +215,7 @@ impl VisitMut for Visitor {
         }
         let Pat::Ident(local_pat) = local_pat else {
             if self.result.is_ok() {
-                self.result = Err(DescriptionError::new(
+                self.result = Err(Error::new(
                     DescriptionErrorType::UnsupportedConstruct(
                         "Local pattern that is not ident or typed local",
                     ),

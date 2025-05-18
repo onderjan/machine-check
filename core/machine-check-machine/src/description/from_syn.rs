@@ -3,16 +3,14 @@ use syn::{spanned::Spanned, Item};
 
 use crate::wir::{WDescription, YTac};
 
-use super::error::{DescriptionError, DescriptionErrors};
+use super::error::{Error, Errors};
 
 pub mod impl_item_fn;
 pub mod item;
 pub mod path;
 pub mod ty;
 
-pub fn from_syn(
-    item_iter: impl Iterator<Item = Item>,
-) -> Result<WDescription<YTac>, DescriptionErrors> {
+pub fn from_syn(item_iter: impl Iterator<Item = Item>) -> Result<WDescription<YTac>, Errors> {
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     let mut errors = Vec::new();
@@ -20,16 +18,16 @@ pub fn from_syn(
         match item {
             Item::Struct(item) => structs.push(fold_item_struct(item)),
             Item::Impl(item) => impls.push(fold_item_impl(item)),
-            _ => errors.push(DescriptionError::unsupported_construct(
+            _ => errors.push(Error::unsupported_construct(
                 "Item kind",
                 item.span(),
             )),
         }
     }
 
-    let structs = DescriptionErrors::flat_result(structs);
-    let impls = DescriptionErrors::flat_result(impls);
-    let (structs, impls) = DescriptionErrors::combine_and_vec(structs, impls, errors)?;
+    let structs = Errors::flat_result(structs);
+    let impls = Errors::flat_result(impls);
+    let (structs, impls) = Errors::combine_and_vec(structs, impls, errors)?;
 
     Ok(WDescription { structs, impls })
 }
