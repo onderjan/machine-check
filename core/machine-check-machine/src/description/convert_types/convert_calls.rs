@@ -3,60 +3,60 @@ use std::collections::BTreeMap;
 use crate::{
     description::{Error, ErrorType},
     wir::{
-        WBasicType, WCallArg, WCallFunc, WElementaryType, WExpr, WExprCall, WGeneralType,
-        WHighLevelCallFunc, WIdent, WPath,
+        WBasicType, WCall, WCallArg, WElementaryType, WExpr, WExprCall, WExprHighCall,
+        WGeneralType, WIdent, WPath,
     },
 };
 
 use super::{convert_basic_path, path_start_to_mck_forward};
 
 pub fn convert_call_fn_path(
-    call: WExprCall<WHighLevelCallFunc<WBasicType>>,
+    call: WExprHighCall<WBasicType>,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, Error> {
+) -> Result<WExpr<WElementaryType, WExprCall<WElementaryType>>, Error> {
     let orig_call = call.clone();
-    let WHighLevelCallFunc::Call(fn_path) = call.fn_path;
+    let WExprHighCall::Call(WCall { fn_path, args }) = call;
 
-    let mut call = WExprCall {
-        fn_path: WCallFunc(convert_basic_path(fn_path.clone())),
-        args: call.args,
+    let mut call = WCall {
+        fn_path: convert_basic_path(fn_path.clone()),
+        args,
     };
 
     if let Some(result) = convert_bitwise(&fn_path) {
-        call.fn_path = WCallFunc(result);
-        return Ok(WExpr::Call(call));
+        call.fn_path = result;
+        return Ok(WExpr::Call(WExprCall::Call(call)));
     }
 
     if let Some(result) = convert_arith(&fn_path) {
-        call.fn_path = WCallFunc(result);
-        return Ok(WExpr::Call(call));
+        call.fn_path = result;
+        return Ok(WExpr::Call(WExprCall::Call(call)));
     }
 
     if let Some(result) = convert_eq(&fn_path) {
-        call.fn_path = WCallFunc(result);
-        return Ok(WExpr::Call(call));
+        call.fn_path = result;
+        return Ok(WExpr::Call(WExprCall::Call(call)));
     }
 
     if let Some(result) = convert_cmp(&fn_path, &mut call.args, local_types) {
-        call.fn_path = WCallFunc(result?);
-        return Ok(WExpr::Call(call));
+        call.fn_path = result?;
+        return Ok(WExpr::Call(WExprCall::Call(call)));
     }
 
     if let Some(result) = convert_shift(&fn_path, &mut call.args, local_types) {
-        call.fn_path = WCallFunc(result?);
-        return Ok(WExpr::Call(call));
+        call.fn_path = result?;
+        return Ok(WExpr::Call(WExprCall::Call(call)));
     }
 
     if let Some(result) = convert_ext(&fn_path, &call.args, local_types) {
-        call.fn_path = WCallFunc(result?);
-        return Ok(WExpr::Call(call));
+        call.fn_path = result?;
+        return Ok(WExpr::Call(WExprCall::Call(call)));
     }
 
     if let Some(result) = convert_into(orig_call, local_types) {
         return result;
     }
 
-    Ok(WExpr::Call(call))
+    Ok(WExpr::Call(WExprCall::Call(call)))
 }
 
 fn convert_bitwise(fn_path: &WPath<WBasicType>) -> Option<WPath<WElementaryType>> {
@@ -277,23 +277,23 @@ fn convert_ext(
 }
 
 fn convert_into(
-    orig_call: WExprCall<WHighLevelCallFunc<WBasicType>>,
+    orig_call: WExprHighCall<WBasicType>,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Option<Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, Error>> {
-    let WHighLevelCallFunc::Call(fn_path) = orig_call.fn_path;
+) -> Option<Result<WExpr<WElementaryType, WExprCall<WElementaryType>>, Error>> {
+    let WExprHighCall::Call(WCall { fn_path, args }) = orig_call;
     if !fn_path.matches_absolute(&["std", "convert", "Into", "into"]) {
         return None;
     }
     // make sure the argument is a bitvector-related type
     // we do not need to check generics as these will be handled by Rust
-    if orig_call.args.len() != 1 {
+    if args.len() != 1 {
         return Some(Err(Error::new(
             ErrorType::TypeConversionError("Into should have exactly one argument"),
             fn_path.span(),
         )));
     }
 
-    let arg_ident = match &orig_call.args[0] {
+    let arg_ident = match &args[0] {
         WCallArg::Ident(arg_ident) => {
             if let Some(arg_type) = local_types.get(arg_ident) {
                 match arg_type {

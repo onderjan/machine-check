@@ -1,15 +1,15 @@
 use crate::{
     description::{infer_types::is_type_fully_specified, Error, ErrorType},
     wir::{
-        WBasicType, WCallArg, WExprCall, WGeneric, WHighLevelCallFunc, WPartialGeneralType,
-        WReference, WType, WTypeArray,
+        WBasicType, WCall, WCallArg, WExprHighCall, WGeneric, WPartialGeneralType, WReference,
+        WType, WTypeArray,
     },
 };
 
 impl super::LocalVisitor<'_> {
     pub(super) fn infer_call_result_type(
         &mut self,
-        expr_call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
+        expr_call: &WExprHighCall<WBasicType>,
     ) -> WPartialGeneralType<WBasicType> {
         // discover the type based on the call function
         if let Some(ty) = skip_unknown(self.infer_init(expr_call)) {
@@ -39,11 +39,9 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Unknown
     }
 
-    fn infer_init(
-        &mut self,
-        call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
-    ) -> WPartialGeneralType<WBasicType> {
-        let WHighLevelCallFunc::Call(fn_path) = &call.fn_path;
+    fn infer_init(&mut self, call: &WExprHighCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
+        let WExprHighCall::Call(call) = call;
+        let fn_path = &call.fn_path;
         let is_bitvector = fn_path.matches_absolute(&["machine_check", "Bitvector", "new"]);
         let is_unsigned = fn_path.matches_absolute(&["machine_check", "Unsigned", "new"]);
         let is_signed = fn_path.matches_absolute(&["machine_check", "Signed", "new"]);
@@ -89,11 +87,9 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Unknown
     }
 
-    fn infer_into(
-        &mut self,
-        call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
-    ) -> WPartialGeneralType<WBasicType> {
-        let WHighLevelCallFunc::Call(fn_path) = &call.fn_path;
+    fn infer_into(&mut self, call: &WExprHighCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
+        let WExprHighCall::Call(call) = call;
+        let fn_path = &call.fn_path;
 
         // Into trait
         if !fn_path.matches_absolute(&["std", "convert", "Into", "into"]) {
@@ -122,11 +118,9 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Normal(ty.clone())
     }
 
-    fn infer_clone(
-        &mut self,
-        call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
-    ) -> WPartialGeneralType<WBasicType> {
-        let WHighLevelCallFunc::Call(fn_path) = &call.fn_path;
+    fn infer_clone(&mut self, call: &WExprHighCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
+        let WExprHighCall::Call(call) = call;
+        let fn_path = &call.fn_path;
         if !fn_path.matches_absolute(&["std", "clone", "Clone", "clone"]) {
             return WPartialGeneralType::Unknown;
         }
@@ -149,9 +143,10 @@ impl super::LocalVisitor<'_> {
 
     fn infer_array_read(
         &mut self,
-        call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
+        call: &WExprHighCall<WBasicType>,
     ) -> WPartialGeneralType<WBasicType> {
-        let WHighLevelCallFunc::Call(fn_path) = &call.fn_path;
+        let WExprHighCall::Call(call) = call;
+        let fn_path = &call.fn_path;
         if !fn_path.matches_absolute(&["mck", "forward", "ReadWrite", "read"]) {
             return WPartialGeneralType::Unknown;
         }
@@ -174,9 +169,10 @@ impl super::LocalVisitor<'_> {
 
     fn infer_array_write(
         &mut self,
-        call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
+        call: &WExprHighCall<WBasicType>,
     ) -> WPartialGeneralType<WBasicType> {
-        let WHighLevelCallFunc::Call(fn_path) = &call.fn_path;
+        let WExprHighCall::Call(call) = call;
+        let fn_path = &call.fn_path;
         if !fn_path.matches_absolute(&["mck", "forward", "ReadWrite", "write"]) {
             return WPartialGeneralType::Unknown;
         }
@@ -193,11 +189,9 @@ impl super::LocalVisitor<'_> {
         WPartialGeneralType::Normal(arg_type.inner.clone().into_type())
     }
 
-    fn infer_ext(
-        &mut self,
-        call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
-    ) -> WPartialGeneralType<WBasicType> {
-        let WHighLevelCallFunc::Call(fn_path) = &call.fn_path;
+    fn infer_ext(&mut self, call: &WExprHighCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
+        let WExprHighCall::Call(call) = call;
+        let fn_path = &call.fn_path;
         // --- EXT ---
 
         if !fn_path.matches_absolute(&["machine_check", "Ext", "ext"]) {
@@ -245,9 +239,10 @@ impl super::LocalVisitor<'_> {
 
     fn infer_return_arg_fns(
         &mut self,
-        call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
+        call: &WExprHighCall<WBasicType>,
     ) -> WPartialGeneralType<WBasicType> {
-        let WHighLevelCallFunc::Call(fn_path) = &call.fn_path;
+        let WExprHighCall::Call(call) = call;
+        let fn_path = &call.fn_path;
         let std_ops_fns: [(&str, &str); 12] = [
             // arithmetic
             ("Neg", "neg"),
@@ -289,9 +284,10 @@ impl super::LocalVisitor<'_> {
 
     fn infer_return_bool_fns(
         &mut self,
-        call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
+        call: &WExprHighCall<WBasicType>,
     ) -> WPartialGeneralType<WBasicType> {
-        let WHighLevelCallFunc::Call(fn_path) = &call.fn_path;
+        let WExprHighCall::Call(call) = call;
+        let fn_path = &call.fn_path;
         let std_cmp_fns: [(&str, &str); 6] = [
             ("PartialEq", "eq"),
             ("PartialEq", "ne"),
@@ -313,7 +309,7 @@ impl super::LocalVisitor<'_> {
 
     fn get_normal_arg_type<'a>(
         &'a mut self,
-        call: &WExprCall<WHighLevelCallFunc<WBasicType>>,
+        call: &WCall<WBasicType>,
         arg_index: usize,
         num_args: usize,
     ) -> Result<Option<&'a WType<WBasicType>>, ()> {

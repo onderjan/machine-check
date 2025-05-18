@@ -6,10 +6,10 @@ use syn::LitInt;
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WBasicType, WBlock, WCallArg, WDescription, WExpr, WExprCall, WExprField,
-        WHighLevelCallFunc, WIdent, WImplItemFn, WItemImpl, WMacroableStmt, WPanicResult,
-        WPanicResultType, WPartialGeneralType, WPath, WReference, WSignature, WStmt, WStmtAssign,
-        WStmtIf, WTacLocal, WType, YNonindexed, YTotal, ZNonindexed, ZTotal,
+        WBasicType, WBlock, WCall, WCallArg, WDescription, WExpr, WExprField, WExprHighCall,
+        WIdent, WImplItemFn, WItemImpl, WMacroableStmt, WPanicResult, WPanicResultType,
+        WPartialGeneralType, WPath, WReference, WSignature, WStmt, WStmtAssign, WStmtIf, WTacLocal,
+        WType, YNonindexed, YTotal, ZNonindexed, ZTotal,
     },
 };
 
@@ -169,11 +169,10 @@ impl FnConverter<'_> {
 
     fn fold_assign(&mut self, stmt: WStmtAssign<ZNonindexed>) -> Vec<WStmt<ZTotal>> {
         let right = match stmt.right {
-            WExpr::Call(expr_call) => match expr_call.fn_path {
-                WHighLevelCallFunc::Call(path) => {
-                    return self.fold_fn_call(stmt.left, path, expr_call.args)
-                }
-            },
+            WExpr::Call(expr_call) => {
+                let WExprHighCall::Call(call) = expr_call;
+                return self.fold_fn_call(stmt.left, call.fn_path, call.args);
+            }
             WExpr::Move(ident) => WExpr::Move(ident),
             WExpr::Field(expr) => WExpr::Field(expr),
             WExpr::Struct(expr) => WExpr::Struct(expr),
@@ -201,10 +200,7 @@ impl FnConverter<'_> {
             // do not change the result type
             return vec![WStmt::Assign(WStmtAssign {
                 left: original_left,
-                right: WExpr::Call(WExprCall {
-                    fn_path: WHighLevelCallFunc::Call(fn_path),
-                    args,
-                }),
+                right: WExpr::Call(WExprHighCall::Call(WCall { fn_path, args })),
             })];
         }
 
@@ -215,10 +211,7 @@ impl FnConverter<'_> {
 
         let returned_assign = WStmt::Assign(WStmtAssign {
             left: returned_ident.clone(),
-            right: WExpr::Call(WExprCall {
-                fn_path: WHighLevelCallFunc::Call(fn_path),
-                args,
-            }),
+            right: WExpr::Call(WExprHighCall::Call(WCall { fn_path, args })),
         });
         self.panic_result_idents.insert(returned_ident.clone());
 
@@ -234,16 +227,13 @@ impl FnConverter<'_> {
         // assign to the panic variable if it is currently zero
         let panic_is_zero_ident = self.ident_creator.create_temporary_ident(span);
 
-        let panic_is_zero_call = WExprCall {
-            fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
-                &["std", "cmp", "PartialEq", "eq"],
-                span,
-            )),
+        let panic_is_zero_call = WExprHighCall::Call(WCall {
+            fn_path: WPath::new_absolute(&["std", "cmp", "PartialEq", "eq"], span),
             args: vec![
                 WCallArg::Ident(self.panic_ident.clone()),
                 WCallArg::Ident(self.zero_bitvec_ident.clone()),
             ],
-        };
+        });
 
         let panic_is_zero_assign = WStmt::Assign(WStmtAssign {
             left: panic_is_zero_ident.clone(),
@@ -275,17 +265,11 @@ impl FnConverter<'_> {
     }
 }
 
-fn create_panic_call(
-    span: Span,
-    int_str: &str,
-) -> WExpr<WBasicType, WHighLevelCallFunc<WBasicType>> {
-    WExpr::Call(WExprCall {
-        fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
-            &["mck", "concr", "Bitvector", "new"],
-            span,
-        )),
+fn create_panic_call(span: Span, int_str: &str) -> WExpr<WBasicType, WExprHighCall<WBasicType>> {
+    WExpr::Call(WExprHighCall::Call(WCall {
+        fn_path: WPath::new_absolute(&["mck", "concr", "Bitvector", "new"], span),
         args: vec![WCallArg::Literal(syn::Lit::Int(LitInt::new(int_str, span)))],
-    })
+    }))
 }
 
 fn create_panic_type_local(ident: WIdent) -> WTacLocal<WPartialGeneralType<WBasicType>> {

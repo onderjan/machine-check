@@ -3,10 +3,10 @@ use proc_macro2::Span;
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WArrayBaseExpr, WBasicType, WBlock, WCallArg, WDescription, WExpr, WExprCall, WExprField,
-        WExprReference, WHighLevelCallFunc, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent,
-        WItemImpl, WMacroableStmt, WPath, WSignature, WStmtAssign, WStmtIf, WTacLocal, YNonindexed,
-        YTac, ZNonindexed, ZTac,
+        WArrayBaseExpr, WBasicType, WBlock, WCall, WCallArg, WDescription, WExpr, WExprField,
+        WExprHighCall, WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl,
+        WMacroableStmt, WPath, WSignature, WStmtAssign, WStmtIf, WTacLocal, YNonindexed, YTac,
+        ZNonindexed, ZTac,
     },
 };
 
@@ -126,16 +126,13 @@ impl IndexingConverter {
                 }));
 
                 // the read call consumes the reference and index
-                let read_call = WExprCall {
-                    fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
-                        &["mck", "forward", "ReadWrite", "read"],
-                        span,
-                    )),
+                let read_call = crate::wir::WExprHighCall::Call(WCall {
+                    fn_path: WPath::new_absolute(&["mck", "forward", "ReadWrite", "read"], span),
                     args: vec![
                         WCallArg::Ident(array_ref_ident),
                         WCallArg::Ident(right_index),
                     ],
-                };
+                });
 
                 WExpr::Call(read_call)
             }
@@ -160,17 +157,18 @@ impl IndexingConverter {
 
                 // the base is let through
 
-                let write_call = WExprCall {
-                    fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
-                        &["mck", "forward", "ReadWrite", "write"],
-                        span,
-                    )),
-                    args: vec![
-                        WCallArg::Ident(array_ref_ident),
-                        WCallArg::Ident(left_index),
-                        WCallArg::Ident(right),
-                    ],
-                };
+                let write_call: crate::wir::WExprHighCall<WBasicType> =
+                    WExprHighCall::Call(WCall {
+                        fn_path: WPath::new_absolute(
+                            &["mck", "forward", "ReadWrite", "write"],
+                            span,
+                        ),
+                        args: vec![
+                            WCallArg::Ident(array_ref_ident),
+                            WCallArg::Ident(left_index),
+                            WCallArg::Ident(right),
+                        ],
+                    });
                 (left_array, WExpr::Call(write_call))
             }
             WIndexedIdent::NonIndexed(left) => (left, right),
@@ -183,7 +181,7 @@ impl IndexingConverter {
     fn force_move(
         &mut self,
         stmts: &mut Vec<WMacroableStmt<ZNonindexed>>,
-        expr: WExpr<WBasicType, WHighLevelCallFunc<WBasicType>>,
+        expr: WExpr<WBasicType, WExprHighCall<WBasicType>>,
     ) -> WIdent {
         let span = Span::call_site();
         match expr {

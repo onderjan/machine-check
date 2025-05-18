@@ -1,10 +1,9 @@
 use proc_macro2::Span;
-use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Bracket, Paren},
     Expr, ExprCall, ExprField, ExprIndex, ExprLit, ExprPath, ExprReference, ExprStruct, FieldValue,
-    Lit, Path, Token, Type,
+    Lit, Token, Type,
 };
 
 use crate::util::create_expr_ident;
@@ -14,7 +13,7 @@ use super::{IntoSyn, WIdent, WPath};
 #[derive(Clone, Debug, Hash)]
 pub enum WExpr<FT: IntoSyn<Type>, CF: IntoSyn<Expr>> {
     Move(WIdent),
-    Call(WExprCall<CF>),
+    Call(CF),
     Field(WExprField),
     Struct(WExprStruct<FT>),
     Reference(WExprReference),
@@ -22,23 +21,26 @@ pub enum WExpr<FT: IntoSyn<Type>, CF: IntoSyn<Expr>> {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WExprCall<CF: IntoSyn<Expr>> {
-    pub fn_path: CF,
+pub enum WExprHighCall<FT: IntoSyn<Type>> {
+    Call(WCall<FT>),
+}
+
+#[derive(Clone, Debug, Hash)]
+
+pub enum WExprCall<FT: IntoSyn<Type>> {
+    Call(WCall<FT>),
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WCall<FT: IntoSyn<Type>> {
+    pub fn_path: WPath<FT>,
     pub args: Vec<WCallArg>,
 }
 
-#[derive(Clone, Debug, Hash)]
-pub enum WHighLevelCallFunc<FT: IntoSyn<Type>> {
-    Call(WPath<FT>),
-}
-
-#[derive(Clone, Debug, Hash)]
-pub struct WCallFunc<FT: IntoSyn<Type>>(pub WPath<FT>);
-
-impl<CF: IntoSyn<Expr>> WExprCall<CF> {
+impl<FT: IntoSyn<Type>> WCall<FT> {
     pub fn span(&self) -> Span {
         // TODO: correct span
-        Span::call_site()
+        self.fn_path.span()
     }
 }
 
@@ -164,8 +166,10 @@ impl<FT: IntoSyn<Type>, CF: IntoSyn<Expr>> IntoSyn<Expr> for WIndexedExpr<FT, CF
     }
 }
 
-impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExprCall<CF> {
+impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WCall<FT> {
     fn into_syn(self) -> Expr {
+        let path = self.fn_path.into();
+
         let args = Punctuated::from_iter(self.args.into_iter().map(|arg| match arg {
             WCallArg::Ident(ident) => create_expr_ident(ident.into()),
             WCallArg::Literal(lit) => Expr::Lit(ExprLit {
@@ -173,33 +177,32 @@ impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExprCall<CF> {
                 lit,
             }),
         }));
-        match self.fn_path.into_syn() {
-            Expr::Call(mut expr_call) => {
-                assert!(expr_call.args.is_empty());
-                expr_call.args = args;
-                Expr::Call(expr_call)
-            }
-            Expr::Macro(mut expr_macro) => {
-                assert!(expr_macro.mac.tokens.is_empty());
-                let token_stream = args.to_token_stream();
-                expr_macro.mac.tokens = token_stream;
-                Expr::Macro(expr_macro)
-            }
-            _ => panic!("Unexpected expr type when converting expr call to syn"),
+
+        Expr::Call(ExprCall {
+            attrs: Vec::new(),
+            func: Box::new(Expr::Path(ExprPath {
+                attrs: vec![],
+                path,
+                qself: None,
+            })),
+            paren_token: Paren::default(),
+            args,
+        })
+    }
+}
+
+impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExprCall<FT> {
+    fn into_syn(self) -> Expr {
+        match self {
+            WExprCall::Call(call) => call.into_syn(),
         }
     }
 }
 
-impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WCallFunc<FT> {
-    fn into_syn(self) -> Expr {
-        create_expr_call_without_args(self.0.into())
-    }
-}
-
-impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WHighLevelCallFunc<FT> {
+impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExprHighCall<FT> {
     fn into_syn(self) -> Expr {
         match self {
-            WHighLevelCallFunc::Call(path) => create_expr_call_without_args(path.into()),
+            WExprHighCall::Call(call) => call.into_syn(),
         }
     }
 }
@@ -221,18 +224,5 @@ fn indexed_ident(array: Expr, index: Expr) -> Expr {
         expr: Box::new(array),
         bracket_token: Bracket::default(),
         index: Box::new(index),
-    })
-}
-
-fn create_expr_call_without_args(path: Path) -> Expr {
-    Expr::Call(ExprCall {
-        attrs: Vec::new(),
-        func: Box::new(Expr::Path(ExprPath {
-            attrs: vec![],
-            path,
-            qself: None,
-        })),
-        paren_token: Paren::default(),
-        args: Punctuated::default(),
     })
 }

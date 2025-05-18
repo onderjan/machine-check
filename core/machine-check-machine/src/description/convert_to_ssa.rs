@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::wir::{
-    WBasicType, WBlock, WCallArg, WExpr, WExprCall, WHighLevelCallFunc, WIdent,
-    WPartialGeneralType, WPath, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
+    WBasicType, WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WPartialGeneralType, WPath,
+    WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 
@@ -253,16 +253,16 @@ impl LocalVisitor {
 
             append_stmts.push(WStmt::Assign(WStmtAssign {
                 left: append_ident,
-                right: WExpr::Call(WExprCall {
-                    fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
+                right: WExpr::Call(WExprHighCall::Call(WCall {
+                    fn_path: WPath::new_absolute(
                         &["mck", "forward", "PhiArg", "phi"],
                         append_ident_span,
-                    )),
+                    ),
                     args: vec![
                         WCallArg::Ident(phi_then_ident),
                         WCallArg::Ident(phi_else_ident),
                     ],
-                }),
+                })),
             }));
         }
         let stmt = WStmtIf {
@@ -287,10 +287,12 @@ impl LocalVisitor {
         WStmtAssign { left, right }
     }
 
-    fn process_expr(&mut self, expr: &mut WExpr<WBasicType, WHighLevelCallFunc<WBasicType>>) {
+    fn process_expr(&mut self, expr: &mut WExpr<WBasicType, WExprHighCall<WBasicType>>) {
         match expr {
             WExpr::Move(ident) => self.process_ident(ident),
             WExpr::Call(expr) => {
+                let WExprHighCall::Call(expr) = expr;
+
                 for arg in &mut expr.args {
                     match arg {
                         crate::wir::WCallArg::Ident(ident) => self.process_ident(ident),
@@ -348,13 +350,10 @@ fn create_taken_assign(phi_arg_ident: WIdent, taken_ident: WIdent) -> WStmt<ZSsa
     let span = phi_arg_ident.span();
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
-        right: WExpr::Call(WExprCall {
-            fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
-                &["mck", "forward", "PhiArg", "Taken"],
-                span,
-            )),
+        right: WExpr::Call(WExprHighCall::Call(WCall {
+            fn_path: WPath::new_absolute(&["mck", "forward", "PhiArg", "Taken"], span),
             args: vec![WCallArg::Ident(taken_ident)],
-        }),
+        })),
     })
 }
 
@@ -362,13 +361,10 @@ fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
     let span = phi_arg_ident.span();
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
-        right: WExpr::Call(WExprCall {
-            fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
-                &["mck", "forward", "PhiArg", "NotTaken"],
-                span,
-            )),
+        right: WExpr::Call(WExprHighCall::Call(WCall {
+            fn_path: WPath::new_absolute(&["mck", "forward", "PhiArg", "NotTaken"], span),
             args: vec![],
-        }),
+        })),
     })
 }
 
@@ -404,13 +400,10 @@ fn create_existing_temporary(
         let span = ident.span();
         let assign_stmt = WStmtAssign {
             left: ident.clone(),
-            right: WExpr::Call(WExprCall {
-                fn_path: WHighLevelCallFunc::Call(WPath::new_absolute(
-                    &["mck", "concr", "Phi", "uninit"],
-                    span,
-                )),
+            right: WExpr::Call(WExprHighCall::Call(WCall {
+                fn_path: WPath::new_absolute(&["mck", "concr", "Phi", "uninit"], span),
                 args: vec![],
-            }),
+            })),
         };
         block.stmts.push(WStmt::Assign(assign_stmt));
         temps.insert(ident.clone(), (orig_ident.clone(), ty));

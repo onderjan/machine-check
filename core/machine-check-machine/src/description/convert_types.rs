@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use convert_calls::convert_call_fn_path;
 
 use crate::wir::{
-    WBasicType, WBlock, WCallFunc, WDescription, WElementaryType, WExpr, WExprStruct, WField,
-    WFnArg, WGeneralType, WGeneric, WGenerics, WHighLevelCallFunc, WIdent, WImplItemFn,
+    WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprHighCall,
+    WExprStruct, WField, WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn,
     WImplItemType, WItemImpl, WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature,
     WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
 };
@@ -185,9 +185,9 @@ fn convert_block(
 }
 
 fn convert_expr(
-    expr: WExpr<WBasicType, WHighLevelCallFunc<WBasicType>>,
+    expr: WExpr<WBasicType, WExprHighCall<WBasicType>>,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WExpr<WElementaryType, WCallFunc<WElementaryType>>, Errors> {
+) -> Result<WExpr<WElementaryType, WExprCall<WElementaryType>>, Errors> {
     match expr {
         WExpr::Move(ident) => Ok(WExpr::Move(ident)),
         WExpr::Call(expr_call) => Ok(convert_call_fn_path(expr_call, local_types)?),
