@@ -7,13 +7,17 @@ pub struct ErrorList<E: Error> {
 }
 
 impl<E: Error> ErrorList<E> {
-    pub fn single(error: E) -> Self {
+    pub fn into_errors(self) -> Vec1<E> {
+        self.errors
+    }
+
+    pub(crate) fn single(error: E) -> Self {
         ErrorList {
             errors: Vec1::new(error),
         }
     }
 
-    pub fn iter_to_result(iter: impl IntoIterator<Item = E>) -> Result<(), Self> {
+    pub(crate) fn iter_to_result(iter: impl IntoIterator<Item = E>) -> Result<(), Self> {
         let mut iter = iter.into_iter();
         let Some(first_error) = iter.next() else {
             // no errors
@@ -24,7 +28,7 @@ impl<E: Error> ErrorList<E> {
         Err(Self { errors })
     }
 
-    pub fn combine<T, U>(a: Result<T, Self>, b: Result<U, Self>) -> Result<(T, U), Self> {
+    pub(crate) fn combine<T, U>(a: Result<T, Self>, b: Result<U, Self>) -> Result<(T, U), Self> {
         match (a, b) {
             (Ok(a), Ok(b)) => Ok((a, b)),
             (Err(a), Ok(_)) => Err(a),
@@ -36,7 +40,7 @@ impl<E: Error> ErrorList<E> {
         }
     }
 
-    pub fn combine_and_vec<T, U>(
+    pub(crate) fn combine_and_vec<T, U>(
         a: Result<T, Self>,
         b: Result<U, Self>,
         errors: Vec<E>,
@@ -52,7 +56,7 @@ impl<E: Error> ErrorList<E> {
         Ok((a, b))
     }
 
-    pub fn errors_vec_to_result(errors: Vec<Self>) -> Result<(), Self> {
+    pub(crate) fn errors_vec_to_result(errors: Vec<Self>) -> Result<(), Self> {
         if errors.is_empty() {
             return Ok(());
         }
@@ -71,7 +75,7 @@ impl<E: Error> ErrorList<E> {
         Err(result)
     }
 
-    pub fn vec_result<T>(vec: Vec<Result<T, E>>) -> Result<Vec<T>, Self> {
+    pub(crate) fn vec_result<T>(vec: Vec<Result<T, E>>) -> Result<Vec<T>, Self> {
         let mut ok_result = Vec::new();
         let mut err_result = Vec::new();
         for element in vec {
@@ -83,7 +87,7 @@ impl<E: Error> ErrorList<E> {
         Self::iter_to_result(err_result).map(|_| ok_result)
     }
 
-    pub fn flat_single_result<T>(vec: Vec<Result<T, E>>) -> Result<Vec<T>, Self> {
+    pub(crate) fn flat_single_result<T>(vec: Vec<Result<T, E>>) -> Result<Vec<T>, Self> {
         let vec = vec
             .into_iter()
             .map(|element| element.map_err(|err| Self::single(err)))
@@ -91,7 +95,7 @@ impl<E: Error> ErrorList<E> {
         Self::flat_result(vec)
     }
 
-    pub fn flat_result<T>(vec: Vec<Result<T, Self>>) -> Result<Vec<T>, Self> {
+    pub(crate) fn flat_result<T>(vec: Vec<Result<T, Self>>) -> Result<Vec<T>, Self> {
         let mut ok_result = Vec::new();
         let mut err_result = Vec::new();
         for element in vec {
@@ -103,15 +107,7 @@ impl<E: Error> ErrorList<E> {
         Self::iter_to_result(err_result).map(|_| ok_result)
     }
 
-    pub fn add_error(&mut self, error: E) {
-        self.errors.push(error);
-    }
-
-    pub fn into_errors(self) -> Vec1<E> {
-        self.errors
-    }
-
-    pub fn convert_inner<F: Error>(self) -> ErrorList<F>
+    pub(crate) fn convert_inner<F: Error>(self) -> ErrorList<F>
     where
         E: std::convert::Into<F>,
     {
