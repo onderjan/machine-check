@@ -261,10 +261,6 @@ fn path_start_to_mck_concr(path: WPath<WBasicType>) -> WPath<WBasicType> {
     path_start_to_mck_str("concr", path)
 }
 
-fn path_start_to_mck_forward(path: WPath<WBasicType>) -> WPath<WBasicType> {
-    path_start_to_mck_str("forward", path)
-}
-
 fn path_start_to_mck_str(str: &str, mut path: WPath<WBasicType>) -> WPath<WBasicType> {
     let first_ident = &mut path.segments[0].ident;
     first_ident.set_name(String::from("mck"));

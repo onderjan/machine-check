@@ -20,3 +20,4 @@ quote = "1.0.28"
 prettyplease = "0.2.15"
 thiserror = "1.0.49"
 vec1 = "1.12.1"
+strum = { version = "0.27", features = ["derive"] }

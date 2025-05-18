@@ -1,15 +1,15 @@
 use std::collections::BTreeSet;
 
 use proc_macro2::Span;
-use syn::LitInt;
 
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
         WBasicType, WBlock, WCall, WCallArg, WDescription, WExpr, WExprField, WExprHighCall,
-        WIdent, WImplItemFn, WItemImpl, WMacroableStmt, WPanicResult, WPanicResultType,
-        WPartialGeneralType, WPath, WReference, WSignature, WStmt, WStmtAssign, WStmtIf, WTacLocal,
-        WType, YNonindexed, YTotal, ZNonindexed, ZTotal,
+        WHighMckNew, WIdent, WImplItemFn, WItemImpl, WMacroableStmt, WPanicResult,
+        WPanicResultType, WPartialGeneralType, WPath, WReference, WSignature, WStdBinary,
+        WStdBinaryOp, WStmt, WStmtAssign, WStmtIf, WTacLocal, WType, YNonindexed, YTotal,
+        ZNonindexed, ZTotal,
     },
 };
 
@@ -76,7 +76,7 @@ impl FnConverter<'_> {
         locals.push(create_panic_type_local(panic_ident.clone()));
         locals.push(create_panic_type_local(zero_bitvec_ident.clone()));
 
-        let zero_panic_call = create_panic_call(span, "0");
+        let zero_panic_call = create_panic_call(0);
         let mut stmts = vec![
             WStmt::Assign(WStmtAssign {
                 left: panic_ident,
@@ -155,10 +155,9 @@ impl FnConverter<'_> {
                     .len()
                     .try_into()
                     .expect("The panic message index should fit into u32");
-                let span = Span::call_site();
                 let panic_assign = WStmt::Assign(WStmtAssign {
                     left: self.panic_ident.clone(),
-                    right: create_panic_call(span, message_index_plus_one.to_string().as_str()),
+                    right: create_panic_call(message_index_plus_one.into()),
                 });
 
                 return vec![panic_assign];
@@ -170,8 +169,17 @@ impl FnConverter<'_> {
     fn fold_assign(&mut self, stmt: WStmtAssign<ZNonindexed>) -> Vec<WStmt<ZTotal>> {
         let right = match stmt.right {
             WExpr::Call(expr_call) => {
-                let WExprHighCall::Call(call) = expr_call;
-                return self.fold_fn_call(stmt.left, call.fn_path, call.args);
+                // TODO: convert division and remainder
+                match expr_call {
+                    WExprHighCall::Call(call) => {
+                        // convert calls that are not well-known
+                        return self.fold_fn_call(stmt.left, call.fn_path, call.args);
+                    }
+                    _ => {
+                        // do not convert other well-known calls
+                        WExpr::Call(expr_call)
+                    }
+                }
             }
             WExpr::Move(ident) => WExpr::Move(ident),
             WExpr::Field(expr) => WExpr::Field(expr),
@@ -227,12 +235,10 @@ impl FnConverter<'_> {
         // assign to the panic variable if it is currently zero
         let panic_is_zero_ident = self.ident_creator.create_temporary_ident(span);
 
-        let panic_is_zero_call = WExprHighCall::Call(WCall {
-            fn_path: WPath::new_absolute(&["std", "cmp", "PartialEq", "eq"], span),
-            args: vec![
-                WCallArg::Ident(self.panic_ident.clone()),
-                WCallArg::Ident(self.zero_bitvec_ident.clone()),
-            ],
+        let panic_is_zero_call = WExprHighCall::StdBinary(WStdBinary {
+            op: WStdBinaryOp::Eq,
+            a: self.panic_ident.clone(),
+            b: self.zero_bitvec_ident.clone(),
         });
 
         let panic_is_zero_assign = WStmt::Assign(WStmtAssign {
@@ -265,11 +271,8 @@ impl FnConverter<'_> {
     }
 }
 
-fn create_panic_call(span: Span, int_str: &str) -> WExpr<WBasicType, WExprHighCall<WBasicType>> {
-    WExpr::Call(WExprHighCall::Call(WCall {
-        fn_path: WPath::new_absolute(&["mck", "concr", "Bitvector", "new"], span),
-        args: vec![WCallArg::Literal(syn::Lit::Int(LitInt::new(int_str, span)))],
-    }))
+fn create_panic_call(int_val: i128) -> WExpr<WBasicType, WExprHighCall<WBasicType>> {
+    WExpr::Call(WExprHighCall::MckNew(WHighMckNew::Bitvector(32, int_val)))
 }
 
 fn create_panic_type_local(ident: WIdent) -> WTacLocal<WPartialGeneralType<WBasicType>> {

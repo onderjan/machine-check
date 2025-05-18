@@ -9,7 +9,7 @@ use crate::wir::{
 
 use self::local_visitor::LocalVisitor;
 
-use super::{ErrorType, Error, Errors};
+use super::{Error, ErrorType, Errors};
 
 pub fn infer_types(description: WDescription<YSsa>) -> Result<WDescription<YInferred>, Errors> {
     let mut structs = HashMap::new();
@@ -192,10 +192,7 @@ fn update_local_types(
             }
             None => {
                 // inference failure
-                errors.push(Error::new(
-                    ErrorType::InferenceFailure,
-                    local.ident.span(),
-                ));
+                errors.push(Error::new(ErrorType::InferenceFailure, local.ident.span()));
             }
         }
     }

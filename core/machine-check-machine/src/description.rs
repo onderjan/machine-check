@@ -73,7 +73,7 @@ pub(super) enum ErrorType {
     #[error("machine-check: Could not infer variable type")]
     InferenceFailure,
     #[error("{0}")]
-    TypeConversionError(&'static str),
+    CallConversionError(&'static str),
 }
 
 impl From<Error> for crate::Error {

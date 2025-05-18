@@ -276,31 +276,6 @@ impl FunctionFolder {
         ))
     }
 
-    fn fold_expr_as_path(&mut self, expr: Expr) -> Result<WPath<WBasicType>, Error> {
-        let Expr::Path(expr_path) = expr else {
-            return Err(Error::unsupported_construct(
-                "Non-path expression",
-                expr.span(),
-            ));
-        };
-        if expr_path.qself.is_some() {
-            return Err(Error::unsupported_construct(
-                "Qualified self",
-                expr_path.span(),
-            ));
-        }
-
-        let mut path = fold_path(expr_path.path)?;
-        // convert to local-scoped ident if needed
-        if !path.leading_colon && path.segments.len() == 1 {
-            let ident = &path.segments[0].ident;
-            if let Some(local_ident) = self.lookup_local_ident(ident) {
-                path.segments[0].ident = local_ident.clone();
-            }
-        }
-        Ok(path)
-    }
-
     fn lookup_local_ident(&self, ident: &WIdent) -> Option<&WIdent> {
         for scope in self.scopes.iter().rev() {
             if let Some(local_ident) = scope.local_map.get(ident) {

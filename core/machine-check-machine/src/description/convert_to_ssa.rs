@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::wir::{
-    WBasicType, WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WPartialGeneralType, WPath,
-    WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
+    WBasicType, WBlock, WCall, WCallArg, WExpr, WExprHighCall, WHighMckNew, WIdent,
+    WPartialGeneralType, WPath, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 
@@ -290,18 +290,7 @@ impl LocalVisitor {
     fn process_expr(&mut self, expr: &mut WExpr<WBasicType, WExprHighCall<WBasicType>>) {
         match expr {
             WExpr::Move(ident) => self.process_ident(ident),
-            WExpr::Call(expr) => {
-                let WExprHighCall::Call(expr) = expr;
-
-                for arg in &mut expr.args {
-                    match arg {
-                        crate::wir::WCallArg::Ident(ident) => self.process_ident(ident),
-                        crate::wir::WCallArg::Literal(_) => {
-                            // do nothing
-                        }
-                    }
-                }
-            }
+            WExpr::Call(expr) => self.process_call(expr),
             WExpr::Field(expr) => {
                 // the inner is a field name, do not process it
                 self.process_ident(&mut expr.base);
@@ -325,6 +314,47 @@ impl LocalVisitor {
             WExpr::Lit(_) => {
                 // no idents, do nothing
             }
+        }
+    }
+
+    fn process_call(&mut self, expr: &mut WExprHighCall<WBasicType>) {
+        match expr {
+            WExprHighCall::Call(call) => {
+                for arg in &mut call.args {
+                    match arg {
+                        WCallArg::Ident(ident) => self.process_ident(ident),
+                        WCallArg::Literal(_) => {
+                            // do nothing
+                        }
+                    }
+                }
+            }
+            WExprHighCall::MckNew(call) => {
+                match call {
+                    crate::wir::WHighMckNew::BitvectorArray(_type_array, ident) => {
+                        self.process_ident(ident);
+                    }
+                    WHighMckNew::Bitvector(..)
+                    | WHighMckNew::Unsigned(..)
+                    | WHighMckNew::Signed(..) => {
+                        // do nothing
+                    }
+                }
+            }
+            WExprHighCall::StdUnary(call) => {
+                self.process_ident(&mut call.operand);
+            }
+            WExprHighCall::StdBinary(call) => {
+                self.process_ident(&mut call.a);
+                self.process_ident(&mut call.b);
+            }
+            WExprHighCall::MckExt(call) => {
+                self.process_ident(&mut call.from);
+            }
+            WExprHighCall::StdInto(call) => {
+                self.process_ident(&mut call.from);
+            }
+            WExprHighCall::StdClone(ident) => self.process_ident(ident),
         }
     }
 

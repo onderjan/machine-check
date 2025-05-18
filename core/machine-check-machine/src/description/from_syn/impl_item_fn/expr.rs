@@ -1,16 +1,25 @@
+use std::str::FromStr;
+
 use syn::{
-    spanned::Spanned, Expr, ExprBinary, ExprCall, ExprField, ExprIndex, ExprReference, ExprStruct,
-    ExprUnary, Member,
+    punctuated::Punctuated, spanned::Spanned, token::Comma, Expr, ExprBinary, ExprCall, ExprField,
+    ExprIndex, ExprLit, ExprReference, ExprStruct, ExprUnary, GenericArgument, Lit, Member, Path,
+    PathArguments, PathSegment,
 };
 use syn_path::path;
 
 use crate::{
-    description::{from_syn::path::fold_path, Error, ErrorType},
+    description::{
+        from_syn::{path::fold_path, ty::fold_type},
+        Error, ErrorType,
+    },
     util::{create_expr_call, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBasicType, WCall, WCallArg, WExpr, WExprField, WExprHighCall,
-        WExprReference, WExprStruct, WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt,
-        WStmtAssign, ZTac,
+        WExprReference, WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WHighStdIntoType,
+        WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt, WReference, WStdBinary, WStdBinaryOp,
+        WStdUnary, WStdUnaryOp, WStmtAssign, WType, WTypeArray, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW,
+        MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW,
+        STD_CLONE, STD_INTO,
     },
 };
 
@@ -97,15 +106,366 @@ impl RightExprFolder<'_> {
         &mut self,
         expr_call: ExprCall,
     ) -> Result<WExprHighCall<WBasicType>, Error> {
-        {
-            let fn_path = self.fn_folder.fold_expr_as_path(*expr_call.func)?;
-            let mut args = Vec::new();
-            for arg in expr_call.args {
-                args.push(self.force_call_arg(arg)?);
-            }
-
-            Ok(WExprHighCall::Call(WCall { fn_path, args }))
+        let Expr::Path(expr_path) = &*expr_call.func else {
+            return Err(Error::unsupported_construct(
+                "Non-path function operand",
+                expr_call.span(),
+            ));
+        };
+        if expr_path.qself.is_some() {
+            return Err(Error::unsupported_construct(
+                "Qualified self in function operand",
+                expr_path.span(),
+            ));
         }
+
+        let fn_path = &expr_path.path;
+        let fn_path_span = fn_path.span();
+
+        let mut nongeneric_path_string = if fn_path.leading_colon.is_some() {
+            String::from("::")
+        } else {
+            String::new()
+        };
+
+        let mut first = true;
+
+        for pair in fn_path.segments.pairs() {
+            if first {
+                first = false;
+            } else {
+                nongeneric_path_string += "::";
+            }
+            let segment = pair.into_value();
+            nongeneric_path_string += &segment.ident.to_string();
+        }
+
+        // TODO: generics
+
+        if let Ok(unary_op) = WStdUnaryOp::from_str(&nongeneric_path_string) {
+            return self.create_std_unary(unary_op, fn_path, expr_call.args);
+        }
+        if let Ok(binary_op) = WStdBinaryOp::from_str(&nongeneric_path_string) {
+            return self.create_std_binary(binary_op, fn_path, expr_call.args);
+        }
+        match nongeneric_path_string.as_str() {
+            MCK_HIGH_EXT => {
+                return self.create_mck_ext(fn_path, expr_call.args);
+            }
+            MCK_HIGH_BITVECTOR_NEW
+            | MCK_HIGH_UNSIGNED_NEW
+            | MCK_HIGH_SIGNED_NEW
+            | MCK_HIGH_BITVECTOR_ARRAY_NEW => {
+                return self.create_mck_new(fn_path, expr_call.args);
+            }
+            STD_CLONE => {
+                return self.create_std_clone(fn_path, expr_call.args);
+            }
+            STD_INTO => {
+                return self.create_std_into(fn_path, expr_call.args);
+            }
+            _ => {}
+        }
+
+        let fn_path = fold_path(fn_path.clone())?;
+        // ensure it is not a local-scope ident
+        if !fn_path.leading_colon && fn_path.segments.len() == 1 {
+            let ident = &fn_path.segments[0].ident;
+            if self.fn_folder.lookup_local_ident(ident).is_some() {
+                return Err(Error::unsupported_construct(
+                    "Local ident as function operand",
+                    fn_path_span.span(),
+                ));
+            }
+        }
+        let mut args = Vec::new();
+        for arg in expr_call.args {
+            args.push(self.force_call_arg(arg)?);
+        }
+
+        Ok(WExprHighCall::Call(WCall { fn_path, args }))
+    }
+
+    fn create_std_unary(
+        &mut self,
+        op: WStdUnaryOp,
+        fn_path: &Path,
+        args: Punctuated<Expr, Comma>,
+    ) -> Result<WExprHighCall<WBasicType>, Error> {
+        Self::assure_nongeneric_fn_path(fn_path)?;
+        let operand = self.parse_single_ident_arg(args)?;
+        Ok(WExprHighCall::StdUnary(WStdUnary { op, operand }))
+    }
+
+    fn create_std_binary(
+        &mut self,
+        op: WStdBinaryOp,
+        fn_path: &Path,
+        args: Punctuated<Expr, Comma>,
+    ) -> Result<WExprHighCall<WBasicType>, Error> {
+        Self::assure_nongeneric_fn_path(fn_path)?;
+        let (a, b) = self.parse_two_ident_args(args)?;
+        Ok(WExprHighCall::StdBinary(WStdBinary { op, a, b }))
+    }
+
+    fn create_mck_ext(
+        &mut self,
+        fn_path: &Path,
+        args: Punctuated<Expr, Comma>,
+    ) -> Result<WExprHighCall<WBasicType>, Error> {
+        let mut fn_path = fn_path.clone();
+
+        let second_segment = &mut fn_path.segments[1];
+        let width = Self::parse_single_u32_generics(second_segment)?;
+        second_segment.arguments = syn::PathArguments::None;
+
+        Self::assure_nongeneric_fn_path(&fn_path)?;
+        let from = self.parse_single_ident_arg(args)?;
+        Ok(WExprHighCall::MckExt(WHighMckExt { width, from }))
+    }
+
+    fn create_mck_new(
+        &mut self,
+        fn_path: &Path,
+        args: Punctuated<Expr, Comma>,
+    ) -> Result<WExprHighCall<WBasicType>, Error> {
+        let mut fn_path = fn_path.clone();
+        let second_segment = &mut fn_path.segments[1];
+
+        if second_segment.ident.to_string().as_str() == "BitvectorArray" {
+            // TODO: construct bitvector array as a test
+            let (index_width, element_width) = Self::parse_two_u32_generics(second_segment)?;
+            let fill_ident = self.parse_single_ident_arg(args)?;
+
+            return Ok(WExprHighCall::MckNew(WHighMckNew::BitvectorArray(
+                WTypeArray {
+                    index_width,
+                    element_width,
+                },
+                fill_ident,
+            )));
+        }
+
+        let width = Self::parse_single_u32_generics(second_segment)?;
+        second_segment.arguments = syn::PathArguments::None;
+
+        let value = self.parse_single_const_arg(args)?;
+
+        let kind = match second_segment.ident.to_string().as_str() {
+            "Bitvector" => WHighMckNew::Bitvector(width, value),
+            "Unsigned" => WHighMckNew::Unsigned(width, value),
+            "Signed" => WHighMckNew::Signed(width, value),
+            _ => panic!("Unexpected function path here"),
+        };
+
+        Self::assure_nongeneric_fn_path(&fn_path)?;
+
+        Ok(WExprHighCall::MckNew(kind))
+    }
+
+    fn create_std_into(
+        &mut self,
+        fn_path: &Path,
+        args: Punctuated<Expr, Comma>,
+    ) -> Result<WExprHighCall<WBasicType>, Error> {
+        let mut fn_path = fn_path.clone();
+        let third_segment = &mut fn_path.segments[2];
+
+        let ty = Self::parse_single_type_generics(third_segment)?;
+        third_segment.arguments = syn::PathArguments::None;
+
+        let WReference::None = ty.reference else {
+            return Err(Error::unsupported_construct(
+                "Reference type",
+                third_segment.span(),
+            ));
+        };
+
+        let ty = match ty.inner {
+            WBasicType::Bitvector(width) => WHighStdIntoType::Bitvector(width),
+            WBasicType::Unsigned(width) => WHighStdIntoType::Unsigned(width),
+            WBasicType::Signed(width) => WHighStdIntoType::Signed(width),
+            _ => {
+                return Err(Error::unsupported_construct(
+                    "Non-bitvector type",
+                    third_segment.span(),
+                ))
+            }
+        };
+
+        let from = self.parse_single_ident_arg(args)?;
+        Ok(WExprHighCall::StdInto(WHighStdInto { ty, from }))
+    }
+
+    fn parse_single_u32_generics(segment: &PathSegment) -> Result<u32, Error> {
+        let turbofished = Self::extract_turbofished(segment)?;
+        if turbofished.len() != 1 {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from(
+                    "Exactly one generic argument should be used here",
+                )),
+                segment.span(),
+            ));
+        }
+
+        Self::parse_u32_generic(&turbofished[0])
+    }
+
+    fn parse_two_u32_generics(segment: &PathSegment) -> Result<(u32, u32), Error> {
+        let turbofished = Self::extract_turbofished(segment)?;
+        if turbofished.len() != 2 {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from(
+                    "Exactly 2 generic arguments should be used here",
+                )),
+                segment.span(),
+            ));
+        }
+
+        let first = Self::parse_u32_generic(&turbofished[0])?;
+        let second = Self::parse_u32_generic(&turbofished[1])?;
+        Ok((first, second))
+    }
+
+    fn parse_single_type_generics(segment: &PathSegment) -> Result<WType<WBasicType>, Error> {
+        let turbofished = Self::extract_turbofished(segment)?;
+        if turbofished.len() != 1 {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from(
+                    "Exactly one generic argument should be used here",
+                )),
+                segment.span(),
+            ));
+        }
+
+        let arg = &turbofished[0];
+        let GenericArgument::Type(arg) = arg else {
+            return Err(Error::unsupported_construct(
+                "Non-type generic argument",
+                segment.span(),
+            ));
+        };
+
+        let ty = fold_type(arg.clone())?;
+        Ok(ty)
+    }
+
+    fn extract_turbofished(
+        segment: &PathSegment,
+    ) -> Result<&Punctuated<GenericArgument, Comma>, Error> {
+        let PathArguments::AngleBracketed(generic_args) = &segment.arguments else {
+            return Err(Error::unsupported_construct(
+                "This call without generic argument",
+                segment.span(),
+            ));
+        };
+        if generic_args.colon2_token.is_none() {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from("Turbofish should be used here")),
+                segment.span(),
+            ));
+        }
+        Ok(&generic_args.args)
+    }
+
+    fn parse_u32_generic(arg: &GenericArgument) -> Result<u32, Error> {
+        let GenericArgument::Const(Expr::Lit(ExprLit {
+            lit: Lit::Int(lit_int),
+            ..
+        })) = arg
+        else {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from(
+                    "The generic argument here should be a literal",
+                )),
+                arg.span(),
+            ));
+        };
+
+        let result = lit_int.base10_parse();
+        let Ok(result) = result else {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from(
+                    "The generic argument here should be parseable as u32",
+                )),
+                arg.span(),
+            ));
+        };
+        Ok(result)
+    }
+
+    fn create_std_clone(
+        &mut self,
+        fn_path: &Path,
+        args: Punctuated<Expr, Comma>,
+    ) -> Result<WExprHighCall<WBasicType>, Error> {
+        Self::assure_nongeneric_fn_path(fn_path)?;
+        let ident = self.parse_single_ident_arg(args)?;
+        Ok(WExprHighCall::StdClone(ident))
+    }
+
+    fn parse_single_const_arg(&mut self, args: Punctuated<Expr, Comma>) -> Result<i128, Error> {
+        let span = args.span();
+        if args.len() != 1 {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from("Exactly 1 argument expected")),
+                span,
+            ));
+        };
+        let Expr::Lit(ExprLit {
+            lit: Lit::Int(lit_int),
+            attrs: _attrs,
+        }) = args.into_iter().next().unwrap()
+        else {
+            return Err(Error::unsupported_construct(
+                "Non-integer-literal argument here",
+                span,
+            ));
+        };
+        lit_int.base10_parse().map_err(|_| {
+            Error::new(
+                ErrorType::IllegalConstruct(String::from("Argument not parseable as i128")),
+                span,
+            )
+        })
+    }
+
+    fn parse_single_ident_arg(&mut self, args: Punctuated<Expr, Comma>) -> Result<WIdent, Error> {
+        if args.len() != 1 {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from("Exactly 1 argument expected")),
+                args.span(),
+            ));
+        };
+        self.force_ident(args.into_iter().next().unwrap())
+    }
+
+    fn parse_two_ident_args(
+        &mut self,
+        args: Punctuated<Expr, Comma>,
+    ) -> Result<(WIdent, WIdent), Error> {
+        if args.len() != 2 {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from("Exactly 2 arguments expected")),
+                args.span(),
+            ));
+        };
+        let mut iter = args.into_iter();
+        let a = self.force_ident(iter.next().unwrap())?;
+        let b = self.force_ident(iter.next().unwrap())?;
+        Ok((a, b))
+    }
+
+    fn assure_nongeneric_fn_path(fn_path: &Path) -> Result<(), Error> {
+        for segment in &fn_path.segments {
+            if !segment.arguments.is_none() {
+                return Err(Error::unsupported_construct(
+                    "Unexpected generics",
+                    segment.span(),
+                ));
+            };
+        }
+        Ok(())
     }
 
     fn fold_right_expr_field(&mut self, expr_field: ExprField) -> Result<WExprField, Error> {
