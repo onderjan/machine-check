@@ -11,7 +11,7 @@ use syn::{
 
 use crate::util::extract_path_ident;
 
-use super::{DescriptionErrorType, Error};
+use super::{ErrorType, Error};
 
 pub fn resolve_use(items: &mut [Item]) -> Result<(), Error> {
     // construct the use map first
@@ -90,7 +90,7 @@ fn recurse_use_tree(
         UseTree::Glob(use_glob) => {
             // not supported
             return Err(Error::new(
-                DescriptionErrorType::UnsupportedConstruct("Wildcard use"),
+                ErrorType::UnsupportedConstruct("Wildcard use"),
                 use_glob.span(),
             ));
         }
@@ -98,7 +98,7 @@ fn recurse_use_tree(
 
     if let Some(_previous) = use_map.insert(use_ident.clone(), use_prefix) {
         Err(Error::new(
-            DescriptionErrorType::UnsupportedConstruct("Duplicate use declaration"),
+            ErrorType::UnsupportedConstruct("Duplicate use declaration"),
             use_ident.span(),
         ))
     } else {
@@ -216,7 +216,7 @@ impl VisitMut for Visitor {
         let Pat::Ident(local_pat) = local_pat else {
             if self.result.is_ok() {
                 self.result = Err(Error::new(
-                    DescriptionErrorType::UnsupportedConstruct(
+                    ErrorType::UnsupportedConstruct(
                         "Local pattern that is not ident or typed local",
                     ),
                     local_pat.span(),

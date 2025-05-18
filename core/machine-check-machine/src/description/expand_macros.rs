@@ -7,7 +7,7 @@ use syn::{
 
 use crate::util::path_matches_global_names;
 
-use super::{DescriptionErrorType, Error};
+use super::{Error, ErrorType};
 
 pub struct MacroExpander {}
 
@@ -87,13 +87,9 @@ impl Visitor {
             match machine_check_bitmask_switch::process(::std::mem::take(&mut mac.tokens)) {
                 Ok(ok) => ok,
                 Err(err) => {
-                    return Err(Error::new(
-                        DescriptionErrorType::MacroError(err.msg()),
-                        span,
-                    ));
+                    return Err(Error::new(ErrorType::MacroError(err.msg()), span));
                 }
             };
-        parse2(macro_result)
-            .map_err(|err| Error::new(DescriptionErrorType::MacroParseError(err), span))
+        parse2(macro_result).map_err(|err| Error::new(ErrorType::MacroParseError(err), span))
     }
 }

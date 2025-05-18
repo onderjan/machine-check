@@ -4,7 +4,7 @@ use syn::{
 };
 
 use crate::{
-    description::{attribute_disallower::AttributeDisallower, DescriptionErrorType, Error, Errors},
+    description::{attribute_disallower::AttributeDisallower, ErrorType, Error, Errors},
     wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
 };
 
@@ -36,7 +36,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
 
                     let Ok(parsed) = parser.parse2(meta_tokens) else {
                         return Err(Errors::single(Error::new(
-                            DescriptionErrorType::IllegalConstruct(String::from(
+                            ErrorType::IllegalConstruct(String::from(
                                 "Unparseable derive macro content",
                             )),
                             span,

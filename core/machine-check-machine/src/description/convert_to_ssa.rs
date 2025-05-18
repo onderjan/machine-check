@@ -6,7 +6,7 @@ use crate::wir::{
 };
 use crate::wir::{WCallFunc, WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 
-use super::{DescriptionErrorType, Error, Errors};
+use super::{ErrorType, Error, Errors};
 
 pub fn convert_to_ssa(description: WDescription<YTotal>) -> Result<WDescription<YSsa>, Errors> {
     let mut impls = Vec::new();
@@ -322,7 +322,7 @@ impl LocalVisitor {
             // the variable must be assigned before being used
             let Some(current_counter) = counter.present.last() else {
                 self.errors.push(Error::new(
-                    DescriptionErrorType::IllegalConstruct(String::from(
+                    ErrorType::IllegalConstruct(String::from(
                         "Variable used before being assigned",
                     )),
                     ident.span(),

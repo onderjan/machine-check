@@ -1,7 +1,7 @@
 use syn::{spanned::Spanned, Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
-    description::{from_syn::path::fold_path, DescriptionErrorType, Error},
+    description::{from_syn::path::fold_path, ErrorType, Error},
     wir::{WBasicType, WReference, WType, WTypeArray},
 };
 
@@ -64,7 +64,7 @@ pub fn fold_basic_type(ty: Type) -> Result<WBasicType, Error> {
                             }
                             _ => {
                                 return Err(Error::new(
-                                    DescriptionErrorType::IllegalConstruct(String::from(
+                                    ErrorType::IllegalConstruct(String::from(
                                         "Unknown machine-check type",
                                     )),
                                     ty_span,

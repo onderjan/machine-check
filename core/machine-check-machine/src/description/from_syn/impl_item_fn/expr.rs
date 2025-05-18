@@ -5,7 +5,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    description::{from_syn::path::fold_path, DescriptionErrorType, Error},
+    description::{from_syn::path::fold_path, ErrorType, Error},
     util::{create_expr_call, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBasicType, WCallArg, WExpr, WExprCall, WExprField, WExprReference,
@@ -264,7 +264,7 @@ fn normalize_unary(expr_unary: ExprUnary) -> Result<Expr, Error> {
     let path = match expr_unary.op {
         syn::UnOp::Deref(_) => {
             return Err(Error::new(
-                DescriptionErrorType::UnsupportedConstruct("Dereference"),
+                ErrorType::UnsupportedConstruct("Dereference"),
                 span,
             ))
         }
@@ -272,7 +272,7 @@ fn normalize_unary(expr_unary: ExprUnary) -> Result<Expr, Error> {
         syn::UnOp::Neg(_) => path!(::std::ops::Neg::neg),
         _ => {
             return Err(Error::new(
-                DescriptionErrorType::UnsupportedConstruct("Unary operator"),
+                ErrorType::UnsupportedConstruct("Unary operator"),
                 span,
             ))
         }
@@ -294,13 +294,13 @@ fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, Error> {
         syn::BinOp::Rem(_) => path!(::std::ops::Rem::rem),
         syn::BinOp::And(_) => {
             return Err(Error::new(
-                DescriptionErrorType::UnsupportedConstruct("Short-circuiting AND"),
+                ErrorType::UnsupportedConstruct("Short-circuiting AND"),
                 span,
             ))
         }
         syn::BinOp::Or(_) => {
             return Err(Error::new(
-                DescriptionErrorType::UnsupportedConstruct("Short-circuiting OR"),
+                ErrorType::UnsupportedConstruct("Short-circuiting OR"),
                 span,
             ))
         }
@@ -326,13 +326,13 @@ fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, Error> {
         | syn::BinOp::ShlAssign(_)
         | syn::BinOp::ShrAssign(_) => {
             return Err(Error::new(
-                DescriptionErrorType::UnsupportedConstruct("Assignment operators"),
+                ErrorType::UnsupportedConstruct("Assignment operators"),
                 span,
             ))
         }
         _ => {
             return Err(Error::new(
-                DescriptionErrorType::UnsupportedConstruct("Binary operator"),
+                ErrorType::UnsupportedConstruct("Binary operator"),
                 span,
             ))
         }

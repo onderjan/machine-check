@@ -61,7 +61,7 @@ fn create_description_inner(mut items: Vec<Item>) -> Result<Description, Errors>
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
-pub(super) enum DescriptionErrorType {
+pub(super) enum ErrorType {
     #[error("{0}")]
     MacroError(String),
     #[error("{0}")]
@@ -88,17 +88,17 @@ impl From<Error> for crate::Error {
 #[derive(thiserror::Error, Debug, Clone)]
 #[error("{ty}")]
 pub(super) struct Error {
-    pub ty: DescriptionErrorType,
+    pub ty: ErrorType,
     pub span: Span,
 }
 
 impl Error {
-    pub fn new(ty: DescriptionErrorType, span: Span) -> Self {
+    pub fn new(ty: ErrorType, span: Span) -> Self {
         Self { ty, span }
     }
 
     pub fn unsupported_construct(msg: &'static str, span: Span) -> Self {
-        Self::new(DescriptionErrorType::UnsupportedConstruct(msg), span)
+        Self::new(ErrorType::UnsupportedConstruct(msg), span)
     }
 }
 

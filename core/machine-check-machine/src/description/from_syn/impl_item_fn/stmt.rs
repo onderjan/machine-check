@@ -8,7 +8,7 @@ use syn::{
 use crate::{
     description::{
         from_syn::{impl_item_fn::FunctionScope, ty::fold_type},
-        DescriptionErrorType, Error, Errors,
+        ErrorType, Error, Errors,
     },
     util::{create_expr_ident, path_matches_global_names},
     wir::{
@@ -254,7 +254,7 @@ impl super::FunctionFolder {
             Ok(args) => args,
             Err(err) => {
                 return Err(Errors::single(Error::new(
-                    DescriptionErrorType::MacroParseError(err),
+                    ErrorType::MacroParseError(err),
                     mac.span(),
                 )))
             }
