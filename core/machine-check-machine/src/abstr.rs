@@ -17,13 +17,12 @@ use self::{
 
 use super::MachineError;
 
-pub(crate) fn create_abstract_machine(
-    ssa_machine: &MachineDescription,
+pub(crate) fn create_abstract_description(
+    description: &MachineDescription,
 ) -> Result<MachineDescription, MachineError> {
-    // expecting the concrete machine in SSA form
-    let mut abstract_machine = ssa_machine.clone();
+    let mut abstract_description = description.clone();
     // apply transcription to types using path rule transcriptor
-    match path_rules().apply_to_items(&mut abstract_machine.items) {
+    match path_rules().apply_to_items(&mut abstract_description.items) {
         Ok(()) => {}
         Err(err) => {
             return Err(MachineError::new(
@@ -36,7 +35,7 @@ pub(crate) fn create_abstract_machine(
     let mut machine_types = Vec::new();
     let mut processed_items = Vec::new();
 
-    for item in abstract_machine.items.iter() {
+    for item in abstract_description.items.iter() {
         if let Item::Impl(item_impl) = item {
             if let Some(ty) = preprocess_item_impl(item_impl)? {
                 machine_types.push(ty);
@@ -44,7 +43,7 @@ pub(crate) fn create_abstract_machine(
         }
     }
 
-    for item in abstract_machine.items.drain(..) {
+    for item in abstract_description.items.drain(..) {
         match item {
             syn::Item::Impl(item_impl) => {
                 processed_items.extend(process_item_impl(item_impl, &machine_types)?);
@@ -55,10 +54,10 @@ pub(crate) fn create_abstract_machine(
             _ => panic!("Unexpected item type"),
         }
     }
-    abstract_machine.items = processed_items;
+    abstract_description.items = processed_items;
 
     // add field-manipulate to items
-    manipulate::apply_to_items(&mut abstract_machine.items, ManipulateKind::Abstr);
+    manipulate::apply_to_items(&mut abstract_description.items, ManipulateKind::Abstr);
 
-    Ok(abstract_machine)
+    Ok(abstract_description)
 }

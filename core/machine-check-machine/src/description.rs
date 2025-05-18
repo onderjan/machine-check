@@ -14,11 +14,11 @@ use syn::Item;
 
 use crate::{wir::IntoSyn, MachineDescription, MachineErrors};
 
-pub fn create_ssa_machine(items: Vec<Item>) -> Result<MachineDescription, MachineErrors> {
-    create_ssa_machine_inner(items).map_err(DescriptionErrors::convert_inner)
+pub fn create_description(items: Vec<Item>) -> Result<MachineDescription, MachineErrors> {
+    create_description_inner(items).map_err(DescriptionErrors::convert_inner)
 }
 
-pub(crate) fn create_ssa_machine_inner(
+pub(crate) fn create_description_inner(
     mut items: Vec<Item>,
 ) -> Result<MachineDescription, DescriptionErrors> {
     let mut macro_expander = expand_macros::MacroExpander::new();

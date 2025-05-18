@@ -16,7 +16,7 @@ mod item_struct;
 mod rules;
 mod util;
 
-pub(crate) fn create_refinement_machine(
+pub(crate) fn create_refinement_description(
     abstract_machine: &MachineDescription,
 ) -> Result<MachineDescription, BackwardError> {
     // create items to add to the module

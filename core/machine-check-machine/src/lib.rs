@@ -94,7 +94,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineErrors> {
     #[cfg(feature = "write_machine")]
     let out_dir = out_dir();
 
-    let ssa_machine = description::create_ssa_machine(items.clone())?;
+    let description = description::create_description(items.clone())?;
 
     #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
@@ -102,7 +102,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineErrors> {
             .expect("SSA machine file should be writable");
     }
 
-    let mut abstract_machine = abstr::create_abstract_machine(&ssa_machine)?;
+    let mut abstract_description = abstr::create_abstract_description(&description)?;
 
     #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
@@ -110,18 +110,18 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), MachineErrors> {
             .expect("Abstract machine file should be writable");
     }
 
-    let refinement_machine =
-        refin::create_refinement_machine(&abstract_machine).map_err(MachineError::from)?;
+    let refinement_description =
+        refin::create_refinement_description(&abstract_description).map_err(MachineError::from)?;
 
     // create new module at the end of the file that will contain the refinement
-    let refinement_module = create_machine_module("__mck_mod_refin", refinement_machine);
-    abstract_machine.items.push(refinement_module);
+    let refinement_module = create_machine_module("__mck_mod_refin", refinement_description);
+    abstract_description.items.push(refinement_module);
 
-    support::strip_machine::strip_machine(&mut abstract_machine)?;
+    support::strip_machine::strip_machine(&mut abstract_description)?;
 
-    concr::process_items(items, &ssa_machine.panic_messages)?;
+    concr::process_items(items, &description.panic_messages)?;
 
-    let abstract_module = create_machine_module("__mck_mod_abstr", abstract_machine);
+    let abstract_module = create_machine_module("__mck_mod_abstr", abstract_description);
     items.push(abstract_module);
 
     redirect_mck(items)?;
