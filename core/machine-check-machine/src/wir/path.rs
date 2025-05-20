@@ -31,24 +31,6 @@ pub enum WGeneric<FT: IntoSyn<Type>> {
 }
 
 impl<FT: IntoSyn<Type>> WPath<FT> {
-    /// Returns true if the path is absolute and the segment idents match the given strings.
-    ///
-    /// Does not take generics into account.
-    pub fn matches_absolute(&self, segments: &[&str]) -> bool {
-        if !self.leading_colon {
-            return false;
-        }
-        if self.segments.len() != segments.len() {
-            return false;
-        }
-        for (self_segment, other_segment) in self.segments.iter().zip(segments.iter()) {
-            if self_segment.ident.name != *other_segment {
-                return false;
-            }
-        }
-        true
-    }
-
     /// Returns true if the path is absolute and the segment idents start with the given strings.
     ///
     /// Does not take generics into account.
@@ -83,25 +65,6 @@ impl<FT: IntoSyn<Type>> WPath<FT> {
             }
         }
         true
-    }
-
-    /// Creates a new absolute path from the given segment names with the given span.
-    ///
-    /// There are no generics in the path after creation.
-    pub fn new_absolute(segments: &[&str], span: Span) -> Self {
-        WPath {
-            leading_colon: true,
-            segments: segments
-                .iter()
-                .map(|name| WPathSegment {
-                    ident: WIdent {
-                        name: String::from(*name),
-                        span,
-                    },
-                    generics: None,
-                })
-                .collect(),
-        }
     }
 
     pub fn from_ident(ident: WIdent) -> Self {

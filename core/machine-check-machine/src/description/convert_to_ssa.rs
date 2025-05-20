@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::wir::{
-    WBasicType, WBlock, WCall, WCallArg, WExpr, WExprHighCall, WHighMckNew, WIdent,
-    WPartialGeneralType, WPath, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
+    WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WHighMckNew, WIdent, WPartialGeneralType,
+    WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 
@@ -249,20 +249,10 @@ impl LocalVisitor {
 
             // create temporary after the if that will phi the then and else temporaries
             let append_ident = create_new_temporary(&mut self.temps, ident, else_counter);
-            let append_ident_span = append_ident.span();
 
             append_stmts.push(WStmt::Assign(WStmtAssign {
                 left: append_ident,
-                right: WExpr::Call(WExprHighCall::Call(WCall {
-                    fn_path: WPath::new_absolute(
-                        &["mck", "forward", "PhiArg", "phi"],
-                        append_ident_span,
-                    ),
-                    args: vec![
-                        WCallArg::Ident(phi_then_ident),
-                        WCallArg::Ident(phi_else_ident),
-                    ],
-                })),
+                right: WExpr::Call(WExprHighCall::Phi(phi_then_ident, phi_else_ident)),
             }));
         }
         let stmt = WStmtIf {
@@ -364,6 +354,15 @@ impl LocalVisitor {
                 self.process_ident(&mut write.index);
                 self.process_ident(&mut write.right);
             }
+            WExprHighCall::Phi(a, b) => {
+                self.process_ident(a);
+                self.process_ident(b);
+            }
+            WExprHighCall::PhiTaken(ident) => {
+                self.process_ident(ident);
+            }
+            WExprHighCall::PhiNotTaken => {}
+            WExprHighCall::PhiUninit => {}
         }
     }
 
@@ -386,24 +385,16 @@ impl LocalVisitor {
 }
 
 fn create_taken_assign(phi_arg_ident: WIdent, taken_ident: WIdent) -> WStmt<ZSsa> {
-    let span = phi_arg_ident.span();
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
-        right: WExpr::Call(WExprHighCall::Call(WCall {
-            fn_path: WPath::new_absolute(&["mck", "forward", "PhiArg", "Taken"], span),
-            args: vec![WCallArg::Ident(taken_ident)],
-        })),
+        right: WExpr::Call(WExprHighCall::PhiTaken(taken_ident)),
     })
 }
 
 fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
-    let span = phi_arg_ident.span();
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
-        right: WExpr::Call(WExprHighCall::Call(WCall {
-            fn_path: WPath::new_absolute(&["mck", "forward", "PhiArg", "NotTaken"], span),
-            args: vec![],
-        })),
+        right: WExpr::Call(WExprHighCall::PhiNotTaken),
     })
 }
 
@@ -436,13 +427,9 @@ fn create_existing_temporary(
     } else {
         let ident = orig_ident.mck_prefixed(&format!("uninit_{}", *uninit_counter));
         *uninit_counter += 1;
-        let span = ident.span();
         let assign_stmt = WStmtAssign {
             left: ident.clone(),
-            right: WExpr::Call(WExprHighCall::Call(WCall {
-                fn_path: WPath::new_absolute(&["mck", "concr", "Phi", "uninit"], span),
-                args: vec![],
-            })),
+            right: WExpr::Call(WExprHighCall::PhiUninit),
         };
         block.stmts.push(WStmt::Assign(assign_stmt));
         temps.insert(ident.clone(), (orig_ident.clone(), ty));

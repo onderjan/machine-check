@@ -24,6 +24,10 @@ impl super::FnInferrer<'_> {
             WExprHighCall::StdClone(from) => self.infer_clone(from)?,
             WExprHighCall::ArrayRead(read) => self.infer_array_read(read),
             WExprHighCall::ArrayWrite(write) => self.infer_array_write(write),
+            WExprHighCall::Phi(_, _)
+            | WExprHighCall::PhiTaken(_)
+            | WExprHighCall::PhiNotTaken
+            | WExprHighCall::PhiUninit => WPartialGeneralType::Unknown,
         })
     }
 
