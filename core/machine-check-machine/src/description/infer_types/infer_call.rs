@@ -7,18 +7,18 @@ use crate::{
 };
 
 impl super::FnInferrer<'_> {
-    pub(super) fn infer_call_result_type(
+    pub fn infer_call_result_type(
         &mut self,
         expr_call: &WExprHighCall<WBasicType>,
-    ) -> WPartialGeneralType<WBasicType> {
-        match expr_call {
+    ) -> Result<WPartialGeneralType<WBasicType>, Error> {
+        Ok(match expr_call {
             WExprHighCall::Call(call) => {
                 // TODO: array read and write in the type system
                 if let Some(result) = skip_unknown(self.infer_array_read(call)) {
-                    return result;
+                    return Ok(result);
                 }
                 if let Some(result) = skip_unknown(self.infer_array_write(call)) {
-                    return result;
+                    return Ok(result);
                 }
                 WPartialGeneralType::Unknown
             }
@@ -27,10 +27,10 @@ impl super::FnInferrer<'_> {
             WExprHighCall::MckExt(call) => self.infer_ext(call),
             WExprHighCall::MckNew(call) => self.infer_new(call),
             WExprHighCall::StdInto(call) => self.infer_into(call),
-            WExprHighCall::StdClone(from) => self.infer_clone(from),
+            WExprHighCall::StdClone(from) => self.infer_clone(from)?,
             //WExprHighCall::ArrayRead(call) => self.infer_array_read(call),
             //WExprHighCall::ArrayWrite(call) => self.infer_array_write(call),
-        }
+        })
     }
 
     fn infer_unary(&mut self, call: &WStdUnary) -> WPartialGeneralType<WBasicType> {
@@ -104,22 +104,21 @@ impl super::FnInferrer<'_> {
         )
     }
 
-    fn infer_clone(&mut self, from: &WIdent) -> WPartialGeneralType<WBasicType> {
+    fn infer_clone(&mut self, from: &WIdent) -> Result<WPartialGeneralType<WBasicType>, Error> {
         let Some(WPartialGeneralType::Normal(from_type)) = self.local_ident_types.get(from) else {
-            return WPartialGeneralType::Unknown;
+            return Ok(WPartialGeneralType::Unknown);
         };
         // the argument type is a reference, dereference it
 
         if matches!(from_type.reference, WReference::None) {
-            self.push_error(Error::new(
+            return Err(Error::new(
                 ErrorType::UnsupportedConstruct("Clone first argument not being a reference"),
                 from.span(),
             ));
-            return WPartialGeneralType::Unknown;
         }
         let mut result_type = from_type.clone();
         result_type.reference = WReference::None;
-        WPartialGeneralType::Normal(result_type)
+        Ok(WPartialGeneralType::Normal(result_type))
     }
 
     fn infer_array_read(&mut self, call: &WCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
@@ -181,17 +180,16 @@ impl super::FnInferrer<'_> {
         call: &WCall<WBasicType>,
         arg_index: usize,
         num_args: usize,
-    ) -> Result<Option<&'a WType<WBasicType>>, ()> {
+    ) -> Result<Option<&'a WType<WBasicType>>, Error> {
         assert!(arg_index < num_args);
         if num_args != call.args.len() {
-            self.push_error(Error::new(
+            return Err(Error::new(
                 ErrorType::IllegalConstruct(format!(
                     "Call must have exactly {} arguments",
                     call.args.len()
                 )),
                 call.span(),
             ));
-            return Err(());
         }
         let arg = &call.args[arg_index];
         let WCallArg::Ident(arg_ident) = arg else {

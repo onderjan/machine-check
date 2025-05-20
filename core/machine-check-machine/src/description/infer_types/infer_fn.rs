@@ -1,36 +1,45 @@
-use core::panic;
-
-use crate::wir::{
-    WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn,
-    WPartialGeneralType, WReference, WStmtAssign, WType, YSsa, ZSsa,
+use crate::{
+    description::Errors,
+    wir::{
+        WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn,
+        WPartialGeneralType, WReference, WStmtAssign, WType, YSsa, ZSsa,
+    },
 };
 
 impl super::FnInferrer<'_> {
-    pub fn process_impl_item_fn(&mut self, impl_item: &WImplItemFn<YSsa>) {
-        self.process_block(&impl_item.block);
+    pub fn process_impl_item_fn(&mut self, impl_item: &WImplItemFn<YSsa>) -> Result<bool, Errors> {
+        self.process_block(&impl_item.block)
     }
 
-    fn process_block(&mut self, block: &WBlock<ZSsa>) {
+    fn process_block(&mut self, block: &WBlock<ZSsa>) -> Result<bool, Errors> {
+        let mut inferred_something = false;
         for stmt in &block.stmts {
             match stmt {
                 crate::wir::WStmt::Assign(stmt) => {
-                    self.process_assign(stmt);
+                    if self.process_assign(stmt)? {
+                        inferred_something = true;
+                    }
                 }
                 crate::wir::WStmt::If(stmt) => {
-                    // TODO: handle condition
-                    self.process_block(&stmt.then_block);
-                    self.process_block(&stmt.else_block);
+                    // TODO: handle condition for type inference
+                    if self.process_block(&stmt.then_block)? {
+                        inferred_something = true;
+                    }
+                    if self.process_block(&stmt.else_block)? {
+                        inferred_something = true;
+                    }
                 }
             }
         }
+        Ok(inferred_something)
     }
 
-    fn process_assign(&mut self, assign: &WStmtAssign<ZSsa>) {
+    fn process_assign(&mut self, assign: &WStmtAssign<ZSsa>) -> Result<bool, Errors> {
         let left_ident = &assign.left;
 
         let Some(ty) = self.local_ident_types.get_mut(left_ident) else {
             // not a local ident, skip
-            return;
+            return Ok(false);
         };
 
         // check whether the left type has already a determined left type
@@ -52,12 +61,12 @@ impl super::FnInferrer<'_> {
                     }
                 }
             }
-            return;
+            return Ok(false);
         }
 
         let inferred_type = match &assign.right {
             WExpr::Move(right_ident) => self.infer_move_result_type(right_ident),
-            WExpr::Call(right_call) => self.infer_call_result_type(right_call),
+            WExpr::Call(right_call) => self.infer_call_result_type(right_call)?,
             WExpr::Field(right_field) => self.infer_field_result_type(right_field),
             WExpr::Reference(right_reference) => self.infer_reference_result_type(right_reference),
             WExpr::Struct(right_struct) => WPartialGeneralType::Normal(WType {
@@ -75,9 +84,11 @@ impl super::FnInferrer<'_> {
             let mut_ty = self.local_ident_types.get_mut(left_ident).unwrap();
             if !mut_ty.is_fully_determined() {
                 *mut_ty = inferred_type;
-                self.inferred_something = true;
+                // we have inferred something, force inference to continue
+                return Ok(true);
             }
         }
+        Ok(false)
     }
 
     fn infer_move_result_type(&self, right_ident: &WIdent) -> WPartialGeneralType<WBasicType> {
