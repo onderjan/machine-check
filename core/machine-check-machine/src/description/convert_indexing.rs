@@ -3,10 +3,10 @@ use proc_macro2::Span;
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WArrayBaseExpr, WBasicType, WBlock, WCall, WCallArg, WDescription, WExpr, WExprField,
-        WExprHighCall, WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl,
-        WMacroableStmt, WPath, WSignature, WStmtAssign, WStmtIf, WTacLocal, YNonindexed, YTac,
-        ZNonindexed, ZTac,
+        WArrayBaseExpr, WArrayRead, WArrayWrite, WBasicType, WBlock, WDescription, WExpr,
+        WExprField, WExprHighCall, WExprReference, WIdent, WImplItemFn, WIndexedExpr,
+        WIndexedIdent, WItemImpl, WMacroableStmt, WSignature, WStmtAssign, WStmtIf, WTacLocal,
+        YNonindexed, YTac, ZNonindexed, ZTac,
     },
 };
 
@@ -126,12 +126,9 @@ impl IndexingConverter {
                 }));
 
                 // the read call consumes the reference and index
-                let read_call = crate::wir::WExprHighCall::Call(WCall {
-                    fn_path: WPath::new_absolute(&["mck", "forward", "ReadWrite", "read"], span),
-                    args: vec![
-                        WCallArg::Ident(array_ref_ident),
-                        WCallArg::Ident(right_index),
-                    ],
+                let read_call = crate::wir::WExprHighCall::ArrayRead(WArrayRead {
+                    base: array_ref_ident,
+                    index: right_index,
                 });
 
                 WExpr::Call(read_call)
@@ -158,16 +155,10 @@ impl IndexingConverter {
                 // the base is let through
 
                 let write_call: crate::wir::WExprHighCall<WBasicType> =
-                    WExprHighCall::Call(WCall {
-                        fn_path: WPath::new_absolute(
-                            &["mck", "forward", "ReadWrite", "write"],
-                            span,
-                        ),
-                        args: vec![
-                            WCallArg::Ident(array_ref_ident),
-                            WCallArg::Ident(left_index),
-                            WCallArg::Ident(right),
-                        ],
+                    WExprHighCall::ArrayWrite(WArrayWrite {
+                        base: array_ref_ident,
+                        index: left_index,
+                        right,
                     });
                 (left_array, WExpr::Call(write_call))
             }

@@ -355,6 +355,15 @@ impl LocalVisitor {
                 self.process_ident(&mut call.from);
             }
             WExprHighCall::StdClone(ident) => self.process_ident(ident),
+            WExprHighCall::ArrayRead(read) => {
+                self.process_ident(&mut read.base);
+                self.process_ident(&mut read.index);
+            }
+            WExprHighCall::ArrayWrite(write) => {
+                self.process_ident(&mut write.base);
+                self.process_ident(&mut write.index);
+                self.process_ident(&mut write.right);
+            }
         }
     }
 

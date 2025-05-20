@@ -16,6 +16,8 @@ pub enum WExprHighCall<FT: IntoSyn<Type>> {
     MckNew(WHighMckNew),
     StdInto(WHighStdInto),
     StdClone(WIdent),
+    ArrayRead(WArrayRead),
+    ArrayWrite(WArrayWrite),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -26,6 +28,8 @@ pub enum WExprCall<FT: IntoSyn<Type>> {
     MckExt(WMckExt),
     MckNew(WMckNew),
     StdClone(WIdent),
+    ArrayRead(WArrayRead),
+    ArrayWrite(WArrayWrite),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -195,6 +199,18 @@ pub enum WHighStdIntoType {
     Signed(u32),
 }
 
+#[derive(Clone, Debug, Hash)]
+pub struct WArrayRead {
+    pub base: WIdent,
+    pub index: WIdent,
+}
+#[derive(Clone, Debug, Hash)]
+pub struct WArrayWrite {
+    pub base: WIdent,
+    pub index: WIdent,
+    pub right: WIdent,
+}
+
 pub const MCK_HIGH_EXT: &str = "::machine_check::Ext::ext";
 pub const MCK_HIGH_BITVECTOR_NEW: &str = "::machine_check::Bitvector::new";
 pub const MCK_HIGH_UNSIGNED_NEW: &str = "::machine_check::Unsigned::new";
@@ -209,17 +225,13 @@ pub const MCK_BITVECTOR_ARRAY_NEW: &str = "::mck::concr::Array::new_filled";
 pub const STD_CLONE: &str = "::std::clone::Clone::clone";
 pub const STD_INTO: &str = "::std::convert::Into::into";
 
+pub const ARRAY_READ: &str = "::mck::forward::ReadWrite::read";
+pub const ARRAY_WRITE: &str = "::mck::forward::ReadWrite::write";
+
 #[derive(Clone, Debug, Hash)]
 pub struct WCall<FT: IntoSyn<Type>> {
     pub fn_path: WPath<FT>,
     pub args: Vec<WCallArg>,
-}
-
-impl<FT: IntoSyn<Type>> WCall<FT> {
-    pub fn span(&self) -> Span {
-        // TODO: correct span
-        self.fn_path.span()
-    }
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -279,6 +291,20 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExprCall<FT> {
             WExprCall::StdClone(from) => {
                 (String::from(STD_CLONE), vec![WCallArg::Ident(from)], None)
             }
+            WExprCall::ArrayRead(read) => (
+                String::from(ARRAY_READ),
+                vec![WCallArg::Ident(read.base), WCallArg::Ident(read.index)],
+                None,
+            ),
+            WExprCall::ArrayWrite(write) => (
+                String::from(ARRAY_WRITE),
+                vec![
+                    WCallArg::Ident(write.base),
+                    WCallArg::Ident(write.index),
+                    WCallArg::Ident(write.right),
+                ],
+                None,
+            ),
         };
         construct_call(fn_operand, args, generics)
     }
@@ -335,6 +361,18 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExprHighCall<FT> {
                 (String::from(STD_INTO), vec![WCallArg::Ident(call.from)])
             }
             WExprHighCall::StdClone(from) => (String::from(STD_CLONE), vec![WCallArg::Ident(from)]),
+            WExprHighCall::ArrayRead(read) => (
+                String::from(ARRAY_READ),
+                vec![WCallArg::Ident(read.base), WCallArg::Ident(read.index)],
+            ),
+            WExprHighCall::ArrayWrite(write) => (
+                String::from(ARRAY_WRITE),
+                vec![
+                    WCallArg::Ident(write.base),
+                    WCallArg::Ident(write.index),
+                    WCallArg::Ident(write.right),
+                ],
+            ),
         };
         construct_call(fn_operand, args, None)
     }

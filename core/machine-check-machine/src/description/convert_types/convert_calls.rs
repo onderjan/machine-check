@@ -23,6 +23,8 @@ pub fn convert_call_fn_path(
         WExprHighCall::MckNew(call) => WExprCall::MckNew(convert_mck_new(call)),
         WExprHighCall::StdInto(call) => return Ok(WExpr::Move(call.from)),
         WExprHighCall::StdClone(ident) => WExprCall::StdClone(ident),
+        WExprHighCall::ArrayRead(read) => WExprCall::ArrayRead(read),
+        WExprHighCall::ArrayWrite(write) => WExprCall::ArrayWrite(write),
     }))
 }
 

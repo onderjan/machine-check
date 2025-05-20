@@ -1,8 +1,8 @@
 use crate::{
     description::{Error, ErrorType},
     wir::{
-        WBasicType, WCall, WCallArg, WExprHighCall, WHighMckExt, WHighMckNew, WHighStdInto,
-        WHighStdIntoType, WIdent, WPartialGeneralType, WReference, WStdBinary, WStdUnary, WType,
+        WArrayRead, WArrayWrite, WBasicType, WExprHighCall, WHighMckExt, WHighMckNew, WHighStdInto,
+        WHighStdIntoType, WIdent, WPartialGeneralType, WReference, WStdBinary, WStdUnary,
     },
 };
 
@@ -12,14 +12,8 @@ impl super::FnInferrer<'_> {
         expr_call: &WExprHighCall<WBasicType>,
     ) -> Result<WPartialGeneralType<WBasicType>, Error> {
         Ok(match expr_call {
-            WExprHighCall::Call(call) => {
-                // TODO: array read and write in the type system
-                if let Some(result) = skip_unknown(self.infer_array_read(call)) {
-                    return Ok(result);
-                }
-                if let Some(result) = skip_unknown(self.infer_array_write(call)) {
-                    return Ok(result);
-                }
+            WExprHighCall::Call(_) => {
+                // no inference for general calls yet
                 WPartialGeneralType::Unknown
             }
             WExprHighCall::StdUnary(call) => self.infer_unary(call),
@@ -28,8 +22,8 @@ impl super::FnInferrer<'_> {
             WExprHighCall::MckNew(call) => self.infer_new(call),
             WExprHighCall::StdInto(call) => self.infer_into(call),
             WExprHighCall::StdClone(from) => self.infer_clone(from)?,
-            //WExprHighCall::ArrayRead(call) => self.infer_array_read(call),
-            //WExprHighCall::ArrayWrite(call) => self.infer_array_write(call),
+            WExprHighCall::ArrayRead(read) => self.infer_array_read(read),
+            WExprHighCall::ArrayWrite(write) => self.infer_array_write(write),
         })
     }
 
@@ -121,44 +115,38 @@ impl super::FnInferrer<'_> {
         Ok(WPartialGeneralType::Normal(result_type))
     }
 
-    fn infer_array_read(&mut self, call: &WCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
-        let fn_path = &call.fn_path;
-        if !fn_path.matches_absolute(&["mck", "forward", "ReadWrite", "read"]) {
-            return WPartialGeneralType::Unknown;
-        }
-        // infer from first argument which should be a reference to the array
-        let Ok(Some(arg_type)) = self.get_normal_arg_type(call, 0, 2) else {
+    fn infer_array_read(&mut self, read: &WArrayRead) -> WPartialGeneralType<WBasicType> {
+        // infer from the reference to the array
+        let Some(WPartialGeneralType::Normal(array_type)) = self.local_ident_types.get(&read.base)
+        else {
             return WPartialGeneralType::Unknown;
         };
         // the argument type is a reference to the array, construct the bitvector type
-        if matches!(arg_type.reference, WReference::None) {
+        if matches!(array_type.reference, WReference::None) {
             // array read reference argument is produced internally, so this is an internal error
             panic!("First argument of array read should be a reference");
         }
 
-        let WBasicType::BitvectorArray(type_array) = &arg_type.inner else {
+        let WBasicType::BitvectorArray(array_type) = &array_type.inner else {
             // unexpected type, do not infer
             return WPartialGeneralType::Unknown;
         };
-        WPartialGeneralType::Normal(WBasicType::Bitvector(type_array.element_width).into_type())
+        WPartialGeneralType::Normal(WBasicType::Bitvector(array_type.element_width).into_type())
     }
 
-    fn infer_array_write(&mut self, call: &WCall<WBasicType>) -> WPartialGeneralType<WBasicType> {
-        let fn_path = &call.fn_path;
-        if !fn_path.matches_absolute(&["mck", "forward", "ReadWrite", "write"]) {
-            return WPartialGeneralType::Unknown;
-        }
-        // infer from first argument which should be a reference to the array
-        let Ok(Some(arg_type)) = self.get_normal_arg_type(call, 0, 3) else {
+    fn infer_array_write(&mut self, write: &WArrayWrite) -> WPartialGeneralType<WBasicType> {
+        // infer from the reference to the array
+        let Some(WPartialGeneralType::Normal(array_type)) = self.local_ident_types.get(&write.base)
+        else {
             return WPartialGeneralType::Unknown;
         };
         // the argument type is a reference to the array, construct the bitvector type
-        if matches!(arg_type.reference, WReference::None) {
+        if matches!(array_type.reference, WReference::None) {
             // array write reference argument is produced internally, so this is an internal error
             panic!("First argument of array read should be a reference");
         }
         // array write returns the array, just dereferenced
-        WPartialGeneralType::Normal(arg_type.inner.clone().into_type())
+        WPartialGeneralType::Normal(array_type.inner.clone().into_type())
     }
 
     fn infer_same_args(&mut self, args: &[&WIdent]) -> WPartialGeneralType<WBasicType> {
@@ -173,42 +161,5 @@ impl super::FnInferrer<'_> {
         }
 
         WPartialGeneralType::Unknown
-    }
-
-    fn get_normal_arg_type<'a>(
-        &'a mut self,
-        call: &WCall<WBasicType>,
-        arg_index: usize,
-        num_args: usize,
-    ) -> Result<Option<&'a WType<WBasicType>>, Error> {
-        assert!(arg_index < num_args);
-        if num_args != call.args.len() {
-            return Err(Error::new(
-                ErrorType::IllegalConstruct(format!(
-                    "Call must have exactly {} arguments",
-                    call.args.len()
-                )),
-                call.span(),
-            ));
-        }
-        let arg = &call.args[arg_index];
-        let WCallArg::Ident(arg_ident) = arg else {
-            // TODO: this should not be a panic as it is not internal
-            panic!("Call argument should be ident");
-        };
-        let result = self.local_ident_types.get(arg_ident);
-        Ok(if let Some(WPartialGeneralType::Normal(result)) = result {
-            Some(result)
-        } else {
-            None
-        })
-    }
-}
-
-fn skip_unknown(ty: WPartialGeneralType<WBasicType>) -> Option<WPartialGeneralType<WBasicType>> {
-    if let WPartialGeneralType::Unknown = ty {
-        None
-    } else {
-        Some(ty)
     }
 }
