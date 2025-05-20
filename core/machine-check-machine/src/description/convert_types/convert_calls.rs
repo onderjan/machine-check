@@ -3,18 +3,18 @@ use std::collections::BTreeMap;
 use crate::{
     description::{Error, ErrorType},
     wir::{
-        WBasicType, WCall, WElementaryType, WExpr, WExprCall, WExprHighCall, WGeneralType,
-        WHighMckExt, WHighMckNew, WIdent, WMckBinary, WMckBinaryOp, WMckExt, WMckNew, WMckUnary,
-        WMckUnaryOp, WStdBinary, WStdBinaryOp, WStdUnary, WStdUnaryOp,
+        WBasicType, WCall, WExpr, WExprCall, WExprHighCall, WGeneralType, WHighMckExt, WHighMckNew,
+        WIdent, WMckBinary, WMckBinaryOp, WMckExt, WMckNew, WMckUnary, WMckUnaryOp, WStdBinary,
+        WStdBinaryOp, WStdUnary, WStdUnaryOp,
     },
 };
 
 use super::convert_basic_path;
 
 pub fn convert_call_fn_path(
-    call: WExprHighCall<WBasicType>,
+    call: WExprHighCall,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WExpr<WElementaryType, WExprCall<WElementaryType>>, Error> {
+) -> Result<WExpr<WExprCall>, Error> {
     Ok(WExpr::Call(match call {
         WExprHighCall::Call(call) => WExprCall::Call(convert_call(call)),
         WExprHighCall::StdUnary(call) => WExprCall::MckUnary(convert_unary(call)),
@@ -32,7 +32,7 @@ pub fn convert_call_fn_path(
     }))
 }
 
-fn convert_call(call: WCall<WBasicType>) -> WCall<WElementaryType> {
+fn convert_call(call: WCall) -> WCall {
     let fn_path = convert_basic_path(call.fn_path);
     WCall {
         fn_path,

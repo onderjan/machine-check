@@ -198,7 +198,7 @@ impl FnConverter<'_> {
     fn fold_fn_call(
         &mut self,
         original_left: WIdent,
-        fn_path: WPath<WBasicType>,
+        fn_path: WPath,
         args: Vec<WCallArg>,
     ) -> Vec<WStmt<ZTotal>> {
         if fn_path.starts_with_absolute(&["mck"])
@@ -271,7 +271,7 @@ impl FnConverter<'_> {
     }
 }
 
-fn create_panic_call(int_val: i128) -> WExpr<WBasicType, WExprHighCall<WBasicType>> {
+fn create_panic_call(int_val: i128) -> WExpr<WExprHighCall> {
     WExpr::Call(WExprHighCall::MckNew(WHighMckNew::Bitvector(32, int_val)))
 }
 

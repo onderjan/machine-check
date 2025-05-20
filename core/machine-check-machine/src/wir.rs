@@ -65,7 +65,7 @@ impl ZAssignTypes for ZTac {
     type Stmt = WMacroableStmt<ZTac>;
     type FundamentalType = WBasicType;
     type AssignLeft = WIndexedIdent;
-    type AssignRight = WIndexedExpr<WBasicType, WExprHighCall<WBasicType>>;
+    type AssignRight = WIndexedExpr<WExprHighCall>;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -75,7 +75,7 @@ impl ZAssignTypes for ZNonindexed {
     type Stmt = WMacroableStmt<ZNonindexed>;
     type FundamentalType = WBasicType;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WBasicType, WExprHighCall<WBasicType>>;
+    type AssignRight = WExpr<WExprHighCall>;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -85,7 +85,7 @@ impl ZAssignTypes for ZTotal {
     type Stmt = WStmt<ZTotal>;
     type FundamentalType = WBasicType;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WBasicType, WExprHighCall<WBasicType>>;
+    type AssignRight = WExpr<WExprHighCall>;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -95,7 +95,7 @@ impl ZAssignTypes for ZSsa {
     type Stmt = WStmt<ZSsa>;
     type FundamentalType = WBasicType;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WBasicType, WExprHighCall<WBasicType>>;
+    type AssignRight = WExpr<WExprHighCall>;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -105,7 +105,7 @@ impl ZAssignTypes for ZConverted {
     type Stmt = WStmt<ZConverted>;
     type FundamentalType = WElementaryType;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WElementaryType, WExprCall<WElementaryType>>;
+    type AssignRight = WExpr<WExprCall>;
 }
 
 pub trait YStage {

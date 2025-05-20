@@ -206,7 +206,6 @@ impl FunctionFolder {
                         leading_colon: false,
                         segments: vec![WPathSegment {
                             ident: WIdent::new(String::from("Self"), receiver_span),
-                            generics: None,
                         }],
                     }),
                 };

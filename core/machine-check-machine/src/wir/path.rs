@@ -1,36 +1,20 @@
 use proc_macro2::Span;
 use std::hash::Hash;
-use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, ExprPath,
-    GenericArgument, Ident, Lit, LitInt, Path, PathArguments, PathSegment, Token, Type,
-};
+use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment, Token};
 
-use super::{IntoSyn, WType};
+use super::IntoSyn;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WPath<FT: IntoSyn<Type>> {
+pub struct WPath {
     pub leading_colon: bool,
-    pub segments: Vec<WPathSegment<FT>>,
+    pub segments: Vec<WPathSegment>,
 }
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WPathSegment<FT: IntoSyn<Type>> {
+pub struct WPathSegment {
     pub ident: WIdent,
-    pub generics: Option<WGenerics<FT>>,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WGenerics<FT: IntoSyn<Type>> {
-    pub leading_colon: bool,
-    pub inner: Vec<WGeneric<FT>>,
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WGeneric<FT: IntoSyn<Type>> {
-    Type(WType<FT>),
-    Const(u32),
-}
-
-impl<FT: IntoSyn<Type>> WPath<FT> {
+impl WPath {
     /// Returns true if the path is absolute and the segment idents start with the given strings.
     ///
     /// Does not take generics into account.
@@ -70,10 +54,7 @@ impl<FT: IntoSyn<Type>> WPath<FT> {
     pub fn from_ident(ident: WIdent) -> Self {
         WPath {
             leading_colon: false,
-            segments: vec![WPathSegment {
-                ident,
-                generics: None,
-            }],
+            segments: vec![WPathSegment { ident }],
         }
     }
 
@@ -93,8 +74,8 @@ impl<FT: IntoSyn<Type>> WPath<FT> {
     }
 }
 
-impl<FT: IntoSyn<Type>> From<WPath<FT>> for Path {
-    fn from(path: WPath<FT>) -> Self {
+impl From<WPath> for Path {
+    fn from(path: WPath) -> Self {
         let span = Span::call_site();
         Path {
             leading_colon: if path.leading_colon {
@@ -103,36 +84,9 @@ impl<FT: IntoSyn<Type>> From<WPath<FT>> for Path {
                 None
             },
 
-            segments: Punctuated::from_iter(path.segments.into_iter().map(|segment| {
-                let arguments = match segment.generics {
-                    Some(generics) => {
-                        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                            colon2_token: if generics.leading_colon {
-                                Some(Token![::](span))
-                            } else {
-                                None
-                            },
-                            lt_token: Token![<](span),
-                            args: Punctuated::from_iter(generics.inner.into_iter().map(
-                                |generic| match generic {
-                                    WGeneric::Type(ty) => GenericArgument::Type(ty.into_syn()),
-                                    WGeneric::Const(value) => {
-                                        GenericArgument::Const(Expr::Lit(ExprLit {
-                                            attrs: Vec::new(),
-                                            lit: Lit::Int(LitInt::new(&value.to_string(), span)),
-                                        }))
-                                    }
-                                },
-                            )),
-                            gt_token: Token![>](span),
-                        })
-                    }
-                    None => PathArguments::None,
-                };
-                PathSegment {
-                    ident: segment.ident.into(),
-                    arguments,
-                }
+            segments: Punctuated::from_iter(path.segments.into_iter().map(|segment| PathSegment {
+                ident: segment.ident.into(),
+                arguments: PathArguments::None,
             })),
         }
     }
@@ -168,7 +122,7 @@ impl WIdent {
         }
     }
 
-    pub fn into_path<FT: IntoSyn<Type>>(self) -> WPath<FT> {
+    pub fn into_path(self) -> WPath {
         WPath::from_ident(self)
     }
 

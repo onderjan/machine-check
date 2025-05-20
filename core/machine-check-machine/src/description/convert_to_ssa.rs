@@ -277,7 +277,7 @@ impl LocalVisitor {
         WStmtAssign { left, right }
     }
 
-    fn process_expr(&mut self, expr: &mut WExpr<WBasicType, WExprHighCall<WBasicType>>) {
+    fn process_expr(&mut self, expr: &mut WExpr<WExprHighCall>) {
         match expr {
             WExpr::Move(ident) => self.process_ident(ident),
             WExpr::Call(expr) => self.process_call(expr),
@@ -307,7 +307,7 @@ impl LocalVisitor {
         }
     }
 
-    fn process_call(&mut self, expr: &mut WExprHighCall<WBasicType>) {
+    fn process_call(&mut self, expr: &mut WExprHighCall) {
         match expr {
             WExprHighCall::Call(call) => {
                 for arg in &mut call.args {

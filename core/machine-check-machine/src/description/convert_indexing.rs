@@ -3,10 +3,10 @@ use proc_macro2::Span;
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WArrayBaseExpr, WArrayRead, WArrayWrite, WBasicType, WBlock, WDescription, WExpr,
-        WExprField, WExprHighCall, WExprReference, WIdent, WImplItemFn, WIndexedExpr,
-        WIndexedIdent, WItemImpl, WMacroableStmt, WSignature, WStmtAssign, WStmtIf, WTacLocal,
-        YNonindexed, YTac, ZNonindexed, ZTac,
+        WArrayBaseExpr, WArrayRead, WArrayWrite, WBlock, WDescription, WExpr, WExprField,
+        WExprHighCall, WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl,
+        WMacroableStmt, WSignature, WStmtAssign, WStmtIf, WTacLocal, YNonindexed, YTac,
+        ZNonindexed, ZTac,
     },
 };
 
@@ -154,12 +154,11 @@ impl IndexingConverter {
 
                 // the base is let through
 
-                let write_call: crate::wir::WExprHighCall<WBasicType> =
-                    WExprHighCall::ArrayWrite(WArrayWrite {
-                        base: array_ref_ident,
-                        index: left_index,
-                        right,
-                    });
+                let write_call = WExprHighCall::ArrayWrite(WArrayWrite {
+                    base: array_ref_ident,
+                    index: left_index,
+                    right,
+                });
                 (left_array, WExpr::Call(write_call))
             }
             WIndexedIdent::NonIndexed(left) => (left, right),
@@ -172,7 +171,7 @@ impl IndexingConverter {
     fn force_move(
         &mut self,
         stmts: &mut Vec<WMacroableStmt<ZNonindexed>>,
-        expr: WExpr<WBasicType, WExprHighCall<WBasicType>>,
+        expr: WExpr<WExprHighCall>,
     ) -> WIdent {
         let span = Span::call_site();
         match expr {

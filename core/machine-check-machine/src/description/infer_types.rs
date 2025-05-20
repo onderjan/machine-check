@@ -52,10 +52,10 @@ pub fn infer_types(description: WDescription<YSsa>) -> Result<WDescription<YInfe
 
 fn infer_fn_types(
     mut impl_item_fn: WImplItemFn<YSsa>,
-    structs: &HashMap<WPath<WBasicType>, WItemStruct<WBasicType>>,
-    self_path: &WPath<WBasicType>,
+    structs: &HashMap<WPath, WItemStruct<WBasicType>>,
+    self_path: &WPath,
 ) -> Result<WImplItemFn<YInferred>, Errors> {
-    fn convert_self(ty: &mut WType<WBasicType>, self_path: &WPath<WBasicType>) {
+    fn convert_self(ty: &mut WType<WBasicType>, self_path: &WPath) {
         if let WBasicType::Path(path) = &mut ty.inner {
             if path.matches_relative(&["Self"]) {
                 *path = self_path.clone();
@@ -99,7 +99,7 @@ fn infer_fn_types(
 
 struct FnInferrer<'a> {
     local_ident_types: HashMap<WIdent, WPartialGeneralType<WBasicType>>,
-    structs: &'a HashMap<WPath<WBasicType>, WItemStruct<WBasicType>>,
+    structs: &'a HashMap<WPath, WItemStruct<WBasicType>>,
 }
 
 impl FnInferrer<'_> {

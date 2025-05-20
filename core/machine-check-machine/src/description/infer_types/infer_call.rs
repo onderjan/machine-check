@@ -9,7 +9,7 @@ use crate::{
 impl super::FnInferrer<'_> {
     pub fn infer_call_result_type(
         &mut self,
-        expr_call: &WExprHighCall<WBasicType>,
+        expr_call: &WExprHighCall,
     ) -> Result<WPartialGeneralType<WBasicType>, Error> {
         Ok(match expr_call {
             WExprHighCall::Call(_) => {

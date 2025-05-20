@@ -4,7 +4,7 @@ use syn::{
 };
 
 use crate::{
-    description::{attribute_disallower::AttributeDisallower, ErrorType, Error, Errors},
+    description::{attribute_disallower::AttributeDisallower, Error, ErrorType, Errors},
     wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
 };
 
@@ -203,7 +203,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
     })
 }
 
-pub fn fold_impl_item_type(impl_item: ImplItemType) -> Result<WImplItemType<WBasicType>, Error> {
+pub fn fold_impl_item_type(impl_item: ImplItemType) -> Result<WImplItemType, Error> {
     let span = impl_item.span();
 
     // TODO: visibility

@@ -1,18 +1,15 @@
 use proc_macro2::Span;
-use syn::{
-    punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, LitInt, Type,
-};
+use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, LitInt};
 
 use crate::util::create_expr_ident;
 
 use super::{
-    IntoSyn, WBasicType, WGeneric, WIdent, WMckBinary, WMckUnary, WPath, WPathSegment, WStdBinary,
-    WStdUnary, WTypeArray,
+    IntoSyn, WIdent, WMckBinary, WMckUnary, WPath, WPathSegment, WStdBinary, WStdUnary, WTypeArray,
 };
 
 #[derive(Clone, Debug, Hash)]
-pub enum WExprHighCall<FT: IntoSyn<Type>> {
-    Call(WCall<FT>),
+pub enum WExprHighCall {
+    Call(WCall),
     StdUnary(WStdUnary),
     StdBinary(WStdBinary),
     MckExt(WHighMckExt),
@@ -28,8 +25,8 @@ pub enum WExprHighCall<FT: IntoSyn<Type>> {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub enum WExprCall<FT: IntoSyn<Type>> {
-    Call(WCall<FT>),
+pub enum WExprCall {
+    Call(WCall),
     MckUnary(WMckUnary),
     MckBinary(WMckBinary),
     MckExt(WMckExt),
@@ -127,8 +124,8 @@ pub const PHI_NOT_TAKEN: &str = "::mck::forward::PhiArg::NotTaken";
 pub const PHI_UNINIT: &str = "::mck::concr::Phi::uninit";
 
 #[derive(Clone, Debug, Hash)]
-pub struct WCall<FT: IntoSyn<Type>> {
-    pub fn_path: WPath<FT>,
+pub struct WCall {
+    pub fn_path: WPath,
     pub args: Vec<WCallArg>,
 }
 
@@ -138,22 +135,21 @@ pub enum WCallArg {
     Literal(Lit),
 }
 
-impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExprCall<FT> {
+impl IntoSyn<Expr> for WExprCall {
     fn into_syn(self) -> Expr {
         // TODO: generics into syn
         let span = Span::call_site();
-        let (fn_operand, args, generics) = match self {
+        let (fn_operand, args) = match self {
             WExprCall::Call(call) => return call.into_syn(),
             WExprCall::MckUnary(call) => {
                 let operation = call.op.to_string();
-                (operation, vec![WCallArg::Ident(call.operand)], None)
+                (operation, vec![WCallArg::Ident(call.operand)])
             }
             WExprCall::MckBinary(call) => {
                 let operation = call.op.to_string();
                 (
                     operation,
                     vec![WCallArg::Ident(call.a), WCallArg::Ident(call.b)],
-                    None,
                 )
             }
             WExprCall::MckExt(call) => (
@@ -163,36 +159,24 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExprCall<FT> {
                     String::from(MCK_UEXT)
                 },
                 vec![WCallArg::Ident(call.from)],
-                Some((2, vec![WGeneric::Const(call.width)])),
             ),
             WExprCall::MckNew(call) => match call {
-                WMckNew::BitvectorArray(type_array, ident) => (
+                WMckNew::BitvectorArray(_type_array, ident) => (
                     String::from(MCK_BITVECTOR_ARRAY_NEW),
                     vec![WCallArg::Ident(ident)],
-                    Some((
-                        1,
-                        vec![
-                            WGeneric::Const(type_array.index_width),
-                            WGeneric::Const(type_array.element_width),
-                        ],
-                    )),
                 ),
-                WMckNew::Bitvector(width, constant) => (
+                WMckNew::Bitvector(_width, constant) => (
                     String::from(MCK_BITVECTOR_NEW),
                     vec![WCallArg::Literal(Lit::Int(LitInt::new(
                         constant.to_string().as_str(),
                         span,
                     )))],
-                    Some((1, vec![WGeneric::Const(width)])),
                 ),
             },
-            WExprCall::StdClone(from) => {
-                (String::from(STD_CLONE), vec![WCallArg::Ident(from)], None)
-            }
+            WExprCall::StdClone(from) => (String::from(STD_CLONE), vec![WCallArg::Ident(from)]),
             WExprCall::ArrayRead(read) => (
                 String::from(ARRAY_READ),
                 vec![WCallArg::Ident(read.base), WCallArg::Ident(read.index)],
-                None,
             ),
             WExprCall::ArrayWrite(write) => (
                 String::from(ARRAY_WRITE),
@@ -201,24 +185,20 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExprCall<FT> {
                     WCallArg::Ident(write.index),
                     WCallArg::Ident(write.right),
                 ],
-                None,
             ),
             WExprCall::Phi(a, b) => (
                 String::from(PHI),
                 vec![WCallArg::Ident(a), WCallArg::Ident(b)],
-                None,
             ),
-            WExprCall::PhiTaken(ident) => {
-                (String::from(PHI_TAKEN), vec![WCallArg::Ident(ident)], None)
-            }
-            WExprCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![], None),
-            WExprCall::PhiUninit => (String::from(PHI_UNINIT), vec![], None),
+            WExprCall::PhiTaken(ident) => (String::from(PHI_TAKEN), vec![WCallArg::Ident(ident)]),
+            WExprCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
+            WExprCall::PhiUninit => (String::from(PHI_UNINIT), vec![]),
         };
-        construct_call(fn_operand, args, generics)
+        construct_call(fn_operand, args)
     }
 }
 
-impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExprHighCall<FT> {
+impl IntoSyn<Expr> for WExprHighCall {
     fn into_syn(self) -> Expr {
         // TODO: generics into syn
         let span = Span::call_site();
@@ -291,11 +271,11 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WExprHighCall<FT> {
             WExprHighCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
             WExprHighCall::PhiUninit => (String::from(PHI_UNINIT), vec![]),
         };
-        construct_call(fn_operand, args, None)
+        construct_call(fn_operand, args)
     }
 }
 
-impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WCall<FT> {
+impl IntoSyn<Expr> for WCall {
     fn into_syn(self) -> Expr {
         let path = self.fn_path.into();
 
@@ -320,31 +300,19 @@ impl<FT: IntoSyn<Type>> IntoSyn<Expr> for WCall<FT> {
     }
 }
 
-fn construct_call(
-    fn_operand: String,
-    args: Vec<WCallArg>,
-    _generics: Option<(usize, Vec<WGeneric<WBasicType>>)>,
-) -> Expr {
+fn construct_call(fn_operand: String, args: Vec<WCallArg>) -> Expr {
     let span = Span::call_site();
 
     // construct the WPath
     let without_leading = fn_operand
         .strip_prefix("::")
         .expect("Special function operand should have a leading prefix");
-    let segments: Vec<WPathSegment<WBasicType>> = without_leading
+    let segments: Vec<WPathSegment> = without_leading
         .split("::")
         .map(|segment| WPathSegment {
             ident: WIdent::new(String::from(segment), span),
-            generics: None,
         })
         .collect();
-
-    /*if let Some((generics_position, generics_vec)) = generics {
-        segments[generics_position].generics = Some(WGenerics {
-            leading_colon: true,
-            inner: generics_vec,
-        })
-    }*/
 
     WCall {
         fn_path: WPath {

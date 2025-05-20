@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::{
     token::{Brace, Bracket},
-    Expr, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, FieldValue, Lit, Token, Type,
+    Expr, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, FieldValue, Lit, Token,
 };
 
 use crate::util::create_expr_ident;
@@ -9,11 +9,11 @@ use crate::util::create_expr_ident;
 use super::{IntoSyn, WIdent, WPath};
 
 #[derive(Clone, Debug, Hash)]
-pub enum WExpr<FT: IntoSyn<Type>, CF: IntoSyn<Expr>> {
+pub enum WExpr<CF: IntoSyn<Expr>> {
     Move(WIdent),
     Call(CF),
     Field(WExprField),
-    Struct(WExprStruct<FT>),
+    Struct(WExprStruct),
     Reference(WExprReference),
     Lit(Lit),
 }
@@ -25,8 +25,8 @@ pub struct WExprField {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WExprStruct<FT: IntoSyn<Type>> {
-    pub type_path: WPath<FT>,
+pub struct WExprStruct {
+    pub type_path: WPath,
     pub fields: Vec<(WIdent, WIdent)>,
 }
 
@@ -37,9 +37,9 @@ pub enum WExprReference {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub enum WIndexedExpr<FT: IntoSyn<Type>, CF: IntoSyn<Expr>> {
+pub enum WIndexedExpr<CF: IntoSyn<Expr>> {
     Indexed(WArrayBaseExpr, WIdent),
-    NonIndexed(WExpr<FT, CF>),
+    NonIndexed(WExpr<CF>),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -54,7 +54,7 @@ pub enum WIndexedIdent {
     NonIndexed(WIdent),
 }
 
-impl<FT: IntoSyn<Type>, CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<FT, CF> {
+impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<CF> {
     fn into_syn(self) -> Expr {
         let span = Span::call_site();
         match self {
@@ -113,7 +113,7 @@ impl<FT: IntoSyn<Type>, CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<FT, CF> {
     }
 }
 
-impl<FT: IntoSyn<Type>, CF: IntoSyn<Expr>> IntoSyn<Expr> for WIndexedExpr<FT, CF> {
+impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WIndexedExpr<CF> {
     fn into_syn(self) -> Expr {
         match self {
             WIndexedExpr::Indexed(array, index) => {

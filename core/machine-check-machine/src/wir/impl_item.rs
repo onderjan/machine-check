@@ -13,9 +13,9 @@ use crate::util::{create_expr_path, create_path_from_ident};
 use super::{IntoSyn, WBlock, WIdent, WPath, WReference, WType, YStage, ZAssignTypes};
 
 #[derive(Clone, Debug, Hash)]
-pub struct WImplItemType<FT: IntoSyn<Type>> {
+pub struct WImplItemType {
     pub left_ident: WIdent,
-    pub right_path: WPath<FT>,
+    pub right_path: WPath,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -53,7 +53,7 @@ pub struct WSsaLocal<LT: IntoSyn<Type>> {
     pub ty: LT,
 }
 
-impl<FT: IntoSyn<Type>> IntoSyn<ImplItemType> for WImplItemType<FT> {
+impl IntoSyn<ImplItemType> for WImplItemType {
     fn into_syn(self) -> ImplItemType {
         let span = Span::call_site();
 

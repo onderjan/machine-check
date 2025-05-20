@@ -7,12 +7,12 @@ use syn::{
     MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
 };
 
-use super::{IntoSyn, WIdent, WImplItemFn, WImplItemType, WPath, YStage, ZAssignTypes};
+use super::{IntoSyn, WIdent, WImplItemFn, WImplItemType, WPath, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemStruct<FT: IntoSyn<Type>> {
     pub visibility: WVisibility,
-    pub derives: Vec<WPath<FT>>,
+    pub derives: Vec<WPath>,
     pub ident: WIdent,
     pub fields: Vec<WField<FT>>,
 }
@@ -31,10 +31,10 @@ pub struct WField<FT: IntoSyn<Type>> {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemImpl<Y: YStage> {
-    pub self_ty: WPath<<Y::AssignTypes as ZAssignTypes>::FundamentalType>,
-    pub trait_: Option<WPath<<Y::AssignTypes as ZAssignTypes>::FundamentalType>>,
+    pub self_ty: WPath,
+    pub trait_: Option<WPath>,
     pub impl_item_fns: Vec<WImplItemFn<Y>>,
-    pub impl_item_types: Vec<WImplItemType<<Y::AssignTypes as ZAssignTypes>::FundamentalType>>,
+    pub impl_item_types: Vec<WImplItemType>,
 }
 
 impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {

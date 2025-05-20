@@ -14,7 +14,7 @@ pub enum WBasicType {
     Unsigned(u32),
     Signed(u32),
     Boolean,
-    Path(WPath<WBasicType>),
+    Path(WPath),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -22,7 +22,7 @@ pub enum WElementaryType {
     Bitvector(u32),
     Array(WTypeArray),
     Boolean,
-    Path(WPath<WElementaryType>),
+    Path(WPath),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -47,12 +47,6 @@ impl WBasicType {
             reference: WReference::None,
             inner: self,
         }
-    }
-}
-
-impl<FT: IntoSyn<Type>> WType<FT> {
-    pub fn into_general(self) -> WGeneralType<FT> {
-        WGeneralType::Normal(self)
     }
 }
 

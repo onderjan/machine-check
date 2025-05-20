@@ -30,7 +30,7 @@ impl super::FunctionFolder {
         &mut self,
         expr: Expr,
         stmts: &mut Vec<WMacroableStmt<ZTac>>,
-    ) -> Result<WIndexedExpr<WBasicType, WExprHighCall<WBasicType>>, Error> {
+    ) -> Result<WIndexedExpr<WExprHighCall>, Error> {
         RightExprFolder {
             fn_folder: self,
             stmts,
@@ -73,10 +73,7 @@ struct RightExprFolder<'a> {
 }
 
 impl RightExprFolder<'_> {
-    pub fn fold_right_expr(
-        &mut self,
-        expr: Expr,
-    ) -> Result<WIndexedExpr<WBasicType, WExprHighCall<WBasicType>>, Error> {
+    pub fn fold_right_expr(&mut self, expr: Expr) -> Result<WIndexedExpr<WExprHighCall>, Error> {
         let expr_span = expr.span();
         Ok(match expr {
             Expr::Call(expr_call) => {
@@ -102,10 +99,7 @@ impl RightExprFolder<'_> {
         })
     }
 
-    fn fold_right_expr_call(
-        &mut self,
-        expr_call: ExprCall,
-    ) -> Result<WExprHighCall<WBasicType>, Error> {
+    fn fold_right_expr_call(&mut self, expr_call: ExprCall) -> Result<WExprHighCall, Error> {
         let Expr::Path(expr_path) = &*expr_call.func else {
             return Err(Error::unsupported_construct(
                 "Non-path function operand",
@@ -191,7 +185,7 @@ impl RightExprFolder<'_> {
         op: WStdUnaryOp,
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
-    ) -> Result<WExprHighCall<WBasicType>, Error> {
+    ) -> Result<WExprHighCall, Error> {
         Self::assure_nongeneric_fn_path(fn_path)?;
         let operand = self.parse_single_ident_arg(args)?;
         Ok(WExprHighCall::StdUnary(WStdUnary { op, operand }))
@@ -202,7 +196,7 @@ impl RightExprFolder<'_> {
         op: WStdBinaryOp,
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
-    ) -> Result<WExprHighCall<WBasicType>, Error> {
+    ) -> Result<WExprHighCall, Error> {
         Self::assure_nongeneric_fn_path(fn_path)?;
         let (a, b) = self.parse_two_ident_args(args)?;
         Ok(WExprHighCall::StdBinary(WStdBinary { op, a, b }))
@@ -212,7 +206,7 @@ impl RightExprFolder<'_> {
         &mut self,
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
-    ) -> Result<WExprHighCall<WBasicType>, Error> {
+    ) -> Result<WExprHighCall, Error> {
         let mut fn_path = fn_path.clone();
 
         let second_segment = &mut fn_path.segments[1];
@@ -228,7 +222,7 @@ impl RightExprFolder<'_> {
         &mut self,
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
-    ) -> Result<WExprHighCall<WBasicType>, Error> {
+    ) -> Result<WExprHighCall, Error> {
         let mut fn_path = fn_path.clone();
         let second_segment = &mut fn_path.segments[1];
 
@@ -267,7 +261,7 @@ impl RightExprFolder<'_> {
         &mut self,
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
-    ) -> Result<WExprHighCall<WBasicType>, Error> {
+    ) -> Result<WExprHighCall, Error> {
         let mut fn_path = fn_path.clone();
         let third_segment = &mut fn_path.segments[2];
 
@@ -398,7 +392,7 @@ impl RightExprFolder<'_> {
         &mut self,
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
-    ) -> Result<WExprHighCall<WBasicType>, Error> {
+    ) -> Result<WExprHighCall, Error> {
         Self::assure_nongeneric_fn_path(fn_path)?;
         let ident = self.parse_single_ident_arg(args)?;
         Ok(WExprHighCall::StdClone(ident))
@@ -474,10 +468,7 @@ impl RightExprFolder<'_> {
         Ok(WExprField { base, member })
     }
 
-    fn fold_right_expr_struct(
-        &mut self,
-        expr_struct: ExprStruct,
-    ) -> Result<WExprStruct<WBasicType>, Error> {
+    fn fold_right_expr_struct(&mut self, expr_struct: ExprStruct) -> Result<WExprStruct, Error> {
         if expr_struct.qself.is_some() {
             return Err(Error::unsupported_construct(
                 "Quantified self",
@@ -531,7 +522,7 @@ impl RightExprFolder<'_> {
     fn fold_right_expr_index(
         &mut self,
         expr_index: ExprIndex,
-    ) -> Result<WIndexedExpr<WBasicType, WExprHighCall<WBasicType>>, Error> {
+    ) -> Result<WIndexedExpr<WExprHighCall>, Error> {
         let array_base = match *expr_index.expr {
             Expr::Path(expr_path) => {
                 WArrayBaseExpr::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path))?)

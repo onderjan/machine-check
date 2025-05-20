@@ -4,9 +4,9 @@ use convert_calls::convert_call_fn_path;
 
 use crate::wir::{
     WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprHighCall,
-    WExprStruct, WField, WFnArg, WGeneralType, WGeneric, WGenerics, WIdent, WImplItemFn,
-    WImplItemType, WItemImpl, WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature,
-    WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
+    WExprStruct, WField, WFnArg, WGeneralType, WIdent, WImplItemFn, WImplItemType, WItemImpl,
+    WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt, WStmtAssign,
+    WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
 };
 
 use super::Errors;
@@ -185,9 +185,9 @@ fn convert_block(
 }
 
 fn convert_expr(
-    expr: WExpr<WBasicType, WExprHighCall<WBasicType>>,
+    expr: WExpr<WExprHighCall>,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WExpr<WElementaryType, WExprCall<WElementaryType>>, Errors> {
+) -> Result<WExpr<WExprCall>, Errors> {
     match expr {
         WExpr::Move(ident) => Ok(WExpr::Move(ident)),
         WExpr::Call(expr_call) => Ok(convert_call_fn_path(expr_call, local_types)?),
@@ -200,32 +200,8 @@ fn convert_expr(
         WExpr::Lit(lit) => Ok(WExpr::Lit(lit)),
     }
 }
-fn convert_basic_path(path: WPath<WBasicType>) -> WPath<WElementaryType> {
-    let path = rewrite_basic_path(path);
-    WPath {
-        leading_colon: path.leading_colon,
-        segments: path
-            .segments
-            .into_iter()
-            .map(|segment| WPathSegment {
-                ident: segment.ident,
-                generics: segment.generics.map(|generics| WGenerics {
-                    leading_colon: generics.leading_colon,
-                    inner: generics
-                        .inner
-                        .into_iter()
-                        .map(|generic| match generic {
-                            WGeneric::Type(ty) => WGeneric::Type(convert_type(ty)),
-                            WGeneric::Const(c) => WGeneric::Const(c),
-                        })
-                        .collect(),
-                }),
-            })
-            .collect(),
-    }
-}
 
-fn rewrite_basic_path(path: WPath<WBasicType>) -> WPath<WBasicType> {
+fn convert_basic_path(path: WPath) -> WPath {
     if path.starts_with_absolute(&["machine_check", "Bitvector"])
         || path.starts_with_absolute(&["machine_check", "Unsigned"])
         || path.starts_with_absolute(&["machine_check", "Signed"])
@@ -257,11 +233,11 @@ fn rewrite_basic_path(path: WPath<WBasicType>) -> WPath<WBasicType> {
     path
 }
 
-fn path_start_to_mck_concr(path: WPath<WBasicType>) -> WPath<WBasicType> {
+fn path_start_to_mck_concr(path: WPath) -> WPath {
     path_start_to_mck_str("concr", path)
 }
 
-fn path_start_to_mck_str(str: &str, mut path: WPath<WBasicType>) -> WPath<WBasicType> {
+fn path_start_to_mck_str(str: &str, mut path: WPath) -> WPath {
     let first_ident = &mut path.segments[0].ident;
     first_ident.set_name(String::from("mck"));
     let first_ident_span = first_ident.span();
@@ -269,7 +245,6 @@ fn path_start_to_mck_str(str: &str, mut path: WPath<WBasicType>) -> WPath<WBasic
         1,
         WPathSegment {
             ident: WIdent::new(String::from(str), first_ident_span),
-            generics: None,
         },
     );
     path
