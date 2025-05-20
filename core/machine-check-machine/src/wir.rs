@@ -1,6 +1,7 @@
 use std::{fmt::Debug, hash::Hash};
 use syn::{Expr, File, Item, ItemImpl, Local, Stmt, Type};
 
+mod call;
 mod expr;
 mod impl_item;
 mod item;
@@ -8,6 +9,7 @@ mod path;
 mod stmt;
 mod ty;
 
+pub use call::*;
 pub use expr::*;
 pub use impl_item::*;
 pub use item::*;
