@@ -64,6 +64,17 @@ pub enum WPartialGeneralType<FT: IntoSyn<Type>> {
     PhiArg(Option<WType<FT>>),
 }
 
+impl WPartialGeneralType<WBasicType> {
+    pub fn is_fully_determined(&self) -> bool {
+        match &self {
+            WPartialGeneralType::Unknown => false,
+            WPartialGeneralType::Normal(_) => true,
+            WPartialGeneralType::PanicResult(inner) => inner.is_some(),
+            WPartialGeneralType::PhiArg(inner) => inner.is_some(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WReference {
     Immutable,

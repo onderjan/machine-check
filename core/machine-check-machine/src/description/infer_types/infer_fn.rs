@@ -1,46 +1,31 @@
 use core::panic;
-use std::collections::HashMap;
 
-use crate::{
-    description::Error,
-    wir::{
-        WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn, WItemStruct,
-        WPartialGeneralType, WPath, WReference, WStmtAssign, WType, YSsa, ZSsa,
-    },
+use crate::wir::{
+    WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn,
+    WPartialGeneralType, WReference, WStmtAssign, WType, YSsa, ZSsa,
 };
 
-use super::is_type_fully_specified;
-
-mod infer_call;
-
-pub struct LocalVisitor<'a> {
-    pub local_ident_types: HashMap<WIdent, WPartialGeneralType<WBasicType>>,
-    pub structs: &'a HashMap<WPath<WBasicType>, WItemStruct<WBasicType>>,
-    pub result: Result<(), Error>,
-    pub inferred_something: bool,
-}
-
-impl LocalVisitor<'_> {
-    pub fn visit_impl_item_fn(&mut self, impl_item: &WImplItemFn<YSsa>) {
-        self.visit_block(&impl_item.block);
+impl super::FnInferrer<'_> {
+    pub fn process_impl_item_fn(&mut self, impl_item: &WImplItemFn<YSsa>) {
+        self.process_block(&impl_item.block);
     }
 
-    fn visit_block(&mut self, block: &WBlock<ZSsa>) {
+    fn process_block(&mut self, block: &WBlock<ZSsa>) {
         for stmt in &block.stmts {
             match stmt {
                 crate::wir::WStmt::Assign(stmt) => {
-                    self.visit_assign(stmt);
+                    self.process_assign(stmt);
                 }
                 crate::wir::WStmt::If(stmt) => {
                     // TODO: handle condition
-                    self.visit_block(&stmt.then_block);
-                    self.visit_block(&stmt.else_block);
+                    self.process_block(&stmt.then_block);
+                    self.process_block(&stmt.else_block);
                 }
             }
         }
     }
 
-    fn visit_assign(&mut self, assign: &WStmtAssign<ZSsa>) {
+    fn process_assign(&mut self, assign: &WStmtAssign<ZSsa>) {
         let left_ident = &assign.left;
 
         let Some(ty) = self.local_ident_types.get_mut(left_ident) else {
@@ -49,7 +34,7 @@ impl LocalVisitor<'_> {
         };
 
         // check whether the left type has already a determined left type
-        if is_type_fully_specified(ty) {
+        if ty.is_fully_determined() {
             // we already have determined left type
             // try to infer PanicResult type if it is field base
 
@@ -88,16 +73,10 @@ impl LocalVisitor<'_> {
         // add inferred type
         if matches!(inferred_type, WPartialGeneralType::Normal(_)) {
             let mut_ty = self.local_ident_types.get_mut(left_ident).unwrap();
-            if !is_type_fully_specified(mut_ty) {
+            if !mut_ty.is_fully_determined() {
                 *mut_ty = inferred_type;
                 self.inferred_something = true;
             }
-        }
-    }
-
-    fn push_error(&mut self, error: Error) {
-        if self.result.is_ok() {
-            self.result = Err(error);
         }
     }
 

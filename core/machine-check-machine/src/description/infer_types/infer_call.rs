@@ -1,12 +1,12 @@
 use crate::{
-    description::{infer_types::is_type_fully_specified, Error, ErrorType},
+    description::{Error, ErrorType},
     wir::{
         WBasicType, WCall, WCallArg, WExprHighCall, WHighMckExt, WHighMckNew, WHighStdInto,
         WHighStdIntoType, WIdent, WPartialGeneralType, WReference, WStdBinary, WStdUnary, WType,
     },
 };
 
-impl super::LocalVisitor<'_> {
+impl super::FnInferrer<'_> {
     pub(super) fn infer_call_result_type(
         &mut self,
         expr_call: &WExprHighCall<WBasicType>,
@@ -167,7 +167,7 @@ impl super::LocalVisitor<'_> {
         for arg in args {
             let arg_type = self.local_ident_types.get(arg);
             if let Some(arg_type) = arg_type {
-                if is_type_fully_specified(arg_type) {
+                if arg_type.is_fully_determined() {
                     return arg_type.clone();
                 }
             }
