@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use super::Bitvector;
+use crate::bitvector::wrap_interval::abstr::Bitvector;
 use crate::{bitvector::concrete::ConcreteBitvector, forward::HwArith};
 
 macro_rules! uni_op_test {
@@ -9,6 +9,7 @@ macro_rules! uni_op_test {
 
         #[test]
         pub fn $op~L() {
+            use $crate::bitvector::wrap_interval::abstr::Bitvector;
             let abstr_func = |a: Bitvector<L>| a.$op();
             let concr_func = |a: ConcreteBitvector<L>| a.$op();
             $crate::bitvector::wrap_interval::abstr::tests::op::exec_uni_check(abstr_func, concr_func);
@@ -23,6 +24,7 @@ macro_rules! ext_op_test {
             seq_macro::seq!(X in 0..=4 {
                 #[test]
                 pub fn $op~L~X() {
+                    use $crate::bitvector::wrap_interval::abstr::Bitvector;
                     let abstr_func =
                         |a: Bitvector<L>| -> Bitvector<X> { a.$op() };
                     let concr_func = |a: ConcreteBitvector<L>| -> ConcreteBitvector<X> { a.$op() };
@@ -40,6 +42,7 @@ macro_rules! bi_op_test {
 
         #[test]
         pub fn $op~L() {
+            use $crate::bitvector::wrap_interval::abstr::Bitvector;
             let abstr_func = |a: Bitvector<L>, b: Bitvector<L>| ::std::convert::Into::into(a.$op(b));
             let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| ::std::convert::Into::into(a.$op(b));
             $crate::bitvector::wrap_interval::abstr::tests::op::exec_bi_check(abstr_func, concr_func, $exact);

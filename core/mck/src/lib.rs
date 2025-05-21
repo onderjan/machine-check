@@ -36,6 +36,14 @@ pub mod refin {
 #[doc(hidden)]
 pub mod forward {
     pub use super::traits::forward::*;
+
+    // TODO: select the forward types generically
+
+    pub use super::array::abstr::*;
+    pub use super::bitvector::abstr::*;
+    pub use super::boolean::abstr::*;
+    pub use super::panic::abstr::*;
+    pub use super::traits::abstr::*;
 }
 
 #[doc(hidden)]

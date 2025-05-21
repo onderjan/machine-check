@@ -11,13 +11,20 @@ mod resolve_use;
 use proc_macro2::Span;
 use syn::Item;
 
-use crate::{support::error_list::ErrorList, wir::IntoSyn, Description};
+use crate::{
+    support::error_list::ErrorList,
+    wir::{WDescription, YConverted},
+};
 
-pub fn create_description(items: Vec<Item>) -> Result<Description, crate::Errors> {
+pub fn create_description(
+    items: Vec<Item>,
+) -> Result<(WDescription<YConverted>, Vec<String>), crate::Errors> {
     create_description_inner(items).map_err(Errors::convert_inner)
 }
 
-fn create_description_inner(mut items: Vec<Item>) -> Result<Description, Errors> {
+fn create_description_inner(
+    mut items: Vec<Item>,
+) -> Result<(WDescription<YConverted>, Vec<String>), Errors> {
     let mut macro_expander = expand_macros::MacroExpander::new();
     loop {
         resolve_use::resolve_use(&mut items)?;
@@ -52,12 +59,9 @@ fn create_description_inner(mut items: Vec<Item>) -> Result<Description, Errors>
     );
     println!("---");*/
 
-    let items: Vec<Item> = w_description.into_syn().items;
+    //let items: Vec<Item> = w_description.into_syn().items;
 
-    Ok(Description {
-        items,
-        panic_messages,
-    })
+    Ok((w_description, panic_messages))
 }
 
 #[derive(thiserror::Error, Debug, Clone)]

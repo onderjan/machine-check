@@ -6,6 +6,7 @@ use syn::Item;
 
 use crate::{
     support::manipulate::{self, ManipulateKind},
+    wir::{IntoSyn, WDescription, YConverted},
     Description, ErrorType,
 };
 
@@ -18,9 +19,11 @@ use self::{
 use super::Error;
 
 pub(crate) fn create_abstract_description(
-    description: &Description,
+    description: &WDescription<YConverted>,
 ) -> Result<Description, Error> {
-    let mut abstract_description = description.clone();
+    let items = description.clone().into_syn().items;
+    let mut abstract_description = Description { items };
+
     // apply transcription to types using path rule transcriptor
     match path_rules().apply_to_items(&mut abstract_description.items) {
         Ok(()) => {}

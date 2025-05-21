@@ -6,6 +6,8 @@ mod op;
 
 #[test]
 fn support() {
+    use super::Bitvector;
+
     let a = ConcreteBitvector::<16>::new(0x1337);
     let b = ConcreteBitvector::<16>::new(0xCAFE);
 

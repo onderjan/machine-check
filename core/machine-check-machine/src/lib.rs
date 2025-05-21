@@ -28,7 +28,6 @@ pub type Errors = ErrorList<Error>;
 #[derive(Clone)]
 struct Description {
     pub items: Vec<Item>,
-    pub panic_messages: Vec<String>,
 }
 
 pub fn process_file(mut file: syn::File) -> Result<syn::File, Errors> {
@@ -80,11 +79,11 @@ fn out_dir() -> Option<PathBuf> {
 }
 
 #[allow(dead_code)]
-fn unparse(machine: &Description) -> String {
+fn unparse(items: Vec<Item>) -> String {
     prettyplease::unparse(&syn::File {
         shebang: None,
         attrs: vec![],
-        items: machine.items.clone(),
+        items,
     })
 }
 
@@ -94,12 +93,15 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     #[cfg(feature = "write_machine")]
     let out_dir = out_dir();
 
-    let description = description::create_description(items.clone())?;
+    let (description, panic_messages) = description::create_description(items.clone())?;
 
     #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
-        std::fs::write(out_dir.join("description.rs"), unparse(&description))
-            .expect("SSA machine file should be writable");
+        std::fs::write(
+            out_dir.join("description.rs"),
+            unparse(wir::IntoSyn::into_syn(description.clone()).items),
+        )
+        .expect("SSA machine file should be writable");
     }
 
     let mut abstract_description = abstr::create_abstract_description(&description)?;
@@ -108,7 +110,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("description_abstr.rs"),
-            unparse(&abstract_description),
+            unparse(abstract_description.clone().items),
         )
         .expect("Abstract machine file should be writable");
     }
@@ -122,7 +124,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     support::strip_machine::strip_machine(&mut abstract_description)?;
 
-    concr::process_items(items, &description.panic_messages)?;
+    concr::process_items(items, &panic_messages)?;
 
     let abstract_module = create_machine_module("__mck_mod_abstr", abstract_description);
     items.push(abstract_module);
@@ -131,14 +133,8 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
-        std::fs::write(
-            out_dir.join("description_full.rs"),
-            unparse(&Description {
-                items: items.clone(),
-                panic_messages: description.panic_messages.clone(),
-            }),
-        )
-        .expect("Full machine file should be writable");
+        std::fs::write(out_dir.join("description_full.rs"), unparse(items.clone()))
+            .expect("Full machine file should be writable");
     }
 
     //println!("Machine-check-machine ending processing");

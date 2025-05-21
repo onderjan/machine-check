@@ -64,7 +64,6 @@ pub(crate) fn create_refinement_description(
 
     let refinement_machine = Description {
         items: result_items,
-        panic_messages: abstract_machine.panic_messages.clone(),
     };
 
     Ok(refinement_machine)
