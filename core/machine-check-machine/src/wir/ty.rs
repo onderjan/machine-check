@@ -104,20 +104,7 @@ impl IntoSyn<Type> for WBasicType {
 
 impl IntoSyn<Type> for WElementaryType {
     fn into_syn(self) -> Type {
-        let span = Span::call_site();
-        match self {
-            WElementaryType::Bitvector(width) => {
-                create_mck_forward_type("Bitvector", &[width], span)
-            }
-            WElementaryType::Array(array) => {
-                create_mck_forward_type("Array", &[array.index_width, array.element_width], span)
-            }
-            WElementaryType::Path(path) => Type::Path(TypePath {
-                qself: None,
-                path: path.into(),
-            }),
-            WElementaryType::Boolean => create_mck_forward_type("Boolean", &[], span),
-        }
+        self.into_syn_type_flavour("forward")
     }
 }
 
@@ -128,6 +115,26 @@ impl WElementaryType {
         };
         assert!(ty.qself.is_none());
         ty.path
+    }
+
+    pub fn into_syn_type_flavour(self, flavour: &str) -> Type {
+        let span = Span::call_site();
+        match self {
+            WElementaryType::Bitvector(width) => {
+                create_mck_flavoured_type(flavour, "Bitvector", &[width], span)
+            }
+            WElementaryType::Array(array) => create_mck_flavoured_type(
+                flavour,
+                "Array",
+                &[array.index_width, array.element_width],
+                span,
+            ),
+            WElementaryType::Path(path) => Type::Path(TypePath {
+                qself: None,
+                path: path.into(),
+            }),
+            WElementaryType::Boolean => create_mck_flavoured_type(flavour, "Boolean", &[], span),
+        }
     }
 }
 
@@ -242,8 +249,8 @@ fn create_machine_check_type(name: &str, widths: &[u32], span: Span) -> Type {
     create_named_type(&["machine_check", name], widths, span)
 }
 
-fn create_mck_forward_type(name: &str, widths: &[u32], span: Span) -> Type {
-    create_named_type(&["mck", "forward", name], widths, span)
+fn create_mck_flavoured_type(flavour: &str, name: &str, widths: &[u32], span: Span) -> Type {
+    create_named_type(&["mck", flavour, name], widths, span)
 }
 
 fn create_named_type(names: &[&str], widths: &[u32], span: Span) -> Type {

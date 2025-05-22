@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use syn::{Ident, Item, Type};
 
 use crate::{
-    abstr::YAbstr,
+    abstr::{WAbstrItemImplTrait, YAbstr, ZAbstrIfPolarity},
     support::manipulate::{self, ManipulateKind},
-    wir::{IntoSyn, WDescription},
+    wir::{
+        IntoSyn, WDescription, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
+        WPanicResult, WPanicResultType, WSsaLocal, WStmt, YStage, ZAssignTypes,
+    },
     BackwardError, Description,
 };
 
@@ -26,8 +29,10 @@ pub(crate) fn create_refinement_description(
     // first pass
     for item_struct in &abstract_description.structs {
         // apply path rules and push struct
-        let mut refin_struct = item_struct.clone().into_syn();
-        rules::refinement_rules().apply_to_item_struct(&mut refin_struct)?;
+        let item_struct = item_struct::fold_item_struct(item_struct.clone());
+
+        let refin_struct = item_struct.clone().into_syn();
+        //rules::refinement_rules().apply_to_item_struct(&mut refin_struct)?;
         result_items.push(Item::Struct(refin_struct));
     }
 
@@ -67,4 +72,35 @@ pub(crate) fn create_refinement_description(
     };
 
     Ok(refinement_machine)
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct ZRefin;
+
+impl ZAssignTypes for ZRefin {
+    type Stmt = WStmt<ZRefin>;
+    type FundamentalType = WBackwardType;
+    type AssignLeft = WIdent;
+    type AssignRight = WExpr<WExprCall>;
+    type IfPolarity = ZAbstrIfPolarity;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct YRefin;
+
+impl YStage for YRefin {
+    type AssignTypes = ZRefin;
+    type OutputType = WPanicResultType<WElementaryType>;
+    type FnResult = WPanicResult;
+    type Local = WSsaLocal<WGeneralType<WElementaryType>>;
+    type ItemImplTrait = WAbstrItemImplTrait;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WBackwardType(WElementaryType);
+
+impl IntoSyn<Type> for WBackwardType {
+    fn into_syn(self) -> Type {
+        self.0.into_syn_type_flavour("backward")
+    }
 }

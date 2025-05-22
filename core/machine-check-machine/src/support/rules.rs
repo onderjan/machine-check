@@ -55,12 +55,6 @@ impl Rules {
         }
     }
 
-    pub(crate) fn apply_to_item_struct(&self, s: &mut syn::ItemStruct) -> Result<(), NoRuleMatch> {
-        let mut visitor = Visitor::new(self);
-        visitor.visit_item_struct_mut(s);
-        visitor.first_error.map_or(Ok(()), Err)
-    }
-
     pub(crate) fn apply_to_stmt(&self, s: &mut syn::Stmt) -> Result<(), NoRuleMatch> {
         let mut visitor = Visitor::new(self);
         visitor.visit_stmt_mut(s);
