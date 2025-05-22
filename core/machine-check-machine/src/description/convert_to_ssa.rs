@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::wir::{
-    WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WHighMckNew, WIdent, WPartialGeneralType,
-    WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
+    WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WHighMckNew, WIdent, WIfCondition,
+    WPartialGeneralType, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 
@@ -130,8 +130,8 @@ impl LocalVisitor {
         // process the condition if it is an identifier
         let mut condition = stmt.condition;
         match &mut condition {
-            WCallArg::Ident(ident) => self.process_ident(ident),
-            WCallArg::Literal(_) => {
+            WIfCondition::Ident(condition_ident) => self.process_ident(&mut condition_ident.ident),
+            WIfCondition::Literal(_) => {
                 // do nothing
             }
         }

@@ -3,13 +3,14 @@ use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Paren},
-    Block, Expr, ExprAssign, ExprBlock, ExprCall, ExprIf, ExprLit, Macro, Stmt, StmtMacro, Token,
+    Block, Expr, ExprAssign, ExprBlock, ExprCall, ExprIf, ExprLit, Lit, Macro, Stmt, StmtMacro,
+    Token,
 };
 use syn_path::path;
 
 use crate::util::create_expr_path;
 
-use super::{IntoSyn, WCallArg, ZAssignTypes};
+use super::{IntoSyn, WIdent, ZAssignTypes, ZIfPolarity};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WBlock<Z: ZAssignTypes> {
@@ -37,9 +38,21 @@ pub struct WStmtAssign<Z: ZAssignTypes> {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WStmtIf<Z: ZAssignTypes> {
-    pub condition: WCallArg,
+    pub condition: WIfCondition<Z::IfPolarity>,
     pub then_block: WBlock<Z>,
     pub else_block: WBlock<Z>,
+}
+
+#[derive(Clone, Debug, Hash)]
+pub enum WIfCondition<P: ZIfPolarity> {
+    Ident(WIfConditionIdent<P>),
+    Literal(Lit),
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WIfConditionIdent<P: ZIfPolarity> {
+    pub polarity: P,
+    pub ident: WIdent,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -86,13 +99,16 @@ impl<Z: ZAssignTypes> IntoSyn<Stmt> for WStmt<Z> {
             WStmt::If(stmt) => {
                 // TODO: do not add into_bool
                 let condition = match stmt.condition {
-                    WCallArg::Literal(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
-                    WCallArg::Ident(ident) => Expr::Call(ExprCall {
-                        attrs: vec![],
-                        func: Box::new(create_expr_path(path!(::mck::forward::Test::into_bool))),
-                        paren_token: Default::default(),
-                        args: Punctuated::from_iter([ident.into_syn()]),
-                    }),
+                    WIfCondition::Literal(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
+                    WIfCondition::Ident(condition_ident) => {
+                        let func_operator = condition_ident.polarity.into_syn();
+                        Expr::Call(ExprCall {
+                            attrs: vec![],
+                            func: Box::new(create_expr_path(func_operator)),
+                            paren_token: Default::default(),
+                            args: Punctuated::from_iter([condition_ident.ident.into_syn()]),
+                        })
+                    }
                 };
 
                 Stmt::Expr(

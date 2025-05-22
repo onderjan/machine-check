@@ -36,8 +36,15 @@ pub enum WExprCall {
     ArrayWrite(WArrayWrite),
     Phi(WIdent, WIdent),
     PhiTaken(WIdent),
+    PhiMaybeTaken(WPhiMaybeTaken),
     PhiNotTaken,
     PhiUninit,
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WPhiMaybeTaken {
+    pub taken: WIdent,
+    pub condition: WIdent,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -120,6 +127,7 @@ pub const ARRAY_WRITE: &str = "::mck::forward::ReadWrite::write";
 
 pub const PHI: &str = "::mck::forward::PhiArg::phi";
 pub const PHI_TAKEN: &str = "::mck::forward::PhiArg::Taken";
+pub const PHI_MAYBE_TAKEN: &str = "::mck::forward::PhiArg::MaybeTaken";
 pub const PHI_NOT_TAKEN: &str = "::mck::forward::PhiArg::NotTaken";
 pub const PHI_UNINIT: &str = "::mck::forward::Phi::uninit";
 
@@ -193,6 +201,13 @@ impl IntoSyn<Expr> for WExprCall {
             WExprCall::PhiTaken(ident) => (String::from(PHI_TAKEN), vec![WCallArg::Ident(ident)]),
             WExprCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
             WExprCall::PhiUninit => (String::from(PHI_UNINIT), vec![]),
+            WExprCall::PhiMaybeTaken(maybe_taken) => (
+                String::from(PHI_MAYBE_TAKEN),
+                vec![
+                    WCallArg::Ident(maybe_taken.taken),
+                    WCallArg::Ident(maybe_taken.condition),
+                ],
+            ),
         };
         construct_call(fn_operand, args)
     }

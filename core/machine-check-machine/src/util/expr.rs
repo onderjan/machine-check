@@ -166,16 +166,6 @@ pub fn extract_expr_ident(expr: &Expr) -> Option<&Ident> {
     extract_path_ident(extract_expr_path(expr)?)
 }
 
-pub fn extract_else_token_block(else_branch: &Option<(Else, Box<Expr>)>) -> Option<(Else, &Block)> {
-    let Some((else_token, else_block)) = else_branch else {
-        return None;
-    };
-    let Expr::Block(else_expr_block) = else_block.as_ref() else {
-        return None;
-    };
-    Some((*else_token, &else_expr_block.block))
-}
-
 pub fn extract_else_block_mut(else_branch: &mut Option<(Else, Box<Expr>)>) -> Option<&mut Block> {
     let Some((_else_token, else_block)) = else_branch else {
         return None;

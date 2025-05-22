@@ -1,5 +1,5 @@
 use std::{fmt::Debug, hash::Hash};
-use syn::{Expr, File, Item, ItemImpl, Local, Stmt, Type};
+use syn::{Expr, File, Item, ItemImpl, Local, Path, Stmt, Type};
 
 mod call;
 mod expr;
@@ -51,12 +51,26 @@ where
     }
 }
 
+pub trait ZIfPolarity: IntoSyn<Path> + Clone + Debug + Hash {}
+
 pub trait ZAssignTypes {
     type Stmt: IntoSyn<Stmt> + Clone + Debug + Hash;
     type FundamentalType: IntoSyn<Type> + Clone + Debug + Hash;
     type AssignLeft: IntoSyn<Expr> + Clone + Debug + Hash;
     type AssignRight: IntoSyn<Expr> + Clone + Debug + Hash;
+    type IfPolarity: ZIfPolarity;
 }
+
+#[derive(Clone, Debug, Hash)]
+pub struct WNoIfPolarity;
+
+impl IntoSyn<Path> for WNoIfPolarity {
+    fn into_syn(self) -> Path {
+        syn_path::path!(::mck::forward::Test::into_bool)
+    }
+}
+
+impl ZIfPolarity for WNoIfPolarity {}
 
 #[derive(Clone, Debug, Hash)]
 pub struct ZTac;
@@ -66,6 +80,7 @@ impl ZAssignTypes for ZTac {
     type FundamentalType = WBasicType;
     type AssignLeft = WIndexedIdent;
     type AssignRight = WIndexedExpr<WExprHighCall>;
+    type IfPolarity = WNoIfPolarity;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -76,6 +91,7 @@ impl ZAssignTypes for ZNonindexed {
     type FundamentalType = WBasicType;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprHighCall>;
+    type IfPolarity = WNoIfPolarity;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -86,6 +102,7 @@ impl ZAssignTypes for ZTotal {
     type FundamentalType = WBasicType;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprHighCall>;
+    type IfPolarity = WNoIfPolarity;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -96,6 +113,7 @@ impl ZAssignTypes for ZSsa {
     type FundamentalType = WBasicType;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprHighCall>;
+    type IfPolarity = WNoIfPolarity;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -106,6 +124,7 @@ impl ZAssignTypes for ZConverted {
     type FundamentalType = WElementaryType;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprCall>;
+    type IfPolarity = WNoIfPolarity;
 }
 
 pub trait YStage {
@@ -113,6 +132,7 @@ pub trait YStage {
     type OutputType: IntoSyn<Type> + Clone + Debug + Hash;
     type FnResult: IntoSyn<Expr> + Clone + Debug + Hash;
     type Local: IntoSyn<Local> + Clone + Debug + Hash;
+    type ItemImplTrait: IntoSyn<Path> + Clone + Debug + Hash;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -123,6 +143,7 @@ impl YStage for YTac {
     type OutputType = WBasicType;
     type FnResult = WIdent;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
+    type ItemImplTrait = WItemImplTrait;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -133,6 +154,7 @@ impl YStage for YNonindexed {
     type OutputType = WBasicType;
     type FnResult = WIdent;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
+    type ItemImplTrait = WItemImplTrait;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -143,6 +165,7 @@ impl YStage for YTotal {
     type OutputType = WPanicResultType<WBasicType>;
     type FnResult = WPanicResult;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
+    type ItemImplTrait = WItemImplTrait;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -153,6 +176,7 @@ impl YStage for YSsa {
     type OutputType = WPanicResultType<WBasicType>;
     type FnResult = WPanicResult;
     type Local = WSsaLocal<WPartialGeneralType<WBasicType>>;
+    type ItemImplTrait = WItemImplTrait;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -163,6 +187,7 @@ impl YStage for YInferred {
     type OutputType = WPanicResultType<WBasicType>;
     type FnResult = WPanicResult;
     type Local = WSsaLocal<WGeneralType<WBasicType>>;
+    type ItemImplTrait = WItemImplTrait;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -173,4 +198,5 @@ impl YStage for YConverted {
     type OutputType = WPanicResultType<WElementaryType>;
     type FnResult = WPanicResult;
     type Local = WSsaLocal<WGeneralType<WElementaryType>>;
+    type ItemImplTrait = WItemImplTrait;
 }

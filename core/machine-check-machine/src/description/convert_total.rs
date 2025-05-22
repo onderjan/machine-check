@@ -6,10 +6,10 @@ use crate::{
     support::ident_creator::IdentCreator,
     wir::{
         WBasicType, WBlock, WCall, WCallArg, WDescription, WExpr, WExprField, WExprHighCall,
-        WHighMckNew, WIdent, WImplItemFn, WItemImpl, WMacroableStmt, WPanicResult,
-        WPanicResultType, WPartialGeneralType, WPath, WReference, WSignature, WStdBinary,
-        WStdBinaryOp, WStmt, WStmtAssign, WStmtIf, WTacLocal, WType, YNonindexed, YTotal,
-        ZNonindexed, ZTotal,
+        WHighMckNew, WIdent, WIfCondition, WIfConditionIdent, WImplItemFn, WItemImpl,
+        WMacroableStmt, WNoIfPolarity, WPanicResult, WPanicResultType, WPartialGeneralType, WPath,
+        WReference, WSignature, WStdBinary, WStdBinaryOp, WStmt, WStmtAssign, WStmtIf, WTacLocal,
+        WType, YNonindexed, YTotal, ZNonindexed, ZTotal,
     },
 };
 
@@ -255,7 +255,10 @@ impl FnConverter<'_> {
         });
 
         let replace_panic_if_currently_zero = WStmt::If(WStmtIf {
-            condition: WCallArg::Ident(panic_is_zero_ident),
+            condition: WIfCondition::Ident(WIfConditionIdent {
+                polarity: WNoIfPolarity,
+                ident: panic_is_zero_ident,
+            }),
             then_block: WBlock {
                 stmts: vec![replace_panic],
             },

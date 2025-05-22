@@ -12,8 +12,9 @@ use crate::{
     },
     util::{create_expr_ident, path_matches_global_names},
     wir::{
-        WBlock, WIdent, WIndexedIdent, WMacroableStmt, WPanicMacroKind, WPartialGeneralType,
-        WStmtAssign, WStmtIf, WStmtPanicMacro, ZTac,
+        WBlock, WCallArg, WIdent, WIfCondition, WIfConditionIdent, WIndexedIdent, WMacroableStmt,
+        WNoIfPolarity, WPanicMacroKind, WPartialGeneralType, WStmtAssign, WStmtIf, WStmtPanicMacro,
+        ZTac,
     },
 };
 
@@ -218,7 +219,14 @@ impl super::FunctionFolder {
         expr: ExprIf,
         result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<(), Errors> {
-        let condition = self.force_right_expr_to_call_arg(*expr.cond, result_stmts)?;
+        let condition = match self.force_right_expr_to_call_arg(*expr.cond, result_stmts)? {
+            WCallArg::Ident(ident) => WIfCondition::Ident(WIfConditionIdent {
+                polarity: WNoIfPolarity,
+                ident,
+            }),
+            WCallArg::Literal(lit) => WIfCondition::Literal(lit),
+        };
+
         let then_block = self.fold_block(expr.then_branch)?.0;
 
         let mut else_stmts = Vec::new();

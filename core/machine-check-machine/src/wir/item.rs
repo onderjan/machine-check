@@ -33,7 +33,7 @@ pub struct WField<FT: IntoSyn<Type>> {
 #[derive(Clone, Debug, Hash)]
 pub struct WItemImpl<Y: YStage> {
     pub self_ty: WPath,
-    pub trait_: Option<WItemImplTrait>,
+    pub trait_: Option<Y::ItemImplTrait>,
     pub impl_item_fns: Vec<WImplItemFn<Y>>,
     pub impl_item_types: Vec<WImplItemType>,
 }
@@ -44,6 +44,17 @@ pub enum WItemImplTrait {
     Input,
     State,
     Path(WPath),
+}
+
+impl IntoSyn<Path> for WItemImplTrait {
+    fn into_syn(self) -> Path {
+        match self {
+            WItemImplTrait::Machine => path!(::mck::forward::Machine),
+            WItemImplTrait::Input => path!(::mck::forward::Input),
+            WItemImplTrait::State => path!(::mck::forward::State),
+            WItemImplTrait::Path(path) => path.into(),
+        }
+    }
 }
 
 impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
@@ -123,12 +134,7 @@ where
             )
             .collect();
 
-        let trait_path = self.trait_.map(|trait_| match trait_ {
-            WItemImplTrait::Machine => path!(::mck::forward::Machine),
-            WItemImplTrait::Input => path!(::mck::forward::Input),
-            WItemImplTrait::State => path!(::mck::forward::State),
-            WItemImplTrait::Path(path) => path.into(),
-        });
+        let trait_path = self.trait_.map(|trait_| trait_.into_syn());
 
         ItemImpl {
             attrs: Vec::new(),
