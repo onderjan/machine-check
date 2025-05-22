@@ -8,7 +8,7 @@ use crate::{
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
         IntoSyn, WDescription, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
-        WItemImplTrait, WPanicResult, WPanicResultType, WPath, WSsaLocal, WStmt, YConverted,
+        WItemImplTrait, WPanicResult, WPanicResultType, WPath, WSsaLocal, WStmt, WType, YConverted,
         YStage, ZAssignTypes, ZIfPolarity,
     },
 };
@@ -49,6 +49,7 @@ impl ZAssignTypes for ZAbstr {
 
 impl YStage for YAbstr {
     type AssignTypes = ZAbstr;
+    type InputType = WType<WElementaryType>;
     type OutputType = WPanicResultType<WElementaryType>;
     type FnResult = WPanicResult;
     type Local = WSsaLocal<WGeneralType<WElementaryType>>;

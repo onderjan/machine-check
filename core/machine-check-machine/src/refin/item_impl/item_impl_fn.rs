@@ -1,21 +1,100 @@
 mod clone_needed;
 mod statement_converter;
 
+use proc_macro2::Span;
 use syn::{punctuated::Punctuated, GenericArgument, Ident, ImplItemFn, PathArguments, Stmt, Type};
 use syn_path::path;
 
 use crate::{
+    abstr::YAbstr,
+    refin::{
+        WBackwardElementaryType, WBackwardPanicResultType, WBackwardTupleType, WDirectionedArgType,
+        YRefin,
+    },
     support::types::find_local_types,
     util::{
         create_expr_call, create_expr_path, create_let_mut, get_block_result_expr,
         path_matches_global_names,
     },
+    wir::{WBlock, WElementaryType, WFnArg, WIdent, WImplItemFn, WPath, WSignature},
     BackwardError,
 };
 
 use self::statement_converter::StatementConverter;
 
 use super::ImplConverter;
+
+pub fn fold_impl_item_fn(forward_fn: WImplItemFn<YAbstr>, self_ty: &WPath) -> WImplItemFn<YRefin> {
+    // to transcribe function with signature (inputs) -> output and linear SSA block
+    // we must the following steps
+    // 1. set refin function signature to (abstract_inputs, later) -> (earlier)
+    //        where later corresponds to original output and earlier to original inputs
+    // 2. clear refin function block
+    // 3. add original block statements excluding result that has local variables (including inputs)
+    //        changed to abstract naming scheme (no other variables should be present)
+    // 4. add initialization of earlier and local refinement variables
+    // 5. add "init_refin.apply_join(later);" where init_refin is changed from result expression
+    //        to a pattern with local variables changed to refin naming scheme
+    // 6. add refin-computation statements in reverse order of original statements
+    //        i.e. instead of "let a = call(b);"
+    //        add "refin_b.apply_join(refin_call(abstr_b, refin_a))"
+    // 7. add result expression
+
+    let mut forward_inputs = forward_fn.signature.inputs;
+    let forward_output = forward_fn.signature.output;
+
+    // TODO: convert Self before this
+    for forward_input in forward_inputs.iter_mut() {
+        if let WElementaryType::Path(path) = &mut forward_input.ty.inner {
+            if path.matches_relative(&["Self"]) {
+                *path = self_ty.clone();
+            }
+        }
+    }
+
+    let abstract_args_ident = WIdent::new(String::from("__mck_abstr_args"), Span::call_site());
+    let backward_later_ident = WIdent::new(String::from("__mck_input_later"), Span::call_site());
+
+    let backward_inputs = vec![
+        WFnArg {
+            ident: abstract_args_ident,
+            ty: WDirectionedArgType::ForwardTuple(
+                forward_inputs
+                    .iter()
+                    .map(|fn_arg| fn_arg.ty.clone())
+                    .collect(),
+            ),
+        },
+        WFnArg {
+            ident: backward_later_ident,
+            ty: WDirectionedArgType::BackwardPanicResult(WBackwardPanicResultType(
+                WBackwardElementaryType(forward_output.0),
+            )),
+        },
+    ];
+
+    let backward_output = WBackwardTupleType(
+        forward_inputs
+            .into_iter()
+            .map(|forward_input| WBackwardElementaryType(forward_input.ty.inner))
+            .collect(),
+    );
+
+    let signature = WSignature {
+        ident: forward_fn.signature.ident,
+        inputs: backward_inputs,
+        output: backward_output,
+    };
+
+    let result = WIdent::new(String::from("__mck_backwresult"), Span::call_site());
+
+    WImplItemFn {
+        signature,
+        locals: Vec::new(),
+        block: WBlock { stmts: Vec::new() },
+        result,
+    }
+}
 
 impl ImplConverter {
     pub(crate) fn transcribe_impl_item_fn(

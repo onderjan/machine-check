@@ -162,6 +162,28 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WType<FT> {
     }
 }
 
+impl<FT: IntoSyn<Type>> WType<FT> {
+    pub fn into_syn_with_inner(self, simple_type: Type) -> Type {
+        let span = Span::call_site();
+
+        match self.reference {
+            /*WReference::Mutable => Type::Reference(TypeReference {
+                and_token: Token![&](span),
+                lifetime: None,
+                mutability: Some(Token![mut](span)),
+                elem: Box::new(simple_type),
+            }),*/
+            WReference::Immutable => Type::Reference(TypeReference {
+                and_token: Token![&](span),
+                lifetime: None,
+                mutability: None,
+                elem: Box::new(simple_type),
+            }),
+            WReference::None => simple_type,
+        }
+    }
+}
+
 impl<FT: IntoSyn<Type>> IntoSyn<Type> for WGeneralType<FT> {
     fn into_syn(self) -> Type {
         match self {
@@ -174,14 +196,14 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WGeneralType<FT> {
 
 impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPanicResultType<FT> {
     fn into_syn(self) -> Type {
-        panic_result_syn_type(Some(self.0))
+        panic_result_syn_type("forward", Some(self.0))
     }
 }
 
-fn panic_result_syn_type<FT: IntoSyn<Type>>(inner: Option<FT>) -> Type {
+pub fn panic_result_syn_type<FT: IntoSyn<Type>>(flavour: &str, inner: Option<FT>) -> Type {
     let span = Span::call_site();
     let mut segments =
-        Punctuated::from_iter(["mck", "forward", "PanicResult"].into_iter().map(|name| {
+        Punctuated::from_iter(["mck", flavour, "PanicResult"].into_iter().map(|name| {
             PathSegment {
                 ident: Ident::new(name, span),
                 arguments: PathArguments::None,
@@ -210,7 +232,7 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPartialGeneralType<FT> {
         let span = Span::call_site();
         match self {
             WPartialGeneralType::Normal(normal) => normal.into_syn(),
-            WPartialGeneralType::PanicResult(inner) => panic_result_syn_type(inner),
+            WPartialGeneralType::PanicResult(inner) => panic_result_syn_type("forward", inner),
             WPartialGeneralType::PhiArg(inner) => {
                 let span = Span::call_site();
                 let mut segments =

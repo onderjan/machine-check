@@ -175,7 +175,11 @@ impl FunctionFolder {
         })
     }
 
-    fn fold_fn_arg(&mut self, scope_id: u32, fn_arg: FnArg) -> Result<WFnArg<WBasicType>, Error> {
+    fn fold_fn_arg(
+        &mut self,
+        scope_id: u32,
+        fn_arg: FnArg,
+    ) -> Result<WFnArg<WType<WBasicType>>, Error> {
         let fn_arg = match fn_arg {
             syn::FnArg::Receiver(receiver) => {
                 let receiver_span = receiver.span();

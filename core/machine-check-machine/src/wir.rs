@@ -129,6 +129,7 @@ impl ZAssignTypes for ZConverted {
 
 pub trait YStage {
     type AssignTypes: ZAssignTypes + Clone + Debug + Hash;
+    type InputType: IntoSyn<Type> + Clone + Debug + Hash;
     type OutputType: IntoSyn<Type> + Clone + Debug + Hash;
     type FnResult: IntoSyn<Expr> + Clone + Debug + Hash;
     type Local: IntoSyn<Local> + Clone + Debug + Hash;
@@ -140,6 +141,7 @@ pub struct YTac;
 
 impl YStage for YTac {
     type AssignTypes = ZTac;
+    type InputType = WType<WBasicType>;
     type OutputType = WBasicType;
     type FnResult = WIdent;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
@@ -151,6 +153,7 @@ pub struct YNonindexed;
 
 impl YStage for YNonindexed {
     type AssignTypes = ZNonindexed;
+    type InputType = WType<WBasicType>;
     type OutputType = WBasicType;
     type FnResult = WIdent;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
@@ -162,6 +165,7 @@ pub struct YTotal;
 
 impl YStage for YTotal {
     type AssignTypes = ZTotal;
+    type InputType = WType<WBasicType>;
     type OutputType = WPanicResultType<WBasicType>;
     type FnResult = WPanicResult;
     type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
@@ -173,6 +177,7 @@ pub struct YSsa;
 
 impl YStage for YSsa {
     type AssignTypes = ZSsa;
+    type InputType = WType<WBasicType>;
     type OutputType = WPanicResultType<WBasicType>;
     type FnResult = WPanicResult;
     type Local = WSsaLocal<WPartialGeneralType<WBasicType>>;
@@ -184,6 +189,7 @@ pub struct YInferred;
 
 impl YStage for YInferred {
     type AssignTypes = ZSsa;
+    type InputType = WType<WBasicType>;
     type OutputType = WPanicResultType<WBasicType>;
     type FnResult = WPanicResult;
     type Local = WSsaLocal<WGeneralType<WBasicType>>;
@@ -195,6 +201,7 @@ pub struct YConverted;
 
 impl YStage for YConverted {
     type AssignTypes = ZConverted;
+    type InputType = WType<WElementaryType>;
     type OutputType = WPanicResultType<WElementaryType>;
     type FnResult = WPanicResult;
     type Local = WSsaLocal<WGeneralType<WElementaryType>>;

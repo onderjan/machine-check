@@ -2,30 +2,66 @@ use syn::{
     spanned::Spanned, GenericArgument, Ident, ImplItem, ItemImpl, Path, PathArguments, Type,
 };
 
-use crate::{support::rules::Rules, util::create_path_segment, BackwardError, BackwardErrorType};
+use crate::{
+    abstr::YAbstr,
+    support::rules::Rules,
+    util::create_path_segment,
+    wir::{IntoSyn, WItemImpl},
+    BackwardError, BackwardErrorType,
+};
 
 mod args;
 mod item_impl_fn;
 
-use super::rules;
+use super::{rules, WRefinItemImplTrait};
 
-pub fn fold_item_impl(item_impl: ItemImpl) -> Result<ItemImpl, BackwardError> {
-    // convert implementation
-    let self_ty_name = extract_self_type_ident(&item_impl)?.to_string();
+pub fn fold_item_impl(item_impl: WItemImpl<YAbstr>) -> Result<ItemImpl, BackwardError> {
+    let previous_result = {
+        let item_impl = item_impl.clone().into_syn();
+        // convert implementation
+        let self_ty_name = extract_self_type_ident(&item_impl)?.to_string();
 
-    let converter = ImplConverter {
-        clone_rules: rules::clone_rules().with_self_ty_name(self_ty_name.clone()),
-        abstract_rules: rules::abstract_rules().with_self_ty_name(self_ty_name.clone()),
-        refinement_rules: rules::refinement_rules().with_self_ty_name(self_ty_name.clone()),
+        let converter = ImplConverter {
+            clone_rules: rules::clone_rules().with_self_ty_name(self_ty_name.clone()),
+            abstract_rules: rules::abstract_rules().with_self_ty_name(self_ty_name.clone()),
+            refinement_rules: rules::refinement_rules().with_self_ty_name(self_ty_name.clone()),
+        };
+        let mut converted_item_impl = converter.convert(item_impl)?;
+
+        if let Some((_, path, _)) = &mut converted_item_impl.trait_ {
+            // convert generics arguments to super so that they still point to the original types
+            convert_generic_arguments_to_super(path)?;
+        };
+        converted_item_impl
     };
-    let mut converted_item_impl = converter.convert(item_impl)?;
 
-    if let Some((_, path, _)) = &mut converted_item_impl.trait_ {
-        // convert generics arguments to super so that they still point to the original types
-        convert_generic_arguments_to_super(path)?;
+    let new_result = {
+        let mut impl_item_fns = Vec::new();
+        let self_ty = &item_impl.self_ty;
+        for impl_item_fn in item_impl.impl_item_fns {
+            impl_item_fns.push(item_impl_fn::fold_impl_item_fn(impl_item_fn, self_ty));
+        }
+
+        let trait_ = match item_impl.trait_ {
+            Some(trait_) => Some(WRefinItemImplTrait {
+                machine_type: trait_.machine_type,
+                trait_: trait_.trait_,
+            }),
+            None => None,
+        };
+
+        WItemImpl {
+            self_ty: item_impl.self_ty,
+            trait_,
+            impl_item_fns,
+            impl_item_types: item_impl.impl_item_types,
+        }
     };
 
-    Ok(converted_item_impl)
+    //let result = new_result.into_syn();
+    let result = previous_result;
+
+    Ok(result)
 }
 
 fn extract_self_type_ident(item_impl: &ItemImpl) -> Result<&Ident, BackwardError> {

@@ -10,7 +10,7 @@ use syn_path::path;
 
 use crate::util::{create_expr_path, create_path_from_ident};
 
-use super::{IntoSyn, WBlock, WIdent, WPath, WReference, WType, YStage, ZAssignTypes};
+use super::{IntoSyn, WBlock, WIdent, WPath, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WImplItemType {
@@ -30,14 +30,14 @@ pub struct WImplItemFn<Y: YStage> {
 #[derive(Clone, Debug, Hash)]
 pub struct WSignature<Y: YStage> {
     pub ident: WIdent,
-    pub inputs: Vec<WFnArg<<Y::AssignTypes as ZAssignTypes>::FundamentalType>>,
+    pub inputs: Vec<WFnArg<Y::InputType>>,
     pub output: Y::OutputType,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WFnArg<FT: IntoSyn<Type>> {
+pub struct WFnArg<IT: IntoSyn<Type>> {
     pub ident: WIdent,
-    pub ty: WType<FT>,
+    pub ty: IT,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -107,21 +107,20 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
                 inputs: Punctuated::from_iter(self.signature.inputs.into_iter().map(|fn_arg| {
                     if fn_arg.ident.name() == "self" {
                         // TODO: prefer typed self once it is well-supported as it is more regular
+                        let syn_ty = fn_arg.ty.into_syn();
+                        let reference = if let Type::Reference(_) = syn_ty {
+                            Some((Token![&](span), None))
+                        } else {
+                            None
+                        };
+
                         FnArg::Receiver(Receiver {
                             attrs: Vec::new(),
-                            reference: match fn_arg.ty.reference {
-                                //WReference::Mutable |
-                                WReference::Immutable => Some((Token![&](span), None)),
-                                WReference::None => None,
-                            },
-
-                            mutability: match fn_arg.ty.reference {
-                                //WReference::Mutable => Some(Token![mut](span)),
-                                WReference::Immutable | WReference::None => None,
-                            },
+                            reference,
+                            mutability: None,
                             self_token: Token![self](span),
                             colon_token: None,
-                            ty: Box::new(fn_arg.ty.into_syn()),
+                            ty: Box::new(syn_ty),
                         })
                     } else {
                         FnArg::Typed(syn::PatType {

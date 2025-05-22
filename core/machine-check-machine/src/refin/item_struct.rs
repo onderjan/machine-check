@@ -9,18 +9,20 @@ use crate::{
 
 use self::{meta::meta_impl, refine::refine_impl};
 
-use super::{rules, SpecialTrait, WBackwardType};
+use super::{rules, SpecialTrait, WBackwardElementaryType};
 
 mod meta;
 mod refine;
 
-pub fn fold_item_struct(item_struct: WItemStruct<WElementaryType>) -> WItemStruct<WBackwardType> {
+pub fn fold_item_struct(
+    item_struct: WItemStruct<WElementaryType>,
+) -> WItemStruct<WBackwardElementaryType> {
     let fields = item_struct
         .fields
         .into_iter()
         .map(|field| WField {
             ident: field.ident,
-            ty: WBackwardType(field.ty),
+            ty: WBackwardElementaryType(field.ty),
         })
         .collect();
 
