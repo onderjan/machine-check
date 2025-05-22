@@ -3,8 +3,8 @@ use std::rc::Rc;
 use proc_macro2::{Ident, Span};
 
 use syn::spanned::Spanned;
+use syn::visit_mut::VisitMut;
 use syn::Path;
-use syn::{visit_mut::VisitMut, Item};
 
 use crate::util::{create_path_from_ident, extract_path_ident};
 
@@ -53,14 +53,6 @@ impl Rules {
             type_rules: Rc::clone(&self.type_rules),
             self_ty_name: Some(self_ty_name),
         }
-    }
-
-    pub(crate) fn apply_to_items(&self, items: &mut [Item]) -> Result<(), NoRuleMatch> {
-        let mut visitor = Visitor::new(self);
-        for item in items.iter_mut() {
-            visitor.visit_item_mut(item);
-        }
-        visitor.first_error.map_or(Ok(()), Err)
     }
 
     pub(crate) fn apply_to_item_struct(&self, s: &mut syn::ItemStruct) -> Result<(), NoRuleMatch> {

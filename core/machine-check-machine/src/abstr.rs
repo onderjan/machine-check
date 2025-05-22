@@ -1,19 +1,17 @@
 mod item_impl;
 mod item_struct;
-mod rules;
 
 use syn::Item;
 
 use crate::{
     support::manipulate::{self, ManipulateKind},
     wir::{IntoSyn, WDescription, YConverted},
-    Description, ErrorType,
+    Description,
 };
 
 use self::{
     item_impl::{preprocess_item_impl, process_item_impl},
     item_struct::process_item_struct,
-    rules::path_rules,
 };
 
 use super::Error;
@@ -23,17 +21,6 @@ pub(crate) fn create_abstract_description(
 ) -> Result<Description, Error> {
     let items = description.clone().into_syn().items;
     let mut abstract_description = Description { items };
-
-    // apply transcription to types using path rule transcriptor
-    /*match path_rules().apply_to_items(&mut abstract_description.items) {
-        Ok(()) => {}
-        Err(err) => {
-            return Err(Error::new(
-                ErrorType::ForwardConversionError(String::from("Conversion not known")),
-                err.0,
-            ));
-        }
-    }*/
 
     let mut machine_types = Vec::new();
     let mut processed_items = Vec::new();
