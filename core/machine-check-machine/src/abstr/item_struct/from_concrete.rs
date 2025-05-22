@@ -11,13 +11,9 @@ use crate::{
         path_starts_with_global_names, ArgType,
     },
     wir::{IntoSyn, WElementaryType, WItemStruct},
-    Error,
 };
 
-pub fn from_concrete_fn(
-    item_struct: &WItemStruct<WElementaryType>,
-    concr_ty: Type,
-) -> Result<ImplItemFn, Error> {
+pub fn from_concrete_fn(item_struct: &WItemStruct<WElementaryType>, concr_ty: Type) -> ImplItemFn {
     let concr_ident = create_ident("concr");
     let span = concr_ident.span();
     let concr_arg = create_arg(ArgType::Normal, concr_ident.clone(), Some(concr_ty));
@@ -93,10 +89,10 @@ pub fn from_concrete_fn(
     local_stmts.extend(assign_stmts);
     local_stmts.push(Stmt::Expr(struct_expr, None));
 
-    Ok(create_impl_item_fn(
+    create_impl_item_fn(
         create_ident("from_concrete"),
         vec![concr_arg],
         Some(create_type_path(path!(Self))),
         local_stmts,
-    ))
+    )
 }

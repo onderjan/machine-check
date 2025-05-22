@@ -104,7 +104,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("SSA machine file should be writable");
     }
 
-    let mut abstract_description = abstr::create_abstract_description(description)?;
+    let mut abstract_description = abstr::create_abstract_description(description);
 
     #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {

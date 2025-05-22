@@ -9,21 +9,20 @@ use crate::{
         create_type_path, ArgType,
     },
     wir::{IntoSyn, WElementaryType, WItemStruct},
-    Error,
 };
 
-pub fn phi_impl(item_struct: &WItemStruct<WElementaryType>) -> Result<ItemImpl, Error> {
-    let phi_fn = phi_fn(item_struct)?;
-    let uninit_fn = uninit_fn(item_struct)?;
+pub fn phi_impl(item_struct: &WItemStruct<WElementaryType>) -> ItemImpl {
+    let phi_fn = phi_fn(item_struct);
+    let uninit_fn = uninit_fn(item_struct);
 
-    Ok(create_item_impl(
+    create_item_impl(
         Some(path!(::mck::forward::Phi)),
         create_path_from_ident(item_struct.ident.to_syn_ident()),
         vec![ImplItem::Fn(phi_fn), ImplItem::Fn(uninit_fn)],
-    ))
+    )
 }
 
-fn phi_fn(s: &WItemStruct<WElementaryType>) -> Result<ImplItemFn, Error> {
+fn phi_fn(s: &WItemStruct<WElementaryType>) -> ImplItemFn {
     // phi each field together
     let self_arg = create_self_arg(ArgType::Normal);
     let other_ident = create_ident("other");
@@ -100,15 +99,15 @@ fn phi_fn(s: &WItemStruct<WElementaryType>) -> Result<ImplItemFn, Error> {
     local_stmts.extend(assign_stmts);
     local_stmts.push(Stmt::Expr(struct_expr, None));
 
-    Ok(create_impl_item_fn(
+    create_impl_item_fn(
         create_ident("phi"),
         vec![self_arg, other_arg],
         Some(create_type_path(path!(Self))),
         local_stmts,
-    ))
+    )
 }
 
-fn uninit_fn(s: &WItemStruct<WElementaryType>) -> Result<ImplItemFn, Error> {
+fn uninit_fn(s: &WItemStruct<WElementaryType>) -> ImplItemFn {
     // each field is uninitialized (using the Phi uninit function)
     let mut local_stmts = Vec::new();
     let mut assign_stmts = Vec::new();
@@ -141,10 +140,10 @@ fn uninit_fn(s: &WItemStruct<WElementaryType>) -> Result<ImplItemFn, Error> {
     local_stmts.extend(assign_stmts);
     local_stmts.push(Stmt::Expr(struct_expr, None));
 
-    Ok(create_impl_item_fn(
+    create_impl_item_fn(
         create_ident("uninit"),
         vec![],
         Some(create_type_path(path!(Self))),
         local_stmts,
-    ))
+    )
 }

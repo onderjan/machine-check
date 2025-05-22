@@ -19,8 +19,6 @@ use self::{
     item_struct::process_item_struct,
 };
 
-use super::Error;
-
 #[derive(Clone, Debug, Hash)]
 pub struct YAbstr;
 
@@ -78,12 +76,10 @@ impl IntoSyn<Path> for WAbstrItemImplTrait {
     }
 }
 
-pub(crate) fn create_abstract_description(
-    description: WDescription<YConverted>,
-) -> Result<Description, Error> {
+pub(crate) fn create_abstract_description(description: WDescription<YConverted>) -> Description {
     let mut machine_types = Vec::new();
     for item_impl in description.impls.iter() {
-        if let Some(ty) = preprocess_item_impl(item_impl)? {
+        if let Some(ty) = preprocess_item_impl(item_impl) {
             machine_types.push(ty);
         }
     }
@@ -96,13 +92,13 @@ pub(crate) fn create_abstract_description(
     };
 
     for item_struct in description.structs {
-        let (item_struct, other_impls) = process_item_struct(item_struct)?;
+        let (item_struct, other_impls) = process_item_struct(item_struct);
         w_description.structs.push(item_struct);
         processed_items.extend(other_impls.into_iter().map(Item::Impl));
     }
 
     for item_impl in description.impls {
-        let item_impls = process_item_impl(item_impl, &machine_types)?;
+        let item_impls = process_item_impl(item_impl, &machine_types);
         w_description.impls.extend(item_impls);
     }
 
@@ -127,5 +123,5 @@ pub(crate) fn create_abstract_description(
     // add field-manipulate to items
     manipulate::apply_to_items(&mut abstract_description.items, ManipulateKind::Forward);
 
-    Ok(abstract_description)
+    abstract_description
 }

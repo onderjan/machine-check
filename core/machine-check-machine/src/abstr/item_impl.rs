@@ -5,12 +5,11 @@ use crate::{
         WItemImplTrait, WPath, WPathSegment, WPhiMaybeTaken, WSignature, WStmt, WStmtAssign,
         WStmtIf, YConverted, ZConverted,
     },
-    Error,
 };
 
-pub fn preprocess_item_impl(item_impl: &WItemImpl<YConverted>) -> Result<Option<WPath>, Error> {
+pub fn preprocess_item_impl(item_impl: &WItemImpl<YConverted>) -> Option<WPath> {
     let Some(WItemImplTrait::Machine) = item_impl.trait_ else {
-        return Ok(None);
+        return None;
     };
 
     let mut ty = item_impl.self_ty.clone();
@@ -22,16 +21,16 @@ pub fn preprocess_item_impl(item_impl: &WItemImpl<YConverted>) -> Result<Option<
         },
     );
 
-    Ok(Some(ty))
+    Some(ty)
 }
 
 pub fn process_item_impl(
     item_impl: WItemImpl<YConverted>,
     machine_types: &[WPath],
-) -> Result<Vec<WItemImpl<YAbstr>>, Error> {
+) -> Vec<WItemImpl<YAbstr>> {
     let mut impl_item_fns = Vec::new();
     for impl_item_fn in item_impl.impl_item_fns {
-        impl_item_fns.push(fold_impl_item_fn(impl_item_fn)?);
+        impl_item_fns.push(fold_impl_item_fn(impl_item_fn));
     }
 
     let self_ty = item_impl.self_ty;
@@ -54,12 +53,10 @@ pub fn process_item_impl(
         });
     }
 
-    Ok(results)
+    results
 }
 
-pub fn fold_impl_item_fn(
-    impl_item_fn: WImplItemFn<YConverted>,
-) -> Result<WImplItemFn<YAbstr>, Error> {
+pub fn fold_impl_item_fn(impl_item_fn: WImplItemFn<YConverted>) -> WImplItemFn<YAbstr> {
     let signature = WSignature {
         ident: impl_item_fn.signature.ident,
         inputs: impl_item_fn.signature.inputs,
@@ -67,12 +64,12 @@ pub fn fold_impl_item_fn(
     };
     let block = fold_block(impl_item_fn.block);
 
-    Ok(WImplItemFn {
+    WImplItemFn {
         signature,
         locals: impl_item_fn.locals,
         block,
         result: impl_item_fn.result,
-    })
+    }
 }
 
 fn fold_block(block: WBlock<ZConverted>) -> WBlock<ZAbstr> {
