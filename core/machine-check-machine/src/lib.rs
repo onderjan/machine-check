@@ -88,14 +88,14 @@ fn unparse(items: Vec<Item>) -> String {
 }
 
 fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
-    //println!("Machine-check-machine starting processing");
-
-    #[cfg(feature = "write_machine")]
-    let out_dir = out_dir();
+    let out_dir: Option<PathBuf> = if cfg!(feature = "write_machine") {
+        out_dir()
+    } else {
+        None
+    };
 
     let (description, panic_messages) = description::create_description(items.clone())?;
 
-    #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("description.rs"),
@@ -106,7 +106,6 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     let mut abstract_description = abstr::create_abstract_description(description);
 
-    #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("description_abstr.rs"),
@@ -131,13 +130,10 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     redirect_mck(items)?;
 
-    #[cfg(feature = "write_machine")]
     if let Some(out_dir) = &out_dir {
         std::fs::write(out_dir.join("description_full.rs"), unparse(items.clone()))
             .expect("Full machine file should be writable");
     }
-
-    //println!("Machine-check-machine ending processing");
 
     Ok(())
 }
