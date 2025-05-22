@@ -34,7 +34,7 @@ impl ManipulateKind {
     }
 }
 
-pub(crate) fn apply_to_items(items: &mut Vec<Item>, kind: ManipulateKind) {
+pub(crate) fn for_items(items: &[Item], kind: ManipulateKind) -> Vec<ItemImpl> {
     let mut impls_to_add = Vec::new();
 
     let mut process_idents = HashSet::<Ident>::new();
@@ -64,7 +64,7 @@ pub(crate) fn apply_to_items(items: &mut Vec<Item>, kind: ManipulateKind) {
             impls_to_add.push(create_manipulatable_impl(item_struct, kind));
         }
     }
-    items.extend(impls_to_add.into_iter().map(Item::Impl));
+    impls_to_add
 }
 
 pub fn create_manipulatable_impl(item_struct: &ItemStruct, kind: ManipulateKind) -> ItemImpl {

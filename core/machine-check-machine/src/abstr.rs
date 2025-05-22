@@ -11,7 +11,6 @@ use crate::{
         WItemImplTrait, WPanicResult, WPanicResultType, WPath, WSsaLocal, WStmt, YConverted,
         YStage, ZAssignTypes, ZIfPolarity,
     },
-    Description,
 };
 
 use self::{
@@ -76,7 +75,9 @@ impl IntoSyn<Path> for WAbstrItemImplTrait {
     }
 }
 
-pub(crate) fn create_abstract_description(description: WDescription<YConverted>) -> Description {
+pub(crate) fn create_abstract_description(
+    description: WDescription<YConverted>,
+) -> (WDescription<YAbstr>, Vec<Item>) {
     let mut machine_types = Vec::new();
     for item_impl in description.impls.iter() {
         if let Some(ty) = preprocess_item_impl(item_impl) {
@@ -84,44 +85,50 @@ pub(crate) fn create_abstract_description(description: WDescription<YConverted>)
         }
     }
 
-    let mut processed_items = Vec::new();
+    let mut misc_items = Vec::new();
 
-    let mut w_description = WDescription::<YAbstr> {
+    let mut abstract_description = WDescription::<YAbstr> {
         structs: Vec::new(),
         impls: Vec::new(),
     };
 
     for item_struct in description.structs {
         let (item_struct, other_impls) = process_item_struct(item_struct);
-        w_description.structs.push(item_struct);
-        processed_items.extend(other_impls.into_iter().map(Item::Impl));
+        abstract_description.structs.push(item_struct);
+        misc_items.extend(other_impls.into_iter().map(Item::Impl));
     }
 
     for item_impl in description.impls {
         let item_impls = process_item_impl(item_impl, &machine_types);
-        w_description.impls.extend(item_impls);
+        abstract_description.impls.extend(item_impls);
     }
 
-    let mut abstract_description = Description {
-        items: processed_items,
-    };
+    // add field-manipulate to items
+    // TODO: compute field-manipulate using WIR
 
-    abstract_description.items.extend(
-        w_description
+    let mut all_items = misc_items.clone();
+
+    all_items.extend(
+        abstract_description
             .structs
+            .clone()
             .into_iter()
             .map(|a| Item::Struct(a.into_syn())),
     );
 
-    abstract_description.items.extend(
-        w_description
+    all_items.extend(
+        abstract_description
             .impls
+            .clone()
             .into_iter()
             .map(|a| Item::Impl(a.into_syn())),
     );
 
-    // add field-manipulate to items
-    manipulate::apply_to_items(&mut abstract_description.items, ManipulateKind::Forward);
+    misc_items.extend(
+        manipulate::for_items(&all_items, ManipulateKind::Forward)
+            .into_iter()
+            .map(Item::Impl),
+    );
 
-    abstract_description
+    (abstract_description, misc_items)
 }

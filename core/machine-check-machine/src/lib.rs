@@ -10,6 +10,7 @@ use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
 use syn::{parse_quote, Attribute, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
 use syn_path::path;
+use wir::IntoSyn;
 
 use crate::util::create_item_mod;
 
@@ -104,21 +105,28 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("SSA machine file should be writable");
     }
 
-    let mut abstract_description = abstr::create_abstract_description(description);
+    let (abstract_description, misc_abstract_items) =
+        abstr::create_abstract_description(description);
 
     if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("description_abstr.rs"),
-            unparse(abstract_description.clone().items),
+            unparse(wir::IntoSyn::into_syn(abstract_description.clone()).items),
         )
         .expect("Abstract machine file should be writable");
     }
+
+    let mut abstract_description = Description {
+        items: abstract_description.into_syn().items,
+    };
 
     let refinement_description =
         refin::create_refinement_description(&abstract_description).map_err(Error::from)?;
 
     // create new module at the end of the file that will contain the refinement
     let refinement_module = create_machine_module("__mck_mod_refin", refinement_description);
+
+    abstract_description.items.extend(misc_abstract_items);
     abstract_description.items.push(refinement_module);
 
     support::strip_machine::strip_machine(&mut abstract_description)?;

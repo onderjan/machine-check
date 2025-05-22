@@ -60,7 +60,11 @@ pub(crate) fn create_refinement_description(
     }
 
     // add field manipulate
-    manipulate::apply_to_items(&mut result_items, ManipulateKind::Backward);
+    result_items.extend(
+        manipulate::for_items(&result_items, ManipulateKind::Backward)
+            .into_iter()
+            .map(Item::Impl),
+    );
 
     let refinement_machine = Description {
         items: result_items,
