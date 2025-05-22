@@ -37,9 +37,8 @@ pub fn fold_item_impl(item_impl: WItemImpl<YAbstr>) -> Result<ItemImpl, Backward
 
     let new_result = {
         let mut impl_item_fns = Vec::new();
-        let self_ty = &item_impl.self_ty;
         for impl_item_fn in item_impl.impl_item_fns {
-            impl_item_fns.push(item_impl_fn::fold_impl_item_fn(impl_item_fn, self_ty));
+            impl_item_fns.push(item_impl_fn::fold_impl_item_fn(impl_item_fn));
         }
 
         let trait_ = match item_impl.trait_ {

@@ -4,7 +4,7 @@ use syn::{
     spanned::Spanned,
     token::{Bracket, Paren},
     Attribute, FnArg, Generics, ImplItemFn, ImplItemType, Local, MetaNameValue, Pat, PatIdent,
-    PatType, Receiver, Signature, Stmt, Token, Type, TypePath,
+    PatType, Receiver, Signature, Stmt, Token, Type, TypePath, TypeReference,
 };
 use syn_path::path;
 
@@ -106,12 +106,26 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
                 paren_token: Paren::default(),
                 inputs: Punctuated::from_iter(self.signature.inputs.into_iter().map(|fn_arg| {
                     if fn_arg.ident.name() == "self" {
-                        // TODO: prefer typed self once it is well-supported as it is more regular
-                        let syn_ty = fn_arg.ty.into_syn();
-                        let reference = if let Type::Reference(_) = syn_ty {
-                            Some((Token![&](span), None))
+                        // instead of the actual type, which may be converted to a non-Self path,
+                        // create a dummy type for the receiver
+                        let fn_arg_ty = fn_arg.ty.into_syn();
+                        let ty_span = fn_arg_ty.span();
+                        let self_ty = Type::Path(TypePath {
+                            qself: None,
+                            path: path!(Self),
+                        });
+                        let (ty, reference) = if let Type::Reference(_) = fn_arg_ty {
+                            (
+                                Type::Reference(TypeReference {
+                                    and_token: Token![&](ty_span),
+                                    lifetime: None,
+                                    mutability: None,
+                                    elem: Box::new(self_ty),
+                                }),
+                                Some((Token![&](span), None)),
+                            )
                         } else {
-                            None
+                            (self_ty, None)
                         };
 
                         FnArg::Receiver(Receiver {
@@ -120,7 +134,7 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
                             mutability: None,
                             self_token: Token![self](span),
                             colon_token: None,
-                            ty: Box::new(syn_ty),
+                            ty: Box::new(ty),
                         })
                     } else {
                         FnArg::Typed(syn::PatType {

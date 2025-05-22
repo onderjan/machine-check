@@ -10,8 +10,8 @@ use crate::{
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WPathSegment,
-        WReference, WSignature, WTacLocal, WType, YTac,
+        WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WReference,
+        WSignature, WTacLocal, WType, YTac,
     },
 };
 
@@ -211,12 +211,7 @@ impl FunctionFolder {
 
                 let self_type = WType {
                     reference,
-                    inner: WBasicType::Path(WPath {
-                        leading_colon: false,
-                        segments: vec![WPathSegment {
-                            ident: WIdent::new(String::from("Self"), receiver_span),
-                        }],
-                    }),
+                    inner: WBasicType::Path(self.self_ty.clone()),
                 };
 
                 self.add_unique_scoped_ident(self_ident.clone(), self_ident.clone());

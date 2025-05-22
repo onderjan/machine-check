@@ -16,7 +16,7 @@ use crate::{
         create_expr_call, create_expr_path, create_let_mut, get_block_result_expr,
         path_matches_global_names,
     },
-    wir::{WBlock, WElementaryType, WFnArg, WIdent, WImplItemFn, WPath, WSignature},
+    wir::{WBlock, WFnArg, WIdent, WImplItemFn, WSignature},
     BackwardError,
 };
 
@@ -24,7 +24,7 @@ use self::statement_converter::StatementConverter;
 
 use super::ImplConverter;
 
-pub fn fold_impl_item_fn(forward_fn: WImplItemFn<YAbstr>, self_ty: &WPath) -> WImplItemFn<YRefin> {
+pub fn fold_impl_item_fn(forward_fn: WImplItemFn<YAbstr>) -> WImplItemFn<YRefin> {
     // to transcribe function with signature (inputs) -> output and linear SSA block
     // we must the following steps
     // 1. set refin function signature to (abstract_inputs, later) -> (earlier)
@@ -40,17 +40,8 @@ pub fn fold_impl_item_fn(forward_fn: WImplItemFn<YAbstr>, self_ty: &WPath) -> WI
     //        add "refin_b.apply_join(refin_call(abstr_b, refin_a))"
     // 7. add result expression
 
-    let mut forward_inputs = forward_fn.signature.inputs;
+    let forward_inputs = forward_fn.signature.inputs;
     let forward_output = forward_fn.signature.output;
-
-    // TODO: convert Self before this
-    for forward_input in forward_inputs.iter_mut() {
-        if let WElementaryType::Path(path) = &mut forward_input.ty.inner {
-            if path.matches_relative(&["Self"]) {
-                *path = self_ty.clone();
-            }
-        }
-    }
 
     let abstract_args_ident = WIdent::new(String::from("__mck_abstr_args"), Span::call_site());
     let backward_later_ident = WIdent::new(String::from("__mck_input_later"), Span::call_site());
