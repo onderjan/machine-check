@@ -5,7 +5,10 @@ use syn::Item;
 
 use crate::{
     support::manipulate::{self, ManipulateKind},
-    wir::{IntoSyn, WDescription, YConverted},
+    wir::{
+        IntoSyn, WDescription, WElementaryType, WGeneralType, WPanicResult, WPanicResultType,
+        WSsaLocal, YConverted, YStage, ZConverted,
+    },
     Description,
 };
 
@@ -16,22 +19,35 @@ use self::{
 
 use super::Error;
 
+pub struct YAbstr;
+
+impl YStage for YAbstr {
+    type AssignTypes = ZConverted;
+    type OutputType = WPanicResultType<WElementaryType>;
+    type FnResult = WPanicResult;
+    type Local = WSsaLocal<WGeneralType<WElementaryType>>;
+}
+
 pub(crate) fn create_abstract_description(
     description: &WDescription<YConverted>,
 ) -> Result<Description, Error> {
     let items = description.clone().into_syn().items;
-    let mut abstract_description = Description { items };
 
     let mut machine_types = Vec::new();
-    let mut processed_items = Vec::new();
-
-    for item in abstract_description.items.iter() {
-        if let Item::Impl(item_impl) = item {
-            if let Some(ty) = preprocess_item_impl(item_impl)? {
-                machine_types.push(ty);
-            }
+    for item_impl in description.impls.iter() {
+        if let Some(ty) = preprocess_item_impl(item_impl)? {
+            machine_types.push(ty);
         }
     }
+
+    let mut abstract_description = Description { items };
+
+    let mut processed_items = Vec::new();
+
+    let w_description = WDescription::<YAbstr> {
+        structs: Vec::new(),
+        impls: Vec::new(),
+    };
 
     for item in abstract_description.items.drain(..) {
         match item {
@@ -48,6 +64,20 @@ pub(crate) fn create_abstract_description(
         }
     }
     abstract_description.items = processed_items;
+
+    abstract_description.items.extend(
+        w_description
+            .structs
+            .into_iter()
+            .map(|a| Item::Struct(a.into_syn())),
+    );
+
+    abstract_description.items.extend(
+        w_description
+            .impls
+            .into_iter()
+            .map(|a| Item::Impl(a.into_syn())),
+    );
 
     // add field-manipulate to items
     manipulate::apply_to_items(&mut abstract_description.items, ManipulateKind::Forward);

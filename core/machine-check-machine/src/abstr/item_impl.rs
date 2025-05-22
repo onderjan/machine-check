@@ -1,32 +1,38 @@
 mod impl_item_fn;
 
-use syn::{spanned::Spanned, GenericArgument, Ident, ImplItem, ItemImpl, Type, TypePath};
+use syn::{spanned::Spanned, GenericArgument, Ident, ImplItem, ItemImpl};
 
 use crate::{
-    support::special_trait::{special_trait_impl, SpecialTrait},
-    util::{create_angle_bracketed_path_arguments, create_path_segment, extract_type_path},
+    util::{
+        create_angle_bracketed_path_arguments, create_path_segment, create_type_path,
+        extract_type_path,
+    },
+    wir::{WIdent, WItemImpl, WItemImplTrait, WPath, WPathSegment, YConverted},
     Error, ErrorType,
 };
 
 use self::impl_item_fn::process_impl_item_fn;
 
-pub fn preprocess_item_impl(item_impl: &ItemImpl) -> Result<Option<Type>, Error> {
-    let Some(SpecialTrait::Machine) = special_trait_impl(item_impl, "forward") else {
+pub fn preprocess_item_impl(item_impl: &WItemImpl<YConverted>) -> Result<Option<WPath>, Error> {
+    let Some(WItemImplTrait::Machine) = item_impl.trait_ else {
         return Ok(None);
     };
 
-    let mut path = extract_type_path(item_impl.self_ty.as_ref()).expect("Expected path type");
-    path.segments.insert(
+    let mut ty = item_impl.self_ty.clone();
+    let span = ty.span();
+    ty.segments.insert(
         0,
-        create_path_segment(Ident::new("super", item_impl.self_ty.span())),
+        WPathSegment {
+            ident: WIdent::new(String::from("super"), span),
+        },
     );
 
-    Ok(Some(Type::Path(TypePath { qself: None, path })))
+    Ok(Some(ty))
 }
 
 pub fn process_item_impl(
     mut item_impl: ItemImpl,
-    machine_types: &[Type],
+    machine_types: &[WPath],
 ) -> Result<Vec<ItemImpl>, Error> {
     for impl_item in item_impl.items.iter_mut() {
         if let ImplItem::Fn(ref mut impl_item_fn) = impl_item {
@@ -56,7 +62,9 @@ pub fn process_item_impl(
             trait_path.segments.last_mut().unwrap().arguments =
                 create_angle_bracketed_path_arguments(
                     false,
-                    vec![GenericArgument::Type(machine_type.clone())],
+                    vec![GenericArgument::Type(create_type_path(
+                        machine_type.clone().into(),
+                    ))],
                     span,
                 );
         }
