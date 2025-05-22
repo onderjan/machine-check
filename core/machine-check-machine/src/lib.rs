@@ -116,15 +116,15 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("Abstract machine file should be writable");
     }
 
-    let mut abstract_description = Description {
-        items: abstract_description.into_syn().items,
-    };
-
     let refinement_description =
         refin::create_refinement_description(&abstract_description).map_err(Error::from)?;
 
     // create new module at the end of the file that will contain the refinement
     let refinement_module = create_machine_module("__mck_mod_refin", refinement_description);
+
+    let mut abstract_description = Description {
+        items: abstract_description.into_syn().items,
+    };
 
     abstract_description.items.extend(misc_abstract_items);
     abstract_description.items.push(refinement_module);
