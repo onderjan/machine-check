@@ -126,6 +126,10 @@ impl WIdent {
         WPath::from_ident(self)
     }
 
+    pub fn to_syn_ident(&self) -> Ident {
+        Ident::new(&self.name, self.span)
+    }
+
     pub fn mck_prefixed(&self, prefix: &str) -> WIdent {
         let orig_ident_str = self.name();
         // make sure everything is prefixed by __mck_ only once at the start

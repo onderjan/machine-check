@@ -1,20 +1,25 @@
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, Expr, ExprStruct, Ident, ImplItemFn, ItemStruct,
-    Stmt, Type,
+    punctuated::Punctuated, spanned::Spanned, Expr, ExprField, ExprStruct, FieldValue, Ident,
+    ImplItemFn, Stmt, Token, Type,
 };
 use syn_path::path;
 
 use crate::{
     util::{
-        create_arg, create_assign, create_expr_call, create_expr_field, create_expr_ident,
-        create_expr_path, create_field_value, create_ident, create_impl_item_fn, create_let_bare,
-        create_type_path, extract_type_path, path_starts_with_global_names, ArgType,
+        create_arg, create_assign, create_expr_call, create_expr_ident, create_expr_path,
+        create_ident, create_impl_item_fn, create_let_bare, create_type_path,
+        path_starts_with_global_names, ArgType,
     },
-    Error, ErrorType,
+    wir::{IntoSyn, WElementaryType, WItemStruct},
+    Error,
 };
 
-pub fn from_concrete_fn(item_struct: &ItemStruct, concr_ty: Type) -> Result<ImplItemFn, Error> {
+pub fn from_concrete_fn(
+    item_struct: &WItemStruct<WElementaryType>,
+    concr_ty: Type,
+) -> Result<ImplItemFn, Error> {
     let concr_ident = create_ident("concr");
+    let span = concr_ident.span();
     let concr_arg = create_arg(ArgType::Normal, concr_ident.clone(), Some(concr_ty));
 
     let mut local_stmts = Vec::new();
@@ -22,17 +27,14 @@ pub fn from_concrete_fn(item_struct: &ItemStruct, concr_ty: Type) -> Result<Impl
     let mut struct_field_values = Vec::new();
 
     for (index, field) in item_struct.fields.iter().enumerate() {
-        let concr_field_expr =
-            create_expr_field(create_expr_ident(concr_ident.clone()), index, field);
+        let concr_field_expr = Expr::Field(ExprField {
+            attrs: Vec::new(),
+            base: Box::new(create_expr_ident(concr_ident.clone())),
+            dot_token: Token![.](span),
+            member: syn::Member::Named(field.ident.to_syn_ident()),
+        });
 
-        let Some(mut concr_field_path) = extract_type_path(&field.ty) else {
-            return Err(Error::new(
-                ErrorType::ForwardConversionError(String::from(
-                    "Unable to convert struct due to non-path concrete field",
-                )),
-                item_struct.span(),
-            ));
-        };
+        let mut concr_field_path = field.ty.clone().into_syn_path();
 
         // TODO: nicer concrete type conversion
 
@@ -61,7 +63,7 @@ pub fn from_concrete_fn(item_struct: &ItemStruct, concr_ty: Type) -> Result<Impl
         let abstr_field_temp_ident = create_ident(&format!("__mck_into_abstr_{}", index));
         local_stmts.push(create_let_bare(
             abstr_field_temp_ident.clone(),
-            Some(field.ty.clone()),
+            Some(field.ty.clone().into_syn()),
         ));
         assign_stmts.push(create_assign(
             abstr_field_temp_ident.clone(),
@@ -72,11 +74,12 @@ pub fn from_concrete_fn(item_struct: &ItemStruct, concr_ty: Type) -> Result<Impl
             true,
         ));
 
-        struct_field_values.push(create_field_value(
-            index,
-            field,
-            create_expr_ident(abstr_field_temp_ident),
-        ));
+        struct_field_values.push(FieldValue {
+            attrs: Vec::new(),
+            member: syn::Member::Named(field.ident.to_syn_ident()),
+            colon_token: Some(Token![:](span)),
+            expr: create_expr_ident(abstr_field_temp_ident),
+        });
     }
     let struct_expr = Expr::Struct(ExprStruct {
         attrs: vec![],

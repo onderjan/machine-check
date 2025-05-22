@@ -54,6 +54,15 @@ pub fn create_expr_field(base: Expr, index: usize, field: &Field) -> Expr {
     })
 }
 
+pub fn create_expr_field_ident(base: Expr, field_ident: Ident) -> Expr {
+    Expr::Field(ExprField {
+        attrs: vec![],
+        base: Box::new(base),
+        dot_token: Default::default(),
+        member: Member::Named(field_ident),
+    })
+}
+
 pub fn create_expr_logical_and(left: Expr, right: Expr) -> Expr {
     Expr::Binary(ExprBinary {
         attrs: vec![],

@@ -121,6 +121,16 @@ impl IntoSyn<Type> for WElementaryType {
     }
 }
 
+impl WElementaryType {
+    pub fn into_syn_path(self) -> Path {
+        let Type::Path(ty) = self.into_syn() else {
+            panic!("Expected path type");
+        };
+        assert!(ty.qself.is_none());
+        ty.path
+    }
+}
+
 impl<FT: IntoSyn<Type>> IntoSyn<Type> for WType<FT> {
     fn into_syn(self) -> Type {
         let span = Span::call_site();
