@@ -72,6 +72,14 @@ impl WPath {
             .iter()
             .map(|segment| segment.ident.name.as_str())
     }
+
+    pub fn get_ident(&self) -> Option<&WIdent> {
+        if !self.leading_colon && self.segments.len() == 1 {
+            Some(&self.segments[0].ident)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<WPath> for Path {

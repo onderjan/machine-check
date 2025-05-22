@@ -57,8 +57,8 @@ impl YStage for YAbstr {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WAbstrItemImplTrait {
-    machine_type: WPath,
-    trait_: WItemImplTrait,
+    pub machine_type: WPath,
+    pub trait_: WItemImplTrait,
 }
 
 impl IntoSyn<Path> for WAbstrItemImplTrait {

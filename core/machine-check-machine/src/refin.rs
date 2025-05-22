@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 
-use syn::{Ident, Item, Type};
+use syn::{Item, Type};
 
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, ZAbstrIfPolarity},
     support::manipulate::{self, ManipulateKind},
     wir::{
         IntoSyn, WDescription, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
-        WPanicResult, WPanicResultType, WSsaLocal, WStmt, YStage, ZAssignTypes,
+        WItemImplTrait, WPanicResult, WPanicResultType, WSsaLocal, WStmt, YStage, ZAssignTypes,
     },
     BackwardError, Description,
 };
 
-use super::support::special_trait::{special_trait_impl, SpecialTrait};
+use super::support::special_trait::SpecialTrait;
 
 mod item_impl;
 mod item_struct;
@@ -25,7 +25,7 @@ pub(crate) fn create_refinement_description(
     // create items to add to the module
     let mut result_structs = Vec::new();
     let mut result_impls = Vec::new();
-    let mut ident_special_traits = HashMap::<Ident, SpecialTrait>::new();
+    let mut ident_special_traits = HashMap::new();
 
     // first pass
     for item_struct in &abstract_description.structs {
@@ -36,25 +36,38 @@ pub(crate) fn create_refinement_description(
     }
 
     for item_impl in &abstract_description.impls {
-        let item_impl = item_impl.clone().into_syn();
-
         // look for special traits
-        if let Some(special_trait) = special_trait_impl(&item_impl, "forward") {
-            if let Type::Path(ty) = item_impl.self_ty.as_ref() {
-                if let Some(ident) = ty.path.get_ident() {
-                    ident_special_traits.insert(ident.clone(), special_trait);
-                }
+        let special_trait = match &item_impl.trait_ {
+            Some(trait_) => match &trait_.trait_ {
+                WItemImplTrait::Machine => Some(SpecialTrait::Machine),
+                WItemImplTrait::Input => Some(SpecialTrait::Input),
+                WItemImplTrait::State => Some(SpecialTrait::State),
+                WItemImplTrait::Path(_) => None,
+            },
+            None => None,
+        };
+
+        if let Some(special_trait) = special_trait {
+            // TODO: make self types be idents for now as no nested modules are supported
+            if let Some(ident) = item_impl.self_ty.get_ident() {
+                ident_special_traits
+                    .entry(ident)
+                    .or_insert(Vec::new())
+                    .push(special_trait);
             }
         };
 
         // apply conversion
+        let item_impl = item_impl.clone().into_syn();
         result_impls.push(item_impl::fold_item_impl(item_impl)?);
     }
 
     // second pass, add special impls for special traits
     for item_struct in &abstract_description.structs {
-        if let Some(special_trait) = ident_special_traits.remove(&item_struct.ident.to_syn_ident())
-        {
+        let special_traits = ident_special_traits
+            .remove(&item_struct.ident)
+            .unwrap_or(Vec::new());
+        for special_trait in special_traits {
             let item_struct = item_struct.clone().into_syn();
             let special_impls = item_struct::special_impls(special_trait, &item_struct)?;
             result_impls.extend(special_impls);
