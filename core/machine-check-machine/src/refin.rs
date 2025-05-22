@@ -5,7 +5,6 @@ use syn::{Ident, Item, Type};
 use crate::{
     abstr::YAbstr,
     support::manipulate::{self, ManipulateKind},
-    util::path_matches_global_names,
     wir::{IntoSyn, WDescription},
     BackwardError, Description,
 };
@@ -35,19 +34,16 @@ pub(crate) fn create_refinement_description(
     for item_impl in &abstract_description.impls {
         let item_impl = item_impl.clone().into_syn();
 
-        // skip if it is field-manipulate, we will add it at the end
-        if !is_skipped_impl(&item_impl) {
-            // apply conversion
-            item_impl::apply(&mut result_items, &item_impl)?;
-            // look for special traits
-            if let Some(special_trait) = special_trait_impl(&item_impl, "forward") {
-                if let Type::Path(ty) = item_impl.self_ty.as_ref() {
-                    if let Some(ident) = ty.path.get_ident() {
-                        ident_special_traits.insert(ident.clone(), special_trait);
-                    }
+        // apply conversion
+        item_impl::apply(&mut result_items, &item_impl)?;
+        // look for special traits
+        if let Some(special_trait) = special_trait_impl(&item_impl, "forward") {
+            if let Type::Path(ty) = item_impl.self_ty.as_ref() {
+                if let Some(ident) = ty.path.get_ident() {
+                    ident_special_traits.insert(ident.clone(), special_trait);
                 }
-            };
-        }
+            }
+        };
     }
 
     // second pass, add special impls for special traits
@@ -71,14 +67,4 @@ pub(crate) fn create_refinement_description(
     };
 
     Ok(refinement_machine)
-}
-
-fn is_skipped_impl(item_impl: &syn::ItemImpl) -> bool {
-    let Some((_, path, _)) = &item_impl.trait_ else {
-        return false;
-    };
-    path_matches_global_names(path, &["mck", "forward", "Manipulatable"])
-        || path_matches_global_names(path, &["mck", "forward", "Phi"])
-        || path_matches_global_names(path, &["mck", "abstr", "Abstr"])
-        || path_matches_global_names(path, &["mck", "misc", "MetaEq"])
 }
