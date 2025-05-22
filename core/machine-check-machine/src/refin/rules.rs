@@ -64,6 +64,10 @@ pub fn refinement_rules() -> Rules {
                 RuleSegment::EndWildcard,
             ],
         },
+        Rule {
+            has_leading_colon: false,
+            segments: vec![RuleSegment::EndWildcard],
+        },
     ];
     let type_rules = vec![
         Rule {
@@ -153,6 +157,13 @@ pub fn abstract_rules() -> Rules {
             segments: vec![
                 RuleSegment::Insert(String::from("super")),
                 RuleSegment::Match(String::from("Self")),
+                RuleSegment::EndWildcard,
+            ],
+        },
+        Rule {
+            has_leading_colon: false,
+            segments: vec![
+                RuleSegment::Insert(String::from("super")),
                 RuleSegment::EndWildcard,
             ],
         },

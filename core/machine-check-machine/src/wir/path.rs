@@ -123,6 +123,10 @@ impl WIdent {
         self.name = name;
     }
 
+    pub fn set_span(&mut self, span: Span) {
+        self.span = span;
+    }
+
     pub fn from_syn_ident(ident: Ident) -> Self {
         Self {
             name: ident.to_string(),

@@ -20,8 +20,12 @@ use super::path::fold_path;
 mod expr;
 mod stmt;
 
-pub fn fold_impl_item_fn(impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, Errors> {
+pub fn fold_impl_item_fn(
+    impl_item: ImplItemFn,
+    self_ty: &WPath,
+) -> Result<WImplItemFn<YTac>, Errors> {
     FunctionFolder {
+        self_ty: self_ty.clone(),
         ident_creator: IdentCreator::new(String::from("")),
         scopes: Vec::new(),
         local_types: BTreeMap::new(),
@@ -35,6 +39,7 @@ struct FunctionScope {
 }
 
 struct FunctionFolder {
+    self_ty: WPath,
     ident_creator: IdentCreator,
     local_types: BTreeMap<WIdent, WPartialGeneralType<WBasicType>>,
     scopes: Vec<FunctionScope>,
@@ -162,7 +167,7 @@ impl FunctionFolder {
                     signature_span,
                 )))
             }
-            syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty),
+            syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty, Some(&self.self_ty)),
         }
         .map_err(Errors::single);
 
@@ -230,7 +235,7 @@ impl FunctionFolder {
                 };
 
                 let original_ident = WIdent::from_syn_ident(pat_ident.ident);
-                let ty = fold_type(*pat_type.ty)?;
+                let ty = fold_type(*pat_type.ty, Some(&self.self_ty))?;
 
                 let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
 
@@ -259,7 +264,7 @@ impl FunctionFolder {
             ));
         }
 
-        let path = fold_path(expr_path.path)?;
+        let path = fold_path(expr_path.path, Some(&self.self_ty))?;
         let mut segments_iter = path.segments.into_iter();
         if !path.leading_colon {
             if let Some(first) = segments_iter.next() {

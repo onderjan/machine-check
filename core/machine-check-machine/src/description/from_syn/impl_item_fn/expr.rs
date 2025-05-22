@@ -161,7 +161,7 @@ impl RightExprFolder<'_> {
             _ => {}
         }
 
-        let fn_path = fold_path(fn_path.clone())?;
+        let fn_path = fold_path(fn_path.clone(), Some(&self.fn_folder.self_ty))?;
         // ensure it is not a local-scope ident
         if !fn_path.leading_colon && fn_path.segments.len() == 1 {
             let ident = &fn_path.segments[0].ident;
@@ -265,7 +265,7 @@ impl RightExprFolder<'_> {
         let mut fn_path = fn_path.clone();
         let third_segment = &mut fn_path.segments[2];
 
-        let ty = Self::parse_single_type_generics(third_segment)?;
+        let ty = self.parse_single_type_generics(third_segment)?;
         third_segment.arguments = syn::PathArguments::None;
 
         let WReference::None = ty.reference else {
@@ -321,7 +321,10 @@ impl RightExprFolder<'_> {
         Ok((first, second))
     }
 
-    fn parse_single_type_generics(segment: &PathSegment) -> Result<WType<WBasicType>, Error> {
+    fn parse_single_type_generics(
+        &self,
+        segment: &PathSegment,
+    ) -> Result<WType<WBasicType>, Error> {
         let turbofished = Self::extract_turbofished(segment)?;
         if turbofished.len() != 1 {
             return Err(Error::new(
@@ -340,7 +343,7 @@ impl RightExprFolder<'_> {
             ));
         };
 
-        let ty = fold_type(arg.clone())?;
+        let ty = fold_type(arg.clone(), Some(&self.fn_folder.self_ty))?;
         Ok(ty)
     }
 
@@ -490,7 +493,7 @@ impl RightExprFolder<'_> {
         }
 
         Ok(WExprStruct {
-            type_path: fold_path(expr_struct.path)?,
+            type_path: fold_path(expr_struct.path, Some(&self.fn_folder.self_ty))?,
             fields: args,
         })
     }

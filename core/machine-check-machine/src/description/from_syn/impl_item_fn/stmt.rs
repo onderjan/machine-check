@@ -91,7 +91,7 @@ impl super::FunctionFolder {
                 let mut pat = local.pat.clone();
                 let mut ty = WPartialGeneralType::Unknown;
                 if let Pat::Type(pat_type) = pat {
-                    ty = fold_type(*pat_type.ty)
+                    ty = fold_type(*pat_type.ty, Some(&self.self_ty))
                         .map(WPartialGeneralType::Normal)
                         .map_err(Errors::single)?;
                     pat = *pat_type.pat;

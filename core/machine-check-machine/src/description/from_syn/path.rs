@@ -5,7 +5,7 @@ use crate::{
     wir::{WIdent, WPath, WPathSegment},
 };
 
-pub fn fold_path(path: Path) -> Result<WPath, Error> {
+pub fn fold_path(path: Path, self_ty: Option<&WPath>) -> Result<WPath, Error> {
     let path_span = path.span();
 
     let mut segments = Vec::new();
@@ -32,9 +32,9 @@ pub fn fold_path(path: Path) -> Result<WPath, Error> {
         }
     }
 
-    let has_leading_colon = path.leading_colon.is_some();
-
     // disallow global paths to any other crates than machine_check and std
+    let mut has_leading_colon = path.leading_colon.is_some();
+
     if has_leading_colon {
         let crate_segment = segments
             .first()
@@ -45,6 +45,25 @@ pub fn fold_path(path: Path) -> Result<WPath, Error> {
                 "Absolute paths not starting with 'machine_check' or 'std'",
                 path_span,
             ));
+        }
+    } else {
+        // replace leading Self if possible
+        if let Some(self_ty) = self_ty {
+            if !segments.is_empty() && segments[0].ident.name() == "Self" {
+                // set replaced segments spans to the original Self span
+                let first_segment_span = segments[0].ident.span();
+                let mut self_replacement = self_ty.clone();
+                for self_ty_segment in &mut self_replacement.segments {
+                    self_ty_segment.ident.set_span(first_segment_span);
+                }
+                // remove Self and concat
+                let mut segments_iter = segments.drain(..);
+                let _ = segments_iter.next();
+                self_replacement.segments.extend(segments_iter);
+                segments = self_replacement.segments;
+                // put leading colon according to self type
+                has_leading_colon = self_ty.leading_colon;
+            }
         }
     }
 

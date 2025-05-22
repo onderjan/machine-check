@@ -7,7 +7,7 @@ use crate::{
     description::{attribute_disallower::AttributeDisallower, Error, ErrorType, Errors},
     util::path_matches_global_names,
     wir::{
-        WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct,
+        WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPath,
         WVisibility, YTac,
     },
 };
@@ -48,7 +48,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
                     };
 
                     for parsed_path in parsed {
-                        derives.push(fold_path(parsed_path)?);
+                        derives.push(fold_path(parsed_path, None)?);
                     }
                     allowed = true;
                 } else if meta.path.is_ident("allow") {
@@ -91,6 +91,9 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
     attribute_disallower.visit_item_struct(&item);
     attribute_disallower.into_result()?;
 
+    let self_ident = WIdent::from_syn_ident(item.ident);
+    let self_path = self_ident.clone().into_path();
+
     let visibility = fold_visibility(item.vis)?;
 
     let Fields::Named(fields_named) = item.fields else {
@@ -108,7 +111,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
         };
 
         let ident = WIdent::from_syn_ident(field_ident);
-        let field = match fold_basic_type(field.ty) {
+        let field = match fold_basic_type(field.ty, Some(&self_path)) {
             Ok(ty) => Ok(WField { ident, ty }),
             Err(err) => Err(err),
         };
@@ -121,7 +124,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
     Ok(WItemStruct {
         visibility,
         derives,
-        ident: WIdent::from_syn_ident(item.ident),
+        ident: self_ident,
         fields,
     })
 }
@@ -150,7 +153,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
         match *item.self_ty {
             Type::Path(ty) => {
                 assert!(ty.qself.is_none());
-                fold_path(ty.path)
+                fold_path(ty.path, None)
             }
             _ => {
                 return Err(Errors::single(Error::unsupported_construct(
@@ -177,7 +180,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
             } else if path_matches_global_names(&path, &["machine_check", "Input"]) {
                 WItemImplTrait::Input
             } else {
-                WItemImplTrait::Path(fold_path(path)?)
+                WItemImplTrait::Path(fold_path(path, None)?)
             };
             Some(item_impl_trait)
         }
@@ -193,11 +196,11 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
         let impl_item_span = impl_item.span();
         let err_msg = match impl_item {
             ImplItem::Type(impl_item) => {
-                impl_item_types.push(fold_impl_item_type(impl_item));
+                impl_item_types.push(fold_impl_item_type(impl_item, &self_ty));
                 None
             }
             ImplItem::Fn(impl_item) => {
-                impl_item_fns.push(fold_impl_item_fn(impl_item));
+                impl_item_fns.push(fold_impl_item_fn(impl_item, &self_ty));
                 None
             }
             ImplItem::Const(_) => Some("Associated consts"),
@@ -222,7 +225,10 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
     })
 }
 
-pub fn fold_impl_item_type(impl_item: ImplItemType) -> Result<WImplItemType, Error> {
+pub fn fold_impl_item_type(
+    impl_item: ImplItemType,
+    self_ty: &WPath,
+) -> Result<WImplItemType, Error> {
     let span = impl_item.span();
 
     // TODO: visibility
@@ -240,7 +246,7 @@ pub fn fold_impl_item_type(impl_item: ImplItemType) -> Result<WImplItemType, Err
     };
     Ok(WImplItemType {
         left_ident: WIdent::from_syn_ident(impl_item.ident),
-        right_path: fold_path(ty.path)?,
+        right_path: fold_path(ty.path, Some(self_ty))?,
     })
 }
 
