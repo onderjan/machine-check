@@ -1,8 +1,8 @@
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, BinOp, Expr,
-    ExprBinary, ExprLit, ExprStruct, GenericArgument, ImplItem, ImplItemFn, Item, ItemStruct, Lit,
-    LitInt, Path, PathArguments, Stmt,
+    ExprBinary, ExprLit, ExprStruct, GenericArgument, ImplItem, ImplItemFn, ItemImpl, ItemStruct,
+    Lit, LitInt, Path, PathArguments, Stmt,
 };
 use syn_path::path;
 
@@ -22,7 +22,7 @@ use crate::{
 pub(crate) fn refine_impl(
     item_struct: &ItemStruct,
     abstr_type_path: &Path,
-) -> Result<Item, BackwardError> {
+) -> Result<ItemImpl, BackwardError> {
     let refin_fn = apply_refin_fn(item_struct)?;
     let join_fn = apply_join_fn(item_struct)?;
     let decay_fn = force_decay_fn(item_struct, abstr_type_path)?;
@@ -35,7 +35,7 @@ pub(crate) fn refine_impl(
     let refine_trait =
         create_path_with_last_generic_type(refine_trait, create_type_path(abstr_type_path.clone()));
 
-    Ok(Item::Impl(create_item_impl(
+    Ok(create_item_impl(
         Some(refine_trait),
         create_path_from_ident(item_struct.ident.clone()),
         vec![
@@ -47,7 +47,7 @@ pub(crate) fn refine_impl(
             ImplItem::Fn(dirty_fn),
             ImplItem::Fn(importance_fn),
         ],
-    )))
+    ))
 }
 
 fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {

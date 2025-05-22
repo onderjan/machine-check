@@ -1,4 +1,4 @@
-use syn::{Item, ItemStruct};
+use syn::{ItemImpl, ItemStruct};
 
 use crate::{
     support::meta_eq::meta_eq_impl,
@@ -32,27 +32,26 @@ pub fn fold_item_struct(item_struct: WItemStruct<WElementaryType>) -> WItemStruc
     }
 }
 
-pub(super) fn add_special_impls(
+pub(super) fn special_impls(
     special_trait: SpecialTrait,
-    refinement_items: &mut Vec<Item>,
     item_struct: &ItemStruct,
-) -> Result<(), BackwardError> {
+) -> Result<Vec<ItemImpl>, BackwardError> {
     let abstr_type_path = rules::abstract_rules()
         .convert_type_path(create_path_from_ident(item_struct.ident.clone()))?;
 
-    match special_trait {
+    Ok(match special_trait {
         SpecialTrait::Input | SpecialTrait::State => {
             // add Meta and Refine implementations
-            refinement_items.push(Item::Impl(meta_impl(item_struct, &abstr_type_path)?));
-            refinement_items.push(refine_impl(item_struct, &abstr_type_path)?);
-            refinement_items.push(Item::Impl(meta_eq_impl(item_struct)));
+            vec![
+                meta_impl(item_struct, &abstr_type_path)?,
+                refine_impl(item_struct, &abstr_type_path)?,
+                meta_eq_impl(item_struct),
+            ]
         }
 
         SpecialTrait::Machine => {
             // add Refine implementation
-            refinement_items.push(refine_impl(item_struct, &abstr_type_path)?);
+            vec![refine_impl(item_struct, &abstr_type_path)?]
         }
-    }
-
-    Ok(())
+    })
 }

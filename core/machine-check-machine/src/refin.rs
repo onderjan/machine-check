@@ -23,24 +23,21 @@ pub(crate) fn create_refinement_description(
     abstract_description: &WDescription<YAbstr>,
 ) -> Result<Description, BackwardError> {
     // create items to add to the module
-    let mut result_items = Vec::<Item>::new();
+    let mut result_structs = Vec::new();
+    let mut result_impls = Vec::new();
     let mut ident_special_traits = HashMap::<Ident, SpecialTrait>::new();
 
     // first pass
     for item_struct in &abstract_description.structs {
         // apply path rules and push struct
         let item_struct = item_struct::fold_item_struct(item_struct.clone());
-
         let refin_struct = item_struct.clone().into_syn();
-        //rules::refinement_rules().apply_to_item_struct(&mut refin_struct)?;
-        result_items.push(Item::Struct(refin_struct));
+        result_structs.push(refin_struct);
     }
 
     for item_impl in &abstract_description.impls {
         let item_impl = item_impl.clone().into_syn();
 
-        // apply conversion
-        item_impl::apply(&mut result_items, &item_impl)?;
         // look for special traits
         if let Some(special_trait) = special_trait_impl(&item_impl, "forward") {
             if let Type::Path(ty) = item_impl.self_ty.as_ref() {
@@ -49,6 +46,9 @@ pub(crate) fn create_refinement_description(
                 }
             }
         };
+
+        // apply conversion
+        result_impls.push(item_impl::fold_item_impl(item_impl)?);
     }
 
     // second pass, add special impls for special traits
@@ -56,9 +56,15 @@ pub(crate) fn create_refinement_description(
         if let Some(special_trait) = ident_special_traits.remove(&item_struct.ident.to_syn_ident())
         {
             let item_struct = item_struct.clone().into_syn();
-            item_struct::add_special_impls(special_trait, &mut result_items, &item_struct)?;
+            let special_impls = item_struct::special_impls(special_trait, &item_struct)?;
+            result_impls.extend(special_impls);
         }
     }
+
+    let mut result_items = Vec::new();
+
+    result_items.extend(result_structs.into_iter().map(Item::Struct));
+    result_items.extend(result_impls.into_iter().map(Item::Impl));
 
     // add field manipulate
     result_items.extend(

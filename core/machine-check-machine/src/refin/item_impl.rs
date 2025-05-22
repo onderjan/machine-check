@@ -1,5 +1,5 @@
 use syn::{
-    spanned::Spanned, GenericArgument, Ident, ImplItem, Item, ItemImpl, Path, PathArguments, Type,
+    spanned::Spanned, GenericArgument, Ident, ImplItem, ItemImpl, Path, PathArguments, Type,
 };
 
 use crate::{support::rules::Rules, util::create_path_segment, BackwardError, BackwardErrorType};
@@ -9,28 +9,23 @@ mod item_impl_fn;
 
 use super::rules;
 
-pub(super) fn apply(
-    refinement_items: &mut Vec<Item>,
-    item_impl: &ItemImpl,
-) -> Result<(), BackwardError> {
+pub fn fold_item_impl(item_impl: ItemImpl) -> Result<ItemImpl, BackwardError> {
     // convert implementation
-    let self_ty_name = extract_self_type_ident(item_impl)?.to_string();
+    let self_ty_name = extract_self_type_ident(&item_impl)?.to_string();
 
     let converter = ImplConverter {
         clone_rules: rules::clone_rules().with_self_ty_name(self_ty_name.clone()),
         abstract_rules: rules::abstract_rules().with_self_ty_name(self_ty_name.clone()),
         refinement_rules: rules::refinement_rules().with_self_ty_name(self_ty_name.clone()),
     };
-    let mut converted_item_impl = converter.convert(item_impl.clone())?;
+    let mut converted_item_impl = converter.convert(item_impl)?;
 
     if let Some((_, path, _)) = &mut converted_item_impl.trait_ {
         // convert generics arguments to super so that they still point to the original types
         convert_generic_arguments_to_super(path)?;
     };
 
-    refinement_items.push(Item::Impl(converted_item_impl));
-
-    Ok(())
+    Ok(converted_item_impl)
 }
 
 fn extract_self_type_ident(item_impl: &ItemImpl) -> Result<&Ident, BackwardError> {
