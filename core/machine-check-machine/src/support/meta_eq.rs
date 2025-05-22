@@ -1,4 +1,4 @@
-use syn::{spanned::Spanned, Ident, ImplItem, Item, ItemStruct, Stmt};
+use syn::{spanned::Spanned, Ident, ImplItem, ItemImpl, ItemStruct, Stmt};
 use syn_path::path;
 
 use crate::util::{
@@ -7,7 +7,7 @@ use crate::util::{
     create_self_arg, create_type_path, ArgType,
 };
 
-pub fn meta_eq_impl(item_struct: &ItemStruct) -> Item {
+pub fn meta_eq_impl(item_struct: &ItemStruct) -> ItemImpl {
     // two underscores to avoid unused variable warning if there are no fields
     let other_ident = Ident::new("__other", item_struct.span());
 
@@ -42,9 +42,9 @@ pub fn meta_eq_impl(item_struct: &ItemStruct) -> Item {
         )],
     );
 
-    Item::Impl(create_item_impl(
+    create_item_impl(
         Some(path!(::mck::misc::MetaEq)),
         create_path_from_ident(item_struct.ident.clone()),
         vec![ImplItem::Fn(eq_fn)],
-    ))
+    )
 }

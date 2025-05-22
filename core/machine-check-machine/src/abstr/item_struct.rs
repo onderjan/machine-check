@@ -1,7 +1,7 @@
 use proc_macro2::Ident;
 use quote::ToTokens;
 use syn::{
-    parse::Parser, punctuated::Punctuated, spanned::Spanned, Generics, ImplItem, Item, ItemImpl,
+    parse::Parser, punctuated::Punctuated, spanned::Spanned, Generics, ImplItem, ItemImpl,
     ItemStruct, Path, Token,
 };
 use syn_path::path;
@@ -21,7 +21,9 @@ use self::from_concrete::from_concrete_fn;
 mod from_concrete;
 mod phi;
 
-pub fn process_item_struct(mut item_struct: ItemStruct) -> Result<Vec<Item>, Error> {
+pub fn process_item_struct(
+    mut item_struct: ItemStruct,
+) -> Result<(ItemStruct, Vec<ItemImpl>), Error> {
     let mut has_derived_eq = false;
     let mut has_derived_partial_eq = false;
     // look for derives of PartialEq and Eq
@@ -82,18 +84,13 @@ pub fn process_item_struct(mut item_struct: ItemStruct) -> Result<Vec<Item>, Err
         let phi_impl = phi_impl(&item_struct)?;
         let meta_eq_impl = meta_eq_impl(&item_struct);
 
-        Ok(vec![
-            Item::Struct(item_struct),
-            abstr_impl,
-            meta_eq_impl,
-            phi_impl,
-        ])
+        Ok((item_struct, vec![abstr_impl, meta_eq_impl, phi_impl]))
     } else {
-        Ok(vec![Item::Struct(item_struct), abstr_impl])
+        Ok((item_struct, vec![abstr_impl]))
     }
 }
 
-fn create_abstr(item_struct: &ItemStruct) -> Result<Item, Error> {
+fn create_abstr(item_struct: &ItemStruct) -> Result<ItemImpl, Error> {
     let span = item_struct.span();
 
     let mut concr_segments = Punctuated::new();
@@ -109,7 +106,7 @@ fn create_abstr(item_struct: &ItemStruct) -> Result<Item, Error> {
 
     let from_concrete_fn = ImplItem::Fn(from_concrete_fn(item_struct, concr_ty)?);
 
-    Ok(Item::Impl(ItemImpl {
+    Ok(ItemImpl {
         attrs: vec![],
         defaultness: None,
         unsafety: None,
@@ -121,5 +118,5 @@ fn create_abstr(item_struct: &ItemStruct) -> Result<Item, Error> {
         ))),
         brace_token: Default::default(),
         items: vec![from_concrete_fn],
-    }))
+    })
 }

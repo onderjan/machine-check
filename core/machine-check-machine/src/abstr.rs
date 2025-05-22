@@ -36,10 +36,13 @@ pub(crate) fn create_abstract_description(
     for item in abstract_description.items.drain(..) {
         match item {
             syn::Item::Impl(item_impl) => {
-                processed_items.extend(process_item_impl(item_impl, &machine_types)?);
+                let item_impls = process_item_impl(item_impl, &machine_types)?;
+                processed_items.extend(item_impls.into_iter().map(Item::Impl));
             }
             syn::Item::Struct(item_struct) => {
-                processed_items.extend(process_item_struct(item_struct)?);
+                let (item_struct, other_impls) = process_item_struct(item_struct)?;
+                processed_items.push(Item::Struct(item_struct));
+                processed_items.extend(other_impls.into_iter().map(Item::Impl));
             }
             _ => panic!("Unexpected item type"),
         }

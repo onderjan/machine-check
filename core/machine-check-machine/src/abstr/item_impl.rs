@@ -1,6 +1,6 @@
 mod impl_item_fn;
 
-use syn::{spanned::Spanned, GenericArgument, Ident, ImplItem, Item, ItemImpl, Type, TypePath};
+use syn::{spanned::Spanned, GenericArgument, Ident, ImplItem, ItemImpl, Type, TypePath};
 
 use crate::{
     support::special_trait::{special_trait_impl, SpecialTrait},
@@ -27,15 +27,16 @@ pub fn preprocess_item_impl(item_impl: &ItemImpl) -> Result<Option<Type>, Error>
 pub fn process_item_impl(
     mut item_impl: ItemImpl,
     machine_types: &[Type],
-) -> Result<Vec<Item>, Error> {
+) -> Result<Vec<ItemImpl>, Error> {
     for impl_item in item_impl.items.iter_mut() {
         if let ImplItem::Fn(ref mut impl_item_fn) = impl_item {
             process_impl_item_fn(impl_item_fn)?;
         }
     }
 
-    let mut result = vec![item_impl; machine_types.len()];
-    for (item_impl, machine_type) in result.iter_mut().zip(machine_types.iter()) {
+    let mut result = Vec::new();
+    for machine_type in machine_types {
+        let mut item_impl = item_impl.clone();
         let span = item_impl.span();
 
         let Some(self_ty_path) = extract_type_path(&item_impl.self_ty) else {
@@ -59,7 +60,8 @@ pub fn process_item_impl(
                     span,
                 );
         }
+        result.push(item_impl);
     }
 
-    Ok(result.into_iter().map(Item::Impl).collect())
+    Ok(result)
 }

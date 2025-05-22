@@ -1,4 +1,6 @@
-use syn::{punctuated::Punctuated, Expr, ExprStruct, ImplItem, ImplItemFn, Item, ItemStruct, Stmt};
+use syn::{
+    punctuated::Punctuated, Expr, ExprStruct, ImplItem, ImplItemFn, ItemImpl, ItemStruct, Stmt,
+};
 use syn_path::path;
 
 use crate::{
@@ -11,15 +13,15 @@ use crate::{
     Error,
 };
 
-pub fn phi_impl(item_struct: &ItemStruct) -> Result<Item, Error> {
+pub fn phi_impl(item_struct: &ItemStruct) -> Result<ItemImpl, Error> {
     let phi_fn = phi_fn(item_struct)?;
     let uninit_fn = uninit_fn(item_struct)?;
 
-    Ok(Item::Impl(create_item_impl(
+    Ok(create_item_impl(
         Some(path!(::mck::forward::Phi)),
         create_path_from_ident(item_struct.ident.clone()),
         vec![ImplItem::Fn(phi_fn), ImplItem::Fn(uninit_fn)],
-    )))
+    ))
 }
 
 fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
