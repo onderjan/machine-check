@@ -5,13 +5,13 @@ use syn::{spanned::Spanned, GenericArgument, Ident, ImplItem, Item, ItemImpl, Ty
 use crate::{
     support::special_trait::{special_trait_impl, SpecialTrait},
     util::{create_angle_bracketed_path_arguments, create_path_segment, extract_type_path},
-    ErrorType, Error,
+    Error, ErrorType,
 };
 
 use self::impl_item_fn::process_impl_item_fn;
 
 pub fn preprocess_item_impl(item_impl: &ItemImpl) -> Result<Option<Type>, Error> {
-    let Some(SpecialTrait::Machine) = special_trait_impl(item_impl, "abstr") else {
+    let Some(SpecialTrait::Machine) = special_trait_impl(item_impl, "forward") else {
         return Ok(None);
     };
 

@@ -13,7 +13,7 @@ use crate::{
         create_path_from_ident, create_path_segment, create_path_with_last_generic_type,
         create_type_path, path_matches_global_names,
     },
-    ErrorType, Error,
+    Error, ErrorType,
 };
 
 use self::from_concrete::from_concrete_fn;

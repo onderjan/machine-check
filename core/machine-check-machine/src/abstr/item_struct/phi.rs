@@ -16,7 +16,7 @@ pub fn phi_impl(item_struct: &ItemStruct) -> Result<Item, Error> {
     let uninit_fn = uninit_fn(item_struct)?;
 
     Ok(Item::Impl(create_item_impl(
-        Some(path!(::mck::abstr::Phi)),
+        Some(path!(::mck::forward::Phi)),
         create_path_from_ident(item_struct.ident.clone()),
         vec![ImplItem::Fn(phi_fn), ImplItem::Fn(uninit_fn)],
     )))
@@ -62,7 +62,7 @@ fn phi_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
 
         // phi our and other field together
         let phi_result_expr = create_expr_call(
-            create_expr_path(path!(::mck::abstr::Phi::phi)),
+            create_expr_path(path!(::mck::forward::Phi::phi)),
             vec![
                 (ArgType::Normal, create_expr_ident(self_field_temp_ident)),
                 (ArgType::Normal, create_expr_ident(other_field_temp_ident)),
@@ -114,7 +114,7 @@ fn uninit_fn(s: &ItemStruct) -> Result<ImplItemFn, Error> {
 
     for (index, field) in s.fields.iter().enumerate() {
         let uninit_expr =
-            create_expr_call(create_expr_path(path!(::mck::abstr::Phi::uninit)), vec![]);
+            create_expr_call(create_expr_path(path!(::mck::forward::Phi::uninit)), vec![]);
         let temp_ident = create_ident(&format!("__mck_phi_{}", index));
         local_stmts.push(create_let_bare(temp_ident.clone(), Some(field.ty.clone())));
         assign_stmts.push(create_assign(temp_ident.clone(), uninit_expr, true));

@@ -21,15 +21,15 @@ use super::special_trait::{special_trait_impl, SpecialTrait};
 
 #[derive(Clone, Copy)]
 pub enum ManipulateKind {
-    Abstr,
-    Refin,
+    Forward,
+    Backward,
 }
 
 impl ManipulateKind {
     fn str(&self) -> &'static str {
         match self {
-            ManipulateKind::Abstr => "abstr",
-            ManipulateKind::Refin => "refin",
+            ManipulateKind::Forward => "forward",
+            ManipulateKind::Backward => "backward",
         }
     }
 }

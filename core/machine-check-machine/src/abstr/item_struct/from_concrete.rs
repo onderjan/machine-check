@@ -10,13 +10,10 @@ use crate::{
         create_expr_path, create_field_value, create_ident, create_impl_item_fn, create_let_bare,
         create_type_path, extract_type_path, path_starts_with_global_names, ArgType,
     },
-    ErrorType, Error,
+    Error, ErrorType,
 };
 
-pub fn from_concrete_fn(
-    item_struct: &ItemStruct,
-    concr_ty: Type,
-) -> Result<ImplItemFn, Error> {
+pub fn from_concrete_fn(item_struct: &ItemStruct, concr_ty: Type) -> Result<ImplItemFn, Error> {
     let concr_ident = create_ident("concr");
     let concr_arg = create_arg(ArgType::Normal, concr_ident.clone(), Some(concr_ty));
 
@@ -37,7 +34,9 @@ pub fn from_concrete_fn(
             ));
         };
 
-        let assign_expr = if path_starts_with_global_names(&concr_field_path, &["mck", "abstr"]) {
+        // TODO: nicer concrete type conversion
+
+        let assign_expr = if path_starts_with_global_names(&concr_field_path, &["mck", "forward"]) {
             concr_field_path.segments[1].ident =
                 Ident::new("concr", concr_field_path.segments[1].span());
 

@@ -13,6 +13,7 @@ pub fn special_trait_impl(item_impl: &ItemImpl, flavour: &str) -> Option<Special
     let Some((None, trait_path, _)) = &item_impl.trait_ else {
         return None;
     };
+
     special_trait_path(trait_path, flavour)
 }
 

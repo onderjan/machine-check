@@ -50,7 +50,7 @@ impl Visitor {
         let Expr::Path(cond_expr_path) = cond_expr_call.func.as_mut() else {
             panic!("Non-literal branch condition call function should be a path");
         };
-        if cond_expr_path.path != path!(::mck::abstr::Test::into_bool) {
+        if cond_expr_path.path != path!(::mck::forward::Test::into_bool) {
             panic!("Non-literal branch condition call function should be into_bool");
         }
         if cond_expr_call.args.len() != 1 {
@@ -75,7 +75,7 @@ impl Visitor {
         // in else branch, convert the Taken from then branch to NotTaken
 
         let can_be_true_if = self.create_branch_if(
-            path!(::mck::abstr::Test::can_be_true),
+            path!(::mck::forward::Test::can_be_true),
             then_block,
             condition,
             cond_expr_call,
@@ -84,7 +84,7 @@ impl Visitor {
         );
 
         let can_be_false_if = self.create_branch_if(
-            path!(::mck::abstr::Test::can_be_false),
+            path!(::mck::forward::Test::can_be_false),
             else_block,
             condition,
             cond_expr_call,

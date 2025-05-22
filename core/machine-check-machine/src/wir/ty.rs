@@ -106,15 +106,17 @@ impl IntoSyn<Type> for WElementaryType {
     fn into_syn(self) -> Type {
         let span = Span::call_site();
         match self {
-            WElementaryType::Bitvector(width) => create_mck_concr_type("Bitvector", &[width], span),
+            WElementaryType::Bitvector(width) => {
+                create_mck_forward_type("Bitvector", &[width], span)
+            }
             WElementaryType::Array(array) => {
-                create_mck_concr_type("Array", &[array.index_width, array.element_width], span)
+                create_mck_forward_type("Array", &[array.index_width, array.element_width], span)
             }
             WElementaryType::Path(path) => Type::Path(TypePath {
                 qself: None,
                 path: path.into(),
             }),
-            WElementaryType::Boolean => create_mck_concr_type("Boolean", &[], span),
+            WElementaryType::Boolean => create_mck_forward_type("Boolean", &[], span),
         }
     }
 }
@@ -162,7 +164,7 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPanicResultType<FT> {
 fn panic_result_syn_type<FT: IntoSyn<Type>>(inner: Option<FT>) -> Type {
     let span = Span::call_site();
     let mut segments =
-        Punctuated::from_iter(["mck", "concr", "PanicResult"].into_iter().map(|name| {
+        Punctuated::from_iter(["mck", "forward", "PanicResult"].into_iter().map(|name| {
             PathSegment {
                 ident: Ident::new(name, span),
                 arguments: PathArguments::None,
@@ -230,8 +232,8 @@ fn create_machine_check_type(name: &str, widths: &[u32], span: Span) -> Type {
     create_named_type(&["machine_check", name], widths, span)
 }
 
-fn create_mck_concr_type(name: &str, widths: &[u32], span: Span) -> Type {
-    create_named_type(&["mck", "concr", name], widths, span)
+fn create_mck_forward_type(name: &str, widths: &[u32], span: Span) -> Type {
+    create_named_type(&["mck", "forward", name], widths, span)
 }
 
 fn create_named_type(names: &[&str], widths: &[u32], span: Span) -> Type {
@@ -281,7 +283,7 @@ impl IntoSyn<Expr> for WPanicResult {
                     arguments: PathArguments::None,
                 },
                 PathSegment {
-                    ident: Ident::new("concr", span),
+                    ident: Ident::new("forward", span),
                     arguments: PathArguments::None,
                 },
                 PathSegment {

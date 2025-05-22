@@ -59,7 +59,7 @@ pub fn convert_types(
         impls.push(match impl_item_fns {
             Ok(impl_item_fns) => Ok(WItemImpl {
                 self_ty: convert_basic_path(item_impl.self_ty),
-                trait_: item_impl.trait_.map(convert_basic_path),
+                trait_: item_impl.trait_,
                 impl_item_types,
                 impl_item_fns,
             }),

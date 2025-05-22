@@ -109,8 +109,8 @@ pub const MCK_HIGH_BITVECTOR_ARRAY_NEW: &str = "::machine_check::BitvectorArray:
 
 pub const MCK_UEXT: &str = "::mck::forward::Ext::uext";
 pub const MCK_SEXT: &str = "::mck::forward::Ext::sext";
-pub const MCK_BITVECTOR_NEW: &str = "::mck::concr::Bitvector::new";
-pub const MCK_BITVECTOR_ARRAY_NEW: &str = "::mck::concr::Array::new_filled";
+pub const MCK_BITVECTOR_NEW: &str = "::mck::forward::Bitvector::new";
+pub const MCK_BITVECTOR_ARRAY_NEW: &str = "::mck::forward::Array::new_filled";
 
 pub const STD_CLONE: &str = "::std::clone::Clone::clone";
 pub const STD_INTO: &str = "::std::convert::Into::into";
@@ -121,7 +121,7 @@ pub const ARRAY_WRITE: &str = "::mck::forward::ReadWrite::write";
 pub const PHI: &str = "::mck::forward::PhiArg::phi";
 pub const PHI_TAKEN: &str = "::mck::forward::PhiArg::Taken";
 pub const PHI_NOT_TAKEN: &str = "::mck::forward::PhiArg::NotTaken";
-pub const PHI_UNINIT: &str = "::mck::concr::Phi::uninit";
+pub const PHI_UNINIT: &str = "::mck::forward::Phi::uninit";
 
 #[derive(Clone, Debug, Hash)]
 pub struct WCall {

@@ -78,6 +78,14 @@ pub fn refinement_rules() -> Rules {
                 RuleSegment::EndWildcard,
             ],
         },
+        Rule {
+            has_leading_colon: true,
+            segments: vec![
+                RuleSegment::Match(String::from("mck")),
+                RuleSegment::Convert(String::from("forward"), String::from("backward")),
+                RuleSegment::EndWildcard,
+            ],
+        },
     ];
     Rules::new(normal_rules, type_rules)
 }

@@ -49,6 +49,14 @@ pub mod forward {
 #[doc(hidden)]
 pub mod backward {
     pub use super::traits::backward::*;
+
+    // TODO: select the backward types generically
+
+    pub use super::array::refin::*;
+    pub use super::bitvector::refin::*;
+    pub use super::boolean::refin::*;
+    pub use super::panic::refin::*;
+    pub use super::traits::refin::*;
 }
 
 #[doc(hidden)]

@@ -38,7 +38,7 @@ pub(crate) fn create_refinement_description(
                     // apply conversion
                     item_impl::apply(&mut result_items, item_impl)?;
                     // look for special traits
-                    if let Some(special_trait) = special_trait_impl(item_impl, "abstr") {
+                    if let Some(special_trait) = special_trait_impl(item_impl, "forward") {
                         if let Type::Path(ty) = item_impl.self_ty.as_ref() {
                             if let Some(ident) = ty.path.get_ident() {
                                 ident_special_traits.insert(ident.clone(), special_trait);
@@ -60,7 +60,7 @@ pub(crate) fn create_refinement_description(
     }
 
     // add field manipulate
-    manipulate::apply_to_items(&mut result_items, ManipulateKind::Refin);
+    manipulate::apply_to_items(&mut result_items, ManipulateKind::Backward);
 
     let refinement_machine = Description {
         items: result_items,
@@ -73,8 +73,8 @@ fn is_skipped_impl(item_impl: &syn::ItemImpl) -> bool {
     let Some((_, path, _)) = &item_impl.trait_ else {
         return false;
     };
-    path_matches_global_names(path, &["mck", "abstr", "Manipulatable"])
-        || path_matches_global_names(path, &["mck", "abstr", "Phi"])
+    path_matches_global_names(path, &["mck", "forward", "Manipulatable"])
+        || path_matches_global_names(path, &["mck", "forward", "Phi"])
         || path_matches_global_names(path, &["mck", "abstr", "Abstr"])
         || path_matches_global_names(path, &["mck", "misc", "MetaEq"])
 }

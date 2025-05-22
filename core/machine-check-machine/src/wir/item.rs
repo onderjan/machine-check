@@ -6,6 +6,7 @@ use syn::{
     Attribute, Field, FieldsNamed, Generics, Ident, ImplItem, ImplItemFn, ItemImpl, ItemStruct,
     MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
 };
+use syn_path::path;
 
 use super::{IntoSyn, WIdent, WImplItemFn, WImplItemType, WPath, YStage};
 
@@ -32,9 +33,17 @@ pub struct WField<FT: IntoSyn<Type>> {
 #[derive(Clone, Debug, Hash)]
 pub struct WItemImpl<Y: YStage> {
     pub self_ty: WPath,
-    pub trait_: Option<WPath>,
+    pub trait_: Option<WItemImplTrait>,
     pub impl_item_fns: Vec<WImplItemFn<Y>>,
     pub impl_item_types: Vec<WImplItemType>,
+}
+
+#[derive(Clone, Debug, Hash)]
+pub enum WItemImplTrait {
+    Machine,
+    Input,
+    State,
+    Path(WPath),
 }
 
 impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
@@ -114,6 +123,13 @@ where
             )
             .collect();
 
+        let trait_path = self.trait_.map(|trait_| match trait_ {
+            WItemImplTrait::Machine => path!(::mck::forward::Machine),
+            WItemImplTrait::Input => path!(::mck::forward::Input),
+            WItemImplTrait::State => path!(::mck::forward::State),
+            WItemImplTrait::Path(path) => path.into(),
+        });
+
         ItemImpl {
             attrs: Vec::new(),
             defaultness: None,
@@ -121,9 +137,7 @@ where
             impl_token: Token![impl](span),
             // TODO generics
             generics: Generics::default(),
-            trait_: self
-                .trait_
-                .map(|path| (None, path.into(), Token![for](span))),
+            trait_: trait_path.map(|path| (None, path, Token![for](span))),
             self_ty: Box::new(Type::Path(TypePath {
                 qself: None,
                 path: self.self_ty.into(),

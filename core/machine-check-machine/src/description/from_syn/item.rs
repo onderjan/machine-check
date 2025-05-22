@@ -5,7 +5,11 @@ use syn::{
 
 use crate::{
     description::{attribute_disallower::AttributeDisallower, Error, ErrorType, Errors},
-    wir::{WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemStruct, WVisibility, YTac},
+    util::path_matches_global_names,
+    wir::{
+        WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct,
+        WVisibility, YTac,
+    },
 };
 
 use super::{impl_item_fn::fold_impl_item_fn, path::fold_path, ty::fold_basic_type};
@@ -159,8 +163,23 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
 
     let trait_ = match item.trait_ {
         Some((not, path, _for_token)) => {
-            assert!(not.is_none());
-            Some(fold_path(path)?)
+            if not.is_some() {
+                return Err(Errors::single(Error::unsupported_construct(
+                    "Exclamation mark in trait",
+                    not.span(),
+                )));
+            }
+            let item_impl_trait = if path_matches_global_names(&path, &["machine_check", "Machine"])
+            {
+                WItemImplTrait::Machine
+            } else if path_matches_global_names(&path, &["machine_check", "State"]) {
+                WItemImplTrait::State
+            } else if path_matches_global_names(&path, &["machine_check", "Input"]) {
+                WItemImplTrait::Input
+            } else {
+                WItemImplTrait::Path(fold_path(path)?)
+            };
+            Some(item_impl_trait)
         }
         None => None,
     };

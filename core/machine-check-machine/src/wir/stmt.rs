@@ -89,7 +89,7 @@ impl<Z: ZAssignTypes> IntoSyn<Stmt> for WStmt<Z> {
                     WCallArg::Literal(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
                     WCallArg::Ident(ident) => Expr::Call(ExprCall {
                         attrs: vec![],
-                        func: Box::new(create_expr_path(path!(::mck::concr::Test::into_bool))),
+                        func: Box::new(create_expr_path(path!(::mck::forward::Test::into_bool))),
                         paren_token: Default::default(),
                         args: Punctuated::from_iter([ident.into_syn()]),
                     }),

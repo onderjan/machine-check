@@ -25,7 +25,7 @@ pub(crate) fn create_abstract_description(
     let mut abstract_description = Description { items };
 
     // apply transcription to types using path rule transcriptor
-    match path_rules().apply_to_items(&mut abstract_description.items) {
+    /*match path_rules().apply_to_items(&mut abstract_description.items) {
         Ok(()) => {}
         Err(err) => {
             return Err(Error::new(
@@ -33,7 +33,7 @@ pub(crate) fn create_abstract_description(
                 err.0,
             ));
         }
-    }
+    }*/
 
     let mut machine_types = Vec::new();
     let mut processed_items = Vec::new();
@@ -60,7 +60,7 @@ pub(crate) fn create_abstract_description(
     abstract_description.items = processed_items;
 
     // add field-manipulate to items
-    manipulate::apply_to_items(&mut abstract_description.items, ManipulateKind::Abstr);
+    manipulate::apply_to_items(&mut abstract_description.items, ManipulateKind::Forward);
 
     Ok(abstract_description)
 }
