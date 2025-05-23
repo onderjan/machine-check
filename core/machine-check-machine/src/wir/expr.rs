@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::{
     token::{Brace, Bracket},
-    Expr, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, FieldValue, Lit, Token,
+    Expr, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, FieldValue, Index, Lit, Token,
 };
 
 use crate::util::create_expr_ident;
@@ -64,7 +64,7 @@ impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<CF> {
                 attrs: Vec::new(),
                 base: Box::new(create_expr_ident(expr.base.into())),
                 dot_token: Token![.](span),
-                member: syn::Member::Named(expr.member.into()),
+                member: into_member(expr.member),
             }),
             WExpr::Struct(expr) => {
                 let fields = expr
@@ -72,7 +72,7 @@ impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<CF> {
                     .into_iter()
                     .map(|(name, value)| FieldValue {
                         attrs: Vec::new(),
-                        member: syn::Member::Named(name.into()),
+                        member: into_member(name),
                         colon_token: Some(Token![:](span)),
                         expr: create_expr_ident(value.into()),
                     })
@@ -95,7 +95,7 @@ impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<CF> {
                         attrs: Vec::new(),
                         base: Box::new(create_expr_ident(expr.base.into())),
                         dot_token: Token![.](span),
-                        member: syn::Member::Named(expr.member.into()),
+                        member: into_member(expr.member),
                     }),
                 };
                 Expr::Reference(ExprReference {
@@ -111,6 +111,16 @@ impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<CF> {
             }),
         }
     }
+}
+
+fn into_member(member_ident: WIdent) -> syn::Member {
+    let Ok(parsed) = member_ident.name().parse() else {
+        return syn::Member::Named(member_ident.into());
+    };
+    syn::Member::Unnamed(Index {
+        index: parsed,
+        span: member_ident.span(),
+    })
 }
 
 impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WIndexedExpr<CF> {

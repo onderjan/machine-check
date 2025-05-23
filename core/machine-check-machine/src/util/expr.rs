@@ -54,12 +54,12 @@ pub fn create_expr_field(base: Expr, index: usize, field: &Field) -> Expr {
     })
 }
 
-pub fn create_expr_field_ident(base: Expr, field_ident: Ident) -> Expr {
+pub fn create_expr_field_ident(base: Expr, field_name: Ident) -> Expr {
     Expr::Field(ExprField {
         attrs: vec![],
         base: Box::new(base),
         dot_token: Default::default(),
-        member: Member::Named(field_ident),
+        member: Member::Named(field_name),
     })
 }
 

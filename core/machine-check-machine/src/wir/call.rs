@@ -145,10 +145,16 @@ pub enum WCallArg {
 
 impl IntoSyn<Expr> for WExprCall {
     fn into_syn(self) -> Expr {
-        // TODO: generics into syn
+        let (fn_path, args) = self.call_fn_and_args();
+        WCall { fn_path, args }.into_syn()
+    }
+}
+
+impl WExprCall {
+    pub fn call_fn_and_args(self) -> (WPath, Vec<WCallArg>) {
         let span = Span::call_site();
         let (fn_operand, args) = match self {
-            WExprCall::Call(call) => return call.into_syn(),
+            WExprCall::Call(call) => return (call.fn_path, call.args),
             WExprCall::MckUnary(call) => {
                 let operation = call.op.to_string();
                 (operation, vec![WCallArg::Ident(call.operand)])
@@ -209,7 +215,7 @@ impl IntoSyn<Expr> for WExprCall {
                 ],
             ),
         };
-        construct_call(fn_operand, args)
+        (construct_call_fn_path(fn_operand), args)
     }
 }
 
@@ -286,7 +292,8 @@ impl IntoSyn<Expr> for WExprHighCall {
             WExprHighCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
             WExprHighCall::PhiUninit => (String::from(PHI_UNINIT), vec![]),
         };
-        construct_call(fn_operand, args)
+        let fn_path = construct_call_fn_path(fn_operand);
+        WCall { fn_path, args }.into_syn()
     }
 }
 
@@ -315,7 +322,7 @@ impl IntoSyn<Expr> for WCall {
     }
 }
 
-fn construct_call(fn_operand: String, args: Vec<WCallArg>) -> Expr {
+fn construct_call_fn_path(fn_operand: String) -> WPath {
     let span = Span::call_site();
 
     // construct the WPath
@@ -328,13 +335,8 @@ fn construct_call(fn_operand: String, args: Vec<WCallArg>) -> Expr {
             ident: WIdent::new(String::from(segment), span),
         })
         .collect();
-
-    WCall {
-        fn_path: WPath {
-            leading_colon: true,
-            segments,
-        },
-        args,
+    WPath {
+        leading_colon: true,
+        segments,
     }
-    .into_syn()
 }

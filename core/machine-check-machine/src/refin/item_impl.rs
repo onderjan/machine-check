@@ -57,8 +57,8 @@ pub fn fold_item_impl(item_impl: WItemImpl<YAbstr>) -> Result<ItemImpl, Backward
         }
     };
 
-    //let result = new_result.into_syn();
-    let result = previous_result;
+    let result = new_result.into_syn();
+    //let result = previous_result;
 
     Ok(result)
 }

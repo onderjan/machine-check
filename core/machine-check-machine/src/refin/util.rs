@@ -16,3 +16,13 @@ pub fn create_refine_join_stmt(left: Expr, right: Expr) -> Stmt {
         Some(Token![;](right_span)),
     )
 }
+
+pub fn create_refine_join_expr(left: Expr, right: Expr) -> Expr {
+    create_expr_call(
+        create_expr_path(path!(::mck::refin::Refine::apply_join)),
+        vec![
+            (ArgType::MutableReference, left),
+            (ArgType::Reference, right),
+        ],
+    )
+}

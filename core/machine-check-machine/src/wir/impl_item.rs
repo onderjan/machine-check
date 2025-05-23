@@ -164,13 +164,13 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
 
 impl<LT: IntoSyn<Type>> IntoSyn<Local> for WTacLocal<LT> {
     fn into_syn(self) -> Local {
-        ident_type_local(self.ident, self.ty)
+        ident_type_local(self.ident, Some(self.ty), false)
     }
 }
 
 impl<LT: IntoSyn<Type>> IntoSyn<Local> for WSsaLocal<LT> {
     fn into_syn(self) -> Local {
-        let mut local = ident_type_local(self.ident, self.ty);
+        let mut local = ident_type_local(self.ident, Some(self.ty), false);
         let span = local.span();
 
         local.attrs = vec![Attribute {
@@ -188,23 +188,29 @@ impl<LT: IntoSyn<Type>> IntoSyn<Local> for WSsaLocal<LT> {
     }
 }
 
-fn ident_type_local<LT: IntoSyn<Type>>(ident: WIdent, ty: LT) -> Local {
+pub fn ident_type_local<LT: IntoSyn<Type>>(ident: WIdent, ty: Option<LT>, mutable: bool) -> Local {
     let span = ident.span();
 
     let mut pat = Pat::Ident(PatIdent {
         attrs: Vec::new(),
         by_ref: None,
-        mutability: None,
+        mutability: if mutable {
+            Some(Token![mut](span))
+        } else {
+            None
+        },
         ident: ident.into(),
         subpat: None,
     });
 
-    pat = Pat::Type(PatType {
-        attrs: Vec::new(),
-        pat: Box::new(pat),
-        colon_token: Token![:](span),
-        ty: Box::new(ty.into_syn()),
-    });
+    if let Some(ty) = ty {
+        pat = Pat::Type(PatType {
+            attrs: Vec::new(),
+            pat: Box::new(pat),
+            colon_token: Token![:](span),
+            ty: Box::new(ty.into_syn()),
+        });
+    }
 
     Local {
         attrs: Vec::new(),

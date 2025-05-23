@@ -1,5 +1,6 @@
 pub mod error_list;
 pub mod ident_creator;
+pub mod ident_renamer;
 pub mod local;
 pub mod machine_error;
 pub mod manipulate;

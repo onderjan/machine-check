@@ -196,11 +196,11 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WGeneralType<FT> {
 
 impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPanicResultType<FT> {
     fn into_syn(self) -> Type {
-        panic_result_syn_type("forward", Some(self.0))
+        panic_result_syn_type("forward", Some(self.0.into_syn()))
     }
 }
 
-pub fn panic_result_syn_type<FT: IntoSyn<Type>>(flavour: &str, inner: Option<FT>) -> Type {
+pub fn panic_result_syn_type(flavour: &str, inner: Option<Type>) -> Type {
     let span = Span::call_site();
     let mut segments =
         Punctuated::from_iter(["mck", flavour, "PanicResult"].into_iter().map(|name| {
@@ -210,7 +210,6 @@ pub fn panic_result_syn_type<FT: IntoSyn<Type>>(flavour: &str, inner: Option<FT>
             }
         }));
     if let Some(inner) = inner {
-        let inner = inner.into_syn();
         segments[2].arguments = PathArguments::AngleBracketed(AngleBracketedGenericArguments {
             colon2_token: None,
             lt_token: Token![<](span),
@@ -232,7 +231,9 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPartialGeneralType<FT> {
         let span = Span::call_site();
         match self {
             WPartialGeneralType::Normal(normal) => normal.into_syn(),
-            WPartialGeneralType::PanicResult(inner) => panic_result_syn_type("forward", inner),
+            WPartialGeneralType::PanicResult(inner) => {
+                panic_result_syn_type("forward", inner.map(IntoSyn::into_syn))
+            }
             WPartialGeneralType::PhiArg(inner) => {
                 let span = Span::call_site();
                 let mut segments =

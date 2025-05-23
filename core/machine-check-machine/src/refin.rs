@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, token::Paren, GenericArgument, Ident, Item, Path,
-    PathSegment, Type, TypePath, TypeReference, TypeTuple,
+    punctuated::Punctuated, spanned::Spanned, token::Paren, Expr, GenericArgument, Ident, Item,
+    Local, Path, PathSegment, Type, TypePath, TypeReference, TypeTuple,
 };
 use syn_path::path;
 
@@ -11,8 +11,8 @@ use crate::{
     support::manipulate::{self, ManipulateKind},
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        panic_result_syn_type, IntoSyn, WDescription, WElementaryType, WExpr, WExprCall,
-        WGeneralType, WIdent, WItemImplTrait, WPath, WSsaLocal, WStmt, WType, YStage, ZAssignTypes,
+        ident_type_local, panic_result_syn_type, IntoSyn, WDescription, WElementaryType,
+        WGeneralType, WIdent, WItemImplTrait, WPath, WStmt, WType, YStage, ZAssignTypes,
     },
     BackwardError, Description,
 };
@@ -105,8 +105,17 @@ impl ZAssignTypes for ZRefin {
     type Stmt = WStmt<ZRefin>;
     type FundamentalType = WBackwardType;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WExprCall>;
+    type AssignRight = WRefinRightExpr;
     type IfPolarity = ZAbstrIfPolarity;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WRefinRightExpr(Expr);
+
+impl IntoSyn<Expr> for WRefinRightExpr {
+    fn into_syn(self) -> Expr {
+        self.0
+    }
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -114,11 +123,44 @@ pub struct YRefin;
 
 impl YStage for YRefin {
     type AssignTypes = ZRefin;
-    type InputType = WDirectionedArgType;
+    type InputType = WDirectedArgType;
     type OutputType = WBackwardTupleType;
     type FnResult = WIdent;
-    type Local = WSsaLocal<WGeneralType<WElementaryType>>;
+    type Local = WRefinLocal;
     type ItemImplTrait = WRefinItemImplTrait;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WRefinLocal {
+    pub ident: WIdent,
+    pub ty: Option<WDirectedType>,
+    pub mutable: bool,
+}
+
+impl IntoSyn<Local> for WRefinLocal {
+    fn into_syn(self) -> Local {
+        ident_type_local(self.ident, self.ty, self.mutable)
+    }
+}
+
+#[derive(Clone, Debug, Hash)]
+pub enum WDirectedType {
+    Forward(WGeneralType<WElementaryType>),
+    Backward(WBackwardElementaryType),
+    BackwardPanicResult(WBackwardElementaryType),
+}
+
+impl IntoSyn<Type> for WDirectedType {
+    fn into_syn(self) -> Type {
+        match self {
+            WDirectedType::Forward(ty) => forward_type(ty),
+            WDirectedType::Backward(ty) => ty.into_syn(),
+            WDirectedType::BackwardPanicResult(ty) => {
+                let inner = ty.into_syn();
+                panic_result_syn_type("backward", Some(inner))
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -127,6 +169,16 @@ pub struct WBackwardElementaryType(WElementaryType);
 impl IntoSyn<Type> for WBackwardElementaryType {
     fn into_syn(self) -> Type {
         self.0.into_syn_type_flavour("backward")
+    }
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WBackwardPanicResultType(WElementaryType);
+
+impl IntoSyn<Type> for WBackwardPanicResultType {
+    fn into_syn(self) -> Type {
+        let inner = self.0.into_syn_type_flavour("backward");
+        panic_result_syn_type("backward", Some(inner))
     }
 }
 
@@ -153,43 +205,36 @@ impl IntoSyn<Type> for WBackwardType {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WBackwardPanicResultType(WBackwardElementaryType);
-
-impl IntoSyn<Type> for WBackwardPanicResultType {
-    fn into_syn(self) -> Type {
-        panic_result_syn_type("backward", Some(self.0))
-    }
-}
-
-#[derive(Clone, Debug, Hash)]
-pub enum WDirectionedArgType {
+pub enum WDirectedArgType {
     ForwardTuple(Vec<WType<WElementaryType>>),
     BackwardPanicResult(WBackwardPanicResultType),
 }
 
-impl IntoSyn<Type> for WDirectionedArgType {
+impl IntoSyn<Type> for WDirectedArgType {
     fn into_syn(self) -> Type {
         match self {
-            WDirectionedArgType::ForwardTuple(types) => Type::Tuple(TypeTuple {
+            WDirectedArgType::ForwardTuple(types) => Type::Tuple(TypeTuple {
                 paren_token: Paren::default(),
-                elems: Punctuated::from_iter(types.into_iter().map(|ty| {
-                    // convert forward paths
-                    let mut ty = ty.into_syn();
-                    match &mut ty {
-                        Type::Path(type_path) => convert_forward_path(type_path),
-                        Type::Reference(TypeReference { elem, .. }) => {
-                            if let Type::Path(ref mut type_path) = **elem {
-                                convert_forward_path(type_path)
-                            }
-                        }
-                        _ => {}
-                    };
-                    ty
-                })),
+                elems: Punctuated::from_iter(types.into_iter().map(forward_type)),
             }),
-            WDirectionedArgType::BackwardPanicResult(ty) => ty.into_syn(),
+            WDirectedArgType::BackwardPanicResult(ty) => ty.into_syn(),
         }
     }
+}
+
+fn forward_type(ty: impl IntoSyn<Type>) -> Type {
+    // convert forward paths
+    let mut ty = ty.into_syn();
+    match &mut ty {
+        Type::Path(type_path) => convert_forward_path(type_path),
+        Type::Reference(TypeReference { elem, .. }) => {
+            if let Type::Path(ref mut type_path) = **elem {
+                convert_forward_path(type_path)
+            }
+        }
+        _ => {}
+    };
+    ty
 }
 
 fn convert_forward_path(type_path: &mut TypePath) {
@@ -203,6 +248,16 @@ fn convert_forward_path(type_path: &mut TypePath) {
                 arguments: syn::PathArguments::None,
             },
         );
+    }
+    for segment in &mut path.segments {
+        if let syn::PathArguments::AngleBracketed(ref mut angle_bracketed) = &mut segment.arguments
+        {
+            for arg in &mut angle_bracketed.args {
+                if let GenericArgument::Type(Type::Path(ty)) = arg {
+                    convert_forward_path(ty)
+                }
+            }
+        }
     }
 }
 
