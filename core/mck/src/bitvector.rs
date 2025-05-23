@@ -1,9 +1,11 @@
-mod combined;
+//mod combined;
+//mod wrap_interval;
+
 mod concrete;
+mod dual_interval;
 mod support;
 mod three_valued;
 mod util;
-mod wrap_interval;
 
 pub mod concr {
     pub type Bitvector<const L: u32> = super::concrete::ConcreteBitvector<L>;

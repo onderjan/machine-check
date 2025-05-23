@@ -92,7 +92,7 @@ impl<const L: u32> HwArith for ConcreteBitvector<L> {
     }
 }
 
-impl<const L: u32> ConcreteBitvector<L> {
+/*impl<const L: u32> ConcreteBitvector<L> {
     pub(crate) fn checked_add(self, rhs: Self) -> Option<Self> {
         let result = self.0.checked_add(rhs.0)?;
         if result & !Self::bit_mask().0 != 0 {
@@ -108,4 +108,4 @@ impl<const L: u32> ConcreteBitvector<L> {
         }
         Some(Self::new(result))
     }
-}
+}*/

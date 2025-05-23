@@ -24,12 +24,12 @@ impl Boolean {
         Boolean(Bitvector::from_zeros_ones(zeros, ones))
     }
 
-    pub(crate) fn from_bools(can_be_zero: bool, can_be_one: bool) -> Self {
+    /*pub(crate) fn from_bools(can_be_zero: bool, can_be_one: bool) -> Self {
         Self::from_zeros_ones(
             crate::concr::Bitvector::new(can_be_zero as u64),
             crate::concr::Bitvector::new(can_be_one as u64),
         )
-    }
+    }*/
 }
 
 impl Phi for Boolean {
