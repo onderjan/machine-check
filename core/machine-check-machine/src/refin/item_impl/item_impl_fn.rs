@@ -337,11 +337,10 @@ impl ForwardFolder {
     }
 
     fn fold_forward_assign(&mut self, stmt: WStmtAssign<ZAbstr>) -> Vec<WStmt<ZRefin>> {
-        let phi_related = match &stmt.right {
+        let phi_taking = match &stmt.right {
             WExpr::Call(call) => matches!(
                 call,
-                WExprCall::Phi(_, _)
-                    | WExprCall::PhiTaken(_)
+                WExprCall::PhiTaken(_)
                     | WExprCall::PhiMaybeTaken(_)
                     | WExprCall::PhiNotTaken
                     | WExprCall::PhiUninit
@@ -354,7 +353,7 @@ impl ForwardFolder {
             right: WRefinRightExpr(stmt.right.into_syn()),
         });
 
-        if phi_related {
+        if phi_taking {
             return vec![assignment];
         }
 
@@ -513,7 +512,7 @@ impl BackwardFolder {
 
         let special = match call {
             WExprCall::StdClone(right) => {
-                // TODO: convert specially
+                // convert specially
                 return self.fold_clone_call(left, right);
             }
             WExprCall::Phi(_, _) => Special::Phi,
@@ -585,18 +584,23 @@ impl BackwardFolder {
         // treat phi specially
         match special {
             Special::Phi => {
-                // TODO: treat phi specially
+                // treat phi specially
                 // we are using backward later twice, need to clone it
-                /*let backward_later_clone = create_expr_call(
-                    create_expr_path(path!(::std::clone::Clone::clone)),
-                    vec![(ArgType::Reference, later_backward_arg.clone())],
-                );*/
+                let clone_tmp = self.create_local_ident(span);
+
+                backward_stmts.push(WStmt::Assign(WStmtAssign {
+                    left: clone_tmp.clone(),
+                    right: WRefinRightExpr(create_expr_call(
+                        create_expr_path(path!(::std::clone::Clone::clone)),
+                        vec![(ArgType::Reference, later_backward_arg.clone().into_syn())],
+                    )),
+                }));
 
                 backward_stmts.push(WStmt::Assign(WStmtAssign {
                     left: backward_call_result.clone(),
                     right: WRefinRightExpr(create_expr_tuple(vec![
-                        later_backward_arg.clone().into_syn(),
                         later_backward_arg.into_syn(),
+                        clone_tmp.into_syn(),
                     ])),
                 }));
             }
@@ -609,20 +613,23 @@ impl BackwardFolder {
                 }));
             }
             Special::PhiMaybeTaken => {
+                // we are using backward later twice, need to clone it
+                let clone_tmp = self.create_local_ident(span);
+                backward_stmts.push(WStmt::Assign(WStmtAssign {
+                    left: clone_tmp.clone(),
+                    right: WRefinRightExpr(create_expr_call(
+                        create_expr_path(path!(::std::clone::Clone::clone)),
+                        vec![(ArgType::Reference, later_backward_arg.clone().into_syn())],
+                    )),
+                }));
                 let to_condition = create_expr_call(
                     create_expr_path(path!(::mck::refin::Refine::to_condition)),
                     vec![(ArgType::Reference, later_backward_arg.clone().into_syn())],
                 );
-
-                // we are using backward later twice, need to clone it
-                /*let backward_later_clone = create_expr_call(
-                    create_expr_path(path!(::std::clone::Clone::clone)),
-                    vec![(ArgType::Reference, backward_later.clone())],
-                );*/
                 backward_stmts.push(WStmt::Assign(WStmtAssign {
                     left: backward_call_result.clone(),
                     right: WRefinRightExpr(create_expr_tuple(vec![
-                        later_backward_arg.clone().into_syn(),
+                        clone_tmp.clone().into_syn(),
                         to_condition,
                     ])),
                 }));
