@@ -8,7 +8,7 @@ use crate::{
     abstr::ZAbstr,
     refin::{util::create_refine_join_expr, WRefinRightExpr, ZRefin},
     util::{
-        create_expr_call, create_expr_field_ident, create_expr_field_unnamed, create_expr_path,
+        create_expr_call, create_expr_field_named, create_expr_field_unnamed, create_expr_path,
         create_expr_reference, create_expr_tuple, ArgType,
     },
     wir::{
@@ -83,7 +83,7 @@ impl BackwardFolder {
                 // join the backward field
                 let backward_later = self.backward_ident(stmt.left).into_syn();
                 let backward_earlier = self.backward_ident(right_field.base);
-                let backward_earlier = create_expr_field_ident(
+                let backward_earlier = create_expr_field_named(
                     backward_earlier.into_syn(),
                     right_field.member.to_syn_ident(),
                 );
@@ -120,7 +120,7 @@ impl BackwardFolder {
             let backward_field = self.backward_ident(field_value);
             // address the field name in the backward struct
             let tmp_field =
-                create_expr_field_ident(backward_struct.clone().into_syn(), field_name.into());
+                create_expr_field_named(backward_struct.clone().into_syn(), field_name.into());
             // join the temporary to the backward field
             stmts.push(self.backward_apply_join(backward_field.into_syn(), tmp_field));
         }

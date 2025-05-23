@@ -3,7 +3,7 @@ use syn_path::path;
 
 use crate::{
     util::{
-        create_arg, create_expr_call, create_expr_field_ident, create_expr_logical_or,
+        create_arg, create_expr_call, create_expr_field_named, create_expr_logical_or,
         create_expr_path, create_field_value_ident, create_ident, create_impl_item_fn,
         create_item_impl, create_path_from_ident, create_path_with_last_generic_type, create_self,
         create_self_arg, create_struct_expr, create_type_path, ArgType,
@@ -45,7 +45,7 @@ fn proto_first_fn(
     let mut struct_expr_fields = Vec::new();
 
     for field in &item_struct.fields {
-        let self_field_expr = create_expr_field_ident(create_self(), field.ident.clone().into());
+        let self_field_expr = create_expr_field_named(create_self(), field.ident.clone().into());
         let init_expr = create_expr_call(
             create_expr_path(path!(::mck::misc::Meta::proto_first)),
             vec![(ArgType::Reference, self_field_expr)],
@@ -90,9 +90,9 @@ fn proto_increment_fn(
     for field in &item_struct.fields {
         let fabricated_expr_path = create_expr_path(create_path_from_ident(proto_ident.clone()));
 
-        let self_expr = create_expr_field_ident(create_self(), field.ident.clone().into());
+        let self_expr = create_expr_field_named(create_self(), field.ident.clone().into());
         let fabricated_expr =
-            create_expr_field_ident(fabricated_expr_path, field.ident.clone().into());
+            create_expr_field_named(fabricated_expr_path, field.ident.clone().into());
         let func_expr = create_expr_path(path!(::mck::misc::Meta::proto_increment));
         let expr = create_expr_call(
             func_expr,

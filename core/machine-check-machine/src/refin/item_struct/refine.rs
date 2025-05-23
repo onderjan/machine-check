@@ -1,8 +1,8 @@
 use proc_macro2::Span;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, BinOp, Expr,
-    ExprBinary, ExprLit, ExprStruct, GenericArgument, ImplItem, ImplItemFn, ItemImpl, ItemStruct,
-    Lit, LitInt, Path, PathArguments, Stmt,
+    punctuated::Punctuated, AngleBracketedGenericArguments, BinOp, Expr, ExprBinary, ExprLit,
+    ExprStruct, GenericArgument, ImplItem, ImplItemFn, ItemImpl, Lit, LitInt, Path, PathArguments,
+    Stmt,
 };
 use syn_path::path;
 
@@ -10,15 +10,19 @@ use crate::{
     refin::util::create_refine_join_stmt,
     support::types::boolean_type,
     util::{
-        create_arg, create_assign, create_expr_call, create_expr_field, create_expr_ident,
-        create_expr_path, create_field_value, create_ident, create_impl_item_fn, create_item_impl,
-        create_let_bare, create_let_mut, create_path_from_ident, create_path_from_name,
+        create_arg, create_assign, create_expr_call, create_expr_field_named, create_expr_ident,
+        create_expr_path, create_field_value_ident, create_ident, create_impl_item_fn,
+        create_item_impl, create_let_bare, create_let_mut, create_path_from_name,
         create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
         ArgType,
     },
+    wir::{WElementaryType, WItemStruct, WPath},
 };
 
-pub(crate) fn refine_impl(item_struct: &ItemStruct, abstr_type_path: &Path) -> ItemImpl {
+pub(crate) fn refine_impl(
+    item_struct: &WItemStruct<WElementaryType>,
+    abstr_type_path: &WPath,
+) -> ItemImpl {
     let refin_fn = apply_refin_fn(item_struct);
     let join_fn = apply_join_fn(item_struct);
     let decay_fn = force_decay_fn(item_struct, abstr_type_path);
@@ -28,12 +32,14 @@ pub(crate) fn refine_impl(item_struct: &ItemStruct, abstr_type_path: &Path) -> I
     let importance_fn = importance_fn(item_struct);
 
     let refine_trait: Path = path!(::mck::refin::Refine);
-    let refine_trait =
-        create_path_with_last_generic_type(refine_trait, create_type_path(abstr_type_path.clone()));
+    let refine_trait = create_path_with_last_generic_type(
+        refine_trait,
+        create_type_path(abstr_type_path.clone().into()),
+    );
 
     create_item_impl(
         Some(refine_trait),
-        create_path_from_ident(item_struct.ident.clone()),
+        item_struct.ident.clone().into_path().into(),
         vec![
             ImplItem::Fn(refin_fn),
             ImplItem::Fn(join_fn),
@@ -46,7 +52,7 @@ pub(crate) fn refine_impl(item_struct: &ItemStruct, abstr_type_path: &Path) -> I
     )
 }
 
-fn apply_join_fn(s: &ItemStruct) -> ImplItemFn {
+fn apply_join_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn {
     let fn_ident = create_ident("apply_join");
 
     let self_input = create_self_arg(ArgType::MutableReference);
@@ -54,9 +60,12 @@ fn apply_join_fn(s: &ItemStruct) -> ImplItemFn {
     let other_input = create_arg(ArgType::Reference, other_ident.clone(), None);
 
     let mut join_stmts = Vec::new();
-    for (index, field) in s.fields.iter().enumerate() {
-        let left = create_expr_field(create_self(), index, field);
-        let right = create_expr_field(create_expr_ident(other_ident.clone()), index, field);
+    for field in &item_struct.fields {
+        let left = create_expr_field_named(create_self(), field.ident.clone().into());
+        let right = create_expr_field_named(
+            create_expr_ident(other_ident.clone()),
+            field.ident.clone().into(),
+        );
         let join_stmt = create_refine_join_stmt(left, right);
         join_stmts.push(join_stmt);
     }
@@ -64,13 +73,16 @@ fn apply_join_fn(s: &ItemStruct) -> ImplItemFn {
     create_impl_item_fn(fn_ident, vec![self_input, other_input], None, join_stmts)
 }
 
-fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> ImplItemFn {
+fn force_decay_fn(
+    item_struct: &WItemStruct<WElementaryType>,
+    abstr_type_path: &WPath,
+) -> ImplItemFn {
     let fn_ident = create_ident("force_decay");
 
     let self_arg = create_self_arg(ArgType::Reference);
 
     let target_ident = create_ident("target");
-    let target_type = create_type_path(abstr_type_path.clone());
+    let target_type = create_type_path(abstr_type_path.clone().into());
     let target_arg = create_arg(
         ArgType::MutableReference,
         target_ident.clone(),
@@ -78,9 +90,12 @@ fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> ImplItemFn {
     );
 
     let mut stmts = Vec::new();
-    for (index, field) in s.fields.iter().enumerate() {
-        let decay_arg = create_expr_field(create_self(), index, field);
-        let target_arg = create_expr_field(create_expr_ident(target_ident.clone()), index, field);
+    for field in &item_struct.fields {
+        let decay_arg = create_expr_field_named(create_self(), field.ident.clone().into());
+        let target_arg = create_expr_field_named(
+            create_expr_ident(target_ident.clone()),
+            field.ident.clone().into(),
+        );
         let stmt = Stmt::Expr(
             create_expr_call(
                 create_expr_path(path!(::mck::refin::Refine::force_decay)),
@@ -97,17 +112,20 @@ fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> ImplItemFn {
     create_impl_item_fn(fn_ident, vec![self_arg, target_arg], None, stmts)
 }
 
-fn apply_refin_fn(s: &ItemStruct) -> ImplItemFn {
-    let fn_ident = create_ident("apply_refin");
+fn apply_refin_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn {
+    let fn_ident: syn::Ident = create_ident("apply_refin");
 
     let self_input = create_self_arg(ArgType::MutableReference);
     let offer_ident = create_ident("offer");
     let offer_input = create_arg(ArgType::Reference, offer_ident.clone(), None);
 
     let mut result_expr: Option<Expr> = None;
-    for (index, field) in s.fields.iter().enumerate() {
-        let left = create_expr_field(create_self(), index, field);
-        let right = create_expr_field(create_expr_ident(offer_ident.clone()), index, field);
+    for field in &item_struct.fields {
+        let left = create_expr_field_named(create_self(), field.ident.clone().into());
+        let right = create_expr_field_named(
+            create_expr_ident(offer_ident.clone()),
+            field.ident.clone().into(),
+        );
 
         let expr = create_expr_call(
             create_expr_path(path!(::mck::refin::Refine::apply_refin)),
@@ -143,7 +161,7 @@ fn apply_refin_fn(s: &ItemStruct) -> ImplItemFn {
     )
 }
 
-fn to_condition_fn(s: &ItemStruct) -> ImplItemFn {
+fn to_condition_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn {
     let fn_ident = create_ident("to_condition");
     let self_input = create_self_arg(ArgType::Reference);
 
@@ -162,8 +180,8 @@ fn to_condition_fn(s: &ItemStruct) -> ImplItemFn {
     ));
 
     // join the condition with results of fields
-    for (index, field) in s.fields.iter().enumerate() {
-        let field_expr = create_expr_field(create_self(), index, field);
+    for field in &item_struct.fields {
+        let field_expr = create_expr_field_named(create_self(), field.ident.clone().into());
         let right = create_expr_call(
             create_expr_path(path!(::mck::refin::Refine::to_condition)),
             vec![(ArgType::Reference, field_expr)],
@@ -196,19 +214,22 @@ fn to_condition_fn(s: &ItemStruct) -> ImplItemFn {
     create_impl_item_fn(fn_ident, vec![self_input], Some(return_type), stmts)
 }
 
-fn mark_creation_fn(s: &ItemStruct, name: &str, name_path: Path) -> ImplItemFn {
+fn mark_creation_fn(
+    item_struct: &WItemStruct<WElementaryType>,
+    name: &str,
+    name_path: Path,
+) -> ImplItemFn {
     let mut local_stmts = Vec::new();
     let mut assign_stmts = Vec::new();
     let mut struct_field_values = Vec::new();
 
-    for (index, field) in s.fields.iter().enumerate() {
+    for (index, field) in item_struct.fields.iter().enumerate() {
         let uninit_expr = create_expr_call(create_expr_path(name_path.clone()), vec![]);
         let temp_ident = create_ident(&format!("__mck_{}_{}", name, index));
         local_stmts.push(create_let_bare(temp_ident.clone(), None));
         assign_stmts.push(create_assign(temp_ident.clone(), uninit_expr, true));
-        struct_field_values.push(create_field_value(
-            index,
-            field,
+        struct_field_values.push(create_field_value_ident(
+            field.ident.clone().into(),
             create_expr_ident(temp_ident),
         ));
     }
@@ -233,8 +254,8 @@ fn mark_creation_fn(s: &ItemStruct, name: &str, name_path: Path) -> ImplItemFn {
     )
 }
 
-fn importance_fn(s: &ItemStruct) -> ImplItemFn {
-    let span = s.span();
+fn importance_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn {
+    let span = item_struct.ident.span();
     let fn_ident = create_ident("importance");
 
     let result_ident = create_ident("__mck_result");
@@ -251,8 +272,8 @@ fn importance_fn(s: &ItemStruct) -> ImplItemFn {
         }),
         Some(importance_ty.clone()),
     ));
-    for (index, field) in s.fields.iter().enumerate() {
-        let field_expr = create_expr_field(create_self(), index, field);
+    for field in &item_struct.fields {
+        let field_expr = create_expr_field_named(create_self(), field.ident.clone().into());
         let field_importance = create_expr_call(
             create_expr_path(path!(::mck::refin::Refine::importance)),
             vec![(ArgType::Reference, field_expr)],

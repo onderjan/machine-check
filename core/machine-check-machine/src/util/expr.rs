@@ -1,10 +1,10 @@
 use syn::{
     punctuated::Punctuated, spanned::Spanned, BinOp, Expr, ExprBinary, ExprCall, ExprField,
-    ExprPath, ExprReference, ExprStruct, ExprTuple, Field, FieldValue, Ident, Index, Member, Path,
+    ExprPath, ExprReference, ExprStruct, ExprTuple, FieldValue, Ident, Index, Member, Path,
 };
 use syn_path::path;
 
-use super::{create_path_from_ident, get_field_member, ArgType};
+use super::{create_path_from_ident, ArgType};
 
 pub fn create_expr_tuple(expressions: Vec<Expr>) -> Expr {
     Expr::Tuple(ExprTuple {
@@ -33,24 +33,6 @@ pub fn create_expr_field_named(base: Expr, ident: Ident) -> Expr {
         base: Box::new(base),
         dot_token: Default::default(),
         member: Member::Named(ident),
-    })
-}
-
-pub fn create_expr_field(base: Expr, index: usize, field: &Field) -> Expr {
-    Expr::Field(ExprField {
-        attrs: vec![],
-        base: Box::new(base),
-        dot_token: Default::default(),
-        member: get_field_member(index, field),
-    })
-}
-
-pub fn create_expr_field_ident(base: Expr, field_name: Ident) -> Expr {
-    Expr::Field(ExprField {
-        attrs: vec![],
-        base: Box::new(base),
-        dot_token: Default::default(),
-        member: Member::Named(field_name),
     })
 }
 

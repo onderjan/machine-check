@@ -2,7 +2,7 @@ use syn::ItemImpl;
 
 use crate::{
     support::meta_eq::meta_eq_impl,
-    wir::{IntoSyn, WElementaryType, WField, WIdent, WItemStruct, WPath, WPathSegment},
+    wir::{WElementaryType, WField, WIdent, WItemStruct, WPath, WPathSegment},
 };
 
 use self::{meta::meta_impl, refine::refine_impl};
@@ -48,21 +48,19 @@ pub(super) fn special_impls(
         ],
     };
 
-    let converted_item_struct = item_struct.clone().into_syn();
-
     match special_trait {
         SpecialTrait::Input | SpecialTrait::State => {
             // add Meta and Refine implementations
             vec![
                 meta_impl(item_struct, &abstr_type_path),
-                refine_impl(&converted_item_struct, &abstr_type_path.into()),
-                meta_eq_impl(&converted_item_struct),
+                refine_impl(item_struct, &abstr_type_path),
+                meta_eq_impl(item_struct),
             ]
         }
 
         SpecialTrait::Machine => {
             // add Refine implementation
-            vec![refine_impl(&converted_item_struct, &abstr_type_path.into())]
+            vec![refine_impl(item_struct, &abstr_type_path)]
         }
     }
 }

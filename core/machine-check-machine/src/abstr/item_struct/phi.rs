@@ -3,7 +3,7 @@ use syn_path::path;
 
 use crate::{
     util::{
-        create_arg, create_assign, create_expr_call, create_expr_field_ident, create_expr_ident,
+        create_arg, create_assign, create_expr_call, create_expr_field_named, create_expr_ident,
         create_expr_path, create_field_value_ident, create_ident, create_impl_item_fn,
         create_item_impl, create_let_bare, create_path_from_ident, create_self, create_self_arg,
         create_type_path, ArgType,
@@ -34,8 +34,8 @@ fn phi_fn(s: &WItemStruct<WElementaryType>) -> ImplItemFn {
 
     for (index, field) in s.fields.iter().enumerate() {
         // assign our field to a temporary as calls can only take ident arguments
-        let self_field_expr = create_expr_field_ident(create_self(), field.ident.to_syn_ident());
-        let other_field_expr = create_expr_field_ident(
+        let self_field_expr = create_expr_field_named(create_self(), field.ident.to_syn_ident());
+        let other_field_expr = create_expr_field_named(
             create_expr_ident(other_ident.clone()),
             field.ident.to_syn_ident(),
         );

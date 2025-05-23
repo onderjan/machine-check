@@ -9,7 +9,7 @@ use crate::{
         create_path_from_ident, create_path_segment, create_path_with_last_generic_type,
         create_type_path,
     },
-    wir::{IntoSyn, WElementaryType, WItemStruct},
+    wir::{WElementaryType, WItemStruct},
 };
 
 use self::from_concrete::from_concrete_fn;
@@ -56,9 +56,7 @@ pub fn process_item_struct(
     if has_derived_partial_eq && has_derived_eq {
         // add phi and meta-eq implementations
         let phi_impl = phi_impl(&item_struct);
-        // TODO: rewrite meta-eq impl to use WIR
-        let meta_eq_item_struct = item_struct.clone().into_syn();
-        let meta_eq_impl = meta_eq_impl(&meta_eq_item_struct);
+        let meta_eq_impl = meta_eq_impl(&item_struct);
 
         (item_struct, vec![abstr_impl, meta_eq_impl, phi_impl])
     } else {
