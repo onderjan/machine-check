@@ -14,7 +14,7 @@ use crate::{
         ident_type_local, panic_result_syn_type, IntoSyn, WDescription, WElementaryType,
         WGeneralType, WIdent, WItemImplTrait, WPath, WStmt, WType, YStage, ZAssignTypes,
     },
-    BackwardError, Description,
+    BackwardError,
 };
 
 use super::support::special_trait::SpecialTrait;
@@ -26,7 +26,7 @@ mod util;
 
 pub(crate) fn create_refinement_description(
     abstract_description: &WDescription<YAbstr>,
-) -> Result<Description, BackwardError> {
+) -> Result<(WDescription<YRefin>, Vec<Item>), BackwardError> {
     // create items to add to the module
     let mut result_structs = Vec::new();
     let mut result_impls = Vec::new();
@@ -36,8 +36,7 @@ pub(crate) fn create_refinement_description(
     for item_struct in &abstract_description.structs {
         // apply path rules and push struct
         let item_struct = item_struct::fold_item_struct(item_struct.clone());
-        let refin_struct = item_struct.clone().into_syn();
-        result_structs.push(refin_struct);
+        result_structs.push(item_struct);
     }
 
     for item_impl in &abstract_description.impls {
@@ -52,8 +51,8 @@ pub(crate) fn create_refinement_description(
             None => None,
         };
 
+        // if the implementation has a special trait, add it to the multimap
         if let Some(special_trait) = special_trait {
-            // TODO: make self types be idents for now as no nested modules are supported
             if let Some(ident) = item_impl.self_ty.get_ident() {
                 ident_special_traits
                     .entry(ident)
@@ -62,12 +61,13 @@ pub(crate) fn create_refinement_description(
             }
         };
 
-        // apply conversion
-        let refin_impl = item_impl::fold_item_impl(item_impl.clone())?;
-        result_impls.push(refin_impl);
+        // fold the implementation
+        result_impls.push(item_impl::fold_item_impl(item_impl.clone())?);
     }
 
     // second pass, add special impls for special traits
+    let mut misc_items = Vec::new();
+
     for item_struct in &abstract_description.structs {
         let special_traits = ident_special_traits
             .remove(&item_struct.ident)
@@ -75,27 +75,37 @@ pub(crate) fn create_refinement_description(
         for special_trait in special_traits {
             let item_struct = item_struct.clone().into_syn();
             let special_impls = item_struct::special_impls(special_trait, &item_struct)?;
-            result_impls.extend(special_impls);
+            misc_items.extend(special_impls.into_iter().map(Item::Impl));
         }
     }
 
+    // TODO: use WIR for everything
     let mut result_items = Vec::new();
 
-    result_items.extend(result_structs.into_iter().map(Item::Struct));
-    result_items.extend(result_impls.into_iter().map(Item::Impl));
-
-    // add field manipulate
     result_items.extend(
-        manipulate::for_items(&result_items, ManipulateKind::Backward)
+        result_structs
+            .clone()
             .into_iter()
-            .map(Item::Impl),
+            .map(|item_struct| Item::Struct(item_struct.into_syn())),
+    );
+    result_items.extend(
+        result_impls
+            .clone()
+            .into_iter()
+            .map(|item_struct| Item::Impl(item_struct.into_syn())),
     );
 
-    let refinement_machine = Description {
-        items: result_items,
-    };
+    // add field manipulate
+    let manipulate_impl = manipulate::for_items(&result_items, ManipulateKind::Backward);
+    misc_items.extend(manipulate_impl.into_iter().map(Item::Impl));
 
-    Ok(refinement_machine)
+    Ok((
+        WDescription {
+            structs: result_structs,
+            impls: result_impls,
+        },
+        misc_items,
+    ))
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -103,7 +113,7 @@ pub struct ZRefin;
 
 impl ZAssignTypes for ZRefin {
     type Stmt = WStmt<ZRefin>;
-    type FundamentalType = WBackwardType;
+    type FundamentalType = WBackwardElementaryType;
     type AssignLeft = WIdent;
     type AssignRight = WRefinRightExpr;
     type IfPolarity = ZAbstrIfPolarity;

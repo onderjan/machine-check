@@ -1,17 +1,11 @@
-use syn::ItemImpl;
-
-use crate::{
-    abstr::YAbstr,
-    wir::{IntoSyn, WItemImpl},
-    BackwardError,
-};
+use crate::{abstr::YAbstr, wir::WItemImpl, BackwardError};
 
 mod item_impl_fn;
 
-use super::WRefinItemImplTrait;
+use super::{WRefinItemImplTrait, YRefin};
 
-pub fn fold_item_impl(item_impl: WItemImpl<YAbstr>) -> Result<ItemImpl, BackwardError> {
-    let new_result = {
+pub fn fold_item_impl(item_impl: WItemImpl<YAbstr>) -> Result<WItemImpl<YRefin>, BackwardError> {
+    let result = {
         let mut impl_item_fns = Vec::new();
         for impl_item_fn in item_impl.impl_item_fns {
             impl_item_fns.push(item_impl_fn::fold_impl_item_fn(impl_item_fn));
@@ -32,9 +26,6 @@ pub fn fold_item_impl(item_impl: WItemImpl<YAbstr>) -> Result<ItemImpl, Backward
             impl_item_types: item_impl.impl_item_types,
         }
     };
-
-    let result = new_result.into_syn();
-    //let result = previous_result;
 
     Ok(result)
 }
