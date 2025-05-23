@@ -20,12 +20,13 @@ use crate::{
     support::{ident_renamer::IdentRenamer, types::find_local_types},
     util::{
         create_expr_call, create_expr_field_ident, create_expr_field_named,
-        create_expr_field_unnamed, create_expr_path, create_expr_tuple, create_let_mut,
-        get_block_result_expr, path_matches_global_names, ArgType,
+        create_expr_field_unnamed, create_expr_path, create_expr_reference, create_expr_tuple,
+        create_let_mut, get_block_result_expr, path_matches_global_names, ArgType,
     },
     wir::{
-        IntoSyn, WBlock, WCallArg, WExpr, WExprCall, WExprStruct, WFnArg, WGeneralType, WIdent,
-        WIfCondition, WIfConditionIdent, WImplItemFn, WSignature, WStmt, WStmtAssign, WStmtIf,
+        IntoSyn, WBlock, WCallArg, WElementaryType, WExpr, WExprCall, WExprStruct, WFnArg,
+        WGeneralType, WIdent, WIfCondition, WIfConditionIdent, WImplItemFn, WReference, WSignature,
+        WStmt, WStmtAssign, WStmtIf, WType,
     },
     BackwardError,
 };
@@ -117,30 +118,31 @@ pub fn fold_impl_item_fn(forward_fn: WImplItemFn<YAbstr>) -> WImplItemFn<YRefin>
         backward_locals.push((orig_ident, backward_ident, backward_ty));
     }
 
+    let mut forward_folder = ForwardFolder {
+        local_types: HashMap::new(),
+        created_clone_idents: Vec::new(),
+    };
+
     let mut backward_folder = BackwardFolder {
         forward_ident_map: HashMap::new(),
         backward_ident_map: HashMap::new(),
+        cloned_ident_map: HashMap::new(),
         next_tmp: 0,
         tmp_idents: Vec::new(),
     };
 
     for (orig_ident, forward_ident, forward_ty) in forward_locals {
+        forward_folder
+            .local_types
+            .insert(forward_ident.clone(), forward_ty.clone());
         backward_folder
             .forward_ident_map
             .insert(orig_ident, forward_ident.clone());
         locals.push(WRefinLocal {
             ident: forward_ident.clone(),
             ty: Some(WDirectedType::Forward(forward_ty)),
-            mutable: true,
+            mutable: false,
         });
-        // TODO: do something more sane than mutable uninit
-        /*stmts.push(WStmt::Assign(WStmtAssign {
-            left: forward_ident,
-            right: WRefinRightExpr(create_expr_call(
-                create_expr_path(path!(::mck::abstr::Phi::uninit)),
-                vec![],
-            )),
-        }));*/
     }
 
     for (orig_ident, backward_ident, backward_ty) in backward_locals {
@@ -178,9 +180,36 @@ pub fn fold_impl_item_fn(forward_fn: WImplItemFn<YAbstr>) -> WImplItemFn<YRefin>
         let mut forward_stmt = stmt.clone();
         IdentRenamer::new(String::from("abstr"), true).visit_stmt(&mut forward_stmt);
 
-        let forward_stmt = fold_forward_stmt(forward_stmt);
-        stmts.push(forward_stmt);
+        let forward_stmt = forward_folder.fold_forward_stmt(forward_stmt);
+        stmts.extend(forward_stmt);
     }
+
+    let after_stmts = std::mem::take(&mut stmts);
+
+    for (forward_ident, created_ident, created_type, was_reference) in
+        forward_folder.created_clone_idents
+    {
+        locals.push(WRefinLocal {
+            ident: created_ident.clone(),
+            ty: Some(WDirectedType::Forward(created_type)),
+            mutable: true,
+        });
+
+        backward_folder
+            .cloned_ident_map
+            .insert(forward_ident, (created_ident.clone(), was_reference));
+
+        // TODO: do something more sane than mutable uninit
+        stmts.push(WStmt::Assign(WStmtAssign {
+            left: created_ident,
+            right: WRefinRightExpr(create_expr_call(
+                create_expr_path(path!(::mck::abstr::Phi::uninit)),
+                vec![],
+            )),
+        }));
+    }
+
+    stmts.extend(after_stmts);
 
     // 4. add initialization of earlier and local refinement variables
     // moved to start
@@ -282,31 +311,102 @@ fn fold_impl_item_fn_signature(
     }
 }
 
-fn fold_forward_block(block: WBlock<ZAbstr>) -> WBlock<ZRefin> {
-    let mut stmts = Vec::new();
-    for stmt in block.stmts {
-        stmts.push(fold_forward_stmt(stmt));
-    }
-    WBlock { stmts }
+struct ForwardFolder {
+    created_clone_idents: Vec<(WIdent, WIdent, WGeneralType<WElementaryType>, bool)>,
+    local_types: HashMap<WIdent, WGeneralType<WElementaryType>>,
 }
 
-fn fold_forward_stmt(stmt: WStmt<ZAbstr>) -> WStmt<ZRefin> {
-    match stmt {
-        WStmt::Assign(stmt) => WStmt::Assign(WStmtAssign {
-            left: stmt.left,
+impl ForwardFolder {
+    fn fold_forward_block(&mut self, block: WBlock<ZAbstr>) -> WBlock<ZRefin> {
+        let mut stmts = Vec::new();
+        for stmt in block.stmts {
+            stmts.extend(self.fold_forward_stmt(stmt));
+        }
+        WBlock { stmts }
+    }
+
+    fn fold_forward_stmt(&mut self, stmt: WStmt<ZAbstr>) -> Vec<WStmt<ZRefin>> {
+        match stmt {
+            WStmt::Assign(stmt) => self.fold_forward_assign(stmt),
+            WStmt::If(stmt) => vec![WStmt::If(WStmtIf {
+                condition: stmt.condition,
+                then_block: self.fold_forward_block(stmt.then_block),
+                else_block: self.fold_forward_block(stmt.else_block),
+            })],
+        }
+    }
+
+    fn fold_forward_assign(&mut self, stmt: WStmtAssign<ZAbstr>) -> Vec<WStmt<ZRefin>> {
+        let phi_related = match &stmt.right {
+            WExpr::Call(call) => matches!(
+                call,
+                WExprCall::Phi(_, _)
+                    | WExprCall::PhiTaken(_)
+                    | WExprCall::PhiMaybeTaken(_)
+                    | WExprCall::PhiNotTaken
+                    | WExprCall::PhiUninit
+            ),
+            _ => false,
+        };
+
+        let assignment = WStmt::Assign(WStmtAssign {
+            left: stmt.left.clone(),
             right: WRefinRightExpr(stmt.right.into_syn()),
-        }),
-        WStmt::If(stmt) => WStmt::If(WStmtIf {
-            condition: stmt.condition,
-            then_block: fold_forward_block(stmt.then_block),
-            else_block: fold_forward_block(stmt.else_block),
-        }),
+        });
+
+        if phi_related {
+            return vec![assignment];
+        }
+
+        let ty = self
+            .local_types
+            .get(&stmt.left)
+            .expect("Left side of call assignment should be a local ident");
+
+        let (was_reference, clone_type) = match ty {
+            WGeneralType::Normal(ty) => (
+                !matches!(ty.reference, WReference::None),
+                WGeneralType::Normal(WType {
+                    reference: WReference::None,
+                    inner: ty.inner.clone(),
+                }),
+            ),
+            WGeneralType::PanicResult(ty) => {
+                assert!(matches!(ty.reference, WReference::None));
+                (false, WGeneralType::PanicResult(ty.clone()))
+            }
+            WGeneralType::PhiArg(_) => panic!("Unexpected phi arg"),
+        };
+
+        // clone
+        let cloned_ident = stmt.left.mck_prefixed("clone");
+        self.created_clone_idents.push((
+            stmt.left.clone(),
+            cloned_ident.clone(),
+            clone_type,
+            was_reference,
+        ));
+
+        let clone_arg_type = if was_reference {
+            ArgType::Normal
+        } else {
+            ArgType::Reference
+        };
+        let clone_assign = WStmt::Assign(WStmtAssign {
+            left: cloned_ident.clone(),
+            right: WRefinRightExpr(create_expr_call(
+                create_expr_path(path!(::std::clone::Clone::clone)),
+                vec![(clone_arg_type, stmt.left.into_syn())],
+            )),
+        });
+        vec![assignment, clone_assign]
     }
 }
 
 struct BackwardFolder {
     forward_ident_map: HashMap<WIdent, WIdent>,
     backward_ident_map: HashMap<WIdent, WIdent>,
+    cloned_ident_map: HashMap<WIdent, (WIdent, bool)>,
     next_tmp: u32,
     tmp_idents: Vec<WIdent>,
 }
@@ -329,7 +429,9 @@ impl BackwardFolder {
                     WIfCondition::Ident(condition_ident) => {
                         WIfCondition::Ident(WIfConditionIdent {
                             polarity: condition_ident.polarity,
-                            ident: self.forward_ident(condition_ident.ident),
+                            ident: self
+                                .right_cloned_ident(self.forward_ident(condition_ident.ident))
+                                .0,
                         })
                     }
                     WIfCondition::Literal(lit) => WIfCondition::Literal(lit),
@@ -453,7 +555,16 @@ impl BackwardFolder {
         for arg in args {
             match arg {
                 crate::wir::WCallArg::Ident(ident) => {
-                    forward_args.push(self.forward_ident(ident.clone()));
+                    let forward_ident = self.forward_ident(ident.clone());
+
+                    let (forward_arg_ident, forward_was_reference) =
+                        self.right_cloned_ident(forward_ident);
+                    let mut forward_arg = forward_arg_ident.into_syn();
+                    if forward_was_reference {
+                        forward_arg = create_expr_reference(false, forward_arg);
+                    }
+
+                    forward_args.push(forward_arg);
                     earlier_backward_args.push(self.backward_ident(ident));
                 }
                 crate::wir::WCallArg::Literal(_) => {
@@ -463,12 +574,7 @@ impl BackwardFolder {
             }
         }
 
-        let forward_args = create_expr_tuple(
-            forward_args
-                .into_iter()
-                .map(|ident| ident.into_syn())
-                .collect(),
-        );
+        let forward_args = create_expr_tuple(forward_args);
 
         let later_backward_arg = self.backward_ident(left);
 
@@ -563,6 +669,16 @@ impl BackwardFolder {
             left: WIdent::new(String::from("_"), span),
             right: WRefinRightExpr(create_refine_join_expr(earlier, later)),
         })
+    }
+
+    fn right_cloned_ident(&self, forward_ident: WIdent) -> (WIdent, bool) {
+        if let Some((cloned_forward_ident, was_reference)) =
+            self.cloned_ident_map.get(&forward_ident)
+        {
+            (cloned_forward_ident.clone(), *was_reference)
+        } else {
+            (forward_ident, false)
+        }
     }
 
     fn forward_ident(&self, original_ident: WIdent) -> WIdent {
