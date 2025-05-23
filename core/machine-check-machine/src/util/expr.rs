@@ -1,19 +1,10 @@
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, token::Else, BinOp, Block, Expr, ExprBinary,
-    ExprCall, ExprField, ExprPath, ExprReference, ExprStruct, ExprTuple, Field, FieldValue, Ident,
-    Index, Member, Path, Stmt,
+    punctuated::Punctuated, spanned::Spanned, BinOp, Expr, ExprBinary, ExprCall, ExprField,
+    ExprPath, ExprReference, ExprStruct, ExprTuple, Field, FieldValue, Ident, Index, Member, Path,
 };
 use syn_path::path;
 
-use super::{create_path_from_ident, extract_path_ident, get_field_member, ArgType};
-
-pub fn create_unit_expr() -> Expr {
-    Expr::Tuple(ExprTuple {
-        attrs: vec![],
-        paren_token: Default::default(),
-        elems: Punctuated::new(),
-    })
-}
+use super::{create_path_from_ident, get_field_member, ArgType};
 
 pub fn create_expr_tuple(expressions: Vec<Expr>) -> Expr {
     Expr::Tuple(ExprTuple {
@@ -126,14 +117,6 @@ pub fn create_expr_reference(mutable: bool, expr: Expr) -> Expr {
     })
 }
 
-pub fn create_tuple_expr(elems: Vec<Expr>) -> Expr {
-    Expr::Tuple(ExprTuple {
-        attrs: vec![],
-        paren_token: Default::default(),
-        elems: Punctuated::from_iter(elems),
-    })
-}
-
 pub fn create_struct_expr(type_path: Path, fields: Vec<FieldValue>) -> Expr {
     Expr::Struct(ExprStruct {
         attrs: vec![],
@@ -144,34 +127,4 @@ pub fn create_struct_expr(type_path: Path, fields: Vec<FieldValue>) -> Expr {
         dot2_token: None,
         rest: None,
     })
-}
-
-pub fn get_block_result_expr(block: &Block) -> Expr {
-    if let Some(Stmt::Expr(expr, None)) = block.stmts.last() {
-        expr.clone()
-    } else {
-        create_unit_expr()
-    }
-}
-
-pub fn extract_expr_path(expr: &Expr) -> Option<&Path> {
-    if let Expr::Path(expr_path) = expr {
-        Some(&expr_path.path)
-    } else {
-        None
-    }
-}
-
-pub fn extract_expr_ident(expr: &Expr) -> Option<&Ident> {
-    extract_path_ident(extract_expr_path(expr)?)
-}
-
-pub fn extract_else_block_mut(else_branch: &mut Option<(Else, Box<Expr>)>) -> Option<&mut Block> {
-    let Some((_else_token, else_block)) = else_branch else {
-        return None;
-    };
-    let Expr::Block(else_expr_block) = else_block.as_mut() else {
-        return None;
-    };
-    Some(&mut else_expr_block.block)
 }

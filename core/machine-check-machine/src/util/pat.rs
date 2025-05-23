@@ -16,10 +16,3 @@ pub fn create_pat_wild() -> Pat {
         underscore_token: Default::default(),
     })
 }
-
-pub fn extract_pat_ident(pat: &Pat) -> Ident {
-    let Pat::Ident(pat_ident) = pat else {
-        panic!("Expected identifier pattern: {:?}", pat);
-    };
-    pat_ident.ident.clone()
-}

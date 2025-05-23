@@ -211,10 +211,6 @@ fn create_machine_module(name: &str, machine: Description) -> Item {
 enum BackwardErrorType {
     #[error("Unable to convert")]
     NoRuleMatch,
-    #[error("Identifier type discovery failed")]
-    IdentTypeDiscovery,
-    #[error("Unsupported construct: {0}")]
-    UnsupportedConstruct(String),
 }
 
 #[derive(thiserror::Error, Debug, Clone)]

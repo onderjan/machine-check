@@ -1,4 +1,4 @@
-use syn::{punctuated::Punctuated, Path, ReturnType, Type, TypePath, TypeReference, TypeTuple};
+use syn::{Path, Type, TypePath, TypeReference};
 
 use super::ArgType;
 
@@ -23,23 +23,6 @@ pub fn create_converted_type(arg_ty: ArgType, ty: Type) -> Type {
         ArgType::Normal => ty,
         ArgType::Reference => create_type_reference(false, ty),
         ArgType::MutableReference => create_type_reference(true, ty),
-    }
-}
-
-pub fn create_tuple_type(types: Vec<Type>) -> Type {
-    Type::Tuple(TypeTuple {
-        paren_token: Default::default(),
-        elems: Punctuated::from_iter(types),
-    })
-}
-
-pub fn create_type_from_return_type(return_type: &ReturnType) -> Type {
-    match return_type {
-        ReturnType::Default => Type::Tuple(TypeTuple {
-            paren_token: Default::default(),
-            elems: Punctuated::new(),
-        }),
-        ReturnType::Type(_, ty) => *ty.clone(),
     }
 }
 

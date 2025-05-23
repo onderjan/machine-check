@@ -3,10 +3,7 @@ use std::rc::Rc;
 use proc_macro2::{Ident, Span};
 
 use syn::spanned::Spanned;
-use syn::visit_mut::VisitMut;
 use syn::Path;
-
-use crate::util::{create_path_from_ident, extract_path_ident};
 
 mod match_rule;
 mod visit_mut;
@@ -47,63 +44,11 @@ impl Rules {
         }
     }
 
-    pub fn with_self_ty_name(&self, self_ty_name: String) -> Rules {
-        Rules {
-            normal_rules: Rc::clone(&self.normal_rules),
-            type_rules: Rc::clone(&self.type_rules),
-            self_ty_name: Some(self_ty_name),
-        }
-    }
-
-    pub(crate) fn apply_to_stmt(&self, s: &mut syn::Stmt) -> Result<(), NoRuleMatch> {
-        let mut visitor = Visitor::new(self);
-        visitor.visit_stmt_mut(s);
-        visitor.first_error.map_or(Ok(()), Err)
-    }
-
-    pub(crate) fn apply_to_expr(&self, s: &mut syn::Expr) -> Result<(), NoRuleMatch> {
-        let mut visitor = Visitor::new(self);
-        visitor.visit_expr_mut(s);
-        visitor.first_error.map_or(Ok(()), Err)
-    }
-
-    pub(crate) fn apply_to_expr_struct(&self, s: &mut syn::ExprStruct) -> Result<(), NoRuleMatch> {
-        let mut visitor = Visitor::new(self);
-        visitor.visit_expr_struct_mut(s);
-        visitor.first_error.map_or(Ok(()), Err)
-    }
-
-    pub(crate) fn convert_normal_ident(
-        &self,
-        ident: syn::Ident,
-    ) -> Result<syn::Ident, NoRuleMatch> {
-        Ok(
-            extract_path_ident(&self.convert_normal_path(create_path_from_ident(ident))?)
-                .expect("Ident should not be converted to a non-ident path")
-                .clone(),
-        )
-    }
-
-    pub(crate) fn convert_normal_path(
-        &self,
-        mut path: syn::Path,
-    ) -> Result<syn::Path, NoRuleMatch> {
-        let mut visitor = Visitor::new(self);
-        visitor.apply_to_path(&mut path)?;
-        visitor.first_error.map_or(Ok(path), Err)
-    }
-
     pub(crate) fn convert_type_path(&self, mut path: syn::Path) -> Result<syn::Path, NoRuleMatch> {
         let mut visitor = Visitor::new(self);
         visitor.inside_type = true;
         visitor.apply_to_path(&mut path)?;
         visitor.first_error.map_or(Ok(path), Err)
-    }
-
-    pub(crate) fn convert_type(&self, mut ty: syn::Type) -> Result<syn::Type, NoRuleMatch> {
-        let mut visitor = Visitor::new(self);
-        visitor.visit_type_mut(&mut ty);
-        visitor.first_error.map_or(Ok(ty), Err)
     }
 }
 
