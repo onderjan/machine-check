@@ -14,19 +14,17 @@ use crate::{
         ident_type_local, panic_result_syn_type, IntoSyn, WDescription, WElementaryType,
         WGeneralType, WIdent, WItemImplTrait, WPath, WStmt, WType, YStage, ZAssignTypes,
     },
-    BackwardError,
 };
 
 use super::support::special_trait::SpecialTrait;
 
 mod item_impl;
 mod item_struct;
-mod rules;
 mod util;
 
 pub(crate) fn create_refinement_description(
     abstract_description: &WDescription<YAbstr>,
-) -> Result<(WDescription<YRefin>, Vec<Item>), BackwardError> {
+) -> (WDescription<YRefin>, Vec<Item>) {
     // create items to add to the module
     let mut result_structs = Vec::new();
     let mut result_impls = Vec::new();
@@ -62,7 +60,7 @@ pub(crate) fn create_refinement_description(
         };
 
         // fold the implementation
-        result_impls.push(item_impl::fold_item_impl(item_impl.clone())?);
+        result_impls.push(item_impl::fold_item_impl(item_impl.clone()));
     }
 
     // second pass, add special impls for special traits
@@ -73,8 +71,7 @@ pub(crate) fn create_refinement_description(
             .remove(&item_struct.ident)
             .unwrap_or(Vec::new());
         for special_trait in special_traits {
-            let item_struct = item_struct.clone().into_syn();
-            let special_impls = item_struct::special_impls(special_trait, &item_struct)?;
+            let special_impls = item_struct::special_impls(special_trait, item_struct);
             misc_items.extend(special_impls.into_iter().map(Item::Impl));
         }
     }
@@ -99,13 +96,13 @@ pub(crate) fn create_refinement_description(
     let manipulate_impl = manipulate::for_items(&result_items, ManipulateKind::Backward);
     misc_items.extend(manipulate_impl.into_iter().map(Item::Impl));
 
-    Ok((
+    (
         WDescription {
             structs: result_structs,
             impls: result_impls,
         },
         misc_items,
-    ))
+    )
 }
 
 #[derive(Clone, Debug, Hash)]

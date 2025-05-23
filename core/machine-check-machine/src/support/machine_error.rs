@@ -1,7 +1,5 @@
 use proc_macro2::Span;
 
-use crate::BackwardError;
-
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum ErrorType {
     #[error("machine-check: Cannot parse module without content")]
@@ -37,15 +35,6 @@ pub enum ErrorType {
     BackwardInternal(String),
     #[error("machine-check internal error (rules): {0}")]
     RulesInternal(String),
-}
-
-impl From<BackwardError> for Error {
-    fn from(error: BackwardError) -> Self {
-        Error {
-            ty: ErrorType::BackwardConversionError(format!("{}", error)),
-            span: error.span,
-        }
-    }
 }
 
 #[derive(thiserror::Error, Debug, Clone)]

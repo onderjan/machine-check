@@ -16,26 +16,22 @@ use crate::{
         create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
         ArgType,
     },
-    BackwardError,
 };
 
-pub(crate) fn refine_impl(
-    item_struct: &ItemStruct,
-    abstr_type_path: &Path,
-) -> Result<ItemImpl, BackwardError> {
-    let refin_fn = apply_refin_fn(item_struct)?;
-    let join_fn = apply_join_fn(item_struct)?;
-    let decay_fn = force_decay_fn(item_struct, abstr_type_path)?;
-    let to_condition_fn = to_condition_fn(item_struct)?;
-    let clean_fn = mark_creation_fn(item_struct, "clean", path!(::mck::refin::Refine::clean))?;
-    let dirty_fn = mark_creation_fn(item_struct, "dirty", path!(::mck::refin::Refine::dirty))?;
-    let importance_fn = importance_fn(item_struct)?;
+pub(crate) fn refine_impl(item_struct: &ItemStruct, abstr_type_path: &Path) -> ItemImpl {
+    let refin_fn = apply_refin_fn(item_struct);
+    let join_fn = apply_join_fn(item_struct);
+    let decay_fn = force_decay_fn(item_struct, abstr_type_path);
+    let to_condition_fn = to_condition_fn(item_struct);
+    let clean_fn = mark_creation_fn(item_struct, "clean", path!(::mck::refin::Refine::clean));
+    let dirty_fn = mark_creation_fn(item_struct, "dirty", path!(::mck::refin::Refine::dirty));
+    let importance_fn = importance_fn(item_struct);
 
     let refine_trait: Path = path!(::mck::refin::Refine);
     let refine_trait =
         create_path_with_last_generic_type(refine_trait, create_type_path(abstr_type_path.clone()));
 
-    Ok(create_item_impl(
+    create_item_impl(
         Some(refine_trait),
         create_path_from_ident(item_struct.ident.clone()),
         vec![
@@ -47,10 +43,10 @@ pub(crate) fn refine_impl(
             ImplItem::Fn(dirty_fn),
             ImplItem::Fn(importance_fn),
         ],
-    ))
+    )
 }
 
-fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
+fn apply_join_fn(s: &ItemStruct) -> ImplItemFn {
     let fn_ident = create_ident("apply_join");
 
     let self_input = create_self_arg(ArgType::MutableReference);
@@ -65,15 +61,10 @@ fn apply_join_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
         join_stmts.push(join_stmt);
     }
 
-    Ok(create_impl_item_fn(
-        fn_ident,
-        vec![self_input, other_input],
-        None,
-        join_stmts,
-    ))
+    create_impl_item_fn(fn_ident, vec![self_input, other_input], None, join_stmts)
 }
 
-fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, BackwardError> {
+fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> ImplItemFn {
     let fn_ident = create_ident("force_decay");
 
     let self_arg = create_self_arg(ArgType::Reference);
@@ -103,15 +94,10 @@ fn force_decay_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, 
         stmts.push(stmt);
     }
 
-    Ok(create_impl_item_fn(
-        fn_ident,
-        vec![self_arg, target_arg],
-        None,
-        stmts,
-    ))
+    create_impl_item_fn(fn_ident, vec![self_arg, target_arg], None, stmts)
 }
 
-fn apply_refin_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
+fn apply_refin_fn(s: &ItemStruct) -> ImplItemFn {
     let fn_ident = create_ident("apply_refin");
 
     let self_input = create_self_arg(ArgType::MutableReference);
@@ -149,15 +135,15 @@ fn apply_refin_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
 
     let return_type = create_type_path(path!(bool));
 
-    Ok(create_impl_item_fn(
+    create_impl_item_fn(
         fn_ident,
         vec![self_input, offer_input],
         Some(return_type),
         vec![Stmt::Expr(result_expr, None)],
-    ))
+    )
 }
 
-fn to_condition_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
+fn to_condition_fn(s: &ItemStruct) -> ImplItemFn {
     let fn_ident = create_ident("to_condition");
     let self_input = create_self_arg(ArgType::Reference);
 
@@ -207,19 +193,10 @@ fn to_condition_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
 
     stmts.push(Stmt::Expr(result_expr, None));
 
-    Ok(create_impl_item_fn(
-        fn_ident,
-        vec![self_input],
-        Some(return_type),
-        stmts,
-    ))
+    create_impl_item_fn(fn_ident, vec![self_input], Some(return_type), stmts)
 }
 
-fn mark_creation_fn(
-    s: &ItemStruct,
-    name: &str,
-    name_path: Path,
-) -> Result<ImplItemFn, BackwardError> {
+fn mark_creation_fn(s: &ItemStruct, name: &str, name_path: Path) -> ImplItemFn {
     let mut local_stmts = Vec::new();
     let mut assign_stmts = Vec::new();
     let mut struct_field_values = Vec::new();
@@ -248,15 +225,15 @@ fn mark_creation_fn(
     local_stmts.extend(assign_stmts);
     local_stmts.push(Stmt::Expr(struct_expr, None));
 
-    Ok(create_impl_item_fn(
+    create_impl_item_fn(
         create_ident(name),
         vec![],
         Some(create_type_path(path!(Self))),
         local_stmts,
-    ))
+    )
 }
 
-fn importance_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
+fn importance_fn(s: &ItemStruct) -> ImplItemFn {
     let span = s.span();
     let fn_ident = create_ident("importance");
 
@@ -291,10 +268,5 @@ fn importance_fn(s: &ItemStruct) -> Result<ImplItemFn, BackwardError> {
     }
     stmts.push(Stmt::Expr(create_expr_ident(result_ident), None));
 
-    Ok(create_impl_item_fn(
-        fn_ident,
-        vec![self_input],
-        Some(importance_ty),
-        stmts,
-    ))
+    create_impl_item_fn(fn_ident, vec![self_input], Some(importance_ty), stmts)
 }

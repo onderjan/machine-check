@@ -1,68 +1,82 @@
-use syn::{ImplItem, ImplItemFn, ItemImpl, ItemStruct, Path, Stmt};
+use syn::{ImplItem, ImplItemFn, ItemImpl, Stmt};
 use syn_path::path;
 
 use crate::{
     util::{
-        create_arg, create_expr_call, create_expr_field, create_expr_logical_or, create_expr_path,
-        create_field_value, create_ident, create_impl_item_fn, create_item_impl,
-        create_path_from_ident, create_path_with_last_generic_type, create_self, create_self_arg,
-        create_struct_expr, create_type_path, ArgType,
+        create_arg, create_expr_call, create_expr_field_ident, create_expr_logical_or,
+        create_expr_path, create_field_value_ident, create_ident, create_impl_item_fn,
+        create_item_impl, create_path_from_ident, create_path_with_last_generic_type, create_self,
+        create_self_arg, create_struct_expr, create_type_path, ArgType,
     },
-    BackwardError,
+    wir::{WElementaryType, WItemStruct, WPath},
 };
 
-pub(crate) fn meta_impl(s: &ItemStruct, abstr_type_path: &Path) -> Result<ItemImpl, BackwardError> {
+pub(crate) fn meta_impl(
+    item_struct: &WItemStruct<WElementaryType>,
+    abstr_type_path: &WPath,
+) -> ItemImpl {
     // Meta implementation which allows iteration over the forward values produced by this backward value
     let trait_path = path!(::mck::misc::Meta);
-    let trait_path =
-        create_path_with_last_generic_type(trait_path, create_type_path(abstr_type_path.clone()));
+    let trait_path = create_path_with_last_generic_type(
+        trait_path,
+        create_type_path(abstr_type_path.clone().into()),
+    );
 
-    let first_fn = proto_first_fn(s, abstr_type_path)?;
-    let increment_fn = proto_increment_fn(s, abstr_type_path)?;
+    let first_fn = proto_first_fn(item_struct, abstr_type_path);
+    let increment_fn = proto_increment_fn(item_struct, abstr_type_path);
 
-    Ok(create_item_impl(
+    create_item_impl(
         Some(trait_path),
-        create_path_from_ident(s.ident.clone()),
+        item_struct.ident.clone().into_path().into(),
         vec![ImplItem::Fn(first_fn), ImplItem::Fn(increment_fn)],
-    ))
+    )
 }
 
-fn proto_first_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, BackwardError> {
+fn proto_first_fn(
+    item_struct: &WItemStruct<WElementaryType>,
+    abstr_type_path: &WPath,
+) -> ImplItemFn {
     // just initialize each field to proto first
     let fn_ident = create_ident("proto_first");
 
     let self_arg = create_self_arg(ArgType::Reference);
-    let return_type = create_type_path(abstr_type_path.clone());
+    let return_type = create_type_path(abstr_type_path.clone().into());
 
     let mut struct_expr_fields = Vec::new();
 
-    for (index, field) in s.fields.iter().enumerate() {
-        let self_field_expr = create_expr_field(create_self(), index, field);
+    for field in &item_struct.fields {
+        let self_field_expr = create_expr_field_ident(create_self(), field.ident.clone().into());
         let init_expr = create_expr_call(
             create_expr_path(path!(::mck::misc::Meta::proto_first)),
             vec![(ArgType::Reference, self_field_expr)],
         );
-        struct_expr_fields.push(create_field_value(index, field, init_expr));
+        struct_expr_fields.push(create_field_value_ident(
+            field.ident.clone().into(),
+            init_expr,
+        ));
     }
 
-    let struct_expr = create_struct_expr(abstr_type_path.clone(), struct_expr_fields);
+    let struct_expr = create_struct_expr(abstr_type_path.clone().into(), struct_expr_fields);
 
-    Ok(create_impl_item_fn(
+    create_impl_item_fn(
         fn_ident,
         vec![self_arg],
         Some(return_type),
         vec![Stmt::Expr(struct_expr, Default::default())],
-    ))
+    )
 }
 
-fn proto_increment_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItemFn, BackwardError> {
+fn proto_increment_fn(
+    item_struct: &WItemStruct<WElementaryType>,
+    abstr_type_path: &WPath,
+) -> ImplItemFn {
     // increment the first field which is able to be incremented
     // return whether we were able to increment some field
     let fn_ident = create_ident("proto_increment");
 
     let self_arg = create_self_arg(ArgType::Reference);
     let proto_ident = create_ident("proto");
-    let proto_type = create_type_path(abstr_type_path.clone());
+    let proto_type = create_type_path(abstr_type_path.clone().into());
     let proto_arg = create_arg(
         ArgType::MutableReference,
         proto_ident.clone(),
@@ -73,11 +87,12 @@ fn proto_increment_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItem
 
     let mut result_expr = None;
 
-    for (index, field) in s.fields.iter().enumerate() {
+    for field in &item_struct.fields {
         let fabricated_expr_path = create_expr_path(create_path_from_ident(proto_ident.clone()));
 
-        let self_expr = create_expr_field(create_self(), index, field);
-        let fabricated_expr = create_expr_field(fabricated_expr_path, index, field);
+        let self_expr = create_expr_field_ident(create_self(), field.ident.clone().into());
+        let fabricated_expr =
+            create_expr_field_ident(fabricated_expr_path, field.ident.clone().into());
         let func_expr = create_expr_path(path!(::mck::misc::Meta::proto_increment));
         let expr = create_expr_call(
             func_expr,
@@ -97,10 +112,10 @@ fn proto_increment_fn(s: &ItemStruct, abstr_type_path: &Path) -> Result<ImplItem
     // if there are no fields, return false
     let result_expr = result_expr.unwrap_or(create_expr_path(path!(false)));
 
-    Ok(create_impl_item_fn(
+    create_impl_item_fn(
         fn_ident,
         vec![self_arg, proto_arg],
         Some(return_type),
         vec![Stmt::Expr(result_expr, None)],
-    ))
+    )
 }

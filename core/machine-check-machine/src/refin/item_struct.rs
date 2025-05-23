@@ -1,15 +1,13 @@
-use syn::{ItemImpl, ItemStruct};
+use syn::ItemImpl;
 
 use crate::{
     support::meta_eq::meta_eq_impl,
-    util::create_path_from_ident,
-    wir::{WElementaryType, WField, WItemStruct},
-    BackwardError,
+    wir::{IntoSyn, WElementaryType, WField, WIdent, WItemStruct, WPath, WPathSegment},
 };
 
 use self::{meta::meta_impl, refine::refine_impl};
 
-use super::{rules, SpecialTrait, WBackwardElementaryType};
+use super::{SpecialTrait, WBackwardElementaryType};
 
 mod meta;
 mod refine;
@@ -36,24 +34,35 @@ pub fn fold_item_struct(
 
 pub(super) fn special_impls(
     special_trait: SpecialTrait,
-    item_struct: &ItemStruct,
-) -> Result<Vec<ItemImpl>, BackwardError> {
-    let abstr_type_path = rules::abstract_rules()
-        .convert_type_path(create_path_from_ident(item_struct.ident.clone()))?;
+    item_struct: &WItemStruct<WElementaryType>,
+) -> Vec<ItemImpl> {
+    let abstr_type_path = WPath {
+        leading_colon: false,
+        segments: vec![
+            WPathSegment {
+                ident: WIdent::new(String::from("super"), item_struct.ident.span()),
+            },
+            WPathSegment {
+                ident: item_struct.ident.clone(),
+            },
+        ],
+    };
 
-    Ok(match special_trait {
+    let converted_item_struct = item_struct.clone().into_syn();
+
+    match special_trait {
         SpecialTrait::Input | SpecialTrait::State => {
             // add Meta and Refine implementations
             vec![
-                meta_impl(item_struct, &abstr_type_path)?,
-                refine_impl(item_struct, &abstr_type_path)?,
-                meta_eq_impl(item_struct),
+                meta_impl(item_struct, &abstr_type_path),
+                refine_impl(&converted_item_struct, &abstr_type_path.into()),
+                meta_eq_impl(&converted_item_struct),
             ]
         }
 
         SpecialTrait::Machine => {
             // add Refine implementation
-            vec![refine_impl(item_struct, &abstr_type_path)?]
+            vec![refine_impl(&converted_item_struct, &abstr_type_path.into())]
         }
-    })
+    }
 }

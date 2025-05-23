@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use support::error_list::ErrorList;
-use support::rules::NoRuleMatch;
 use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
 use syn::{parse_quote, Attribute, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
@@ -118,7 +117,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     }
 
     let (refinement_description, misc_refinement_items) =
-        refin::create_refinement_description(&abstract_description).map_err(Error::from)?;
+        refin::create_refinement_description(&abstract_description);
 
     let mut refinement_description = Description {
         items: refinement_description.into_syn().items,
@@ -210,30 +209,4 @@ fn create_machine_module(name: &str, machine: Description) -> Item {
     });
 
     Item::Mod(module)
-}
-
-#[derive(thiserror::Error, Debug, Clone)]
-#[error("{0}")]
-enum BackwardErrorType {
-    #[error("Unable to convert")]
-    NoRuleMatch,
-}
-
-#[derive(thiserror::Error, Debug, Clone)]
-#[error("{ty}")]
-struct BackwardError {
-    pub ty: BackwardErrorType,
-    pub span: Span,
-}
-
-impl From<NoRuleMatch> for BackwardError {
-    fn from(error: NoRuleMatch) -> Self {
-        BackwardError::new(BackwardErrorType::NoRuleMatch, error.0)
-    }
-}
-
-impl BackwardError {
-    fn new(ty: BackwardErrorType, span: Span) -> Self {
-        Self { ty, span }
-    }
 }
