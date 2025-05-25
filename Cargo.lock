@@ -1382,6 +1382,7 @@ dependencies = [
  "clap",
  "env_logger",
  "log",
+ "machine-check",
  "machine-check-common",
  "machine-check-exec",
  "machine-check-gui",
@@ -1389,6 +1390,7 @@ dependencies = [
  "mck",
  "serde",
  "serde_json",
+ "trybuild",
 ]
 
 [[package]]
@@ -1529,7 +1531,6 @@ dependencies = [
 name = "machine-check-macros"
 version = "0.5.0-alpha.1"
 dependencies = [
- "machine-check",
  "machine-check-bitmask-switch",
  "machine-check-machine",
  "prettyplease",
@@ -1537,7 +1538,6 @@ dependencies = [
  "quote",
  "syn 2.0.95",
  "syn-path",
- "trybuild",
 ]
 
 [[package]]
