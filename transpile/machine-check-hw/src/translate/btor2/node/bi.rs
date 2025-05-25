@@ -99,9 +99,9 @@ impl NodeTranslator<'_> {
         let (a_expr, b_expr, length) = self.same_length_exprs(a, b)?;
 
         let ty: syn::Path = if signed {
-            parse_quote!(::machine_check::<Signed<#length>>)
+            parse_quote!(::machine_check::Signed<#length>)
         } else {
-            parse_quote!(::machine_check::<Unsigned<#length>>)
+            parse_quote!(::machine_check::Unsigned<#length>)
         };
 
         let a_expr: Expr = parse_quote!(::std::convert::Into::<#ty>::into(#a_expr));
@@ -113,7 +113,9 @@ impl NodeTranslator<'_> {
             parse_quote!(#a_expr / #b_expr)
         };
 
-        Ok(parse_quote!(::std::convert::Into::<::machine_check::<Bitvector<#length>>>(#op_result)))
+        Ok(
+            parse_quote!(::std::convert::Into::<::machine_check::Bitvector<#length>>::into(#op_result)),
+        )
     }
 
     pub(super) fn shr_expr(&self, a: Rnid, b: Rnid, signed: bool) -> Result<Expr, Error> {

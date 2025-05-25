@@ -95,6 +95,14 @@ impl RightExprFolder<'_> {
             Expr::Index(expr_index) => self.fold_right_expr_index(expr_index)?,
             Expr::Binary(expr_binary) => self.fold_right_expr(normalize_binary(expr_binary)?)?,
             Expr::Unary(expr_unary) => self.fold_right_expr(normalize_unary(expr_unary)?)?,
+            Expr::Paren(expr_paren) => {
+                // just fold the inside
+                self.fold_right_expr(*expr_paren.expr)?
+            }
+            Expr::Group(expr_group) => {
+                // just fold the inside
+                self.fold_right_expr(*expr_group.expr)?
+            }
             _ => return Err(Error::unsupported_construct("Expression kind", expr_span)),
         })
     }
