@@ -88,12 +88,11 @@ fn unparse(items: Vec<Item>) -> String {
 }
 
 fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
-    /*let out_dir: Option<PathBuf> = if cfg!(feature = "write_machine") {
+    let out_dir: Option<PathBuf> = if cfg!(feature = "write_machine") {
         out_dir()
     } else {
         None
-    };*/
-    let out_dir = out_dir();
+    };
 
     let (description, panic_messages) = description::create_description(items.clone())?;
 
