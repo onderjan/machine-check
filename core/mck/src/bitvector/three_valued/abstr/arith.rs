@@ -1,9 +1,14 @@
+use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
+
 use super::ThreeValuedBitvector;
+use crate::abstr::{PanicResult, Phi};
 use crate::bitvector::concrete::ConcreteBitvector;
 use crate::bitvector::util;
 use crate::forward::HwArith;
 
 impl<const L: u32> HwArith for ThreeValuedBitvector<L> {
+    type DivRemResult = PanicResult<Self>;
+
     fn arith_neg(self) -> Self {
         // arithmetic negation
         // since we use wrapping arithmetic, same as subtracting the value from 0
@@ -52,44 +57,70 @@ impl<const L: u32> HwArith for ThreeValuedBitvector<L> {
         })
     }
 
-    fn udiv(self, rhs: Self) -> Self {
-        let min_division_result = self.umin().udiv(rhs.umax()).as_unsigned();
-        let max_division_result = self.umax().udiv(rhs.umin()).as_unsigned();
-        convert_uarith(min_division_result, max_division_result)
+    fn udiv(self, rhs: Self) -> PanicResult<Self> {
+        let min_division_result = self.umin().udiv(rhs.umax()).result.as_unsigned();
+        let max_division_result = self.umax().udiv(rhs.umin()).result.as_unsigned();
+        let result = convert_uarith(min_division_result, max_division_result);
+        panic_result(rhs, result, PANIC_NUM_DIV_BY_ZERO)
     }
 
-    fn sdiv(self, rhs: Self) -> Self {
-        compute_sdivrem(self, rhs, |a, b| a.sdiv(b))
+    fn sdiv(self, rhs: Self) -> PanicResult<Self> {
+        let result = compute_sdivrem(self, rhs, |a, b| a.sdiv(b).result);
+        panic_result(rhs, result, PANIC_NUM_DIV_BY_ZERO)
     }
 
-    fn urem(self, rhs: Self) -> Self {
+    fn urem(self, rhs: Self) -> PanicResult<Self> {
         let dividend_min = self.umin();
         let dividend_max = self.umax();
         let divisor_min = rhs.umin();
         let divisor_max = rhs.umax();
-        let min_division_result = dividend_min.udiv(divisor_max).as_unsigned();
-        let max_division_result = dividend_max.udiv(divisor_min).as_unsigned();
+        let min_division_result = dividend_min.udiv(divisor_max).result.as_unsigned();
+        let max_division_result = dividend_max.udiv(divisor_min).result.as_unsigned();
 
         if min_division_result != max_division_result {
             // division results are different, return fully unknown
-            return ThreeValuedBitvector::new_unknown();
+            let result = ThreeValuedBitvector::new_unknown();
+            return panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO);
         }
 
         // division results are the same, return operation result
-        let min_result = dividend_min.urem(divisor_max).as_unsigned();
-        let max_result = dividend_max.urem(divisor_min).as_unsigned();
-        convert_uarith(min_result, max_result)
+        let min_result = dividend_min.urem(divisor_max).result.as_unsigned();
+        let max_result = dividend_max.urem(divisor_min).result.as_unsigned();
+        let result = convert_uarith(min_result, max_result);
+        panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO)
     }
 
-    fn srem(self, rhs: Self) -> Self {
+    fn srem(self, rhs: Self) -> PanicResult<Self> {
         let sdiv_result = self.sdiv(rhs);
-        if sdiv_result.concrete_value().is_none() {
+        if sdiv_result.result.concrete_value().is_none() {
             // sdiv is not a concrete value, make fully unknown
-            return Self::new_unknown();
+            let result = Self::new_unknown();
+            return panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO);
         }
 
-        compute_sdivrem(self, rhs, |a, b| a.srem(b))
+        let result = compute_sdivrem(self, rhs, |a, b| a.srem(b).result);
+        panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO)
     }
+}
+
+fn panic_result<const L: u32>(
+    divisor: ThreeValuedBitvector<L>,
+    result: ThreeValuedBitvector<L>,
+    panic_msg_num: u64,
+) -> PanicResult<ThreeValuedBitvector<L>> {
+    let can_panic = divisor.contains_concr(&ConcreteBitvector::zero());
+    let must_panic = divisor
+        .concrete_value()
+        .map(|v| v == ConcreteBitvector::zero())
+        .unwrap_or(false);
+    let panic = if must_panic {
+        ThreeValuedBitvector::new(panic_msg_num)
+    } else if can_panic {
+        ThreeValuedBitvector::new(PANIC_NUM_NO_PANIC).phi(ThreeValuedBitvector::new(panic_msg_num))
+    } else {
+        ThreeValuedBitvector::new(PANIC_NUM_NO_PANIC)
+    };
+    PanicResult { panic, result }
 }
 
 fn minmax_compute<const L: u32>(

@@ -80,7 +80,10 @@ impl super::FnInferrer<'_> {
         };
 
         // add inferred type
-        if matches!(inferred_type, WPartialGeneralType::Normal(_)) {
+        if matches!(
+            inferred_type,
+            WPartialGeneralType::Normal(_) | WPartialGeneralType::PanicResult(Some(_))
+        ) {
             let mut_ty = self.local_ident_types.get_mut(left_ident).unwrap();
             if !mut_ty.is_fully_determined() {
                 *mut_ty = inferred_type;
@@ -106,6 +109,13 @@ impl super::FnInferrer<'_> {
             return WPartialGeneralType::Unknown;
         };
         let WPartialGeneralType::Normal(base_type) = base_type else {
+            if let WPartialGeneralType::PanicResult(Some(result_type)) = base_type {
+                if right_field.member.name() == "result" {
+                    // infer the type of the result field of PanicResult, which is the result type
+                    return WPartialGeneralType::Normal(result_type.clone());
+                }
+            }
+
             return WPartialGeneralType::Unknown;
         };
         // ignore references for now

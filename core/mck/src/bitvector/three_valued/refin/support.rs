@@ -2,7 +2,7 @@ use std::num::NonZeroU8;
 
 use crate::{
     bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
-    forward,
+    forward::{self, HwArith},
     refin::{Boolean, ManipField, Refine},
     traits::misc::MetaEq,
 };
@@ -38,7 +38,7 @@ impl<const L: u32> MarkBitvector<L> {
         let one = ConcreteBitvector::new(1);
         // definitely nonzero
         Self(Some(BitvectorMark {
-            mark: forward::HwArith::sub(zero, one),
+            mark: HwArith::sub(zero, one),
             importance,
         }))
     }

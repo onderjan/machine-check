@@ -1,4 +1,4 @@
-use crate::forward::HwArith;
+use crate::{abstr::PanicResult, forward::HwArith};
 
 use super::{DualInterval, UnsignedPrimitive, WrappingInterval};
 
@@ -71,6 +71,8 @@ impl<U: UnsignedPrimitive> WrappingInterval<U> {
 }
 
 impl<U: UnsignedPrimitive> HwArith for DualInterval<U> {
+    type DivRemResult = PanicResult<Self>;
+
     fn arith_neg(self) -> Self {
         // arithmetic negation
         // for wrapping arithmetic, arithmetic negation is same as subtracting the value from 0
@@ -90,22 +92,22 @@ impl<U: UnsignedPrimitive> HwArith for DualInterval<U> {
         resolve_by_wrapping(self, rhs, |a, b| a.hw_mul(b))
     }
 
-    fn udiv(self, rhs: Self) -> Self {
+    fn udiv(self, rhs: Self) -> PanicResult<Self> {
         // TODO: compute using unsigned intervals
         todo!()
     }
 
-    fn sdiv(self, rhs: Self) -> Self {
+    fn sdiv(self, rhs: Self) -> PanicResult<Self> {
         // TODO: compute using signed intervals
         todo!()
     }
 
-    fn urem(self, rhs: Self) -> Self {
+    fn urem(self, rhs: Self) -> PanicResult<Self> {
         // TODO: compute using unsigned intervals
         todo!()
     }
 
-    fn srem(self, rhs: Self) -> Self {
+    fn srem(self, rhs: Self) -> PanicResult<Self> {
         // TODO: compute using signed intervals
         todo!()
     }

@@ -42,6 +42,10 @@ pub enum WStdBinaryOp {
     Sub,
     #[strum(to_string = "::std::ops::Mul::mul")]
     Mul,
+    #[strum(to_string = "::std::ops::Div::div")]
+    Div,
+    #[strum(to_string = "::std::ops::Rem::rem")]
+    Rem,
     // equality
     #[strum(to_string = "::std::cmp::PartialEq::eq")]
     Eq,
@@ -102,6 +106,14 @@ pub enum WMckBinaryOp {
     Sub,
     #[strum(to_string = "::mck::forward::HwArith::mul")]
     Mul,
+    #[strum(to_string = "::mck::forward::HwArith::udiv")]
+    Udiv,
+    #[strum(to_string = "::mck::forward::HwArith::urem")]
+    Urem,
+    #[strum(to_string = "::mck::forward::HwArith::sdiv")]
+    Sdiv,
+    #[strum(to_string = "::mck::forward::HwArith::srem")]
+    Srem,
     // equality
     #[strum(to_string = "::mck::forward::TypedEq::eq")]
     Eq,

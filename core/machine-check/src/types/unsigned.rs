@@ -91,7 +91,11 @@ impl<const L: u32> Div<Unsigned<L>> for Unsigned<L> {
     type Output = Self;
 
     fn div(self, rhs: Unsigned<L>) -> Self::Output {
-        Self(self.0.udiv(rhs.0))
+        let panic_result = self.0.udiv(rhs.0);
+        if panic_result.panic.is_nonzero() {
+            panic!("attempt to divide by zero")
+        }
+        Self(panic_result.result)
     }
 }
 
@@ -99,7 +103,11 @@ impl<const L: u32> Rem<Unsigned<L>> for Unsigned<L> {
     type Output = Self;
 
     fn rem(self, rhs: Unsigned<L>) -> Self::Output {
-        Self(self.0.urem(rhs.0))
+        let panic_result = self.0.urem(rhs.0);
+        if panic_result.panic.is_nonzero() {
+            panic!("attempt to calculate the remainder with a divisor of zero")
+        }
+        Self(panic_result.result)
     }
 }
 

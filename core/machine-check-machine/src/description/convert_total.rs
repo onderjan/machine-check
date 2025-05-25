@@ -1,22 +1,28 @@
 use std::collections::BTreeSet;
 
+use machine_check_common::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO};
 use proc_macro2::Span;
 
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WBasicType, WBlock, WCall, WCallArg, WDescription, WExpr, WExprField, WExprHighCall,
-        WHighMckNew, WIdent, WIfCondition, WIfConditionIdent, WImplItemFn, WItemImpl,
-        WMacroableStmt, WNoIfPolarity, WPanicResult, WPanicResultType, WPartialGeneralType, WPath,
-        WReference, WSignature, WStdBinary, WStdBinaryOp, WStmt, WStmtAssign, WStmtIf, WTacLocal,
-        WType, YNonindexed, YTotal, ZNonindexed, ZTotal,
+        WBasicType, WBlock, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent,
+        WIfCondition, WIfConditionIdent, WImplItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity,
+        WPanicResult, WPanicResultType, WPartialGeneralType, WReference, WSignature, WStdBinary,
+        WStdBinaryOp, WStmt, WStmtAssign, WStmtIf, WTacLocal, WType, YNonindexed, YTotal,
+        ZNonindexed, ZTotal,
     },
 };
 
 pub fn convert_total(
     description: WDescription<YNonindexed>,
 ) -> (WDescription<YTotal>, Vec<String>) {
-    let mut panic_messages = Vec::new();
+    // add the division and remainder panic messages first
+    let mut panic_messages = vec![
+        String::from(PANIC_MSG_DIV_BY_ZERO),
+        String::from(PANIC_MSG_REM_BY_ZERO),
+    ];
+
     let mut impls = Vec::new();
 
     for item_impl in description.impls {
@@ -149,12 +155,12 @@ impl FnConverter<'_> {
                 // TODO: store the panic message as-is in the code
 
                 // push the message and assign the number to the panic ident
-                self.panic_messages.push(panic_macro.msg);
                 let message_index_plus_one: u32 = self
                     .panic_messages
                     .len()
                     .try_into()
                     .expect("The panic message index should fit into u32");
+                self.panic_messages.push(panic_macro.msg);
                 let panic_assign = WStmt::Assign(WStmtAssign {
                     left: self.panic_ident.clone(),
                     right: create_panic_call(message_index_plus_one.into()),
@@ -172,8 +178,37 @@ impl FnConverter<'_> {
                 // TODO: convert division and remainder
                 match expr_call {
                     WExprHighCall::Call(call) => {
-                        // convert calls that are not well-known
-                        return self.fold_fn_call(stmt.left, call.fn_path, call.args);
+                        if call.fn_path.starts_with_absolute(&["mck"])
+                            || call.fn_path.starts_with_absolute(&["std"])
+                            || call.fn_path.starts_with_absolute(&["machine_check"])
+                        {
+                            // do not change the result type
+                            /*return vec![WStmt::Assign(WStmtAssign {
+                                left: original_left,
+                                right: WExpr::Call(WExprHighCall::Call(WCall { fn_path, args })),
+                            })];*/
+
+                            WExpr::Call(WExprHighCall::Call(call))
+                        } else {
+                            // convert calls that are not well-known
+                            return self
+                                .fold_fn_call(stmt.left, WExpr::Call(WExprHighCall::Call(call)));
+                        }
+                    }
+                    WExprHighCall::StdBinary(binary) => {
+                        match &binary.op {
+                            WStdBinaryOp::Div | WStdBinaryOp::Rem => {
+                                // convert division and remainder as they can panic with zero divisor
+                                return self.fold_fn_call(
+                                    stmt.left,
+                                    WExpr::Call(WExprHighCall::StdBinary(binary)),
+                                );
+                            }
+                            _ => {
+                                // do not convert other binary oprations
+                                WExpr::Call(WExprHighCall::StdBinary(binary))
+                            }
+                        }
                     }
                     _ => {
                         // do not convert other well-known calls
@@ -198,28 +233,16 @@ impl FnConverter<'_> {
     fn fold_fn_call(
         &mut self,
         original_left: WIdent,
-        fn_path: WPath,
-        args: Vec<WCallArg>,
+        right: WExpr<WExprHighCall>,
     ) -> Vec<WStmt<ZTotal>> {
-        if fn_path.starts_with_absolute(&["mck"])
-            || fn_path.starts_with_absolute(&["std"])
-            || fn_path.starts_with_absolute(&["machine_check"])
-        {
-            // do not change the result type
-            return vec![WStmt::Assign(WStmtAssign {
-                left: original_left,
-                right: WExpr::Call(WExprHighCall::Call(WCall { fn_path, args })),
-            })];
-        }
-
         // the function result type will be PanicResult
         // assign it to a new temporary
-        let span = fn_path.span();
+        let span = original_left.span();
         let returned_ident = self.ident_creator.create_temporary_ident(span);
 
         let returned_assign = WStmt::Assign(WStmtAssign {
             left: returned_ident.clone(),
-            right: WExpr::Call(WExprHighCall::Call(WCall { fn_path, args })),
+            right,
         });
         self.panic_result_idents.insert(returned_ident.clone());
 

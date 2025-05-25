@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, Div, Mul, Rem, Shl, Shr, Sub},
+    ops::{Add, Mul, Shl, Shr, Sub},
 };
 
 use num::{One, Zero};
@@ -56,22 +56,6 @@ impl<const L: u32> Mul<UnsignedBitvector<L>> for UnsignedBitvector<L> {
 
     fn mul(self, rhs: UnsignedBitvector<L>) -> Self::Output {
         Self::from_bitvector(self.0.mul(rhs.0))
-    }
-}
-
-impl<const L: u32> Div<UnsignedBitvector<L>> for UnsignedBitvector<L> {
-    type Output = Self;
-
-    fn div(self, rhs: UnsignedBitvector<L>) -> Self::Output {
-        Self::from_bitvector(self.0.udiv(rhs.0))
-    }
-}
-
-impl<const L: u32> Rem<UnsignedBitvector<L>> for UnsignedBitvector<L> {
-    type Output = Self;
-
-    fn rem(self, rhs: UnsignedBitvector<L>) -> Self::Output {
-        Self::from_bitvector(self.0.urem(rhs.0))
     }
 }
 

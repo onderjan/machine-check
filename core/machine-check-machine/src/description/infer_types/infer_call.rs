@@ -53,6 +53,15 @@ impl super::FnInferrer<'_> {
             | crate::wir::WStdBinaryOp::Ge => {
                 WPartialGeneralType::Normal(WBasicType::Boolean.into_type())
             }
+            crate::wir::WStdBinaryOp::Div | crate::wir::WStdBinaryOp::Rem => {
+                // infer and convert to panic result
+                let ty = self.infer_same_args(&[&call.a, &call.b]);
+                if let WPartialGeneralType::Normal(ty) = ty {
+                    WPartialGeneralType::PanicResult(Some(ty))
+                } else {
+                    WPartialGeneralType::Unknown
+                }
+            }
         }
     }
 

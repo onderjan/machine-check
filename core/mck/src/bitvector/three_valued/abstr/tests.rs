@@ -119,10 +119,10 @@ uni_op_test!(arith_neg);
 bi_op_test!(add, true);
 bi_op_test!(sub, true);
 bi_op_test!(mul, false);
-bi_op_test!(udiv, false);
-bi_op_test!(sdiv, false);
-bi_op_test!(urem, false);
-bi_op_test!(srem, false);
+divrem_op_test!(udiv, false);
+divrem_op_test!(sdiv, false);
+divrem_op_test!(urem, false);
+divrem_op_test!(srem, false);
 
 // bitwise tests
 bi_op_test!(bit_and, true);

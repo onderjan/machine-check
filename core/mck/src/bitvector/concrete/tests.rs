@@ -1,5 +1,9 @@
+use core::panic;
+
+use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
+
 use crate::{
-    concr::Test,
+    concr::{PanicResult, Test},
     forward::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq},
 };
 
@@ -190,42 +194,42 @@ fn arith() {
 
     // unsigned division and remainder have division by zero
     // try out normal first
-    assert_eq!(a.udiv(b).as_unsigned(), 0x000A);
-    assert_eq!(a.urem(b).as_unsigned(), 0x0AD8);
-    assert_eq!(a.udiv(c).as_unsigned(), 0x0003);
-    assert_eq!(a.urem(c).as_unsigned(), 0x0AFE);
-    assert_eq!(b.udiv(c).as_unsigned(), 0x0000);
-    assert_eq!(b.urem(c).as_unsigned(), 0x1337);
+    assert_eq!(expect_no_panic(a.udiv(b)).as_unsigned(), 0x000A);
+    assert_eq!(expect_no_panic(a.urem(b)).as_unsigned(), 0x0AD8);
+    assert_eq!(expect_no_panic(a.udiv(c)).as_unsigned(), 0x0003);
+    assert_eq!(expect_no_panic(a.urem(c)).as_unsigned(), 0x0AFE);
+    assert_eq!(expect_no_panic(b.udiv(c)).as_unsigned(), 0x0000);
+    assert_eq!(expect_no_panic(b.urem(c)).as_unsigned(), 0x1337);
 
     // in case of unsigned division-by-zero
     // division result is all-ones and remainder is the dividend
-    assert_eq!(a.udiv(zero).as_unsigned(), 0xFFFF);
-    assert_eq!(a.urem(zero).as_unsigned(), 0xCAFE);
-    assert_eq!(b.udiv(zero).as_unsigned(), 0xFFFF);
-    assert_eq!(b.urem(zero).as_unsigned(), 0x1337);
-    assert_eq!(c.udiv(zero).as_unsigned(), 0xFFFF);
-    assert_eq!(c.urem(zero).as_unsigned(), 0x4000);
+    assert_eq!(expect_div_panic(a.udiv(zero)).as_unsigned(), 0xFFFF);
+    assert_eq!(expect_rem_panic(a.urem(zero)).as_unsigned(), 0xCAFE);
+    assert_eq!(expect_div_panic(b.udiv(zero)).as_unsigned(), 0xFFFF);
+    assert_eq!(expect_rem_panic(b.urem(zero)).as_unsigned(), 0x1337);
+    assert_eq!(expect_div_panic(c.udiv(zero)).as_unsigned(), 0xFFFF);
+    assert_eq!(expect_rem_panic(c.urem(zero)).as_unsigned(), 0x4000);
 
     // signed division and remainder have four-quadrant behaviour,
     // division by zero and overflow
-    assert_eq!(c.sdiv(b).as_unsigned(), 0x0003); // positive / positive
-    assert_eq!(c.srem(b).as_unsigned(), 0x065B);
-    assert_eq!(a.sdiv(b).as_unsigned(), 0xFFFE); // negative / positive
-    assert_eq!(a.srem(b).as_unsigned(), 0xF16C);
-    assert_eq!(c.sdiv(a).as_unsigned(), 0xFFFF); // positive / negative
-    assert_eq!(c.srem(a).as_unsigned(), 0x0AFE);
-    assert_eq!(d.sdiv(a).as_unsigned(), 0x0001); // negative / negative
-    assert_eq!(d.srem(a).as_unsigned(), 0xEFDC);
+    assert_eq!(expect_no_panic(c.sdiv(b)).as_unsigned(), 0x0003); // positive / positive
+    assert_eq!(expect_no_panic(c.srem(b)).as_unsigned(), 0x065B);
+    assert_eq!(expect_no_panic(a.sdiv(b)).as_unsigned(), 0xFFFE); // negative / positive
+    assert_eq!(expect_no_panic(a.srem(b)).as_unsigned(), 0xF16C);
+    assert_eq!(expect_no_panic(c.sdiv(a)).as_unsigned(), 0xFFFF); // positive / negative
+    assert_eq!(expect_no_panic(c.srem(a)).as_unsigned(), 0x0AFE);
+    assert_eq!(expect_no_panic(d.sdiv(a)).as_unsigned(), 0x0001); // negative / negative
+    assert_eq!(expect_no_panic(d.srem(a)).as_unsigned(), 0xEFDC);
 
     // in case of signed division-by-zero
     // division result is all-ones and remainder is the dividend
     // (same as unsigned)
-    assert_eq!(a.sdiv(zero).as_unsigned(), 0xFFFF);
-    assert_eq!(a.srem(zero).as_unsigned(), 0xCAFE);
-    assert_eq!(b.sdiv(zero).as_unsigned(), 0xFFFF);
-    assert_eq!(b.srem(zero).as_unsigned(), 0x1337);
-    assert_eq!(c.sdiv(zero).as_unsigned(), 0xFFFF);
-    assert_eq!(c.srem(zero).as_unsigned(), 0x4000);
+    assert_eq!(expect_div_panic(a.sdiv(zero)).as_unsigned(), 0xFFFF);
+    assert_eq!(expect_rem_panic(a.srem(zero)).as_unsigned(), 0xCAFE);
+    assert_eq!(expect_div_panic(b.sdiv(zero)).as_unsigned(), 0xFFFF);
+    assert_eq!(expect_rem_panic(b.srem(zero)).as_unsigned(), 0x1337);
+    assert_eq!(expect_div_panic(c.sdiv(zero)).as_unsigned(), 0xFFFF);
+    assert_eq!(expect_rem_panic(c.srem(zero)).as_unsigned(), 0x4000);
 
     // overflow only happens if the minimum value is divided by minus one
     // because the minimum value is not representable in positive
@@ -233,6 +237,33 @@ fn arith() {
     // and no remainder
     let min = ConcreteBitvector::<16>::new(0x8000);
     let minus_one = ConcreteBitvector::<16>::new(0xFFFF);
-    assert_eq!(min.sdiv(minus_one), min);
-    assert_eq!(min.srem(minus_one), zero);
+    assert_eq!(expect_no_panic(min.sdiv(minus_one)), min);
+    assert_eq!(expect_no_panic(min.srem(minus_one)), zero);
+}
+
+fn expect_no_panic<const L: u32>(
+    panic_result: PanicResult<ConcreteBitvector<L>>,
+) -> ConcreteBitvector<L> {
+    if panic_result.panic != ConcreteBitvector::new(PANIC_NUM_NO_PANIC) {
+        panic!("Expected no panic")
+    }
+    panic_result.result
+}
+
+fn expect_div_panic<const L: u32>(
+    panic_result: PanicResult<ConcreteBitvector<L>>,
+) -> ConcreteBitvector<L> {
+    if panic_result.panic != ConcreteBitvector::new(PANIC_NUM_DIV_BY_ZERO) {
+        panic!("Expected division panic")
+    }
+    panic_result.result
+}
+
+fn expect_rem_panic<const L: u32>(
+    panic_result: PanicResult<ConcreteBitvector<L>>,
+) -> ConcreteBitvector<L> {
+    if panic_result.panic != ConcreteBitvector::new(PANIC_NUM_REM_BY_ZERO) {
+        panic!("Expected remainder panic")
+    }
+    panic_result.result
 }

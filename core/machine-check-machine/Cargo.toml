@@ -11,6 +11,7 @@ rust-version = "1.83"
 write_machine = []
 
 [dependencies]
+machine-check-common = "0.4.0"
 machine-check-bitmask-switch = "=0.4.0"
 
 proc-macro2 = "1.0.67"

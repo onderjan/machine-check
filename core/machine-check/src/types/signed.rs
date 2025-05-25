@@ -3,6 +3,7 @@ use std::{
     ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub},
 };
 
+use machine_check_common::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO};
 use mck::{
     concr::{self, IntoMck},
     forward::{Bitwise, HwArith, HwShift},
@@ -83,7 +84,11 @@ impl<const L: u32> Div<Signed<L>> for Signed<L> {
     type Output = Self;
 
     fn div(self, rhs: Signed<L>) -> Self::Output {
-        Self(self.0.sdiv(rhs.0))
+        let panic_result = self.0.udiv(rhs.0);
+        if panic_result.panic.is_nonzero() {
+            panic!("{}", PANIC_MSG_DIV_BY_ZERO)
+        }
+        Self(panic_result.result)
     }
 }
 
@@ -91,7 +96,11 @@ impl<const L: u32> Rem<Signed<L>> for Signed<L> {
     type Output = Self;
 
     fn rem(self, rhs: Signed<L>) -> Self::Output {
-        Self(self.0.srem(rhs.0))
+        let panic_result = self.0.urem(rhs.0);
+        if panic_result.panic.is_nonzero() {
+            panic!("{}", PANIC_MSG_REM_BY_ZERO)
+        }
+        Self(panic_result.result)
     }
 }
 

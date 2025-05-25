@@ -1,6 +1,7 @@
 use crate::{
-    abstr::Abstr,
+    abstr::{Abstr, PanicResult},
     bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
+    concr,
     traits::misc::MetaEq,
 };
 
@@ -44,6 +45,21 @@ macro_rules! bi_op_test {
             let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b).into();
             let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| a.$op(b).into();
             $crate::bitvector::three_valued::abstr::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
+        }
+    });
+    };
+}
+
+macro_rules! divrem_op_test {
+    ($op:tt,$exact:tt) => {
+
+        seq_macro::seq!(L in 0..=6 {
+
+        #[test]
+        pub fn $op~L() {
+            let abstr_func = |a: ThreeValuedBitvector<L>, b: ThreeValuedBitvector<L>| a.$op(b).into();
+            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| a.$op(b).into();
+            $crate::bitvector::three_valued::abstr::tests::op::exec_divrem_check(abstr_func, concr_func);
         }
     });
     };
@@ -97,6 +113,64 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
                 panic!(
                     "Unsound result with parameters {}, {}, expected {}, got {}",
                     a, b, equiv_result, abstr_result
+                );
+            }
+            if a.concrete_value().is_some()
+                && b.concrete_value().is_some()
+                && abstr_result.concrete_value().is_none()
+            {
+                panic!(
+                            "Non-concrete-value result with concrete-value parameters {}, {}, expected {}, got {}",
+                            a, b, equiv_result, abstr_result
+                        );
+            }
+        }
+    }
+}
+
+pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
+    abstr_func: fn(
+        ThreeValuedBitvector<L>,
+        ThreeValuedBitvector<L>,
+    ) -> PanicResult<ThreeValuedBitvector<X>>,
+    concr_func: fn(
+        ConcreteBitvector<L>,
+        ConcreteBitvector<L>,
+    ) -> concr::PanicResult<ConcreteBitvector<X>>,
+) {
+    for a in ThreeValuedBitvector::<L>::all_with_length_iter() {
+        for b in ThreeValuedBitvector::<L>::all_with_length_iter() {
+            let abstr_panic_result = abstr_func(a, b);
+            let abstr_result = abstr_panic_result.result;
+            let abstr_panic = abstr_panic_result.panic;
+
+            let a_concr_iter =
+                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_concr(c));
+
+            let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
+                ConcreteBitvector::<L>::all_with_length_iter()
+                    .filter(|c| b.contains_concr(c))
+                    .map(move |b_concr| concr_func(a_concr, b_concr).result)
+            }));
+
+            let a_concr_iter =
+                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_concr(c));
+            let equiv_panic = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
+                ConcreteBitvector::<L>::all_with_length_iter()
+                    .filter(|c| b.contains_concr(c))
+                    .map(move |b_concr| concr_func(a_concr, b_concr).panic)
+            }));
+
+            if !abstr_result.contains(&equiv_result) {
+                panic!(
+                    "Unsound result with parameters {}, {}, expected {}, got {}",
+                    a, b, equiv_result, abstr_result
+                );
+            }
+            if !abstr_panic.meta_eq(&equiv_panic) {
+                panic!(
+                    "Non-exact panic with parameters {}, {}, expected {}, got {}",
+                    a, b, equiv_panic, abstr_panic
                 );
             }
             if a.concrete_value().is_some()

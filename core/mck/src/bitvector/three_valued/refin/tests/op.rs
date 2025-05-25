@@ -1,6 +1,10 @@
-use crate::bitvector::{
-    concrete::ConcreteBitvector,
-    three_valued::{abstr::ThreeValuedBitvector, refin::MarkBitvector},
+use crate::{
+    bitvector::{
+        concrete::ConcreteBitvector,
+        three_valued::{abstr::ThreeValuedBitvector, refin::MarkBitvector},
+    },
+    misc::MetaEq,
+    panic::{concr, refin},
 };
 
 macro_rules! uni_op_test {
@@ -53,6 +57,25 @@ macro_rules! bi_op_test {
             };
             let concr_func = |a: $crate::bitvector::concrete::ConcreteBitvector<L>, b:$crate::bitvector::concrete::ConcreteBitvector<L>| ::std::convert::Into::into($crate::forward::$ty::$op(a,b));
             $crate::bitvector::three_valued::refin::tests::op::exec_bi_check(&mark_func, &concr_func, $exact);
+        }
+    });
+    };
+}
+
+macro_rules! divrem_op_test {
+    ($ty:tt, $op:tt, $exact:tt) => {
+
+        seq_macro::seq!(L in 0..=3 {
+
+        #[test]
+        pub fn $op~L() {
+            let mark_func = |inputs: ($crate::bitvector::three_valued::abstr::ThreeValuedBitvector<L>,
+                $crate::bitvector::three_valued::abstr::ThreeValuedBitvector<L>),
+                                mark| {
+                                    ::std::convert::Into::into(crate::backward::$ty::$op(inputs, ::std::convert::Into::into(mark)))
+            };
+            let concr_func = |a: $crate::bitvector::concrete::ConcreteBitvector<L>, b:$crate::bitvector::concrete::ConcreteBitvector<L>| ::std::convert::Into::into($crate::forward::$ty::$op(a,b));
+            $crate::bitvector::three_valued::refin::tests::op::exec_divrem_check(&mark_func, &concr_func, $exact);
         }
     });
     };
@@ -224,4 +247,68 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
     let right_mark_func = |(a, b), earlier| mark_func((b, a), earlier).1;
     let right_concr_func = |a, b| concr_func(b, a);
     exec_left_check(right_mark_func, right_concr_func, want_exact);
+}
+
+pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
+    mark_func: &impl Fn(
+        (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
+        refin::PanicResult<MarkBitvector<X>>,
+    ) -> (MarkBitvector<L>, MarkBitvector<L>),
+    concr_func: &impl Fn(
+        ConcreteBitvector<L>,
+        ConcreteBitvector<L>,
+    ) -> concr::PanicResult<ConcreteBitvector<X>>,
+    want_exact: bool,
+) {
+    // test with no panic first
+    // exec for left
+    let left_mark_func = |abstr, earlier| {
+        mark_func(
+            abstr,
+            refin::PanicResult {
+                panic: MarkBitvector(None),
+                result: earlier,
+            },
+        )
+        .0
+    };
+    let left_concr_func = |a, b| concr_func(a, b).result;
+    exec_left_check(left_mark_func, left_concr_func, want_exact);
+    // flip for right
+    let right_mark_func = |(a, b), earlier| {
+        mark_func(
+            (b, a),
+            refin::PanicResult {
+                panic: MarkBitvector(None),
+                result: earlier,
+            },
+        )
+        .1
+    };
+    let right_concr_func = |a, b| concr_func(b, a).result;
+    exec_left_check(right_mark_func, right_concr_func, want_exact);
+
+    // test that panic propagates
+    for a_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
+        for b_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
+            let later_mark_result = MarkBitvector::<X>::new_unmarked();
+            let later_mark_panic = MarkBitvector::new_marked_unimportant();
+            let (marked_a, marked_b) = mark_func(
+                (a_abstr, b_abstr),
+                refin::PanicResult {
+                    panic: later_mark_panic,
+                    result: later_mark_result,
+                },
+            );
+            if marked_a.is_marked() {
+                panic!("Dividend should never be marked for propagating div/rem panic");
+            }
+
+            let expected_mark = MarkBitvector::new_marked_unimportant().limit(b_abstr);
+
+            if !expected_mark.meta_eq(&marked_b) {
+                panic!("Expected dividend mark for panic differs from the actual")
+            }
+        }
+    }
 }

@@ -118,10 +118,11 @@ uni_op_test!(HwArith, arith_neg, false);
 bi_op_test!(HwArith, add, false);
 bi_op_test!(HwArith, sub, false);
 bi_op_test!(HwArith, mul, false);
-bi_op_test!(HwArith, sdiv, false);
-bi_op_test!(HwArith, udiv, false);
-bi_op_test!(HwArith, srem, false);
-bi_op_test!(HwArith, urem, false);
+
+divrem_op_test!(HwArith, sdiv, false);
+divrem_op_test!(HwArith, udiv, false);
+divrem_op_test!(HwArith, srem, false);
+divrem_op_test!(HwArith, urem, false);
 
 // bitwise tests
 bi_op_test!(Bitwise, bit_and, false);

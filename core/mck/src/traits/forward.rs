@@ -41,6 +41,8 @@ pub trait HwArith
 where
     Self: Sized,
 {
+    type DivRemResult;
+
     #[must_use]
     fn arith_neg(self) -> Self;
 
@@ -52,14 +54,14 @@ where
     fn mul(self, rhs: Self) -> Self;
 
     #[must_use]
-    fn udiv(self, rhs: Self) -> Self;
+    fn udiv(self, rhs: Self) -> Self::DivRemResult;
     #[must_use]
-    fn sdiv(self, rhs: Self) -> Self;
+    fn sdiv(self, rhs: Self) -> Self::DivRemResult;
 
     #[must_use]
-    fn urem(self, rhs: Self) -> Self;
+    fn urem(self, rhs: Self) -> Self::DivRemResult;
     #[must_use]
-    fn srem(self, rhs: Self) -> Self;
+    fn srem(self, rhs: Self) -> Self::DivRemResult;
 }
 
 pub trait HwShift {
