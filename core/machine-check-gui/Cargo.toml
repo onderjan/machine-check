@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-gui"
-version = "0.4.0"
+version = "0.5.0-alpha.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Utility crate for the formal verification tool machine-check"
@@ -20,8 +20,8 @@ build-log-debug = []
 # Note that we need to be also able to compile the frontend 
 # using the backend architecture, so this includes dependencies 
 # that are frontend-only in practice.
-machine-check-common = "=0.4.0"
-mck = "=0.4.0"
+machine-check-common = "=0.5.0-alpha.1"
+mck = "=0.5.0-alpha.1"
 
 web-sys = { version = "0.3.76", features = [
     "console",
@@ -67,7 +67,7 @@ hex = "0.4.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Backend-only dependencies.
-machine-check-exec = "=0.4.0"
+machine-check-exec = "=0.5.0-alpha.1"
 
 petgraph = "0.6.4"
 log = "0.4.20"

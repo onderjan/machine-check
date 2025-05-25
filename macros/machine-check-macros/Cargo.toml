@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-macros"
-version = "0.4.0"
+version = "0.5.0-alpha.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Macro crate for the formal verification tool machine-check"
@@ -10,8 +10,8 @@ rust-version = "1.83"
 proc-macro = true
 
 [dependencies]
-machine-check-machine = "=0.4.0"
-machine-check-bitmask-switch = "=0.4.0"
+machine-check-machine = "=0.5.0-alpha.1"
+machine-check-bitmask-switch = "=0.5.0-alpha.1"
 
 proc-macro2 = "1.0.67"
 syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }
@@ -20,5 +20,6 @@ prettyplease = "0.2.15"
 syn-path = "2.0.0"
 
 [dev-dependencies]
+machine-check = "=0.5.0-alpha.1"
+
 trybuild = "1.0.105"
-machine-check = "0.4.0"
