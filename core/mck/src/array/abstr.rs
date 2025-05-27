@@ -72,8 +72,8 @@ impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
 pub(super) fn extract_bounds<const I: u32>(
     index: abstr::Bitvector<I>,
 ) -> (UnsignedBitvector<I>, UnsignedBitvector<I>) {
-    let umin = UnsignedBitvector::from_bitvector(index.umin());
-    let umax = UnsignedBitvector::from_bitvector(index.umax());
+    let umin = index.umin().cast_unsigned();
+    let umax = index.umax().cast_unsigned();
     assert!(umin <= umax);
 
     (umin, umax)
@@ -117,8 +117,7 @@ impl<const I: u32, const L: u32> Debug for Array<I, L> {
 
 impl<const I: u32, const L: u32> ManipField for Array<I, L> {
     fn index(&self, index: u64) -> Option<&dyn ManipField> {
-        let index = concr::Bitvector::try_new(index)?;
-        let index = UnsignedBitvector::from_bitvector(index);
+        let index = concr::Bitvector::try_new(index)?.cast_unsigned();
         Some(&self.inner[index].0)
     }
 

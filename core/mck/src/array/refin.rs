@@ -248,14 +248,12 @@ impl<const I: u32, const L: u32> Debug for Array<I, L> {
 
 impl<const I: u32, const L: u32> ManipField for Array<I, L> {
     fn index(&self, index: u64) -> Option<&dyn ManipField> {
-        let index = concr::Bitvector::try_new(index)?;
-        let index = UnsignedBitvector::from_bitvector(index);
+        let index = concr::Bitvector::try_new(index)?.cast_unsigned();
         Some(&self.inner[index].0)
     }
 
     fn index_mut(&mut self, index: u64) -> Option<&mut dyn ManipField> {
-        let index = concr::Bitvector::try_new(index)?;
-        let index = UnsignedBitvector::from_bitvector(index);
+        let index = concr::Bitvector::try_new(index)?.cast_unsigned();
         Some(&mut self.inner.mutable_index(index).0)
     }
 

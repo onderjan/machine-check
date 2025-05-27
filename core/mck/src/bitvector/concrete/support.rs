@@ -7,6 +7,8 @@ use crate::forward::Bitwise;
 use crate::forward::TypedCmp;
 
 use super::ConcreteBitvector;
+use super::SignedBitvector;
+use super::UnsignedBitvector;
 
 impl<const L: u32> ConcreteBitvector<L> {
     pub fn new(value: u64) -> Self {
@@ -30,7 +32,16 @@ impl<const L: u32> ConcreteBitvector<L> {
         Some(Self(value))
     }
 
+    pub fn cast_unsigned(self) -> UnsignedBitvector<L> {
+        UnsignedBitvector::from_bitvector(self)
+    }
+
+    pub fn cast_signed(self) -> SignedBitvector<L> {
+        SignedBitvector::from_bitvector(self)
+    }
+
     // not for use where it may be replaced by abstraction
+    // TODO: remove and replace by casts
     pub fn as_unsigned(&self) -> u64 {
         self.0
     }

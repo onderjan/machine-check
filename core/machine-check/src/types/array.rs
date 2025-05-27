@@ -53,14 +53,13 @@ impl<const I: u32, const L: u32> Index<Bitvector<I>> for BitvectorArray<I, L> {
     type Output = Bitvector<L>;
 
     fn index(&self, index: Bitvector<I>) -> &Self::Output {
-        &self.inner[UnsignedBitvector::from_bitvector(index.into_mck())]
+        &self.inner[index.into_mck().cast_unsigned()]
     }
 }
 
 impl<const I: u32, const L: u32> IndexMut<Bitvector<I>> for BitvectorArray<I, L> {
     fn index_mut(&mut self, index: Bitvector<I>) -> &mut Self::Output {
-        self.inner
-            .mutable_index(UnsignedBitvector::from_bitvector(index.into_mck()))
+        self.inner.mutable_index(index.into_mck().cast_unsigned())
     }
 }
 

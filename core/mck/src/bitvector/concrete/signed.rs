@@ -26,6 +26,10 @@ impl<const L: u32> SignedBitvector<L> {
         SignedBitvector(concr::Bitvector::new(1))
     }
 
+    pub(super) fn from_bitvector(bitvector: concr::Bitvector<L>) -> Self {
+        SignedBitvector(bitvector)
+    }
+
     pub fn as_bitvector(&self) -> concr::Bitvector<L> {
         self.0
     }

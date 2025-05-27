@@ -31,14 +31,12 @@ impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
     type Deref = Array<I, L>;
 
     fn read(self, index: Self::Index) -> Self::Element {
-        self.inner[UnsignedBitvector::from_bitvector(index)]
+        self.inner[index.cast_unsigned()]
     }
 
     fn write(self, index: Self::Index, element: Self::Element) -> Self::Deref {
         let mut result = self.clone();
-        result
-            .inner
-            .write(UnsignedBitvector::from_bitvector(index), element);
+        result.inner.write(index.cast_unsigned(), element);
         result
     }
 }

@@ -26,7 +26,7 @@ impl<const L: u32> UnsignedBitvector<L> {
         UnsignedBitvector(concr::Bitvector::new(1))
     }
 
-    pub fn from_bitvector(bitvector: concr::Bitvector<L>) -> Self {
+    pub(super) fn from_bitvector(bitvector: concr::Bitvector<L>) -> Self {
         UnsignedBitvector(bitvector)
     }
 
