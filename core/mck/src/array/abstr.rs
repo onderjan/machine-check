@@ -72,8 +72,8 @@ impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
 pub(super) fn extract_bounds<const I: u32>(
     index: abstr::Bitvector<I>,
 ) -> (UnsignedBitvector<I>, UnsignedBitvector<I>) {
-    let umin = index.umin().cast_unsigned();
-    let umax = index.umax().cast_unsigned();
+    let umin = index.umin();
+    let umax = index.umax();
     assert!(umin <= umax);
 
     (umin, umax)

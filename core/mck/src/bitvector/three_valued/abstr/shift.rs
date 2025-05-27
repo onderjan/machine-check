@@ -78,15 +78,15 @@ fn shift<const L: u32>(
 
     // the shift amount is also three-valued, which poses problems
     // first, if it can be shifted by L or larger value, join by overflow value
-    let shift_overflow = amount.umax().as_unsigned() >= L as u64;
+    let shift_overflow = amount.umax().to_u64() >= L as u64;
     if shift_overflow {
         zeros = zeros.bit_or(overflow_value.zeros);
         ones = ones.bit_or(overflow_value.ones);
     }
 
     // only consider the amounts smaller than L afterwards
-    let min_shift = amount.umin().as_unsigned().min((L - 1) as u64);
-    let max_shift = amount.umax().as_unsigned().min((L - 1) as u64);
+    let min_shift = amount.umin().to_u64().min((L - 1) as u64);
+    let max_shift = amount.umax().to_u64().min((L - 1) as u64);
     // join by the other shifts iteratively
     for i in min_shift..=max_shift {
         let bi = ConcreteBitvector::new(i);

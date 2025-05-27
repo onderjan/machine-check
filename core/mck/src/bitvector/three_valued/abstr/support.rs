@@ -2,8 +2,11 @@ use std::fmt::{Debug, Display};
 
 use crate::{
     abstr::{Abstr, ArrayFieldBitvector, BitvectorField, Boolean, Field, ManipField, Phi, Test},
-    bitvector::{concrete::ConcreteBitvector, util},
-    concr,
+    bitvector::{
+        concrete::{ConcreteBitvector, SignedBitvector},
+        util,
+    },
+    concr::{self, UnsignedBitvector},
     forward::Bitwise,
     traits::misc::MetaEq,
 };
@@ -138,41 +141,41 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn umin(&self) -> ConcreteBitvector<L> {
+    pub fn umin(&self) -> UnsignedBitvector<L> {
         // unsigned min value is value of bit-negated zeros (one only where it must be)
-        Bitwise::bit_not(self.zeros)
+        Bitwise::bit_not(self.zeros).cast_unsigned()
     }
 
     #[must_use]
-    pub fn umax(&self) -> ConcreteBitvector<L> {
+    pub fn umax(&self) -> UnsignedBitvector<L> {
         // unsigned max value is value of ones (one everywhere it can be)
-        self.ones
+        self.ones.cast_unsigned()
     }
 
     #[must_use]
-    pub fn smin(&self) -> ConcreteBitvector<L> {
+    pub fn smin(&self) -> SignedBitvector<L> {
         let sign_bit_mask = ConcreteBitvector::<L>::sign_bit_mask();
         // take the unsigned minimum
-        let mut result = self.umin();
+        let mut result = self.umin().as_bitvector();
         // but the signed value is smaller when the sign bit is one
         // if it is possible to set it to one, set it
         if self.is_ones_sign_bit_set() {
             result = result.bit_or(sign_bit_mask)
         }
-        result
+        result.cast_signed()
     }
 
     #[must_use]
-    pub fn smax(&self) -> ConcreteBitvector<L> {
+    pub fn smax(&self) -> SignedBitvector<L> {
         let sign_bit_mask = ConcreteBitvector::<L>::sign_bit_mask();
         // take the unsigned maximum
-        let mut result = self.umax();
+        let mut result = self.umax().as_bitvector();
         // but the signed value is bigger when the sign bit is zero
         // if it is possible to set it to zero, set it
         if self.is_zeros_sign_bit_set() {
             result = result.bit_and(sign_bit_mask.bit_not());
         }
-        result
+        result.cast_signed()
     }
 
     #[must_use]
@@ -272,19 +275,19 @@ impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
     }
 
     fn min_unsigned(&self) -> Option<u64> {
-        Some(self.umin().as_unsigned())
+        Some(self.umin().to_u64())
     }
 
     fn max_unsigned(&self) -> Option<u64> {
-        Some(self.umax().as_unsigned())
+        Some(self.umax().to_u64())
     }
 
     fn min_signed(&self) -> Option<i64> {
-        Some(self.smin().as_signed())
+        Some(self.smin().to_i64())
     }
 
     fn max_signed(&self) -> Option<i64> {
-        Some(self.smax().as_signed())
+        Some(self.smax().to_i64())
     }
 
     fn index(&self, _index: u64) -> Option<&dyn ManipField> {

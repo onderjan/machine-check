@@ -31,7 +31,7 @@ impl<const L: u32> Meta<ThreeValuedBitvector<L>> for MarkBitvector<L> {
         // end if we overflow
 
         // work with bitvector of only values, the unknowns do not change
-        let mut current = proto.umin().as_unsigned();
+        let mut current = proto.umin().to_u64();
         let mut considered_bits = known_bits;
 
         loop {

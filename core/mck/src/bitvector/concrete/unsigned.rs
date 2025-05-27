@@ -1,12 +1,13 @@
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, Mul, Shl, Shr, Sub},
+    ops::{Add, Div, Mul, Rem, Shl, Shr, Sub},
 };
 
 use num::{One, Zero};
 
 use crate::{
     bitvector::concr,
+    concr::PanicResult,
     forward::{HwArith, HwShift},
 };
 
@@ -30,8 +31,20 @@ impl<const L: u32> UnsignedBitvector<L> {
         UnsignedBitvector(bitvector)
     }
 
-    pub fn as_bitvector(&self) -> concr::Bitvector<L> {
+    pub fn as_bitvector(self) -> concr::Bitvector<L> {
         self.0
+    }
+
+    pub fn to_u64(self) -> u64 {
+        self.0.as_unsigned()
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.0.is_zero()
+    }
+
+    pub fn is_nonzero(&self) -> bool {
+        self.0.is_nonzero()
     }
 }
 
@@ -56,6 +69,32 @@ impl<const L: u32> Mul<UnsignedBitvector<L>> for UnsignedBitvector<L> {
 
     fn mul(self, rhs: UnsignedBitvector<L>) -> Self::Output {
         Self(self.0.mul(rhs.0))
+    }
+}
+
+impl<const L: u32> Div<UnsignedBitvector<L>> for UnsignedBitvector<L> {
+    type Output = PanicResult<Self>;
+
+    fn div(self, rhs: UnsignedBitvector<L>) -> PanicResult<Self> {
+        // unsigned division
+        let panic_result = self.0.udiv(rhs.0);
+        PanicResult {
+            panic: panic_result.panic,
+            result: Self(panic_result.result),
+        }
+    }
+}
+
+impl<const L: u32> Rem<UnsignedBitvector<L>> for UnsignedBitvector<L> {
+    type Output = PanicResult<Self>;
+
+    fn rem(self, rhs: UnsignedBitvector<L>) -> PanicResult<Self> {
+        // unsigned remainder
+        let panic_result = self.0.urem(rhs.0);
+        PanicResult {
+            panic: panic_result.panic,
+            result: Self(panic_result.result),
+        }
     }
 }
 

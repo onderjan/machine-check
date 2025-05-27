@@ -88,8 +88,8 @@ fn shift<const L: u32>(
     // if the shift amount is L or more, no bits are retained
     // so consider only lesser amounts one by one
 
-    let min_shift = amount_input.umin().as_unsigned().min((L - 1) as u64);
-    let max_shift = amount_input.umax().as_unsigned().max((L - 1) as u64);
+    let min_shift = amount_input.umin().to_u64().min((L - 1) as u64);
+    let max_shift = amount_input.umax().to_u64().max((L - 1) as u64);
     // join the shifted marks iteratively
     let mut shifted_mark_earlier = MarkBitvector::new_unmarked();
     for i in min_shift..=max_shift {

@@ -7,10 +7,10 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn ult(self, rhs: Self) -> Self::Output {
         // use unsigned versions
-        let lhs_min = self.umin().as_unsigned();
-        let lhs_max = self.umax().as_unsigned();
-        let rhs_min = rhs.umin().as_unsigned();
-        let rhs_max = rhs.umax().as_unsigned();
+        let lhs_min = self.umin();
+        let lhs_max = self.umax();
+        let rhs_min = rhs.umin();
+        let rhs_max = rhs.umax();
 
         // can be zero if lhs can be greater or equal to rhs
         // this is only possible if lhs max can be greater or equal to rhs min
@@ -28,10 +28,10 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn ule(self, rhs: Self) -> Self::Output {
         // use unsigned versions
-        let lhs_min = self.umin().as_unsigned();
-        let lhs_max = self.umax().as_unsigned();
-        let rhs_min = rhs.umin().as_unsigned();
-        let rhs_max = rhs.umax().as_unsigned();
+        let lhs_min = self.umin();
+        let lhs_max = self.umax();
+        let rhs_min = rhs.umin();
+        let rhs_max = rhs.umax();
 
         // can be zero if lhs can be greater than rhs
         // this is only possible if lhs max can be greater to rhs min
@@ -49,10 +49,10 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn slt(self, rhs: Self) -> Self::Output {
         // use signed versions
-        let lhs_min = self.smin().as_signed();
-        let lhs_max = self.smax().as_signed();
-        let rhs_min = rhs.smin().as_signed();
-        let rhs_max = rhs.smax().as_signed();
+        let lhs_min = self.smin();
+        let lhs_max = self.smax();
+        let rhs_min = rhs.smin();
+        let rhs_max = rhs.smax();
 
         // can be zero if lhs can be greater or equal to rhs
         // this is only possible if lhs max can be greater or equal to rhs min
@@ -70,10 +70,10 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
 
     fn sle(self, rhs: Self) -> Self::Output {
         // use signed versions
-        let lhs_min = self.smin().as_signed();
-        let lhs_max = self.smax().as_signed();
-        let rhs_min = rhs.smin().as_signed();
-        let rhs_max = rhs.smax().as_signed();
+        let lhs_min = self.smin();
+        let lhs_max = self.smax();
+        let rhs_min = rhs.smin();
+        let rhs_max = rhs.smax();
 
         // can be zero if lhs can be greater than rhs
         // this is only possible if lhs max can be greater to rhs min
