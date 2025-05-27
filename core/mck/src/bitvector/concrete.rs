@@ -12,8 +12,12 @@ mod support;
 mod signed;
 mod unsigned;
 
+mod interval;
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ConcreteBitvector<const L: u32>(u64);
 
-pub type UnsignedBitvector<const L: u32> = unsigned::UnsignedBitvector<L>;
-pub type SignedBitvector<const L: u32> = signed::SignedBitvector<L>;
+pub use signed::SignedBitvector;
+pub use unsigned::UnsignedBitvector;
+
+pub use interval::*;

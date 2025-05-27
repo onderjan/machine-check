@@ -27,7 +27,7 @@ impl<const L: u32> UnsignedBitvector<L> {
         UnsignedBitvector(concr::Bitvector::new(1))
     }
 
-    pub(super) fn from_bitvector(bitvector: concr::Bitvector<L>) -> Self {
+    pub(super) const fn from_bitvector(bitvector: concr::Bitvector<L>) -> Self {
         UnsignedBitvector(bitvector)
     }
 
@@ -154,5 +154,15 @@ impl<const L: u32> Debug for UnsignedBitvector<L> {
 impl<const L: u32> Display for UnsignedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl<const L: u32> UnsignedBitvector<L> {
+    pub(crate) fn checked_add(self, rhs: Self) -> Option<Self> {
+        Some(UnsignedBitvector(self.0.checked_add(rhs.0)?))
+    }
+
+    pub(crate) fn checked_mul(self, rhs: Self) -> Option<Self> {
+        Some(UnsignedBitvector(self.0.checked_mul(rhs.0)?))
     }
 }

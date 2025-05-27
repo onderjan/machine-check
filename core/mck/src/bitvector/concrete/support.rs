@@ -32,11 +32,11 @@ impl<const L: u32> ConcreteBitvector<L> {
         Some(Self(value))
     }
 
-    pub fn cast_unsigned(self) -> UnsignedBitvector<L> {
+    pub const fn cast_unsigned(self) -> UnsignedBitvector<L> {
         UnsignedBitvector::from_bitvector(self)
     }
 
-    pub fn cast_signed(self) -> SignedBitvector<L> {
+    pub const fn cast_signed(self) -> SignedBitvector<L> {
         SignedBitvector::from_bitvector(self)
     }
 
@@ -62,6 +62,11 @@ impl<const L: u32> ConcreteBitvector<L> {
         // offset by flipping the most significant bit
         self.0 ^ (1 << (L - 1))
     }
+
+    pub const ZERO: ConcreteBitvector<L> = Self(0);
+    pub const UNDERHALF: ConcreteBitvector<L> = Self::without_sign_bit_mask();
+    pub const OVERHALF: ConcreteBitvector<L> = Self::sign_bit_mask();
+    pub const UMAX: ConcreteBitvector<L> = Self::bit_mask();
 
     pub fn zero() -> Self {
         Self(0)
@@ -92,11 +97,19 @@ impl<const L: u32> ConcreteBitvector<L> {
         util::is_u64_highest_bit_set(self.0, L)
     }
 
-    pub fn sign_bit_mask() -> ConcreteBitvector<L> {
+    pub const fn sign_bit_mask() -> ConcreteBitvector<L> {
         ConcreteBitvector(util::compute_u64_sign_bit_mask(L))
     }
 
-    pub fn bit_mask() -> ConcreteBitvector<L> {
+    const fn without_sign_bit_mask() -> ConcreteBitvector<L> {
+        if L == 0 {
+            return ConcreteBitvector(0);
+        }
+
+        ConcreteBitvector(util::compute_u64_mask(L) ^ util::compute_u64_sign_bit_mask(L))
+    }
+
+    pub const fn bit_mask() -> ConcreteBitvector<L> {
         ConcreteBitvector(util::compute_u64_mask(L))
     }
 

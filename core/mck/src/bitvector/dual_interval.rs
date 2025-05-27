@@ -3,6 +3,10 @@ use num::{
     PrimInt,
 };
 
+use super::concrete::{
+    ConcreteBitvector, SignlessInterval, WrappingInterpretation, WrappingInterval,
+};
+
 mod arith;
 
 trait UnsignedPrimitive: PrimInt + WrappingAdd + WrappingSub + WrappingMul + WrappingNeg {
@@ -18,88 +22,6 @@ trait UnsignedPrimitive: PrimInt + WrappingAdd + WrappingSub + WrappingMul + Wra
 trait SignedPrimitive: PrimInt + WrappingAdd + WrappingSub + WrappingMul + WrappingNeg {
     type Unsigned: UnsignedPrimitive;
     fn cast_unsigned(self) -> Self::Unsigned;
-}
-
-/// An interval, with a minimum and a maximum value.
-///
-/// It is guaranteed that min <= max, which means the interval
-/// does not support wrapping nor representing an empty set.
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-struct NonWrappingInterval<T: Ord + Clone + Copy> {
-    min: T,
-    max: T,
-}
-
-impl<T: Ord + Clone + Copy> NonWrappingInterval<T> {
-    fn from_value(value: T) -> Self {
-        Self {
-            min: value,
-            max: value,
-        }
-    }
-
-    fn contains_value(self, other: T) -> bool {
-        self.min <= other && other <= self.max
-    }
-
-    fn union(self, other: Self) -> Self {
-        Self {
-            min: self.min.min(other.min),
-            max: self.max.max(other.max),
-        }
-    }
-
-    fn union_opt(a: Option<Self>, b: Option<Self>) -> Option<Self> {
-        match (a, b) {
-            (None, None) => None,
-            (None, Some(b)) => Some(b),
-            (Some(a), None) => Some(a),
-            (Some(a), Some(b)) => Some(a.union(b)),
-        }
-    }
-}
-
-impl<U: UnsignedPrimitive> NonWrappingInterval<U> {
-    fn into_wrapping(self) -> WrappingInterval<U> {
-        WrappingInterval {
-            start: self.min,
-            end: self.max,
-        }
-    }
-}
-
-/// A wrapping interval.
-///
-/// If start <= end (unsigned), the interval represents [start,end].
-/// If start > end, the interval represents the union of [T_MIN, end] and [start, T_MAX].
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-struct WrappingInterval<U: UnsignedPrimitive> {
-    start: U,
-    end: U,
-}
-
-impl<U: UnsignedPrimitive> WrappingInterval<U> {
-    fn from_value(value: U) -> Self {
-        Self {
-            start: value,
-            end: value,
-        }
-    }
-
-    fn full() -> Self {
-        Self {
-            start: U::ZERO,
-            end: U::MAX,
-        }
-    }
-
-    fn contains_value(self, value: U) -> bool {
-        if self.start <= self.end {
-            self.start <= value && value <= self.end
-        } else {
-            value <= self.end || self.start <= value
-        }
-    }
 }
 
 /// Dual-interval domain.
@@ -127,72 +49,58 @@ impl<U: UnsignedPrimitive> WrappingInterval<U> {
 /// a non-wrapping interval) by an increase in time and memory, which should not
 /// be problematic for our use.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub(crate) struct DualInterval<U: UnsignedPrimitive> {
+pub(crate) struct DualInterval<const W: u32> {
     // The interval usually located between (including) 0 and (2^N)/2-1.
     //
     // If it is not, it must be equal to the far half.
-    near_half: NonWrappingInterval<U>,
+    near_half: SignlessInterval<W>,
     // The interval usually located between (including) (2^N)/2 and (2^N)-1.
     //
     // If it is not, it must be equal to the near half.
-    far_half: NonWrappingInterval<U>,
+    far_half: SignlessInterval<W>,
 }
 
-impl<U: UnsignedPrimitive> DualInterval<U> {
-    pub fn from_value(value: U) -> Self {
+impl<const W: u32> DualInterval<W> {
+    pub fn from_value(value: ConcreteBitvector<W>) -> Self {
         Self {
-            near_half: NonWrappingInterval::from_value(value),
-            far_half: NonWrappingInterval::from_value(value),
+            near_half: SignlessInterval::from_value(value),
+            far_half: SignlessInterval::from_value(value),
         }
     }
 
-    pub fn contains_value(self, value: U) -> bool {
+    pub fn contains_value(self, value: ConcreteBitvector<W>) -> bool {
         self.near_half.contains_value(value) || self.far_half.contains_value(value)
     }
 
-    pub fn full() -> Self {
-        Self {
-            near_half: NonWrappingInterval {
-                min: U::ZERO,
-                max: U::UNDERHALF,
-            },
-            far_half: NonWrappingInterval {
-                min: U::OVERHALF,
-                max: U::MAX,
-            },
-        }
-    }
+    pub const FULL: Self = Self {
+        near_half: SignlessInterval::FULL_NEAR_HALFPLANE,
+        far_half: SignlessInterval::FULL_FAR_HALFPLANE,
+    };
 
-    fn from_wrapping_interval(a: WrappingInterval<U>) -> Self {
+    fn from_wrapping_interval(a: WrappingInterval<W>) -> Self {
         let (near_half, far_half) = opt_halves(a);
         Self::from_opt_halves(near_half, far_half)
     }
 
-    fn from_wrapping_intervals(intervals: &[WrappingInterval<U>]) -> Self {
+    fn from_wrapping_intervals(intervals: &[WrappingInterval<W>]) -> Self {
         let mut near_half = None;
         let mut far_half = None;
 
         for interval in intervals {
             let (interval_near_half, interval_far_half) = opt_halves(*interval);
-            near_half = NonWrappingInterval::union_opt(near_half, interval_near_half);
-            far_half = NonWrappingInterval::union_opt(far_half, interval_far_half);
+            near_half = SignlessInterval::union_opt(near_half, interval_near_half);
+            far_half = SignlessInterval::union_opt(far_half, interval_far_half);
         }
 
         Self::from_opt_halves(near_half, far_half)
     }
 
     fn from_opt_halves(
-        near_half: Option<NonWrappingInterval<U>>,
-        far_half: Option<NonWrappingInterval<U>>,
+        near_half: Option<SignlessInterval<W>>,
+        far_half: Option<SignlessInterval<W>>,
     ) -> Self {
-        let near_half = near_half.unwrap_or(NonWrappingInterval {
-            min: U::ZERO,
-            max: U::UNDERHALF,
-        });
-        let far_half = far_half.unwrap_or(NonWrappingInterval {
-            min: U::OVERHALF,
-            max: U::MAX,
-        });
+        let near_half = near_half.unwrap_or(SignlessInterval::FULL_NEAR_HALFPLANE);
+        let far_half = far_half.unwrap_or(SignlessInterval::FULL_FAR_HALFPLANE);
         Self {
             near_half,
             far_half,
@@ -200,71 +108,37 @@ impl<U: UnsignedPrimitive> DualInterval<U> {
     }
 }
 
-fn opt_halves<U: UnsignedPrimitive>(
-    a: WrappingInterval<U>,
-) -> (
-    Option<NonWrappingInterval<U>>,
-    Option<NonWrappingInterval<U>>,
-) {
-    let preserves_unsigned_seam = a.start <= a.end;
-    let preserves_signed_seam = a.start >= U::OVERHALF || a.end < U::OVERHALF;
-
-    // We need to split the wrapping interval to two if it crosses a signed
-    // or unsigned seam.
-    match (preserves_unsigned_seam, preserves_signed_seam) {
-        (true, true) => {
-            // Preserves both seams.
-            // Just return the interval in the given half.
-            let not_crossing = NonWrappingInterval {
-                min: a.start,
-                max: a.end,
-            };
-            if a.end <= U::OVERHALF {
-                (Some(not_crossing), None)
+fn opt_halves<const W: u32>(
+    a: WrappingInterval<W>,
+) -> (Option<SignlessInterval<W>>, Option<SignlessInterval<W>>) {
+    match a.interpret() {
+        WrappingInterpretation::Signless(interval) => {
+            let far_half = interval.min().is_sign_bit_set();
+            if far_half {
+                (None, Some(interval))
             } else {
-                (None, Some(not_crossing))
+                (Some(interval), None)
             }
         }
-        (true, false) => {
-            // Preserves the unsigned seam, but crosses the signed seam.
-            (
-                Some(NonWrappingInterval {
-                    min: a.start,
-                    max: U::UNDERHALF,
-                }),
-                Some(NonWrappingInterval {
-                    min: U::OVERHALF,
-                    max: a.end,
-                }),
-            )
-        }
-        (false, true) => {
-            // Crosses the unsigned seam, but preserves the signed seam.
-            (
-                Some(NonWrappingInterval {
-                    min: U::ZERO,
-                    max: a.end,
-                }),
-                Some(NonWrappingInterval {
-                    min: a.start,
-                    max: U::MAX,
-                }),
-            )
-        }
-        (false, false) => {
-            // Crosses both seams. This means that both halves must contain
-            // the values at both ends. We can only represent this
-            // in the dual-interval domain using the full interval.
-            (
-                Some(NonWrappingInterval {
-                    min: U::ZERO,
-                    max: U::UNDERHALF,
-                }),
-                Some(NonWrappingInterval {
-                    min: U::OVERHALF,
-                    max: U::MAX,
-                }),
-            )
-        }
+        WrappingInterpretation::Unsigned(interval) => (
+            Some(SignlessInterval::new(
+                interval.min().as_bitvector(),
+                ConcreteBitvector::<W>::UNDERHALF,
+            )),
+            Some(SignlessInterval::new(
+                ConcreteBitvector::<W>::OVERHALF,
+                interval.max().as_bitvector(),
+            )),
+        ),
+        WrappingInterpretation::Signed(interval) => (
+            Some(SignlessInterval::new(
+                ConcreteBitvector::<W>::ZERO,
+                interval.max().as_bitvector(),
+            )),
+            Some(SignlessInterval::new(
+                interval.min().as_bitvector(),
+                ConcreteBitvector::<W>::UMAX,
+            )),
+        ),
     }
 }
