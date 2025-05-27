@@ -3,7 +3,6 @@
 
 mod concrete;
 mod dual_interval;
-mod support;
 mod three_valued;
 mod util;
 
