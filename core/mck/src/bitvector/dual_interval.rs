@@ -80,19 +80,11 @@ impl<const W: u32> DualInterval<W> {
         let mut near_half = None;
         let mut far_half = None;
 
-        println!("Wrapping intervals: {:?}", intervals);
-
         for interval in intervals {
             let (interval_near_half, interval_far_half) = wrapping_halves(*interval);
-            println!(
-                "Wrapping interval: {:?}, opt halves: {:?} and {:?}",
-                interval, interval_near_half, interval_far_half
-            );
             near_half = SignlessInterval::union_opt(near_half, interval_near_half);
             far_half = SignlessInterval::union_opt(far_half, interval_far_half);
         }
-
-        println!("Near half: {:?}, far half: {:?}", near_half, far_half);
 
         Self::from_opt_halves(near_half, far_half)
     }
@@ -101,19 +93,11 @@ impl<const W: u32> DualInterval<W> {
         let mut near_half = None;
         let mut far_half = None;
 
-        println!("Unsigned intervals: {:?}", intervals);
-
         for interval in intervals {
             let (interval_near_half, interval_far_half) = unsigned_halves(*interval);
-            println!(
-                "Unsigned interval: {:?}, opt halves: {:?} and {:?}",
-                interval, interval_near_half, interval_far_half
-            );
             near_half = SignlessInterval::union_opt(near_half, interval_near_half);
             far_half = SignlessInterval::union_opt(far_half, interval_far_half);
         }
-
-        println!("Near half: {:?}, far half: {:?}", near_half, far_half);
 
         Self::from_opt_halves(near_half, far_half)
     }
@@ -122,19 +106,11 @@ impl<const W: u32> DualInterval<W> {
         let mut near_half = None;
         let mut far_half = None;
 
-        println!("Signed intervals: {:?}", intervals);
-
         for interval in intervals {
             let (interval_near_half, interval_far_half) = signed_halves(*interval);
-            println!(
-                "Signed interval: {:?}, opt halves: {:?} and {:?}",
-                interval, interval_near_half, interval_far_half
-            );
             near_half = SignlessInterval::union_opt(near_half, interval_near_half);
             far_half = SignlessInterval::union_opt(far_half, interval_far_half);
         }
-
-        println!("Near half: {:?}, far half: {:?}", near_half, far_half);
 
         Self::from_opt_halves(near_half, far_half)
     }
@@ -162,10 +138,6 @@ fn wrapping_halves<const W: u32>(
     interval: WrappingInterval<W>,
 ) -> (Option<SignlessInterval<W>>, Option<SignlessInterval<W>>) {
     let interpreted = interval.interpret();
-    println!(
-        "Opt halves from {:?}, interpreted: {:?}",
-        interval, interpreted
-    );
 
     match interpreted {
         WrappingInterpretation::Signless(interval) => {

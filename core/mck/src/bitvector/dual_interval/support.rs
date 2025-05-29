@@ -25,7 +25,6 @@ impl<const W: u32> DualInterval<W> {
     }
 
     pub fn contains(&self, other: &Self) -> bool {
-        println!("Testing if {:?} contains {:?}", self, other);
         if other.near_half == other.far_half {
             let tested_half = other.near_half;
             if tested_half.is_sign_bit_set() {

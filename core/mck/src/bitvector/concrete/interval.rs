@@ -376,18 +376,6 @@ impl<const W: u32> WrappingInterval<W> {
     }
 
     pub fn interpret(self) -> WrappingInterpretation<W> {
-        println!("Interpreting {:?}", self);
-        println!(
-            "Unsigned start: {}, end: {}",
-            self.start.cast_unsigned(),
-            self.end.cast_unsigned()
-        );
-        println!(
-            "Signed start: {}, end: {}",
-            self.start.cast_signed(),
-            self.end.cast_signed()
-        );
-
         if self.start.cast_unsigned() <= self.end.cast_unsigned() {
             // does not contain the unsigned seam
             if self.start.cast_signed() <= self.end.cast_signed() {

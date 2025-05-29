@@ -41,18 +41,8 @@ impl<const W: u32> HwArith for DualInterval<W> {
     fn sdiv(self, rhs: Self) -> PanicResult<Self> {
         let mut results = Vec::new();
 
-        println!("{} /s {}", self, rhs);
-
         let (dividend_near_half, dividend_far_half) = self.opt_halves();
-        println!(
-            "Dividend near half: {:?}, far half: {:?}",
-            dividend_near_half, dividend_far_half
-        );
         let (divisor_near_half, divisor_far_half) = rhs.opt_halves();
-        println!(
-            "Divisor near half: {:?}, far half: {:?}",
-            divisor_near_half, divisor_far_half
-        );
         if let Some(divisor_near_half) = divisor_near_half {
             let mut divisor_min = divisor_near_half.min();
             let divisor_max = divisor_near_half.max();
@@ -78,7 +68,6 @@ impl<const W: u32> HwArith for DualInterval<W> {
                         (dividend_near_half.min().cast_signed() / divisor_max.cast_signed()).result;
                     let part_near_max =
                         (dividend_near_half.max().cast_signed() / divisor_min.cast_signed()).result;
-                    println!("Near/near {}, {}", part_near_min, part_near_max);
                     results.push(SignedInterval::new(part_near_min, part_near_max));
                 }
                 if let Some(dividend_far_half) = dividend_far_half {
@@ -87,7 +76,6 @@ impl<const W: u32> HwArith for DualInterval<W> {
                     let part_far_max =
                         (dividend_far_half.max().cast_signed() / divisor_max.cast_signed()).result;
 
-                    println!("Far/near {}, {}", part_far_min, part_far_max);
                     results.push(SignedInterval::new(part_far_min, part_far_max));
                 }
             }
@@ -109,21 +97,10 @@ impl<const W: u32> HwArith for DualInterval<W> {
             let divisor_min = divisor_far_half.min().cast_signed();
             let divisor_max = divisor_far_half.max().cast_signed();
 
-            println!(
-                "Near half min: {}, max: {}, far half min: {}, max: {}, divisor min: {}, max: {}",
-                self.near_half.min().cast_signed(),
-                self.near_half.max().cast_signed(),
-                self.far_half.min().cast_signed(),
-                self.far_half.max().cast_signed(),
-                divisor_min,
-                divisor_max
-            );
-
             // the near half is non-negative, the result will be non-positive
             if let Some(dividend_near_half) = dividend_near_half {
                 let part_near_min = (dividend_near_half.max().cast_signed() / divisor_max).result;
                 let part_near_max = (dividend_near_half.min().cast_signed() / divisor_min).result;
-                println!("Near/far {}, {}", part_near_min, part_near_max);
                 results.push(SignedInterval::new(part_near_min, part_near_max));
             }
 
@@ -135,7 +112,6 @@ impl<const W: u32> HwArith for DualInterval<W> {
                     causes_overflow(dividend_far_half.min(), divisor_max.as_bitvector());
 
                 if far_min_causes_overflow && far_max_causes_overflow {
-                    println!("Special far/far");
                     // the result is just smin (overhalf)
                     results.push(SignedInterval::from_value(
                         ConcreteBitvector::const_overhalf().cast_signed(),
@@ -158,13 +134,10 @@ impl<const W: u32> HwArith for DualInterval<W> {
                         (dividend_far_half.min().cast_signed() / divisor_max).result
                     };
 
-                    println!("Far/far {}, {}", part_far_min, part_far_max);
                     results.push(SignedInterval::new(part_far_min, part_far_max));
                 }
             }
         }
-
-        println!("{} /s {} = {:?}", self, rhs, results);
 
         let result = DualInterval::from_signed_intervals(&results);
 
@@ -212,8 +185,6 @@ impl<const W: u32> HwArith for DualInterval<W> {
         let zero = ConcreteBitvector::zero().cast_signed();
         let one = ConcreteBitvector::one().cast_signed();
 
-        println!("Divisor min: {}, max: {}", divisor_min, divisor_max);
-
         let divisor_sign_remainder_min = if divisor_min < zero {
             divisor_min + one
         } else {
@@ -242,15 +213,6 @@ impl<const W: u32> HwArith for DualInterval<W> {
                 remainder_max = remainder_max.max(zero);
             }
         }
-
-        println!("Remainder min: {}, max: {}", remainder_min, remainder_max);
-
-        println!(
-            "Near half: {:?}, far half: {:?}",
-            self.near_half, self.far_half
-        );
-
-        println!("Remainder min: {}, max: {}", remainder_min, remainder_max);
 
         let dividend_min = self.far_half.min().cast_signed();
         let dividend_max = self.near_half.max().cast_signed();
@@ -292,8 +254,6 @@ fn resolve_by_wrapping<const W: u32>(
     b: DualInterval<W>,
     op_fn: fn(WrappingInterval<W>, WrappingInterval<W>) -> WrappingInterval<W>,
 ) -> DualInterval<W> {
-    println!("Resolving by wrapping for a: {}, b: {}", a, b);
-
     // TODO: optimise cases where the a, b, or both can be represented by one wrapping interval
 
     // resolve all combinations of halves separately
@@ -310,8 +270,6 @@ fn resolve_by_unsigned<const W: u32>(
     b: DualInterval<W>,
     op_fn: fn(UnsignedInterval<W>, UnsignedInterval<W>) -> UnsignedInterval<W>,
 ) -> DualInterval<W> {
-    println!("Resolving by unsigned for a: {}, b: {}", a, b);
-
     // TODO: optimise cases where the a, b, or both can be represented by one wrapping interval
 
     // resolve all combinations of halves separately
