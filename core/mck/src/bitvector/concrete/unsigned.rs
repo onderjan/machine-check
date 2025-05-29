@@ -147,13 +147,13 @@ impl<const L: u32> One for UnsignedBitvector<L> {
 
 impl<const L: u32> Debug for UnsignedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
+        write!(f, "{:?}", self.to_u64())
     }
 }
 
 impl<const L: u32> Display for UnsignedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.to_u64())
     }
 }
 

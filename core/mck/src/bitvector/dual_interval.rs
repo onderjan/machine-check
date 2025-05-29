@@ -8,6 +8,10 @@ use super::concrete::{
 };
 
 mod arith;
+mod support;
+
+#[cfg(test)]
+mod tests;
 
 trait UnsignedPrimitive: PrimInt + WrappingAdd + WrappingSub + WrappingMul + WrappingNeg {
     type Signed: SignedPrimitive;
@@ -61,17 +65,6 @@ pub(crate) struct DualInterval<const W: u32> {
 }
 
 impl<const W: u32> DualInterval<W> {
-    pub fn from_value(value: ConcreteBitvector<W>) -> Self {
-        Self {
-            near_half: SignlessInterval::from_value(value),
-            far_half: SignlessInterval::from_value(value),
-        }
-    }
-
-    pub fn contains_value(self, value: ConcreteBitvector<W>) -> bool {
-        self.near_half.contains_value(value) || self.far_half.contains_value(value)
-    }
-
     pub const FULL: Self = Self {
         near_half: SignlessInterval::FULL_NEAR_HALFPLANE,
         far_half: SignlessInterval::FULL_FAR_HALFPLANE,
@@ -86,11 +79,19 @@ impl<const W: u32> DualInterval<W> {
         let mut near_half = None;
         let mut far_half = None;
 
+        println!("Wrapping intervals: {:?}", intervals);
+
         for interval in intervals {
             let (interval_near_half, interval_far_half) = opt_halves(*interval);
+            println!(
+                "Wrapping interval: {:?}, opt halves: {:?} and {:?}",
+                interval, interval_near_half, interval_far_half
+            );
             near_half = SignlessInterval::union_opt(near_half, interval_near_half);
             far_half = SignlessInterval::union_opt(far_half, interval_far_half);
         }
+
+        println!("Near half: {:?}, far half: {:?}", near_half, far_half);
 
         Self::from_opt_halves(near_half, far_half)
     }
@@ -99,8 +100,14 @@ impl<const W: u32> DualInterval<W> {
         near_half: Option<SignlessInterval<W>>,
         far_half: Option<SignlessInterval<W>>,
     ) -> Self {
-        let near_half = near_half.unwrap_or(SignlessInterval::FULL_NEAR_HALFPLANE);
-        let far_half = far_half.unwrap_or(SignlessInterval::FULL_FAR_HALFPLANE);
+        // if one is not present, take the other
+        let (near_half, far_half) = match (near_half, far_half) {
+            (None, None) => panic!("There should be at least one half for a wrapping interval"),
+            (None, Some(far_half)) => (far_half, far_half),
+            (Some(near_half), None) => (near_half, near_half),
+            (Some(near_half), Some(far_half)) => (near_half, far_half),
+        };
+
         Self {
             near_half,
             far_half,
@@ -111,7 +118,10 @@ impl<const W: u32> DualInterval<W> {
 fn opt_halves<const W: u32>(
     a: WrappingInterval<W>,
 ) -> (Option<SignlessInterval<W>>, Option<SignlessInterval<W>>) {
-    match a.interpret() {
+    let interpreted = a.interpret();
+    println!("Opt halves from {:?}, interpreted: {:?}", a, interpreted);
+
+    match interpreted {
         WrappingInterpretation::Signless(interval) => {
             let far_half = interval.min().is_sign_bit_set();
             if far_half {

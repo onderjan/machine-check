@@ -50,6 +50,8 @@ fn resolve_by_wrapping<const W: u32>(
     b: DualInterval<W>,
     op_fn: fn(WrappingInterval<W>, WrappingInterval<W>) -> WrappingInterval<W>,
 ) -> DualInterval<W> {
+    println!("Resolving by wrapping for a: {}, b: {}", a, b);
+
     // TODO: optimise cases where the a, b, or both can be represented by one wrapping interval
 
     // resolve all combinations of halves separately

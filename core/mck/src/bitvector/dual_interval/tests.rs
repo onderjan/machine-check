@@ -1,0 +1,46 @@
+#[macro_use]
+mod op;
+
+// === SMALL-LENGTH-EXHAUSTIVE TESTS ===
+
+// --- UNARY TESTS ---
+
+// not and neg
+//uni_op_test!(bit_not);
+
+uni_op_test!(arith_neg);
+
+// --- BINARY TESTS ---
+
+// arithmetic tests
+bi_op_test!(add, true);
+bi_op_test!(sub, true);
+bi_op_test!(mul, false);
+/*divrem_op_test!(udiv, false);
+divrem_op_test!(sdiv, false);
+divrem_op_test!(urem, false);
+divrem_op_test!(srem, false);
+
+// bitwise tests
+bi_op_test!(bit_and, true);
+bi_op_test!(bit_or, true);
+bi_op_test!(bit_xor, true);
+
+// equality and comparison tests
+bi_op_test!(eq, true);
+bi_op_test!(slt, true);
+bi_op_test!(sle, true);
+bi_op_test!(ult, true);
+bi_op_test!(ule, true);
+
+// shift tests
+bi_op_test!(logic_shl, true);
+bi_op_test!(logic_shr, true);
+bi_op_test!(arith_shr, true);
+
+// --- EXTENSION TESTS ---
+
+// extension tests
+ext_op_test!(uext);
+ext_op_test!(sext);
+*/

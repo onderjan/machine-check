@@ -155,12 +155,12 @@ impl<const L: u32> One for SignedBitvector<L> {
 
 impl<const L: u32> Debug for SignedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.0)
+        write!(f, "{:?}", self.to_i64())
     }
 }
 
 impl<const L: u32> Display for SignedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.to_i64())
     }
 }

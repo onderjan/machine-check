@@ -2,6 +2,9 @@ use crate::forward::HwArith;
 
 use super::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
 
+use std::fmt::Debug;
+use std::fmt::Display;
+
 /// An unsigned interval with a minimum and a maximum value.
 ///
 /// It is required that min <= max, which means the interval
@@ -18,7 +21,7 @@ impl<const W: u32> UnsignedInterval<W> {
         max: ConcreteBitvector::<W>::UMAX.cast_unsigned(),
     };
 
-    fn contains_value(self, value: UnsignedBitvector<W>) -> bool {
+    fn contains_value(&self, value: UnsignedBitvector<W>) -> bool {
         self.min <= value && value <= self.max
     }
 
@@ -46,6 +49,12 @@ impl<const W: u32> UnsignedInterval<W> {
     }
 }
 
+impl<const W: u32> Debug for UnsignedInterval<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}, {}]", self.min, self.max)
+    }
+}
+
 /// A signed interval with a minimum and a maximum value.
 ///
 /// It is required that min <= max, which means the interval
@@ -57,7 +66,7 @@ pub struct SignedInterval<const W: u32> {
 }
 
 impl<const W: u32> SignedInterval<W> {
-    fn contains_value(self, value: SignedBitvector<W>) -> bool {
+    fn contains_value(&self, value: SignedBitvector<W>) -> bool {
         self.min <= value && value <= self.max
     }
 
@@ -82,6 +91,12 @@ impl<const W: u32> SignedInterval<W> {
     }
     pub fn max(&self) -> SignedBitvector<W> {
         self.max
+    }
+}
+
+impl<const W: u32> Debug for SignedInterval<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}, {}]", self.min, self.max)
     }
 }
 
@@ -111,6 +126,11 @@ impl<const W: u32> SignlessInterval<W> {
         }
     }
 
+    pub fn is_sign_bit_set(&self) -> bool {
+        // both min and max must have the same value of sign bit
+        self.min.is_sign_bit_set()
+    }
+
     pub const FULL_NEAR_HALFPLANE: Self = SignlessInterval {
         min: ConcreteBitvector::<W>::ZERO,
         max: ConcreteBitvector::<W>::UNDERHALF,
@@ -121,10 +141,25 @@ impl<const W: u32> SignlessInterval<W> {
         max: ConcreteBitvector::<W>::UMAX,
     };
 
-    pub fn contains_value(self, value: ConcreteBitvector<W>) -> bool {
+    pub fn contains_value(&self, value: &ConcreteBitvector<W>) -> bool {
         // we can use either interpretation
         let value = value.cast_unsigned();
         self.min.cast_unsigned() <= value && value <= self.max.cast_unsigned()
+    }
+
+    pub fn contains(&self, other: &Self) -> bool {
+        if self.min.is_sign_bit_set() != other.min.is_sign_bit_set() {
+            return false;
+        }
+        self.min.cast_unsigned() <= other.min.cast_unsigned()
+            && other.max.cast_unsigned() <= self.max.cast_unsigned()
+    }
+
+    pub fn concrete_value(&self) -> Option<ConcreteBitvector<W>> {
+        if self.min == self.max {
+            return Some(self.min);
+        }
+        return None;
     }
 
     pub fn union(self, other: Self) -> Self {
@@ -165,8 +200,46 @@ impl<const W: u32> SignlessInterval<W> {
             end: self.max,
         }
     }
+
+    pub fn all_with_length_iter(far: bool) -> impl Iterator<Item = Self> {
+        let min_iter = ConcreteBitvector::<W>::all_with_length_iter();
+        min_iter
+            .flat_map(move |min| {
+                if min.is_sign_bit_set() != far {
+                    return None;
+                }
+
+                let max_iter = ConcreteBitvector::<W>::all_with_length_iter();
+
+                let result = max_iter.flat_map(move |max| {
+                    if max.is_sign_bit_set() != far {
+                        return None;
+                    }
+                    if min.as_unsigned() > max.as_unsigned() {
+                        return None;
+                    }
+
+                    Some(SignlessInterval::new(min, max))
+                });
+                Some(result)
+            })
+            .flatten()
+    }
 }
 
+impl<const W: u32> Debug for SignlessInterval<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}, {}]", self.min, self.max)
+    }
+}
+
+impl<const W: u32> Display for SignlessInterval<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self, f)
+    }
+}
+
+#[derive(Debug)]
 pub enum WrappingInterpretation<const W: u32> {
     Signless(SignlessInterval<W>),
     Signed(SignedInterval<W>),
@@ -197,7 +270,7 @@ impl<const W: u32> WrappingInterval<W> {
         end: ConcreteBitvector::<W>::UMAX,
     };
 
-    fn contains_value(self, value: ConcreteBitvector<W>) -> bool {
+    pub fn contains_value(&self, value: &ConcreteBitvector<W>) -> bool {
         // interpreted as unsigned interval
         if self.start.cast_unsigned() <= self.end.cast_unsigned() {
             let interval = UnsignedInterval {
@@ -215,9 +288,21 @@ impl<const W: u32> WrappingInterval<W> {
     }
 
     pub fn interpret(self) -> WrappingInterpretation<W> {
+        println!("Interpreting {:?}", self);
+        println!(
+            "Unsigned start: {}, end: {}",
+            self.start.cast_unsigned(),
+            self.end.cast_unsigned()
+        );
+        println!(
+            "Signed start: {}, end: {}",
+            self.start.cast_signed(),
+            self.end.cast_signed()
+        );
+
         if self.start.cast_unsigned() <= self.end.cast_unsigned() {
             // does not contain the unsigned seam
-            if self.start.cast_signed() <= self.start.cast_signed() {
+            if self.start.cast_signed() <= self.end.cast_signed() {
                 // does not contain the any seam
                 WrappingInterpretation::Signless(SignlessInterval {
                     min: self.start,
@@ -231,19 +316,17 @@ impl<const W: u32> WrappingInterval<W> {
                     max: self.end.cast_unsigned(),
                 })
             }
+        } else if self.start.cast_signed() <= self.end.cast_signed() {
+            // contains the unsigned seam but not the signed seam
+            // can only be interpreted as signed
+            WrappingInterpretation::Signed(SignedInterval {
+                min: self.start.cast_signed(),
+                max: self.end.cast_signed(),
+            })
         } else {
-            if self.start.cast_signed() <= self.start.cast_signed() {
-                // contains the unsigned seam but not the signed seam
-                // can only be interpreted as signed
-                WrappingInterpretation::Signed(SignedInterval {
-                    min: self.start.cast_signed(),
-                    max: self.end.cast_signed(),
-                })
-            } else {
-                // contains both the unsigned and signed seam
-                // we must degrade this to a full interval
-                WrappingInterpretation::Unsigned(UnsignedInterval::FULL)
-            }
+            // contains both the unsigned and signed seam
+            // we must degrade this to a full interval
+            WrappingInterpretation::Unsigned(UnsignedInterval::FULL)
         }
     }
 
@@ -253,6 +336,12 @@ impl<const W: u32> WrappingInterval<W> {
 
     pub fn end(&self) -> ConcreteBitvector<W> {
         self.end
+    }
+}
+
+impl<const W: u32> Debug for WrappingInterval<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{} --> {}]", self.start, self.end)
     }
 }
 
