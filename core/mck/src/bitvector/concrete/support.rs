@@ -63,13 +63,20 @@ impl<const L: u32> ConcreteBitvector<L> {
         self.0 ^ (1 << (L - 1))
     }
 
-    pub const ZERO: ConcreteBitvector<L> = Self(0);
-    pub const UNDERHALF: ConcreteBitvector<L> = Self::without_sign_bit_mask();
-    pub const OVERHALF: ConcreteBitvector<L> = Self::sign_bit_mask();
-    pub const UMAX: ConcreteBitvector<L> = Self::bit_mask();
-
-    pub fn zero() -> Self {
+    pub const fn zero() -> Self {
         Self(0)
+    }
+
+    pub const fn const_underhalf() -> Self {
+        Self::without_sign_bit_mask()
+    }
+
+    pub const fn const_overhalf() -> Self {
+        Self::sign_bit_mask()
+    }
+
+    pub const fn const_umax() -> Self {
+        Self::bit_mask()
     }
 
     pub fn is_zero(&self) -> bool {

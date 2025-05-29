@@ -17,8 +17,8 @@ pub struct UnsignedInterval<const W: u32> {
 
 impl<const W: u32> UnsignedInterval<W> {
     pub const FULL: Self = Self {
-        min: ConcreteBitvector::<W>::ZERO.cast_unsigned(),
-        max: ConcreteBitvector::<W>::UMAX.cast_unsigned(),
+        min: ConcreteBitvector::<W>::zero().cast_unsigned(),
+        max: ConcreteBitvector::<W>::const_umax().cast_unsigned(),
     };
 
     fn contains_value(&self, value: UnsignedBitvector<W>) -> bool {
@@ -46,6 +46,57 @@ impl<const W: u32> UnsignedInterval<W> {
     }
     pub fn max(&self) -> UnsignedBitvector<W> {
         self.max
+    }
+
+    pub fn hw_udiv(self, rhs: Self) -> Self {
+        // division is monotone wrt. dividend and anti-monotone wrt. divisor
+        let result_min = (self.min / rhs.max).result;
+        let result_max = (self.max / rhs.min).result;
+        Self {
+            min: result_min,
+            max: result_max,
+        }
+    }
+
+    pub fn hw_urem(self, rhs: Self) -> Self {
+        let div_result = self.hw_udiv(rhs);
+        if div_result.min != div_result.max {
+            // division is not a concrete value
+            // estimate that the maximum remainder is equal to the maximum divisor minus 1
+            // if division by zero is possible, the remainder can be the dividend
+            // so allow it in the estimate
+            let zero = ConcreteBitvector::zero().cast_unsigned();
+            let max_candidate_from_divisor = if rhs.max.is_nonzero() {
+                rhs.max - ConcreteBitvector::one().cast_unsigned()
+            } else {
+                zero
+            };
+            let max_candidate_from_dividend = if rhs.min.is_nonzero() { zero } else { self.max };
+
+            return Self {
+                min: ConcreteBitvector::zero().cast_unsigned(),
+                max: max_candidate_from_divisor.max(max_candidate_from_dividend),
+            };
+        }
+
+        // division results are the same, return remainder bounds
+        let remainder_min = self.min % rhs.max;
+        let remainder_max = self.max % rhs.min;
+        Self {
+            min: remainder_min.result,
+            max: remainder_max.result,
+        }
+    }
+
+    pub fn try_into_signless(self) -> Option<SignlessInterval<W>> {
+        if self.min.as_bitvector().is_sign_bit_set() == self.max.as_bitvector().is_sign_bit_set() {
+            Some(SignlessInterval {
+                min: self.min.as_bitvector(),
+                max: self.max.as_bitvector(),
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -132,13 +183,13 @@ impl<const W: u32> SignlessInterval<W> {
     }
 
     pub const FULL_NEAR_HALFPLANE: Self = SignlessInterval {
-        min: ConcreteBitvector::<W>::ZERO,
-        max: ConcreteBitvector::<W>::UNDERHALF,
+        min: ConcreteBitvector::<W>::zero(),
+        max: ConcreteBitvector::<W>::const_underhalf(),
     };
 
     pub const FULL_FAR_HALFPLANE: Self = SignlessInterval {
-        min: ConcreteBitvector::<W>::OVERHALF,
-        max: ConcreteBitvector::<W>::UMAX,
+        min: ConcreteBitvector::<W>::const_overhalf(),
+        max: ConcreteBitvector::<W>::const_umax(),
     };
 
     pub fn contains_value(&self, value: &ConcreteBitvector<W>) -> bool {
@@ -198,6 +249,20 @@ impl<const W: u32> SignlessInterval<W> {
         WrappingInterval {
             start: self.min,
             end: self.max,
+        }
+    }
+
+    pub fn into_unsigned(self) -> UnsignedInterval<W> {
+        UnsignedInterval {
+            min: self.min.cast_unsigned(),
+            max: self.max.cast_unsigned(),
+        }
+    }
+
+    pub fn into_signed(self) -> SignedInterval<W> {
+        SignedInterval {
+            min: self.min.cast_signed(),
+            max: self.max.cast_signed(),
         }
     }
 
@@ -266,8 +331,8 @@ impl<const W: u32> WrappingInterval<W> {
 
     // the canonical full interval is from zero to umax
     const FULL: Self = Self {
-        start: ConcreteBitvector::<W>::ZERO,
-        end: ConcreteBitvector::<W>::UMAX,
+        start: ConcreteBitvector::<W>::zero(),
+        end: ConcreteBitvector::<W>::const_umax(),
     };
 
     pub fn contains_value(&self, value: &ConcreteBitvector<W>) -> bool {
