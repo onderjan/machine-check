@@ -1,7 +1,8 @@
 use crate::{
     abstr::{Abstr, Bitvector, PanicResult},
     bitvector::{concrete::ConcreteBitvector, dual_interval::DualInterval},
-    concr,
+    boolean::abstr,
+    concr::{self, Test},
     traits::misc::MetaEq,
 };
 
@@ -50,9 +51,27 @@ macro_rules! bi_op_test {
             use crate::bitvector::concrete::ConcreteBitvector;
             use crate::bitvector::dual_interval::DualInterval;
             use crate::traits::forward::HwArith;
-            let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| a.$op(b).into();
-            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| a.$op(b).into();
+            let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| ::std::convert::Into::into(a.$op(b));
+            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
             $crate::bitvector::dual_interval::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
+        }
+    });
+    };
+}
+
+macro_rules! comparison_op_test {
+    ($op:tt,$exact:tt) => {
+
+        seq_macro::seq!(L in 0..=4 {
+
+        #[test]
+        pub fn $op~L() {
+            use crate::bitvector::concrete::ConcreteBitvector;
+            use crate::bitvector::dual_interval::DualInterval;
+            use crate::traits::forward::TypedEq;
+            let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| ::std::convert::Into::into(a.$op(b));
+            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
+            $crate::bitvector::dual_interval::tests::op::exec_comparison_check(abstr_func, concr_func, $exact);
         }
     });
     };
@@ -129,6 +148,50 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
             if a.concrete_value().is_some()
                 && b.concrete_value().is_some()
                 && abstr_result.concrete_value().is_none()
+            {
+                panic!(
+                            "Non-concrete-value result with concrete-value parameters {}, {}, expected {}, got {}",
+                            a, b, equiv_result, abstr_result
+                        );
+            }
+        }
+    }
+}
+
+pub(super) fn exec_comparison_check<const L: u32>(
+    abstr_func: fn(DualInterval<L>, DualInterval<L>) -> abstr::Boolean,
+    concr_func: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> concr::Boolean,
+    exact: bool,
+) {
+    for a in DualInterval::<L>::all_with_length_iter() {
+        for b in DualInterval::<L>::all_with_length_iter() {
+            let abstr_result: abstr::Boolean = abstr_func(a, b);
+
+            let a_concr_iter =
+                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_value(c));
+            let equiv_result: abstr::Boolean =
+                join_bool_concr_iter(a_concr_iter.flat_map(|a_concr| {
+                    ConcreteBitvector::<L>::all_with_length_iter()
+                        .filter(|c| b.contains_value(c))
+                        .map(move |b_concr| concr_func(a_concr, b_concr))
+                }));
+
+            if exact {
+                if !abstr_result.0.meta_eq(&equiv_result.0) {
+                    panic!(
+                        "Non-exact result with parameters {}, {}, expected {}, got {}",
+                        a, b, equiv_result, abstr_result
+                    );
+                }
+            } else if !abstr_result.0.contains(&equiv_result.0) {
+                panic!(
+                    "Unsound result with parameters {}, {}, expected {}, got {}",
+                    a, b, equiv_result, abstr_result
+                );
+            }
+            if a.concrete_value().is_some()
+                && b.concrete_value().is_some()
+                && abstr_result.0.concrete_value().is_none()
             {
                 panic!(
                             "Non-concrete-value result with concrete-value parameters {}, {}, expected {}, got {}",
@@ -230,4 +293,19 @@ pub(super) fn join_tvbv_concr_iter<const L: u32>(
         result = result.concrete_join(c)
     }
     result
+}
+
+pub(super) fn join_bool_concr_iter(iter: impl Iterator<Item = concr::Boolean>) -> abstr::Boolean {
+    let mut can_be_false = false;
+    let mut can_be_true = false;
+
+    for value in iter {
+        if value.into_bool() {
+            can_be_true = true;
+        } else {
+            can_be_false = true;
+        }
+    }
+
+    abstr::Boolean::from_bools(can_be_false, can_be_true)
 }

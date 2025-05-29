@@ -24,14 +24,14 @@ divrem_op_test!(srem, false);
 // bitwise tests
 /*bi_op_test!(bit_and, true);
 bi_op_test!(bit_or, true);
-bi_op_test!(bit_xor, true);
+bi_op_test!(bit_xor, true);*/
 
 // equality and comparison tests
-bi_op_test!(eq, true);
-bi_op_test!(slt, true);
-bi_op_test!(sle, true);
-bi_op_test!(ult, true);
-bi_op_test!(ule, true);
+comparison_op_test!(eq, true);
+/*comparison_op_test!(slt, true);
+comparison_op_test!(sle, true);
+comparison_op_test!(ult, true);
+comparison_op_test!(ule, true);
 
 // shift tests
 bi_op_test!(logic_shl, true);

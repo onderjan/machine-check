@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Display};
+
 use crate::{
     abstr::{Bitvector, Phi, Test},
     forward::Bitwise,
@@ -24,12 +26,29 @@ impl Boolean {
         Boolean(Bitvector::from_zeros_ones(zeros, ones))
     }
 
-    /*pub(crate) fn from_bools(can_be_zero: bool, can_be_one: bool) -> Self {
+    pub(crate) fn from_bools(can_be_false: bool, can_be_true: bool) -> Self {
         Self::from_zeros_ones(
-            crate::concr::Bitvector::new(can_be_zero as u64),
-            crate::concr::Bitvector::new(can_be_one as u64),
+            crate::concr::Bitvector::new(can_be_false as u64),
+            crate::concr::Bitvector::new(can_be_true as u64),
         )
-    }*/
+    }
+}
+
+impl Debug for Boolean {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (self.can_be_false(), self.can_be_true()) {
+            (true, true) => write!(f, "both"),
+            (true, false) => write!(f, "false"),
+            (false, true) => write!(f, "true"),
+            (false, false) => panic!("Three-valued Boolean should be true or false"),
+        }
+    }
+}
+
+impl Display for Boolean {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self, f)
+    }
 }
 
 impl Phi for Boolean {

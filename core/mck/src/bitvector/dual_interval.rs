@@ -9,6 +9,7 @@ use super::concrete::{
 };
 
 mod arith;
+mod eq;
 mod support;
 
 #[cfg(test)]
@@ -115,22 +116,30 @@ impl<const W: u32> DualInterval<W> {
         Self::from_opt_halves(near_half, far_half)
     }
 
-    fn from_opt_halves(
+    fn try_from_opt_halves(
         near_half: Option<SignlessInterval<W>>,
         far_half: Option<SignlessInterval<W>>,
-    ) -> Self {
+    ) -> Option<Self> {
         // if one is not present, take the other
         let (near_half, far_half) = match (near_half, far_half) {
-            (None, None) => panic!("There should be at least one half for a wrapping interval"),
+            (None, None) => return None,
             (None, Some(far_half)) => (far_half, far_half),
             (Some(near_half), None) => (near_half, near_half),
             (Some(near_half), Some(far_half)) => (near_half, far_half),
         };
 
-        Self {
+        Some(Self {
             near_half,
             far_half,
-        }
+        })
+    }
+
+    fn from_opt_halves(
+        near_half: Option<SignlessInterval<W>>,
+        far_half: Option<SignlessInterval<W>>,
+    ) -> Self {
+        Self::try_from_opt_halves(near_half, far_half)
+            .expect("At least one half should be supplied")
     }
 }
 

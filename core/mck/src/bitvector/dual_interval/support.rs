@@ -112,6 +112,24 @@ impl<const W: u32> DualInterval<W> {
             (Some(self.near_half), Some(self.far_half))
         }
     }
+
+    pub fn intersection(&self, rhs: &Self) -> Option<Self> {
+        let (our_near_half, our_far_half) = self.opt_halves();
+        let (other_near_half, other_far_half) = rhs.opt_halves();
+
+        let mut result_near_half = None;
+        let mut result_far_half = None;
+
+        if let (Some(our_near_half), Some(other_near_half)) = (our_near_half, other_near_half) {
+            result_near_half = our_near_half.intersection(other_near_half);
+        }
+
+        if let (Some(our_far_half), Some(other_far_half)) = (our_far_half, other_far_half) {
+            result_far_half = our_far_half.intersection(other_far_half);
+        }
+
+        Self::try_from_opt_halves(result_near_half, result_far_half)
+    }
 }
 
 impl<const W: u32> Debug for DualInterval<W> {

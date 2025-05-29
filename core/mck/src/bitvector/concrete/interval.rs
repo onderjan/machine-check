@@ -233,7 +233,21 @@ impl<const W: u32> SignlessInterval<W> {
         if self.min == self.max {
             return Some(self.min);
         }
-        return None;
+        None
+    }
+
+    pub fn intersection(self, other: Self) -> Option<Self> {
+        assert_eq!(self.min.is_sign_bit_set(), other.min.is_sign_bit_set());
+        let min = self.min.cast_unsigned().max(other.min.cast_unsigned());
+        let max = self.max.cast_unsigned().min(other.max.cast_unsigned());
+        if min <= max {
+            Some(Self {
+                min: min.as_bitvector(),
+                max: max.as_bitvector(),
+            })
+        } else {
+            None
+        }
     }
 
     pub fn union(self, other: Self) -> Self {
