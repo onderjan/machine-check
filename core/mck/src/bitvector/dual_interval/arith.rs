@@ -1,8 +1,8 @@
 use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
 
 use crate::{
-    abstr::{self, PanicResult, Phi},
-    bitvector::concrete::{ConcreteBitvector, UnsignedInterval},
+    abstr::{self, Abstr, PanicResult, Phi},
+    bitvector::concrete::{ConcreteBitvector, SignedInterval, UnsignedInterval},
     forward::HwArith,
 };
 
@@ -39,8 +39,144 @@ impl<const W: u32> HwArith for DualInterval<W> {
     }
 
     fn sdiv(self, rhs: Self) -> PanicResult<Self> {
-        // TODO: compute using signed intervals
-        todo!()
+        let mut results = Vec::new();
+
+        println!("{} /s {}", self, rhs);
+
+        let (dividend_near_half, dividend_far_half) = self.opt_halves();
+        println!(
+            "Dividend near half: {:?}, far half: {:?}",
+            dividend_near_half, dividend_far_half
+        );
+        let (divisor_near_half, divisor_far_half) = rhs.opt_halves();
+        println!(
+            "Divisor near half: {:?}, far half: {:?}",
+            divisor_near_half, divisor_far_half
+        );
+        if let Some(divisor_near_half) = divisor_near_half {
+            let mut divisor_min = divisor_near_half.min();
+            let divisor_max = divisor_near_half.max();
+
+            // this can contain zero, in which case the max division result will be all-ones
+            if divisor_max.is_zero() {
+                // just add the division by zero result which is umax
+                results.push(SignedInterval::from_value(
+                    ConcreteBitvector::const_umax().cast_signed(),
+                ));
+            } else {
+                if divisor_min.is_zero() {
+                    // add the division by zero result which is umax
+                    results.push(SignedInterval::from_value(
+                        ConcreteBitvector::const_umax().cast_signed(),
+                    ));
+                    // increase the min divisor to one
+                    divisor_min = ConcreteBitvector::one();
+                }
+
+                if let Some(dividend_near_half) = dividend_near_half {
+                    let part_near_min =
+                        (dividend_near_half.min().cast_signed() / divisor_max.cast_signed()).result;
+                    let part_near_max =
+                        (dividend_near_half.max().cast_signed() / divisor_min.cast_signed()).result;
+                    println!("Near/near {}, {}", part_near_min, part_near_max);
+                    results.push(SignedInterval::new(part_near_min, part_near_max));
+                }
+                if let Some(dividend_far_half) = dividend_far_half {
+                    let part_far_min =
+                        (dividend_far_half.min().cast_signed() / divisor_min.cast_signed()).result;
+                    let part_far_max =
+                        (dividend_far_half.max().cast_signed() / divisor_max.cast_signed()).result;
+
+                    println!("Far/near {}, {}", part_far_min, part_far_max);
+                    results.push(SignedInterval::new(part_far_min, part_far_max));
+                }
+            }
+        }
+
+        if let Some(divisor_far_half) = divisor_far_half {
+            // in case the dividend is one followed by zeros (smin, overhalf) and divisor is -1 (all-ones / umax),
+            // the division result will overflow to be smin again. This is non-monotone and we have to protect
+            // against it.
+            // TODO: protect
+
+            fn causes_overflow<const W: u32>(
+                lhs: ConcreteBitvector<W>,
+                rhs: ConcreteBitvector<W>,
+            ) -> bool {
+                lhs == ConcreteBitvector::const_overhalf() && rhs == ConcreteBitvector::const_umax()
+            }
+
+            let divisor_min = divisor_far_half.min().cast_signed();
+            let divisor_max = divisor_far_half.max().cast_signed();
+
+            println!(
+                "Near half min: {}, max: {}, far half min: {}, max: {}, divisor min: {}, max: {}",
+                self.near_half.min().cast_signed(),
+                self.near_half.max().cast_signed(),
+                self.far_half.min().cast_signed(),
+                self.far_half.max().cast_signed(),
+                divisor_min,
+                divisor_max
+            );
+
+            // the near half is non-negative, the result will be non-positive
+            if let Some(dividend_near_half) = dividend_near_half {
+                let part_near_min = (dividend_near_half.max().cast_signed() / divisor_max).result;
+                let part_near_max = (dividend_near_half.min().cast_signed() / divisor_min).result;
+                println!("Near/far {}, {}", part_near_min, part_near_max);
+                results.push(SignedInterval::new(part_near_min, part_near_max));
+            }
+
+            // the far half is negative, the result will be positive
+            if let Some(dividend_far_half) = dividend_far_half {
+                let far_min_causes_overflow =
+                    causes_overflow(dividend_far_half.max(), divisor_min.as_bitvector());
+                let far_max_causes_overflow =
+                    causes_overflow(dividend_far_half.min(), divisor_max.as_bitvector());
+
+                if far_min_causes_overflow && far_max_causes_overflow {
+                    println!("Special far/far");
+                    // the result is just smin (overhalf)
+                    results.push(SignedInterval::from_value(
+                        ConcreteBitvector::const_overhalf().cast_signed(),
+                    ));
+                } else {
+                    let part_far_min = if far_min_causes_overflow {
+                        // use underhalf (smax) instead of overhalf (smin)
+                        ConcreteBitvector::const_underhalf().cast_signed()
+                    } else {
+                        (dividend_far_half.max().cast_signed() / divisor_min).result
+                    };
+                    let part_far_max = if far_max_causes_overflow {
+                        // add the overflowed result which is just smin (overhalf)
+                        results.push(SignedInterval::from_value(
+                            ConcreteBitvector::const_overhalf().cast_signed(),
+                        ));
+                        // use underhalf (smax) instead of overhalf (smin)
+                        ConcreteBitvector::const_underhalf().cast_signed()
+                    } else {
+                        (dividend_far_half.min().cast_signed() / divisor_max).result
+                    };
+
+                    println!("Far/far {}, {}", part_far_min, part_far_max);
+                    results.push(SignedInterval::new(part_far_min, part_far_max));
+                }
+            }
+        }
+
+        println!("{} /s {} = {:?}", self, rhs, results);
+
+        let result = DualInterval::from_signed_intervals(&results);
+
+        let zero = ConcreteBitvector::zero();
+        let may_panic_zero_division = rhs.contains_value(&zero);
+        let must_panic_zero_division = rhs.concrete_value() == Some(zero);
+
+        let may_panic = may_panic_zero_division;
+        let must_panic = must_panic_zero_division;
+
+        // TODO: panic
+        construct_panic_result(result, may_panic, must_panic, PANIC_NUM_DIV_BY_ZERO)
     }
 
     fn urem(self, rhs: Self) -> PanicResult<Self> {
@@ -52,8 +188,86 @@ impl<const W: u32> HwArith for DualInterval<W> {
     }
 
     fn srem(self, rhs: Self) -> PanicResult<Self> {
-        // TODO: compute using signed intervals
-        todo!()
+        let zero = ConcreteBitvector::zero();
+        let may_panic = rhs.contains_value(&zero);
+        let must_panic = rhs.concrete_value() == Some(zero);
+
+        // only resolve the remainder values with concrete dividend and divisor
+        // which divide to one value
+        if let Some(dividend) = self.concrete_value() {
+            if let Some(divisor) = rhs.concrete_value() {
+                let panic_result = dividend.cast_signed() % divisor.cast_signed();
+                let result = DualInterval::from_value(panic_result.result.as_bitvector());
+                return PanicResult {
+                    panic: abstr::Bitvector::from_concrete(panic_result.panic),
+                    result,
+                };
+            }
+        }
+
+        // the remainder must be limited by the divisor
+        let divisor_min = rhs.far_half.min().cast_signed();
+        let divisor_max = rhs.near_half.max().cast_signed();
+
+        let zero = ConcreteBitvector::zero().cast_signed();
+        let one = ConcreteBitvector::one().cast_signed();
+
+        println!("Divisor min: {}, max: {}", divisor_min, divisor_max);
+
+        let divisor_sign_remainder_min = if divisor_min < zero {
+            divisor_min + one
+        } else {
+            zero
+        };
+
+        let divisor_sign_remainder_max = if divisor_max > zero {
+            divisor_max - one
+        } else {
+            zero
+        };
+
+        // remainder must have the sign of the dividend instead of the divisor
+        // make it double-ended at first and then prune
+        let mut remainder_min = divisor_sign_remainder_min.min(-divisor_sign_remainder_max);
+        let mut remainder_max = divisor_sign_remainder_max.max(-divisor_sign_remainder_min);
+
+        if self.near_half.is_sign_bit_set() == self.far_half.is_sign_bit_set() {
+            if self.near_half.is_sign_bit_set() {
+                // only non-positive remainders possible
+                remainder_min = remainder_min.min(zero);
+                remainder_max = remainder_max.min(zero);
+            } else {
+                // only non-negative remainders possible
+                remainder_min = remainder_min.max(zero);
+                remainder_max = remainder_max.max(zero);
+            }
+        }
+
+        println!("Remainder min: {}, max: {}", remainder_min, remainder_max);
+
+        println!(
+            "Near half: {:?}, far half: {:?}",
+            self.near_half, self.far_half
+        );
+
+        println!("Remainder min: {}, max: {}", remainder_min, remainder_max);
+
+        let dividend_min = self.far_half.min().cast_signed();
+        let dividend_max = self.near_half.max().cast_signed();
+        if must_panic {
+            remainder_min = dividend_min;
+            remainder_max = dividend_max;
+        } else if may_panic {
+            remainder_min = remainder_min.min(dividend_min);
+            remainder_max = remainder_max.max(dividend_max);
+        }
+
+        let result = DualInterval::from_signed_intervals(&[SignedInterval::new(
+            remainder_min,
+            remainder_max,
+        )]);
+
+        construct_panic_result(result, may_panic, must_panic, PANIC_NUM_REM_BY_ZERO)
     }
 }
 

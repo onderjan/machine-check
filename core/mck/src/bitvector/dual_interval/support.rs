@@ -101,6 +101,18 @@ impl<const W: u32> DualInterval<W> {
             .chain(only_far_half_result)
             .chain(both_halves_result)
     }
+
+    pub(super) fn opt_halves(self) -> (Option<SignlessInterval<W>>, Option<SignlessInterval<W>>) {
+        if self.near_half == self.far_half {
+            if self.near_half.is_sign_bit_set() {
+                (None, Some(self.far_half))
+            } else {
+                (Some(self.near_half), None)
+            }
+        } else {
+            (Some(self.near_half), Some(self.far_half))
+        }
+    }
 }
 
 impl<const W: u32> Debug for DualInterval<W> {

@@ -117,6 +117,18 @@ pub struct SignedInterval<const W: u32> {
 }
 
 impl<const W: u32> SignedInterval<W> {
+    pub fn new(min: SignedBitvector<W>, max: SignedBitvector<W>) -> Self {
+        assert!(min <= max);
+        Self { min, max }
+    }
+
+    pub fn from_value(value: SignedBitvector<W>) -> Self {
+        Self {
+            min: value,
+            max: value,
+        }
+    }
+
     fn contains_value(&self, value: SignedBitvector<W>) -> bool {
         self.min <= value && value <= self.max
     }
@@ -142,6 +154,17 @@ impl<const W: u32> SignedInterval<W> {
     }
     pub fn max(&self) -> SignedBitvector<W> {
         self.max
+    }
+
+    pub fn try_into_signless(self) -> Option<SignlessInterval<W>> {
+        if self.min.as_bitvector().is_sign_bit_set() == self.max.as_bitvector().is_sign_bit_set() {
+            Some(SignlessInterval {
+                min: self.min.as_bitvector(),
+                max: self.max.as_bitvector(),
+            })
+        } else {
+            None
+        }
     }
 }
 

@@ -4,7 +4,8 @@ use num::{
 };
 
 use super::concrete::{
-    ConcreteBitvector, SignlessInterval, UnsignedInterval, WrappingInterpretation, WrappingInterval,
+    ConcreteBitvector, SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterpretation,
+    WrappingInterval,
 };
 
 mod arith;
@@ -117,6 +118,27 @@ impl<const W: u32> DualInterval<W> {
         Self::from_opt_halves(near_half, far_half)
     }
 
+    fn from_signed_intervals(intervals: &[SignedInterval<W>]) -> Self {
+        let mut near_half = None;
+        let mut far_half = None;
+
+        println!("Signed intervals: {:?}", intervals);
+
+        for interval in intervals {
+            let (interval_near_half, interval_far_half) = signed_halves(*interval);
+            println!(
+                "Signed interval: {:?}, opt halves: {:?} and {:?}",
+                interval, interval_near_half, interval_far_half
+            );
+            near_half = SignlessInterval::union_opt(near_half, interval_near_half);
+            far_half = SignlessInterval::union_opt(far_half, interval_far_half);
+        }
+
+        println!("Near half: {:?}, far half: {:?}", near_half, far_half);
+
+        Self::from_opt_halves(near_half, far_half)
+    }
+
     fn from_opt_halves(
         near_half: Option<SignlessInterval<W>>,
         far_half: Option<SignlessInterval<W>>,
@@ -197,6 +219,31 @@ fn unsigned_halves<const W: u32>(
             Some(SignlessInterval::new(
                 ConcreteBitvector::<W>::const_overhalf(),
                 interval.max().as_bitvector(),
+            )),
+        ),
+    }
+}
+
+fn signed_halves<const W: u32>(
+    interval: SignedInterval<W>,
+) -> (Option<SignlessInterval<W>>, Option<SignlessInterval<W>>) {
+    match interval.try_into_signless() {
+        Some(interval) => {
+            let far_half = interval.is_sign_bit_set();
+            if far_half {
+                (None, Some(interval))
+            } else {
+                (Some(interval), None)
+            }
+        }
+        None => (
+            Some(SignlessInterval::new(
+                ConcreteBitvector::<W>::zero(),
+                interval.max().as_bitvector(),
+            )),
+            Some(SignlessInterval::new(
+                interval.min().as_bitvector(),
+                ConcreteBitvector::<W>::const_umax(),
             )),
         ),
     }

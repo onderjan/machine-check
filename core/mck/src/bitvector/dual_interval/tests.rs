@@ -17,9 +17,9 @@ bi_op_test!(add, true);
 bi_op_test!(sub, true);
 bi_op_test!(mul, false);
 divrem_op_test!(udiv, false);
-//divrem_op_test!(sdiv, false);
+divrem_op_test!(sdiv, false);
 divrem_op_test!(urem, false);
-//divrem_op_test!(srem, false);
+divrem_op_test!(srem, false);
 
 // bitwise tests
 /*bi_op_test!(bit_and, true);
