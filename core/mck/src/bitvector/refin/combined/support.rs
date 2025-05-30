@@ -3,7 +3,10 @@ use std::num::NonZeroU8;
 use crate::{
     bitvector::{
         abstr::CombinedBitvector,
-        refin::three_valued::{BitvectorMark, MarkBitvector},
+        refin::{
+            three_valued::{BitvectorMark, MarkBitvector},
+            FromRefin,
+        },
     },
     refin::{Boolean, ManipField, Refine},
     traits::misc::MetaEq,
@@ -63,12 +66,12 @@ impl<const L: u32> ManipField for CombinedMark<L> {
 
 impl From<Boolean> for CombinedMark<1> {
     fn from(value: Boolean) -> Self {
-        Self(value.0.into())
+        Self(FromRefin::from_refin(value.0))
     }
 }
 
 impl From<CombinedMark<1>> for Boolean {
     fn from(value: CombinedMark<1>) -> Self {
-        Self(value.0.into())
+        Self(FromRefin::from_refin(value.0))
     }
 }

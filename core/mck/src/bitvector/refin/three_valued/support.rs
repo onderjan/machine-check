@@ -1,7 +1,7 @@
 use std::num::NonZeroU8;
 
 use crate::{
-    bitvector::abstr::ThreeValuedBitvector,
+    bitvector::{abstr::ThreeValuedBitvector, refin::FromRefin},
     concr::ConcreteBitvector,
     forward::{self, HwArith},
     refin::{Boolean, ManipField, Refine},
@@ -131,12 +131,12 @@ impl<const L: u32> ManipField for MarkBitvector<L> {
 
 impl From<Boolean> for MarkBitvector<1> {
     fn from(value: Boolean) -> Self {
-        value.0.into()
+        FromRefin::from_refin(value.0)
     }
 }
 
 impl From<MarkBitvector<1>> for Boolean {
     fn from(value: MarkBitvector<1>) -> Self {
-        Boolean(value.into())
+        Boolean(FromRefin::from_refin(value))
     }
 }

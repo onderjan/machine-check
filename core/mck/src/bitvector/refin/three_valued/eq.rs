@@ -1,4 +1,9 @@
-use crate::{backward::TypedEq, bitvector::abstr::ThreeValuedBitvector, forward, refin::Boolean};
+use crate::{
+    backward::TypedEq,
+    bitvector::{abstr::ThreeValuedBitvector, refin::FromRefin},
+    forward,
+    refin::Boolean,
+};
 
 use super::MarkBitvector;
 
@@ -10,7 +15,7 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        let bv_later: MarkBitvector<1> = mark_later.0.into();
+        let bv_later: MarkBitvector<1> = FromRefin::from_refin(mark_later.0);
 
         let Some(mark_later) = bv_later.0 else {
             return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
@@ -30,7 +35,7 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        let bv_later: MarkBitvector<1> = mark_later.0.into();
+        let bv_later: MarkBitvector<1> = FromRefin::from_refin(mark_later.0);
 
         let Some(mark_later) = bv_later.0 else {
             return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
