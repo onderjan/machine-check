@@ -1,6 +1,9 @@
 use crate::{
     abstr::{Abstr, Bitvector, PanicResult},
-    bitvector::{concrete::ConcreteBitvector, dual_interval::DualInterval},
+    bitvector::{
+        concrete::{ConcreteBitvector, SignlessInterval},
+        dual_interval::DualInterval,
+    },
     boolean::abstr,
     concr::{self, Test},
     traits::misc::MetaEq,
@@ -12,10 +15,6 @@ macro_rules! uni_op_test {
 
         #[test]
         pub fn $op~L() {
-            use crate::bitvector::concrete::ConcreteBitvector;
-            use crate::bitvector::dual_interval::DualInterval;
-            use crate::traits::forward::HwArith;
-            use crate::traits::forward::Bitwise;
             let abstr_func = |a: DualInterval<L>| a.$op();
             let concr_func = |a: ConcreteBitvector<L>| a.$op();
             $crate::bitvector::dual_interval::tests::op::exec_uni_check(abstr_func, concr_func, true);
@@ -30,9 +29,6 @@ macro_rules! ext_op_test {
             seq_macro::seq!(X in 0..=6 {
                 #[test]
                 pub fn $op~L~X() {
-                    use crate::bitvector::concrete::ConcreteBitvector;
-                    use crate::bitvector::dual_interval::DualInterval;
-                    use crate::traits::forward::Ext;
                     let abstr_func =
                         |a: DualInterval<L>| -> DualInterval<X> { a.$op() };
                     let concr_func = |a: ConcreteBitvector<L>| -> ConcreteBitvector<X> { a.$op() };
@@ -50,11 +46,6 @@ macro_rules! bi_op_test {
 
         #[test]
         pub fn $op~L() {
-            use crate::bitvector::concrete::ConcreteBitvector;
-            use crate::bitvector::dual_interval::DualInterval;
-            use crate::traits::forward::HwArith;
-            use crate::traits::forward::HwShift;
-            use crate::traits::forward::Bitwise;
             let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| ::std::convert::Into::into(a.$op(b));
             let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
             $crate::bitvector::dual_interval::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
@@ -70,10 +61,6 @@ macro_rules! comparison_op_test {
 
         #[test]
         pub fn $op~L() {
-            use crate::bitvector::concrete::ConcreteBitvector;
-            use crate::bitvector::dual_interval::DualInterval;
-            use crate::traits::forward::TypedEq;
-            use crate::traits::forward::TypedCmp;
             let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| ::std::convert::Into::into(a.$op(b));
             let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
             $crate::bitvector::dual_interval::tests::op::exec_comparison_check(abstr_func, concr_func, $exact);
@@ -89,9 +76,6 @@ macro_rules! divrem_op_test {
 
         #[test]
         pub fn $op~L() {
-            use crate::bitvector::concrete::ConcreteBitvector;
-            use crate::bitvector::dual_interval::DualInterval;
-            use crate::traits::forward::HwArith;
             let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| a.$op(b).into();
             let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| a.$op(b).into();
             $crate::bitvector::dual_interval::tests::op::exec_divrem_check(abstr_func, concr_func);
@@ -321,4 +305,76 @@ pub(super) fn join_bool_concr_iter(iter: impl Iterator<Item = concr::Boolean>) -
     }
 
     abstr::Boolean::from_bools(can_be_false, can_be_true)
+}
+
+impl<const W: u32> DualInterval<W> {
+    pub fn contains(&self, other: &Self) -> bool {
+        if other.near_half == other.far_half {
+            let tested_half = other.near_half;
+            if tested_half.is_sign_bit_set() {
+                self.far_half.contains(&other.far_half)
+            } else {
+                self.near_half.contains(&other.near_half)
+            }
+        } else {
+            self.near_half.contains(&other.near_half) && self.far_half.contains(&other.far_half)
+        }
+    }
+
+    pub fn concrete_join(self, value: ConcreteBitvector<W>) -> Self {
+        let value_sign_bit_set = value.is_sign_bit_set();
+        let value = SignlessInterval::from_value(value);
+
+        if self.near_half == self.far_half {
+            if value_sign_bit_set == self.near_half.is_sign_bit_set() {
+                // join to both halves
+                Self {
+                    near_half: self.near_half.union(value),
+                    far_half: self.far_half.union(value),
+                }
+            } else {
+                // we have to make a new half from the value
+                if value_sign_bit_set {
+                    Self {
+                        near_half: self.near_half,
+                        far_half: value,
+                    }
+                } else {
+                    Self {
+                        near_half: value,
+                        far_half: self.far_half,
+                    }
+                }
+            }
+        } else if value_sign_bit_set {
+            // join to far half
+            Self {
+                near_half: self.near_half,
+                far_half: self.far_half.union(value),
+            }
+        } else {
+            // join to near half
+            Self {
+                near_half: self.near_half.union(value),
+                far_half: self.far_half,
+            }
+        }
+    }
+
+    pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
+        let only_near_half_result = SignlessInterval::all_with_length_iter(false)
+            .map(|near_half| Self::from_opt_halves(Some(near_half), None));
+        let only_far_half_result = SignlessInterval::all_with_length_iter(true)
+            .map(|far_half| Self::from_opt_halves(None, Some(far_half)));
+
+        let near_half_iter = SignlessInterval::<W>::all_with_length_iter(false);
+        let both_halves_result = near_half_iter.flat_map(|near_half| {
+            let far_half_iter = SignlessInterval::<W>::all_with_length_iter(true);
+            far_half_iter
+                .map(move |far_half| Self::from_opt_halves(Some(near_half), Some(far_half)))
+        });
+        only_near_half_result
+            .chain(only_far_half_result)
+            .chain(both_halves_result)
+    }
 }

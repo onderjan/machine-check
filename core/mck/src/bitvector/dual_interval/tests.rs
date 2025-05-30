@@ -1,6 +1,10 @@
 #[macro_use]
 mod op;
 
+use crate::bitvector::concrete::ConcreteBitvector;
+use crate::bitvector::dual_interval::DualInterval;
+use crate::traits::forward::*;
+
 // === SMALL-LENGTH-EXHAUSTIVE TESTS ===
 
 // --- UNARY TESTS ---

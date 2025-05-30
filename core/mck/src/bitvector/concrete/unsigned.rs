@@ -160,13 +160,3 @@ impl<const L: u32> Display for UnsignedBitvector<L> {
         write!(f, "{}", self.to_u64())
     }
 }
-
-impl<const L: u32> UnsignedBitvector<L> {
-    pub(crate) fn checked_add(self, rhs: Self) -> Option<Self> {
-        Some(UnsignedBitvector(self.0.checked_add(rhs.0)?))
-    }
-
-    pub(crate) fn checked_mul(self, rhs: Self) -> Option<Self> {
-        Some(UnsignedBitvector(self.0.checked_mul(rhs.0)?))
-    }
-}
