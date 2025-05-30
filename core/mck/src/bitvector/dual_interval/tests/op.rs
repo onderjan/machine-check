@@ -69,6 +69,7 @@ macro_rules! comparison_op_test {
             use crate::bitvector::concrete::ConcreteBitvector;
             use crate::bitvector::dual_interval::DualInterval;
             use crate::traits::forward::TypedEq;
+            use crate::traits::forward::TypedCmp;
             let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| ::std::convert::Into::into(a.$op(b));
             let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
             $crate::bitvector::dual_interval::tests::op::exec_comparison_check(abstr_func, concr_func, $exact);

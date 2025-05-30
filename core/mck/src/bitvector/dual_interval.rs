@@ -9,6 +9,7 @@ use super::concrete::{
 };
 
 mod arith;
+mod cmp;
 mod eq;
 mod support;
 

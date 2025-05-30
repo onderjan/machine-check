@@ -21,6 +21,11 @@ impl<const W: u32> UnsignedInterval<W> {
         max: ConcreteBitvector::<W>::const_umax().cast_unsigned(),
     };
 
+    pub fn new(min: UnsignedBitvector<W>, max: UnsignedBitvector<W>) -> Self {
+        assert!(min <= max);
+        Self { min, max }
+    }
+
     fn contains_value(&self, value: UnsignedBitvector<W>) -> bool {
         self.min <= value && value <= self.max
     }

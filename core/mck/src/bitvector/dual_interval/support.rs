@@ -1,6 +1,10 @@
 use super::DualInterval;
 use crate::{
-    bitvector::concrete::{ConcreteBitvector, SignlessInterval},
+    bitvector::concrete::{
+        ConcreteBitvector, SignedBitvector, SignedInterval, SignlessInterval, UnsignedBitvector,
+        UnsignedInterval,
+    },
+    forward::TypedEq,
     misc::MetaEq,
 };
 
@@ -129,6 +133,30 @@ impl<const W: u32> DualInterval<W> {
         }
 
         Self::try_from_opt_halves(result_near_half, result_far_half)
+    }
+
+    pub fn unsigned_min(&self) -> UnsignedBitvector<W> {
+        self.near_half.min().cast_unsigned()
+    }
+
+    pub fn unsigned_max(&self) -> UnsignedBitvector<W> {
+        self.far_half.max().cast_unsigned()
+    }
+
+    pub fn to_unsigned_interval(&self) -> UnsignedInterval<W> {
+        UnsignedInterval::new(self.unsigned_min(), self.unsigned_max())
+    }
+
+    pub fn signed_min(&self) -> SignedBitvector<W> {
+        self.far_half.min().cast_signed()
+    }
+
+    pub fn signed_max(&self) -> SignedBitvector<W> {
+        self.near_half.max().cast_signed()
+    }
+
+    pub fn to_signed_interval(&self) -> SignedInterval<W> {
+        SignedInterval::new(self.signed_min(), self.signed_max())
     }
 }
 

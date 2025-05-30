@@ -28,13 +28,13 @@ bi_op_test!(bit_xor, true);*/
 
 // equality and comparison tests
 comparison_op_test!(eq, true);
-/*comparison_op_test!(slt, true);
+comparison_op_test!(slt, true);
 comparison_op_test!(sle, true);
 comparison_op_test!(ult, true);
 comparison_op_test!(ule, true);
 
 // shift tests
-bi_op_test!(logic_shl, true);
+/*bi_op_test!(logic_shl, true);
 bi_op_test!(logic_shr, true);
 bi_op_test!(arith_shr, true);
 
