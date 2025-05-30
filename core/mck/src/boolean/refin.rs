@@ -2,24 +2,24 @@ use std::num::NonZeroU8;
 
 use crate::{
     backward::Bitwise,
-    refin::{Bitvector, Refine},
+    refin::{BooleanBitvector, Refine},
 };
 
 use super::abstr;
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Boolean(pub(crate) Bitvector<1>);
+pub struct Boolean(pub(crate) BooleanBitvector);
 
 impl Boolean {
     pub fn new_unmarked() -> Self {
-        Self(Bitvector::new_unmarked())
+        Self(BooleanBitvector::new_unmarked())
     }
 
     pub fn new_marked(importance: NonZeroU8) -> Self {
-        Self(Bitvector::new_marked(importance))
+        Self(BooleanBitvector::new_marked(importance))
     }
 
     pub fn new_marked_unimportant() -> Self {
-        Self(Bitvector::new_marked_unimportant())
+        Self(BooleanBitvector::new_marked_unimportant())
     }
 }
 
@@ -41,11 +41,11 @@ impl Refine<super::abstr::Boolean> for Boolean {
     }
 
     fn clean() -> Self {
-        Self(Bitvector::clean())
+        Self(BooleanBitvector::clean())
     }
 
     fn dirty() -> Self {
-        Self(Bitvector::dirty())
+        Self(BooleanBitvector::dirty())
     }
 
     fn importance(&self) -> u8 {

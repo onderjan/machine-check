@@ -155,7 +155,7 @@ impl<M: FullMachine> Framework<M> {
 
         // TODO: rework panic name kludge
         if culprit.atomic_property.left().name() == "__panic" {
-            current_state_mark.panic = refin::Bitvector::dirty();
+            current_state_mark.panic = refin::PanicBitvector::dirty();
         } else {
             // TODO: mark more adequately
             let manip_mark = current_state_mark
@@ -308,7 +308,7 @@ impl<M: FullMachine> Framework<M> {
                 // update current state mark
                 // note that the preceding state could not have panicked
                 current_state_mark = mck::refin::PanicResult {
-                    panic: refin::Bitvector::new_unmarked(),
+                    panic: refin::PanicBitvector::new_unmarked(),
                     result: new_state_mark,
                 };
             } else {

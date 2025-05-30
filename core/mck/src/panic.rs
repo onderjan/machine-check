@@ -45,7 +45,7 @@ pub mod refin {
 
     #[derive(Debug, Clone, Hash)]
     pub struct PanicResult<T> {
-        pub panic: crate::refin::Bitvector<32>,
+        pub panic: crate::refin::PanicBitvector,
         pub result: T,
     }
 
@@ -74,14 +74,14 @@ pub mod refin {
 
         fn clean() -> Self {
             Self {
-                panic: crate::refin::Bitvector::new_unmarked(),
+                panic: crate::refin::PanicBitvector::new_unmarked(),
                 result: T::clean(),
             }
         }
 
         fn dirty() -> Self {
             Self {
-                panic: crate::refin::Bitvector::dirty(),
+                panic: crate::refin::PanicBitvector::dirty(),
                 result: T::dirty(),
             }
         }
