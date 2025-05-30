@@ -1,14 +1,10 @@
-//mod wrap_interval;
+pub mod abstr;
+pub mod concr;
+pub mod refin;
 
-mod combined;
-mod concrete;
-mod dual_interval;
-mod three_valued;
 mod util;
 
-pub mod concr {
-    pub type Bitvector<const L: u32> = super::concrete::ConcreteBitvector<L>;
-    pub type UnsignedBitvector<const L: u32> = super::concrete::UnsignedBitvector<L>;
+/*pub mod concr {
 }
 pub mod abstr {
     use super::{concrete::UnsignedInterval, three_valued::AbstractBitvector};
@@ -31,4 +27,4 @@ pub mod abstr {
 }
 pub mod refin {
     pub type Bitvector<const L: u32> = super::three_valued::RefinementBitvector<L>;
-}
+}*/
