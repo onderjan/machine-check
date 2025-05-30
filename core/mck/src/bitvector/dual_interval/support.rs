@@ -2,7 +2,7 @@ use super::DualInterval;
 use crate::{
     bitvector::concrete::{
         ConcreteBitvector, SignedBitvector, SignedInterval, SignlessInterval, UnsignedBitvector,
-        UnsignedInterval,
+        UnsignedInterval, WrappingInterval,
     },
     misc::MetaEq,
 };
@@ -156,6 +156,38 @@ impl<const W: u32> DualInterval<W> {
 
     pub fn to_signed_interval(self) -> SignedInterval<W> {
         SignedInterval::new(self.signed_min(), self.signed_max())
+    }
+
+    pub(super) fn resolve_by_wrapping(
+        a: DualInterval<W>,
+        b: DualInterval<W>,
+        op_fn: fn(WrappingInterval<W>, WrappingInterval<W>) -> WrappingInterval<W>,
+    ) -> DualInterval<W> {
+        // TODO: optimise cases where the a, b, or both can be represented by one wrapping interval
+
+        // resolve all combinations of halves separately
+        let nn_result = op_fn(a.near_half.into_wrapping(), b.near_half.into_wrapping());
+        let nf_result = op_fn(a.near_half.into_wrapping(), b.far_half.into_wrapping());
+        let fn_result = op_fn(a.far_half.into_wrapping(), b.near_half.into_wrapping());
+        let ff_result = op_fn(a.far_half.into_wrapping(), b.far_half.into_wrapping());
+
+        DualInterval::from_wrapping_intervals(&[nn_result, nf_result, fn_result, ff_result])
+    }
+
+    pub(super) fn resolve_by_unsigned(
+        a: DualInterval<W>,
+        b: DualInterval<W>,
+        op_fn: fn(UnsignedInterval<W>, UnsignedInterval<W>) -> UnsignedInterval<W>,
+    ) -> DualInterval<W> {
+        // TODO: optimise cases where the a, b, or both can be represented by one wrapping interval
+
+        // resolve all combinations of halves separately
+        let nn_result = op_fn(a.near_half.into_unsigned(), b.near_half.into_unsigned());
+        let nf_result = op_fn(a.near_half.into_unsigned(), b.far_half.into_unsigned());
+        let fn_result = op_fn(a.far_half.into_unsigned(), b.near_half.into_unsigned());
+        let ff_result = op_fn(a.far_half.into_unsigned(), b.far_half.into_unsigned());
+
+        DualInterval::from_unsigned_intervals([nn_result, nf_result, fn_result, ff_result])
     }
 }
 

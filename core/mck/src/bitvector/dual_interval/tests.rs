@@ -6,8 +6,7 @@ mod op;
 // --- UNARY TESTS ---
 
 // not and neg
-//uni_op_test!(bit_not);
-
+uni_op_test!(bit_not);
 uni_op_test!(arith_neg);
 
 // --- BINARY TESTS ---
@@ -22,9 +21,9 @@ divrem_op_test!(urem, false);
 divrem_op_test!(srem, false);
 
 // bitwise tests
-/*bi_op_test!(bit_and, true);
+bi_op_test!(bit_and, true);
 bi_op_test!(bit_or, true);
-bi_op_test!(bit_xor, true);*/
+bi_op_test!(bit_xor, true);
 
 // equality and comparison tests
 comparison_op_test!(eq, true);

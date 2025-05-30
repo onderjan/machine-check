@@ -1,14 +1,10 @@
-use num::{
-    traits::{WrappingAdd, WrappingMul, WrappingNeg, WrappingSub},
-    PrimInt,
-};
-
 use super::concrete::{
     ConcreteBitvector, SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterpretation,
     WrappingInterval,
 };
 
 mod arith;
+mod bitwise;
 mod cmp;
 mod eq;
 mod ext;

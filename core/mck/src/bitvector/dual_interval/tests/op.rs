@@ -15,6 +15,7 @@ macro_rules! uni_op_test {
             use crate::bitvector::concrete::ConcreteBitvector;
             use crate::bitvector::dual_interval::DualInterval;
             use crate::traits::forward::HwArith;
+            use crate::traits::forward::Bitwise;
             let abstr_func = |a: DualInterval<L>| a.$op();
             let concr_func = |a: ConcreteBitvector<L>| a.$op();
             $crate::bitvector::dual_interval::tests::op::exec_uni_check(abstr_func, concr_func, true);
@@ -53,6 +54,7 @@ macro_rules! bi_op_test {
             use crate::bitvector::dual_interval::DualInterval;
             use crate::traits::forward::HwArith;
             use crate::traits::forward::HwShift;
+            use crate::traits::forward::Bitwise;
             let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| ::std::convert::Into::into(a.$op(b));
             let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
             $crate::bitvector::dual_interval::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
