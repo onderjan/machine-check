@@ -1,7 +1,7 @@
 use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
 
 use crate::{
-    abstr::{self, Abstr, PanicResult, Phi},
+    abstr::{self, Abstr, PanicBitvector, PanicResult, Phi},
     bitvector::concrete::{ConcreteBitvector, SignedInterval},
     forward::HwArith,
 };
@@ -172,7 +172,7 @@ impl<const W: u32> HwArith for DualInterval<W> {
                 let panic_result = dividend.cast_signed() % divisor.cast_signed();
                 let result = DualInterval::from_value(panic_result.result.as_bitvector());
                 return PanicResult {
-                    panic: abstr::Bitvector::from_concrete(panic_result.panic),
+                    panic: PanicBitvector::from_concrete(panic_result.panic),
                     result,
                 };
             }
@@ -240,11 +240,11 @@ fn construct_panic_result<T>(
     panic_msg_num: u64,
 ) -> PanicResult<T> {
     let panic = if must_panic {
-        abstr::Bitvector::new(panic_msg_num)
+        PanicBitvector::new(panic_msg_num)
     } else if may_panic {
-        abstr::Bitvector::new(PANIC_NUM_NO_PANIC).phi(abstr::Bitvector::new(panic_msg_num))
+        PanicBitvector::new(PANIC_NUM_NO_PANIC).phi(PanicBitvector::new(panic_msg_num))
     } else {
-        abstr::Bitvector::new(PANIC_NUM_NO_PANIC)
+        PanicBitvector::new(PANIC_NUM_NO_PANIC)
     };
     PanicResult { panic, result }
 }

@@ -1,3 +1,5 @@
+use crate::abstr::Phi;
+
 use super::concrete::{
     ConcreteBitvector, SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterpretation,
     WrappingInterval,
@@ -61,7 +63,7 @@ impl<const W: u32> DualInterval<W> {
         Self::from_opt_halves(near_half, far_half)
     }
 
-    fn from_wrapping_intervals(intervals: &[WrappingInterval<W>]) -> Self {
+    pub(crate) fn from_wrapping_intervals(intervals: &[WrappingInterval<W>]) -> Self {
         let mut near_half = None;
         let mut far_half = None;
 
@@ -211,5 +213,38 @@ fn signed_halves<const W: u32>(
                 ConcreteBitvector::<W>::const_umax(),
             )),
         ),
+    }
+}
+
+impl<const W: u32> Default for DualInterval<W> {
+    fn default() -> Self {
+        Self {
+            near_half: SignlessInterval::from_value(ConcreteBitvector::zero()),
+            far_half: SignlessInterval::from_value(ConcreteBitvector::zero()),
+        }
+    }
+}
+
+impl<const W: u32> Phi for DualInterval<W> {
+    fn phi(self, other: Self) -> Self {
+        let (our_near_half, our_far_half) = self.opt_halves();
+        let (other_near_half, other_far_half) = other.opt_halves();
+
+        let mut result_near_half = None;
+        let mut result_far_half = None;
+
+        if let (Some(our_near_half), Some(other_near_half)) = (our_near_half, other_near_half) {
+            result_near_half = Some(our_near_half.union(other_near_half));
+        }
+
+        if let (Some(our_far_half), Some(other_far_half)) = (our_far_half, other_far_half) {
+            result_far_half = Some(our_far_half.union(other_far_half));
+        }
+
+        Self::from_opt_halves(result_near_half, result_far_half)
+    }
+
+    fn uninit() -> Self {
+        Self::default()
     }
 }

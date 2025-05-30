@@ -6,11 +6,14 @@ pub mod concr {
 }
 
 pub mod abstr {
-    use crate::{abstr::Phi, traits::misc::MetaEq};
+    use crate::{
+        abstr::{PanicBitvector, Phi},
+        traits::misc::MetaEq,
+    };
 
     #[derive(Debug, Clone, Hash)]
     pub struct PanicResult<T> {
-        pub panic: crate::abstr::Bitvector<32>,
+        pub panic: PanicBitvector,
         pub result: T,
     }
 
@@ -30,7 +33,7 @@ pub mod abstr {
 
         fn uninit() -> Self {
             Self {
-                panic: crate::abstr::Bitvector::uninit(),
+                panic: PanicBitvector::uninit(),
                 result: T::uninit(),
             }
         }

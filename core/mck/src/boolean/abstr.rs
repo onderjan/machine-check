@@ -1,12 +1,12 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    abstr::{Bitvector, Phi, Test},
+    abstr::{BooleanBitvector, Phi, Test},
     forward::Bitwise,
 };
 
 #[derive(Clone, Copy, Hash, Default)]
-pub struct Boolean(pub(crate) Bitvector<1>);
+pub struct Boolean(pub(crate) BooleanBitvector);
 
 impl Test for Boolean {
     fn can_be_true(self) -> bool {
@@ -23,7 +23,7 @@ impl Boolean {
         zeros: crate::concr::Bitvector<1>,
         ones: crate::concr::Bitvector<1>,
     ) -> Self {
-        Boolean(Bitvector::from_zeros_ones(zeros, ones))
+        Boolean(BooleanBitvector::from_zeros_ones(zeros, ones))
     }
 
     pub(crate) fn from_bools(can_be_false: bool, can_be_true: bool) -> Self {
@@ -57,7 +57,7 @@ impl Phi for Boolean {
     }
 
     fn uninit() -> Self {
-        Boolean(Bitvector::<1>::uninit())
+        Boolean(BooleanBitvector::uninit())
     }
 }
 

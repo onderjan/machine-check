@@ -2,6 +2,7 @@ use std::{fmt::Debug, num::NonZeroU8};
 
 use std::ops::ControlFlow;
 
+use crate::abstr::BitvectorDomain;
 use crate::{
     abstr,
     backward::ReadWrite,
@@ -39,7 +40,7 @@ impl<const I: u32, const L: u32> Array<I, L> {
                 earlier_element
             },
         );
-        (earlier_element.limit(normal_input.0),)
+        (earlier_element.limit(*normal_input.0.three_valued()),)
     }
 }
 
@@ -65,7 +66,7 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
         let (min_index, max_index) = extract_bounds(normal_input.1);
         if min_index == max_index {
             // mark array element
-            let limited_mark = mark_later.limit(normal_input.0.inner[min_index].0);
+            let limited_mark = mark_later.limit(*normal_input.0.inner[min_index].0.three_valued());
             let mut earlier_array_mark = Self::Mark::new_unmarked();
             earlier_array_mark
                 .inner
@@ -76,7 +77,7 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
             (
                 Self::Mark::new_unmarked(),
                 Self::IndexMark::new_marked(index_importance(later_mark.importance))
-                    .limit(normal_input.1),
+                    .limit(*normal_input.1.three_valued()),
             )
         }
     }
@@ -99,7 +100,7 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
             (
                 earlier_array_mark,
                 Self::IndexMark::new_unmarked(),
-                earlier_element_mark.limit(normal_input.2),
+                earlier_element_mark.limit(*normal_input.2.three_valued()),
             )
         } else {
             // the index is the most important, mark it if we have some mark within the elements
@@ -125,7 +126,7 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
                 (
                     Self::Mark::new_unmarked(),
                     Self::IndexMark::new_marked(index_importance(max_importance))
-                        .limit(normal_input.1),
+                        .limit(*normal_input.1.three_valued()),
                     Self::ElementMark::new_unmarked(),
                 )
             } else {

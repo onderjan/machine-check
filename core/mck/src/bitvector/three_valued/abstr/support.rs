@@ -1,9 +1,13 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    abstr::{Abstr, ArrayFieldBitvector, BitvectorField, Boolean, Field, ManipField, Phi, Test},
+    abstr::{
+        Abstr, ArrayFieldBitvector, BitvectorDomain, BitvectorField, Boolean, Field, ManipField,
+        Phi, Test,
+    },
     bitvector::{
-        concrete::{ConcreteBitvector, SignedBitvector},
+        concrete::{ConcreteBitvector, SignedBitvector, UnsignedInterval},
+        three_valued::AbstractBitvector,
         util,
     },
     concr::{self, UnsignedBitvector},
@@ -208,13 +212,6 @@ impl<const L: u32> ThreeValuedBitvector<L> {
             ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
         })
     }
-
-    pub(crate) fn element_description(&self) -> ArrayFieldBitvector {
-        ArrayFieldBitvector {
-            zeros: self.zeros.as_unsigned(),
-            ones: self.ones.as_unsigned(),
-        }
-    }
 }
 
 impl<const L: u32> MetaEq for ThreeValuedBitvector<L> {
@@ -266,6 +263,23 @@ impl<const L: u32> Phi for ThreeValuedBitvector<L> {
     fn uninit() -> Self {
         // present unknown so there is no loss of soundness in case of bug
         Self::new_unknown()
+    }
+}
+
+impl<const W: u32> BitvectorDomain<W> for ThreeValuedBitvector<W> {
+    fn unsigned_interval(&self) -> UnsignedInterval<W> {
+        UnsignedInterval::new(self.umin(), self.umax())
+    }
+
+    fn element_description(&self) -> ArrayFieldBitvector {
+        ArrayFieldBitvector {
+            zeros: self.zeros.as_unsigned(),
+            ones: self.ones.as_unsigned(),
+        }
+    }
+
+    fn three_valued(&self) -> &Self {
+        self
     }
 }
 

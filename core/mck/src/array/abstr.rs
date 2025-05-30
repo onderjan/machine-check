@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
-    abstr::{self, Abstr, ArrayField, Field, ManipField, Phi},
+    abstr::{self, Abstr, ArrayField, BitvectorDomain, Field, ManipField, Phi},
     concr::{self, UnsignedBitvector},
     forward::ReadWrite,
     misc::MetaWrap,
@@ -72,8 +72,10 @@ impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
 pub(super) fn extract_bounds<const I: u32>(
     index: abstr::Bitvector<I>,
 ) -> (UnsignedBitvector<I>, UnsignedBitvector<I>) {
-    let umin = index.umin();
-    let umax = index.umax();
+    let unsigned_bounds = index.unsigned_interval();
+
+    let umin = unsigned_bounds.min();
+    let umax = unsigned_bounds.max();
     assert!(umin <= umax);
 
     (umin, umax)

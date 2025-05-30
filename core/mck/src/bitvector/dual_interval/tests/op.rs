@@ -1,5 +1,5 @@
 use crate::{
-    abstr::{Abstr, Bitvector, PanicResult},
+    abstr::{Abstr, Bitvector, PanicBitvector, PanicResult},
     bitvector::{
         concrete::{ConcreteBitvector, SignlessInterval},
         dual_interval::DualInterval,
@@ -223,7 +223,7 @@ pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
 
             let a_concr_iter =
                 ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_value(c));
-            let equiv_panic = join_tvbv_concr_iter(a_concr_iter.flat_map(|a_concr| {
+            let equiv_panic = join_panic_concr_iter(a_concr_iter.flat_map(|a_concr| {
                 ConcreteBitvector::<L>::all_with_length_iter()
                     .filter(|c| b.contains_value(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr).panic)
@@ -273,18 +273,14 @@ pub(super) fn join_concr_iter<const L: u32>(
     result
 }
 
-pub(super) fn join_tvbv_concr_iter<const L: u32>(
-    mut iter: impl Iterator<Item = ConcreteBitvector<L>>,
-) -> Bitvector<L> {
-    if L == 0 {
-        return Bitvector::new_unknown();
-    }
-
+pub(super) fn join_panic_concr_iter(
+    mut iter: impl Iterator<Item = ConcreteBitvector<32>>,
+) -> PanicBitvector {
     let first_concrete = iter
         .next()
         .expect("Expected at least one concrete bitvector in iterator");
 
-    let mut result = Bitvector::from_concrete(first_concrete);
+    let mut result = PanicBitvector::from_concrete(first_concrete);
 
     for c in iter {
         result = result.concrete_join(c)

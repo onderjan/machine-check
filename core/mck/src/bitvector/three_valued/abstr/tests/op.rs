@@ -1,7 +1,7 @@
 use crate::{
-    abstr::{Abstr, PanicResult},
+    abstr::{Abstr, Boolean, PanicResult},
     bitvector::{concrete::ConcreteBitvector, three_valued::abstr::ThreeValuedBitvector},
-    concr,
+    concr::{self, Test},
     traits::misc::MetaEq,
 };
 
@@ -203,4 +203,19 @@ pub(super) fn join_concr_iter<const L: u32>(
         result = result.concrete_join(c)
     }
     result
+}
+
+pub(super) fn join_bool_concr_iter(iter: impl Iterator<Item = concr::Boolean>) -> Boolean {
+    let mut can_be_false = false;
+    let mut can_be_true = false;
+
+    for value in iter {
+        if value.into_bool() {
+            can_be_true = true;
+        } else {
+            can_be_false = true;
+        }
+    }
+
+    Boolean::from_bools(can_be_false, can_be_true)
 }

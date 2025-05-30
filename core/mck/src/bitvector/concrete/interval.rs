@@ -514,6 +514,10 @@ pub struct WrappingInterval<const W: u32> {
 }
 
 impl<const W: u32> WrappingInterval<W> {
+    pub fn new(start: ConcreteBitvector<W>, end: ConcreteBitvector<W>) -> Self {
+        Self { start, end }
+    }
+
     fn from_value(value: ConcreteBitvector<W>) -> Self {
         Self {
             start: value,
