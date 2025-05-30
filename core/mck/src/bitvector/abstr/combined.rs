@@ -8,10 +8,7 @@ use crate::{
     concr::{ConcreteBitvector, UnsignedInterval, WrappingInterval},
 };
 
-use super::{
-    dual_interval::{self, DualInterval},
-    three_valued::ThreeValuedBitvector,
-};
+use super::{dual_interval::DualInterval, three_valued::ThreeValuedBitvector};
 
 #[derive(Clone, Copy, Hash, Default)]
 pub struct CombinedBitvector<const W: u32> {
@@ -29,7 +26,10 @@ impl<const W: u32> CombinedBitvector<W> {
         }
     }
 
-    pub fn combine(three_valued: ThreeValuedBitvector<W>, dual_interval: DualInterval<W>) -> Self {
+    pub(crate) fn combine(
+        three_valued: ThreeValuedBitvector<W>,
+        dual_interval: DualInterval<W>,
+    ) -> Self {
         // restrict the dual interval
         let near_min = three_valued.umin().max(dual_interval.unsigned_min());
         let near_max = three_valued.smax().min(dual_interval.signed_max());
@@ -125,12 +125,8 @@ impl<const W: u32> BitvectorDomain<W> for CombinedBitvector<W> {
     }
 
     fn meet(self, other: Self) -> Option<Self> {
-        let Some(three_valued) = self.three_valued.meet(other.three_valued) else {
-            return None;
-        };
-        let Some(dual_interval) = self.dual_interval.meet(other.dual_interval) else {
-            return None;
-        };
+        let three_valued = self.three_valued.meet(other.three_valued)?;
+        let dual_interval = self.dual_interval.meet(other.dual_interval)?;
         Some(Self::combine(three_valued, dual_interval))
     }
 }

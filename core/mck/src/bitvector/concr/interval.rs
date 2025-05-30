@@ -30,22 +30,6 @@ impl<const W: u32> UnsignedInterval<W> {
         self.min <= value && value <= self.max
     }
 
-    fn union(self, other: Self) -> Self {
-        Self {
-            min: self.min.min(other.min),
-            max: self.max.max(other.max),
-        }
-    }
-
-    fn union_opt(a: Option<Self>, b: Option<Self>) -> Option<Self> {
-        match (a, b) {
-            (None, None) => None,
-            (None, Some(b)) => Some(b),
-            (Some(a), None) => Some(a),
-            (Some(a), Some(b)) => Some(a.union(b)),
-        }
-    }
-
     pub fn min(&self) -> UnsignedBitvector<W> {
         self.min
     }
@@ -258,22 +242,6 @@ impl<const W: u32> SignedInterval<W> {
 
     fn contains_value(&self, value: SignedBitvector<W>) -> bool {
         self.min <= value && value <= self.max
-    }
-
-    fn union(self, other: Self) -> Self {
-        Self {
-            min: self.min.min(other.min),
-            max: self.max.max(other.max),
-        }
-    }
-
-    fn union_opt(a: Option<Self>, b: Option<Self>) -> Option<Self> {
-        match (a, b) {
-            (None, None) => None,
-            (None, Some(b)) => Some(b),
-            (Some(a), None) => Some(a),
-            (Some(a), Some(b)) => Some(a.union(b)),
-        }
     }
 
     pub fn min(&self) -> SignedBitvector<W> {
@@ -516,13 +484,6 @@ pub struct WrappingInterval<const W: u32> {
 impl<const W: u32> WrappingInterval<W> {
     pub fn new(start: ConcreteBitvector<W>, end: ConcreteBitvector<W>) -> Self {
         Self { start, end }
-    }
-
-    fn from_value(value: ConcreteBitvector<W>) -> Self {
-        Self {
-            start: value,
-            end: value,
-        }
     }
 
     // the canonical full interval is from zero to umax

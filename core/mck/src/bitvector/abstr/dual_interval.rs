@@ -4,7 +4,6 @@ use crate::{
         ConcreteBitvector, SignedInterval, SignlessInterval, UnsignedInterval,
         WrappingInterpretation, WrappingInterval,
     },
-    forward::TypedEq,
 };
 
 mod arith;
@@ -59,11 +58,6 @@ impl<const W: u32> DualInterval<W> {
         near_half: SignlessInterval::FULL_NEAR_HALFPLANE,
         far_half: SignlessInterval::FULL_FAR_HALFPLANE,
     };
-
-    fn from_wrapping_interval(a: WrappingInterval<W>) -> Self {
-        let (near_half, far_half) = wrapping_halves(a);
-        Self::from_opt_halves(near_half, far_half)
-    }
 
     pub(crate) fn from_wrapping_intervals(intervals: &[WrappingInterval<W>]) -> Self {
         let mut near_half = None;
