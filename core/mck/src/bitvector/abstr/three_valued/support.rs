@@ -274,8 +274,15 @@ impl<const W: u32> BitvectorDomain<W> for ThreeValuedBitvector<W> {
         }
     }
 
-    fn three_valued(&self) -> &Self {
-        self
+    fn join(self, other: Self) -> Self {
+        self.phi(other)
+    }
+
+    fn meet(self, other: Self) -> Option<Self> {
+        let zeros = self.zeros.bit_and(other.zeros);
+        let ones = self.ones.bit_and(other.ones);
+
+        Self::try_from_zeros_ones(zeros, ones).ok()
     }
 }
 

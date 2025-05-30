@@ -5,7 +5,7 @@ use std::hash::Hash;
 
 use crate::{
     abstr::{ArrayFieldBitvector, BitvectorDomain, Boolean, ManipField, PanicResult, Phi, Test},
-    concr::{UnsignedInterval, WrappingInterval},
+    concr::{ConcreteBitvector, UnsignedInterval, WrappingInterval},
 };
 
 use super::{dual_interval::DualInterval, three_valued::ThreeValuedBitvector};
@@ -17,6 +17,15 @@ pub struct CombinedBitvector<const W: u32> {
 }
 
 impl<const W: u32> CombinedBitvector<W> {
+    pub fn new(value: u64) -> Self {
+        let three_valued = ThreeValuedBitvector::new(value);
+        let dual_interval = DualInterval::from_value(ConcreteBitvector::new(value));
+        Self {
+            three_valued,
+            dual_interval,
+        }
+    }
+
     fn combine(three_valued: ThreeValuedBitvector<W>, dual_interval: DualInterval<W>) -> Self {
         // restrict the dual interval
         let near_min = three_valued.umin().max(dual_interval.unsigned_min());
@@ -52,9 +61,23 @@ impl<const W: u32> CombinedBitvector<W> {
         three_valued: PanicResult<ThreeValuedBitvector<W>>,
         dual_interval: PanicResult<DualInterval<W>>,
     ) -> PanicResult<CombinedBitvector<W>> {
-        let panic = three_valued.panic.intersection(&dual_interval.panic);
+        let panic = three_valued
+            .panic
+            .meet(dual_interval.panic)
+            .expect("Combined panic meet should not be empty");
         let result = Self::combine(three_valued.result, dual_interval.result);
         PanicResult { panic, result }
+    }
+
+    #[must_use]
+    pub fn from_zeros_ones(zeros: ConcreteBitvector<W>, ones: ConcreteBitvector<W>) -> Self {
+        let three_valued = ThreeValuedBitvector::from_zeros_ones(zeros, ones);
+        let dual_interval = DualInterval::FULL;
+        Self::combine(three_valued, dual_interval)
+    }
+
+    pub fn concrete_value(&self) -> Option<ConcreteBitvector<W>> {
+        self.three_valued.concrete_value()
     }
 }
 
@@ -83,8 +106,12 @@ impl<const W: u32> BitvectorDomain<W> for CombinedBitvector<W> {
         self.three_valued.element_description()
     }
 
-    fn three_valued(&self) -> &ThreeValuedBitvector<W> {
-        &self.three_valued
+    fn join(self, other: Self) -> Self {
+        self.phi(other)
+    }
+
+    fn meet(self, other: Self) -> Option<Self> {
+        todo!()
     }
 }
 

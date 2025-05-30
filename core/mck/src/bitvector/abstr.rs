@@ -5,7 +5,9 @@ mod three_valued;
 pub trait BitvectorDomain<const W: u32>: Clone + Copy + Hash + Phi + ManipField {
     fn unsigned_interval(&self) -> UnsignedInterval<W>;
     fn element_description(&self) -> ArrayFieldBitvector;
-    fn three_valued(&self) -> &ThreeValuedBitvector<W>;
+
+    fn join(self, other: Self) -> Self;
+    fn meet(self, other: Self) -> Option<Self>;
 }
 
 pub(super) use combined::CombinedBitvector;

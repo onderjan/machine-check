@@ -1,7 +1,7 @@
 use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
 
 use super::ThreeValuedBitvector;
-use crate::abstr::{PanicResult, Phi};
+use crate::abstr::{PanicBitvector, PanicResult, Phi};
 use crate::bitvector::util;
 use crate::concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
 use crate::forward::HwArith;
@@ -114,11 +114,11 @@ fn panic_result<const L: u32>(
         .map(|v| v == ConcreteBitvector::zero())
         .unwrap_or(false);
     let panic = if must_panic {
-        ThreeValuedBitvector::new(panic_msg_num)
+        PanicBitvector::new(panic_msg_num)
     } else if can_panic {
-        ThreeValuedBitvector::new(PANIC_NUM_NO_PANIC).phi(ThreeValuedBitvector::new(panic_msg_num))
+        PanicBitvector::new(PANIC_NUM_NO_PANIC).phi(PanicBitvector::new(panic_msg_num))
     } else {
-        ThreeValuedBitvector::new(PANIC_NUM_NO_PANIC)
+        PanicBitvector::new(PANIC_NUM_NO_PANIC)
     };
     PanicResult { panic, result }
 }

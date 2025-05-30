@@ -6,6 +6,7 @@ use crate::{
         abstr::{dual_interval::DualInterval, ThreeValuedBitvector},
         concr,
     },
+    concr::ConcreteBitvector,
     misc::MetaEq,
 };
 
@@ -40,5 +41,15 @@ impl<const W: u32> Debug for CombinedBitvector<W> {
 impl<const W: u32> Display for CombinedBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
+    }
+}
+
+impl CombinedBitvector<1> {
+    pub fn can_be_true(self) -> bool {
+        self.three_valued.can_be_true()
+    }
+
+    pub fn can_be_false(self) -> bool {
+        self.three_valued.can_be_false()
     }
 }

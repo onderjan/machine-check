@@ -10,27 +10,27 @@ impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        default_bi_mark(normal_input, mark_later.0)
+        default_bi_mark(normal_input, mark_later.0.into())
     }
 
     fn ult(
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        default_bi_mark(normal_input, mark_later.0)
+        default_bi_mark(normal_input, mark_later.0.into())
     }
 
     fn sle(
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        default_bi_mark(normal_input, mark_later.0)
+        default_bi_mark(normal_input, mark_later.0.into())
     }
 
     fn ule(
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        default_bi_mark(normal_input, mark_later.0)
+        default_bi_mark(normal_input, mark_later.0.into())
     }
 }

@@ -10,7 +10,9 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        let Some(mark_later) = mark_later.0 .0 else {
+        let bv_later: MarkBitvector<1> = mark_later.0.into();
+
+        let Some(mark_later) = bv_later.0 else {
             return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
         };
 
@@ -28,7 +30,9 @@ impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        let Some(mark_later) = mark_later.0 .0 else {
+        let bv_later: MarkBitvector<1> = mark_later.0.into();
+
+        let Some(mark_later) = bv_later.0 else {
             return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
         };
 

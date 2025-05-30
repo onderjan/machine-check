@@ -3,6 +3,7 @@ use crate::{
     concr::ConcreteBitvector,
     misc::MetaEq,
     panic::{concr, refin},
+    refin::PanicBitvector,
 };
 
 macro_rules! uni_op_test {
@@ -264,7 +265,7 @@ pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
         mark_func(
             abstr,
             refin::PanicResult {
-                panic: MarkBitvector(None),
+                panic: PanicBitvector::new_unmarked(),
                 result: earlier,
             },
         )
@@ -277,7 +278,7 @@ pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
         mark_func(
             (b, a),
             refin::PanicResult {
-                panic: MarkBitvector(None),
+                panic: PanicBitvector::new_unmarked(),
                 result: earlier,
             },
         )
@@ -290,7 +291,7 @@ pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
     for a_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
         for b_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
             let later_mark_result = MarkBitvector::<X>::new_unmarked();
-            let later_mark_panic = MarkBitvector::new_marked_unimportant();
+            let later_mark_panic = PanicBitvector::new_marked_unimportant();
             let (marked_a, marked_b) = mark_func(
                 (a_abstr, b_abstr),
                 refin::PanicResult {
