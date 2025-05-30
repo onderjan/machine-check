@@ -4,7 +4,6 @@ use crate::{
         ConcreteBitvector, SignedBitvector, SignedInterval, SignlessInterval, UnsignedBitvector,
         UnsignedInterval,
     },
-    forward::TypedEq,
     misc::MetaEq,
 };
 
@@ -143,7 +142,7 @@ impl<const W: u32> DualInterval<W> {
         self.far_half.max().cast_unsigned()
     }
 
-    pub fn to_unsigned_interval(&self) -> UnsignedInterval<W> {
+    pub fn to_unsigned_interval(self) -> UnsignedInterval<W> {
         UnsignedInterval::new(self.unsigned_min(), self.unsigned_max())
     }
 
@@ -155,7 +154,7 @@ impl<const W: u32> DualInterval<W> {
         self.near_half.max().cast_signed()
     }
 
-    pub fn to_signed_interval(&self) -> SignedInterval<W> {
+    pub fn to_signed_interval(self) -> SignedInterval<W> {
         SignedInterval::new(self.signed_min(), self.signed_max())
     }
 }

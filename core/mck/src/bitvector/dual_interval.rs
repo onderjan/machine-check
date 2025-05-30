@@ -17,21 +17,6 @@ mod support;
 #[cfg(test)]
 mod tests;
 
-trait UnsignedPrimitive: PrimInt + WrappingAdd + WrappingSub + WrappingMul + WrappingNeg {
-    type Signed: SignedPrimitive;
-
-    const ZERO: Self;
-    const UNDERHALF: Self;
-    const OVERHALF: Self;
-    const MAX: Self;
-
-    fn cast_signed(self) -> Self::Signed;
-}
-trait SignedPrimitive: PrimInt + WrappingAdd + WrappingSub + WrappingMul + WrappingNeg {
-    type Unsigned: UnsignedPrimitive;
-    fn cast_unsigned(self) -> Self::Unsigned;
-}
-
 /// Dual-interval domain.
 ///
 /// The idea is that the signedness of operations on the variable only really
