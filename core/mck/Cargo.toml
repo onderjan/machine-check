@@ -6,6 +6,9 @@ license = "MIT OR Apache-2.0"
 description = "Type/operation utility crate for the formal verification tool machine-check"
 rust-version = "1.83"
 
+[features]
+Zdual_interval = []
+
 [dependencies]
 seq-macro = "0.3.5"
 num = "0.4.3"

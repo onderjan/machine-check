@@ -1,5 +1,5 @@
 use crate::{
-    abstr::{Abstr, Boolean, PanicResult},
+    abstr::{Abstr, BitvectorDomain, Boolean, PanicBitvector, PanicResult},
     bitvector::abstr::three_valued::ThreeValuedBitvector,
     concr::{self, ConcreteBitvector, Test},
     traits::misc::MetaEq,
@@ -155,7 +155,7 @@ pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
 
             let a_concr_iter =
                 ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_concr(c));
-            let equiv_panic = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
+            let equiv_panic = join_panic_concr_iter(a_concr_iter.flat_map(|a_concr| {
                 ConcreteBitvector::<L>::all_with_length_iter()
                     .filter(|c| b.contains_concr(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr).panic)
@@ -218,4 +218,19 @@ pub(super) fn join_bool_concr_iter(iter: impl Iterator<Item = concr::Boolean>) -
     }
 
     Boolean::from_bools(can_be_false, can_be_true)
+}
+
+pub(super) fn join_panic_concr_iter(
+    mut iter: impl Iterator<Item = ConcreteBitvector<32>>,
+) -> PanicBitvector {
+    let first_concrete = iter
+        .next()
+        .expect("Expected at least one concrete bitvector in iterator");
+
+    let mut result = PanicBitvector::from_concrete(first_concrete);
+
+    for c in iter {
+        result = result.join(PanicBitvector::from_concrete(c))
+    }
+    result
 }

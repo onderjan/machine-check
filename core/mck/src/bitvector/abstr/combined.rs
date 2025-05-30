@@ -26,7 +26,7 @@ impl<const W: u32> CombinedBitvector<W> {
         }
     }
 
-    fn combine(three_valued: ThreeValuedBitvector<W>, dual_interval: DualInterval<W>) -> Self {
+    pub fn combine(three_valued: ThreeValuedBitvector<W>, dual_interval: DualInterval<W>) -> Self {
         // restrict the dual interval
         let near_min = three_valued.umin().max(dual_interval.unsigned_min());
         let near_max = three_valued.smax().min(dual_interval.signed_max());
@@ -71,13 +71,24 @@ impl<const W: u32> CombinedBitvector<W> {
 
     #[must_use]
     pub fn from_zeros_ones(zeros: ConcreteBitvector<W>, ones: ConcreteBitvector<W>) -> Self {
-        let three_valued = ThreeValuedBitvector::from_zeros_ones(zeros, ones);
-        let dual_interval = DualInterval::FULL;
-        Self::combine(three_valued, dual_interval)
+        Self::from_three_valued(ThreeValuedBitvector::from_zeros_ones(zeros, ones))
     }
 
     pub fn concrete_value(&self) -> Option<ConcreteBitvector<W>> {
         self.three_valued.concrete_value()
+    }
+
+    pub fn from_three_valued(three_valued: ThreeValuedBitvector<W>) -> CombinedBitvector<W> {
+        let dual_interval = DualInterval::FULL;
+        Self::combine(three_valued, dual_interval)
+    }
+
+    pub(crate) fn three_valued(&self) -> &ThreeValuedBitvector<W> {
+        &self.three_valued
+    }
+
+    pub(crate) fn dual_interval(&self) -> &DualInterval<W> {
+        &self.dual_interval
     }
 }
 

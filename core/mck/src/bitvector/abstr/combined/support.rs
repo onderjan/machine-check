@@ -6,7 +6,6 @@ use crate::{
         abstr::{dual_interval::DualInterval, ThreeValuedBitvector},
         concr,
     },
-    concr::ConcreteBitvector,
     misc::MetaEq,
 };
 

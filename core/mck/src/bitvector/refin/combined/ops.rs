@@ -1,5 +1,5 @@
 use crate::{
-    backward::{Bitwise, Ext, HwArith, TypedCmp, TypedEq},
+    backward::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq},
     bitvector::abstr::CombinedBitvector,
     refin::{Boolean, PanicResult},
 };
@@ -135,6 +135,22 @@ impl<const L: u32, const X: u32> Ext<X> for CombinedBitvector<L> {
     }
 
     fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
+        todo!()
+    }
+}
+
+impl<const L: u32> HwShift for CombinedBitvector<L> {
+    type Mark = CombinedMark<L>;
+
+    fn logic_shl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        todo!()
+    }
+
+    fn logic_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
+        todo!()
+    }
+
+    fn arith_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         todo!()
     }
 }

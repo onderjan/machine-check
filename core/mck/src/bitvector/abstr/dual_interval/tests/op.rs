@@ -1,5 +1,5 @@
 use crate::{
-    abstr::{Abstr, PanicBitvector, PanicResult},
+    abstr::{Abstr, BitvectorDomain, PanicBitvector, PanicResult},
     bitvector::abstr::dual_interval::DualInterval,
     boolean::abstr,
     concr::{self, ConcreteBitvector, SignlessInterval, Test},
@@ -177,11 +177,14 @@ pub(super) fn exec_comparison_check<const L: u32>(
                         a, b, equiv_result, abstr_result
                     );
                 }
-            } else if !abstr_result.0.contains(&equiv_result.0) {
-                panic!(
-                    "Unsound result with parameters {}, {}, expected {}, got {}",
-                    a, b, equiv_result, abstr_result
-                );
+            } else {
+                let joined = abstr_result.0.join(equiv_result.0);
+                if !abstr_result.0.meta_eq(&joined) {
+                    panic!(
+                        "Unsound result with parameters {}, {}, expected {}, got {}",
+                        a, b, equiv_result, abstr_result
+                    );
+                }
             }
             if a.concrete_value().is_some()
                 && b.concrete_value().is_some()
@@ -280,7 +283,7 @@ pub(super) fn join_panic_concr_iter(
     let mut result = PanicBitvector::from_concrete(first_concrete);
 
     for c in iter {
-        result = result.concrete_join(c)
+        result = result.join(PanicBitvector::from_concrete(c))
     }
     result
 }

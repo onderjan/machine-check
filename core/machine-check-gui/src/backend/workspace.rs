@@ -5,6 +5,7 @@ use machine_check_common::check::PreparedProperty;
 use machine_check_common::property::Property;
 use machine_check_common::ThreeValued;
 use machine_check_exec::Framework;
+use mck::abstr::BitvectorDomain;
 use mck::concr::FullMachine;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -80,8 +81,9 @@ impl<M: FullMachine> Workspace<M> {
 
             let (fields, panic) = if let Ok(state_id) = node_id.try_into() {
                 let state = space.state_data(state_id);
-                let can_be_nonpanic = state.panic.umin().is_zero();
-                let can_be_panic = state.panic.umax().is_nonzero();
+                let panic_unsigned = state.panic.unsigned_interval();
+                let can_be_nonpanic = panic_unsigned.min().is_zero();
+                let can_be_panic = panic_unsigned.max().is_nonzero();
                 let panic = match (can_be_nonpanic, can_be_panic) {
                     (true, true) => ThreeValued::Unknown,
                     (false, true) => ThreeValued::True,

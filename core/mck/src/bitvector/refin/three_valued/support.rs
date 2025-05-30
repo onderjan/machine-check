@@ -131,12 +131,12 @@ impl<const L: u32> ManipField for MarkBitvector<L> {
 
 impl From<Boolean> for MarkBitvector<1> {
     fn from(value: Boolean) -> Self {
-        value.0
+        value.0.into()
     }
 }
 
 impl From<MarkBitvector<1>> for Boolean {
     fn from(value: MarkBitvector<1>) -> Self {
-        Boolean(value)
+        Boolean(value.into())
     }
 }

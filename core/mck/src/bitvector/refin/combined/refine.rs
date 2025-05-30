@@ -1,5 +1,5 @@
 use crate::{
-    bitvector::abstr::CombinedBitvector,
+    bitvector::{abstr::CombinedBitvector, refin::three_valued::MarkBitvector},
     refin::{Boolean, Refine},
 };
 
@@ -7,30 +7,35 @@ use super::CombinedMark;
 
 impl<const L: u32> Refine<CombinedBitvector<L>> for CombinedMark<L> {
     fn apply_join(&mut self, other: &Self) {
-        todo!()
+        self.0.apply_join(&other.0);
     }
 
     fn to_condition(&self) -> Boolean {
-        todo!()
+        self.0.to_condition()
     }
 
     fn apply_refin(&mut self, offer: &Self) -> bool {
-        todo!()
+        self.0.apply_refin(&offer.0)
     }
 
     fn force_decay(&self, target: &mut CombinedBitvector<L>) {
-        todo!()
+        // TODO: force decay on both
+
+        let mut three_valued = *target.three_valued();
+        self.0.force_decay(&mut three_valued);
+
+        *target = CombinedBitvector::combine(three_valued, *target.dual_interval());
     }
 
     fn clean() -> Self {
-        todo!()
+        Self(MarkBitvector::clean())
     }
 
     fn dirty() -> Self {
-        todo!()
+        Self(MarkBitvector::dirty())
     }
 
     fn importance(&self) -> u8 {
-        todo!()
+        self.0.importance()
     }
 }
