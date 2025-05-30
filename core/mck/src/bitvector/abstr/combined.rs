@@ -8,7 +8,10 @@ use crate::{
     concr::{ConcreteBitvector, UnsignedInterval, WrappingInterval},
 };
 
-use super::{dual_interval::DualInterval, three_valued::ThreeValuedBitvector};
+use super::{
+    dual_interval::{self, DualInterval},
+    three_valued::ThreeValuedBitvector,
+};
 
 #[derive(Clone, Copy, Hash, Default)]
 pub struct CombinedBitvector<const W: u32> {
@@ -122,7 +125,13 @@ impl<const W: u32> BitvectorDomain<W> for CombinedBitvector<W> {
     }
 
     fn meet(self, other: Self) -> Option<Self> {
-        todo!()
+        let Some(three_valued) = self.three_valued.meet(other.three_valued) else {
+            return None;
+        };
+        let Some(dual_interval) = self.dual_interval.meet(other.dual_interval) else {
+            return None;
+        };
+        Some(Self::combine(three_valued, dual_interval))
     }
 }
 

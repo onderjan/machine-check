@@ -4,6 +4,7 @@ use crate::{
         ConcreteBitvector, SignedInterval, SignlessInterval, UnsignedInterval,
         WrappingInterpretation, WrappingInterval,
     },
+    forward::TypedEq,
 };
 
 mod arith;

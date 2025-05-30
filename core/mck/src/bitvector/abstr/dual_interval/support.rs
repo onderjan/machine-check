@@ -46,7 +46,7 @@ impl<const W: u32> DualInterval<W> {
         }
     }
 
-    pub fn intersection(&self, rhs: &Self) -> Option<Self> {
+    pub fn meet(self, rhs: Self) -> Option<Self> {
         let (our_near_half, our_far_half) = self.opt_halves();
         let (other_near_half, other_far_half) = rhs.opt_halves();
 

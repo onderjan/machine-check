@@ -12,9 +12,7 @@ impl<const W: u32> TypedEq for DualInterval<W> {
         // result can be true if the intervals have an intersection
         // result can be false if both are not the same concrete value
 
-        let intersection = self.intersection(&rhs);
-
-        let can_be_same = intersection.is_some();
+        let can_be_same = self.meet(rhs).is_some();
         let can_be_different = if let (Some(lhs_value), Some(rhs_value)) =
             (self.concrete_value(), rhs.concrete_value())
         {
