@@ -17,24 +17,25 @@ macro_rules! uni_op_test {
             use crate::traits::forward::HwArith;
             let abstr_func = |a: DualInterval<L>| a.$op();
             let concr_func = |a: ConcreteBitvector<L>| a.$op();
-            $crate::bitvector::dual_interval::tests::op::exec_uni_check(abstr_func, concr_func);
+            $crate::bitvector::dual_interval::tests::op::exec_uni_check(abstr_func, concr_func, true);
         }
     });
     };
 }
 
 macro_rules! ext_op_test {
-    ($op:tt) => {
-        seq_macro::seq!(L in 0..=4 {
-            seq_macro::seq!(X in 0..=4 {
+    ($op:tt, $exact:tt) => {
+        seq_macro::seq!(L in 0..=6 {
+            seq_macro::seq!(X in 0..=6 {
                 #[test]
                 pub fn $op~L~X() {
                     use crate::bitvector::concrete::ConcreteBitvector;
                     use crate::bitvector::dual_interval::DualInterval;
+                    use crate::traits::forward::Ext;
                     let abstr_func =
                         |a: DualInterval<L>| -> DualInterval<X> { a.$op() };
                     let concr_func = |a: ConcreteBitvector<L>| -> ConcreteBitvector<X> { a.$op() };
-                    $crate::bitvector::dual_interval::tests::op::exec_uni_check(abstr_func, concr_func);
+                    $crate::bitvector::dual_interval::tests::op::exec_uni_check(abstr_func, concr_func, $exact);
                 }
             });
         });
@@ -99,6 +100,7 @@ macro_rules! divrem_op_test {
 pub(super) fn exec_uni_check<const L: u32, const X: u32>(
     abstr_func: fn(DualInterval<L>) -> DualInterval<X>,
     concr_func: fn(ConcreteBitvector<L>) -> ConcreteBitvector<X>,
+    exact: bool,
 ) {
     for a in DualInterval::<L>::all_with_length_iter() {
         let abstr_result = abstr_func(a);
@@ -107,9 +109,16 @@ pub(super) fn exec_uni_check<const L: u32, const X: u32>(
                 .filter(|c| a.contains_value(c))
                 .map(concr_func),
         );
-        if !abstr_result.meta_eq(&equiv_result) {
+        if exact {
+            if !abstr_result.meta_eq(&equiv_result) {
+                panic!(
+                    "Non-exact result with parameter {}, expected {}, got {}",
+                    a, equiv_result, abstr_result
+                );
+            }
+        } else if !abstr_result.contains(&equiv_result) {
             panic!(
-                "Wrong result with parameter {}, expected {}, got {}",
+                "Unsound result with parameter {}, expected {}, got {}",
                 a, equiv_result, abstr_result
             );
         }

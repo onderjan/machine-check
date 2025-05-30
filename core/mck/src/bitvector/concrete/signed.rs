@@ -8,7 +8,7 @@ use num::{One, Zero};
 use crate::{
     bitvector::concr,
     concr::PanicResult,
-    forward::{HwArith, HwShift},
+    forward::{Ext, HwArith, HwShift},
 };
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -45,6 +45,10 @@ impl<const L: u32> SignedBitvector<L> {
 
     pub fn is_nonzero(&self) -> bool {
         self.0.is_nonzero()
+    }
+
+    pub fn ext<const X: u32>(self) -> SignedBitvector<X> {
+        SignedBitvector(self.0.sext())
     }
 }
 

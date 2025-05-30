@@ -11,6 +11,7 @@ use super::concrete::{
 mod arith;
 mod cmp;
 mod eq;
+mod ext;
 mod support;
 
 #[cfg(test)]

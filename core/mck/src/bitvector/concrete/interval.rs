@@ -93,6 +93,34 @@ impl<const W: u32> UnsignedInterval<W> {
         }
     }
 
+    pub fn ext<const X: u32>(self) -> UnsignedInterval<X> {
+        if self.min == self.max {
+            // clearly, we can extend
+            let ext_value = self.min.ext();
+            return UnsignedInterval {
+                min: ext_value,
+                max: ext_value,
+            };
+        }
+
+        // if we narrow the interval and disregarded a bound, saturate
+        let mut ext_min: UnsignedBitvector<X> = self.min.ext();
+        let mut ext_max: UnsignedBitvector<X> = self.max.ext();
+
+        let min_diff = self.min - ext_min.ext();
+        let max_diff = self.max - ext_max.ext();
+
+        if min_diff != max_diff {
+            // we disregarded a bound, saturate
+            ext_min = ConcreteBitvector::zero().cast_unsigned();
+            ext_max = ConcreteBitvector::const_umax().cast_unsigned();
+        }
+        UnsignedInterval {
+            min: ext_min,
+            max: ext_max,
+        }
+    }
+
     pub fn try_into_signless(self) -> Option<SignlessInterval<W>> {
         if self.min.as_bitvector().is_sign_bit_set() == self.max.as_bitvector().is_sign_bit_set() {
             Some(SignlessInterval {
@@ -169,6 +197,34 @@ impl<const W: u32> SignedInterval<W> {
             })
         } else {
             None
+        }
+    }
+
+    pub fn ext<const X: u32>(self) -> SignedInterval<X> {
+        if self.min == self.max {
+            // clearly, we can extend
+            let ext_value = self.min.ext();
+            return SignedInterval {
+                min: ext_value,
+                max: ext_value,
+            };
+        }
+
+        // if we narrow the interval and disregarded a bound, saturate
+        let mut ext_min: SignedBitvector<X> = self.min.ext();
+        let mut ext_max: SignedBitvector<X> = self.max.ext();
+
+        let min_diff = self.min - ext_min.ext();
+        let max_diff = self.max - ext_max.ext();
+
+        if min_diff != max_diff {
+            // we disregarded a bound, saturate
+            ext_min = ConcreteBitvector::const_overhalf().cast_signed();
+            ext_max = ConcreteBitvector::const_underhalf().cast_signed();
+        }
+        SignedInterval {
+            min: ext_min,
+            max: ext_max,
         }
     }
 }

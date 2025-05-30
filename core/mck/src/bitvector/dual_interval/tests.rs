@@ -36,11 +36,10 @@ comparison_op_test!(ule, true);
 // shift tests
 /*bi_op_test!(logic_shl, true);
 bi_op_test!(logic_shr, true);
-bi_op_test!(arith_shr, true);
+bi_op_test!(arith_shr, true);*/
 
 // --- EXTENSION TESTS ---
 
 // extension tests
-ext_op_test!(uext);
-ext_op_test!(sext);
-*/
+ext_op_test!(uext, false);
+ext_op_test!(sext, false);
