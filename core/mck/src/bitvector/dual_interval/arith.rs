@@ -278,5 +278,5 @@ fn resolve_by_unsigned<const W: u32>(
     let fn_result = op_fn(a.far_half.into_unsigned(), b.near_half.into_unsigned());
     let ff_result = op_fn(a.far_half.into_unsigned(), b.far_half.into_unsigned());
 
-    DualInterval::from_unsigned_intervals(&[nn_result, nf_result, fn_result, ff_result])
+    DualInterval::from_unsigned_intervals([nn_result, nf_result, fn_result, ff_result])
 }

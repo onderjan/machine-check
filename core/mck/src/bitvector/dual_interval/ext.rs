@@ -12,7 +12,7 @@ impl<const L: u32, const X: u32> Ext<X> for DualInterval<L> {
         let near: UnsignedInterval<X> = self.near_half.into_unsigned().ext();
         let far: UnsignedInterval<X> = self.far_half.into_unsigned().ext();
 
-        DualInterval::from_unsigned_intervals(&[near, far])
+        DualInterval::from_unsigned_intervals([near, far])
     }
 
     fn sext(self) -> DualInterval<X> {

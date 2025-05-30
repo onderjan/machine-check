@@ -34,9 +34,9 @@ comparison_op_test!(ult, true);
 comparison_op_test!(ule, true);
 
 // shift tests
-/*bi_op_test!(logic_shl, true);
-bi_op_test!(logic_shr, true);
-bi_op_test!(arith_shr, true);*/
+bi_op_test!(logic_shl, false);
+bi_op_test!(logic_shr, false);
+bi_op_test!(arith_shr, true);
 
 // --- EXTENSION TESTS ---
 

@@ -12,6 +12,7 @@ mod arith;
 mod cmp;
 mod eq;
 mod ext;
+mod shift;
 mod support;
 
 #[cfg(test)]
@@ -77,12 +78,12 @@ impl<const W: u32> DualInterval<W> {
         Self::from_opt_halves(near_half, far_half)
     }
 
-    fn from_unsigned_intervals(intervals: &[UnsignedInterval<W>]) -> Self {
+    fn from_unsigned_intervals(intervals: impl IntoIterator<Item = UnsignedInterval<W>>) -> Self {
         let mut near_half = None;
         let mut far_half = None;
 
         for interval in intervals {
-            let (interval_near_half, interval_far_half) = unsigned_halves(*interval);
+            let (interval_near_half, interval_far_half) = unsigned_halves(interval);
             near_half = SignlessInterval::union_opt(near_half, interval_near_half);
             far_half = SignlessInterval::union_opt(far_half, interval_far_half);
         }
