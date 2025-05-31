@@ -1,4 +1,7 @@
+use btor2rs::id::Nid;
 use syn::{parse_quote, Expr, FieldValue};
+
+use crate::translate::btor2::util::create_nid_init_eq_ident;
 
 use super::{
     util::{create_nid_ident, create_rnid_expr, single_bits_and},
@@ -8,6 +11,7 @@ use super::{
 impl Translator {
     pub(super) fn create_result(&self, is_init: bool) -> Result<Expr, Error> {
         let mut field_values = Vec::new();
+        let mut init_eq_nids = Vec::new();
         for (nid, state_info) in &self.state_info_map {
             // if state has no next, it is not remembered
             if let Some(next) = state_info.next {
@@ -22,14 +26,23 @@ impl Translator {
                 };
                 field_values.push(parse_quote!(#state_ident: #returned_ident));
             }
+            if !is_init && state_info.init.is_some() {
+                // should be taken into account in init_eq
+                init_eq_nids.push(*nid);
+            }
         }
         // add drain
-        self.add_drain_field_values(is_init, &mut field_values);
+        self.add_drain_field_values(is_init, &mut field_values, &init_eq_nids);
         // put everything together
         Ok(parse_quote!(State{#(#field_values),*}))
     }
 
-    fn add_drain_field_values(&self, is_init: bool, field_values: &mut Vec<FieldValue>) {
+    fn add_drain_field_values(
+        &self,
+        is_init: bool,
+        field_values: &mut Vec<FieldValue>,
+        init_eq_nids: &[Nid],
+    ) {
         // result is constrained exactly when it was constrained previously and all constraints hold
         // i.e. (constraint_1 & constraint_2 & ...) & previous_constrained
 
@@ -62,5 +75,18 @@ impl Translator {
 
         // combine and add to field values
         field_values.push(parse_quote!(safe: (#not_constraint_expr | #not_bad_expr)));
+
+        if is_init {
+            field_values.push(parse_quote!(eq_init: ::machine_check::Bitvector::<1>::new(1)));
+        } else {
+            // result is equal to init exactly if all init_eq nids have their init expression
+            // equal to their normal expression
+            let eq_init_exprs = init_eq_nids.iter().map(|init_eq_nid| -> Expr {
+                let init_ident = create_nid_init_eq_ident(*init_eq_nid);
+                parse_quote!(#init_ident)
+            });
+            let eq_init_expr = single_bits_and(eq_init_exprs);
+            field_values.push(parse_quote!(eq_init: (#eq_init_expr)));
+        }
     }
 }

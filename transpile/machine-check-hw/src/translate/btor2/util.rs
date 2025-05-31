@@ -12,6 +12,10 @@ pub fn create_nid_ident(nid: Nid) -> Ident {
     Ident::new(&format!("node_{}", nid.get()), Span::call_site())
 }
 
+pub fn create_nid_init_eq_ident(nid: Nid) -> Ident {
+    Ident::new(&format!("node_init_eq_{}", nid.get()), Span::call_site())
+}
+
 pub fn create_rnid_expr(rref: Rnid) -> Expr {
     let ident = create_nid_ident(rref.nid());
     if rref.is_not() {

@@ -12,15 +12,16 @@ use super::Config;
 pub(super) fn execute(config: &Config, artifact_path: &Path) -> Result<ExecResult, Error> {
     let mut command = Command::new(artifact_path);
 
-    command.arg("--property");
-    command.arg("AG![safe == 1]");
-
     // batch output so we can parse it
     command.arg("--batch");
 
     // forward property
     if let Some(property) = &config.property {
         command.arg("--property").arg(property);
+    } else {
+        // default to safety
+        command.arg("--property");
+        command.arg("AG![safe == 1]");
     }
 
     // forward verbose

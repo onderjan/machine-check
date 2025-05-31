@@ -52,7 +52,10 @@ impl Translator {
         state_fields.push(create_field(constrained_ident, bit_type.clone()));
         // add 'safe' state field
         let safe_ident = Ident::new("safe", Span::call_site());
-        state_fields.push(create_field(safe_ident, bit_type));
+        state_fields.push(create_field(safe_ident, bit_type.clone()));
+        // add 'eq_init' state field
+        let eq_init_ident = Ident::new("eq_init", Span::call_site());
+        state_fields.push(create_field(eq_init_ident, bit_type));
     }
 
     fn create_nid_field(&self, nid: Nid, sid: Sid) -> Result<Field, Error> {

@@ -5,6 +5,8 @@ use btor2rs::{
 use proc_macro2::Span;
 use syn::{parse_quote, Ident};
 
+use crate::translate::btor2::util::create_nid_init_eq_ident;
+
 use self::{constant::create_value_expr, uni::create_arith_neg_expr};
 
 use super::{
@@ -112,6 +114,27 @@ impl NodeTranslator<'_> {
         let result_length = self.get_nid_bitvec(nid)?.length.get();
         self.stmts
             .push(parse_quote!(let #result_ident: ::machine_check::Bitvector<#result_length> = #result_expr;));
+
+        // add init_eq if needed
+        if !self.for_init {
+            if let Node::State(_) = node {
+                let state_info = self.translator.state_info_map.get(&nid).unwrap();
+                if let Some(init) = state_info.init {
+                    // add init-value statement
+                    let init_eq_ident = create_nid_init_eq_ident(nid);
+                    let init_value_expr = create_rnid_expr(init);
+                    self.stmts.push(parse_quote!
+                        (let #init_eq_ident: ::machine_check::Bitvector<1>;));
+                    self.stmts
+                        .push(parse_quote!(if #result_ident == #init_value_expr {
+                            #init_eq_ident = ::machine_check::Bitvector::<1>::new(1);
+                        } else {
+                            #init_eq_ident = ::machine_check::Bitvector::<1>::new(0);
+                        }));
+                }
+            }
+        }
+
         Ok(())
     }
 
