@@ -226,16 +226,19 @@ impl<const W: u32> Phi for DualInterval<W> {
         let (our_near_half, our_far_half) = self.opt_halves();
         let (other_near_half, other_far_half) = other.opt_halves();
 
-        let mut result_near_half = None;
-        let mut result_far_half = None;
+        let result_near_half = match (our_near_half, other_near_half) {
+            (None, None) => None,
+            (None, Some(half)) => Some(half),
+            (Some(half), None) => Some(half),
+            (Some(our_half), Some(other_half)) => Some(our_half.union(other_half)),
+        };
 
-        if let (Some(our_near_half), Some(other_near_half)) = (our_near_half, other_near_half) {
-            result_near_half = Some(our_near_half.union(other_near_half));
-        }
-
-        if let (Some(our_far_half), Some(other_far_half)) = (our_far_half, other_far_half) {
-            result_far_half = Some(our_far_half.union(other_far_half));
-        }
+        let result_far_half = match (our_far_half, other_far_half) {
+            (None, None) => None,
+            (None, Some(half)) => Some(half),
+            (Some(half), None) => Some(half),
+            (Some(our_half), Some(other_half)) => Some(our_half.union(other_half)),
+        };
 
         Self::from_opt_halves(result_near_half, result_far_half)
     }

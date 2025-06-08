@@ -5,7 +5,7 @@ use crate::{
         Abstr, ArrayFieldBitvector, BitvectorDomain, BitvectorField, Boolean, Field, ManipField,
         Phi, Test,
     },
-    bitvector::util,
+    bitvector::util::{self, compute_u64_mask},
     concr::{self, ConcreteBitvector, SignedBitvector, UnsignedBitvector, UnsignedInterval},
     forward::Bitwise,
     traits::misc::MetaEq,
@@ -62,12 +62,8 @@ impl<const L: u32> ThreeValuedBitvector<L> {
             // min is equal to max
             return Self::from_concrete(min);
         };
-        if unknown_positions >= L {
-            // all positions are unknown
-            return Self::new_unknown();
-        }
 
-        let unknown_mask = ConcreteBitvector::new(1u64 << unknown_positions);
+        let unknown_mask = ConcreteBitvector::new(compute_u64_mask(unknown_positions + 1));
         Self::new_value_unknown(min, unknown_mask)
     }
 
