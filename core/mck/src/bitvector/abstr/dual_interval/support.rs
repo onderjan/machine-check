@@ -36,18 +36,6 @@ impl<const W: u32> DualInterval<W> {
         None
     }
 
-    pub(super) fn opt_halves(self) -> (Option<SignlessInterval<W>>, Option<SignlessInterval<W>>) {
-        if self.near_half == self.far_half {
-            if self.near_half.is_sign_bit_set() {
-                (None, Some(self.far_half))
-            } else {
-                (Some(self.near_half), None)
-            }
-        } else {
-            (Some(self.near_half), Some(self.far_half))
-        }
-    }
-
     pub fn meet(self, rhs: Self) -> Option<Self> {
         let (our_near_half, our_far_half) = self.opt_halves();
         let (other_near_half, other_far_half) = rhs.opt_halves();
