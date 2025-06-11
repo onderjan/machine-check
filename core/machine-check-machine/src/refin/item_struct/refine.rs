@@ -12,7 +12,7 @@ use crate::{
     util::{
         create_arg, create_assign, create_expr_call, create_expr_field_named, create_expr_ident,
         create_expr_path, create_field_value_ident, create_ident, create_impl_item_fn,
-        create_item_impl, create_let_bare, create_let_mut, create_path_from_name,
+        create_item_impl, create_let_bare, create_let_mut, create_path_from_ident,
         create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
         ArgType,
     },
@@ -24,7 +24,7 @@ pub(crate) fn refine_impl(
     abstr_type_path: &WPath,
 ) -> ItemImpl {
     let refin_fn = apply_refin_fn(item_struct);
-    let join_fn = apply_join_fn(item_struct);
+    let join_fn: ImplItemFn = apply_join_fn(item_struct);
     let decay_fn = force_decay_fn(item_struct, abstr_type_path);
     let to_condition_fn = to_condition_fn(item_struct);
     let clean_fn = mark_creation_fn(item_struct, "clean", path!(::mck::refin::Refine::clean));
@@ -261,7 +261,7 @@ fn importance_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn {
     let result_ident = create_ident("__mck_result");
     let self_input = create_self_arg(ArgType::Reference);
 
-    let importance_ty = create_type_path(create_path_from_name("u8"));
+    let importance_ty = create_type_path(create_path_from_ident(create_ident("u8")));
 
     let mut stmts = Vec::new();
     stmts.push(create_let_mut(

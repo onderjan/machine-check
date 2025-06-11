@@ -67,7 +67,7 @@ pub fn create_assign(left_ident: Ident, right_expr: Expr, semicolon: bool) -> St
     )
 }
 
-pub fn create_assign_expr(left_ident: Ident, right_expr: Expr) -> Expr {
+fn create_assign_expr(left_ident: Ident, right_expr: Expr) -> Expr {
     let left_expr = create_expr_path(create_path_from_ident(left_ident));
     Expr::Assign(ExprAssign {
         attrs: vec![],

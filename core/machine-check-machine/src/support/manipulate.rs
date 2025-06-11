@@ -13,8 +13,8 @@ use syn_path::path;
 use crate::util::{
     create_arg, create_expr_call, create_expr_field_named, create_expr_ident, create_expr_path,
     create_ident, create_impl_item_fn, create_item_impl, create_pat_wild, create_path_from_ident,
-    create_path_from_name, create_path_with_last_generic_type, create_self, create_self_arg,
-    create_type_path, create_type_reference, path_matches_global_names, ArgType,
+    create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
+    create_type_reference, path_matches_global_names, ArgType,
 };
 
 use super::special_trait::{special_trait_impl, SpecialTrait};
@@ -152,7 +152,9 @@ fn create_fn(
     let name_arg = create_arg(
         ArgType::Reference,
         name_ident.clone(),
-        Some(create_type_path(create_path_from_name("str"))),
+        Some(create_type_path(create_path_from_ident(create_ident(
+            "str",
+        )))),
     );
     let manip_field_type = create_type_reference(
         mutable,

@@ -13,10 +13,6 @@ pub fn create_path_from_ident(ident: Ident) -> Path {
     Path::from(ident)
 }
 
-pub fn create_path_from_name(name: &str) -> Path {
-    create_path_from_ident(create_ident(name))
-}
-
 pub fn create_path_segment(ident: Ident) -> PathSegment {
     PathSegment {
         ident,
