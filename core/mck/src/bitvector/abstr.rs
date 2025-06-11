@@ -36,6 +36,27 @@ pub struct BitvectorElement {
     pub dual_interval: Option<DualIntervalFieldValue>,
 }
 
+impl BitvectorElement {
+    fn write(&self, f: &mut std::fmt::Formatter<'_>, bit_width: u32) -> std::fmt::Result {
+        if let Some(three_valued) = &self.three_valued {
+            three_valued.write(f, bit_width)?;
+        }
+
+        if matches!(
+            (&self.three_valued, &self.dual_interval),
+            (Some(_), Some(_))
+        ) {
+            write!(f, " ⊓ ")?;
+        }
+
+        if let Some(dual_interval) = &self.dual_interval {
+            dual_interval.write(f)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct BitvectorField {
     pub bit_width: u32,
@@ -44,21 +65,6 @@ pub struct BitvectorField {
 
 impl Display for BitvectorField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(three_valued) = &self.element.three_valued {
-            three_valued.write(f, self.bit_width)?;
-        }
-
-        if matches!(
-            (&self.element.three_valued, &self.element.dual_interval),
-            (Some(_), Some(_))
-        ) {
-            write!(f, " ⊓ ")?;
-        }
-
-        if let Some(dual_interval) = &self.element.dual_interval {
-            dual_interval.write(f)?;
-        }
-
-        Ok(())
+        self.element.write(f, self.bit_width)
     }
 }

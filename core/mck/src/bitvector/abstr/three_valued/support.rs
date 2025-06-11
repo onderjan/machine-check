@@ -206,6 +206,13 @@ impl<const L: u32> ThreeValuedBitvector<L> {
             ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
         })
     }
+
+    fn field_value(&self) -> ThreeValuedFieldValue {
+        ThreeValuedFieldValue {
+            zeros: self.zeros.as_unsigned(),
+            ones: self.ones.as_unsigned(),
+        }
+    }
 }
 
 impl<const L: u32> MetaEq for ThreeValuedBitvector<L> {
@@ -267,10 +274,7 @@ impl<const W: u32> BitvectorDomain<W> for ThreeValuedBitvector<W> {
 
     fn element_description(&self) -> BitvectorElement {
         BitvectorElement {
-            three_valued: Some(ThreeValuedFieldValue {
-                zeros: self.zeros.as_unsigned(),
-                ones: self.ones.as_unsigned(),
-            }),
+            three_valued: Some(self.field_value()),
             dual_interval: None,
         }
     }
@@ -334,7 +338,7 @@ impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
 
 impl<const L: u32> Debug for ThreeValuedBitvector<L> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        format_zeros_ones(f, L, self.zeros.as_unsigned(), self.ones.as_unsigned())
+        self.field_value().write(f, L)
     }
 }
 

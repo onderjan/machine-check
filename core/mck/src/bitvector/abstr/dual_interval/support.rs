@@ -167,11 +167,7 @@ impl DualIntervalFieldValue {
 
 impl<const W: u32> Debug for DualInterval<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.near_half == self.far_half {
-            write!(f, "{}", self.near_half)
-        } else {
-            write!(f, "{} ⊔ {}", self.near_half, self.far_half)
-        }
+        self.field_value().write(f)
     }
 }
 

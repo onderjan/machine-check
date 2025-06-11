@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    abstr::Abstr,
+    abstr::{Abstr, BitvectorDomain},
     bitvector::{
         abstr::{dual_interval::DualInterval, ThreeValuedBitvector},
         concr,
@@ -29,11 +29,7 @@ impl<const W: u32> MetaEq for CombinedBitvector<W> {
 
 impl<const W: u32> Debug for CombinedBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "({}) \u{2293} ({})",
-            self.three_valued, self.dual_interval
-        )
+        self.element_description().write(f, W)
     }
 }
 
