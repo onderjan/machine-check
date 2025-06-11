@@ -1,5 +1,6 @@
 use crate::{
-    concr::{ConcreteBitvector, SignlessInterval, UnsignedInterval},
+    bitvector::interval::{SignlessInterval, UnsignedInterval},
+    concr::ConcreteBitvector,
     forward::{HwArith, HwShift},
 };
 

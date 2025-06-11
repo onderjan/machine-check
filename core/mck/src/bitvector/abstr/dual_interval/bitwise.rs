@@ -1,4 +1,4 @@
-use crate::{concr::SignlessInterval, forward::Bitwise};
+use crate::{bitvector::interval::SignlessInterval, forward::Bitwise};
 
 use super::DualInterval;
 

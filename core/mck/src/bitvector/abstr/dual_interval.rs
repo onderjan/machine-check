@@ -1,8 +1,7 @@
 use crate::{
     abstr::Phi,
-    concr::{
-        ConcreteBitvector, SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval,
-    },
+    bitvector::interval::{SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval},
+    concr::ConcreteBitvector,
 };
 
 mod arith;

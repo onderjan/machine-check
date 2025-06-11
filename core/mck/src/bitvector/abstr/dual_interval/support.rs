@@ -2,10 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use super::DualInterval;
 use crate::{
-    concr::{
-        ConcreteBitvector, SignedBitvector, SignedInterval, SignlessInterval, UnsignedBitvector,
-        UnsignedInterval, WrappingInterval,
-    },
+    bitvector::interval::{SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval},
+    concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     misc::MetaEq,
 };
 

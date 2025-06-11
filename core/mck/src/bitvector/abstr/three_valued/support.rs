@@ -7,8 +7,11 @@ use crate::{
         Abstr, BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field, ManipField, Phi,
         Test,
     },
-    bitvector::util::{self, compute_u64_mask},
-    concr::{self, ConcreteBitvector, SignedBitvector, UnsignedBitvector, UnsignedInterval},
+    bitvector::{
+        interval::UnsignedInterval,
+        util::{self, compute_u64_mask},
+    },
+    concr::{self, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     forward::Bitwise,
     traits::misc::MetaEq,
 };

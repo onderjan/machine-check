@@ -1,5 +1,5 @@
 use crate::{
-    concr::{SignedInterval, UnsignedInterval},
+    bitvector::interval::{SignedInterval, UnsignedInterval},
     forward::Ext,
 };
 

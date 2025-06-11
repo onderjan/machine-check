@@ -1,8 +1,8 @@
 use crate::{
     abstr::{Abstr, BitvectorDomain, PanicBitvector, PanicResult},
-    bitvector::abstr::dual_interval::DualInterval,
+    bitvector::{abstr::dual_interval::DualInterval, interval::SignlessInterval},
     boolean::abstr,
-    concr::{self, ConcreteBitvector, SignlessInterval, Test},
+    concr::{self, ConcreteBitvector, Test},
     traits::misc::MetaEq,
 };
 

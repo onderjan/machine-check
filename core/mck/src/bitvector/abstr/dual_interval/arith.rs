@@ -2,7 +2,8 @@ use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_
 
 use crate::{
     abstr::{Abstr, PanicBitvector, PanicResult, Phi},
-    concr::{ConcreteBitvector, SignedInterval},
+    bitvector::interval::SignedInterval,
+    concr::ConcreteBitvector,
     forward::HwArith,
 };
 

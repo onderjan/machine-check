@@ -8,7 +8,8 @@ use crate::{
         BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field, ManipField, PanicResult,
         Phi, Test,
     },
-    concr::{ConcreteBitvector, UnsignedInterval, WrappingInterval},
+    bitvector::interval::{UnsignedInterval, WrappingInterval},
+    concr::ConcreteBitvector,
 };
 
 use super::{dual_interval::DualInterval, three_valued::ThreeValuedBitvector};

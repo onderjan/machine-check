@@ -1,9 +1,12 @@
 use crate::{
-    bitvector::abstr::dual_interval::DualInterval,
-    concr::{
-        ConcreteBitvector, SignedInterval, SignlessInterval, UnsignedInterval,
-        WrappingInterpretation, WrappingInterval,
+    bitvector::{
+        abstr::dual_interval::DualInterval,
+        interval::{
+            SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterpretation,
+            WrappingInterval,
+        },
     },
+    concr::ConcreteBitvector,
 };
 
 impl<const W: u32> DualInterval<W> {

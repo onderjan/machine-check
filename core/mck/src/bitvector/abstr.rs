@@ -1,4 +1,4 @@
-use super::concr::UnsignedInterval;
+use super::interval::UnsignedInterval;
 use crate::abstr::{ManipField, Phi};
 use std::{fmt::Display, hash::Hash};
 
