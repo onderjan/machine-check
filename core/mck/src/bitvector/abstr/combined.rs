@@ -4,7 +4,10 @@ mod support;
 use std::hash::Hash;
 
 use crate::{
-    abstr::{ArrayFieldBitvector, BitvectorDomain, Boolean, ManipField, PanicResult, Phi, Test},
+    abstr::{
+        BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field, ManipField, PanicResult,
+        Phi, Test,
+    },
     concr::{ConcreteBitvector, UnsignedInterval, WrappingInterval},
 };
 
@@ -115,9 +118,10 @@ impl<const W: u32> BitvectorDomain<W> for CombinedBitvector<W> {
         self.dual_interval.to_unsigned_interval()
     }
 
-    fn element_description(&self) -> ArrayFieldBitvector {
-        // TODO show dual-interval values
-        self.three_valued.element_description()
+    fn element_description(&self) -> BitvectorElement {
+        let mut element_description = self.three_valued.element_description();
+        element_description.dual_interval = Some(self.dual_interval.field_value());
+        element_description
     }
 
     fn join(self, other: Self) -> Self {
@@ -157,7 +161,9 @@ impl<const W: u32> ManipField for CombinedBitvector<W> {
     }
 
     fn description(&self) -> crate::abstr::Field {
-        // TODO show dual-interval values
-        self.three_valued.description()
+        Field::Bitvector(BitvectorField {
+            bit_width: W,
+            element: self.element_description(),
+        })
     }
 }

@@ -2,8 +2,8 @@ use std::fmt::{Debug, Display};
 
 use crate::{
     abstr::{
-        Abstr, ArrayFieldBitvector, BitvectorDomain, BitvectorField, Boolean, Field, ManipField,
-        Phi, Test,
+        Abstr, BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field, ManipField, Phi,
+        Test, ThreeValuedFieldValue,
     },
     bitvector::util::{self, compute_u64_mask},
     concr::{self, ConcreteBitvector, SignedBitvector, UnsignedBitvector, UnsignedInterval},
@@ -263,10 +263,13 @@ impl<const W: u32> BitvectorDomain<W> for ThreeValuedBitvector<W> {
         UnsignedInterval::new(self.umin(), self.umax())
     }
 
-    fn element_description(&self) -> ArrayFieldBitvector {
-        ArrayFieldBitvector {
-            zeros: self.zeros.as_unsigned(),
-            ones: self.ones.as_unsigned(),
+    fn element_description(&self) -> BitvectorElement {
+        BitvectorElement {
+            three_valued: Some(ThreeValuedFieldValue {
+                zeros: self.zeros.as_unsigned(),
+                ones: self.ones.as_unsigned(),
+            }),
+            dual_interval: None,
         }
     }
 
@@ -310,8 +313,7 @@ impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
     fn description(&self) -> Field {
         Field::Bitvector(BitvectorField {
             bit_width: L,
-            zeros: self.zeros.as_unsigned(),
-            ones: self.ones.as_unsigned(),
+            element: self.element_description(),
         })
     }
 }

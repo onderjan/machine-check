@@ -1,5 +1,5 @@
 use super::concr::UnsignedInterval;
-use crate::abstr::{ArrayFieldBitvector, ManipField, Phi};
+use crate::abstr::{BitvectorElement, ManipField, Phi};
 use std::hash::Hash;
 
 mod combined;
@@ -8,7 +8,7 @@ mod three_valued;
 
 pub trait BitvectorDomain<const W: u32>: Clone + Copy + Hash + Phi + ManipField {
     fn unsigned_interval(&self) -> UnsignedInterval<W>;
-    fn element_description(&self) -> ArrayFieldBitvector;
+    fn element_description(&self) -> BitvectorElement;
 
     fn join(self, other: Self) -> Self;
     fn meet(self, other: Self) -> Option<Self>;

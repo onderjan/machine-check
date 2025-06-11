@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use machine_check_common::NodeId;
-use mck::abstr::{ArrayField, ArrayFieldBitvector, BitvectorField, Field};
+use mck::abstr::{ArrayField, BitvectorField, Field};
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlTableCellElement, HtmlTableElement, HtmlTableRowElement};
 
@@ -79,7 +79,7 @@ impl FieldDisplayer<'_> {
         // we want to create the names of slices where all elements correspond to the same value
         // i.e. field_name[i..=j] where there is a multi-element run and field_name[i] where there is
         // a single-element run, i.e. i == j
-        let inner: BTreeMap<u64, ArrayFieldBitvector> = BTreeMap::from_iter(
+        let inner: BTreeMap<u64, _> = BTreeMap::from_iter(
             array
                 .inner
                 .iter()
@@ -113,8 +113,7 @@ impl FieldDisplayer<'_> {
             // setup the value for printing
             let value = BitvectorField {
                 bit_width: array.bit_width,
-                zeros: element.zeros,
-                ones: element.ones,
+                element,
             };
             self.add_field_row(
                 &field_part_name,

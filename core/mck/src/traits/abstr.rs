@@ -49,30 +49,89 @@ where
     fn uninit() -> Self;
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BitvectorField {
-    pub bit_width: u32,
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct ThreeValuedFieldValue {
     pub zeros: u64,
     pub ones: u64,
+}
+
+impl ThreeValuedFieldValue {
+    fn write(&self, f: &mut std::fmt::Formatter<'_>, bit_width: u32) -> std::fmt::Result {
+        format_zeros_ones(f, bit_width, self.zeros, self.ones)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct DualIntervalFieldValue {
+    pub near_min: u64,
+    pub near_max: u64,
+    pub far_min: u64,
+    pub far_max: u64,
+}
+
+impl DualIntervalFieldValue {
+    fn write(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn write_interval(f: &mut std::fmt::Formatter<'_>, min: u64, max: u64) -> std::fmt::Result {
+            if min == max {
+                write!(f, "{}", min)
+            } else {
+                write!(f, "[{}, {}]", min, max)
+            }
+        }
+
+        if self.near_min == self.far_min && self.near_max == self.far_max {
+            // write just one interval
+            write_interval(f, self.near_min, self.near_max)?;
+        } else {
+            // write the union of two intervals
+            write!(f, "(")?;
+            write_interval(f, self.near_min, self.near_max)?;
+            write!(f, " ∪ ")?;
+            write_interval(f, self.far_min, self.far_max)?;
+            write!(f, ")")?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct BitvectorElement {
+    pub three_valued: Option<ThreeValuedFieldValue>,
+    pub dual_interval: Option<DualIntervalFieldValue>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct BitvectorField {
+    pub bit_width: u32,
+    pub element: BitvectorElement,
 }
 
 impl Display for BitvectorField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        format_zeros_ones(f, self.bit_width, self.zeros, self.ones)
-    }
-}
+        if let Some(three_valued) = &self.element.three_valued {
+            three_valued.write(f, self.bit_width)?;
+        }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct ArrayFieldBitvector {
-    pub ones: u64,
-    pub zeros: u64,
+        if matches!(
+            (&self.element.three_valued, &self.element.dual_interval),
+            (Some(_), Some(_))
+        ) {
+            write!(f, " ⊓ ")?;
+        }
+
+        if let Some(dual_interval) = &self.element.dual_interval {
+            dual_interval.write(f)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ArrayField {
     pub bit_width: u32,
     pub bit_length: u32,
-    pub inner: BTreeMap<u64, ArrayFieldBitvector>,
+    pub inner: BTreeMap<u64, BitvectorElement>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

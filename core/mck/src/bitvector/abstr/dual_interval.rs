@@ -1,5 +1,5 @@
 use crate::{
-    abstr::Phi,
+    abstr::{DualIntervalFieldValue, Phi},
     concr::{
         ConcreteBitvector, SignedInterval, SignlessInterval, UnsignedInterval,
         WrappingInterpretation, WrappingInterval,
@@ -122,6 +122,15 @@ impl<const W: u32> DualInterval<W> {
     ) -> Self {
         Self::try_from_opt_halves(near_half, far_half)
             .expect("At least one half should be supplied")
+    }
+
+    pub fn field_value(&self) -> DualIntervalFieldValue {
+        DualIntervalFieldValue {
+            near_min: self.near_half.min().as_unsigned(),
+            near_max: self.near_half.max().as_unsigned(),
+            far_min: self.far_half.min().as_unsigned(),
+            far_max: self.far_half.max().as_unsigned(),
+        }
     }
 }
 
