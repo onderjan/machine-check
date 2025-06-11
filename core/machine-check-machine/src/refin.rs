@@ -76,7 +76,7 @@ pub(crate) fn create_refinement_description(
         }
     }
 
-    // TODO: use WIR for everything
+    // TODO: use another pass of WIR for the refinement description
     let mut result_items = Vec::new();
 
     result_items.extend(

@@ -105,7 +105,6 @@ pub(crate) fn create_abstract_description(
     }
 
     // add field-manipulate to items
-    // TODO: compute field-manipulate using WIR
 
     let mut all_items = misc_items.clone();
 

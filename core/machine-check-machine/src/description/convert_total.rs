@@ -175,19 +175,12 @@ impl FnConverter<'_> {
     fn fold_assign(&mut self, stmt: WStmtAssign<ZNonindexed>) -> Vec<WStmt<ZTotal>> {
         let right = match stmt.right {
             WExpr::Call(expr_call) => {
-                // TODO: convert division and remainder
                 match expr_call {
                     WExprHighCall::Call(call) => {
                         if call.fn_path.starts_with_absolute(&["mck"])
                             || call.fn_path.starts_with_absolute(&["std"])
                             || call.fn_path.starts_with_absolute(&["machine_check"])
                         {
-                            // do not change the result type
-                            /*return vec![WStmt::Assign(WStmtAssign {
-                                left: original_left,
-                                right: WExpr::Call(WExprHighCall::Call(WCall { fn_path, args })),
-                            })];*/
-
                             WExpr::Call(WExprHighCall::Call(call))
                         } else {
                             // convert calls that are not well-known
@@ -223,7 +216,6 @@ impl FnConverter<'_> {
             WExpr::Lit(lit) => WExpr::Lit(lit),
         };
 
-        // TODO
         vec![WStmt::Assign(WStmtAssign {
             left: stmt.left,
             right,

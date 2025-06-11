@@ -23,7 +23,6 @@ pub struct WImplItemFn<Y: YStage> {
     pub signature: WSignature<Y>,
     pub locals: Vec<Y::Local>,
     pub block: WBlock<Y::AssignTypes>,
-    // TODO: only allow idents in fn result
     pub result: Y::FnResult,
 }
 

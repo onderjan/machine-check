@@ -86,7 +86,6 @@ impl<const W: u32> HwArith for DualInterval<W> {
             // in case the dividend is one followed by zeros (smin, overhalf) and divisor is -1 (all-ones / umax),
             // the division result will overflow to be smin again. This is non-monotone and we have to protect
             // against it.
-            // TODO: protect
 
             fn causes_overflow<const W: u32>(
                 lhs: ConcreteBitvector<W>,
@@ -149,7 +148,6 @@ impl<const W: u32> HwArith for DualInterval<W> {
         let may_panic = may_panic_zero_division;
         let must_panic = must_panic_zero_division;
 
-        // TODO: panic
         construct_panic_result(result, may_panic, must_panic, PANIC_NUM_DIV_BY_ZERO)
     }
 

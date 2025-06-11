@@ -55,9 +55,7 @@ pub fn default_main() -> Item {
     Item::Fn(main_fn)
 }
 
-#[allow(dead_code)]
 fn out_dir() -> Option<PathBuf> {
-    // TODO: disable creation of temporary files unless specifically requested
     let mut args = std::env::args();
 
     let mut out_dir = None;

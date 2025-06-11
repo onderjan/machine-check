@@ -235,7 +235,6 @@ impl RightExprFolder<'_> {
         let second_segment = &mut fn_path.segments[1];
 
         if second_segment.ident.to_string().as_str() == "BitvectorArray" {
-            // TODO: construct bitvector array as a test
             let (index_width, element_width) = Self::parse_two_u32_generics(second_segment)?;
             let fill_ident = self.parse_single_ident_arg(args)?;
 

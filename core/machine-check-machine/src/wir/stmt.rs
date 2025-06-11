@@ -97,7 +97,6 @@ impl<Z: ZAssignTypes> IntoSyn<Stmt> for WStmt<Z> {
                 )
             }
             WStmt::If(stmt) => {
-                // TODO: do not add into_bool
                 let condition = match stmt.condition {
                     WIfCondition::Literal(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
                     WIfCondition::Ident(condition_ident) => {

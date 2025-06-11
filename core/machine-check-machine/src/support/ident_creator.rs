@@ -18,7 +18,6 @@ impl IdentCreator {
     }
 
     pub fn create_temporary_ident(&mut self, span: Span) -> WIdent {
-        // TODO: temporary ident creation
         let tmp_ident = WIdent::new(
             format!("__mck_{}tmp_{}", self.prefix, self.next_temp_counter),
             span,
