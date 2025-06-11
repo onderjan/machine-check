@@ -1,9 +1,11 @@
 use std::fmt::{Debug, Display};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     abstr::{
         Abstr, BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field, ManipField, Phi,
-        Test, ThreeValuedFieldValue,
+        Test,
     },
     bitvector::util::{self, compute_u64_mask},
     concr::{self, ConcreteBitvector, SignedBitvector, UnsignedBitvector, UnsignedInterval},
@@ -282,6 +284,18 @@ impl<const W: u32> BitvectorDomain<W> for ThreeValuedBitvector<W> {
         let ones = self.ones.bit_and(other.ones);
 
         Self::try_from_zeros_ones(zeros, ones).ok()
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct ThreeValuedFieldValue {
+    pub zeros: u64,
+    pub ones: u64,
+}
+
+impl ThreeValuedFieldValue {
+    pub fn write(&self, f: &mut std::fmt::Formatter<'_>, bit_width: u32) -> std::fmt::Result {
+        format_zeros_ones(f, bit_width, self.zeros, self.ones)
     }
 }
 

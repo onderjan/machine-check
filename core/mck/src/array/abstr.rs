@@ -1,7 +1,9 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
-    abstr::{self, Abstr, ArrayField, BitvectorDomain, Field, ManipField, Phi},
+    abstr::{self, Abstr, BitvectorDomain, BitvectorElement, Field, ManipField, Phi},
     concr::{self, UnsignedBitvector},
     forward::ReadWrite,
     misc::MetaWrap,
@@ -13,6 +15,13 @@ use super::light::LightArray;
 #[derive(Clone, Hash)]
 pub struct Array<const I: u32, const L: u32> {
     pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<L>>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ArrayField {
+    pub bit_width: u32,
+    pub bit_length: u32,
+    pub inner: BTreeMap<u64, BitvectorElement>,
 }
 
 impl<const I: u32, const L: u32> Abstr<concr::Array<I, L>> for Array<I, L> {

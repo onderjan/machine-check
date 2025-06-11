@@ -1,5 +1,5 @@
 use crate::{
-    abstr::{DualIntervalFieldValue, Phi},
+    abstr::Phi,
     concr::{
         ConcreteBitvector, SignedInterval, SignlessInterval, UnsignedInterval,
         WrappingInterpretation, WrappingInterval,
@@ -42,7 +42,7 @@ mod tests;
 /// a non-wrapping interval) by an increase in time and memory, which should not
 /// be problematic for our use.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub(crate) struct DualInterval<const W: u32> {
+pub struct DualInterval<const W: u32> {
     // The interval usually located between (including) 0 and (2^N)/2-1.
     //
     // If it is not, it must be equal to the far half.
@@ -52,6 +52,8 @@ pub(crate) struct DualInterval<const W: u32> {
     // If it is not, it must be equal to the near half.
     far_half: SignlessInterval<W>,
 }
+
+pub use support::DualIntervalFieldValue;
 
 impl<const W: u32> DualInterval<W> {
     pub const FULL: Self = Self {
@@ -122,15 +124,6 @@ impl<const W: u32> DualInterval<W> {
     ) -> Self {
         Self::try_from_opt_halves(near_half, far_half)
             .expect("At least one half should be supplied")
-    }
-
-    pub fn field_value(&self) -> DualIntervalFieldValue {
-        DualIntervalFieldValue {
-            near_min: self.near_half.min().as_unsigned(),
-            near_max: self.near_half.max().as_unsigned(),
-            far_min: self.far_half.min().as_unsigned(),
-            far_max: self.far_half.max().as_unsigned(),
-        }
     }
 }
 

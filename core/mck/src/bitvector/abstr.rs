@@ -1,6 +1,6 @@
 use super::concr::UnsignedInterval;
-use crate::abstr::{BitvectorElement, ManipField, Phi};
-use std::hash::Hash;
+use crate::abstr::{ManipField, Phi};
+use std::{fmt::Display, hash::Hash};
 
 mod combined;
 mod dual_interval;
@@ -15,9 +15,11 @@ pub trait BitvectorDomain<const W: u32>: Clone + Copy + Hash + Phi + ManipField 
 }
 
 pub(super) use combined::CombinedBitvector;
+use serde::{Deserialize, Serialize};
 pub(super) use three_valued::ThreeValuedBitvector;
 
-pub(crate) use three_valued::format_zeros_ones;
+pub(crate) use dual_interval::DualIntervalFieldValue;
+pub(crate) use three_valued::ThreeValuedFieldValue;
 
 #[cfg(not(feature = "Zdual_interval"))]
 pub type Bitvector<const W: u32> = three_valued::ThreeValuedBitvector<W>;
@@ -27,3 +29,36 @@ pub type Bitvector<const W: u32> = combined::CombinedBitvector<W>;
 
 pub type BooleanBitvector = Bitvector<1>;
 pub type PanicBitvector = Bitvector<32>;
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct BitvectorElement {
+    pub three_valued: Option<ThreeValuedFieldValue>,
+    pub dual_interval: Option<DualIntervalFieldValue>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct BitvectorField {
+    pub bit_width: u32,
+    pub element: BitvectorElement,
+}
+
+impl Display for BitvectorField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(three_valued) = &self.element.three_valued {
+            three_valued.write(f, self.bit_width)?;
+        }
+
+        if matches!(
+            (&self.element.three_valued, &self.element.dual_interval),
+            (Some(_), Some(_))
+        ) {
+            write!(f, " ⊓ ")?;
+        }
+
+        if let Some(dual_interval) = &self.element.dual_interval {
+            dual_interval.write(f)?;
+        }
+
+        Ok(())
+    }
+}

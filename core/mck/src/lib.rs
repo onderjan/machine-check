@@ -22,6 +22,12 @@ pub mod abstr {
     pub use super::boolean::abstr::*;
     pub use super::panic::abstr::*;
     pub use super::traits::abstr::*;
+
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    pub enum Field {
+        Bitvector(BitvectorField),
+        Array(ArrayField),
+    }
 }
 
 #[doc(hidden)]

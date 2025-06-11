@@ -9,12 +9,12 @@ mod ext;
 mod shift;
 mod support;
 
+use crate::concr::ConcreteBitvector;
+
 #[derive(Clone, Copy, Hash)]
 pub struct ThreeValuedBitvector<const L: u32> {
     zeros: ConcreteBitvector<L>,
     ones: ConcreteBitvector<L>,
 }
 
-pub(crate) use support::format_zeros_ones;
-
-use crate::concr::ConcreteBitvector;
+pub use support::ThreeValuedFieldValue;

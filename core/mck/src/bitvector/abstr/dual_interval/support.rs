@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::DualInterval;
 use crate::{
     concr::{
@@ -118,6 +120,48 @@ impl<const W: u32> DualInterval<W> {
         let ff_result = op_fn(a.far_half.into_unsigned(), b.far_half.into_unsigned());
 
         DualInterval::from_unsigned_intervals([nn_result, nf_result, fn_result, ff_result])
+    }
+
+    pub fn field_value(&self) -> DualIntervalFieldValue {
+        DualIntervalFieldValue {
+            near_min: self.near_half.min().as_unsigned(),
+            near_max: self.near_half.max().as_unsigned(),
+            far_min: self.far_half.min().as_unsigned(),
+            far_max: self.far_half.max().as_unsigned(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct DualIntervalFieldValue {
+    pub near_min: u64,
+    pub near_max: u64,
+    pub far_min: u64,
+    pub far_max: u64,
+}
+
+impl DualIntervalFieldValue {
+    pub fn write(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn write_interval(f: &mut std::fmt::Formatter<'_>, min: u64, max: u64) -> std::fmt::Result {
+            if min == max {
+                write!(f, "{}", min)
+            } else {
+                write!(f, "[{}, {}]", min, max)
+            }
+        }
+
+        if self.near_min == self.far_min && self.near_max == self.far_max {
+            // write just one interval
+            write_interval(f, self.near_min, self.near_max)?;
+        } else {
+            // write the union of two intervals
+            write!(f, "(")?;
+            write_interval(f, self.near_min, self.near_max)?;
+            write!(f, " ∪ ")?;
+            write_interval(f, self.far_min, self.far_max)?;
+            write!(f, ")")?;
+        }
+        Ok(())
     }
 }
 
