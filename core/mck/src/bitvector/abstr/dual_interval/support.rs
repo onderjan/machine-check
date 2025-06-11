@@ -139,6 +139,15 @@ impl DualIntervalFieldValue {
         if self.near_min == self.far_min && self.near_max == self.far_max {
             // write just one interval
             write_interval(f, self.near_min, self.near_max)?;
+        } else if self
+            .near_max
+            .checked_add(1)
+            .map(|above_near_max| above_near_max == self.far_min)
+            .unwrap_or(false)
+        {
+            // the near half directly precedes and touches the far half
+            // write them together
+            write_interval(f, self.near_min, self.far_max)?;
         } else {
             // write the union of two intervals
             write!(f, "(")?;
