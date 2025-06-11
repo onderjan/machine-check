@@ -296,8 +296,8 @@ impl<const W: u32> BitvectorDomain<W> for ThreeValuedBitvector<W> {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct ThreeValuedFieldValue {
-    pub zeros: u64,
-    pub ones: u64,
+    zeros: u64,
+    ones: u64,
 }
 
 impl ThreeValuedFieldValue {

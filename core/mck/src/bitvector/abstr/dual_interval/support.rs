@@ -120,10 +120,10 @@ impl<const W: u32> DualInterval<W> {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct DualIntervalFieldValue {
-    pub near_min: u64,
-    pub near_max: u64,
-    pub far_min: u64,
-    pub far_max: u64,
+    near_min: u64,
+    near_max: u64,
+    far_min: u64,
+    far_max: u64,
 }
 
 impl DualIntervalFieldValue {
