@@ -39,3 +39,21 @@ error: machine-check: Variadic argument not supported
    |
 15 |         fn with_variadic_arg(...) -> u32 {}
    |                              ^
+
+error: machine-check: Lifetimes not supported
+  --> tests/cases/08-fn-unsupported.rs:17:36
+   |
+17 |         fn with_receiver_lifetime(&'a self) -> u32 {}
+   |                                    ^^
+
+error: machine-check: Mutable receiver argument not supported
+  --> tests/cases/08-fn-unsupported.rs:18:34
+   |
+18 |         fn with_mutable_receiver(&mut self) -> u32 {}
+   |                                  ^
+
+error: machine-check: Mutable references not supported
+  --> tests/cases/08-fn-unsupported.rs:19:33
+   |
+19 |         fn with_mutable_arg(a: &mut u32) -> u32 {}
+   |                                 ^^^

@@ -14,10 +14,9 @@ mod machine {
         extern "C" fn with_abi() -> u32 {}
         fn with_variadic_arg(...) -> u32 {}
 
-        // TODO: enable after these are no longer rejected by visitor
-        //fn with_receiver_lifetime(&'a self) -> u32 {}
-        //fn with_mutable_receiver(&mut self) -> u32 {}
-        //fn with_mutable_arg(a: &mut u32) -> u32 {}
+        fn with_receiver_lifetime(&'a self) -> u32 {}
+        fn with_mutable_receiver(&mut self) -> u32 {}
+        fn with_mutable_arg(a: &mut u32) -> u32 {}
     }
 }
 
