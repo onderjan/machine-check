@@ -53,7 +53,6 @@ pub async fn on_mouse(mouse: MouseEvent, event: web_sys::Event) {
     let mut view_guard = lock_view();
     let view = view_guard.as_mut();
 
-    // TODO
     let should_redraw = match mouse {
         MouseEvent::Click => {
             // focus the main area
