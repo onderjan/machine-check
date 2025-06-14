@@ -94,7 +94,6 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
         block.stmts.push(Stmt::Expr(self.result.into_syn(), None));
 
         ImplItemFn {
-            // TODO: attrs
             attrs: Vec::new(),
             vis: self.visibility.into_syn(),
             defaultness: None,
