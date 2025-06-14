@@ -12,4 +12,5 @@ fn machine_description() {
     t.compile_fail("tests/cases/09-stmt-unsupported.rs");
     t.compile_fail("tests/cases/10-expr-unsupported.rs");
     t.compile_fail("tests/cases/11-type-unsupported.rs");
+    t.compile_fail("tests/cases/12-use-unsupported.rs");
 }

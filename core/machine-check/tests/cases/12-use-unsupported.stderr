@@ -1,0 +1,11 @@
+error: machine-check: Using paths not starting with 'machine_check' or 'std' not supported
+ --> tests/cases/12-use-unsupported.rs:9:9
+  |
+9 |     use core::A;
+  |         ^^^^
+
+error: machine-check: Using paths not starting with 'machine_check' or 'std' not supported
+  --> tests/cases/12-use-unsupported.rs:10:9
+   |
+10 |     use mck;
+   |         ^^^

@@ -9,13 +9,14 @@ use syn::{
     Ident, Item, Pat, Path, PathArguments, PathSegment, Token, UseTree,
 };
 
-use crate::util::extract_path_ident;
+use crate::{description::Errors, util::extract_path_ident};
 
-use super::{ErrorType, Error};
+use super::{Error, ErrorType};
 
-pub fn resolve_use(items: &mut [Item]) -> Result<(), Error> {
+pub fn resolve_use(items: &mut [Item]) -> Result<(), Errors> {
     // construct the use map first
-    let mut use_map = HashMap::<Ident, Path>::new();
+    let mut use_map = HashMap::new();
+    let mut use_path_vec = Vec::new();
 
     for item in items.iter_mut() {
         let Item::Use(item_use) = item else {
@@ -26,11 +27,28 @@ pub fn resolve_use(items: &mut [Item]) -> Result<(), Error> {
             leading_colon: item_use.leading_colon,
             segments: Punctuated::new(),
         };
-        recurse_use_tree(&mut use_map, &item_use.tree, use_prefix)?;
+        recurse_use_tree(&mut use_map, &mut use_path_vec, &item_use.tree, use_prefix)?;
     }
 
-    // TODO: check that no path in the use tree is present except for 'machine_check' and 'std'
+    // check that no path in the use tree is present except for 'machine_check' and 'std'
     // we need to make sure there are no traits imported for future method call support
+
+    let mut errors: Vec<Result<(), Error>> = Vec::new();
+
+    // we iterate over a vector to keep the order of errors consistent
+    for use_path in use_path_vec {
+        let Some(first_segment) = use_path.segments.first() else {
+            panic!("Unexpected zero-segment path");
+        };
+        if first_segment.ident != "machine_check" && first_segment.ident != "std" {
+            errors.push(Err(Error::unsupported_construct(
+                "Using paths not starting with 'machine_check' or 'std'",
+                use_path.span(),
+            )));
+        }
+    }
+
+    Errors::vec_result(errors)?;
 
     let mut visitor = Visitor {
         result: Ok(()),
@@ -41,7 +59,7 @@ pub fn resolve_use(items: &mut [Item]) -> Result<(), Error> {
         visitor.visit_item_mut(item);
     }
     assert!(visitor.local_scopes_idents.is_empty());
-    visitor.result
+    visitor.result.map_err(Errors::single)
 }
 
 pub fn remove_use(items: &mut Vec<Item>) -> Result<(), Error> {
@@ -51,6 +69,7 @@ pub fn remove_use(items: &mut Vec<Item>) -> Result<(), Error> {
 
 fn recurse_use_tree(
     use_map: &mut HashMap<Ident, Path>,
+    use_path_vec: &mut Vec<Path>,
     use_tree: &UseTree,
     mut use_prefix: Path,
 ) -> Result<(), Error> {
@@ -61,13 +80,13 @@ fn recurse_use_tree(
                 ident: use_path.ident.clone(),
                 arguments: PathArguments::None,
             });
-            recurse_use_tree(use_map, &use_path.tree, use_prefix)?;
+            recurse_use_tree(use_map, use_path_vec, &use_path.tree, use_prefix)?;
             return Ok(());
         }
         UseTree::Group(use_group) => {
             // recurse into each one
             for item in &use_group.items {
-                recurse_use_tree(use_map, item, use_prefix.clone())?;
+                recurse_use_tree(use_map, use_path_vec, item, use_prefix.clone())?;
             }
             return Ok(());
         }
@@ -96,12 +115,13 @@ fn recurse_use_tree(
         }
     };
 
-    if let Some(_previous) = use_map.insert(use_ident.clone(), use_prefix) {
+    if let Some(_previous) = use_map.insert(use_ident.clone(), use_prefix.clone()) {
         Err(Error::new(
             ErrorType::UnsupportedConstruct("Duplicate use declaration"),
             use_ident.span(),
         ))
     } else {
+        use_path_vec.push(use_prefix);
         Ok(())
     }
 }
