@@ -221,7 +221,6 @@ impl WExprCall {
 
 impl IntoSyn<Expr> for WExprHighCall {
     fn into_syn(self) -> Expr {
-        // TODO: generics into syn
         let span = Span::call_site();
         let (fn_operand, args) = match self {
             WExprHighCall::Call(call) => return call.into_syn(),
