@@ -192,8 +192,8 @@ impl BackwardFolder {
                     earlier_backward_args.push(self.backward_ident(ident));
                 }
                 crate::wir::WCallArg::Literal(_) => {
-                    // TODO: what to do here?
-                    todo!("Literal arg in non-wild function")
+                    // This currently should not be possible for accepted functions
+                    panic!("Literal arg in non-wild function")
                 }
             }
         }
