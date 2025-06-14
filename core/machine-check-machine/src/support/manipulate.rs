@@ -3,24 +3,106 @@ use std::collections::HashSet;
 use proc_macro2::{Literal, Span};
 use quote::ToTokens;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, token::Comma, Arm, Expr, ExprLit, ExprMacro,
-    ExprMatch, Field, Ident, ImplItem, ImplItemFn, Item, ItemImpl, ItemStruct, Lifetime, Lit,
-    LitStr, Macro, Pat, Path, PathArguments, PathSegment, Stmt, Token, TraitBound, Type,
-    TypeParamBound, TypeReference, TypeTraitObject,
+    punctuated::Punctuated, token::Comma, Arm, Expr, ExprLit, ExprMacro, ExprMatch, Ident,
+    ImplItem, ImplItemFn, ItemImpl, Lifetime, Lit, LitStr, Macro, Pat, Path, PathArguments,
+    PathSegment, Stmt, Token, TraitBound, Type, TypeParamBound, TypeReference, TypeTraitObject,
 };
 use syn_path::path;
 
-use crate::util::{
-    create_arg, create_expr_call, create_expr_field_named, create_expr_ident, create_expr_path,
-    create_ident, create_impl_item_fn, create_item_impl, create_pat_wild, create_path_from_ident,
-    create_path_with_last_generic_type, create_self, create_self_arg, create_type_path,
-    create_type_reference, path_matches_global_names, ArgType,
+use crate::{
+    abstr::{WAbstrItemImplTrait, YAbstr},
+    refin::{WRefinItemImplTrait, YRefin},
+    util::{
+        create_arg, create_expr_call, create_expr_field_named, create_expr_ident, create_expr_path,
+        create_ident, create_impl_item_fn, create_item_impl, create_pat_wild,
+        create_path_from_ident, create_path_with_last_generic_type, create_self, create_self_arg,
+        create_type_path, create_type_reference, ArgType,
+    },
+    wir::{WDescription, WElementaryType, WItemImplTrait},
 };
 
-use super::special_trait::{special_trait_impl, SpecialTrait};
+pub(crate) fn for_abstract_description(description: &WDescription<YAbstr>) -> Vec<ItemImpl> {
+    let mut impls_to_add = Vec::new();
+
+    let mut process_idents = HashSet::new();
+
+    for item_impl in description.impls.iter() {
+        if let Some(WAbstrItemImplTrait { trait_, .. }) = &item_impl.trait_ {
+            if matches!(trait_, WItemImplTrait::Input | WItemImplTrait::State) {
+                if let Some(ident) = item_impl.self_ty.get_ident() {
+                    process_idents.insert(ident.clone());
+                }
+            }
+        }
+    }
+
+    for item_struct in description.structs.iter() {
+        if process_idents.remove(&item_struct.ident) {
+            let manipulable_field_idents = item_struct
+                .fields
+                .iter()
+                .filter_map(|field| {
+                    if is_manipulable(&field.ty) {
+                        Some(field.ident.to_syn_ident())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            impls_to_add.push(create_manipulatable_impl(
+                item_struct.ident.span(),
+                item_struct.ident.to_syn_ident(),
+                &manipulable_field_idents,
+                ManipulateKind::Forward,
+            ));
+        }
+    }
+    impls_to_add
+}
+
+pub(crate) fn for_refinement_description(description: &WDescription<YRefin>) -> Vec<ItemImpl> {
+    let mut impls_to_add = Vec::new();
+
+    let mut process_idents = HashSet::new();
+
+    for item_impl in description.impls.iter() {
+        if let Some(WRefinItemImplTrait { trait_, .. }) = &item_impl.trait_ {
+            if matches!(trait_, WItemImplTrait::Input | WItemImplTrait::State) {
+                if let Some(ident) = item_impl.self_ty.get_ident() {
+                    process_idents.insert(ident.clone());
+                }
+            }
+        }
+    }
+
+    for item_struct in description.structs.iter() {
+        if process_idents.remove(&item_struct.ident) {
+            let manipulable_field_idents = item_struct
+                .fields
+                .iter()
+                .filter_map(|field| {
+                    if is_manipulable(field.ty.forward_type()) {
+                        Some(field.ident.to_syn_ident())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            impls_to_add.push(create_manipulatable_impl(
+                item_struct.ident.span(),
+                item_struct.ident.to_syn_ident(),
+                &manipulable_field_idents,
+                ManipulateKind::Backward,
+            ));
+        }
+    }
+    impls_to_add
+}
 
 #[derive(Clone, Copy)]
-pub enum ManipulateKind {
+enum ManipulateKind {
     Forward,
     Backward,
 }
@@ -34,58 +116,21 @@ impl ManipulateKind {
     }
 }
 
-pub(crate) fn for_items(items: &[Item], kind: ManipulateKind) -> Vec<ItemImpl> {
-    let mut impls_to_add = Vec::new();
-
-    let mut process_idents = HashSet::<Ident>::new();
-
-    for item in items.iter() {
-        let Item::Impl(item_impl) = item else {
-            continue;
-        };
-
-        if let Type::Path(ty) = item_impl.self_ty.as_ref() {
-            if let Some(ident) = ty.path.get_ident() {
-                if let Some(SpecialTrait::Input) | Some(SpecialTrait::State) =
-                    special_trait_impl(item_impl, kind.str())
-                {
-                    process_idents.insert(ident.clone());
-                }
-            }
-        }
-    }
-
-    for item in items.iter() {
-        let Item::Struct(item_struct) = item else {
-            continue;
-        };
-
-        if process_idents.remove(&item_struct.ident) {
-            impls_to_add.push(create_manipulatable_impl(item_struct, kind));
-        }
-    }
-    impls_to_add
-}
-
-pub fn create_manipulatable_impl(item_struct: &ItemStruct, kind: ManipulateKind) -> ItemImpl {
-    let mut manipulable_field_idents = Vec::<Ident>::new();
-
-    for field in &item_struct.fields {
-        if let Some(manipulable_ident) = field_manipulatable_ident(field, kind) {
-            manipulable_field_idents.push(manipulable_ident);
-        }
-    }
-
-    let span = item_struct.span();
-    let get_fn = create_fn(false, &manipulable_field_idents, kind, span);
-    let get_mut_fn = create_fn(true, &manipulable_field_idents, kind, span);
-    let create_field_names_fn = create_field_names_fn(&manipulable_field_idents, span);
+fn create_manipulatable_impl(
+    span: Span,
+    ident: Ident,
+    manipulable_field_idents: &Vec<Ident>,
+    kind: ManipulateKind,
+) -> ItemImpl {
+    let get_fn = create_fn(false, manipulable_field_idents, kind, span);
+    let get_mut_fn = create_fn(true, manipulable_field_idents, kind, span);
+    let create_field_names_fn = create_field_names_fn(manipulable_field_idents, span);
 
     let trait_path = kind_path(kind, "Manipulatable", span);
 
     create_item_impl(
         Some(trait_path),
-        create_path_from_ident(item_struct.ident.clone()),
+        create_path_from_ident(ident),
         vec![
             ImplItem::Fn(get_fn),
             ImplItem::Fn(get_mut_fn),
@@ -114,25 +159,11 @@ fn kind_path(kind: ManipulateKind, last_str: &str, span: Span) -> Path {
     }
 }
 
-fn field_manipulatable_ident(field: &Field, kind: ManipulateKind) -> Option<Ident> {
-    let Some(field_ident) = &field.ident else {
-        // do not consider unnamed fields
-        return None;
-    };
-
-    let Type::Path(path_type) = &field.ty else {
-        return None;
-    };
-    if path_type.qself.is_some() || path_type.path.leading_colon.is_none() {
-        return None;
-    }
-    if path_matches_global_names(&path_type.path, &["mck", kind.str(), "Bitvector"])
-        || path_matches_global_names(&path_type.path, &["mck", kind.str(), "Array"])
-    {
-        Some(field_ident.clone())
-    } else {
-        None
-    }
+fn is_manipulable(ty: &WElementaryType) -> bool {
+    matches!(
+        ty,
+        WElementaryType::Bitvector(_) | WElementaryType::Array(_)
+    )
 }
 
 fn create_fn(

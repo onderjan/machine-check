@@ -4,7 +4,7 @@ mod item_struct;
 use syn::{GenericArgument, Item, Path};
 
 use crate::{
-    support::manipulate::{self, ManipulateKind},
+    support::manipulate::{self},
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
         IntoSyn, WDescription, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
@@ -104,28 +104,9 @@ pub(crate) fn create_abstract_description(
         abstract_description.impls.extend(item_impls);
     }
 
-    // add field-manipulate to items
-
-    let mut all_items = misc_items.clone();
-
-    all_items.extend(
-        abstract_description
-            .structs
-            .clone()
-            .into_iter()
-            .map(|a| Item::Struct(a.into_syn())),
-    );
-
-    all_items.extend(
-        abstract_description
-            .impls
-            .clone()
-            .into_iter()
-            .map(|a| Item::Impl(a.into_syn())),
-    );
-
+    // add field-manipulate
     misc_items.extend(
-        manipulate::for_items(&all_items, ManipulateKind::Forward)
+        manipulate::for_abstract_description(&abstract_description)
             .into_iter()
             .map(Item::Impl),
     );

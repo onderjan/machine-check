@@ -8,7 +8,7 @@ use syn_path::path;
 
 use crate::{
     abstr::{YAbstr, ZAbstrIfPolarity},
-    support::manipulate::{self, ManipulateKind},
+    support::manipulate::{self},
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
         ident_type_local, panic_result_syn_type, IntoSyn, WDescription, WElementaryType,
@@ -92,17 +92,16 @@ pub(crate) fn create_refinement_description(
             .map(|item_struct| Item::Impl(item_struct.into_syn())),
     );
 
+    let description = WDescription {
+        structs: result_structs,
+        impls: result_impls,
+    };
+
     // add field manipulate
-    let manipulate_impl = manipulate::for_items(&result_items, ManipulateKind::Backward);
+    let manipulate_impl = manipulate::for_refinement_description(&description);
     misc_items.extend(manipulate_impl.into_iter().map(Item::Impl));
 
-    (
-        WDescription {
-            structs: result_structs,
-            impls: result_impls,
-        },
-        misc_items,
-    )
+    (description, misc_items)
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -176,6 +175,12 @@ pub struct WBackwardElementaryType(WElementaryType);
 impl IntoSyn<Type> for WBackwardElementaryType {
     fn into_syn(self) -> Type {
         self.0.into_syn_type_flavour("backward")
+    }
+}
+
+impl WBackwardElementaryType {
+    pub fn forward_type(&self) -> &WElementaryType {
+        &self.0
     }
 }
 
