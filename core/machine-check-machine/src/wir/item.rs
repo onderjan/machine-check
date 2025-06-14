@@ -108,7 +108,6 @@ impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
             vis: self.visibility.into_syn(),
             struct_token: Token![struct](span),
             ident: self.ident.into(),
-            // TODO generics
             generics: Generics::default(),
             fields: syn::Fields::Named(fields),
             semi_token: None,
@@ -140,7 +139,6 @@ where
             defaultness: None,
             unsafety: None,
             impl_token: Token![impl](span),
-            // TODO generics
             generics: Generics::default(),
             trait_: trait_path.map(|path| (None, path, Token![for](span))),
             self_ty: Box::new(Type::Path(TypePath {
