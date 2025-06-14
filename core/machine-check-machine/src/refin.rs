@@ -76,22 +76,6 @@ pub(crate) fn create_refinement_description(
         }
     }
 
-    // TODO: use another pass of WIR for the refinement description
-    let mut result_items = Vec::new();
-
-    result_items.extend(
-        result_structs
-            .clone()
-            .into_iter()
-            .map(|item_struct| Item::Struct(item_struct.into_syn())),
-    );
-    result_items.extend(
-        result_impls
-            .clone()
-            .into_iter()
-            .map(|item_struct| Item::Impl(item_struct.into_syn())),
-    );
-
     let description = WDescription {
         structs: result_structs,
         impls: result_impls,
