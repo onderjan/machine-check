@@ -1,6 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
 
-use syn::{spanned::Spanned, visit::Visit, Expr, FnArg, Generics, ImplItemFn, Pat, Signature};
+use proc_macro2::Span;
+use syn::{
+    spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, Pat, Signature,
+};
 
 use crate::{
     description::{
@@ -57,10 +60,16 @@ impl FunctionFolder {
             )));
         }
 
-        // TODO: handle function attributes
-        impl_item.attrs = Vec::new();
+        // do not disallow the 'allow' attributes
+        impl_item.attrs.retain(|attr| {
+            let Ok(list) = attr.meta.require_list() else {
+                return true;
+            };
 
-        // disallow attributes inside
+            !list.path.is_ident(&Ident::new("allow", Span::call_site()))
+        });
+
+        // disallow attributes
         let mut attribute_disallower = AttributeDisallower::new();
         attribute_disallower.visit_impl_item_fn(&impl_item);
         attribute_disallower.into_result()?;
