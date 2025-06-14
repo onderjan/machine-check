@@ -10,8 +10,8 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
         let new_mask = util::compute_u64_mask(X);
 
         // shorten if needed
-        let shortened_zeros = self.zeros.as_unsigned() & new_mask;
-        let shortened_ones = self.ones.as_unsigned() & new_mask;
+        let shortened_zeros = self.zeros.to_u64() & new_mask;
+        let shortened_ones = self.ones.to_u64() & new_mask;
 
         // the mask for lengthening is comprised of bits
         // that were not in the old mask but are in the new mask
@@ -35,8 +35,8 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
         let new_mask = util::compute_u64_mask(X);
 
         // shorten if needed
-        let shortened_zeros = self.zeros.as_unsigned() & new_mask;
-        let shortened_ones = self.ones.as_unsigned() & new_mask;
+        let shortened_zeros = self.zeros.to_u64() & new_mask;
+        let shortened_ones = self.ones.to_u64() & new_mask;
 
         // the mask for lengthening is comprised of bits
         // that were not in the old mask but are in the new mask

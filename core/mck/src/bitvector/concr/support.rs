@@ -42,11 +42,11 @@ impl<const L: u32> ConcreteBitvector<L> {
 
     // not for use where it may be replaced by abstraction
     // TODO: remove and replace by casts
-    pub fn as_unsigned(&self) -> u64 {
+    pub fn to_u64(&self) -> u64 {
         self.0
     }
 
-    pub fn as_signed(&self) -> i64 {
+    pub fn to_i64(&self) -> i64 {
         let mut result = self.0;
         if self.bit_and(Self::sign_bit_mask()).is_nonzero() {
             // add signed extension
@@ -121,7 +121,7 @@ impl<const L: u32> ConcreteBitvector<L> {
     }
 
     pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
-        (0..=Self::bit_mask().as_unsigned()).map(Self)
+        (0..=Self::bit_mask().to_u64()).map(Self)
     }
 
     pub fn umin(self, other: ConcreteBitvector<L>) -> ConcreteBitvector<L> {

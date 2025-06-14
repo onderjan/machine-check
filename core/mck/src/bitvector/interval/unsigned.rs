@@ -197,7 +197,7 @@ impl<const W: u32> UnsignedInterval<W> {
         };
 
         // we need to mask max
-        let max = max & ConcreteBitvector::<W>::bit_mask().as_unsigned();
+        let max = max & ConcreteBitvector::<W>::bit_mask().to_u64();
 
         Self::new(
             ConcreteBitvector::new(min).cast_unsigned(),

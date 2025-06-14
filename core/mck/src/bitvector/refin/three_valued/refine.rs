@@ -49,7 +49,7 @@ impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
             return false;
         }
 
-        let highest_applicant_pos = applicants.as_unsigned().ilog2();
+        let highest_applicant_pos = applicants.to_u64().ilog2();
         let highest_applicant =
             ConcreteBitvector::new(compute_u64_sign_bit_mask(highest_applicant_pos + 1));
         assert!(highest_applicant.is_nonzero());

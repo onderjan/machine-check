@@ -37,7 +37,7 @@ impl<const L: u32> UnsignedBitvector<L> {
     }
 
     pub fn to_u64(self) -> u64 {
-        self.0.as_unsigned()
+        self.0.to_u64()
     }
 
     pub fn is_zero(&self) -> bool {

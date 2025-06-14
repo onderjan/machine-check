@@ -28,8 +28,8 @@ impl<const L: u32> HwArith for ConcreteBitvector<L> {
     }
 
     fn udiv(self, rhs: Self) -> PanicResult<Self> {
-        let dividend = self.as_unsigned();
-        let divisor = rhs.as_unsigned();
+        let dividend = self.to_u64();
+        let divisor = rhs.to_u64();
         if divisor == 0 {
             // return panic
             // put all-ones in the division result
@@ -48,8 +48,8 @@ impl<const L: u32> HwArith for ConcreteBitvector<L> {
     }
 
     fn urem(self, rhs: Self) -> PanicResult<Self> {
-        let dividend = self.as_unsigned();
-        let divisor = rhs.as_unsigned();
+        let dividend = self.to_u64();
+        let divisor = rhs.to_u64();
         if divisor == 0 {
             // return panic
             // put the dividend in the remainder result
@@ -68,8 +68,8 @@ impl<const L: u32> HwArith for ConcreteBitvector<L> {
     }
 
     fn sdiv(self, rhs: Self) -> PanicResult<Self> {
-        let dividend = self.as_signed();
-        let divisor = rhs.as_signed();
+        let dividend = self.to_i64();
+        let divisor = rhs.to_i64();
         if divisor == 0 {
             // return panic
             // put all-ones in the division result
@@ -98,8 +98,8 @@ impl<const L: u32> HwArith for ConcreteBitvector<L> {
     }
 
     fn srem(self, rhs: Self) -> PanicResult<Self> {
-        let dividend = self.as_signed();
-        let divisor = rhs.as_signed();
+        let dividend = self.to_i64();
+        let divisor = rhs.to_i64();
         if divisor == 0 {
             // return panic
             // put the dividend in the remainder result

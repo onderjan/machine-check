@@ -37,7 +37,7 @@ impl<const L: u32> SignedBitvector<L> {
     }
 
     pub fn to_i64(self) -> i64 {
-        self.0.as_signed()
+        self.0.to_i64()
     }
 
     pub fn is_zero(&self) -> bool {

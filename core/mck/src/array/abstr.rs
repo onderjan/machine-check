@@ -156,7 +156,7 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
         let mut inner = BTreeMap::new();
         for (index, element) in self.inner.light_iter() {
             inner.insert(
-                index.as_bitvector().as_unsigned(),
+                index.as_bitvector().to_u64(),
                 element.0.element_description(),
             );
         }

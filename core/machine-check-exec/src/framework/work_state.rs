@@ -59,7 +59,7 @@ impl<M: FullMachine> WorkState<M> {
         let panic_id = self.space.breadth_first_search(|_, state_data| {
             if let Some(panic_value) = state_data.panic.concrete_value() {
                 if panic_value.is_nonzero() {
-                    return ControlFlow::Break(panic_value.as_unsigned() as u32);
+                    return ControlFlow::Break(panic_value.to_u64() as u32);
                 }
             }
             ControlFlow::Continue(())

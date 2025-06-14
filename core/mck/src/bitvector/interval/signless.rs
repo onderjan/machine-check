@@ -20,7 +20,7 @@ pub struct SignlessInterval<const W: u32> {
 impl<const W: u32> SignlessInterval<W> {
     pub fn new(min: ConcreteBitvector<W>, max: ConcreteBitvector<W>) -> Self {
         assert_eq!(min.is_sign_bit_set(), max.is_sign_bit_set());
-        assert!(min.as_unsigned() <= max.as_unsigned());
+        assert!(min.to_u64() <= max.to_u64());
         Self { min, max }
     }
 
@@ -148,7 +148,7 @@ impl<const W: u32> SignlessInterval<W> {
                     if max.is_sign_bit_set() != far {
                         return None;
                     }
-                    if min.as_unsigned() > max.as_unsigned() {
+                    if min.to_u64() > max.to_u64() {
                         return None;
                     }
 

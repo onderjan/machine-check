@@ -8,7 +8,7 @@ use super::MarkBitvector;
 impl<const L: u32> Meta<ThreeValuedBitvector<L>> for MarkBitvector<L> {
     fn proto_first(&self) -> ThreeValuedBitvector<L> {
         // all known bits are 0
-        let known_bits = self.marked_bits().as_unsigned();
+        let known_bits = self.marked_bits().to_u64();
         ThreeValuedBitvector::new_value_known(
             ConcreteBitvector::new(0),
             ConcreteBitvector::new(known_bits),
@@ -17,7 +17,7 @@ impl<const L: u32> Meta<ThreeValuedBitvector<L>> for MarkBitvector<L> {
 
     fn proto_increment(&self, proto: &mut ThreeValuedBitvector<L>) -> bool {
         // the marked bits should be split into possibilities
-        let known_bits = self.marked_bits().as_unsigned();
+        let known_bits = self.marked_bits().to_u64();
 
         if known_bits == 0 {
             // if full-unknown, stop immediately after first to avoid shl overflow

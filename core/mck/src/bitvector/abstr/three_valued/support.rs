@@ -60,10 +60,10 @@ impl<const L: u32> ThreeValuedBitvector<L> {
 
     #[must_use]
     pub fn from_interval(min: ConcreteBitvector<L>, max: ConcreteBitvector<L>) -> Self {
-        assert!(min.as_unsigned() <= max.as_unsigned());
+        assert!(min.to_u64() <= max.to_u64());
         // make positions where min and max agree known
         let xor = min.bit_xor(max);
-        let Some(unknown_positions) = xor.as_unsigned().checked_ilog2() else {
+        let Some(unknown_positions) = xor.to_u64().checked_ilog2() else {
             // min is equal to max
             return Self::from_concrete(min);
         };
@@ -212,8 +212,8 @@ impl<const L: u32> ThreeValuedBitvector<L> {
 
     fn field_value(&self) -> ThreeValuedFieldValue {
         ThreeValuedFieldValue {
-            zeros: self.zeros.as_unsigned(),
-            ones: self.ones.as_unsigned(),
+            zeros: self.zeros.to_u64(),
+            ones: self.ones.to_u64(),
         }
     }
 }

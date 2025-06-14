@@ -110,10 +110,10 @@ impl<const W: u32> DualInterval<W> {
 
     pub fn field_value(&self) -> DualIntervalFieldValue {
         DualIntervalFieldValue {
-            near_min: self.near_half.min().as_unsigned(),
-            near_max: self.near_half.max().as_unsigned(),
-            far_min: self.far_half.min().as_unsigned(),
-            far_max: self.far_half.max().as_unsigned(),
+            near_min: self.near_half.min().to_u64(),
+            near_max: self.near_half.max().to_u64(),
+            far_min: self.far_half.min().to_u64(),
+            far_max: self.far_half.max().to_u64(),
         }
     }
 }

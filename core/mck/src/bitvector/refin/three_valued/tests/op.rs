@@ -87,21 +87,21 @@ fn exact_uni_mark<const L: u32, const X: u32>(
 ) -> MarkBitvector<L> {
     // the result marks exactly those bits of input which, if changed in operation input,
     // can change bits masked by mark_a in the operation result
-    let mark_mask = a_mark.marked_bits().as_unsigned();
+    let mark_mask = a_mark.marked_bits().to_u64();
     // determine for each input bit separately
     let mut result = 0;
     for i in 0..L {
         for a in ConcreteBitvector::<L>::all_with_length_iter() {
-            if a.as_unsigned() & (1 << i) != 0 {
+            if a.to_u64() & (1 << i) != 0 {
                 continue;
             }
             let with_zero = a;
-            let with_one = ConcreteBitvector::new(a.as_unsigned() | (1 << i));
+            let with_one = ConcreteBitvector::new(a.to_u64() | (1 << i));
             if !a_abstr.contains_concr(&with_zero) || !a_abstr.contains_concr(&with_one) {
                 continue;
             }
-            if concr_func(with_zero).as_unsigned() & mark_mask
-                != concr_func(with_one).as_unsigned() & mark_mask
+            if concr_func(with_zero).to_u64() & mark_mask
+                != concr_func(with_one).to_u64() & mark_mask
             {
                 result |= 1 << i;
             }
@@ -128,8 +128,8 @@ fn eval_mark<const L: u32>(
     } else {
         // test whether our earlier mark is at least as marked as the exact one
         // if not, the marking will be incomplete
-        let exact = exact_earlier.marked_bits().as_unsigned();
-        let our = our_earlier.marked_bits().as_unsigned();
+        let exact = exact_earlier.marked_bits().to_u64();
+        let our = our_earlier.marked_bits().to_u64();
         if our & exact != exact {
             panic!(
                 "Incomplete, expected {}, got {}",
@@ -176,7 +176,7 @@ fn exact_left_mark<const L: u32, const X: u32>(
     let right_abstr = abstr.1;
     // the result marks exactly those bits of input which, if changed in operation input,
     // can change bits masked by mark_a in the operation result
-    let mark_mask = mark.marked_bits().as_unsigned();
+    let mark_mask = mark.marked_bits().to_u64();
     // determine for each input bit separately
     let mut left_result = 0;
     for i in 0..L {
@@ -194,8 +194,8 @@ fn exact_left_mark<const L: u32, const X: u32>(
                     continue;
                 }
                 let other = ConcreteBitvector::new(other);
-                if concr_func(with_zero, other).as_unsigned() & mark_mask
-                    != concr_func(with_one, other).as_unsigned() & mark_mask
+                if concr_func(with_zero, other).to_u64() & mark_mask
+                    != concr_func(with_one, other).to_u64() & mark_mask
                 {
                     left_result |= 1 << i;
                 }
