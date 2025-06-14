@@ -49,6 +49,7 @@ pub fn convert_types(
             .impl_item_types
             .into_iter()
             .map(|type_item| WImplItemType {
+                visibility: type_item.visibility,
                 left_ident: type_item.left_ident,
                 right_path: convert_basic_path(type_item.right_path),
             })
@@ -141,6 +142,7 @@ fn convert_impl_item_fn(
         .collect();
 
     Ok(WImplItemFn {
+        visibility: impl_item.visibility,
         signature,
         locals,
         block,

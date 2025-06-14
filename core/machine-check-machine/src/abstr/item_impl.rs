@@ -65,6 +65,7 @@ pub fn fold_impl_item_fn(impl_item_fn: WImplItemFn<YConverted>) -> WImplItemFn<Y
     let block = fold_block(impl_item_fn.block);
 
     WImplItemFn {
+        visibility: impl_item_fn.visibility,
         signature,
         locals: impl_item_fn.locals,
         block,

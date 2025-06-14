@@ -120,6 +120,7 @@ impl FnConverter<'_> {
             output: WPanicResultType(impl_item_fn.signature.output),
         };
         WImplItemFn {
+            visibility: impl_item_fn.visibility,
             signature,
             locals,
             block,

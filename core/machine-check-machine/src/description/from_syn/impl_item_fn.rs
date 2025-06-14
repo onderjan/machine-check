@@ -8,7 +8,10 @@ use syn::{
 use crate::{
     description::{
         attribute_disallower::AttributeDisallower,
-        from_syn::ty::{fold_basic_type, fold_type},
+        from_syn::{
+            item::fold_visibility,
+            ty::{fold_basic_type, fold_type},
+        },
         Error, Errors,
     },
     support::ident_creator::IdentCreator,
@@ -74,6 +77,8 @@ impl FunctionFolder {
         attribute_disallower.visit_impl_item_fn(&impl_item);
         attribute_disallower.into_result()?;
 
+        let visibility = fold_visibility(impl_item.vis)?;
+
         let scope_id = 1;
         let outer_scope = FunctionScope {
             local_map: HashMap::new(),
@@ -110,6 +115,7 @@ impl FunctionFolder {
         }
 
         Ok(WImplItemFn {
+            visibility,
             signature,
             locals,
             block,

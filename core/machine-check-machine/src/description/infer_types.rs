@@ -206,6 +206,7 @@ impl FnInferrer<'_> {
         };
 
         Ok(WImplItemFn {
+            visibility: impl_item_fn.visibility,
             signature,
             locals,
             block: impl_item_fn.block,

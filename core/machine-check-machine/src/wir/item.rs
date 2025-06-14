@@ -105,7 +105,6 @@ impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
 
         ItemStruct {
             attrs,
-            // TODO visibility
             vis: self.visibility.into_syn(),
             struct_token: Token![struct](span),
             ident: self.ident.into(),

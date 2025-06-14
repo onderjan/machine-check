@@ -241,6 +241,7 @@ pub fn fold_impl_item_fn(forward_fn: WImplItemFn<YAbstr>) -> WImplItemFn<YRefin>
     }));
 
     WImplItemFn {
+        visibility: forward_fn.visibility,
         signature,
         locals,
         block: WBlock { stmts },

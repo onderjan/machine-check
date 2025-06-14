@@ -8,18 +8,23 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::util::{create_expr_path, create_path_from_ident};
+use crate::{
+    util::{create_expr_path, create_path_from_ident},
+    wir::WVisibility,
+};
 
 use super::{IntoSyn, WBlock, WIdent, WPath, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WImplItemType {
+    pub visibility: WVisibility,
     pub left_ident: WIdent,
     pub right_path: WPath,
 }
 
 #[derive(Clone, Debug, Hash)]
 pub struct WImplItemFn<Y: YStage> {
+    pub visibility: WVisibility,
     pub signature: WSignature<Y>,
     pub locals: Vec<Y::Local>,
     pub block: WBlock<Y::AssignTypes>,
@@ -57,8 +62,8 @@ impl IntoSyn<ImplItemType> for WImplItemType {
         let span = Span::call_site();
 
         ImplItemType {
-            attrs: Vec::new(), // TODO visibility
-            vis: syn::Visibility::Inherited,
+            attrs: Vec::new(),
+            vis: self.visibility.into_syn(),
             defaultness: None,
             type_token: Token![type](span),
             ident: self.left_ident.into(),
@@ -91,8 +96,7 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
         ImplItemFn {
             // TODO: attrs
             attrs: Vec::new(),
-            // TODO: visibility
-            vis: syn::Visibility::Inherited,
+            vis: self.visibility.into_syn(),
             defaultness: None,
             sig: Signature {
                 constness: None,

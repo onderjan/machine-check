@@ -231,7 +231,7 @@ pub fn fold_impl_item_type(
 ) -> Result<WImplItemType, Error> {
     let span = impl_item.span();
 
-    // TODO: visibility
+    let visibility = fold_visibility(impl_item.vis)?;
 
     if impl_item.generics != Generics::default() {
         return Err(Error::unsupported_construct(
@@ -245,6 +245,7 @@ pub fn fold_impl_item_type(
         return Err(Error::unsupported_construct("Non-path type", span));
     };
     Ok(WImplItemType {
+        visibility,
         left_ident: WIdent::from_syn_ident(impl_item.ident),
         right_path: fold_path(ty.path, Some(self_ty))?,
     })

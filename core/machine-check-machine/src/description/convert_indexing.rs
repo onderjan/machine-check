@@ -61,6 +61,7 @@ impl IndexingConverter {
             });
         }
         WImplItemFn {
+            visibility: impl_item_fn.visibility,
             signature,
             locals,
             result: impl_item_fn.result,

@@ -101,6 +101,7 @@ impl LocalVisitor {
         }
 
         Ok(WImplItemFn {
+            visibility: impl_item_fn.visibility,
             signature,
             locals,
             block,
