@@ -2,7 +2,7 @@ use syn::{
     parse2,
     spanned::Spanned,
     visit_mut::{self, VisitMut},
-    Expr, ExprMacro, Item, Macro, Stmt,
+    Attribute, Expr, ExprMacro, Item, Macro, Stmt,
 };
 
 use crate::util::path_matches_global_names;
@@ -50,7 +50,7 @@ impl VisitMut for Visitor {
 
         // process macros
         if let Stmt::Macro(stmt_macro) = stmt {
-            match self.process_macro(stmt_macro.mac.clone()) {
+            match self.process_macro(stmt_macro.mac.clone(), stmt_macro.attrs.clone()) {
                 Ok(macro_result) => *stmt = Stmt::Expr(macro_result, stmt_macro.semi_token),
                 Err(err) => self.push_error(err),
             }
@@ -63,7 +63,7 @@ impl VisitMut for Visitor {
 
         // process macros
         if let Expr::Macro(expr_macro) = expr {
-            match self.process_macro(expr_macro.mac.clone()) {
+            match self.process_macro(expr_macro.mac.clone(), expr_macro.attrs.clone()) {
                 Ok(macro_result) => *expr = macro_result,
                 Err(err) => self.push_error(err),
             }
@@ -72,13 +72,12 @@ impl VisitMut for Visitor {
 }
 
 impl Visitor {
-    fn process_macro(&mut self, mac: Macro) -> Result<Expr, Error> {
+    fn process_macro(&mut self, mac: Macro, attrs: Vec<Attribute>) -> Result<Expr, Error> {
         if path_matches_global_names(&mac.path, &["machine_check", "bitmask_switch"]) {
             self.expanded_some_macro = true;
             return self.process_bitmask_switch(mac);
         }
-        // TODO: retain attributes
-        Ok(Expr::Macro(ExprMacro { attrs: vec![], mac }))
+        Ok(Expr::Macro(ExprMacro { attrs, mac }))
     }
 
     fn process_bitmask_switch(&self, mut mac: Macro) -> Result<Expr, Error> {
