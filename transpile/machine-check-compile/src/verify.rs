@@ -17,6 +17,7 @@ pub struct Config {
     pub machine_path: Option<Utf8PathBuf>,
     pub preparation_path: Option<Utf8PathBuf>,
     pub batch: bool,
+    pub gui: bool,
     pub property: Option<String>,
     pub verbose: u8,
     pub use_decay: bool,
@@ -56,6 +57,7 @@ pub fn verify(config: Config) -> Result<ExecResult, Error> {
 
     let execution_start = Instant::now();
     let exec_result = execute::execute(&config, &artifact_path)?;
+
     stats.execution_time = Some(execution_start.elapsed().as_secs_f64());
 
     info!("Stats: {:?}", stats);

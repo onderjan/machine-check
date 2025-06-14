@@ -6,6 +6,10 @@ rust-version = "1.83"
 # internal artifact, do not publish
 publish = false
 
+[features]
+gui = ["machine-check/gui"]
+Zdual_interval = ["machine-check/Zdual_interval"]
+
 [dependencies]
 mck = "=0.5.0-alpha.2"
 machine-check = "=0.5.0-alpha.2"

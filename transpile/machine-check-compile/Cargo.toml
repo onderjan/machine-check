@@ -7,6 +7,10 @@ readme = "README.md"
 description = "Utility crate for formal verification tool for digital systems"
 rust-version = "1.83"
 
+[features]
+gui = []
+Zdual_interval = []
+
 [dependencies]
 machine-check-common = "=0.5.0-alpha.2"
 

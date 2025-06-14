@@ -5,6 +5,7 @@ use std::{path::PathBuf, process::ExitStatus};
 use camino::Utf8PathBuf;
 use thiserror::Error;
 
+mod features;
 mod prepare;
 mod util;
 mod verify;
@@ -57,4 +58,6 @@ pub enum Error {
     ExecStatus(ExitStatus),
     #[error("instead of one executable, {0} built")]
     BuildAmount(usize),
+    #[error("GUI opened")]
+    Gui,
 }

@@ -9,6 +9,7 @@ use std::{
 };
 
 use crate::{
+    features::{add_cargo_features, add_rustc_features},
     prepare::{default_preparation_dir, Preparation},
     util::{log_process_error_log, log_process_output},
     Error,
@@ -67,6 +68,7 @@ pub(super) fn build(
                 .arg("--out-dir")
                 .arg(machine_target_dir_path)
                 .args(preparation.target_build_args);
+            add_rustc_features(&mut build_command);
             (true, build_command)
         }
         None => {
@@ -93,6 +95,7 @@ pub(super) fn build(
                 .arg("--bin")
                 .arg("machine-check-exec-target")
                 .arg("--release");
+            add_cargo_features(&mut build_command);
             (false, build_command)
         }
     };

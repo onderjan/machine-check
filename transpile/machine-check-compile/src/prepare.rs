@@ -9,6 +9,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::features::add_cargo_features;
 use crate::util::{log_process_error_log, log_process_output};
 use crate::Error;
 
@@ -74,7 +75,8 @@ pub fn prepare(config: Config) -> Result<(), Error> {
     let profile = String::from("release");
 
     // cargo build machine_check_exec and copy the dependencies to a separate directory
-    let build_output = Command::new("cargo")
+    let mut build_command = Command::new("cargo");
+    build_command
         .arg("build")
         .arg("--manifest-path")
         .arg(cargo_toml_path)
@@ -83,7 +85,11 @@ pub fn prepare(config: Config) -> Result<(), Error> {
         .arg(&profile)
         .arg("--message-format=json-render-diagnostics")
         .arg("--target-dir")
-        .arg(&target_dir)
+        .arg(&target_dir);
+
+    add_cargo_features(&mut build_command);
+
+    let build_output = build_command
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .env("CARGO_HOME", &home_dir)

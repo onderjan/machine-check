@@ -10,9 +10,13 @@ use crate::CheckError;
 #[clap(group(ArgGroup::new("property-group")
 .required(true)
 .multiple(true)
-.args(&["property", "inherent"]),
+.args(&["property", "inherent", "gui"]),
 ))]
 pub struct Cli {
+    /// Whether to show the Graphical User Interface.
+    #[arg(short, long, conflicts_with("property"), conflicts_with("inherent"))]
+    pub gui: bool,
+
     /// Computation Tree Logic property to verify.
     #[arg(long)]
     pub property: Option<String>,
@@ -61,11 +65,17 @@ pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> 
         machine_path: verify_args.machine_path,
         preparation_path: verify_args.preparation_path,
         batch: args.batch,
+        gui: verify_args.gui,
         property: verify_args.property,
         verbose: args.verbose,
         use_decay: verify_args.use_decay,
     };
-    let exec_result = machine_check_compile::verify(config)?;
+    let verify_result = machine_check_compile::verify(config);
+    if let Err(machine_check_compile::Error::Gui) = verify_result {
+        return Ok(());
+    }
+
+    let exec_result = verify_result?;
 
     // print interesting facts
     info!(

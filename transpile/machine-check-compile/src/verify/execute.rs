@@ -12,8 +12,12 @@ use super::Config;
 pub(super) fn execute(config: &Config, artifact_path: &Path) -> Result<ExecResult, Error> {
     let mut command = Command::new(artifact_path);
 
-    // batch output so we can parse it
-    command.arg("--batch");
+    if config.gui {
+        command.arg("--gui");
+    } else {
+        // batch output so we can parse it
+        command.arg("--batch");
+    }
 
     // forward property
     if let Some(property) = &config.property {
@@ -39,8 +43,13 @@ pub(super) fn execute(config: &Config, artifact_path: &Path) -> Result<ExecResul
 
     let exec_output = command.output().map_err(Error::ExecRun)?;
 
+    if config.gui {
+        // just return
+        return Err(Error::Gui);
+    }
+
     if config.batch {
-        // echo the batch output written to stdout
+        // echo the output written to stdout
         std::io::stdout()
             .write_all(&exec_output.stdout)
             .map_err(Error::WriteStdout)?;
