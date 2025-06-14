@@ -1,5 +1,5 @@
 use camino::{Utf8Path, Utf8PathBuf};
-use clap::Args;
+use clap::{ArgGroup, Args};
 use log::{debug, info};
 use machine_check_common::ExecResult;
 use serde::{Deserialize, Serialize};
@@ -7,10 +7,19 @@ use serde::{Deserialize, Serialize};
 use crate::CheckError;
 
 #[derive(Debug, Clone, Args)]
+#[clap(group(ArgGroup::new("property-group")
+.required(true)
+.multiple(true)
+.args(&["property", "inherent"]),
+))]
 pub struct Cli {
-    /// Computation Tree Logic property to verify. Defaults to specification within the system.
+    /// Computation Tree Logic property to verify.
     #[arg(long)]
     pub property: Option<String>,
+
+    /// Whether to verify the inherent property instead of a supplied one.
+    #[arg(long)]
+    pub inherent: bool,
 
     /// Where the machine crate should be created. Defaults to temporary directory.
     #[arg(long)]
@@ -44,6 +53,8 @@ pub struct VerifyStats {
 
 pub(crate) fn run(args: super::Cli, verify_args: Cli) -> Result<(), CheckError> {
     let abstract_machine = process_machine(&verify_args.system_path)?;
+
+    // if no property is supplied, we will verify the inherent one
 
     let config = machine_check_compile::VerifyConfig {
         abstract_machine,

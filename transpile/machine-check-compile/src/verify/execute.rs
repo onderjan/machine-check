@@ -19,9 +19,8 @@ pub(super) fn execute(config: &Config, artifact_path: &Path) -> Result<ExecResul
     if let Some(property) = &config.property {
         command.arg("--property").arg(property);
     } else {
-        // default to safety
-        command.arg("--property");
-        command.arg("AG![safe == 1]");
+        // default to inherent
+        command.arg("--inherent");
     }
 
     // forward verbose

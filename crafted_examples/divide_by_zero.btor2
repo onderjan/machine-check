@@ -1,0 +1,10 @@
+; The inherent property should not hold here as division by zero can occur.
+
+2 sort bitvec 5 ; machine word type
+
+20 zero 2 ; machine-word zero
+
+101 input 2 ; input register A
+102 input 2 ; input register B
+
+200 udiv 2 101 102 ; A / B (unsigned)
