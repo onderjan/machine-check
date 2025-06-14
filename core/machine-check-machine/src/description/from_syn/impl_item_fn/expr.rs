@@ -142,8 +142,6 @@ impl RightExprFolder<'_> {
             nongeneric_path_string += &segment.ident.to_string();
         }
 
-        // TODO: generics
-
         if let Ok(unary_op) = WStdUnaryOp::from_str(&nongeneric_path_string) {
             return self.create_std_unary(unary_op, fn_path, expr_call.args);
         }
