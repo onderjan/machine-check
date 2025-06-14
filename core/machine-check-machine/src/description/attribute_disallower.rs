@@ -1,4 +1,4 @@
-use syn::{spanned::Spanned, visit::Visit};
+use syn::visit::Visit;
 
 use super::{Error, Errors};
 
@@ -25,9 +25,9 @@ impl Visit<'_> for AttributeDisallower {
             }
         }
 
-        self.errors.push(Error::unsupported_construct(
+        self.errors.push(Error::unsupported_syn_construct(
             "Attribute here",
-            attribute.span(),
+            &attribute,
         ));
     }
 }

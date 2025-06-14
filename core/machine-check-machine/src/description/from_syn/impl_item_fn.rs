@@ -17,7 +17,7 @@ use crate::{
     support::ident_creator::IdentCreator,
     wir::{
         WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WReference,
-        WSignature, WTacLocal, WType, YTac,
+        WSignature, WSpan, WTacLocal, WType, YTac,
     },
 };
 
@@ -54,12 +54,12 @@ struct FunctionFolder {
 
 impl FunctionFolder {
     pub fn fold(mut self, mut impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, Errors> {
-        let impl_item_span = impl_item.span();
+        let impl_item_span = WSpan::from_syn(&impl_item);
 
         if impl_item.defaultness.is_some() {
-            return Err(Errors::single(Error::unsupported_construct(
+            return Err(Errors::single(Error::unsupported_syn_construct(
                 "Defaultness",
-                impl_item.defaultness.span(),
+                &impl_item.defaultness,
             )));
         }
 
@@ -128,44 +128,44 @@ impl FunctionFolder {
         scope_id: u32,
         signature: Signature,
     ) -> Result<WSignature<YTac>, Errors> {
-        let signature_span = signature.span();
-
         if signature.constness.is_some() {
-            return Err(Errors::single(Error::unsupported_construct(
+            return Err(Errors::single(Error::unsupported_syn_construct(
                 "Constness",
-                signature.constness.span(),
+                &signature.constness,
             )));
         }
         if signature.asyncness.is_some() {
-            return Err(Errors::single(Error::unsupported_construct(
+            return Err(Errors::single(Error::unsupported_syn_construct(
                 "Asyncness",
-                signature.asyncness.span(),
+                &signature.asyncness,
             )));
         }
         if signature.unsafety.is_some() {
-            return Err(Errors::single(Error::unsupported_construct(
+            return Err(Errors::single(Error::unsupported_syn_construct(
                 "Unsafety",
-                signature.unsafety.span(),
+                &signature.unsafety,
             )));
         }
         if signature.abi.is_some() {
-            return Err(Errors::single(Error::unsupported_construct(
+            return Err(Errors::single(Error::unsupported_syn_construct(
                 "ABI",
-                signature.abi.span(),
+                &signature.abi,
             )));
         }
         if signature.generics != Generics::default() {
-            return Err(Errors::single(Error::unsupported_construct(
+            return Err(Errors::single(Error::unsupported_syn_construct(
                 "Generics",
-                signature.generics.span(),
+                &signature.generics,
             )));
         }
         if signature.variadic.is_some() {
-            return Err(Errors::single(Error::unsupported_construct(
+            return Err(Errors::single(Error::unsupported_syn_construct(
                 "Variadic argument",
-                signature.variadic.span(),
+                &signature.variadic,
             )));
         }
+
+        let signature_span = WSpan::from_syn(&signature);
 
         let inputs: Vec<_> = signature
             .inputs
@@ -206,13 +206,13 @@ impl FunctionFolder {
                 let reference = match receiver.reference {
                     Some((_and, lifetime)) => {
                         if lifetime.is_some() {
-                            return Err(Error::unsupported_construct("Lifetimes", lifetime.span()));
+                            return Err(Error::unsupported_syn_construct("Lifetimes", &lifetime));
                         }
 
                         if receiver.mutability.is_some() {
-                            return Err(Error::unsupported_construct(
+                            return Err(Error::unsupported_syn_construct(
                                 "Mutable receiver argument",
-                                receiver_span,
+                                &receiver.mutability,
                             ));
                         } else {
                             WReference::Immutable
@@ -238,9 +238,9 @@ impl FunctionFolder {
             }
             syn::FnArg::Typed(pat_type) => {
                 let Pat::Ident(pat_ident) = *pat_type.pat else {
-                    return Err(Error::unsupported_construct(
+                    return Err(Error::unsupported_syn_construct(
                         "Non-ident typed pattern",
-                        pat_type.pat.span(),
+                        &pat_type.pat,
                     ));
                 };
 
@@ -260,23 +260,23 @@ impl FunctionFolder {
     }
 
     fn fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, Error> {
-        let expr_span = expr.span();
+        let expr_span = WSpan::from_syn(&expr);
         let Expr::Path(expr_path) = expr else {
-            return Err(Error::unsupported_construct(
+            return Err(Error::unsupported_syn_construct(
                 "Non-path expression",
-                expr.span(),
+                &expr,
             ));
         };
         if expr_path.qself.is_some() {
-            return Err(Error::unsupported_construct(
+            return Err(Error::unsupported_syn_construct(
                 "Qualified self",
-                expr_path.span(),
+                &expr_path,
             ));
         }
 
         let path = fold_path(expr_path.path, Some(&self.self_ty))?;
         let mut segments_iter = path.segments.into_iter();
-        if !path.leading_colon {
+        if path.leading_colon.is_none() {
             if let Some(first) = segments_iter.next() {
                 if segments_iter.next().is_none() {
                     let ident = first.ident;

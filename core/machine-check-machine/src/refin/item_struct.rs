@@ -38,7 +38,7 @@ pub(super) fn special_impls(
     item_struct: &WItemStruct<WElementaryType>,
 ) -> Vec<ItemImpl> {
     let abstr_type_path = WPath {
-        leading_colon: false,
+        leading_colon: None,
         segments: vec![
             WPathSegment {
                 ident: WIdent::new(String::from("super"), item_struct.ident.span()),

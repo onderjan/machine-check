@@ -23,9 +23,9 @@ pub fn machine_description(_attr: TokenStream, item: TokenStream) -> TokenStream
         Ok(ok) => ok.into_token_stream().into(),
         Err(err) => {
             let (first_error, other_errors) = err.into_errors().split_off_first();
-            let mut current_error = syn::Error::new(first_error.span, first_error.ty.to_string());
+            let mut current_error = first_error.into_syn_error();
             for error in other_errors {
-                current_error.combine(syn::Error::new(error.span, error.ty.to_string()));
+                current_error.combine(error.into_syn_error());
             }
             current_error.to_compile_error().into()
         }

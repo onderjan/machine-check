@@ -7,6 +7,7 @@ mod impl_item;
 mod item;
 mod op;
 mod path;
+mod span;
 mod stmt;
 mod ty;
 
@@ -16,6 +17,7 @@ pub use impl_item::*;
 pub use item::*;
 pub use op::*;
 pub use path::*;
+pub use span::*;
 pub use stmt::*;
 pub use ty::*;
 

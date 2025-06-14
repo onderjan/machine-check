@@ -1,17 +1,17 @@
-use syn::{spanned::Spanned, Expr, GenericArgument, PathArguments, Type};
+use syn::{Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
     description::{from_syn::path::fold_path, Error, ErrorType},
-    wir::{WBasicType, WPath, WReference, WType, WTypeArray},
+    wir::{WBasicType, WPath, WReference, WSpan, WType, WTypeArray},
 };
 
 pub fn fold_type(mut ty: Type, self_ty: Option<&WPath>) -> Result<WType<WBasicType>, Error> {
     let reference = match ty {
         Type::Reference(type_reference) => {
             if type_reference.mutability.is_some() {
-                return Err(Error::unsupported_construct(
+                return Err(Error::unsupported_syn_construct(
                     "Mutable references",
-                    type_reference.mutability.span(),
+                    &type_reference.mutability,
                 ));
             }
             ty = *type_reference.elem;
@@ -26,14 +26,14 @@ pub fn fold_type(mut ty: Type, self_ty: Option<&WPath>) -> Result<WType<WBasicTy
 }
 
 pub fn fold_basic_type(ty: Type, self_ty: Option<&WPath>) -> Result<WBasicType, Error> {
-    let ty_span = ty.span();
+    let ty_span = WSpan::from_syn(&ty);
     let ty = match ty {
         Type::Path(ty) => ty,
-        _ => return Err(Error::unsupported_construct("Non-path type", ty_span)),
+        _ => return Err(Error::unsupported_syn_construct("Non-path type", &ty)),
     };
 
     if ty.qself.is_some() {
-        return Err(Error::unsupported_construct("Quantified self", ty.span()));
+        return Err(Error::unsupported_syn_construct("Quantified self", &ty));
     }
 
     let mut known_type = None;
@@ -89,7 +89,7 @@ pub fn extract_generic_sizes(
         syn::PathArguments::AngleBracketed(generic_args) => {
             assert_eq!(expected_length, generic_args.args.len());
             for arg in generic_args.args.into_iter() {
-                let arg_span = arg.span();
+                let arg_span = WSpan::from_syn(&arg);
                 let parsed = match arg {
                     GenericArgument::Const(Expr::Lit(expr)) => match expr.lit {
                         syn::Lit::Int(lit_int) => {
@@ -111,9 +111,9 @@ pub fn extract_generic_sizes(
             }
         }
         syn::PathArguments::Parenthesized(_) => {
-            return Err(Error::unsupported_construct(
+            return Err(Error::unsupported_syn_construct(
                 "Parenthesized",
-                arguments.span(),
+                &arguments,
             ));
         }
     };

@@ -2,11 +2,13 @@ use proc_macro2::Span;
 use std::hash::Hash;
 use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment, Token};
 
+use crate::wir::{WSpan, WSpanned};
+
 use super::IntoSyn;
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct WPath {
-    pub leading_colon: bool,
+    pub leading_colon: Option<WSpan>,
     pub segments: Vec<WPathSegment>,
 }
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -19,7 +21,7 @@ impl WPath {
     ///
     /// Does not take generics into account.
     pub fn starts_with_absolute(&self, segments: &[&str]) -> bool {
-        if !self.leading_colon {
+        if self.leading_colon.is_none() {
             return false;
         }
         if self.segments.len() < segments.len() {
@@ -37,7 +39,7 @@ impl WPath {
     ///
     /// Does not take generics into account.
     pub fn matches_relative(&self, segments: &[&str]) -> bool {
-        if self.leading_colon {
+        if self.leading_colon.is_some() {
             return false;
         }
         if self.segments.len() != segments.len() {
@@ -53,7 +55,7 @@ impl WPath {
 
     pub fn from_ident(ident: WIdent) -> Self {
         WPath {
-            leading_colon: false,
+            leading_colon: None,
             segments: vec![WPathSegment { ident }],
         }
     }
@@ -74,7 +76,7 @@ impl WPath {
     }
 
     pub fn get_ident(&self) -> Option<&WIdent> {
-        if !self.leading_colon && self.segments.len() == 1 {
+        if self.leading_colon.is_none() && self.segments.len() == 1 {
             Some(&self.segments[0].ident)
         } else {
             None
@@ -82,12 +84,36 @@ impl WPath {
     }
 }
 
+impl WSpanned for WPath {
+    fn wir_span(&self) -> WSpan {
+        let first = if let Some(leading_colon) = self.leading_colon {
+            leading_colon.first()
+        } else {
+            self.segments
+                .first()
+                .map(|first| first.ident.span())
+                .unwrap_or(Span::call_site())
+        };
+        WSpan::from_delimiters(
+            first,
+            self.segments
+                .last()
+                .map(|last| last.ident.span())
+                .unwrap_or(Span::call_site()),
+        )
+    }
+}
+
 impl From<WPath> for Path {
     fn from(path: WPath) -> Self {
-        let span = Span::call_site();
+        let leading_span = if let Some(leading_colon) = path.leading_colon {
+            leading_colon.first()
+        } else {
+            Span::call_site()
+        };
         Path {
-            leading_colon: if path.leading_colon {
-                Some(Token![::](span))
+            leading_colon: if path.leading_colon.is_some() {
+                Some(Token![::](leading_span))
             } else {
                 None
             },
@@ -97,6 +123,23 @@ impl From<WPath> for Path {
                 arguments: PathArguments::None,
             })),
         }
+    }
+}
+
+impl PartialEq for WPath {
+    fn eq(&self, other: &Self) -> bool {
+        self.leading_colon.is_some() == other.leading_colon.is_some()
+            && self.segments == other.segments
+    }
+}
+
+impl Eq for WPath {}
+
+impl Hash for WPath {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let has_leading_colon = self.leading_colon.is_some();
+        has_leading_colon.hash(state);
+        self.segments.hash(state);
     }
 }
 
@@ -206,5 +249,11 @@ impl IntoSyn<Expr> for WIdent {
                 }]),
             },
         })
+    }
+}
+
+impl WSpanned for WIdent {
+    fn wir_span(&self) -> super::WSpan {
+        WSpan::from_span(self.span)
     }
 }

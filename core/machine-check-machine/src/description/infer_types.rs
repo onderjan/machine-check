@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use crate::wir::{
     WBasicType, WDescription, WGeneralType, WIdent, WImplItemFn, WItemImpl, WItemStruct,
-    WPartialGeneralType, WPath, WSignature, WSsaLocal, WType, YInferred, YSsa,
+    WPartialGeneralType, WPath, WSignature, WSpanned, WSsaLocal, WType, YInferred, YSsa,
 };
 
 use super::{Error, ErrorType, Errors};
@@ -192,7 +192,10 @@ impl FnInferrer<'_> {
                 }
                 None => {
                     // inference failure
-                    errors.push(Error::new(ErrorType::InferenceFailure, local.ident.span()));
+                    errors.push(Error::new(
+                        ErrorType::InferenceFailure,
+                        local.ident.wir_span(),
+                    ));
                 }
             }
         }

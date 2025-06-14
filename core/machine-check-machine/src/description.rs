@@ -8,12 +8,12 @@ mod from_syn;
 mod infer_types;
 mod resolve_use;
 
-use proc_macro2::Span;
+use quote::ToTokens;
 use syn::Item;
 
 use crate::{
     support::error_list::ErrorList,
-    wir::{WDescription, YConverted},
+    wir::{WDescription, WSpan, YConverted},
 };
 
 pub fn create_description(
@@ -93,16 +93,20 @@ impl From<Error> for crate::Error {
 #[error("{ty}")]
 pub(super) struct Error {
     pub ty: ErrorType,
-    pub span: Span,
+    pub span: WSpan,
 }
 
 impl Error {
-    pub fn new(ty: ErrorType, span: Span) -> Self {
+    pub fn new(ty: ErrorType, span: WSpan) -> Self {
         Self { ty, span }
     }
 
-    pub fn unsupported_construct(msg: &'static str, span: Span) -> Self {
+    pub fn unsupported_construct(msg: &'static str, span: WSpan) -> Self {
         Self::new(ErrorType::UnsupportedConstruct(msg), span)
+    }
+
+    pub fn unsupported_syn_construct(msg: &'static str, to_tokens: &impl ToTokens) -> Self {
+        Self::unsupported_construct(msg, WSpan::from_syn(to_tokens))
     }
 }
 

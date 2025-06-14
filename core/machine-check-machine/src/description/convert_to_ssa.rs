@@ -2,7 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::wir::{
     WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WHighMckNew, WIdent, WIfCondition,
-    WPartialGeneralType, WSignature, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa, ZTotal,
+    WPartialGeneralType, WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa,
+    ZTotal,
 };
 use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
 
@@ -374,7 +375,7 @@ impl LocalVisitor {
                     ErrorType::IllegalConstruct(String::from(
                         "Variable used before being assigned",
                     )),
-                    ident.span(),
+                    ident.wir_span(),
                 ));
                 return;
             };

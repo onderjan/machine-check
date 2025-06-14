@@ -2,4 +2,4 @@ error: machine-check: Generics not supported
  --> tests/cases/03-struct-generics.rs:3:13
   |
 3 |     struct A<G> {}
-  |             ^
+  |             ^^^

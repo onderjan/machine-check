@@ -16,10 +16,10 @@ use crate::{
     wir::{
         WArrayBaseExpr, WBasicType, WCall, WCallArg, WExpr, WExprField, WExprHighCall,
         WExprReference, WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WHighStdIntoType,
-        WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt, WReference, WStdBinary, WStdBinaryOp,
-        WStdUnary, WStdUnaryOp, WStmtAssign, WType, WTypeArray, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW,
-        MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW,
-        STD_CLONE, STD_INTO,
+        WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt, WReference, WSpan, WStdBinary,
+        WStdBinaryOp, WStdUnary, WStdUnaryOp, WStmtAssign, WType, WTypeArray, ZTac,
+        MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW,
+        MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
     },
 };
 
@@ -74,7 +74,6 @@ struct RightExprFolder<'a> {
 
 impl RightExprFolder<'_> {
     pub fn fold_right_expr(&mut self, expr: Expr) -> Result<WIndexedExpr<WExprHighCall>, Error> {
-        let expr_span = expr.span();
         Ok(match expr {
             Expr::Call(expr_call) => {
                 WIndexedExpr::NonIndexed(WExpr::Call(self.fold_right_expr_call(expr_call)?))
@@ -103,26 +102,25 @@ impl RightExprFolder<'_> {
                 // just fold the inside
                 self.fold_right_expr(*expr_group.expr)?
             }
-            _ => return Err(Error::unsupported_construct("Expression kind", expr_span)),
+            _ => return Err(Error::unsupported_syn_construct("Expression kind", &expr)),
         })
     }
 
     fn fold_right_expr_call(&mut self, expr_call: ExprCall) -> Result<WExprHighCall, Error> {
         let Expr::Path(expr_path) = &*expr_call.func else {
-            return Err(Error::unsupported_construct(
+            return Err(Error::unsupported_syn_construct(
                 "Non-path function operand",
-                expr_call.span(),
+                &expr_call,
             ));
         };
         if expr_path.qself.is_some() {
-            return Err(Error::unsupported_construct(
+            return Err(Error::unsupported_syn_construct(
                 "Qualified self in function operand",
-                expr_path.span(),
+                &expr_path,
             ));
         }
 
         let fn_path = &expr_path.path;
-        let fn_path_span = fn_path.span();
 
         let mut nongeneric_path_string = if fn_path.leading_colon.is_some() {
             String::from("::")
@@ -167,14 +165,14 @@ impl RightExprFolder<'_> {
             _ => {}
         }
 
-        let fn_path = fold_path(fn_path.clone(), Some(&self.fn_folder.self_ty))?;
+        let wir_fn_path = fold_path(fn_path.clone(), Some(&self.fn_folder.self_ty))?;
         // ensure it is not a local-scope ident
-        if !fn_path.leading_colon && fn_path.segments.len() == 1 {
-            let ident = &fn_path.segments[0].ident;
+        if wir_fn_path.leading_colon.is_none() && wir_fn_path.segments.len() == 1 {
+            let ident = &wir_fn_path.segments[0].ident;
             if self.fn_folder.lookup_local_ident(ident).is_some() {
-                return Err(Error::unsupported_construct(
+                return Err(Error::unsupported_syn_construct(
                     "Local ident as function operand",
-                    fn_path_span.span(),
+                    &fn_path,
                 ));
             }
         }
@@ -183,7 +181,10 @@ impl RightExprFolder<'_> {
             args.push(self.force_call_arg(arg)?);
         }
 
-        Ok(WExprHighCall::Call(WCall { fn_path, args }))
+        Ok(WExprHighCall::Call(WCall {
+            fn_path: wir_fn_path,
+            args,
+        }))
     }
 
     fn create_std_unary(
@@ -274,9 +275,9 @@ impl RightExprFolder<'_> {
         third_segment.arguments = syn::PathArguments::None;
 
         let WReference::None = ty.reference else {
-            return Err(Error::unsupported_construct(
+            return Err(Error::unsupported_syn_construct(
                 "Reference type",
-                third_segment.span(),
+                &third_segment,
             ));
         };
 
@@ -285,9 +286,9 @@ impl RightExprFolder<'_> {
             WBasicType::Unsigned(width) => WHighStdIntoType::Unsigned(width),
             WBasicType::Signed(width) => WHighStdIntoType::Signed(width),
             _ => {
-                return Err(Error::unsupported_construct(
+                return Err(Error::unsupported_syn_construct(
                     "Non-bitvector type",
-                    third_segment.span(),
+                    &third_segment,
                 ))
             }
         };
@@ -303,7 +304,7 @@ impl RightExprFolder<'_> {
                 ErrorType::IllegalConstruct(String::from(
                     "Exactly one generic argument should be used here",
                 )),
-                segment.span(),
+                WSpan::from_syn(segment),
             ));
         }
 
@@ -317,7 +318,7 @@ impl RightExprFolder<'_> {
                 ErrorType::IllegalConstruct(String::from(
                     "Exactly 2 generic arguments should be used here",
                 )),
-                segment.span(),
+                WSpan::from_syn(&segment),
             ));
         }
 
@@ -336,7 +337,7 @@ impl RightExprFolder<'_> {
                 ErrorType::IllegalConstruct(String::from(
                     "Exactly one generic argument should be used here",
                 )),
-                segment.span(),
+                WSpan::from_syn(segment),
             ));
         }
 
@@ -344,7 +345,7 @@ impl RightExprFolder<'_> {
         let GenericArgument::Type(arg) = arg else {
             return Err(Error::unsupported_construct(
                 "Non-type generic argument",
-                segment.span(),
+                WSpan::from_syn(segment),
             ));
         };
 
@@ -358,13 +359,13 @@ impl RightExprFolder<'_> {
         let PathArguments::AngleBracketed(generic_args) = &segment.arguments else {
             return Err(Error::unsupported_construct(
                 "This call without generic argument",
-                segment.span(),
+                WSpan::from_syn(segment),
             ));
         };
         if generic_args.colon2_token.is_none() {
             return Err(Error::new(
                 ErrorType::IllegalConstruct(String::from("Turbofish should be used here")),
-                segment.span(),
+                WSpan::from_syn(segment),
             ));
         }
         Ok(&generic_args.args)
@@ -380,7 +381,7 @@ impl RightExprFolder<'_> {
                 ErrorType::IllegalConstruct(String::from(
                     "The generic argument here should be a literal",
                 )),
-                arg.span(),
+                WSpan::from_syn(arg),
             ));
         };
 
@@ -390,7 +391,7 @@ impl RightExprFolder<'_> {
                 ErrorType::IllegalConstruct(String::from(
                     "The generic argument here should be parseable as u32",
                 )),
-                arg.span(),
+                WSpan::from_syn(arg),
             ));
         };
         Ok(result)
@@ -407,27 +408,26 @@ impl RightExprFolder<'_> {
     }
 
     fn parse_single_const_arg(&mut self, args: Punctuated<Expr, Comma>) -> Result<i128, Error> {
-        let span = args.span();
         if args.len() != 1 {
             return Err(Error::new(
                 ErrorType::IllegalConstruct(String::from("Exactly 1 argument expected")),
-                span,
+                WSpan::from_syn(&args),
             ));
         };
         let Expr::Lit(ExprLit {
             lit: Lit::Int(lit_int),
             attrs: _attrs,
-        }) = args.into_iter().next().unwrap()
+        }) = args.iter().next().unwrap()
         else {
             return Err(Error::unsupported_construct(
                 "Non-integer-literal argument here",
-                span,
+                WSpan::from_syn(&args),
             ));
         };
         lit_int.base10_parse().map_err(|_| {
             Error::new(
                 ErrorType::IllegalConstruct(String::from("Argument not parseable as i128")),
-                span,
+                WSpan::from_syn(&lit_int),
             )
         })
     }
@@ -436,7 +436,7 @@ impl RightExprFolder<'_> {
         if args.len() != 1 {
             return Err(Error::new(
                 ErrorType::IllegalConstruct(String::from("Exactly 1 argument expected")),
-                args.span(),
+                WSpan::from_syn(&args),
             ));
         };
         self.force_ident(args.into_iter().next().unwrap())
@@ -449,7 +449,7 @@ impl RightExprFolder<'_> {
         if args.len() != 2 {
             return Err(Error::new(
                 ErrorType::IllegalConstruct(String::from("Exactly 2 arguments expected")),
-                args.span(),
+                WSpan::from_syn(&args),
             ));
         };
         let mut iter = args.into_iter();
@@ -463,7 +463,7 @@ impl RightExprFolder<'_> {
             if !segment.arguments.is_none() {
                 return Err(Error::unsupported_construct(
                     "Unexpected generics",
-                    segment.span(),
+                    WSpan::from_syn(segment),
                 ));
             };
         }
@@ -480,13 +480,13 @@ impl RightExprFolder<'_> {
         if expr_struct.qself.is_some() {
             return Err(Error::unsupported_construct(
                 "Quantified self",
-                expr_struct.span(),
+                WSpan::from_syn(&expr_struct),
             ));
         }
         if expr_struct.rest.is_some() {
             return Err(Error::unsupported_construct(
                 "Struct expressions with base",
-                expr_struct.rest.span(),
+                WSpan::from_syn(&expr_struct.rest),
             ));
         }
 
@@ -521,7 +521,7 @@ impl RightExprFolder<'_> {
             _ => {
                 return Err(Error::unsupported_construct(
                     "Expression kind inside reference",
-                    expr_reference.expr.span(),
+                    WSpan::from_syn(&expr_reference.expr),
                 ))
             }
         })
@@ -546,7 +546,7 @@ impl RightExprFolder<'_> {
             _ => {
                 return Err(Error::unsupported_construct(
                     "Expression kind as array base",
-                    expr_index.expr.span(),
+                    WSpan::from_syn(&expr_index.expr),
                 ))
             }
         };
@@ -560,7 +560,7 @@ impl RightExprFolder<'_> {
             Member::Named(ident) => Ok(WIdent::from_syn_ident(ident)),
             Member::Unnamed(index) => Err(Error::unsupported_construct(
                 "Unnamed members",
-                index.span(),
+                WSpan::from_syn(&index),
             )),
         }
     }
@@ -616,21 +616,20 @@ impl RightExprFolder<'_> {
 }
 
 fn normalize_unary(expr_unary: ExprUnary) -> Result<Expr, Error> {
-    let span = expr_unary.op.span();
     let path = match expr_unary.op {
         syn::UnOp::Deref(_) => {
-            return Err(Error::new(
-                ErrorType::UnsupportedConstruct("Dereference"),
-                span,
+            return Err(Error::unsupported_syn_construct(
+                "Dereference",
+                &expr_unary.op,
             ))
         }
         syn::UnOp::Not(_) => path!(::std::ops::Not::not),
         syn::UnOp::Neg(_) => path!(::std::ops::Neg::neg),
         _ => {
-            return Err(Error::new(
-                ErrorType::UnsupportedConstruct("Unary operator"),
-                span,
-            ))
+            return Err(Error::unsupported_syn_construct(
+                "Unary operator",
+                &expr_unary.op,
+            ));
         }
     };
     // construct the call
@@ -641,7 +640,6 @@ fn normalize_unary(expr_unary: ExprUnary) -> Result<Expr, Error> {
 }
 
 fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, Error> {
-    let span = expr_binary.op.span();
     let call_func = match expr_binary.op {
         syn::BinOp::Add(_) => path!(::std::ops::Add::add),
         syn::BinOp::Sub(_) => path!(::std::ops::Sub::sub),
@@ -649,15 +647,15 @@ fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, Error> {
         syn::BinOp::Div(_) => path!(::std::ops::Div::div),
         syn::BinOp::Rem(_) => path!(::std::ops::Rem::rem),
         syn::BinOp::And(_) => {
-            return Err(Error::new(
-                ErrorType::UnsupportedConstruct("Short-circuiting AND"),
-                span,
+            return Err(Error::unsupported_syn_construct(
+                "Short-circuiting AND",
+                &expr_binary.op,
             ))
         }
         syn::BinOp::Or(_) => {
-            return Err(Error::new(
-                ErrorType::UnsupportedConstruct("Short-circuiting OR"),
-                span,
+            return Err(Error::unsupported_syn_construct(
+                "Short-circuiting OR",
+                &expr_binary.op,
             ))
         }
         syn::BinOp::BitAnd(_) => path!(::std::ops::BitAnd::bitand),
@@ -681,15 +679,15 @@ fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, Error> {
         | syn::BinOp::BitOrAssign(_)
         | syn::BinOp::ShlAssign(_)
         | syn::BinOp::ShrAssign(_) => {
-            return Err(Error::new(
-                ErrorType::UnsupportedConstruct("Assignment operators"),
-                span,
+            return Err(Error::unsupported_syn_construct(
+                "Assignment operators",
+                &expr_binary.op,
             ))
         }
         _ => {
-            return Err(Error::new(
-                ErrorType::UnsupportedConstruct("Binary operator"),
-                span,
+            return Err(Error::unsupported_syn_construct(
+                "Binary operator",
+                &expr_binary.op,
             ))
         }
     };

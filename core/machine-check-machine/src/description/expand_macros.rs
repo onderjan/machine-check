@@ -1,11 +1,10 @@
 use syn::{
     parse2,
-    spanned::Spanned,
     visit_mut::{self, VisitMut},
     Attribute, Expr, ExprMacro, Item, Macro, Stmt,
 };
 
-use crate::util::path_matches_global_names;
+use crate::{util::path_matches_global_names, wir::WSpan};
 
 use super::{Error, ErrorType};
 
@@ -81,14 +80,17 @@ impl Visitor {
     }
 
     fn process_bitmask_switch(&self, mut mac: Macro) -> Result<Expr, Error> {
-        let span = mac.span();
         let macro_result =
             match machine_check_bitmask_switch::process(::std::mem::take(&mut mac.tokens)) {
                 Ok(ok) => ok,
                 Err(err) => {
-                    return Err(Error::new(ErrorType::MacroError(err.msg()), span));
+                    return Err(Error::new(
+                        ErrorType::MacroError(err.msg()),
+                        WSpan::from_syn(&mac),
+                    ));
                 }
             };
-        parse2(macro_result).map_err(|err| Error::new(ErrorType::MacroParseError(err), span))
+        parse2(macro_result)
+            .map_err(|err| Error::new(ErrorType::MacroParseError(err), WSpan::from_syn(&mac)))
     }
 }

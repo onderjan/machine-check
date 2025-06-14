@@ -8,7 +8,7 @@ error: machine-check: Non-ident expression not supported
  --> tests/cases/10-expr-unsupported.rs:9:17
   |
 9 |             a = nonident::path.0;
-  |                 ^^^^^^^^
+  |                 ^^^^^^^^^^^^^^
 
 error: machine-check: Struct expressions with base not supported
   --> tests/cases/10-expr-unsupported.rs:11:23
@@ -56,13 +56,13 @@ error: machine-check: Non-ident expression not supported
   --> tests/cases/10-expr-unsupported.rs:24:17
    |
 24 |             a = nonident::path[0];
-   |                 ^^^^^^^^
+   |                 ^^^^^^^^^^^^^^
 
 error: machine-check: Non-ident expression not supported
   --> tests/cases/10-expr-unsupported.rs:25:19
    |
 25 |             a = b[nonident::path];
-   |                   ^^^^^^^^
+   |                   ^^^^^^^^^^^^^^
 
 error: machine-check: Dereference not supported
   --> tests/cases/10-expr-unsupported.rs:32:17
@@ -74,70 +74,70 @@ error: machine-check: Short-circuiting AND not supported
   --> tests/cases/10-expr-unsupported.rs:34:19
    |
 34 |             a = a && b;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Short-circuiting OR not supported
   --> tests/cases/10-expr-unsupported.rs:35:19
    |
 35 |             a = a || b;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:37:19
    |
 37 |             a = b += c;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:38:19
    |
 38 |             a = b -= c;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:39:19
    |
 39 |             a = b *= c;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:40:19
    |
 40 |             a = b /= c;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:41:19
    |
 41 |             a = b %= c;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:43:19
    |
 43 |             a = b ^= c;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:44:19
    |
 44 |             a = b &= c;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:45:19
    |
 45 |             a = b |= c;
-   |                   ^
+   |                   ^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:47:19
    |
 47 |             a = b <<= c;
-   |                   ^
+   |                   ^^^
 
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:48:19
    |
 48 |             a = b >>= c;
-   |                   ^
+   |                   ^^^

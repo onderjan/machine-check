@@ -14,28 +14,28 @@ error: machine-check: Generics not supported
  --> tests/cases/07-impl-unsupported.rs:9:9
   |
 9 |     impl<G> A<G> {}
-  |         ^
+  |         ^^^
 
 error: machine-check: Non-path type not supported
   --> tests/cases/07-impl-unsupported.rs:11:10
    |
 11 |     impl &A {}
-   |          ^
+   |          ^^
 
 error: machine-check: Generics not supported
   --> tests/cases/07-impl-unsupported.rs:16:30
    |
 16 |         type GenericAssocType<G> = u32;
-   |                              ^
+   |                              ^^^
 
 error: machine-check: Macro invocations in impl not supported
   --> tests/cases/07-impl-unsupported.rs:14:9
    |
 14 |         macro_invocation!();
-   |         ^^^^^^^^^^^^^^^^
+   |         ^^^^^^^^^^^^^^^^^^^^
 
 error: machine-check: Associated consts not supported
   --> tests/cases/07-impl-unsupported.rs:17:9
    |
 17 |         const ASSOC_CONST: u32 = 0;
-   |         ^^^^^
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^

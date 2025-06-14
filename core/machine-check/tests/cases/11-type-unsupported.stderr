@@ -2,7 +2,7 @@ error: machine-check: Unknown machine-check type
  --> tests/cases/11-type-unsupported.rs:4:12
   |
 4 |         a: ::machine_check::UnsupportedType,
-  |            ^
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: machine-check: Non-path type not supported
  --> tests/cases/11-type-unsupported.rs:5:12
@@ -14,13 +14,13 @@ error: machine-check: Non-path type not supported
  --> tests/cases/11-type-unsupported.rs:6:12
   |
 6 |         c: &mut u32,
-  |            ^
+  |            ^^^^^^^^
 
 error: machine-check: Unknown machine-check type
   --> tests/cases/11-type-unsupported.rs:10:19
    |
 10 |         fn a() -> ::machine_check::UnsupportedType {}
-   |                   ^
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: machine-check: Non-path type not supported
   --> tests/cases/11-type-unsupported.rs:11:19
@@ -32,19 +32,19 @@ error: machine-check: Non-path type not supported
   --> tests/cases/11-type-unsupported.rs:12:19
    |
 12 |         fn c() -> &mut u32 {}
-   |                   ^
+   |                   ^^^^^^^^
 
 error: machine-check: Mutable receiver argument not supported
-  --> tests/cases/11-type-unsupported.rs:14:14
+  --> tests/cases/11-type-unsupported.rs:14:15
    |
 14 |         fn d(&mut self) -> u32 {}
-   |              ^
+   |               ^^^
 
 error: machine-check: Unknown machine-check type
   --> tests/cases/11-type-unsupported.rs:16:17
    |
 16 |         fn e(a: ::machine_check::UnsupportedType) -> u32 {}
-   |                 ^
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: machine-check: Non-path type not supported
   --> tests/cases/11-type-unsupported.rs:17:17
@@ -62,7 +62,7 @@ error: machine-check: Unknown machine-check type
   --> tests/cases/11-type-unsupported.rs:21:20
    |
 21 |             let a: ::machine_check::UnsupportedType;
-   |                    ^
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: machine-check: Non-path type not supported
   --> tests/cases/11-type-unsupported.rs:22:20
@@ -80,4 +80,4 @@ error: machine-check: Quantified self not supported
   --> tests/cases/11-type-unsupported.rs:25:20
    |
 25 |             let d: <A as B>::Q;
-   |                    ^
+   |                    ^^^^^^^^^^^

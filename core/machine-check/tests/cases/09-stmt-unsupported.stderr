@@ -2,7 +2,7 @@ error: machine-check: Items inside function not supported
  --> tests/cases/09-stmt-unsupported.rs:8:13
   |
 8 |             fn item_inside_fn() {}
-  |             ^^
+  |             ^^^^^^^^^^^^^^^^^^^^^^
 
 error: machine-check: This macro not supported
  --> tests/cases/09-stmt-unsupported.rs:9:13
@@ -44,25 +44,25 @@ error: machine-check: Non-ident expression not supported
   --> tests/cases/09-stmt-unsupported.rs:24:13
    |
 24 |             machine_check::non_ident_left_path = 0;
-   |             ^^^^^^^^^^^^^
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: machine-check: Left expression that is not an identifier nor index not supported
   --> tests/cases/09-stmt-unsupported.rs:25:13
    |
 25 |             (non_ident_left_expression) = 0;
-   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: machine-check: Left expression that is not an identifier nor index not supported
   --> tests/cases/09-stmt-unsupported.rs:26:13
    |
 26 |             (non_ident_left_base).index = 0;
-   |             ^^^^^^^^^^^^^^^^^^^^^
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: machine-check: Left expression that is not an identifier nor index not supported
   --> tests/cases/09-stmt-unsupported.rs:28:13
    |
 28 |             0 = 0;
-   |             ^
+   |             ^^^^^
 
 error: machine-check: This macro not supported
   --> tests/cases/09-stmt-unsupported.rs:31:13

@@ -1,4 +1,4 @@
-use proc_macro2::Span;
+use crate::wir::WSpan;
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum ErrorType {
@@ -40,12 +40,16 @@ pub enum ErrorType {
 #[derive(thiserror::Error, Debug, Clone)]
 #[error("{span:?}: {ty}")]
 pub struct Error {
-    pub ty: ErrorType,
-    pub span: Span,
+    pub(crate) ty: ErrorType,
+    pub(crate) span: WSpan,
 }
 
 impl Error {
-    pub fn new(ty: ErrorType, span: Span) -> Self {
+    pub fn new(ty: ErrorType, span: WSpan) -> Self {
         Self { ty, span }
+    }
+
+    pub fn into_syn_error(self) -> syn::Error {
+        syn::Error::new_spanned(self.span.syn_delimiters(), self.ty.to_string())
     }
 }

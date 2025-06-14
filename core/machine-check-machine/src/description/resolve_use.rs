@@ -9,9 +9,9 @@ use syn::{
     Ident, Item, Pat, Path, PathArguments, PathSegment, Token, UseTree,
 };
 
-use crate::{description::Errors, util::extract_path_ident};
+use crate::{description::Errors, util::extract_path_ident, wir::WSpan};
 
-use super::{Error, ErrorType};
+use super::Error;
 
 pub fn resolve_use(items: &mut [Item]) -> Result<(), Errors> {
     // construct the use map first
@@ -43,7 +43,7 @@ pub fn resolve_use(items: &mut [Item]) -> Result<(), Errors> {
         if first_segment.ident != "machine_check" && first_segment.ident != "std" {
             errors.push(Err(Error::unsupported_construct(
                 "Using paths not starting with 'machine_check' or 'std'",
-                use_path.span(),
+                WSpan::from_syn(&use_path),
             )));
         }
     }
@@ -108,17 +108,14 @@ fn recurse_use_tree(
         }
         UseTree::Glob(use_glob) => {
             // not supported
-            return Err(Error::new(
-                ErrorType::UnsupportedConstruct("Wildcard use"),
-                use_glob.span(),
-            ));
+            return Err(Error::unsupported_syn_construct("Wildcard use", &use_glob));
         }
     };
 
     if let Some(_previous) = use_map.insert(use_ident.clone(), use_prefix.clone()) {
-        Err(Error::new(
-            ErrorType::UnsupportedConstruct("Duplicate use declaration"),
-            use_ident.span(),
+        Err(Error::unsupported_syn_construct(
+            "Duplicate use declaration",
+            &use_ident,
         ))
     } else {
         use_path_vec.push(use_prefix);
@@ -235,11 +232,9 @@ impl VisitMut for Visitor {
         }
         let Pat::Ident(local_pat) = local_pat else {
             if self.result.is_ok() {
-                self.result = Err(Error::new(
-                    ErrorType::UnsupportedConstruct(
-                        "Local pattern that is not ident or typed local",
-                    ),
-                    local_pat.span(),
+                self.result = Err(Error::unsupported_syn_construct(
+                    "Local pattern that is not ident or typed local",
+                    &local_pat,
                 ));
             }
             visit_mut::visit_local_mut(self, local);

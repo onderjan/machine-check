@@ -1,8 +1,8 @@
 use crate::{
-    description::{Error, ErrorType},
+    description::Error,
     wir::{
         WArrayRead, WArrayWrite, WBasicType, WExprHighCall, WHighMckExt, WHighMckNew, WHighStdInto,
-        WHighStdIntoType, WIdent, WPartialGeneralType, WReference, WStdBinary, WStdUnary,
+        WHighStdIntoType, WIdent, WPartialGeneralType, WReference, WSpanned, WStdBinary, WStdUnary,
     },
 };
 
@@ -118,9 +118,9 @@ impl super::FnInferrer<'_> {
         // the argument type is a reference, dereference it
 
         if matches!(from_type.reference, WReference::None) {
-            return Err(Error::new(
-                ErrorType::UnsupportedConstruct("Clone first argument not being a reference"),
-                from.span(),
+            return Err(Error::unsupported_construct(
+                "Clone first argument not being a reference",
+                from.wir_span(),
             ));
         }
         let mut result_type = from_type.clone();

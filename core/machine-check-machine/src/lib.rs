@@ -12,6 +12,7 @@ use syn_path::path;
 use wir::IntoSyn;
 
 use crate::util::create_item_mod;
+use crate::wir::WSpan;
 
 mod abstr;
 mod concr;
@@ -39,7 +40,7 @@ pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Errors> {
     let Some((_, items)) = &mut module.content else {
         return Err(Errors::single(Error::new(
             ErrorType::ModuleWithoutContent,
-            module.span(),
+            WSpan::from_syn(&module),
         )));
     };
     process_items(items)?;

@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
@@ -7,6 +9,8 @@ use syn::{
     MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
 };
 use syn_path::path;
+
+use crate::wir::{WSpan, WSpanned};
 
 use super::{IntoSyn, WIdent, WImplItemFn, WImplItemType, WPath, YStage};
 
@@ -18,10 +22,16 @@ pub struct WItemStruct<FT: IntoSyn<Type>> {
     pub fields: Vec<WField<FT>>,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub enum WVisibility {
-    Public,
+    Public(WSpan),
     Inherited,
+}
+
+impl Hash for WVisibility {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+    }
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -39,21 +49,43 @@ pub struct WItemImpl<Y: YStage> {
     pub impl_item_types: Vec<WImplItemType>,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub enum WItemImplTrait {
-    Machine,
-    Input,
-    State,
+    Machine(WSpan),
+    Input(WSpan),
+    State(WSpan),
     Path(WPath),
+}
+
+impl Hash for WItemImplTrait {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+        if let WItemImplTrait::Path(path) = self {
+            path.hash(state);
+        }
+    }
 }
 
 impl IntoSyn<Path> for WItemImplTrait {
     fn into_syn(self) -> Path {
         match self {
-            WItemImplTrait::Machine => path!(::mck::forward::Machine),
-            WItemImplTrait::Input => path!(::mck::forward::Input),
-            WItemImplTrait::State => path!(::mck::forward::State),
+            WItemImplTrait::Machine(_span) => {
+                path!(::mck::forward::Machine)
+            }
+            WItemImplTrait::Input(_span) => path!(::mck::forward::Input),
+            WItemImplTrait::State(_span) => path!(::mck::forward::State),
             WItemImplTrait::Path(path) => path.into(),
+        }
+    }
+}
+
+impl WSpanned for WItemImplTrait {
+    fn wir_span(&self) -> WSpan {
+        match self {
+            WItemImplTrait::Machine(span) => *span,
+            WItemImplTrait::Input(span) => *span,
+            WItemImplTrait::State(span) => *span,
+            WItemImplTrait::Path(path) => path.wir_span(),
         }
     }
 }
@@ -114,6 +146,13 @@ impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
         }
     }
 }
+
+impl<FT: IntoSyn<Type>> WSpanned for WItemStruct<FT> {
+    fn wir_span(&self) -> WSpan {
+        self.ident.wir_span()
+    }
+}
+
 impl<Y: YStage> IntoSyn<ItemImpl> for WItemImpl<Y>
 where
     WImplItemFn<Y>: IntoSyn<ImplItemFn>,
@@ -151,11 +190,29 @@ where
     }
 }
 
+impl<Y: YStage> WSpanned for WItemImpl<Y>
+where
+    WImplItemFn<Y>: IntoSyn<ImplItemFn>,
+{
+    fn wir_span(&self) -> WSpan {
+        self.self_ty.wir_span()
+    }
+}
+
 impl IntoSyn<Visibility> for WVisibility {
     fn into_syn(self) -> Visibility {
         match self {
-            WVisibility::Public => Visibility::Public(Token![pub](Span::call_site())),
+            WVisibility::Public(span) => Visibility::Public(Token![pub](span.first())),
             WVisibility::Inherited => Visibility::Inherited,
+        }
+    }
+}
+
+impl WSpanned for WVisibility {
+    fn wir_span(&self) -> WSpan {
+        match self {
+            WVisibility::Public(span) => *span,
+            WVisibility::Inherited => WSpan::call_site(),
         }
     }
 }

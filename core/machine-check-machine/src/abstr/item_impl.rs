@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub fn preprocess_item_impl(item_impl: &WItemImpl<YConverted>) -> Option<WPath> {
-    let Some(WItemImplTrait::Machine) = item_impl.trait_ else {
+    let Some(WItemImplTrait::Machine(_)) = item_impl.trait_ else {
         return None;
     };
 

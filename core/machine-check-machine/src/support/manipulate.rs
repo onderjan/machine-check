@@ -28,7 +28,7 @@ pub(crate) fn for_abstract_description(description: &WDescription<YAbstr>) -> Ve
 
     for item_impl in description.impls.iter() {
         if let Some(WAbstrItemImplTrait { trait_, .. }) = &item_impl.trait_ {
-            if matches!(trait_, WItemImplTrait::Input | WItemImplTrait::State) {
+            if matches!(trait_, WItemImplTrait::Input(_) | WItemImplTrait::State(_)) {
                 if let Some(ident) = item_impl.self_ty.get_ident() {
                     process_idents.insert(ident.clone());
                 }
@@ -68,7 +68,7 @@ pub(crate) fn for_refinement_description(description: &WDescription<YRefin>) -> 
 
     for item_impl in description.impls.iter() {
         if let Some(WRefinItemImplTrait { trait_, .. }) = &item_impl.trait_ {
-            if matches!(trait_, WItemImplTrait::Input | WItemImplTrait::State) {
+            if matches!(trait_, WItemImplTrait::Input(_) | WItemImplTrait::State(_)) {
                 if let Some(ident) = item_impl.self_ty.get_ident() {
                     process_idents.insert(ident.clone());
                 }

@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, LitInt};
 
-use crate::util::create_expr_ident;
+use crate::{util::create_expr_ident, wir::WSpan};
 
 use super::{
     IntoSyn, WIdent, WMckBinary, WMckUnary, WPath, WPathSegment, WStdBinary, WStdUnary, WTypeArray,
@@ -335,7 +335,7 @@ fn construct_call_fn_path(fn_operand: String) -> WPath {
         })
         .collect();
     WPath {
-        leading_colon: true,
+        leading_colon: Some(WSpan::from_span(span)),
         segments,
     }
 }

@@ -1,18 +1,21 @@
-use syn::{spanned::Spanned, Path, PathArguments};
+use syn::{Path, PathArguments};
 
 use crate::{
     description::Error,
-    wir::{WIdent, WPath, WPathSegment},
+    wir::{WIdent, WPath, WPathSegment, WSpan},
 };
 
 pub fn fold_path(path: Path, self_ty: Option<&WPath>) -> Result<WPath, Error> {
-    let path_span = path.span();
+    let path_span = WSpan::from_syn(&path);
 
     let mut segments = Vec::new();
 
     for segment in path.segments {
         let PathArguments::None = segment.arguments else {
-            return Err(Error::unsupported_construct("Generics here", path_span));
+            return Err(Error::unsupported_syn_construct(
+                "Generics here",
+                &segment.arguments,
+            ));
         };
         segments.push(WPathSegment {
             ident: WIdent::from_syn_ident(segment.ident),
@@ -27,15 +30,15 @@ pub fn fold_path(path: Path, self_ty: Option<&WPath>) -> Result<WPath, Error> {
         {
             return Err(Error::unsupported_construct(
                 "Path segment super / crate / $crate",
-                segment.ident.span(),
+                WSpan::from_span(segment.ident.span()),
             ));
         }
     }
 
     // disallow global paths to any other crates than machine_check and std
-    let mut has_leading_colon = path.leading_colon.is_some();
+    let mut leading_colon = path.leading_colon.map(|leading| WSpan::from_syn(&leading));
 
-    if has_leading_colon {
+    if leading_colon.is_some() {
         let crate_segment = segments
             .first()
             .expect("Global path should have at least one segment");
@@ -62,13 +65,13 @@ pub fn fold_path(path: Path, self_ty: Option<&WPath>) -> Result<WPath, Error> {
                 self_replacement.segments.extend(segments_iter);
                 segments = self_replacement.segments;
                 // put leading colon according to self type
-                has_leading_colon = self_ty.leading_colon;
+                leading_colon = self_ty.leading_colon;
             }
         }
     }
 
     Ok(WPath {
-        leading_colon: has_leading_colon,
+        leading_colon,
         segments,
     })
 }

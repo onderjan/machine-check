@@ -1,6 +1,7 @@
+use proc_macro2::Span;
 use syn::{
-    parse::Parser, punctuated::Punctuated, spanned::Spanned, visit::Visit, Fields, Generics, Ident,
-    ImplItem, ImplItemType, ItemImpl, ItemStruct, Path, Token, Type, Visibility,
+    parse::Parser, punctuated::Punctuated, visit::Visit, Fields, Generics, Ident, ImplItem,
+    ImplItemType, ItemImpl, ItemStruct, Path, Token, Type, Visibility,
 };
 
 use crate::{
@@ -8,18 +9,18 @@ use crate::{
     util::path_matches_global_names,
     wir::{
         WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPath,
-        WVisibility, YTac,
+        WSpan, WVisibility, YTac,
     },
 };
 
 use super::{impl_item_fn::fold_impl_item_fn, path::fold_path, ty::fold_basic_type};
 
 pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>, Errors> {
-    let span = item.span();
+    let item_span = WSpan::from_syn(&item);
     if item.generics != Generics::default() {
-        return Err(Errors::single(Error::unsupported_construct(
+        return Err(Errors::single(Error::unsupported_syn_construct(
             "Generics",
-            item.generics.span(),
+            &item.generics,
         )));
     }
 
@@ -29,6 +30,8 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
     attrs.append(&mut item.attrs);
 
     for attr in attrs {
+        let attr_span = WSpan::from_syn(&attr);
+
         let mut allowed = false;
         let path = match attr.meta {
             syn::Meta::Path(path) => path,
@@ -36,6 +39,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
                 if meta.path.is_ident("derive") {
                     // allow derive macro
                     let meta_tokens = meta.tokens;
+                    let meta_span = WSpan::from_syn(&meta_tokens);
                     let parser = Punctuated::<Path, Token![,]>::parse_terminated;
 
                     let Ok(parsed) = parser.parse2(meta_tokens) else {
@@ -43,7 +47,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
                             ErrorType::IllegalConstruct(String::from(
                                 "Unparseable derive macro content",
                             )),
-                            span,
+                            meta_span,
                         )));
                     };
 
@@ -68,7 +72,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
         let supported = ["derive", "allow", "doc"];
         let mut path_supported = false;
         for element in supported {
-            if path.is_ident(&Ident::new(element, span)) {
+            if path.is_ident(&Ident::new(element, Span::call_site())) {
                 path_supported = true;
             }
         }
@@ -82,7 +86,9 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
         };
 
         if let Some(err_msg) = err_msg {
-            return Err(Errors::single(Error::unsupported_construct(err_msg, span)));
+            return Err(Errors::single(Error::unsupported_construct(
+                err_msg, attr_span,
+            )));
         }
     }
 
@@ -99,7 +105,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
     let Fields::Named(fields_named) = item.fields else {
         return Err(Errors::single(Error::unsupported_construct(
             "Struct without named fields",
-            span,
+            item_span,
         )));
     };
 
@@ -136,21 +142,21 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
 
 pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
     if item.defaultness.is_some() {
-        return Err(Errors::single(Error::unsupported_construct(
+        return Err(Errors::single(Error::unsupported_syn_construct(
             "Defaultness",
-            item.defaultness.span(),
+            &item.defaultness,
         )));
     }
     if item.unsafety.is_some() {
-        return Err(Errors::single(Error::unsupported_construct(
+        return Err(Errors::single(Error::unsupported_syn_construct(
             "Unsafety",
-            item.unsafety.span(),
+            &item.unsafety,
         )));
     }
     if item.generics != Generics::default() {
-        return Err(Errors::single(Error::unsupported_construct(
+        return Err(Errors::single(Error::unsupported_syn_construct(
             "Generics",
-            item.generics.span(),
+            &item.generics,
         )));
     }
 
@@ -161,9 +167,9 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
                 fold_path(ty.path, None)
             }
             _ => {
-                return Err(Errors::single(Error::unsupported_construct(
+                return Err(Errors::single(Error::unsupported_syn_construct(
                     "Non-path type",
-                    item.self_ty.span(),
+                    &item.self_ty,
                 )))
             }
         }
@@ -172,18 +178,18 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
     let trait_ = match item.trait_ {
         Some((not, path, _for_token)) => {
             if not.is_some() {
-                return Err(Errors::single(Error::unsupported_construct(
+                return Err(Errors::single(Error::unsupported_syn_construct(
                     "Exclamation mark in trait",
-                    not.span(),
+                    &not,
                 )));
             }
             let item_impl_trait = if path_matches_global_names(&path, &["machine_check", "Machine"])
             {
-                WItemImplTrait::Machine
+                WItemImplTrait::Machine(WSpan::from_syn(&path))
             } else if path_matches_global_names(&path, &["machine_check", "State"]) {
-                WItemImplTrait::State
+                WItemImplTrait::State(WSpan::from_syn(&path))
             } else if path_matches_global_names(&path, &["machine_check", "Input"]) {
-                WItemImplTrait::Input
+                WItemImplTrait::Input(WSpan::from_syn(&path))
             } else {
                 WItemImplTrait::Path(fold_path(path, None)?)
             };
@@ -198,7 +204,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
     let mut errors = Vec::new();
 
     for impl_item in item.items {
-        let impl_item_span = impl_item.span();
+        let impl_item_span = WSpan::from_syn(&impl_item);
         let err_msg = match impl_item {
             ImplItem::Type(impl_item) => {
                 impl_item_types.push(fold_impl_item_type(impl_item, &self_ty));
@@ -234,20 +240,20 @@ pub fn fold_impl_item_type(
     impl_item: ImplItemType,
     self_ty: &WPath,
 ) -> Result<WImplItemType, Error> {
-    let span = impl_item.span();
-
     let visibility = fold_visibility(impl_item.vis)?;
 
     if impl_item.generics != Generics::default() {
-        return Err(Error::unsupported_construct(
+        return Err(Error::unsupported_syn_construct(
             "Generics",
-            impl_item.generics.span(),
+            &impl_item.generics,
         ));
     }
 
-    let ty = impl_item.ty;
-    let Type::Path(ty) = ty else {
-        return Err(Error::unsupported_construct("Non-path type", span));
+    let Type::Path(ty) = impl_item.ty else {
+        return Err(Error::unsupported_syn_construct(
+            "Non-path type",
+            &impl_item.ty,
+        ));
     };
     Ok(WImplItemType {
         visibility,
@@ -258,10 +264,10 @@ pub fn fold_impl_item_type(
 
 pub fn fold_visibility(visibility: Visibility) -> Result<WVisibility, Error> {
     match visibility {
-        syn::Visibility::Public(_) => Ok(WVisibility::Public),
-        syn::Visibility::Restricted(_) => Err(Error::unsupported_construct(
+        syn::Visibility::Public(pub_token) => Ok(WVisibility::Public(WSpan::from_syn(&pub_token))),
+        syn::Visibility::Restricted(_) => Err(Error::unsupported_syn_construct(
             "Restricted visibility",
-            visibility.span(),
+            &visibility,
         )),
         syn::Visibility::Inherited => Ok(WVisibility::Inherited),
     }

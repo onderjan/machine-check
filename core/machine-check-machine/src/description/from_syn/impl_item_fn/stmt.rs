@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, ExprIf, ExprLit, ExprMacro,
-    Lit, Pat, Stmt, Token,
+    punctuated::Punctuated, Block, Expr, ExprAssign, ExprIf, ExprLit, ExprMacro, Lit, Pat, Stmt,
+    Token,
 };
 
 use crate::{
@@ -13,8 +13,8 @@ use crate::{
     util::{create_expr_ident, path_matches_global_names},
     wir::{
         WBlock, WCallArg, WIdent, WIfCondition, WIfConditionIdent, WIndexedIdent, WMacroableStmt,
-        WNoIfPolarity, WPanicMacroKind, WPartialGeneralType, WStmtAssign, WStmtIf, WStmtPanicMacro,
-        ZTac,
+        WNoIfPolarity, WPanicMacroKind, WPartialGeneralType, WSpan, WSpanned, WStmtAssign, WStmtIf,
+        WStmtPanicMacro, ZTac,
     },
 };
 
@@ -85,7 +85,6 @@ impl super::FunctionFolder {
         stmt: Stmt,
         result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<(), Errors> {
-        let stmt_span = stmt.span();
         match stmt {
             Stmt::Local(local) => {
                 let mut pat = local.pat.clone();
@@ -98,22 +97,22 @@ impl super::FunctionFolder {
                 }
 
                 let Pat::Ident(left_pat_ident) = pat else {
-                    return Err(Errors::single(Error::unsupported_construct(
+                    return Err(Errors::single(Error::unsupported_syn_construct(
                         "Non-ident local pattern",
-                        pat.span(),
+                        &pat,
                     )));
                 };
                 if left_pat_ident.by_ref.is_some() {
-                    return Err(Errors::single(Error::unsupported_construct(
+                    return Err(Errors::single(Error::unsupported_syn_construct(
                         "Pattern binding by reference",
-                        left_pat_ident.by_ref.span(),
+                        &left_pat_ident.by_ref,
                     )));
                 }
                 // mutable patterns are supported
                 if let Some((_at, subpat)) = &left_pat_ident.subpat {
-                    return Err(Errors::single(Error::unsupported_construct(
+                    return Err(Errors::single(Error::unsupported_syn_construct(
                         "Subpatterns",
-                        subpat.span(),
+                        &subpat,
                     )));
                 }
                 let local_syn_ident = left_pat_ident.ident;
@@ -122,9 +121,9 @@ impl super::FunctionFolder {
 
                 if let Some(init) = local.init {
                     if let Some((else_token, _else_block)) = init.diverge {
-                        return Err(Errors::single(Error::unsupported_construct(
+                        return Err(Errors::single(Error::unsupported_syn_construct(
                             "Diverging let",
-                            else_token.span(),
+                            &else_token,
                         )));
                     }
                     self.fold_stmt_expr(
@@ -140,15 +139,15 @@ impl super::FunctionFolder {
             }
             Stmt::Expr(stmt_expr, _) => self.fold_stmt_expr(stmt_expr, result_stmts)?,
             Stmt::Item(_) => {
-                return Err(Errors::single(Error::unsupported_construct(
+                return Err(Errors::single(Error::unsupported_syn_construct(
                     "Items inside function",
-                    stmt_span,
+                    &stmt,
                 )))
             }
             Stmt::Macro(_) => {
-                return Err(Errors::single(Error::unsupported_construct(
+                return Err(Errors::single(Error::unsupported_syn_construct(
                     "Macro invocations in statement position",
-                    stmt_span,
+                    &stmt,
                 )))
             }
         };
@@ -169,7 +168,7 @@ impl super::FunctionFolder {
                 if let Some(result) = result {
                     return Err(Errors::single(Error::unsupported_construct(
                         "Block statements with result",
-                        result.span(),
+                        result.wir_span(),
                     )));
                 };
                 assert!(result.is_none());
@@ -177,9 +176,9 @@ impl super::FunctionFolder {
                 Ok(())
             }
             syn::Expr::Macro(expr) => self.fold_macro(expr, result_stmts),
-            _ => Err(Errors::single(Error::unsupported_construct(
+            _ => Err(Errors::single(Error::unsupported_syn_construct(
                 "Expression kind",
-                expr.span(),
+                &expr,
             ))),
         }
     }
@@ -202,9 +201,9 @@ impl super::FunctionFolder {
                 WIndexedIdent::NonIndexed(left_ident.clone())
             }
             _ => {
-                return Err(Errors::single(Error::unsupported_construct(
+                return Err(Errors::single(Error::unsupported_syn_construct(
                     "Left expression that is not an identifier nor index",
-                    expr.span(),
+                    &expr,
                 )))
             }
         };
@@ -256,9 +255,9 @@ impl super::FunctionFolder {
         } else if path_matches_global_names(&mac.path, &["std", "todo"]) {
             WPanicMacroKind::Todo
         } else {
-            return Err(Errors::single(Error::unsupported_construct(
+            return Err(Errors::single(Error::unsupported_syn_construct(
                 "This macro",
-                mac.path.span(),
+                &mac.path,
             )));
         };
         let args = match mac.parse_body_with(Punctuated::<Expr, Token![,]>::parse_terminated) {
@@ -266,7 +265,7 @@ impl super::FunctionFolder {
             Err(err) => {
                 return Err(Errors::single(Error::new(
                     ErrorType::MacroParseError(err),
-                    mac.span(),
+                    WSpan::from_syn(&mac),
                 )))
             }
         };
@@ -274,7 +273,7 @@ impl super::FunctionFolder {
         if args.len() > 1 {
             return Err(Errors::single(Error::unsupported_construct(
                 "Panic-like macro with more than one argument",
-                mac.path.span(),
+                WSpan::from_syn(&mac.path),
             )));
         }
 
@@ -288,7 +287,7 @@ impl super::FunctionFolder {
                     ErrorType::MacroError(String::from(
                         "The first argument must be a string literal",
                     )),
-                    first_arg.span(),
+                    WSpan::from_syn(&first_arg),
                 )));
             };
 

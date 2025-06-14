@@ -126,7 +126,7 @@ impl IdentRenamer {
     }
 
     pub fn visit_path(&self, path: &mut WPath) {
-        if !path.leading_colon && self.make_super {
+        if path.leading_colon.is_none() && self.make_super {
             path.segments.insert(
                 0,
                 WPathSegment {

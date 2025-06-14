@@ -4,8 +4,8 @@ use crate::{
     description::{Error, ErrorType},
     wir::{
         WBasicType, WCall, WExpr, WExprCall, WExprHighCall, WGeneralType, WHighMckExt, WHighMckNew,
-        WIdent, WMckBinary, WMckBinaryOp, WMckExt, WMckNew, WMckUnary, WMckUnaryOp, WStdBinary,
-        WStdBinaryOp, WStdUnary, WStdUnaryOp,
+        WIdent, WMckBinary, WMckBinaryOp, WMckExt, WMckNew, WMckUnary, WMckUnaryOp, WSpanned,
+        WStdBinary, WStdBinaryOp, WStdUnary, WStdUnaryOp,
     },
 };
 
@@ -69,7 +69,7 @@ fn convert_binary(
             None => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine right shift signedness"),
-                    left_arg.span(),
+                    left_arg.wir_span(),
                 ))
             }
         },
@@ -92,13 +92,13 @@ fn convert_binary(
             ) else {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine comparison signedness"),
-                    left_arg.span(),
+                    left_arg.wir_span(),
                 ));
             };
             if left_is_signed != right_is_signed {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Signedness of compared types does not match"),
-                    left_arg.span(),
+                    left_arg.wir_span(),
                 ));
             }
 
@@ -120,7 +120,7 @@ fn convert_binary(
             None => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine division signedness"),
-                    left_arg.span(),
+                    left_arg.wir_span(),
                 ))
             }
         },
@@ -130,7 +130,7 @@ fn convert_binary(
             None => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine remainder signedness"),
-                    left_arg.span(),
+                    left_arg.wir_span(),
                 ))
             }
         },
@@ -150,7 +150,7 @@ fn convert_ext(
     let Some(signed) = signedness(&call.from, local_types) else {
         return Err(Error::new(
             ErrorType::CallConversionError("Cannot determine bit extension signedness"),
-            call.from.span(),
+            call.from.wir_span(),
         ));
     };
 

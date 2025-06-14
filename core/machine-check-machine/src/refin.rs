@@ -41,9 +41,9 @@ pub(crate) fn create_refinement_description(
         // look for special traits
         let special_trait = match &item_impl.trait_ {
             Some(trait_) => match &trait_.trait_ {
-                WItemImplTrait::Machine => Some(SpecialTrait::Machine),
-                WItemImplTrait::Input => Some(SpecialTrait::Input),
-                WItemImplTrait::State => Some(SpecialTrait::State),
+                WItemImplTrait::Machine(_) => Some(SpecialTrait::Machine),
+                WItemImplTrait::Input(_) => Some(SpecialTrait::Input),
+                WItemImplTrait::State(_) => Some(SpecialTrait::State),
                 WItemImplTrait::Path(_) => None,
             },
             None => None,
@@ -266,9 +266,9 @@ pub struct WRefinItemImplTrait {
 impl IntoSyn<Path> for WRefinItemImplTrait {
     fn into_syn(self) -> Path {
         let mut trait_path = match self.trait_ {
-            WItemImplTrait::Machine => path!(::mck::backward::Machine),
-            WItemImplTrait::Input => path!(::mck::backward::Input),
-            WItemImplTrait::State => path!(::mck::backward::State),
+            WItemImplTrait::Machine(_) => path!(::mck::backward::Machine),
+            WItemImplTrait::Input(_) => path!(::mck::backward::Input),
+            WItemImplTrait::State(_) => path!(::mck::backward::State),
             WItemImplTrait::Path(path) => path.into(),
         };
         // add another super to reach the concrete path
