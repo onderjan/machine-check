@@ -26,6 +26,7 @@ pub enum WVisibility {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WField<FT: IntoSyn<Type>> {
+    pub visibility: WVisibility,
     pub ident: WIdent,
     pub ty: FT,
 }
@@ -63,8 +64,7 @@ impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
 
         let named = Punctuated::from_iter(self.fields.into_iter().map(|field| Field {
             attrs: Vec::new(),
-            // TODO visibility
-            vis: syn::Visibility::Inherited,
+            vis: field.visibility.into_syn(),
             mutability: syn::FieldMutability::None,
             ident: Some(field.ident.into()),
             colon_token: Some(Token![:](span)),

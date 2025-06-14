@@ -110,9 +110,14 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
             panic!("Unexpected tuple struct");
         };
 
+        let visibility = fold_visibility(field.vis)?;
         let ident = WIdent::from_syn_ident(field_ident);
         let field = match fold_basic_type(field.ty, Some(&self_path)) {
-            Ok(ty) => Ok(WField { ident, ty }),
+            Ok(ty) => Ok(WField {
+                visibility,
+                ident,
+                ty,
+            }),
             Err(err) => Err(err),
         };
 

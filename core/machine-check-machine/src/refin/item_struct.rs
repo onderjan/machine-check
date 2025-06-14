@@ -19,6 +19,7 @@ pub fn fold_item_struct(
         .fields
         .into_iter()
         .map(|field| WField {
+            visibility: field.visibility,
             ident: field.ident,
             ty: WBackwardElementaryType(field.ty),
         })

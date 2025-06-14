@@ -31,6 +31,7 @@ pub fn convert_types(
                 .fields
                 .into_iter()
                 .map(|field| WField {
+                    visibility: field.visibility,
                     ident: field.ident,
                     ty: convert_basic_type(field.ty),
                 })
