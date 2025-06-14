@@ -31,9 +31,7 @@ pub fn convert_to_ssa(description: WDescription<YTotal>) -> Result<WDescription<
 }
 
 fn process_fn(impl_item_fn: WImplItemFn<YTotal>) -> Result<WImplItemFn<YSsa>, Errors> {
-    // TODO: process parameters
-
-    // process mutable local idents
+    // initialise local idents
     let mut local_ident_counters = BTreeMap::new();
 
     for local in &impl_item_fn.locals {
