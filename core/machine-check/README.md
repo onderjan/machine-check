@@ -23,7 +23,7 @@ analogues to the code it is applied to. You can then run **machine-check** from 
 constructing the system and providing it to the function [`run`].
 
 A very simple example of a system verifiable by **machine-check** is 
-[counter](https://docs.rs/crate/machine-check/0.4.0/source/examples/counter.rs), 
+[counter](https://docs.rs/crate/machine-check/0.5.0/source/examples/counter.rs), 
 a simple [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine) which contains 
 an eight-bit state field `value`, which is initialized to zero and then is incremented in each step exactly
 if the single-bit input `increment` is set (1). If the value reaches 157, it is immediately zeroed. 
@@ -31,34 +31,37 @@ The system is very simple, so it is complicated a little by a large unused bitve
 which would make simple kinds of automated formal verification impossible.
 
 To try things out, create a new package:
+
 ```console
 $ cargo new my-example --bin
     Creating binary (application) `my-example` package
     (...)
 $ cd my-example
 ```
-Copy the source code of [counter](https://docs.rs/crate/machine-check/0.4.0/source/examples/counter.rs) 
+Copy the source code of [counter](https://docs.rs/crate/machine-check/0.5.0/source/examples/counter.rs) 
 to `src/main.rs` and add **machine-check** as a dependency to `Cargo.toml`:
+
 ```toml
 [dependencies]
-machine-check = "0.4.0"
+machine-check = "0.5.0"
 ```
+
 We can then verify that the counter is lesser than 157 in every reachable system state, 
 using a specification property based on 
 [Computation Tree Logic](https://en.wikipedia.org/wiki/Computation_tree_logic):
 ```console
 $ cargo run --release -- --property 'AG![as_unsigned(value) < 157]'
-   Compiling autocfg v1.4.0
+    Updating crates.io index
    (...)
-   Compiling machine-check v0.4.0
+   Compiling machine-check v0.5.0
    Compiling my-example v0.1.0 ({your_path}\my-example)
-    Finished `release` profile [optimized] target(s) in 21.49s
+    Finished `release` profile [optimized] target(s) in 5.25s
      Running `target\release\my-example.exe --property "AG![as_unsigned(value) < 157]"`
-[2025-03-29T23:51:38Z INFO  machine_check] Starting verification.
-[2025-03-29T23:51:38Z INFO  machine_check::verify] Verifying the inherent property first.
-[2025-03-29T23:51:38Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
-[2025-03-29T23:51:38Z INFO  machine_check::verify] Verifying the given property.
-[2025-03-29T23:51:39Z INFO  machine_check] Verification ended.
+[2025-06-15T13:03:30Z INFO  machine_check] Starting verification.
+[2025-06-15T13:03:30Z INFO  machine_check::verify] Verifying the inherent property first.
+[2025-06-15T13:03:30Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
+[2025-06-15T13:03:30Z INFO  machine_check::verify] Verifying the given property.
+[2025-06-15T13:03:31Z INFO  machine_check] Verification ended.
 +--------------------------------+
 |         Result: HOLDS          |
 +--------------------------------+
@@ -71,15 +74,16 @@ $ cargo run --release -- --property 'AG![as_unsigned(value) < 157]'
 ```
 We were able to determine that the counter is lesser than 157 in every reachable state using **machine-check**.
 We can also be informed that the value is **NOT** lesser than 156 in every reachable state:
+
 ```console
 $ cargo run --release -- --property 'AG![as_unsigned(value) < 156]'
-    Finished `release` profile [optimized] target(s) in 0.15s
+    Finished `release` profile [optimized] target(s) in 0.06s
      Running `target\release\my-example.exe --property "AG![as_unsigned(value) < 156]"`
-[2025-03-29T23:54:17Z INFO  machine_check] Starting verification.
-[2025-03-29T23:54:17Z INFO  machine_check::verify] Verifying the inherent property first.
-[2025-03-29T23:54:17Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
-[2025-03-29T23:54:17Z INFO  machine_check::verify] Verifying the given property.
-[2025-03-29T23:54:18Z INFO  machine_check] Verification ended.
+[2025-06-15T13:04:07Z INFO  machine_check] Starting verification.
+[2025-06-15T13:04:07Z INFO  machine_check::verify] Verifying the inherent property first.
+[2025-06-15T13:04:07Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
+[2025-06-15T13:04:07Z INFO  machine_check::verify] Verifying the given property.
+[2025-06-15T13:04:08Z INFO  machine_check] Verification ended.
 +--------------------------------+
 |     Result: DOES NOT HOLD      |
 +--------------------------------+
@@ -107,11 +111,13 @@ and verification power. There may (and probably will be) some bugs or design ove
 Bug reports to the [repository](https://github.com/onderjan/machine-check) are very welcome.
 
 ## Minimum Supported Rust Version
-The Minimum Supported Rust Version for **machine-check** `0.4.0` is `1.83`.
+The Minimum Supported Rust Version for **machine-check** `0.5.0` is `1.83`.
 This can be raised to any stable Rust version in a minor release.
 The MSRV will not be raised in a patch release.
 
 ## Changelog
+ - `0.5.0`: Support for division and remainder, experimental (opt-in) implementation
+  of a dual-interval abstraction domain.
  - `0.4.0`: An initial version of a Graphical User Interface, a monotonicity fix,
    tweaks to the verification core including no longer short-circuiting
    state generation on panic when verifying the inherent property.
