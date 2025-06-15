@@ -46,6 +46,29 @@ pub fn resolve_use(items: &mut [Item]) -> Result<(), Errors> {
                 WSpan::from_syn(&use_path),
             )));
         }
+        for segment in use_path.segments.iter() {
+            if segment.ident == "self" || segment.ident == "super" {
+                errors.push(Err(Error::unsupported_construct(
+                    "Use path segment 'self' or 'super'",
+                    WSpan::from_syn(&segment.ident),
+                )));
+            }
+        }
+    }
+
+    // add leading colons to use map
+    // since we disallow inner modules, this should not be problematic in the vast majority cases
+    // and prevents formatters from dropping the leading ::
+    //
+    // TODO: proper name resolving
+    for use_path in use_map.values_mut() {
+        if use_path.leading_colon.is_some() {
+            continue;
+        }
+        let Some(first_segment) = use_path.segments.first_mut() else {
+            panic!("Unexpected zero-segment path");
+        };
+        use_path.leading_colon = Some(Token![::](first_segment.span()));
     }
 
     Errors::vec_result(errors)?;
