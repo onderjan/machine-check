@@ -156,18 +156,17 @@ impl FnConverter<'_> {
                 // TODO: store the panic message as-is in the code
 
                 // push the message and assign the number to the panic ident
+                self.panic_messages.push(panic_macro.msg);
                 let message_index_plus_one: u32 = self
                     .panic_messages
                     .len()
                     .try_into()
                     .expect("The panic message index should fit into u32");
-                self.panic_messages.push(panic_macro.msg);
-                let panic_assign = WStmt::Assign(WStmtAssign {
-                    left: self.panic_ident.clone(),
-                    right: create_panic_call(message_index_plus_one.into()),
-                });
 
-                return vec![panic_assign];
+                return self.replace_panic_if_zero(
+                    create_panic_call(message_index_plus_one.into()),
+                    self.panic_ident.span(),
+                );
             }
         };
         new_stmts
@@ -248,6 +247,22 @@ impl FnConverter<'_> {
             }),
         });
 
+        let mut result = vec![returned_assign, original_left_assign];
+        result.extend(self.replace_panic_if_zero(
+            WExpr::Field(WExprField {
+                base: returned_ident,
+                member: WIdent::new(String::from("panic"), span),
+            }),
+            span,
+        ));
+        result
+    }
+
+    fn replace_panic_if_zero(
+        &mut self,
+        panic_expr: WExpr<WExprHighCall>,
+        span: Span,
+    ) -> Vec<WStmt<ZTotal>> {
         // assign to the panic variable if it is currently zero
         let panic_is_zero_ident = self.ident_creator.create_temporary_ident(span);
 
@@ -264,10 +279,7 @@ impl FnConverter<'_> {
 
         let replace_panic = WStmt::Assign(WStmtAssign {
             left: self.panic_ident.clone(),
-            right: WExpr::Field(WExprField {
-                base: returned_ident,
-                member: WIdent::new(String::from("panic"), span),
-            }),
+            right: panic_expr,
         });
 
         let replace_panic_if_currently_zero = WStmt::If(WStmtIf {
@@ -281,12 +293,7 @@ impl FnConverter<'_> {
             else_block: WBlock { stmts: vec![] },
         });
 
-        vec![
-            returned_assign,
-            original_left_assign,
-            panic_is_zero_assign,
-            replace_panic_if_currently_zero,
-        ]
+        vec![panic_is_zero_assign, replace_panic_if_currently_zero]
     }
 }
 
