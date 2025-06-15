@@ -21,10 +21,9 @@ use crate::{Signed, Unsigned};
 pub struct Bitvector<const L: u32>(pub(super) concr::Bitvector<L>);
 
 impl<const L: u32> Bitvector<L> {
-    ///
     /// Creates a new bitvector with the given value.
-    /// Panics if the value does not fit into the type.
     ///
+    /// Panics if the value does not fit into the type.
     pub fn new(value: u64) -> Self {
         Bitvector(concr::Bitvector::new(value))
     }
@@ -34,6 +33,7 @@ impl<const L: u32> Bitvector<L> {
 impl<const L: u32> Not for Bitvector<L> {
     type Output = Self;
 
+    /// Performs bitwise NOT.
     fn not(self) -> Self::Output {
         Self(self.0.bit_not())
     }
@@ -42,6 +42,7 @@ impl<const L: u32> Not for Bitvector<L> {
 impl<const L: u32> BitAnd<Bitvector<L>> for Bitvector<L> {
     type Output = Self;
 
+    /// Performs bitwise AND.
     fn bitand(self, rhs: Bitvector<L>) -> Self::Output {
         Self(self.0.bit_and(rhs.0))
     }
@@ -49,6 +50,7 @@ impl<const L: u32> BitAnd<Bitvector<L>> for Bitvector<L> {
 impl<const L: u32> BitOr<Bitvector<L>> for Bitvector<L> {
     type Output = Self;
 
+    /// Performs bitwise OR.
     fn bitor(self, rhs: Bitvector<L>) -> Self::Output {
         Self(self.0.bit_or(rhs.0))
     }
@@ -56,6 +58,7 @@ impl<const L: u32> BitOr<Bitvector<L>> for Bitvector<L> {
 impl<const L: u32> BitXor<Bitvector<L>> for Bitvector<L> {
     type Output = Self;
 
+    /// Performs bitwise XOR.
     fn bitxor(self, rhs: Bitvector<L>) -> Self::Output {
         Self(self.0.bit_xor(rhs.0))
     }
@@ -66,6 +69,7 @@ impl<const L: u32> BitXor<Bitvector<L>> for Bitvector<L> {
 impl<const L: u32> Add<Bitvector<L>> for Bitvector<L> {
     type Output = Self;
 
+    /// Performs wrapping addition.
     fn add(self, rhs: Bitvector<L>) -> Self::Output {
         Self(self.0.add(rhs.0))
     }
@@ -74,6 +78,7 @@ impl<const L: u32> Add<Bitvector<L>> for Bitvector<L> {
 impl<const L: u32> Sub<Bitvector<L>> for Bitvector<L> {
     type Output = Self;
 
+    /// Performs wrapping subtraction.
     fn sub(self, rhs: Bitvector<L>) -> Self::Output {
         Self(self.0.sub(rhs.0))
     }
@@ -82,6 +87,7 @@ impl<const L: u32> Sub<Bitvector<L>> for Bitvector<L> {
 impl<const L: u32> Mul<Bitvector<L>> for Bitvector<L> {
     type Output = Self;
 
+    /// Performs wrapping multiplication.
     fn mul(self, rhs: Bitvector<L>) -> Self::Output {
         Self(self.0.mul(rhs.0))
     }
@@ -91,6 +97,16 @@ impl<const L: u32> Mul<Bitvector<L>> for Bitvector<L> {
 impl<const L: u32> Shl<Bitvector<L>> for Bitvector<L> {
     type Output = Self;
 
+    /// Performs a left shift.
+    ///
+    /// Unlike a right shift, where the behaviour is dependent on signedness,
+    /// the left shift has the same behaviour: shifted-out bits on the left
+    /// are discarded and zeros are shifted in on the right.
+    ///
+    /// The right-hand side operand is interpreted as unsigned and if it
+    /// is equal or greater to the bit-width, the result is all-zeros,
+    /// as in Rust `unbounded_shl`. It is planned to restrict the bit-width
+    /// in the future so that this edge case can never occur.
     fn shl(self, rhs: Bitvector<L>) -> Self::Output {
         Self(self.0.logic_shl(rhs.0))
     }
@@ -98,12 +114,14 @@ impl<const L: u32> Shl<Bitvector<L>> for Bitvector<L> {
 
 // --- CONVERSION ---
 impl<const L: u32> From<Unsigned<L>> for Bitvector<L> {
+    /// Drops the signedness information from `Unsigned`.
     fn from(value: Unsigned<L>) -> Self {
         Self(value.0)
     }
 }
 
 impl<const L: u32> From<Signed<L>> for Bitvector<L> {
+    /// Drops the signedness information from `Signed`.
     fn from(value: Signed<L>) -> Self {
         Self(value.0)
     }
