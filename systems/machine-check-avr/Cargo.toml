@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-avr"
-version = "0.5.0-alpha.5"
+version = "0.5.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Crate for the formal verification of AVR microcontrollers by machine-check"
@@ -11,7 +11,7 @@ gui = ["machine-check/gui"]
 Zdual_interval = ["machine-check/Zdual_interval"]
 
 [dependencies]
-machine-check = "=0.5.0-alpha.5"
+machine-check = "=0.5.0"
 
 ihex = "3.0.0"
 clap = { version = "4.4.6", features = ["derive"] }
