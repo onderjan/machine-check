@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-hw"
-version = "0.5.0-alpha.4"
+version = "0.5.0-alpha.5"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -12,8 +12,8 @@ gui = ["machine-check-compile/gui"]
 Zdual_interval = ["machine-check-compile/Zdual_interval"]
 
 [dependencies]
-machine-check-common = "=0.5.0-alpha.4"
-machine-check-compile = "=0.5.0-alpha.4"
+machine-check-common = "=0.5.0-alpha.5"
+machine-check-compile = "=0.5.0-alpha.5"
 
 btor2rs = "=0.1.0"
 proc-macro2 = "1.0.67"
