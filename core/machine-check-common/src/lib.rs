@@ -1,7 +1,10 @@
 #![doc = include_str!("../README.md")]
 
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, ops::Not};
+use std::{
+    fmt::Display,
+    ops::{BitAnd, BitOr, Not},
+};
 use thiserror::Error;
 
 pub mod check;
@@ -122,6 +125,14 @@ impl ThreeValued {
     pub fn is_true(&self) -> bool {
         matches!(self, ThreeValued::True)
     }
+
+    pub fn from_bool(value: bool) -> ThreeValued {
+        if value {
+            ThreeValued::True
+        } else {
+            ThreeValued::False
+        }
+    }
 }
 
 impl Not for ThreeValued {
@@ -132,6 +143,34 @@ impl Not for ThreeValued {
             ThreeValued::False => ThreeValued::True,
             ThreeValued::True => ThreeValued::False,
             ThreeValued::Unknown => ThreeValued::Unknown,
+        }
+    }
+}
+
+impl BitAnd for ThreeValued {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (ThreeValued::False, _) => ThreeValued::False,
+            (_, ThreeValued::False) => ThreeValued::False,
+            (ThreeValued::Unknown, _) => ThreeValued::Unknown,
+            (_, ThreeValued::Unknown) => ThreeValued::Unknown,
+            (ThreeValued::True, ThreeValued::True) => ThreeValued::True,
+        }
+    }
+}
+
+impl BitOr for ThreeValued {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (ThreeValued::True, _) => ThreeValued::True,
+            (_, ThreeValued::True) => ThreeValued::True,
+            (ThreeValued::Unknown, _) => ThreeValued::Unknown,
+            (_, ThreeValued::Unknown) => ThreeValued::Unknown,
+            (ThreeValued::False, ThreeValued::False) => ThreeValued::False,
         }
     }
 }

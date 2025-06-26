@@ -6,6 +6,7 @@ use machine_check_common::property::AtomicProperty;
 use machine_check_common::property::ComparisonType;
 use machine_check_common::ExecError;
 use machine_check_common::Signedness;
+use machine_check_common::ThreeValued;
 use mck::abstr::{ManipField, Manipulatable};
 use mck::concr::FullMachine;
 use petgraph::graphmap::GraphMap;
@@ -16,8 +17,7 @@ impl<M: FullMachine> StateSpace<M> {
     pub fn labelled_iter<'a>(
         &'a self,
         atomic_property: &'a AtomicProperty,
-        optimistic: bool,
-    ) -> impl Iterator<Item = Result<StateId, ExecError>> + 'a {
+    ) -> impl Iterator<Item = Result<(StateId, ThreeValued), ExecError>> + 'a {
         self.nodes().filter_map(move |node_id| {
             let Ok(state_id) = StateId::try_from(node_id) else {
                 return None;
@@ -50,19 +50,19 @@ impl<M: FullMachine> StateSpace<M> {
                 return Some(Err(ExecError::IndexRequired(String::from(left_name))));
             };
             let right_unsigned = atomic_property.right_number_unsigned();
-            let comparison_result = match atomic_property.comparison_type() {
+            let mut comparison_result = match atomic_property.comparison_type() {
                 ComparisonType::Eq => {
                     if min_unsigned == max_unsigned {
-                        Some(min_unsigned == right_unsigned)
+                        ThreeValued::from_bool(min_unsigned == right_unsigned)
                     } else {
-                        None
+                        ThreeValued::Unknown
                     }
                 }
                 ComparisonType::Ne => {
                     if min_unsigned == max_unsigned {
-                        Some(min_unsigned != right_unsigned)
+                        ThreeValued::from_bool(min_unsigned != right_unsigned)
                     } else {
-                        None
+                        ThreeValued::Unknown
                     }
                 }
                 comparison_type => {
@@ -100,26 +100,12 @@ impl<M: FullMachine> StateSpace<M> {
                 }
             };
 
-            let labelled = match comparison_result {
-                Some(comparison_result) => {
-                    // negate if necessary
-                    if atomic_property.is_complementary() {
-                        !comparison_result
-                    } else {
-                        comparison_result
-                    }
-                }
-                None => {
-                    // never negate here, just consider if it is optimistic
-                    // see https://patricegodefroid.github.io/public_psfiles/marktoberdorf2013.pdf
-                    optimistic
-                }
-            };
-            if labelled {
-                Some(Ok(state_id))
-            } else {
-                None
+            // handle the complementary values
+            if atomic_property.is_complementary() {
+                comparison_result = !comparison_result;
             }
+
+            Some(Ok((state_id, comparison_result)))
         })
     }
 
@@ -162,43 +148,43 @@ impl<M: FullMachine> StateSpace<M> {
         min_left: T,
         max_left: T,
         right: T,
-    ) -> Option<bool> {
+    ) -> ThreeValued {
         // TODO: resolve inequality using mck types
         match inequality_type {
             ComparisonType::Lt => {
                 if max_left < right {
-                    Some(true)
+                    ThreeValued::True
                 } else if min_left >= right {
-                    Some(false)
+                    ThreeValued::False
                 } else {
-                    None
+                    ThreeValued::Unknown
                 }
             }
             ComparisonType::Le => {
                 if max_left <= right {
-                    Some(true)
+                    ThreeValued::True
                 } else if min_left > right {
-                    Some(false)
+                    ThreeValued::False
                 } else {
-                    None
+                    ThreeValued::Unknown
                 }
             }
             ComparisonType::Gt => {
                 if min_left > right {
-                    Some(true)
+                    ThreeValued::True
                 } else if max_left <= right {
-                    Some(false)
+                    ThreeValued::False
                 } else {
-                    None
+                    ThreeValued::Unknown
                 }
             }
             ComparisonType::Ge => {
                 if min_left >= right {
-                    Some(true)
+                    ThreeValued::True
                 } else if max_left < right {
-                    Some(false)
+                    ThreeValued::False
                 } else {
-                    None
+                    ThreeValued::Unknown
                 }
             }
             _ => panic!("Inequality comparison should be supplied"),

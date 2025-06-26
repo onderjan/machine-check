@@ -1,9 +1,9 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 use log::{log_enabled, trace};
 use machine_check_common::{
     property::{BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator},
-    ExecError, StateId,
+    ExecError, StateId, ThreeValued,
 };
 use mck::concr::FullMachine;
 
@@ -12,35 +12,36 @@ use crate::space::StateSpace;
 /// Two-valued model-checker for the state space.
 ///
 /// Acts as one part of a three-valued model-checker based on the value of `optimistic`.
+/// TODO: update the comments
 pub struct ClassicChecker<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
-    optimistic: bool,
-    labelling_map: HashMap<Property, BTreeSet<StateId>>,
+    labelling_map: HashMap<Property, BTreeMap<StateId, ThreeValued>>,
 }
 
 impl<'a, M: FullMachine> ClassicChecker<'a, M> {
     /// Classic two-valued model checker with chosen interpretation of unknown labellings.
-    pub fn new(space: &'a StateSpace<M>, optimistic: bool) -> Self {
+    pub fn new(space: &'a StateSpace<M>) -> Self {
         ClassicChecker {
             space,
-            optimistic,
             labelling_map: HashMap::new(),
         }
     }
 
-    pub fn compute_interpretation(&mut self, prop: &Property) -> Result<bool, ExecError> {
+    pub fn compute_interpretation(&mut self, prop: &Property) -> Result<ThreeValued, ExecError> {
         self.compute_labelling(prop)?;
         let labelling = self.get_labelling(prop);
         // conventionally, the property must hold in all initial states
-        for initial_index in self.space.initial_iter() {
-            if !labelling.contains(&initial_index) {
-                return Ok(false);
-            }
+        let mut result = ThreeValued::True;
+        for initial_state_id in self.space.initial_iter() {
+            let state_labelling = labelling
+                .get(&initial_state_id)
+                .expect("Labelling should contain initial state");
+            result = result & *state_labelling;
         }
-        Ok(true)
+        Ok(result)
     }
 
-    pub fn get_labelling(&self, prop: &Property) -> &BTreeSet<StateId> {
+    pub fn get_labelling(&self, prop: &Property) -> &BTreeMap<StateId, ThreeValued> {
         self.labelling_map
             .get(prop)
             .expect("labelling should be present")
@@ -49,7 +50,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
     pub fn compute_and_get_labelling(
         &mut self,
         prop: &Property,
-    ) -> Result<&BTreeSet<StateId>, ExecError> {
+    ) -> Result<&BTreeMap<StateId, ThreeValued>, ExecError> {
         self.compute_labelling(prop)?;
         Ok(self.get_labelling(prop))
     }
@@ -62,58 +63,55 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
 
         let computed_labelling = match prop {
             Property::Const(c) => {
-                if *c {
-                    // holds in all state indices
-                    BTreeSet::from_iter(
-                        self.space
-                            .nodes()
-                            .filter_map(|node_id| StateId::try_from(node_id).ok()),
-                    )
-                } else {
-                    // holds nowhere
-                    BTreeSet::new()
-                }
+                // constant labelling
+                self.constant_labelling(ThreeValued::from_bool(*c))
             }
             Property::Atomic(atomic_property) => {
                 // get from space
-                let labelled: Result<BTreeSet<_>, ExecError> = self
-                    .space
-                    .labelled_iter(atomic_property, self.optimistic)
-                    .collect();
-                match labelled {
-                    Ok(labelled) => labelled,
-                    Err(err) => {
-                        return Err(err);
-                    }
-                }
+                let labelled: Result<Vec<(StateId, ThreeValued)>, _> =
+                    self.space.labelled_iter(atomic_property).collect();
+                BTreeMap::from_iter(labelled?)
             }
             Property::Negation(inner) => {
                 // complement
-                let full_labelling = BTreeSet::from_iter(
-                    self.space
-                        .nodes()
-                        .filter_map(|node_id| StateId::try_from(node_id).ok()),
-                );
                 self.compute_labelling(&inner.0)?;
-                let inner_labelling = self.get_labelling(&inner.0);
-                full_labelling
-                    .difference(inner_labelling)
-                    .cloned()
-                    .collect()
+                let mut result = self.get_labelling(&inner.0).clone();
+                for value in result.values_mut() {
+                    *value = !*value;
+                }
+                result
             }
             Property::Or(BiOperator { a, b }) => {
                 self.compute_labelling(a)?;
                 self.compute_labelling(b)?;
                 let a_labelling = self.get_labelling(a);
                 let b_labelling = self.get_labelling(b);
-                a_labelling.union(b_labelling).cloned().collect()
+                assert_eq!(a_labelling.len(), b_labelling.len());
+                let mut result = BTreeMap::new();
+                for (state_id, a_value) in a_labelling.iter() {
+                    let b_value = b_labelling
+                        .get(state_id)
+                        .expect("Labelling elements should be the same when performing OR");
+                    let result_value = *a_value | *b_value;
+                    result.insert(*state_id, result_value);
+                }
+                result
             }
             Property::And(BiOperator { a, b }) => {
                 self.compute_labelling(a)?;
                 self.compute_labelling(b)?;
                 let a_labelling = self.get_labelling(a);
                 let b_labelling = self.get_labelling(b);
-                a_labelling.intersection(b_labelling).cloned().collect()
+                assert_eq!(a_labelling.len(), b_labelling.len());
+                let mut result = BTreeMap::new();
+                for (state_id, a_value) in a_labelling.iter() {
+                    let b_value = b_labelling
+                        .get(state_id)
+                        .expect("Labelling elements should be the same when performing AND");
+                    let result_value = *a_value & *b_value;
+                    result.insert(*state_id, result_value);
+                }
+                result
             }
             Property::E(prop_temp) => match prop_temp {
                 TemporalOperator::X(inner) => self.compute_ex_labelling(inner)?,
@@ -131,8 +129,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
 
         if log_enabled!(log::Level::Trace) {
             trace!(
-                "{}: computed property {:?} labelling {:?}",
-                self.optimistic,
+                "computed property {:?} labelling {:?}",
                 prop,
                 computed_labelling
             );
@@ -147,31 +144,90 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
     fn compute_ex_labelling(
         &mut self,
         inner: &UniOperator,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
+    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
         self.compute_labelling(&inner.0)?;
         let inner_labelling = self.get_labelling(&inner.0);
-        let mut result = BTreeSet::new();
+        let mut result = self.constant_labelling(ThreeValued::False);
+
         // for each state labelled by p, mark the preceding states EX[p]
-        for state_id in inner_labelling {
+        for (state_id, value) in inner_labelling {
+            if matches!(value, ThreeValued::False) {
+                continue;
+            }
             for direct_predecessor_id in self.space.direct_predecessor_iter((*state_id).into()) {
                 // ignore start node
-                if let Ok(direct_predecessor_id) = StateId::try_from(direct_predecessor_id) {
-                    result.insert(direct_predecessor_id);
-                }
+                let Ok(direct_predecessor_id) = StateId::try_from(direct_predecessor_id) else {
+                    continue;
+                };
+                let direct_predecessor_value = result
+                    .get_mut(&direct_predecessor_id)
+                    .expect("Direct predecessor should be in labelling");
+                *direct_predecessor_value = *direct_predecessor_value | *value;
             }
         }
         Ok(result)
     }
 
-    fn compute_eg_labelling(&mut self, inner: &OperatorG) -> Result<BTreeSet<StateId>, ExecError> {
+    fn compute_eg_labelling(
+        &mut self,
+        inner: &OperatorG,
+    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
         // Boolean SCC-based labelling procedure CheckEG from Model Checking 1999 by Clarke et al.
 
         // compute inner labelling
         self.compute_labelling(&inner.0)?;
         let inner_labelling = self.get_labelling(&inner.0);
 
+        let pessimistic_inner = inner_labelling
+            .iter()
+            .filter_map(|(state_id, value)| {
+                if value.is_true() {
+                    Some(*state_id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let optimistic_inner = inner_labelling
+            .iter()
+            .filter_map(|(state_id, value)| {
+                if !value.is_false() {
+                    Some(*state_id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let pessimistic_eg = self.compute_eg_labelling_half(pessimistic_inner);
+        let optimistic_eg = self.compute_eg_labelling_half(optimistic_inner);
+
+        let eg_labelling = BTreeMap::from_iter(self.space.nodes().filter_map(|node_id| {
+            let Ok(state_id) = StateId::try_from(node_id) else {
+                return None;
+            };
+            let in_pessimistic = pessimistic_eg.contains(&state_id);
+            let in_optimistic = optimistic_eg.contains(&state_id);
+            let value = match (in_pessimistic, in_optimistic) {
+                (true, true) => ThreeValued::True,
+                (true, false) => panic!("Value should not be in pessimistic but not in optimistic"),
+                (false, true) => ThreeValued::Unknown,
+                (false, false) => ThreeValued::False,
+            };
+
+            Some((state_id, value))
+        }));
+
+        // return states labelled EG(f)
+        Ok(eg_labelling)
+    }
+
+    fn compute_eg_labelling_half(
+        &mut self,
+        inner_labelling: BTreeSet<StateId>,
+    ) -> BTreeSet<StateId> {
         // compute states of nontrivial strongly connected components of labelled and insert them into working set
-        let mut working_set = self.space.labelled_nontrivial_scc_indices(inner_labelling);
+        let mut working_set = self.space.labelled_nontrivial_scc_indices(&inner_labelling);
 
         // make all states in working set labelled EG(f)
         let mut eg_labelling = working_set.clone();
@@ -193,43 +249,73 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
             }
         }
 
-        // return states labelled EG(f)
-        Ok(eg_labelling)
+        eg_labelling
     }
 
-    fn compute_eu_labelling(&mut self, prop: &OperatorU) -> Result<BTreeSet<StateId>, ExecError> {
+    fn compute_eu_labelling(
+        &mut self,
+        prop: &OperatorU,
+    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
         // worklist-based labelling procedure CheckEU from Model Checking 1999 by Clarke et al.
 
         self.compute_labelling(&prop.hold)?;
         self.compute_labelling(&prop.until)?;
 
-        let prop = prop.clone();
-
         let hold_labelling = self.get_labelling(&prop.hold);
         let until_labelling = self.get_labelling(&prop.until);
 
-        // the working set holds all states labeled "until" at the start
-        let mut working = until_labelling.clone();
-        // make all states in working set labelled EU(f,g)
-        let mut eu_labelling = working.clone();
+        // the working set holds all states where "until" is labelled true or unknown at the start
+        let mut working: VecDeque<StateId> = until_labelling
+            .iter()
+            .filter_map(|(state_id, value)| {
+                if value.is_false() {
+                    None
+                } else {
+                    Some(*state_id)
+                }
+            })
+            .collect();
+        // copy the until labelling to EU labelling at first
+        let mut eu_labelling = until_labelling.clone();
 
         // choose and process states from working set until empty
-        while let Some(state_index) = working.pop_first() {
-            // for every parent of the chosen state which is labeled (f) but not EU(f,g) yet,
-            // label it EU(f,g) and add to the working set
-            for previous_id in self.space.direct_predecessor_iter(state_index.into()) {
+        while let Some(state_id) = working.pop_front() {
+            let state_eu_labelling = *eu_labelling
+                .get(&state_id)
+                .expect("EU labelling should contain working state");
+
+            // for every parent of the chosen state which is labelled (f) but not EU(f,g) yet,
+            // try labelling true or unknown and, if it changes things, add to the working set
+            for previous_id in self.space.direct_predecessor_iter(state_id.into()) {
                 // ignore start node
-                if let Ok(previous_id) = StateId::try_from(previous_id) {
-                    if hold_labelling.contains(&previous_id) {
-                        let inserted = eu_labelling.insert(previous_id);
-                        if inserted {
-                            working.insert(previous_id);
-                        }
-                    }
+                let Ok(previous_id) = StateId::try_from(previous_id) else {
+                    continue;
+                };
+
+                let previous_hold_labelling = hold_labelling
+                    .get(&previous_id)
+                    .expect("Hold labelling should contain previous state");
+                let previous_eu_labelling = eu_labelling
+                    .get_mut(&previous_id)
+                    .expect("EU labelling should contain previous state");
+                let val = *previous_eu_labelling;
+                *previous_eu_labelling =
+                    *previous_eu_labelling | (*previous_hold_labelling & state_eu_labelling);
+                if *previous_eu_labelling != val {
+                    working.push_back(previous_id);
                 }
             }
         }
 
         Ok(eu_labelling)
+    }
+
+    fn constant_labelling(&self, value: ThreeValued) -> BTreeMap<StateId, ThreeValued> {
+        BTreeMap::from_iter(self.space.nodes().filter_map(|node_id| {
+            let Ok(state_id) = StateId::try_from(node_id) else {
+                return None;
+            };
+            Some((state_id, value))
+        }))
     }
 }
