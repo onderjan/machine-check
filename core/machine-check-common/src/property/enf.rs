@@ -1,3 +1,5 @@
+use crate::property::FixedPointOperator;
+
 use super::{
     BiOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property, TemporalOperator, UniOperator,
 };
@@ -12,7 +14,6 @@ impl Property {
             Property::Negation(inner) => Property::Negation(inner.enf()),
             Property::Or(v) => Property::Or(v.enf()),
             Property::And(v) => Property::And(v.enf()),
-            // only convert F and R from E
             Property::E(temporal) => Property::E(match temporal {
                 TemporalOperator::X(inner) => TemporalOperator::X(inner.enf()),
                 TemporalOperator::F(inner) => {
@@ -28,8 +29,6 @@ impl Property {
                     return au.enf();
                 }
             }),
-            // convert all A to E
-            // they will (except for AU) all start with !E, add it outside the match
             Property::A(temporal) => make_negated(Property::E(match temporal {
                 TemporalOperator::X(inner) => {
                     // AX[p] = !EX[!p]
@@ -72,6 +71,22 @@ impl Property {
                     TemporalOperator::U(inner.negated().enf())
                 }
             })),
+            Property::LeastFixedPoint(fixed_point) => {
+                Property::LeastFixedPoint(FixedPointOperator {
+                    variable: fixed_point.variable.clone(),
+                    inner: Box::new(fixed_point.inner.enf()),
+                })
+            }
+            Property::GreatestFixedPoint(fixed_point) => {
+                Property::GreatestFixedPoint(FixedPointOperator {
+                    variable: fixed_point.variable.clone(),
+                    inner: Box::new(fixed_point.inner.enf()),
+                })
+            }
+            Property::FixedPointVariable(_) => {
+                // do not convert
+                self.clone()
+            }
         }
     }
 }

@@ -2,7 +2,10 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 
 use log::{log_enabled, trace};
 use machine_check_common::{
-    property::{BiOperator, OperatorG, OperatorU, Property, TemporalOperator, UniOperator},
+    property::{
+        BiOperator, FixedPointOperator, FixedPointVariable, OperatorG, OperatorU, Property,
+        TemporalOperator, UniOperator,
+    },
     ExecError, StateId, ThreeValued,
 };
 use mck::concr::FullMachine;
@@ -42,9 +45,12 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
     }
 
     pub fn get_labelling(&self, prop: &Property) -> &BTreeMap<StateId, ThreeValued> {
-        self.labelling_map
-            .get(prop)
-            .expect("labelling should be present")
+        let labelling = self.labelling_map.get(prop);
+        if let Some(labelling) = labelling {
+            labelling
+        } else {
+            panic!("Labelling should be present for {}", prop);
+        }
     }
 
     pub fn compute_and_get_labelling(
@@ -124,12 +130,23 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                     );
                 }
             },
+            Property::LeastFixedPoint(operator) => {
+                self.compute_fixed_point(operator, ThreeValued::from_bool(false))?
+            }
+            Property::GreatestFixedPoint(operator) => {
+                self.compute_fixed_point(operator, ThreeValued::from_bool(true))?
+            }
+            Property::FixedPointVariable(_) => {
+                // the variable has been initialised / computed within the fixed-point operators
+                assert!(self.labelling_map.contains_key(prop));
+                return Ok(());
+            }
             _ => panic!("expected {:?} to be minimized", prop),
         };
 
         if log_enabled!(log::Level::Trace) {
             trace!(
-                "computed property {:?} labelling {:?}",
+                "computed property {} labelling {:?}",
                 prop,
                 computed_labelling
             );
@@ -139,6 +156,69 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         self.labelling_map.insert(prop.clone(), computed_labelling);
 
         Ok(())
+    }
+
+    fn compute_fixed_point(
+        &mut self,
+        operator: &FixedPointOperator,
+        initial_value: ThreeValued,
+    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
+        // initialise variable labelling
+        self.labelling_map.insert(
+            Property::FixedPointVariable(operator.variable.clone()),
+            self.constant_labelling(initial_value),
+        );
+
+        // compute inner property labelling and update variable labelling until they match
+        loop {
+            self.compute_labelling(&operator.inner)?;
+            let current_labelling = self.get_labelling(&operator.inner).clone();
+            let previous_labelling =
+                self.get_labelling(&Property::FixedPointVariable(operator.variable.clone()));
+            if previous_labelling == &current_labelling {
+                break Ok(current_labelling);
+            }
+            let variable = operator.variable.clone();
+            self.clear_affected_labellings(&variable, &operator.inner);
+            self.labelling_map.insert(
+                Property::FixedPointVariable(variable),
+                current_labelling.clone(),
+            );
+        }
+    }
+
+    fn clear_affected_labellings(
+        &mut self,
+        variable: &FixedPointVariable,
+        prop: &Property,
+    ) -> bool {
+        let affected = match prop {
+            Property::Const(_) => false,
+            Property::Atomic(_) => false,
+            Property::Negation(uni_operator) => {
+                self.clear_affected_labellings(variable, &uni_operator.0)
+            }
+            Property::Or(bi_operator) | Property::And(bi_operator) => {
+                self.clear_affected_labellings(variable, &bi_operator.a)
+                    || self.clear_affected_labellings(variable, &bi_operator.b)
+            }
+            Property::E(temporal_operator) | Property::A(temporal_operator) => {
+                let mut affected = false;
+                for child in temporal_operator.children() {
+                    affected |= self.clear_affected_labellings(variable, &child);
+                }
+                affected
+            }
+            Property::LeastFixedPoint(fixed_point_operator)
+            | Property::GreatestFixedPoint(fixed_point_operator) => {
+                self.clear_affected_labellings(variable, &fixed_point_operator.inner)
+            }
+            Property::FixedPointVariable(fixed_point_variable) => fixed_point_variable == variable,
+        };
+        if affected {
+            self.labelling_map.remove(prop);
+        }
+        affected
     }
 
     fn compute_ex_labelling(

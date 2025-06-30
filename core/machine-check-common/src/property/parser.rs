@@ -1,6 +1,9 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::Arc};
 
-use crate::{ExecError, Signedness};
+use crate::{
+    property::{FixedPointOperator, FixedPointVariable},
+    ExecError, Signedness,
+};
 
 use super::{
     AtomicProperty, BiOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property,
@@ -17,6 +20,8 @@ pub fn parse(input: &str) -> Result<Property, ExecError> {
     let parser = PropertyParser {
         input: String::from(input),
         lex_items: lexer::lex(input)?,
+        next_variable_id: 0,
+        variables: Vec::new(),
     };
     parser.parse()
 }
@@ -24,14 +29,18 @@ pub fn parse(input: &str) -> Result<Property, ExecError> {
 struct PropertyParser {
     input: String,
     lex_items: VecDeque<Token>,
+    next_variable_id: u64,
+    variables: Vec<FixedPointVariable>,
 }
 
 impl PropertyParser {
     fn parse(mut self) -> Result<Property, ExecError> {
+        assert!(self.variables.is_empty());
         let result = self.parse_property()?;
         if !self.lex_items.is_empty() {
             return Err(self.not_parseable(None, "Extraneous tokens"));
         }
+        assert!(self.variables.is_empty());
         Ok(result)
     }
 
@@ -76,8 +85,13 @@ impl PropertyParser {
                 ty: TokenType::Ident(ident),
                 ..
             }) => {
-                // parse as an atomic property
-                Property::Atomic(self.parse_atomic_property(ident)?)
+                // look if it is a fixed-point variable first
+                if let Some(variable) = self.variables.iter().rev().find(|var| *var.name == ident) {
+                    Property::FixedPointVariable(variable.clone())
+                } else {
+                    // parse as an atomic property
+                    Property::Atomic(self.parse_atomic_property(ident)?)
+                }
             }
             Some(Token {
                 ty: TokenType::MacroInvocation(ref ident),
@@ -95,6 +109,8 @@ impl PropertyParser {
                     "EG" => Property::E(self.parse_g()?),
                     "EU" => Property::E(self.parse_bi_operator(true)?),
                     "ER" => Property::E(self.parse_bi_operator(false)?),
+                    "lfp" => Property::LeastFixedPoint(self.parse_fixed_point_operator()?),
+                    "gfp" => Property::GreatestFixedPoint(self.parse_fixed_point_operator()?),
                     _ => {
                         return Err(self.not_parseable(
                             first_token,
@@ -184,6 +200,34 @@ impl PropertyParser {
                 releasee: b,
             })
         })
+    }
+
+    fn parse_fixed_point_operator(&mut self) -> Result<FixedPointOperator, ExecError> {
+        const WHEN_PARSING: &str = "a fixed-point operator";
+
+        let variable_id = self.next_variable_id;
+        self.next_variable_id = self
+            .next_variable_id
+            .checked_add(1)
+            .expect("Next variable id should not overflow");
+
+        self.expect(TokenType::OpeningBracket(Bracket::Square), WHEN_PARSING)?;
+        let (_first_token, variable_name) = self.expect_ident("inside forced signedness")?;
+
+        let variable = FixedPointVariable {
+            id: variable_id,
+            name: Arc::new(variable_name),
+        };
+
+        self.variables.push(variable.clone());
+
+        self.expect(TokenType::Comma, "a binary operator")?;
+        let inner = Box::new(self.parse_property()?);
+        self.expect(TokenType::ClosingBracket(Bracket::Square), WHEN_PARSING)?;
+
+        self.variables.pop();
+
+        Ok(FixedPointOperator { variable, inner })
     }
 
     fn parse_atomic_property(&mut self, first_ident: String) -> Result<AtomicProperty, ExecError> {

@@ -1,5 +1,5 @@
 //! Computation Tree Logic properties.
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
 use crate::{ExecError, Signedness};
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,9 @@ pub enum Property {
     And(BiOperator),
     E(TemporalOperator),
     A(TemporalOperator),
+    LeastFixedPoint(FixedPointOperator),
+    GreatestFixedPoint(FixedPointOperator),
+    FixedPointVariable(FixedPointVariable),
 }
 
 /// A temporal operator within a CTL path quantifier.
@@ -29,6 +32,19 @@ pub enum TemporalOperator {
     G(OperatorG),
     U(OperatorU),
     R(OperatorR),
+}
+
+/// A fixed-point operator.
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct FixedPointOperator {
+    pub variable: FixedPointVariable,
+    pub inner: Box<Property>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct FixedPointVariable {
+    pub id: u64,
+    pub name: Arc<String>,
 }
 
 impl Property {
@@ -60,6 +76,13 @@ impl Property {
             Property::And(prop_bi) => vec![*prop_bi.a.clone(), *prop_bi.b.clone()],
             Property::E(prop_temp) => prop_temp.children(),
             Property::A(prop_temp) => prop_temp.children(),
+            Property::LeastFixedPoint(fixed_point_operator) => {
+                vec![*fixed_point_operator.inner.clone()]
+            }
+            Property::GreatestFixedPoint(fixed_point_operator) => {
+                vec![*fixed_point_operator.inner.clone()]
+            }
+            Property::FixedPointVariable(_) => Vec::new(),
         }
     }
 }
@@ -106,6 +129,19 @@ impl Display for Property {
             Property::A(prop_temp) => {
                 write!(f, "A{}", prop_temp)
             }
+            Property::LeastFixedPoint(fixed_point_operator) => {
+                write!(
+                    f,
+                    "lfp![{},{}]",
+                    fixed_point_operator.variable.name, fixed_point_operator.inner
+                )
+            }
+            Property::GreatestFixedPoint(fixed_point_operator) => write!(
+                f,
+                "gfp![{},{}]",
+                fixed_point_operator.variable.name, fixed_point_operator.inner
+            ),
+            Property::FixedPointVariable(var) => write!(f, "{}", var.name),
         }
     }
 }

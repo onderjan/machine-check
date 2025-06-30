@@ -1,3 +1,5 @@
+use crate::property::FixedPointOperator;
+
 use super::{
     BiOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property, TemporalOperator, UniOperator,
 };
@@ -74,6 +76,31 @@ impl Property {
                     Property::A(inner)
                 }
             }
+            Property::LeastFixedPoint(fixed_point_operator) => {
+                let inner = fixed_point_operator.inner.pnf_inner(complement);
+                let op = FixedPointOperator {
+                    variable: fixed_point_operator.variable.clone(),
+                    inner: Box::new(inner),
+                };
+                if complement {
+                    Property::GreatestFixedPoint(op)
+                } else {
+                    Property::LeastFixedPoint(op)
+                }
+            }
+            Property::GreatestFixedPoint(fixed_point_operator) => {
+                let inner = fixed_point_operator.inner.pnf_inner(complement);
+                let op = FixedPointOperator {
+                    variable: fixed_point_operator.variable.clone(),
+                    inner: Box::new(inner),
+                };
+                if complement {
+                    Property::LeastFixedPoint(op)
+                } else {
+                    Property::GreatestFixedPoint(op)
+                }
+            }
+            Property::FixedPointVariable(_) => self.clone(),
         }
     }
 }

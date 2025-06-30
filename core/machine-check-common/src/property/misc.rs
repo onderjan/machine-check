@@ -10,6 +10,13 @@ impl Property {
             Property::And(bi) => bi.a.contains_negation() || bi.b.contains_negation(),
             Property::E(temporal) => temporal.contains_negation(),
             Property::A(temporal) => temporal.contains_negation(),
+            Property::LeastFixedPoint(fixed_point_operator) => {
+                fixed_point_operator.inner.contains_negation()
+            }
+            Property::GreatestFixedPoint(fixed_point_operator) => {
+                fixed_point_operator.inner.contains_negation()
+            }
+            Property::FixedPointVariable(_) => false,
         }
     }
 }
