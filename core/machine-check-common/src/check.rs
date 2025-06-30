@@ -18,16 +18,11 @@ pub struct PreparedProperty {
 impl PreparedProperty {
     /// Turns the CTL proposition into a form suitable for three-valued checking.
     ///
-    /// The proposition must be first converted to Positive Normal Form so that
-    /// negations are turned into complementary literals, then converted to
-    /// Existential Normal Form. This way, the complementary literals can be used
-    /// for optimistic/pessimistic labelling while a normal ENF model-checking
-    /// algorithm can be used.
+    /// The proposition is converted to the Existential Normal Form. This way,
+    /// a normal ENF model-checking algorithm can be used.
     pub fn new(original_prop: Property) -> Self {
-        // transform proposition to positive normal form to move negations to literals
-        let prop = original_prop.pnf();
         // transform proposition to existential normal form to be able to verify
-        let prop = prop.enf();
+        let prop = original_prop.enf();
         PreparedProperty {
             original: original_prop,
             prepared: prop,

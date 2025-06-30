@@ -50,7 +50,8 @@ impl<M: FullMachine> StateSpace<M> {
                 return Some(Err(ExecError::IndexRequired(String::from(left_name))));
             };
             let right_unsigned = atomic_property.right_number_unsigned();
-            let mut comparison_result = match atomic_property.comparison_type() {
+
+            let comparison_result = match atomic_property.comparison_type() {
                 ComparisonType::Eq => {
                     if min_unsigned == max_unsigned {
                         ThreeValued::from_bool(min_unsigned == right_unsigned)
@@ -99,11 +100,6 @@ impl<M: FullMachine> StateSpace<M> {
                     }
                 }
             };
-
-            // handle the complementary values
-            if atomic_property.is_complementary() {
-                comparison_result = !comparison_result;
-            }
 
             Some(Ok((state_id, comparison_result)))
         })

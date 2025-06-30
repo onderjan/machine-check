@@ -5,9 +5,7 @@ use crate::{ExecError, Signedness};
 use serde::{Deserialize, Serialize};
 
 mod enf;
-mod misc;
 mod parser;
-mod pnf;
 
 /// A Computation Tree Logic property.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -266,7 +264,6 @@ impl Display for ValueExpression {
 /// In our case, this is usually a field compared to a number.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct AtomicProperty {
-    complementary: bool,
     left: ValueExpression,
     comparison_type: ComparisonType,
     right_number: i64,
@@ -279,7 +276,6 @@ impl AtomicProperty {
         right_number: i64,
     ) -> AtomicProperty {
         AtomicProperty {
-            complementary: false,
             left,
             comparison_type,
             right_number,
@@ -300,10 +296,6 @@ impl AtomicProperty {
 
     pub fn right_number_signed(&self) -> i64 {
         self.right_number
-    }
-
-    pub fn is_complementary(&self) -> bool {
-        self.complementary
     }
 }
 

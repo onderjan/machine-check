@@ -363,7 +363,6 @@ fn test_parse() {
         let parsed = parse(str).unwrap();
         let ag = Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Atomic(
             AtomicProperty {
-                complementary: false,
                 left: ValueExpression {
                     name: String::from("a"),
                     index: None,
@@ -376,7 +375,6 @@ fn test_parse() {
 
         let ef = Property::E(TemporalOperator::F(OperatorF(Box::new(Property::Atomic(
             AtomicProperty {
-                complementary: false,
                 left: ValueExpression {
                     name: String::from("b"),
                     index: Some(32),
@@ -402,7 +400,6 @@ fn test_parse() {
 
         let until = Property::Or(BiOperator {
             a: Box::new(Property::Atomic(AtomicProperty {
-                complementary: false,
                 left: ValueExpression {
                     name: String::from("ALREADY_UNSIGNED"),
                     index: None,
@@ -413,7 +410,6 @@ fn test_parse() {
             })),
             b: Box::new(Property::Negation(UniOperator(Box::new(Property::Atomic(
                 AtomicProperty {
-                    complementary: false,
                     left: ValueExpression {
                         name: String::from("abc"),
                         index: None,
@@ -427,7 +423,6 @@ fn test_parse() {
 
         let created = Property::E(TemporalOperator::U(OperatorU {
             hold: Box::new(Property::Atomic(AtomicProperty {
-                complementary: false,
                 left: ValueExpression {
                     name: String::from("prOpeRty"),
                     index: None,
