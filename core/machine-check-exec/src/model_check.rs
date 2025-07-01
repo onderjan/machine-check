@@ -200,12 +200,12 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 }
                 result
             }
-            Property::E(prop_temp) => match prop_temp {
-                TemporalOperator::X(inner) => self.compute_next_labelling(inner, false)?,
-                _ => {
-                    panic!("expected {:?} to have only X temporal operator", prop);
-                }
-            },
+            Property::E(TemporalOperator::X(inner)) => {
+                self.compute_next_labelling(property_id, inner, false)?
+            }
+            Property::A(TemporalOperator::X(inner)) => {
+                self.compute_next_labelling(property_id, inner, true)?
+            }
             Property::LeastFixedPoint(operator) => {
                 self.compute_fixed_point(operator, ThreeValued::from_bool(false))?
             }
@@ -217,11 +217,11 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 assert!(self.labelling_map.contains_key(&property_id));
                 return Ok(property_id);
             }
-            _ => panic!("expected {:?} to be minimized", prop),
+            _ => panic!("expected {:?} to be canonical", prop),
         };
 
         if log_enabled!(log::Level::Trace) {
-            trace!("computed property {} labelling {:?}", prop, labelling);
+            trace!("Computed property {} labelling {:?}", prop, labelling);
         }
 
         //println!("Computed property {} labelling {:?}", prop, labelling);
@@ -247,6 +247,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         loop {
             let inner_property_id = self.compute_labelling(&operator.inner)?;
             let current_labelling = self.get_labelling(inner_property_id).clone();
+            //println!("Current fixed-point labelling: {:?}", current_labelling);
             let previous_labelling = self.get_labelling(variable_property_id);
             if previous_labelling == &current_labelling {
                 break Ok(current_labelling);
@@ -273,18 +274,15 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 self.clear_affected_labellings(variable, &bi_operator.a)
                     || self.clear_affected_labellings(variable, &bi_operator.b)
             }
-            Property::E(temporal_operator) | Property::A(temporal_operator) => {
-                let mut affected = false;
-                for child in temporal_operator.children() {
-                    affected |= self.clear_affected_labellings(variable, &child);
-                }
-                affected
+            Property::E(TemporalOperator::X(inner)) | Property::A(TemporalOperator::X(inner)) => {
+                self.clear_affected_labellings(variable, &inner.0)
             }
             Property::LeastFixedPoint(fixed_point_operator)
             | Property::GreatestFixedPoint(fixed_point_operator) => {
                 self.clear_affected_labellings(variable, &fixed_point_operator.inner)
             }
             Property::FixedPointVariable(fixed_point_variable) => fixed_point_variable == variable,
+            _ => panic!("Expected property to be canonical when clearing affected labellings"),
         };
         if affected {
             let property_id = self.get_or_insert_property_id(prop);
@@ -295,29 +293,24 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
     fn compute_next_labelling(
         &mut self,
+        property_id: PropertyId,
         inner: &UniOperator,
         universal: bool,
     ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
-        let prop = TemporalOperator::X(inner.clone());
-        let prop = if universal {
-            Property::A(prop)
-        } else {
-            Property::E(prop)
-        };
-
-        let property_id = self.get_or_insert_property_id(&prop);
-
         let mut reasons = self.get_reasons_mut(property_id).clone();
 
         let inner_property_id = self.compute_labelling(&inner.0)?;
         let inner_labelling = self.get_labelling(inner_property_id);
         //println!("Previous reasons: {:?}", reasons);
 
-        let mut labelling = self.constant_labelling(ThreeValued::from_bool(universal));
+        let ground_value = ThreeValued::from_bool(universal);
+
+        let mut labelling = self.constant_labelling(ground_value);
 
         // for each state labelled by p, mark the preceding states X[p]
         for (state_id, value) in inner_labelling {
-            if matches!(value, ThreeValued::False) {
+            if *value == ground_value {
+                // no change, skip
                 continue;
             }
             for direct_predecessor_id in self.space.direct_predecessor_iter((*state_id).into()) {
@@ -328,13 +321,16 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 let direct_predecessor_value = labelling
                     .get_mut(&direct_predecessor_id)
                     .expect("Direct predecessor should be in labelling");
+                let old_value = *direct_predecessor_value;
                 if universal {
                     *direct_predecessor_value = *direct_predecessor_value & *value;
                 } else {
                     *direct_predecessor_value = *direct_predecessor_value | *value;
                 }
 
-                reasons.entry(direct_predecessor_id).or_insert(*state_id);
+                if old_value != *direct_predecessor_value {
+                    reasons.entry(direct_predecessor_id).or_insert(*state_id);
+                }
             }
         }
 

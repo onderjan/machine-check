@@ -16,39 +16,32 @@ impl Property {
             Property::Negation(inner) => Property::Negation(inner.canonical()),
             Property::Or(v) => Property::Or(v.canonical()),
             Property::And(v) => Property::And(v.canonical()),
-            Property::E(temporal) => Property::E(match temporal {
-                TemporalOperator::X(inner) => TemporalOperator::X(inner.canonical()),
+            Property::E(temporal) => match temporal {
+                TemporalOperator::X(inner) => Property::E(TemporalOperator::X(inner.canonical())),
                 TemporalOperator::F(inner) => {
-                    return fixed_point(false, false, &Property::Const(true), &inner.0)
+                    fixed_point(false, false, &Property::Const(true), &inner.0)
                 }
                 TemporalOperator::G(inner) => {
-                    return fixed_point(false, true, &Property::Const(false), &inner.0)
+                    fixed_point(false, true, &Property::Const(false), &inner.0)
                 }
-                TemporalOperator::U(inner) => {
-                    return fixed_point(false, false, &inner.hold, &inner.until)
-                }
+                TemporalOperator::U(inner) => fixed_point(false, false, &inner.hold, &inner.until),
                 TemporalOperator::R(inner) => {
-                    return fixed_point(false, true, &inner.releaser, &inner.releasee)
+                    fixed_point(false, true, &inner.releaser, &inner.releasee)
                 }
-            }),
-            Property::A(temporal) => make_negated(Property::E(match temporal {
-                TemporalOperator::X(inner) => {
-                    // AX[p] = !EX[!p]
-                    TemporalOperator::X(UniOperator::new(make_negated_box(inner.canonical().0)))
-                }
+            },
+            Property::A(temporal) => match temporal {
+                TemporalOperator::X(inner) => Property::A(TemporalOperator::X(inner.canonical())),
                 TemporalOperator::F(inner) => {
-                    return fixed_point(true, false, &Property::Const(true), &inner.0)
+                    fixed_point(true, false, &Property::Const(true), &inner.0)
                 }
                 TemporalOperator::G(inner) => {
-                    return fixed_point(true, true, &Property::Const(false), &inner.0)
+                    fixed_point(true, true, &Property::Const(false), &inner.0)
                 }
-                TemporalOperator::U(inner) => {
-                    return fixed_point(true, false, &inner.hold, &inner.until)
-                }
+                TemporalOperator::U(inner) => fixed_point(true, false, &inner.hold, &inner.until),
                 TemporalOperator::R(inner) => {
-                    return fixed_point(true, true, &inner.releaser, &inner.releasee)
+                    fixed_point(true, true, &inner.releaser, &inner.releasee)
                 }
-            })),
+            },
             Property::LeastFixedPoint(fixed_point) => {
                 Property::LeastFixedPoint(FixedPointOperator {
                     variable: fixed_point.variable.clone(),
@@ -136,30 +129,21 @@ fn fixed_point(
     } else {
         Property::LeastFixedPoint(fixed_point)
     }
-    //println!("Result: {}", result);
 }
 
 impl UniOperator {
     #[must_use]
-    pub fn canonical(&self) -> Self {
+    fn canonical(&self) -> Self {
         UniOperator(Box::new(self.0.canonical()))
     }
 }
 
 impl BiOperator {
     #[must_use]
-    pub fn canonical(&self) -> Self {
+    fn canonical(&self) -> Self {
         BiOperator {
             a: Box::new(self.a.canonical()),
             b: Box::new(self.b.canonical()),
         }
     }
-}
-
-fn make_negated_box(prop: Box<Property>) -> Property {
-    Property::Negation(UniOperator(prop))
-}
-
-fn make_negated(prop: Property) -> Property {
-    Property::Negation(UniOperator::new(prop))
 }

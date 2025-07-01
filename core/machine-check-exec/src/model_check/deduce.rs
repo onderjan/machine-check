@@ -98,23 +98,15 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // prefer the left deduction over the right one
                 Ok(a_deduction.unwrap_or(b_deduction))
             }
-            Property::E(prop_temp) => match prop_temp {
-                TemporalOperator::X(inner) => {
-                    let path_back_index = *self.path.back().unwrap();
-                    let reason = self
-                        .checker
-                        .get_state_labelling_reason(prop, path_back_index)
-                        .expect("Culprit state should have a labelling reason");
-                    //println!("EX reason: {:?}", reason);
-                    self.deduce_end_next(inner, reason)
-                }
-                _ => {
-                    panic!(
-                        "expected {:?} to have only X, G, U temporal operators",
-                        prop
-                    );
-                }
-            },
+            Property::E(TemporalOperator::X(inner)) | Property::A(TemporalOperator::X(inner)) => {
+                let path_back_index = *self.path.back().unwrap();
+                let reason = self
+                    .checker
+                    .get_state_labelling_reason(prop, path_back_index)
+                    .expect("Culprit state should have a labelling reason");
+                //println!("X reason: {:?}", reason);
+                self.deduce_end_next(inner, reason)
+            }
             Property::LeastFixedPoint(operator) | Property::GreatestFixedPoint(operator) => {
                 loop {
                     let deduction = self.deduce_end(&operator.inner)?;
@@ -139,7 +131,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 }))
             }
             _ => {
-                panic!("expected {:?} to be minimized", prop);
+                panic!("expected {:?} to be canonical", prop);
             }
         }
     }
