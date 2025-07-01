@@ -12,20 +12,20 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct PreparedProperty {
     original: Property,
-    prepared: Property,
+    canonical: Property,
 }
 
 impl PreparedProperty {
     /// Turns the CTL proposition into a form suitable for three-valued checking.
     ///
-    /// The proposition is converted to the Existential Normal Form. This way,
-    /// a normal ENF model-checking algorithm can be used.
+    /// The proposition is converted to the canonical form. This way,
+    /// a normal mu-calculus model-checking algorithm can be used.
     pub fn new(original_prop: Property) -> Self {
-        // transform proposition to existential normal form to be able to verify
-        let prop = original_prop.enf();
+        // transform proposition to canonical form to be able to verify
+        let canonical = original_prop.canonical();
         PreparedProperty {
             original: original_prop,
-            prepared: prop,
+            canonical,
         }
     }
 
@@ -33,8 +33,8 @@ impl PreparedProperty {
         &self.original
     }
 
-    pub fn prepared(&self) -> &Property {
-        &self.prepared
+    pub fn canonical(&self) -> &Property {
+        &self.canonical
     }
 }
 

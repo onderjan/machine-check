@@ -2,22 +2,22 @@ use std::sync::Arc;
 
 use crate::property::{FixedPointOperator, FixedPointVariable};
 
-use super::{
-    BiOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property, TemporalOperator, UniOperator,
-};
+use super::{BiOperator, Property, TemporalOperator, UniOperator};
 
 impl Property {
-    /// Converts to Existential Normal Form.
+    /// Converts to canonical representation suitable for model-checking.
+    ///
+    /// This involves translating CTL into mu-calculus equivalents.
     #[must_use]
-    pub fn enf(&self) -> Self {
+    pub fn canonical(&self) -> Self {
         match self {
             Property::Const(_) => self.clone(),
             Property::Atomic(_) => self.clone(),
-            Property::Negation(inner) => Property::Negation(inner.enf()),
-            Property::Or(v) => Property::Or(v.enf()),
-            Property::And(v) => Property::And(v.enf()),
+            Property::Negation(inner) => Property::Negation(inner.canonical()),
+            Property::Or(v) => Property::Or(v.canonical()),
+            Property::And(v) => Property::And(v.canonical()),
             Property::E(temporal) => Property::E(match temporal {
-                TemporalOperator::X(inner) => TemporalOperator::X(inner.enf()),
+                TemporalOperator::X(inner) => TemporalOperator::X(inner.canonical()),
                 TemporalOperator::F(inner) => {
                     return fixed_point(false, false, &Property::Const(true), &inner.0)
                 }
@@ -34,7 +34,7 @@ impl Property {
             Property::A(temporal) => make_negated(Property::E(match temporal {
                 TemporalOperator::X(inner) => {
                     // AX[p] = !EX[!p]
-                    TemporalOperator::X(UniOperator::new(make_negated_box(inner.enf().0)))
+                    TemporalOperator::X(UniOperator::new(make_negated_box(inner.canonical().0)))
                 }
                 TemporalOperator::F(inner) => {
                     return fixed_point(true, false, &Property::Const(true), &inner.0)
@@ -52,13 +52,13 @@ impl Property {
             Property::LeastFixedPoint(fixed_point) => {
                 Property::LeastFixedPoint(FixedPointOperator {
                     variable: fixed_point.variable.clone(),
-                    inner: Box::new(fixed_point.inner.enf()),
+                    inner: Box::new(fixed_point.inner.canonical()),
                 })
             }
             Property::GreatestFixedPoint(fixed_point) => {
                 Property::GreatestFixedPoint(FixedPointOperator {
                     variable: fixed_point.variable.clone(),
-                    inner: Box::new(fixed_point.inner.enf()),
+                    inner: Box::new(fixed_point.inner.canonical()),
                 })
             }
             Property::FixedPointVariable(_) => {
@@ -76,8 +76,8 @@ fn fixed_point(
     sufficient: &Property,
 ) -> Property {
     // translate to mu-calculus
-    let permitting = permitting.enf();
-    let sufficient = sufficient.enf();
+    let permitting = permitting.canonical();
+    let sufficient = sufficient.canonical();
     // TODO: handle the variable nicely
     let variable = FixedPointVariable {
         id: u64::MAX,
@@ -93,7 +93,7 @@ fn fixed_point(
     } else {
         Property::E(next)
     }
-    .enf();
+    .canonical();
 
     // the general form is [lfp/gfp] Z . sufficient [outer_operator] (permitting [inner_operator] [A/E]X(Z))
     // for R, gfp Z . sufficient && (permitting || [A/E]X(Z))
@@ -141,65 +141,17 @@ fn fixed_point(
 
 impl UniOperator {
     #[must_use]
-    pub fn enf(&self) -> Self {
-        UniOperator(Box::new(self.0.enf()))
-    }
-}
-
-impl OperatorF {
-    #[must_use]
-    pub fn negated(&self) -> OperatorG {
-        OperatorG(Box::new(make_negated((*self.0).clone())))
-    }
-
-    #[must_use]
-    pub fn expanded(&self) -> OperatorU {
-        // F[p] expands to [1 U p]
-        OperatorU {
-            hold: Box::new(Property::Const(true)),
-            until: Box::clone(&self.0),
-        }
-    }
-}
-
-impl OperatorG {
-    #[must_use]
-    pub fn enf(&self) -> Self {
-        OperatorG(Box::new(self.0.enf()))
-    }
-
-    #[must_use]
-    pub fn negated(&self) -> OperatorF {
-        OperatorF(Box::new(make_negated((*self.0).clone())))
+    pub fn canonical(&self) -> Self {
+        UniOperator(Box::new(self.0.canonical()))
     }
 }
 
 impl BiOperator {
     #[must_use]
-    pub fn enf(&self) -> Self {
+    pub fn canonical(&self) -> Self {
         BiOperator {
-            a: Box::new(self.a.enf()),
-            b: Box::new(self.b.enf()),
-        }
-    }
-}
-
-impl OperatorU {
-    #[must_use]
-    pub fn enf(&self) -> Self {
-        OperatorU {
-            hold: Box::new(self.hold.enf()),
-            until: Box::new(self.until.enf()),
-        }
-    }
-}
-
-impl OperatorR {
-    #[must_use]
-    pub fn negated(&self) -> OperatorU {
-        OperatorU {
-            hold: Box::new(make_negated((*self.releaser).clone())),
-            until: Box::new(make_negated((*self.releasee).clone())),
+            a: Box::new(self.a.canonical()),
+            b: Box::new(self.b.canonical()),
         }
     }
 }

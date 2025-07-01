@@ -68,7 +68,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             return Ok(Conclusion::NotCheckable);
         }
 
-        let prop = &property.prepared();
+        let prop = property.canonical();
         // compute optimistic and pessimistic interpretation and get the conclusion from that
         match self.compute_interpretation(prop)? {
             ThreeValued::False => Ok(Conclusion::Known(false)),
@@ -81,7 +81,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         &mut self,
         property: &PreparedProperty,
     ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
-        let prop = &property.prepared();
+        let prop = property.canonical();
         // compute the optimistic and pessimistic interpretation labellings
         Ok(self.compute_and_get_labelling(prop)?.clone())
     }

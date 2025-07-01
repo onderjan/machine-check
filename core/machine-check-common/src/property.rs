@@ -4,7 +4,7 @@ use std::{fmt::Display, sync::Arc};
 use crate::{ExecError, Signedness};
 use serde::{Deserialize, Serialize};
 
-mod enf;
+mod canonical;
 mod parser;
 
 /// A Computation Tree Logic property.
