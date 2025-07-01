@@ -64,6 +64,8 @@ enum Deduction {
 impl<M: FullMachine> Deducer<'_, M> {
     /// Deduces the ending states of the culprit, after the ones already found.
     fn deduce_end(&mut self, prop: &Property) -> Result<Deduction, ExecError> {
+        //println!("Space: {:?}", self.checker.space);
+        //println!("Deducing end for property {}", prop);
         assert!(self
             .checker
             .get_state_labelling(prop, *self.path.back().unwrap())
@@ -107,7 +109,15 @@ impl<M: FullMachine> Deducer<'_, M> {
                 Ok(a_deduction.unwrap_or(b_deduction))
             }
             Property::E(prop_temp) => match prop_temp {
-                TemporalOperator::X(inner) => self.deduce_end_ex(inner),
+                TemporalOperator::X(inner) => {
+                    let path_back_index = *self.path.back().unwrap();
+                    let reason = self
+                        .checker
+                        .get_state_labelling_reason(prop, path_back_index)
+                        .expect("Culprit state should have a labelling reason");
+                    //println!("EX reason: {:?}", reason);
+                    self.deduce_end_next(inner, reason)
+                }
                 TemporalOperator::G(inner) => self.deduce_end_eg(inner),
                 TemporalOperator::U(inner) => self.deduce_end_eu(inner),
                 _ => {
@@ -117,6 +127,12 @@ impl<M: FullMachine> Deducer<'_, M> {
                     );
                 }
             },
+            /*Property::A(prop_temp) => match prop_temp {
+                TemporalOperator::X(inner) => self.deduce_end_next(inner),
+                _ => {
+                    panic!("expected {:?} to have only X temporal operator", prop);
+                }
+            },*/
             Property::LeastFixedPoint(operator) | Property::GreatestFixedPoint(operator) => {
                 self.disallowed.push(HashSet::new());
                 let result = loop {
@@ -149,32 +165,53 @@ impl<M: FullMachine> Deducer<'_, M> {
         }
     }
 
-    fn deduce_end_ex(&mut self, inner: &UniOperator) -> Result<Deduction, ExecError> {
+    fn deduce_end_next(
+        &mut self,
+        inner: &UniOperator,
+        reason: StateId,
+    ) -> Result<Deduction, ExecError> {
+        //println!("Deducing end for path: {:?}", self.path);
         // lengthen by direct successor with unknown inner
         let path_back_index = *self.path.back().unwrap();
         let disallowed_states = self
             .disallowed
             .last_mut()
             .expect("There should be a disallowed states scope");
+
         for direct_successor_index in self
             .checker
             .space
             .direct_successor_iter(path_back_index.into())
         {
-            if disallowed_states.contains(&direct_successor_index) {
+            /*println!(
+                "Considering {} -> {}",
+                path_back_index, direct_successor_index
+            );*/
+            /*if disallowed_states.contains(&direct_successor_index) {
+                println!("Disallowed");
+                continue;
+            }*/
+
+            if direct_successor_index != reason {
+                //println!("Not the reason");
                 continue;
             }
+
             let direct_successor_labelling = self
                 .checker
                 .get_state_labelling(inner.0.as_ref(), direct_successor_index);
+
             if direct_successor_labelling.is_unknown() {
                 // add to path
+                //println!("Unknown, adding to path");
                 self.path.push_back(direct_successor_index);
                 disallowed_states.insert(direct_successor_index);
                 return self.deduce_end(&inner.0);
+            } else {
+                //println!("Not unknown");
             }
         }
-        panic!("no EX culprit found")
+        panic!("no next state culprit found")
     }
 
     fn deduce_end_eg(&mut self, inner: &OperatorG) -> Result<Deduction, ExecError> {

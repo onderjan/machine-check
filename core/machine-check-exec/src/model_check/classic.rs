@@ -19,6 +19,7 @@ use crate::space::StateSpace;
 pub struct ClassicChecker<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
     labelling_map: HashMap<Property, BTreeMap<StateId, ThreeValued>>,
+    reasons_map: HashMap<Property, BTreeMap<StateId, StateId>>,
 }
 
 impl<'a, M: FullMachine> ClassicChecker<'a, M> {
@@ -27,6 +28,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         ClassicChecker {
             space,
             labelling_map: HashMap::new(),
+            reasons_map: HashMap::new(),
         }
     }
 
@@ -53,6 +55,19 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         }
     }
 
+    pub fn get_reasons(&self, prop: &Property) -> &BTreeMap<StateId, StateId> {
+        let result = self.reasons_map.get(prop);
+        if let Some(result) = result {
+            result
+        } else {
+            panic!("Reasons should be present for {}", prop);
+        }
+    }
+
+    pub fn get_reasons_mut(&mut self, prop: &Property) -> &mut BTreeMap<StateId, StateId> {
+        self.reasons_map.entry(prop.clone()).or_default()
+    }
+
     pub fn compute_and_get_labelling(
         &mut self,
         prop: &Property,
@@ -67,7 +82,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
             return Ok(());
         }
 
-        let computed_labelling = match prop {
+        let labelling = match prop {
             Property::Const(c) => {
                 // constant labelling
                 self.constant_labelling(ThreeValued::from_bool(*c))
@@ -120,7 +135,7 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                 result
             }
             Property::E(prop_temp) => match prop_temp {
-                TemporalOperator::X(inner) => self.compute_ex_labelling(inner)?,
+                TemporalOperator::X(inner) => self.compute_next_labelling(inner, false)?,
                 TemporalOperator::G(inner) => self.compute_eg_labelling(inner)?,
                 TemporalOperator::U(inner) => self.compute_eu_labelling(inner)?,
                 _ => {
@@ -130,6 +145,12 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                     );
                 }
             },
+            /*Property::A(prop_temp) => match prop_temp {
+                TemporalOperator::X(inner) => self.compute_next_labelling(inner, true)?,
+                _ => {
+                    panic!("expected {:?} to have only X temporal operator", prop);
+                }
+            },*/
             Property::LeastFixedPoint(operator) => {
                 self.compute_fixed_point(operator, ThreeValued::from_bool(false))?
             }
@@ -145,15 +166,13 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         };
 
         if log_enabled!(log::Level::Trace) {
-            trace!(
-                "computed property {} labelling {:?}",
-                prop,
-                computed_labelling
-            );
+            trace!("computed property {} labelling {:?}", prop, labelling);
         }
 
+        //println!("Computed property {} labelling {:?}", prop, labelling);
+        //println!("Space: {:?}", self.space);
         // insert the labelling to labelling map for future reference
-        self.labelling_map.insert(prop.clone(), computed_labelling);
+        self.labelling_map.insert(prop.clone(), labelling);
 
         Ok(())
     }
@@ -221,15 +240,26 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
         affected
     }
 
-    fn compute_ex_labelling(
+    fn compute_next_labelling(
         &mut self,
         inner: &UniOperator,
+        universal: bool,
     ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
+        let prop = TemporalOperator::X(inner.clone());
+        let prop = if universal {
+            Property::A(prop)
+        } else {
+            Property::E(prop)
+        };
+        let mut reasons = self.get_reasons_mut(&prop).clone();
+
         self.compute_labelling(&inner.0)?;
         let inner_labelling = self.get_labelling(&inner.0);
-        let mut result = self.constant_labelling(ThreeValued::False);
+        //println!("Previous reasons: {:?}", reasons);
 
-        // for each state labelled by p, mark the preceding states EX[p]
+        let mut labelling = self.constant_labelling(ThreeValued::from_bool(universal));
+
+        // for each state labelled by p, mark the preceding states X[p]
         for (state_id, value) in inner_labelling {
             if matches!(value, ThreeValued::False) {
                 continue;
@@ -239,13 +269,25 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                 let Ok(direct_predecessor_id) = StateId::try_from(direct_predecessor_id) else {
                     continue;
                 };
-                let direct_predecessor_value = result
+                let direct_predecessor_value = labelling
                     .get_mut(&direct_predecessor_id)
                     .expect("Direct predecessor should be in labelling");
-                *direct_predecessor_value = *direct_predecessor_value | *value;
+                if universal {
+                    *direct_predecessor_value = *direct_predecessor_value & *value;
+                } else {
+                    *direct_predecessor_value = *direct_predecessor_value | *value;
+                }
+
+                reasons.entry(direct_predecessor_id).or_insert(*state_id);
             }
         }
-        Ok(result)
+
+        //println!("Next valuations: {:?}", labelling);
+        //println!("Next reasons: {:?}", reasons);
+
+        *self.get_reasons_mut(&prop) = reasons;
+
+        Ok(labelling)
     }
 
     fn compute_eg_labelling(
