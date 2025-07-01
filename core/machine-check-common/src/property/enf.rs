@@ -84,6 +84,7 @@ fn fixed_point(
         name: Arc::new(String::from("__mck_X")),
     };
 
+    // construct [A/E]X(Z) depending on the universal / existential quantification
     let next = TemporalOperator::X(UniOperator(Box::new(Property::FixedPointVariable(
         variable.clone(),
     ))));
@@ -95,14 +96,16 @@ fn fixed_point(
     .enf();
 
     // the general form is [lfp/gfp] Z . sufficient [outer_operator] (permitting [inner_operator] [A/E]X(Z))
-    // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
     // for R, gfp Z . sufficient && (permitting || [A/E]X(Z))
+    // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
 
     let inner_operator = BiOperator {
         a: Box::new(permitting),
         b: Box::new(next),
     };
 
+    // for R, inner operator is (permitting || [A/E]X(Z))
+    // for U, inner operator is (permitting && [A/E]X(Z))
     let inner_operator = if release {
         Property::Or(inner_operator)
     } else {
@@ -114,17 +117,21 @@ fn fixed_point(
         b: Box::new(inner_operator),
     };
 
-    let inside_fixed_point = if release {
+    // for R, outer operator is sufficient && inner_operator
+    // for U, outer operator is sufficient || inner_operator
+    let outer_operator = if release {
         Property::And(outer_operator)
     } else {
         Property::Or(outer_operator)
     };
 
+    // for R, gfp Z . sufficient && (permitting || [A/E]X(Z))
+    // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
     let fixed_point = FixedPointOperator {
         variable,
-        inner: Box::new(inside_fixed_point),
+        inner: Box::new(outer_operator),
     };
-    if universal {
+    if release {
         Property::GreatestFixedPoint(fixed_point)
     } else {
         Property::LeastFixedPoint(fixed_point)
