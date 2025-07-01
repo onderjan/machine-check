@@ -114,7 +114,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 BTreeMap::from_iter(labelled?)
             }
             Property::Negation(inner) => {
-                // complement
+                // negate everything
                 let inner_property_id = self.compute_labelling(&inner.0)?;
                 let mut result = self.get_labelling(inner_property_id).clone();
                 for value in result.values_mut() {
@@ -122,38 +122,8 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 }
                 result
             }
-            Property::Or(BiOperator { a, b }) => {
-                let a_id = self.compute_labelling(a)?;
-                let b_id = self.compute_labelling(b)?;
-                let a_labelling = self.get_labelling(a_id);
-                let b_labelling = self.get_labelling(b_id);
-                assert_eq!(a_labelling.len(), b_labelling.len());
-                let mut result = BTreeMap::new();
-                for (state_id, a_value) in a_labelling.iter() {
-                    let b_value = b_labelling
-                        .get(state_id)
-                        .expect("Labelling elements should be the same when performing OR");
-                    let result_value = *a_value | *b_value;
-                    result.insert(*state_id, result_value);
-                }
-                result
-            }
-            Property::And(BiOperator { a, b }) => {
-                let a_id = self.compute_labelling(a)?;
-                let b_id = self.compute_labelling(b)?;
-                let a_labelling = self.get_labelling(a_id);
-                let b_labelling = self.get_labelling(b_id);
-                assert_eq!(a_labelling.len(), b_labelling.len());
-                let mut result = BTreeMap::new();
-                for (state_id, a_value) in a_labelling.iter() {
-                    let b_value = b_labelling
-                        .get(state_id)
-                        .expect("Labelling elements should be the same when performing AND");
-                    let result_value = *a_value & *b_value;
-                    result.insert(*state_id, result_value);
-                }
-                result
-            }
+            Property::Or(operator) => self.compute_binary_op(operator, false)?,
+            Property::And(operator) => self.compute_binary_op(operator, true)?,
             Property::E(TemporalOperator::X(inner)) => {
                 self.compute_next_labelling(property_id, inner, false)?
             }
@@ -161,10 +131,10 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 self.compute_next_labelling(property_id, inner, true)?
             }
             Property::LeastFixedPoint(operator) => {
-                self.compute_fixed_point(operator, ThreeValued::from_bool(false))?
+                self.compute_fixed_point_op(operator, ThreeValued::from_bool(false))?
             }
             Property::GreatestFixedPoint(operator) => {
-                self.compute_fixed_point(operator, ThreeValued::from_bool(true))?
+                self.compute_fixed_point_op(operator, ThreeValued::from_bool(true))?
             }
             Property::FixedPointVariable(_) => {
                 // the variable has been initialised / computed within the fixed-point operators
@@ -186,7 +156,33 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         Ok(property_id)
     }
 
-    fn compute_fixed_point(
+    fn compute_binary_op(
+        &mut self,
+        operator: &BiOperator,
+        is_and: bool,
+    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
+        let a_id = self.compute_labelling(&operator.a)?;
+        let b_id = self.compute_labelling(&operator.b)?;
+        let a_labelling = self.get_labelling(a_id);
+        let b_labelling = self.get_labelling(b_id);
+        assert_eq!(a_labelling.len(), b_labelling.len());
+        let mut result = BTreeMap::new();
+        for (state_id, a_value) in a_labelling.iter() {
+            let b_value = b_labelling
+                .get(state_id)
+                .expect("Labelling elements should be the same when performing a binary operation");
+            let (a_value, b_value) = (*a_value, *b_value);
+            let result_value = if is_and {
+                a_value & b_value
+            } else {
+                a_value | b_value
+            };
+            result.insert(*state_id, result_value);
+        }
+        Ok(result)
+    }
+
+    fn compute_fixed_point_op(
         &mut self,
         operator: &FixedPointOperator,
         initial_value: ThreeValued,
