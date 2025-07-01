@@ -76,14 +76,25 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     }
 
     fn get_state_labelling(&self, prop: &Property, state_index: StateId) -> ThreeValued {
+        let property_id = self
+            .classic
+            .get_property_id(prop)
+            .expect("Should contain property when getting state labelling");
         *self
             .classic
-            .get_labelling(prop)
+            .get_labelling(property_id)
             .get(&state_index)
             .expect("Should contain state labelling")
     }
 
     fn get_state_labelling_reason(&self, prop: &Property, state_index: StateId) -> Option<StateId> {
-        self.classic.get_reasons(prop).get(&state_index).copied()
+        let property_id = self
+            .classic
+            .get_property_id(prop)
+            .expect("Should contain property when getting state labelling reason");
+        self.classic
+            .get_reasons(property_id)
+            .get(&state_index)
+            .copied()
     }
 }
