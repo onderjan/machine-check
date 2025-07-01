@@ -18,11 +18,6 @@ impl Property {
             Property::And(v) => Property::And(v.enf()),
             Property::E(temporal) => Property::E(match temporal {
                 TemporalOperator::X(inner) => TemporalOperator::X(inner.enf()),
-                /*TemporalOperator::F(inner) => {
-                    // rewrite as EF[p] = E[true U p]
-                    TemporalOperator::U(inner.expanded().enf())
-                }*/
-                //TemporalOperator::G(inner) => TemporalOperator::G(inner.enf()),
                 TemporalOperator::F(inner) => {
                     return fixed_point(false, false, &Property::Const(true), &inner.0)
                 }
@@ -52,42 +47,7 @@ impl Property {
                 }
                 TemporalOperator::R(inner) => {
                     return fixed_point(true, true, &inner.releaser, &inner.releasee)
-                } /*TemporalOperator::F(inner) => {
-                      // AF[p] = !EG[!p]
-                      TemporalOperator::G(inner.negated().enf())
-                  }
-
-                  TemporalOperator::G(inner) => {
-                      // AG[p] = !EF[!p] = !E[true U !p]
-                      TemporalOperator::U(inner.negated().expanded().enf())
-                  }
-                  TemporalOperator::U(inner) => {
-                      // the most problematic case
-                      // A[p U q] = !(E[!q U !(p or q)] or EG[!q])
-                      let hold_enf = inner.hold.enf();
-                      let until_enf = inner.until.enf();
-
-                      let eu_part = Property::E(TemporalOperator::U(OperatorU {
-                          hold: Box::new(Property::Negation(UniOperator::new(until_enf.clone()))),
-                          until: Box::new(Property::Negation(UniOperator::new(Property::Or(
-                              BiOperator {
-                                  a: Box::new(hold_enf),
-                                  b: Box::new(until_enf.clone()),
-                              },
-                          )))),
-                      }));
-                      let eg_part = Property::E(TemporalOperator::G(OperatorG(Box::new(
-                          make_negated(until_enf),
-                      ))));
-                      return Property::Negation(UniOperator::new(Property::Or(BiOperator {
-                          a: Box::new(eu_part),
-                          b: Box::new(eg_part),
-                      })));
-                  }
-                  TemporalOperator::R(inner) => {
-                      // A[p R q] = !E[!p U !q]
-                      TemporalOperator::U(inner.negated().enf())
-                  }*/
+                }
             })),
             Property::LeastFixedPoint(fixed_point) => {
                 Property::LeastFixedPoint(FixedPointOperator {

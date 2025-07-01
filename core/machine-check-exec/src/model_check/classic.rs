@@ -145,12 +145,6 @@ impl<'a, M: FullMachine> ClassicChecker<'a, M> {
                     );
                 }
             },
-            /*Property::A(prop_temp) => match prop_temp {
-                TemporalOperator::X(inner) => self.compute_next_labelling(inner, true)?,
-                _ => {
-                    panic!("expected {:?} to have only X temporal operator", prop);
-                }
-            },*/
             Property::LeastFixedPoint(operator) => {
                 self.compute_fixed_point(operator, ThreeValued::from_bool(false))?
             }
