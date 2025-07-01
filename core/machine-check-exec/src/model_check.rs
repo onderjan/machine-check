@@ -21,19 +21,24 @@ use self::deduce::deduce_culprit;
 /// The proposition must be prepared beforehand.
 pub(super) fn check_property<M: FullMachine>(
     space: &StateSpace<M>,
-    prop: &PreparedProperty,
+    property: &PreparedProperty,
 ) -> Result<Conclusion, ExecError> {
+    let property = property.canonical();
     let mut checker = ThreeValuedChecker::new(space);
-    checker.check_property(prop)
+    checker.check_property(property)
 }
 
 pub(super) fn check_property_with_labelling<M: FullMachine>(
     space: &StateSpace<M>,
     property: &PreparedProperty,
 ) -> Result<(Conclusion, BTreeMap<StateId, ThreeValued>), ExecError> {
+    let property = property.canonical();
     let mut checker = ThreeValuedChecker::new(space);
     let conclusion = checker.check_property(property)?;
-    let labelling = checker.compute_property_labelling(property)?;
+
+    // get the labelling as well
+    let property_id = checker.compute_labelling(property)?;
+    let labelling = checker.get_labelling(property_id).clone();
     Ok((conclusion, labelling))
 }
 
@@ -62,45 +67,18 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
     /// Model-checks a CTL proposition.
     ///
-    /// The proposition must be prepared beforehand.
-    fn check_property(&mut self, property: &PreparedProperty) -> Result<Conclusion, ExecError> {
+    /// The proposition must be prepared and made canonical beforehand.
+    fn check_property(&mut self, property: &Property) -> Result<Conclusion, ExecError> {
         if !self.space.is_valid() {
             return Ok(Conclusion::NotCheckable);
         }
 
-        let prop = property.canonical();
         // compute optimistic and pessimistic interpretation and get the conclusion from that
-        match self.compute_interpretation(prop)? {
+        match self.compute_interpretation(property)? {
             ThreeValued::False => Ok(Conclusion::Known(false)),
             ThreeValued::True => Ok(Conclusion::Known(true)),
-            ThreeValued::Unknown => Ok(Conclusion::Unknown(deduce_culprit(self, prop)?)),
+            ThreeValued::Unknown => Ok(Conclusion::Unknown(deduce_culprit(self, property)?)),
         }
-    }
-
-    fn compute_property_labelling(
-        &mut self,
-        property: &PreparedProperty,
-    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
-        let prop = property.canonical();
-        // compute the optimistic and pessimistic interpretation labellings
-        Ok(self.compute_and_get_labelling(prop)?.clone())
-    }
-
-    fn get_state_labelling(&self, prop: &Property, state_index: StateId) -> ThreeValued {
-        let property_id = self
-            .get_property_id(prop)
-            .expect("Should contain property when getting state labelling");
-        *self
-            .get_labelling(property_id)
-            .get(&state_index)
-            .expect("Should contain state labelling")
-    }
-
-    fn get_state_labelling_reason(&self, prop: &Property, state_index: StateId) -> Option<StateId> {
-        let property_id = self
-            .get_property_id(prop)
-            .expect("Should contain property when getting state labelling reason");
-        self.get_reasons(property_id).get(&state_index).copied()
     }
 
     fn compute_interpretation(&mut self, prop: &Property) -> Result<ThreeValued, ExecError> {
@@ -115,30 +93,6 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             result = result & *state_labelling;
         }
         Ok(result)
-    }
-
-    fn get_labelling(&self, property_id: PropertyId) -> &BTreeMap<StateId, ThreeValued> {
-        self.labelling_map
-            .get(&property_id)
-            .expect("Labelling should be present")
-    }
-
-    fn get_reasons(&self, property_id: PropertyId) -> &BTreeMap<StateId, StateId> {
-        self.reasons_map
-            .get(&property_id)
-            .expect("Reasons should be present")
-    }
-
-    fn get_reasons_mut(&mut self, property_id: PropertyId) -> &mut BTreeMap<StateId, StateId> {
-        self.reasons_map.entry(property_id).or_default()
-    }
-
-    fn compute_and_get_labelling(
-        &mut self,
-        prop: &Property,
-    ) -> Result<&BTreeMap<StateId, ThreeValued>, ExecError> {
-        let property_id = self.compute_labelling(prop)?;
-        Ok(self.get_labelling(property_id))
     }
 
     fn compute_labelling(&mut self, prop: &Property) -> Result<PropertyId, ExecError> {
@@ -349,6 +303,32 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             };
             Some((state_id, value))
         }))
+    }
+
+    fn get_state_labelling(&self, prop: &Property, state_index: StateId) -> ThreeValued {
+        let property_id = self
+            .get_property_id(prop)
+            .expect("Should contain property when getting state labelling");
+        *self
+            .get_labelling(property_id)
+            .get(&state_index)
+            .expect("Should contain state labelling")
+    }
+
+    fn get_labelling(&self, property_id: PropertyId) -> &BTreeMap<StateId, ThreeValued> {
+        self.labelling_map
+            .get(&property_id)
+            .expect("Labelling should be present")
+    }
+
+    fn get_reasons(&self, property_id: PropertyId) -> &BTreeMap<StateId, StateId> {
+        self.reasons_map
+            .get(&property_id)
+            .expect("Reasons should be present")
+    }
+
+    fn get_reasons_mut(&mut self, property_id: PropertyId) -> &mut BTreeMap<StateId, StateId> {
+        self.reasons_map.entry(property_id).or_default()
     }
 
     fn get_property_id(&self, property: &Property) -> Option<PropertyId> {

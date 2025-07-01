@@ -100,9 +100,14 @@ impl<M: FullMachine> Deducer<'_, M> {
             }
             Property::E(TemporalOperator::X(inner)) | Property::A(TemporalOperator::X(inner)) => {
                 let path_back_index = *self.path.back().unwrap();
-                let reason = self
+                let property_id = self
                     .checker
-                    .get_state_labelling_reason(prop, path_back_index)
+                    .get_property_id(prop)
+                    .expect("Deduction property should have a property id");
+                let reason = *self
+                    .checker
+                    .get_reasons(property_id)
+                    .get(&path_back_index)
                     .expect("Culprit state should have a labelling reason");
                 //println!("X reason: {:?}", reason);
                 self.deduce_end_next(inner, reason)
