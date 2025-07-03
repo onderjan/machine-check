@@ -45,10 +45,14 @@ pub(super) fn check_property_with_labelling<M: FullMachine>(
 /// Three-valued model checker.
 struct ThreeValuedChecker<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
-    labelling_map: HashMap<PropertyId, BTreeMap<StateId, ThreeValued>>,
-    reasons_map: HashMap<PropertyId, BTreeMap<StateId, StateId>>,
     property_ids: HashMap<Property, PropertyId>,
+    check_map: HashMap<PropertyId, CheckInfo>,
     next_property_id: u64,
+}
+
+struct CheckInfo {
+    labelling: BTreeMap<StateId, ThreeValued>,
+    reasons: BTreeMap<StateId, StateId>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -58,8 +62,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     fn new(space: &'a StateSpace<M>) -> Self {
         Self {
             space,
-            labelling_map: HashMap::new(),
-            reasons_map: HashMap::new(),
+            check_map: HashMap::new(),
             property_ids: HashMap::new(),
             next_property_id: 0,
         }
@@ -97,7 +100,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
     fn compute_labelling(&mut self, prop: &Property) -> Result<PropertyId, ExecError> {
         let property_id = self.get_or_insert_property_id(prop);
-        if self.labelling_map.contains_key(&property_id) {
+        if self.check_map.contains_key(&property_id) {
             // already contained
             return Ok(property_id);
         }
@@ -138,7 +141,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             }
             Property::FixedPointVariable(_) => {
                 // the variable has been initialised / computed within the fixed-point operators
-                assert!(self.labelling_map.contains_key(&property_id));
+                assert!(self.check_map.contains_key(&property_id));
                 return Ok(property_id);
             }
             _ => panic!("expected {:?} to be canonical", prop),
@@ -151,7 +154,17 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         //println!("Computed property {} labelling {:?}", prop, labelling);
         //println!("Space: {:?}", self.space);
         // insert the labelling to labelling map for future reference
-        self.labelling_map.insert(property_id, labelling);
+        if let Some(check_info) = self.check_map.get_mut(&property_id) {
+            check_info.labelling = labelling;
+        } else {
+            self.check_map.insert(
+                property_id,
+                CheckInfo {
+                    labelling,
+                    reasons: BTreeMap::new(),
+                },
+            );
+        }
 
         Ok(property_id)
     }
@@ -190,8 +203,14 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         // initialise variable labelling
         let variable_property = Property::FixedPointVariable(operator.variable.clone());
         let variable_property_id = self.get_or_insert_property_id(&variable_property);
-        self.labelling_map
-            .insert(variable_property_id, self.constant_labelling(initial_value));
+
+        self.check_map.insert(
+            variable_property_id,
+            CheckInfo {
+                labelling: self.constant_labelling(initial_value),
+                reasons: BTreeMap::new(),
+            },
+        );
 
         // compute inner property labelling and update variable labelling until they match
         loop {
@@ -204,8 +223,13 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             }
             let variable = operator.variable.clone();
             self.clear_affected_labellings(&variable, &operator.inner);
-            self.labelling_map
-                .insert(variable_property_id, current_labelling.clone());
+            self.check_map.insert(
+                variable_property_id,
+                CheckInfo {
+                    labelling: current_labelling,
+                    reasons: BTreeMap::new(),
+                },
+            );
         }
     }
 
@@ -236,7 +260,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         };
         if affected {
             let property_id = self.get_or_insert_property_id(prop);
-            self.labelling_map.remove(&property_id);
+            self.check_map.remove(&property_id);
         }
         affected
     }
@@ -312,19 +336,34 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     }
 
     fn get_labelling(&self, property_id: PropertyId) -> &BTreeMap<StateId, ThreeValued> {
-        self.labelling_map
+        &self
+            .check_map
             .get(&property_id)
             .expect("Labelling should be present")
+            .labelling
     }
 
     fn get_reasons(&self, property_id: PropertyId) -> &BTreeMap<StateId, StateId> {
-        self.reasons_map
+        &self
+            .check_map
             .get(&property_id)
             .expect("Reasons should be present")
+            .reasons
     }
 
     fn get_reasons_mut(&mut self, property_id: PropertyId) -> &mut BTreeMap<StateId, StateId> {
-        self.reasons_map.entry(property_id).or_default()
+        self.check_map
+            .entry(property_id)
+            .or_insert_with(|| CheckInfo {
+                labelling: BTreeMap::new(),
+                reasons: BTreeMap::new(),
+            });
+
+        &mut self
+            .check_map
+            .get_mut(&property_id)
+            .expect("Property should be inserted")
+            .reasons
     }
 
     fn get_property_id(&self, property: &Property) -> Option<PropertyId> {
