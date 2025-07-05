@@ -18,91 +18,93 @@ impl<M: FullMachine> StateSpace<M> {
         &'a self,
         atomic_property: &'a AtomicProperty,
     ) -> impl Iterator<Item = Result<(StateId, ThreeValued), ExecError>> + 'a {
-        self.nodes().filter_map(move |node_id| {
-            let Ok(state_id) = StateId::try_from(node_id) else {
-                return None;
-            };
-            let state = self.state_data(state_id);
-
-            let left = atomic_property.left();
-            let left_name = left.name();
-            let manip_field = if left_name == "__panic" {
-                let manip_field: &dyn ManipField = &state.panic;
-                manip_field
-            } else {
-                match state.result.get(left_name) {
-                    Some(manip_field) => manip_field,
-                    None => return Some(Err(ExecError::FieldNotFound(String::from(left_name)))),
-                }
-            };
-            let manip_field = if let Some(index) = left.index() {
-                let Some(indexed_manip_field) = manip_field.index(index) else {
-                    return Some(Err(ExecError::IndexInvalid(index, String::from(left_name))));
-                };
-                indexed_manip_field
-            } else {
-                manip_field
-            };
-
-            let (Some(min_unsigned), Some(max_unsigned)) =
-                (manip_field.min_unsigned(), manip_field.max_unsigned())
-            else {
-                return Some(Err(ExecError::IndexRequired(String::from(left_name))));
-            };
-            let right_unsigned = atomic_property.right_number_unsigned();
-
-            let comparison_result = match atomic_property.comparison_type() {
-                ComparisonType::Eq => {
-                    if min_unsigned == max_unsigned {
-                        ThreeValued::from_bool(min_unsigned == right_unsigned)
-                    } else {
-                        ThreeValued::Unknown
-                    }
-                }
-                ComparisonType::Ne => {
-                    if min_unsigned == max_unsigned {
-                        ThreeValued::from_bool(min_unsigned != right_unsigned)
-                    } else {
-                        ThreeValued::Unknown
-                    }
-                }
-                comparison_type => {
-                    match left.forced_signedness() {
-                        Signedness::None => {
-                            // signedness not specified
-                            // TODO: try to estabilish signedness by using the types in this case
-                            return Some(Err(ExecError::SignednessNotEstabilished(
-                                left.to_string(),
-                            )));
-                        }
-                        Signedness::Unsigned => Self::resolve_inequality(
-                            comparison_type,
-                            min_unsigned,
-                            max_unsigned,
-                            right_unsigned,
-                        ),
-                        Signedness::Signed => {
-                            let (Some(min_signed), Some(max_signed)) =
-                                (manip_field.min_signed(), manip_field.max_signed())
-                            else {
-                                return Some(Err(ExecError::IndexRequired(String::from(
-                                    left_name,
-                                ))));
-                            };
-                            let right_signed = atomic_property.right_number_signed();
-                            Self::resolve_inequality(
-                                comparison_type,
-                                min_signed,
-                                max_signed,
-                                right_signed,
-                            )
-                        }
-                    }
-                }
-            };
-
-            Some(Ok((state_id, comparison_result)))
+        self.states().map(move |state_id| {
+            self.atomic_label(atomic_property, state_id)
+                .map(|label| (state_id, label))
         })
+    }
+
+    pub fn atomic_label(
+        &self,
+        atomic_property: &AtomicProperty,
+        state_id: StateId,
+    ) -> Result<ThreeValued, ExecError> {
+        let state = self.state_data(state_id);
+
+        let left = atomic_property.left();
+        let left_name = left.name();
+        let manip_field = if left_name == "__panic" {
+            let manip_field: &dyn ManipField = &state.panic;
+            manip_field
+        } else {
+            match state.result.get(left_name) {
+                Some(manip_field) => manip_field,
+                None => return Err(ExecError::FieldNotFound(String::from(left_name))),
+            }
+        };
+        let manip_field = if let Some(index) = left.index() {
+            let Some(indexed_manip_field) = manip_field.index(index) else {
+                return Err(ExecError::IndexInvalid(index, String::from(left_name)));
+            };
+            indexed_manip_field
+        } else {
+            manip_field
+        };
+
+        let (Some(min_unsigned), Some(max_unsigned)) =
+            (manip_field.min_unsigned(), manip_field.max_unsigned())
+        else {
+            return Err(ExecError::IndexRequired(String::from(left_name)));
+        };
+        let right_unsigned = atomic_property.right_number_unsigned();
+
+        let comparison_result = match atomic_property.comparison_type() {
+            ComparisonType::Eq => {
+                if min_unsigned == max_unsigned {
+                    ThreeValued::from_bool(min_unsigned == right_unsigned)
+                } else {
+                    ThreeValued::Unknown
+                }
+            }
+            ComparisonType::Ne => {
+                if min_unsigned == max_unsigned {
+                    ThreeValued::from_bool(min_unsigned != right_unsigned)
+                } else {
+                    ThreeValued::Unknown
+                }
+            }
+            comparison_type => {
+                match left.forced_signedness() {
+                    Signedness::None => {
+                        // signedness not specified
+                        // TODO: try to estabilish signedness by using the types in this case
+                        return Err(ExecError::SignednessNotEstabilished(left.to_string()));
+                    }
+                    Signedness::Unsigned => Self::resolve_inequality(
+                        comparison_type,
+                        min_unsigned,
+                        max_unsigned,
+                        right_unsigned,
+                    ),
+                    Signedness::Signed => {
+                        let (Some(min_signed), Some(max_signed)) =
+                            (manip_field.min_signed(), manip_field.max_signed())
+                        else {
+                            return Err(ExecError::IndexRequired(String::from(left_name)));
+                        };
+                        let right_signed = atomic_property.right_number_signed();
+                        Self::resolve_inequality(
+                            comparison_type,
+                            min_signed,
+                            max_signed,
+                            right_signed,
+                        )
+                    }
+                }
+            }
+        };
+
+        Ok(comparison_result)
     }
 
     /// Returns state ids in nontrivial strongly connected components.

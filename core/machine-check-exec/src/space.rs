@@ -105,6 +105,15 @@ impl<M: FullMachine> StateSpace<M> {
         self.graph.nodes()
     }
 
+    pub fn states(&self) -> impl Iterator<Item = StateId> + '_ {
+        self.nodes().filter_map(|node_id| {
+            let Ok(state_id) = StateId::try_from(node_id) else {
+                return None;
+            };
+            Some(state_id)
+        })
+    }
+
     pub fn num_nodes(&self) -> usize {
         self.graph.node_count()
     }
