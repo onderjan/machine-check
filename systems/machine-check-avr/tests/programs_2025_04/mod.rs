@@ -12,9 +12,10 @@ use machine_check_avr::SystemArgs;
 /// Panics if it does not match the expected result.
 fn avr_test(group: &str, release: bool, name: &str, property: Option<String>, expected: bool) {
     let target = if release { "Release" } else { "Debug" };
-    let hex_file = format!("tests/programs_2025_04/{group}/{name}/{target}/{name}.hex");
-    println!("Current working directory: {:?}", std::env::current_dir());
-    println!("Hex file: {:?}", hex_file);
+    let hex_file = format!(
+        "{}/tests/programs_2025_04/{group}/{name}/{target}/{name}.hex",
+        env!("CARGO_MANIFEST_DIR")
+    );
 
     let check_inherent = property.is_none();
 
