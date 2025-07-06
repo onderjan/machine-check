@@ -1,4 +1,3 @@
-use machine_check_common::check::PreparedProperty;
 use machine_check_common::property::Property;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlButtonElement;
@@ -60,7 +59,7 @@ async fn on_new_property_click() {
     };
 
     let property = match Property::parse(&property) {
-        Ok(ok) => PreparedProperty::new(ok),
+        Ok(ok) => ok,
         Err(err) => {
             window
                 .alert_with_message(&format!("Error parsing property: {}", err))

@@ -13,7 +13,7 @@ use rstar::{
 use crate::{
     frontend::tiling::TileType,
     shared::{
-        snapshot::{PropertySnapshot, Snapshot, SubpropertyIndex},
+        snapshot::{Snapshot, SubpropertyIndex, SubpropertySnapshot},
         BackendInfo,
     },
 };
@@ -424,7 +424,7 @@ impl View {
         self.camera.ensure_in_view(bottom_right);
     }
 
-    pub fn selected_subproperty(&self) -> Option<&PropertySnapshot> {
+    pub fn selected_subproperty(&self) -> Option<&SubpropertySnapshot> {
         self.selection
             .selected_subproperty
             .map(|selected_property_index| {
@@ -436,7 +436,7 @@ impl View {
         self.selection.selected_subproperty
     }
 
-    pub fn selected_root_property(&self) -> Option<&PropertySnapshot> {
+    pub fn selected_root_property(&self) -> Option<&SubpropertySnapshot> {
         self.selection
             .selected_subproperty
             .map(|selected_subproperty_index| {

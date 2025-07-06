@@ -1,6 +1,6 @@
 use crate::{ExecError, ExecResult, FullMachine};
 use log::{info, warn};
-use machine_check_common::{check::PreparedProperty, property::Property, ExecStats};
+use machine_check_common::{property::Property, ExecStats};
 use machine_check_exec::{Framework, Strategy};
 
 /// Verifies the given system with given arguments.
@@ -37,7 +37,7 @@ pub fn verify<M: FullMachine>(
         } else {
             info!("Verifying the inherent property.");
         }
-        let inherent_property = PreparedProperty::new(Property::inherent());
+        let inherent_property = Property::inherent();
         Some(framework.verify(&inherent_property))
     };
 
@@ -79,7 +79,6 @@ pub fn verify<M: FullMachine>(
     }
 
     info!("Verifying the given property.");
-    let property = PreparedProperty::new(property);
 
     // verify the property, assuming no panic can occur
     let result = framework.verify(&property);

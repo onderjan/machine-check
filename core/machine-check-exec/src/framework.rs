@@ -9,7 +9,8 @@ use log::log_enabled;
 use log::trace;
 use machine_check_common::check::Conclusion;
 use machine_check_common::check::Culprit;
-use machine_check_common::check::PreparedProperty;
+use machine_check_common::check::Property;
+use machine_check_common::property::Subproperty;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use machine_check_common::NodeId;
@@ -73,7 +74,7 @@ impl<M: FullMachine> Framework<M> {
         }
     }
 
-    pub fn verify(&mut self, property: &PreparedProperty) -> Result<bool, ExecError> {
+    pub fn verify(&mut self, property: &Property) -> Result<bool, ExecError> {
         // loop verification steps until some conclusion is reached
         let result = loop {
             match self.step_verification(property) {
@@ -93,7 +94,7 @@ impl<M: FullMachine> Framework<M> {
 
     pub fn step_verification(
         &mut self,
-        property: &PreparedProperty,
+        property: &Property,
     ) -> ControlFlow<Result<bool, ExecError>> {
         // if the space is invalid (just after construction), regenerate it
         if !self.work_state.space.is_valid() {
@@ -449,11 +450,11 @@ impl<M: FullMachine> Framework<M> {
         changed
     }
 
-    pub fn check_property_with_labelling(
+    pub fn check_subproperty_with_labelling(
         &self,
-        property: &PreparedProperty,
+        property: &Subproperty,
     ) -> Result<(Conclusion, BTreeMap<StateId, ThreeValued>), ExecError> {
-        model_check::check_property_with_labelling(&self.work_state.space, property)
+        model_check::check_subproperty_with_labelling(&self.work_state.space, property)
     }
 
     pub fn find_panic_string(&mut self) -> Option<&'static str> {

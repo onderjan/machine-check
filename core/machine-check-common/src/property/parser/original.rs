@@ -1,0 +1,151 @@
+use std::fmt::Display;
+
+use crate::{
+    property::{AtomicProperty, ValueExpression},
+    Signedness,
+};
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum Property {
+    Const(bool),
+    Atomic(AtomicProperty),
+    Negation(Box<Property>),
+    Or(Box<Property>, Box<Property>),
+    And(Box<Property>, Box<Property>),
+    E(TemporalOperator),
+    A(TemporalOperator),
+    LeastFixedPoint(FixedPointOperator),
+    GreatestFixedPoint(FixedPointOperator),
+    FixedPointVariable(String),
+}
+
+impl Property {
+    pub fn inherent() -> Property {
+        let not_panicking = AtomicProperty::new(
+            ValueExpression {
+                name: String::from("__panic"),
+                index: None,
+                forced_signedness: Signedness::None,
+            },
+            crate::property::ComparisonType::Eq,
+            0,
+        );
+        Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Atomic(
+            not_panicking,
+        )))))
+    }
+}
+
+/// A temporal operator within a CTL path quantifier.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum TemporalOperator {
+    X(Box<Property>),
+    F(OperatorF),
+    G(OperatorG),
+    U(OperatorU),
+    R(OperatorR),
+}
+
+/// A fixed-point operator.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct FixedPointOperator {
+    pub variable: String,
+    pub inner: Box<Property>,
+}
+
+impl Display for Property {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Property::Const(value) => {
+                write!(f, "{}", value)
+            }
+            Property::Atomic(literal) => {
+                write!(f, "{}", literal)
+            }
+            Property::Negation(prop_uni) => {
+                write!(f, "!({})", *prop_uni)
+            }
+            Property::Or(a, b) => write_logic_bi(f, a, "||", b),
+            Property::And(a, b) => write_logic_bi(f, a, "&&", b),
+            Property::E(prop_temp) => {
+                write!(f, "E{}", prop_temp)
+            }
+            Property::A(prop_temp) => {
+                write!(f, "A{}", prop_temp)
+            }
+            Property::LeastFixedPoint(fixed_point_operator) => {
+                write!(
+                    f,
+                    "lfp![{}, {}]",
+                    fixed_point_operator.variable, fixed_point_operator.inner
+                )
+            }
+            Property::GreatestFixedPoint(fixed_point_operator) => write!(
+                f,
+                "gfp![{}, {}]",
+                fixed_point_operator.variable, fixed_point_operator.inner
+            ),
+            Property::FixedPointVariable(var) => write!(f, "{}", var),
+        }
+    }
+}
+
+fn write_logic_bi(
+    f: &mut std::fmt::Formatter<'_>,
+    a: &Property,
+    op_str: &str,
+    b: &Property,
+) -> std::fmt::Result {
+    // Make sure the inner and / or properties are in parentheses so the display is unambiguous.
+    let write_inner_prop = |f: &mut std::fmt::Formatter<'_>, prop: &Property| {
+        if matches!(prop, Property::And(..) | Property::Or(..)) {
+            write!(f, "({})", prop)
+        } else {
+            write!(f, "{}", prop)
+        }
+    };
+
+    write_inner_prop(f, a)?;
+    write!(f, " {} ", op_str)?;
+    write_inner_prop(f, b)
+}
+
+impl Display for TemporalOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TemporalOperator::X(prop_uni) => {
+                write!(f, "X![{}]", *prop_uni)
+            }
+            TemporalOperator::F(prop_f) => {
+                write!(f, "F![{}]", prop_f.0)
+            }
+            TemporalOperator::G(prop_g) => {
+                write!(f, "G![{}]", prop_g.0)
+            }
+            TemporalOperator::U(prop_u) => {
+                write!(f, "U![{}, {}]", prop_u.hold, prop_u.until)
+            }
+            TemporalOperator::R(prop_r) => {
+                write!(f, "R![{}, {}]", prop_r.releaser, prop_r.releasee)
+            }
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct OperatorF(pub Box<Property>);
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct OperatorG(pub Box<Property>);
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct OperatorU {
+    pub hold: Box<Property>,
+    pub until: Box<Property>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct OperatorR {
+    pub releaser: Box<Property>,
+    pub releasee: Box<Property>,
+}

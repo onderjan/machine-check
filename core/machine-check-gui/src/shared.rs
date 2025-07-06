@@ -1,4 +1,4 @@
-use machine_check_common::check::PreparedProperty;
+use machine_check_common::check::Property;
 use serde::{Deserialize, Serialize};
 use snapshot::{RootPropertyIndex, Snapshot};
 
@@ -8,7 +8,7 @@ pub mod snapshot;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepSettings {
     pub max_refinements: Option<u64>,
-    pub selected_property: PreparedProperty,
+    pub selected_property: Property,
 }
 
 /// Request for the backend to do something.
@@ -20,7 +20,7 @@ pub enum Request {
     Cancel,
     Reset,
     Step(StepSettings),
-    AddProperty(PreparedProperty),
+    AddProperty(Property),
     RemoveProperty(RootPropertyIndex),
 }
 

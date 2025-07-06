@@ -1,30 +1,24 @@
 use core::panic;
 use std::collections::VecDeque;
 
-use machine_check_common::{check::Culprit, property::FixedPointVariable, ExecError, StateId};
+use machine_check_common::{check::Culprit, property::PropertyType, ExecError, StateId};
 use mck::concr::FullMachine;
-
-use machine_check_common::property::{BiOperator, Property, TemporalOperator, UniOperator};
 
 use super::ThreeValuedChecker;
 
 /// Deduces the culprit of unknown three-valued model-checking result.
 pub(super) fn deduce_culprit<M: FullMachine>(
     checker: &ThreeValuedChecker<M>,
-    prop: &Property,
 ) -> Result<Culprit, ExecError> {
     // incomplete, compute culprit
     // it must start with one of the initial states
     for initial_index in checker.space.initial_iter() {
-        if checker
-            .get_state_labelling(prop, initial_index)
-            .is_unknown()
-        {
+        if checker.get_state_root_labelling(initial_index).is_unknown() {
             // unknown initial state, compute culprit from it
             let mut path = VecDeque::new();
             path.push_back(initial_index);
             let mut deducer = Deducer::<M> { checker, path };
-            let Deduction::Culprit(culprit) = deducer.deduce_end(prop)? else {
+            let Deduction::Culprit(culprit) = deducer.deduce_end(0)? else {
                 panic!("Deduction should give the culprit");
             };
             return Ok(culprit);
@@ -42,7 +36,7 @@ struct Deducer<'a, M: FullMachine> {
 #[derive(Debug)]
 struct FixedPointDeduction {
     path: VecDeque<StateId>,
-    variable: FixedPointVariable,
+    variable: usize,
 }
 
 #[derive(Debug)]
@@ -53,35 +47,38 @@ enum Deduction {
 
 impl<M: FullMachine> Deducer<'_, M> {
     /// Deduces the ending states of the culprit, after the ones already found.
-    fn deduce_end(&mut self, prop: &Property) -> Result<Deduction, ExecError> {
+    fn deduce_end(&mut self, subproperty_index: usize) -> Result<Deduction, ExecError> {
         //println!("Space: {:?}", self.checker.space);
         //println!("Deducing end for property {}", prop);
         assert!(self
             .checker
-            .get_state_labelling(prop, *self.path.back().unwrap())
+            .get_state_labelling(subproperty_index, *self.path.back().unwrap())
             .is_unknown());
-        match prop {
-            Property::Const(_) => {
+
+        let subproperty_entry = self.checker.property.subproperty_entry(subproperty_index);
+
+        match &subproperty_entry.ty {
+            PropertyType::Const(_) => {
                 // never ends in const
                 panic!("const should never be the labelling culprit")
             }
-            Property::Atomic(literal) => {
+            PropertyType::Atomic(literal) => {
                 // culprit ends here
                 Ok(Deduction::Culprit(Culprit {
                     path: self.path.clone(),
                     atomic_property: literal.clone(),
                 }))
             }
-            Property::Negation(inner) => {
+            PropertyType::Negation(inner) => {
                 // propagate to inner
-                self.deduce_end(&inner.0)
+                self.deduce_end(*inner)
             }
-            Property::And(BiOperator { a, b }) | Property::Or(BiOperator { a, b }) => {
+            PropertyType::And(a, b) | PropertyType::Or(a, b) => {
                 // the state should be unknown in p or q
                 let state_index = *self.path.back().unwrap();
-                let a_labelling = self.checker.get_state_labelling(a.as_ref(), state_index);
+                let a_labelling = self.checker.get_state_labelling(*a, state_index);
                 let a_deduction = if a_labelling.is_unknown() {
-                    let a_deduction = self.deduce_end(a)?;
+                    let a_deduction = self.deduce_end(*a)?;
                     if matches!(a_deduction, Deduction::Culprit(_)) {
                         return Ok(a_deduction);
                     }
@@ -89,36 +86,32 @@ impl<M: FullMachine> Deducer<'_, M> {
                 } else {
                     None
                 };
-                let b_labelling = self.checker.get_state_labelling(b.as_ref(), state_index);
+                let b_labelling = self.checker.get_state_labelling(*b, state_index);
                 assert!(b_labelling.is_unknown());
-                let b_deduction = self.deduce_end(b.as_ref())?;
+                let b_deduction = self.deduce_end(*b)?;
                 if matches!(b_deduction, Deduction::Culprit(_)) {
                     return Ok(b_deduction);
                 }
                 // prefer the left deduction over the right one
                 Ok(a_deduction.unwrap_or(b_deduction))
             }
-            Property::E(TemporalOperator::X(inner)) | Property::A(TemporalOperator::X(inner)) => {
+            PropertyType::EX(inner) | PropertyType::AX(inner) => {
                 let path_back_index = *self.path.back().unwrap();
-                let property_id = self
-                    .checker
-                    .get_property_id(prop)
-                    .expect("Deduction property should have a property id");
                 let reason = *self
                     .checker
-                    .get_reasons(property_id)
+                    .get_reasons(subproperty_index)
                     .get(&path_back_index)
                     .expect("Culprit state should have a labelling reason");
                 //println!("X reason: {:?}", reason);
-                self.deduce_end_next(inner, reason)
+                self.deduce_end_next(*inner, reason)
             }
-            Property::LeastFixedPoint(operator) | Property::GreatestFixedPoint(operator) => {
+            PropertyType::LeastFixedPoint(inner) | PropertyType::GreatestFixedPoint(inner) => {
                 loop {
-                    let deduction = self.deduce_end(&operator.inner)?;
+                    let deduction = self.deduce_end(*inner)?;
                     match deduction {
                         Deduction::Culprit(_) => break Ok(deduction),
                         Deduction::FixedPoint(deduction) => {
-                            if deduction.variable != operator.variable {
+                            if deduction.variable != subproperty_index {
                                 // not our variable, break
                                 break Ok(Deduction::FixedPoint(deduction));
                             }
@@ -128,24 +121,17 @@ impl<M: FullMachine> Deducer<'_, M> {
                     }
                 }
             }
-            Property::FixedPointVariable(variable) => {
+            PropertyType::FixedPointVariable(variable) => {
                 // return fixed-point deduction
                 Ok(Deduction::FixedPoint(FixedPointDeduction {
                     path: self.path.clone(),
-                    variable: variable.clone(),
+                    variable: *variable,
                 }))
-            }
-            _ => {
-                panic!("expected {:?} to be canonical", prop);
             }
         }
     }
 
-    fn deduce_end_next(
-        &mut self,
-        inner: &UniOperator,
-        reason: StateId,
-    ) -> Result<Deduction, ExecError> {
+    fn deduce_end_next(&mut self, inner: usize, reason: StateId) -> Result<Deduction, ExecError> {
         //println!("Deducing end for path: {:?}", self.path);
         // lengthen by direct successor with unknown inner
         let path_back_index = *self.path.back().unwrap();
@@ -167,13 +153,13 @@ impl<M: FullMachine> Deducer<'_, M> {
 
             let direct_successor_labelling = self
                 .checker
-                .get_state_labelling(inner.0.as_ref(), direct_successor_index);
+                .get_state_labelling(inner, direct_successor_index);
 
             if direct_successor_labelling.is_unknown() {
                 // add to path
                 //println!("Unknown, adding to path");
                 self.path.push_back(direct_successor_index);
-                return self.deduce_end(&inner.0);
+                return self.deduce_end(inner);
             } else {
                 //println!("Not unknown");
             }

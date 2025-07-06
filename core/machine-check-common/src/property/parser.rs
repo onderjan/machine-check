@@ -1,36 +1,47 @@
-use std::{collections::VecDeque, sync::Arc};
+use std::collections::VecDeque;
 
 use crate::{
-    property::{FixedPointOperator, FixedPointVariable},
+    property::{
+        parser::original::{
+            FixedPointOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property,
+            TemporalOperator,
+        },
+        AtomicProperty, ValueExpression,
+    },
     ExecError, Signedness,
 };
 
-use super::{
-    AtomicProperty, BiOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property,
-    TemporalOperator, UniOperator, ValueExpression,
-};
 use lexer::{Bracket, Token, TokenType};
 
+mod fold;
 mod lexer;
+mod original;
 
 /// Parses a verification property.
 ///
 /// Returns an error if it was not parsed successfully.
-pub fn parse(input: &str) -> Result<Property, ExecError> {
+pub fn parse(input: &str) -> Result<super::Property, ExecError> {
+    let original = parse_inner(input)?;
+    Ok(fold::fold(original))
+}
+
+pub fn parse_inner(input: &str) -> Result<Property, ExecError> {
     let parser = PropertyParser {
         input: String::from(input),
         lex_items: lexer::lex(input)?,
-        next_variable_id: 0,
         variables: Vec::new(),
     };
     parser.parse()
 }
 
+pub fn inherent() -> super::Property {
+    fold::fold(original::Property::inherent())
+}
+
 struct PropertyParser {
     input: String,
     lex_items: VecDeque<Token>,
-    next_variable_id: u64,
-    variables: Vec<FixedPointVariable>,
+    variables: Vec<String>,
 }
 
 impl PropertyParser {
@@ -54,10 +65,7 @@ impl PropertyParser {
         if let Some(TokenType::LogicAnd) = self.peek_type() {
             loop {
                 self.lex_items.pop_front();
-                expr = Property::And(BiOperator {
-                    a: Box::new(expr),
-                    b: Box::new(self.parse_property_expr()?),
-                });
+                expr = Property::And(Box::new(expr), Box::new(self.parse_property_expr()?));
                 let Some(TokenType::LogicAnd) = self.peek_type() else {
                     break;
                 };
@@ -65,10 +73,7 @@ impl PropertyParser {
         } else if let Some(TokenType::LogicOr) = self.peek_type() {
             loop {
                 self.lex_items.pop_front();
-                expr = Property::Or(BiOperator {
-                    a: Box::new(expr),
-                    b: Box::new(self.parse_property_expr()?),
-                });
+                expr = Property::Or(Box::new(expr), Box::new(self.parse_property_expr()?));
                 let Some(TokenType::LogicOr) = self.peek_type() else {
                     break;
                 };
@@ -86,8 +91,8 @@ impl PropertyParser {
                 ..
             }) => {
                 // look if it is a fixed-point variable first
-                if let Some(variable) = self.variables.iter().rev().find(|var| *var.name == ident) {
-                    Property::FixedPointVariable(variable.clone())
+                if self.variables.contains(&ident) {
+                    Property::FixedPointVariable(ident)
                 } else {
                     // parse as an atomic property
                     Property::Atomic(self.parse_atomic_property(ident)?)
@@ -129,7 +134,7 @@ impl PropertyParser {
                     TokenType::OpeningBracket(Bracket::Parenthesis),
                     "inside a negation",
                 )?;
-                let result = Property::Negation(UniOperator(Box::new(self.parse_property()?)));
+                let result = Property::Negation(Box::new(self.parse_property()?));
                 self.expect(
                     TokenType::ClosingBracket(Bracket::Parenthesis),
                     "inside a negation",
@@ -159,18 +164,22 @@ impl PropertyParser {
     }
 
     fn parse_x(&mut self) -> Result<TemporalOperator, ExecError> {
-        Ok(TemporalOperator::X(self.parse_uni_operator()?))
+        Ok(TemporalOperator::X(Box::new(self.parse_uni_operator()?)))
     }
 
     fn parse_f(&mut self) -> Result<TemporalOperator, ExecError> {
-        Ok(TemporalOperator::F(OperatorF(self.parse_uni_operator()?.0)))
+        Ok(TemporalOperator::F(OperatorF(Box::new(
+            self.parse_uni_operator()?,
+        ))))
     }
 
     fn parse_g(&mut self) -> Result<TemporalOperator, ExecError> {
-        Ok(TemporalOperator::G(OperatorG(self.parse_uni_operator()?.0)))
+        Ok(TemporalOperator::G(OperatorG(Box::new(
+            self.parse_uni_operator()?,
+        ))))
     }
 
-    fn parse_uni_operator(&mut self) -> Result<UniOperator, ExecError> {
+    fn parse_uni_operator(&mut self) -> Result<Property, ExecError> {
         self.expect(
             TokenType::OpeningBracket(Bracket::Square),
             "a unary operator",
@@ -180,7 +189,7 @@ impl PropertyParser {
             TokenType::ClosingBracket(Bracket::Square),
             "a unary operator",
         )?;
-        Ok(UniOperator(Box::new(result)))
+        Ok(result)
     }
 
     fn parse_bi_operator(&mut self, is_until: bool) -> Result<TemporalOperator, ExecError> {
@@ -205,27 +214,19 @@ impl PropertyParser {
     fn parse_fixed_point_operator(&mut self) -> Result<FixedPointOperator, ExecError> {
         const WHEN_PARSING: &str = "a fixed-point operator";
 
-        let variable_id = self.next_variable_id;
-        self.next_variable_id = self
-            .next_variable_id
-            .checked_add(1)
-            .expect("Next variable id should not overflow");
-
         self.expect(TokenType::OpeningBracket(Bracket::Square), WHEN_PARSING)?;
         let (_first_token, variable_name) = self.expect_ident("inside forced signedness")?;
 
-        let variable = FixedPointVariable {
-            id: variable_id,
-            name: Arc::new(variable_name),
-        };
-
-        self.variables.push(variable.clone());
+        self.variables.push(variable_name.clone());
 
         self.expect(TokenType::Comma, "a binary operator")?;
         let inner = Box::new(self.parse_property()?);
         self.expect(TokenType::ClosingBracket(Bracket::Square), WHEN_PARSING)?;
 
-        self.variables.pop();
+        let variable = self
+            .variables
+            .pop()
+            .expect("Popping a fixed-point variable should succeed");
 
         Ok(FixedPointOperator { variable, inner })
     }
@@ -360,7 +361,7 @@ impl PropertyParser {
 fn test_parse() {
     {
         let str = "AG![a == 0] && !(EF![as_signed(b[32]) != 3])";
-        let parsed = parse(str).unwrap();
+        let parsed = parse_inner(str).unwrap();
         let ag = Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Atomic(
             AtomicProperty {
                 left: ValueExpression {
@@ -385,21 +386,19 @@ fn test_parse() {
             },
         )))));
 
-        let created = Property::And(BiOperator {
-            a: Box::new(ag),
-            b: Box::new(Property::Negation(UniOperator(Box::new(ef)))),
-        });
+        let created = Property::And(Box::new(ag), Box::new(Property::Negation(Box::new(ef))));
 
         assert_eq!(parsed, created);
         assert_eq!(&parsed.to_string(), str);
     }
     {
-        let parsed =
-            parse("EU![as_signed(prOpeRty) > 37, ((ALREADY_UNSIGNED <= 0x5E)) || (!(abc >= -3))]")
-                .unwrap();
+        let parsed = parse_inner(
+            "EU![as_signed(prOpeRty) > 37, ((ALREADY_UNSIGNED <= 0x5E)) || (!(abc >= -3))]",
+        )
+        .unwrap();
 
-        let until = Property::Or(BiOperator {
-            a: Box::new(Property::Atomic(AtomicProperty {
+        let until = Property::Or(
+            Box::new(Property::Atomic(AtomicProperty {
                 left: ValueExpression {
                     name: String::from("ALREADY_UNSIGNED"),
                     index: None,
@@ -408,7 +407,7 @@ fn test_parse() {
                 comparison_type: crate::property::ComparisonType::Le,
                 right_number: 0x5E,
             })),
-            b: Box::new(Property::Negation(UniOperator(Box::new(Property::Atomic(
+            Box::new(Property::Negation(Box::new(Property::Atomic(
                 AtomicProperty {
                     left: ValueExpression {
                         name: String::from("abc"),
@@ -418,8 +417,8 @@ fn test_parse() {
                     comparison_type: crate::property::ComparisonType::Ge,
                     right_number: -3,
                 },
-            ))))),
-        });
+            )))),
+        );
 
         let created = Property::E(TemporalOperator::U(OperatorU {
             hold: Box::new(Property::Atomic(AtomicProperty {

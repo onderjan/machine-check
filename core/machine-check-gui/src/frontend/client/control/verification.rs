@@ -143,7 +143,7 @@ pub async fn issue_step(max_refinements: Option<u64>) {
             return;
         };
 
-        selected_property.property.clone()
+        selected_property.subproperty.property().clone()
     };
 
     issue_command(Request::Step(StepSettings {
