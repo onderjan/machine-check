@@ -106,7 +106,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     fn compute_labelling(
         &mut self,
         subproperty_index: usize,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
+    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
         let mut dirty = if let Some(check_info) = self.check_map.get_mut(&subproperty_index) {
             // take all dirty states from info
             let mut dirty = BTreeSet::new();
@@ -152,22 +152,18 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 None
             }
             PropertyType::Negation(inner) => {
-                // negate everything dirty or updated
-                let inner_updated = self.compute_labelling(*inner)?;
-                dirty.extend(inner_updated);
-
-                let inner_labelling = self.get_labelling(*inner);
-
-                for state_id in dirty {
-                    let value = !*inner_labelling
-                        .get(&state_id)
-                        .expect("Negation should have inner state labelling");
-                    update.insert(state_id, value);
+                // if negation is dirty, inner must be dirty as well
+                // it suffices to negate everything updated
+                update = self.compute_labelling(*inner)?;
+                for (_state_id, three_valued) in update.iter_mut() {
+                    *three_valued = !*three_valued;
                 }
                 None
             }
             PropertyType::BiLogic(op) => {
-                self.compute_binary_op(dirty, &mut update, op)?;
+                // if binary operator is dirty, inner must be dirty as well
+                // it suffices to negate everything updated
+                self.compute_binary_op(&mut update, op)?;
                 None
             }
             PropertyType::Next(op) => Some(self.compute_next_labelling(dirty, &mut update, op)?),
@@ -198,7 +194,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
         if let Some(reasons) = reasons {
             // update reasons
-            for updated_state in updated_states.iter().copied() {
+            for updated_state in updated_states.keys().copied() {
                 if let Some(reason) = reasons.get(&updated_state) {
                     check_info.reasons.insert(updated_state, *reason);
                 }
@@ -221,8 +217,8 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     fn update_labelling(
         check_info: &mut CheckInfo,
         update: BTreeMap<StateId, ThreeValued>,
-    ) -> BTreeSet<StateId> {
-        let mut updated_states: BTreeSet<StateId> = BTreeSet::new();
+    ) -> BTreeMap<StateId, ThreeValued> {
+        let mut updated_labels: BTreeMap<StateId, ThreeValued> = BTreeMap::new();
 
         for (state_id, value) in update {
             if let Some(labelling_value) = check_info.labelling.get_mut(&state_id) {
@@ -233,10 +229,10 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             } else {
                 check_info.labelling.insert(state_id, value);
             }
-            updated_states.insert(state_id);
+            updated_labels.insert(state_id, value);
         }
 
-        updated_states
+        updated_labels
     }
 
     fn get_check_info_mut(&mut self, subproperty_index: usize) -> &mut CheckInfo {
@@ -252,7 +248,6 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
     fn compute_binary_op(
         &mut self,
-        mut dirty: BTreeSet<StateId>,
         update: &mut BTreeMap<StateId, ThreeValued>,
         op: &BiLogicOperator,
     ) -> Result<(), ExecError> {
@@ -262,16 +257,20 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         let a_labelling = self.get_labelling(op.a);
         let b_labelling = self.get_labelling(op.b);
 
-        dirty.extend(a_updated);
-        dirty.extend(b_updated);
+        let mut dirty = BTreeSet::from_iter(a_updated.keys());
+        dirty.extend(b_updated.keys());
 
-        for state_id in dirty.iter().copied() {
-            let a_value = *a_labelling
-                .get(&state_id)
-                .expect("Binary operation should have left labelling available");
-            let b_value = *b_labelling
-                .get(&state_id)
-                .expect("Binary operation should have right labelling available");
+        for state_id in dirty {
+            let a_value = a_updated.get(state_id).copied().unwrap_or_else(|| {
+                *a_labelling
+                    .get(state_id)
+                    .expect("Binary operation should have left labelling available")
+            });
+            let b_value = b_updated.get(state_id).copied().unwrap_or_else(|| {
+                *b_labelling
+                    .get(state_id)
+                    .expect("Binary operation should have right labelling available")
+            });
 
             let result_value = if op.is_and {
                 a_value & b_value
@@ -279,7 +278,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 a_value | b_value
             };
 
-            update.insert(state_id, result_value);
+            update.insert(*state_id, result_value);
         }
 
         Ok(())
@@ -302,7 +301,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         // We need to compute states which are either dirty or the inner property was updated
         // for their direct successors.
 
-        for state_id in &inner_updated {
+        for state_id in inner_updated.keys() {
             //println!("Next updated state id: {}", state_id);
             for predecessor_id in self.space.direct_predecessor_iter((*state_id).into()) {
                 if let Ok(predecessor_id) = StateId::try_from(predecessor_id) {
@@ -360,7 +359,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         fixed_point_index: usize,
         dirty: BTreeSet<StateId>,
         op: &FixedPointOperator,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
+    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
         let ground_value = ThreeValued::from_bool(op.is_greatest);
 
         // initialise fixed-point computation labelling
@@ -375,12 +374,12 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             .get_mut(&fixed_point_index)
             .expect("Fixed-point info should be in check map");
 
-        for state_id in dirty.iter().copied() {
-            check_info.labelling.entry(state_id).or_insert(ground_value);
-        }
+        let mut all_updated = BTreeMap::new();
 
-        let mut all_updated = dirty.clone();
-        check_info.dirty = dirty;
+        for state_id in dirty.iter().copied() {
+            let value = check_info.labelling.entry(state_id).or_insert(ground_value);
+            all_updated.insert(state_id, *value);
+        }
 
         //println!("Check map: {:?}", self.check_map);
 
@@ -388,52 +387,32 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
         // compute inner property labelling and update variable labelling until they match
         loop {
-            let inner_updated = self.compute_labelling(op.inner)?;
+            let current_update = self.compute_labelling(op.inner)?;
 
             //println!("Updated in this iteration: {:?}", updated);
 
-            all_updated.extend(inner_updated.iter().cloned());
+            let fixed_point_info = self
+                .check_map
+                .get_mut(&fixed_point_index)
+                .expect("Check map should contain fixed-point property");
 
-            if inner_updated.is_empty() {
+            if current_update.is_empty() {
                 // fixed-point reached
                 // the labelling now definitely corresponds to inner
                 // just clear dirty as everything was computed
-                let fixed_point_info = self
-                    .check_map
-                    .get_mut(&fixed_point_index)
-                    .expect("Check map should contain fixed-point property");
 
                 fixed_point_info.dirty.clear();
                 return Ok(all_updated);
             };
 
-            //println!("Variable labelling: {:?}", variable_labelling);
-
-            let inner_labelling = &self
-                .check_map
-                .get(&op.inner)
-                .expect("Check map should contain inner property")
-                .labelling;
-
-            let mut current_update = BTreeMap::new();
-            for state_id in inner_updated.iter().cloned() {
-                let current = inner_labelling
-                    .get(&state_id)
-                    .expect("Inner labelling should contain updated state");
-                current_update.insert(state_id, *current);
-            }
-
             // update the labelling and make updated dirty in the variable
-            let fixed_point_info = self
-                .check_map
-                .get_mut(&fixed_point_index)
-                .expect("Check map should contain variable property");
 
             let updated = Self::update_labelling(fixed_point_info, current_update);
+            fixed_point_info.dirty = BTreeSet::from_iter(updated.keys().copied());
+
+            all_updated.extend(updated);
 
             //println!("Really changed: {:?}", updated);
-
-            fixed_point_info.dirty = updated;
         }
     }
 
