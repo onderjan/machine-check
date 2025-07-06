@@ -65,7 +65,7 @@ impl PropertyParser {
         if let Some(TokenType::LogicAnd) = self.peek_type() {
             loop {
                 self.lex_items.pop_front();
-                expr = Property::BiLogicOperator(BiLogicOperator {
+                expr = Property::BiLogic(BiLogicOperator {
                     is_and: true,
                     a: Box::new(expr),
                     b: Box::new(self.parse_property_expr()?),
@@ -77,7 +77,7 @@ impl PropertyParser {
         } else if let Some(TokenType::LogicOr) = self.peek_type() {
             loop {
                 self.lex_items.pop_front();
-                expr = Property::BiLogicOperator(BiLogicOperator {
+                expr = Property::BiLogic(BiLogicOperator {
                     is_and: false,
                     a: Box::new(expr),
                     b: Box::new(self.parse_property_expr()?),
@@ -100,7 +100,7 @@ impl PropertyParser {
             }) => {
                 // look if it is a fixed-point variable first
                 if self.variables.contains(&ident) {
-                    Property::FixedPointVariable(ident)
+                    Property::FixedVariable(ident)
                 } else {
                     // parse as an atomic property
                     Property::Atomic(self.parse_atomic_property(ident)?)
@@ -122,8 +122,8 @@ impl PropertyParser {
                     "EG" => existential_op(self.parse_g()?),
                     "EU" => existential_op(self.parse_bi_operator(true)?),
                     "ER" => existential_op(self.parse_bi_operator(false)?),
-                    "lfp" => Property::LeastFixedPoint(self.parse_fixed_point_operator()?),
-                    "gfp" => Property::GreatestFixedPoint(self.parse_fixed_point_operator()?),
+                    "lfp" => Property::FixedPoint(self.parse_fixed_point_operator(false)?),
+                    "gfp" => Property::FixedPoint(self.parse_fixed_point_operator(true)?),
                     _ => {
                         return Err(self.not_parseable(
                             first_token,
@@ -219,7 +219,10 @@ impl PropertyParser {
         })
     }
 
-    fn parse_fixed_point_operator(&mut self) -> Result<FixedPointOperator, ExecError> {
+    fn parse_fixed_point_operator(
+        &mut self,
+        is_greatest: bool,
+    ) -> Result<FixedPointOperator, ExecError> {
         const WHEN_PARSING: &str = "a fixed-point operator";
 
         self.expect(TokenType::OpeningBracket(Bracket::Square), WHEN_PARSING)?;
@@ -236,7 +239,11 @@ impl PropertyParser {
             .pop()
             .expect("Popping a fixed-point variable should succeed");
 
-        Ok(FixedPointOperator { variable, inner })
+        Ok(FixedPointOperator {
+            is_greatest,
+            variable,
+            inner,
+        })
     }
 
     fn parse_atomic_property(&mut self, first_ident: String) -> Result<AtomicProperty, ExecError> {
@@ -366,13 +373,13 @@ impl PropertyParser {
 }
 
 fn existential_op(temporal: TemporalOperator) -> Property {
-    Property::CtlOperator(CtlOperator {
+    Property::Ctl(CtlOperator {
         is_universal: false,
         temporal,
     })
 }
 fn universal_op(temporal: TemporalOperator) -> Property {
-    Property::CtlOperator(CtlOperator {
+    Property::Ctl(CtlOperator {
         is_universal: true,
         temporal,
     })
@@ -407,7 +414,7 @@ fn test_parse() {
             },
         )))));
 
-        let created = Property::BiLogicOperator(BiLogicOperator {
+        let created = Property::BiLogic(BiLogicOperator {
             is_and: true,
             a: Box::new(ag),
             b: Box::new(Property::Negation(Box::new(ef))),
@@ -422,7 +429,7 @@ fn test_parse() {
         )
         .unwrap();
 
-        let until = Property::BiLogicOperator(BiLogicOperator {
+        let until = Property::BiLogic(BiLogicOperator {
             is_and: false,
             a: Box::new(Property::Atomic(AtomicProperty {
                 left: ValueExpression {

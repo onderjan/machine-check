@@ -10,11 +10,10 @@ pub enum Property {
     Const(bool),
     Atomic(AtomicProperty),
     Negation(Box<Property>),
-    BiLogicOperator(BiLogicOperator),
-    CtlOperator(CtlOperator),
-    LeastFixedPoint(FixedPointOperator),
-    GreatestFixedPoint(FixedPointOperator),
-    FixedPointVariable(String),
+    BiLogic(BiLogicOperator),
+    Ctl(CtlOperator),
+    FixedPoint(FixedPointOperator),
+    FixedVariable(String),
 }
 
 impl Property {
@@ -31,7 +30,7 @@ impl Property {
         let not_panicking = Box::new(Property::Atomic(not_panicking));
 
         let g_operator = TemporalOperator::G(OperatorG(not_panicking));
-        Property::CtlOperator(CtlOperator {
+        Property::Ctl(CtlOperator {
             is_universal: true,
             temporal: g_operator,
         })
@@ -64,6 +63,7 @@ pub enum TemporalOperator {
 /// A fixed-point operator.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct FixedPointOperator {
+    pub is_greatest: bool,
     pub variable: String,
     pub inner: Box<Property>,
 }
@@ -80,24 +80,17 @@ impl Display for Property {
             Property::Negation(prop_uni) => {
                 write!(f, "!({})", *prop_uni)
             }
-            Property::BiLogicOperator(op) => write_logic_bi(f, op),
-            Property::CtlOperator(op) => {
+            Property::BiLogic(op) => write_logic_bi(f, op),
+            Property::Ctl(op) => {
                 let quantifier_letter = if op.is_universal { 'A' } else { 'E' };
                 write!(f, "{}{}", quantifier_letter, op.temporal)
             }
-            Property::LeastFixedPoint(fixed_point_operator) => {
-                write!(
-                    f,
-                    "lfp![{}, {}]",
-                    fixed_point_operator.variable, fixed_point_operator.inner
-                )
+            Property::FixedPoint(op) => {
+                let fixed_point_str = if op.is_greatest { "gfp" } else { "lfp" };
+
+                write!(f, "{}![{}, {}]", fixed_point_str, op.variable, op.inner)
             }
-            Property::GreatestFixedPoint(fixed_point_operator) => write!(
-                f,
-                "gfp![{}, {}]",
-                fixed_point_operator.variable, fixed_point_operator.inner
-            ),
-            Property::FixedPointVariable(var) => write!(f, "{}", var),
+            Property::FixedVariable(var) => write!(f, "{}", var),
         }
     }
 }
@@ -106,7 +99,7 @@ fn write_logic_bi(f: &mut std::fmt::Formatter<'_>, op: &BiLogicOperator) -> std:
     let op_str = if op.is_and { "&&" } else { "||" };
     // Make sure the inner and / or properties are in parentheses so the display is unambiguous.
     let write_inner_prop = |f: &mut std::fmt::Formatter<'_>, prop: &Property| {
-        if matches!(prop, Property::BiLogicOperator(..)) {
+        if matches!(prop, Property::BiLogic(..)) {
             write!(f, "({})", prop)
         } else {
             write!(f, "{}", prop)

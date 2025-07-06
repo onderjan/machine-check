@@ -70,11 +70,10 @@ pub enum PropertyType {
     Const(bool),
     Atomic(AtomicProperty),
     Negation(usize),
-    BiLogicOperator(BiLogicOperator),
-    NextOperator(NextOperator),
-    LeastFixedPoint(usize),
-    GreatestFixedPoint(usize),
-    FixedPointVariable(usize),
+    BiLogic(BiLogicOperator),
+    Next(NextOperator),
+    FixedPoint(FixedPointOperator),
+    FixedVariable(usize),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -87,6 +86,12 @@ pub struct BiLogicOperator {
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct NextOperator {
     pub is_universal: bool,
+    pub inner: usize,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct FixedPointOperator {
+    pub is_greatest: bool,
     pub inner: usize,
 }
 
@@ -114,15 +119,12 @@ impl Subproperty {
             PropertyType::Const(_) => Vec::new(),
             PropertyType::Atomic(_) => Vec::new(),
             PropertyType::Negation(inner) => vec![*inner],
-            PropertyType::BiLogicOperator(op) => vec![op.a, op.b],
-            PropertyType::NextOperator(op) => vec![op.inner],
-            PropertyType::LeastFixedPoint(inner) => {
-                vec![*inner]
+            PropertyType::BiLogic(op) => vec![op.a, op.b],
+            PropertyType::Next(op) => vec![op.inner],
+            PropertyType::FixedPoint(op) => {
+                vec![op.inner]
             }
-            PropertyType::GreatestFixedPoint(inner) => {
-                vec![*inner]
-            }
-            PropertyType::FixedPointVariable(_) => Vec::new(),
+            PropertyType::FixedVariable(_) => Vec::new(),
         };
 
         indices

@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use super::original;
-use crate::property::{self as folded, BiLogicOperator, NextOperator, SubpropertyEntry};
+use crate::property::{
+    self as folded, BiLogicOperator, FixedPointOperator, NextOperator, SubpropertyEntry,
+};
 
 /// Converts to canonical representation suitable for model-checking.
 ///
@@ -43,16 +45,16 @@ impl Folder {
             original::Property::Negation(inner) => {
                 folded::PropertyType::Negation(self.fold_inner(*inner))
             }
-            original::Property::BiLogicOperator(op) => {
-                folded::PropertyType::BiLogicOperator(folded::BiLogicOperator {
+            original::Property::BiLogic(op) => {
+                folded::PropertyType::BiLogic(folded::BiLogicOperator {
                     is_and: op.is_and,
                     a: self.fold_inner(*op.a),
                     b: self.fold_inner(*op.b),
                 })
             }
-            original::Property::CtlOperator(op) => match op.temporal {
+            original::Property::Ctl(op) => match op.temporal {
                 original::TemporalOperator::X(inner) => {
-                    folded::PropertyType::NextOperator(NextOperator {
+                    folded::PropertyType::Next(folded::NextOperator {
                         is_universal: op.is_universal,
                         inner: self.fold_inner(*inner),
                     })
@@ -86,7 +88,7 @@ impl Folder {
                     *inner.releasee,
                 ),
             },
-            original::Property::LeastFixedPoint(fixed_point) => {
+            original::Property::FixedPoint(fixed_point) => {
                 self.variable_indices
                     .push((fixed_point.variable.clone(), property_index));
 
@@ -96,21 +98,12 @@ impl Folder {
                     .pop()
                     .expect("Fixed-point variable pop should succeed");
 
-                folded::PropertyType::LeastFixedPoint(inner)
+                folded::PropertyType::FixedPoint(FixedPointOperator {
+                    is_greatest: fixed_point.is_greatest,
+                    inner,
+                })
             }
-            original::Property::GreatestFixedPoint(fixed_point) => {
-                self.variable_indices
-                    .push((fixed_point.variable.clone(), property_index));
-
-                let inner = self.fold_inner(*fixed_point.inner);
-
-                self.variable_indices
-                    .pop()
-                    .expect("Fixed-point variable pop should succeed");
-
-                folded::PropertyType::GreatestFixedPoint(inner)
-            }
-            original::Property::FixedPointVariable(name) => {
+            original::Property::FixedVariable(name) => {
                 // find the variable index, starting from the innermost
                 let (_, variable_index) = self
                     .variable_indices
@@ -119,7 +112,7 @@ impl Folder {
                     .find(|(variable_name, _)| *variable_name == name)
                     .expect("Fixed-point variable index search should succed");
 
-                folded::PropertyType::FixedPointVariable(*variable_index)
+                folded::PropertyType::FixedVariable(*variable_index)
             }
         };
 
@@ -144,15 +137,14 @@ impl Folder {
         let sufficient = self.fold_inner(sufficient);
 
         // add the variable Z to be used within the operator
-        let variable_index =
-            self.arena_push(folded::PropertyType::FixedPointVariable(property_index));
+        let variable_index = self.arena_push(folded::PropertyType::FixedVariable(property_index));
 
         // the general form is [lfp/gfp] Z . sufficient [outer_operator] (permitting [inner_operator] [A/E]X(Z))
         // for R, gfp Z . sufficient && (permitting || [A/E]X(Z))
         // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
 
         // construct [A/E]X(Z) depending on the universal / existential quantification
-        let next = self.arena_push(folded::PropertyType::NextOperator(NextOperator {
+        let next = self.arena_push(folded::PropertyType::Next(NextOperator {
             is_universal,
             inner: variable_index,
         }));
@@ -161,31 +153,30 @@ impl Folder {
         // for U, inner operator is (permitting && [A/E]X(Z))
         let inner_is_and = !release;
 
-        let inner_operator =
-            self.arena_push(folded::PropertyType::BiLogicOperator(BiLogicOperator {
-                is_and: inner_is_and,
-                a: permitting,
-                b: next,
-            }));
+        let inner_operator = self.arena_push(folded::PropertyType::BiLogic(BiLogicOperator {
+            is_and: inner_is_and,
+            a: permitting,
+            b: next,
+        }));
 
         // for R, outer operator is sufficient && inner_operator
         // for U, outer operator is sufficient || inner_operator
         let outer_is_and = release;
 
-        let outer_operator =
-            self.arena_push(folded::PropertyType::BiLogicOperator(BiLogicOperator {
-                is_and: outer_is_and,
-                a: sufficient,
-                b: inner_operator,
-            }));
+        let outer_operator = self.arena_push(folded::PropertyType::BiLogic(BiLogicOperator {
+            is_and: outer_is_and,
+            a: sufficient,
+            b: inner_operator,
+        }));
 
         // for R, gfp Z . sufficient && (permitting || [A/E]X(Z))
         // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
-        if release {
-            folded::PropertyType::GreatestFixedPoint(outer_operator)
-        } else {
-            folded::PropertyType::LeastFixedPoint(outer_operator)
-        }
+        let is_greatest = release;
+
+        folded::PropertyType::FixedPoint(FixedPointOperator {
+            is_greatest,
+            inner: outer_operator,
+        })
     }
 
     fn arena_push(&mut self, ty: folded::PropertyType) -> usize {

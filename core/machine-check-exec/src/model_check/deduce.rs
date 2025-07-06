@@ -73,7 +73,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // propagate to inner
                 self.deduce_end(*inner)
             }
-            PropertyType::BiLogicOperator(op) => {
+            PropertyType::BiLogic(op) => {
                 // the state should be unknown in p or q
                 let state_index = *self.path.back().unwrap();
                 let a_labelling = self.checker.get_state_labelling(op.a, state_index);
@@ -95,7 +95,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // prefer the left deduction over the right one
                 Ok(a_deduction.unwrap_or(b_deduction))
             }
-            PropertyType::NextOperator(op) => {
+            PropertyType::Next(op) => {
                 let path_back_index = *self.path.back().unwrap();
                 let reason = *self
                     .checker
@@ -105,9 +105,9 @@ impl<M: FullMachine> Deducer<'_, M> {
                 //println!("X reason: {:?}", reason);
                 self.deduce_end_next(op.inner, reason)
             }
-            PropertyType::LeastFixedPoint(inner) | PropertyType::GreatestFixedPoint(inner) => {
+            PropertyType::FixedPoint(op) => {
                 loop {
-                    let deduction = self.deduce_end(*inner)?;
+                    let deduction = self.deduce_end(op.inner)?;
                     match deduction {
                         Deduction::Culprit(_) => break Ok(deduction),
                         Deduction::FixedPoint(deduction) => {
@@ -121,7 +121,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                     }
                 }
             }
-            PropertyType::FixedPointVariable(variable) => {
+            PropertyType::FixedVariable(variable) => {
                 // return fixed-point deduction
                 Ok(Deduction::FixedPoint(FixedPointDeduction {
                     path: self.path.clone(),

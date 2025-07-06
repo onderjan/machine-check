@@ -5,7 +5,9 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use log::{log_enabled, trace};
 use machine_check_common::{
     check::Conclusion,
-    property::{BiLogicOperator, NextOperator, Property, PropertyType, Subproperty},
+    property::{
+        BiLogicOperator, FixedPointOperator, NextOperator, Property, PropertyType, Subproperty,
+    },
     ExecError, StateId, ThreeValued,
 };
 use mck::concr::FullMachine;
@@ -32,17 +34,17 @@ pub(super) fn check_subproperty_with_labelling<M: FullMachine>(
     let mut checker = ThreeValuedChecker::new(space, subproperty.property());
     let conclusion = checker.check_property()?;
 
-    println!(
+    /*println!(
         "Computing the labelling for {:?}, check map: {:?}",
         subproperty, checker.check_map
-    );
+    );*/
 
     // get the labelling as well
     let subproperty_index = subproperty.index();
     let _updated = checker.compute_labelling(subproperty_index)?;
-    println!("Getting the labelling, check map: {:?}", checker.check_map);
+    //println!("Getting the labelling, check map: {:?}", checker.check_map);
     let labelling = checker.get_labelling(subproperty_index).clone();
-    println!("Got the labelling");
+    //println!("Got the labelling");
     Ok((conclusion, labelling))
 }
 
@@ -166,19 +168,10 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 check_info.dirty = dirty;
                 check_info.labelling.extend(updated_labelling);
             }
-            PropertyType::BiLogicOperator(op) => self.compute_binary_op(subproperty_index, op)?,
-            PropertyType::NextOperator(op) => self.compute_next_labelling(subproperty_index, op)?,
-            PropertyType::LeastFixedPoint(inner) => self.compute_fixed_point_op(
-                subproperty_index,
-                *inner,
-                ThreeValued::from_bool(false),
-            )?,
-            PropertyType::GreatestFixedPoint(inner) => self.compute_fixed_point_op(
-                subproperty_index,
-                *inner,
-                ThreeValued::from_bool(true),
-            )?,
-            PropertyType::FixedPointVariable(fixed_point) => {
+            PropertyType::BiLogic(op) => self.compute_binary_op(subproperty_index, op)?,
+            PropertyType::Next(op) => self.compute_next_labelling(subproperty_index, op)?,
+            PropertyType::FixedPoint(op) => self.compute_fixed_point_op(subproperty_index, op)?,
+            PropertyType::FixedVariable(fixed_point) => {
                 // update from the fixed point
                 let mut dirty = BTreeSet::new();
                 dirty.append(&mut self.get_check_info_mut(subproperty_index).dirty);
@@ -280,9 +273,10 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     fn compute_fixed_point_op(
         &mut self,
         fixed_point_index: usize,
-        inner_index: usize,
-        initial_value: ThreeValued,
+        op: &FixedPointOperator,
     ) -> Result<(), ExecError> {
+        let initial_value = ThreeValued::from_bool(op.is_greatest);
+
         let constant_labelling = self.constant_labelling(initial_value);
 
         // initialise fixed-point computation labelling
@@ -302,7 +296,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
         // compute inner property labelling and update variable labelling until they match
         loop {
-            let updated = self.compute_labelling(inner_index)?;
+            let updated = self.compute_labelling(op.inner)?;
 
             //println!("Updated in this iteration: {:?}", updated);
 
@@ -312,7 +306,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 // fixed-point reached
                 let inner_labelling = self
                     .check_map
-                    .get(&inner_index)
+                    .get(&op.inner)
                     .expect("Check map should contain inner property")
                     .labelling
                     .clone();
@@ -340,7 +334,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                         .expect("Variable labelling should contain updated state");
                     let current_labelling = &self
                         .check_map
-                        .get(&inner_index)
+                        .get(&op.inner)
                         .expect("Check map should contain inner property")
                         .labelling;
                     let current = current_labelling
