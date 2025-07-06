@@ -11,8 +11,7 @@ pub enum Property {
     Atomic(AtomicProperty),
     Negation(Box<Property>),
     BiLogicOperator(BiLogicOperator),
-    E(TemporalOperator),
-    A(TemporalOperator),
+    CtlOperator(CtlOperator),
     LeastFixedPoint(FixedPointOperator),
     GreatestFixedPoint(FixedPointOperator),
     FixedPointVariable(String),
@@ -29,9 +28,13 @@ impl Property {
             crate::property::ComparisonType::Eq,
             0,
         );
-        Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Atomic(
-            not_panicking,
-        )))))
+        let not_panicking = Box::new(Property::Atomic(not_panicking));
+
+        let g_operator = TemporalOperator::G(OperatorG(not_panicking));
+        Property::CtlOperator(CtlOperator {
+            is_universal: true,
+            temporal: g_operator,
+        })
     }
 }
 
@@ -40,6 +43,12 @@ pub struct BiLogicOperator {
     pub is_and: bool,
     pub a: Box<Property>,
     pub b: Box<Property>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct CtlOperator {
+    pub is_universal: bool,
+    pub temporal: TemporalOperator,
 }
 
 /// A temporal operator within a CTL path quantifier.
@@ -72,11 +81,9 @@ impl Display for Property {
                 write!(f, "!({})", *prop_uni)
             }
             Property::BiLogicOperator(op) => write_logic_bi(f, op),
-            Property::E(prop_temp) => {
-                write!(f, "E{}", prop_temp)
-            }
-            Property::A(prop_temp) => {
-                write!(f, "A{}", prop_temp)
+            Property::CtlOperator(op) => {
+                let quantifier_letter = if op.is_universal { 'A' } else { 'E' };
+                write!(f, "{}{}", quantifier_letter, op.temporal)
             }
             Property::LeastFixedPoint(fixed_point_operator) => {
                 write!(

@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use log::{log_enabled, trace};
 use machine_check_common::{
     check::Conclusion,
-    property::{BiLogicOperator, Property, PropertyType, Subproperty},
+    property::{BiLogicOperator, NextOperator, Property, PropertyType, Subproperty},
     ExecError, StateId, ThreeValued,
 };
 use mck::concr::FullMachine;
@@ -167,12 +167,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 check_info.labelling.extend(updated_labelling);
             }
             PropertyType::BiLogicOperator(op) => self.compute_binary_op(subproperty_index, op)?,
-            PropertyType::EX(inner) => {
-                self.compute_next_labelling(subproperty_index, *inner, false)?
-            }
-            PropertyType::AX(inner) => {
-                self.compute_next_labelling(subproperty_index, *inner, true)?
-            }
+            PropertyType::NextOperator(op) => self.compute_next_labelling(subproperty_index, op)?,
             PropertyType::LeastFixedPoint(inner) => self.compute_fixed_point_op(
                 subproperty_index,
                 *inner,
@@ -373,10 +368,9 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     fn compute_next_labelling(
         &mut self,
         subproperty_index: usize,
-        inner: usize,
-        universal: bool,
+        op: &NextOperator,
     ) -> Result<(), ExecError> {
-        let ground_value = ThreeValued::from_bool(universal);
+        let ground_value = ThreeValued::from_bool(op.is_universal);
 
         let check_info = &mut self.get_check_info_mut(subproperty_index);
         let mut current_reasons = BTreeMap::new();
@@ -385,7 +379,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         let mut dirty = BTreeSet::new();
         dirty.append(&mut check_info.dirty);
 
-        let inner_updated = self.compute_labelling(inner)?;
+        let inner_updated = self.compute_labelling(op.inner)?;
 
         // We need to compute states which are either dirty or the inner property was updated
         // for their direct successors.
@@ -406,7 +400,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             previous_dirty_labels.insert(state_id, check_info.labelling.get(&state_id).copied());
         }
 
-        let inner_labelling = self.get_labelling(inner);
+        let inner_labelling = self.get_labelling(op.inner);
 
         //println!("Next dirty states: {:?}", dirty);
 
@@ -424,7 +418,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                     .get(&successor_id)
                     .expect("Direct successor should labelled");
                 let old_label = label;
-                if universal {
+                if op.is_universal {
                     label = label & *successor_value;
                 } else {
                     label = label | *successor_value;

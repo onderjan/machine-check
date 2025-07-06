@@ -95,7 +95,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // prefer the left deduction over the right one
                 Ok(a_deduction.unwrap_or(b_deduction))
             }
-            PropertyType::EX(inner) | PropertyType::AX(inner) => {
+            PropertyType::NextOperator(op) => {
                 let path_back_index = *self.path.back().unwrap();
                 let reason = *self
                     .checker
@@ -103,7 +103,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                     .get(&path_back_index)
                     .expect("Culprit state should have a labelling reason");
                 //println!("X reason: {:?}", reason);
-                self.deduce_end_next(*inner, reason)
+                self.deduce_end_next(op.inner, reason)
             }
             PropertyType::LeastFixedPoint(inner) | PropertyType::GreatestFixedPoint(inner) => {
                 loop {

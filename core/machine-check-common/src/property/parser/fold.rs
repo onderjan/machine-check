@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::original;
-use crate::property::{self as folded, BiLogicOperator, SubpropertyEntry};
+use crate::property::{self as folded, BiLogicOperator, NextOperator, SubpropertyEntry};
 
 /// Converts to canonical representation suitable for model-checking.
 ///
@@ -50,59 +50,41 @@ impl Folder {
                     b: self.fold_inner(*op.b),
                 })
             }
-            original::Property::E(temporal) => match temporal {
+            original::Property::CtlOperator(op) => match op.temporal {
                 original::TemporalOperator::X(inner) => {
-                    folded::PropertyType::EX(self.fold_inner(*inner))
+                    folded::PropertyType::NextOperator(NextOperator {
+                        is_universal: op.is_universal,
+                        inner: self.fold_inner(*inner),
+                    })
                 }
                 original::TemporalOperator::F(inner) => self.fixed_point(
                     property_index,
-                    false,
+                    op.is_universal,
                     false,
                     original::Property::Const(true),
                     *inner.0,
                 ),
                 original::TemporalOperator::G(inner) => self.fixed_point(
                     property_index,
-                    false,
+                    op.is_universal,
                     true,
                     original::Property::Const(false),
                     *inner.0,
                 ),
-                original::TemporalOperator::U(inner) => {
-                    self.fixed_point(property_index, false, false, *inner.hold, *inner.until)
-                }
+                original::TemporalOperator::U(inner) => self.fixed_point(
+                    property_index,
+                    op.is_universal,
+                    false,
+                    *inner.hold,
+                    *inner.until,
+                ),
                 original::TemporalOperator::R(inner) => self.fixed_point(
                     property_index,
-                    false,
+                    op.is_universal,
                     true,
                     *inner.releaser,
                     *inner.releasee,
                 ),
-            },
-            original::Property::A(temporal) => match temporal {
-                original::TemporalOperator::X(inner) => {
-                    folded::PropertyType::AX(self.fold_inner(*inner))
-                }
-                original::TemporalOperator::F(inner) => self.fixed_point(
-                    property_index,
-                    true,
-                    false,
-                    original::Property::Const(true),
-                    *inner.0,
-                ),
-                original::TemporalOperator::G(inner) => self.fixed_point(
-                    property_index,
-                    true,
-                    true,
-                    original::Property::Const(false),
-                    *inner.0,
-                ),
-                original::TemporalOperator::U(inner) => {
-                    self.fixed_point(property_index, true, false, *inner.hold, *inner.until)
-                }
-                original::TemporalOperator::R(inner) => {
-                    self.fixed_point(property_index, true, true, *inner.releaser, *inner.releasee)
-                }
             },
             original::Property::LeastFixedPoint(fixed_point) => {
                 self.variable_indices
@@ -152,7 +134,7 @@ impl Folder {
     fn fixed_point(
         &mut self,
         property_index: usize,
-        universal: bool,
+        is_universal: bool,
         release: bool,
         permitting: original::Property,
         sufficient: original::Property,
@@ -170,11 +152,10 @@ impl Folder {
         // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
 
         // construct [A/E]X(Z) depending on the universal / existential quantification
-        let next = self.arena_push(if universal {
-            folded::PropertyType::AX(variable_index)
-        } else {
-            folded::PropertyType::EX(variable_index)
-        });
+        let next = self.arena_push(folded::PropertyType::NextOperator(NextOperator {
+            is_universal,
+            inner: variable_index,
+        }));
 
         // for R, inner operator is (permitting || [A/E]X(Z))
         // for U, inner operator is (permitting && [A/E]X(Z))

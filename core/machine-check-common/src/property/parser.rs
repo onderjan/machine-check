@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 use crate::{
     property::{
         parser::original::{
-            BiLogicOperator, FixedPointOperator, OperatorF, OperatorG, OperatorR, OperatorU,
-            Property, TemporalOperator,
+            BiLogicOperator, CtlOperator, FixedPointOperator, OperatorF, OperatorG, OperatorR,
+            OperatorU, Property, TemporalOperator,
         },
         AtomicProperty, ValueExpression,
     },
@@ -112,16 +112,16 @@ impl PropertyParser {
             }) => {
                 // parse as a CTL operator
                 let property: Property = match ident.as_str() {
-                    "AX" => Property::A(self.parse_x()?),
-                    "AF" => Property::A(self.parse_f()?),
-                    "AG" => Property::A(self.parse_g()?),
-                    "EX" => Property::E(self.parse_x()?),
-                    "EF" => Property::E(self.parse_f()?),
-                    "AU" => Property::A(self.parse_bi_operator(true)?),
-                    "AR" => Property::A(self.parse_bi_operator(false)?),
-                    "EG" => Property::E(self.parse_g()?),
-                    "EU" => Property::E(self.parse_bi_operator(true)?),
-                    "ER" => Property::E(self.parse_bi_operator(false)?),
+                    "AX" => universal_op(self.parse_x()?),
+                    "AF" => universal_op(self.parse_f()?),
+                    "AG" => universal_op(self.parse_g()?),
+                    "EX" => existential_op(self.parse_x()?),
+                    "EF" => existential_op(self.parse_f()?),
+                    "AU" => universal_op(self.parse_bi_operator(true)?),
+                    "AR" => universal_op(self.parse_bi_operator(false)?),
+                    "EG" => existential_op(self.parse_g()?),
+                    "EU" => existential_op(self.parse_bi_operator(true)?),
+                    "ER" => existential_op(self.parse_bi_operator(false)?),
                     "lfp" => Property::LeastFixedPoint(self.parse_fixed_point_operator()?),
                     "gfp" => Property::GreatestFixedPoint(self.parse_fixed_point_operator()?),
                     _ => {
@@ -365,12 +365,25 @@ impl PropertyParser {
     }
 }
 
+fn existential_op(temporal: TemporalOperator) -> Property {
+    Property::CtlOperator(CtlOperator {
+        is_universal: false,
+        temporal,
+    })
+}
+fn universal_op(temporal: TemporalOperator) -> Property {
+    Property::CtlOperator(CtlOperator {
+        is_universal: true,
+        temporal,
+    })
+}
+
 #[test]
 fn test_parse() {
     {
         let str = "AG![a == 0] && !(EF![as_signed(b[32]) != 3])";
         let parsed = parse_inner(str).unwrap();
-        let ag = Property::A(TemporalOperator::G(OperatorG(Box::new(Property::Atomic(
+        let ag = universal_op(TemporalOperator::G(OperatorG(Box::new(Property::Atomic(
             AtomicProperty {
                 left: ValueExpression {
                     name: String::from("a"),
@@ -382,7 +395,7 @@ fn test_parse() {
             },
         )))));
 
-        let ef = Property::E(TemporalOperator::F(OperatorF(Box::new(Property::Atomic(
+        let ef = existential_op(TemporalOperator::F(OperatorF(Box::new(Property::Atomic(
             AtomicProperty {
                 left: ValueExpression {
                     name: String::from("b"),
@@ -433,7 +446,7 @@ fn test_parse() {
             )))),
         });
 
-        let created = Property::E(TemporalOperator::U(OperatorU {
+        let created = existential_op(TemporalOperator::U(OperatorU {
             hold: Box::new(Property::Atomic(AtomicProperty {
                 left: ValueExpression {
                     name: String::from("prOpeRty"),
