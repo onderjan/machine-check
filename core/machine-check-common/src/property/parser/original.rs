@@ -10,8 +10,7 @@ pub enum Property {
     Const(bool),
     Atomic(AtomicProperty),
     Negation(Box<Property>),
-    Or(Box<Property>, Box<Property>),
-    And(Box<Property>, Box<Property>),
+    BiLogicOperator(BiLogicOperator),
     E(TemporalOperator),
     A(TemporalOperator),
     LeastFixedPoint(FixedPointOperator),
@@ -34,6 +33,13 @@ impl Property {
             not_panicking,
         )))))
     }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct BiLogicOperator {
+    pub is_and: bool,
+    pub a: Box<Property>,
+    pub b: Box<Property>,
 }
 
 /// A temporal operator within a CTL path quantifier.
@@ -65,8 +71,7 @@ impl Display for Property {
             Property::Negation(prop_uni) => {
                 write!(f, "!({})", *prop_uni)
             }
-            Property::Or(a, b) => write_logic_bi(f, a, "||", b),
-            Property::And(a, b) => write_logic_bi(f, a, "&&", b),
+            Property::BiLogicOperator(op) => write_logic_bi(f, op),
             Property::E(prop_temp) => {
                 write!(f, "E{}", prop_temp)
             }
@@ -90,24 +95,20 @@ impl Display for Property {
     }
 }
 
-fn write_logic_bi(
-    f: &mut std::fmt::Formatter<'_>,
-    a: &Property,
-    op_str: &str,
-    b: &Property,
-) -> std::fmt::Result {
+fn write_logic_bi(f: &mut std::fmt::Formatter<'_>, op: &BiLogicOperator) -> std::fmt::Result {
+    let op_str = if op.is_and { "&&" } else { "||" };
     // Make sure the inner and / or properties are in parentheses so the display is unambiguous.
     let write_inner_prop = |f: &mut std::fmt::Formatter<'_>, prop: &Property| {
-        if matches!(prop, Property::And(..) | Property::Or(..)) {
+        if matches!(prop, Property::BiLogicOperator(..)) {
             write!(f, "({})", prop)
         } else {
             write!(f, "{}", prop)
         }
     };
 
-    write_inner_prop(f, a)?;
+    write_inner_prop(f, &op.a)?;
     write!(f, " {} ", op_str)?;
-    write_inner_prop(f, b)
+    write_inner_prop(f, &op.b)
 }
 
 impl Display for TemporalOperator {

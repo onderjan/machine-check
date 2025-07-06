@@ -73,12 +73,12 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // propagate to inner
                 self.deduce_end(*inner)
             }
-            PropertyType::And(a, b) | PropertyType::Or(a, b) => {
+            PropertyType::BiLogicOperator(op) => {
                 // the state should be unknown in p or q
                 let state_index = *self.path.back().unwrap();
-                let a_labelling = self.checker.get_state_labelling(*a, state_index);
+                let a_labelling = self.checker.get_state_labelling(op.a, state_index);
                 let a_deduction = if a_labelling.is_unknown() {
-                    let a_deduction = self.deduce_end(*a)?;
+                    let a_deduction = self.deduce_end(op.a)?;
                     if matches!(a_deduction, Deduction::Culprit(_)) {
                         return Ok(a_deduction);
                     }
@@ -86,9 +86,9 @@ impl<M: FullMachine> Deducer<'_, M> {
                 } else {
                     None
                 };
-                let b_labelling = self.checker.get_state_labelling(*b, state_index);
+                let b_labelling = self.checker.get_state_labelling(op.b, state_index);
                 assert!(b_labelling.is_unknown());
-                let b_deduction = self.deduce_end(*b)?;
+                let b_deduction = self.deduce_end(op.b)?;
                 if matches!(b_deduction, Deduction::Culprit(_)) {
                     return Ok(b_deduction);
                 }

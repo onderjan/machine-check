@@ -70,13 +70,19 @@ pub enum PropertyType {
     Const(bool),
     Atomic(AtomicProperty),
     Negation(usize),
-    Or(usize, usize),
-    And(usize, usize),
+    BiLogicOperator(BiLogicOperator),
     EX(usize),
     AX(usize),
     LeastFixedPoint(usize),
     GreatestFixedPoint(usize),
     FixedPointVariable(usize),
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub struct BiLogicOperator {
+    pub is_and: bool,
+    pub a: usize,
+    pub b: usize,
 }
 
 impl Property {
@@ -103,8 +109,7 @@ impl Subproperty {
             PropertyType::Const(_) => Vec::new(),
             PropertyType::Atomic(_) => Vec::new(),
             PropertyType::Negation(inner) => vec![*inner],
-            PropertyType::Or(a, b) => vec![*a, *b],
-            PropertyType::And(a, b) => vec![*a, *b],
+            PropertyType::BiLogicOperator(op) => vec![op.a, op.b],
             PropertyType::EX(inner) => vec![*inner],
             PropertyType::AX(inner) => vec![*inner],
             PropertyType::LeastFixedPoint(inner) => {

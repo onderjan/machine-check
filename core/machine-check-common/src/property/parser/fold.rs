@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::original;
-use crate::property::{self as folded, SubpropertyEntry};
+use crate::property::{self as folded, BiLogicOperator, SubpropertyEntry};
 
 /// Converts to canonical representation suitable for model-checking.
 ///
@@ -43,11 +43,12 @@ impl Folder {
             original::Property::Negation(inner) => {
                 folded::PropertyType::Negation(self.fold_inner(*inner))
             }
-            original::Property::Or(a, b) => {
-                folded::PropertyType::Or(self.fold_inner(*a), self.fold_inner(*b))
-            }
-            original::Property::And(a, b) => {
-                folded::PropertyType::And(self.fold_inner(*a), self.fold_inner(*b))
+            original::Property::BiLogicOperator(op) => {
+                folded::PropertyType::BiLogicOperator(folded::BiLogicOperator {
+                    is_and: op.is_and,
+                    a: self.fold_inner(*op.a),
+                    b: self.fold_inner(*op.b),
+                })
             }
             original::Property::E(temporal) => match temporal {
                 original::TemporalOperator::X(inner) => {
@@ -177,19 +178,25 @@ impl Folder {
 
         // for R, inner operator is (permitting || [A/E]X(Z))
         // for U, inner operator is (permitting && [A/E]X(Z))
-        let inner_operator = self.arena_push(if release {
-            folded::PropertyType::Or(permitting, next)
-        } else {
-            folded::PropertyType::And(permitting, next)
-        });
+        let inner_is_and = !release;
+
+        let inner_operator =
+            self.arena_push(folded::PropertyType::BiLogicOperator(BiLogicOperator {
+                is_and: inner_is_and,
+                a: permitting,
+                b: next,
+            }));
 
         // for R, outer operator is sufficient && inner_operator
         // for U, outer operator is sufficient || inner_operator
-        let outer_operator = self.arena_push(if release {
-            folded::PropertyType::And(sufficient, inner_operator)
-        } else {
-            folded::PropertyType::Or(sufficient, inner_operator)
-        });
+        let outer_is_and = release;
+
+        let outer_operator =
+            self.arena_push(folded::PropertyType::BiLogicOperator(BiLogicOperator {
+                is_and: outer_is_and,
+                a: sufficient,
+                b: inner_operator,
+            }));
 
         // for R, gfp Z . sufficient && (permitting || [A/E]X(Z))
         // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))

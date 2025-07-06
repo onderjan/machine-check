@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 use crate::{
     property::{
         parser::original::{
-            FixedPointOperator, OperatorF, OperatorG, OperatorR, OperatorU, Property,
-            TemporalOperator,
+            BiLogicOperator, FixedPointOperator, OperatorF, OperatorG, OperatorR, OperatorU,
+            Property, TemporalOperator,
         },
         AtomicProperty, ValueExpression,
     },
@@ -65,7 +65,11 @@ impl PropertyParser {
         if let Some(TokenType::LogicAnd) = self.peek_type() {
             loop {
                 self.lex_items.pop_front();
-                expr = Property::And(Box::new(expr), Box::new(self.parse_property_expr()?));
+                expr = Property::BiLogicOperator(BiLogicOperator {
+                    is_and: true,
+                    a: Box::new(expr),
+                    b: Box::new(self.parse_property_expr()?),
+                });
                 let Some(TokenType::LogicAnd) = self.peek_type() else {
                     break;
                 };
@@ -73,7 +77,11 @@ impl PropertyParser {
         } else if let Some(TokenType::LogicOr) = self.peek_type() {
             loop {
                 self.lex_items.pop_front();
-                expr = Property::Or(Box::new(expr), Box::new(self.parse_property_expr()?));
+                expr = Property::BiLogicOperator(BiLogicOperator {
+                    is_and: false,
+                    a: Box::new(expr),
+                    b: Box::new(self.parse_property_expr()?),
+                });
                 let Some(TokenType::LogicOr) = self.peek_type() else {
                     break;
                 };
@@ -386,7 +394,11 @@ fn test_parse() {
             },
         )))));
 
-        let created = Property::And(Box::new(ag), Box::new(Property::Negation(Box::new(ef))));
+        let created = Property::BiLogicOperator(BiLogicOperator {
+            is_and: true,
+            a: Box::new(ag),
+            b: Box::new(Property::Negation(Box::new(ef))),
+        });
 
         assert_eq!(parsed, created);
         assert_eq!(&parsed.to_string(), str);
@@ -397,8 +409,9 @@ fn test_parse() {
         )
         .unwrap();
 
-        let until = Property::Or(
-            Box::new(Property::Atomic(AtomicProperty {
+        let until = Property::BiLogicOperator(BiLogicOperator {
+            is_and: false,
+            a: Box::new(Property::Atomic(AtomicProperty {
                 left: ValueExpression {
                     name: String::from("ALREADY_UNSIGNED"),
                     index: None,
@@ -407,7 +420,7 @@ fn test_parse() {
                 comparison_type: crate::property::ComparisonType::Le,
                 right_number: 0x5E,
             })),
-            Box::new(Property::Negation(Box::new(Property::Atomic(
+            b: Box::new(Property::Negation(Box::new(Property::Atomic(
                 AtomicProperty {
                     left: ValueExpression {
                         name: String::from("abc"),
@@ -418,7 +431,7 @@ fn test_parse() {
                     right_number: -3,
                 },
             )))),
-        );
+        });
 
         let created = Property::E(TemporalOperator::U(OperatorU {
             hold: Box::new(Property::Atomic(AtomicProperty {

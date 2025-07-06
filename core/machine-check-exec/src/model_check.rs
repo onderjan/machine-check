@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use log::{log_enabled, trace};
 use machine_check_common::{
     check::Conclusion,
-    property::{Property, PropertyType, Subproperty},
+    property::{BiLogicOperator, Property, PropertyType, Subproperty},
     ExecError, StateId, ThreeValued,
 };
 use mck::concr::FullMachine;
@@ -166,8 +166,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 check_info.dirty = dirty;
                 check_info.labelling.extend(updated_labelling);
             }
-            PropertyType::Or(a, b) => self.compute_binary_op(subproperty_index, *a, *b, false)?,
-            PropertyType::And(a, b) => self.compute_binary_op(subproperty_index, *a, *b, true)?,
+            PropertyType::BiLogicOperator(op) => self.compute_binary_op(subproperty_index, op)?,
             PropertyType::EX(inner) => {
                 self.compute_next_labelling(subproperty_index, *inner, false)?
             }
@@ -243,18 +242,16 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
     fn compute_binary_op(
         &mut self,
         subproperty_index: usize,
-        a_id: usize,
-        b_id: usize,
-        is_and: bool,
+        op: &BiLogicOperator,
     ) -> Result<(), ExecError> {
         let mut dirty = BTreeSet::new();
         dirty.append(&mut self.get_check_info_mut(subproperty_index).dirty);
 
-        let a_updated = self.compute_labelling(a_id)?;
-        let b_updated = self.compute_labelling(b_id)?;
+        let a_updated = self.compute_labelling(op.a)?;
+        let b_updated = self.compute_labelling(op.b)?;
 
-        let a_labelling = self.get_labelling(a_id);
-        let b_labelling = self.get_labelling(b_id);
+        let a_labelling = self.get_labelling(op.a);
+        let b_labelling = self.get_labelling(op.b);
 
         dirty.extend(a_updated);
         dirty.extend(b_updated);
@@ -269,7 +266,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 .get(&state_id)
                 .expect("Binary operation should have right labelling available");
 
-            let result_value = if is_and {
+            let result_value = if op.is_and {
                 a_value & b_value
             } else {
                 a_value | b_value
