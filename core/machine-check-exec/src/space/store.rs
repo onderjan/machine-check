@@ -37,13 +37,13 @@ impl<M: FullMachine> StateStore<M> {
         }
     }
 
-    // Get state id, add if necessary.
-    pub fn state_id(&mut self, state: AbstrPanicState<M>) -> StateId {
+    // Get state id, add if necessary. Return if we have inserted
+    pub fn state_id(&mut self, state: AbstrPanicState<M>) -> (StateId, bool) {
         // Check if the state already corresponds to some id.
         let state = MetaWrap(state);
         if let Some(state_id) = self.map.get_by_right(&state) {
             // return that we have not inserted and the id
-            return *state_id;
+            return (*state_id, false);
         };
 
         // Add state to the map with the next state id.
@@ -63,7 +63,7 @@ impl<M: FullMachine> StateStore<M> {
         };
 
         // Return the id.
-        inserted_state_id
+        (inserted_state_id, true)
     }
 
     pub fn state_data(&self, state_id: StateId) -> &AbstrPanicState<M> {

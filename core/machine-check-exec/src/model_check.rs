@@ -16,42 +16,12 @@ use crate::space::StateSpace;
 
 use self::deduce::deduce_culprit;
 
-/// Perform three-valued model checking.
-///
-/// The proposition must be prepared beforehand.
-pub(super) fn check_property<M: FullMachine>(
-    space: &StateSpace<M>,
-    property: &Property,
-) -> Result<Conclusion, ExecError> {
-    let mut checker = ThreeValuedChecker::new(space, property);
-    checker.check_property()
-}
-
-pub(super) fn check_subproperty_with_labelling<M: FullMachine>(
-    space: &StateSpace<M>,
-    subproperty: &Subproperty,
-) -> Result<(Conclusion, BTreeMap<StateId, ThreeValued>), ExecError> {
-    let mut checker = ThreeValuedChecker::new(space, subproperty.property());
-    let conclusion = checker.check_property()?;
-
-    /*println!(
-        "Computing the labelling for {:?}, check map: {:?}",
-        subproperty, checker.check_map
-    );*/
-
-    // get the labelling as well
-    let subproperty_index = subproperty.index();
-    let _updated = checker.compute_labelling(subproperty_index)?;
-    //println!("Getting the labelling, check map: {:?}", checker.check_map);
-    let labelling = checker.get_labelling(subproperty_index).clone();
-    //println!("Got the labelling");
-    Ok((conclusion, labelling))
-}
-
 /// Three-valued model checker.
-struct ThreeValuedChecker<'a, M: FullMachine> {
-    space: &'a StateSpace<M>,
-    property: &'a Property,
+pub struct ThreeValuedChecker {
+    property_checkers: HashMap<Property, PropertyChecker>,
+}
+
+pub struct PropertyChecker {
     check_map: HashMap<usize, CheckInfo>,
 }
 
@@ -62,22 +32,58 @@ struct CheckInfo {
     dirty: BTreeSet<StateId>,
 }
 
-impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
-    fn new(space: &'a StateSpace<M>, property: &'a Property) -> Self {
+impl ThreeValuedChecker {
+    pub fn new() -> Self {
         Self {
-            space,
-            property,
-            check_map: HashMap::new(),
+            property_checkers: HashMap::new(),
         }
     }
 
-    /// Model-checks a CTL proposition.
-    ///
-    /// The proposition must be prepared and made canonical beforehand.
-    fn check_property(&mut self) -> Result<Conclusion, ExecError> {
-        let result = self.compute_interpretation()?;
+    pub fn check_subproperty_with_labelling<M: FullMachine>(
+        &mut self,
+        space: &StateSpace<M>,
+        subproperty: &Subproperty,
+    ) -> Result<(Conclusion, BTreeMap<StateId, ThreeValued>), ExecError> {
+        let property = subproperty.property();
+        let conclusion = self.check_property(space, property)?;
 
-        if !self.space.is_valid() {
+        let property_checker = self
+            .property_checkers
+            .get_mut(property)
+            .expect("Property checker should be inserted after the property was checked");
+
+        // get the labelling as well
+        let subproperty_index = subproperty.index();
+        let _updated = property_checker.compute_labelling(property, space, subproperty_index)?;
+        //println!("Getting the labelling, check map: {:?}", checker.check_map);
+        let labelling = property_checker.get_labelling(subproperty_index).clone();
+        //println!("Got the labelling");
+        Ok((conclusion, labelling))
+    }
+
+    /// Model-checks a mu-calculus proposition.
+    pub fn check_property<M: FullMachine>(
+        &mut self,
+        space: &StateSpace<M>,
+        property: &Property,
+    ) -> Result<Conclusion, ExecError> {
+        if !self.property_checkers.contains_key(property) {
+            self.property_checkers.insert(
+                property.clone(),
+                PropertyChecker {
+                    check_map: HashMap::new(),
+                },
+            );
+        }
+
+        let property_checker = self
+            .property_checkers
+            .get_mut(property)
+            .expect("Property checker should be just inserted");
+
+        let result = property_checker.compute_interpretation(space, property)?;
+
+        if !space.is_valid() {
             return Ok(Conclusion::NotCheckable);
         }
 
@@ -85,16 +91,54 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         match result {
             ThreeValued::False => Ok(Conclusion::Known(false)),
             ThreeValued::True => Ok(Conclusion::Known(true)),
-            ThreeValued::Unknown => Ok(Conclusion::Unknown(deduce_culprit(self)?)),
+            ThreeValued::Unknown => Ok(Conclusion::Unknown(deduce_culprit(
+                property_checker,
+                space,
+                property,
+            )?)),
         }
     }
 
-    fn compute_interpretation(&mut self) -> Result<ThreeValued, ExecError> {
-        let _updated = self.compute_labelling(0)?;
+    pub fn declare_regeneration(
+        &mut self,
+        _new_states: &BTreeSet<StateId>,
+        _changed_successors: &BTreeSet<StateId>,
+    ) {
+        // TODO: rework so that full recomputation is not necessary each time
+        self.property_checkers.clear();
+        /*println!(
+            "Declared regeneration, new states: {:?}, changed successors: {:?}",
+            new_states, changed_successors
+        );*/
+        /*for (property, property_checker) in &mut self.property_checkers {
+            for (subproperty_id, check_info) in &mut property_checker.check_map {
+                check_info.dirty.extend(new_states);
+                let subproperty = property.subproperty_entry(*subproperty_id);
+                //if matches!(subproperty.ty, PropertyType::Next(_)) {
+                /*check_info.dirty.extend(changed_successors);
+                for state_id in changed_successors {
+                    check_info.reasons.remove(state_id);
+                }*/
+                check_info.dirty.clear();
+                check_info.reasons.clear();
+                check_info.labelling.clear();
+                //}
+            }
+        }*/
+    }
+}
+
+impl PropertyChecker {
+    fn compute_interpretation<M: FullMachine>(
+        &mut self,
+        space: &StateSpace<M>,
+        property: &Property,
+    ) -> Result<ThreeValued, ExecError> {
+        let _updated = self.compute_labelling(property, space, 0)?;
         let labelling = self.get_labelling(0);
         // conventionally, the property must hold in all initial states
         let mut result = ThreeValued::True;
-        for initial_state_id in self.space.initial_iter() {
+        for initial_state_id in space.initial_iter() {
             let state_labelling = labelling
                 .get(&initial_state_id)
                 .expect("Labelling should contain initial state");
@@ -103,8 +147,10 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         Ok(result)
     }
 
-    fn compute_labelling(
+    fn compute_labelling<M: FullMachine>(
         &mut self,
+        property: &Property,
+        space: &StateSpace<M>,
         subproperty_index: usize,
     ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
         let mut dirty = if let Some(check_info) = self.check_map.get_mut(&subproperty_index) {
@@ -122,13 +168,13 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                 },
             );
             // make all states dirty by default
-            BTreeSet::from_iter(self.space.states())
+            BTreeSet::from_iter(space.states())
         };
 
         //println!("Property: {:?}", self.property);
         //println!("Computing labelling for index {}", subproperty_index);
 
-        let subproperty_entry = self.property.subproperty_entry(subproperty_index);
+        let subproperty_entry = property.subproperty_entry(subproperty_index);
 
         let mut update = BTreeMap::new();
 
@@ -144,17 +190,14 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             }
             PropertyType::Atomic(atomic_property) => {
                 for state_id in dirty {
-                    update.insert(
-                        state_id,
-                        self.space.atomic_label(atomic_property, state_id)?,
-                    );
+                    update.insert(state_id, space.atomic_label(atomic_property, state_id)?);
                 }
                 None
             }
             PropertyType::Negation(inner) => {
                 // if negation is dirty, inner must be dirty as well
                 // it suffices to negate everything updated
-                update = self.compute_labelling(*inner)?;
+                update = self.compute_labelling(property, space, *inner)?;
                 for (_state_id, three_valued) in update.iter_mut() {
                     *three_valued = !*three_valued;
                 }
@@ -163,16 +206,23 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             PropertyType::BiLogic(op) => {
                 // if binary operator is dirty, inner must be dirty as well
                 // it suffices to negate everything updated
-                self.compute_binary_op(&mut update, op)?;
+                self.compute_binary_op(space, property, &mut update, op)?;
                 None
             }
-            PropertyType::Next(op) => Some(self.compute_next_labelling(dirty, &mut update, op)?),
+            PropertyType::Next(op) => {
+                Some(self.compute_next_labelling(space, property, dirty, &mut update, op)?)
+            }
             PropertyType::FixedPoint(op) => {
-                return self.compute_fixed_point_op(subproperty_index, dirty, op);
+                return self.compute_fixed_point_op(space, property, subproperty_index, dirty, op);
             }
             PropertyType::FixedVariable(fixed_point) => {
                 // update from the fixed point
-                dirty.extend(self.get_check_info_mut(*fixed_point).dirty.iter().copied());
+                dirty.extend(
+                    self.get_check_info_mut(property, *fixed_point)
+                        .dirty
+                        .iter()
+                        .copied(),
+                );
 
                 let fixed_point_labelling = self.get_labelling(*fixed_point);
 
@@ -186,7 +236,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             }
         };
 
-        let check_info = self.get_check_info_mut(subproperty_index);
+        let check_info = self.get_check_info_mut(property, subproperty_index);
 
         let num_recomputed = update.len();
 
@@ -199,6 +249,11 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
                     check_info.reasons.insert(updated_state, *reason);
                 }
             }
+            for (reason_start, reason_end) in reasons {
+                check_info.reasons.entry(reason_start).or_insert(reason_end);
+            }
+
+            //println!("Updated reasons: {:?}", check_info.reasons);
         }
 
         if log_enabled!(log::Level::Trace) {
@@ -235,24 +290,30 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         updated_labels
     }
 
-    fn get_check_info_mut(&mut self, subproperty_index: usize) -> &mut CheckInfo {
+    fn get_check_info_mut(
+        &mut self,
+        property: &Property,
+        subproperty_index: usize,
+    ) -> &mut CheckInfo {
         if let Some(info) = self.check_map.get_mut(&subproperty_index) {
             info
         } else {
             panic!(
                 "Check info for the subproperty index {} of property {:?} should be available",
-                subproperty_index, self.property
+                subproperty_index, property
             )
         }
     }
 
-    fn compute_binary_op(
+    fn compute_binary_op<M: FullMachine>(
         &mut self,
+        space: &StateSpace<M>,
+        property: &Property,
         update: &mut BTreeMap<StateId, ThreeValued>,
         op: &BiLogicOperator,
     ) -> Result<(), ExecError> {
-        let a_updated = self.compute_labelling(op.a)?;
-        let b_updated = self.compute_labelling(op.b)?;
+        let a_updated = self.compute_labelling(property, space, op.a)?;
+        let b_updated = self.compute_labelling(property, space, op.b)?;
 
         let a_labelling = self.get_labelling(op.a);
         let b_labelling = self.get_labelling(op.b);
@@ -284,8 +345,10 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         Ok(())
     }
 
-    fn compute_next_labelling(
+    fn compute_next_labelling<M: FullMachine>(
         &mut self,
+        space: &StateSpace<M>,
+        property: &Property,
         mut dirty: BTreeSet<StateId>,
         update: &mut BTreeMap<StateId, ThreeValued>,
         op: &NextOperator,
@@ -296,14 +359,14 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
         //let mut current_reasons = BTreeMap::new();
         //current_reasons.append(&mut check_info.reasons);
 
-        let inner_updated = self.compute_labelling(op.inner)?;
+        let inner_updated = self.compute_labelling(property, space, op.inner)?;
 
         // We need to compute states which are either dirty or the inner property was updated
         // for their direct successors.
 
         for state_id in inner_updated.keys() {
             //println!("Next updated state id: {}", state_id);
-            for predecessor_id in self.space.direct_predecessor_iter((*state_id).into()) {
+            for predecessor_id in space.direct_predecessor_iter((*state_id).into()) {
                 if let Ok(predecessor_id) = StateId::try_from(predecessor_id) {
                     //println!("Considered state id: {}", predecessor_id);
                     dirty.insert(predecessor_id);
@@ -319,11 +382,13 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
         let mut reasons = BTreeMap::new();
 
+        //println!("Computing next for dirty {:?}", dirty);
+
         // For each state in dirty states, compute the new value from the successors.
         for dirty_id in dirty.iter().copied() {
             let mut label = ground_value;
             let mut reason = None;
-            for successor_id in self.space.direct_successor_iter(dirty_id.into()) {
+            for successor_id in space.direct_successor_iter(dirty_id.into()) {
                 let successor_value = inner_labelling
                     .get(&successor_id)
                     .expect("Direct successor should labelled");
@@ -348,14 +413,16 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
             update.insert(dirty_id, label);
         }
 
-        //println!("Next valuations: {:?}", labelling);
+        //println!("Next valuations: {:?}", update);
         //println!("Next reasons: {:?}", reasons);
 
         Ok(reasons)
     }
 
-    fn compute_fixed_point_op(
+    fn compute_fixed_point_op<M: FullMachine>(
         &mut self,
+        space: &StateSpace<M>,
+        property: &Property,
         fixed_point_index: usize,
         dirty: BTreeSet<StateId>,
         op: &FixedPointOperator,
@@ -387,7 +454,7 @@ impl<'a, M: FullMachine> ThreeValuedChecker<'a, M> {
 
         // compute inner property labelling and update variable labelling until they match
         loop {
-            let current_update = self.compute_labelling(op.inner)?;
+            let current_update = self.compute_labelling(property, space, op.inner)?;
 
             //println!("Updated in this iteration: {:?}", updated);
 

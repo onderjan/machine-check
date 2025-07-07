@@ -5,6 +5,7 @@ use machine_check_common::check::Culprit;
 use machine_check_common::ExecStats;
 use mck::concr::FullMachine;
 
+use crate::model_check::ThreeValuedChecker;
 use crate::precision::Precision;
 use crate::space::StateSpace;
 use crate::AbstrInput;
@@ -20,6 +21,8 @@ pub struct WorkState<M: FullMachine> {
     pub step_precision: Precision<AbstrPanicState<M>, RefinPanicState<M>>,
     /// Current state space.
     pub space: StateSpace<M>,
+    /// Model checker.
+    pub checker: ThreeValuedChecker,
     /// Culprit of verification returning unknown.
     pub culprit: Option<Culprit>,
 
@@ -37,6 +40,7 @@ impl<M: FullMachine> WorkState<M> {
             input_precision: Precision::new(),
             step_precision: Precision::new(),
             space: StateSpace::new(),
+            checker: ThreeValuedChecker::new(),
             culprit: None,
             num_refinements: 0,
             num_generated_states: 0,

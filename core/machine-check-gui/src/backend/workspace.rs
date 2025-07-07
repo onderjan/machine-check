@@ -120,7 +120,7 @@ impl<M: FullMachine> Workspace<M> {
         let mut properties = Vec::new();
         for business_property in &self.properties {
             properties.push(Self::create_property_snapshot(
-                &self.framework,
+                &mut self.framework,
                 business_property,
             ));
         }
@@ -138,7 +138,7 @@ impl<M: FullMachine> Workspace<M> {
     }
 
     fn create_property_snapshot(
-        framework: &Framework<M>,
+        framework: &mut Framework<M>,
         business_property: &WorkspaceProperty,
     ) -> SubpropertySnapshot {
         let (conclusion, labellings) =

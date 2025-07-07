@@ -1,23 +1,34 @@
 use core::panic;
 use std::collections::VecDeque;
 
-use machine_check_common::{check::Culprit, property::PropertyType, ExecError, StateId};
+use machine_check_common::{
+    check::{Culprit, Property},
+    property::PropertyType,
+    ExecError, StateId,
+};
 use mck::concr::FullMachine;
 
-use super::ThreeValuedChecker;
+use crate::{model_check::PropertyChecker, space::StateSpace};
 
 /// Deduces the culprit of unknown three-valued model-checking result.
 pub(super) fn deduce_culprit<M: FullMachine>(
-    checker: &ThreeValuedChecker<M>,
+    checker: &PropertyChecker,
+    space: &StateSpace<M>,
+    property: &Property,
 ) -> Result<Culprit, ExecError> {
     // incomplete, compute culprit
     // it must start with one of the initial states
-    for initial_index in checker.space.initial_iter() {
+    for initial_index in space.initial_iter() {
         if checker.get_state_root_labelling(initial_index).is_unknown() {
             // unknown initial state, compute culprit from it
             let mut path = VecDeque::new();
             path.push_back(initial_index);
-            let mut deducer = Deducer::<M> { checker, path };
+            let mut deducer = Deducer::<M> {
+                checker,
+                path,
+                space,
+                property,
+            };
             let Deduction::Culprit(culprit) = deducer.deduce_end(0)? else {
                 panic!("Deduction should give the culprit");
             };
@@ -29,7 +40,9 @@ pub(super) fn deduce_culprit<M: FullMachine>(
 }
 
 struct Deducer<'a, M: FullMachine> {
-    checker: &'a ThreeValuedChecker<'a, M>,
+    checker: &'a PropertyChecker,
+    space: &'a StateSpace<M>,
+    property: &'a Property,
     path: VecDeque<StateId>,
 }
 
@@ -49,13 +62,16 @@ impl<M: FullMachine> Deducer<'_, M> {
     /// Deduces the ending states of the culprit, after the ones already found.
     fn deduce_end(&mut self, subproperty_index: usize) -> Result<Deduction, ExecError> {
         //println!("Space: {:?}", self.checker.space);
-        //println!("Deducing end for property {}", prop);
         assert!(self
             .checker
             .get_state_labelling(subproperty_index, *self.path.back().unwrap())
             .is_unknown());
 
-        let subproperty_entry = self.checker.property.subproperty_entry(subproperty_index);
+        let subproperty_entry = self.property.subproperty_entry(subproperty_index);
+        /*println!(
+            "Deducing end for subproperty {:?} with path {:?}",
+            subproperty_entry, self.path
+        );*/
 
         match &subproperty_entry.ty {
             PropertyType::Const(_) => {
@@ -136,11 +152,7 @@ impl<M: FullMachine> Deducer<'_, M> {
         // lengthen by direct successor with unknown inner
         let path_back_index = *self.path.back().unwrap();
 
-        for direct_successor_index in self
-            .checker
-            .space
-            .direct_successor_iter(path_back_index.into())
-        {
+        for direct_successor_index in self.space.direct_successor_iter(path_back_index.into()) {
             /*println!(
                 "Considering {} -> {}",
                 path_back_index, direct_successor_index

@@ -42,11 +42,11 @@ impl<M: FullMachine> StateSpace<M> {
         head_id: NodeId,
         tail_data: AbstrPanicState<M>,
         representative_input: &AbstrInput<M>,
-    ) -> StateId {
-        let tail_id = self.store.state_id(tail_data);
+    ) -> (StateId, bool) {
+        let (tail_id, inserted) = self.store.state_id(tail_data);
 
         self.graph.add_step(head_id, tail_id, representative_input);
-        tail_id
+        (tail_id, inserted)
     }
 
     pub fn breadth_first_search<T>(
@@ -86,7 +86,7 @@ impl<M: FullMachine> StateSpace<M> {
 
     pub fn state_id(&mut self, state_data: AbstrPanicState<M>) -> StateId {
         // TODO: this is a dangerous thing with garbage collection
-        self.store.state_id(state_data)
+        self.store.state_id(state_data).0
     }
 
     pub fn state_data(&self, state_id: StateId) -> &AbstrPanicState<M> {

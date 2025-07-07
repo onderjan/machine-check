@@ -22,7 +22,6 @@ use mck::refin::Manipulatable;
 use mck::refin::{self};
 use work_state::WorkState;
 
-use crate::model_check::{self};
 use crate::space::StateSpace;
 use crate::RefinInput;
 use crate::RefinPanicState;
@@ -114,7 +113,11 @@ impl<M: FullMachine> Framework<M> {
         }
 
         // perform model-checking
-        match model_check::check_property::<M>(&self.work_state.space, property) {
+        match self
+            .work_state
+            .checker
+            .check_property(&self.work_state.space, property)
+        {
             Ok(Conclusion::Known(conclusion)) => {
                 // conclude the result
                 ControlFlow::Break(Ok(conclusion))
@@ -360,7 +363,11 @@ impl<M: FullMachine> Framework<M> {
         self.work_state.space.clear_step(from_node_id);
         queue.push_back(from_node_id);
 
-        let mut changed = false;
+        let mut something_changed = false;
+
+        let mut new_states = BTreeSet::new();
+        let mut changed_successors = BTreeSet::new();
+
         // construct state space by breadth-first search
         while let Some(node_id) = queue.pop_front() {
             // if it has already been processed, continue
@@ -413,7 +420,12 @@ impl<M: FullMachine> Framework<M> {
 
                 // add the step to the state space
                 self.work_state.num_generated_transitions += 1;
-                let next_state_index = self.work_state.space.add_step(node_id, next_state, &input);
+                let (next_state_index, inserted) =
+                    self.work_state.space.add_step(node_id, next_state, &input);
+
+                if inserted {
+                    new_states.insert(next_state_index);
+                }
 
                 // add the tail to the queue if it has no direct successors yet
                 let next_has_direct_successor = self
@@ -429,32 +441,47 @@ impl<M: FullMachine> Framework<M> {
                 }
             }
 
+            // compare sets of node ids
+            let direct_successors: BTreeSet<StateId> = self
+                .work_state
+                .space
+                .direct_successor_iter(node_id)
+                .collect();
+
+            let node_changed = direct_successors != removed_direct_successors;
+
+            if node_changed {
+                if let Ok(state_id) = StateId::try_from(node_id) {
+                    changed_successors.insert(state_id);
+                }
+            }
+
             // make sure changed is true if the target nodes are different from the removed ones
             // ignore the edges changing, currently only used for representative inputs
             // which has no impact on verification
-            if !changed {
-                // compare sets of node ids
-                let direct_successors: BTreeSet<StateId> = self
-                    .work_state
-                    .space
-                    .direct_successor_iter(node_id)
-                    .collect();
-                changed = direct_successors != removed_direct_successors;
+            if !something_changed {
+                something_changed = node_changed;
             }
         }
+
+        self.work_state
+            .checker
+            .declare_regeneration(&new_states, &changed_successors);
 
         // Each node now should have at least one direct successor.
         // Assert it to be sure.
         self.space().assert_left_total();
 
-        changed
+        something_changed
     }
 
     pub fn check_subproperty_with_labelling(
-        &self,
+        &mut self,
         property: &Subproperty,
     ) -> Result<(Conclusion, BTreeMap<StateId, ThreeValued>), ExecError> {
-        model_check::check_subproperty_with_labelling(&self.work_state.space, property)
+        self.work_state
+            .checker
+            .check_subproperty_with_labelling(&self.work_state.space, property)
     }
 
     pub fn find_panic_string(&mut self) -> Option<&'static str> {
