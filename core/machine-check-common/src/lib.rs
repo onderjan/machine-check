@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::{
+    cmp::Ordering,
     fmt::Display,
     ops::{BitAnd, BitOr, Not},
 };
@@ -95,7 +96,7 @@ pub struct ExecStats {
 }
 
 /// An extension of a Boolean to three-valued logic.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ThreeValued {
     // Known false.
     False,
@@ -103,6 +104,30 @@ pub enum ThreeValued {
     True,
     // Either false or true, but it is unknown which one.
     Unknown,
+}
+
+impl PartialOrd for ThreeValued {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ThreeValued {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (ThreeValued::False, ThreeValued::False) => Ordering::Equal,
+            (ThreeValued::False, ThreeValued::Unknown) => Ordering::Less,
+            (ThreeValued::False, ThreeValued::True) => Ordering::Less,
+
+            (ThreeValued::Unknown, ThreeValued::False) => Ordering::Greater,
+            (ThreeValued::Unknown, ThreeValued::Unknown) => Ordering::Equal,
+            (ThreeValued::Unknown, ThreeValued::True) => Ordering::Less,
+
+            (ThreeValued::True, ThreeValued::False) => Ordering::Greater,
+            (ThreeValued::True, ThreeValued::Unknown) => Ordering::Greater,
+            (ThreeValued::True, ThreeValued::True) => Ordering::Equal,
+        }
+    }
 }
 
 impl ThreeValued {

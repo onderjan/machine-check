@@ -173,6 +173,10 @@ impl<M: FullMachine> StateGraph<M> {
             .map(|successor_id| StateId::try_from(successor_id).unwrap())
     }
 
+    pub fn contains_edge(&self, head_id: NodeId, tail_id: StateId) -> bool {
+        self.node_graph.contains_edge(head_id, tail_id.into())
+    }
+
     pub fn initial_iter(&self) -> impl Iterator<Item = StateId> + '_ {
         self.direct_successor_iter(NodeId::ROOT)
     }

@@ -138,6 +138,10 @@ impl<M: FullMachine> StateSpace<M> {
         self.graph.direct_successor_iter(node_id)
     }
 
+    pub fn contains_edge(&self, head_id: NodeId, tail_id: StateId) -> bool {
+        self.graph.contains_edge(head_id, tail_id)
+    }
+
     pub fn assert_left_total(&self) {
         self.graph.assert_left_total();
     }

@@ -16,10 +16,16 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     space: &StateSpace<M>,
     property: &Property,
 ) -> Result<Culprit, ExecError> {
+    //println!("Deducing culprit, checker: {:#?}", checker);
+
     // incomplete, compute culprit
     // it must start with one of the initial states
     for initial_index in space.initial_iter() {
-        if checker.get_state_root_labelling(initial_index).is_unknown() {
+        if checker
+            .get_state_root_label(initial_index)
+            .value
+            .is_unknown()
+        {
             // unknown initial state, compute culprit from it
             let mut path = VecDeque::new();
             path.push_back(initial_index);
@@ -64,7 +70,8 @@ impl<M: FullMachine> Deducer<'_, M> {
         //println!("Space: {:?}", self.checker.space);
         assert!(self
             .checker
-            .get_state_labelling(subproperty_index, *self.path.back().unwrap())
+            .get_state_label(subproperty_index, *self.path.back().unwrap())
+            .value
             .is_unknown());
 
         let subproperty_entry = self.property.subproperty_entry(subproperty_index);
@@ -92,8 +99,8 @@ impl<M: FullMachine> Deducer<'_, M> {
             PropertyType::BiLogic(op) => {
                 // the state should be unknown in p or q
                 let state_index = *self.path.back().unwrap();
-                let a_labelling = self.checker.get_state_labelling(op.a, state_index);
-                let a_deduction = if a_labelling.is_unknown() {
+                let a_labelling = self.checker.get_state_label(op.a, state_index);
+                let a_deduction = if a_labelling.value.is_unknown() {
                     let a_deduction = self.deduce_end(op.a)?;
                     if matches!(a_deduction, Deduction::Culprit(_)) {
                         return Ok(a_deduction);
@@ -102,8 +109,8 @@ impl<M: FullMachine> Deducer<'_, M> {
                 } else {
                     None
                 };
-                let b_labelling = self.checker.get_state_labelling(op.b, state_index);
-                assert!(b_labelling.is_unknown());
+                let b_labelling = self.checker.get_state_label(op.b, state_index);
+                assert!(b_labelling.value.is_unknown());
                 let b_deduction = self.deduce_end(op.b)?;
                 if matches!(b_deduction, Deduction::Culprit(_)) {
                     return Ok(b_deduction);
@@ -112,14 +119,25 @@ impl<M: FullMachine> Deducer<'_, M> {
                 Ok(a_deduction.unwrap_or(b_deduction))
             }
             PropertyType::Next(op) => {
-                let path_back_index = *self.path.back().unwrap();
-                let reason = *self
+                let current_state = *self.path.back().unwrap();
+
+                let labelling = self
                     .checker
-                    .get_reasons(subproperty_index)
-                    .get(&path_back_index)
-                    .expect("Culprit state should have a labelling reason");
-                //println!("X reason: {:?}", reason);
-                self.deduce_end_next(op.inner, reason)
+                    .get_labelling(subproperty_index)
+                    .get(&current_state)
+                    .expect("Culprit state should have labelling");
+
+                let next_state = *labelling
+                    .next_states
+                    .last()
+                    .expect("Culprit state should have next state for next operator");
+
+                assert_ne!(current_state, next_state);
+                assert!(self.space.contains_edge(current_state.into(), next_state));
+
+                self.path.push_back(next_state);
+
+                self.deduce_end(op.inner)
             }
             PropertyType::FixedPoint(op) => {
                 loop {
@@ -147,7 +165,7 @@ impl<M: FullMachine> Deducer<'_, M> {
         }
     }
 
-    fn deduce_end_next(&mut self, inner: usize, reason: StateId) -> Result<Deduction, ExecError> {
+    /*fn deduce_end_next(&mut self, inner: usize, reason: StateId) -> Result<Deduction, ExecError> {
         //println!("Deducing end for path: {:?}", self.path);
         // lengthen by direct successor with unknown inner
         let path_back_index = *self.path.back().unwrap();
@@ -163,9 +181,8 @@ impl<M: FullMachine> Deducer<'_, M> {
                 continue;
             }
 
-            let direct_successor_labelling = self
-                .checker
-                .get_state_labelling(inner, direct_successor_index);
+            let direct_successor_labelling =
+                self.checker.get_state_label(inner, direct_successor_index);
 
             if direct_successor_labelling.is_unknown() {
                 // add to path
@@ -177,5 +194,5 @@ impl<M: FullMachine> Deducer<'_, M> {
             }
         }
         panic!("no next state culprit found")
-    }
+    }*/
 }

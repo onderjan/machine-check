@@ -1,6 +1,9 @@
 mod deduce;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet, HashMap},
+};
 
 use log::{log_enabled, trace};
 use machine_check_common::{
@@ -21,15 +24,22 @@ pub struct ThreeValuedChecker {
     property_checkers: HashMap<Property, PropertyChecker>,
 }
 
+#[derive(Debug)]
 pub struct PropertyChecker {
     check_map: HashMap<usize, CheckInfo>,
 }
 
 #[derive(Debug)]
 struct CheckInfo {
-    labelling: BTreeMap<StateId, ThreeValued>,
-    reasons: BTreeMap<StateId, StateId>,
+    labelling: BTreeMap<StateId, Label>,
     dirty: BTreeSet<StateId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct Label {
+    wave: u64,
+    value: ThreeValued,
+    next_states: Vec<StateId>,
 }
 
 impl ThreeValuedChecker {
@@ -56,7 +66,11 @@ impl ThreeValuedChecker {
         let subproperty_index = subproperty.index();
         let _updated = property_checker.compute_labelling(property, space, subproperty_index)?;
         //println!("Getting the labelling, check map: {:?}", checker.check_map);
-        let labelling = property_checker.get_labelling(subproperty_index).clone();
+        let labelling = property_checker
+            .get_labelling(subproperty_index)
+            .iter()
+            .map(|(state_id, label)| (*state_id, label.value))
+            .collect();
         //println!("Got the labelling");
         Ok((conclusion, labelling))
     }
@@ -142,7 +156,7 @@ impl PropertyChecker {
             let state_labelling = labelling
                 .get(&initial_state_id)
                 .expect("Labelling should contain initial state");
-            result = result & *state_labelling;
+            result = result & state_labelling.value;
         }
         Ok(result)
     }
@@ -152,7 +166,7 @@ impl PropertyChecker {
         property: &Property,
         space: &StateSpace<M>,
         subproperty_index: usize,
-    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
+    ) -> Result<BTreeMap<StateId, Label>, ExecError> {
         let mut dirty = if let Some(check_info) = self.check_map.get_mut(&subproperty_index) {
             // take all dirty states from info
             let mut dirty = BTreeSet::new();
@@ -163,7 +177,6 @@ impl PropertyChecker {
                 subproperty_index,
                 CheckInfo {
                     labelling: BTreeMap::new(),
-                    reasons: BTreeMap::new(),
                     dirty: BTreeSet::new(),
                 },
             );
@@ -178,39 +191,50 @@ impl PropertyChecker {
 
         let mut update = BTreeMap::new();
 
-        let reasons = match &subproperty_entry.ty {
+        match &subproperty_entry.ty {
             PropertyType::Const(c) => {
                 let constant = ThreeValued::from_bool(*c);
 
                 // make everything dirty have constant labelling
                 for state_id in dirty {
-                    update.insert(state_id, constant);
+                    update.insert(
+                        state_id,
+                        Label {
+                            wave: 0,
+                            value: constant,
+                            next_states: Vec::new(),
+                        },
+                    );
                 }
-                None
             }
             PropertyType::Atomic(atomic_property) => {
                 for state_id in dirty {
-                    update.insert(state_id, space.atomic_label(atomic_property, state_id)?);
+                    let value = space.atomic_label(atomic_property, state_id)?;
+                    update.insert(
+                        state_id,
+                        Label {
+                            wave: 0,
+                            value,
+                            next_states: Vec::new(),
+                        },
+                    );
                 }
-                None
             }
             PropertyType::Negation(inner) => {
                 // if negation is dirty, inner must be dirty as well
                 // it suffices to negate everything updated
                 update = self.compute_labelling(property, space, *inner)?;
-                for (_state_id, three_valued) in update.iter_mut() {
-                    *three_valued = !*three_valued;
+                for (_state_id, label_update) in update.iter_mut() {
+                    label_update.value = !label_update.value;
                 }
-                None
             }
             PropertyType::BiLogic(op) => {
                 // if binary operator is dirty, inner must be dirty as well
                 // it suffices to negate everything updated
                 self.compute_binary_op(space, property, &mut update, op)?;
-                None
             }
             PropertyType::Next(op) => {
-                Some(self.compute_next_labelling(space, property, dirty, &mut update, op)?)
+                self.compute_next_labelling(space, property, dirty, &mut update, op)?;
             }
             PropertyType::FixedPoint(op) => {
                 return self.compute_fixed_point_op(space, property, subproperty_index, dirty, op);
@@ -227,12 +251,17 @@ impl PropertyChecker {
                 let fixed_point_labelling = self.get_labelling(*fixed_point);
 
                 for state_id in dirty {
-                    let fixed_point_value = *fixed_point_labelling.get(&state_id).expect(
+                    let fixed_point_label = fixed_point_labelling.get(&state_id).expect(
                         "Fixed-point variable computation should have state labelling available",
-                    );
-                    update.insert(state_id, fixed_point_value);
+                    ).clone();
+                    let variable_label = Label {
+                        wave: fixed_point_label.wave,
+                        value: fixed_point_label.value,
+                        next_states: Vec::new(),
+                    };
+
+                    update.insert(state_id, variable_label);
                 }
-                None
             }
         };
 
@@ -241,20 +270,6 @@ impl PropertyChecker {
         let num_recomputed = update.len();
 
         let updated_states = Self::update_labelling(check_info, update);
-
-        if let Some(reasons) = reasons {
-            // update reasons
-            for updated_state in updated_states.keys().copied() {
-                if let Some(reason) = reasons.get(&updated_state) {
-                    check_info.reasons.insert(updated_state, *reason);
-                }
-            }
-            for (reason_start, reason_end) in reasons {
-                check_info.reasons.entry(reason_start).or_insert(reason_end);
-            }
-
-            //println!("Updated reasons: {:?}", check_info.reasons);
-        }
 
         if log_enabled!(log::Level::Trace) {
             trace!(
@@ -271,20 +286,20 @@ impl PropertyChecker {
 
     fn update_labelling(
         check_info: &mut CheckInfo,
-        update: BTreeMap<StateId, ThreeValued>,
-    ) -> BTreeMap<StateId, ThreeValued> {
-        let mut updated_labels: BTreeMap<StateId, ThreeValued> = BTreeMap::new();
+        update: BTreeMap<StateId, Label>,
+    ) -> BTreeMap<StateId, Label> {
+        let mut updated_labels = BTreeMap::new();
 
-        for (state_id, value) in update {
-            if let Some(labelling_value) = check_info.labelling.get_mut(&state_id) {
-                if value == *labelling_value {
+        for (state_id, label) in update {
+            if let Some(current_label) = check_info.labelling.get_mut(&state_id) {
+                if label.value == current_label.value {
                     continue;
                 }
-                *labelling_value = value;
+                *current_label = label.clone();
             } else {
-                check_info.labelling.insert(state_id, value);
+                check_info.labelling.insert(state_id, label.clone());
             }
-            updated_labels.insert(state_id, value);
+            updated_labels.insert(state_id, label);
         }
 
         updated_labels
@@ -309,7 +324,7 @@ impl PropertyChecker {
         &mut self,
         space: &StateSpace<M>,
         property: &Property,
-        update: &mut BTreeMap<StateId, ThreeValued>,
+        update: &mut BTreeMap<StateId, Label>,
         op: &BiLogicOperator,
     ) -> Result<(), ExecError> {
         let a_updated = self.compute_labelling(property, space, op.a)?;
@@ -322,24 +337,47 @@ impl PropertyChecker {
         dirty.extend(b_updated.keys());
 
         for state_id in dirty {
-            let a_value = a_updated.get(state_id).copied().unwrap_or_else(|| {
-                *a_labelling
+            let a_update = a_updated.get(state_id).cloned().unwrap_or_else(|| {
+                a_labelling
                     .get(state_id)
+                    .cloned()
                     .expect("Binary operation should have left labelling available")
             });
-            let b_value = b_updated.get(state_id).copied().unwrap_or_else(|| {
-                *b_labelling
+            let b_update = b_updated.get(state_id).cloned().unwrap_or_else(|| {
+                b_labelling
                     .get(state_id)
+                    .cloned()
                     .expect("Binary operation should have right labelling available")
             });
 
-            let result_value = if op.is_and {
-                a_value & b_value
+            let a_value = a_update.value;
+            let b_value = b_update.value;
+
+            let result = if op.is_and {
+                // we prefer the lesser value
+                match a_value.cmp(&b_value) {
+                    Ordering::Less => Some(a_update.clone()),
+                    Ordering::Equal => None,
+                    Ordering::Greater => Some(b_update.clone()),
+                }
             } else {
-                a_value | b_value
+                // we prefer the greater value
+                match a_value.cmp(&b_value) {
+                    Ordering::Less => Some(b_update.clone()),
+                    Ordering::Equal => None,
+                    Ordering::Greater => Some(a_update.clone()),
+                }
             };
 
-            update.insert(*state_id, result_value);
+            let result = if let Some(result) = result {
+                result
+            } else if a_update.wave <= b_update.wave {
+                a_update
+            } else {
+                b_update
+            };
+
+            update.insert(*state_id, result);
         }
 
         Ok(())
@@ -350,9 +388,9 @@ impl PropertyChecker {
         space: &StateSpace<M>,
         property: &Property,
         mut dirty: BTreeSet<StateId>,
-        update: &mut BTreeMap<StateId, ThreeValued>,
+        update: &mut BTreeMap<StateId, Label>,
         op: &NextOperator,
-    ) -> Result<BTreeMap<StateId, StateId>, ExecError> {
+    ) -> Result<(), ExecError> {
         let ground_value = ThreeValued::from_bool(op.is_universal);
 
         //let check_info = &mut self.get_check_info_mut(subproperty_index);
@@ -380,43 +418,57 @@ impl PropertyChecker {
 
         //println!("Previous reasons: {:?}", reasons);
 
-        let mut reasons = BTreeMap::new();
-
         //println!("Computing next for dirty {:?}", dirty);
 
         // For each state in dirty states, compute the new value from the successors.
         for dirty_id in dirty.iter().copied() {
-            let mut label = ground_value;
-            let mut reason = None;
-            for successor_id in space.direct_successor_iter(dirty_id.into()) {
-                let successor_value = inner_labelling
-                    .get(&successor_id)
-                    .expect("Direct successor should labelled");
-                let old_label = label;
+            let mut dirty_label = inner_labelling
+                .get(&dirty_id)
+                .expect("Direct successor should labelled")
+                .clone();
+            let mut successors = Vec::from_iter(space.direct_successor_iter(dirty_id.into()).map(
+                |successor_id| {
+                    (
+                        successor_id,
+                        inner_labelling
+                            .get(&successor_id)
+                            .expect("Direct successor should labelled")
+                            .clone(),
+                    )
+                },
+            ));
+
+            successors.sort_by(|a, b| a.1.wave.cmp(&b.1.wave));
+            /*println!(
+                "Computing next for {}, successors: {:?}",
+                dirty_id, successors
+            );*/
+
+            for (successor_id, successor_label) in successors {
+                let mut value = ground_value;
                 if op.is_universal {
-                    label = label & *successor_value;
+                    value = value & successor_label.value;
                 } else {
-                    label = label | *successor_value;
+                    value = value | successor_label.value;
                 }
 
-                if label != old_label && reason.is_none() {
-                    reason = Some(successor_id);
+                if value != dirty_label.value {
+                    let mut next_states = successor_label.next_states.clone();
+                    next_states.push(successor_id);
+                    dirty_label = Label {
+                        wave: successor_label.wave,
+                        value,
+                        next_states,
+                    };
                 }
             }
-
-            if let Some(reason) = reason {
-                // insert reason if it does not exist already
-                // TODO: this will not play well with updating dirty states from the outside
-                reasons.entry(dirty_id).or_insert(reason);
-            }
-
-            update.insert(dirty_id, label);
+            update.insert(dirty_id, dirty_label);
         }
 
         //println!("Next valuations: {:?}", update);
         //println!("Next reasons: {:?}", reasons);
 
-        Ok(reasons)
+        Ok(())
     }
 
     fn compute_fixed_point_op<M: FullMachine>(
@@ -426,7 +478,7 @@ impl PropertyChecker {
         fixed_point_index: usize,
         dirty: BTreeSet<StateId>,
         op: &FixedPointOperator,
-    ) -> Result<BTreeMap<StateId, ThreeValued>, ExecError> {
+    ) -> Result<BTreeMap<StateId, Label>, ExecError> {
         let ground_value = ThreeValued::from_bool(op.is_greatest);
 
         // initialise fixed-point computation labelling
@@ -443,9 +495,19 @@ impl PropertyChecker {
 
         let mut all_updated = BTreeMap::new();
 
+        // make sure that all dirty states are set to ground labelling at first so they can be completely recomputed
+
+        let ground_labelling = Label {
+            wave: 0,
+            value: ground_value,
+            next_states: Vec::new(),
+        };
+
         for state_id in dirty.iter().copied() {
-            let value = check_info.labelling.entry(state_id).or_insert(ground_value);
-            all_updated.insert(state_id, *value);
+            check_info
+                .labelling
+                .insert(state_id, ground_labelling.clone());
+            all_updated.insert(state_id, ground_labelling.clone());
         }
 
         //println!("Check map: {:?}", self.check_map);
@@ -454,9 +516,9 @@ impl PropertyChecker {
 
         // compute inner property labelling and update variable labelling until they match
         loop {
-            let current_update = self.compute_labelling(property, space, op.inner)?;
+            let mut current_update = self.compute_labelling(property, space, op.inner)?;
 
-            //println!("Updated in this iteration: {:?}", updated);
+            //println!("Updated in this iteration: {:?}", current_update);
 
             let fixed_point_info = self
                 .check_map
@@ -472,6 +534,10 @@ impl PropertyChecker {
                 return Ok(all_updated);
             };
 
+            for label in current_update.values_mut() {
+                label.wave += 1;
+            }
+
             // update the labelling and make updated dirty in the variable
 
             let updated = Self::update_labelling(fixed_point_info, current_update);
@@ -483,31 +549,22 @@ impl PropertyChecker {
         }
     }
 
-    fn get_state_labelling(&self, subproperty_index: usize, state_index: StateId) -> ThreeValued {
+    fn get_state_label(&self, subproperty_index: usize, state_index: StateId) -> &Label {
         // TODO: this is wasteful when looking at multiple states
-        *self
-            .get_labelling(subproperty_index)
+        self.get_labelling(subproperty_index)
             .get(&state_index)
             .expect("Should contain state labelling")
     }
 
-    fn get_state_root_labelling(&self, state_index: StateId) -> ThreeValued {
-        self.get_state_labelling(0, state_index)
+    fn get_state_root_label(&self, state_index: StateId) -> &Label {
+        self.get_state_label(0, state_index)
     }
 
-    fn get_labelling(&self, subproperty_index: usize) -> &BTreeMap<StateId, ThreeValued> {
+    fn get_labelling(&self, subproperty_index: usize) -> &BTreeMap<StateId, Label> {
         &self
             .check_map
             .get(&subproperty_index)
             .expect("Labelling should be present")
             .labelling
-    }
-
-    fn get_reasons(&self, subproperty_index: usize) -> &BTreeMap<StateId, StateId> {
-        &self
-            .check_map
-            .get(&subproperty_index)
-            .expect("Reasons should be present")
-            .reasons
     }
 }
