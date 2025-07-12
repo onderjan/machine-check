@@ -23,6 +23,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     for initial_index in space.initial_iter() {
         if checker
             .get_state_root_label(initial_index)
+            .last_point()
             .value
             .is_unknown()
         {
@@ -67,10 +68,11 @@ enum Deduction {
 impl<M: FullMachine> Deducer<'_, M> {
     /// Deduces the ending states of the culprit, after the ones already found.
     fn deduce_end(&mut self, subproperty_index: usize) -> Result<Deduction, ExecError> {
-        //println!("Space: {:?}", self.checker.space);
+        //println!("Checker: {:#?}", self.checker);
         assert!(self
             .checker
             .get_state_label(subproperty_index, *self.path.back().unwrap())
+            .last_point()
             .value
             .is_unknown());
 
@@ -100,7 +102,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // the state should be unknown in p or q
                 let state_index = *self.path.back().unwrap();
                 let a_labelling = self.checker.get_state_label(op.a, state_index);
-                let a_deduction = if a_labelling.value.is_unknown() {
+                let a_deduction = if a_labelling.last_point().value.is_unknown() {
                     let a_deduction = self.deduce_end(op.a)?;
                     if matches!(a_deduction, Deduction::Culprit(_)) {
                         return Ok(a_deduction);
@@ -110,7 +112,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                     None
                 };
                 let b_labelling = self.checker.get_state_label(op.b, state_index);
-                assert!(b_labelling.value.is_unknown());
+                assert!(b_labelling.last_point().value.is_unknown());
                 let b_deduction = self.deduce_end(op.b)?;
                 if matches!(b_deduction, Deduction::Culprit(_)) {
                     return Ok(b_deduction);
@@ -128,6 +130,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                     .expect("Culprit state should have labelling");
 
                 let next_state = *labelling
+                    .last_point()
                     .next_states
                     .last()
                     .expect("Culprit state should have next state for next operator");
