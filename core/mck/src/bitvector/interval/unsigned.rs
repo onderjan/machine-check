@@ -128,14 +128,47 @@ impl<const W: u32> UnsignedInterval<W> {
         let diff_mask = x_diff_mask | y_diff_mask;
 
         let min = x_p & y_p & !mask_from_leading_one(!x_p & !y_p & diff_mask);
+
+        // minimum with explicit operands
+        /*let min = {
+            let selection_x = mask_from_leading_one(!x_p & !y_p & x_diff_mask);
+            let selection_y = mask_from_leading_one(!x_p & !y_p & y_diff_mask);
+
+            //let result_x = (x_p & !selection_x) & y_p;
+            let sensitive_x = selection_x & !(selection_x >> 1);
+            let operand_x = (x_p & (!selection_x >> 1)) | sensitive_x;
+            assert!(x_p <= operand_x && operand_x <= x_q);
+            let result_x = operand_x & y_p;
+
+            //let result_y = x_p & (y_p & !selection_y);
+
+            let sensitive_y = selection_y & !(selection_y >> 1);
+            let operand_y = (y_p & (!selection_y >> 1)) | sensitive_y;
+            assert!(y_p <= operand_y && operand_y <= y_q);
+            let result_y = x_p & operand_y;
+
+            result_x.min(result_y)
+        };*/
+
         let max = {
             let selection_x = mask_from_leading_one(x_q & !y_q & x_diff_mask);
             let selection_y = mask_from_leading_one(y_q & !x_q & y_diff_mask);
 
-            let result_q = x_q & y_q;
-            let result_x = selection_x & (y_q & !x_q);
-            let result_y = selection_y & (x_q & !y_q);
-            result_q | result_x.max(result_y)
+            let result_x = (x_q | selection_x) & y_q;
+
+            /*let sensitive_x = selection_x & !(selection_x >> 1);
+            let operand_x = (x_q | (selection_x >> 1)) & !sensitive_x;
+            assert!(x_p <= operand_x && operand_x <= x_q);
+            let result_x = operand_x & y_q;*/
+
+            let result_y = (x_q) & (y_q | selection_y);
+
+            /*let sensitive_y = selection_y & !(selection_y >> 1);
+            let operand_y = (y_q | (selection_y >> 1)) & !sensitive_y;
+            assert!(y_p <= operand_y && operand_y <= y_q);
+            let result_y = x_q & operand_y;*/
+
+            result_x.max(result_y)
         };
 
         Self::new(
@@ -156,18 +189,48 @@ impl<const W: u32> UnsignedInterval<W> {
         let diff_mask = x_diff_mask | y_diff_mask;
 
         let min = {
-            let candidates_x = y_p & !x_p & x_diff_mask;
-            let candidates_y = x_p & !y_p & y_diff_mask;
+            let selection_x = mask_from_leading_one(y_p & !x_p & x_diff_mask);
+            let selection_y = mask_from_leading_one(x_p & !y_p & y_diff_mask);
 
-            if candidates_x >= candidates_y {
-                let selection_x = mask_from_leading_one(candidates_x);
-                (x_p & !selection_x) | y_p
-            } else {
-                let selection_y = mask_from_leading_one(candidates_y);
-                (y_p & !selection_y) | x_p
-            }
+            let result_x = (x_p & !selection_x) | y_p;
+
+            /*let sensitive_x = selection_x & !(selection_x >> 1);
+            let operand_x = (x_p & !(selection_x >> 1)) | sensitive_x;
+            assert!(x_p <= operand_x && operand_x <= x_q);
+            let result_x = operand_x | y_p;*/
+
+            let result_y = (y_p & !selection_y) | x_p;
+
+            /*let sensitive_y = selection_y & !(selection_y >> 1);
+            let operand_y = (y_p & !(selection_y >> 1)) | sensitive_y;
+            assert!(y_p <= operand_y && operand_y <= y_q);
+            let result_y = x_p | operand_y;*/
+
+            result_x.min(result_y)
         };
+
         let max = x_q | y_q | mask_from_leading_one(x_q & y_q & diff_mask);
+
+        // maximum with explicit operands
+        /*let max = {
+            let selection_x = mask_from_leading_one(x_q & y_q & x_diff_mask);
+            let selection_y = mask_from_leading_one(x_q & y_q & y_diff_mask);
+
+            //let result_x = (x_q | selection_x) | y_q;
+            let sensitive_x = selection_x & !(selection_x >> 1);
+            let operand_x = (x_q | (selection_x >> 1)) & !sensitive_x;
+            assert!(x_p <= operand_x && operand_x <= x_q);
+            let result_x = operand_x | y_q;
+
+            //let result_y = x_q | (y_q | selection_y);
+
+            let sensitive_y = selection_y & !(selection_y >> 1);
+            let operand_y = (y_q | (selection_y >> 1)) & !sensitive_y;
+            assert!(y_p <= operand_y && operand_y <= y_q);
+            let result_y = x_q | operand_y;
+
+            result_x.max(result_y)
+        };*/
 
         Self::new(
             ConcreteBitvector::new(min).cast_unsigned(),
@@ -187,6 +250,7 @@ impl<const W: u32> UnsignedInterval<W> {
         let min = {
             let y_q_mask = mask_from_leading_one(!x_p & y_q & diff_mask);
             let x_q_mask = mask_from_leading_one(!y_p & x_q & diff_mask);
+
             (x_p & !y_q & !y_q_mask) | (y_p & !x_q & !x_q_mask)
         };
 
