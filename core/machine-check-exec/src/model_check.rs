@@ -30,12 +30,14 @@ pub struct ThreeValuedChecker {
 #[derive(Debug)]
 pub struct PropertyChecker {
     check_map: BTreeMap<usize, CheckInfo>,
+    very_dirty: BTreeSet<StateId>,
 }
 
 #[derive(Debug)]
 struct CheckInfo {
     labelling: BTreeMap<StateId, Label>,
     dirty: BTreeSet<StateId>,
+    fixed_reaches: BTreeSet<HistoryIndex>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -154,6 +156,7 @@ impl ThreeValuedChecker {
                 property.clone(),
                 PropertyChecker {
                     check_map: BTreeMap::new(),
+                    very_dirty: BTreeSet::new(),
                 },
             );
         }
@@ -171,8 +174,10 @@ impl ThreeValuedChecker {
             for (subproperty_index, check_info) in &property_checker.check_map {
                 let subproperty = property.subproperty_entry(*subproperty_index);
 
-                let mut display =
-                    format!("Subproperty {} ({:?}): [\n", subproperty_index, subproperty);
+                let mut display = format!(
+                    "Subproperty {} ({:?}): resets {:?}, labelling [\n",
+                    subproperty_index, subproperty, check_info.fixed_reaches
+                );
                 for (state_id, label) in &check_info.labelling {
                     display.push_str(&format!("\t{}: {:?}\n", state_id, label));
                 }
@@ -198,20 +203,52 @@ impl ThreeValuedChecker {
         }
     }
 
-    pub fn declare_regeneration(
+    pub fn declare_regeneration<M: FullMachine>(
         &mut self,
+        space: &StateSpace<M>,
         new_states: &BTreeSet<StateId>,
-        _changed_successors: &BTreeSet<StateId>,
+        changed_successors: &BTreeSet<StateId>,
     ) {
+        let mut open_states = new_states.clone();
+        open_states.extend(changed_successors.iter().cloned());
+
+        let mut purge_states = BTreeSet::new();
+
+        while let Some(state_id) = open_states.pop_last() {
+            for predecessor_id in space.direct_predecessor_iter(state_id.into()) {
+                let Ok(predecessor_id) = StateId::try_from(predecessor_id) else {
+                    continue;
+                };
+                if !purge_states.contains(&predecessor_id) {
+                    open_states.insert(predecessor_id);
+                }
+            }
+            purge_states.insert(state_id);
+        }
+
+        trace!(
+            "Declaring regeneration, new states: {:?}, changed successors: {:?}, purging states: {:?}",
+            new_states,
+            changed_successors,
+            purge_states
+        );
+
         // TODO: rework so that full recomputation is not necessary each time
-        self.property_checkers.clear();
+        //self.property_checkers.clear();
         /*println!(
             "Declared regeneration, new states: {:?}, changed successors: {:?}",
             new_states, changed_successors
         );*/
-        /*for (property, property_checker) in &mut self.property_checkers {
-            for (subproperty_id, check_info) in &mut property_checker.check_map {
-                check_info.dirty.extend(new_states);
+        for property_checker in self.property_checkers.values_mut() {
+            property_checker.very_dirty.extend(purge_states.iter());
+
+            for check_info in property_checker.check_map.values_mut() {
+                check_info.dirty.extend(purge_states.iter());
+
+                for state_id in &purge_states {
+                    check_info.labelling.remove(state_id);
+                }
+
                 //let subproperty = property.subproperty_entry(*subproperty_id);
                 //if matches!(subproperty.ty, PropertyType::Next(_)) {
                 /*check_info.dirty.extend(changed_successors);
@@ -222,7 +259,7 @@ impl ThreeValuedChecker {
                 //check_info.labelling.clear();
                 //}
             }
-        }*/
+        }
     }
 }
 
@@ -233,6 +270,7 @@ impl PropertyChecker {
         property: &Property,
     ) -> Result<ThreeValued, ExecError> {
         let _updated = self.compute_labelling(property, space, 0, &mut HistoryIndex(0))?;
+        self.very_dirty.clear();
         let labelling = self.get_labelling(0);
         // conventionally, the property must hold in all initial states
         let mut result = ThreeValued::True;
@@ -265,10 +303,19 @@ impl PropertyChecker {
                 CheckInfo {
                     labelling: BTreeMap::new(),
                     dirty: BTreeSet::new(),
+                    fixed_reaches: BTreeSet::new(),
                 },
             );
             // make all states dirty by default
             BTreeSet::from_iter(space.states())
+        };
+
+        dirty.extend(self.very_dirty.iter());
+
+        let dirty_clone = if log_enabled!(log::Level::Trace) {
+            Some(dirty.clone())
+        } else {
+            None
         };
 
         //println!("Property: {:?}", self.property);
@@ -339,7 +386,7 @@ impl PropertyChecker {
                         .copied(),
                 );
 
-                //println!("Dirty states for fixed variable: {:?}", dirty);
+                trace!("Dirty states for fixed variable: {:?}", dirty);
 
                 let fixed_point_labelling = self.get_labelling(*fixed_point);
 
@@ -376,10 +423,11 @@ impl PropertyChecker {
 
         if log_enabled!(log::Level::Trace) {
             trace!(
-                "{:?}: Computed subproperty {} ({:?}) update {:#?}",
+                "{:?}: Computed subproperty {} ({:?}) dirty {:?}, update {:#?}",
                 history_index,
                 subproperty_index,
                 subproperty_entry,
+                dirty_clone.unwrap(),
                 updated_states
             );
         }
@@ -662,6 +710,22 @@ impl PropertyChecker {
             .get_mut(&fixed_point_index)
             .expect("Fixed-point info should be in check map");
 
+        let next_fixed_reach = check_info
+            .fixed_reaches
+            .range((
+                std::ops::Bound::Excluded(*history_index),
+                std::ops::Bound::Unbounded,
+            ))
+            .next()
+            .cloned();
+
+        trace!(
+            "Fixed reaches: {:?}, current history index: {}, next fixed reach: {:?}",
+            check_info.fixed_reaches,
+            history_index.0,
+            next_fixed_reach
+        );
+
         let mut all_updated = BTreeMap::new();
 
         // make sure that all dirty states are set to ground labelling at first within our history index so they can be completely recomputed
@@ -671,25 +735,9 @@ impl PropertyChecker {
             value: ground_value,
         };
 
-        // TODO: figure out the history index for the variable reset more elegantly
-
-        /*let mut ground_history_index = HistoryIndex(0);
-
-        for state_id in space.states() {
-            if let Some(label) = check_info.labelling.get(&state_id) {
-                if let Some((history_index, _value)) = label.history.last_key_value() {
-                    ground_history_index =
-                        HistoryIndex(ground_history_index.0.max(history_index.0 + 1));
-                }
-            }
-        }*/
-
-        // TODO: do not do a ground update for all states, but only on an as-needed basis
-        //dirty = BTreeSet::from_iter(space.states());
-
         let ground_update = BTreeMap::new();
 
-        for state_id in dirty {
+        for state_id in dirty.iter().cloned() {
             let label = check_info
                 .labelling
                 .entry(state_id)
@@ -772,25 +820,38 @@ impl PropertyChecker {
 
             let updated = Self::update_labelling(fixed_point_info, current_update);
 
+            fixed_point_info.dirty = BTreeSet::from_iter(updated.keys().copied());
+
+            all_updated.extend(updated);
+
+            if let Some(next_fixed_reach) = next_fixed_reach {
+                if next_fixed_reach.0 > history_index.0 {
+                    trace!(
+                        "Extending fixed-point dirty {:?} with initial dirty {:?} as {} > {}",
+                        fixed_point_info.dirty,
+                        dirty,
+                        next_fixed_reach.0,
+                        history_index.0
+                    );
+                    fixed_point_info.dirty.extend(dirty.iter());
+                }
+            }
+
             /*println!(
                 "{:?}: computed fixed point, lowest updated index: {:?}, updated {:#?}",
                 history_index, lowest_updated_index, updated
             );*/
 
-            if updated.is_empty() {
+            if fixed_point_info.dirty.is_empty() {
                 // fixed-point reached
                 // the labelling now definitely corresponds to inner
                 // just clear dirty as everything was computed
 
                 //println!("Reached fixed point at {:?}", history_index);
 
-                fixed_point_info.dirty.clear();
+                fixed_point_info.fixed_reaches.insert(*history_index);
                 return Ok(all_updated);
             };
-
-            fixed_point_info.dirty = BTreeSet::from_iter(updated.keys().copied());
-
-            all_updated.extend(updated);
 
             //println!("Really changed: {:?}", updated);
         }

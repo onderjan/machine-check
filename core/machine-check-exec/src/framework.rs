@@ -464,9 +464,11 @@ impl<M: FullMachine> Framework<M> {
             }
         }
 
-        self.work_state
-            .checker
-            .declare_regeneration(&new_states, &changed_successors);
+        self.work_state.checker.declare_regeneration(
+            &self.work_state.space,
+            &new_states,
+            &changed_successors,
+        );
 
         // Each node now should have at least one direct successor.
         // Assert it to be sure.
