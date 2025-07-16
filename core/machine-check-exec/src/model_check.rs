@@ -12,10 +12,7 @@ use machine_check_common::{
 };
 use mck::concr::FullMachine;
 
-use crate::{
-    model_check::{history::HistoryIndex, property_checker::PropertyChecker},
-    space::StateSpace,
-};
+use crate::{model_check::property_checker::PropertyChecker, space::StateSpace};
 
 use self::deduce::deduce_culprit;
 
@@ -49,12 +46,6 @@ impl ThreeValuedChecker {
 
         // get the labelling as well
         let subproperty_index = subproperty.index();
-        let _updated = property_checker.compute_labelling(
-            property,
-            space,
-            subproperty_index,
-            &mut HistoryIndex(0),
-        )?;
         //println!("Getting the labelling, check map: {:?}", checker.check_map);
         let labelling = property_checker
             .get_labelling(subproperty_index)
