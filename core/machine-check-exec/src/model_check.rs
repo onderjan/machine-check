@@ -380,7 +380,9 @@ impl PropertyChecker {
             PropertyType::FixedVariable(fixed_point) => {
                 // update from the fixed point
                 dirty.extend(
-                    self.get_check_info_mut(property, *fixed_point)
+                    self.check_map
+                        .get_mut(fixed_point)
+                        .expect("Check info should be available")
                         .dirty
                         .iter()
                         .copied(),
@@ -417,9 +419,12 @@ impl PropertyChecker {
             }
         };
 
-        let check_info = self.get_check_info_mut(property, subproperty_index);
+        let check_info = self
+            .check_map
+            .get_mut(&subproperty_index)
+            .expect("Check info should be available");
 
-        let updated_states = Self::update_labelling(check_info, update);
+        let updated_states = Self::update_labelling(check_info, update, &self.very_dirty);
 
         if log_enabled!(log::Level::Trace) {
             trace!(
@@ -443,6 +448,7 @@ impl PropertyChecker {
     fn update_labelling(
         check_info: &mut CheckInfo,
         update: BTreeMap<StateId, Label>,
+        very_dirty: &BTreeSet<StateId>,
     ) -> BTreeMap<StateId, Label> {
         let mut updated_labels = BTreeMap::new();
 
@@ -450,6 +456,9 @@ impl PropertyChecker {
             let updated_label = if let Some(current_label) = check_info.labelling.get_mut(&state_id)
             {
                 if new_label == *current_label {
+                    if very_dirty.contains(&state_id) {
+                        updated_labels.insert(state_id, new_label);
+                    }
                     continue;
                 }
 
@@ -478,21 +487,6 @@ impl PropertyChecker {
         }
 
         updated_labels
-    }
-
-    fn get_check_info_mut(
-        &mut self,
-        property: &Property,
-        subproperty_index: usize,
-    ) -> &mut CheckInfo {
-        if let Some(info) = self.check_map.get_mut(&subproperty_index) {
-            info
-        } else {
-            panic!(
-                "Check info for the subproperty index {} of property {:?} should be available",
-                subproperty_index, property
-            )
-        }
     }
 
     fn compute_binary_op<M: FullMachine>(
@@ -749,7 +743,7 @@ impl PropertyChecker {
                 .insert(*history_index, ground_history_point.clone());
         }
 
-        Self::update_labelling(check_info, ground_update);
+        Self::update_labelling(check_info, ground_update, &self.very_dirty);
 
         //println!("Check map: {:?}", self.check_map);
 
@@ -818,7 +812,8 @@ impl PropertyChecker {
 
             // update the labelling and make updated dirty in the variable
 
-            let updated = Self::update_labelling(fixed_point_info, current_update);
+            let updated =
+                Self::update_labelling(fixed_point_info, current_update, &self.very_dirty);
 
             fixed_point_info.dirty = BTreeSet::from_iter(updated.keys().copied());
 
