@@ -23,8 +23,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     for initial_index in space.initial_iter() {
         if checker
             .get_state_root_label(initial_index)
-            .last_point()
-            .value
+            .valuation
             .is_unknown()
         {
             // unknown initial state, compute culprit from it
@@ -72,8 +71,7 @@ impl<M: FullMachine> Deducer<'_, M> {
         assert!(self
             .checker
             .get_state_label(subproperty_index, *self.path.back().unwrap())
-            .last_point()
-            .value
+            .valuation
             .is_unknown());
 
         let subproperty_entry = self.property.subproperty_entry(subproperty_index);
@@ -102,7 +100,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // the state should be unknown in p or q
                 let state_index = *self.path.back().unwrap();
                 let a_labelling = self.checker.get_state_label(op.a, state_index);
-                let a_deduction = if a_labelling.last_point().value.is_unknown() {
+                let a_deduction = if a_labelling.valuation.is_unknown() {
                     let a_deduction = self.deduce_end(op.a)?;
                     if matches!(a_deduction, Deduction::Culprit(_)) {
                         return Ok(a_deduction);
@@ -112,7 +110,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                     None
                 };
                 let b_labelling = self.checker.get_state_label(op.b, state_index);
-                assert!(b_labelling.last_point().value.is_unknown());
+                assert!(b_labelling.valuation.is_unknown());
                 let b_deduction = self.deduce_end(op.b)?;
                 if matches!(b_deduction, Deduction::Culprit(_)) {
                     return Ok(b_deduction);
@@ -123,14 +121,13 @@ impl<M: FullMachine> Deducer<'_, M> {
             PropertyType::Next(op) => {
                 let current_state = *self.path.back().unwrap();
 
-                let labelling = self
+                let label = self
                     .checker
                     .get_labelling(subproperty_index)
                     .get(&current_state)
                     .expect("Culprit state should have labelling");
 
-                let next_state = *labelling
-                    .last_point()
+                let next_state = *label
                     .next_states
                     .last()
                     .expect("Culprit state should have next state for next operator");

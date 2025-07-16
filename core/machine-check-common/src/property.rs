@@ -34,6 +34,10 @@ impl Property {
     pub fn inherent() -> Self {
         parser::inherent()
     }
+
+    pub fn num_subproperties(&self) -> usize {
+        self.arena.len()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]

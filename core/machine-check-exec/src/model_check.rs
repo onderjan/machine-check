@@ -50,7 +50,7 @@ impl ThreeValuedChecker {
         let labelling = property_checker
             .get_labelling(subproperty_index)
             .iter()
-            .map(|(state_id, label)| (*state_id, label.last_point().value))
+            .map(|(state_id, value)| (*state_id, value.valuation))
             .collect();
         //println!("Got the labelling");
         Ok((conclusion, labelling))
@@ -62,7 +62,7 @@ impl ThreeValuedChecker {
         space: &StateSpace<M>,
         property: &Property,
     ) -> Result<Conclusion, ExecError> {
-        trace!("Checking property {:?}", property);
+        trace!("Checking property {:#?}", property);
 
         if !self.property_checkers.contains_key(property) {
             self.property_checkers
