@@ -1,5 +1,5 @@
 //! Computation Tree Logic properties.
-use std::fmt::Debug;
+use std::{collections::BTreeSet, fmt::Debug};
 
 use std::sync::Arc;
 
@@ -29,6 +29,26 @@ impl Property {
         self.arena
             .get(index)
             .expect("Subproperty should be within property arena size")
+    }
+
+    pub fn affected_fixed_points(&self, index: usize) -> BTreeSet<usize> {
+        let ty = &self.get_by_index(index).ty;
+        match ty {
+            PropertyType::Const(_) | PropertyType::Atomic(_) => BTreeSet::new(),
+            PropertyType::Negation(inner) => self.affected_fixed_points(*inner),
+            PropertyType::BiLogic(bi_logic_operator) => BTreeSet::from_iter(
+                self.affected_fixed_points(bi_logic_operator.a)
+                    .union(&self.affected_fixed_points(bi_logic_operator.b))
+                    .copied(),
+            ),
+            PropertyType::Next(next_operator) => self.affected_fixed_points(next_operator.inner),
+            PropertyType::FixedPoint(fixed_point_operator) => {
+                let mut inner_affected = self.affected_fixed_points(fixed_point_operator.inner);
+                inner_affected.insert(index);
+                inner_affected
+            }
+            PropertyType::FixedVariable(inner) => BTreeSet::from([*inner]),
+        }
     }
 
     pub fn inherent() -> Self {

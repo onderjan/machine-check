@@ -162,7 +162,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     ) -> Result<(), ExecError> {
         self.compute_labelling(inner)?;
 
-        let inner_computation = Self::computation(&self.computations, inner);
+        let inner_computation = Self::computation_mut(&mut self.computations, inner);
 
         // negate everything that was updated
         let mut update = BTreeMap::new();
@@ -172,6 +172,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             value.valuation = !value.valuation;
             update.insert(*state_id, value);
         }
+
+        inner_computation.updated.clear();
 
         self.update_subproperty(subproperty_index, update);
         Ok(())
@@ -224,6 +226,11 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
             update.insert(state_id, result_value.clone());
         }
+
+        let a_computation = Self::computation_mut(&mut self.computations, op.a);
+        a_computation.updated.clear();
+        let b_computation = Self::computation_mut(&mut self.computations, op.b);
+        b_computation.updated.clear();
 
         self.update_subproperty(subproperty_index, update);
 
@@ -294,6 +301,9 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             update.insert(dirty_id, current_value);
         }
 
+        let inner_computation = Self::computation_mut(&mut self.computations, op.inner);
+        inner_computation.updated.clear();
+
         self.update_subproperty(subproperty_index, update);
 
         //println!("Next valuations: {:?}", update);
@@ -307,6 +317,14 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         subproperty_index: usize,
         op: &FixedPointOperator,
     ) -> Result<(), ExecError> {
+        if self.is_calm(subproperty_index, &mut Vec::new()) {
+            trace!(
+                "Not computing fixed point {} as it is calm",
+                subproperty_index
+            );
+            return Ok(());
+        }
+
         let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_greatest));
 
         // initialise fixed-point computation labelling
@@ -364,6 +382,10 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
                     update.insert(state_id, inner_value.clone());
                 }
             }
+
+            let inner_computation = Self::computation_mut(&mut self.computations, op.inner);
+
+            inner_computation.updated.clear();
 
             grounded.clear();
 
@@ -495,7 +517,46 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         computations.get(&index).expect("Computation should exist")
     }
 
+    fn computation_mut(
+        computations: &mut BTreeMap<usize, SubpropertyComputation>,
+        index: usize,
+    ) -> &mut SubpropertyComputation {
+        computations
+            .get_mut(&index)
+            .expect("Computation should exist")
+    }
+
     pub fn subproperty_values(&self, subproperty_index: usize) -> &BTreeMap<StateId, CheckValue> {
         &Self::computation(&self.computations, subproperty_index).values
+    }
+
+    pub fn is_calm(&self, subproperty_index: usize, calm_fixed_points: &mut Vec<usize>) -> bool {
+        let computation = Self::computation(&self.computations, subproperty_index);
+        if !computation.updated.is_empty() {
+            return false;
+        }
+
+        let subproperty_entry = self.property.subproperty_entry(subproperty_index);
+
+        match &subproperty_entry.ty {
+            PropertyType::Const(_) | PropertyType::Atomic(_) => true,
+            PropertyType::Negation(inner) => self.is_calm(*inner, calm_fixed_points),
+            PropertyType::BiLogic(bi_logic_operator) => {
+                self.is_calm(bi_logic_operator.a, calm_fixed_points)
+                    && self.is_calm(bi_logic_operator.b, calm_fixed_points)
+            }
+            PropertyType::Next(next_operator) => {
+                self.is_calm(next_operator.inner, calm_fixed_points)
+            }
+            PropertyType::FixedPoint(fixed_point_operator) => {
+                calm_fixed_points.push(subproperty_index);
+                let result = self.is_calm(fixed_point_operator.inner, calm_fixed_points);
+                calm_fixed_points.pop();
+                result
+            }
+            PropertyType::FixedVariable(fixed_point_index) => {
+                calm_fixed_points.contains(fixed_point_index)
+            }
+        }
     }
 }
