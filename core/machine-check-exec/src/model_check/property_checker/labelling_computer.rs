@@ -12,7 +12,7 @@ use machine_check_common::{
 use mck::concr::FullMachine;
 
 use crate::{
-    model_check::property_checker::{CheckValue, PropertyChecker},
+    model_check::property_checker::{CacheEntry, CheckValue, PropertyChecker},
     space::StateSpace,
 };
 
@@ -83,6 +83,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     }
 
     pub fn compute(&mut self) -> Result<ThreeValued, ExecError> {
+        self.property_checker.cache.clear();
+
         self.compute_labelling(0)?;
 
         //self.very_dirty.clear();
@@ -208,6 +210,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             let a_valuation = a_value.valuation;
             let b_valuation = b_value.valuation;
 
+            // TODO: freeze decision
+
             let result_value = if op.is_and {
                 // we prefer the lesser value
                 match a_valuation.cmp(&b_valuation) {
@@ -325,6 +329,12 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             return Ok(());
         }
 
+        self.property_checker.cache.push(CacheEntry {
+            fixed_point_index: subproperty_index,
+            time_instant: 0,
+            histories: BTreeMap::new(),
+        });
+
         let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_greatest));
 
         // initialise fixed-point computation labelling
@@ -341,12 +351,15 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         let mut grounded = BTreeSet::new();
 
+        let cache_entry = self.property_checker.cache.last_mut().unwrap();
+
         for state_id in self.space.states() {
             fixed_point_computation.updated.insert(state_id);
             fixed_point_computation
                 .values
                 .insert(state_id, ground_value.clone());
             grounded.insert(state_id);
+            Self::insert_history(cache_entry, state_id, ground_value.clone());
         }
 
         trace!(
@@ -362,6 +375,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         // compute inner property labelling and update variable labelling until they match
         loop {
             self.compute_labelling(op.inner)?;
+
+            self.property_checker.cache.last_mut().unwrap().time_instant += 1;
 
             //println!("Updated in this iteration: {:?}", current_update);
 
@@ -433,12 +448,15 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             let mut current_update = BTreeMap::new();
             std::mem::swap(&mut update, &mut current_update);
 
+            let cache_entry = self.property_checker.cache.last_mut().unwrap();
+
             for (state_id, update_value) in current_update {
                 fixed_point_computation
                     .values
-                    .insert(state_id, update_value);
+                    .insert(state_id, update_value.clone());
                 fixed_point_computation.updated.insert(state_id);
                 all_updated.insert(state_id);
+                Self::insert_history(cache_entry, state_id, update_value);
             }
 
             update.clear();
@@ -449,6 +467,25 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
                 fixed_point_computation
             );
         }
+    }
+
+    fn insert_history(cache_entry: &mut CacheEntry, state_id: StateId, value: CheckValue) {
+        let history = cache_entry
+            .histories
+            .entry(cache_entry.fixed_point_index)
+            .or_default();
+
+        history
+            .points
+            .entry(cache_entry.time_instant)
+            .or_default()
+            .insert(state_id, value.clone());
+
+        history
+            .states
+            .entry(state_id)
+            .or_default()
+            .insert(cache_entry.time_instant, value);
     }
 
     fn compute_fixed_variable(
