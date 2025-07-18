@@ -339,41 +339,71 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         // initialise fixed-point computation labelling
 
-        let fixed_point_computation = self
-            .computations
-            .get_mut(&subproperty_index)
-            .expect("Fixed-point operation should have a computation");
+        let (old_values, mut update) = {
+            let fixed_point_computation = self
+                .computations
+                .get_mut(&subproperty_index)
+                .expect("Fixed-point operation should have a computation");
 
-        let mut old_values = BTreeMap::new();
-        std::mem::swap(&mut old_values, &mut fixed_point_computation.values);
+            let mut old_values = BTreeMap::new();
+            std::mem::swap(&mut old_values, &mut fixed_point_computation.values);
 
-        fixed_point_computation.updated.clear();
+            fixed_point_computation.updated.clear();
 
-        let mut grounded = BTreeSet::new();
+            let mut update = BTreeMap::new();
 
-        let cache_entry = self.property_checker.cache.last_mut().unwrap();
+            for state_id in self.space.states() {
+                update.insert(state_id, ground_value.clone());
+            }
 
-        for state_id in self.space.states() {
-            fixed_point_computation.updated.insert(state_id);
-            fixed_point_computation
-                .values
-                .insert(state_id, ground_value.clone());
-            grounded.insert(state_id);
-            Self::insert_history(cache_entry, state_id, ground_value.clone());
-        }
-
-        trace!(
-            "Starting fixed-point {:?} computation, current: {:?}, old values: {:?}, grounded: {:?}",
-            subproperty_index,
-            fixed_point_computation,
-            old_values,
-            grounded
-        );
+            trace!(
+                "Starting fixed-point {:?} computation, current: {:?}, old values: {:?}",
+                subproperty_index,
+                fixed_point_computation,
+                old_values,
+            );
+            (old_values, update)
+        };
 
         let mut all_updated = BTreeSet::new();
 
         // compute inner property labelling and update variable labelling until they match
         loop {
+            trace!(
+                "Fixed point {:?} not reached yet, update: {:?}",
+                subproperty_index,
+                update
+            );
+
+            // fixed point not reached yet
+            // change the values and updated
+
+            let mut current_update = BTreeMap::new();
+            std::mem::swap(&mut update, &mut current_update);
+
+            {
+                let cache_entry = self.property_checker.cache.last_mut().unwrap();
+                let fixed_point_computation = self
+                    .computations
+                    .get_mut(&subproperty_index)
+                    .expect("Fixed-point operation should have a computation");
+
+                for (state_id, update_value) in current_update {
+                    fixed_point_computation
+                        .values
+                        .insert(state_id, update_value.clone());
+                    fixed_point_computation.updated.insert(state_id);
+                    all_updated.insert(state_id);
+                    Self::insert_history(cache_entry, state_id, update_value);
+                }
+
+                trace!(
+                    "Fixed point {:?} updated: {:?}",
+                    subproperty_index,
+                    fixed_point_computation
+                );
+            }
+
             self.compute_labelling(op.inner)?;
 
             self.property_checker.cache.last_mut().unwrap().time_instant += 1;
@@ -383,14 +413,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             let fixed_point_computation = Self::computation(&self.computations, subproperty_index);
             let inner_computation = Self::computation(&self.computations, op.inner);
 
-            let mut update = BTreeMap::new();
-
-            for state_id in inner_computation
-                .updated
-                .iter()
-                .copied()
-                .chain(grounded.iter().cloned())
-            {
+            for state_id in inner_computation.updated.iter().copied() {
                 let fixed_point_value = fixed_point_computation.values.get(&state_id).unwrap();
                 let inner_value = inner_computation.values.get(&state_id).unwrap();
                 if fixed_point_value != inner_value {
@@ -399,20 +422,15 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             }
 
             let inner_computation = Self::computation_mut(&mut self.computations, op.inner);
-
             inner_computation.updated.clear();
-
-            grounded.clear();
-
-            let fixed_point_computation = self
-                .computations
-                .get_mut(&subproperty_index)
-                .expect("Fixed-point operation should have a computation");
 
             if update.is_empty() {
                 // we reached the fixed point
                 // the updated values from the outside point of view are those that differ from the ones before
                 // these must have been updated at least once
+
+                let fixed_point_computation =
+                    Self::computation_mut(&mut self.computations, subproperty_index);
 
                 fixed_point_computation.updated.clear();
 
@@ -434,38 +452,6 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
                 return Ok(());
             }
-
-            trace!(
-                "Fixed point {:?} not reached yet, update: {:?}",
-                subproperty_index,
-                update
-            );
-
-            // fixed point not reached yet
-            // change the values and updated
-
-            fixed_point_computation.updated.clear();
-            let mut current_update = BTreeMap::new();
-            std::mem::swap(&mut update, &mut current_update);
-
-            let cache_entry = self.property_checker.cache.last_mut().unwrap();
-
-            for (state_id, update_value) in current_update {
-                fixed_point_computation
-                    .values
-                    .insert(state_id, update_value.clone());
-                fixed_point_computation.updated.insert(state_id);
-                all_updated.insert(state_id);
-                Self::insert_history(cache_entry, state_id, update_value);
-            }
-
-            update.clear();
-
-            trace!(
-                "Fixed point {:?} updated: {:?}",
-                subproperty_index,
-                fixed_point_computation
-            );
         }
     }
 
