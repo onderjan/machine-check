@@ -594,7 +594,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         for (state_id, update_value) in update {
             if let Some(current_value) = computation.values.get_mut(&state_id) {
-                if *current_value == update_value {
+                // do not update when the valuation is not changed
+                if current_value.valuation == update_value.valuation {
                     continue;
                 }
                 *current_value = update_value;
