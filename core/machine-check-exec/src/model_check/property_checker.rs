@@ -16,6 +16,8 @@ use crate::{
 #[derive(Debug)]
 pub struct PropertyChecker {
     final_labellings: BTreeMap<usize, BTreeMap<StateId, CheckValue>>,
+    old_cache: Vec<CacheEntry>,
+    old_cache_index: usize,
     cache: Vec<CacheEntry>,
 }
 
@@ -32,9 +34,10 @@ struct CacheEntry {
     histories: BTreeMap<usize, FixedPointHistory>,
 }
 
-#[derive(Debug, Default)]
+// TODO: remove clone
+#[derive(Clone, Debug, Default)]
 struct FixedPointHistory {
-    points: BTreeMap<u64, BTreeMap<StateId, CheckValue>>,
+    times: BTreeMap<u64, BTreeMap<StateId, CheckValue>>,
     states: BTreeMap<StateId, BTreeMap<u64, CheckValue>>,
 }
 
@@ -58,6 +61,8 @@ impl PropertyChecker {
         Self {
             final_labellings: BTreeMap::new(),
             cache: Vec::new(),
+            old_cache: Vec::new(),
+            old_cache_index: 0,
         }
     }
 

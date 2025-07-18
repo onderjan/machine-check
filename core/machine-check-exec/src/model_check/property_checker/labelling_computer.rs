@@ -83,7 +83,11 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     }
 
     pub fn compute(&mut self) -> Result<ThreeValued, ExecError> {
-        self.property_checker.cache.clear();
+        self.property_checker.old_cache.clear();
+        self.property_checker
+            .old_cache
+            .append(&mut self.property_checker.cache);
+        self.property_checker.old_cache_index = 0;
 
         self.compute_labelling(0)?;
 
@@ -329,6 +333,25 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             return Ok(());
         }
 
+        while let Some(old_cache_entry) = self
+            .property_checker
+            .old_cache
+            .get(self.property_checker.old_cache_index)
+        {
+            if old_cache_entry.fixed_point_index == subproperty_index {
+                break;
+            }
+            self.property_checker.old_cache_index += 1;
+        }
+
+        // TODO: do not clone old cache entry
+        let old_history = self
+            .property_checker
+            .old_cache
+            .get(self.property_checker.old_cache_index)
+            .and_then(|entry| entry.histories.get(&subproperty_index))
+            .cloned();
+
         self.property_checker.cache.push(CacheEntry {
             fixed_point_index: subproperty_index,
             time_instant: 0,
@@ -402,6 +425,28 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
                     subproperty_index,
                     fixed_point_computation
                 );
+
+                if log_enabled!(log::Level::Trace) {
+                    if let Some(old_history) = &old_history {
+                        for state_id in self.space.states() {
+                            let current = fixed_point_computation.values.get(&state_id);
+                            let old = old_history.states.get(&state_id).and_then(|state_history| {
+                                state_history
+                                    .range(0..=cache_entry.time_instant)
+                                    .last()
+                                    .map(|(_, value)| value)
+                            });
+                            if current != old {
+                                trace!(
+                                    "State {} mismatch from old {:?} to current {:?}",
+                                    state_id,
+                                    old,
+                                    current
+                                );
+                            }
+                        }
+                    }
+                }
             }
 
             self.compute_labelling(op.inner)?;
@@ -450,6 +495,35 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
                     fixed_point_computation
                 );
 
+                if log_enabled!(log::Level::Trace) {
+                    let cache_entry = self.property_checker.cache.last_mut().unwrap();
+                    if let (Some(old_history), Some(current_history)) =
+                        (&old_history, cache_entry.histories.get(&subproperty_index))
+                    {
+                        let mut unchanged_states = BTreeSet::new();
+                        let mut changed_states = BTreeSet::new();
+                        for state_id in self.space.states() {
+                            let current = current_history.states.get(&state_id);
+                            let old = old_history.states.get(&state_id);
+                            if current != old {
+                                changed_states.insert(state_id);
+                            } else {
+                                unchanged_states.insert(state_id);
+                            }
+                        }
+                        trace!(
+                            "Old history: {:#?}, current history: {:#?}",
+                            old_history,
+                            current_history
+                        );
+                        trace!(
+                            "Changed states: {:?}, unchanged states: {:?}",
+                            changed_states,
+                            unchanged_states,
+                        );
+                    }
+                }
+
                 return Ok(());
             }
         }
@@ -462,7 +536,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             .or_default();
 
         history
-            .points
+            .times
             .entry(cache_entry.time_instant)
             .or_default()
             .insert(state_id, value.clone());
