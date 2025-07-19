@@ -1,7 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use log::{log_enabled, trace};
-use machine_check_common::{property::FixedPointOperator, ExecError, StateId, ThreeValued};
+use machine_check_common::{
+    property::{FixedPointOperator, PropertyType},
+    ExecError, StateId, ThreeValued,
+};
 
 use crate::{
     model_check::property_checker::{
@@ -14,7 +17,9 @@ struct FixedPointIterationParams<'a> {
     subproperty_index: usize,
     op: &'a FixedPointOperator,
 
-    old_history: Option<FixedPointHistory>,
+    time_instant: u64,
+
+    history: FixedPointHistory,
     old_values: BTreeMap<StateId, CheckValue>,
     update: BTreeMap<StateId, CheckValue>,
     all_updated: BTreeSet<StateId>,
@@ -46,24 +51,17 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         }
 
         // TODO: do not clone old cache entry
-        let old_history = self
+        let history = self
             .property_checker
             .old_cache
             .get(self.property_checker.old_cache_index)
-            .and_then(|entry| entry.histories.get(&subproperty_index))
-            .cloned();
-
-        self.property_checker.cache.push(CacheEntry {
-            fixed_point_index: subproperty_index,
-            time_instant: 0,
-            histories: BTreeMap::new(),
-        });
+            .map(|entry| entry.history.clone());
 
         let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_greatest));
 
         // initialise fixed-point computation labelling
 
-        let (old_values, update) = {
+        let (old_values, update, history) = {
             let fixed_point_computation = self
                 .computations
                 .get_mut(&subproperty_index)
@@ -76,9 +74,20 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
             let mut update = BTreeMap::new();
 
-            for state_id in self.space.states() {
-                update.insert(state_id, ground_value.clone());
-            }
+            let history = if let Some(history) = history {
+                for state_id in self.property_checker.purge_states.iter().copied() {
+                    update.insert(state_id, ground_value.clone());
+                }
+                history
+            } else {
+                for state_id in self.space.states() {
+                    update.insert(state_id, ground_value.clone());
+                }
+                FixedPointHistory {
+                    times: BTreeMap::new(),
+                    states: BTreeMap::new(),
+                }
+            };
 
             trace!(
                 "Starting fixed-point {:?} computation, current: {:?}, old values: {:?}",
@@ -86,13 +95,16 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 fixed_point_computation,
                 old_values,
             );
-            (old_values, update)
+            (old_values, update, history)
         };
 
         let mut params = FixedPointIterationParams {
             subproperty_index,
             op,
-            old_history,
+
+            time_instant: 0,
+
+            history,
             old_values,
             update,
             all_updated: BTreeSet::new(),
@@ -103,7 +115,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             self.fixed_point_iteration(&mut params)?;
         }
 
-        self.fixed_point_conclusion(&mut params)?;
+        self.fixed_point_conclusion(params)?;
 
         Ok(())
     }
@@ -124,7 +136,9 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         let mut current_update = BTreeMap::new();
         std::mem::swap(&mut params.update, &mut current_update);
 
-        let cache_entry = self.property_checker.cache.last_mut().unwrap();
+        let partial_updates = BTreeSet::from_iter(current_update.keys().copied());
+        self.propagate_updates(params.subproperty_index, &partial_updates);
+
         let fixed_point_computation = self
             .computations
             .get_mut(&params.subproperty_index)
@@ -136,7 +150,9 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 .insert(state_id, update_value.clone());
             fixed_point_computation.updated.insert(state_id);
             params.all_updated.insert(state_id);
-            Self::insert_history(cache_entry, state_id, update_value);
+            params
+                .history
+                .insert_update(params.time_instant, state_id, update_value);
         }
 
         trace!(
@@ -146,39 +162,39 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         );
 
         if log_enabled!(log::Level::Trace) {
-            if let Some(old_history) = &params.old_history {
-                for state_id in self.space.states() {
-                    let current = fixed_point_computation.values.get(&state_id);
-                    let old = old_history.states.get(&state_id).and_then(|state_history| {
+            for state_id in self.space.states() {
+                let current = fixed_point_computation.values.get(&state_id);
+                let old = params
+                    .history
+                    .states
+                    .get(&state_id)
+                    .and_then(|state_history| {
                         state_history
-                            .range(0..=cache_entry.time_instant)
+                            .range(0..=params.time_instant)
                             .last()
                             .map(|(_, value)| value)
                     });
-                    if current != old {
-                        trace!(
-                            "State {} mismatch from old {:?} to current {:?}",
-                            state_id,
-                            old,
-                            current
-                        );
-                    }
+                if current != old {
+                    trace!(
+                        "State {} mismatch from old {:?} to current {:?}",
+                        state_id,
+                        old,
+                        current
+                    );
                 }
             }
         }
 
         self.compute_labelling(params.op.inner)?;
 
-        self.property_checker.cache.last_mut().unwrap().time_instant += 1;
+        params.time_instant += 1;
 
         //println!("Updated in this iteration: {:?}", current_update);
 
-        let fixed_point_computation =
-            Self::computation(&self.computations, params.subproperty_index);
         let inner_computation = Self::computation(&self.computations, params.op.inner);
 
         for state_id in inner_computation.updated.iter().copied() {
-            let fixed_point_value = fixed_point_computation.values.get(&state_id).unwrap();
+            let fixed_point_value = self.value(params.subproperty_index, state_id);
             let inner_value = inner_computation.values.get(&state_id).unwrap();
             if fixed_point_value != inner_value {
                 params.update.insert(state_id, inner_value.clone());
@@ -193,7 +209,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
     fn fixed_point_conclusion(
         &mut self,
-        params: &mut FixedPointIterationParams,
+        params: FixedPointIterationParams,
     ) -> Result<(), ExecError> {
         // we reached the fixed point
         // the updated values from the outside point of view are those that differ from the ones before
@@ -214,41 +230,16 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             fixed_point_computation.updated.insert(state_id);
         }
 
+        self.property_checker.cache.push(CacheEntry {
+            fixed_point_index: params.subproperty_index,
+            history: params.history,
+        });
+
         trace!(
             "Fixed point {:?} reached: {:?}",
             params.subproperty_index,
             fixed_point_computation
         );
-
-        if log_enabled!(log::Level::Trace) {
-            let cache_entry = self.property_checker.cache.last_mut().unwrap();
-            if let (Some(old_history), Some(current_history)) = (
-                &params.old_history,
-                cache_entry.histories.get(&params.subproperty_index),
-            ) {
-                let mut unchanged_states = BTreeSet::new();
-                let mut changed_states = BTreeSet::new();
-                for state_id in self.space.states() {
-                    let current = current_history.states.get(&state_id);
-                    let old = old_history.states.get(&state_id);
-                    if current != old {
-                        changed_states.insert(state_id);
-                    } else {
-                        unchanged_states.insert(state_id);
-                    }
-                }
-                trace!(
-                    "Old history: {:#?}, current history: {:#?}",
-                    old_history,
-                    current_history
-                );
-                trace!(
-                    "Changed states: {:?}, unchanged states: {:?}",
-                    changed_states,
-                    unchanged_states,
-                );
-            }
-        }
 
         Ok(())
     }
@@ -259,13 +250,12 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         fixed_point_index: usize,
     ) -> Result<(), ExecError> {
         // everything is given by the fixed point
-
         let fixed_point_computation = Self::computation(&self.computations, fixed_point_index);
 
         let mut update = BTreeMap::new();
 
         for state_id in fixed_point_computation.updated.iter().cloned() {
-            let fixed_point_value = fixed_point_computation.values.get(&state_id).unwrap();
+            let fixed_point_value = self.value(fixed_point_index, state_id);
             // drop the next states
 
             update.insert(state_id, CheckValue::eigen(fixed_point_value.valuation));
@@ -273,5 +263,72 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         self.update_subproperty(subproperty_index, update);
         Ok(())
+    }
+
+    fn propagate_updates(&mut self, subproperty_index: usize, partial_updates: &BTreeSet<StateId>) {
+        let subproperty_entry = self.property.subproperty_entry(subproperty_index);
+
+        trace!(
+            "Propagating down to subproperty {} with partial updates {:?}",
+            subproperty_index,
+            partial_updates
+        );
+        let computation = Self::computation_mut(&mut self.computations, subproperty_index);
+        computation.updated.extend(partial_updates);
+
+        let mut add_updates = BTreeSet::new();
+
+        match &subproperty_entry.ty {
+            PropertyType::Const(_) | PropertyType::Atomic(_) => {
+                // nothing to propagate
+            }
+            PropertyType::Negation(inner) => {
+                self.propagate_updates(*inner, partial_updates);
+                let inner_computation = Self::computation(&self.computations, *inner);
+                add_updates.extend(inner_computation.updated.iter().copied());
+            }
+            PropertyType::BiLogic(op) => {
+                self.propagate_updates(op.a, partial_updates);
+                self.propagate_updates(op.b, partial_updates);
+
+                let a_computation = Self::computation(&self.computations, op.a);
+                add_updates.extend(a_computation.updated.iter().copied());
+                let b_computation = Self::computation(&self.computations, op.b);
+                add_updates.extend(b_computation.updated.iter().copied());
+            }
+            PropertyType::Next(op) => {
+                let mut next_partial_updates = BTreeSet::new();
+                for state_id in partial_updates.iter().copied() {
+                    for successor_id in self.space.direct_successor_iter(state_id.into()) {
+                        next_partial_updates.insert(successor_id);
+                    }
+                }
+                self.propagate_updates(op.inner, &next_partial_updates);
+
+                let inner_computation = Self::computation(&self.computations, op.inner);
+                for state_id in inner_computation.updated.iter().copied() {
+                    for predecessor_id in self.space.direct_predecessor_iter(state_id.into()) {
+                        if let Ok(predecessor_id) = StateId::try_from(predecessor_id) {
+                            add_updates.insert(predecessor_id);
+                        }
+                    }
+                }
+            }
+            PropertyType::FixedPoint(op) => {
+                self.propagate_updates(op.inner, partial_updates);
+
+                let inner_computation = Self::computation(&self.computations, op.inner);
+                add_updates.extend(inner_computation.updated.iter().copied());
+            }
+            PropertyType::FixedVariable(fixed_point_index) => {
+                // nothing to propagate
+                let fixed_variable_computation =
+                    Self::computation(&self.computations, *fixed_point_index);
+                add_updates.extend(fixed_variable_computation.updated.iter().copied());
+            }
+        };
+
+        let computation = Self::computation_mut(&mut self.computations, subproperty_index);
+        computation.updated.extend(add_updates);
     }
 }

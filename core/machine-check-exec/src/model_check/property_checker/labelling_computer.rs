@@ -11,7 +11,7 @@ use machine_check_common::{
 use mck::concr::FullMachine;
 
 use crate::{
-    model_check::property_checker::{CacheEntry, CheckValue, PropertyChecker},
+    model_check::property_checker::{CheckValue, PropertyChecker},
     space::StateSpace,
 };
 
@@ -90,50 +90,24 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         self.compute_labelling(0)?;
 
-        //self.very_dirty.clear();
-        let values = &self.computations.get(&0).unwrap().values;
         // conventionally, the property must hold in all initial states
         let mut result = ThreeValued::True;
         for initial_state_id in self.space.initial_iter() {
-            let value = values
-                .get(&initial_state_id)
-                .expect("Labelling should contain initial state");
-            let state_value = value.valuation;
+            let value = self.value(0, initial_state_id);
+            let valuation = value.valuation;
 
-            result = result & state_value;
+            result = result & valuation;
         }
 
         if log_enabled!(log::Level::Trace) {
             trace!("Computed interpretation of {:?}", self.property);
-
-            /*for (subproperty_index, check_info) in &self.subproperty_map {
-                let subproperty = property.subproperty_entry(*subproperty_index);
-
-                let mut display = format!(
-                    "Subproperty {} ({:?}): resets {:?}, labelling [\n",
-                    subproperty_index, subproperty, check_info
-                );
-                for (state_id, label) in &check_info.labelling {
-                    display.push_str(&format!("\t{}: {:?}\n", state_id, label));
-                }
-                display.push_str("]\n");
-
-                trace!("{}", display);
-            }*/
         }
 
         Ok(result)
     }
 
     fn compute_labelling(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
-        // take the frontier
-
-        //println!("Property: {:?}", self.property);
-        //println!("Computing labelling for index {}", subproperty_index);
-
         let subproperty_entry = self.property.subproperty_entry(subproperty_index);
-
-        //println!("Computing labelling for {:?}", subproperty_entry);
 
         match &subproperty_entry.ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
@@ -158,25 +132,6 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         };
 
         Ok(())
-    }
-
-    fn insert_history(cache_entry: &mut CacheEntry, state_id: StateId, value: CheckValue) {
-        let history = cache_entry
-            .histories
-            .entry(cache_entry.fixed_point_index)
-            .or_default();
-
-        history
-            .times
-            .entry(cache_entry.time_instant)
-            .or_default()
-            .insert(state_id, value.clone());
-
-        history
-            .states
-            .entry(state_id)
-            .or_default()
-            .insert(cache_entry.time_instant, value);
     }
 
     fn update_subproperty(
@@ -233,10 +188,6 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             .expect("Computation should exist")
     }
 
-    pub fn subproperty_values(&self, subproperty_index: usize) -> &BTreeMap<StateId, CheckValue> {
-        &Self::computation(&self.computations, subproperty_index).values
-    }
-
     pub fn is_calm(&self, subproperty_index: usize, calm_fixed_points: &mut Vec<usize>) -> bool {
         let computation = Self::computation(&self.computations, subproperty_index);
         if !computation.updated.is_empty() {
@@ -265,5 +216,40 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
                 calm_fixed_points.contains(fixed_point_index)
             }
         }
+    }
+
+    pub fn value(&self, subproperty_index: usize, state_id: StateId) -> &CheckValue {
+        let fixed_point_computation = self
+            .computations
+            .get(&subproperty_index)
+            .expect("Fixed-point operation should have a computation");
+        trace!(
+            "Fetching value of state id {:?} from subproperty {} computation {:?}",
+            state_id,
+            subproperty_index,
+            fixed_point_computation
+        );
+        if let Some(value) = fixed_point_computation.values.get(&state_id) {
+            return value;
+        }
+
+        let old_cache_entry = self
+            .property_checker
+            .old_cache
+            .get(self.property_checker.old_cache_index)
+            .expect("Value computation should have old cache entry");
+
+        let Some(old_state) = old_cache_entry.history.states.get(&state_id) else {
+            panic!(
+                "Value computation should have old values for state {}",
+                state_id
+            );
+        };
+
+        // TODO: get the value
+        let (_time, value) = old_state
+            .last_key_value()
+            .expect("Value computation should have last old state value");
+        value
     }
 }

@@ -16,6 +16,7 @@ use crate::{
 #[derive(Debug)]
 pub struct PropertyChecker {
     final_labellings: BTreeMap<usize, BTreeMap<StateId, CheckValue>>,
+    purge_states: BTreeSet<StateId>,
     old_cache: Vec<CacheEntry>,
     old_cache_index: usize,
     cache: Vec<CacheEntry>,
@@ -30,8 +31,7 @@ pub struct CheckValue {
 #[derive(Debug)]
 struct CacheEntry {
     fixed_point_index: usize,
-    time_instant: u64,
-    histories: BTreeMap<usize, FixedPointHistory>,
+    history: FixedPointHistory,
 }
 
 // TODO: remove clone
@@ -39,6 +39,21 @@ struct CacheEntry {
 struct FixedPointHistory {
     times: BTreeMap<u64, BTreeMap<StateId, CheckValue>>,
     states: BTreeMap<StateId, BTreeMap<u64, CheckValue>>,
+}
+
+impl FixedPointHistory {
+    fn insert_update(&mut self, time_instant: u64, state_id: StateId, value: CheckValue) {
+        // TODO
+        self.times
+            .entry(time_instant)
+            .or_default()
+            .insert(state_id, value.clone());
+
+        self.states
+            .entry(state_id)
+            .or_default()
+            .insert(time_instant, value);
+    }
 }
 
 impl CheckValue {
@@ -63,21 +78,12 @@ impl PropertyChecker {
             cache: Vec::new(),
             old_cache: Vec::new(),
             old_cache_index: 0,
+            purge_states: BTreeSet::new(),
         }
     }
 
-    pub fn purge_states(&mut self, _purge_states: &BTreeSet<StateId>) {
-        self.final_labellings.clear();
-        // TODO: incremental
-        /*self.very_dirty.extend(purge_states.iter());
-
-        for check_info in self.subproperty_map.values_mut() {
-            check_info.dirty.extend(purge_states.iter());
-
-            for state_id in purge_states {
-                check_info.labelling.remove(state_id);
-            }
-        }*/
+    pub fn purge_states(&mut self, purge_states: &BTreeSet<StateId>) {
+        self.purge_states.extend(purge_states);
     }
 
     pub fn compute_interpretation<M: FullMachine>(
@@ -90,9 +96,16 @@ impl PropertyChecker {
         let result = labelling_computer.compute()?;
         let mut final_labellings = BTreeMap::new();
         for subproperty_index in 0..property.num_subproperties() {
-            let values = labelling_computer
-                .subproperty_values(subproperty_index)
-                .clone();
+            // TODO: rewrite
+            let mut values = BTreeMap::new();
+
+            for state_id in space.states() {
+                let value = labelling_computer
+                    .value(subproperty_index, state_id)
+                    .clone();
+                values.insert(state_id, value);
+            }
+
             final_labellings.insert(subproperty_index, values);
         }
 

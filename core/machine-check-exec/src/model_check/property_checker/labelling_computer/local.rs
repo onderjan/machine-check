@@ -49,14 +49,8 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         let mut update = BTreeMap::new();
 
         for state_id in dirty {
-            let a_value = a_computation
-                .values
-                .get(&state_id)
-                .expect("Binary operation should have left value available");
-            let b_value = b_computation
-                .values
-                .get(&state_id)
-                .expect("Binary operation should have right value available");
+            let a_value = self.value(op.a, state_id);
+            let b_value = self.value(op.b, state_id);
 
             let a_valuation = a_value.valuation;
             let b_valuation = b_value.valuation;

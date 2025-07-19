@@ -76,9 +76,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         self.update_subproperty(subproperty_index, update);
 
-        //println!("Next valuations: {:?}", update);
-        //println!("Next reasons: {:?}", reasons);
-
         Ok(())
     }
 }
