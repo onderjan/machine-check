@@ -1,6 +1,7 @@
 mod fixed_point;
 mod local;
 mod next;
+mod propagate_updates;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -89,6 +90,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         self.property_checker.old_cache_index = 0;
 
         self.compute_labelling(0)?;
+
+        self.property_checker.purge_states.clear();
 
         // conventionally, the property must hold in all initial states
         let mut result = ThreeValued::True;
@@ -219,6 +222,19 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     }
 
     pub fn value(&self, subproperty_index: usize, state_id: StateId) -> &CheckValue {
+        let result = self.value_opt(subproperty_index, state_id);
+
+        if let Some(result) = result {
+            result
+        } else {
+            panic!(
+                "Cannot fetch value state id {:?} from subproperty {}",
+                state_id, subproperty_index
+            );
+        }
+    }
+
+    pub fn value_opt(&self, subproperty_index: usize, state_id: StateId) -> Option<&CheckValue> {
         let fixed_point_computation = self
             .computations
             .get(&subproperty_index)
@@ -230,26 +246,9 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             fixed_point_computation
         );
         if let Some(value) = fixed_point_computation.values.get(&state_id) {
-            return value;
+            return Some(value);
         }
 
-        let old_cache_entry = self
-            .property_checker
-            .old_cache
-            .get(self.property_checker.old_cache_index)
-            .expect("Value computation should have old cache entry");
-
-        let Some(old_state) = old_cache_entry.history.states.get(&state_id) else {
-            panic!(
-                "Value computation should have old values for state {}",
-                state_id
-            );
-        };
-
-        // TODO: get the value
-        let (_time, value) = old_state
-            .last_key_value()
-            .expect("Value computation should have last old state value");
-        value
+        None
     }
 }

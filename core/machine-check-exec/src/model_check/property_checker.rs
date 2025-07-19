@@ -100,8 +100,9 @@ impl PropertyChecker {
             let mut values = BTreeMap::new();
 
             for state_id in space.states() {
+                // TODO: this should not use the fixed point value
                 let value = labelling_computer
-                    .value(subproperty_index, state_id)
+                    .fixed_point_value(subproperty_index, state_id)
                     .clone();
                 values.insert(state_id, value);
             }

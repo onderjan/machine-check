@@ -1,10 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use log::{log_enabled, trace};
-use machine_check_common::{
-    property::{FixedPointOperator, PropertyType},
-    ExecError, StateId, ThreeValued,
-};
+use machine_check_common::{property::FixedPointOperator, ExecError, StateId, ThreeValued};
 
 use crate::{
     model_check::property_checker::{
@@ -194,9 +191,9 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         let inner_computation = Self::computation(&self.computations, params.op.inner);
 
         for state_id in inner_computation.updated.iter().copied() {
-            let fixed_point_value = self.value(params.subproperty_index, state_id);
+            let fixed_point_value = self.value_opt(params.subproperty_index, state_id);
             let inner_value = inner_computation.values.get(&state_id).unwrap();
-            if fixed_point_value != inner_value {
+            if fixed_point_value != Some(inner_value) {
                 params.update.insert(state_id, inner_value.clone());
             }
         }
@@ -255,80 +252,44 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         let mut update = BTreeMap::new();
 
         for state_id in fixed_point_computation.updated.iter().cloned() {
-            let fixed_point_value = self.value(fixed_point_index, state_id);
+            let fixed_point_value = self.fixed_point_value(fixed_point_index, state_id);
+            let valuation = fixed_point_value.valuation;
             // drop the next states
 
-            update.insert(state_id, CheckValue::eigen(fixed_point_value.valuation));
+            update.insert(state_id, CheckValue::eigen(valuation));
         }
 
         self.update_subproperty(subproperty_index, update);
         Ok(())
     }
 
-    fn propagate_updates(&mut self, subproperty_index: usize, partial_updates: &BTreeSet<StateId>) {
-        let subproperty_entry = self.property.subproperty_entry(subproperty_index);
+    pub fn fixed_point_value(&self, subproperty_index: usize, state_id: StateId) -> &CheckValue {
+        let value = self.value_opt(subproperty_index, state_id);
+        if let Some(value) = value {
+            return value;
+        }
 
-        trace!(
-            "Propagating down to subproperty {} with partial updates {:?}",
-            subproperty_index,
-            partial_updates
-        );
-        let computation = Self::computation_mut(&mut self.computations, subproperty_index);
-        computation.updated.extend(partial_updates);
+        // TODO: use the correct subproperty and timing
 
-        let mut add_updates = BTreeSet::new();
+        let old_cache_entry = self
+            .property_checker
+            .old_cache
+            .get(self.property_checker.old_cache_index)
+            .expect("Value computation should have old cache entry");
 
-        match &subproperty_entry.ty {
-            PropertyType::Const(_) | PropertyType::Atomic(_) => {
-                // nothing to propagate
-            }
-            PropertyType::Negation(inner) => {
-                self.propagate_updates(*inner, partial_updates);
-                let inner_computation = Self::computation(&self.computations, *inner);
-                add_updates.extend(inner_computation.updated.iter().copied());
-            }
-            PropertyType::BiLogic(op) => {
-                self.propagate_updates(op.a, partial_updates);
-                self.propagate_updates(op.b, partial_updates);
+        assert_eq!(subproperty_index, old_cache_entry.fixed_point_index);
 
-                let a_computation = Self::computation(&self.computations, op.a);
-                add_updates.extend(a_computation.updated.iter().copied());
-                let b_computation = Self::computation(&self.computations, op.b);
-                add_updates.extend(b_computation.updated.iter().copied());
-            }
-            PropertyType::Next(op) => {
-                let mut next_partial_updates = BTreeSet::new();
-                for state_id in partial_updates.iter().copied() {
-                    for successor_id in self.space.direct_successor_iter(state_id.into()) {
-                        next_partial_updates.insert(successor_id);
-                    }
-                }
-                self.propagate_updates(op.inner, &next_partial_updates);
-
-                let inner_computation = Self::computation(&self.computations, op.inner);
-                for state_id in inner_computation.updated.iter().copied() {
-                    for predecessor_id in self.space.direct_predecessor_iter(state_id.into()) {
-                        if let Ok(predecessor_id) = StateId::try_from(predecessor_id) {
-                            add_updates.insert(predecessor_id);
-                        }
-                    }
-                }
-            }
-            PropertyType::FixedPoint(op) => {
-                self.propagate_updates(op.inner, partial_updates);
-
-                let inner_computation = Self::computation(&self.computations, op.inner);
-                add_updates.extend(inner_computation.updated.iter().copied());
-            }
-            PropertyType::FixedVariable(fixed_point_index) => {
-                // nothing to propagate
-                let fixed_variable_computation =
-                    Self::computation(&self.computations, *fixed_point_index);
-                add_updates.extend(fixed_variable_computation.updated.iter().copied());
-            }
+        let Some(old_state) = old_cache_entry.history.states.get(&state_id) else {
+            panic!(
+                "Value computation should have old values for state {}",
+                state_id
+            );
         };
 
-        let computation = Self::computation_mut(&mut self.computations, subproperty_index);
-        computation.updated.extend(add_updates);
+        // TODO: get the value
+        let (_time, value) = old_state
+            .last_key_value()
+            .expect("Value computation should have last old state value");
+        value
     }
 }
