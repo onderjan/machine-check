@@ -91,6 +91,7 @@ impl PropertyChecker {
         space: &StateSpace<M>,
         property: &Property,
     ) -> Result<ThreeValued, ExecError> {
+        self.purge_states.extend(space.states());
         trace!("Cache before computing interpretation: {:#?}", self.cache);
         let mut labelling_computer = LabellingComputer::new(self, property, space)?;
         let result = labelling_computer.compute()?;

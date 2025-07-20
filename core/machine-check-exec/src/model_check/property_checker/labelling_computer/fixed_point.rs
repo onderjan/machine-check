@@ -71,12 +71,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
             let mut update = BTreeMap::new();
 
-            let history = if let Some(history) = history {
-                for state_id in self.property_checker.purge_states.iter().copied() {
-                    update.insert(state_id, ground_value.clone());
-                }
-                history
-            } else {
+            let history = {
                 for state_id in self.space.states() {
                     update.insert(state_id, ground_value.clone());
                 }
@@ -85,7 +80,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                     states: BTreeMap::new(),
                 }
             };
-
             trace!(
                 "Starting fixed-point {:?} computation, current: {:?}, old values: {:?}",
                 subproperty_index,
@@ -158,30 +152,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             fixed_point_computation
         );
 
-        if log_enabled!(log::Level::Trace) {
-            for state_id in self.space.states() {
-                let current = fixed_point_computation.values.get(&state_id);
-                let old = params
-                    .history
-                    .states
-                    .get(&state_id)
-                    .and_then(|state_history| {
-                        state_history
-                            .range(0..=params.time_instant)
-                            .last()
-                            .map(|(_, value)| value)
-                    });
-                if current != old {
-                    trace!(
-                        "State {} mismatch from old {:?} to current {:?}",
-                        state_id,
-                        old,
-                        current
-                    );
-                }
-            }
-        }
-
         self.compute_labelling(params.op.inner)?;
 
         params.time_instant += 1;
@@ -247,11 +217,16 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         fixed_point_index: usize,
     ) -> Result<(), ExecError> {
         // everything is given by the fixed point
+        let our_computation = Self::computation(&self.computations, subproperty_index);
         let fixed_point_computation = Self::computation(&self.computations, fixed_point_index);
 
         let mut update = BTreeMap::new();
 
-        for state_id in fixed_point_computation.updated.iter().cloned() {
+        for state_id in our_computation
+            .updated
+            .union(&fixed_point_computation.updated)
+            .cloned()
+        {
             let fixed_point_value = self.fixed_point_value(fixed_point_index, state_id);
             let valuation = fixed_point_value.valuation;
             // drop the next states
@@ -271,7 +246,8 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         // TODO: use the correct subproperty and timing
 
-        let old_cache_entry = self
+        panic!();
+        /*let old_cache_entry = self
             .property_checker
             .old_cache
             .get(self.property_checker.old_cache_index)
@@ -290,6 +266,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         let (_time, value) = old_state
             .last_key_value()
             .expect("Value computation should have last old state value");
-        value
+        value*/
     }
 }
