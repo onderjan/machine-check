@@ -256,12 +256,39 @@ impl<const W: u32> UnsignedInterval<W> {
 
         let a_diff_mask = mask_from_leading_one(a_p ^ a_q);
 
-        let min = {
-            let b_q_mask = mask_from_leading_one(!a_p & b_q & a_diff_mask);
-            let a_q_mask = mask_from_leading_one(!b_p & a_q & a_diff_mask);
+        let b_q_mask = mask_from_leading_one(!a_p & b_q & a_diff_mask);
+        let a_q_mask = mask_from_leading_one(!b_p & a_q & a_diff_mask);
 
-            (a_p & !b_q & !b_q_mask) | (b_p & !a_q & !a_q_mask)
-        };
+        // minimum with explicit operands
+        /*let min = {
+            let b_diff_mask = mask_from_leading_one(b_p ^ b_q);
+            if a_diff_mask > b_diff_mask {
+                let leading_a = lead_mask(a_diff_mask);
+
+                assert_eq!(b_p & leading_a, b_q & leading_a);
+                if (b_q & leading_a) != 0 {
+                    let operand_a = (a_q & !a_q_mask) | (b_p & a_q_mask);
+                    assert!(a_p <= operand_a && operand_a <= a_q);
+                    operand_a ^ b_p
+                    //(a_q ^ b_p) & !a_q_mask
+                } else {
+                    let operand_a = (a_p & !b_q_mask) | (b_q & b_q_mask);
+                    assert!(a_p <= operand_a && operand_a <= a_q);
+                    operand_a ^ b_q
+                    //(a_p ^ b_q) & !b_q_mask
+                }
+            } else {
+                let diff_mask_lead = lead_mask(a_diff_mask);
+
+                let operand_a = (a_p | a_diff_mask) & !diff_mask_lead;
+                let operand_b = (b_q | a_diff_mask) & !diff_mask_lead;
+
+                operand_a ^ operand_b
+                //(a_p ^ b_p) & !a_diff_mask
+            }
+        };*/
+
+        let min = (a_p & !b_q & !b_q_mask) | (b_p & !a_q & !a_q_mask);
 
         let neither_p_mask = mask_from_leading_one(!a_p & !b_p & a_diff_mask);
         let both_q_mask = mask_from_leading_one(a_q & b_q & a_diff_mask);
