@@ -242,23 +242,60 @@ impl<const W: u32> UnsignedInterval<W> {
         // An improvement of the Hacker's Delight algorithm, giving O(1) computation
         // if Count Leading Zeros (clz) is implemented.
 
-        let (x_p, x_q) = (self.min.to_u64(), self.max.to_u64());
-        let (y_p, y_q) = (rhs.min.to_u64(), rhs.max.to_u64());
+        // make sure a diff mask is greater or equal to b diff mask
+        let (a_p, a_q, b_p, b_q) = {
+            let (x_p, x_q) = (self.min.to_u64(), self.max.to_u64());
+            let (y_p, y_q) = (rhs.min.to_u64(), rhs.max.to_u64());
 
-        let diff_mask = mask_from_leading_one((x_p ^ x_q) | (y_p ^ y_q));
+            if x_p ^ x_q >= y_p ^ y_q {
+                (x_p, x_q, y_p, y_q)
+            } else {
+                (y_p, y_q, x_p, x_q)
+            }
+        };
+
+        let a_diff_mask = mask_from_leading_one(a_p ^ a_q);
 
         let min = {
-            let y_q_mask = mask_from_leading_one(!x_p & y_q & diff_mask);
-            let x_q_mask = mask_from_leading_one(!y_p & x_q & diff_mask);
+            let b_q_mask = mask_from_leading_one(!a_p & b_q & a_diff_mask);
+            let a_q_mask = mask_from_leading_one(!b_p & a_q & a_diff_mask);
 
-            (x_p & !y_q & !y_q_mask) | (y_p & !x_q & !x_q_mask)
+            (a_p & !b_q & !b_q_mask) | (b_p & !a_q & !a_q_mask)
         };
 
-        let max = {
-            let neither_p_mask = mask_from_leading_one(!x_p & !y_p & diff_mask);
-            let both_q_mask = mask_from_leading_one(y_q & x_q & diff_mask);
-            (!x_p | !y_p | neither_p_mask) & (x_q | y_q | both_q_mask)
-        };
+        let neither_p_mask = mask_from_leading_one(!a_p & !b_p & a_diff_mask);
+        let both_q_mask = mask_from_leading_one(a_q & b_q & a_diff_mask);
+
+        // maximum with explicit operands
+        /*let max = {
+            let b_diff_mask = mask_from_leading_one(b_p ^ b_q);
+            if a_diff_mask > b_diff_mask {
+                let leading_a = lead_mask(a_diff_mask);
+
+                assert_eq!(b_p & leading_a, b_q & leading_a);
+                if (b_q & leading_a) != 0 {
+                    let operand_x = (a_p & !neither_p_mask) | (!b_p & neither_p_mask);
+                    assert!(a_p <= operand_x && operand_x <= a_q);
+                    operand_x ^ b_p
+                    //(a_p ^ b_p) | neither_p_mask
+                } else {
+                    let operand_x = (a_q & !both_q_mask) | (!b_q & both_q_mask);
+                    assert!(a_p <= operand_x && operand_x <= a_q);
+                    operand_x ^ b_q
+                    //(a_q ^ b_q) | both_q_mask
+                }
+            } else {
+                let diff_mask_lead = lead_mask(a_diff_mask);
+
+                let operand_x = (a_p | a_diff_mask) & !diff_mask_lead;
+                let operand_y = (b_q & !a_diff_mask) | diff_mask_lead;
+
+                operand_x ^ operand_y
+                //(a_p ^ b_p) | a_diff_mask
+            }
+        };*/
+
+        let max = (!a_p | !b_p | neither_p_mask) & (a_q | b_q | both_q_mask);
 
         // we need to mask max
         let max = max & ConcreteBitvector::<W>::bit_mask().to_u64();
@@ -273,6 +310,15 @@ impl<const W: u32> UnsignedInterval<W> {
 fn mask_from_leading_one(x: u64) -> u64 {
     let diff_clz = x.leading_zeros();
     u64::MAX.checked_shr(diff_clz).unwrap_or(0)
+}
+
+#[allow(dead_code)]
+fn lead_mask(x: u64) -> u64 {
+    if let Some(ilog2) = x.checked_ilog2() {
+        1u64 << ilog2
+    } else {
+        0
+    }
 }
 
 impl<const W: u32> Debug for UnsignedInterval<W> {
