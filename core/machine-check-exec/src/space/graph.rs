@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet, VecDeque},
+    collections::{BTreeSet, HashSet, VecDeque},
     fmt::Debug,
     ops::ControlFlow,
 };
@@ -21,12 +21,12 @@ pub struct StateGraph<M: FullMachine> {
 impl<M: FullMachine> Debug for StateGraph<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "StateGraph [")?;
-        let edge_map = BTreeMap::from_iter(
+        let edge_set = BTreeSet::from_iter(
             self.node_graph
                 .all_edges()
                 .map(|(head, tail, _edge)| (head, tail)),
         );
-        for (head, tail) in edge_map {
+        for (head, tail) in edge_set {
             write!(f, "{} -> {}, ", head, tail)?;
         }
         write!(f, "]")
