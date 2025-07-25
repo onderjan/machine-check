@@ -12,7 +12,7 @@ mod parser;
 pub use atomic::{AtomicProperty, ComparisonType, ValueExpression};
 
 /// A Computation Tree Logic property.
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Property {
     arena: Arc<Vec<SubpropertyEntry>>,
 }
@@ -57,6 +57,18 @@ impl Property {
 
     pub fn num_subproperties(&self) -> usize {
         self.arena.len()
+    }
+}
+
+impl Debug for Property {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut builder = f.debug_struct("Property");
+        for (index, entry) in self.arena.iter().enumerate() {
+            let index_string = index.to_string();
+            builder.field(&index_string, entry);
+        }
+
+        builder.finish()
     }
 }
 

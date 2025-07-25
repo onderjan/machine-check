@@ -116,6 +116,11 @@ impl PropertyChecker {
             self.fixed_point_histories
         );
 
+        trace!(
+            "Latest labellings after computing interpretation: {:#?}",
+            self.latest
+        );
+
         Ok(result)
     }
 

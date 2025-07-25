@@ -18,7 +18,9 @@ pub struct LabellingComputer<'a, M: FullMachine> {
     property_checker: &'a mut PropertyChecker,
     space: &'a StateSpace<M>,
 
-    updates: BTreeMap<usize, BTreeSet<StateId>>,
+    //updates: BTreeMap<usize, BTreeSet<StateId>>,
+    fixed_point_values: BTreeMap<usize, BTreeMap<StateId, ThreeValued>>,
+
     time_instant: u64,
 }
 
@@ -29,7 +31,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     ) -> Result<Self, ExecError> {
         property_checker.reinit_labellings()?;
 
-        let mut updates = BTreeMap::new();
+        /*let mut updates = BTreeMap::new();
 
         for subproperty_index in 0..property_checker.property.num_subproperties() {
             let ty = &property_checker
@@ -43,12 +45,12 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             };
 
             updates.insert(subproperty_index, update);
-        }
+        }*/
 
         let computer = Self {
             property_checker,
             space,
-            updates,
+            fixed_point_values: BTreeMap::new(),
             time_instant: 0,
         };
 
@@ -71,17 +73,19 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             result = result & valuation;
         }
 
-        if log_enabled!(log::Level::Trace) {
-            trace!(
-                "Computed interpretation of {:?}",
-                self.property_checker.property
-            );
-        }
+        trace!(
+            "Computed interpretation of {:?}",
+            self.property_checker.property
+        );
+        trace!("Final fixed point values: {:?}", self.fixed_point_values);
 
         Ok(result)
     }
 
-    fn compute_labelling(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
+    fn compute_labelling(
+        &mut self,
+        subproperty_index: usize,
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
@@ -89,11 +93,10 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         let ty = subproperty_entry.ty.clone();
 
-        match &ty {
+        let updated = match &ty {
             PropertyType::Const(constant) => {
                 let constant = ThreeValued::from_bool(*constant);
                 let eigen = CheckValue::eigen(constant);
-                let update = Self::computation(&self.updates, subproperty_index);
 
                 let latest = self
                     .property_checker
@@ -101,50 +104,48 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
                     .get_mut(&subproperty_index)
                     .expect("Latest should contain const subproperty");
 
-                for state_id in update.iter().copied() {
+                for state_id in self.space.states() {
                     latest.insert(state_id, eigen.clone());
                 }
+                BTreeSet::from_iter(self.space.states())
             }
             PropertyType::Atomic(atomic_property) => {
-                let update = Self::computation(&self.updates, subproperty_index);
-
                 let latest = self
                     .property_checker
                     .latest
                     .get_mut(&subproperty_index)
                     .expect("Latest should contain const subproperty");
 
-                for state_id in update.iter().copied() {
+                for state_id in self.space.states() {
                     let value = self.space.atomic_label(atomic_property, state_id)?;
                     let value = CheckValue::eigen(value);
                     latest.insert(state_id, value);
                 }
+                BTreeSet::from_iter(self.space.states())
             }
-            PropertyType::Negation(inner) => {
-                self.compute_negation(subproperty_index, *inner)?;
-            }
-            PropertyType::BiLogic(op) => {
-                self.compute_binary_op(subproperty_index, op)?;
-            }
-            PropertyType::Next(op) => {
-                self.compute_next_labelling(subproperty_index, op)?;
-            }
-            PropertyType::FixedPoint(op) => {
-                self.compute_fixed_point_op(subproperty_index, op)?;
-            }
+            PropertyType::Negation(inner) => self.compute_negation(subproperty_index, *inner)?,
+            PropertyType::BiLogic(op) => self.compute_binary_op(subproperty_index, op)?,
+            PropertyType::Next(op) => self.compute_next_labelling(subproperty_index, op)?,
+            PropertyType::FixedPoint(op) => self.compute_fixed_point_op(subproperty_index, op)?,
             PropertyType::FixedVariable(fixed_point_index) => {
-                self.compute_fixed_variable(subproperty_index, *fixed_point_index)?;
+                self.compute_fixed_variable(subproperty_index, *fixed_point_index)?
             }
         };
 
-        Ok(())
+        trace!(
+            "Subproperty {:?} labelling computed, updated: {:?}",
+            subproperty_index,
+            updated
+        );
+
+        Ok(updated)
     }
 
     fn update_subproperty(
         &mut self,
         subproperty_index: usize,
         update: BTreeMap<StateId, CheckValue>,
-    ) {
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         /*let computation = self
             .computations
             .get_mut(&subproperty_index)
@@ -164,19 +165,35 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         let latest = self.property_checker.get_labelling_mut(subproperty_index);
 
+        let mut updated = BTreeSet::new();
+
+        trace!(
+            "Updating subproperty {} with {:?}",
+            subproperty_index,
+            update
+        );
+
         for (state_id, update_value) in update {
             if let Some(current_value) = latest.get_mut(&state_id) {
                 // do not update when the valuation is not changed
                 if current_value.valuation == update_value.valuation {
+                    trace!(
+                        "Not updating state {} for subproperty {} as valuation {:?} has not changed",
+                        state_id,
+                        subproperty_index,
+                        current_value.valuation
+                    );
                     continue;
                 }
                 *current_value = update_value;
             } else {
                 latest.insert(state_id, update_value);
             }
+            updated.insert(state_id);
             //computation.updated.insert(state_id);
         }
 
+        Ok(BTreeSet::from_iter(self.space.states()))
         //trace!("Updated {:?}", computation.updated);
     }
 
@@ -197,7 +214,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     }
 
     pub fn is_calm(&self, subproperty_index: usize, calm_fixed_points: &mut Vec<usize>) -> bool {
-        let update = Self::computation(&self.updates, subproperty_index);
+        return false;
+        /*let update = Self::computation(&self.updates, subproperty_index);
         if !update.is_empty() {
             trace!(
                 "Subproperty {} is not calm as it has updates",
@@ -234,7 +252,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         trace!("Subproperty {} calmness: {}", subproperty_index, result);
 
-        result
+        result*/
     }
 
     pub fn value(&self, subproperty_index: usize, state_id: StateId) -> &CheckValue {

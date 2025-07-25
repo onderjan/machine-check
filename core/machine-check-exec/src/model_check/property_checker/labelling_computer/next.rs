@@ -11,18 +11,15 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         &mut self,
         subproperty_index: usize,
         op: &NextOperator,
-    ) -> Result<(), ExecError> {
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_universal));
-        self.compute_labelling(op.inner)?;
+        let inner_updated = self.compute_labelling(op.inner)?;
 
         // We need to compute states where the inner property was updated for their direct successors.
 
         let mut dirty = BTreeSet::new();
 
-        let inner_computation = Self::computation(&self.updates, op.inner);
-
-        //for state_id in self.space.states() {
-        for state_id in inner_computation.iter().cloned() {
+        for state_id in inner_updated {
             for predecessor_id in self.space.direct_predecessor_iter(state_id.into()) {
                 if let Ok(predecessor_id) = StateId::try_from(predecessor_id) {
                     dirty.insert(predecessor_id);
@@ -74,11 +71,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             update.insert(dirty_id, current_value);
         }
 
-        let inner_computation = Self::computation_mut(&mut self.updates, op.inner);
-        inner_computation.clear();
-
-        self.update_subproperty(subproperty_index, update);
-
-        Ok(())
+        self.update_subproperty(subproperty_index, update)
     }
 }

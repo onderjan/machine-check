@@ -5,7 +5,7 @@ use machine_check_common::{property::PropertyType, StateId};
 
 use crate::{model_check::property_checker::labelling_computer::LabellingComputer, FullMachine};
 
-impl<M: FullMachine> LabellingComputer<'_, M> {
+/*impl<M: FullMachine> LabellingComputer<'_, M> {
     pub(super) fn propagate_updates(
         &mut self,
         subproperty_index: usize,
@@ -81,3 +81,4 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         update.extend(add_updates);
     }
 }
+*/

@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use machine_check_common::property::BiLogicOperator;
-use machine_check_common::ExecError;
+use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_computer::LabellingComputer;
 use crate::FullMachine;
@@ -12,10 +12,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         &mut self,
         subproperty_index: usize,
         inner: usize,
-    ) -> Result<(), ExecError> {
-        self.compute_labelling(inner)?;
+    ) -> Result<BTreeSet<StateId>, ExecError> {
+        let dirty = self.compute_labelling(inner)?;
 
-        let dirty = Self::computation_mut(&mut self.updates, inner);
+        //let dirty = Self::computation_mut(&mut self.updates, inner);
 
         // negate everything that was updated
         let mut update = BTreeMap::new();
@@ -29,26 +29,20 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             update.insert(state_id, value);
         }
 
-        dirty.clear();
-
-        self.update_subproperty(subproperty_index, update);
-        Ok(())
+        self.update_subproperty(subproperty_index, update)
     }
 
     pub fn compute_binary_op(
         &mut self,
         subproperty_index: usize,
         op: &BiLogicOperator,
-    ) -> Result<(), ExecError> {
-        self.compute_labelling(op.a)?;
-        self.compute_labelling(op.b)?;
+    ) -> Result<BTreeSet<StateId>, ExecError> {
+        let updated_a = self.compute_labelling(op.a)?;
+        let updated_b = self.compute_labelling(op.b)?;
 
-        let a_computation = Self::computation(&self.updates, op.a);
-        let b_computation = Self::computation(&self.updates, op.b);
+        let dirty = updated_a.union(&updated_b).copied();
 
-        let dirty = a_computation.union(b_computation).copied();
-
-        let mut update = BTreeMap::new();
+        let mut updated = BTreeMap::new();
 
         for state_id in dirty {
             let a_value = self.value(op.a, state_id);
@@ -75,16 +69,9 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 }
             };
 
-            update.insert(state_id, result_value.clone());
+            updated.insert(state_id, result_value.clone());
         }
 
-        let a_computation = Self::computation_mut(&mut self.updates, op.a);
-        a_computation.clear();
-        let b_computation = Self::computation_mut(&mut self.updates, op.b);
-        b_computation.clear();
-
-        self.update_subproperty(subproperty_index, update);
-
-        Ok(())
+        self.update_subproperty(subproperty_index, updated)
     }
 }
