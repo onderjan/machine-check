@@ -1,4 +1,7 @@
-use std::{collections::BTreeSet, num::NonZeroU64};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    num::NonZeroU64,
+};
 
 use bimap::{BiMap, Overwritten};
 use machine_check_common::StateId;
@@ -22,8 +25,10 @@ pub struct StateStore<M: FullMachine> {
 
 impl<M: FullMachine> Debug for StateStore<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ordered_map = BTreeMap::from_iter(self.map.iter());
+
         f.debug_struct("StateStore")
-            .field("map", &self.map)
+            .field("map", &ordered_map)
             .field("next_state_id", &self.next_state_id)
             .finish()
     }
