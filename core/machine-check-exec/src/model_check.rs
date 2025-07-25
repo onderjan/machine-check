@@ -66,7 +66,7 @@ impl ThreeValuedChecker {
 
         if !self.property_checkers.contains_key(property) {
             self.property_checkers
-                .insert(property.clone(), PropertyChecker::new());
+                .insert(property.clone(), PropertyChecker::new(property.clone()));
         }
 
         let property_checker = self
@@ -74,7 +74,7 @@ impl ThreeValuedChecker {
             .get_mut(property)
             .expect("Property checker should be just inserted");
 
-        let result = property_checker.compute_interpretation(space, property)?;
+        let result = property_checker.compute_interpretation(space)?;
 
         if !space.is_valid() {
             return Ok(Conclusion::NotCheckable);

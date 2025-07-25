@@ -15,13 +15,14 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_universal));
         self.compute_labelling(op.inner)?;
 
-        let inner_computation = Self::computation(&self.computations, op.inner);
-
         // We need to compute states where the inner property was updated for their direct successors.
 
         let mut dirty = BTreeSet::new();
 
-        for state_id in inner_computation.updated.iter().cloned() {
+        let inner_computation = Self::computation(&self.updates, op.inner);
+
+        //for state_id in self.space.states() {
+        for state_id in inner_computation.iter().cloned() {
             for predecessor_id in self.space.direct_predecessor_iter(state_id.into()) {
                 if let Ok(predecessor_id) = StateId::try_from(predecessor_id) {
                     dirty.insert(predecessor_id);
@@ -33,15 +34,17 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         // For each state in dirty states, compute the new value from the successors.
         for dirty_id in dirty.iter().copied() {
-            let old_successor = Self::computation(&self.computations, subproperty_index)
-                .values
+            let old_successor = self
+                .property_checker
+                .get_labelling(subproperty_index)
                 .get(&dirty_id)
                 .and_then(|value| value.next_states.last().copied());
 
             let mut direct_successors = VecDeque::new();
             for successor_id in self.space.direct_successor_iter(dirty_id.into()) {
-                let value = inner_computation
-                    .values
+                let value = self
+                    .property_checker
+                    .get_labelling(op.inner)
                     .get(&successor_id)
                     .expect("Direct successor should have values")
                     .clone();
@@ -71,8 +74,8 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             update.insert(dirty_id, current_value);
         }
 
-        let inner_computation = Self::computation_mut(&mut self.computations, op.inner);
-        inner_computation.updated.clear();
+        let inner_computation = Self::computation_mut(&mut self.updates, op.inner);
+        inner_computation.clear();
 
         self.update_subproperty(subproperty_index, update);
 

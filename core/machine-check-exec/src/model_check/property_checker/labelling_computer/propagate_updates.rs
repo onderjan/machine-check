@@ -11,15 +11,19 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         subproperty_index: usize,
         partial_updates: &BTreeSet<StateId>,
     ) {
-        let subproperty_entry = self.property.subproperty_entry(subproperty_index);
+        let subproperty_entry = self
+            .property_checker
+            .property
+            .subproperty_entry(subproperty_index)
+            .clone();
 
         trace!(
             "Propagating down to subproperty {} with partial updates {:?}",
             subproperty_index,
             partial_updates
         );
-        let computation = Self::computation_mut(&mut self.computations, subproperty_index);
-        computation.updated.extend(partial_updates);
+        let updates = Self::computation_mut(&mut self.updates, subproperty_index);
+        updates.extend(partial_updates);
 
         let mut add_updates = BTreeSet::new();
 
@@ -29,17 +33,17 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             }
             PropertyType::Negation(inner) => {
                 self.propagate_updates(*inner, partial_updates);
-                let inner_computation = Self::computation(&self.computations, *inner);
-                add_updates.extend(inner_computation.updated.iter().copied());
+                let inner_computation = Self::computation(&self.updates, *inner);
+                add_updates.extend(inner_computation.iter().copied());
             }
             PropertyType::BiLogic(op) => {
                 self.propagate_updates(op.a, partial_updates);
                 self.propagate_updates(op.b, partial_updates);
 
-                let a_computation = Self::computation(&self.computations, op.a);
-                add_updates.extend(a_computation.updated.iter().copied());
-                let b_computation = Self::computation(&self.computations, op.b);
-                add_updates.extend(b_computation.updated.iter().copied());
+                let a_computation = Self::computation(&self.updates, op.a);
+                add_updates.extend(a_computation.iter().copied());
+                let b_computation = Self::computation(&self.updates, op.b);
+                add_updates.extend(b_computation.iter().copied());
             }
             PropertyType::Next(op) => {
                 let mut next_partial_updates = BTreeSet::new();
@@ -50,8 +54,8 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 }
                 self.propagate_updates(op.inner, &next_partial_updates);
 
-                let inner_computation = Self::computation(&self.computations, op.inner);
-                for state_id in inner_computation.updated.iter().copied() {
+                let inner_computation = Self::computation(&self.updates, op.inner);
+                for state_id in inner_computation.iter().copied() {
                     for predecessor_id in self.space.direct_predecessor_iter(state_id.into()) {
                         if let Ok(predecessor_id) = StateId::try_from(predecessor_id) {
                             add_updates.insert(predecessor_id);
@@ -62,18 +66,18 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             PropertyType::FixedPoint(op) => {
                 self.propagate_updates(op.inner, partial_updates);
 
-                let inner_computation = Self::computation(&self.computations, op.inner);
-                add_updates.extend(inner_computation.updated.iter().copied());
+                let inner_computation = Self::computation(&self.updates, op.inner);
+                add_updates.extend(inner_computation.iter().copied());
             }
             PropertyType::FixedVariable(fixed_point_index) => {
                 // nothing to propagate
                 let fixed_variable_computation =
-                    Self::computation(&self.computations, *fixed_point_index);
-                add_updates.extend(fixed_variable_computation.updated.iter().copied());
+                    Self::computation(&self.updates, *fixed_point_index);
+                add_updates.extend(fixed_variable_computation.iter().copied());
             }
         };
 
-        let computation = Self::computation_mut(&mut self.computations, subproperty_index);
-        computation.updated.extend(add_updates);
+        let update = Self::computation_mut(&mut self.updates, subproperty_index);
+        update.extend(add_updates);
     }
 }

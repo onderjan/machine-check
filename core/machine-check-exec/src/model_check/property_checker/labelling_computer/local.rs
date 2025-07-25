@@ -15,18 +15,21 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
     ) -> Result<(), ExecError> {
         self.compute_labelling(inner)?;
 
-        let inner_computation = Self::computation_mut(&mut self.computations, inner);
+        let dirty = Self::computation_mut(&mut self.updates, inner);
 
         // negate everything that was updated
         let mut update = BTreeMap::new();
-        for state_id in &inner_computation.updated {
-            let mut value = inner_computation.values.get(state_id).unwrap().clone();
+
+        let inner_labelling = self.property_checker.get_labelling(inner);
+
+        for state_id in dirty.iter().cloned() {
+            let mut value = inner_labelling.get(&state_id).unwrap().clone();
             // negate
             value.valuation = !value.valuation;
-            update.insert(*state_id, value);
+            update.insert(state_id, value);
         }
 
-        inner_computation.updated.clear();
+        dirty.clear();
 
         self.update_subproperty(subproperty_index, update);
         Ok(())
@@ -40,11 +43,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         self.compute_labelling(op.a)?;
         self.compute_labelling(op.b)?;
 
-        let a_computation = Self::computation(&self.computations, op.a);
-        let b_computation = Self::computation(&self.computations, op.b);
+        let a_computation = Self::computation(&self.updates, op.a);
+        let b_computation = Self::computation(&self.updates, op.b);
 
-        let mut dirty = a_computation.updated.clone();
-        dirty.extend(b_computation.updated.iter());
+        let dirty = a_computation.union(b_computation).copied();
 
         let mut update = BTreeMap::new();
 
@@ -76,10 +78,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             update.insert(state_id, result_value.clone());
         }
 
-        let a_computation = Self::computation_mut(&mut self.computations, op.a);
-        a_computation.updated.clear();
-        let b_computation = Self::computation_mut(&mut self.computations, op.b);
-        b_computation.updated.clear();
+        let a_computation = Self::computation_mut(&mut self.updates, op.a);
+        a_computation.clear();
+        let b_computation = Self::computation_mut(&mut self.updates, op.b);
+        b_computation.clear();
 
         self.update_subproperty(subproperty_index, update);
 
