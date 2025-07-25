@@ -44,10 +44,10 @@ mod machine_module {
         ///
         /// Can be reset by the input `reset` if `enable_reset` is chosen.
         max_value: Unsigned<5>,
-        /*/// An unused value.
+        /// An unused value.
         unused: Bitvector<4>,
         /// An irrelevant free-running counter.
-        free_counter: Unsigned<4>,*/
+        free_counter: Unsigned<4>,
     }
 
     impl ::machine_check::State for State {}
@@ -64,8 +64,8 @@ mod machine_module {
         fn init(&self, _input: &Input) -> State {
             State {
                 max_value: Unsigned::<5>::new(0),
-                //unused: Bitvector::<4>::new(0),
-                //free_counter: Unsigned::<4>::new(0),
+                unused: Bitvector::<4>::new(0),
+                free_counter: Unsigned::<4>::new(0),
             }
         }
 
@@ -85,11 +85,11 @@ mod machine_module {
             }
 
             // Increment the free-running counter. It will wrap around eventually.
-            //let free_counter = state.free_counter + Unsigned::<4>::new(1);
+            let free_counter = state.free_counter + Unsigned::<4>::new(1);
             State {
                 max_value: next_max,
-                //unused: input.unused,
-                //free_counter,
+                unused: input.unused,
+                free_counter,
             }
         }
     }
