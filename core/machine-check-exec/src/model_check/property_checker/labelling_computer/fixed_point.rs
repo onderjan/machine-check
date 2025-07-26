@@ -41,12 +41,25 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             op,
         };
 
+        let history = self
+            .property_checker
+            .fixed_point_histories
+            .get_mut(&params.fixed_point_index)
+            .expect("Fixed point histories should contain property");
+
+        // TODO: do not consider all states
         for state_id in self.space.states() {
-            self.property_checker
-                .fixed_point_histories
-                .get_mut(&params.fixed_point_index)
-                .expect("Fixed point histories should contain property")
-                .insert_update(self.current_time, state_id, ground_value.clone());
+            let old_value = history
+                .up_to_time_opt(self.current_time, state_id)
+                .map(|timed| timed.value);
+
+            if Some(&ground_value) == old_value.as_ref() {
+                continue;
+            }
+            // insert the ground state, make it dirty if it was inserted
+            if history.insert(self.current_time, state_id, ground_value.clone()) {
+                self.property_checker.dirty_states.insert(state_id);
+            }
         }
 
         // compute inner property labelling and update variable labelling until the fixpoint is reached
@@ -77,36 +90,47 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         let current_update = self.compute_labelling(params.op.inner)?;
 
-        let old_time = self.current_time;
-
         let history = self
             .property_checker
             .fixed_point_histories
             .get_mut(&params.fixed_point_index)
             .expect("Fixed point should have history");
 
-        let mut control_flow = ControlFlow::Break(());
+        let mut fixed_point_reached = true;
+        //let mut control_flow = ControlFlow::Break(());
+
+        let next_time = self.current_time + 1;
 
         for (state_id, update_timed) in current_update {
             // check if the update differs
 
-            let old_timed = history.up_to_time(old_time, state_id);
+            let old_timed = history.up_to_time(self.current_time, state_id);
 
             if update_timed.value.valuation == old_timed.value.valuation {
                 continue;
             }
 
-            // the update differs, set to continue iterating and insert
-            if matches!(control_flow, ControlFlow::Break(_)) {
+            // the update differs, make sure to ensure the loop does not break and increment the time once
+            fixed_point_reached = false;
+            /*if matches!(control_flow, ControlFlow::Break(_)) {
                 control_flow = ControlFlow::Continue(());
-                // update time
-                self.current_time += 1;
-            }
+            }*/
 
-            history.insert_update(self.current_time, state_id, update_timed.value);
+            // insert the state and make it dirty if the history changed
+            if history.insert(next_time, state_id, update_timed.value) {
+                self.property_checker.dirty_states.insert(state_id);
+            }
         }
 
-        Ok(control_flow)
+        // TODO: make the fixed-point starts and ends consistent with history
+
+        if fixed_point_reached {
+            return Ok(ControlFlow::Break(()));
+        }
+
+        // move to next time and continue the loop
+        self.current_time = next_time;
+        Ok(ControlFlow::Continue(()))
     }
 
     fn fixed_point_conclusion(

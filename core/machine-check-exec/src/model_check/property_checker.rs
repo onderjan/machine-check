@@ -1,3 +1,4 @@
+mod history;
 mod labelling_computer;
 mod labelling_getter;
 
@@ -13,7 +14,11 @@ use machine_check_common::{
 use mck::concr::FullMachine;
 
 use crate::{
-    model_check::property_checker::labelling_computer::LabellingComputer, space::StateSpace,
+    model_check::property_checker::{
+        history::{CheckValue, FixedPointHistory, TimedCheckValue},
+        labelling_computer::LabellingComputer,
+    },
+    space::StateSpace,
 };
 
 pub use labelling_getter::BiChoice;
@@ -23,92 +28,38 @@ pub use labelling_getter::LabellingGetter;
 pub struct PropertyChecker {
     property: Property,
 
-    recompute_states: BTreeSet<StateId>,
+    dirty_states: BTreeSet<StateId>,
     fixed_point_histories: BTreeMap<usize, FixedPointHistory>,
-}
-
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct CheckValue {
-    pub valuation: ThreeValued,
-    pub next_states: Vec<StateId>,
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct TimedCheckValue {
-    pub time: u64,
-    pub value: CheckValue,
-}
-
-#[derive(Clone, Debug, Default)]
-struct FixedPointHistory {
-    times: BTreeMap<u64, BTreeMap<StateId, CheckValue>>,
-    states: BTreeMap<StateId, BTreeMap<u64, CheckValue>>,
-}
-
-impl FixedPointHistory {
-    fn insert_update(&mut self, time_instant: u64, state_id: StateId, value: CheckValue) {
-        // TODO
-        self.times
-            .entry(time_instant)
-            .or_default()
-            .insert(state_id, value.clone());
-
-        self.states
-            .entry(state_id)
-            .or_default()
-            .insert(time_instant, value);
-    }
-
-    fn up_to_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
-        let (insert_time, check_value) = self
-            .states
-            .get(&state_id)
-            .expect("State should have history")
-            .range(0..=time)
-            .last()
-            .expect("Last history should exist");
-
-        TimedCheckValue {
-            time: *insert_time,
-            value: check_value.clone(),
-        }
-    }
-}
-
-impl CheckValue {
-    pub fn eigen(value: ThreeValued) -> Self {
-        Self {
-            valuation: value,
-            next_states: vec![],
-        }
-    }
-}
-
-impl Debug for CheckValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}", self.valuation, self.next_states)
-    }
 }
 
 impl PropertyChecker {
     pub fn new(property: Property) -> Self {
+        let mut fixed_point_histories = BTreeMap::new();
+
+        for subproperty_index in 0..property.num_subproperties() {
+            if matches!(
+                property.subproperty_entry(subproperty_index).ty,
+                PropertyType::FixedPoint(_)
+            ) {
+                fixed_point_histories.insert(subproperty_index, FixedPointHistory::default());
+            }
+        }
+
         Self {
             property,
-            recompute_states: BTreeSet::new(),
-            fixed_point_histories: BTreeMap::new(),
+            dirty_states: BTreeSet::new(),
+            fixed_point_histories,
         }
     }
 
     pub fn purge_states(&mut self, purge_states: &BTreeSet<StateId>) {
-        self.recompute_states.extend(purge_states);
+        self.dirty_states.extend(purge_states);
     }
 
     pub fn compute_interpretation<M: FullMachine>(
         &mut self,
         space: &StateSpace<M>,
     ) -> Result<ThreeValued, ExecError> {
-        self.recompute_states.extend(space.states());
-
         trace!(
             "Histories before computing interpretation: {:#?}",
             self.fixed_point_histories
@@ -124,67 +75,10 @@ impl PropertyChecker {
         Ok(result)
     }
 
-    fn reinit_labellings(&mut self) -> Result<(), ExecError> {
-        // reinit fixed-point histories
-        self.fixed_point_histories.clear();
-
-        for subproperty_index in 0..self.property.num_subproperties() {
-            if matches!(
-                self.property.subproperty_entry(subproperty_index).ty,
-                PropertyType::FixedPoint(_)
-            ) {
-                self.fixed_point_histories
-                    .insert(subproperty_index, FixedPointHistory::default());
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn last_getter<'a, M: FullMachine>(
         &'a self,
         space: &'a StateSpace<M>,
     ) -> LabellingGetter<'a, M> {
         LabellingGetter::new(self, space, u64::MAX)
     }
-
-    /*pub fn get_last_labelling<M: FullMachine>(
-        &self,
-        subproperty_index: usize,
-        space: &StateSpace<M>,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        let labelling = LabellingGetter::new(self, space, u64::MAX)
-            .get_labelling(subproperty_index, &BTreeSet::from_iter(space.states()))?;
-        Ok(labelling)
-    }
-
-    pub fn get_last_label<M: FullMachine>(
-        &self,
-        subproperty_index: usize,
-        space: &StateSpace<M>,
-        state_index: StateId,
-    ) -> Result<TimedCheckValue, ExecError> {
-        let labelling = LabellingGetter::new(self, space, u64::MAX)
-            .get_labelling(subproperty_index, &BTreeSet::from([state_index]))?;
-        Ok(labelling)
-    }
-
-    pub fn get_state_root_label(&self, state_index: StateId) -> &CheckValue {
-        self.get_state_label(0, state_index)
-    }
-
-    pub fn get_labelling(&self, subproperty_index: usize) -> &BTreeMap<StateId, CheckValue> {
-        self.latest
-            .get(&subproperty_index)
-            .expect("Labelling should be present")
-    }
-
-    pub fn get_labelling_mut(
-        &mut self,
-        subproperty_index: usize,
-    ) -> &mut BTreeMap<StateId, CheckValue> {
-        self.latest
-            .get_mut(&subproperty_index)
-            .expect("Labelling should be present")
-    }*/
 }

@@ -27,8 +27,6 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         property_checker: &'a mut PropertyChecker,
         space: &'a StateSpace<M>,
     ) -> Result<Self, ExecError> {
-        property_checker.reinit_labellings()?;
-
         let computer = Self {
             property_checker,
             space,
@@ -45,9 +43,24 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     pub fn compute(&mut self) -> Result<ThreeValued, ExecError> {
         self.current_time = 0;
 
+        // TODO: remove for incremental model checking
+        for history in self.property_checker.fixed_point_histories.values_mut() {
+            history.clear();
+        }
+
+        trace!(
+            "Starting computation, dirty states: {:?}",
+            self.property_checker.dirty_states
+        );
+
         self.compute_labelling(0)?;
 
-        self.property_checker.recompute_states.clear();
+        trace!(
+            "Computed, dirty states: {:?}",
+            self.property_checker.dirty_states
+        );
+
+        self.property_checker.dirty_states.clear();
 
         // conventionally, the property must hold in all initial states
 
@@ -82,9 +95,14 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         let updated = match &ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
-                // TODO: do not update all states
-                self.getter()
-                    .get_labelling(subproperty_index, &BTreeSet::from_iter(self.space.states()))?
+                if self.current_time == 0 {
+                    // only newly compute for dirty states
+                    self.getter()
+                        .get_labelling(subproperty_index, &self.property_checker.dirty_states)?
+                } else {
+                    // this has already been computed
+                    BTreeMap::new()
+                }
             }
             PropertyType::Negation(inner) => self.compute_negation(*inner)?,
             PropertyType::BiLogic(op) => self.compute_binary_op(op)?,
