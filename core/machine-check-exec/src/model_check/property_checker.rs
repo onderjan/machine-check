@@ -1,4 +1,5 @@
 mod labelling_computer;
+mod labelling_getter;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -15,19 +16,27 @@ use crate::{
     model_check::property_checker::labelling_computer::LabellingComputer, space::StateSpace,
 };
 
+pub use labelling_getter::BiChoice;
+pub use labelling_getter::LabellingGetter;
+
 #[derive(Debug)]
 pub struct PropertyChecker {
     property: Property,
 
     recompute_states: BTreeSet<StateId>,
     fixed_point_histories: BTreeMap<usize, FixedPointHistory>,
-    latest: BTreeMap<usize, BTreeMap<StateId, CheckValue>>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct CheckValue {
     pub valuation: ThreeValued,
     pub next_states: Vec<StateId>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct TimedCheckValue {
+    pub time: u64,
+    pub value: CheckValue,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -50,23 +59,20 @@ impl FixedPointHistory {
             .insert(time_instant, value);
     }
 
-    /*fn latest(&self, state_id: StateId) -> &CheckValue {
-        self.states
+    fn up_to_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
+        let (insert_time, check_value) = self
+            .states
             .get(&state_id)
             .expect("State should have history")
-            .last_key_value()
-            .expect("State should have latest")
-            .1
-    }
-
-    fn before(&self, time_instant: u64, state_id: StateId) -> Option<&CheckValue> {
-        self.states
-            .get(&state_id)
-            .expect("State should have history")
-            .range(0..time_instant)
+            .range(0..=time)
             .last()
-            .map(|(_last_instant, check_value)| check_value)
-    }*/
+            .expect("Last history should exist");
+
+        TimedCheckValue {
+            time: *insert_time,
+            value: check_value.clone(),
+        }
+    }
 }
 
 impl CheckValue {
@@ -90,7 +96,6 @@ impl PropertyChecker {
             property,
             recompute_states: BTreeSet::new(),
             fixed_point_histories: BTreeMap::new(),
-            latest: BTreeMap::new(),
         }
     }
 
@@ -116,23 +121,11 @@ impl PropertyChecker {
             self.fixed_point_histories
         );
 
-        trace!(
-            "Latest labellings after computing interpretation: {:#?}",
-            self.latest
-        );
-
         Ok(result)
     }
 
     fn reinit_labellings(&mut self) -> Result<(), ExecError> {
-        // do latest
-        self.latest.clear();
-
-        for subproperty_index in 0..self.property.num_subproperties() {
-            self.latest.insert(subproperty_index, BTreeMap::new());
-        }
-
-        // do fixed-point histories
+        // reinit fixed-point histories
         self.fixed_point_histories.clear();
 
         for subproperty_index in 0..self.property.num_subproperties() {
@@ -148,10 +141,32 @@ impl PropertyChecker {
         Ok(())
     }
 
-    pub fn get_state_label(&self, subproperty_index: usize, state_index: StateId) -> &CheckValue {
-        self.get_labelling(subproperty_index)
-            .get(&state_index)
-            .expect("Should contain state labelling")
+    pub fn last_getter<'a, M: FullMachine>(
+        &'a self,
+        space: &'a StateSpace<M>,
+    ) -> LabellingGetter<'a, M> {
+        LabellingGetter::new(self, space, u64::MAX)
+    }
+
+    /*pub fn get_last_labelling<M: FullMachine>(
+        &self,
+        subproperty_index: usize,
+        space: &StateSpace<M>,
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+        let labelling = LabellingGetter::new(self, space, u64::MAX)
+            .get_labelling(subproperty_index, &BTreeSet::from_iter(space.states()))?;
+        Ok(labelling)
+    }
+
+    pub fn get_last_label<M: FullMachine>(
+        &self,
+        subproperty_index: usize,
+        space: &StateSpace<M>,
+        state_index: StateId,
+    ) -> Result<TimedCheckValue, ExecError> {
+        let labelling = LabellingGetter::new(self, space, u64::MAX)
+            .get_labelling(subproperty_index, &BTreeSet::from([state_index]))?;
+        Ok(labelling)
     }
 
     pub fn get_state_root_label(&self, state_index: StateId) -> &CheckValue {
@@ -171,5 +186,5 @@ impl PropertyChecker {
         self.latest
             .get_mut(&subproperty_index)
             .expect("Labelling should be present")
-    }
+    }*/
 }

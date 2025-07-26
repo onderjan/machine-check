@@ -1,5 +1,4 @@
 mod deduce;
-mod history;
 mod property_checker;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -48,9 +47,10 @@ impl ThreeValuedChecker {
         let subproperty_index = subproperty.index();
         //println!("Getting the labelling, check map: {:?}", checker.check_map);
         let labelling = property_checker
-            .get_labelling(subproperty_index)
+            .last_getter(space)
+            .get_labelling(subproperty_index, &BTreeSet::from_iter(space.states()))?
             .iter()
-            .map(|(state_id, value)| (*state_id, value.valuation))
+            .map(|(state_id, timed)| (*state_id, timed.value.valuation))
             .collect();
         //println!("Got the labelling");
         Ok((conclusion, labelling))

@@ -1,77 +1,57 @@
-use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
 use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_computer::LabellingComputer;
+use crate::model_check::property_checker::labelling_getter::LabellingGetter;
+use crate::model_check::property_checker::TimedCheckValue;
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingComputer<'_, M> {
-    pub fn compute_negation(
+    pub(super) fn compute_negation(
         &mut self,
-        subproperty_index: usize,
         inner: usize,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
-        let dirty = self.compute_labelling(inner)?;
-
-        //let dirty = Self::computation_mut(&mut self.updates, inner);
-
-        // negate everything that was updated
-        let mut update = BTreeMap::new();
-
-        let inner_labelling = self.property_checker.get_labelling(inner);
-
-        for state_id in dirty.iter().cloned() {
-            let mut value = inner_labelling.get(&state_id).unwrap().clone();
-            // negate
-            value.valuation = !value.valuation;
-            update.insert(state_id, value);
-        }
-
-        self.update_subproperty(subproperty_index, update)
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+        Ok(LabellingGetter::<M>::negate(self.compute_labelling(inner)?))
     }
 
-    pub fn compute_binary_op(
+    pub(super) fn compute_binary_op(
         &mut self,
-        subproperty_index: usize,
         op: &BiLogicOperator,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
-        let updated_a = self.compute_labelling(op.a)?;
-        let updated_b = self.compute_labelling(op.b)?;
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+        let mut result_a = self.compute_labelling(op.a)?;
+        let mut result_b = self.compute_labelling(op.b)?;
 
-        let dirty = updated_a.union(&updated_b).copied();
+        self.complete_labelling(op.a, &mut result_a, &result_b)?;
+        self.complete_labelling(op.b, &mut result_b, &result_a)?;
 
-        let mut updated = BTreeMap::new();
+        let mut result = BTreeMap::new();
+        for (state_id, a_timed) in result_a {
+            let b_timed = result_b
+                .remove(&state_id)
+                .expect("Binary operation labelling should be completed");
 
-        for state_id in dirty {
-            let a_value = self.value(op.a, state_id);
-            let b_value = self.value(op.b, state_id);
-
-            let a_valuation = a_value.valuation;
-            let b_valuation = b_value.valuation;
-
-            // TODO: freeze decision
-
-            let result_value = if op.is_and {
-                // we prefer the lesser value
-                match a_valuation.cmp(&b_valuation) {
-                    Ordering::Less => a_value,
-                    Ordering::Equal => a_value,
-                    Ordering::Greater => b_value,
-                }
-            } else {
-                // we prefer the greater value
-                match a_valuation.cmp(&b_valuation) {
-                    Ordering::Less => b_value,
-                    Ordering::Equal => a_value,
-                    Ordering::Greater => a_value,
-                }
-            };
-
-            updated.insert(state_id, result_value.clone());
+            let result_value = LabellingGetter::<M>::apply_binary_op(op, a_timed, b_timed);
+            result.insert(state_id, result_value);
         }
 
-        self.update_subproperty(subproperty_index, updated)
+        Ok(result)
+    }
+
+    fn complete_labelling(
+        &self,
+        our_index: usize,
+        our_result: &mut BTreeMap<StateId, TimedCheckValue>,
+        other_result: &BTreeMap<StateId, TimedCheckValue>,
+    ) -> Result<(), ExecError> {
+        let mut fetch = BTreeSet::new();
+        for state_id in other_result.keys().copied() {
+            if !our_result.contains_key(&state_id) {
+                fetch.insert(state_id);
+            }
+        }
+        our_result.extend(self.getter().get_labelling(our_index, &fetch)?);
+        Ok(())
     }
 }

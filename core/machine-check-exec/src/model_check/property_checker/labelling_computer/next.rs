@@ -1,76 +1,45 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet};
 
 use machine_check_common::property::NextOperator;
-use machine_check_common::{ExecError, StateId, ThreeValued};
+use machine_check_common::{ExecError, StateId};
 
-use crate::model_check::property_checker::{CheckValue, LabellingComputer};
+use crate::model_check::property_checker::{LabellingComputer, TimedCheckValue};
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingComputer<'_, M> {
-    pub fn compute_next_labelling(
+    pub(super) fn compute_next_labelling(
         &mut self,
-        subproperty_index: usize,
         op: &NextOperator,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
-        let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_universal));
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let inner_updated = self.compute_labelling(op.inner)?;
 
-        // We need to compute states where the inner property was updated for their direct successors.
+        let mut our_updated = BTreeSet::new();
 
-        let mut dirty = BTreeSet::new();
-
-        for state_id in inner_updated {
-            for predecessor_id in self.space.direct_predecessor_iter(state_id.into()) {
+        for state_id in inner_updated.keys() {
+            for predecessor_id in self.space.direct_predecessor_iter((*state_id).into()) {
                 if let Ok(predecessor_id) = StateId::try_from(predecessor_id) {
-                    dirty.insert(predecessor_id);
+                    our_updated.insert(predecessor_id);
                 }
             }
         }
 
-        let mut update = BTreeMap::new();
+        let mut retained_successors = BTreeSet::new();
 
-        // For each state in dirty states, compute the new value from the successors.
-        for dirty_id in dirty.iter().copied() {
-            let old_successor = self
-                .property_checker
-                .get_labelling(subproperty_index)
-                .get(&dirty_id)
-                .and_then(|value| value.next_states.last().copied());
-
-            let mut direct_successors = VecDeque::new();
-            for successor_id in self.space.direct_successor_iter(dirty_id.into()) {
-                let value = self
-                    .property_checker
-                    .get_labelling(op.inner)
-                    .get(&successor_id)
-                    .expect("Direct successor should have values")
-                    .clone();
-                if old_successor.is_some_and(|old_successor| old_successor == successor_id) {
-                    direct_successors.push_front((successor_id, value));
-                } else {
-                    direct_successors.push_back((successor_id, value));
-                }
-            }
-
-            let mut current_value = ground_value.clone();
-
-            for (successor_id, successor_value) in &direct_successors {
-                let new_valuation = if op.is_universal {
-                    current_value.valuation & successor_value.valuation
-                } else {
-                    current_value.valuation | successor_value.valuation
-                };
-
-                if current_value.valuation != new_valuation {
-                    current_value.valuation = new_valuation;
-                    current_value.next_states = successor_value.next_states.clone();
-                    current_value.next_states.push(*successor_id);
-                }
-            }
-
-            update.insert(dirty_id, current_value);
+        for state_id in our_updated.iter().copied() {
+            retained_successors.extend(
+                self.space
+                    .direct_successor_iter(state_id.into())
+                    .filter(|state_id| !inner_updated.contains_key(state_id)),
+            );
         }
 
-        self.update_subproperty(subproperty_index, update)
+        let inner_retained = self
+            .getter()
+            .get_labelling(op.inner, &retained_successors)?;
+
+        let mut successor_inner = inner_updated;
+        successor_inner.extend(inner_retained);
+
+        self.getter().apply_next(op, &our_updated, successor_inner)
     }
 }

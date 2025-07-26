@@ -1,16 +1,17 @@
 mod fixed_point;
 mod local;
 mod next;
-mod propagate_updates;
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use log::{log_enabled, trace};
+use log::trace;
 use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
 use mck::concr::FullMachine;
 
 use crate::{
-    model_check::property_checker::{CheckValue, PropertyChecker},
+    model_check::property_checker::{
+        labelling_getter::LabellingGetter, PropertyChecker, TimedCheckValue,
+    },
     space::StateSpace,
 };
 
@@ -18,10 +19,7 @@ pub struct LabellingComputer<'a, M: FullMachine> {
     property_checker: &'a mut PropertyChecker,
     space: &'a StateSpace<M>,
 
-    //updates: BTreeMap<usize, BTreeSet<StateId>>,
-    fixed_point_values: BTreeMap<usize, BTreeMap<StateId, ThreeValued>>,
-
-    time_instant: u64,
+    current_time: u64,
 }
 
 impl<'a, M: FullMachine> LabellingComputer<'a, M> {
@@ -31,45 +29,35 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     ) -> Result<Self, ExecError> {
         property_checker.reinit_labellings()?;
 
-        /*let mut updates = BTreeMap::new();
-
-        for subproperty_index in 0..property_checker.property.num_subproperties() {
-            let ty = &property_checker
-                .property
-                .subproperty_entry(subproperty_index)
-                .ty;
-            let update = if matches!(ty, PropertyType::Const(_) | PropertyType::Atomic(_)) {
-                property_checker.recompute_states.clone()
-            } else {
-                BTreeSet::new()
-            };
-
-            updates.insert(subproperty_index, update);
-        }*/
-
         let computer = Self {
             property_checker,
             space,
-            fixed_point_values: BTreeMap::new(),
-            time_instant: 0,
+            current_time: 0,
         };
 
         Ok(computer)
     }
 
+    fn getter(&self) -> LabellingGetter<M> {
+        LabellingGetter::new(self.property_checker, self.space, self.current_time)
+    }
+
     pub fn compute(&mut self) -> Result<ThreeValued, ExecError> {
-        self.time_instant = 0;
+        self.current_time = 0;
 
         self.compute_labelling(0)?;
 
         self.property_checker.recompute_states.clear();
 
         // conventionally, the property must hold in all initial states
-        let mut result = ThreeValued::True;
-        for initial_state_id in self.space.initial_iter() {
-            let value = self.value(0, initial_state_id);
-            let valuation = value.valuation;
 
+        let values = self
+            .getter()
+            .get_labelling(0, &BTreeSet::from_iter(self.space.initial_iter()))?;
+
+        let mut result = ThreeValued::True;
+        for (_initial_state_id, timed) in values {
+            let valuation = timed.value.valuation;
             result = result & valuation;
         }
 
@@ -77,7 +65,6 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             "Computed interpretation of {:?}",
             self.property_checker.property
         );
-        trace!("Final fixed point values: {:?}", self.fixed_point_values);
 
         Ok(result)
     }
@@ -85,7 +72,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     fn compute_labelling(
         &mut self,
         subproperty_index: usize,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
@@ -94,41 +81,17 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         let ty = subproperty_entry.ty.clone();
 
         let updated = match &ty {
-            PropertyType::Const(constant) => {
-                let constant = ThreeValued::from_bool(*constant);
-                let eigen = CheckValue::eigen(constant);
-
-                let latest = self
-                    .property_checker
-                    .latest
-                    .get_mut(&subproperty_index)
-                    .expect("Latest should contain const subproperty");
-
-                for state_id in self.space.states() {
-                    latest.insert(state_id, eigen.clone());
-                }
-                BTreeSet::from_iter(self.space.states())
+            PropertyType::Const(_) | PropertyType::Atomic(_) => {
+                // TODO: do not update all states
+                self.getter()
+                    .get_labelling(subproperty_index, &BTreeSet::from_iter(self.space.states()))?
             }
-            PropertyType::Atomic(atomic_property) => {
-                let latest = self
-                    .property_checker
-                    .latest
-                    .get_mut(&subproperty_index)
-                    .expect("Latest should contain const subproperty");
-
-                for state_id in self.space.states() {
-                    let value = self.space.atomic_label(atomic_property, state_id)?;
-                    let value = CheckValue::eigen(value);
-                    latest.insert(state_id, value);
-                }
-                BTreeSet::from_iter(self.space.states())
-            }
-            PropertyType::Negation(inner) => self.compute_negation(subproperty_index, *inner)?,
-            PropertyType::BiLogic(op) => self.compute_binary_op(subproperty_index, op)?,
-            PropertyType::Next(op) => self.compute_next_labelling(subproperty_index, op)?,
+            PropertyType::Negation(inner) => self.compute_negation(*inner)?,
+            PropertyType::BiLogic(op) => self.compute_binary_op(op)?,
+            PropertyType::Next(op) => self.compute_next_labelling(op)?,
             PropertyType::FixedPoint(op) => self.compute_fixed_point_op(subproperty_index, op)?,
             PropertyType::FixedVariable(fixed_point_index) => {
-                self.compute_fixed_variable(subproperty_index, *fixed_point_index)?
+                self.compute_fixed_variable(*fixed_point_index)?
             }
         };
 
@@ -141,81 +104,9 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         Ok(updated)
     }
 
-    fn update_subproperty(
-        &mut self,
-        subproperty_index: usize,
-        update: BTreeMap<StateId, CheckValue>,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
-        /*let computation = self
-            .computations
-            .get_mut(&subproperty_index)
-            .expect("Fixed-point operation should have a computation");
-
-        if log_enabled!(log::Level::Trace) {
-            let subproperty_entry = self.property.subproperty_entry(subproperty_index);
-            trace!(
-                "Updating subproperty {:?} ({:?}) with {:#?}",
-                subproperty_index,
-                subproperty_entry,
-                update
-            );
-        }
-
-        computation.updated.clear();*/
-
-        let latest = self.property_checker.get_labelling_mut(subproperty_index);
-
-        let mut updated = BTreeSet::new();
-
-        trace!(
-            "Updating subproperty {} with {:?}",
-            subproperty_index,
-            update
-        );
-
-        for (state_id, update_value) in update {
-            if let Some(current_value) = latest.get_mut(&state_id) {
-                // do not update when the valuation is not changed
-                if current_value.valuation == update_value.valuation {
-                    trace!(
-                        "Not updating state {} for subproperty {} as valuation {:?} has not changed",
-                        state_id,
-                        subproperty_index,
-                        current_value.valuation
-                    );
-                    continue;
-                }
-                *current_value = update_value;
-            } else {
-                latest.insert(state_id, update_value);
-            }
-            updated.insert(state_id);
-            //computation.updated.insert(state_id);
-        }
-
-        Ok(BTreeSet::from_iter(self.space.states()))
-        //trace!("Updated {:?}", computation.updated);
-    }
-
-    fn computation(
-        updates: &BTreeMap<usize, BTreeSet<StateId>>,
-        subroperty_index: usize,
-    ) -> &BTreeSet<StateId> {
-        updates.get(&subroperty_index).expect("Update should exist")
-    }
-
-    fn computation_mut(
-        updates: &mut BTreeMap<usize, BTreeSet<StateId>>,
-        subproperty_index: usize,
-    ) -> &mut BTreeSet<StateId> {
-        updates
-            .get_mut(&subproperty_index)
-            .expect("Updare should exist")
-    }
-
+    /*
     pub fn is_calm(&self, subproperty_index: usize, calm_fixed_points: &mut Vec<usize>) -> bool {
-        return false;
-        /*let update = Self::computation(&self.updates, subproperty_index);
+        let update = Self::computation(&self.updates, subproperty_index);
         if !update.is_empty() {
             trace!(
                 "Subproperty {} is not calm as it has updates",
@@ -252,25 +143,6 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         trace!("Subproperty {} calmness: {}", subproperty_index, result);
 
-        result*/
-    }
-
-    pub fn value(&self, subproperty_index: usize, state_id: StateId) -> &CheckValue {
-        let result = self.value_opt(subproperty_index, state_id);
-
-        if let Some(result) = result {
-            result
-        } else {
-            panic!(
-                "Cannot fetch value state id {:?} from subproperty {}",
-                state_id, subproperty_index
-            );
-        }
-    }
-
-    pub fn value_opt(&self, subproperty_index: usize, state_id: StateId) -> Option<&CheckValue> {
-        let latest = self.property_checker.get_labelling(subproperty_index);
-
-        latest.get(&state_id)
-    }
+        result
+    }*/
 }
