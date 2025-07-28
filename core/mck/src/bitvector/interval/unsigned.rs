@@ -123,11 +123,11 @@ impl<const W: u32> UnsignedInterval<W> {
         let (x_p, x_q) = (self.min.to_u64(), self.max.to_u64());
         let (y_p, y_q) = (rhs.min.to_u64(), rhs.max.to_u64());
 
-        let x_diff_mask = mask_from_leading_one(x_p ^ x_q);
-        let y_diff_mask = mask_from_leading_one(y_p ^ y_q);
+        let x_diff_mask = smear_right(x_p ^ x_q);
+        let y_diff_mask = smear_right(y_p ^ y_q);
         let diff_mask = x_diff_mask | y_diff_mask;
 
-        let min = x_p & y_p & !mask_from_leading_one(!x_p & !y_p & diff_mask);
+        let min = x_p & y_p & !smear_right(!x_p & !y_p & diff_mask);
 
         // minimum with explicit operands
         /*let min = {
@@ -150,8 +150,8 @@ impl<const W: u32> UnsignedInterval<W> {
         };*/
 
         let max = {
-            let selection_x = mask_from_leading_one(x_q & !y_q & x_diff_mask);
-            let selection_y = mask_from_leading_one(y_q & !x_q & y_diff_mask);
+            let selection_x = smear_right(x_q & !y_q & x_diff_mask);
+            let selection_y = smear_right(y_q & !x_q & y_diff_mask);
 
             let result_x = (x_q | selection_x) & y_q;
 
@@ -181,12 +181,12 @@ impl<const W: u32> UnsignedInterval<W> {
         let (x_p, x_q) = (self.min.to_u64(), self.max.to_u64());
         let (y_p, y_q) = (rhs.min.to_u64(), rhs.max.to_u64());
 
-        let x_diff_mask = mask_from_leading_one(x_p ^ x_q);
-        let y_diff_mask = mask_from_leading_one(y_p ^ y_q);
+        let x_diff_mask = smear_right(x_p ^ x_q);
+        let y_diff_mask = smear_right(y_p ^ y_q);
 
         let min = {
-            let selection_x = mask_from_leading_one(y_p & !x_p & x_diff_mask);
-            let selection_y = mask_from_leading_one(x_p & !y_p & y_diff_mask);
+            let selection_x = smear_right(y_p & !x_p & x_diff_mask);
+            let selection_y = smear_right(x_p & !y_p & y_diff_mask);
 
             let result_x = (x_p & !selection_x) | y_p;
 
@@ -203,7 +203,7 @@ impl<const W: u32> UnsignedInterval<W> {
             result_x.min(result_y)
         };
 
-        let max = x_q | y_q | mask_from_leading_one(x_q & y_q & (x_diff_mask | y_diff_mask));
+        let max = x_q | y_q | smear_right(x_q & y_q & (x_diff_mask | y_diff_mask));
 
         // maximum with explicit operands
         /*let max = {
@@ -247,10 +247,10 @@ impl<const W: u32> UnsignedInterval<W> {
             }
         };
 
-        let a_diff_mask = mask_from_leading_one(a_p ^ a_q);
+        let a_diff_mask = smear_right(a_p ^ a_q);
 
-        let b_q_mask = mask_from_leading_one(!a_p & b_q & a_diff_mask);
-        let a_q_mask = mask_from_leading_one(!b_p & a_q & a_diff_mask);
+        let b_q_mask = smear_right(!a_p & b_q & a_diff_mask);
+        let a_q_mask = smear_right(!b_p & a_q & a_diff_mask);
 
         // minimum with explicit operands
         /*let min = {
@@ -283,8 +283,8 @@ impl<const W: u32> UnsignedInterval<W> {
 
         let min = (a_p & !b_q & !b_q_mask) | (b_p & !a_q & !a_q_mask);
 
-        let neither_p_mask = mask_from_leading_one(!a_p & !b_p & a_diff_mask);
-        let both_q_mask = mask_from_leading_one(a_q & b_q & a_diff_mask);
+        let neither_p_mask = smear_right(!a_p & !b_p & a_diff_mask);
+        let both_q_mask = smear_right(a_q & b_q & a_diff_mask);
 
         // maximum with explicit operands
         /*let max = {
@@ -327,7 +327,7 @@ impl<const W: u32> UnsignedInterval<W> {
     }
 }
 
-fn mask_from_leading_one(x: u64) -> u64 {
+fn smear_right(x: u64) -> u64 {
     let diff_clz = x.leading_zeros();
     u64::MAX.checked_shr(diff_clz).unwrap_or(0)
 }
