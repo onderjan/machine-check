@@ -135,15 +135,14 @@ impl<const W: u32> UnsignedInterval<W> {
             let selection_y = mask_from_leading_one(!x_p & !y_p & y_diff_mask);
 
             //let result_x = (x_p & !selection_x) & y_p;
-            let sensitive_x = selection_x & !(selection_x >> 1);
-            let operand_x = (x_p & (!selection_x >> 1)) | sensitive_x;
+
+            let operand_x = (x_p & !selection_x) | lead(selection_x);
             assert!(x_p <= operand_x && operand_x <= x_q);
             let result_x = operand_x & y_p;
 
             //let result_y = x_p & (y_p & !selection_y);
 
-            let sensitive_y = selection_y & !(selection_y >> 1);
-            let operand_y = (y_p & (!selection_y >> 1)) | sensitive_y;
+            let operand_y = (y_p & !selection_y) | lead(selection_y);
             assert!(y_p <= operand_y && operand_y <= y_q);
             let result_y = x_p & operand_y;
 
@@ -156,15 +155,13 @@ impl<const W: u32> UnsignedInterval<W> {
 
             let result_x = (x_q | selection_x) & y_q;
 
-            /*let sensitive_x = selection_x & !(selection_x >> 1);
-            let operand_x = (x_q | (selection_x >> 1)) & !sensitive_x;
+            /*let operand_x = (x_q | selection_x) & !lead(selection_x);
             assert!(x_p <= operand_x && operand_x <= x_q);
             let result_x = operand_x & y_q;*/
 
             let result_y = (x_q) & (y_q | selection_y);
 
-            /*let sensitive_y = selection_y & !(selection_y >> 1);
-            let operand_y = (y_q | (selection_y >> 1)) & !sensitive_y;
+            /*let operand_y = (y_q | selection_y) & !lead(selection_y);
             assert!(y_p <= operand_y && operand_y <= y_q);
             let result_y = x_q & operand_y;*/
 
@@ -186,7 +183,6 @@ impl<const W: u32> UnsignedInterval<W> {
 
         let x_diff_mask = mask_from_leading_one(x_p ^ x_q);
         let y_diff_mask = mask_from_leading_one(y_p ^ y_q);
-        let diff_mask = x_diff_mask | y_diff_mask;
 
         let min = {
             let selection_x = mask_from_leading_one(y_p & !x_p & x_diff_mask);
@@ -194,22 +190,20 @@ impl<const W: u32> UnsignedInterval<W> {
 
             let result_x = (x_p & !selection_x) | y_p;
 
-            /*let sensitive_x = selection_x & !(selection_x >> 1);
-            let operand_x = (x_p & !(selection_x >> 1)) | sensitive_x;
+            /*let operand_x = (x_p & !selection_x) | lead(selection_x);
             assert!(x_p <= operand_x && operand_x <= x_q);
             let result_x = operand_x | y_p;*/
 
             let result_y = (y_p & !selection_y) | x_p;
 
-            /*let sensitive_y = selection_y & !(selection_y >> 1);
-            let operand_y = (y_p & !(selection_y >> 1)) | sensitive_y;
+            /*let operand_y = (y_p & !selection_y) | lead(selection_y);
             assert!(y_p <= operand_y && operand_y <= y_q);
             let result_y = x_p | operand_y;*/
 
             result_x.min(result_y)
         };
 
-        let max = x_q | y_q | mask_from_leading_one(x_q & y_q & diff_mask);
+        let max = x_q | y_q | mask_from_leading_one(x_q & y_q & (x_diff_mask | y_diff_mask));
 
         // maximum with explicit operands
         /*let max = {
@@ -217,15 +211,14 @@ impl<const W: u32> UnsignedInterval<W> {
             let selection_y = mask_from_leading_one(x_q & y_q & y_diff_mask);
 
             //let result_x = (x_q | selection_x) | y_q;
-            let sensitive_x = selection_x & !(selection_x >> 1);
-            let operand_x = (x_q | (selection_x >> 1)) & !sensitive_x;
+
+            let operand_x = (x_q | selection_x) & !lead(selection_x);
             assert!(x_p <= operand_x && operand_x <= x_q);
             let result_x = operand_x | y_q;
 
             //let result_y = x_q | (y_q | selection_y);
 
-            let sensitive_y = selection_y & !(selection_y >> 1);
-            let operand_y = (y_q | (selection_y >> 1)) & !sensitive_y;
+            let operand_y = (y_q | selection_y) & !lead(selection_y);
             assert!(y_p <= operand_y && operand_y <= y_q);
             let result_y = x_q | operand_y;
 
@@ -263,7 +256,7 @@ impl<const W: u32> UnsignedInterval<W> {
         /*let min = {
             let b_diff_mask = mask_from_leading_one(b_p ^ b_q);
             if a_diff_mask > b_diff_mask {
-                let leading_a = lead_mask(a_diff_mask);
+                let leading_a = lead(a_diff_mask);
 
                 assert_eq!(b_p & leading_a, b_q & leading_a);
                 if (b_q & leading_a) != 0 {
@@ -278,7 +271,7 @@ impl<const W: u32> UnsignedInterval<W> {
                     //(a_p ^ b_q) & !b_q_mask
                 }
             } else {
-                let diff_mask_lead = lead_mask(a_diff_mask);
+                let diff_mask_lead = lead(a_diff_mask);
 
                 let operand_a = (a_p | a_diff_mask) & !diff_mask_lead;
                 let operand_b = (b_q | a_diff_mask) & !diff_mask_lead;
@@ -297,7 +290,7 @@ impl<const W: u32> UnsignedInterval<W> {
         /*let max = {
             let b_diff_mask = mask_from_leading_one(b_p ^ b_q);
             if a_diff_mask > b_diff_mask {
-                let leading_a = lead_mask(a_diff_mask);
+                let leading_a = lead(a_diff_mask);
 
                 assert_eq!(b_p & leading_a, b_q & leading_a);
                 if (b_q & leading_a) != 0 {
@@ -312,7 +305,7 @@ impl<const W: u32> UnsignedInterval<W> {
                     //(a_q ^ b_q) | both_q_mask
                 }
             } else {
-                let diff_mask_lead = lead_mask(a_diff_mask);
+                let diff_mask_lead = lead(a_diff_mask);
 
                 let operand_x = (a_p | a_diff_mask) & !diff_mask_lead;
                 let operand_y = (b_q & !a_diff_mask) | diff_mask_lead;
@@ -340,7 +333,7 @@ fn mask_from_leading_one(x: u64) -> u64 {
 }
 
 #[allow(dead_code)]
-fn lead_mask(x: u64) -> u64 {
+fn lead(x: u64) -> u64 {
     if let Some(ilog2) = x.checked_ilog2() {
         1u64 << ilog2
     } else {
