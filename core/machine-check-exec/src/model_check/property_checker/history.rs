@@ -87,16 +87,6 @@ impl FixedPointHistory {
         }
     }
 
-    pub fn before_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
-        let history = self.states.get(&state_id)?;
-        let (insert_time, check_value) = history.range(0..time).last()?;
-
-        Some(TimedCheckValue {
-            time: *insert_time,
-            value: check_value.clone(),
-        })
-    }
-
     pub fn clear(&mut self) {
         self.times.clear();
         self.states.clear();

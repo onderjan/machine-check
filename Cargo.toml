@@ -19,3 +19,6 @@ machine-check = { path = "./core/machine-check" }
 
 machine-check-compile = { path = "./transpile/machine-check-compile" }
 machine-check-hw = { path = "./transpile/machine-check-hw" }
+
+[profile.release]
+debug = true

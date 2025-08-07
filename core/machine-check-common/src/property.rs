@@ -7,6 +7,7 @@ use crate::ExecError;
 use serde::{Deserialize, Serialize};
 
 mod atomic;
+mod closed_form;
 mod parser;
 
 pub use atomic::{AtomicProperty, ComparisonType, ValueExpression};
@@ -145,6 +146,7 @@ impl Property {
 
 impl Subproperty {
     fn new(property: Property, index: usize) -> Self {
+        assert!(index < property.arena.len());
         Self { property, index }
     }
 

@@ -27,6 +27,7 @@ pub use labelling_getter::LabellingGetter;
 #[derive(Debug)]
 pub struct PropertyChecker {
     property: Property,
+    closed_form_subproperties: BTreeSet<usize>,
 
     histories: BTreeMap<usize, FixedPointHistory>,
     computations: Vec<FixedPointComputation>,
@@ -43,19 +44,23 @@ pub(super) struct FixedPointComputation {
 
 impl PropertyChecker {
     pub fn new(property: Property) -> Self {
+        let mut closed_form_subproperties = BTreeSet::new();
         let mut histories = BTreeMap::new();
 
         for subproperty_index in 0..property.num_subproperties() {
-            if matches!(
-                property.subproperty_entry(subproperty_index).ty,
-                PropertyType::FixedPoint(_)
-            ) {
+            if property.is_subproperty_closed_form(subproperty_index) {
+                closed_form_subproperties.insert(subproperty_index);
+            }
+
+            let subproperty = property.subproperty_entry(subproperty_index);
+            if matches!(subproperty.ty, PropertyType::FixedPoint(_)) {
                 histories.insert(subproperty_index, FixedPointHistory::default());
             }
         }
 
         Self {
             property,
+            closed_form_subproperties,
             dirty_states: BTreeSet::new(),
             histories,
             computations: Vec::new(),

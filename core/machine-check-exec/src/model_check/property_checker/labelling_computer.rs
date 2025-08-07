@@ -149,36 +149,4 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         Ok(updated)
     }
-
-    pub fn is_calm(&self, subproperty_index: usize, inner_fixed_points: &mut Vec<usize>) -> bool {
-        let subproperty_entry = self
-            .property_checker
-            .property
-            .subproperty_entry(subproperty_index);
-
-        let result = match &subproperty_entry.ty {
-            PropertyType::Const(_) | PropertyType::Atomic(_) => true,
-            PropertyType::Negation(inner) => self.is_calm(*inner, inner_fixed_points),
-            PropertyType::BiLogic(bi_logic_operator) => {
-                self.is_calm(bi_logic_operator.a, inner_fixed_points)
-                    && self.is_calm(bi_logic_operator.b, inner_fixed_points)
-            }
-            PropertyType::Next(next_operator) => {
-                self.is_calm(next_operator.inner, inner_fixed_points)
-            }
-            PropertyType::FixedPoint(fixed_point_operator) => {
-                inner_fixed_points.push(subproperty_index);
-                let result = self.is_calm(fixed_point_operator.inner, inner_fixed_points);
-                inner_fixed_points.pop();
-                result
-            }
-            PropertyType::FixedVariable(fixed_point_index) => {
-                inner_fixed_points.contains(fixed_point_index)
-            }
-        };
-
-        trace!("Subproperty {} calmness: {}", subproperty_index, result);
-
-        result
-    }
 }
