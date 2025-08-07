@@ -22,6 +22,8 @@ pub struct LabellingComputer<'a, M: FullMachine> {
     current_time: u64,
     next_computation_index: usize,
     invalidate: bool,
+
+    calmable_fixed_points: BTreeSet<usize>,
 }
 
 impl<'a, M: FullMachine> LabellingComputer<'a, M> {
@@ -35,6 +37,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             current_time: 0,
             next_computation_index: 0,
             invalidate: false,
+            calmable_fixed_points: BTreeSet::new(),
         };
 
         Ok(computer)
@@ -146,17 +149,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         Ok(updated)
     }
 
-    /*
-    pub fn is_calm(&self, subproperty_index: usize, calm_fixed_points: &mut Vec<usize>) -> bool {
-        let update = Self::computation(&self.updates, subproperty_index);
-        if !update.is_empty() {
-            trace!(
-                "Subproperty {} is not calm as it has updates",
-                subproperty_index
-            );
-            return false;
-        }
-
+    pub fn is_calm(&self, subproperty_index: usize, inner_fixed_points: &mut Vec<usize>) -> bool {
         let subproperty_entry = self
             .property_checker
             .property
@@ -164,27 +157,27 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         let result = match &subproperty_entry.ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => true,
-            PropertyType::Negation(inner) => self.is_calm(*inner, calm_fixed_points),
+            PropertyType::Negation(inner) => self.is_calm(*inner, inner_fixed_points),
             PropertyType::BiLogic(bi_logic_operator) => {
-                self.is_calm(bi_logic_operator.a, calm_fixed_points)
-                    && self.is_calm(bi_logic_operator.b, calm_fixed_points)
+                self.is_calm(bi_logic_operator.a, inner_fixed_points)
+                    && self.is_calm(bi_logic_operator.b, inner_fixed_points)
             }
             PropertyType::Next(next_operator) => {
-                self.is_calm(next_operator.inner, calm_fixed_points)
+                self.is_calm(next_operator.inner, inner_fixed_points)
             }
             PropertyType::FixedPoint(fixed_point_operator) => {
-                calm_fixed_points.push(subproperty_index);
-                let result = self.is_calm(fixed_point_operator.inner, calm_fixed_points);
-                calm_fixed_points.pop();
+                inner_fixed_points.push(subproperty_index);
+                let result = self.is_calm(fixed_point_operator.inner, inner_fixed_points);
+                inner_fixed_points.pop();
                 result
             }
             PropertyType::FixedVariable(fixed_point_index) => {
-                calm_fixed_points.contains(fixed_point_index)
+                inner_fixed_points.contains(fixed_point_index)
             }
         };
 
         trace!("Subproperty {} calmness: {}", subproperty_index, result);
 
         result
-    }*/
+    }
 }

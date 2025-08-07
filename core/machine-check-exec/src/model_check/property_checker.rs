@@ -34,7 +34,7 @@ pub struct PropertyChecker {
     dirty_states: BTreeSet<StateId>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct FixedPointComputation {
     pub fixed_point_index: usize,
     pub start_time: u64,

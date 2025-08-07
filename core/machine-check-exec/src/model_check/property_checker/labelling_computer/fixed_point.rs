@@ -13,10 +13,9 @@ use crate::{
     FullMachine,
 };
 
-struct FixedPointIterationParams<'a> {
-    start_time: u64,
+struct FixedPointIterationParams {
     fixed_point_index: usize,
-    op: &'a FixedPointOperator,
+    inner_index: usize,
 }
 
 impl<M: FullMachine> LabellingComputer<'_, M> {
@@ -29,50 +28,19 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             // just invalidate fast
             return Ok(BTreeMap::new());
         }
-        /*if self.is_calm(subproperty_index, &mut Vec::new()) {
-            trace!(
-                "Not computing fixed point {} as it is calm",
-                subproperty_index
-            );
-            return Ok(BTreeSet::new());
-        }*/
-
-        // update history to ground values
-
-        let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_greatest));
 
         let start_time = self.current_time;
 
-        let mut params = FixedPointIterationParams {
-            fixed_point_index,
-            op,
-            start_time,
-        };
-
-        let history = self
-            .property_checker
-            .histories
-            .get_mut(&params.fixed_point_index)
-            .expect("Fixed point histories should contain property");
-
         let current_computation_index = self.next_computation_index;
-
         self.next_computation_index += 1;
-
-        trace!(
-            "Fixed point index {}, current computation index {}, start time {}",
-            fixed_point_index,
-            current_computation_index,
-            start_time
-        );
-
-        trace!("Computations: {:?}", self.property_checker.computations);
 
         let old_computation = self
             .property_checker
             .computations
             .get(current_computation_index)
             .cloned();
+
+        let had_old_computation = old_computation.is_some();
 
         if let Some(old_computation) = &old_computation {
             if old_computation.fixed_point_index != fixed_point_index
@@ -87,7 +55,70 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 "Old computation present, only considering dirty states {:?}",
                 self.property_checker.dirty_states
             );
+        } else {
+            assert_eq!(
+                current_computation_index,
+                self.property_checker.computations.len()
+            );
+            self.property_checker
+                .computations
+                .push(FixedPointComputation {
+                    fixed_point_index,
+                    start_time,
+                    end_time: start_time,
+                });
+        }
 
+        if self.calmable_fixed_points.contains(&fixed_point_index)
+            && self.is_calm(fixed_point_index, &mut Vec::new())
+        {
+            let calm_computation = FixedPointComputation {
+                fixed_point_index,
+                start_time,
+                end_time: start_time,
+            };
+
+            if let Some(old_computation) = old_computation {
+                if old_computation != calm_computation {
+                    // invalidate and return
+                    trace!("Invalidating as computation does not match");
+                    self.invalidate = true;
+                    return Ok(BTreeMap::new());
+                }
+            }
+
+            trace!(
+                "Not computing fixed point {} as it is calm",
+                fixed_point_index
+            );
+            return Ok(BTreeMap::new());
+        }
+
+        // update history to ground values
+
+        let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_greatest));
+
+        let mut params = FixedPointIterationParams {
+            fixed_point_index,
+            inner_index: op.inner,
+        };
+
+        let history = self
+            .property_checker
+            .histories
+            .get_mut(&params.fixed_point_index)
+            .expect("Fixed point histories should contain property");
+
+        trace!(
+            "Fixed point index {}, current computation index {}, start time {}",
+            fixed_point_index,
+            current_computation_index,
+            start_time
+        );
+
+        trace!("Computations: {:?}", self.property_checker.computations);
+
+        if had_old_computation {
             // do not consider all states, just the dirty ones
             for state_id in self.property_checker.dirty_states.iter().cloned() {
                 let old_value = history
@@ -125,8 +156,14 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         let end_time = self.current_time;
 
-        if let Some(old_computation) = &old_computation {
-            if old_computation.end_time != end_time {
+        let computation = self
+            .property_checker
+            .computations
+            .get_mut(current_computation_index)
+            .expect("Current computation should be inserted");
+
+        if had_old_computation {
+            if computation.end_time != end_time {
                 // invalidate and return
                 trace!("Invalidating as computation end time does not match");
                 self.invalidate = true;
@@ -136,17 +173,11 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 "Current computation [{}, {}], old computation [{},{}]",
                 start_time,
                 end_time,
-                old_computation.start_time,
-                old_computation.end_time
+                computation.start_time,
+                computation.end_time
             );
         } else {
-            self.property_checker
-                .computations
-                .push(FixedPointComputation {
-                    fixed_point_index,
-                    start_time: params.start_time,
-                    end_time,
-                });
+            computation.end_time = end_time;
         }
 
         // TODO: do not propagate all states
@@ -154,6 +185,8 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         for state_id in self.space.states() {
             result.insert(state_id, history.before_time(self.current_time, state_id));
         }
+
+        self.calmable_fixed_points.insert(fixed_point_index);
 
         Ok(result)
     }
@@ -167,12 +200,12 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         // increment time
         self.current_time += 1;
 
-        let mut current_update = self.compute_labelling(params.op.inner)?;
+        let mut current_update = self.compute_labelling(params.inner_index)?;
 
         // absence of an update does not guarantee that the dirty value does not change
         let dirty_values = self
             .getter()
-            .get_labelling(params.op.inner, &self.property_checker.dirty_states)?;
+            .get_labelling(params.inner_index, &self.property_checker.dirty_states)?;
         current_update.extend(dirty_values);
 
         let history = self
@@ -182,7 +215,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             .expect("Fixed point should have history");
 
         let mut fixed_point_reached = true;
-        //let mut control_flow = ControlFlow::Break(());
 
         for (state_id, update_timed) in current_update {
             // check if the update differs
@@ -195,17 +227,12 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
             // the update differs, make sure to ensure the loop does not break and increment the time once
             fixed_point_reached = false;
-            /*if matches!(control_flow, ControlFlow::Break(_)) {
-                control_flow = ControlFlow::Continue(());
-            }*/
 
             // insert the state and make it dirty if the history changed
             if history.insert(self.current_time, state_id, update_timed.value) {
                 self.property_checker.dirty_states.insert(state_id);
             }
         }
-
-        // TODO: make the fixed-point starts and ends consistent with history
 
         if fixed_point_reached {
             return Ok(ControlFlow::Break(()));
