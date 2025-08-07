@@ -28,27 +28,37 @@ pub use labelling_getter::LabellingGetter;
 pub struct PropertyChecker {
     property: Property,
 
+    histories: BTreeMap<usize, FixedPointHistory>,
+    computations: Vec<FixedPointComputation>,
+
     dirty_states: BTreeSet<StateId>,
-    fixed_point_histories: BTreeMap<usize, FixedPointHistory>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(super) struct FixedPointComputation {
+    pub fixed_point_index: usize,
+    pub start_time: u64,
+    pub end_time: u64,
 }
 
 impl PropertyChecker {
     pub fn new(property: Property) -> Self {
-        let mut fixed_point_histories = BTreeMap::new();
+        let mut histories = BTreeMap::new();
 
         for subproperty_index in 0..property.num_subproperties() {
             if matches!(
                 property.subproperty_entry(subproperty_index).ty,
                 PropertyType::FixedPoint(_)
             ) {
-                fixed_point_histories.insert(subproperty_index, FixedPointHistory::default());
+                histories.insert(subproperty_index, FixedPointHistory::default());
             }
         }
 
         Self {
             property,
             dirty_states: BTreeSet::new(),
-            fixed_point_histories,
+            histories,
+            computations: Vec::new(),
         }
     }
 
@@ -62,14 +72,14 @@ impl PropertyChecker {
     ) -> Result<ThreeValued, ExecError> {
         trace!(
             "Histories before computing interpretation: {:#?}",
-            self.fixed_point_histories
+            self.histories
         );
-        let mut labelling_computer = LabellingComputer::new(self, space)?;
+        let labelling_computer = LabellingComputer::new(self, space)?;
         let result = labelling_computer.compute()?;
 
         trace!(
             "Histories after computing interpretation: {:#?}",
-            self.fixed_point_histories
+            self.histories
         );
 
         Ok(result)
@@ -80,5 +90,12 @@ impl PropertyChecker {
         space: &'a StateSpace<M>,
     ) -> LabellingGetter<'a, M> {
         LabellingGetter::new(self, space, u64::MAX)
+    }
+
+    fn invalidate(&mut self) {
+        for history in self.histories.values_mut() {
+            history.clear();
+        }
+        self.computations.clear();
     }
 }

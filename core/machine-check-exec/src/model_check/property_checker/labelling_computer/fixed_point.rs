@@ -8,7 +8,7 @@ use machine_check_common::{property::FixedPointOperator, ExecError, StateId, Thr
 
 use crate::{
     model_check::property_checker::{
-        history::TimeSpan, labelling_computer::LabellingComputer, CheckValue, TimedCheckValue,
+        labelling_computer::LabellingComputer, CheckValue, FixedPointComputation, TimedCheckValue,
     },
     FullMachine,
 };
@@ -51,14 +51,13 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         let history = self
             .property_checker
-            .fixed_point_histories
+            .histories
             .get_mut(&params.fixed_point_index)
             .expect("Fixed point histories should contain property");
 
-        let current_computation_index = self
-            .fixed_point_next_computations
-            .entry(params.fixed_point_index)
-            .or_default();
+        let current_computation_index = self.next_computation_index;
+
+        self.next_computation_index += 1;
 
         trace!(
             "Fixed point index {}, current computation index {}, start time {}",
@@ -67,12 +66,20 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             start_time
         );
 
-        trace!("History computations: {:?}", history.computations);
+        trace!("Computations: {:?}", self.property_checker.computations);
 
-        if let Some(old_computation) = history.computations.get(*current_computation_index) {
-            if old_computation.start_time != start_time {
-                trace!("Invalidating as computation start time does not match");
+        let old_computation = self
+            .property_checker
+            .computations
+            .get(current_computation_index)
+            .cloned();
+
+        if let Some(old_computation) = &old_computation {
+            if old_computation.fixed_point_index != fixed_point_index
+                || old_computation.start_time != start_time
+            {
                 // invalidate and return
+                trace!("Invalidating as computation does not match");
                 self.invalidate = true;
                 return Ok(BTreeMap::new());
             }
@@ -112,18 +119,13 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         let history = self
             .property_checker
-            .fixed_point_histories
+            .histories
             .get_mut(&fixed_point_index)
             .expect("Fixed point should have history");
 
         let end_time = self.current_time;
 
-        let current_computation = self
-            .fixed_point_next_computations
-            .entry(params.fixed_point_index)
-            .or_default();
-
-        if let Some(old_computation) = history.computations.get(*current_computation) {
+        if let Some(old_computation) = &old_computation {
             if old_computation.end_time != end_time {
                 // invalidate and return
                 trace!("Invalidating as computation end time does not match");
@@ -138,13 +140,14 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 old_computation.end_time
             );
         } else {
-            history.computations.push(TimeSpan {
-                start_time: params.start_time,
-                end_time,
-            });
+            self.property_checker
+                .computations
+                .push(FixedPointComputation {
+                    fixed_point_index,
+                    start_time: params.start_time,
+                    end_time,
+                });
         }
-
-        *current_computation += 1;
 
         // TODO: do not propagate all states
         let mut result = BTreeMap::new();
@@ -174,7 +177,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         let history = self
             .property_checker
-            .fixed_point_histories
+            .histories
             .get_mut(&params.fixed_point_index)
             .expect("Fixed point should have history");
 

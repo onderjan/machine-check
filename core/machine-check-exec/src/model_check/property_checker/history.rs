@@ -19,13 +19,6 @@ pub struct TimedCheckValue {
 pub struct FixedPointHistory {
     pub(super) times: BTreeMap<u64, BTreeMap<StateId, CheckValue>>,
     pub(super) states: BTreeMap<StateId, BTreeMap<u64, CheckValue>>,
-    pub(super) computations: Vec<TimeSpan>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub(super) struct TimeSpan {
-    pub start_time: u64,
-    pub end_time: u64,
 }
 
 impl FixedPointHistory {
@@ -103,7 +96,6 @@ impl FixedPointHistory {
     pub fn clear(&mut self) {
         self.times.clear();
         self.states.clear();
-        self.computations.clear();
     }
 }
 

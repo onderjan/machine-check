@@ -26,7 +26,7 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
 
         let history = self
             .property_checker
-            .fixed_point_histories
+            .histories
             .get(&fixed_point_index)
             .expect("History should exist for fixed point");
 

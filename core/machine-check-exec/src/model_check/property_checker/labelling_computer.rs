@@ -20,7 +20,7 @@ pub struct LabellingComputer<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
 
     current_time: u64,
-    fixed_point_next_computations: BTreeMap<usize, usize>,
+    next_computation_index: usize,
     invalidate: bool,
 }
 
@@ -33,7 +33,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             property_checker,
             space,
             current_time: 0,
-            fixed_point_next_computations: BTreeMap::new(),
+            next_computation_index: 0,
             invalidate: false,
         };
 
@@ -44,7 +44,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         LabellingGetter::new(self.property_checker, self.space, self.current_time)
     }
 
-    pub fn compute(&mut self) -> Result<ThreeValued, ExecError> {
+    pub fn compute(mut self) -> Result<ThreeValued, ExecError> {
         // TODO: remove for incremental model checking
         /*for history in self.property_checker.fixed_point_histories.values_mut() {
             history.clear();
@@ -58,14 +58,14 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         self.compute_inner()?;
 
         if self.invalidate {
-            trace!("Invalidated computation, computing once more");
-            self.invalidate = false;
+            self.property_checker.invalidate();
             self.property_checker
                 .dirty_states
                 .extend(self.space.states());
-            for history in self.property_checker.fixed_point_histories.values_mut() {
-                history.clear();
-            }
+            self.invalidate = false;
+
+            trace!("Invalidated computation, computing once more");
+
             self.compute_inner()?;
             assert!(!self.invalidate);
         } else {
@@ -101,7 +101,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
     fn compute_inner(&mut self) -> Result<(), ExecError> {
         self.current_time = 0;
-        self.fixed_point_next_computations.clear();
+        self.next_computation_index = 0;
         self.compute_labelling(0)?;
         Ok(())
     }
