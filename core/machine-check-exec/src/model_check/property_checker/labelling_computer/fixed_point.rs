@@ -151,7 +151,11 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             .get_mut(&fixed_point_index)
             .expect("Fixed point should have history");
 
-        let end_time = self.current_time;
+        // TODO: do not propagate all states
+        let mut result = BTreeMap::new();
+        for state_id in self.property_checker.dirty_states.iter().copied() {
+            result.insert(state_id, history.before_time(self.current_time, state_id));
+        }
 
         let computation = self
             .property_checker
@@ -160,27 +164,33 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             .expect("Current computation should be inserted");
 
         if had_old_computation {
-            if computation.end_time != end_time {
-                // invalidate and return
-                trace!("Invalidating as computation end time does not match");
-                self.invalidate = true;
-                return Ok(BTreeMap::new());
-            }
             trace!(
                 "Current computation [{}, {}], old computation [{},{}]",
                 start_time,
-                end_time,
+                self.current_time,
                 computation.start_time,
                 computation.end_time
             );
-        } else {
-            computation.end_time = end_time;
-        }
 
-        // TODO: do not propagate all states
-        let mut result = BTreeMap::new();
-        for state_id in self.property_checker.dirty_states.iter().copied() {
-            result.insert(state_id, history.before_time(self.current_time, state_id));
+            if computation.end_time < self.current_time {
+                // invalidate and return
+                trace!(
+                    "Invalidating as old computation end time is lesser: ours {}, old {}",
+                    self.current_time,
+                    computation.end_time
+                );
+                self.invalidate = true;
+                return Ok(BTreeMap::new());
+            }
+
+            // move the current time in line with computation end time
+            self.current_time = computation.end_time;
+        } else {
+            // TODO: add padding time
+            // this makes verification unsound for some reason?
+            /*const PADDING_TIME: u64 = 128;
+            self.current_time += PADDING_TIME;
+            computation.end_time = self.current_time;*/
         }
 
         self.calmable_fixed_points.insert(fixed_point_index);
