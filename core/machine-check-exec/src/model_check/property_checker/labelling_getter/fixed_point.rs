@@ -31,7 +31,7 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
             .expect("History should exist for fixed point");
 
         for state_id in states {
-            let timed = history.up_to_time(self.current_time, *state_id);
+            let timed = history.before_time(self.current_time, *state_id);
             update.insert(*state_id, timed);
         }
 

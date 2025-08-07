@@ -20,6 +20,8 @@ pub struct LabellingComputer<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
 
     current_time: u64,
+    fixed_point_next_computations: BTreeMap<usize, usize>,
+    invalidate: bool,
 }
 
 impl<'a, M: FullMachine> LabellingComputer<'a, M> {
@@ -31,6 +33,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             property_checker,
             space,
             current_time: 0,
+            fixed_point_next_computations: BTreeMap::new(),
+            invalidate: false,
         };
 
         Ok(computer)
@@ -41,19 +45,32 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     }
 
     pub fn compute(&mut self) -> Result<ThreeValued, ExecError> {
-        self.current_time = 0;
-
         // TODO: remove for incremental model checking
-        for history in self.property_checker.fixed_point_histories.values_mut() {
+        /*for history in self.property_checker.fixed_point_histories.values_mut() {
             history.clear();
-        }
+        }*/
 
         trace!(
             "Starting computation, dirty states: {:?}",
             self.property_checker.dirty_states
         );
 
-        self.compute_labelling(0)?;
+        self.compute_inner()?;
+
+        if self.invalidate {
+            trace!("Invalidated computation, computing once more");
+            self.invalidate = false;
+            self.property_checker
+                .dirty_states
+                .extend(self.space.states());
+            for history in self.property_checker.fixed_point_histories.values_mut() {
+                history.clear();
+            }
+            self.compute_inner()?;
+            assert!(!self.invalidate);
+        } else {
+            trace!("Computation not invalidated");
+        }
 
         trace!(
             "Computed, dirty states: {:?}",
@@ -80,6 +97,13 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         );
 
         Ok(result)
+    }
+
+    fn compute_inner(&mut self) -> Result<(), ExecError> {
+        self.current_time = 0;
+        self.fixed_point_next_computations.clear();
+        self.compute_labelling(0)?;
+        Ok(())
     }
 
     fn compute_labelling(

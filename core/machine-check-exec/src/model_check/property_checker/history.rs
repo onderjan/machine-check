@@ -73,14 +73,14 @@ impl FixedPointHistory {
         true
     }
 
-    pub fn up_to_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
+    pub fn before_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
         let history = self
             .states
             .get(&state_id)
             .expect("State should have history");
 
         let (insert_time, check_value) = history
-            .range(0..=time)
+            .range(0..time)
             .last()
             .expect("Last history should exist");
 
@@ -90,9 +90,9 @@ impl FixedPointHistory {
         }
     }
 
-    pub fn up_to_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
+    pub fn before_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
         let history = self.states.get(&state_id)?;
-        let (insert_time, check_value) = history.range(0..=time).last()?;
+        let (insert_time, check_value) = history.range(0..time).last()?;
 
         Some(TimedCheckValue {
             time: *insert_time,

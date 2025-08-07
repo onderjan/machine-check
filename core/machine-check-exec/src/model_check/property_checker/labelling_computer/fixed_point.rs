@@ -25,6 +25,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         fixed_point_index: usize,
         op: &FixedPointOperator,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+        if self.invalidate {
+            // just invalidate fast
+            return Ok(BTreeMap::new());
+        }
         /*if self.is_calm(subproperty_index, &mut Vec::new()) {
             trace!(
                 "Not computing fixed point {} as it is calm",
@@ -37,10 +41,12 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_greatest));
 
+        let start_time = self.current_time;
+
         let mut params = FixedPointIterationParams {
             fixed_point_index,
             op,
-            start_time: self.current_time,
+            start_time,
         };
 
         let history = self
@@ -49,25 +55,49 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             .get_mut(&params.fixed_point_index)
             .expect("Fixed point histories should contain property");
 
-        let lined_up = false;
+        let current_computation_index = self
+            .fixed_point_next_computations
+            .entry(params.fixed_point_index)
+            .or_default();
 
-        if lined_up {
-            // TODO: do not consider all states
+        trace!(
+            "Fixed point index {}, current computation index {}, start time {}",
+            fixed_point_index,
+            current_computation_index,
+            start_time
+        );
+
+        trace!("History computations: {:?}", history.computations);
+
+        if let Some(old_computation) = history.computations.get(*current_computation_index) {
+            if old_computation.start_time != start_time {
+                trace!("Invalidating as computation start time does not match");
+                // invalidate and return
+                self.invalidate = true;
+                return Ok(BTreeMap::new());
+            }
+            trace!(
+                "Old computation present, only considering dirty states {:?}",
+                self.property_checker.dirty_states
+            );
+
+            // do not consider all states, just the dirty ones
             for state_id in self.property_checker.dirty_states.iter().cloned() {
                 let old_value = history
-                    .up_to_time_opt(self.current_time, state_id)
+                    .before_time_opt(start_time, state_id)
                     .map(|timed| timed.value);
 
                 if Some(&ground_value) == old_value.as_ref() {
                     continue;
                 }
                 // insert the ground state, it is already dirty
-                history.insert(self.current_time, state_id, ground_value.clone());
+                history.insert(start_time, state_id, ground_value.clone());
             }
         } else {
-            // invalidate all states
+            trace!("Old computation not present, considering all states");
+            // consider all states
             for state_id in self.space.states() {
-                history.insert(self.current_time, state_id, ground_value.clone());
+                history.insert(start_time, state_id, ground_value.clone());
                 self.property_checker.dirty_states.insert(state_id);
             }
         }
@@ -86,15 +116,40 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             .get_mut(&fixed_point_index)
             .expect("Fixed point should have history");
 
-        history.computations.push(TimeSpan {
-            start_time: params.start_time,
-            end_time: self.current_time,
-        });
+        let end_time = self.current_time;
+
+        let current_computation = self
+            .fixed_point_next_computations
+            .entry(params.fixed_point_index)
+            .or_default();
+
+        if let Some(old_computation) = history.computations.get(*current_computation) {
+            if old_computation.end_time != end_time {
+                // invalidate and return
+                trace!("Invalidating as computation end time does not match");
+                self.invalidate = true;
+                return Ok(BTreeMap::new());
+            }
+            trace!(
+                "Current computation [{}, {}], old computation [{},{}]",
+                start_time,
+                end_time,
+                old_computation.start_time,
+                old_computation.end_time
+            );
+        } else {
+            history.computations.push(TimeSpan {
+                start_time: params.start_time,
+                end_time,
+            });
+        }
+
+        *current_computation += 1;
 
         // TODO: do not propagate all states
         let mut result = BTreeMap::new();
         for state_id in self.space.states() {
-            result.insert(state_id, history.up_to_time(self.current_time, state_id));
+            result.insert(state_id, history.before_time(self.current_time, state_id));
         }
 
         Ok(result)
@@ -106,7 +161,16 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
     ) -> Result<ControlFlow<(), ()>, ExecError> {
         trace!("Fixed point {:?} not reached yet", params.fixed_point_index);
 
-        let current_update = self.compute_labelling(params.op.inner)?;
+        // increment time
+        self.current_time += 1;
+
+        let mut current_update = self.compute_labelling(params.op.inner)?;
+
+        // absence of an update does not guarantee that the dirty value does not change
+        let dirty_values = self
+            .getter()
+            .get_labelling(params.op.inner, &self.property_checker.dirty_states)?;
+        current_update.extend(dirty_values);
 
         let history = self
             .property_checker
@@ -117,12 +181,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         let mut fixed_point_reached = true;
         //let mut control_flow = ControlFlow::Break(());
 
-        let next_time = self.current_time + 1;
-
         for (state_id, update_timed) in current_update {
             // check if the update differs
 
-            let old_timed = history.up_to_time(self.current_time, state_id);
+            let old_timed = history.before_time(self.current_time, state_id);
 
             if update_timed.value.valuation == old_timed.value.valuation {
                 continue;
@@ -135,7 +197,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             }*/
 
             // insert the state and make it dirty if the history changed
-            if history.insert(next_time, state_id, update_timed.value) {
+            if history.insert(self.current_time, state_id, update_timed.value) {
                 self.property_checker.dirty_states.insert(state_id);
             }
         }
@@ -146,8 +208,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             return Ok(ControlFlow::Break(()));
         }
 
-        // move to next time and continue the loop
-        self.current_time = next_time;
         Ok(ControlFlow::Continue(()))
     }
 
