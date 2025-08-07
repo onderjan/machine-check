@@ -13,17 +13,6 @@ use petgraph::graphmap::GraphMap;
 use petgraph::Directed;
 
 impl<M: FullMachine> StateSpace<M> {
-    /// Returns an iterator of state ids labelled by a given literal with an optimistic/pessimistic interpretation.
-    pub fn labelled_iter<'a>(
-        &'a self,
-        atomic_property: &'a AtomicProperty,
-    ) -> impl Iterator<Item = Result<(StateId, ThreeValued), ExecError>> + 'a {
-        self.states().map(move |state_id| {
-            self.atomic_label(atomic_property, state_id)
-                .map(|label| (state_id, label))
-        })
-    }
-
     pub fn atomic_label(
         &self,
         atomic_property: &AtomicProperty,

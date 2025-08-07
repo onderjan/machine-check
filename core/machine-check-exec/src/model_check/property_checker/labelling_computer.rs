@@ -105,6 +105,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     fn compute_inner(&mut self) -> Result<(), ExecError> {
         self.current_time = 0;
         self.next_computation_index = 0;
+        self.calmable_fixed_points.clear();
         self.compute_labelling(0)?;
         Ok(())
     }

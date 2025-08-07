@@ -67,15 +67,19 @@ impl FixedPointHistory {
     }
 
     pub fn before_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
-        let history = self
-            .states
-            .get(&state_id)
-            .expect("State should have history");
+        let Some(history) = self.states.get(&state_id) else {
+            panic!(
+                "State {} should have history when querying before time {}, but history is {:?}",
+                state_id, time, self
+            );
+        };
 
-        let (insert_time, check_value) = history
-            .range(0..time)
-            .last()
-            .expect("Last history should exist");
+        let Some((insert_time, check_value)) = history.range(0..time).last() else {
+            panic!(
+                "Last history of state {} before time {} should exist, but history is {:?}",
+                state_id, time, self
+            );
+        };
 
         TimedCheckValue {
             time: *insert_time,

@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::ControlFlow,
-};
+use std::{collections::BTreeMap, ops::ControlFlow};
 
 use log::trace;
 use machine_check_common::{property::FixedPointOperator, ExecError, StateId, ThreeValued};
@@ -81,7 +78,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             if let Some(old_computation) = old_computation {
                 if old_computation != calm_computation {
                     // invalidate and return
-                    trace!("Invalidating as computation does not match");
+                    trace!("Invalidating as calm fixed-point computation does not match");
                     self.invalidate = true;
                     return Ok(BTreeMap::new());
                 }
@@ -182,7 +179,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         // TODO: do not propagate all states
         let mut result = BTreeMap::new();
-        for state_id in self.space.states() {
+        for state_id in self.property_checker.dirty_states.iter().copied() {
             result.insert(state_id, history.before_time(self.current_time, state_id));
         }
 
@@ -196,6 +193,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         params: &mut FixedPointIterationParams,
     ) -> Result<ControlFlow<(), ()>, ExecError> {
         trace!("Fixed point {:?} not reached yet", params.fixed_point_index);
+        trace!("Histories: {:?}", self.property_checker.histories);
 
         // increment time
         self.current_time += 1;
@@ -247,6 +245,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         // TODO: do not update all states
         self.getter()
-            .get_fixed_variable(fixed_point_index, &BTreeSet::from_iter(self.space.states()))
+            .get_fixed_variable(fixed_point_index, &self.property_checker.dirty_states)
     }
 }
