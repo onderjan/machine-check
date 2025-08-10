@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 mod atomic;
 mod closed_form;
 mod parser;
+mod transition_depth;
 
 pub use atomic::{AtomicProperty, ComparisonType, ValueExpression};
 

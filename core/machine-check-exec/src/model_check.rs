@@ -45,14 +45,12 @@ impl ThreeValuedChecker {
 
         // get the labelling as well
         let subproperty_index = subproperty.index();
-        //println!("Getting the labelling, check map: {:?}", checker.check_map);
         let labelling = property_checker
             .last_getter(space)
             .get_labelling(subproperty_index, &BTreeSet::from_iter(space.states()))?
             .iter()
             .map(|(state_id, timed)| (*state_id, timed.value.valuation))
             .collect();
-        //println!("Got the labelling");
         Ok((conclusion, labelling))
     }
 
@@ -126,7 +124,7 @@ impl ThreeValuedChecker {
         //self.property_checkers.clear();
 
         for property_checker in self.property_checkers.values_mut() {
-            property_checker.purge_states(&purge_states);
+            property_checker.purge_states(space, &purge_states);
         }
     }
 }

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
+use log::trace;
 use machine_check_common::{StateId, ThreeValued};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -15,7 +16,7 @@ pub struct TimedCheckValue {
     pub value: CheckValue,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FixedPointHistory {
     pub(super) times: BTreeMap<u64, BTreeMap<StateId, CheckValue>>,
     pub(super) states: BTreeMap<StateId, BTreeMap<u64, CheckValue>>,
@@ -23,6 +24,12 @@ pub struct FixedPointHistory {
 
 impl FixedPointHistory {
     pub fn insert(&mut self, time_instant: u64, state_id: StateId, value: CheckValue) -> bool {
+        trace!(
+            "Inserting for state id {} and time instant {}: {:?}",
+            state_id,
+            time_instant,
+            value
+        );
         let time_values = self.states.entry(state_id).or_default();
 
         // clear the entries at or after this time for this state
@@ -45,10 +52,14 @@ impl FixedPointHistory {
             // remove entry both in time and state maps
             time_values.remove(&entry_time);
 
-            self.times
+            let time_instant_state_map = self
+                .times
                 .get_mut(&entry_time)
-                .expect("Entry time should have a map in times")
-                .remove(&state_id);
+                .expect("Entry time should have a map in times");
+            time_instant_state_map.remove(&state_id);
+            if time_instant_state_map.is_empty() {
+                self.times.remove(&entry_time);
+            }
         }
 
         // insert the new entry

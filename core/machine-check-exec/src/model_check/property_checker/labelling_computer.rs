@@ -48,23 +48,15 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
     }
 
     pub fn compute(mut self) -> Result<ThreeValued, ExecError> {
-        // TODO: remove for incremental model checking
-        /*for history in self.property_checker.fixed_point_histories.values_mut() {
-            history.clear();
-        }*/
-
-        trace!(
-            "Starting computation, dirty states: {:?}",
-            self.property_checker.dirty_states
-        );
-
+        trace!("Computing, dirty states: {:?}", self.property_checker.focus);
         self.compute_inner()?;
 
         if self.invalidate {
+            trace!("Invalidated");
             self.property_checker.invalidate();
             self.property_checker
-                .dirty_states
-                .extend(self.space.states());
+                .focus
+                .extend_dirty(self.space, self.space.states());
             self.invalidate = false;
 
             trace!("Invalidated computation, computing once more");
@@ -73,14 +65,75 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             assert!(!self.invalidate);
         } else {
             trace!("Computation not invalidated");
+
+            let double_check = false;
+            if double_check {
+                // TODO: double-checking does not take moving of time-points into account
+                trace!("Double-checking");
+
+                let mut fresh_property_checker = self.property_checker.clone();
+                fresh_property_checker.invalidate();
+                fresh_property_checker
+                    .focus
+                    .extend_dirty(self.space, self.space.states());
+                LabellingComputer::new(&mut fresh_property_checker, self.space)?.compute_inner()?;
+
+                // retain only states in state space for comparison
+                // as it is allowed for incremental model checking to retain states
+                // that are no longer in the state space
+
+                let states = BTreeSet::from_iter(self.space.states());
+
+                for history in self.property_checker.histories.values_mut() {
+                    history
+                        .states
+                        .retain(|state_id, _| states.contains(state_id));
+                    for time_map in history.times.values_mut() {
+                        time_map.retain(|state_id, _| states.contains(state_id));
+                    }
+                }
+
+                let computation_inconsistencies =
+                    fresh_property_checker.computations != self.property_checker.computations;
+                let history_inconsistencies =
+                    fresh_property_checker.histories != self.property_checker.histories;
+
+                if computation_inconsistencies || history_inconsistencies {
+                    eprintln!("Double-checking found inconsistencies in incremental model-checking, current focus: {:?}", self.property_checker.focus);
+                    if computation_inconsistencies {
+                        eprintln!(
+                            "Double-checking found inconsistencies in computations\n\
+                    Fresh computations: {:#?}\n\
+                    Incremental computations: {:#?}",
+                            fresh_property_checker.computations, self.property_checker.computations,
+                        );
+                    } else {
+                        eprintln!(
+                            "No inconsistencies in computations:\n{:#?}",
+                            self.property_checker.computations,
+                        );
+                    }
+                    if history_inconsistencies {
+                        eprintln!(
+                            "Double-checking found inconsistencies in histories\n\
+                    Fresh histories: {:#?}\n\
+                    Incremental histories: {:#?}",
+                            fresh_property_checker.histories, self.property_checker.histories,
+                        );
+                    } else {
+                        eprintln!(
+                            "No inconsistencies in histories:\n{:#?}",
+                            self.property_checker.histories,
+                        );
+                    }
+                    panic!("Found inconsistencies when double-checking incremental model checking");
+                }
+            }
         }
 
-        trace!(
-            "Computed, dirty states: {:?}",
-            self.property_checker.dirty_states
-        );
+        trace!("Computed, focus: {:?}", self.property_checker.focus);
 
-        self.property_checker.dirty_states.clear();
+        self.property_checker.focus.clear();
 
         // conventionally, the property must hold in all initial states
 
@@ -119,6 +172,12 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             .property
             .subproperty_entry(subproperty_index);
 
+        trace!(
+            "Subproperty {:?} entry: {:?}",
+            subproperty_index,
+            subproperty_entry
+        );
+
         let ty = subproperty_entry.ty.clone();
 
         let updated = match &ty {
@@ -126,7 +185,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
                 if self.current_time == 0 {
                     // only newly compute for dirty states
                     self.getter()
-                        .get_labelling(subproperty_index, &self.property_checker.dirty_states)?
+                        .get_labelling(subproperty_index, self.property_checker.focus.dirty())?
                 } else {
                     // this has already been computed
                     BTreeMap::new()
