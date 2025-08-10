@@ -75,4 +75,13 @@ impl Focus {
             current_affected.append(&mut next_affected);
         }
     }
+
+    pub fn regenerate<M: FullMachine>(&mut self, space: &StateSpace<M>, added: &BTreeSet<StateId>) {
+        let mut dirty = BTreeSet::new();
+        std::mem::swap(&mut dirty, &mut self.dirty);
+        dirty.extend(added);
+        self.affected.clear();
+
+        self.extend_dirty(space, dirty.iter().copied());
+    }
 }

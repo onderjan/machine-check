@@ -76,7 +76,7 @@ impl PropertyChecker {
         space: &StateSpace<M>,
         purge_states: &BTreeSet<StateId>,
     ) {
-        self.focus.extend_dirty(space, purge_states.iter().copied());
+        self.focus.regenerate(space, purge_states);
     }
 
     pub fn compute_interpretation<M: FullMachine>(
