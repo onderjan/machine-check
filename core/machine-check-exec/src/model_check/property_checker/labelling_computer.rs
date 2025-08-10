@@ -1,3 +1,4 @@
+mod double_check;
 mod fixed_point;
 mod local;
 mod next;
@@ -65,70 +66,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             assert!(!self.invalidate);
         } else {
             trace!("Computation not invalidated");
-
-            let double_check = false;
-            if double_check {
-                // TODO: double-checking does not take moving of time-points into account
-                trace!("Double-checking");
-
-                let mut fresh_property_checker = self.property_checker.clone();
-                fresh_property_checker.invalidate();
-                fresh_property_checker
-                    .focus
-                    .extend_dirty(self.space, self.space.states());
-                LabellingComputer::new(&mut fresh_property_checker, self.space)?.compute_inner()?;
-
-                // retain only states in state space for comparison
-                // as it is allowed for incremental model checking to retain states
-                // that are no longer in the state space
-
-                let states = BTreeSet::from_iter(self.space.states());
-
-                for history in self.property_checker.histories.values_mut() {
-                    history
-                        .states
-                        .retain(|state_id, _| states.contains(state_id));
-                    for time_map in history.times.values_mut() {
-                        time_map.retain(|state_id, _| states.contains(state_id));
-                    }
-                }
-
-                let computation_inconsistencies =
-                    fresh_property_checker.computations != self.property_checker.computations;
-                let history_inconsistencies =
-                    fresh_property_checker.histories != self.property_checker.histories;
-
-                if computation_inconsistencies || history_inconsistencies {
-                    eprintln!("Double-checking found inconsistencies in incremental model-checking, current focus: {:?}", self.property_checker.focus);
-                    if computation_inconsistencies {
-                        eprintln!(
-                            "Double-checking found inconsistencies in computations\n\
-                    Fresh computations: {:#?}\n\
-                    Incremental computations: {:#?}",
-                            fresh_property_checker.computations, self.property_checker.computations,
-                        );
-                    } else {
-                        eprintln!(
-                            "No inconsistencies in computations:\n{:#?}",
-                            self.property_checker.computations,
-                        );
-                    }
-                    if history_inconsistencies {
-                        eprintln!(
-                            "Double-checking found inconsistencies in histories\n\
-                    Fresh histories: {:#?}\n\
-                    Incremental histories: {:#?}",
-                            fresh_property_checker.histories, self.property_checker.histories,
-                        );
-                    } else {
-                        eprintln!(
-                            "No inconsistencies in histories:\n{:#?}",
-                            self.property_checker.histories,
-                        );
-                    }
-                    panic!("Found inconsistencies when double-checking incremental model checking");
-                }
-            }
+            self.perform_double_check()?;
         }
 
         trace!("Computed, focus: {:?}", self.property_checker.focus);

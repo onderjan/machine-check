@@ -23,7 +23,7 @@ pub struct FixedPointHistory {
 }
 
 impl FixedPointHistory {
-    pub fn insert(&mut self, time_instant: u64, state_id: StateId, value: CheckValue) -> bool {
+    pub fn insert(&mut self, time_instant: u64, state_id: StateId, value: CheckValue) {
         trace!(
             "Inserting for state id {} and time instant {}: {:?}",
             state_id,
@@ -72,9 +72,6 @@ impl FixedPointHistory {
             .entry(state_id)
             .or_default()
             .insert(time_instant, value);
-
-        // we inserted
-        true
     }
 
     pub fn before_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
@@ -101,6 +98,10 @@ impl FixedPointHistory {
     pub fn clear(&mut self) {
         self.times.clear();
         self.states.clear();
+    }
+
+    pub fn time_changes(&self, time_instant: u64) -> bool {
+        self.times.contains_key(&time_instant)
     }
 }
 

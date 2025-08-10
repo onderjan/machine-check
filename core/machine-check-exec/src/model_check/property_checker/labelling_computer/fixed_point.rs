@@ -14,7 +14,6 @@ use crate::{
 struct FixedPointIterationParams {
     fixed_point_index: usize,
     inner_index: usize,
-    required_end_time: Option<u64>,
 }
 
 impl<M: FullMachine> LabellingComputer<'_, M> {
@@ -68,6 +67,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                         .push(FixedPointComputation {
                             fixed_point_index,
                             start_time,
+                            fix_time: start_time,
                             end_time: start_time,
                         });
                     assert_eq!(
@@ -133,7 +133,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         let mut params = FixedPointIterationParams {
             fixed_point_index,
             inner_index: op.inner,
-            required_end_time: old_computation_end_time,
         };
 
         while let ControlFlow::Continue(()) = self.fixed_point_iteration(&mut params)? {}
@@ -142,6 +141,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         // the inner updated have been cleared
 
         trace!("Fixed point {:?} reached", params.fixed_point_index);
+        let fix_time = self.current_time;
 
         let computation_clone =
             self.property_checker.computations[current_computation_index].clone();
@@ -157,53 +157,45 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
             assert!(computation_clone.start_time < computation_clone.end_time);
 
-            // replay the remaining fixed-point computations inside
-            /*while let Some(replay_computation) = self
-                .property_checker
-                .computations
-                .get(self.next_computation_index)
-            {
-                if replay_computation.end_time > computation_clone.end_time {
-                    // stop replaying
-                    break;
+            match self.current_time.cmp(&computation_clone.end_time) {
+                std::cmp::Ordering::Less => {
+                    // remove any computations remaining within
+                    while let Some(next_computation) = self
+                        .property_checker
+                        .computations
+                        .get(self.next_computation_index)
+                    {
+                        if next_computation.start_time < computation_clone.end_time
+                            && next_computation.end_time <= computation_clone.end_time
+                        {
+                            self.property_checker
+                                .computations
+                                .remove(self.next_computation_index);
+                        } else {
+                            break;
+                        }
+                    }
+
+                    self.current_time = computation_clone.end_time;
                 }
-
-                trace!(
-                    "Replaying fixed point index {} at time {:?}",
-                    replay_computation.fixed_point_index, self.current_time
-                );
-
-                self.compute_fixed_point_op(replay_computation.fixed_point_index, op)?;
-
-                if self.invalidate {
-                    // the index does not move when invalidated, break out
+                std::cmp::Ordering::Equal => {
+                    // nothing to do
+                }
+                std::cmp::Ordering::Greater => {
+                    // invalidate and return
+                    trace!(
+                        "Invalidating as new computation end time is greater: ours {}, old {}",
+                        self.current_time,
+                        computation_clone.end_time
+                    );
+                    self.invalidate = true;
                     return Ok(BTreeMap::new());
                 }
-            }*/
-
-            // after replaying, we can move the current time
-
-            if self.current_time != computation_clone.end_time {
-                // invalidate and return
-                trace!(
-                    "Invalidating as old computation end time is lesser: ours {}, old {}",
-                    self.current_time,
-                    computation_clone.end_time
-                );
-                self.invalidate = true;
-                return Ok(BTreeMap::new());
             }
-            /*if self.current_time < computation_clone.end_time {
-                trace!("Moving computation end time of fixed point {} with start time {} from {} to {}", fixed_point_index, start_time, self.current_time, computation_clone.end_time);
-            }
-
-            // move the current time in line with computation end time
-            self.current_time = computation_clone.end_time;*/
         } else {
-            // TODO: add padding time
-            // this makes verification unsound for some reason?
-            /*const PADDING_TIME: u64 = 128;
-            self.current_time += PADDING_TIME;*/
+            // TODO: decide the padding time
+            const PADDING_TIME: u64 = 100;
+            self.current_time += PADDING_TIME;
 
             assert_eq!(computation_clone.start_time, computation_clone.end_time);
             assert!(computation_clone.end_time < self.current_time);
@@ -211,6 +203,8 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             self.property_checker.computations[current_computation_index].end_time =
                 self.current_time;
         }
+
+        self.property_checker.computations[current_computation_index].fix_time = fix_time;
 
         // since this fixed point was computed properly, it can be considered when calming afterwards
         self.calmable_fixed_points.insert(fixed_point_index);
@@ -242,6 +236,8 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         // increment time
         self.current_time += 1;
 
+        // compute the iteration
+
         let mut current_update = self.compute_labelling(params.inner_index)?;
 
         trace!("Current update: {:?}", current_update);
@@ -260,8 +256,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             .get_mut(&params.fixed_point_index)
             .expect("Fixed point should have history");
 
-        let mut fixed_point_reached = true;
-
         for (state_id, update_timed) in current_update {
             // check if the update differs
 
@@ -271,29 +265,15 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 continue;
             }
 
-            // the update differs, make sure to ensure the loop does not break and increment the time once
-            fixed_point_reached = false;
-
-            // insert the state and make it dirty if the history changed
-            if history.insert(self.current_time, state_id, update_timed.value) {
-                self.property_checker
-                    .focus
-                    .insert_dirty(self.space, state_id);
-            }
+            // the update differs
+            // insert the state and make it dirty
+            history.insert(self.current_time, state_id, update_timed.value);
+            self.property_checker
+                .focus
+                .insert_dirty(self.space, state_id);
         }
 
-        if let Some(required_end_time) = params.required_end_time {
-            if self.current_time < required_end_time {
-                trace!(
-                    "Current time {}, required end time {}, waiting",
-                    self.current_time,
-                    required_end_time
-                );
-                return Ok(ControlFlow::Continue(()));
-            }
-        }
-
-        if fixed_point_reached {
+        if !history.time_changes(self.current_time) {
             return Ok(ControlFlow::Break(()));
         }
 

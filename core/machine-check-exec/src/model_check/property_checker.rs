@@ -41,6 +41,7 @@ pub struct PropertyChecker {
 pub(super) struct FixedPointComputation {
     pub fixed_point_index: usize,
     pub start_time: u64,
+    pub fix_time: u64,
     pub end_time: u64,
 }
 
