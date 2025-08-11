@@ -10,7 +10,7 @@ use mck::concr::FullMachine;
 
 use crate::{
     model_check::{
-        property_checker::{BiChoice, LabellingGetter},
+        property_checker::{BiChoice, LabellingCacher},
         PropertyChecker,
     },
     space::StateSpace,
@@ -53,7 +53,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
 }
 
 struct Deducer<'a, M: FullMachine> {
-    getter: LabellingGetter<'a, M>,
+    getter: LabellingCacher<'a, M>,
     property: &'a Property,
     path: VecDeque<StateId>,
 }
@@ -103,7 +103,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 let a_timed = self.getter.cache_and_get(op.a, last_state_id)?;
                 let b_timed = self.getter.cache_and_get(op.b, last_state_id)?;
 
-                match LabellingGetter::<M>::choose_binary_op(op, a_timed, b_timed) {
+                match LabellingCacher::<M>::choose_binary_op(op, &a_timed, &b_timed) {
                     BiChoice::Left => self.deduce_end(op.a),
                     BiChoice::Right => self.deduce_end(op.b),
                 }

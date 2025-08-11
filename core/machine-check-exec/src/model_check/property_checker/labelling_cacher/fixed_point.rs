@@ -1,22 +1,22 @@
 use machine_check_common::{property::FixedPointOperator, ExecError, StateId};
 
 use crate::{
-    model_check::property_checker::{labelling_getter::LabellingGetter, TimedCheckValue},
+    model_check::property_checker::{labelling_cacher::LabellingCacher, TimedCheckValue},
     FullMachine,
 };
 
-impl<M: FullMachine> LabellingGetter<'_, M> {
-    pub(super) fn cache_fixed_point_op(
+impl<M: FullMachine> LabellingCacher<'_, M> {
+    pub(super) fn compute_fixed_point_op(
         &self,
         op: &FixedPointOperator,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
         // the current valuation is equal to the inner valuation
-        self.cache_labelling(op.inner, state_id)?;
+        self.cache_if_uncached(op.inner, state_id)?;
         Ok(self.property_checker.get_cached(op.inner, state_id))
     }
 
-    pub fn cache_fixed_variable(
+    pub fn compute_fixed_variable(
         &self,
         fixed_point_index: usize,
         state_id: StateId,

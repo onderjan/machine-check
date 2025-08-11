@@ -1,10 +1,10 @@
 use machine_check_common::property::BiLogicOperator;
 use machine_check_common::ExecError;
 
-use crate::model_check::property_checker::labelling_computer::LabellingComputer;
+use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
 use crate::FullMachine;
 
-impl<M: FullMachine> LabellingComputer<'_, M> {
+impl<M: FullMachine> LabellingUpdater<'_, M> {
     pub(super) fn compute_negation(&mut self, inner: usize) -> Result<(), ExecError> {
         self.compute_labelling(inner)?;
 

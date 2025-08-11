@@ -5,7 +5,7 @@ use machine_check_common::{property::FixedPointOperator, ExecError, ThreeValued}
 
 use crate::{
     model_check::property_checker::{
-        history::FixedPointHistory, labelling_computer::LabellingComputer, CheckValue,
+        history::FixedPointHistory, labelling_updater::LabellingUpdater, CheckValue,
         FixedPointComputation,
     },
     FullMachine,
@@ -16,7 +16,7 @@ struct FixedPointIterationParams {
     inner_index: usize,
 }
 
-impl<M: FullMachine> LabellingComputer<'_, M> {
+impl<M: FullMachine> LabellingUpdater<'_, M> {
     pub fn compute_fixed_point_op(
         &mut self,
         fixed_point_index: usize,
@@ -67,7 +67,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                         .push(FixedPointComputation {
                             fixed_point_index,
                             start_time,
-                            fix_time: start_time,
                             end_time: start_time,
                         });
                     assert_eq!(
@@ -141,7 +140,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         // the inner updated have been cleared
 
         trace!("Fixed point {:?} reached", params.fixed_point_index);
-        let fix_time = self.current_time;
 
         let computation_clone =
             self.property_checker.computations[current_computation_index].clone();
@@ -203,8 +201,6 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             self.property_checker.computations[current_computation_index].end_time =
                 self.current_time;
         }
-
-        self.property_checker.computations[current_computation_index].fix_time = fix_time;
 
         // since this fixed point was computed properly, it can be considered when calming afterwards
         self.calmable_fixed_points.insert(fixed_point_index);
@@ -294,8 +290,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
     pub fn compute_fixed_variable(&mut self, fixed_point_index: usize) -> Result<(), ExecError> {
         // return the values of affected, not just dirty
         for state_id in self.property_checker.focus.affected() {
-            self.getter()
-                .update_labelling(fixed_point_index, *state_id)?;
+            self.getter().force_recache(fixed_point_index, *state_id)?;
         }
         Ok(())
     }

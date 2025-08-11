@@ -12,19 +12,19 @@ use crate::{
     FullMachine,
 };
 
-pub struct LabellingGetter<'a, M: FullMachine> {
+pub struct LabellingCacher<'a, M: FullMachine> {
     property_checker: &'a PropertyChecker,
     space: &'a StateSpace<M>,
     current_time: u64,
 }
 
-impl<'a, M: FullMachine> LabellingGetter<'a, M> {
+impl<'a, M: FullMachine> LabellingCacher<'a, M> {
     pub(super) fn new(
         property_checker: &'a PropertyChecker,
         space: &'a StateSpace<M>,
         current_time: u64,
     ) -> Self {
-        LabellingGetter {
+        LabellingCacher {
             property_checker,
             space,
             current_time,
@@ -35,7 +35,7 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
         self.space
     }
 
-    pub fn cache_labelling(
+    pub fn cache_if_uncached(
         &self,
         subproperty_index: usize,
         state_id: StateId,
@@ -48,18 +48,10 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
             return Ok(());
         }
 
-        self.cache_labelling_inner(subproperty_index, state_id)
+        self.force_recache(subproperty_index, state_id)
     }
 
-    pub fn update_labelling(
-        &self,
-        subproperty_index: usize,
-        state_id: StateId,
-    ) -> Result<(), ExecError> {
-        self.cache_labelling_inner(subproperty_index, state_id)
-    }
-
-    pub fn cache_labelling_inner(
+    pub fn force_recache(
         &self,
         subproperty_index: usize,
         state_id: StateId,
@@ -87,12 +79,12 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
                 TimedCheckValue { time: 0, value }
             }
 
-            PropertyType::Negation(inner) => self.evaluate_negation(*inner, state_id)?,
-            PropertyType::BiLogic(op) => self.evaluate_binary_op(op, state_id)?,
-            PropertyType::Next(op) => self.cache_next_labelling(op, state_id)?,
-            PropertyType::FixedPoint(op) => self.cache_fixed_point_op(op, state_id)?,
+            PropertyType::Negation(inner) => self.compute_negation(*inner, state_id)?,
+            PropertyType::BiLogic(op) => self.compute_binary_op(op, state_id)?,
+            PropertyType::Next(op) => self.compute_next_labelling(op, state_id)?,
+            PropertyType::FixedPoint(op) => self.compute_fixed_point_op(op, state_id)?,
             PropertyType::FixedVariable(fixed_point_index) => {
-                self.cache_fixed_variable(*fixed_point_index, state_id)?
+                self.compute_fixed_variable(*fixed_point_index, state_id)?
             }
         };
 
@@ -107,7 +99,7 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
         subproperty_index: usize,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
-        self.cache_labelling(subproperty_index, state_id)?;
+        self.cache_if_uncached(subproperty_index, state_id)?;
         Ok(self
             .property_checker
             .get_cached(subproperty_index, state_id))

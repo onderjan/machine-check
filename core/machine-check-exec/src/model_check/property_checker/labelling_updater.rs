@@ -9,11 +9,11 @@ use machine_check_common::{property::PropertyType, ExecError, ThreeValued};
 use mck::concr::FullMachine;
 
 use crate::{
-    model_check::property_checker::{labelling_getter::LabellingGetter, PropertyChecker},
+    model_check::property_checker::{labelling_cacher::LabellingCacher, PropertyChecker},
     space::StateSpace,
 };
 
-pub struct LabellingComputer<'a, M: FullMachine> {
+pub struct LabellingUpdater<'a, M: FullMachine> {
     property_checker: &'a mut PropertyChecker,
     space: &'a StateSpace<M>,
 
@@ -25,7 +25,7 @@ pub struct LabellingComputer<'a, M: FullMachine> {
     calmable_fixed_points: BTreeSet<usize>,
 }
 
-impl<'a, M: FullMachine> LabellingComputer<'a, M> {
+impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
     pub fn new(
         property_checker: &'a mut PropertyChecker,
         space: &'a StateSpace<M>,
@@ -42,8 +42,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         Ok(computer)
     }
 
-    fn getter(&self) -> LabellingGetter<M> {
-        LabellingGetter::new(self.property_checker, self.space, self.current_time)
+    fn getter(&self) -> LabellingCacher<M> {
+        LabellingCacher::new(self.property_checker, self.space, self.current_time)
     }
 
     pub fn compute(mut self) -> Result<ThreeValued, ExecError> {
@@ -76,7 +76,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         let mut result = ThreeValued::True;
 
         for state_id in self.space.initial_iter() {
-            self.getter().cache_labelling(0, state_id)?;
+            self.getter().cache_if_uncached(0, state_id)?;
 
             let timed = self.property_checker.get_cached(0, state_id);
 
@@ -120,8 +120,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
                 if self.current_time == 0 {
                     // only update for dirty states
                     for state_id in self.property_checker.focus.dirty() {
-                        self.getter()
-                            .update_labelling(subproperty_index, *state_id)?;
+                        self.getter().force_recache(subproperty_index, *state_id)?;
                     }
                 }
             }

@@ -1,8 +1,8 @@
 mod double_check;
 mod focus;
 mod history;
-mod labelling_computer;
-mod labelling_getter;
+mod labelling_cacher;
+mod labelling_updater;
 mod latest_cache;
 
 use std::{
@@ -21,14 +21,14 @@ use crate::{
     model_check::property_checker::{
         focus::Focus,
         history::{CheckValue, FixedPointHistory, TimedCheckValue},
-        labelling_computer::LabellingComputer,
+        labelling_updater::LabellingUpdater,
         latest_cache::LatestCache,
     },
     space::StateSpace,
 };
 
-pub use labelling_getter::BiChoice;
-pub use labelling_getter::LabellingGetter;
+pub use labelling_cacher::BiChoice;
+pub use labelling_cacher::LabellingCacher;
 
 #[derive(Debug, Clone)]
 pub struct PropertyChecker {
@@ -46,7 +46,6 @@ pub struct PropertyChecker {
 pub(super) struct FixedPointComputation {
     pub fixed_point_index: usize,
     pub start_time: u64,
-    pub fix_time: u64,
     pub end_time: u64,
 }
 
@@ -94,7 +93,7 @@ impl PropertyChecker {
             "Histories before computing interpretation: {:#?}",
             self.histories
         );
-        let labelling_computer = LabellingComputer::new(self, space)?;
+        let labelling_computer = LabellingUpdater::new(self, space)?;
         let result = labelling_computer.compute()?;
 
         trace!(
@@ -110,8 +109,8 @@ impl PropertyChecker {
     pub fn last_getter<'a, M: FullMachine>(
         &'a self,
         space: &'a StateSpace<M>,
-    ) -> LabellingGetter<'a, M> {
-        LabellingGetter::new(self, space, u64::MAX)
+    ) -> LabellingCacher<'a, M> {
+        LabellingCacher::new(self, space, u64::MAX)
     }
 
     fn invalidate(&mut self) {
@@ -187,8 +186,6 @@ impl PropertyChecker {
             }
             computation.start_time =
                 squash_time(&time_subtracts, after_last_time, computation.start_time);
-            computation.fix_time =
-                squash_time(&time_subtracts, after_last_time, computation.fix_time);
             computation.end_time =
                 squash_time(&time_subtracts, after_last_time, computation.end_time);
             self.computations.push(computation);

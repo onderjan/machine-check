@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 use log::{trace, warn};
 use machine_check_common::ExecError;
 
-use crate::model_check::property_checker::labelling_computer::LabellingComputer;
+use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
 use crate::model_check::property_checker::PropertyChecker;
 use crate::space::StateSpace;
 use crate::FullMachine;
@@ -44,7 +44,7 @@ impl PropertyChecker {
         fresh_property_checker
             .focus
             .extend_dirty(space, space.states());
-        LabellingComputer::new(&mut fresh_property_checker, space)?.compute_inner()?;
+        LabellingUpdater::new(&mut fresh_property_checker, space)?.compute_inner()?;
 
         // retain only states in state space for comparison
         // as it is allowed for incremental model checking to retain states

@@ -1,10 +1,10 @@
 use machine_check_common::property::NextOperator;
 use machine_check_common::ExecError;
 
-use crate::model_check::property_checker::LabellingComputer;
+use crate::model_check::property_checker::LabellingUpdater;
 use crate::FullMachine;
 
-impl<M: FullMachine> LabellingComputer<'_, M> {
+impl<M: FullMachine> LabellingUpdater<'_, M> {
     pub(super) fn compute_next_labelling(&mut self, op: &NextOperator) -> Result<(), ExecError> {
         self.compute_labelling(op.inner)?;
 

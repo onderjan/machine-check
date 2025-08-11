@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
 
-use crate::model_check::property_checker::labelling_getter::LabellingGetter;
+use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
 use crate::model_check::property_checker::TimedCheckValue;
 use crate::FullMachine;
 
@@ -12,44 +12,47 @@ pub enum BiChoice {
     Right,
 }
 
-impl<M: FullMachine> LabellingGetter<'_, M> {
-    pub(super) fn evaluate_negation(
+impl<M: FullMachine> LabellingCacher<'_, M> {
+    pub(super) fn compute_negation(
         &self,
         inner: usize,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
-        self.cache_labelling(inner, state_id)?;
+        self.cache_if_uncached(inner, state_id)?;
         let mut timed = self.property_checker.get_cached(inner, state_id);
 
         timed.value.valuation = !timed.value.valuation;
         Ok(timed)
     }
 
-    pub(super) fn evaluate_binary_op(
+    pub(super) fn compute_binary_op(
         &self,
         op: &BiLogicOperator,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
-        self.cache_labelling(op.a, state_id)?;
-        self.cache_labelling(op.b, state_id)?;
+        self.cache_if_uncached(op.a, state_id)?;
+        self.cache_if_uncached(op.b, state_id)?;
 
         let timed_a = self.property_checker.get_cached(op.a, state_id);
         let timed_b = self.property_checker.get_cached(op.b, state_id);
 
-        Ok(Self::apply_binary_op(op, timed_a, timed_b))
+        Ok(match Self::choose_binary_op(op, &timed_a, &timed_b) {
+            BiChoice::Left => timed_a,
+            BiChoice::Right => timed_b,
+        })
     }
 
     pub fn choose_binary_op(
         op: &machine_check_common::property::BiLogicOperator,
-        a_timed: TimedCheckValue,
-        b_timed: TimedCheckValue,
+        timed_a: &TimedCheckValue,
+        timed_b: &TimedCheckValue,
     ) -> BiChoice {
-        let a_valuation = a_timed.value.valuation;
-        let b_valuation = b_timed.value.valuation;
+        let a_valuation = timed_a.value.valuation;
+        let b_valuation = timed_b.value.valuation;
 
         // use timing to freeze decision
         if a_valuation == b_valuation {
-            if a_timed.time <= b_timed.time {
+            if timed_a.time <= timed_b.time {
                 // choose A
                 return BiChoice::Left;
             } else {
@@ -71,40 +74,6 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
                 Ordering::Less => BiChoice::Right,
                 Ordering::Equal => unreachable!(),
                 Ordering::Greater => BiChoice::Left,
-            }
-        }
-    }
-
-    pub fn apply_binary_op(
-        op: &machine_check_common::property::BiLogicOperator,
-        timed_a: TimedCheckValue,
-        timed_b: TimedCheckValue,
-    ) -> TimedCheckValue {
-        let a_valuation = timed_a.value.valuation;
-        let b_valuation = timed_b.value.valuation;
-
-        // use timing to freeze decision
-        if a_valuation == b_valuation {
-            if timed_a.time <= timed_b.time {
-                return timed_a;
-            } else {
-                return timed_b;
-            }
-        }
-
-        if op.is_and {
-            // we prefer the lesser value
-            match a_valuation.cmp(&b_valuation) {
-                Ordering::Less => timed_a,
-                Ordering::Equal => unreachable!(),
-                Ordering::Greater => timed_b,
-            }
-        } else {
-            // we prefer the greater value
-            match a_valuation.cmp(&b_valuation) {
-                Ordering::Less => timed_b,
-                Ordering::Equal => unreachable!(),
-                Ordering::Greater => timed_a,
             }
         }
     }
