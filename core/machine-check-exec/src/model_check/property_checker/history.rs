@@ -97,6 +97,16 @@ impl FixedPointHistory {
         }
     }
 
+    pub fn opt_before_time(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
+        let history = self.states.get(&state_id)?;
+        let (insert_time, check_value) = history.range(0..time).last()?;
+
+        Some(TimedCheckValue {
+            time: *insert_time,
+            value: check_value.clone(),
+        })
+    }
+
     pub fn retain_states(&mut self, states: &BTreeSet<StateId>) {
         self.states.retain(|state_id, _| states.contains(state_id));
         let mut times = BTreeMap::new();

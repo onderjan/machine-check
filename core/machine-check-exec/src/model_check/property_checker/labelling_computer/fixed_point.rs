@@ -210,11 +210,19 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         self.calmable_fixed_points.insert(fixed_point_index);
 
         // select the states to propagate
-        // TODO: do not propagate all affected states
         let history = select_history(&mut self.property_checker.histories, fixed_point_index);
         let mut result = BTreeMap::new();
         for state_id in self.property_checker.focus.affected().iter().copied() {
-            result.insert(state_id, history.before_time(self.current_time, state_id));
+            let start_timed = history.opt_before_time(start_time, state_id);
+            let end_timed = history.opt_before_time(self.current_time, state_id);
+            let changed = if let (Some(start_timed), Some(end_timed)) = (start_timed, end_timed) {
+                start_timed.value != end_timed.value
+            } else {
+                true
+            };
+            if changed {
+                result.insert(state_id, history.before_time(self.current_time, state_id));
+            }
         }
         trace!(
             "End computation index {}, next computation index {}, length {}",
@@ -238,17 +246,9 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         // compute the iteration
 
-        let mut current_update = self.compute_labelling(params.inner_index)?;
+        let current_update = self.compute_labelling(params.inner_index)?;
 
         trace!("Current update: {:?}", current_update);
-
-        // absence of an update does not guarantee that the dirty value does not change
-        let dirty_values = self
-            .getter()
-            .get_labelling(params.inner_index, self.property_checker.focus.dirty())?;
-
-        trace!("Dirty values: {:?}", dirty_values);
-        current_update.extend(dirty_values);
 
         let history = self
             .property_checker
