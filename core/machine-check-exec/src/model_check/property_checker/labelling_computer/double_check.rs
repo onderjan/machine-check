@@ -52,6 +52,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             }
         }
 
+        // squash both as the slack might be different
+        self.property_checker.squash()?;
+        fresh_property_checker.squash()?;
+
         let computation_inconsistencies =
             fresh_property_checker.computations != self.property_checker.computations;
         let history_inconsistencies =
