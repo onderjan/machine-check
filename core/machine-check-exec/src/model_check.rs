@@ -47,7 +47,7 @@ impl ThreeValuedChecker {
         let subproperty_index = subproperty.index();
         let labelling = property_checker
             .last_getter(space)
-            .get_labelling(subproperty_index, &BTreeSet::from_iter(space.states()))?
+            .get_labelling(subproperty_index, space.states())?
             .iter()
             .map(|(state_id, timed)| (*state_id, timed.value.valuation))
             .collect();

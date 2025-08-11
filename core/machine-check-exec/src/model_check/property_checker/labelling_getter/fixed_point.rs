@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use machine_check_common::{property::FixedPointOperator, ExecError, StateId};
 
@@ -11,7 +11,7 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
     pub(super) fn get_fixed_point_op(
         &self,
         op: &FixedPointOperator,
-        states: &BTreeSet<StateId>,
+        states: impl Iterator<Item = StateId> + Clone,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         // we just get the current valuation, which is the inner valuation
         self.get_labelling(op.inner, states)
@@ -20,7 +20,7 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
     pub fn get_fixed_variable(
         &self,
         fixed_point_index: usize,
-        states: &BTreeSet<StateId>,
+        states: impl Iterator<Item = StateId> + Clone,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let mut update = BTreeMap::new();
 
@@ -31,8 +31,8 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
             .expect("History should exist for fixed point");
 
         for state_id in states {
-            let timed = history.before_time(self.current_time, *state_id);
-            update.insert(*state_id, timed);
+            let timed = history.before_time(self.current_time, state_id);
+            update.insert(state_id, timed);
         }
 
         Ok(update)

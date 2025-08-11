@@ -285,8 +285,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         fixed_point_index: usize,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         // return the values of affected, not just dirty
-        self.getter()
-            .get_fixed_variable(fixed_point_index, self.property_checker.focus.affected())
+        self.getter().get_fixed_variable(
+            fixed_point_index,
+            self.property_checker.focus.affected().iter().cloned(),
+        )
     }
 }
 

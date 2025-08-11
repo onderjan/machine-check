@@ -2,7 +2,7 @@ mod fixed_point;
 mod local;
 mod next;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
 
@@ -42,7 +42,7 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
     pub fn get_labelling(
         &self,
         subproperty_index: usize,
-        states: &BTreeSet<StateId>,
+        states: impl Iterator<Item = StateId> + Clone,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let subproperty_entry = self
             .property_checker
@@ -60,17 +60,12 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
                     value: eigen,
                 };
 
-                BTreeMap::from_iter(
-                    states
-                        .iter()
-                        .copied()
-                        .map(|state_id| (state_id, timed.clone())),
-                )
+                BTreeMap::from_iter(states.map(|state_id| (state_id, timed.clone())))
             }
             PropertyType::Atomic(atomic_property) => {
                 let mut result = BTreeMap::new();
 
-                for state_id in states.iter().copied() {
+                for state_id in states {
                     let value = self.space.atomic_label(atomic_property, state_id)?;
                     let value = CheckValue::eigen(value);
                     result.insert(state_id, TimedCheckValue { time: 0, value });
@@ -96,7 +91,7 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
         Ok(self
-            .get_labelling(subproperty_index, &BTreeSet::from([state_id]))?
+            .get_labelling(subproperty_index, std::iter::once(state_id))?
             .get(&state_id)
             .expect("Single state should be in labelling")
             .clone())

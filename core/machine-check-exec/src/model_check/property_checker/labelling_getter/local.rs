@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
@@ -17,7 +17,7 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
     pub(super) fn get_negation(
         &self,
         inner: usize,
-        states: &BTreeSet<StateId>,
+        states: impl Iterator<Item = StateId> + Clone,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         Ok(Self::negate(self.get_labelling(inner, states)?))
     }
@@ -35,20 +35,20 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
     pub(super) fn get_binary_op(
         &self,
         op: &BiLogicOperator,
-        states: &BTreeSet<StateId>,
+        states: impl Iterator<Item = StateId> + Clone,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        let mut result_a = self.get_labelling(op.a, states)?;
-        let mut result_b = self.get_labelling(op.b, states)?;
+        let mut result_a = self.get_labelling(op.a, states.clone())?;
+        let mut result_b = self.get_labelling(op.b, states.clone())?;
         let mut result = BTreeMap::new();
         for state_id in states {
             let a_timed = result_a
-                .remove(state_id)
+                .remove(&state_id)
                 .expect("Binary operation should get all states from left operand");
             let b_timed = result_b
-                .remove(state_id)
+                .remove(&state_id)
                 .expect("Binary operation should get all states from right operand");
 
-            result.insert(*state_id, Self::apply_binary_op(op, a_timed, b_timed));
+            result.insert(state_id, Self::apply_binary_op(op, a_timed, b_timed));
         }
         Ok(result)
     }

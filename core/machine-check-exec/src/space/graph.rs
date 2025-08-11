@@ -168,12 +168,18 @@ impl<M: FullMachine> StateGraph<M> {
             .0
     }
 
-    pub fn direct_predecessor_iter(&self, node_id: NodeId) -> impl Iterator<Item = NodeId> + '_ {
+    pub fn direct_predecessor_iter(
+        &self,
+        node_id: NodeId,
+    ) -> impl Iterator<Item = NodeId> + Clone + '_ {
         self.node_graph
             .neighbors_directed(node_id, petgraph::Direction::Incoming)
     }
 
-    pub fn direct_successor_iter(&self, node_id: NodeId) -> impl Iterator<Item = StateId> + '_ {
+    pub fn direct_successor_iter(
+        &self,
+        node_id: NodeId,
+    ) -> impl Iterator<Item = StateId> + Clone + '_ {
         // successors are always states
         self.node_graph
             .neighbors_directed(node_id, petgraph::Direction::Outgoing)
@@ -184,7 +190,7 @@ impl<M: FullMachine> StateGraph<M> {
         self.node_graph.contains_edge(head_id, tail_id.into())
     }
 
-    pub fn initial_iter(&self) -> impl Iterator<Item = StateId> + '_ {
+    pub fn initial_iter(&self) -> impl Iterator<Item = StateId> + Clone + '_ {
         self.direct_successor_iter(NodeId::ROOT)
     }
 
@@ -196,7 +202,7 @@ impl<M: FullMachine> StateGraph<M> {
         self.node_graph.node_count()
     }
 
-    pub fn nodes(&self) -> impl Iterator<Item = NodeId> + '_ {
+    pub fn nodes(&self) -> impl Iterator<Item = NodeId> + Clone + '_ {
         self.node_graph.nodes()
     }
 

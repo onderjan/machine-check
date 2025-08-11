@@ -101,11 +101,11 @@ impl<M: FullMachine> StateSpace<M> {
         self.graph.representative_input(head_id, tail_id)
     }
 
-    pub fn nodes(&self) -> impl Iterator<Item = NodeId> + '_ {
+    pub fn nodes(&self) -> impl Iterator<Item = NodeId> + Clone + '_ {
         self.graph.nodes()
     }
 
-    pub fn states(&self) -> impl Iterator<Item = StateId> + '_ {
+    pub fn states(&self) -> impl Iterator<Item = StateId> + Clone + '_ {
         self.nodes().filter_map(|node_id| {
             let Ok(state_id) = StateId::try_from(node_id) else {
                 return None;
@@ -126,15 +126,21 @@ impl<M: FullMachine> StateSpace<M> {
         self.graph.num_transitions() > 0
     }
 
-    pub fn initial_iter(&self) -> impl Iterator<Item = StateId> + '_ {
+    pub fn initial_iter(&self) -> impl Iterator<Item = StateId> + Clone + '_ {
         self.graph.initial_iter()
     }
 
-    pub fn direct_predecessor_iter(&self, node_id: NodeId) -> impl Iterator<Item = NodeId> + '_ {
+    pub fn direct_predecessor_iter(
+        &self,
+        node_id: NodeId,
+    ) -> impl Iterator<Item = NodeId> + Clone + '_ {
         self.graph.direct_predecessor_iter(node_id)
     }
 
-    pub fn direct_successor_iter(&self, node_id: NodeId) -> impl Iterator<Item = StateId> + '_ {
+    pub fn direct_successor_iter(
+        &self,
+        node_id: NodeId,
+    ) -> impl Iterator<Item = StateId> + Clone + '_ {
         self.graph.direct_successor_iter(node_id)
     }
 

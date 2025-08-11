@@ -11,15 +11,15 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
     pub(super) fn get_next_labelling(
         &self,
         op: &NextOperator,
-        states: &BTreeSet<StateId>,
+        states: impl Iterator<Item = StateId> + Clone,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let mut successor_states = BTreeSet::new();
 
-        for state_id in states.iter().copied() {
+        for state_id in states.clone() {
             successor_states.extend(self.space.direct_successor_iter(state_id.into()));
         }
 
-        let successor_inner = self.get_labelling(op.inner, &successor_states)?;
+        let successor_inner = self.get_labelling(op.inner, successor_states.iter().cloned())?;
 
         self.apply_next(op, states, successor_inner)
     }
@@ -27,13 +27,13 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
     pub fn apply_next(
         &self,
         op: &NextOperator,
-        states: &BTreeSet<StateId>,
+        states: impl Iterator<Item = StateId>,
         successor_inner: BTreeMap<StateId, TimedCheckValue>,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_universal));
         let mut result = BTreeMap::new();
 
-        for state_id in states.iter().copied() {
+        for state_id in states {
             // for speed, try to find the appropriate successor without sorting first
             // this can be no successor at all, if the ground value remains,
             // or a single successor with the appropriate valuation
@@ -76,22 +76,24 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
                 current_timed
             } else {
                 // we have to sort the successors with the given valuation
-                let mut sorted_successors = BTreeMap::new();
+                let mut successor_sorter = Vec::new();
 
                 for successor_id in self.space.direct_successor_iter(state_id.into()) {
                     let successor_timed = successor_inner
                         .get(&successor_id)
                         .expect("Successor should be in gotten state");
                     if successor_timed.value.valuation == current_valuation {
-                        sorted_successors.insert(
+                        successor_sorter.push((
                             (successor_timed.time, successor_id),
                             successor_timed.value.clone(),
-                        );
+                        ));
                     }
                 }
 
-                let ((successor_time, successor_id), successor_value) = sorted_successors
-                    .first_key_value()
+                successor_sorter.sort_by(|(a_key, _), (b_key, _)| a_key.cmp(b_key));
+
+                let ((successor_time, successor_id), successor_value) = successor_sorter
+                    .first()
                     .expect("There should be a first successor");
 
                 let mut current_timed = TimedCheckValue {

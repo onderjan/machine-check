@@ -51,7 +51,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 fetch.insert(state_id);
             }
         }
-        our_result.extend(self.getter().get_labelling(our_index, &fetch)?);
+        our_result.extend(
+            self.getter()
+                .get_labelling(our_index, fetch.iter().copied())?,
+        );
         Ok(())
     }
 }

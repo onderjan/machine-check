@@ -1,5 +1,5 @@
 use core::panic;
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::VecDeque;
 
 use machine_check_common::{
     check::{Culprit, Property},
@@ -29,7 +29,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
 
     let getter = checker.last_getter(space);
 
-    let initial_labelling = getter.get_labelling(0, &BTreeSet::from_iter(space.initial_iter()))?;
+    let initial_labelling = getter.get_labelling(0, space.initial_iter())?;
 
     for (initial_id, timed) in initial_labelling {
         if timed.value.valuation.is_known() {

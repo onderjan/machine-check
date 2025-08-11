@@ -35,11 +35,12 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         let inner_retained = self
             .getter()
-            .get_labelling(op.inner, &retained_successors)?;
+            .get_labelling(op.inner, retained_successors.iter().copied())?;
 
         let mut successor_inner = inner_updated;
         successor_inner.extend(inner_retained);
 
-        self.getter().apply_next(op, &our_updated, successor_inner)
+        self.getter()
+            .apply_next(op, our_updated.iter().copied(), successor_inner)
     }
 }

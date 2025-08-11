@@ -74,9 +74,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         // conventionally, the property must hold in all initial states
 
-        let values = self
-            .getter()
-            .get_labelling(0, &BTreeSet::from_iter(self.space.initial_iter()))?;
+        let values = self.getter().get_labelling(0, self.space.initial_iter())?;
 
         let mut result = ThreeValued::True;
         for (_initial_state_id, timed) in values {
@@ -121,8 +119,10 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
                 if self.current_time == 0 {
                     // only newly compute for dirty states
-                    self.getter()
-                        .get_labelling(subproperty_index, self.property_checker.focus.dirty())?
+                    self.getter().get_labelling(
+                        subproperty_index,
+                        self.property_checker.focus.dirty().iter().copied(),
+                    )?
                 } else {
                     // this has already been computed
                     BTreeMap::new()
