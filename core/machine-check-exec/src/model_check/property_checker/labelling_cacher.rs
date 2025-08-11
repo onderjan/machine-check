@@ -39,13 +39,14 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         &self,
         subproperty_index: usize,
         state_id: StateId,
-    ) -> Result<(), ExecError> {
+    ) -> Result<bool, ExecError> {
+        // returns whether the cache actually changed
         if self
             .property_checker
             .get_cached_opt(subproperty_index, state_id)
             .is_some()
         {
-            return Ok(());
+            return Ok(false);
         }
 
         self.force_recache(subproperty_index, state_id)
@@ -55,7 +56,7 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         &self,
         subproperty_index: usize,
         state_id: StateId,
-    ) -> Result<(), ExecError> {
+    ) -> Result<bool, ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
@@ -88,10 +89,12 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
             }
         };
 
-        self.property_checker
+        // returns whether the cache actually changed
+        let changed = self
+            .property_checker
             .insert_into_cache(subproperty_index, state_id, result);
 
-        Ok(())
+        Ok(changed)
     }
 
     pub fn cache_and_get(

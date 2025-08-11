@@ -5,8 +5,8 @@ use crate::model_check::property_checker::LabellingUpdater;
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
-    pub(super) fn compute_next_labelling(&mut self, op: &NextOperator) -> Result<(), ExecError> {
-        self.compute_labelling(op.inner)?;
+    pub(super) fn update_next_labelling(&mut self, op: &NextOperator) -> Result<(), ExecError> {
+        self.update_labelling(op.inner)?;
 
         // TODO: updates
         Ok(())

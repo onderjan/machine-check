@@ -6,10 +6,11 @@ use machine_check_common::{property::FixedPointOperator, ExecError, ThreeValued}
 use crate::{
     model_check::property_checker::{
         history::FixedPointHistory, labelling_updater::LabellingUpdater, CheckValue,
-        FixedPointComputation,
     },
     FullMachine,
 };
+
+mod time_adjustment;
 
 struct FixedPointIterationParams {
     fixed_point_index: usize,
@@ -17,7 +18,7 @@ struct FixedPointIterationParams {
 }
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
-    pub fn compute_fixed_point_op(
+    pub fn update_fixed_point_op(
         &mut self,
         fixed_point_index: usize,
         op: &FixedPointOperator,
@@ -34,79 +35,18 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         let current_computation_index = self.next_computation_index;
         self.next_computation_index += 1;
 
-        let old_computation_end_time =
-            match current_computation_index.cmp(&self.property_checker.computations.len()) {
-                std::cmp::Ordering::Less => {
-                    // we have an old computation
-                    let old_computation =
-                        &self.property_checker.computations[current_computation_index];
-                    if old_computation.fixed_point_index != fixed_point_index
-                        || old_computation.start_time != start_time
-                    {
-                        // invalidate and return
-                        trace!("Invalidating as computation does not match");
-                        self.invalidate = true;
-                        return Ok(());
-                    }
-                    trace!(
-                        "Old computation present, only considering focus {:?}",
-                        self.property_checker.focus
-                    );
-                    Some(old_computation.end_time)
-                }
-                std::cmp::Ordering::Equal => {
-                    // we do not have an old computation
-                    // all states must be dirty
-                    self.property_checker
-                        .focus
-                        .extend_dirty(self.space, self.space.states());
-
-                    // add the computation
-                    self.property_checker
-                        .computations
-                        .push(FixedPointComputation {
-                            fixed_point_index,
-                            start_time,
-                            end_time: start_time,
-                        });
-                    assert_eq!(
-                        self.next_computation_index,
-                        self.property_checker.computations.len()
-                    );
-                    None
-                }
-                std::cmp::Ordering::Greater => {
-                    panic!(
-                        "Computation index {} > {} is not permitted",
-                        current_computation_index,
-                        self.property_checker.computations.len()
-                    );
-                }
-            };
+        let old_computation_end_time = match self.process_old_end_time(
+            fixed_point_index,
+            current_computation_index,
+            start_time,
+        )? {
+            ControlFlow::Break(()) => return Ok(()),
+            ControlFlow::Continue(old_computation_end_time) => old_computation_end_time,
+        };
 
         // test for calmness, the fixed point must be in closed form
         // and also already once computed
-
-        if self
-            .property_checker
-            .closed_form_subproperties
-            .contains(&fixed_point_index)
-            && self.calmable_fixed_points.contains(&fixed_point_index)
-        {
-            // this fixed point is calm, it should have the same start and end time
-            let current_computation =
-                &self.property_checker.computations[current_computation_index];
-            if current_computation.end_time != start_time {
-                // invalidate and return
-                trace!("Invalidating as calm fixed-point computation does not match");
-                self.invalidate = true;
-                return Ok(());
-            }
-
-            trace!(
-                "Not computing fixed point {} as it is calm",
-                fixed_point_index
-            );
+        if self.process_calm(fixed_point_index, current_computation_index, start_time)? {
             return Ok(());
         }
 
@@ -145,61 +85,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             self.property_checker.computations[current_computation_index].clone();
 
         if old_computation_end_time.is_some() {
-            trace!(
-                "Current computation [{}, {}], old computation [{},{}]",
-                start_time,
-                self.current_time,
-                computation_clone.start_time,
-                computation_clone.end_time
-            );
-
-            assert!(computation_clone.start_time < computation_clone.end_time);
-
-            match self.current_time.cmp(&computation_clone.end_time) {
-                std::cmp::Ordering::Less => {
-                    // remove any computations remaining within
-                    while let Some(next_computation) = self
-                        .property_checker
-                        .computations
-                        .get(self.next_computation_index)
-                    {
-                        if next_computation.start_time < computation_clone.end_time
-                            && next_computation.end_time <= computation_clone.end_time
-                        {
-                            self.property_checker
-                                .computations
-                                .remove(self.next_computation_index);
-                        } else {
-                            break;
-                        }
-                    }
-
-                    self.current_time = computation_clone.end_time;
-                }
-                std::cmp::Ordering::Equal => {
-                    // nothing to do
-                }
-                std::cmp::Ordering::Greater => {
-                    // invalidate and return
-                    trace!(
-                        "Invalidating as new computation end time is greater: ours {}, old {}",
-                        self.current_time,
-                        computation_clone.end_time
-                    );
-                    self.invalidate = true;
-                    return Ok(());
-                }
-            }
+            self.adjust_end_time_using_old(start_time, computation_clone)?;
         } else {
-            // TODO: decide the padding time
-            const PADDING_TIME: u64 = 100;
-            self.current_time += PADDING_TIME;
-
-            assert_eq!(computation_clone.start_time, computation_clone.end_time);
-            assert!(computation_clone.end_time < self.current_time);
-
-            self.property_checker.computations[current_computation_index].end_time =
-                self.current_time;
+            self.adjust_end_time_padding(current_computation_index, computation_clone);
         }
 
         // since this fixed point was computed properly, it can be considered when calming afterwards
@@ -244,7 +132,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         // compute the iteration
 
-        self.compute_labelling(params.inner_index)?;
+        self.update_labelling(params.inner_index)?;
 
         // TODO: compute the current update properly
         let mut current_update = BTreeMap::new();
@@ -257,11 +145,10 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         trace!("Current update: {:?}", current_update);
 
-        let history = self
-            .property_checker
-            .histories
-            .get_mut(&params.fixed_point_index)
-            .expect("Fixed point should have history");
+        let history = select_history(
+            &mut self.property_checker.histories,
+            params.fixed_point_index,
+        );
 
         for (state_id, update_timed) in current_update {
             // check if the update differs
@@ -287,8 +174,8 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         Ok(ControlFlow::Continue(()))
     }
 
-    pub fn compute_fixed_variable(&mut self, fixed_point_index: usize) -> Result<(), ExecError> {
-        // return the values of affected, not just dirty
+    pub fn update_fixed_variable(&mut self, fixed_point_index: usize) -> Result<(), ExecError> {
+        // recache the values of affected, not just dirty
         for state_id in self.property_checker.focus.affected() {
             self.getter().force_recache(fixed_point_index, *state_id)?;
         }

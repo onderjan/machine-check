@@ -97,11 +97,11 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         self.next_computation_index = 0;
         self.calmable_fixed_points.clear();
         self.property_checker.latest_cache.get_mut().clear_all();
-        self.compute_labelling(0)?;
+        self.update_labelling(0)?;
         Ok(())
     }
 
-    fn compute_labelling(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
+    fn update_labelling(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
@@ -124,16 +124,16 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
                     }
                 }
             }
-            PropertyType::Negation(inner) => self.compute_negation(*inner)?,
-            PropertyType::BiLogic(op) => self.compute_binary_op(op)?,
-            PropertyType::Next(op) => self.compute_next_labelling(op)?,
-            PropertyType::FixedPoint(op) => self.compute_fixed_point_op(subproperty_index, op)?,
+            PropertyType::Negation(inner) => self.update_negation(*inner)?,
+            PropertyType::BiLogic(op) => self.update_binary_op(op)?,
+            PropertyType::Next(op) => self.update_next_labelling(op)?,
+            PropertyType::FixedPoint(op) => self.update_fixed_point_op(subproperty_index, op)?,
             PropertyType::FixedVariable(fixed_point_index) => {
-                self.compute_fixed_variable(*fixed_point_index)?
+                self.update_fixed_variable(*fixed_point_index)?
             }
-        };
+        }
 
-        trace!("Subproperty {:?} labelling computed", subproperty_index);
+        trace!("Subproperty {:?} labelling updated", subproperty_index);
 
         Ok(())
     }

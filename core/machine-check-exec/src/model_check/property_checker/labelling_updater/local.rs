@@ -5,17 +5,13 @@ use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
-    pub(super) fn compute_negation(&mut self, inner: usize) -> Result<(), ExecError> {
-        self.compute_labelling(inner)?;
-
-        // TODO updates
-
-        Ok(())
+    pub(super) fn update_negation(&mut self, inner: usize) -> Result<(), ExecError> {
+        self.update_labelling(inner)
     }
 
-    pub(super) fn compute_binary_op(&mut self, op: &BiLogicOperator) -> Result<(), ExecError> {
-        self.compute_labelling(op.a)?;
-        self.compute_labelling(op.b)?;
+    pub(super) fn update_binary_op(&mut self, op: &BiLogicOperator) -> Result<(), ExecError> {
+        self.update_labelling(op.a)?;
+        self.update_labelling(op.b)?;
 
         // TODO updates
 

@@ -144,10 +144,10 @@ impl PropertyChecker {
         subproperty_index: usize,
         state_id: StateId,
         timed: TimedCheckValue,
-    ) {
+    ) -> bool {
         self.latest_cache
             .borrow_mut()
-            .insert(subproperty_index, state_id, timed);
+            .insert(subproperty_index, state_id, timed)
     }
 
     fn squash(&mut self) -> Result<(), ExecError> {

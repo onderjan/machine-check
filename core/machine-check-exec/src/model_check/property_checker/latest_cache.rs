@@ -26,9 +26,22 @@ impl LatestCache {
         state_map.values.get(&state_id).cloned()
     }
 
-    pub fn insert(&mut self, subproperty_index: usize, state_id: StateId, timed: TimedCheckValue) {
+    pub fn insert(
+        &mut self,
+        subproperty_index: usize,
+        state_id: StateId,
+        timed: TimedCheckValue,
+    ) -> bool {
         let state_map = self.subproperty_map.entry(subproperty_index).or_default();
+
+        let changed = if let Some(previous_timed) = state_map.values.get(&state_id) {
+            timed != *previous_timed
+        } else {
+            true
+        };
         state_map.values.insert(state_id, timed);
+
+        changed
     }
 
     pub fn clear_all(&mut self) {
