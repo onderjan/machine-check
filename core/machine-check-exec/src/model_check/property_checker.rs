@@ -1,3 +1,4 @@
+mod double_check;
 mod focus;
 mod history;
 mod labelling_computer;
@@ -96,6 +97,8 @@ impl PropertyChecker {
             self.histories
         );
 
+        // double-check to be sure
+
         Ok(result)
     }
 
@@ -119,7 +122,7 @@ impl PropertyChecker {
         let mut update_times = BTreeSet::new();
 
         for history in self.histories.values() {
-            update_times.extend(history.times.keys().copied())
+            update_times.extend(history.time_keys())
         }
 
         let mut time_subtracts = BTreeMap::new();

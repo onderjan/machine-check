@@ -82,6 +82,11 @@ impl<M: FullMachine> Framework<M> {
             }
         };
 
+        // double-check verification
+        self.work_state
+            .checker
+            .double_check(&self.work_state.space)?;
+
         // make compact after verification for nice state space information
         self.work_state.make_compact();
 

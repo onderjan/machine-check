@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 
 use log::trace;
@@ -20,8 +20,8 @@ pub struct TimedCheckValue {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FixedPointHistory {
-    pub(super) times: BTreeMap<u64, BTreeMap<StateId, CheckValue>>,
-    pub(super) states: BTreeMap<StateId, BTreeMap<u64, CheckValue>>,
+    times: BTreeMap<u64, BTreeMap<StateId, CheckValue>>,
+    states: BTreeMap<StateId, BTreeMap<u64, CheckValue>>,
 }
 
 impl FixedPointHistory {
@@ -97,6 +97,18 @@ impl FixedPointHistory {
         }
     }
 
+    pub fn retain_states(&mut self, states: &BTreeSet<StateId>) {
+        self.states.retain(|state_id, _| states.contains(state_id));
+        let mut times = BTreeMap::new();
+        std::mem::swap(&mut times, &mut self.times);
+        for (time, mut state_map) in times {
+            state_map.retain(|state_id, _| states.contains(state_id));
+            if !state_map.is_empty() {
+                self.times.insert(time, state_map);
+            }
+        }
+    }
+
     pub fn clear(&mut self) {
         self.times.clear();
         self.states.clear();
@@ -125,6 +137,10 @@ impl FixedPointHistory {
                 time_map.insert(squashed_time, value);
             }
         }
+    }
+
+    pub fn time_keys(&self) -> impl Iterator<Item = u64> + use<'_> {
+        self.times.keys().copied()
     }
 }
 

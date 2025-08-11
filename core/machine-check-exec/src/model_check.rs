@@ -127,4 +127,11 @@ impl ThreeValuedChecker {
             property_checker.purge_states(space, &purge_states);
         }
     }
+
+    pub fn double_check<M: FullMachine>(&self, space: &StateSpace<M>) -> Result<(), ExecError> {
+        for property_checker in self.property_checkers.values() {
+            property_checker.double_check(space)?;
+        }
+        Ok(())
+    }
 }

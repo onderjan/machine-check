@@ -1,4 +1,3 @@
-mod double_check;
 mod fixed_point;
 mod local;
 mod next;
@@ -66,7 +65,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             assert!(!self.invalidate);
         } else {
             trace!("Computation not invalidated");
-            self.perform_double_check()?;
+            self.property_checker.incremental_double_check(self.space)?;
         }
 
         trace!("Computed, focus: {:?}", self.property_checker.focus);
@@ -93,7 +92,7 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         Ok(result)
     }
 
-    fn compute_inner(&mut self) -> Result<(), ExecError> {
+    pub(super) fn compute_inner(&mut self) -> Result<(), ExecError> {
         self.current_time = 0;
         self.next_computation_index = 0;
         self.calmable_fixed_points.clear();
