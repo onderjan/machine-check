@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
 
 use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
@@ -14,43 +13,30 @@ pub enum BiChoice {
 }
 
 impl<M: FullMachine> LabellingGetter<'_, M> {
-    pub(super) fn get_negation(
+    pub(super) fn evaluate_negation(
         &self,
         inner: usize,
-        states: impl Iterator<Item = StateId> + Clone,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        Ok(Self::negate(self.get_labelling(inner, states)?))
+        state_id: StateId,
+    ) -> Result<TimedCheckValue, ExecError> {
+        self.cache_labelling(inner, state_id)?;
+        let mut timed = self.property_checker.get_cached(inner, state_id);
+
+        timed.value.valuation = !timed.value.valuation;
+        Ok(timed)
     }
 
-    pub fn negate(
-        mut map: BTreeMap<StateId, TimedCheckValue>,
-    ) -> BTreeMap<StateId, TimedCheckValue> {
-        // negate everything
-        for timed in map.values_mut() {
-            timed.value.valuation = !timed.value.valuation;
-        }
-        map
-    }
-
-    pub(super) fn get_binary_op(
+    pub(super) fn evaluate_binary_op(
         &self,
         op: &BiLogicOperator,
-        states: impl Iterator<Item = StateId> + Clone,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        let mut result_a = self.get_labelling(op.a, states.clone())?;
-        let mut result_b = self.get_labelling(op.b, states.clone())?;
-        let mut result = BTreeMap::new();
-        for state_id in states {
-            let a_timed = result_a
-                .remove(&state_id)
-                .expect("Binary operation should get all states from left operand");
-            let b_timed = result_b
-                .remove(&state_id)
-                .expect("Binary operation should get all states from right operand");
+        state_id: StateId,
+    ) -> Result<TimedCheckValue, ExecError> {
+        self.cache_labelling(op.a, state_id)?;
+        self.cache_labelling(op.b, state_id)?;
 
-            result.insert(state_id, Self::apply_binary_op(op, a_timed, b_timed));
-        }
-        Ok(result)
+        let timed_a = self.property_checker.get_cached(op.a, state_id);
+        let timed_b = self.property_checker.get_cached(op.b, state_id);
+
+        Ok(Self::apply_binary_op(op, timed_a, timed_b))
     }
 
     pub fn choose_binary_op(
@@ -91,34 +77,34 @@ impl<M: FullMachine> LabellingGetter<'_, M> {
 
     pub fn apply_binary_op(
         op: &machine_check_common::property::BiLogicOperator,
-        a_timed: TimedCheckValue,
-        b_timed: TimedCheckValue,
+        timed_a: TimedCheckValue,
+        timed_b: TimedCheckValue,
     ) -> TimedCheckValue {
-        let a_valuation = a_timed.value.valuation;
-        let b_valuation = b_timed.value.valuation;
+        let a_valuation = timed_a.value.valuation;
+        let b_valuation = timed_b.value.valuation;
 
         // use timing to freeze decision
         if a_valuation == b_valuation {
-            if a_timed.time <= b_timed.time {
-                return a_timed;
+            if timed_a.time <= timed_b.time {
+                return timed_a;
             } else {
-                return b_timed;
+                return timed_b;
             }
         }
 
         if op.is_and {
             // we prefer the lesser value
             match a_valuation.cmp(&b_valuation) {
-                Ordering::Less => a_timed,
+                Ordering::Less => timed_a,
                 Ordering::Equal => unreachable!(),
-                Ordering::Greater => b_timed,
+                Ordering::Greater => timed_b,
             }
         } else {
             // we prefer the greater value
             match a_valuation.cmp(&b_valuation) {
-                Ordering::Less => b_timed,
+                Ordering::Less => timed_b,
                 Ordering::Equal => unreachable!(),
-                Ordering::Greater => a_timed,
+                Ordering::Greater => timed_a,
             }
         }
     }

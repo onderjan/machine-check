@@ -2,16 +2,14 @@ mod fixed_point;
 mod local;
 mod next;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use log::trace;
-use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
+use machine_check_common::{property::PropertyType, ExecError, ThreeValued};
 use mck::concr::FullMachine;
 
 use crate::{
-    model_check::property_checker::{
-        labelling_getter::LabellingGetter, PropertyChecker, TimedCheckValue,
-    },
+    model_check::property_checker::{labelling_getter::LabellingGetter, PropertyChecker},
     space::StateSpace,
 };
 
@@ -21,6 +19,7 @@ pub struct LabellingComputer<'a, M: FullMachine> {
 
     current_time: u64,
     next_computation_index: usize,
+
     invalidate: bool,
 
     calmable_fixed_points: BTreeSet<usize>,
@@ -74,10 +73,13 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         // conventionally, the property must hold in all initial states
 
-        let values = self.getter().get_labelling(0, self.space.initial_iter())?;
-
         let mut result = ThreeValued::True;
-        for (_initial_state_id, timed) in values {
+
+        for state_id in self.space.initial_iter() {
+            self.getter().cache_labelling(0, state_id)?;
+
+            let timed = self.property_checker.get_cached(0, state_id);
+
             let valuation = timed.value.valuation;
             result = result & valuation;
         }
@@ -94,14 +96,12 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
         self.current_time = 0;
         self.next_computation_index = 0;
         self.calmable_fixed_points.clear();
+        self.property_checker.latest_cache.get_mut().clear_all();
         self.compute_labelling(0)?;
         Ok(())
     }
 
-    fn compute_labelling(
-        &mut self,
-        subproperty_index: usize,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+    fn compute_labelling(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
@@ -115,17 +115,14 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
 
         let ty = subproperty_entry.ty.clone();
 
-        let updated = match &ty {
+        match &ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
                 if self.current_time == 0 {
-                    // only newly compute for dirty states
-                    self.getter().get_labelling(
-                        subproperty_index,
-                        self.property_checker.focus.dirty().iter().copied(),
-                    )?
-                } else {
-                    // this has already been computed
-                    BTreeMap::new()
+                    // only update for dirty states
+                    for state_id in self.property_checker.focus.dirty() {
+                        self.getter()
+                            .update_labelling(subproperty_index, *state_id)?;
+                    }
                 }
             }
             PropertyType::Negation(inner) => self.compute_negation(*inner)?,
@@ -137,12 +134,8 @@ impl<'a, M: FullMachine> LabellingComputer<'a, M> {
             }
         };
 
-        trace!(
-            "Subproperty {:?} labelling computed, updated: {:?}",
-            subproperty_index,
-            updated
-        );
+        trace!("Subproperty {:?} labelling computed", subproperty_index);
 
-        Ok(updated)
+        Ok(())
     }
 }

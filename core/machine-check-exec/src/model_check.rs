@@ -45,12 +45,13 @@ impl ThreeValuedChecker {
 
         // get the labelling as well
         let subproperty_index = subproperty.index();
-        let labelling = property_checker
-            .last_getter(space)
-            .get_labelling(subproperty_index, space.states())?
-            .iter()
-            .map(|(state_id, timed)| (*state_id, timed.value.valuation))
-            .collect();
+        let mut labelling = BTreeMap::new();
+        let getter = property_checker.last_getter(space);
+        for state_id in space.states() {
+            getter.cache_labelling(subproperty_index, state_id)?;
+            let timed = getter.cache_and_get(subproperty_index, state_id)?;
+            labelling.insert(state_id, timed.value.valuation);
+        }
         Ok((conclusion, labelling))
     }
 

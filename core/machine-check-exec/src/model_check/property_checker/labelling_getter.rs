@@ -2,8 +2,6 @@ mod fixed_point;
 mod local;
 mod next;
 
-use std::collections::BTreeMap;
-
 use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
 
 pub use local::BiChoice;
@@ -17,7 +15,6 @@ use crate::{
 pub struct LabellingGetter<'a, M: FullMachine> {
     property_checker: &'a PropertyChecker,
     space: &'a StateSpace<M>,
-
     current_time: u64,
 }
 
@@ -25,7 +22,6 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
     pub(super) fn new(
         property_checker: &'a PropertyChecker,
         space: &'a StateSpace<M>,
-
         current_time: u64,
     ) -> Self {
         LabellingGetter {
@@ -39,11 +35,35 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
         self.space
     }
 
-    pub fn get_labelling(
+    pub fn cache_labelling(
         &self,
         subproperty_index: usize,
-        states: impl Iterator<Item = StateId> + Clone,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+        state_id: StateId,
+    ) -> Result<(), ExecError> {
+        if self
+            .property_checker
+            .get_cached_opt(subproperty_index, state_id)
+            .is_some()
+        {
+            return Ok(());
+        }
+
+        self.cache_labelling_inner(subproperty_index, state_id)
+    }
+
+    pub fn update_labelling(
+        &self,
+        subproperty_index: usize,
+        state_id: StateId,
+    ) -> Result<(), ExecError> {
+        self.cache_labelling_inner(subproperty_index, state_id)
+    }
+
+    pub fn cache_labelling_inner(
+        &self,
+        subproperty_index: usize,
+        state_id: StateId,
+    ) -> Result<(), ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
@@ -51,49 +71,45 @@ impl<'a, M: FullMachine> LabellingGetter<'a, M> {
 
         let ty = subproperty_entry.ty.clone();
 
-        let updated = match &ty {
+        let result = match &ty {
             PropertyType::Const(constant) => {
                 let constant = ThreeValued::from_bool(*constant);
                 let eigen = CheckValue::eigen(constant);
-                let timed = TimedCheckValue {
+                TimedCheckValue {
                     time: 0,
                     value: eigen,
-                };
-
-                BTreeMap::from_iter(states.map(|state_id| (state_id, timed.clone())))
-            }
-            PropertyType::Atomic(atomic_property) => {
-                let mut result = BTreeMap::new();
-
-                for state_id in states {
-                    let value = self.space.atomic_label(atomic_property, state_id)?;
-                    let value = CheckValue::eigen(value);
-                    result.insert(state_id, TimedCheckValue { time: 0, value });
                 }
-
-                result
             }
-            PropertyType::Negation(inner) => self.get_negation(*inner, states)?,
-            PropertyType::BiLogic(op) => self.get_binary_op(op, states)?,
-            PropertyType::Next(op) => self.get_next_labelling(op, states)?,
-            PropertyType::FixedPoint(op) => self.get_fixed_point_op(op, states)?,
+
+            PropertyType::Atomic(atomic_property) => {
+                let value = self.space.atomic_label(atomic_property, state_id)?;
+                let value = CheckValue::eigen(value);
+                TimedCheckValue { time: 0, value }
+            }
+
+            PropertyType::Negation(inner) => self.evaluate_negation(*inner, state_id)?,
+            PropertyType::BiLogic(op) => self.evaluate_binary_op(op, state_id)?,
+            PropertyType::Next(op) => self.cache_next_labelling(op, state_id)?,
+            PropertyType::FixedPoint(op) => self.cache_fixed_point_op(op, state_id)?,
             PropertyType::FixedVariable(fixed_point_index) => {
-                self.get_fixed_variable(*fixed_point_index, states)?
+                self.cache_fixed_variable(*fixed_point_index, state_id)?
             }
         };
 
-        Ok(updated)
+        self.property_checker
+            .insert_into_cache(subproperty_index, state_id, result);
+
+        Ok(())
     }
 
-    pub fn get_state_label(
+    pub fn cache_and_get(
         &self,
         subproperty_index: usize,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
+        self.cache_labelling(subproperty_index, state_id)?;
         Ok(self
-            .get_labelling(subproperty_index, std::iter::once(state_id))?
-            .get(&state_id)
-            .expect("Single state should be in labelling")
-            .clone())
+            .property_checker
+            .get_cached(subproperty_index, state_id))
     }
 }

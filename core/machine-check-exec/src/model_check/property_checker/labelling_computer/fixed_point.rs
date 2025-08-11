@@ -1,12 +1,12 @@
 use std::{collections::BTreeMap, ops::ControlFlow};
 
 use log::trace;
-use machine_check_common::{property::FixedPointOperator, ExecError, StateId, ThreeValued};
+use machine_check_common::{property::FixedPointOperator, ExecError, ThreeValued};
 
 use crate::{
     model_check::property_checker::{
         history::FixedPointHistory, labelling_computer::LabellingComputer, CheckValue,
-        FixedPointComputation, TimedCheckValue,
+        FixedPointComputation,
     },
     FullMachine,
 };
@@ -21,10 +21,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         &mut self,
         fixed_point_index: usize,
         op: &FixedPointOperator,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+    ) -> Result<(), ExecError> {
         if self.invalidate {
             // just invalidate fast
-            return Ok(BTreeMap::new());
+            return Ok(());
         }
 
         let start_time = self.current_time;
@@ -46,7 +46,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                         // invalidate and return
                         trace!("Invalidating as computation does not match");
                         self.invalidate = true;
-                        return Ok(BTreeMap::new());
+                        return Ok(());
                     }
                     trace!(
                         "Old computation present, only considering focus {:?}",
@@ -101,14 +101,14 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                 // invalidate and return
                 trace!("Invalidating as calm fixed-point computation does not match");
                 self.invalidate = true;
-                return Ok(BTreeMap::new());
+                return Ok(());
             }
 
             trace!(
                 "Not computing fixed point {} as it is calm",
                 fixed_point_index
             );
-            return Ok(BTreeMap::new());
+            return Ok(());
         }
 
         trace!(
@@ -189,7 +189,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
                         computation_clone.end_time
                     );
                     self.invalidate = true;
-                    return Ok(BTreeMap::new());
+                    return Ok(());
                 }
             }
         } else {
@@ -210,7 +210,7 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         self.calmable_fixed_points.insert(fixed_point_index);
 
         // select the states to propagate
-        let history = select_history(&mut self.property_checker.histories, fixed_point_index);
+        /*let history = select_history(&mut self.property_checker.histories, fixed_point_index);
         let mut result = BTreeMap::new();
         for state_id in self.property_checker.focus.affected().iter().copied() {
             let start_timed = history.opt_before_time(start_time, state_id);
@@ -229,9 +229,9 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             current_computation_index,
             self.next_computation_index,
             self.property_checker.computations.len()
-        );
+        );*/
 
-        Ok(result)
+        Ok(())
     }
 
     fn fixed_point_iteration(
@@ -243,10 +243,21 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         // increment time
         self.current_time += 1;
+        // TODO: update the cache properly
+        self.property_checker.latest_cache.get_mut().clear_all();
 
         // compute the iteration
 
-        let current_update = self.compute_labelling(params.inner_index)?;
+        self.compute_labelling(params.inner_index)?;
+
+        // TODO: compute the current update properly
+        let mut current_update = BTreeMap::new();
+        for state_id in self.property_checker.focus.affected().iter().copied() {
+            let value = self
+                .property_checker
+                .get_cached(params.inner_index, state_id);
+            current_update.insert(state_id, value);
+        }
 
         trace!("Current update: {:?}", current_update);
 
@@ -280,15 +291,13 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         Ok(ControlFlow::Continue(()))
     }
 
-    pub fn compute_fixed_variable(
-        &mut self,
-        fixed_point_index: usize,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+    pub fn compute_fixed_variable(&mut self, fixed_point_index: usize) -> Result<(), ExecError> {
         // return the values of affected, not just dirty
-        self.getter().get_fixed_variable(
-            fixed_point_index,
-            self.property_checker.focus.affected().iter().cloned(),
-        )
+        for state_id in self.property_checker.focus.affected() {
+            self.getter()
+                .update_labelling(fixed_point_index, *state_id)?;
+        }
+        Ok(())
     }
 }
 

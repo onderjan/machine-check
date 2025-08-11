@@ -1,17 +1,17 @@
-use std::collections::{BTreeMap, BTreeSet};
-
 use machine_check_common::property::NextOperator;
-use machine_check_common::{ExecError, StateId};
+use machine_check_common::ExecError;
 
-use crate::model_check::property_checker::{LabellingComputer, TimedCheckValue};
+use crate::model_check::property_checker::LabellingComputer;
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingComputer<'_, M> {
-    pub(super) fn compute_next_labelling(
-        &mut self,
-        op: &NextOperator,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        let inner_updated = self.compute_labelling(op.inner)?;
+    pub(super) fn compute_next_labelling(&mut self, op: &NextOperator) -> Result<(), ExecError> {
+        self.compute_labelling(op.inner)?;
+
+        // TODO: updates
+        Ok(())
+
+        /*let inner_updated = self.compute_labelling(op.inner)?;
 
         let mut our_updated = BTreeSet::new();
 
@@ -35,12 +35,12 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
 
         let inner_retained = self
             .getter()
-            .get_labelling(op.inner, retained_successors.iter().copied())?;
+            .cache_labelling(op.inner, retained_successors.iter().copied())?;
 
         let mut successor_inner = inner_updated;
         successor_inner.extend(inner_retained);
 
         self.getter()
-            .apply_next(op, our_updated.iter().copied(), successor_inner)
+            .apply_next(op, our_updated.iter().copied(), successor_inner)*/
     }
 }

@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use machine_check_common::{property::FixedPointOperator, ExecError, StateId};
 
 use crate::{
@@ -8,33 +6,29 @@ use crate::{
 };
 
 impl<M: FullMachine> LabellingGetter<'_, M> {
-    pub(super) fn get_fixed_point_op(
+    pub(super) fn cache_fixed_point_op(
         &self,
         op: &FixedPointOperator,
-        states: impl Iterator<Item = StateId> + Clone,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        // we just get the current valuation, which is the inner valuation
-        self.get_labelling(op.inner, states)
+        state_id: StateId,
+    ) -> Result<TimedCheckValue, ExecError> {
+        // the current valuation is equal to the inner valuation
+        self.cache_labelling(op.inner, state_id)?;
+        Ok(self.property_checker.get_cached(op.inner, state_id))
     }
 
-    pub fn get_fixed_variable(
+    pub fn cache_fixed_variable(
         &self,
         fixed_point_index: usize,
-        states: impl Iterator<Item = StateId> + Clone,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        let mut update = BTreeMap::new();
-
+        state_id: StateId,
+    ) -> Result<TimedCheckValue, ExecError> {
+        // the fixed variables are handled by looking into the history
         let history = self
             .property_checker
             .histories
             .get(&fixed_point_index)
             .expect("History should exist for fixed point");
 
-        for state_id in states {
-            let timed = history.before_time(self.current_time, state_id);
-            update.insert(state_id, timed);
-        }
-
-        Ok(update)
+        let timed = history.before_time(self.current_time, state_id);
+        Ok(timed)
     }
 }

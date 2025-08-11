@@ -1,26 +1,27 @@
-use std::collections::{BTreeMap, BTreeSet};
-
 use machine_check_common::property::BiLogicOperator;
-use machine_check_common::{ExecError, StateId};
+use machine_check_common::ExecError;
 
 use crate::model_check::property_checker::labelling_computer::LabellingComputer;
-use crate::model_check::property_checker::labelling_getter::LabellingGetter;
-use crate::model_check::property_checker::TimedCheckValue;
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingComputer<'_, M> {
-    pub(super) fn compute_negation(
-        &mut self,
-        inner: usize,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        Ok(LabellingGetter::<M>::negate(self.compute_labelling(inner)?))
+    pub(super) fn compute_negation(&mut self, inner: usize) -> Result<(), ExecError> {
+        self.compute_labelling(inner)?;
+
+        // TODO updates
+
+        Ok(())
     }
 
-    pub(super) fn compute_binary_op(
-        &mut self,
-        op: &BiLogicOperator,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        let mut result_a = self.compute_labelling(op.a)?;
+    pub(super) fn compute_binary_op(&mut self, op: &BiLogicOperator) -> Result<(), ExecError> {
+        self.compute_labelling(op.a)?;
+        self.compute_labelling(op.b)?;
+
+        // TODO updates
+
+        Ok(())
+
+        /*let mut result_a = self.compute_labelling(op.a)?;
         let mut result_b = self.compute_labelling(op.b)?;
 
         self.complete_labelling(op.a, &mut result_a, &result_b)?;
@@ -36,9 +37,10 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
             result.insert(state_id, result_value);
         }
 
-        Ok(result)
+        Ok(result)*/
     }
 
+    /*
     fn complete_labelling(
         &self,
         our_index: usize,
@@ -53,8 +55,8 @@ impl<M: FullMachine> LabellingComputer<'_, M> {
         }
         our_result.extend(
             self.getter()
-                .get_labelling(our_index, fetch.iter().copied())?,
+                .cache_labelling(our_index, fetch.iter().copied())?,
         );
         Ok(())
-    }
+    }*/
 }

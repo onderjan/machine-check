@@ -29,9 +29,9 @@ pub(super) fn deduce_culprit<M: FullMachine>(
 
     let getter = checker.last_getter(space);
 
-    let initial_labelling = getter.get_labelling(0, space.initial_iter())?;
+    for initial_id in space.initial_iter() {
+        let timed = getter.cache_and_get(0, initial_id)?;
 
-    for (initial_id, timed) in initial_labelling {
         if timed.value.valuation.is_known() {
             continue;
         }
@@ -76,7 +76,7 @@ impl<M: FullMachine> Deducer<'_, M> {
         let last_state_id = *self.path.back().unwrap();
         assert!(self
             .getter
-            .get_state_label(subproperty_index, last_state_id)?
+            .cache_and_get(subproperty_index, last_state_id)?
             .value
             .valuation
             .is_unknown());
@@ -100,8 +100,8 @@ impl<M: FullMachine> Deducer<'_, M> {
                 self.deduce_end(*inner)
             }
             PropertyType::BiLogic(op) => {
-                let a_timed = self.getter.get_state_label(op.a, last_state_id)?;
-                let b_timed = self.getter.get_state_label(op.b, last_state_id)?;
+                let a_timed = self.getter.cache_and_get(op.a, last_state_id)?;
+                let b_timed = self.getter.cache_and_get(op.b, last_state_id)?;
 
                 match LabellingGetter::<M>::choose_binary_op(op, a_timed, b_timed) {
                     BiChoice::Left => self.deduce_end(op.a),
@@ -111,7 +111,7 @@ impl<M: FullMachine> Deducer<'_, M> {
             PropertyType::Next(op) => {
                 let label = self
                     .getter
-                    .get_state_label(subproperty_index, last_state_id)?;
+                    .cache_and_get(subproperty_index, last_state_id)?;
 
                 let next_state = *label
                     .value

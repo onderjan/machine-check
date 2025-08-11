@@ -3,8 +3,10 @@ mod focus;
 mod history;
 mod labelling_computer;
 mod labelling_getter;
+mod latest_cache;
 
 use std::{
+    cell::RefCell,
     collections::{BTreeMap, BTreeSet},
     fmt::Debug,
 };
@@ -20,6 +22,7 @@ use crate::{
         focus::Focus,
         history::{CheckValue, FixedPointHistory, TimedCheckValue},
         labelling_computer::LabellingComputer,
+        latest_cache::LatestCache,
     },
     space::StateSpace,
 };
@@ -34,6 +37,7 @@ pub struct PropertyChecker {
 
     histories: BTreeMap<usize, FixedPointHistory>,
     computations: Vec<FixedPointComputation>,
+    latest_cache: RefCell<LatestCache>,
 
     focus: Focus,
 }
@@ -70,6 +74,7 @@ impl PropertyChecker {
             focus,
             histories,
             computations: Vec::new(),
+            latest_cache: RefCell::new(LatestCache::new()),
         }
     }
 
@@ -114,6 +119,36 @@ impl PropertyChecker {
             history.clear();
         }
         self.computations.clear();
+    }
+
+    pub fn get_cached(&self, subproperty_index: usize, state_id: StateId) -> TimedCheckValue {
+        if let Some(result) = self.get_cached_opt(subproperty_index, state_id) {
+            result
+        } else {
+            panic!(
+                "Subproperty index {} should have state {} cached",
+                subproperty_index, state_id
+            );
+        }
+    }
+
+    fn get_cached_opt(
+        &self,
+        subproperty_index: usize,
+        state_id: StateId,
+    ) -> Option<TimedCheckValue> {
+        self.latest_cache.borrow().get(subproperty_index, state_id)
+    }
+
+    fn insert_into_cache(
+        &self,
+        subproperty_index: usize,
+        state_id: StateId,
+        timed: TimedCheckValue,
+    ) {
+        self.latest_cache
+            .borrow_mut()
+            .insert(subproperty_index, state_id, timed);
     }
 
     fn squash(&mut self) -> Result<(), ExecError> {
