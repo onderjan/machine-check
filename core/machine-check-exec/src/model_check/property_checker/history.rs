@@ -146,6 +146,10 @@ impl FixedPointHistory {
         self.times.contains_key(&time_instant)
     }
 
+    pub fn range_changes(&self, start: u64, end: u64) -> bool {
+        self.times.range(start..end).next().is_some()
+    }
+
     pub fn squash(&mut self, time_subtracts: &BTreeMap<u64, u64>, after_last_time: u64) {
         let mut original_times = BTreeMap::new();
         std::mem::swap(&mut original_times, &mut self.times);

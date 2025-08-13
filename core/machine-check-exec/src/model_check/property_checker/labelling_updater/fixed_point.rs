@@ -165,14 +165,13 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         );
         // TODO: compute the current update properly
         let mut current_update = BTreeMap::new();
-        for state_id in //self.space.states() {
-            self
-                .property_checker
-                .focus
-                .affected_backward()
-                .iter()
-                .copied()
-                .chain(updated)
+        for state_id in self
+            .property_checker
+            .focus
+            .affected_backward()
+            .iter()
+            .copied()
+            .chain(updated)
         {
             self.getter()
                 .cache_if_uncached(params.inner_index, state_id)?;
@@ -236,7 +235,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         if !history.time_changes(self.current_time) {
             if let Some(old_computation_end_time) = params.old_computation_end_time {
-                if old_computation_end_time <= self.current_time {
+                if self.current_time >= old_computation_end_time
+                    || !history.range_changes(self.current_time, old_computation_end_time)
+                {
                     return Ok(ControlFlow::Break(()));
                 }
             } else {
