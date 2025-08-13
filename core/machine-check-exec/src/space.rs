@@ -151,6 +151,10 @@ impl<M: FullMachine> StateSpace<M> {
     pub fn assert_left_total(&self) {
         self.graph.assert_left_total();
     }
+
+    pub fn contains_state(&self, state_id: StateId) -> bool {
+        self.graph.contains_state(state_id)
+    }
 }
 
 impl<M: FullMachine> Default for StateSpace<M> {

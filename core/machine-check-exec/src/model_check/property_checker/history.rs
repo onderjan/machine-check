@@ -104,6 +104,10 @@ impl FixedPointHistory {
         }
     }
 
+    pub fn states_at_exact_time_opt(&self, time: u64) -> Option<&BTreeMap<StateId, CheckValue>> {
+        self.times.get(&time)
+    }
+
     pub fn at_exact_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
         let history = self.states.get(&state_id)?;
 

@@ -156,7 +156,22 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         // compute the iteration
 
-        let updated = self.update_labelling(params.inner_index)?;
+        let mut updated = self.update_labelling(params.inner_index)?;
+
+        // add previously updated
+
+        let history = select_history(
+            &mut self.property_checker.histories,
+            params.fixed_point_index,
+        );
+        if let Some(previously_updated) = history.states_at_exact_time_opt(self.current_time) {
+            // this also needs to be updated
+            for state_id in previously_updated.keys().copied() {
+                if self.space.contains_state(state_id) {
+                    updated.insert(state_id);
+                }
+            }
+        }
 
         trace!(
             "Fixed point affected: {:?}, updated: {:?}",
@@ -165,13 +180,14 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         );
         // TODO: compute the current update properly
         let mut current_update = BTreeMap::new();
-        for state_id in self
+        for state_id in /*self
             .property_checker
             .focus
             .affected_backward()
             .iter()
             .copied()
-            .chain(updated)
+            .chain(updated)*/
+            updated
         {
             self.getter()
                 .cache_if_uncached(params.inner_index, state_id)?;
@@ -250,14 +266,31 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
     pub fn update_fixed_variable(
         &mut self,
-        _fixed_point_index: usize,
+        fixed_point_index: usize,
     ) -> Result<BTreeSet<StateId>, ExecError> {
         // recache the values of affected, not just dirty
         /*for state_id in self.space.states() {
             //self.property_checker.focus.affected() {
             self.getter().force_recache(fixed_point_index, state_id)?;
         }*/
-        Ok(self.property_checker.focus.affected_forward().clone())
+        let mut update = BTreeSet::new();
+        let history = select_history(&mut self.property_checker.histories, fixed_point_index);
+        let Some(changed_states) = history.states_at_exact_time_opt(self.current_time - 1) else {
+            return Ok(BTreeSet::new());
+        };
+        for state_id in changed_states.keys() {
+            /*if self
+                .property_checker
+                .focus
+                .affected_forward()
+                .contains(state_id)
+            {
+                update.insert(*state_id);
+            }*/
+            update.insert(*state_id);
+        }
+
+        Ok(update)
     }
 }
 

@@ -190,6 +190,10 @@ impl<M: FullMachine> StateGraph<M> {
         self.node_graph.contains_edge(head_id, tail_id.into())
     }
 
+    pub fn contains_state(&self, state_id: StateId) -> bool {
+        self.node_graph.contains_node(state_id.into())
+    }
+
     pub fn initial_iter(&self) -> impl Iterator<Item = StateId> + Clone + '_ {
         self.direct_successor_iter(NodeId::ROOT)
     }
