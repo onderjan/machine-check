@@ -1,7 +1,10 @@
-use std::{collections::BTreeMap, ops::ControlFlow};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ops::ControlFlow,
+};
 
 use log::trace;
-use machine_check_common::{property::FixedPointOperator, ExecError, ThreeValued};
+use machine_check_common::{property::FixedPointOperator, ExecError, StateId, ThreeValued};
 
 use crate::{
     model_check::property_checker::{
@@ -15,6 +18,7 @@ mod time_adjustment;
 struct FixedPointIterationParams {
     fixed_point_index: usize,
     inner_index: usize,
+    old_computation_end_time: Option<u64>,
 }
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
@@ -22,11 +26,13 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         &mut self,
         fixed_point_index: usize,
         op: &FixedPointOperator,
-    ) -> Result<(), ExecError> {
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         if self.invalidate {
             // just invalidate fast
-            return Ok(());
+            return Ok(BTreeSet::new());
         }
+
+        self.property_checker.latest_cache.get_mut().clear_all();
 
         let start_time = self.current_time;
 
@@ -40,22 +46,28 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             current_computation_index,
             start_time,
         )? {
-            ControlFlow::Break(()) => return Ok(()),
+            ControlFlow::Break(()) => return Ok(BTreeSet::new()),
             ControlFlow::Continue(old_computation_end_time) => old_computation_end_time,
         };
 
         // test for calmness, the fixed point must be in closed form
         // and also already once computed
         if self.process_calm(fixed_point_index, current_computation_index, start_time)? {
-            return Ok(());
+            return Ok(BTreeSet::new());
         }
 
         trace!(
-            "Fixed point index {}, current computation index {}, start time {}",
+            "Computing fixed point {}, current computation index {}, start time {}",
             fixed_point_index,
             current_computation_index,
             start_time
         );
+
+        /*trace!(
+            "Focus {:?}, history:\n{:#?}",
+            self.property_checker.focus,
+            select_history(&mut self.property_checker.histories, fixed_point_index)
+        );*/
 
         // update the dirty states to ground values
         // note that if there was no old computation, all states in the state space have been made dirty
@@ -72,9 +84,19 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         let mut params = FixedPointIterationParams {
             fixed_point_index,
             inner_index: op.inner,
+            old_computation_end_time,
         };
 
         while let ControlFlow::Continue(()) = self.fixed_point_iteration(&mut params)? {}
+
+        /*trace!(
+            "History after computing fixed point {} from time {} to time {} with focus {:?}:\n{:#?}",
+            fixed_point_index,
+            start_time,
+            self.current_time,
+            self.property_checker.focus,
+            select_history(&mut self.property_checker.histories, fixed_point_index)
+        );*/
 
         // we reached the fixed point
         // the inner updated have been cleared
@@ -115,7 +137,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             self.property_checker.computations.len()
         );*/
 
-        Ok(())
+        // TODO: do not use all dirty
+
+        Ok(self.property_checker.focus.dirty().clone())
     }
 
     fn fixed_point_iteration(
@@ -132,18 +156,43 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         // compute the iteration
 
-        self.update_labelling(params.inner_index)?;
+        let updated = self.update_labelling(params.inner_index)?;
 
+        trace!(
+            "Fixed point affected: {:?}, updated: {:?}",
+            self.property_checker.focus.affected_forward(),
+            updated
+        );
         // TODO: compute the current update properly
         let mut current_update = BTreeMap::new();
-        for state_id in self.property_checker.focus.affected().iter().copied() {
+        for state_id in //self.space.states() {
+            self
+                .property_checker
+                .focus
+                .affected_backward()
+                .iter()
+                .copied()
+                .chain(updated)
+        {
+            self.getter()
+                .cache_if_uncached(params.inner_index, state_id)?;
+
             let value = self
                 .property_checker
                 .get_cached(params.inner_index, state_id);
             current_update.insert(state_id, value);
         }
 
-        trace!("Current update: {:?}", current_update);
+        trace!(
+            "Current update of fixed point {:?} in time {:?}: {:#?}",
+            params.fixed_point_index,
+            self.current_time,
+            current_update
+        );
+        trace!(
+            "Current update acting on histories: {:#?}",
+            self.property_checker.histories
+        );
 
         let history = select_history(
             &mut self.property_checker.histories,
@@ -155,8 +204,26 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
             let old_timed = history.before_time(self.current_time, state_id);
 
-            if update_timed.value.valuation == old_timed.value.valuation {
-                continue;
+            let present_timed = history.at_exact_time_opt(self.current_time, state_id);
+
+            trace!(
+                "Checking state {}, old: {:?}, present: {:?}, update: {:?}",
+                state_id,
+                old_timed,
+                present_timed,
+                update_timed
+            );
+
+            if update_timed.value == old_timed.value {
+                let can_skip = if let Some(present_timed) = present_timed {
+                    present_timed == update_timed
+                } else {
+                    true
+                };
+                if can_skip {
+                    trace!("Skipping state {}", state_id);
+                    continue;
+                }
             }
 
             // the update differs
@@ -168,18 +235,28 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         }
 
         if !history.time_changes(self.current_time) {
-            return Ok(ControlFlow::Break(()));
+            if let Some(old_computation_end_time) = params.old_computation_end_time {
+                if old_computation_end_time <= self.current_time {
+                    return Ok(ControlFlow::Break(()));
+                }
+            } else {
+                return Ok(ControlFlow::Break(()));
+            }
         }
 
         Ok(ControlFlow::Continue(()))
     }
 
-    pub fn update_fixed_variable(&mut self, fixed_point_index: usize) -> Result<(), ExecError> {
+    pub fn update_fixed_variable(
+        &mut self,
+        _fixed_point_index: usize,
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         // recache the values of affected, not just dirty
-        for state_id in self.property_checker.focus.affected() {
-            self.getter().force_recache(fixed_point_index, *state_id)?;
-        }
-        Ok(())
+        /*for state_id in self.space.states() {
+            //self.property_checker.focus.affected() {
+            self.getter().force_recache(fixed_point_index, state_id)?;
+        }*/
+        Ok(self.property_checker.focus.affected_forward().clone())
     }
 }
 

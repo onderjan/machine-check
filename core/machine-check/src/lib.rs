@@ -9,6 +9,7 @@ use log::error;
 use log::info;
 use log::log_enabled;
 use log::trace;
+use log::warn;
 use machine_check_common::property::Property;
 use machine_check_exec::Strategy;
 
@@ -127,17 +128,36 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     // logging to stderr, stdout will contain the result in batch mode
     let silent = exec_args.silent;
     let batch = exec_args.batch;
-    let mut filter_level = match exec_args.verbose {
+
+    let mut filter_level_num = exec_args.verbose;
+
+    let mut overriden_log_level = false;
+    if let Ok(Ok(log_level_override)) =
+        std::env::var("MACHINE_CHECK_LOG_LEVEL_OVERRIDE").map(|var| var.parse::<u8>())
+    {
+        filter_level_num = log_level_override;
+        overriden_log_level = true;
+    }
+
+    let mut filter_level = match filter_level_num {
         0 => log::LevelFilter::Info,
         1 => log::LevelFilter::Debug,
         _ => log::LevelFilter::Trace,
     };
-    if silent {
+
+    if silent && !overriden_log_level {
         filter_level = log::LevelFilter::Off;
     }
 
     // initialize logger, but do not panic if it was already initialized
     let _ = env_logger::builder().filter_level(filter_level).try_init();
+
+    if overriden_log_level {
+        warn!(
+            "Overriden log level to {:?} ({})",
+            filter_level, filter_level_num
+        );
+    }
 
     let strategy = Strategy {
         naive_inputs: matches!(exec_args.strategy, ExecStrategy::Naive),

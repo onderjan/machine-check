@@ -100,19 +100,7 @@ impl ThreeValuedChecker {
         let mut open_states = new_states.clone();
         open_states.extend(changed_successors.iter().cloned());
 
-        let mut purge_states = BTreeSet::new();
-
-        while let Some(state_id) = open_states.pop_last() {
-            for predecessor_id in space.direct_predecessor_iter(state_id.into()) {
-                let Ok(predecessor_id) = StateId::try_from(predecessor_id) else {
-                    continue;
-                };
-                if !purge_states.contains(&predecessor_id) {
-                    open_states.insert(predecessor_id);
-                }
-            }
-            purge_states.insert(state_id);
-        }
+        let purge_states = open_states;
 
         trace!(
             "Declaring regeneration, new states: {:?}, changed successors: {:?}, purging states: {:?}",
@@ -120,9 +108,6 @@ impl ThreeValuedChecker {
             changed_successors,
             purge_states
         );
-
-        // TODO: rework so that full recomputation is not necessary each time
-        //self.property_checkers.clear();
 
         for property_checker in self.property_checkers.values_mut() {
             property_checker.purge_states(space, &purge_states);

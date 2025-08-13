@@ -5,7 +5,7 @@ mod next;
 use std::collections::BTreeSet;
 
 use log::trace;
-use machine_check_common::{property::PropertyType, ExecError, ThreeValued};
+use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
 use mck::concr::FullMachine;
 
 use crate::{
@@ -47,11 +47,18 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
     }
 
     pub fn compute(mut self) -> Result<ThreeValued, ExecError> {
-        trace!("Computing, dirty states: {:?}", self.property_checker.focus);
+        trace!(
+            "Computing, focus: {:?}, state space: {:#?}",
+            self.property_checker.focus,
+            self.space
+        );
+        trace!(
+            "Histories when computing: {:#?}",
+            self.property_checker.histories
+        );
         self.compute_inner()?;
 
         if self.invalidate {
-            trace!("Invalidated");
             self.property_checker.invalidate();
             self.property_checker
                 .focus
@@ -101,7 +108,10 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         Ok(())
     }
 
-    fn update_labelling(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
+    fn update_labelling(
+        &mut self,
+        subproperty_index: usize,
+    ) -> Result<BTreeSet<StateId>, ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
@@ -115,13 +125,16 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
 
         let ty = subproperty_entry.ty.clone();
 
-        match &ty {
+        let updated = match &ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
                 if self.current_time == 0 {
                     // only update for dirty states
-                    for state_id in self.property_checker.focus.dirty() {
-                        self.getter().force_recache(subproperty_index, *state_id)?;
+                    for state_id in self.property_checker.focus.dirty_iter() {
+                        self.getter().force_recache(subproperty_index, state_id)?;
                     }
+                    self.property_checker.focus.dirty().clone()
+                } else {
+                    BTreeSet::new()
                 }
             }
             PropertyType::Negation(inner) => self.update_negation(*inner)?,
@@ -131,10 +144,10 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             PropertyType::FixedVariable(fixed_point_index) => {
                 self.update_fixed_variable(*fixed_point_index)?
             }
-        }
+        };
 
         trace!("Subproperty {:?} labelling updated", subproperty_index);
 
-        Ok(())
+        Ok(updated)
     }
 }

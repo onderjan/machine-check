@@ -80,6 +80,11 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             computation_clone.end_time
         );
 
+        /*if computation_clone.start_time != computation_clone.end_time {
+            self.invalidate = true;
+            return Ok(());
+        }*/
+
         assert!(computation_clone.start_time < computation_clone.end_time);
 
         match self.current_time.cmp(&computation_clone.end_time) {

@@ -64,6 +64,13 @@ impl FixedPointHistory {
             }
         }
 
+        if let Some(contained) = self.before_time_opt(time_instant, state_id) {
+            if contained.value == value {
+                // do not insert as it is already implied
+                return;
+            }
+        }
+
         // insert the new entry
         self.times
             .entry(time_instant)
@@ -97,7 +104,18 @@ impl FixedPointHistory {
         }
     }
 
-    /*pub fn opt_before_time(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
+    pub fn at_exact_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
+        let history = self.states.get(&state_id)?;
+
+        let check_value = history.get(&time)?;
+
+        Some(TimedCheckValue {
+            time,
+            value: check_value.clone(),
+        })
+    }
+
+    pub fn before_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
         let history = self.states.get(&state_id)?;
         let (insert_time, check_value) = history.range(0..time).last()?;
 
@@ -105,7 +123,7 @@ impl FixedPointHistory {
             time: *insert_time,
             value: check_value.clone(),
         })
-    }*/
+    }
 
     pub fn retain_states(&mut self, states: &BTreeSet<StateId>) {
         self.states.retain(|state_id, _| states.contains(state_id));

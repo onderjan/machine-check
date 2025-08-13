@@ -95,6 +95,11 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             time: *successor_time,
             value: successor_value.clone(),
         };
+
+        // TODO: this does not always hold???
+        //assert!(!timed.value.next_states.contains(&state_id));
+        //assert!(!timed.value.next_states.contains(successor_id));
+
         timed.value.next_states.push(*successor_id);
 
         Ok(timed)
