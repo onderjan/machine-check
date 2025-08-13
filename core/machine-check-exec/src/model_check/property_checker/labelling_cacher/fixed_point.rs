@@ -28,7 +28,9 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             .get(&fixed_point_index)
             .expect("History should exist for fixed point");
 
-        let timed = history.before_time(self.current_time, state_id);
+        let mut timed = history.before_time(self.current_time, state_id);
+        // clear next as we are considering a new time instant
+        timed.value.next_states.clear();
         Ok(timed)
     }
 }
