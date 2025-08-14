@@ -232,14 +232,27 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         &mut self,
         fixed_point_index: usize,
     ) -> Result<BTreeSet<StateId>, ExecError> {
-        // update the values of the states that have been changed in last time instant
+        // update the values of the states that are dirty or can affect dirty and have been changed in last time instant
         let mut update = BTreeSet::new();
+        let affected_forward = self.property_checker.focus.affected_forward();
         let history = select_history(&mut self.property_checker.histories, fixed_point_index);
         let Some(changed_states) = history.states_at_exact_time_opt(self.current_time - 1) else {
             return Ok(BTreeSet::new());
         };
-        for state_id in changed_states.keys() {
-            update.insert(*state_id);
+
+        // iterate over the smaller collection to intersect it
+        if affected_forward.len() <= changed_states.len() {
+            for state_id in affected_forward {
+                if changed_states.contains_key(state_id) {
+                    update.insert(*state_id);
+                }
+            }
+        } else {
+            for state_id in changed_states.keys() {
+                if affected_forward.contains(state_id) {
+                    update.insert(*state_id);
+                }
+            }
         }
 
         Ok(update)
