@@ -13,7 +13,9 @@ use crate::{
     FullMachine,
 };
 
+mod iteration;
 mod time_adjustment;
+mod variable;
 
 struct FixedPointIterationParams {
     fixed_point_index: usize,
@@ -70,7 +72,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         // note that if there was no old computation, all states in the state space have been made dirty
 
         let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_greatest));
-        let history = select_history(&mut self.property_checker.histories, fixed_point_index);
+        let history = select_history_mut(&mut self.property_checker.histories, fixed_point_index);
         trace!("Focus: {:?}", self.property_checker.focus);
         for state_id in self.property_checker.focus.dirty_iter() {
             history.insert(start_time, state_id, ground_value.clone());
@@ -116,7 +118,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         self.calmable_fixed_points.insert(fixed_point_index);
 
         // select the states to propagate
-        let history = select_history(&mut self.property_checker.histories, fixed_point_index);
+        let history = select_history(&self.property_checker.histories, fixed_point_index);
         let mut result = BTreeSet::new();
         for state_id in self.property_checker.focus.dirty_iter() {
             let state_history = history
@@ -133,137 +135,22 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         Ok(result)
     }
-
-    fn fixed_point_iteration(
-        &mut self,
-        params: &mut FixedPointIterationParams,
-    ) -> Result<ControlFlow<(), ()>, ExecError> {
-        // increment time
-        self.current_time += 1;
-        self.num_fixed_point_iterations += 1;
-
-        // TODO: update the cache properly
-        self.property_checker.latest_cache.get_mut().clear_all();
-
-        // compute the iteration
-
-        let mut updated = self.update_labelling(params.inner_index)?;
-
-        // add previously updated
-
-        let history = select_history(
-            &mut self.property_checker.histories,
-            params.fixed_point_index,
-        );
-        if let Some(previously_updated) = history.states_at_exact_time_opt(self.current_time) {
-            // this also needs to be updated
-            for state_id in previously_updated.keys().copied() {
-                if self.space.contains_state(state_id) {
-                    updated.insert(state_id);
-                }
-            }
-        }
-
-        // TODO: compute the current update properly
-        let mut current_update = BTreeMap::new();
-        for state_id in updated {
-            self.getter()
-                .cache_if_uncached(params.inner_index, state_id)?;
-
-            let value = self
-                .property_checker
-                .get_cached(params.inner_index, state_id)
-                .value;
-            current_update.insert(state_id, value);
-        }
-
-        trace!(
-            "Current update of fixed point {:?} in time {:?}: {:#?}",
-            params.fixed_point_index,
-            self.current_time,
-            current_update
-        );
-
-        let history = select_history(
-            &mut self.property_checker.histories,
-            params.fixed_point_index,
-        );
-
-        for (state_id, update_value) in current_update {
-            // check if the update differs
-
-            let now_timed = history.up_to_time(self.current_time, state_id);
-
-            if update_value == now_timed.value {
-                continue;
-            }
-
-            /*trace!(
-                "Inserting dirty state {}: now {:?}, update: {:?}",
-                state_id,
-                now_timed,
-                update_value
-            );*/
-
-            // the update differs
-            // insert the state and make it dirty
-            history.insert(self.current_time, state_id, update_value);
-            self.property_checker
-                .focus
-                .insert_dirty(self.space, state_id);
-        }
-
-        if !history.time_changes(self.current_time) {
-            if let Some(old_computation_end_time) = params.old_computation_end_time {
-                if self.current_time >= old_computation_end_time
-                    || !history.range_changes(self.current_time, old_computation_end_time)
-                {
-                    return Ok(ControlFlow::Break(()));
-                }
-            } else {
-                return Ok(ControlFlow::Break(()));
-            }
-        }
-
-        Ok(ControlFlow::Continue(()))
-    }
-
-    pub fn update_fixed_variable(
-        &mut self,
-        fixed_point_index: usize,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
-        // update the values of the states that are dirty or can affect dirty and have been changed in last time instant
-        let mut update = BTreeSet::new();
-        let affected_forward = self.property_checker.focus.affected_forward();
-        let history = select_history(&mut self.property_checker.histories, fixed_point_index);
-        let Some(changed_states) = history.states_at_exact_time_opt(self.current_time - 1) else {
-            return Ok(BTreeSet::new());
-        };
-
-        // iterate over the smaller collection to intersect it
-        if affected_forward.len() <= changed_states.len() {
-            for state_id in affected_forward {
-                if changed_states.contains_key(state_id) {
-                    update.insert(*state_id);
-                }
-            }
-        } else {
-            for state_id in changed_states.keys() {
-                if affected_forward.contains(state_id) {
-                    update.insert(*state_id);
-                }
-            }
-        }
-
-        Ok(update)
-    }
 }
 
-fn select_history(
+fn select_history_mut(
     histories: &mut BTreeMap<usize, FixedPointHistory>,
     fixed_point_index: usize,
 ) -> &mut FixedPointHistory {
     histories
         .get_mut(&fixed_point_index)
+        .expect("Fixed point histories should contain property")
+}
+
+fn select_history(
+    histories: &BTreeMap<usize, FixedPointHistory>,
+    fixed_point_index: usize,
+) -> &FixedPointHistory {
+    histories
+        .get(&fixed_point_index)
         .expect("Fixed point histories should contain property")
 }
