@@ -12,7 +12,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
         // the current valuation is equal to the inner valuation
-        self.get_latest_timed(op.inner, state_id)
+        self.compute_latest_timed(op.inner, state_id)
     }
 
     pub fn compute_fixed_variable(

@@ -1,3 +1,6 @@
+use std::collections::btree_map::Entry;
+use std::collections::BTreeMap;
+
 use machine_check_common::property::NextOperator;
 use machine_check_common::{ExecError, StateId, ThreeValued};
 
@@ -13,16 +16,17 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
     ) -> Result<TimedCheckValue, ExecError> {
         // cache inner labellings of successors
         for successor_id in self.space.direct_successor_iter(state_id.into()) {
-            self.get_latest_timed(op.inner, successor_id)?;
+            self.compute_latest_timed(op.inner, successor_id)?;
         }
 
-        self.apply_next(op, state_id)
+        self.apply_next(op, state_id, &mut BTreeMap::new())
     }
 
     pub fn apply_next(
         &self,
         op: &NextOperator,
         state_id: StateId,
+        computed_successors: &mut BTreeMap<StateId, TimedCheckValue>,
     ) -> Result<TimedCheckValue, ExecError> {
         let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_universal));
 
@@ -34,7 +38,13 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         let mut found_successor = None;
 
         for successor_id in self.space.direct_successor_iter(state_id.into()) {
-            let successor_timed = self.get_latest_timed(op.inner, successor_id)?;
+            if let Entry::Vacant(e) = computed_successors.entry(successor_id) {
+                e.insert(self.compute_latest_timed(op.inner, successor_id)?);
+            }
+
+            let successor_timed = computed_successors
+                .get(&successor_id)
+                .expect("Successor value should be computed");
             let successor_valuation = successor_timed.value.valuation;
 
             let is_better = if op.is_universal {
@@ -53,16 +63,16 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         if current_valuation == ground_value.valuation {
             // no successor
-            return Ok(TimedCheckValue {
-                time: 0,
-                value: ground_value.clone(),
-            });
+            return Ok(TimedCheckValue::new(0, ground_value.clone()));
         }
 
         if let Some(successor_id) = found_successor {
             // single allowed successor
             // add the successor id to next states to obtain our value
-            let mut timed = self.get_latest_timed(op.inner, successor_id)?;
+            let mut timed = computed_successors
+                .get(&successor_id)
+                .expect("Successor value should be computed")
+                .clone();
             timed.value.next_states.push(successor_id);
             return Ok(timed);
         };
@@ -73,7 +83,9 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         let mut successor_sorter = Vec::new();
 
         for successor_id in self.space.direct_successor_iter(state_id.into()) {
-            let successor_timed = self.get_latest_timed(op.inner, successor_id)?;
+            let successor_timed = computed_successors
+                .get(&successor_id)
+                .expect("Successor value should be computed");
             if successor_timed.value.valuation == current_valuation {
                 successor_sorter.push((
                     (successor_timed.time, successor_id),
@@ -91,10 +103,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             .expect("There should be a first successor");
 
         // add the successor id to next states to obtain our value
-        let mut timed = TimedCheckValue {
-            time: *successor_time,
-            value: successor_value.clone(),
-        };
+        let mut timed = TimedCheckValue::new(*successor_time, successor_value.clone());
 
         assert!(!timed.value.next_states.contains(&state_id));
         assert!(!timed.value.next_states.contains(successor_id));

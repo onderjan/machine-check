@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, ops::ControlFlow};
+use std::ops::ControlFlow;
 
 use log::trace;
 use machine_check_common::ExecError;
@@ -22,28 +22,22 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         // compute the iteration
 
-        let mut updated = self.update_labelling(params.inner_index)?;
+        let mut current_update = self.update_labelling(params.inner_index)?;
 
         // add previously updated
+        // TODO: only do this for the states that really need this (affected backward?)
 
         let history = select_history(&self.property_checker.histories, params.fixed_point_index);
         if let Some(previously_updated) = history.states_at_exact_time_opt(self.current_time) {
             // this also needs to be updated
             for state_id in previously_updated.keys().copied() {
                 if self.space.contains_state(state_id) {
-                    updated.insert(state_id);
+                    let value = self
+                        .getter()
+                        .compute_latest_timed(params.inner_index, state_id)?;
+                    current_update.insert(state_id, value);
                 }
             }
-        }
-
-        // TODO: compute the current update properly
-        let mut current_update = BTreeMap::new();
-        for state_id in updated {
-            let value = self
-                .getter()
-                .get_latest_timed(params.inner_index, state_id)?
-                .value;
-            current_update.insert(state_id, value);
         }
 
         trace!(
@@ -58,21 +52,16 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             params.fixed_point_index,
         );
 
-        for (state_id, update_value) in current_update {
+        for (state_id, update_timed) in current_update {
             // check if the update differs
+            // the timing of update is not relevant, as it will be the current time
+            let update_value = update_timed.value;
 
             let now_timed = history.up_to_time(self.current_time, state_id);
 
             if update_value == now_timed.value {
                 continue;
             }
-
-            /*trace!(
-                "Inserting dirty state {}: now {:?}, update: {:?}",
-                state_id,
-                now_timed,
-                update_value
-            );*/
 
             // the update differs
             // insert the state and make it dirty

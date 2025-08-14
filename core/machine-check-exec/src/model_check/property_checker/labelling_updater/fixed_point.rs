@@ -1,14 +1,13 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::ControlFlow,
-};
+use std::{collections::BTreeMap, ops::ControlFlow};
 
 use log::{debug, trace};
 use machine_check_common::{property::FixedPointOperator, ExecError, StateId, ThreeValued};
 
 use crate::{
     model_check::property_checker::{
-        history::FixedPointHistory, labelling_updater::LabellingUpdater, CheckValue,
+        history::{FixedPointHistory, TimedCheckValue},
+        labelling_updater::LabellingUpdater,
+        CheckValue,
     },
     FullMachine,
 };
@@ -28,10 +27,10 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         &mut self,
         fixed_point_index: usize,
         op: &FixedPointOperator,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         if self.invalidate {
             // just invalidate fast
-            return Ok(BTreeSet::new());
+            return Ok(BTreeMap::new());
         }
 
         let start_time = self.current_time;
@@ -47,14 +46,14 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             current_computation_index,
             start_time,
         )? {
-            ControlFlow::Break(()) => return Ok(BTreeSet::new()),
+            ControlFlow::Break(()) => return Ok(BTreeMap::new()),
             ControlFlow::Continue(old_computation_end_time) => old_computation_end_time,
         };
 
         // test for calmness, the fixed point must be in closed form
         // and also already once computed
         if self.process_calm(fixed_point_index, current_computation_index, start_time)? {
-            return Ok(BTreeSet::new());
+            return Ok(BTreeMap::new());
         }
 
         debug!(
@@ -117,7 +116,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         // select the states to propagate
         let history = select_history(&self.property_checker.histories, fixed_point_index);
-        let mut result = BTreeSet::new();
+        let mut result = BTreeMap::new();
         for state_id in self.property_checker.focus.dirty_iter() {
             let state_history = history
                 .for_state(state_id)
@@ -127,7 +126,17 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             let current_update = state_history.range(0..self.current_time).next_back();
 
             if previous_update != current_update {
-                result.insert(state_id);
+                let (current_update_time, current_update_value) =
+                    current_update.expect("Dirty state should have an update after fixpoint");
+
+                // TODO: correctly construct the result without additional computation
+                /*let timed =
+                TimedCheckValue::new(*current_update_time, current_update_value.clone());*/
+                let timed = self
+                    .getter()
+                    .compute_latest_timed(fixed_point_index, state_id)?;
+
+                result.insert(state_id, timed);
             }
         }
 

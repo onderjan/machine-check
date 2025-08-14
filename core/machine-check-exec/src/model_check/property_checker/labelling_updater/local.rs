@@ -1,63 +1,78 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
 
+use crate::model_check::property_checker::history::TimedCheckValue;
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
+use crate::model_check::property_checker::{BiChoice, LabellingCacher};
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
-    pub(super) fn update_negation(&mut self, inner: usize) -> Result<BTreeSet<StateId>, ExecError> {
-        self.update_labelling(inner)
+    pub(super) fn update_negation(
+        &mut self,
+        inner: usize,
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+        let mut result = self.update_labelling(inner)?;
+        for timed in result.values_mut() {
+            timed.value.valuation = !timed.value.valuation;
+        }
+
+        Ok(result)
     }
 
     pub(super) fn update_binary_op(
         &mut self,
         op: &BiLogicOperator,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let mut result = self.update_labelling(op.a)?;
+        let mut result_b = self.update_labelling(op.b)?;
+
+        for (state_id, timed) in result.iter_mut() {
+            let timed_b = if let Some(timed_b) = result_b.remove(state_id) {
+                timed_b
+            } else {
+                self.getter().compute_latest_timed(op.b, *state_id)?
+            };
+
+            if matches!(
+                LabellingCacher::<M>::choose_binary_op(op, timed, &timed_b),
+                BiChoice::Right
+            ) {
+                *timed = timed_b;
+            };
+        }
+
+        for (state_id, timed_b) in result_b {
+            let timed_a = self.getter().compute_latest_timed(op.a, state_id)?;
+
+            let timed_result = match LabellingCacher::<M>::choose_binary_op(op, &timed_a, &timed_b)
+            {
+                BiChoice::Left => timed_a,
+                BiChoice::Right => timed_b,
+            };
+
+            result.insert(state_id, timed_result);
+        }
+
+        /*let result_a = self.update_labelling(op.a)?;
         let result_b = self.update_labelling(op.b)?;
 
-        result.extend(result_b);
+        let mut result = BTreeMap::new();
+
+        for state_id in result_a.keys().copied().chain(result_b.keys().copied()) {
+            let timed_a = self.getter().compute_latest_timed(op.a, state_id)?;
+            let timed_b = self.getter().compute_latest_timed(op.b, state_id)?;
+
+            let timed_result = match LabellingCacher::<M>::choose_binary_op(op, &timed_a, &timed_b)
+            {
+                BiChoice::Left => timed_a,
+                BiChoice::Right => timed_b,
+            };
+
+            result.insert(state_id, timed_result);
+        }*/
 
         Ok(result)
-
-        /*let mut result_a = self.compute_labelling(op.a)?;
-        let mut result_b = self.compute_labelling(op.b)?;
-
-        self.complete_labelling(op.a, &mut result_a, &result_b)?;
-        self.complete_labelling(op.b, &mut result_b, &result_a)?;
-
-        let mut result = BTreeMap::new();
-        for (state_id, a_timed) in result_a {
-            let b_timed = result_b
-                .remove(&state_id)
-                .expect("Binary operation labelling should be completed");
-
-            let result_value = LabellingGetter::<M>::apply_binary_op(op, a_timed, b_timed);
-            result.insert(state_id, result_value);
-        }
-
-        Ok(result)*/
     }
-
-    /*
-    fn complete_labelling(
-        &self,
-        our_index: usize,
-        our_result: &mut BTreeMap<StateId, TimedCheckValue>,
-        other_result: &BTreeMap<StateId, TimedCheckValue>,
-    ) -> Result<(), ExecError> {
-        let mut fetch = BTreeSet::new();
-        for state_id in other_result.keys().copied() {
-            if !our_result.contains_key(&state_id) {
-                fetch.insert(state_id);
-            }
-        }
-        our_result.extend(
-            self.getter()
-                .cache_labelling(our_index, fetch.iter().copied())?,
-        );
-        Ok(())
-    }*/
 }

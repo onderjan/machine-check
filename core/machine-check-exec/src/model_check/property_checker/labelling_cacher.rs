@@ -35,7 +35,7 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         self.space
     }
 
-    pub fn get_latest_timed(
+    pub fn compute_latest_timed(
         &self,
         subproperty_index: usize,
         state_id: StateId,
@@ -50,17 +50,14 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         let result = match &ty {
             PropertyType::Const(constant) => {
                 let constant = ThreeValued::from_bool(*constant);
-                let eigen = CheckValue::eigen(constant);
-                TimedCheckValue {
-                    time: 0,
-                    value: eigen,
-                }
+                let value = CheckValue::eigen(constant);
+                TimedCheckValue::new(0, value)
             }
 
             PropertyType::Atomic(atomic_property) => {
                 let value = self.space.atomic_label(atomic_property, state_id)?;
                 let value = CheckValue::eigen(value);
-                TimedCheckValue { time: 0, value }
+                TimedCheckValue::new(0, value)
             }
 
             PropertyType::Negation(inner) => self.compute_negation(*inner, state_id)?,

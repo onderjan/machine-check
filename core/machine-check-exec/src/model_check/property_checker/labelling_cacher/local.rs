@@ -18,7 +18,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         inner: usize,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
-        let mut timed = self.get_latest_timed(inner, state_id)?;
+        let mut timed = self.compute_latest_timed(inner, state_id)?;
         timed.value.valuation = !timed.value.valuation;
         Ok(timed)
     }
@@ -28,8 +28,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         op: &BiLogicOperator,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
-        let timed_a = self.get_latest_timed(op.a, state_id)?;
-        let timed_b = self.get_latest_timed(op.b, state_id)?;
+        let timed_a = self.compute_latest_timed(op.a, state_id)?;
+        let timed_b = self.compute_latest_timed(op.b, state_id)?;
 
         Ok(match Self::choose_binary_op(op, &timed_a, &timed_b) {
             BiChoice::Left => timed_a,

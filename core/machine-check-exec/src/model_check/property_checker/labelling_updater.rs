@@ -2,14 +2,16 @@ mod fixed_point;
 mod local;
 mod next;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
 use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
 use mck::concr::FullMachine;
 
 use crate::{
-    model_check::property_checker::{labelling_cacher::LabellingCacher, PropertyChecker},
+    model_check::property_checker::{
+        history::TimedCheckValue, labelling_cacher::LabellingCacher, PropertyChecker,
+    },
     space::StateSpace,
 };
 
@@ -84,12 +86,12 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         let mut result = ThreeValued::True;
 
         for state_id in self.space.initial_iter() {
-            self.getter().get_latest_timed(0, state_id)?;
+            self.getter().compute_latest_timed(0, state_id)?;
 
             let timed = self
                 .property_checker
                 .last_getter(self.space)
-                .get_latest_timed(0, state_id)?;
+                .compute_latest_timed(0, state_id)?;
 
             let valuation = timed.value.valuation;
             result = result & valuation;
@@ -123,28 +125,27 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
     fn update_labelling(
         &mut self,
         subproperty_index: usize,
-    ) -> Result<BTreeSet<StateId>, ExecError> {
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
             .subproperty_entry(subproperty_index);
 
-        trace!(
-            "Subproperty {:?} entry: {:?}",
-            subproperty_index,
-            subproperty_entry
-        );
-
         let ty = subproperty_entry.ty.clone();
 
         let updated = match &ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
+                let mut result = BTreeMap::new();
                 if self.current_time == 0 {
                     // update dirty states
-                    self.property_checker.focus.dirty().clone()
-                } else {
-                    BTreeSet::new()
+                    for state_id in self.property_checker.focus.dirty_iter() {
+                        let timed = self
+                            .getter()
+                            .compute_latest_timed(subproperty_index, state_id)?;
+                        result.insert(state_id, timed);
+                    }
                 }
+                result
             }
             PropertyType::Negation(inner) => self.update_negation(*inner)?,
             PropertyType::BiLogic(op) => self.update_binary_op(op)?,
@@ -155,7 +156,17 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             }
         };
 
-        trace!("Subproperty {:?} labelling updated", subproperty_index);
+        /*for (state_id, timed) in &updated {
+            let gotten = self
+                .getter()
+                .compute_latest_timed(subproperty_index, *state_id)?;
+            if *timed != gotten {
+                panic!(
+                    "Subproperty {} update state {} value {:?} does not match gotten {:?}",
+                    subproperty_index, state_id, timed, gotten
+                );
+            }
+        }*/
 
         Ok(updated)
     }

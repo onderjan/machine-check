@@ -18,6 +18,12 @@ pub struct TimedCheckValue {
     pub value: CheckValue,
 }
 
+impl TimedCheckValue {
+    pub fn new(time: u64, value: CheckValue) -> Self {
+        TimedCheckValue { time, value }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FixedPointHistory {
     times: BTreeMap<u64, BTreeMap<StateId, CheckValue>>,
@@ -98,10 +104,7 @@ impl FixedPointHistory {
             );
         };
 
-        TimedCheckValue {
-            time: *insert_time,
-            value: check_value.clone(),
-        }
+        TimedCheckValue::new(*insert_time, check_value.clone())
     }
 
     pub fn up_to_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
@@ -112,10 +115,7 @@ impl FixedPointHistory {
         let history = self.states.get(&state_id)?;
         let (insert_time, check_value) = history.range(0..time).next_back()?;
 
-        Some(TimedCheckValue {
-            time: *insert_time,
-            value: check_value.clone(),
-        })
+        Some(TimedCheckValue::new(*insert_time, check_value.clone()))
     }
 
     pub fn states_at_exact_time_opt(&self, time: u64) -> Option<&BTreeMap<StateId, CheckValue>> {
