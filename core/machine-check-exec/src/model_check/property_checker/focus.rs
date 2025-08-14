@@ -50,17 +50,10 @@ impl Focus {
         &self.affected_backward
     }
 
-    pub fn extend_dirty<M: FullMachine>(
-        &mut self,
-        space: &StateSpace<M>,
-        iter: impl Iterator<Item = StateId>,
-    ) {
-        trace!("Extending dirty");
-        for state_id in iter {
+    pub fn make_whole_dirty<M: FullMachine>(&mut self, space: &StateSpace<M>) {
+        for state_id in space.states() {
             self.insert_dirty(space, state_id);
         }
-
-        trace!("Extended dirty");
     }
 
     pub fn insert_dirty<M: FullMachine>(&mut self, space: &StateSpace<M>, state_id: StateId) {
@@ -112,6 +105,8 @@ impl Focus {
         self.clear();
         dirty.extend(added);
 
-        self.extend_dirty(space, dirty.iter().copied());
+        for state_id in dirty {
+            self.insert_dirty(space, state_id);
+        }
     }
 }

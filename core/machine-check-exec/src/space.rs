@@ -118,6 +118,10 @@ impl<M: FullMachine> StateSpace<M> {
         self.graph.node_count()
     }
 
+    pub fn num_states(&self) -> usize {
+        self.num_nodes().saturating_sub(1)
+    }
+
     pub fn num_transitions(&self) -> usize {
         self.graph.num_transitions()
     }

@@ -1,6 +1,6 @@
 use std::ops::ControlFlow;
 
-use log::trace;
+use log::{debug, trace};
 use machine_check_common::ExecError;
 
 use crate::{
@@ -38,9 +38,12 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                 std::cmp::Ordering::Equal => {
                     // we do not have an old computation
                     // all states must be dirty
-                    self.property_checker
-                        .focus
-                        .extend_dirty(self.space, self.space.states());
+                    debug!(
+                        "Reached the end of history with {}/{} states dirty",
+                        self.property_checker.focus.dirty().len(),
+                        self.space.num_states()
+                    );
+                    self.property_checker.focus.make_whole_dirty(self.space);
 
                     // add the computation
                     self.property_checker

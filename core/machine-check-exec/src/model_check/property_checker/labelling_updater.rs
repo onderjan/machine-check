@@ -4,7 +4,7 @@ mod next;
 
 use std::collections::BTreeSet;
 
-use log::trace;
+use log::{debug, trace};
 use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
 use mck::concr::FullMachine;
 
@@ -23,6 +23,9 @@ pub struct LabellingUpdater<'a, M: FullMachine> {
     invalidate: bool,
 
     calmable_fixed_points: BTreeSet<usize>,
+
+    num_fixed_point_computations: u64,
+    num_fixed_point_iterations: u64,
 }
 
 impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
@@ -37,6 +40,8 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             next_computation_index: 0,
             invalidate: false,
             calmable_fixed_points: BTreeSet::new(),
+            num_fixed_point_computations: 0,
+            num_fixed_point_iterations: 0,
         };
 
         Ok(computer)
@@ -59,18 +64,14 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         self.compute_inner()?;
 
         if self.invalidate {
+            debug!("Invalidated computation, computing once more");
             self.property_checker.invalidate();
-            self.property_checker
-                .focus
-                .extend_dirty(self.space, self.space.states());
+            self.property_checker.focus.make_whole_dirty(self.space);
             self.invalidate = false;
-
-            trace!("Invalidated computation, computing once more");
 
             self.compute_inner()?;
             assert!(!self.invalidate);
         } else {
-            trace!("Computation not invalidated");
             self.property_checker.incremental_double_check(self.space)?;
         }
 
@@ -104,7 +105,16 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         self.next_computation_index = 0;
         self.calmable_fixed_points.clear();
         self.property_checker.latest_cache.get_mut().clear_all();
+        self.num_fixed_point_computations = 0;
+        self.num_fixed_point_iterations = 0;
         self.update_labelling(0)?;
+        debug!(
+            "Model-checked, fixed points: {} computations, {} iterations, {}/{} states dirty",
+            self.num_fixed_point_computations,
+            self.num_fixed_point_iterations,
+            self.property_checker.focus.dirty().len(),
+            self.space.num_states()
+        );
         Ok(())
     }
 

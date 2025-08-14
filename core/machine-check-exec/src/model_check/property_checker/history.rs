@@ -91,7 +91,7 @@ impl FixedPointHistory {
             );
         };
 
-        let Some((insert_time, check_value)) = history.range(0..time).last() else {
+        let Some((insert_time, check_value)) = history.range(0..time).next_back() else {
             panic!(
                 "Last history of state {} before time {} should exist, but history is {:?}",
                 state_id, time, self
@@ -104,29 +104,22 @@ impl FixedPointHistory {
         }
     }
 
-    pub fn states_at_exact_time_opt(&self, time: u64) -> Option<&BTreeMap<StateId, CheckValue>> {
-        self.times.get(&time)
-    }
-
-    pub fn at_exact_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
-        let history = self.states.get(&state_id)?;
-
-        let check_value = history.get(&time)?;
-
-        Some(TimedCheckValue {
-            time,
-            value: check_value.clone(),
-        })
+    pub fn up_to_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
+        self.before_time(time + 1, state_id)
     }
 
     pub fn before_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
         let history = self.states.get(&state_id)?;
-        let (insert_time, check_value) = history.range(0..time).last()?;
+        let (insert_time, check_value) = history.range(0..time).next_back()?;
 
         Some(TimedCheckValue {
             time: *insert_time,
             value: check_value.clone(),
         })
+    }
+
+    pub fn states_at_exact_time_opt(&self, time: u64) -> Option<&BTreeMap<StateId, CheckValue>> {
+        self.times.get(&time)
     }
 
     pub fn retain_states(&mut self, states: &BTreeSet<StateId>) {
@@ -152,6 +145,10 @@ impl FixedPointHistory {
 
     pub fn range_changes(&self, start: u64, end: u64) -> bool {
         self.times.range(start..end).next().is_some()
+    }
+
+    pub fn for_state(&self, state_id: StateId) -> Option<&BTreeMap<u64, CheckValue>> {
+        self.states.get(&state_id)
     }
 
     pub fn squash(&mut self, time_subtracts: &BTreeMap<u64, u64>, after_last_time: u64) {

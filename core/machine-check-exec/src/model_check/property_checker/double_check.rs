@@ -41,9 +41,7 @@ impl PropertyChecker {
 
         let mut fresh_property_checker = self.clone();
         fresh_property_checker.invalidate();
-        fresh_property_checker
-            .focus
-            .extend_dirty(space, space.states());
+        fresh_property_checker.focus.make_whole_dirty(space);
         LabellingUpdater::new(&mut fresh_property_checker, space)?.compute_inner()?;
 
         // retain only states in state space for comparison
