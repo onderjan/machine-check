@@ -35,28 +35,11 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         self.space
     }
 
-    pub fn cache_if_uncached(
+    pub fn get_latest_timed(
         &self,
         subproperty_index: usize,
         state_id: StateId,
-    ) -> Result<bool, ExecError> {
-        // returns whether the cache actually changed
-        if self
-            .property_checker
-            .get_cached_opt(subproperty_index, state_id)
-            .is_some()
-        {
-            return Ok(false);
-        }
-
-        self.force_recache(subproperty_index, state_id)
-    }
-
-    pub fn force_recache(
-        &self,
-        subproperty_index: usize,
-        state_id: StateId,
-    ) -> Result<bool, ExecError> {
+    ) -> Result<TimedCheckValue, ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
@@ -89,22 +72,6 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
             }
         };
 
-        // returns whether the cache actually changed
-        let changed = self
-            .property_checker
-            .insert_into_cache(subproperty_index, state_id, result);
-
-        Ok(changed)
-    }
-
-    pub fn cache_and_get(
-        &self,
-        subproperty_index: usize,
-        state_id: StateId,
-    ) -> Result<TimedCheckValue, ExecError> {
-        self.cache_if_uncached(subproperty_index, state_id)?;
-        Ok(self
-            .property_checker
-            .get_cached(subproperty_index, state_id))
+        Ok(result)
     }
 }

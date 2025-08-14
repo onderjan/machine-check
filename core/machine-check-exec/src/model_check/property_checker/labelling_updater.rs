@@ -84,9 +84,12 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         let mut result = ThreeValued::True;
 
         for state_id in self.space.initial_iter() {
-            self.getter().cache_if_uncached(0, state_id)?;
+            self.getter().get_latest_timed(0, state_id)?;
 
-            let timed = self.property_checker.get_cached(0, state_id);
+            let timed = self
+                .property_checker
+                .last_getter(self.space)
+                .get_latest_timed(0, state_id)?;
 
             let valuation = timed.value.valuation;
             result = result & valuation;
@@ -104,7 +107,6 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         self.current_time = 0;
         self.next_computation_index = 0;
         self.calmable_fixed_points.clear();
-        self.property_checker.latest_cache.get_mut().clear_all();
         self.num_fixed_point_computations = 0;
         self.num_fixed_point_iterations = 0;
         self.update_labelling(0)?;
@@ -138,10 +140,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         let updated = match &ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
                 if self.current_time == 0 {
-                    // only update for dirty states
-                    for state_id in self.property_checker.focus.dirty_iter() {
-                        self.getter().force_recache(subproperty_index, state_id)?;
-                    }
+                    // update dirty states
                     self.property_checker.focus.dirty().clone()
                 } else {
                     BTreeSet::new()

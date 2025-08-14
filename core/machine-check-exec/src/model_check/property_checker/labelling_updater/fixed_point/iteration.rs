@@ -20,9 +20,6 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         self.current_time += 1;
         self.num_fixed_point_iterations += 1;
 
-        // TODO: update the cache properly
-        self.property_checker.latest_cache.get_mut().clear_all();
-
         // compute the iteration
 
         let mut updated = self.update_labelling(params.inner_index)?;
@@ -42,12 +39,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         // TODO: compute the current update properly
         let mut current_update = BTreeMap::new();
         for state_id in updated {
-            self.getter()
-                .cache_if_uncached(params.inner_index, state_id)?;
-
             let value = self
-                .property_checker
-                .get_cached(params.inner_index, state_id)
+                .getter()
+                .get_latest_timed(params.inner_index, state_id)?
                 .value;
             current_update.insert(state_id, value);
         }

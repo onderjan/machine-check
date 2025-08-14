@@ -34,8 +34,6 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             return Ok(BTreeSet::new());
         }
 
-        self.property_checker.latest_cache.get_mut().clear_all();
-
         let start_time = self.current_time;
 
         // either check old computation (excluding end time) or add new computation

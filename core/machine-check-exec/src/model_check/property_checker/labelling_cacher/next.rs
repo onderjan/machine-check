@@ -13,7 +13,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
     ) -> Result<TimedCheckValue, ExecError> {
         // cache inner labellings of successors
         for successor_id in self.space.direct_successor_iter(state_id.into()) {
-            self.cache_if_uncached(op.inner, successor_id)?;
+            self.get_latest_timed(op.inner, successor_id)?;
         }
 
         self.apply_next(op, state_id)
@@ -34,7 +34,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         let mut found_successor = None;
 
         for successor_id in self.space.direct_successor_iter(state_id.into()) {
-            let successor_timed = self.property_checker.get_cached(op.inner, successor_id);
+            let successor_timed = self.get_latest_timed(op.inner, successor_id)?;
             let successor_valuation = successor_timed.value.valuation;
 
             let is_better = if op.is_universal {
@@ -62,7 +62,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         if let Some(successor_id) = found_successor {
             // single allowed successor
             // add the successor id to next states to obtain our value
-            let mut timed = self.property_checker.get_cached(op.inner, successor_id);
+            let mut timed = self.get_latest_timed(op.inner, successor_id)?;
             timed.value.next_states.push(successor_id);
             return Ok(timed);
         };
@@ -73,7 +73,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         let mut successor_sorter = Vec::new();
 
         for successor_id in self.space.direct_successor_iter(state_id.into()) {
-            let successor_timed = self.property_checker.get_cached(op.inner, successor_id);
+            let successor_timed = self.get_latest_timed(op.inner, successor_id)?;
             if successor_timed.value.valuation == current_valuation {
                 successor_sorter.push((
                     (successor_timed.time, successor_id),
