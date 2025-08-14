@@ -12,7 +12,6 @@ pub struct Focus {
     depth: usize,
     dirty: BTreeSet<StateId>,
     affected_forward: BTreeSet<StateId>,
-    affected_backward: BTreeSet<StateId>,
 }
 
 impl Focus {
@@ -21,7 +20,6 @@ impl Focus {
             depth: property.transition_depth(),
             dirty: BTreeSet::new(),
             affected_forward: BTreeSet::new(),
-            affected_backward: BTreeSet::new(),
         };
         trace!("Focus depth: {}", result.depth);
         result
@@ -31,7 +29,6 @@ impl Focus {
         trace!("Cleared focus");
         self.dirty.clear();
         self.affected_forward.clear();
-        self.affected_backward.clear();
     }
 
     pub fn dirty(&self) -> &BTreeSet<StateId> {
@@ -46,10 +43,6 @@ impl Focus {
         &self.affected_forward
     }
 
-    pub fn affected_backward(&self) -> &BTreeSet<StateId> {
-        &self.affected_backward
-    }
-
     pub fn make_whole_dirty<M: FullMachine>(&mut self, space: &StateSpace<M>) {
         for state_id in space.states() {
             self.insert_dirty(space, state_id);
@@ -57,7 +50,13 @@ impl Focus {
     }
 
     pub fn insert_dirty<M: FullMachine>(&mut self, space: &StateSpace<M>, state_id: StateId) {
-        self.dirty.insert(state_id);
+        let newly_inserted = self.dirty.insert(state_id);
+        if !newly_inserted {
+            // no change
+            return;
+        }
+        // make sure the affected states correspond
+
         self.affected_forward.insert(state_id);
 
         let mut current_affected_forward = BTreeSet::from([state_id]);
@@ -71,25 +70,7 @@ impl Focus {
                 }
             }
             current_affected_forward.clear();
-            current_affected_forward.append(&mut next_affected_forward);
-        }
-
-        let mut current_affected_backward = BTreeSet::from([state_id]);
-        let mut next_affected_backward = BTreeSet::new();
-
-        for _ in 0..self.depth {
-            for state_id in current_affected_backward.iter().copied() {
-                for direct_predecessor_id in space.direct_predecessor_iter(state_id.into()) {
-                    let Ok(direct_predecessor_id) = StateId::try_from(direct_predecessor_id) else {
-                        continue;
-                    };
-
-                    self.affected_backward.insert(direct_predecessor_id);
-                    next_affected_backward.insert(direct_predecessor_id);
-                }
-            }
-            current_affected_backward.clear();
-            current_affected_backward.append(&mut next_affected_backward);
+            std::mem::swap(&mut current_affected_forward, &mut next_affected_forward);
         }
 
         /*trace!(
