@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 
-use log::trace;
 use machine_check_common::{StateId, ThreeValued};
 
 use crate::model_check::property_checker::squash_time;
@@ -32,16 +31,16 @@ pub struct FixedPointHistory {
 
 impl FixedPointHistory {
     pub fn insert(&mut self, time_instant: u64, state_id: StateId, value: CheckValue) {
-        trace!(
+        /*trace!(
             "Inserting for state id {} and time instant {}: {:?}",
             state_id,
             time_instant,
             value
-        );
+        );*/
+
         let time_values = self.states.entry(state_id).or_default();
 
         // clear the entries at or after this time for this state
-
         loop {
             let Some((entry_time, _)) = time_values.last_key_value() else {
                 // nothing in the map, break

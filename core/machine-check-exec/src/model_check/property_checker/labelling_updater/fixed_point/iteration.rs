@@ -31,11 +31,18 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         if let Some(previously_updated) = history.states_at_exact_time_opt(self.current_time) {
             // this also needs to be updated
             for state_id in previously_updated.keys().copied() {
-                if self.space.contains_state(state_id) {
-                    let value = self
+                let affected = self
+                    .property_checker
+                    .focus
+                    .affected_backward()
+                    .contains(&state_id);
+
+                if affected && self.space.contains_state(state_id) {
+                    let timed = self
                         .getter()
                         .compute_latest_timed(params.inner_index, state_id)?;
-                    current_update.insert(state_id, value);
+
+                    current_update.insert(state_id, timed);
                 }
             }
         }
@@ -65,6 +72,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
             // the update differs
             // insert the state and make it dirty
+
             history.insert(self.current_time, state_id, update_value);
             self.property_checker
                 .focus

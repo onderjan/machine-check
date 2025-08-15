@@ -72,6 +72,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         let history = select_history_mut(&mut self.property_checker.histories, fixed_point_index);
         trace!("Focus: {:?}", self.property_checker.focus);
         for state_id in self.property_checker.focus.dirty_iter() {
+            // clear later times
             history.insert(start_time, state_id, ground_value.clone());
         }
 
@@ -126,12 +127,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             let current_update = state_history.range(0..self.current_time).next_back();
 
             if previous_update != current_update {
-                let (current_update_time, current_update_value) =
-                    current_update.expect("Dirty state should have an update after fixpoint");
-
-                // TODO: correctly construct the result without additional computation
-                /*let timed =
-                TimedCheckValue::new(*current_update_time, current_update_value.clone());*/
+                // the update does not preserve the timing value, reconstruct it
+                // it is faster to do the reconstruction once per fixed-point computation
+                // rather than handle it throughout every iteration
                 let timed = self
                     .getter()
                     .compute_latest_timed(fixed_point_index, state_id)?;
