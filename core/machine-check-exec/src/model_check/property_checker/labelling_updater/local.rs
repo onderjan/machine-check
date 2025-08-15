@@ -55,24 +55,6 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             result.insert(state_id, timed_result);
         }
 
-        /*let result_a = self.update_labelling(op.a)?;
-        let result_b = self.update_labelling(op.b)?;
-
-        let mut result = BTreeMap::new();
-
-        for state_id in result_a.keys().copied().chain(result_b.keys().copied()) {
-            let timed_a = self.getter().compute_latest_timed(op.a, state_id)?;
-            let timed_b = self.getter().compute_latest_timed(op.b, state_id)?;
-
-            let timed_result = match LabellingCacher::<M>::choose_binary_op(op, &timed_a, &timed_b)
-            {
-                BiChoice::Left => timed_a,
-                BiChoice::Right => timed_b,
-            };
-
-            result.insert(state_id, timed_result);
-        }*/
-
         Ok(result)
     }
 }

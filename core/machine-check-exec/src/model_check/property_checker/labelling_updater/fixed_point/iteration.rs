@@ -6,7 +6,8 @@ use machine_check_common::ExecError;
 use super::{select_history, select_history_mut};
 use crate::{
     model_check::property_checker::labelling_updater::{
-        fixed_point::FixedPointIterationParams, LabellingUpdater,
+        fixed_point::{misc::intersect_state_set_and_map, FixedPointIterationParams},
+        LabellingUpdater,
     },
     FullMachine,
 };
@@ -25,25 +26,23 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         let mut current_update = self.update_labelling(params.inner_index)?;
 
         // add previously updated
-        // TODO: only do this for the states that really need this (affected backward?)
+        // only do this for backward-affected states since the others will not see a meaningful change during one iteration
 
         let history = select_history(&self.property_checker.histories, params.fixed_point_index);
+        let affected_backward = self.property_checker.focus.affected_backward();
         if let Some(previously_updated) = history.states_at_exact_time_opt(self.current_time) {
             // this also needs to be updated
-            for state_id in previously_updated.keys().copied() {
-                let affected = self
-                    .property_checker
-                    .focus
-                    .affected_backward()
-                    .contains(&state_id);
+            // iterate over the smaller collection
+            // note that this is not easily
 
-                if affected && self.space.contains_state(state_id) {
-                    let timed = self
-                        .getter()
-                        .compute_latest_timed(params.inner_index, state_id)?;
+            for (state_id, _value) in
+                intersect_state_set_and_map(affected_backward, previously_updated)
+            {
+                let timed = self
+                    .getter()
+                    .compute_latest_timed(params.inner_index, state_id)?;
 
-                    current_update.insert(state_id, timed);
-                }
+                current_update.insert(state_id, timed);
             }
         }
 

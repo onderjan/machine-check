@@ -4,6 +4,7 @@ use machine_check_common::{ExecError, StateId};
 
 use super::select_history;
 use crate::model_check::property_checker::history::TimedCheckValue;
+use crate::model_check::property_checker::labelling_updater::fixed_point::misc::intersect_state_set_and_map;
 use crate::model_check::property_checker::LabellingUpdater;
 use crate::FullMachine;
 
@@ -25,22 +26,12 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         };
 
         // iterate over the smaller collection to intersect it
-        if affected_forward.len() <= changed_states.len() {
-            for state_id in affected_forward {
-                if let Some(changed_value) = changed_states.get(state_id) {
-                    let mut update_value = changed_value.clone();
-                    update_value.next_states.clear();
-                    update.insert(*state_id, TimedCheckValue::new(last_time, update_value));
-                }
-            }
-        } else {
-            for (state_id, changed_value) in changed_states {
-                if affected_forward.contains(state_id) {
-                    let mut update_value = changed_value.clone();
-                    update_value.next_states.clear();
-                    update.insert(*state_id, TimedCheckValue::new(last_time, update_value));
-                }
-            }
+        for (state_id, changed_value) in
+            intersect_state_set_and_map(affected_forward, changed_states)
+        {
+            let mut update_value = changed_value.clone();
+            update_value.next_states.clear();
+            update.insert(state_id, TimedCheckValue::new(last_time, update_value));
         }
 
         Ok(update)

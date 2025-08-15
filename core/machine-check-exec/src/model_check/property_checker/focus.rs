@@ -34,6 +34,18 @@ impl Focus {
         self.affected_backward.clear();
     }
 
+    pub fn regenerate<M: FullMachine>(&mut self, space: &StateSpace<M>, added: &BTreeSet<StateId>) {
+        trace!("Regenerating, dirty before {:?}", self.dirty);
+        let mut dirty = BTreeSet::new();
+        std::mem::swap(&mut dirty, &mut self.dirty);
+        self.clear();
+        dirty.extend(added);
+
+        for state_id in dirty {
+            self.insert_dirty(space, state_id);
+        }
+    }
+
     pub fn dirty(&self) -> &BTreeSet<StateId> {
         &self.dirty
     }
@@ -64,8 +76,12 @@ impl Focus {
         }
         // make sure the affected states correspond
 
-        self.affected_forward.insert(state_id);
+        self.ensure_forward(space, state_id);
+        self.ensure_backward(space, state_id);
+    }
 
+    fn ensure_forward<M: FullMachine>(&mut self, space: &StateSpace<M>, state_id: StateId) {
+        self.affected_forward.insert(state_id);
         let mut current_affected = BTreeSet::from([state_id]);
         let mut next_affected = BTreeSet::new();
 
@@ -79,11 +95,12 @@ impl Focus {
             current_affected.clear();
             std::mem::swap(&mut current_affected, &mut next_affected);
         }
+    }
 
+    fn ensure_backward<M: FullMachine>(&mut self, space: &StateSpace<M>, state_id: StateId) {
         self.affected_backward.insert(state_id);
-        current_affected.clear();
-        current_affected.insert(state_id);
-        next_affected.clear();
+        let mut current_affected = BTreeSet::from([state_id]);
+        let mut next_affected = BTreeSet::new();
 
         for _ in 0..self.depth {
             for state_id in current_affected.iter().copied() {
@@ -96,23 +113,6 @@ impl Focus {
             }
             current_affected.clear();
             std::mem::swap(&mut current_affected, &mut next_affected);
-        }
-
-        /*trace!(
-            "Inserted dirty state {}, newly affected: {:?}",
-            state_id, self.affected
-        );*/
-    }
-
-    pub fn regenerate<M: FullMachine>(&mut self, space: &StateSpace<M>, added: &BTreeSet<StateId>) {
-        trace!("Regenerating, dirty before {:?}", self.dirty);
-        let mut dirty = BTreeSet::new();
-        std::mem::swap(&mut dirty, &mut self.dirty);
-        self.clear();
-        dirty.extend(added);
-
-        for state_id in dirty {
-            self.insert_dirty(space, state_id);
         }
     }
 }

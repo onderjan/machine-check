@@ -156,18 +156,6 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             }
         };
 
-        /*for (state_id, timed) in &updated {
-            let gotten = self
-                .getter()
-                .compute_latest_timed(subproperty_index, *state_id)?;
-            if *timed != gotten {
-                panic!(
-                    "Subproperty {} update state {} value {:?} does not match gotten {:?}",
-                    subproperty_index, state_id, timed, gotten
-                );
-            }
-        }*/
-
         Ok(updated)
     }
 }

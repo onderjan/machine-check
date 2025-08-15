@@ -31,13 +31,6 @@ pub struct FixedPointHistory {
 
 impl FixedPointHistory {
     pub fn insert(&mut self, time_instant: u64, state_id: StateId, value: CheckValue) {
-        /*trace!(
-            "Inserting for state id {} and time instant {}: {:?}",
-            state_id,
-            time_instant,
-            value
-        );*/
-
         let time_values = self.states.entry(state_id).or_default();
 
         // clear the entries at or after this time for this state
