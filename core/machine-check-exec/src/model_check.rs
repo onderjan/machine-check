@@ -78,6 +78,11 @@ impl ThreeValuedChecker {
             return Ok(Conclusion::NotCheckable);
         }
 
+        if result.is_known() {
+            // double-check known result
+            property_checker.double_check(space)?;
+        }
+
         // compute optimistic and pessimistic interpretation and get the conclusion from that
         match result {
             ThreeValued::False => Ok(Conclusion::Known(false)),
@@ -111,12 +116,5 @@ impl ThreeValuedChecker {
         for property_checker in self.property_checkers.values_mut() {
             property_checker.purge_states(space, &purge_states);
         }
-    }
-
-    pub fn double_check<M: FullMachine>(&self, space: &StateSpace<M>) -> Result<(), ExecError> {
-        for property_checker in self.property_checkers.values() {
-            property_checker.double_check(space)?;
-        }
-        Ok(())
     }
 }

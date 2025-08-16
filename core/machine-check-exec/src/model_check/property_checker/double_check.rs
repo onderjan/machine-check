@@ -95,6 +95,9 @@ impl PropertyChecker {
                 incremental_property_checker.histories,
             );
         }
-        panic!("Found inconsistencies when double-checking incremental model checking");
+        panic!(
+            "Found inconsistencies when double-checking incremental model checking for property {:?}",
+            self.property
+        );
     }
 }

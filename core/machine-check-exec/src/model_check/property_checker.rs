@@ -96,8 +96,6 @@ impl PropertyChecker {
             self.histories
         );
 
-        // double-check to be sure
-
         Ok(result)
     }
 
@@ -116,8 +114,6 @@ impl PropertyChecker {
     }
 
     fn squash(&mut self) -> Result<(), ExecError> {
-        //self.squash_inner(&mut 0, &mut 0, 0)
-
         let mut update_times = BTreeSet::new();
 
         for history in self.histories.values() {
@@ -126,10 +122,8 @@ impl PropertyChecker {
 
         let mut time_subtracts = BTreeMap::new();
 
-        let after_last_time = *update_times
-            .last()
-            .expect("There should be at least one update time")
-            + 1;
+        // if there are no fixed points, there are no update times, use last time 0
+        let after_last_time = *update_times.last().unwrap_or(&0) + 1;
 
         for (squash_time, update_time) in update_times.into_iter().enumerate() {
             let subtract = update_time - squash_time as u64;
