@@ -9,3 +9,8 @@ MACHINE_CHECK_GUI_WASM_DIR = "../../generated/machine-check-gui-wasm"
 # Postpone errors for frontend so they do not prevent the package from being built
 # (and failing later), for a better development experience.
 MACHINE_CHECK_GUI_POSTPONE_ERRORS = "true"
+
+# Can easily force an override of the log level, useful especially to figure out 
+# the problem when tests do not pass.
+# 0 = info, 1 = debug, 2 = trace.
+#MACHINE_CHECK_LOG_LEVEL_OVERRIDE = "2"
