@@ -1,22 +1,26 @@
 #![doc = include_str!("../README.md")]
 
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
+use mck::concr::FullMachine;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use support::error_list::ErrorList;
 use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
-use syn::{parse_quote, Attribute, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
+use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
 use syn_path::path;
 use wir::IntoSyn;
 
+use crate::iir::IProperty;
 use crate::util::create_item_mod;
-use crate::wir::WSpan;
+use crate::wir::{WBasicType, WIdent, WSpan, WTypeArray};
 
 mod abstr;
 mod concr;
 mod description;
+pub mod iir;
 mod refin;
 mod support;
 mod util;
@@ -45,6 +49,71 @@ pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Errors> {
     };
     process_items(items)?;
     Ok(module)
+}
+
+pub fn process_property<M: FullMachine>(
+    machine: &M::Abstr,
+    property: &str,
+) -> Result<IProperty, Errors> {
+    let expr: Expr = syn::parse_str(property).map_err(|err| {
+        Errors::single(Error::new(
+            ErrorType::ExpressionParseError(err.to_string()),
+            WSpan::from_span(err.span()),
+        ))
+    })?;
+    println!("Parsed: {:?}", expr);
+
+    // TODO: get field descriptions without constructing and stepping the machine
+    let globals = {
+        use mck::abstr::Machine;
+        use mck::misc::Meta;
+        use mck::refin::Refine;
+
+        let input_precision = <<M as FullMachine>::Refin as mck::refin::Machine<M>>::Input::clean();
+        let mut proto_iter = input_precision.into_proto_iter();
+        let panic_result = machine.init(
+            &proto_iter
+                .next()
+                .expect("Proto iterator should have at least one element"),
+        );
+        use mck::abstr::Manipulatable;
+        let mut fields = BTreeMap::new();
+        for field_name in
+            <<M::Abstr as mck::abstr::Machine<M>>::State as Manipulatable>::field_names()
+        {
+            let field = Manipulatable::get(&panic_result.result, field_name)
+                .expect("Field should be gettable");
+            fields.insert(String::from(field_name), field.description());
+        }
+        fields
+    };
+
+    let mut global_ident_types = HashMap::new();
+
+    for (global_name, global_field) in &globals {
+        let ty = match global_field {
+            mck::abstr::Field::Bitvector(field) => WBasicType::Bitvector(field.bit_width),
+
+            mck::abstr::Field::Array(field) => WBasicType::BitvectorArray(WTypeArray {
+                index_width: field.bit_length,
+                element_width: field.bit_width,
+            }),
+        };
+
+        global_ident_types.insert(WIdent::new(global_name.clone(), Span::call_site()), ty);
+    }
+
+    let (description, panic_messages) =
+        description::create_property_description(expr, &global_ident_types)?;
+    let description = abstr::create_abstract_property(description);
+
+    //println!("Abstract description: {:?}", description);
+
+    let property = IProperty::from_wir(description, globals);
+    println!("Property: {:#?}", property);
+
+    //interpret::execute_function(&description, "property");
+    Ok(property)
 }
 
 pub fn default_main() -> Item {

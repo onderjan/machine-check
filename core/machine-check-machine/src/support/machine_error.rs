@@ -2,6 +2,8 @@ use crate::wir::WSpan;
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum ErrorType {
+    #[error("Error parsing as Rust expression: {0}")]
+    ExpressionParseError(String),
     #[error("machine-check: Cannot parse module without content")]
     ModuleWithoutContent,
 
@@ -38,7 +40,7 @@ pub enum ErrorType {
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
-#[error("{span:?}: {ty}")]
+#[error("{ty}")]
 pub struct Error {
     pub(crate) ty: ErrorType,
     pub(crate) span: WSpan,
@@ -51,5 +53,9 @@ impl Error {
 
     pub fn into_syn_error(self) -> syn::Error {
         syn::Error::new_spanned(self.span.syn_delimiters(), self.ty.to_string())
+    }
+
+    pub fn span(&self) -> WSpan {
+        self.span
     }
 }

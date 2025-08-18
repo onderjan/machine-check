@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, fmt::Display};
 
 use vec1::Vec1;
 
@@ -144,5 +144,14 @@ impl<E: Error> Extend<ErrorList<E>> for ErrorList<E> {
         for errors in iter {
             self.errors.extend(errors);
         }
+    }
+}
+
+impl<E: Error> Display for ErrorList<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for error in &self.errors {
+            writeln!(f, "{}", error)?;
+        }
+        Ok(())
     }
 }

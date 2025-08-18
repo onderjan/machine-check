@@ -10,7 +10,10 @@ use crate::wir::{
 
 use super::{Error, ErrorType, Errors};
 
-pub fn infer_types(description: WDescription<YSsa>) -> Result<WDescription<YInferred>, Errors> {
+pub fn infer_types(
+    description: WDescription<YSsa>,
+    global_ident_types: &HashMap<WIdent, WBasicType>,
+) -> Result<WDescription<YInferred>, Errors> {
     let mut structs = HashMap::new();
     // add structures first
     for item in description.structs.iter() {
@@ -26,7 +29,12 @@ pub fn infer_types(description: WDescription<YSsa>) -> Result<WDescription<YInfe
         let mut fn_items = Vec::new();
 
         for fn_item in item_impl.impl_item_fns {
-            fn_items.push(infer_fn_types(fn_item, &structs, self_path));
+            fn_items.push(infer_fn_types(
+                fn_item,
+                &structs,
+                self_path,
+                global_ident_types,
+            ));
         }
 
         let fn_items = Errors::flat_result(fn_items);
@@ -54,6 +62,7 @@ fn infer_fn_types(
     mut impl_item_fn: WImplItemFn<YSsa>,
     structs: &HashMap<WPath, WItemStruct<WBasicType>>,
     self_path: &WPath,
+    global_ident_types: &HashMap<WIdent, WBasicType>,
 ) -> Result<WImplItemFn<YInferred>, Errors> {
     fn convert_self(ty: &mut WType<WBasicType>, self_path: &WPath) {
         if let WBasicType::Path(path) = &mut ty.inner {
@@ -64,6 +73,13 @@ fn infer_fn_types(
     }
 
     let mut local_ident_types = HashMap::new();
+
+    for (global_ident, global_ident_type) in global_ident_types {
+        local_ident_types.insert(
+            global_ident.clone(),
+            WPartialGeneralType::Normal(global_ident_type.clone().into_type()),
+        );
+    }
 
     // add param idents
     for fn_arg in &mut impl_item_fn.signature.inputs {
@@ -169,6 +185,8 @@ impl FnInferrer<'_> {
     ) -> Result<WImplItemFn<YInferred>, Errors> {
         let mut errors = Vec::new();
 
+        //println!("Fn: {:#?}", impl_item_fn);
+
         let mut locals = Vec::new();
         // add inferred types to the definitions
         for local in impl_item_fn.locals {
@@ -180,6 +198,8 @@ impl FnInferrer<'_> {
                 WPartialGeneralType::PhiArg(Some(ty)) => Some(WGeneralType::PhiArg(ty)),
                 _ => None,
             };
+
+            //println!("Local {:?} inferred: {:?}", local, inferred_type);
 
             match inferred_type {
                 Some(inferred_type) => {

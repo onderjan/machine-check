@@ -1,5 +1,9 @@
+use proc_macro2::Span;
 use std::{fmt::Debug, hash::Hash};
-use syn::{Expr, File, Item, ItemImpl, Local, Path, Stmt, Type};
+use syn::{
+    token::Brace, Expr, File, Generics, Ident, ImplItem, Item, ItemImpl, Local, Path, Stmt, Token,
+    Type,
+};
 
 mod call;
 mod expr;
@@ -21,10 +25,17 @@ pub use span::*;
 pub use stmt::*;
 pub use ty::*;
 
+use crate::util::{create_path_from_ident, create_type_path};
+
 #[derive(Clone, Debug, Hash)]
 pub struct WDescription<Y: YStage> {
     pub structs: Vec<WItemStruct<<Y::AssignTypes as ZAssignTypes>::FundamentalType>>,
     pub impls: Vec<WItemImpl<Y>>,
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WProperty<Y: YStage> {
+    pub fns: Vec<WImplItemFn<Y>>,
 }
 
 pub trait IntoSyn<T> {
@@ -49,6 +60,36 @@ where
                         .map(|item| Item::Impl(item.into_syn())),
                 )
                 .collect(),
+        }
+    }
+}
+
+impl<Y: YStage> IntoSyn<File> for WProperty<Y>
+where
+    WItemImpl<Y>: IntoSyn<ItemImpl>,
+{
+    fn into_syn(self) -> File {
+        File {
+            shebang: None,
+            attrs: Vec::new(),
+            items: vec![Item::Impl(ItemImpl {
+                attrs: vec![],
+                defaultness: None,
+                unsafety: None,
+                impl_token: Token![impl](Span::call_site()),
+                generics: Generics::default(),
+                trait_: None,
+                self_ty: Box::new(create_type_path(create_path_from_ident(Ident::new(
+                    "PropertyComputer",
+                    Span::call_site(),
+                )))),
+                brace_token: Brace::default(),
+                items: self
+                    .fns
+                    .into_iter()
+                    .map(|fun| ImplItem::Fn(fun.into_syn()))
+                    .collect(),
+            })],
         }
     }
 }
