@@ -23,9 +23,13 @@ pub(crate) use three_valued::ThreeValuedFieldValue;
 
 #[cfg(not(feature = "Zdual_interval"))]
 pub type Bitvector<const W: u32> = three_valued::ThreeValuedBitvector<W>;
+#[cfg(not(feature = "Zdual_interval"))]
+pub type RBitvector = three_valued::RThreeValuedBitvector;
 
 #[cfg(feature = "Zdual_interval")]
 pub type Bitvector<const W: u32> = combined::CombinedBitvector<W>;
+#[cfg(feature = "Zdual_interval")]
+pub type RBitvector = combined::RCombinedBitvector;
 
 pub type BooleanBitvector = Bitvector<1>;
 pub type PanicBitvector = Bitvector<32>;

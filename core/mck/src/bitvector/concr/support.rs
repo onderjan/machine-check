@@ -3,6 +3,8 @@ use std::fmt::Display;
 
 use crate::bitvector::util;
 use crate::concr::RConcreteBitvector;
+use crate::concr::RSignedBitvector;
+use crate::concr::RUnsignedBitvector;
 use crate::concr::Test;
 use crate::forward::Bitwise;
 use crate::forward::TypedCmp;
@@ -12,15 +14,7 @@ use super::SignedBitvector;
 use super::UnsignedBitvector;
 
 impl RConcreteBitvector {
-    pub const fn bit_mask_u64(self) -> u64 {
-        util::compute_u64_mask(self.width)
-    }
-
-    pub const fn sign_bit_mask_u64(self) -> u64 {
-        util::compute_u64_sign_bit_mask(self.width)
-    }
-
-    pub fn from_unwrapped_u64(value: u64, width: u32) -> Self {
+    pub fn new(value: u64, width: u32) -> Self {
         let mask: u64 = util::compute_u64_mask(width);
         if (value & !mask) != 0 {
             panic!(
@@ -29,6 +23,36 @@ impl RConcreteBitvector {
             );
         }
         Self { value, width }
+    }
+
+    pub fn width(self) -> u32 {
+        self.width
+    }
+
+    pub const fn zero(width: u32) -> Self {
+        Self { value: 0, width }
+    }
+
+    pub const fn bit_mask_u64(self) -> u64 {
+        util::compute_u64_mask(self.width)
+    }
+
+    pub const fn bit_mask_bitvector(self) -> Self {
+        Self {
+            value: self.bit_mask_u64(),
+            width: self.width,
+        }
+    }
+
+    pub const fn sign_bit_mask_u64(self) -> u64 {
+        util::compute_u64_sign_bit_mask(self.width)
+    }
+
+    pub const fn sign_bit_mask_bitvector(self) -> Self {
+        Self {
+            value: self.sign_bit_mask_u64(),
+            width: self.width,
+        }
     }
 
     pub fn from_masked_u64(value: u64, width: u32) -> Self {
@@ -58,6 +82,26 @@ impl RConcreteBitvector {
     pub fn unwrap_typed<const W: u32>(self) -> ConcreteBitvector<W> {
         assert_eq!(self.width, W);
         ConcreteBitvector(self.value)
+    }
+
+    pub const fn cast_unsigned(self) -> RUnsignedBitvector {
+        RUnsignedBitvector::from_bitvector(self)
+    }
+
+    pub const fn cast_signed(self) -> RSignedBitvector {
+        RSignedBitvector::from_bitvector(self)
+    }
+
+    pub fn is_full_mask(&self) -> bool {
+        self.value == self.bit_mask_u64()
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.value == 0
+    }
+
+    pub fn is_nonzero(&self) -> bool {
+        self.value != 0
     }
 }
 

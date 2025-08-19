@@ -6,11 +6,103 @@ use std::{
 use num::{One, Zero};
 
 use crate::{
-    concr::PanicResult,
+    concr::{PanicResult, RConcreteBitvector},
     forward::{Ext, HwArith, HwShift},
 };
 
 use super::ConcreteBitvector;
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct RSignedBitvector(RConcreteBitvector);
+
+impl RSignedBitvector {
+    pub(crate) fn new(value: u64, width: u32) -> Self {
+        Self::from_bitvector(RConcreteBitvector::new(value, width))
+    }
+
+    pub(crate) const fn from_bitvector(bitvector: RConcreteBitvector) -> Self {
+        RSignedBitvector(bitvector)
+    }
+
+    pub fn as_bitvector(self) -> RConcreteBitvector {
+        self.0
+    }
+
+    pub fn to_i64(self) -> i64 {
+        self.0.to_i64()
+    }
+}
+
+impl PartialOrd for RSignedBitvector {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for RSignedBitvector {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // unsigned comparison
+        self.0.signed_cmp(&other.0)
+    }
+}
+
+impl Neg for RSignedBitvector {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self(self.0.arith_neg())
+    }
+}
+
+impl Add<RSignedBitvector> for RSignedBitvector {
+    type Output = Self;
+
+    fn add(self, rhs: RSignedBitvector) -> Self::Output {
+        Self(self.0.add(rhs.0))
+    }
+}
+
+impl Sub<RSignedBitvector> for RSignedBitvector {
+    type Output = Self;
+
+    fn sub(self, rhs: RSignedBitvector) -> Self::Output {
+        Self(self.0.sub(rhs.0))
+    }
+}
+
+impl Mul<RSignedBitvector> for RSignedBitvector {
+    type Output = Self;
+
+    fn mul(self, rhs: RSignedBitvector) -> Self::Output {
+        Self(self.0.mul(rhs.0))
+    }
+}
+
+impl Div<RSignedBitvector> for RSignedBitvector {
+    type Output = PanicResult<Self>;
+
+    fn div(self, rhs: RSignedBitvector) -> PanicResult<Self> {
+        // signed division
+        let panic_result = self.0.sdiv(rhs.0);
+        PanicResult {
+            panic: panic_result.panic,
+            result: Self(panic_result.result),
+        }
+    }
+}
+
+impl Rem<RSignedBitvector> for RSignedBitvector {
+    type Output = PanicResult<Self>;
+
+    fn rem(self, rhs: RSignedBitvector) -> PanicResult<Self> {
+        // signed remainder
+        let panic_result = self.0.srem(rhs.0);
+        PanicResult {
+            panic: panic_result.panic,
+            result: Self(panic_result.result),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct SignedBitvector<const W: u32>(ConcreteBitvector<W>);

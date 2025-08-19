@@ -1,23 +1,17 @@
 pub mod concr {
-    use crate::concr::{ConcreteBitvector, RConcreteBitvector};
-
-    pub struct RPanicResult<T> {
-        pub panic: RConcreteBitvector,
-        pub result: T,
-    }
-
-    impl RPanicResult<RConcreteBitvector> {
-        pub(crate) fn unwrap_typed<const W: u32>(self) -> PanicResult<ConcreteBitvector<W>> {
-            PanicResult {
-                panic: self.panic.unwrap_typed(),
-                result: self.result.unwrap_typed(),
-            }
-        }
-    }
 
     pub struct PanicResult<T> {
         pub panic: crate::concr::Bitvector<32>,
         pub result: T,
+    }
+
+    impl PanicResult<crate::concr::RBitvector> {
+        pub(crate) fn unwrap_typed<const W: u32>(self) -> PanicResult<crate::concr::Bitvector<W>> {
+            PanicResult {
+                panic: self.panic,
+                result: self.result.unwrap_typed(),
+            }
+        }
     }
 }
 
@@ -31,6 +25,15 @@ pub mod abstr {
     pub struct PanicResult<T> {
         pub panic: PanicBitvector,
         pub result: T,
+    }
+
+    impl PanicResult<crate::abstr::RBitvector> {
+        pub(crate) fn unwrap_typed<const W: u32>(self) -> PanicResult<crate::abstr::Bitvector<W>> {
+            PanicResult {
+                panic: self.panic,
+                result: self.result.unwrap_typed(),
+            }
+        }
     }
 
     impl<T: MetaEq> MetaEq for PanicResult<T> {

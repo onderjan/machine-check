@@ -8,15 +8,145 @@ use crate::{
         Test,
     },
     bitvector::{
+        abstr::three_valued::RThreeValuedBitvector,
         interval::UnsignedInterval,
         util::{self, compute_u64_mask},
     },
-    concr::{self, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
+    concr::{
+        self, ConcreteBitvector, RConcreteBitvector, RSignedBitvector, RUnsignedBitvector,
+        SignedBitvector, UnsignedBitvector,
+    },
     forward::Bitwise,
     traits::misc::MetaEq,
 };
 
 use super::ThreeValuedBitvector;
+
+impl RThreeValuedBitvector {
+    #[must_use]
+    pub fn new(value: u64, width: u32) -> Self {
+        Self::from_concrete(RConcreteBitvector::new(value, width))
+    }
+
+    #[must_use]
+    pub fn new_unknown(width: u32) -> Self {
+        // all zeros and ones set within mask
+        let zeros = RConcreteBitvector::from_masked_u64(!0u64, width);
+        let ones = zeros;
+        Self::from_zeros_ones(zeros, ones)
+    }
+
+    fn from_concrete(value: RConcreteBitvector) -> Self {
+        // bit-negate for zeros
+        let zeros = Bitwise::bit_not(value);
+        // leave as-is for ones
+        let ones = value;
+
+        Self::from_zeros_ones(zeros, ones)
+    }
+
+    pub fn width(&self) -> u32 {
+        self.zeros.width()
+    }
+
+    #[must_use]
+    pub fn from_zeros_ones(zeros: RConcreteBitvector, ones: RConcreteBitvector) -> Self {
+        assert_eq!(zeros.width(), ones.width());
+        RThreeValuedBitvector { zeros, ones }
+    }
+
+    pub(crate) fn unwrap_typed<const W: u32>(self) -> ThreeValuedBitvector<W> {
+        assert_eq!(self.zeros.width(), W);
+        ThreeValuedBitvector {
+            zeros: self.zeros.unwrap_typed(),
+            ones: self.ones.unwrap_typed(),
+        }
+    }
+
+    #[must_use]
+    pub fn umin(&self) -> RUnsignedBitvector {
+        // unsigned min value is value of bit-negated zeros (one only where it must be)
+        self.zeros.bit_not().cast_unsigned()
+    }
+
+    #[must_use]
+    pub fn umax(&self) -> RUnsignedBitvector {
+        // unsigned max value is value of ones (one everywhere it can be)
+        self.ones.cast_unsigned()
+    }
+
+    #[must_use]
+    pub fn smin(&self) -> RSignedBitvector {
+        let sign_bit_mask = self.zeros.sign_bit_mask_bitvector();
+        // take the unsigned minimum
+        let mut result = self.umin().as_bitvector();
+        // but the signed value is smaller when the sign bit is one
+        // if it is possible to set it to one, set it
+        if self.is_ones_sign_bit_set() {
+            result = result.bit_or(sign_bit_mask)
+        }
+        result.cast_signed()
+    }
+
+    #[must_use]
+    pub fn smax(&self) -> RSignedBitvector {
+        let sign_bit_mask = self.zeros.sign_bit_mask_bitvector();
+        // take the unsigned maximum
+        let mut result = self.umax().as_bitvector();
+        // but the signed value is bigger when the sign bit is zero
+        // if it is possible to set it to zero, set it
+        if self.is_zeros_sign_bit_set() {
+            result = result.bit_and(sign_bit_mask.bit_not());
+        }
+        result.cast_signed()
+    }
+
+    #[must_use]
+    pub fn is_zeros_sign_bit_set(&self) -> bool {
+        self.zeros.is_sign_bit_set()
+    }
+
+    #[must_use]
+    pub fn is_ones_sign_bit_set(&self) -> bool {
+        self.ones.is_sign_bit_set()
+    }
+
+    pub const fn bit_mask_u64(self) -> u64 {
+        self.zeros.bit_mask_u64()
+    }
+
+    pub const fn bit_mask_bitvector(self) -> RConcreteBitvector {
+        self.zeros.bit_mask_bitvector()
+    }
+
+    #[must_use]
+    pub fn contains_concr(&self, a: &RConcreteBitvector) -> bool {
+        assert_eq!(self.width(), a.width());
+        // value zeros must be within our zeros and value ones must be within our ones
+        let excessive_rhs_zeros = a.bit_not().bit_and(self.zeros.bit_not());
+        let excessive_rhs_ones = a.bit_and(self.ones.bit_not());
+        excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
+    }
+
+    #[must_use]
+    pub fn concrete_value(&self) -> Option<RConcreteBitvector> {
+        // all bits must be equal
+        let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones, self.zeros));
+        if !nxor.is_zero() {
+            return None;
+        }
+        // ones then contain the value
+        Some(self.ones)
+    }
+
+    #[must_use]
+    pub fn new_value_unknown(value: RConcreteBitvector, unknown: RConcreteBitvector) -> Self {
+        assert_eq!(value.width(), unknown.width());
+        let zeros = Bitwise::bit_or(Bitwise::bit_not(value), unknown);
+        let ones = Bitwise::bit_or(value, unknown);
+        Self::from_zeros_ones(zeros, ones)
+    }
+}
 
 impl<const W: u32> Abstr<concr::Bitvector<W>> for ThreeValuedBitvector<W> {
     fn from_concrete(value: concr::Bitvector<W>) -> Self {
@@ -33,6 +163,13 @@ impl<const W: u32> ThreeValuedBitvector<W> {
     #[must_use]
     pub fn new(value: u64) -> Self {
         Self::from_concrete(ConcreteBitvector::new(value))
+    }
+
+    pub(crate) fn to_runtime(self) -> RThreeValuedBitvector {
+        RThreeValuedBitvector {
+            zeros: self.zeros.to_runtime(),
+            ones: self.ones.to_runtime(),
+        }
     }
 
     #[must_use]

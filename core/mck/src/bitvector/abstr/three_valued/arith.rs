@@ -2,17 +2,18 @@ use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_
 
 use super::ThreeValuedBitvector;
 use crate::abstr::{PanicBitvector, PanicResult, Phi};
+use crate::bitvector::abstr::three_valued::RThreeValuedBitvector;
 use crate::bitvector::util;
-use crate::concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
+use crate::concr::{RConcreteBitvector, RSignedBitvector, RUnsignedBitvector};
 use crate::forward::HwArith;
 
-impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
+impl HwArith for RThreeValuedBitvector {
     type DivRemResult = PanicResult<Self>;
 
     fn arith_neg(self) -> Self {
         // arithmetic negation
         // since we use wrapping arithmetic, same as subtracting the value from 0
-        HwArith::sub(Self::new(0), self)
+        HwArith::sub(Self::new(0, self.width()), self)
     }
     fn add(self, rhs: Self) -> Self {
         minmax_compute(self, rhs, |lhs, rhs, k| {
@@ -40,6 +41,8 @@ impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
         })
     }
     fn mul(self, rhs: Self) -> Self {
+        assert_eq!(self.width(), rhs.width());
+
         // use the minmax algorithm for now
         minmax_compute(self, rhs, |lhs, rhs, k| {
             // prepare a mask that selects interval [0, k]
@@ -58,18 +61,26 @@ impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
     }
 
     fn udiv(self, rhs: Self) -> PanicResult<Self> {
+        assert_eq!(self.width(), rhs.width());
+        let width = self.width();
+
         let min_division_result = (self.umin() / rhs.umax()).result.to_u64();
         let max_division_result = (self.umax() / rhs.umin()).result.to_u64();
-        let result = convert_uarith(min_division_result, max_division_result);
+        let result = convert_uarith(min_division_result, max_division_result, width);
         panic_result(rhs, result, PANIC_NUM_DIV_BY_ZERO)
     }
 
     fn sdiv(self, rhs: Self) -> PanicResult<Self> {
+        assert_eq!(self.width(), rhs.width());
+
         let result = compute_sdivrem(self, rhs, |a, b| (a / b).result);
         panic_result(rhs, result, PANIC_NUM_DIV_BY_ZERO)
     }
 
     fn urem(self, rhs: Self) -> PanicResult<Self> {
+        assert_eq!(self.width(), rhs.width());
+        let width = self.width();
+
         let dividend_min = self.umin();
         let dividend_max = self.umax();
         let divisor_min = rhs.umin();
@@ -79,22 +90,25 @@ impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
 
         if min_division_result != max_division_result {
             // division results are different, return fully unknown
-            let result = ThreeValuedBitvector::new_unknown();
+            let result = RThreeValuedBitvector::new_unknown(width);
             return panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO);
         }
 
         // division results are the same, return operation result
         let min_result = (dividend_min % divisor_max).result.to_u64();
         let max_result = (dividend_max % divisor_min).result.to_u64();
-        let result = convert_uarith(min_result, max_result);
+        let result = convert_uarith(min_result, max_result, width);
         panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO)
     }
 
     fn srem(self, rhs: Self) -> PanicResult<Self> {
+        assert_eq!(self.width(), rhs.width());
+        let width = self.width();
+
         let sdiv_result = self.sdiv(rhs);
         if sdiv_result.result.concrete_value().is_none() {
             // sdiv is not a concrete value, make fully unknown
-            let result = Self::new_unknown();
+            let result = RThreeValuedBitvector::new_unknown(width);
             return panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO);
         }
 
@@ -103,16 +117,55 @@ impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
     }
 }
 
-fn panic_result<const W: u32>(
-    divisor: ThreeValuedBitvector<W>,
-    result: ThreeValuedBitvector<W>,
+impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
+    type DivRemResult = PanicResult<Self>;
+
+    fn arith_neg(self) -> Self {
+        self.to_runtime().arith_neg().unwrap_typed()
+    }
+    fn add(self, rhs: Self) -> Self {
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.add(rhs).unwrap_typed()
+    }
+    fn sub(self, rhs: Self) -> Self {
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.sub(rhs).unwrap_typed()
+    }
+    fn mul(self, rhs: Self) -> Self {
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.mul(rhs).unwrap_typed()
+    }
+
+    fn udiv(self, rhs: Self) -> PanicResult<Self> {
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.udiv(rhs).unwrap_typed()
+    }
+
+    fn sdiv(self, rhs: Self) -> PanicResult<Self> {
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.sdiv(rhs).unwrap_typed()
+    }
+
+    fn urem(self, rhs: Self) -> PanicResult<Self> {
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.urem(rhs).unwrap_typed()
+    }
+
+    fn srem(self, rhs: Self) -> PanicResult<Self> {
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.srem(rhs).unwrap_typed()
+    }
+}
+
+fn panic_result(
+    divisor: RThreeValuedBitvector,
+    result: RThreeValuedBitvector,
     panic_msg_num: u64,
-) -> PanicResult<ThreeValuedBitvector<W>> {
-    let can_panic = divisor.contains_concr(&ConcreteBitvector::zero());
-    let must_panic = divisor
-        .concrete_value()
-        .map(|v| v == ConcreteBitvector::zero())
-        .unwrap_or(false);
+) -> PanicResult<RThreeValuedBitvector> {
+    let width = divisor.width();
+    let zero = RConcreteBitvector::zero(width);
+    let can_panic = divisor.contains_concr(&zero);
+    let must_panic = divisor.concrete_value().map(|v| v == zero).unwrap_or(false);
     let panic = if must_panic {
         PanicBitvector::new(panic_msg_num)
     } else if can_panic {
@@ -123,11 +176,12 @@ fn panic_result<const W: u32>(
     PanicResult { panic, result }
 }
 
-fn minmax_compute<const W: u32>(
-    lhs: ThreeValuedBitvector<W>,
-    rhs: ThreeValuedBitvector<W>,
-    zeta_k_fn: fn(ThreeValuedBitvector<W>, ThreeValuedBitvector<W>, u32) -> (u64, u64),
-) -> ThreeValuedBitvector<W> {
+fn minmax_compute(
+    lhs: RThreeValuedBitvector,
+    rhs: RThreeValuedBitvector,
+    zeta_k_fn: fn(RThreeValuedBitvector, RThreeValuedBitvector, u32) -> (u64, u64),
+) -> RThreeValuedBitvector {
+    let width = lhs.width();
     // from previous paper
 
     // start with no possibilites
@@ -135,7 +189,7 @@ fn minmax_compute<const W: u32>(
     let mut zeros = 0u64;
 
     // iterate over output bits
-    for k in 0..W {
+    for k in 0..width {
         // compute h_k extremes
         let (zeta_k_min, zeta_k_max) = zeta_k_fn(lhs, rhs, k);
 
@@ -150,17 +204,17 @@ fn minmax_compute<const W: u32>(
             ones |= (zeta_k_min & 1) << k;
         }
     }
-    ThreeValuedBitvector::from_zeros_ones(
-        ConcreteBitvector::new(zeros),
-        ConcreteBitvector::new(ones),
+    RThreeValuedBitvector::from_zeros_ones(
+        RConcreteBitvector::new(zeros, width),
+        RConcreteBitvector::new(ones, width),
     )
 }
 
-fn addsub_zeta_k_fn<const W: u32>(
-    left_min: UnsignedBitvector<W>,
-    left_max: UnsignedBitvector<W>,
-    right_min: UnsignedBitvector<W>,
-    right_max: UnsignedBitvector<W>,
+fn addsub_zeta_k_fn(
+    left_min: RUnsignedBitvector,
+    left_max: RUnsignedBitvector,
+    right_min: RUnsignedBitvector,
+    right_max: RUnsignedBitvector,
     k: u32,
     func: fn(u64, u64) -> (u64, bool),
 ) -> (u64, u64) {
@@ -188,28 +242,30 @@ fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
     result
 }
 
-fn convert_uarith<const W: u32>(min: u64, max: u64) -> ThreeValuedBitvector<W> {
+fn convert_uarith(min: u64, max: u64, width: u32) -> RThreeValuedBitvector {
     // make highest different bit and all after it unknown
     let different = min ^ max;
     if different == 0 {
         // both are the same
-        return ThreeValuedBitvector::new(min);
+        return RThreeValuedBitvector::new(min, width);
     }
 
     let highest_different_bit_pos = different.ilog2();
     let unknown_mask = util::compute_u64_mask(highest_different_bit_pos + 1);
-    ThreeValuedBitvector::new_value_unknown(
-        ConcreteBitvector::new(min),
-        ConcreteBitvector::new(unknown_mask),
+    RThreeValuedBitvector::new_value_unknown(
+        RConcreteBitvector::new(min, width),
+        RConcreteBitvector::new(unknown_mask, width),
     )
 }
 
-fn compute_sdivrem<const W: u32>(
-    dividend: ThreeValuedBitvector<W>,
-    divisor: ThreeValuedBitvector<W>,
-    op_fn: fn(SignedBitvector<W>, SignedBitvector<W>) -> SignedBitvector<W>,
-) -> ThreeValuedBitvector<W> {
-    if W == 0 {
+fn compute_sdivrem(
+    dividend: RThreeValuedBitvector,
+    divisor: RThreeValuedBitvector,
+    op_fn: fn(RSignedBitvector, RSignedBitvector) -> RSignedBitvector,
+) -> RThreeValuedBitvector {
+    let width = dividend.width();
+
+    if width == 0 {
         // prevent problems
         return dividend;
     }
@@ -225,7 +281,7 @@ fn compute_sdivrem<const W: u32>(
         let divisor_min = if divisor_min.to_i64() > 1 {
             divisor_min
         } else {
-            SignedBitvector::new(1)
+            RSignedBitvector::new(1, width)
         };
 
         apply_signed_op(
@@ -247,8 +303,8 @@ fn compute_sdivrem<const W: u32>(
             &mut ones,
             dividend.smin(),
             dividend.smax(),
-            SignedBitvector::new(0),
-            SignedBitvector::new(0),
+            RSignedBitvector::new(0, width),
+            RSignedBitvector::new(0, width),
             op_fn,
         );
     }
@@ -257,12 +313,12 @@ fn compute_sdivrem<const W: u32>(
         // -1 divisor, causes overflow when the dividend is the most negative value, handle separately
         // handle separately
 
-        let minus_one = ConcreteBitvector::bit_mask().cast_signed();
+        let minus_one = dividend.bit_mask_bitvector().cast_signed();
 
         let mut dividend_min = dividend.smin();
         let dividend_max = dividend.smax();
 
-        if dividend_min == ConcreteBitvector::sign_bit_mask().cast_signed() {
+        if dividend_min == dividend.zeros.sign_bit_mask_bitvector().cast_signed() {
             // overflow
             apply_signed_op(
                 &mut zeros,
@@ -274,7 +330,7 @@ fn compute_sdivrem<const W: u32>(
                 op_fn,
             );
             if dividend_min != dividend_max {
-                dividend_min = dividend_min + SignedBitvector::new(1);
+                dividend_min = dividend_min + RSignedBitvector::new(1, width);
             }
         }
 
@@ -294,7 +350,7 @@ fn compute_sdivrem<const W: u32>(
         let divisor_max = if divisor_max.to_i64() < -1 {
             divisor_max
         } else {
-            -SignedBitvector::new(2)
+            -RSignedBitvector::new(2, width)
         };
 
         apply_signed_op(
@@ -308,21 +364,22 @@ fn compute_sdivrem<const W: u32>(
         );
     }
 
-    ThreeValuedBitvector::from_zeros_ones(
-        ConcreteBitvector::new(zeros),
-        ConcreteBitvector::new(ones),
+    RThreeValuedBitvector::from_zeros_ones(
+        RConcreteBitvector::new(zeros, width),
+        RConcreteBitvector::new(ones, width),
     )
 }
 
-fn apply_signed_op<const W: u32>(
+fn apply_signed_op(
     zeros: &mut u64,
     ones: &mut u64,
-    a_min: SignedBitvector<W>,
-    a_max: SignedBitvector<W>,
-    b_min: SignedBitvector<W>,
-    b_max: SignedBitvector<W>,
-    op_fn: fn(SignedBitvector<W>, SignedBitvector<W>) -> SignedBitvector<W>,
+    a_min: RSignedBitvector,
+    a_max: RSignedBitvector,
+    b_min: RSignedBitvector,
+    b_max: RSignedBitvector,
+    op_fn: fn(RSignedBitvector, RSignedBitvector) -> RSignedBitvector,
 ) {
+    let width = a_min.as_bitvector().width();
     // apply all configurations
     // cast to unsigned u64 afterwards
     let x = op_fn(a_min, b_min).as_bitvector().cast_unsigned().to_u64();
@@ -331,7 +388,7 @@ fn apply_signed_op<const W: u32>(
     let w = op_fn(a_max, b_max).as_bitvector().cast_unsigned().to_u64();
 
     // find the highest different bit
-    let found_zeros = (!x | !y | !z | !w) & util::compute_u64_mask(W);
+    let found_zeros = (!x | !y | !z | !w) & util::compute_u64_mask(width);
     let found_ones = x | y | z | w;
     let different = found_zeros & found_ones;
 

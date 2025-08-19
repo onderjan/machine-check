@@ -4,9 +4,9 @@ use crate::{
     forward::{Bitwise, TypedEq},
 };
 
-use super::ThreeValuedBitvector;
+use super::{RThreeValuedBitvector, ThreeValuedBitvector};
 
-impl<const W: u32> TypedEq for ThreeValuedBitvector<W> {
+impl TypedEq for RThreeValuedBitvector {
     type Output = Boolean;
     fn eq(self, rhs: Self) -> Self::Output {
         // result can be true if all bits can be the same
@@ -27,5 +27,18 @@ impl<const W: u32> TypedEq for ThreeValuedBitvector<W> {
 
     fn ne(self, rhs: Self) -> Self::Output {
         self.eq(rhs).bit_not()
+    }
+}
+
+impl<const W: u32> TypedEq for ThreeValuedBitvector<W> {
+    type Output = Boolean;
+    fn eq(self, rhs: Self) -> Self::Output {
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.eq(rhs)
+    }
+
+    fn ne(self, rhs: Self) -> Self::Output {
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.ne(rhs)
     }
 }

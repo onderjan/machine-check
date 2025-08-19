@@ -1,13 +1,11 @@
-use crate::{bitvector::util, concr::ConcreteBitvector, forward::Ext};
+use crate::{bitvector::util, concr::RConcreteBitvector, forward::Ext};
 
-use super::ThreeValuedBitvector;
+use super::{RThreeValuedBitvector, ThreeValuedBitvector};
 
-impl<const W: u32, const X: u32> Ext<X> for ThreeValuedBitvector<W> {
-    type Output = ThreeValuedBitvector<X>;
-
-    fn uext(self) -> Self::Output {
-        let old_mask = util::compute_u64_mask(W);
-        let new_mask = util::compute_u64_mask(X);
+impl RThreeValuedBitvector {
+    fn uext(self, new_width: u32) -> RThreeValuedBitvector {
+        let old_mask = self.bit_mask_u64();
+        let new_mask = util::compute_u64_mask(new_width);
 
         // shorten if needed
         let shortened_zeros = self.zeros.to_u64() & new_mask;
@@ -22,17 +20,20 @@ impl<const W: u32, const X: u32> Ext<X> for ThreeValuedBitvector<W> {
         let ones = shortened_ones;
 
         // shorten if needed, lengthening is fine
-        Self::Output::from_zeros_ones(ConcreteBitvector::new(zeros), ConcreteBitvector::new(ones))
+        RThreeValuedBitvector::from_zeros_ones(
+            RConcreteBitvector::new(zeros, new_width),
+            RConcreteBitvector::new(ones, new_width),
+        )
     }
 
-    fn sext(self) -> Self::Output {
-        if W == 0 {
+    fn sext(self, new_width: u32) -> RThreeValuedBitvector {
+        if self.width() == 0 {
             // no zeros nor ones, handle specially by returning zero
-            return Self::Output::new(0);
+            return RThreeValuedBitvector::new(0, new_width);
         }
 
-        let old_mask = util::compute_u64_mask(W);
-        let new_mask = util::compute_u64_mask(X);
+        let old_mask = self.bit_mask_u64();
+        let new_mask = util::compute_u64_mask(new_width);
 
         // shorten if needed
         let shortened_zeros = self.zeros.to_u64() & new_mask;
@@ -55,6 +56,21 @@ impl<const W: u32, const X: u32> Ext<X> for ThreeValuedBitvector<W> {
             shortened_ones
         };
 
-        Self::Output::from_zeros_ones(ConcreteBitvector::new(zeros), ConcreteBitvector::new(ones))
+        RThreeValuedBitvector::from_zeros_ones(
+            RConcreteBitvector::new(zeros, new_width),
+            RConcreteBitvector::new(ones, new_width),
+        )
+    }
+}
+
+impl<const W: u32, const X: u32> Ext<X> for ThreeValuedBitvector<W> {
+    type Output = ThreeValuedBitvector<X>;
+
+    fn uext(self) -> Self::Output {
+        self.to_runtime().uext(X).unwrap_typed()
+    }
+
+    fn sext(self) -> Self::Output {
+        self.to_runtime().sext(X).unwrap_typed()
     }
 }
