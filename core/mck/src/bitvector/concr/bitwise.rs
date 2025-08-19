@@ -22,15 +22,18 @@ impl RConcreteBitvector {
 
 impl<const L: u32> Bitwise for ConcreteBitvector<L> {
     fn bit_not(self) -> Self {
-        Self::new((!self.0) & Self::bit_mask().0)
+        self.to_runtime().bit_not().unwrap_typed()
     }
     fn bit_and(self, rhs: Self) -> Self {
-        Self::new((self.0 & rhs.0) & Self::bit_mask().0)
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.bit_and(rhs).unwrap_typed()
     }
     fn bit_or(self, rhs: Self) -> Self {
-        Self::new((self.0 | rhs.0) & Self::bit_mask().0)
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.bit_or(rhs).unwrap_typed()
     }
     fn bit_xor(self, rhs: Self) -> Self {
-        Self::new((self.0 ^ rhs.0) & Self::bit_mask().0)
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.bit_xor(rhs).unwrap_typed()
     }
 }

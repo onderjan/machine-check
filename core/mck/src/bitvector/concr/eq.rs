@@ -22,12 +22,12 @@ impl RConcreteBitvector {
 impl<const L: u32> TypedEq for ConcreteBitvector<L> {
     type Output = Boolean;
     fn eq(self, rhs: Self) -> Self::Output {
-        let result = self.0 == rhs.0;
-        Boolean::new(result as u64)
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.typed_eq(rhs)
     }
 
     fn ne(self, rhs: Self) -> Self::Output {
-        let result = self.0 != rhs.0;
-        Boolean::new(result as u64)
+        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        lhs.typed_ne(rhs)
     }
 }

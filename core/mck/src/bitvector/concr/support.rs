@@ -12,11 +12,11 @@ use super::SignedBitvector;
 use super::UnsignedBitvector;
 
 impl RConcreteBitvector {
-    pub const fn bit_mask_u64(&self) -> u64 {
+    pub const fn bit_mask_u64(self) -> u64 {
         util::compute_u64_mask(self.width)
     }
 
-    pub const fn sign_bit_mask_u64(&self) -> u64 {
+    pub const fn sign_bit_mask_u64(self) -> u64 {
         util::compute_u64_sign_bit_mask(self.width)
     }
 
@@ -41,7 +41,7 @@ impl RConcreteBitvector {
         self.value
     }
 
-    pub fn to_i64(&self) -> i64 {
+    pub fn to_i64(self) -> i64 {
         let mut result = self.value;
         let sign_bit_mask = util::compute_u64_sign_bit_mask(self.width);
         if self.value & sign_bit_mask != 0 {
@@ -51,8 +51,13 @@ impl RConcreteBitvector {
         result as i64
     }
 
-    pub fn is_sign_bit_set(&self) -> bool {
+    pub fn is_sign_bit_set(self) -> bool {
         util::is_u64_highest_bit_set(self.value, self.width)
+    }
+
+    pub fn unwrap_typed<const L: u32>(self) -> ConcreteBitvector<L> {
+        assert_eq!(self.width, L);
+        ConcreteBitvector(self.value)
     }
 }
 
@@ -183,6 +188,13 @@ impl<const L: u32> ConcreteBitvector<L> {
             self
         } else {
             other
+        }
+    }
+
+    pub fn to_runtime(self) -> RConcreteBitvector {
+        RConcreteBitvector {
+            value: self.0,
+            width: L,
         }
     }
 }

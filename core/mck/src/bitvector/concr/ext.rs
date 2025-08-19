@@ -12,7 +12,10 @@ impl RConcreteBitvector {
         let mut value = self.value;
         // copy sign bit to higher positions
         if self.is_sign_bit_set() {
-            value |= util::compute_u64_mask(self.width);
+            let old_mask = util::compute_u64_mask(self.width);
+            let new_mask = util::compute_u64_mask(new_width);
+            let lengthening_mask = !old_mask & new_mask;
+            value |= lengthening_mask;
         }
         RConcreteBitvector::from_masked_u64(value, new_width)
     }
@@ -22,20 +25,10 @@ impl<const L: u32, const X: u32> Ext<X> for ConcreteBitvector<L> {
     type Output = ConcreteBitvector<X>;
 
     fn uext(self) -> Self::Output {
-        // shorten if needed, lengthening is fine
-        ConcreteBitvector::<X>::new(self.0 & util::compute_u64_mask(X))
+        self.to_runtime().uext(X).unwrap_typed()
     }
 
     fn sext(self) -> Self::Output {
-        // shorten if needed
-        let mut v = self.0 & util::compute_u64_mask(X);
-        // copy sign bit if necessary
-        if self.is_sign_bit_set() {
-            let old_mask = Self::bit_mask().0;
-            let new_mask = util::compute_u64_mask(X);
-            let lengthening_mask = !old_mask & new_mask;
-            v |= lengthening_mask;
-        }
-        ConcreteBitvector::<X>::new(v)
+        self.to_runtime().sext(X).unwrap_typed()
     }
 }
