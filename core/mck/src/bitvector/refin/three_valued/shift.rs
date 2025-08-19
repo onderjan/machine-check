@@ -8,8 +8,8 @@ use crate::{
 
 use super::{BitvectorMark, MarkBitvector};
 
-impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
-    type Mark = MarkBitvector<L>;
+impl<const W: u32> backward::HwShift for ThreeValuedBitvector<W> {
+    type Mark = MarkBitvector<W>;
 
     fn logic_shl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         let Some(mark_later) = mark_later.0 else {
@@ -40,7 +40,7 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
             return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
         };
 
-        if L == 0 {
+        if W == 0 {
             // avoid problems with zero-width bitvectors+
             let importance = mark_later.importance;
             return (
@@ -58,7 +58,7 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
                 // mark the sign bit of result
                 result = forward::Bitwise::bit_or(
                     result,
-                    ConcreteBitvector::new(compute_u64_sign_bit_mask(L)),
+                    ConcreteBitvector::new(compute_u64_sign_bit_mask(W)),
                 );
             }
             result
@@ -66,12 +66,12 @@ impl<const L: u32> backward::HwShift for ThreeValuedBitvector<L> {
     }
 }
 
-fn shift<const L: u32>(
-    normal_input: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
-    mark_later: BitvectorMark<L>,
-    shift_fn: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<L>,
-) -> (MarkBitvector<L>, MarkBitvector<L>) {
-    if L == 0 {
+fn shift<const W: u32>(
+    normal_input: (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
+    mark_later: BitvectorMark<W>,
+    shift_fn: fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> ConcreteBitvector<W>,
+) -> (MarkBitvector<W>, MarkBitvector<W>) {
+    if W == 0 {
         // avoid problems with zero-width bitvectors
         return (
             MarkBitvector::new_marked(mark_later.importance),
@@ -86,8 +86,8 @@ fn shift<const L: u32>(
     // if the shift amount is L or more, no bits are retained
     // so consider only lesser amounts one by one
 
-    let min_shift = amount_input.umin().to_u64().min((L - 1) as u64);
-    let max_shift = amount_input.umax().to_u64().max((L - 1) as u64);
+    let min_shift = amount_input.umin().to_u64().min((W - 1) as u64);
+    let max_shift = amount_input.umax().to_u64().max((W - 1) as u64);
     // join the shifted marks iteratively
     let mut shifted_mark_earlier = MarkBitvector::new_unmarked();
     for i in min_shift..=max_shift {

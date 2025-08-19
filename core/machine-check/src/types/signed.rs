@@ -13,18 +13,18 @@ use crate::{traits::Ext, Bitvector, Unsigned};
 
 /// Signed bitvector.
 ///
-/// The number of bits is specified in the generic parameter L.
+/// The width (number of bits) is specified in the generic parameter W.
 /// Signed bitvectors support bitwise operations and wrapping-arithmetic operations.
 /// Arithmetic bit extension is also possible (the sign bit is copied into any bits above it).
 /// Signed bitvectors be converted into [`Unsigned`] or [`Bitvector`].
 ///
 /// Currently, it is not possible to create signed bitvectors directly, only convert into them.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Signed<const L: u32>(pub(super) concr::Bitvector<L>);
+pub struct Signed<const W: u32>(pub(super) concr::Bitvector<W>);
 
 // --- BITWISE OPERATIONS ---
 
-impl<const L: u32> Not for Signed<L> {
+impl<const W: u32> Not for Signed<W> {
     type Output = Self;
 
     /// Performs bitwise NOT.
@@ -33,61 +33,61 @@ impl<const L: u32> Not for Signed<L> {
     }
 }
 
-impl<const L: u32> BitAnd<Signed<L>> for Signed<L> {
+impl<const W: u32> BitAnd<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs bitwise AND.
-    fn bitand(self, rhs: Signed<L>) -> Self::Output {
+    fn bitand(self, rhs: Signed<W>) -> Self::Output {
         Self(self.0.bit_and(rhs.0))
     }
 }
-impl<const L: u32> BitOr<Signed<L>> for Signed<L> {
+impl<const W: u32> BitOr<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs bitwise OR.
-    fn bitor(self, rhs: Signed<L>) -> Self::Output {
+    fn bitor(self, rhs: Signed<W>) -> Self::Output {
         Self(self.0.bit_or(rhs.0))
     }
 }
-impl<const L: u32> BitXor<Signed<L>> for Signed<L> {
+impl<const W: u32> BitXor<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs bitwise XOR.
-    fn bitxor(self, rhs: Signed<L>) -> Self::Output {
+    fn bitxor(self, rhs: Signed<W>) -> Self::Output {
         Self(self.0.bit_xor(rhs.0))
     }
 }
 
 // --- ARITHMETIC OPERATIONS ---
 
-impl<const L: u32> Add<Signed<L>> for Signed<L> {
+impl<const W: u32> Add<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs wrapping addition.
-    fn add(self, rhs: Signed<L>) -> Self::Output {
+    fn add(self, rhs: Signed<W>) -> Self::Output {
         Self(self.0.add(rhs.0))
     }
 }
 
-impl<const L: u32> Sub<Signed<L>> for Signed<L> {
+impl<const W: u32> Sub<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs wrapping subtraction.
-    fn sub(self, rhs: Signed<L>) -> Self::Output {
+    fn sub(self, rhs: Signed<W>) -> Self::Output {
         Self(self.0.sub(rhs.0))
     }
 }
 
-impl<const L: u32> Mul<Signed<L>> for Signed<L> {
+impl<const W: u32> Mul<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs wrapping multiplication.
-    fn mul(self, rhs: Signed<L>) -> Self::Output {
+    fn mul(self, rhs: Signed<W>) -> Self::Output {
         Self(self.0.mul(rhs.0))
     }
 }
 
-impl<const L: u32> Div<Signed<L>> for Signed<L> {
+impl<const W: u32> Div<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs wrapping signed division.
@@ -98,7 +98,7 @@ impl<const L: u32> Div<Signed<L>> for Signed<L> {
     /// # Panics
     ///
     /// Panics if `rhs` is zero.
-    fn div(self, rhs: Signed<L>) -> Self::Output {
+    fn div(self, rhs: Signed<W>) -> Self::Output {
         let panic_result = self.0.sdiv(rhs.0);
         if panic_result.panic.is_nonzero() {
             panic!("{}", PANIC_MSG_DIV_BY_ZERO)
@@ -107,7 +107,7 @@ impl<const L: u32> Div<Signed<L>> for Signed<L> {
     }
 }
 
-impl<const L: u32> Rem<Signed<L>> for Signed<L> {
+impl<const W: u32> Rem<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs wrapping signed division.
@@ -118,7 +118,7 @@ impl<const L: u32> Rem<Signed<L>> for Signed<L> {
     /// # Panics
     ///
     /// Panics if `rhs` is zero.
-    fn rem(self, rhs: Signed<L>) -> Self::Output {
+    fn rem(self, rhs: Signed<W>) -> Self::Output {
         let panic_result = self.0.srem(rhs.0);
         if panic_result.panic.is_nonzero() {
             panic!("{}", PANIC_MSG_REM_BY_ZERO)
@@ -127,7 +127,7 @@ impl<const L: u32> Rem<Signed<L>> for Signed<L> {
     }
 }
 
-impl<const L: u32> Shl<Signed<L>> for Signed<L> {
+impl<const W: u32> Shl<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs a left shift.
@@ -143,12 +143,12 @@ impl<const L: u32> Shl<Signed<L>> for Signed<L> {
     ///
     /// Note that this means that shifting left with a negative right operand
     /// produces an all-zeros value.
-    fn shl(self, rhs: Signed<L>) -> Self::Output {
+    fn shl(self, rhs: Signed<W>) -> Self::Output {
         Self(self.0.logic_shl(rhs.0))
     }
 }
 
-impl<const L: u32> Shr<Signed<L>> for Signed<L> {
+impl<const W: u32> Shr<Signed<W>> for Signed<W> {
     type Output = Self;
 
     /// Performs an arithmetic right shift.
@@ -162,13 +162,13 @@ impl<const L: u32> Shr<Signed<L>> for Signed<L> {
     ///
     /// Note that this means that shifting right with a negative right operand
     /// produces an all-zeros or all-ones value, depending on the original sign bit.
-    fn shr(self, rhs: Signed<L>) -> Self::Output {
+    fn shr(self, rhs: Signed<W>) -> Self::Output {
         Self(self.0.arith_shr(rhs.0))
     }
 }
 
 // --- EXTENSION ---
-impl<const L: u32, const X: u32> Ext<X> for Signed<L> {
+impl<const W: u32, const X: u32> Ext<X> for Signed<W> {
     type Output = Signed<X>;
 
     /// Extends or narrows the bit-vector.
@@ -182,36 +182,36 @@ impl<const L: u32, const X: u32> Ext<X> for Signed<L> {
 
 // --- ORDERING ---
 
-impl<const L: u32> PartialOrd for Signed<L> {
+impl<const W: u32> PartialOrd for Signed<W> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<const L: u32> Ord for Signed<L> {
+impl<const W: u32> Ord for Signed<W> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.signed_cmp(&other.0)
     }
 }
 
 // --- CONVERSION ---
-impl<const L: u32> From<Unsigned<L>> for Signed<L> {
+impl<const W: u32> From<Unsigned<W>> for Signed<W> {
     /// Converts the signedness information from `Unsigned` to `Signed`.
-    fn from(value: Unsigned<L>) -> Self {
+    fn from(value: Unsigned<W>) -> Self {
         Self(value.0)
     }
 }
 
-impl<const L: u32> From<Bitvector<L>> for Signed<L> {
+impl<const W: u32> From<Bitvector<W>> for Signed<W> {
     /// Adds signedness information to `Bitvector`.
-    fn from(value: Bitvector<L>) -> Self {
+    fn from(value: Bitvector<W>) -> Self {
         Self(value.0)
     }
 }
 
 // --- MISC ---
 
-impl<const L: u32> Debug for Signed<L> {
+impl<const W: u32> Debug for Signed<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.0, f)
     }
@@ -220,8 +220,8 @@ impl<const L: u32> Debug for Signed<L> {
 // --- INTERNAL IMPLEMENTATIONS ---
 
 #[doc(hidden)]
-impl<const L: u32> IntoMck for Signed<L> {
-    type Type = mck::concr::Bitvector<L>;
+impl<const W: u32> IntoMck for Signed<W> {
+    type Type = mck::concr::Bitvector<W>;
 
     fn into_mck(self) -> Self::Type {
         self.0

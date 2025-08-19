@@ -13,7 +13,7 @@ mod signed;
 mod unsigned;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ConcreteBitvector<const L: u32>(u64);
+pub struct ConcreteBitvector<const W: u32>(u64);
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RConcreteBitvector {

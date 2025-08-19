@@ -21,7 +21,7 @@ impl RConcreteBitvector {
     }
 }
 
-impl<const L: u32, const X: u32> Ext<X> for ConcreteBitvector<L> {
+impl<const W: u32, const X: u32> Ext<X> for ConcreteBitvector<W> {
     type Output = ConcreteBitvector<X>;
 
     fn uext(self) -> Self::Output {

@@ -42,14 +42,14 @@ macro_rules! generate_cmp_op {
     };
 }
 
-impl<const L: u32> Bitwise for CombinedBitvector<L> {
+impl<const W: u32> Bitwise for CombinedBitvector<W> {
     generate_uni_op!(bit_not);
     generate_bi_op!(bit_and, Self);
     generate_bi_op!(bit_or, Self);
     generate_bi_op!(bit_xor, Self);
 }
 
-impl<const L: u32> HwArith for CombinedBitvector<L> {
+impl<const W: u32> HwArith for CombinedBitvector<W> {
     type DivRemResult = PanicResult<Self>;
 
     generate_uni_op!(arith_neg);
@@ -63,7 +63,7 @@ impl<const L: u32> HwArith for CombinedBitvector<L> {
     generate_divrem_op!(srem, PanicResult<Self>);
 }
 
-impl<const L: u32> TypedCmp for CombinedBitvector<L> {
+impl<const W: u32> TypedCmp for CombinedBitvector<W> {
     type Output = Boolean;
 
     generate_cmp_op!(ult, Self::Output);
@@ -72,13 +72,13 @@ impl<const L: u32> TypedCmp for CombinedBitvector<L> {
     generate_cmp_op!(sle, Self::Output);
 }
 
-impl<const L: u32> TypedEq for CombinedBitvector<L> {
+impl<const W: u32> TypedEq for CombinedBitvector<W> {
     type Output = Boolean;
     generate_cmp_op!(eq, Self::Output);
     generate_cmp_op!(ne, Self::Output);
 }
 
-impl<const L: u32, const X: u32> Ext<X> for CombinedBitvector<L> {
+impl<const W: u32, const X: u32> Ext<X> for CombinedBitvector<W> {
     type Output = CombinedBitvector<X>;
     fn uext(self) -> Self::Output {
         Self::Output::combine(self.three_valued.uext(), self.dual_interval.uext())
@@ -88,7 +88,7 @@ impl<const L: u32, const X: u32> Ext<X> for CombinedBitvector<L> {
     }
 }
 
-impl<const L: u32> HwShift for CombinedBitvector<L> {
+impl<const W: u32> HwShift for CombinedBitvector<W> {
     type Output = Self;
 
     generate_bi_op!(logic_shl, Self::Output);

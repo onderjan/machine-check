@@ -13,9 +13,9 @@ use crate::{
 use super::ConcreteBitvector;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct SignedBitvector<const L: u32>(ConcreteBitvector<L>);
+pub struct SignedBitvector<const W: u32>(ConcreteBitvector<W>);
 
-impl<const L: u32> SignedBitvector<L> {
+impl<const W: u32> SignedBitvector<W> {
     pub fn new(value: u64) -> Self {
         SignedBitvector(ConcreteBitvector::new(value))
     }
@@ -28,11 +28,11 @@ impl<const L: u32> SignedBitvector<L> {
         SignedBitvector(ConcreteBitvector::new(1))
     }
 
-    pub(super) const fn from_bitvector(bitvector: ConcreteBitvector<L>) -> Self {
+    pub(super) const fn from_bitvector(bitvector: ConcreteBitvector<W>) -> Self {
         SignedBitvector(bitvector)
     }
 
-    pub fn as_bitvector(&self) -> ConcreteBitvector<L> {
+    pub fn as_bitvector(&self) -> ConcreteBitvector<W> {
         self.0
     }
 
@@ -53,7 +53,7 @@ impl<const L: u32> SignedBitvector<L> {
     }
 }
 
-impl<const L: u32> Neg for SignedBitvector<L> {
+impl<const W: u32> Neg for SignedBitvector<W> {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
@@ -61,34 +61,34 @@ impl<const L: u32> Neg for SignedBitvector<L> {
     }
 }
 
-impl<const L: u32> Add<SignedBitvector<L>> for SignedBitvector<L> {
+impl<const W: u32> Add<SignedBitvector<W>> for SignedBitvector<W> {
     type Output = Self;
 
-    fn add(self, rhs: SignedBitvector<L>) -> Self::Output {
+    fn add(self, rhs: SignedBitvector<W>) -> Self::Output {
         Self(self.0.add(rhs.0))
     }
 }
 
-impl<const L: u32> Sub<SignedBitvector<L>> for SignedBitvector<L> {
+impl<const W: u32> Sub<SignedBitvector<W>> for SignedBitvector<W> {
     type Output = Self;
 
-    fn sub(self, rhs: SignedBitvector<L>) -> Self::Output {
+    fn sub(self, rhs: SignedBitvector<W>) -> Self::Output {
         Self(self.0.sub(rhs.0))
     }
 }
 
-impl<const L: u32> Mul<SignedBitvector<L>> for SignedBitvector<L> {
+impl<const W: u32> Mul<SignedBitvector<W>> for SignedBitvector<W> {
     type Output = Self;
 
-    fn mul(self, rhs: SignedBitvector<L>) -> Self::Output {
+    fn mul(self, rhs: SignedBitvector<W>) -> Self::Output {
         Self(self.0.mul(rhs.0))
     }
 }
 
-impl<const L: u32> Div<SignedBitvector<L>> for SignedBitvector<L> {
+impl<const W: u32> Div<SignedBitvector<W>> for SignedBitvector<W> {
     type Output = PanicResult<Self>;
 
-    fn div(self, rhs: SignedBitvector<L>) -> PanicResult<Self> {
+    fn div(self, rhs: SignedBitvector<W>) -> PanicResult<Self> {
         // signed division
         let panic_result = self.0.sdiv(rhs.0);
         PanicResult {
@@ -98,10 +98,10 @@ impl<const L: u32> Div<SignedBitvector<L>> for SignedBitvector<L> {
     }
 }
 
-impl<const L: u32> Rem<SignedBitvector<L>> for SignedBitvector<L> {
+impl<const W: u32> Rem<SignedBitvector<W>> for SignedBitvector<W> {
     type Output = PanicResult<Self>;
 
-    fn rem(self, rhs: SignedBitvector<L>) -> PanicResult<Self> {
+    fn rem(self, rhs: SignedBitvector<W>) -> PanicResult<Self> {
         // signed remainder
         let panic_result = self.0.srem(rhs.0);
         PanicResult {
@@ -111,38 +111,38 @@ impl<const L: u32> Rem<SignedBitvector<L>> for SignedBitvector<L> {
     }
 }
 
-impl<const L: u32> Shl<SignedBitvector<L>> for SignedBitvector<L> {
+impl<const W: u32> Shl<SignedBitvector<W>> for SignedBitvector<W> {
     type Output = Self;
 
-    fn shl(self, rhs: SignedBitvector<L>) -> Self::Output {
+    fn shl(self, rhs: SignedBitvector<W>) -> Self::Output {
         // both signed and unsigned use logic shift left
         Self(self.0.logic_shl(rhs.0))
     }
 }
 
-impl<const L: u32> Shr<SignedBitvector<L>> for SignedBitvector<L> {
+impl<const W: u32> Shr<SignedBitvector<W>> for SignedBitvector<W> {
     type Output = Self;
 
-    fn shr(self, rhs: SignedBitvector<L>) -> Self::Output {
+    fn shr(self, rhs: SignedBitvector<W>) -> Self::Output {
         // signed uses arithmetic shift right
         Self(self.0.arith_shr(rhs.0))
     }
 }
 
-impl<const L: u32> PartialOrd for SignedBitvector<L> {
+impl<const W: u32> PartialOrd for SignedBitvector<W> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<const L: u32> Ord for SignedBitvector<L> {
+impl<const W: u32> Ord for SignedBitvector<W> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // signed comparison
         self.0.signed_cmp(&other.0)
     }
 }
 
-impl<const L: u32> Zero for SignedBitvector<L> {
+impl<const W: u32> Zero for SignedBitvector<W> {
     fn zero() -> Self {
         SignedBitvector(ConcreteBitvector::zero())
     }
@@ -152,19 +152,19 @@ impl<const L: u32> Zero for SignedBitvector<L> {
     }
 }
 
-impl<const L: u32> One for SignedBitvector<L> {
+impl<const W: u32> One for SignedBitvector<W> {
     fn one() -> Self {
         SignedBitvector(ConcreteBitvector::one())
     }
 }
 
-impl<const L: u32> Debug for SignedBitvector<L> {
+impl<const W: u32> Debug for SignedBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.to_i64())
     }
 }
 
-impl<const L: u32> Display for SignedBitvector<L> {
+impl<const W: u32> Display for SignedBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_i64())
     }

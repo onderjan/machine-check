@@ -19,7 +19,7 @@ impl RConcreteBitvector {
     }
 }
 
-impl<const L: u32> TypedEq for ConcreteBitvector<L> {
+impl<const W: u32> TypedEq for ConcreteBitvector<W> {
     type Output = Boolean;
     fn eq(self, rhs: Self) -> Self::Output {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());

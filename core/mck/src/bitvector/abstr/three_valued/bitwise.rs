@@ -2,7 +2,7 @@ use crate::forward::Bitwise;
 
 use super::ThreeValuedBitvector;
 
-impl<const L: u32> Bitwise for ThreeValuedBitvector<L> {
+impl<const W: u32> Bitwise for ThreeValuedBitvector<W> {
     fn bit_not(self) -> Self {
         // logical negation
         // swap zeros and ones

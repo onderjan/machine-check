@@ -55,19 +55,19 @@ impl RConcreteBitvector {
         util::is_u64_highest_bit_set(self.value, self.width)
     }
 
-    pub fn unwrap_typed<const L: u32>(self) -> ConcreteBitvector<L> {
-        assert_eq!(self.width, L);
+    pub fn unwrap_typed<const W: u32>(self) -> ConcreteBitvector<W> {
+        assert_eq!(self.width, W);
         ConcreteBitvector(self.value)
     }
 }
 
-impl<const L: u32> ConcreteBitvector<L> {
+impl<const W: u32> ConcreteBitvector<W> {
     pub fn new(value: u64) -> Self {
         let mask: u64 = Self::bit_mask().0;
         if (value & !mask) != 0 {
             panic!(
                 "Machine bitvector value {} does not fit into {} bits",
-                value, L
+                value, W
             );
         }
 
@@ -83,11 +83,11 @@ impl<const L: u32> ConcreteBitvector<L> {
         Some(Self(value))
     }
 
-    pub const fn cast_unsigned(self) -> UnsignedBitvector<L> {
+    pub const fn cast_unsigned(self) -> UnsignedBitvector<W> {
         UnsignedBitvector::from_bitvector(self)
     }
 
-    pub const fn cast_signed(self) -> SignedBitvector<L> {
+    pub const fn cast_signed(self) -> SignedBitvector<W> {
         SignedBitvector::from_bitvector(self)
     }
 
@@ -107,11 +107,11 @@ impl<const L: u32> ConcreteBitvector<L> {
     }
 
     pub fn as_offset_signed(&self) -> u64 {
-        if L == 0 {
+        if W == 0 {
             return self.0;
         }
         // offset by flipping the most significant bit
-        self.0 ^ (1 << (L - 1))
+        self.0 ^ (1 << (W - 1))
     }
 
     pub const fn zero() -> Self {
@@ -139,7 +139,7 @@ impl<const L: u32> ConcreteBitvector<L> {
     }
 
     pub fn one() -> Self {
-        if L > 0 {
+        if W > 0 {
             Self(1)
         } else {
             // 1 is not a valid value for zero-bit bitvector
@@ -152,30 +152,30 @@ impl<const L: u32> ConcreteBitvector<L> {
     }
 
     pub fn is_sign_bit_set(&self) -> bool {
-        util::is_u64_highest_bit_set(self.0, L)
+        util::is_u64_highest_bit_set(self.0, W)
     }
 
-    pub const fn sign_bit_mask() -> ConcreteBitvector<L> {
-        ConcreteBitvector(util::compute_u64_sign_bit_mask(L))
+    pub const fn sign_bit_mask() -> ConcreteBitvector<W> {
+        ConcreteBitvector(util::compute_u64_sign_bit_mask(W))
     }
 
-    const fn without_sign_bit_mask() -> ConcreteBitvector<L> {
-        if L == 0 {
+    const fn without_sign_bit_mask() -> ConcreteBitvector<W> {
+        if W == 0 {
             return ConcreteBitvector(0);
         }
 
-        ConcreteBitvector(util::compute_u64_mask(L) ^ util::compute_u64_sign_bit_mask(L))
+        ConcreteBitvector(util::compute_u64_mask(W) ^ util::compute_u64_sign_bit_mask(W))
     }
 
-    pub const fn bit_mask() -> ConcreteBitvector<L> {
-        ConcreteBitvector(util::compute_u64_mask(L))
+    pub const fn bit_mask() -> ConcreteBitvector<W> {
+        ConcreteBitvector(util::compute_u64_mask(W))
     }
 
-    pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
+    pub fn all_with_width_iter() -> impl Iterator<Item = Self> {
         (0..=Self::bit_mask().to_u64()).map(Self)
     }
 
-    pub fn umin(self, other: ConcreteBitvector<L>) -> ConcreteBitvector<L> {
+    pub fn umin(self, other: ConcreteBitvector<W>) -> ConcreteBitvector<W> {
         if self.ule(other).into_bool() {
             self
         } else {
@@ -183,7 +183,7 @@ impl<const L: u32> ConcreteBitvector<L> {
         }
     }
 
-    pub fn umax(self, other: ConcreteBitvector<L>) -> ConcreteBitvector<L> {
+    pub fn umax(self, other: ConcreteBitvector<W>) -> ConcreteBitvector<W> {
         if other.ule(self).into_bool() {
             self
         } else {
@@ -194,18 +194,18 @@ impl<const L: u32> ConcreteBitvector<L> {
     pub fn to_runtime(self) -> RConcreteBitvector {
         RConcreteBitvector {
             value: self.0,
-            width: L,
+            width: W,
         }
     }
 }
 
-impl<const L: u32> Debug for ConcreteBitvector<L> {
+impl<const W: u32> Debug for ConcreteBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.0, f)
     }
 }
 
-impl<const L: u32> Display for ConcreteBitvector<L> {
+impl<const W: u32> Display for ConcreteBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
     }

@@ -6,7 +6,7 @@ use crate::bitvector::util;
 use crate::concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
 use crate::forward::HwArith;
 
-impl<const L: u32> HwArith for ThreeValuedBitvector<L> {
+impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
     type DivRemResult = PanicResult<Self>;
 
     fn arith_neg(self) -> Self {
@@ -103,11 +103,11 @@ impl<const L: u32> HwArith for ThreeValuedBitvector<L> {
     }
 }
 
-fn panic_result<const L: u32>(
-    divisor: ThreeValuedBitvector<L>,
-    result: ThreeValuedBitvector<L>,
+fn panic_result<const W: u32>(
+    divisor: ThreeValuedBitvector<W>,
+    result: ThreeValuedBitvector<W>,
     panic_msg_num: u64,
-) -> PanicResult<ThreeValuedBitvector<L>> {
+) -> PanicResult<ThreeValuedBitvector<W>> {
     let can_panic = divisor.contains_concr(&ConcreteBitvector::zero());
     let must_panic = divisor
         .concrete_value()
@@ -123,11 +123,11 @@ fn panic_result<const L: u32>(
     PanicResult { panic, result }
 }
 
-fn minmax_compute<const L: u32>(
-    lhs: ThreeValuedBitvector<L>,
-    rhs: ThreeValuedBitvector<L>,
-    zeta_k_fn: fn(ThreeValuedBitvector<L>, ThreeValuedBitvector<L>, u32) -> (u64, u64),
-) -> ThreeValuedBitvector<L> {
+fn minmax_compute<const W: u32>(
+    lhs: ThreeValuedBitvector<W>,
+    rhs: ThreeValuedBitvector<W>,
+    zeta_k_fn: fn(ThreeValuedBitvector<W>, ThreeValuedBitvector<W>, u32) -> (u64, u64),
+) -> ThreeValuedBitvector<W> {
     // from previous paper
 
     // start with no possibilites
@@ -135,7 +135,7 @@ fn minmax_compute<const L: u32>(
     let mut zeros = 0u64;
 
     // iterate over output bits
-    for k in 0..L {
+    for k in 0..W {
         // compute h_k extremes
         let (zeta_k_min, zeta_k_max) = zeta_k_fn(lhs, rhs, k);
 
@@ -156,11 +156,11 @@ fn minmax_compute<const L: u32>(
     )
 }
 
-fn addsub_zeta_k_fn<const L: u32>(
-    left_min: UnsignedBitvector<L>,
-    left_max: UnsignedBitvector<L>,
-    right_min: UnsignedBitvector<L>,
-    right_max: UnsignedBitvector<L>,
+fn addsub_zeta_k_fn<const W: u32>(
+    left_min: UnsignedBitvector<W>,
+    left_max: UnsignedBitvector<W>,
+    right_min: UnsignedBitvector<W>,
+    right_max: UnsignedBitvector<W>,
     k: u32,
     func: fn(u64, u64) -> (u64, bool),
 ) -> (u64, u64) {
@@ -188,7 +188,7 @@ fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
     result
 }
 
-fn convert_uarith<const L: u32>(min: u64, max: u64) -> ThreeValuedBitvector<L> {
+fn convert_uarith<const W: u32>(min: u64, max: u64) -> ThreeValuedBitvector<W> {
     // make highest different bit and all after it unknown
     let different = min ^ max;
     if different == 0 {
@@ -204,12 +204,12 @@ fn convert_uarith<const L: u32>(min: u64, max: u64) -> ThreeValuedBitvector<L> {
     )
 }
 
-fn compute_sdivrem<const L: u32>(
-    dividend: ThreeValuedBitvector<L>,
-    divisor: ThreeValuedBitvector<L>,
-    op_fn: fn(SignedBitvector<L>, SignedBitvector<L>) -> SignedBitvector<L>,
-) -> ThreeValuedBitvector<L> {
-    if L == 0 {
+fn compute_sdivrem<const W: u32>(
+    dividend: ThreeValuedBitvector<W>,
+    divisor: ThreeValuedBitvector<W>,
+    op_fn: fn(SignedBitvector<W>, SignedBitvector<W>) -> SignedBitvector<W>,
+) -> ThreeValuedBitvector<W> {
+    if W == 0 {
         // prevent problems
         return dividend;
     }
@@ -314,14 +314,14 @@ fn compute_sdivrem<const L: u32>(
     )
 }
 
-fn apply_signed_op<const L: u32>(
+fn apply_signed_op<const W: u32>(
     zeros: &mut u64,
     ones: &mut u64,
-    a_min: SignedBitvector<L>,
-    a_max: SignedBitvector<L>,
-    b_min: SignedBitvector<L>,
-    b_max: SignedBitvector<L>,
-    op_fn: fn(SignedBitvector<L>, SignedBitvector<L>) -> SignedBitvector<L>,
+    a_min: SignedBitvector<W>,
+    a_max: SignedBitvector<W>,
+    b_min: SignedBitvector<W>,
+    b_max: SignedBitvector<W>,
+    op_fn: fn(SignedBitvector<W>, SignedBitvector<W>) -> SignedBitvector<W>,
 ) {
     // apply all configurations
     // cast to unsigned u64 afterwards
@@ -331,7 +331,7 @@ fn apply_signed_op<const L: u32>(
     let w = op_fn(a_max, b_max).as_bitvector().cast_unsigned().to_u64();
 
     // find the highest different bit
-    let found_zeros = (!x | !y | !z | !w) & util::compute_u64_mask(L);
+    let found_zeros = (!x | !y | !z | !w) & util::compute_u64_mask(W);
     let found_ones = x | y | z | w;
     let different = found_zeros & found_ones;
 

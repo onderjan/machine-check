@@ -5,7 +5,7 @@ use crate::{
 
 use super::DualInterval;
 
-impl<const L: u32, const X: u32> Ext<X> for DualInterval<L> {
+impl<const W: u32, const X: u32> Ext<X> for DualInterval<W> {
     type Output = DualInterval<X>;
 
     fn uext(self) -> DualInterval<X> {

@@ -158,7 +158,7 @@ impl RConcreteBitvector {
     }
 }
 
-impl<const L: u32> HwArith for ConcreteBitvector<L> {
+impl<const W: u32> HwArith for ConcreteBitvector<W> {
     type DivRemResult = PanicResult<Self>;
 
     fn arith_neg(self) -> Self {
@@ -201,7 +201,7 @@ impl<const L: u32> HwArith for ConcreteBitvector<L> {
     }
 }
 
-impl<const L: u32> ConcreteBitvector<L> {
+impl<const W: u32> ConcreteBitvector<W> {
     pub(crate) fn checked_add(self, rhs: Self) -> Option<Self> {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
         lhs.checked_add(rhs).map(|r| r.unwrap_typed())

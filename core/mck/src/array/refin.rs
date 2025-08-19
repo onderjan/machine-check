@@ -14,26 +14,26 @@ use crate::{
 use super::{abstr::extract_bounds, light::LightArray};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct Array<const I: u32, const L: u32> {
-    inner: LightArray<UnsignedBitvector<I>, MetaWrap<refin::Bitvector<L>>>,
+pub struct Array<const I: u32, const W: u32> {
+    inner: LightArray<UnsignedBitvector<I>, MetaWrap<refin::Bitvector<W>>>,
 }
 
-impl<const I: u32, const L: u32> Array<I, L> {
+impl<const I: u32, const W: u32> Array<I, W> {
     pub fn new_unmarked() -> Self {
         Array {
-            inner: LightArray::new_filled(MetaWrap(refin::Bitvector::<L>::new_unmarked())),
+            inner: LightArray::new_filled(MetaWrap(refin::Bitvector::<W>::new_unmarked())),
         }
     }
 }
 
-impl<const I: u32, const L: u32> Array<I, L> {
+impl<const I: u32, const W: u32> Array<I, W> {
     pub fn new_filled(
-        normal_input: (abstr::Bitvector<L>,),
+        normal_input: (abstr::Bitvector<W>,),
         mark_later: Self,
-    ) -> (refin::Bitvector<L>,) {
+    ) -> (refin::Bitvector<W>,) {
         // join marks and propagate them to the new element
         let earlier_element = mark_later.inner.fold(
-            refin::Bitvector::<L>::new_unmarked(),
+            refin::Bitvector::<W>::new_unmarked(),
             |mut earlier_element, later_element| {
                 earlier_element.apply_join(&later_element.0);
                 earlier_element
@@ -43,13 +43,13 @@ impl<const I: u32, const L: u32> Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
+impl<const I: u32, const W: u32> ReadWrite for abstr::Array<I, W> {
     type Index = abstr::Bitvector<I>;
-    type Element = abstr::Bitvector<L>;
+    type Element = abstr::Bitvector<W>;
 
-    type Mark = Array<I, L>;
+    type Mark = Array<I, W>;
     type IndexMark = Bitvector<I>;
-    type ElementMark = Bitvector<L>;
+    type ElementMark = Bitvector<W>;
 
     #[must_use]
     fn read(
@@ -141,7 +141,7 @@ impl<const I: u32, const L: u32> ReadWrite for abstr::Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
+impl<const I: u32, const W: u32> Refine<abstr::Array<I, W>> for Array<I, W> {
     fn apply_join(&mut self, other: &Self) {
         self.inner.involve(&other.inner, |our, other| {
             Bitvector::apply_join(&mut our.0, &other.0)
@@ -180,7 +180,7 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
         )
     }
 
-    fn force_decay(&self, target: &mut abstr::Array<I, L>) {
+    fn force_decay(&self, target: &mut abstr::Array<I, W>) {
         // force decay for every element
         target
             .inner
@@ -209,7 +209,7 @@ impl<const I: u32, const L: u32> Refine<abstr::Array<I, L>> for Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
+impl<const I: u32, const W: u32> MetaEq for Array<I, W> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.inner
             .bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
@@ -218,14 +218,14 @@ impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
-    fn proto_first(&self) -> abstr::Array<I, L> {
+impl<const I: u32, const W: u32> Meta<abstr::Array<I, W>> for Array<I, W> {
+    fn proto_first(&self) -> abstr::Array<I, W> {
         abstr::Array {
             inner: self.inner.map(|element| MetaWrap(element.0.proto_first())),
         }
     }
 
-    fn proto_increment(&self, proto: &mut abstr::Array<I, L>) -> bool {
+    fn proto_increment(&self, proto: &mut abstr::Array<I, W>) -> bool {
         proto.inner.involve_with_flow(
             &self.inner,
             |result, abstr_element, refin_element| {
@@ -240,13 +240,13 @@ impl<const I: u32, const L: u32> Meta<abstr::Array<I, L>> for Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> Debug for Array<I, L> {
+impl<const I: u32, const W: u32> Debug for Array<I, W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
     }
 }
 
-impl<const I: u32, const L: u32> ManipField for Array<I, L> {
+impl<const I: u32, const W: u32> ManipField for Array<I, W> {
     fn index(&self, index: u64) -> Option<&dyn ManipField> {
         let index = concr::Bitvector::try_new(index)?.cast_unsigned();
         Some(&self.inner[index].0)
@@ -262,7 +262,7 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
     }
 
     fn mark(&mut self) {
-        self.inner = LightArray::new_filled(MetaWrap(refin::Bitvector::<L>::dirty()));
+        self.inner = LightArray::new_filled(MetaWrap(refin::Bitvector::<W>::dirty()));
     }
 }
 

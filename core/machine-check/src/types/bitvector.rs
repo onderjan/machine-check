@@ -12,15 +12,15 @@ use crate::{Signed, Unsigned};
 
 /// Bitvector without signedness information.
 ///
-/// The number of bits is specified in the generic parameter L.
+/// The width (number of bits) is specified by the generic parameter W.
 /// Bitvectors support bitwise operations and wrapping-arithmetic operations.
 /// Only operations where the behaviour of signed and unsigned numbers match are implemented.
 /// For others, conversion into [`Unsigned`] or [`Signed`] is necessary.
 /// Bit-extension is not possible directly, as signed and unsigned bitvectors are extended differently.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Bitvector<const L: u32>(pub(super) concr::Bitvector<L>);
+pub struct Bitvector<const W: u32>(pub(super) concr::Bitvector<W>);
 
-impl<const L: u32> Bitvector<L> {
+impl<const W: u32> Bitvector<W> {
     /// Creates a new bitvector with the given value.
     ///
     /// Panics if the value does not fit into the type.
@@ -30,7 +30,7 @@ impl<const L: u32> Bitvector<L> {
 }
 // --- BITWISE OPERATIONS ---
 
-impl<const L: u32> Not for Bitvector<L> {
+impl<const W: u32> Not for Bitvector<W> {
     type Output = Self;
 
     /// Performs bitwise NOT.
@@ -39,62 +39,62 @@ impl<const L: u32> Not for Bitvector<L> {
     }
 }
 
-impl<const L: u32> BitAnd<Bitvector<L>> for Bitvector<L> {
+impl<const W: u32> BitAnd<Bitvector<W>> for Bitvector<W> {
     type Output = Self;
 
     /// Performs bitwise AND.
-    fn bitand(self, rhs: Bitvector<L>) -> Self::Output {
+    fn bitand(self, rhs: Bitvector<W>) -> Self::Output {
         Self(self.0.bit_and(rhs.0))
     }
 }
-impl<const L: u32> BitOr<Bitvector<L>> for Bitvector<L> {
+impl<const W: u32> BitOr<Bitvector<W>> for Bitvector<W> {
     type Output = Self;
 
     /// Performs bitwise OR.
-    fn bitor(self, rhs: Bitvector<L>) -> Self::Output {
+    fn bitor(self, rhs: Bitvector<W>) -> Self::Output {
         Self(self.0.bit_or(rhs.0))
     }
 }
-impl<const L: u32> BitXor<Bitvector<L>> for Bitvector<L> {
+impl<const W: u32> BitXor<Bitvector<W>> for Bitvector<W> {
     type Output = Self;
 
     /// Performs bitwise XOR.
-    fn bitxor(self, rhs: Bitvector<L>) -> Self::Output {
+    fn bitxor(self, rhs: Bitvector<W>) -> Self::Output {
         Self(self.0.bit_xor(rhs.0))
     }
 }
 
 // --- ARITHMETIC OPERATIONS ---
 
-impl<const L: u32> Add<Bitvector<L>> for Bitvector<L> {
+impl<const W: u32> Add<Bitvector<W>> for Bitvector<W> {
     type Output = Self;
 
     /// Performs wrapping addition.
-    fn add(self, rhs: Bitvector<L>) -> Self::Output {
+    fn add(self, rhs: Bitvector<W>) -> Self::Output {
         Self(self.0.add(rhs.0))
     }
 }
 
-impl<const L: u32> Sub<Bitvector<L>> for Bitvector<L> {
+impl<const W: u32> Sub<Bitvector<W>> for Bitvector<W> {
     type Output = Self;
 
     /// Performs wrapping subtraction.
-    fn sub(self, rhs: Bitvector<L>) -> Self::Output {
+    fn sub(self, rhs: Bitvector<W>) -> Self::Output {
         Self(self.0.sub(rhs.0))
     }
 }
 
-impl<const L: u32> Mul<Bitvector<L>> for Bitvector<L> {
+impl<const W: u32> Mul<Bitvector<W>> for Bitvector<W> {
     type Output = Self;
 
     /// Performs wrapping multiplication.
-    fn mul(self, rhs: Bitvector<L>) -> Self::Output {
+    fn mul(self, rhs: Bitvector<W>) -> Self::Output {
         Self(self.0.mul(rhs.0))
     }
 }
 
 // --- SHIFT ---
-impl<const L: u32> Shl<Bitvector<L>> for Bitvector<L> {
+impl<const W: u32> Shl<Bitvector<W>> for Bitvector<W> {
     type Output = Self;
 
     /// Performs a left shift.
@@ -107,27 +107,27 @@ impl<const L: u32> Shl<Bitvector<L>> for Bitvector<L> {
     /// is equal or greater to the bit-width, the result is all-zeros,
     /// as in Rust `unbounded_shl`. It is planned to restrict the bit-width
     /// in the future so that this edge case can never occur.
-    fn shl(self, rhs: Bitvector<L>) -> Self::Output {
+    fn shl(self, rhs: Bitvector<W>) -> Self::Output {
         Self(self.0.logic_shl(rhs.0))
     }
 }
 
 // --- CONVERSION ---
-impl<const L: u32> From<Unsigned<L>> for Bitvector<L> {
+impl<const W: u32> From<Unsigned<W>> for Bitvector<W> {
     /// Drops the signedness information from `Unsigned`.
-    fn from(value: Unsigned<L>) -> Self {
+    fn from(value: Unsigned<W>) -> Self {
         Self(value.0)
     }
 }
 
-impl<const L: u32> From<Signed<L>> for Bitvector<L> {
+impl<const W: u32> From<Signed<W>> for Bitvector<W> {
     /// Drops the signedness information from `Signed`.
-    fn from(value: Signed<L>) -> Self {
+    fn from(value: Signed<W>) -> Self {
         Self(value.0)
     }
 }
 
-impl<const L: u32> Debug for Bitvector<L> {
+impl<const W: u32> Debug for Bitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.0, f)
     }
@@ -136,8 +136,8 @@ impl<const L: u32> Debug for Bitvector<L> {
 // --- INTERNAL IMPLEMENTATIONS ---
 
 #[doc(hidden)]
-impl<const L: u32> IntoMck for Bitvector<L> {
-    type Type = mck::concr::Bitvector<L>;
+impl<const W: u32> IntoMck for Bitvector<W> {
+    type Type = mck::concr::Bitvector<W>;
 
     fn into_mck(self) -> Self::Type {
         self.0

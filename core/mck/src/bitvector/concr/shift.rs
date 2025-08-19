@@ -47,7 +47,7 @@ impl RConcreteBitvector {
     }
 }
 
-impl<const L: u32> HwShift for ConcreteBitvector<L> {
+impl<const W: u32> HwShift for ConcreteBitvector<W> {
     type Output = Self;
 
     fn logic_shl(self, amount: Self) -> Self {

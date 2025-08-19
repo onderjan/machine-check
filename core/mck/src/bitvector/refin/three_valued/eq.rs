@@ -7,8 +7,8 @@ use crate::{
 
 use super::MarkBitvector;
 
-impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
-    type MarkEarlier = MarkBitvector<L>;
+impl<const W: u32> TypedEq for ThreeValuedBitvector<W> {
+    type MarkEarlier = MarkBitvector<W>;
     type MarkLater = Boolean;
 
     fn eq(

@@ -2,7 +2,7 @@ use crate::{abstr::Boolean, forward::TypedCmp};
 
 use super::DualInterval;
 
-impl<const L: u32> TypedCmp for DualInterval<L> {
+impl<const W: u32> TypedCmp for DualInterval<W> {
     type Output = crate::abstr::Boolean;
 
     fn ult(self, rhs: Self) -> Self::Output {

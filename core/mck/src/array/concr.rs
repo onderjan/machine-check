@@ -8,27 +8,27 @@ use crate::{
 use super::light::LightArray;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct Array<const I: u32, const L: u32> {
-    pub(super) inner: LightArray<UnsignedBitvector<I>, concr::Bitvector<L>>,
+pub struct Array<const I: u32, const W: u32> {
+    pub(super) inner: LightArray<UnsignedBitvector<I>, concr::Bitvector<W>>,
 }
 
-impl<const I: u32, const L: u32> Array<I, L> {
-    pub fn new_filled(element: concr::Bitvector<L>) -> Self {
+impl<const I: u32, const W: u32> Array<I, W> {
+    pub fn new_filled(element: concr::Bitvector<W>) -> Self {
         assert!(I < isize::BITS);
         Self {
             inner: LightArray::new_filled(element),
         }
     }
 
-    pub fn from_inner(inner: LightArray<UnsignedBitvector<I>, concr::Bitvector<L>>) -> Self {
+    pub fn from_inner(inner: LightArray<UnsignedBitvector<I>, concr::Bitvector<W>>) -> Self {
         Self { inner }
     }
 }
 
-impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
+impl<const I: u32, const W: u32> ReadWrite for &Array<I, W> {
     type Index = concr::Bitvector<I>;
-    type Element = concr::Bitvector<L>;
-    type Deref = Array<I, L>;
+    type Element = concr::Bitvector<W>;
+    type Deref = Array<I, W>;
 
     fn read(self, index: Self::Index) -> Self::Element {
         self.inner[index.cast_unsigned()]
@@ -40,7 +40,7 @@ impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
         result
     }
 }
-impl<const I: u32, const L: u32> Debug for Array<I, L> {
+impl<const I: u32, const W: u32> Debug for Array<I, W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
     }

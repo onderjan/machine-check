@@ -6,8 +6,8 @@ use crate::{
 
 use super::{support::default_bi_mark, MarkBitvector};
 
-impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
-    type MarkEarlier = MarkBitvector<L>;
+impl<const W: u32> TypedCmp for ThreeValuedBitvector<W> {
+    type MarkEarlier = MarkBitvector<W>;
     type MarkLater = Boolean;
 
     fn slt(

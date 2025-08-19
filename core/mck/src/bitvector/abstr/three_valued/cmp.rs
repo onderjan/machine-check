@@ -2,7 +2,7 @@ use crate::{concr::ConcreteBitvector, forward::TypedCmp};
 
 use super::ThreeValuedBitvector;
 
-impl<const L: u32> TypedCmp for ThreeValuedBitvector<L> {
+impl<const W: u32> TypedCmp for ThreeValuedBitvector<W> {
     type Output = crate::abstr::Boolean;
 
     fn ult(self, rhs: Self) -> Self::Output {

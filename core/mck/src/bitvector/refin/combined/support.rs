@@ -14,7 +14,7 @@ use crate::{
 
 use super::CombinedMark;
 
-impl<const L: u32> CombinedMark<L> {
+impl<const W: u32> CombinedMark<W> {
     pub fn new_unmarked() -> Self {
         Self(MarkBitvector::new_unmarked())
     }
@@ -31,24 +31,24 @@ impl<const L: u32> CombinedMark<L> {
         self.0.is_marked()
     }
 
-    pub fn limit(&self, abstract_bitvec: CombinedBitvector<L>) -> CombinedMark<L> {
+    pub fn limit(&self, abstract_bitvec: CombinedBitvector<W>) -> CombinedMark<W> {
         Self(self.0.limit(*abstract_bitvec.three_valued()))
     }
 
-    pub fn get(&self) -> &Option<BitvectorMark<L>> {
+    pub fn get(&self) -> &Option<BitvectorMark<W>> {
         self.0.get()
     }
 }
 
-impl<const L: u32> MetaEq for CombinedMark<L> {
+impl<const W: u32> MetaEq for CombinedMark<W> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<const L: u32> ManipField for CombinedMark<L> {
+impl<const W: u32> ManipField for CombinedMark<W> {
     fn num_bits(&self) -> Option<u32> {
-        Some(L)
+        Some(W)
     }
 
     fn mark(&mut self) {

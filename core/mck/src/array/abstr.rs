@@ -13,8 +13,8 @@ use crate::{
 use super::light::LightArray;
 
 #[derive(Clone, Hash)]
-pub struct Array<const I: u32, const L: u32> {
-    pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<L>>>,
+pub struct Array<const I: u32, const W: u32> {
+    pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<W>>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,8 +24,8 @@ pub struct ArrayField {
     pub inner: BTreeMap<u64, BitvectorElement>,
 }
 
-impl<const I: u32, const L: u32> Abstr<concr::Array<I, L>> for Array<I, L> {
-    fn from_concrete(value: concr::Array<I, L>) -> Self {
+impl<const I: u32, const W: u32> Abstr<concr::Array<I, W>> for Array<I, W> {
+    fn from_concrete(value: concr::Array<I, W>) -> Self {
         Self {
             inner: value
                 .inner
@@ -34,8 +34,8 @@ impl<const I: u32, const L: u32> Abstr<concr::Array<I, L>> for Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> Array<I, L> {
-    pub fn new_filled(element: abstr::Bitvector<L>) -> Self {
+impl<const I: u32, const W: u32> Array<I, W> {
+    pub fn new_filled(element: abstr::Bitvector<W>) -> Self {
         assert!(I < isize::BITS);
         Self {
             inner: LightArray::new_filled(MetaWrap(element)),
@@ -43,10 +43,10 @@ impl<const I: u32, const L: u32> Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> ReadWrite for &Array<I, L> {
+impl<const I: u32, const W: u32> ReadWrite for &Array<I, W> {
     type Index = abstr::Bitvector<I>;
-    type Element = abstr::Bitvector<L>;
-    type Deref = Array<I, L>;
+    type Element = abstr::Bitvector<W>;
+    type Deref = Array<I, W>;
 
     fn read(self, index: Self::Index) -> Self::Element {
         // ensure we always have the first element to join
@@ -90,7 +90,7 @@ pub(super) fn extract_bounds<const I: u32>(
     (umin, umax)
 }
 
-impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
+impl<const I: u32, const W: u32> MetaEq for Array<I, W> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.inner
             .bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
@@ -100,13 +100,13 @@ impl<const I: u32, const L: u32> MetaEq for Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> Default for Array<I, L> {
+impl<const I: u32, const W: u32> Default for Array<I, W> {
     fn default() -> Self {
-        Self::new_filled(abstr::Bitvector::<L>::default())
+        Self::new_filled(abstr::Bitvector::<W>::default())
     }
 }
 
-impl<const I: u32, const L: u32> Phi for Array<I, L> {
+impl<const I: u32, const W: u32> Phi for Array<I, W> {
     fn phi(mut self, other: Self) -> Self {
         self.inner
             .subsume(other.inner, |lhs, rhs| *lhs = MetaWrap(lhs.0.phi(rhs.0)));
@@ -120,13 +120,13 @@ impl<const I: u32, const L: u32> Phi for Array<I, L> {
     }
 }
 
-impl<const I: u32, const L: u32> Debug for Array<I, L> {
+impl<const I: u32, const W: u32> Debug for Array<I, W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
     }
 }
 
-impl<const I: u32, const L: u32> ManipField for Array<I, L> {
+impl<const I: u32, const W: u32> ManipField for Array<I, W> {
     fn index(&self, index: u64) -> Option<&dyn ManipField> {
         let index = concr::Bitvector::try_new(index)?.cast_unsigned();
         Some(&self.inner[index].0)
@@ -162,7 +162,7 @@ impl<const I: u32, const L: u32> ManipField for Array<I, L> {
         }
 
         Field::Array(ArrayField {
-            bit_width: L,
+            bit_width: W,
             bit_length: I,
             inner,
         })

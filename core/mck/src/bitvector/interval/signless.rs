@@ -134,15 +134,15 @@ impl<const W: u32> SignlessInterval<W> {
         }
     }
 
-    pub fn all_with_length_iter(far: bool) -> impl Iterator<Item = Self> {
-        let min_iter = ConcreteBitvector::<W>::all_with_length_iter();
+    pub fn all_with_width_iter(far: bool) -> impl Iterator<Item = Self> {
+        let min_iter = ConcreteBitvector::<W>::all_with_width_iter();
         min_iter
             .flat_map(move |min| {
                 if min.is_sign_bit_set() != far {
                     return None;
                 }
 
-                let max_iter = ConcreteBitvector::<W>::all_with_length_iter();
+                let max_iter = ConcreteBitvector::<W>::all_with_width_iter();
 
                 let result = max_iter.flat_map(move |max| {
                     if max.is_sign_bit_set() != far {

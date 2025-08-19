@@ -65,14 +65,14 @@ macro_rules! divrem_op_test {
     };
 }
 
-pub(super) fn exec_uni_check<const L: u32, const X: u32>(
-    abstr_func: fn(ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
-    concr_func: fn(ConcreteBitvector<L>) -> ConcreteBitvector<X>,
+pub(super) fn exec_uni_check<const W: u32, const X: u32>(
+    abstr_func: fn(ThreeValuedBitvector<W>) -> ThreeValuedBitvector<X>,
+    concr_func: fn(ConcreteBitvector<W>) -> ConcreteBitvector<X>,
 ) {
-    for a in ThreeValuedBitvector::<L>::all_with_length_iter() {
+    for a in ThreeValuedBitvector::<W>::all_with_length_iter() {
         let abstr_result = abstr_func(a);
         let equiv_result = join_concr_iter(
-            ConcreteBitvector::<L>::all_with_length_iter()
+            ConcreteBitvector::<W>::all_with_width_iter()
                 .filter(|c| a.contains_concr(c))
                 .map(concr_func),
         );
@@ -85,19 +85,19 @@ pub(super) fn exec_uni_check<const L: u32, const X: u32>(
     }
 }
 
-pub(super) fn exec_bi_check<const L: u32, const X: u32>(
-    abstr_func: fn(ThreeValuedBitvector<L>, ThreeValuedBitvector<L>) -> ThreeValuedBitvector<X>,
-    concr_func: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<X>,
+pub(super) fn exec_bi_check<const W: u32, const X: u32>(
+    abstr_func: fn(ThreeValuedBitvector<W>, ThreeValuedBitvector<W>) -> ThreeValuedBitvector<X>,
+    concr_func: fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> ConcreteBitvector<X>,
     exact: bool,
 ) {
-    for a in ThreeValuedBitvector::<L>::all_with_length_iter() {
-        for b in ThreeValuedBitvector::<L>::all_with_length_iter() {
+    for a in ThreeValuedBitvector::<W>::all_with_length_iter() {
+        for b in ThreeValuedBitvector::<W>::all_with_length_iter() {
             let abstr_result = abstr_func(a, b);
 
             let a_concr_iter =
-                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_concr(c));
+                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_concr(c));
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                ConcreteBitvector::<L>::all_with_length_iter()
+                ConcreteBitvector::<W>::all_with_width_iter()
                     .filter(|c| b.contains_concr(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr))
             }));
@@ -128,35 +128,35 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
     }
 }
 
-pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
+pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
     abstr_func: fn(
-        ThreeValuedBitvector<L>,
-        ThreeValuedBitvector<L>,
+        ThreeValuedBitvector<W>,
+        ThreeValuedBitvector<W>,
     ) -> PanicResult<ThreeValuedBitvector<X>>,
     concr_func: fn(
-        ConcreteBitvector<L>,
-        ConcreteBitvector<L>,
+        ConcreteBitvector<W>,
+        ConcreteBitvector<W>,
     ) -> concr::PanicResult<ConcreteBitvector<X>>,
 ) {
-    for a in ThreeValuedBitvector::<L>::all_with_length_iter() {
-        for b in ThreeValuedBitvector::<L>::all_with_length_iter() {
+    for a in ThreeValuedBitvector::<W>::all_with_length_iter() {
+        for b in ThreeValuedBitvector::<W>::all_with_length_iter() {
             let abstr_panic_result = abstr_func(a, b);
             let abstr_result = abstr_panic_result.result;
             let abstr_panic = abstr_panic_result.panic;
 
             let a_concr_iter =
-                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_concr(c));
+                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_concr(c));
 
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                ConcreteBitvector::<L>::all_with_length_iter()
+                ConcreteBitvector::<W>::all_with_width_iter()
                     .filter(|c| b.contains_concr(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr).result)
             }));
 
             let a_concr_iter =
-                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_concr(c));
+                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_concr(c));
             let equiv_panic = join_panic_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                ConcreteBitvector::<L>::all_with_length_iter()
+                ConcreteBitvector::<W>::all_with_width_iter()
                     .filter(|c| b.contains_concr(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr).panic)
             }));
@@ -186,10 +186,10 @@ pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
     }
 }
 
-pub(super) fn join_concr_iter<const L: u32>(
-    mut iter: impl Iterator<Item = ConcreteBitvector<L>>,
-) -> ThreeValuedBitvector<L> {
-    if L == 0 {
+pub(super) fn join_concr_iter<const W: u32>(
+    mut iter: impl Iterator<Item = ConcreteBitvector<W>>,
+) -> ThreeValuedBitvector<W> {
+    if W == 0 {
         return ThreeValuedBitvector::new_unknown();
     }
 

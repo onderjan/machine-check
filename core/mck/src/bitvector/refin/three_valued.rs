@@ -17,10 +17,10 @@ mod support;
 
 // TODO: remove equality in favour of meta-equality
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct MarkBitvector<const L: u32>(Option<BitvectorMark<L>>);
+pub struct MarkBitvector<const W: u32>(Option<BitvectorMark<W>>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BitvectorMark<const L: u32> {
+pub struct BitvectorMark<const W: u32> {
     pub importance: NonZeroU8,
-    pub mark: ConcreteBitvector<L>,
+    pub mark: ConcreteBitvector<W>,
 }

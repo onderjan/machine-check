@@ -6,7 +6,7 @@ use crate::{
 
 use super::ThreeValuedBitvector;
 
-impl<const L: u32> TypedEq for ThreeValuedBitvector<L> {
+impl<const W: u32> TypedEq for ThreeValuedBitvector<W> {
     type Output = Boolean;
     fn eq(self, rhs: Self) -> Self::Output {
         // result can be true if all bits can be the same

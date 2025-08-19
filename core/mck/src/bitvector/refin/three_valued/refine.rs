@@ -9,7 +9,7 @@ use crate::{
 
 use super::MarkBitvector;
 
-impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
+impl<const W: u32> Refine<ThreeValuedBitvector<W>> for MarkBitvector<W> {
     fn apply_join(&mut self, other: &Self) {
         let Some(other_mark) = other.0 else {
             return;
@@ -68,7 +68,7 @@ impl<const L: u32> Refine<ThreeValuedBitvector<L>> for MarkBitvector<L> {
         true
     }
 
-    fn force_decay(&self, target: &mut ThreeValuedBitvector<L>) {
+    fn force_decay(&self, target: &mut ThreeValuedBitvector<W>) {
         // unmarked fields become unknown
         let forced_unknown = forward::Bitwise::bit_not(self.marked_bits());
         let zeros = forward::Bitwise::bit_or(target.get_possibly_zero_flags(), forced_unknown);

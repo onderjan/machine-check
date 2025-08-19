@@ -52,7 +52,7 @@ fn support() {
     assert_eq!(full, ConcreteBitvector::bit_mask());
 
     assert_eq!(
-        ConcreteBitvector::<8>::all_with_length_iter().count(),
+        ConcreteBitvector::<8>::all_with_width_iter().count(),
         2usize.pow(8)
     );
 }
@@ -241,27 +241,27 @@ fn arith() {
     assert_eq!(expect_no_panic(min.srem(minus_one)), zero);
 }
 
-fn expect_no_panic<const L: u32>(
-    panic_result: PanicResult<ConcreteBitvector<L>>,
-) -> ConcreteBitvector<L> {
+fn expect_no_panic<const W: u32>(
+    panic_result: PanicResult<ConcreteBitvector<W>>,
+) -> ConcreteBitvector<W> {
     if panic_result.panic != ConcreteBitvector::new(PANIC_NUM_NO_PANIC) {
         panic!("Expected no panic")
     }
     panic_result.result
 }
 
-fn expect_div_panic<const L: u32>(
-    panic_result: PanicResult<ConcreteBitvector<L>>,
-) -> ConcreteBitvector<L> {
+fn expect_div_panic<const W: u32>(
+    panic_result: PanicResult<ConcreteBitvector<W>>,
+) -> ConcreteBitvector<W> {
     if panic_result.panic != ConcreteBitvector::new(PANIC_NUM_DIV_BY_ZERO) {
         panic!("Expected division panic")
     }
     panic_result.result
 }
 
-fn expect_rem_panic<const L: u32>(
-    panic_result: PanicResult<ConcreteBitvector<L>>,
-) -> ConcreteBitvector<L> {
+fn expect_rem_panic<const W: u32>(
+    panic_result: PanicResult<ConcreteBitvector<W>>,
+) -> ConcreteBitvector<W> {
     if panic_result.panic != ConcreteBitvector::new(PANIC_NUM_REM_BY_ZERO) {
         panic!("Expected remainder panic")
     }

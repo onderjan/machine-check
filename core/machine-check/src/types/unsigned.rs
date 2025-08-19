@@ -13,14 +13,14 @@ use crate::{traits::Ext, Bitvector, Signed};
 ///
 /// Unsigned bitvector.
 ///
-/// The number of bits is specified in the generic parameter L.
+/// The width (number of bits) is specified in the generic parameter W.
 /// Unsigned bitvectors support bitwise operations and wrapping-arithmetic operations.
 /// Logical bit extension is also possible (any new bits are zero).
 /// Signed bitvectors be converted into [`Unsigned`] or [`Bitvector`].
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Unsigned<const L: u32>(pub(super) concr::Bitvector<L>);
+pub struct Unsigned<const W: u32>(pub(super) concr::Bitvector<W>);
 
-impl<const L: u32> Unsigned<L> {
+impl<const W: u32> Unsigned<W> {
     ///
     /// Creates a new bitvector with the given value.
     /// Panics if the value does not fit into the type.
@@ -31,7 +31,7 @@ impl<const L: u32> Unsigned<L> {
 }
 // --- BITWISE OPERATIONS ---
 
-impl<const L: u32> Not for Unsigned<L> {
+impl<const W: u32> Not for Unsigned<W> {
     type Output = Self;
 
     /// Performs bitwise NOT.
@@ -40,61 +40,61 @@ impl<const L: u32> Not for Unsigned<L> {
     }
 }
 
-impl<const L: u32> BitAnd<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> BitAnd<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs bitwise AND.
-    fn bitand(self, rhs: Unsigned<L>) -> Self::Output {
+    fn bitand(self, rhs: Unsigned<W>) -> Self::Output {
         Self(self.0.bit_and(rhs.0))
     }
 }
-impl<const L: u32> BitOr<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> BitOr<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs bitwise OR.
-    fn bitor(self, rhs: Unsigned<L>) -> Self::Output {
+    fn bitor(self, rhs: Unsigned<W>) -> Self::Output {
         Self(self.0.bit_or(rhs.0))
     }
 }
-impl<const L: u32> BitXor<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> BitXor<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs bitwise XOR.
-    fn bitxor(self, rhs: Unsigned<L>) -> Self::Output {
+    fn bitxor(self, rhs: Unsigned<W>) -> Self::Output {
         Self(self.0.bit_xor(rhs.0))
     }
 }
 
 // --- ARITHMETIC OPERATIONS ---
 
-impl<const L: u32> Add<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> Add<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs wrapping addition.
-    fn add(self, rhs: Unsigned<L>) -> Self::Output {
+    fn add(self, rhs: Unsigned<W>) -> Self::Output {
         Self(self.0.add(rhs.0))
     }
 }
 
-impl<const L: u32> Sub<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> Sub<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs wrapping subtraction.
-    fn sub(self, rhs: Unsigned<L>) -> Self::Output {
+    fn sub(self, rhs: Unsigned<W>) -> Self::Output {
         Self(self.0.sub(rhs.0))
     }
 }
 
-impl<const L: u32> Mul<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> Mul<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs wrapping multiplication.
-    fn mul(self, rhs: Unsigned<L>) -> Self::Output {
+    fn mul(self, rhs: Unsigned<W>) -> Self::Output {
         Self(self.0.mul(rhs.0))
     }
 }
 
-impl<const L: u32> Div<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> Div<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs wrapping unsigned division.
@@ -105,7 +105,7 @@ impl<const L: u32> Div<Unsigned<L>> for Unsigned<L> {
     /// # Panics
     ///
     /// Panics if `rhs` is zero.
-    fn div(self, rhs: Unsigned<L>) -> Self::Output {
+    fn div(self, rhs: Unsigned<W>) -> Self::Output {
         let panic_result = self.0.udiv(rhs.0);
         if panic_result.panic.is_nonzero() {
             panic!("attempt to divide by zero")
@@ -114,7 +114,7 @@ impl<const L: u32> Div<Unsigned<L>> for Unsigned<L> {
     }
 }
 
-impl<const L: u32> Rem<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> Rem<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs wrapping unsigned remainer.
@@ -125,7 +125,7 @@ impl<const L: u32> Rem<Unsigned<L>> for Unsigned<L> {
     /// # Panics
     ///
     /// Panics if `rhs` is zero.
-    fn rem(self, rhs: Unsigned<L>) -> Self::Output {
+    fn rem(self, rhs: Unsigned<W>) -> Self::Output {
         let panic_result = self.0.urem(rhs.0);
         if panic_result.panic.is_nonzero() {
             panic!("attempt to calculate the remainder with a divisor of zero")
@@ -134,7 +134,7 @@ impl<const L: u32> Rem<Unsigned<L>> for Unsigned<L> {
     }
 }
 
-impl<const L: u32> Shl<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> Shl<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs a left shift.
@@ -147,12 +147,12 @@ impl<const L: u32> Shl<Unsigned<L>> for Unsigned<L> {
     /// is equal or greater to the bit-width, the result is all-zeros,
     /// as in Rust `unbounded_shl`. It is planned to restrict the bit-width
     /// in the future so that this edge case can never occur.
-    fn shl(self, rhs: Unsigned<L>) -> Self::Output {
+    fn shl(self, rhs: Unsigned<W>) -> Self::Output {
         Self(self.0.logic_shl(rhs.0))
     }
 }
 
-impl<const L: u32> Shr<Unsigned<L>> for Unsigned<L> {
+impl<const W: u32> Shr<Unsigned<W>> for Unsigned<W> {
     type Output = Self;
 
     /// Performs a logic right shift.
@@ -162,13 +162,13 @@ impl<const L: u32> Shr<Unsigned<L>> for Unsigned<L> {
     /// as in Rust `unbounded_shr` on unsigned primitives.
     /// It is planned to restrict the bit-width in the future so that this edge
     /// case can never occur.
-    fn shr(self, rhs: Unsigned<L>) -> Self::Output {
+    fn shr(self, rhs: Unsigned<W>) -> Self::Output {
         Self(self.0.logic_shr(rhs.0))
     }
 }
 
 // --- EXTENSION ---
-impl<const L: u32, const X: u32> Ext<X> for Unsigned<L> {
+impl<const W: u32, const X: u32> Ext<X> for Unsigned<W> {
     type Output = Unsigned<X>;
 
     /// Extends or narrows the bit-vector.
@@ -181,13 +181,13 @@ impl<const L: u32, const X: u32> Ext<X> for Unsigned<L> {
 
 // --- ORDERING ---
 
-impl<const L: u32> PartialOrd for Unsigned<L> {
+impl<const W: u32> PartialOrd for Unsigned<W> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<const L: u32> Ord for Unsigned<L> {
+impl<const W: u32> Ord for Unsigned<W> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.unsigned_cmp(&other.0)
     }
@@ -195,23 +195,23 @@ impl<const L: u32> Ord for Unsigned<L> {
 
 // --- CONVERSION ---
 
-impl<const L: u32> From<Bitvector<L>> for Unsigned<L> {
+impl<const W: u32> From<Bitvector<W>> for Unsigned<W> {
     /// Adds signedness information to `Bitvector`.
-    fn from(value: Bitvector<L>) -> Self {
+    fn from(value: Bitvector<W>) -> Self {
         Self(value.0)
     }
 }
 
-impl<const L: u32> From<Signed<L>> for Unsigned<L> {
+impl<const W: u32> From<Signed<W>> for Unsigned<W> {
     /// Converts the signedness information from `Signed` to `Unsigned`.
-    fn from(value: Signed<L>) -> Self {
+    fn from(value: Signed<W>) -> Self {
         Self(value.0)
     }
 }
 
 // --- MISC ---
 
-impl<const L: u32> Debug for Unsigned<L> {
+impl<const W: u32> Debug for Unsigned<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.0, f)
     }
@@ -220,8 +220,8 @@ impl<const L: u32> Debug for Unsigned<L> {
 // --- INTERNAL IMPLEMENTATIONS ---
 
 #[doc(hidden)]
-impl<const L: u32> IntoMck for Unsigned<L> {
-    type Type = mck::concr::Bitvector<L>;
+impl<const W: u32> IntoMck for Unsigned<W> {
+    type Type = mck::concr::Bitvector<W>;
 
     fn into_mck(self) -> Self::Type {
         self.0

@@ -81,15 +81,15 @@ macro_rules! divrem_op_test {
     };
 }
 
-pub(super) fn exec_uni_check<const L: u32, const X: u32>(
-    abstr_func: fn(DualInterval<L>) -> DualInterval<X>,
-    concr_func: fn(ConcreteBitvector<L>) -> ConcreteBitvector<X>,
+pub(super) fn exec_uni_check<const W: u32, const X: u32>(
+    abstr_func: fn(DualInterval<W>) -> DualInterval<X>,
+    concr_func: fn(ConcreteBitvector<W>) -> ConcreteBitvector<X>,
     exact: bool,
 ) {
-    for a in DualInterval::<L>::all_with_length_iter() {
+    for a in DualInterval::<W>::all_with_width_iter() {
         let abstr_result = abstr_func(a);
         let equiv_result = join_concr_iter(
-            ConcreteBitvector::<L>::all_with_length_iter()
+            ConcreteBitvector::<W>::all_with_width_iter()
                 .filter(|c| a.contains_value(c))
                 .map(concr_func),
         );
@@ -109,19 +109,19 @@ pub(super) fn exec_uni_check<const L: u32, const X: u32>(
     }
 }
 
-pub(super) fn exec_bi_check<const L: u32, const X: u32>(
-    abstr_func: fn(DualInterval<L>, DualInterval<L>) -> DualInterval<X>,
-    concr_func: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<X>,
+pub(super) fn exec_bi_check<const W: u32, const X: u32>(
+    abstr_func: fn(DualInterval<W>, DualInterval<W>) -> DualInterval<X>,
+    concr_func: fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> ConcreteBitvector<X>,
     exact: bool,
 ) {
-    for a in DualInterval::<L>::all_with_length_iter() {
-        for b in DualInterval::<L>::all_with_length_iter() {
+    for a in DualInterval::<W>::all_with_width_iter() {
+        for b in DualInterval::<W>::all_with_width_iter() {
             let abstr_result = abstr_func(a, b);
 
             let a_concr_iter =
-                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_value(c));
+                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_value(c));
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                ConcreteBitvector::<L>::all_with_length_iter()
+                ConcreteBitvector::<W>::all_with_width_iter()
                     .filter(|c| b.contains_value(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr))
             }));
@@ -152,20 +152,20 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
     }
 }
 
-pub(super) fn exec_comparison_check<const L: u32>(
-    abstr_func: fn(DualInterval<L>, DualInterval<L>) -> abstr::Boolean,
-    concr_func: fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> concr::Boolean,
+pub(super) fn exec_comparison_check<const W: u32>(
+    abstr_func: fn(DualInterval<W>, DualInterval<W>) -> abstr::Boolean,
+    concr_func: fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> concr::Boolean,
     exact: bool,
 ) {
-    for a in DualInterval::<L>::all_with_length_iter() {
-        for b in DualInterval::<L>::all_with_length_iter() {
+    for a in DualInterval::<W>::all_with_width_iter() {
+        for b in DualInterval::<W>::all_with_width_iter() {
             let abstr_result: abstr::Boolean = abstr_func(a, b);
 
             let a_concr_iter =
-                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_value(c));
+                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_value(c));
             let equiv_result: abstr::Boolean =
                 join_bool_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                    ConcreteBitvector::<L>::all_with_length_iter()
+                    ConcreteBitvector::<W>::all_with_width_iter()
                         .filter(|c| b.contains_value(c))
                         .map(move |b_concr| concr_func(a_concr, b_concr))
                 }));
@@ -199,32 +199,32 @@ pub(super) fn exec_comparison_check<const L: u32>(
     }
 }
 
-pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
-    abstr_func: fn(DualInterval<L>, DualInterval<L>) -> PanicResult<DualInterval<X>>,
+pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
+    abstr_func: fn(DualInterval<W>, DualInterval<W>) -> PanicResult<DualInterval<X>>,
     concr_func: fn(
-        ConcreteBitvector<L>,
-        ConcreteBitvector<L>,
+        ConcreteBitvector<W>,
+        ConcreteBitvector<W>,
     ) -> concr::PanicResult<ConcreteBitvector<X>>,
 ) {
-    for a in DualInterval::<L>::all_with_length_iter() {
-        for b in DualInterval::<L>::all_with_length_iter() {
+    for a in DualInterval::<W>::all_with_width_iter() {
+        for b in DualInterval::<W>::all_with_width_iter() {
             let abstr_panic_result = abstr_func(a, b);
             let abstr_result = abstr_panic_result.result;
             let abstr_panic = abstr_panic_result.panic;
 
             let a_concr_iter =
-                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_value(c));
+                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_value(c));
 
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                ConcreteBitvector::<L>::all_with_length_iter()
+                ConcreteBitvector::<W>::all_with_width_iter()
                     .filter(|c| b.contains_value(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr).result)
             }));
 
             let a_concr_iter =
-                ConcreteBitvector::<L>::all_with_length_iter().filter(|c| a.contains_value(c));
+                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_value(c));
             let equiv_panic = join_panic_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                ConcreteBitvector::<L>::all_with_length_iter()
+                ConcreteBitvector::<W>::all_with_width_iter()
                     .filter(|c| b.contains_value(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr).panic)
             }));
@@ -254,10 +254,10 @@ pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
     }
 }
 
-pub(super) fn join_concr_iter<const L: u32>(
-    mut iter: impl Iterator<Item = ConcreteBitvector<L>>,
-) -> DualInterval<L> {
-    if L == 0 {
+pub(super) fn join_concr_iter<const W: u32>(
+    mut iter: impl Iterator<Item = ConcreteBitvector<W>>,
+) -> DualInterval<W> {
+    if W == 0 {
         return DualInterval::FULL;
     }
 
@@ -357,15 +357,15 @@ impl<const W: u32> DualInterval<W> {
         }
     }
 
-    pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
-        let only_near_half_result = SignlessInterval::all_with_length_iter(false)
+    pub fn all_with_width_iter() -> impl Iterator<Item = Self> {
+        let only_near_half_result = SignlessInterval::all_with_width_iter(false)
             .map(|near_half| Self::from_opt_halves(Some(near_half), None));
-        let only_far_half_result = SignlessInterval::all_with_length_iter(true)
+        let only_far_half_result = SignlessInterval::all_with_width_iter(true)
             .map(|far_half| Self::from_opt_halves(None, Some(far_half)));
 
-        let near_half_iter = SignlessInterval::<W>::all_with_length_iter(false);
+        let near_half_iter = SignlessInterval::<W>::all_with_width_iter(false);
         let both_halves_result = near_half_iter.flat_map(|near_half| {
-            let far_half_iter = SignlessInterval::<W>::all_with_length_iter(true);
+            let far_half_iter = SignlessInterval::<W>::all_with_width_iter(true);
             far_half_iter
                 .map(move |far_half| Self::from_opt_halves(Some(near_half), Some(far_half)))
         });

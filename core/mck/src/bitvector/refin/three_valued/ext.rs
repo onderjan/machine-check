@@ -5,8 +5,8 @@ use crate::{
 
 use super::MarkBitvector;
 
-impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
-    type MarkEarlier = MarkBitvector<L>;
+impl<const W: u32, const X: u32> Ext<X> for ThreeValuedBitvector<W> {
+    type MarkEarlier = MarkBitvector<W>;
     type MarkLater = MarkBitvector<X>;
 
     fn uext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
@@ -37,9 +37,9 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
 
         // do unsigned extension and then treat the potential high bits specially
 
-        let mut extended = crate::forward::Ext::<L>::uext(mark_later.mark);
+        let mut extended = crate::forward::Ext::<W>::uext(mark_later.mark);
 
-        if X > L && mark_later.mark != crate::forward::Ext::<X>::uext(extended) {
+        if X > W && mark_later.mark != crate::forward::Ext::<X>::uext(extended) {
             // propagate marking to the sign bit
             extended = crate::forward::Bitwise::bit_or(extended, ConcreteBitvector::bit_mask());
         }

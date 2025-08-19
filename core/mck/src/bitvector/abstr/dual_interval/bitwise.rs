@@ -2,7 +2,7 @@ use crate::{bitvector::interval::SignlessInterval, forward::Bitwise};
 
 use super::DualInterval;
 
-impl<const L: u32> Bitwise for DualInterval<L> {
+impl<const W: u32> Bitwise for DualInterval<W> {
     fn bit_not(self) -> Self {
         // just bit-not and swap intervals
         let near_min = self.far_half.max().bit_not();

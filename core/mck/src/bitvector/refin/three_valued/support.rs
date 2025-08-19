@@ -10,7 +10,7 @@ use crate::{
 
 use super::{BitvectorMark, MarkBitvector};
 
-impl<const L: u32> MarkBitvector<L> {
+impl<const W: u32> MarkBitvector<W> {
     const LOWEST_IMPORTANCE: NonZeroU8 = Self::lowest_importance();
 
     const fn lowest_importance() -> NonZeroU8 {
@@ -20,7 +20,7 @@ impl<const L: u32> MarkBitvector<L> {
         }
     }
 
-    pub fn new(mark: ConcreteBitvector<L>, importance: NonZeroU8) -> Self {
+    pub fn new(mark: ConcreteBitvector<W>, importance: NonZeroU8) -> Self {
         if mark.is_nonzero() {
             Self(Some(BitvectorMark { mark, importance }))
         } else {
@@ -32,7 +32,7 @@ impl<const L: u32> MarkBitvector<L> {
         Self(None)
     }
     pub fn new_marked(importance: NonZeroU8) -> Self {
-        if L == 0 {
+        if W == 0 {
             return Self::new_unmarked();
         }
         let zero = ConcreteBitvector::new(0);
@@ -56,10 +56,10 @@ impl<const L: u32> MarkBitvector<L> {
         !self.is_marked()
     }
 
-    pub fn new_from_flag(mark: ConcreteBitvector<L>) -> Self {
+    pub fn new_from_flag(mark: ConcreteBitvector<W>) -> Self {
         Self::new(mark, Self::LOWEST_IMPORTANCE)
     }
-    pub fn limit(&self, abstract_bitvec: ThreeValuedBitvector<L>) -> MarkBitvector<L> {
+    pub fn limit(&self, abstract_bitvec: ThreeValuedBitvector<W>) -> MarkBitvector<W> {
         if let Some(own_mark) = self.0 {
             let result_mark =
                 forward::Bitwise::bit_and(own_mark.mark, abstract_bitvec.get_unknown_bits());
@@ -69,7 +69,7 @@ impl<const L: u32> MarkBitvector<L> {
         }
     }
 
-    pub fn marked_bits(&self) -> ConcreteBitvector<L> {
+    pub fn marked_bits(&self) -> ConcreteBitvector<W> {
         if let Some(mark) = self.0 {
             mark.mark
         } else {
@@ -77,25 +77,25 @@ impl<const L: u32> MarkBitvector<L> {
         }
     }
 
-    pub fn get(&self) -> &Option<BitvectorMark<L>> {
+    pub fn get(&self) -> &Option<BitvectorMark<W>> {
         &self.0
     }
 }
 
-pub(super) fn default_uni_mark<const L: u32, const X: u32>(
-    normal_input: (ThreeValuedBitvector<L>,),
+pub(super) fn default_uni_mark<const W: u32, const X: u32>(
+    normal_input: (ThreeValuedBitvector<W>,),
     mark_later: MarkBitvector<X>,
-) -> (MarkBitvector<L>,) {
+) -> (MarkBitvector<W>,) {
     let Some(mark_later) = mark_later.0 else {
         return (MarkBitvector::new_unmarked(),);
     };
     (MarkBitvector::new_marked(mark_later.importance).limit(normal_input.0),)
 }
 
-pub(super) fn default_bi_mark<const L: u32, const X: u32>(
-    normal_input: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
+pub(super) fn default_bi_mark<const W: u32, const X: u32>(
+    normal_input: (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
     mark_later: MarkBitvector<X>,
-) -> (MarkBitvector<L>, MarkBitvector<L>) {
+) -> (MarkBitvector<W>, MarkBitvector<W>) {
     let Some(mark_later) = mark_later.0 else {
         return (MarkBitvector::new_unmarked(), MarkBitvector::new_unmarked());
     };
@@ -105,15 +105,15 @@ pub(super) fn default_bi_mark<const L: u32, const X: u32>(
     )
 }
 
-impl<const L: u32> MetaEq for MarkBitvector<L> {
+impl<const W: u32> MetaEq for MarkBitvector<W> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<const L: u32> ManipField for MarkBitvector<L> {
+impl<const W: u32> ManipField for MarkBitvector<W> {
     fn num_bits(&self) -> Option<u32> {
-        Some(L)
+        Some(W)
     }
 
     fn mark(&mut self) {

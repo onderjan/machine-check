@@ -42,7 +42,7 @@ impl RConcreteBitvector {
     }
 }
 
-impl<const L: u32> TypedCmp for ConcreteBitvector<L> {
+impl<const W: u32> TypedCmp for ConcreteBitvector<W> {
     type Output = Boolean;
 
     fn slt(self, rhs: Self) -> Self::Output {
@@ -66,7 +66,7 @@ impl<const L: u32> TypedCmp for ConcreteBitvector<L> {
     }
 }
 
-impl<const L: u32> ConcreteBitvector<L> {
+impl<const W: u32> ConcreteBitvector<W> {
     pub fn unsigned_cmp(&self, rhs: &Self) -> Ordering {
         self.to_u64().cmp(&rhs.to_u64())
     }

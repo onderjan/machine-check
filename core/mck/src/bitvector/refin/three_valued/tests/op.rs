@@ -80,18 +80,18 @@ macro_rules! divrem_op_test {
     };
 }
 
-fn exact_uni_mark<const L: u32, const X: u32>(
-    a_abstr: ThreeValuedBitvector<L>,
+fn exact_uni_mark<const W: u32, const X: u32>(
+    a_abstr: ThreeValuedBitvector<W>,
     a_mark: MarkBitvector<X>,
-    concr_func: fn(ConcreteBitvector<L>) -> ConcreteBitvector<X>,
-) -> MarkBitvector<L> {
+    concr_func: fn(ConcreteBitvector<W>) -> ConcreteBitvector<X>,
+) -> MarkBitvector<W> {
     // the result marks exactly those bits of input which, if changed in operation input,
     // can change bits masked by mark_a in the operation result
     let mark_mask = a_mark.marked_bits().to_u64();
     // determine for each input bit separately
     let mut result = 0;
-    for i in 0..L {
-        for a in ConcreteBitvector::<L>::all_with_length_iter() {
+    for i in 0..W {
+        for a in ConcreteBitvector::<W>::all_with_width_iter() {
             if a.to_u64() & (1 << i) != 0 {
                 continue;
             }
@@ -110,10 +110,10 @@ fn exact_uni_mark<const L: u32, const X: u32>(
     MarkBitvector::new_from_flag(ConcreteBitvector::new(result))
 }
 
-fn eval_mark<const L: u32>(
+fn eval_mark<const W: u32>(
     want_exact: bool,
-    exact_earlier: MarkBitvector<L>,
-    our_earlier: MarkBitvector<L>,
+    exact_earlier: MarkBitvector<W>,
+    our_earlier: MarkBitvector<W>,
     provoked: bool,
 ) {
     if want_exact {
@@ -148,15 +148,15 @@ fn eval_mark<const L: u32>(
     }
 }
 
-pub(super) fn exec_uni_check<const L: u32, const X: u32>(
-    mark_func: fn(ThreeValuedBitvector<L>, MarkBitvector<X>) -> MarkBitvector<L>,
-    concr_func: fn(ConcreteBitvector<L>) -> ConcreteBitvector<X>,
+pub(super) fn exec_uni_check<const W: u32, const X: u32>(
+    mark_func: fn(ThreeValuedBitvector<W>, MarkBitvector<X>) -> MarkBitvector<W>,
+    concr_func: fn(ConcreteBitvector<W>) -> ConcreteBitvector<X>,
     want_exact: bool,
 ) {
     // a mark bit is necessary if changing the input bit can impact the output
     // test this for all concretizations of the input
 
-    for a_later in ConcreteBitvector::all_with_length_iter() {
+    for a_later in ConcreteBitvector::all_with_width_iter() {
         let a_later = MarkBitvector::new_from_flag(a_later);
 
         for a_abstr in ThreeValuedBitvector::all_with_length_iter() {
@@ -167,11 +167,11 @@ pub(super) fn exec_uni_check<const L: u32, const X: u32>(
     }
 }
 
-fn exact_left_mark<const L: u32, const X: u32>(
-    abstr: (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
+fn exact_left_mark<const W: u32, const X: u32>(
+    abstr: (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
     mark: MarkBitvector<X>,
-    concr_func: impl Fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<X>,
-) -> MarkBitvector<L> {
+    concr_func: impl Fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> ConcreteBitvector<X>,
+) -> MarkBitvector<W> {
     let left_abstr = abstr.0;
     let right_abstr = abstr.1;
     // the result marks exactly those bits of input which, if changed in operation input,
@@ -179,8 +179,8 @@ fn exact_left_mark<const L: u32, const X: u32>(
     let mark_mask = mark.marked_bits().to_u64();
     // determine for each input bit separately
     let mut left_result = 0;
-    for i in 0..L {
-        for our in 0..(1 << L) {
+    for i in 0..W {
+        for our in 0..(1 << W) {
             if our & (1 << i) != 0 {
                 continue;
             }
@@ -189,7 +189,7 @@ fn exact_left_mark<const L: u32, const X: u32>(
             if !left_abstr.contains_concr(&with_zero) || !left_abstr.contains_concr(&with_one) {
                 continue;
             }
-            for other in 0..(1 << L) {
+            for other in 0..(1 << W) {
                 if !right_abstr.contains_concr(&ConcreteBitvector::new(other)) {
                     continue;
                 }
@@ -205,22 +205,22 @@ fn exact_left_mark<const L: u32, const X: u32>(
     MarkBitvector::new_from_flag(ConcreteBitvector::new(left_result))
 }
 
-fn exec_left_check<const L: u32, const X: u32>(
+fn exec_left_check<const W: u32, const X: u32>(
     mark_func: impl Fn(
-        (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
+        (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
         MarkBitvector<X>,
-    ) -> MarkBitvector<L>,
-    concr_func: impl Fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<X>,
+    ) -> MarkBitvector<W>,
+    concr_func: impl Fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> ConcreteBitvector<X>,
     want_exact: bool,
 ) {
     // a mark bit is necessary if changing the input bit can impact the output
     // test this for all concretizations of the input
 
-    for a_later in ConcreteBitvector::all_with_length_iter() {
+    for a_later in ConcreteBitvector::all_with_width_iter() {
         let a_later = MarkBitvector::new_from_flag(a_later);
 
-        for a_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
-            for b_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
+        for a_abstr in ThreeValuedBitvector::<W>::all_with_length_iter() {
+            for b_abstr in ThreeValuedBitvector::<W>::all_with_length_iter() {
                 let exact_earlier = exact_left_mark((a_abstr, b_abstr), a_later, &concr_func);
                 let our_earlier = mark_func((a_abstr, b_abstr), a_later);
 
@@ -230,12 +230,12 @@ fn exec_left_check<const L: u32, const X: u32>(
     }
 }
 
-pub(super) fn exec_bi_check<const L: u32, const X: u32>(
+pub(super) fn exec_bi_check<const W: u32, const X: u32>(
     mark_func: &impl Fn(
-        (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
+        (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
         MarkBitvector<X>,
-    ) -> (MarkBitvector<L>, MarkBitvector<L>),
-    concr_func: &impl Fn(ConcreteBitvector<L>, ConcreteBitvector<L>) -> ConcreteBitvector<X>,
+    ) -> (MarkBitvector<W>, MarkBitvector<W>),
+    concr_func: &impl Fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> ConcreteBitvector<X>,
     want_exact: bool,
 ) {
     // exec for left
@@ -248,14 +248,14 @@ pub(super) fn exec_bi_check<const L: u32, const X: u32>(
     exec_left_check(right_mark_func, right_concr_func, want_exact);
 }
 
-pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
+pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
     mark_func: &impl Fn(
-        (ThreeValuedBitvector<L>, ThreeValuedBitvector<L>),
+        (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
         refin::PanicResult<MarkBitvector<X>>,
-    ) -> (MarkBitvector<L>, MarkBitvector<L>),
+    ) -> (MarkBitvector<W>, MarkBitvector<W>),
     concr_func: &impl Fn(
-        ConcreteBitvector<L>,
-        ConcreteBitvector<L>,
+        ConcreteBitvector<W>,
+        ConcreteBitvector<W>,
     ) -> concr::PanicResult<ConcreteBitvector<X>>,
     want_exact: bool,
 ) {
@@ -288,8 +288,8 @@ pub(super) fn exec_divrem_check<const L: u32, const X: u32>(
     exec_left_check(right_mark_func, right_concr_func, want_exact);
 
     // test that panic propagates
-    for a_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
-        for b_abstr in ThreeValuedBitvector::<L>::all_with_length_iter() {
+    for a_abstr in ThreeValuedBitvector::<W>::all_with_length_iter() {
+        for b_abstr in ThreeValuedBitvector::<W>::all_with_length_iter() {
             let later_mark_result = MarkBitvector::<X>::new_unmarked();
             let later_mark_panic = PanicBitvector::new_marked_unimportant();
             let (marked_a, marked_b) = mark_func(

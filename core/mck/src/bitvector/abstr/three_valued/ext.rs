@@ -2,11 +2,11 @@ use crate::{bitvector::util, concr::ConcreteBitvector, forward::Ext};
 
 use super::ThreeValuedBitvector;
 
-impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
+impl<const W: u32, const X: u32> Ext<X> for ThreeValuedBitvector<W> {
     type Output = ThreeValuedBitvector<X>;
 
     fn uext(self) -> Self::Output {
-        let old_mask = util::compute_u64_mask(L);
+        let old_mask = util::compute_u64_mask(W);
         let new_mask = util::compute_u64_mask(X);
 
         // shorten if needed
@@ -26,12 +26,12 @@ impl<const L: u32, const X: u32> Ext<X> for ThreeValuedBitvector<L> {
     }
 
     fn sext(self) -> Self::Output {
-        if L == 0 {
+        if W == 0 {
             // no zeros nor ones, handle specially by returning zero
             return Self::Output::new(0);
         }
 
-        let old_mask = util::compute_u64_mask(L);
+        let old_mask = util::compute_u64_mask(W);
         let new_mask = util::compute_u64_mask(X);
 
         // shorten if needed

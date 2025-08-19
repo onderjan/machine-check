@@ -20,7 +20,7 @@ impl RConcreteBitvector {
     }
 }
 
-impl<const L: u32> Bitwise for ConcreteBitvector<L> {
+impl<const W: u32> Bitwise for ConcreteBitvector<W> {
     fn bit_not(self) -> Self {
         self.to_runtime().bit_not().unwrap_typed()
     }

@@ -18,8 +18,8 @@ use crate::{
 
 use super::ThreeValuedBitvector;
 
-impl<const L: u32> Abstr<concr::Bitvector<L>> for ThreeValuedBitvector<L> {
-    fn from_concrete(value: concr::Bitvector<L>) -> Self {
+impl<const W: u32> Abstr<concr::Bitvector<W>> for ThreeValuedBitvector<W> {
+    fn from_concrete(value: concr::Bitvector<W>) -> Self {
         // bit-negate for zeros
         let zeros = Bitwise::bit_not(value);
         // leave as-is for ones
@@ -29,26 +29,26 @@ impl<const L: u32> Abstr<concr::Bitvector<L>> for ThreeValuedBitvector<L> {
     }
 }
 
-impl<const L: u32> ThreeValuedBitvector<L> {
+impl<const W: u32> ThreeValuedBitvector<W> {
     #[must_use]
     pub fn new(value: u64) -> Self {
         Self::from_concrete(ConcreteBitvector::new(value))
     }
 
     #[must_use]
-    pub fn from_zeros_ones(zeros: ConcreteBitvector<L>, ones: ConcreteBitvector<L>) -> Self {
+    pub fn from_zeros_ones(zeros: ConcreteBitvector<W>, ones: ConcreteBitvector<W>) -> Self {
         match Self::try_from_zeros_ones(zeros, ones) {
             Ok(ok) => ok,
             Err(_) => panic!(
                 "Invalid zeros-ones with some unset bits (length {}, zeros {}, ones {})",
-                L, zeros, ones
+                W, zeros, ones
             ),
         }
     }
 
     pub fn try_from_zeros_ones(
-        zeros: ConcreteBitvector<L>,
-        ones: ConcreteBitvector<L>,
+        zeros: ConcreteBitvector<W>,
+        ones: ConcreteBitvector<W>,
     ) -> Result<Self, ()> {
         let mask = Self::get_mask();
         // the used bits must be set in zeros, ones, or both
@@ -59,7 +59,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn from_interval(min: ConcreteBitvector<L>, max: ConcreteBitvector<L>) -> Self {
+    pub fn from_interval(min: ConcreteBitvector<W>, max: ConcreteBitvector<W>) -> Self {
         assert!(min.to_u64() <= max.to_u64());
         // make positions where min and max agree known
         let xor = min.bit_xor(max);
@@ -88,35 +88,35 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn new_value_known(value: ConcreteBitvector<L>, known: ConcreteBitvector<L>) -> Self {
+    pub fn new_value_known(value: ConcreteBitvector<W>, known: ConcreteBitvector<W>) -> Self {
         let unknown = Bitwise::bit_not(known);
         Self::new_value_unknown(value, unknown)
     }
 
     #[must_use]
-    pub fn new_value_unknown(value: ConcreteBitvector<L>, unknown: ConcreteBitvector<L>) -> Self {
+    pub fn new_value_unknown(value: ConcreteBitvector<W>, unknown: ConcreteBitvector<W>) -> Self {
         let zeros = Bitwise::bit_or(Bitwise::bit_not(value), unknown);
         let ones = Bitwise::bit_or(value, unknown);
         Self::from_zeros_ones(zeros, ones)
     }
 
     #[must_use]
-    pub fn get_unknown_bits(&self) -> ConcreteBitvector<L> {
+    pub fn get_unknown_bits(&self) -> ConcreteBitvector<W> {
         Bitwise::bit_and(self.zeros, self.ones)
     }
 
     #[must_use]
-    pub fn get_possibly_one_flags(&self) -> ConcreteBitvector<L> {
+    pub fn get_possibly_one_flags(&self) -> ConcreteBitvector<W> {
         self.ones
     }
 
     #[must_use]
-    pub fn get_possibly_zero_flags(&self) -> ConcreteBitvector<L> {
+    pub fn get_possibly_zero_flags(&self) -> ConcreteBitvector<W> {
         self.zeros
     }
 
     #[must_use]
-    pub fn concrete_value(&self) -> Option<ConcreteBitvector<L>> {
+    pub fn concrete_value(&self) -> Option<ConcreteBitvector<W>> {
         // all bits must be equal
         let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones, self.zeros));
         if !nxor.is_zero() {
@@ -127,8 +127,8 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn get_mask() -> ConcreteBitvector<L> {
-        ConcreteBitvector::new(util::compute_u64_mask(L))
+    pub fn get_mask() -> ConcreteBitvector<W> {
+        ConcreteBitvector::new(util::compute_u64_mask(W))
     }
 
     #[must_use]
@@ -142,20 +142,20 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn umin(&self) -> UnsignedBitvector<L> {
+    pub fn umin(&self) -> UnsignedBitvector<W> {
         // unsigned min value is value of bit-negated zeros (one only where it must be)
         Bitwise::bit_not(self.zeros).cast_unsigned()
     }
 
     #[must_use]
-    pub fn umax(&self) -> UnsignedBitvector<L> {
+    pub fn umax(&self) -> UnsignedBitvector<W> {
         // unsigned max value is value of ones (one everywhere it can be)
         self.ones.cast_unsigned()
     }
 
     #[must_use]
-    pub fn smin(&self) -> SignedBitvector<L> {
-        let sign_bit_mask = ConcreteBitvector::<L>::sign_bit_mask();
+    pub fn smin(&self) -> SignedBitvector<W> {
+        let sign_bit_mask = ConcreteBitvector::<W>::sign_bit_mask();
         // take the unsigned minimum
         let mut result = self.umin().as_bitvector();
         // but the signed value is smaller when the sign bit is one
@@ -167,8 +167,8 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn smax(&self) -> SignedBitvector<L> {
-        let sign_bit_mask = ConcreteBitvector::<L>::sign_bit_mask();
+    pub fn smax(&self) -> SignedBitvector<W> {
+        let sign_bit_mask = ConcreteBitvector::<W>::sign_bit_mask();
         // take the unsigned maximum
         let mut result = self.umax().as_bitvector();
         // but the signed value is bigger when the sign bit is zero
@@ -188,7 +188,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn contains_concr(&self, a: &ConcreteBitvector<L>) -> bool {
+    pub fn contains_concr(&self, a: &ConcreteBitvector<W>) -> bool {
         // value zeros must be within our zeros and value ones must be within our ones
         let excessive_rhs_zeros = a.bit_not().bit_and(self.zeros.bit_not());
         let excessive_rhs_ones = a.bit_and(self.ones.bit_not());
@@ -196,16 +196,16 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 
     #[must_use]
-    pub fn concrete_join(&self, concrete: ConcreteBitvector<L>) -> Self {
+    pub fn concrete_join(&self, concrete: ConcreteBitvector<W>) -> Self {
         let zeros = self.zeros.bit_or(concrete.bit_not());
         let ones = self.ones.bit_or(concrete);
         Self::from_zeros_ones(zeros, ones)
     }
 
     pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
-        let zeros_iter = ConcreteBitvector::<L>::all_with_length_iter();
+        let zeros_iter = ConcreteBitvector::<W>::all_with_width_iter();
         zeros_iter.flat_map(|zeros| {
-            let ones_iter = ConcreteBitvector::<L>::all_with_length_iter();
+            let ones_iter = ConcreteBitvector::<W>::all_with_width_iter();
             ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
         })
     }
@@ -218,7 +218,7 @@ impl<const L: u32> ThreeValuedBitvector<L> {
     }
 }
 
-impl<const L: u32> MetaEq for ThreeValuedBitvector<L> {
+impl<const W: u32> MetaEq for ThreeValuedBitvector<W> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.ones == other.ones && self.zeros == other.zeros
     }
@@ -249,14 +249,14 @@ impl ThreeValuedBitvector<1> {
     }
 }
 
-impl<const L: u32> Default for ThreeValuedBitvector<L> {
+impl<const W: u32> Default for ThreeValuedBitvector<W> {
     fn default() -> Self {
         // default to fully unknown
         Self::new_unknown()
     }
 }
 
-impl<const L: u32> Phi for ThreeValuedBitvector<L> {
+impl<const W: u32> Phi for ThreeValuedBitvector<W> {
     fn phi(self, other: Self) -> Self {
         let zeros = self.zeros.bit_or(other.zeros);
         let ones = self.ones.bit_or(other.ones);
@@ -306,9 +306,9 @@ impl ThreeValuedFieldValue {
     }
 }
 
-impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
+impl<const W: u32> ManipField for ThreeValuedBitvector<W> {
     fn num_bits(&self) -> Option<u32> {
-        Some(L)
+        Some(W)
     }
 
     fn min_unsigned(&self) -> Option<u64> {
@@ -333,19 +333,19 @@ impl<const L: u32> ManipField for ThreeValuedBitvector<L> {
 
     fn description(&self) -> Field {
         Field::Bitvector(BitvectorField {
-            bit_width: L,
+            bit_width: W,
             element: self.element_description(),
         })
     }
 }
 
-impl<const L: u32> Debug for ThreeValuedBitvector<L> {
+impl<const W: u32> Debug for ThreeValuedBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.field_value().write(f, L)
+        self.field_value().write(f, W)
     }
 }
 
-impl<const L: u32> Display for ThreeValuedBitvector<L> {
+impl<const W: u32> Display for ThreeValuedBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
     }

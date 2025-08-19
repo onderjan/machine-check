@@ -5,8 +5,8 @@ use crate::{
 
 use super::MarkBitvector;
 
-impl<const L: u32> Meta<ThreeValuedBitvector<L>> for MarkBitvector<L> {
-    fn proto_first(&self) -> ThreeValuedBitvector<L> {
+impl<const W: u32> Meta<ThreeValuedBitvector<W>> for MarkBitvector<W> {
+    fn proto_first(&self) -> ThreeValuedBitvector<W> {
         // all known bits are 0
         let known_bits = self.marked_bits().to_u64();
         ThreeValuedBitvector::new_value_known(
@@ -15,7 +15,7 @@ impl<const L: u32> Meta<ThreeValuedBitvector<L>> for MarkBitvector<L> {
         )
     }
 
-    fn proto_increment(&self, proto: &mut ThreeValuedBitvector<L>) -> bool {
+    fn proto_increment(&self, proto: &mut ThreeValuedBitvector<W>) -> bool {
         // the marked bits should be split into possibilities
         let known_bits = self.marked_bits().to_u64();
 

@@ -5,7 +5,7 @@ use crate::{
 
 use super::CombinedMark;
 
-impl<const L: u32> Refine<CombinedBitvector<L>> for CombinedMark<L> {
+impl<const W: u32> Refine<CombinedBitvector<W>> for CombinedMark<W> {
     fn apply_join(&mut self, other: &Self) {
         self.0.apply_join(&other.0);
     }
@@ -18,7 +18,7 @@ impl<const L: u32> Refine<CombinedBitvector<L>> for CombinedMark<L> {
         self.0.apply_refin(&offer.0)
     }
 
-    fn force_decay(&self, target: &mut CombinedBitvector<L>) {
+    fn force_decay(&self, target: &mut CombinedBitvector<W>) {
         // TODO: force decay on both
 
         let mut three_valued = *target.three_valued();

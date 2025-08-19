@@ -2,10 +2,10 @@ mod combined;
 mod three_valued;
 
 #[cfg(not(feature = "Zdual_interval"))]
-pub type Bitvector<const L: u32> = three_valued::MarkBitvector<L>;
+pub type Bitvector<const W: u32> = three_valued::MarkBitvector<W>;
 
 #[cfg(feature = "Zdual_interval")]
-pub type Bitvector<const L: u32> = combined::CombinedMark<L>;
+pub type Bitvector<const W: u32> = combined::CombinedMark<W>;
 
 pub type BooleanBitvector = Bitvector<1>;
 pub type PanicBitvector = Bitvector<32>;

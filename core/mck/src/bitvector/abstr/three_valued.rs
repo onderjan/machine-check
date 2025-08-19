@@ -12,9 +12,9 @@ mod support;
 use crate::concr::ConcreteBitvector;
 
 #[derive(Clone, Copy, Hash)]
-pub struct ThreeValuedBitvector<const L: u32> {
-    zeros: ConcreteBitvector<L>,
-    ones: ConcreteBitvector<L>,
+pub struct ThreeValuedBitvector<const W: u32> {
+    zeros: ConcreteBitvector<W>,
+    ones: ConcreteBitvector<W>,
 }
 
 pub use support::ThreeValuedFieldValue;

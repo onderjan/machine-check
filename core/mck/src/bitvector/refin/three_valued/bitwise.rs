@@ -2,8 +2,8 @@ use crate::{backward::Bitwise, bitvector::abstr::ThreeValuedBitvector};
 
 use super::MarkBitvector;
 
-impl<const L: u32> Bitwise for ThreeValuedBitvector<L> {
-    type Mark = MarkBitvector<L>;
+impl<const W: u32> Bitwise for ThreeValuedBitvector<W> {
+    type Mark = MarkBitvector<W>;
 
     fn bit_not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         // propagate marking of given bits with limitation
