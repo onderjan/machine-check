@@ -1,8 +1,37 @@
 use std::cmp::Ordering;
 
-use crate::{concr::Boolean, forward::TypedCmp};
+use crate::{
+    concr::{Boolean, RConcreteBitvector},
+    forward::TypedCmp,
+};
 
 use super::ConcreteBitvector;
+
+impl RConcreteBitvector {
+    pub fn typed_slt(self, rhs: Self) -> Boolean {
+        assert_eq!(self.width, rhs.width);
+        let result = self.to_i64() < rhs.to_i64();
+        Boolean::new(result as u64)
+    }
+
+    pub fn typed_ult(self, rhs: Self) -> Boolean {
+        assert_eq!(self.width, rhs.width);
+        let result = self.to_u64() < rhs.to_u64();
+        Boolean::new(result as u64)
+    }
+
+    pub fn typed_sle(self, rhs: Self) -> Boolean {
+        assert_eq!(self.width, rhs.width);
+        let result = self.to_i64() <= rhs.to_i64();
+        Boolean::new(result as u64)
+    }
+
+    pub fn typed_ule(self, rhs: Self) -> Boolean {
+        assert_eq!(self.width, rhs.width);
+        let result = self.to_u64() <= rhs.to_u64();
+        Boolean::new(result as u64)
+    }
+}
 
 impl<const L: u32> TypedCmp for ConcreteBitvector<L> {
     type Output = Boolean;

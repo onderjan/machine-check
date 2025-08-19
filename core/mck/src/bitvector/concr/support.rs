@@ -2,6 +2,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use crate::bitvector::util;
+use crate::concr::RConcreteBitvector;
 use crate::concr::Test;
 use crate::forward::Bitwise;
 use crate::forward::TypedCmp;
@@ -9,6 +10,51 @@ use crate::forward::TypedCmp;
 use super::ConcreteBitvector;
 use super::SignedBitvector;
 use super::UnsignedBitvector;
+
+impl RConcreteBitvector {
+    pub const fn bit_mask_u64(&self) -> u64 {
+        util::compute_u64_mask(self.width)
+    }
+
+    pub const fn sign_bit_mask_u64(&self) -> u64 {
+        util::compute_u64_sign_bit_mask(self.width)
+    }
+
+    pub fn from_unwrapped_u64(value: u64, width: u32) -> Self {
+        let mask: u64 = util::compute_u64_mask(width);
+        if (value & !mask) != 0 {
+            panic!(
+                "Machine bitvector value {} does not fit into {} bits",
+                value, width
+            );
+        }
+        Self { value, width }
+    }
+
+    pub fn from_masked_u64(value: u64, width: u32) -> Self {
+        let mask: u64 = util::compute_u64_mask(width);
+        let value = value & mask;
+        Self { value, width }
+    }
+
+    pub fn to_u64(self) -> u64 {
+        self.value
+    }
+
+    pub fn to_i64(&self) -> i64 {
+        let mut result = self.value;
+        let sign_bit_mask = util::compute_u64_sign_bit_mask(self.width);
+        if self.value & sign_bit_mask != 0 {
+            // add signed extension
+            result |= !self.bit_mask_u64();
+        }
+        result as i64
+    }
+
+    pub fn is_sign_bit_set(&self) -> bool {
+        util::is_u64_highest_bit_set(self.value, self.width)
+    }
+}
 
 impl<const L: u32> ConcreteBitvector<L> {
     pub fn new(value: u64) -> Self {

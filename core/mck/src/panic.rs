@@ -1,4 +1,11 @@
 pub mod concr {
+    use crate::concr::RConcreteBitvector;
+
+    pub struct RPanicResult<T> {
+        pub panic: RConcreteBitvector,
+        pub result: T,
+    }
+
     pub struct PanicResult<T> {
         pub panic: crate::concr::Bitvector<32>,
         pub result: T,
