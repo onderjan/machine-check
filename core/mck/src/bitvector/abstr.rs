@@ -16,7 +16,7 @@ pub trait BitvectorDomain<const W: u32>: Clone + Copy + Hash + Phi + ManipField 
 
 pub(super) use combined::CombinedBitvector;
 use serde::{Deserialize, Serialize};
-pub(super) use three_valued::ThreeValuedBitvector;
+pub(super) use three_valued::{RThreeValuedBitvector, ThreeValuedBitvector};
 
 pub(crate) use dual_interval::DualIntervalFieldValue;
 pub(crate) use three_valued::ThreeValuedFieldValue;

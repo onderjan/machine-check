@@ -146,6 +146,21 @@ impl RThreeValuedBitvector {
         let ones = Bitwise::bit_or(value, unknown);
         Self::from_zeros_ones(zeros, ones)
     }
+
+    #[must_use]
+    pub fn get_unknown_bits(&self) -> RConcreteBitvector {
+        Bitwise::bit_and(self.zeros, self.ones)
+    }
+
+    #[must_use]
+    pub fn get_possibly_one_flags(&self) -> RConcreteBitvector {
+        self.ones
+    }
+
+    #[must_use]
+    pub fn get_possibly_zero_flags(&self) -> RConcreteBitvector {
+        self.zeros
+    }
 }
 
 impl<const W: u32> Abstr<concr::Bitvector<W>> for ThreeValuedBitvector<W> {

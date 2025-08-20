@@ -2,8 +2,10 @@ use crate::{concr::RConcreteBitvector, forward::HwShift};
 
 use super::ConcreteBitvector;
 
-impl RConcreteBitvector {
-    pub fn logic_shl(self, amount: Self) -> Self {
+impl HwShift for RConcreteBitvector {
+    type Output = Self;
+
+    fn logic_shl(self, amount: Self) -> Self {
         assert_eq!(self.width, amount.width);
         if amount.value >= self.width as u64 {
             // zero if the shift is too big
@@ -15,7 +17,7 @@ impl RConcreteBitvector {
         }
     }
 
-    pub fn logic_shr(self, amount: Self) -> Self {
+    fn logic_shr(self, amount: Self) -> Self {
         assert_eq!(self.width, amount.width);
         if amount.value >= self.width as u64 {
             // zero if the shift is too big
@@ -25,7 +27,7 @@ impl RConcreteBitvector {
         }
     }
 
-    pub fn arith_shr(self, amount: Self) -> Self {
+    fn arith_shr(self, amount: Self) -> Self {
         assert_eq!(self.width, amount.width);
         if amount.value >= self.width as u64 {
             // fill with sign bit if the shift is too big
