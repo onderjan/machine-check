@@ -4,8 +4,14 @@ mod three_valued;
 #[cfg(not(feature = "Zdual_interval"))]
 pub type Bitvector<const W: u32> = three_valued::MarkBitvector<W>;
 
+#[cfg(not(feature = "Zdual_interval"))]
+pub type RBitvector = three_valued::RMarkBitvector;
+
 #[cfg(feature = "Zdual_interval")]
 pub type Bitvector<const W: u32> = combined::CombinedMark<W>;
+
+#[cfg(feature = "Zdual_interval")]
+pub type RBitvector = combined::RCombinedMark;
 
 pub type BooleanBitvector = Bitvector<1>;
 pub type PanicBitvector = Bitvector<32>;

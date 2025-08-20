@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::{
     iir::{
         expr::call::{IExprCall, IMckBinary, IMckNew},
-        interpretation::{IAbstractValue, Interpretation},
+        interpretation::{IAbstractValue, IRefinementValue, Interpretation},
         variable::IVarId,
         FromWirData,
     },
@@ -26,7 +26,17 @@ impl IExpr {
     pub fn forward_interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
         match self {
             IExpr::Move(var_id) => inter.abstract_value(*var_id).clone(),
-            IExpr::Call(expr_call) => expr_call.interpret(inter),
+            IExpr::Call(expr_call) => expr_call.forward_interpret(inter),
+        }
+    }
+
+    pub fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
+        match self {
+            IExpr::Move(var_id) => {
+                // propagate the later value to earlier
+                inter.insert_refinement_value(*var_id, later);
+            }
+            IExpr::Call(expr_call) => expr_call.backward_interpret(inter, later),
         }
     }
 

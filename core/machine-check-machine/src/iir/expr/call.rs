@@ -1,6 +1,6 @@
 use crate::{
     iir::{
-        interpretation::{IAbstractValue, Interpretation},
+        interpretation::{IAbstractValue, IRefinementValue, Interpretation},
         variable::IVarId,
     },
     wir::{WMckBinaryOp, WMckUnaryOp},
@@ -21,6 +21,20 @@ impl IMckUnary {
                 IAbstractValue::Bitvector(mck::forward::HwArith::arith_neg(operand))
             }
         }
+    }
+
+    fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
+        let operand = inter.abstract_value(self.operand).expect_bitvector();
+        let earlier = match self.op {
+            WMckUnaryOp::Not => IRefinementValue::Bitvector(
+                mck::backward::Bitwise::bit_not((operand,), later.expect_bitvector()).0,
+            ),
+            WMckUnaryOp::Neg => IRefinementValue::Bitvector(
+                mck::backward::HwArith::arith_neg((operand,), later.expect_bitvector()).0,
+            ),
+        };
+
+        inter.insert_refinement_value(self.operand, earlier);
     }
 }
 
@@ -64,6 +78,95 @@ impl IMckBinary {
             WMckBinaryOp::Sle => IAbstractValue::Bool(mck::forward::TypedCmp::sle(a, b)),
         }
     }
+
+    fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
+        let a = inter.compute_abstract_value(self.a);
+        let b = inter.compute_abstract_value(self.b);
+
+        fn handle_standard(
+            a: IAbstractValue,
+            b: IAbstractValue,
+            later: IRefinementValue,
+            func: fn(
+                (mck::abstr::RBitvector, mck::abstr::RBitvector),
+                mck::refin::RBitvector,
+            ) -> (mck::refin::RBitvector, mck::refin::RBitvector),
+        ) -> (IRefinementValue, IRefinementValue) {
+            let (earlier_a, earlier_b) = (func)(
+                (a.expect_bitvector(), b.expect_bitvector()),
+                later.expect_bitvector(),
+            );
+            (
+                IRefinementValue::Bitvector(earlier_a),
+                IRefinementValue::Bitvector(earlier_b),
+            )
+        }
+
+        fn handle_comparison(
+            a: IAbstractValue,
+            b: IAbstractValue,
+            later: IRefinementValue,
+            func: fn(
+                (mck::abstr::RBitvector, mck::abstr::RBitvector),
+                mck::refin::Boolean,
+            ) -> (mck::refin::RBitvector, mck::refin::RBitvector),
+        ) -> (IRefinementValue, IRefinementValue) {
+            let (earlier_a, earlier_b) = (func)(
+                (a.expect_bitvector(), b.expect_bitvector()),
+                later.expect_boolean(),
+            );
+            (
+                IRefinementValue::Bitvector(earlier_a),
+                IRefinementValue::Bitvector(earlier_b),
+            )
+        }
+
+        let (earlier_a, earlier_b) = match self.op {
+            WMckBinaryOp::BitAnd => handle_standard(a, b, later, mck::backward::Bitwise::bit_and),
+            WMckBinaryOp::BitOr => handle_standard(a, b, later, mck::backward::Bitwise::bit_or),
+            WMckBinaryOp::BitXor => handle_standard(a, b, later, mck::backward::Bitwise::bit_xor),
+            WMckBinaryOp::LogicShl => {
+                handle_standard(a, b, later, mck::backward::HwShift::logic_shl)
+            }
+            WMckBinaryOp::LogicShr => {
+                handle_standard(a, b, later, mck::backward::HwShift::logic_shr)
+            }
+            WMckBinaryOp::ArithShr => {
+                handle_standard(a, b, later, mck::backward::HwShift::arith_shr)
+            }
+            WMckBinaryOp::Add => handle_standard(a, b, later, mck::backward::HwArith::add),
+            WMckBinaryOp::Sub => handle_standard(a, b, later, mck::backward::HwArith::sub),
+            WMckBinaryOp::Mul => handle_standard(a, b, later, mck::backward::HwArith::mul),
+            WMckBinaryOp::Udiv => {
+                todo!();
+                // IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::udiv)
+            }
+            WMckBinaryOp::Urem => {
+                todo!();
+                //IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::urem)
+            }
+            WMckBinaryOp::Sdiv => {
+                todo!();
+                //IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::sdiv)
+            }
+            WMckBinaryOp::Srem => {
+                todo!();
+                //IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::srem)
+            }
+
+            WMckBinaryOp::Eq => handle_comparison(a, b, later, mck::backward::TypedEq::eq),
+            WMckBinaryOp::Ne => handle_comparison(a, b, later, mck::backward::TypedEq::ne),
+            WMckBinaryOp::Ult => handle_comparison(a, b, later, mck::backward::TypedCmp::ult),
+            WMckBinaryOp::Ule => handle_comparison(a, b, later, mck::backward::TypedCmp::ule),
+            WMckBinaryOp::Slt => handle_comparison(a, b, later, mck::backward::TypedCmp::slt),
+            WMckBinaryOp::Sle => handle_comparison(a, b, later, mck::backward::TypedCmp::sle),
+
+            _ => panic!("Not yet implemented: {:?}", self.op),
+        };
+
+        inter.insert_refinement_value(self.a, earlier_a);
+        inter.insert_refinement_value(self.b, earlier_b);
+    }
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -104,12 +207,20 @@ pub enum IExprCall {
 }
 
 impl IExprCall {
-    pub fn interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
-        println!("Executing call");
+    pub fn forward_interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
         match self {
             IExprCall::MckUnary(unary) => unary.forward_interpret(inter),
             IExprCall::MckBinary(binary) => binary.forward_interpret(inter),
             IExprCall::MckNew(mck_new) => mck_new.forward_interpret(),
+        }
+    }
+    pub fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
+        match self {
+            IExprCall::MckUnary(unary) => unary.backward_interpret(inter, later),
+            IExprCall::MckBinary(binary) => binary.backward_interpret(inter, later),
+            IExprCall::MckNew(_) => {
+                // there is no variable to propagate to, do nothing
+            }
         }
     }
 }

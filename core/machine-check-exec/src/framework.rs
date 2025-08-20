@@ -112,7 +112,10 @@ impl<M: FullMachine> Framework<M> {
             trace!("Model-checking state space: {:#?}", self.work_state.space);
         }
 
-        /*{
+        /*
+        {
+            use machine_check_machine::iir::interpretation::IAbstractValue;
+            use machine_check_machine::iir::interpretation::IRefinementValue;
             use mck::abstr::Manipulatable;
 
             let property_string = &property.original_string();
@@ -139,7 +142,7 @@ impl<M: FullMachine> Framework<M> {
                 let field = Manipulatable::get(state, field_name).unwrap();
                 println!("Field {}: {:?}", field_name, field.description());
                 if let Some(value) = field.runtime_bitvector() {
-                    global_values.insert(String::from(field_name), IValue::Bitvector(value));
+                    global_values.insert(String::from(field_name), IAbstractValue::Bitvector(value));
                 }
             }
 
@@ -147,17 +150,27 @@ impl<M: FullMachine> Framework<M> {
 
             global_values.insert(
                 String::from("__panic"),
-                IValue::Bitvector(mck::abstr::RBitvector::new(0, 32)),
+                IAbstractValue::Bitvector(mck::abstr::RBitvector::new(0, 32)),
             );
 
             global_values.insert(
                 String::from("__mck_subproperty_0"),
-                IValue::Bool(mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)),
+                IAbstractValue::Bool(mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)),
             );
 
-            let result = new_property.interpret_fn(String::from("property"), global_values);
-            println!("Interpretation result: {:?}", result);
-        }*/
+            let result =
+                new_property.forward_interpret_fn(String::from("property"), &global_values);
+
+            println!("Forward interpretation result: {:?}", result);
+
+            new_property.backward_interpret_fn(
+                String::from("property"),
+                &global_values,
+                IRefinementValue::Bool(mck::refin::Boolean::new_marked_unimportant()),
+                mck::refin::RBitvector::new_unmarked(32),
+            );
+        }
+        */
 
         // perform model-checking
         match self

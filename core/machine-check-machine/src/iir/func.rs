@@ -43,6 +43,13 @@ impl IFn {
         }
     }
 
+    pub fn backward_interpret(&self, inter: &mut Interpretation) {
+        // go in reverse
+        for stmt in self.block.stmts.iter().rev() {
+            stmt.backward_interpret(inter);
+        }
+    }
+
     pub(super) fn from_wir(data: &mut FromWirData, func: WImplItemFn<YAbstr>) -> Self {
         let fn_ident = func.signature.ident;
 

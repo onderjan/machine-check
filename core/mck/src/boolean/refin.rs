@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::abstr;
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Boolean(pub(crate) BooleanBitvector);
 
 impl Boolean {
