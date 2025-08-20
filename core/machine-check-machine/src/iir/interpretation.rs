@@ -1,25 +1,20 @@
 use std::collections::BTreeMap;
 
-use crate::{iir::variable::IVarId, wir::WMckBinaryOp};
-
-#[derive(Clone, Debug)]
-pub struct FBitvector {
-    pub width: u32,
-    pub inner: mck::abstr::Bitvector<64>,
-}
+use crate::iir::variable::IVarId;
 
 #[derive(Clone, Debug)]
 pub enum IValue {
-    Bitvector(FBitvector),
+    Bitvector(mck::abstr::RBitvector),
     Bool(mck::abstr::Boolean),
+    PanicResult(mck::abstr::PanicResult<mck::abstr::RBitvector>),
 }
 
 impl IValue {
-    pub fn expect_bitvector(&self) -> &FBitvector {
+    pub fn expect_bitvector(&self) -> mck::abstr::RBitvector {
         let IValue::Bitvector(bitvec) = self else {
             panic!("Value is not a bitvector");
         };
-        bitvec
+        *bitvec
     }
 }
 

@@ -17,7 +17,6 @@ use machine_check_common::ExecStats;
 use machine_check_common::NodeId;
 use machine_check_common::StateId;
 use machine_check_common::ThreeValued;
-use machine_check_machine::iir::interpretation::FBitvector;
 use machine_check_machine::iir::interpretation::IValue;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
@@ -116,14 +115,12 @@ impl<M: FullMachine> Framework<M> {
         }
 
         /*{
-            use mck::abstr::Abstr;
             use mck::abstr::Manipulatable;
 
             // TODO: use actual property
-            let Ok(new_property) = machine_check_machine::process_property::<M>(
-                &self.abstract_system,
-                "value == Unsigned::<8>::new(0)",
-            ) else {
+            let Ok(new_property) =
+                machine_check_machine::process_property::<M>(&self.abstract_system, "value == 0")
+            else {
                 panic!();
             };
             let state_id = self.work_state.space.initial_iter().next().unwrap();
@@ -134,8 +131,9 @@ impl<M: FullMachine> Framework<M> {
             for field_name in <<<M as mck::concr::FullMachine>::Abstr as mck::abstr::Machine<M>>::State as mck::abstr::Manipulatable>::field_names() {
                 let field = Manipulatable::get(state, field_name).unwrap();
                 println!("Field {}: {:?}", field_name, field.description());
-
-                global_values.insert(String::from(field_name), IValue::Bitvector(FBitvector { width: 8, inner: mck::abstr::Bitvector::from_concrete(mck::concr::Bitvector::new(0)) }));
+                if let Some(value) = field.runtime_bitvector() {
+                    global_values.insert(String::from(field_name), IValue::Bitvector(value));
+                }
             }
 
             let result = new_property.interpret_fn(String::from("property"), global_values);

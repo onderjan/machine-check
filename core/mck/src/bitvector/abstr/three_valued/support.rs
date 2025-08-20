@@ -448,6 +448,10 @@ impl<const W: u32> ManipField for ThreeValuedBitvector<W> {
         Some(W)
     }
 
+    fn runtime_bitvector(&self) -> Option<crate::abstr::RBitvector> {
+        Some(self.to_runtime())
+    }
+
     fn min_unsigned(&self) -> Option<u64> {
         Some(self.umin().to_u64())
     }
@@ -483,6 +487,18 @@ impl<const W: u32> Debug for ThreeValuedBitvector<W> {
 }
 
 impl<const W: u32> Display for ThreeValuedBitvector<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as Debug>::fmt(self, f)
+    }
+}
+
+impl Debug for RThreeValuedBitvector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        format_zeros_ones(f, self.width(), self.zeros.to_u64(), self.ones.to_u64())
+    }
+}
+
+impl Display for RThreeValuedBitvector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
     }

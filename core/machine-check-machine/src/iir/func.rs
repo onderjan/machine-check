@@ -3,7 +3,6 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     abstr::YAbstr,
     iir::{
-        expr::IExpr,
         stmt::IStmt,
         variable::{IVarId, IVarInfo},
         FromWirData,
@@ -37,7 +36,7 @@ pub struct IFn {
 }
 
 impl IFn {
-    pub fn from_wir(data: &mut FromWirData, func: WImplItemFn<YAbstr>) -> Self {
+    pub(super) fn from_wir(data: &mut FromWirData, func: WImplItemFn<YAbstr>) -> Self {
         let fn_ident = func.signature.ident;
 
         let mut inputs = Vec::new();
@@ -68,13 +67,13 @@ impl IFn {
 
         let result_normal_id = *variables
             .iter()
-            .find(|(var_id, var_data)| var_data.ident == func.result.result_ident)
+            .find(|(_, var_data)| var_data.ident == func.result.result_ident)
             .expect("Result ident should be in variables")
             .0;
 
         let result_panic_id = *variables
             .iter()
-            .find(|(var_id, var_data)| var_data.ident == func.result.panic_ident)
+            .find(|(_, var_data)| var_data.ident == func.result.panic_ident)
             .expect("Result ident should be in variables")
             .0;
 

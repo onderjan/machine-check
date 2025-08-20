@@ -2,17 +2,27 @@ use std::collections::HashMap;
 
 use crate::{
     iir::{
-        interpretation::{FBitvector, IValue, Interpretation},
+        interpretation::{IValue, Interpretation},
         variable::IVarId,
         FromWirData,
     },
-    wir::{WExpr, WExprCall, WIdent, WMckBinaryOp, WMckUnaryOp, WType, ZConverted},
+    wir::{WExpr, WExprCall, WIdent, WMckBinaryOp, WMckNew, WMckUnaryOp},
 };
 
 #[derive(Clone, Debug, Hash)]
 pub struct IMckUnary {
     pub op: WMckUnaryOp,
     pub operand: IVarId,
+}
+
+impl IMckUnary {
+    fn interpret(&self, inter: &mut Interpretation) -> IValue {
+        let operand = inter.value(self.operand).expect_bitvector();
+        match self.op {
+            WMckUnaryOp::Not => IValue::Bitvector(mck::forward::Bitwise::bit_not(operand)),
+            WMckUnaryOp::Neg => IValue::Bitvector(mck::forward::HwArith::arith_neg(operand)),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -28,29 +38,25 @@ impl IMckBinary {
         let b = inter.value(self.b).expect_bitvector();
 
         match self.op {
-            crate::wir::WMckBinaryOp::BitAnd => todo!(),
-            crate::wir::WMckBinaryOp::BitOr => todo!(),
-            crate::wir::WMckBinaryOp::BitXor => todo!(),
-            crate::wir::WMckBinaryOp::LogicShl => todo!(),
-            crate::wir::WMckBinaryOp::LogicShr => todo!(),
-            crate::wir::WMckBinaryOp::ArithShr => todo!(),
-            crate::wir::WMckBinaryOp::Add => todo!(),
-            crate::wir::WMckBinaryOp::Sub => todo!(),
-            crate::wir::WMckBinaryOp::Mul => todo!(),
-            crate::wir::WMckBinaryOp::Udiv => todo!(),
-            crate::wir::WMckBinaryOp::Urem => todo!(),
-            crate::wir::WMckBinaryOp::Sdiv => todo!(),
-            crate::wir::WMckBinaryOp::Srem => todo!(),
-            crate::wir::WMckBinaryOp::Eq => {
-                assert_eq!(a.width, b.width);
-                let result = mck::forward::TypedEq::eq(a.inner, b.inner);
-                IValue::Bool(result)
-            }
-            crate::wir::WMckBinaryOp::Ne => todo!(),
-            crate::wir::WMckBinaryOp::Ult => todo!(),
-            crate::wir::WMckBinaryOp::Ule => todo!(),
-            crate::wir::WMckBinaryOp::Slt => todo!(),
-            crate::wir::WMckBinaryOp::Sle => todo!(),
+            WMckBinaryOp::BitAnd => IValue::Bitvector(mck::forward::Bitwise::bit_and(a, b)),
+            WMckBinaryOp::BitOr => IValue::Bitvector(mck::forward::Bitwise::bit_or(a, b)),
+            WMckBinaryOp::BitXor => IValue::Bitvector(mck::forward::Bitwise::bit_xor(a, b)),
+            WMckBinaryOp::LogicShl => IValue::Bitvector(mck::forward::HwShift::logic_shl(a, b)),
+            WMckBinaryOp::LogicShr => IValue::Bitvector(mck::forward::HwShift::logic_shr(a, b)),
+            WMckBinaryOp::ArithShr => IValue::Bitvector(mck::forward::HwShift::arith_shr(a, b)),
+            WMckBinaryOp::Add => IValue::Bitvector(mck::forward::HwArith::add(a, b)),
+            WMckBinaryOp::Sub => IValue::Bitvector(mck::forward::HwArith::sub(a, b)),
+            WMckBinaryOp::Mul => IValue::Bitvector(mck::forward::HwArith::mul(a, b)),
+            WMckBinaryOp::Udiv => IValue::PanicResult(mck::forward::HwArith::udiv(a, b)),
+            WMckBinaryOp::Urem => IValue::PanicResult(mck::forward::HwArith::urem(a, b)),
+            WMckBinaryOp::Sdiv => IValue::PanicResult(mck::forward::HwArith::sdiv(a, b)),
+            WMckBinaryOp::Srem => IValue::PanicResult(mck::forward::HwArith::srem(a, b)),
+            WMckBinaryOp::Eq => IValue::Bool(mck::forward::TypedEq::eq(a, b)),
+            WMckBinaryOp::Ne => IValue::Bool(mck::forward::TypedEq::ne(a, b)),
+            WMckBinaryOp::Ult => IValue::Bool(mck::forward::TypedCmp::ult(a, b)),
+            WMckBinaryOp::Ule => IValue::Bool(mck::forward::TypedCmp::ule(a, b)),
+            WMckBinaryOp::Slt => IValue::Bool(mck::forward::TypedCmp::slt(a, b)),
+            WMckBinaryOp::Sle => IValue::Bool(mck::forward::TypedCmp::sle(a, b)),
         }
     }
 }
@@ -69,10 +75,7 @@ impl IMckNew {
                 let Ok(constant) = u64::try_from(*constant) else {
                     panic!("Constant outside u64");
                 };
-                IValue::Bitvector(FBitvector {
-                    width: *width,
-                    inner: mck::abstr::Bitvector::new(constant),
-                })
+                IValue::Bitvector(mck::abstr::RBitvector::new(constant, *width))
             } //IMckNew::BitvectorArray(wtype_array, wident) => todo!(),
         }
     }
@@ -100,7 +103,7 @@ impl IExprCall {
         println!("Executing call");
         match self {
             //IExprCall::Call(wcall) => todo!(),
-            IExprCall::MckUnary(unary) => todo!(),
+            IExprCall::MckUnary(unary) => unary.interpret(inter),
             IExprCall::MckBinary(binary) => binary.interpret(inter),
             //IExprCall::MckExt(wmck_ext) => todo!(),
             IExprCall::MckNew(mck_new) => mck_new.interpret(inter),
@@ -153,10 +156,8 @@ impl IExpr {
                 }
                 WExprCall::MckExt(wmck_ext) => todo!(),
                 WExprCall::MckNew(mck_new) => IExprCall::MckNew(match mck_new {
-                    crate::wir::WMckNew::Bitvector(width, constant) => {
-                        IMckNew::Bitvector(width, constant)
-                    }
-                    crate::wir::WMckNew::BitvectorArray(wtype_array, wident) => todo!(),
+                    WMckNew::Bitvector(width, constant) => IMckNew::Bitvector(width, constant),
+                    WMckNew::BitvectorArray(wtype_array, wident) => todo!(),
                 }),
                 WExprCall::StdClone(wident) => todo!(),
                 WExprCall::ArrayRead(warray_read) => todo!(),

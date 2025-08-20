@@ -141,6 +141,10 @@ impl<const W: u32> ManipField for CombinedBitvector<W> {
         None
     }
 
+    fn runtime_bitvector(&self) -> Option<super::RBitvector> {
+        todo!()
+    }
+
     fn num_bits(&self) -> Option<u32> {
         Some(W)
     }

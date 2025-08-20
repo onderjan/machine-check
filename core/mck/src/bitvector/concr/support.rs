@@ -254,3 +254,15 @@ impl<const W: u32> Display for ConcreteBitvector<W> {
         <Self as Debug>::fmt(self, f)
     }
 }
+
+impl Debug for RConcreteBitvector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{}>({})", self.width, self.value)
+    }
+}
+
+impl Display for RConcreteBitvector {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as Debug>::fmt(self, f)
+    }
+}

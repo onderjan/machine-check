@@ -61,10 +61,7 @@ impl IProperty {
 
         let normal_result = inter.value(func.signature.output.normal).clone();
         let panic_result = inter.value(func.signature.output.panic).expect_bitvector();
-        assert_eq!(
-            panic_result.inner.concrete_value(),
-            Some(mck::concr::Bitvector::new(0))
-        );
+        assert!(panic_result.concrete_value().is_some_and(|v| v.is_zero()));
         normal_result
     }
 
