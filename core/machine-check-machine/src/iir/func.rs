@@ -54,6 +54,10 @@ impl IFn {
             inputs.push(var_id);
         }
 
+        for (var_id, var_info) in data.global_vars.values() {
+            variables.insert(*var_id, var_info.clone());
+        }
+
         for local in func.locals {
             let info = IVarInfo {
                 ident: local.ident,
@@ -65,16 +69,19 @@ impl IFn {
             variables.insert(var_id, info);
         }
 
+        println!("Variables: {:?}", variables);
+        println!("Result normal ident: {:?}", func.result.result_ident);
+
         let result_normal_id = *variables
             .iter()
             .find(|(_, var_data)| var_data.ident == func.result.result_ident)
-            .expect("Result ident should be in variables")
+            .expect("Result normal ident should be in variables")
             .0;
 
         let result_panic_id = *variables
             .iter()
             .find(|(_, var_data)| var_data.ident == func.result.panic_ident)
-            .expect("Result ident should be in variables")
+            .expect("Result panic ident should be in variables")
             .0;
 
         let signature = ISignature {

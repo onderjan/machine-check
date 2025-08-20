@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::ops::ControlFlow;
 use std::time::Instant;
@@ -17,7 +16,6 @@ use machine_check_common::ExecStats;
 use machine_check_common::NodeId;
 use machine_check_common::StateId;
 use machine_check_common::ThreeValued;
-use machine_check_machine::iir::interpretation::IValue;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
 use mck::refin::Manipulatable;
@@ -117,11 +115,20 @@ impl<M: FullMachine> Framework<M> {
         /*{
             use mck::abstr::Manipulatable;
 
+            let property_string = &property.original_string();
+            println!("Original property string: {}", property_string);
             // TODO: use actual property
-            let Ok(new_property) =
-                machine_check_machine::process_property::<M>(&self.abstract_system, "value == 0")
-            else {
-                panic!();
+            let new_property = match machine_check_machine::process_property::<M>(
+                &self.abstract_system,
+                &property.original_string(),
+            ) {
+                Ok(ok) => ok,
+                Err(err) => {
+                    for error in err.into_errors() {
+                        eprintln!("Error: {:?}", error);
+                    }
+                    panic!();
+                }
             };
             let state_id = self.work_state.space.initial_iter().next().unwrap();
             let state = &self.work_state.space.state_data(state_id).result;
@@ -135,6 +142,18 @@ impl<M: FullMachine> Framework<M> {
                     global_values.insert(String::from(field_name), IValue::Bitvector(value));
                 }
             }
+
+            // add panic kludge
+
+            global_values.insert(
+                String::from("__panic"),
+                IValue::Bitvector(mck::abstr::RBitvector::new(0, 32)),
+            );
+
+            global_values.insert(
+                String::from("__mck_subproperty_0"),
+                IValue::Bool(mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)),
+            );
 
             let result = new_property.interpret_fn(String::from("property"), global_values);
             println!("Interpretation result: {:?}", result);

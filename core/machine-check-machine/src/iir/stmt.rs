@@ -13,17 +13,16 @@ pub enum IStmt {
 }
 
 impl IStmt {
-    pub fn from_wir(
+    pub(super) fn from_wir(
         data: &mut FromWirData,
         stmt: WStmt<ZAbstr>,
         ident_var_map: &HashMap<WIdent, IVarId>,
     ) -> Self {
         match stmt {
             WStmt::Assign(stmt_assign) => {
-                let left = ident_var_map
+                let left = *ident_var_map
                     .get(&stmt_assign.left)
-                    .expect("Left-side variable should be in variable map")
-                    .clone();
+                    .expect("Left-side variable should be in variable map");
 
                 let right = IExpr::from_wir(data, stmt_assign.right, ident_var_map);
 
@@ -52,7 +51,7 @@ pub struct IAssignStmt {
 impl IAssignStmt {
     fn interpret(&self, inter: &mut Interpretation) {
         println!("Executing statement {:?}", self);
-        let left_ident = self.left.clone();
+        let left_ident = self.left;
         let right_value = self.right.interpret(inter);
 
         inter.insert_value(left_ident, right_value);

@@ -194,7 +194,7 @@ fn from_variable_map(
 ) -> IVarId {
     if let Some(local_var_id) = ident_var_map.get(ident) {
         *local_var_id
-    } else if let Some(global_var_id) = data.global_var_ids.get(ident) {
+    } else if let Some((global_var_id, _)) = data.global_vars.get(ident) {
         data.used_globals.insert(*global_var_id);
         *global_var_id
     } else {

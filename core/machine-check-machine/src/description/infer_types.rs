@@ -3,9 +3,13 @@ mod infer_fn;
 
 use std::collections::HashMap;
 
-use crate::wir::{
-    WBasicType, WDescription, WGeneralType, WIdent, WImplItemFn, WItemImpl, WItemStruct,
-    WPartialGeneralType, WPath, WSignature, WSpanned, WSsaLocal, WType, YInferred, YSsa,
+use crate::{
+    util::create_item_impl,
+    wir::{
+        IntoSyn, WBasicType, WBlock, WDescription, WExpr, WExprHighCall, WGeneralType, WHighMckNew,
+        WIdent, WImplItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WReference,
+        WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YInferred, YSsa, ZSsa,
+    },
 };
 
 use super::{Error, ErrorType, Errors};
@@ -75,6 +79,10 @@ fn infer_fn_types(
     let mut local_ident_types = HashMap::new();
 
     for (global_ident, global_ident_type) in global_ident_types {
+        println!(
+            "Inserting global ident '{:?}' to local idents with type {:?}",
+            global_ident, global_ident_type
+        );
         local_ident_types.insert(
             global_ident.clone(),
             WPartialGeneralType::Normal(global_ident_type.clone().into_type()),
@@ -185,12 +193,24 @@ impl FnInferrer<'_> {
     ) -> Result<WImplItemFn<YInferred>, Errors> {
         let mut errors = Vec::new();
 
-        //println!("Fn: {:#?}", impl_item_fn);
+        /*let syn_impl_item_fn = impl_item_fn.clone().into_syn();
+        println!(
+            "Inferring for:\n{}",
+            prettyplease::unparse(&syn::File {
+                shebang: None,
+                attrs: vec![],
+                items: vec![syn::Item::Impl(create_item_impl(
+                    None,
+                    syn_path::path!(module),
+                    vec![syn::ImplItem::Fn(syn_impl_item_fn)]
+                ))]
+            })
+        );*/
 
         let mut locals = Vec::new();
         // add inferred types to the definitions
         for local in impl_item_fn.locals {
-            let inferred_type = self.local_ident_types.remove(&local.ident).unwrap();
+            let inferred_type = self.local_ident_types.get(&local.ident).unwrap().clone();
 
             let inferred_type = match inferred_type {
                 WPartialGeneralType::Normal(ty) => Some(WGeneralType::Normal(ty)),
@@ -211,6 +231,7 @@ impl FnInferrer<'_> {
                     });
                 }
                 None => {
+                    //println!("Inference failure for ident: {:?}", local.ident);
                     // inference failure
                     errors.push(Error::new(
                         ErrorType::InferenceFailure,
@@ -232,8 +253,60 @@ impl FnInferrer<'_> {
             visibility: impl_item_fn.visibility,
             signature,
             locals,
-            block: impl_item_fn.block,
+            block: self.kludge_block(impl_item_fn.block),
             result: impl_item_fn.result,
         })
+    }
+
+    fn kludge_block(&self, block: WBlock<ZSsa>) -> WBlock<ZSsa> {
+        let mut stmts = Vec::new();
+        for stmt in block.stmts {
+            stmts.push(match stmt {
+                WStmt::Assign(stmt_assign) => {
+                    let mut right_replacement = None;
+                    if let WExpr::Lit(syn::Lit::Int(lit_int)) = &stmt_assign.right {
+                        if let Ok(lit_int) = lit_int.base10_parse() {
+                            let left_type = self
+                                .local_ident_types
+                                .get(&stmt_assign.left)
+                                .expect("Local ident type should be inferred");
+                            if let WPartialGeneralType::Normal(WType {
+                                reference: WReference::None,
+                                inner,
+                            }) = left_type
+                            {
+                                right_replacement = match inner {
+                                    WBasicType::Bitvector(width) => {
+                                        Some(WHighMckNew::Bitvector(*width, lit_int))
+                                    }
+                                    WBasicType::Unsigned(width) => {
+                                        Some(WHighMckNew::Unsigned(*width, lit_int))
+                                    }
+                                    WBasicType::Signed(width) => {
+                                        Some(WHighMckNew::Signed(*width, lit_int))
+                                    }
+                                    _ => None,
+                                };
+                            }
+                        }
+                    }
+
+                    if let Some(right_replacement) = right_replacement {
+                        WStmt::Assign(WStmtAssign {
+                            left: stmt_assign.left,
+                            right: WExpr::Call(WExprHighCall::MckNew(right_replacement)),
+                        })
+                    } else {
+                        WStmt::Assign(stmt_assign)
+                    }
+                }
+                WStmt::If(stmt_if) => WStmt::If(WStmtIf {
+                    condition: stmt_if.condition,
+                    then_block: self.kludge_block(stmt_if.then_block),
+                    else_block: self.kludge_block(stmt_if.else_block),
+                }),
+            })
+        }
+        WBlock { stmts }
     }
 }

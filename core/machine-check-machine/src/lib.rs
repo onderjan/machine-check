@@ -15,7 +15,7 @@ use wir::IntoSyn;
 
 use crate::iir::IProperty;
 use crate::util::create_item_mod;
-use crate::wir::{WBasicType, WIdent, WSpan, WTypeArray};
+use crate::wir::{WBasicType, WElementaryType, WIdent, WSpan, WTypeArray};
 
 mod abstr;
 mod concr;
@@ -64,7 +64,7 @@ pub fn process_property<M: FullMachine>(
     println!("Parsed: {:?}", expr);
 
     // TODO: get field descriptions without constructing and stepping the machine
-    let globals = {
+    let mut global_ident_types = {
         use mck::abstr::Machine;
         use mck::misc::Meta;
         use mck::refin::Refine;
@@ -77,39 +77,57 @@ pub fn process_property<M: FullMachine>(
                 .expect("Proto iterator should have at least one element"),
         );
         use mck::abstr::Manipulatable;
-        let mut fields = BTreeMap::new();
+        let mut global_ident_types = BTreeMap::new();
         for field_name in
             <<M::Abstr as mck::abstr::Machine<M>>::State as Manipulatable>::field_names()
         {
             let field = Manipulatable::get(&panic_result.result, field_name)
                 .expect("Field should be gettable");
-            fields.insert(String::from(field_name), field.description());
+
+            let ty = match field.description() {
+                mck::abstr::Field::Bitvector(field) => WElementaryType::Bitvector(field.bit_width),
+
+                mck::abstr::Field::Array(field) => WElementaryType::Array(WTypeArray {
+                    index_width: field.bit_length,
+                    element_width: field.bit_width,
+                }),
+            };
+
+            global_ident_types.insert(WIdent::new(String::from(field_name), Span::call_site()), ty);
         }
-        fields
+
+        global_ident_types
     };
 
-    let mut global_ident_types = HashMap::new();
+    global_ident_types.insert(
+        WIdent::new(String::from("__panic"), Span::call_site()),
+        WElementaryType::Bitvector(32),
+    );
 
-    for (global_name, global_field) in &globals {
-        let ty = match global_field {
-            mck::abstr::Field::Bitvector(field) => WBasicType::Bitvector(field.bit_width),
+    global_ident_types.insert(
+        WIdent::new(String::from("__mck_subproperty_0"), Span::call_site()),
+        WElementaryType::Bitvector(32),
+    );
 
-            mck::abstr::Field::Array(field) => WBasicType::BitvectorArray(WTypeArray {
-                index_width: field.bit_length,
-                element_width: field.bit_width,
-            }),
+    let mut global_basic_types = HashMap::new();
+
+    // TODO: get signedness information
+    for (global_name, elementary_type) in &global_ident_types {
+        let ty = match elementary_type {
+            WElementaryType::Bitvector(width) => WBasicType::Bitvector(*width),
+            WElementaryType::Array(type_array) => WBasicType::BitvectorArray(type_array.clone()),
+            WElementaryType::Boolean => todo!(),
+            WElementaryType::Path(path) => todo!(),
         };
-
-        global_ident_types.insert(WIdent::new(global_name.clone(), Span::call_site()), ty);
+        global_basic_types.insert(global_name.clone(), ty);
     }
-
     let (description, panic_messages) =
-        description::create_property_description(expr, &global_ident_types)?;
+        description::create_property_description(expr, &global_basic_types)?;
     let description = abstr::create_abstract_property(description);
 
     //println!("Abstract description: {:?}", description);
 
-    let property = IProperty::from_wir(description, globals);
+    let property = IProperty::from_wir(description, global_ident_types);
     println!("Property: {:#?}", property);
 
     //interpret::execute_function(&description, "property");

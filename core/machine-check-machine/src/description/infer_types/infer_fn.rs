@@ -73,10 +73,10 @@ impl super::FnInferrer<'_> {
                 reference: WReference::None,
                 inner: WBasicType::Path(right_struct.type_path.clone()),
             }),
-            _ => panic!(
-                "Unexpected local assignment expression: {:?}",
-                &assign.right
-            ),
+            WExpr::Lit(_) => {
+                // currently cannot infer anything
+                WPartialGeneralType::Unknown
+            }
         };
 
         // add inferred type

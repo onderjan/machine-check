@@ -51,6 +51,8 @@ impl super::FnInferrer<'_> {
             | crate::wir::WStdBinaryOp::Le
             | crate::wir::WStdBinaryOp::Gt
             | crate::wir::WStdBinaryOp::Ge => {
+                // infer operands, but the result type is boolean
+                let _operand_type = self.infer_same_args(&[&call.a, &call.b]);
                 WPartialGeneralType::Normal(WBasicType::Boolean.into_type())
             }
             crate::wir::WStdBinaryOp::Div | crate::wir::WStdBinaryOp::Rem => {
@@ -164,15 +166,38 @@ impl super::FnInferrer<'_> {
 
     fn infer_same_args(&mut self, args: &[&WIdent]) -> WPartialGeneralType<WBasicType> {
         // take the type from the first argument where the type is known and inferrable
+        let mut each_arg_type = None;
         for arg in args {
             let arg_type = self.local_ident_types.get(arg);
             if let Some(arg_type) = arg_type {
                 if arg_type.is_fully_determined() {
-                    return arg_type.clone();
+                    each_arg_type = Some(arg_type.clone());
+                    break;
                 }
             }
         }
 
-        WPartialGeneralType::Unknown
+        let Some(each_arg_type) = each_arg_type else {
+            return WPartialGeneralType::Unknown;
+        };
+
+        for arg in args {
+            /*println!(
+                "Inferred same arg type {:?} for arg {:?}, which is currently {:?}",
+                each_arg_type,
+                arg,
+                self.local_ident_types.get(arg)
+            );*/
+            if self
+                .local_ident_types
+                .get(arg)
+                .is_none_or(|arg_type| !arg_type.is_fully_determined())
+            {
+                self.local_ident_types
+                    .insert((*arg).clone(), each_arg_type.clone());
+            }
+        }
+
+        each_arg_type
     }
 }

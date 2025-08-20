@@ -7,12 +7,10 @@ use crate::{
     iir::{
         func::IFn,
         interpretation::{IValue, Interpretation},
-        variable::IVarId,
+        variable::{IVarId, IVarInfo},
     },
-    wir::{WBasicType, WDescription, WElementaryType, WIdent, WProperty, WTypeArray},
+    wir::{WDescription, WElementaryType, WGeneralType, WIdent, WReference, WType},
 };
-
-use mck::abstr::Field;
 
 mod expr;
 mod func;
@@ -45,6 +43,7 @@ impl IProperty {
 
         let mut inter = Interpretation::new();
 
+        println!("Property globals: {:?}", self.globals);
         for (var_id, global) in &self.globals {
             if let Some(global_value) = global_values.remove(global.ident.name()) {
                 inter.insert_value(*var_id, global_value);
@@ -67,35 +66,35 @@ impl IProperty {
 
     pub fn from_wir(
         description: WDescription<YAbstr>,
-        globals: BTreeMap<String, mck::abstr::Field>,
+        global_ident_types: BTreeMap<WIdent, WElementaryType>,
     ) -> IProperty {
         let mut next_var_id: usize = 0;
         let mut processed_globals = BTreeMap::new();
-        let mut global_var_ids = BTreeMap::new();
-        for (name, field) in globals {
-            let ident = WIdent::new(name, Span::call_site());
-            let ty = match &field {
-                Field::Bitvector(field) => WElementaryType::Bitvector(field.bit_width),
-                Field::Array(field) => WElementaryType::Array(WTypeArray {
-                    index_width: field.bit_length,
-                    element_width: field.bit_width,
-                }),
-            };
+        let mut global_vars = BTreeMap::new();
+        for (ident, ty) in global_ident_types {
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
             processed_globals.insert(
                 var_id,
                 IGlobal {
                     ident: ident.clone(),
-                    ty,
+                    ty: ty.clone(),
                 },
             );
-            global_var_ids.insert(ident, var_id);
+            let info = IVarInfo {
+                ident: ident.clone(),
+                ty: WGeneralType::Normal(WType {
+                    reference: WReference::None,
+                    inner: ty,
+                }),
+            };
+
+            global_vars.insert(ident, (var_id, info));
         }
 
         let mut data = FromWirData {
             next_var_id,
-            global_var_ids,
+            global_vars,
             used_globals: BTreeSet::new(),
         };
 
@@ -108,7 +107,7 @@ impl IProperty {
             }
         }
 
-        processed_globals.retain(|var_id, _| data.used_globals.contains(var_id));
+        //processed_globals.retain(|var_id, _| data.used_globals.contains(var_id));
 
         IProperty {
             globals: processed_globals,
@@ -119,6 +118,6 @@ impl IProperty {
 
 struct FromWirData {
     next_var_id: usize,
-    global_var_ids: BTreeMap<WIdent, IVarId>,
+    global_vars: BTreeMap<WIdent, (IVarId, IVarInfo)>,
     used_globals: BTreeSet<IVarId>,
 }

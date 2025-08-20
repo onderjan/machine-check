@@ -60,6 +60,13 @@ impl Property {
     pub fn num_subproperties(&self) -> usize {
         self.arena.len()
     }
+
+    pub fn original_string(&self) -> String {
+        self.arena[0]
+            .display_string
+            .clone()
+            .expect("Property should have original string")
+    }
 }
 
 impl Debug for Property {

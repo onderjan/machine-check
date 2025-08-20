@@ -1,5 +1,7 @@
 use std::fmt::{Debug, Display};
 
+use machine_check_common::ThreeValued;
+
 use crate::{
     abstr::{BooleanBitvector, Phi, Test},
     forward::Bitwise,
@@ -19,6 +21,14 @@ impl Test for Boolean {
 }
 
 impl Boolean {
+    pub fn from_three_valued(value: ThreeValued) -> Self {
+        match value {
+            ThreeValued::False => Self::from_bools(true, false),
+            ThreeValued::True => Self::from_bools(false, true),
+            ThreeValued::Unknown => Self::from_bools(true, true),
+        }
+    }
+
     pub(crate) fn from_zeros_ones(
         zeros: crate::concr::Bitvector<1>,
         ones: crate::concr::Bitvector<1>,

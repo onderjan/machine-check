@@ -44,3 +44,9 @@ impl Interpretation {
         }
     }
 }
+
+impl Default for Interpretation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
