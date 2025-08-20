@@ -3,15 +3,15 @@ use std::collections::BTreeMap;
 use crate::iir::variable::IVarId;
 
 #[derive(Clone, Debug)]
-pub enum IValue {
+pub enum IAbstractValue {
     Bitvector(mck::abstr::RBitvector),
     Bool(mck::abstr::Boolean),
     PanicResult(mck::abstr::PanicResult<mck::abstr::RBitvector>),
 }
 
-impl IValue {
+impl IAbstractValue {
     pub fn expect_bitvector(&self) -> mck::abstr::RBitvector {
-        let IValue::Bitvector(bitvec) = self else {
+        let IAbstractValue::Bitvector(bitvec) = self else {
             panic!("Value is not a bitvector");
         };
         *bitvec
@@ -20,26 +20,26 @@ impl IValue {
 
 #[derive(Debug)]
 pub struct Interpretation {
-    values: BTreeMap<IVarId, IValue>,
+    abstract_values: BTreeMap<IVarId, IAbstractValue>,
 }
 
 impl Interpretation {
     pub fn new() -> Self {
         Self {
-            values: BTreeMap::new(),
+            abstract_values: BTreeMap::new(),
         }
     }
 
-    pub fn value(&self, var_id: IVarId) -> &IValue {
-        if let Some(value) = self.values.get(&var_id) {
+    pub fn abstract_value(&self, var_id: IVarId) -> &IAbstractValue {
+        if let Some(value) = self.abstract_values.get(&var_id) {
             value
         } else {
             panic!("Variable {:?} should have interpretation value", var_id)
         }
     }
 
-    pub fn insert_value(&mut self, var_id: IVarId, value: IValue) {
-        if self.values.insert(var_id, value).is_some() {
+    pub fn insert_value(&mut self, var_id: IVarId, value: IAbstractValue) {
+        if self.abstract_values.insert(var_id, value).is_some() {
             panic!("Variable should never have interpretation value inserted twice");
         }
     }

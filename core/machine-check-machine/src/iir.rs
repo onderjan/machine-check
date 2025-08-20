@@ -6,7 +6,7 @@ use crate::{
     abstr::YAbstr,
     iir::{
         func::IFn,
-        interpretation::{IValue, Interpretation},
+        interpretation::{IAbstractValue, Interpretation},
         variable::{IVarId, IVarInfo},
     },
     wir::{WDescription, WElementaryType, WGeneralType, WIdent, WReference, WType},
@@ -34,8 +34,8 @@ impl IProperty {
     pub fn interpret_fn(
         &self,
         fn_name: String,
-        mut global_values: BTreeMap<String, IValue>,
-    ) -> IValue {
+        mut global_values: BTreeMap<String, IAbstractValue>,
+    ) -> IAbstractValue {
         let fn_ident = WIdent::new(fn_name.clone(), Span::call_site());
         let Some(func) = self.fns.get(&fn_ident) else {
             panic!("Unable to find function '{}' to interpret", fn_name);
@@ -52,14 +52,14 @@ impl IProperty {
 
         println!("Interpreting function {:#?}", func);
 
-        for stmt in &func.block.stmts {
-            stmt.interpret(&mut inter);
-        }
+        func.forward_interpret(&mut inter);
 
         println!("Function interpretation: {:#?}", inter);
 
-        let normal_result = inter.value(func.signature.output.normal).clone();
-        let panic_result = inter.value(func.signature.output.panic).expect_bitvector();
+        let normal_result = inter.abstract_value(func.signature.output.normal).clone();
+        let panic_result = inter
+            .abstract_value(func.signature.output.panic)
+            .expect_bitvector();
         assert!(panic_result.concrete_value().is_some_and(|v| v.is_zero()));
         normal_result
     }
@@ -107,6 +107,7 @@ impl IProperty {
             }
         }
 
+        // TODO: only retain used globals
         //processed_globals.retain(|var_id, _| data.used_globals.contains(var_id));
 
         IProperty {

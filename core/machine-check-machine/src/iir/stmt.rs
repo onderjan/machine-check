@@ -34,9 +34,9 @@ impl IStmt {
         }
     }
 
-    pub fn interpret(&self, inter: &mut Interpretation) {
+    pub fn forward_interpret(&self, inter: &mut Interpretation) {
         match self {
-            IStmt::Assign(stmt_assign) => stmt_assign.interpret(inter),
+            IStmt::Assign(stmt_assign) => stmt_assign.forward_interpret(inter),
             //IStmt::If(stmt_if) => todo!("If statement"),
         }
     }
@@ -49,10 +49,10 @@ pub struct IAssignStmt {
 }
 
 impl IAssignStmt {
-    fn interpret(&self, inter: &mut Interpretation) {
+    fn forward_interpret(&self, inter: &mut Interpretation) {
         println!("Executing statement {:?}", self);
         let left_ident = self.left;
-        let right_value = self.right.interpret(inter);
+        let right_value = self.right.forward_interpret(inter);
 
         inter.insert_value(left_ident, right_value);
     }

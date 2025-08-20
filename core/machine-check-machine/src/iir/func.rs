@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     abstr::YAbstr,
     iir::{
+        interpretation::Interpretation,
         stmt::IStmt,
         variable::{IVarId, IVarInfo},
         FromWirData,
@@ -36,6 +37,12 @@ pub struct IFn {
 }
 
 impl IFn {
+    pub fn forward_interpret(&self, inter: &mut Interpretation) {
+        for stmt in &self.block.stmts {
+            stmt.forward_interpret(inter);
+        }
+    }
+
     pub(super) fn from_wir(data: &mut FromWirData, func: WImplItemFn<YAbstr>) -> Self {
         let fn_ident = func.signature.ident;
 
