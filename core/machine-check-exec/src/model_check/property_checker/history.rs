@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 
-use machine_check_common::{StateId, ThreeValued};
+use machine_check_common::StateId;
+use mck::three_valued::ThreeValued;
 
 use crate::model_check::property_checker::squash_time;
 

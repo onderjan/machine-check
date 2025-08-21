@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use machine_check_common::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO};
+use mck::misc::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO};
 use proc_macro2::Span;
 
 use crate::{

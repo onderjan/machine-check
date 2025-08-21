@@ -2,7 +2,8 @@ use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
 use machine_check_common::property::NextOperator;
-use machine_check_common::{ExecError, StateId, ThreeValued};
+use machine_check_common::{ExecError, StateId};
+use mck::three_valued::ThreeValued;
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
 use crate::model_check::property_checker::{CheckValue, TimedCheckValue};

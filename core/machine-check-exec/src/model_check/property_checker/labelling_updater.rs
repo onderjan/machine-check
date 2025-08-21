@@ -5,8 +5,8 @@ mod next;
 use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
-use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
-use mck::concr::FullMachine;
+use machine_check_common::{property::PropertyType, ExecError, StateId};
+use mck::{concr::FullMachine, three_valued::ThreeValued};
 
 use crate::{
     model_check::property_checker::{

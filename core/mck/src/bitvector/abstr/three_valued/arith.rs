@@ -1,11 +1,10 @@
-use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
-
 use super::ThreeValuedBitvector;
 use crate::abstr::{PanicBitvector, PanicResult, Phi};
 use crate::bitvector::abstr::three_valued::RThreeValuedBitvector;
 use crate::bitvector::util;
 use crate::concr::{RConcreteBitvector, RSignedBitvector, RUnsignedBitvector};
 use crate::forward::HwArith;
+use crate::panic::message::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
 
 impl HwArith for RThreeValuedBitvector {
     type DivRemResult = PanicResult<Self>;

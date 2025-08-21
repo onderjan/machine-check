@@ -1,4 +1,4 @@
-use machine_check_common::ThreeValued;
+use mck::three_valued::ThreeValued;
 use web_sys::CanvasRenderingContext2d;
 
 pub const RAW_TILE_SIZE: f64 = 46.;

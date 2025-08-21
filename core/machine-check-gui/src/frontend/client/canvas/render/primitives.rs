@@ -1,4 +1,5 @@
-use machine_check_common::{NodeId, ThreeValued};
+use machine_check_common::NodeId;
+use mck::three_valued::ThreeValued;
 use web_sys::CanvasRenderingContext2d;
 
 use crate::frontend::{

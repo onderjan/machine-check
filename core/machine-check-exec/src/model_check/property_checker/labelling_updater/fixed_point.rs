@@ -1,7 +1,8 @@
 use std::{collections::BTreeMap, ops::ControlFlow};
 
 use log::{debug, trace};
-use machine_check_common::{property::FixedPointOperator, ExecError, StateId, ThreeValued};
+use machine_check_common::{property::FixedPointOperator, ExecError, StateId};
+use mck::three_valued::ThreeValued;
 
 use crate::{
     model_check::property_checker::{

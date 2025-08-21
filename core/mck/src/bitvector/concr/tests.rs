@@ -1,10 +1,9 @@
 use core::panic;
 
-use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
-
 use crate::{
     concr::{PanicResult, Test},
     forward::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq},
+    panic::message::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO},
 };
 
 use super::ConcreteBitvector;

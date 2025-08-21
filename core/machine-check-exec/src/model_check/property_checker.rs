@@ -10,10 +10,8 @@ use std::{
 };
 
 use log::trace;
-use machine_check_common::{
-    check::Property, property::PropertyType, ExecError, StateId, ThreeValued,
-};
-use mck::concr::FullMachine;
+use machine_check_common::{check::Property, property::PropertyType, ExecError, StateId};
+use mck::{concr::FullMachine, three_valued::ThreeValued};
 
 use crate::{
     model_check::property_checker::{

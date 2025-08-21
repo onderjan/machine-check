@@ -2,9 +2,10 @@ mod fixed_point;
 mod local;
 mod next;
 
-use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
+use machine_check_common::{property::PropertyType, ExecError, StateId};
 
 pub use local::BiChoice;
+use mck::three_valued::ThreeValued;
 
 use crate::{
     model_check::property_checker::{CheckValue, PropertyChecker, TimedCheckValue},

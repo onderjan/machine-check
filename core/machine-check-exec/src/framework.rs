@@ -15,11 +15,11 @@ use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use machine_check_common::NodeId;
 use machine_check_common::StateId;
-use machine_check_common::ThreeValued;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
 use mck::refin::Manipulatable;
 use mck::refin::{self};
+use mck::three_valued::ThreeValued;
 use work_state::WorkState;
 
 use crate::space::StateSpace;

@@ -1,10 +1,9 @@
 use std::fmt::{Debug, Display};
 
-use machine_check_common::ThreeValued;
-
 use crate::{
     abstr::{BooleanBitvector, Phi, Test},
     forward::Bitwise,
+    three_valued::ThreeValued,
 };
 
 #[derive(Clone, Copy, Hash, Default)]

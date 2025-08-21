@@ -7,9 +7,9 @@ use log::trace;
 use machine_check_common::{
     check::Conclusion,
     property::{Property, Subproperty},
-    ExecError, StateId, ThreeValued,
+    ExecError, StateId,
 };
-use mck::concr::FullMachine;
+use mck::{concr::FullMachine, three_valued::ThreeValued};
 
 use crate::{model_check::property_checker::PropertyChecker, space::StateSpace};
 

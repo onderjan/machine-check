@@ -1,10 +1,9 @@
-use machine_check_common::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
-
 use crate::{
     abstr::{Abstr, PanicBitvector, PanicResult, Phi},
     bitvector::interval::SignedInterval,
     concr::ConcreteBitvector,
     forward::HwArith,
+    panic::message::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO},
 };
 
 use super::DualInterval;
