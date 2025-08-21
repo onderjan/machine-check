@@ -144,19 +144,22 @@ fn create_property_description_inner(
     let bool_return_type = create_type_path(create_path_from_ident(Ident::new("bool", span)));
 
     let mut fns = vec![create_impl_item_fn(
-        Ident::new("property", span),
+        Ident::new("fn_0", span),
         vec![],
         Some(bool_return_type.clone()),
         vec![Stmt::Expr(expr, None)],
     )];
 
-    for (index, subproperty) in expanded_subproperties.into_iter().enumerate() {
+    let mut function_index = 1;
+
+    for subproperty in expanded_subproperties.into_iter() {
         fns.push(create_impl_item_fn(
-            Ident::new(&format!("subproperty_{}", index), span),
+            Ident::new(&format!("fn_{}", function_index), span),
             vec![],
             Some(bool_return_type.clone()),
             vec![Stmt::Expr(subproperty, None)],
         ));
+        function_index += 1;
     }
 
     let mut items = vec![Item::Impl(create_item_impl(

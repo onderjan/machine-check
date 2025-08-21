@@ -1,9 +1,12 @@
 use std::collections::{BTreeMap, HashMap};
 
-use machine_check_common::iir::{
-    func::{IBlock, IFn, IFnOutput, ISignature},
-    ty::IGeneralType,
-    variable::{IVarId, IVarInfo},
+use machine_check_common::{
+    iir::{
+        func::{IBlock, IFn, IFnOutput, ISignature},
+        ty::{IGeneralType, IType},
+        variable::{IVarId, IVarInfo},
+    },
+    ir_common::IrReference,
 };
 
 use crate::{abstr::YAbstr, into_iir::FromWirData, wir::WImplItemFn};
@@ -27,8 +30,16 @@ impl WImplItemFn<YAbstr> {
             inputs.push(var_id);
         }
 
-        for (var_id, var_info) in data.global_vars.values() {
-            variables.insert(*var_id, var_info.clone());
+        for (var_id, global) in &data.global_var_infos {
+            let var_info = IVarInfo {
+                ident: global.ident.clone(),
+                ty: IGeneralType::Normal(IType {
+                    reference: IrReference::None,
+                    inner: global.ty.clone(),
+                }),
+            };
+
+            variables.insert(*var_id, var_info);
         }
 
         for local in self.locals {
@@ -81,10 +92,25 @@ impl WImplItemFn<YAbstr> {
 
         let block = IBlock { stmts };
 
+        let mut used_globals = BTreeMap::new();
+
+        for var_id in &data.used_globals {
+            used_globals.insert(
+                *var_id,
+                data.global_var_infos
+                    .get(var_id)
+                    .expect("Used global should be in variables")
+                    .clone(),
+            );
+        }
+
+        data.used_globals.clear();
+
         IFn {
             signature,
             variables,
             block,
+            used_globals,
         }
     }
 }

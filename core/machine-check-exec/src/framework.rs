@@ -157,16 +157,13 @@ impl<M: FullMachine> Framework<M> {
                 IAbstractValue::Bool(mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)),
             );
 
-            let result =
-                new_property.forward_interpret_fn(String::from("property"), &global_values);
+            let result = new_property.forward_interpret(&global_values);
 
             println!("Forward interpretation result: {:?}", result);
 
-            new_property.backward_interpret_fn(
-                String::from("property"),
+            new_property.backward_interpret(
                 &global_values,
                 IRefinementValue::Bool(mck::refin::Boolean::new_marked_unimportant()),
-                mck::refin::RBitvector::new_unmarked(32),
             );
         }*/
 

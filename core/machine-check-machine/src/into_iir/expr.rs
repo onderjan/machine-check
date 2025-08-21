@@ -66,12 +66,13 @@ fn from_variable_map(
     ident: WIdent,
     ident_var_map: &HashMap<IIdent, IVarId>,
 ) -> IVarId {
+    println!("Getting ident {:?} from variable map", ident);
     let ident = ident.into_iir();
-    if let Some(local_var_id) = ident_var_map.get(&ident) {
-        *local_var_id
-    } else if let Some((global_var_id, _)) = data.global_vars.get(&ident) {
+    if let Some(global_var_id) = data.global_var_ids.get(&ident) {
         data.used_globals.insert(*global_var_id);
         *global_var_id
+    } else if let Some(local_var_id) = ident_var_map.get(&ident) {
+        *local_var_id
     } else {
         panic!(
             "Expression variable {:?} should be in local or global variable map",
