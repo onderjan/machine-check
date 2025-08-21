@@ -1418,6 +1418,7 @@ dependencies = [
 name = "machine-check-common"
 version = "0.5.0"
 dependencies = [
+ "mck",
  "serde",
  "thiserror 1.0.49",
 ]

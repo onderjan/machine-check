@@ -9,3 +9,4 @@ rust-version = "1.83"
 [dependencies]
 thiserror = "1.0.49"
 serde = { version = "1.0.188", features = ["derive", "rc"] }
+mck = "=0.5.0"
