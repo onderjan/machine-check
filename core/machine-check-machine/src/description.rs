@@ -152,12 +152,18 @@ fn create_property_description_inner(
 
     let mut function_index = 1;
 
-    for subproperty in expanded_subproperties.into_iter() {
+    for expanded in expanded_subproperties.into_iter() {
+        let expr = match expanded {
+            expand_macros::ExpandedSubproperty::Next(expanded_next) => expanded_next.expr,
+            expand_macros::ExpandedSubproperty::FixedPoint(expanded_fixed_point) => {
+                expanded_fixed_point.expr
+            }
+        };
         fns.push(create_impl_item_fn(
             Ident::new(&format!("fn_{}", function_index), span),
             vec![],
             Some(bool_return_type.clone()),
-            vec![Stmt::Expr(subproperty, None)],
+            vec![Stmt::Expr(expr, None)],
         ));
         function_index += 1;
     }
