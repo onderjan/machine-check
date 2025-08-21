@@ -112,10 +112,9 @@ impl<M: FullMachine> Framework<M> {
             trace!("Model-checking state space: {:#?}", self.work_state.space);
         }
 
-        /*
-        {
-            use machine_check_machine::iir::interpretation::IAbstractValue;
-            use machine_check_machine::iir::interpretation::IRefinementValue;
+        /*{
+            use machine_check_common::iir::interpretation::IAbstractValue;
+            use machine_check_common::iir::interpretation::IRefinementValue;
             use mck::abstr::Manipulatable;
 
             let property_string = &property.original_string();
@@ -169,8 +168,7 @@ impl<M: FullMachine> Framework<M> {
                 IRefinementValue::Bool(mck::refin::Boolean::new_marked_unimportant()),
                 mck::refin::RBitvector::new_unmarked(32),
             );
-        }
-        */
+        }*/
 
         // perform model-checking
         match self

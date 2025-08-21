@@ -3,13 +3,12 @@ mod infer_fn;
 
 use std::collections::HashMap;
 
-use crate::{
-    util::create_item_impl,
-    wir::{
-        IntoSyn, WBasicType, WBlock, WDescription, WExpr, WExprHighCall, WGeneralType, WHighMckNew,
-        WIdent, WImplItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WReference,
-        WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YInferred, YSsa, ZSsa,
-    },
+use machine_check_common::ir_common::IrReference;
+
+use crate::wir::{
+    WBasicType, WBlock, WDescription, WExpr, WExprHighCall, WGeneralType, WHighMckNew, WIdent,
+    WImplItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WSignature, WSpanned,
+    WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YInferred, YSsa, ZSsa,
 };
 
 use super::{Error, ErrorType, Errors};
@@ -271,7 +270,7 @@ impl FnInferrer<'_> {
                                 .get(&stmt_assign.left)
                                 .expect("Local ident type should be inferred");
                             if let WPartialGeneralType::Normal(WType {
-                                reference: WReference::None,
+                                reference: IrReference::None,
                                 inner,
                             }) = left_type
                             {

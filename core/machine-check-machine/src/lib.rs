@@ -3,6 +3,8 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
+use machine_check_common::iir::IProperty;
+use machine_check_common::ir_common::IrTypeArray;
 use mck::concr::FullMachine;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -13,14 +15,13 @@ use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, P
 use syn_path::path;
 use wir::IntoSyn;
 
-use crate::iir::IProperty;
 use crate::util::create_item_mod;
-use crate::wir::{WBasicType, WElementaryType, WIdent, WSpan, WTypeArray};
+use crate::wir::{WBasicType, WElementaryType, WIdent, WSpan};
 
 mod abstr;
 mod concr;
 mod description;
-pub mod iir;
+mod into_iir;
 mod refin;
 mod support;
 mod util;
@@ -87,7 +88,7 @@ pub fn process_property<M: FullMachine>(
             let ty = match field.description() {
                 mck::abstr::Field::Bitvector(field) => WElementaryType::Bitvector(field.bit_width),
 
-                mck::abstr::Field::Array(field) => WElementaryType::Array(WTypeArray {
+                mck::abstr::Field::Array(field) => WElementaryType::Array(IrTypeArray {
                     index_width: field.bit_length,
                     element_width: field.bit_width,
                 }),
@@ -127,7 +128,7 @@ pub fn process_property<M: FullMachine>(
 
     //println!("Abstract description: {:?}", description);
 
-    let property = IProperty::from_wir(description, global_ident_types);
+    let property = description.into_iir(global_ident_types);
     println!("Property: {:#?}", property);
 
     //interpret::execute_function(&description, "property");

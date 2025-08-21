@@ -1,6 +1,6 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 
-use crate::iir::{func::IFn, variable::IVarId};
+use crate::iir::variable::IVarId;
 
 #[derive(Clone, Debug)]
 pub enum IAbstractValue {

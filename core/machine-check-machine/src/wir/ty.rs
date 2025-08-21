@@ -1,3 +1,4 @@
+use machine_check_common::ir_common::{IrReference, IrTypeArray};
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, ExprStruct, FieldValue,
@@ -10,7 +11,7 @@ use super::{IntoSyn, WIdent, WPath};
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WBasicType {
     Bitvector(u32),
-    BitvectorArray(WTypeArray),
+    BitvectorArray(IrTypeArray),
     Unsigned(u32),
     Signed(u32),
     Boolean,
@@ -20,14 +21,14 @@ pub enum WBasicType {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WElementaryType {
     Bitvector(u32),
-    Array(WTypeArray),
+    Array(IrTypeArray),
     Boolean,
     Path(WPath),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WType<FT: IntoSyn<Type>> {
-    pub reference: WReference,
+    pub reference: IrReference,
     pub inner: FT,
 }
 
@@ -44,7 +45,7 @@ pub enum WGeneralType<FT: IntoSyn<Type>> {
 impl WBasicType {
     pub fn into_type(self) -> WType<WBasicType> {
         WType {
-            reference: WReference::None,
+            reference: IrReference::None,
             inner: self,
         }
     }
@@ -67,18 +68,6 @@ impl WPartialGeneralType<WBasicType> {
             WPartialGeneralType::PhiArg(inner) => inner.is_some(),
         }
     }
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WReference {
-    Immutable,
-    None,
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WTypeArray {
-    pub index_width: u32,
-    pub element_width: u32,
 }
 
 impl IntoSyn<Type> for WBasicType {
@@ -151,13 +140,13 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WType<FT> {
                 mutability: Some(Token![mut](span)),
                 elem: Box::new(simple_type),
             }),*/
-            WReference::Immutable => Type::Reference(TypeReference {
+            IrReference::Immutable => Type::Reference(TypeReference {
                 and_token: Token![&](span),
                 lifetime: None,
                 mutability: None,
                 elem: Box::new(simple_type),
             }),
-            WReference::None => simple_type,
+            IrReference::None => simple_type,
         }
     }
 }
@@ -173,13 +162,13 @@ impl<FT: IntoSyn<Type>> WType<FT> {
                 mutability: Some(Token![mut](span)),
                 elem: Box::new(simple_type),
             }),*/
-            WReference::Immutable => Type::Reference(TypeReference {
+            IrReference::Immutable => Type::Reference(TypeReference {
                 and_token: Token![&](span),
                 lifetime: None,
                 mutability: None,
                 elem: Box::new(simple_type),
             }),
-            WReference::None => simple_type,
+            IrReference::None => simple_type,
         }
     }
 }

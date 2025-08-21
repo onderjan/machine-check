@@ -3,12 +3,12 @@ use crate::{
         interpretation::{IAbstractValue, IRefinementValue, Interpretation},
         variable::IVarId,
     },
-    wir::{WMckBinaryOp, WMckUnaryOp},
+    ir_common::{IrMckBinaryOp, IrMckUnaryOp},
 };
 
 #[derive(Clone, Debug, Hash)]
 pub struct IMckUnary {
-    pub op: WMckUnaryOp,
+    pub op: IrMckUnaryOp,
     pub operand: IVarId,
 }
 
@@ -16,8 +16,8 @@ impl IMckUnary {
     fn forward_interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
         let operand = inter.abstract_value(self.operand).expect_bitvector();
         match self.op {
-            WMckUnaryOp::Not => IAbstractValue::Bitvector(mck::forward::Bitwise::bit_not(operand)),
-            WMckUnaryOp::Neg => {
+            IrMckUnaryOp::Not => IAbstractValue::Bitvector(mck::forward::Bitwise::bit_not(operand)),
+            IrMckUnaryOp::Neg => {
                 IAbstractValue::Bitvector(mck::forward::HwArith::arith_neg(operand))
             }
         }
@@ -26,10 +26,10 @@ impl IMckUnary {
     fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
         let operand = inter.abstract_value(self.operand).expect_bitvector();
         let earlier = match self.op {
-            WMckUnaryOp::Not => IRefinementValue::Bitvector(
+            IrMckUnaryOp::Not => IRefinementValue::Bitvector(
                 mck::backward::Bitwise::bit_not((operand,), later.expect_bitvector()).0,
             ),
-            WMckUnaryOp::Neg => IRefinementValue::Bitvector(
+            IrMckUnaryOp::Neg => IRefinementValue::Bitvector(
                 mck::backward::HwArith::arith_neg((operand,), later.expect_bitvector()).0,
             ),
         };
@@ -40,7 +40,7 @@ impl IMckUnary {
 
 #[derive(Clone, Debug, Hash)]
 pub struct IMckBinary {
-    pub op: WMckBinaryOp,
+    pub op: IrMckBinaryOp,
     pub a: IVarId,
     pub b: IVarId,
 }
@@ -51,31 +51,35 @@ impl IMckBinary {
         let b = inter.abstract_value(self.b).expect_bitvector();
 
         match self.op {
-            WMckBinaryOp::BitAnd => IAbstractValue::Bitvector(mck::forward::Bitwise::bit_and(a, b)),
-            WMckBinaryOp::BitOr => IAbstractValue::Bitvector(mck::forward::Bitwise::bit_or(a, b)),
-            WMckBinaryOp::BitXor => IAbstractValue::Bitvector(mck::forward::Bitwise::bit_xor(a, b)),
-            WMckBinaryOp::LogicShl => {
+            IrMckBinaryOp::BitAnd => {
+                IAbstractValue::Bitvector(mck::forward::Bitwise::bit_and(a, b))
+            }
+            IrMckBinaryOp::BitOr => IAbstractValue::Bitvector(mck::forward::Bitwise::bit_or(a, b)),
+            IrMckBinaryOp::BitXor => {
+                IAbstractValue::Bitvector(mck::forward::Bitwise::bit_xor(a, b))
+            }
+            IrMckBinaryOp::LogicShl => {
                 IAbstractValue::Bitvector(mck::forward::HwShift::logic_shl(a, b))
             }
-            WMckBinaryOp::LogicShr => {
+            IrMckBinaryOp::LogicShr => {
                 IAbstractValue::Bitvector(mck::forward::HwShift::logic_shr(a, b))
             }
-            WMckBinaryOp::ArithShr => {
+            IrMckBinaryOp::ArithShr => {
                 IAbstractValue::Bitvector(mck::forward::HwShift::arith_shr(a, b))
             }
-            WMckBinaryOp::Add => IAbstractValue::Bitvector(mck::forward::HwArith::add(a, b)),
-            WMckBinaryOp::Sub => IAbstractValue::Bitvector(mck::forward::HwArith::sub(a, b)),
-            WMckBinaryOp::Mul => IAbstractValue::Bitvector(mck::forward::HwArith::mul(a, b)),
-            WMckBinaryOp::Udiv => IAbstractValue::PanicResult(mck::forward::HwArith::udiv(a, b)),
-            WMckBinaryOp::Urem => IAbstractValue::PanicResult(mck::forward::HwArith::urem(a, b)),
-            WMckBinaryOp::Sdiv => IAbstractValue::PanicResult(mck::forward::HwArith::sdiv(a, b)),
-            WMckBinaryOp::Srem => IAbstractValue::PanicResult(mck::forward::HwArith::srem(a, b)),
-            WMckBinaryOp::Eq => IAbstractValue::Bool(mck::forward::TypedEq::eq(a, b)),
-            WMckBinaryOp::Ne => IAbstractValue::Bool(mck::forward::TypedEq::ne(a, b)),
-            WMckBinaryOp::Ult => IAbstractValue::Bool(mck::forward::TypedCmp::ult(a, b)),
-            WMckBinaryOp::Ule => IAbstractValue::Bool(mck::forward::TypedCmp::ule(a, b)),
-            WMckBinaryOp::Slt => IAbstractValue::Bool(mck::forward::TypedCmp::slt(a, b)),
-            WMckBinaryOp::Sle => IAbstractValue::Bool(mck::forward::TypedCmp::sle(a, b)),
+            IrMckBinaryOp::Add => IAbstractValue::Bitvector(mck::forward::HwArith::add(a, b)),
+            IrMckBinaryOp::Sub => IAbstractValue::Bitvector(mck::forward::HwArith::sub(a, b)),
+            IrMckBinaryOp::Mul => IAbstractValue::Bitvector(mck::forward::HwArith::mul(a, b)),
+            IrMckBinaryOp::Udiv => IAbstractValue::PanicResult(mck::forward::HwArith::udiv(a, b)),
+            IrMckBinaryOp::Urem => IAbstractValue::PanicResult(mck::forward::HwArith::urem(a, b)),
+            IrMckBinaryOp::Sdiv => IAbstractValue::PanicResult(mck::forward::HwArith::sdiv(a, b)),
+            IrMckBinaryOp::Srem => IAbstractValue::PanicResult(mck::forward::HwArith::srem(a, b)),
+            IrMckBinaryOp::Eq => IAbstractValue::Bool(mck::forward::TypedEq::eq(a, b)),
+            IrMckBinaryOp::Ne => IAbstractValue::Bool(mck::forward::TypedEq::ne(a, b)),
+            IrMckBinaryOp::Ult => IAbstractValue::Bool(mck::forward::TypedCmp::ult(a, b)),
+            IrMckBinaryOp::Ule => IAbstractValue::Bool(mck::forward::TypedCmp::ule(a, b)),
+            IrMckBinaryOp::Slt => IAbstractValue::Bool(mck::forward::TypedCmp::slt(a, b)),
+            IrMckBinaryOp::Sle => IAbstractValue::Bool(mck::forward::TypedCmp::sle(a, b)),
         }
     }
 
@@ -122,46 +126,44 @@ impl IMckBinary {
         }
 
         let (earlier_a, earlier_b) = match self.op {
-            WMckBinaryOp::BitAnd => handle_standard(a, b, later, mck::backward::Bitwise::bit_and),
-            WMckBinaryOp::BitOr => handle_standard(a, b, later, mck::backward::Bitwise::bit_or),
-            WMckBinaryOp::BitXor => handle_standard(a, b, later, mck::backward::Bitwise::bit_xor),
-            WMckBinaryOp::LogicShl => {
+            IrMckBinaryOp::BitAnd => handle_standard(a, b, later, mck::backward::Bitwise::bit_and),
+            IrMckBinaryOp::BitOr => handle_standard(a, b, later, mck::backward::Bitwise::bit_or),
+            IrMckBinaryOp::BitXor => handle_standard(a, b, later, mck::backward::Bitwise::bit_xor),
+            IrMckBinaryOp::LogicShl => {
                 handle_standard(a, b, later, mck::backward::HwShift::logic_shl)
             }
-            WMckBinaryOp::LogicShr => {
+            IrMckBinaryOp::LogicShr => {
                 handle_standard(a, b, later, mck::backward::HwShift::logic_shr)
             }
-            WMckBinaryOp::ArithShr => {
+            IrMckBinaryOp::ArithShr => {
                 handle_standard(a, b, later, mck::backward::HwShift::arith_shr)
             }
-            WMckBinaryOp::Add => handle_standard(a, b, later, mck::backward::HwArith::add),
-            WMckBinaryOp::Sub => handle_standard(a, b, later, mck::backward::HwArith::sub),
-            WMckBinaryOp::Mul => handle_standard(a, b, later, mck::backward::HwArith::mul),
-            WMckBinaryOp::Udiv => {
+            IrMckBinaryOp::Add => handle_standard(a, b, later, mck::backward::HwArith::add),
+            IrMckBinaryOp::Sub => handle_standard(a, b, later, mck::backward::HwArith::sub),
+            IrMckBinaryOp::Mul => handle_standard(a, b, later, mck::backward::HwArith::mul),
+            IrMckBinaryOp::Udiv => {
                 todo!();
                 // IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::udiv)
             }
-            WMckBinaryOp::Urem => {
+            IrMckBinaryOp::Urem => {
                 todo!();
                 //IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::urem)
             }
-            WMckBinaryOp::Sdiv => {
+            IrMckBinaryOp::Sdiv => {
                 todo!();
                 //IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::sdiv)
             }
-            WMckBinaryOp::Srem => {
+            IrMckBinaryOp::Srem => {
                 todo!();
                 //IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::srem)
             }
 
-            WMckBinaryOp::Eq => handle_comparison(a, b, later, mck::backward::TypedEq::eq),
-            WMckBinaryOp::Ne => handle_comparison(a, b, later, mck::backward::TypedEq::ne),
-            WMckBinaryOp::Ult => handle_comparison(a, b, later, mck::backward::TypedCmp::ult),
-            WMckBinaryOp::Ule => handle_comparison(a, b, later, mck::backward::TypedCmp::ule),
-            WMckBinaryOp::Slt => handle_comparison(a, b, later, mck::backward::TypedCmp::slt),
-            WMckBinaryOp::Sle => handle_comparison(a, b, later, mck::backward::TypedCmp::sle),
-
-            _ => panic!("Not yet implemented: {:?}", self.op),
+            IrMckBinaryOp::Eq => handle_comparison(a, b, later, mck::backward::TypedEq::eq),
+            IrMckBinaryOp::Ne => handle_comparison(a, b, later, mck::backward::TypedEq::ne),
+            IrMckBinaryOp::Ult => handle_comparison(a, b, later, mck::backward::TypedCmp::ult),
+            IrMckBinaryOp::Ule => handle_comparison(a, b, later, mck::backward::TypedCmp::ule),
+            IrMckBinaryOp::Slt => handle_comparison(a, b, later, mck::backward::TypedCmp::slt),
+            IrMckBinaryOp::Sle => handle_comparison(a, b, later, mck::backward::TypedCmp::sle),
         };
 
         inter.insert_refinement_value(self.a, earlier_a);

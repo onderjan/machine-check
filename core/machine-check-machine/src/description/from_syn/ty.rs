@@ -1,8 +1,9 @@
+use machine_check_common::ir_common::{IrReference, IrTypeArray};
 use syn::{Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
     description::{from_syn::path::fold_path, Error, ErrorType},
-    wir::{WBasicType, WPath, WReference, WSpan, WType, WTypeArray},
+    wir::{WBasicType, WPath, WSpan, WType},
 };
 
 pub fn fold_type(mut ty: Type, self_ty: Option<&WPath>) -> Result<WType<WBasicType>, Error> {
@@ -15,9 +16,9 @@ pub fn fold_type(mut ty: Type, self_ty: Option<&WPath>) -> Result<WType<WBasicTy
                 ));
             }
             ty = *type_reference.elem;
-            WReference::Immutable
+            IrReference::Immutable
         }
-        _ => WReference::None,
+        _ => IrReference::None,
     };
     Ok(WType {
         reference,
@@ -56,7 +57,7 @@ pub fn fold_basic_type(ty: Type, self_ty: Option<&WPath>) -> Result<WBasicType, 
                     "Signed" => Some(WBasicType::Signed(extract_generic_sizes(arguments, 1)?[0])),
                     "BitvectorArray" => {
                         let sizes = extract_generic_sizes(arguments, 2)?;
-                        Some(WBasicType::BitvectorArray(WTypeArray {
+                        Some(WBasicType::BitvectorArray(IrTypeArray {
                             index_width: sizes[0],
                             element_width: sizes[1],
                         }))

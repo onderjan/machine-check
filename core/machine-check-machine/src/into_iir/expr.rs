@@ -1,54 +1,29 @@
-mod call;
-
 use std::collections::HashMap;
 
-use crate::{
-    iir::{
-        expr::call::{IExprCall, IMckBinary, IMckNew},
-        interpretation::{IAbstractValue, IRefinementValue, Interpretation},
-        variable::IVarId,
-        FromWirData,
+use machine_check_common::iir::{
+    expr::{
+        call::{IExprCall, IMckBinary, IMckNew},
+        IExpr,
     },
+    path::IIdent,
+    variable::IVarId,
+};
+
+use crate::{
+    into_iir::FromWirData,
     wir::{WExpr, WExprCall, WIdent, WMckNew},
 };
 
-#[derive(Clone, Debug, Hash)]
-pub enum IExpr {
-    Move(IVarId),
-    Call(IExprCall),
-    /*Field(IExprField),
-    Struct(IExprStruct),
-    Reference(IExprReference),
-    Lit(Lit),*/
-}
-
-impl IExpr {
-    pub fn forward_interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
-        match self {
-            IExpr::Move(var_id) => inter.abstract_value(*var_id).clone(),
-            IExpr::Call(expr_call) => expr_call.forward_interpret(inter),
-        }
-    }
-
-    pub fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
-        match self {
-            IExpr::Move(var_id) => {
-                // propagate the later value to earlier
-                inter.insert_refinement_value(*var_id, later);
-            }
-            IExpr::Call(expr_call) => expr_call.backward_interpret(inter, later),
-        }
-    }
-
-    pub(super) fn from_wir(
+impl WExpr<WExprCall> {
+    pub(super) fn into_iir(
+        self,
         data: &mut FromWirData,
-        expr: WExpr<WExprCall>,
-        ident_var_map: &HashMap<WIdent, IVarId>,
-    ) -> Self {
-        match expr {
+        ident_var_map: &HashMap<IIdent, IVarId>,
+    ) -> IExpr {
+        match self {
             WExpr::Move(ident) => {
                 let var_id = *ident_var_map
-                    .get(&ident)
+                    .get(&ident.into_iir())
                     .expect("Left-side variable should be in variable map");
                 IExpr::Move(var_id)
             }
@@ -56,8 +31,8 @@ impl IExpr {
                 WExprCall::Call(wcall) => todo!(),
                 WExprCall::MckUnary(wmck_unary) => todo!(),
                 WExprCall::MckBinary(mck_binary) => {
-                    let a = from_variable_map(data, &mck_binary.a, ident_var_map);
-                    let b = from_variable_map(data, &mck_binary.b, ident_var_map);
+                    let a = from_variable_map(data, mck_binary.a, ident_var_map);
+                    let b = from_variable_map(data, mck_binary.b, ident_var_map);
                     IExprCall::MckBinary(IMckBinary {
                         op: mck_binary.op,
                         a,
@@ -88,12 +63,13 @@ impl IExpr {
 
 fn from_variable_map(
     data: &mut FromWirData,
-    ident: &WIdent,
-    ident_var_map: &HashMap<WIdent, IVarId>,
+    ident: WIdent,
+    ident_var_map: &HashMap<IIdent, IVarId>,
 ) -> IVarId {
-    if let Some(local_var_id) = ident_var_map.get(ident) {
+    let ident = ident.into_iir();
+    if let Some(local_var_id) = ident_var_map.get(&ident) {
         *local_var_id
-    } else if let Some((global_var_id, _)) = data.global_vars.get(ident) {
+    } else if let Some((global_var_id, _)) = data.global_vars.get(&ident) {
         data.used_globals.insert(*global_var_id);
         *global_var_id
     } else {

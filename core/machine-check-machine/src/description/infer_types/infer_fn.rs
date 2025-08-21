@@ -1,8 +1,10 @@
+use machine_check_common::ir_common::IrReference;
+
 use crate::{
     description::Errors,
     wir::{
         WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn,
-        WPartialGeneralType, WReference, WStmtAssign, WType, YSsa, ZSsa,
+        WPartialGeneralType, WStmtAssign, WType, YSsa, ZSsa,
     },
 };
 
@@ -70,7 +72,7 @@ impl super::FnInferrer<'_> {
             WExpr::Field(right_field) => self.infer_field_result_type(right_field),
             WExpr::Reference(right_reference) => self.infer_reference_result_type(right_reference),
             WExpr::Struct(right_struct) => WPartialGeneralType::Normal(WType {
-                reference: WReference::None,
+                reference: IrReference::None,
                 inner: WBasicType::Path(right_struct.type_path.clone()),
             }),
             WExpr::Lit(_) => {
@@ -133,7 +135,7 @@ impl super::FnInferrer<'_> {
             if field.ident == right_field.member {
                 // this is the left type
                 return WPartialGeneralType::Normal(WType {
-                    reference: WReference::None,
+                    reference: IrReference::None,
                     inner: field.ty.clone(),
                 });
             }
@@ -155,9 +157,9 @@ impl super::FnInferrer<'_> {
 
         // TODO: error if there already is a reference in the right-side type
         if let WPartialGeneralType::Normal(right_side_type) = &right_side_type {
-            if matches!(right_side_type.reference, WReference::None) {
+            if matches!(right_side_type.reference, IrReference::None) {
                 let mut right_side_type = right_side_type.clone();
-                right_side_type.reference = WReference::Immutable;
+                right_side_type.reference = IrReference::Immutable;
                 return WPartialGeneralType::Normal(right_side_type);
             }
         }

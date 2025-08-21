@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use machine_check_common::ir_common::{IrReference, IrStdBinaryOp};
 use mck::misc::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO};
 use proc_macro2::Span;
 
@@ -8,9 +9,8 @@ use crate::{
     wir::{
         WBasicType, WBlock, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent,
         WIfCondition, WIfConditionIdent, WImplItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity,
-        WPanicResult, WPanicResultType, WPartialGeneralType, WReference, WSignature, WStdBinary,
-        WStdBinaryOp, WStmt, WStmtAssign, WStmtIf, WTacLocal, WType, YNonindexed, YTotal,
-        ZNonindexed, ZTotal,
+        WPanicResult, WPanicResultType, WPartialGeneralType, WSignature, WStdBinary, WStmt,
+        WStmtAssign, WStmtIf, WTacLocal, WType, YNonindexed, YTotal, ZNonindexed, ZTotal,
     },
 };
 
@@ -190,7 +190,7 @@ impl FnConverter<'_> {
                     }
                     WExprHighCall::StdBinary(binary) => {
                         match &binary.op {
-                            WStdBinaryOp::Div | WStdBinaryOp::Rem => {
+                            IrStdBinaryOp::Div | IrStdBinaryOp::Rem => {
                                 // convert division and remainder as they can panic with zero divisor
                                 return self.fold_fn_call(
                                     stmt.left,
@@ -267,7 +267,7 @@ impl FnConverter<'_> {
         let panic_is_zero_ident = self.ident_creator.create_temporary_ident(span);
 
         let panic_is_zero_call = WExprHighCall::StdBinary(WStdBinary {
-            op: WStdBinaryOp::Eq,
+            op: IrStdBinaryOp::Eq,
             a: self.panic_ident.clone(),
             b: self.zero_bitvec_ident.clone(),
         });
@@ -305,7 +305,7 @@ fn create_panic_type_local(ident: WIdent) -> WTacLocal<WPartialGeneralType<WBasi
     WTacLocal {
         ident,
         ty: crate::wir::WPartialGeneralType::Normal(WType {
-            reference: WReference::None,
+            reference: IrReference::None,
             inner: WBasicType::Bitvector(32),
         }),
     }

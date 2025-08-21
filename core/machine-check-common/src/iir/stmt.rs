@@ -1,10 +1,4 @@
-use std::collections::HashMap;
-
-use crate::{
-    abstr::ZAbstr,
-    iir::{expr::IExpr, interpretation::Interpretation, variable::IVarId, FromWirData},
-    wir::{WIdent, WStmt},
-};
+use crate::iir::{expr::IExpr, interpretation::Interpretation, variable::IVarId};
 
 #[derive(Clone, Debug, Hash)]
 pub enum IStmt {
@@ -13,27 +7,6 @@ pub enum IStmt {
 }
 
 impl IStmt {
-    pub(super) fn from_wir(
-        data: &mut FromWirData,
-        stmt: WStmt<ZAbstr>,
-        ident_var_map: &HashMap<WIdent, IVarId>,
-    ) -> Self {
-        match stmt {
-            WStmt::Assign(stmt_assign) => {
-                let left = *ident_var_map
-                    .get(&stmt_assign.left)
-                    .expect("Left-side variable should be in variable map");
-
-                let right = IExpr::from_wir(data, stmt_assign.right, ident_var_map);
-
-                IStmt::Assign(IAssignStmt { left, right })
-            }
-            WStmt::If(stmt_if) => {
-                todo!()
-            }
-        }
-    }
-
     pub fn forward_interpret(&self, inter: &mut Interpretation) {
         match self {
             IStmt::Assign(stmt_assign) => stmt_assign.forward_interpret(inter),

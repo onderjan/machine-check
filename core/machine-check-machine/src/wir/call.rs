@@ -1,11 +1,10 @@
+use machine_check_common::ir_common::IrTypeArray;
 use proc_macro2::Span;
 use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, LitInt};
 
 use crate::{util::create_expr_ident, wir::WSpan};
 
-use super::{
-    IntoSyn, WIdent, WMckBinary, WMckUnary, WPath, WPathSegment, WStdBinary, WStdUnary, WTypeArray,
-};
+use super::{IntoSyn, WIdent, WMckBinary, WMckUnary, WPath, WPathSegment, WStdBinary, WStdUnary};
 
 #[derive(Clone, Debug, Hash)]
 pub enum WExprHighCall {
@@ -50,7 +49,7 @@ pub struct WPhiMaybeTaken {
 #[derive(Clone, Debug, Hash)]
 pub enum WHighMckNew {
     Bitvector(u32, i128),
-    BitvectorArray(WTypeArray, WIdent),
+    BitvectorArray(IrTypeArray, WIdent),
     Unsigned(u32, i128),
     Signed(u32, i128),
 }
@@ -58,7 +57,7 @@ pub enum WHighMckNew {
 #[derive(Clone, Debug, Hash)]
 pub enum WMckNew {
     Bitvector(u32, i128),
-    BitvectorArray(WTypeArray, WIdent),
+    BitvectorArray(IrTypeArray, WIdent),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -66,7 +65,7 @@ pub struct WBitvectorNew {}
 
 #[derive(Clone, Debug, Hash)]
 pub struct WArrayNew {
-    pub ty: WTypeArray,
+    pub ty: IrTypeArray,
     pub fill_element: WIdent,
 }
 

@@ -4,9 +4,11 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod check;
-mod node_id;
+pub mod iir;
+pub mod ir_common;
 pub mod property;
 
+mod node_id;
 pub use node_id::{NodeId, StateId};
 
 /// Execution error that occured during **machine-check** execution.

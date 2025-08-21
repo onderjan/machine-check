@@ -1,8 +1,10 @@
+use machine_check_common::ir_common::{IrReference, IrStdBinaryOp};
+
 use crate::{
     description::Error,
     wir::{
         WArrayRead, WArrayWrite, WBasicType, WExprHighCall, WHighMckExt, WHighMckNew, WHighStdInto,
-        WHighStdIntoType, WIdent, WPartialGeneralType, WReference, WSpanned, WStdBinary, WStdUnary,
+        WHighStdIntoType, WIdent, WPartialGeneralType, WSpanned, WStdBinary, WStdUnary,
     },
 };
 
@@ -37,25 +39,25 @@ impl super::FnInferrer<'_> {
 
     fn infer_binary(&mut self, call: &WStdBinary) -> WPartialGeneralType<WBasicType> {
         match call.op {
-            crate::wir::WStdBinaryOp::BitAnd
-            | crate::wir::WStdBinaryOp::BitOr
-            | crate::wir::WStdBinaryOp::BitXor
-            | crate::wir::WStdBinaryOp::Shl
-            | crate::wir::WStdBinaryOp::Shr
-            | crate::wir::WStdBinaryOp::Add
-            | crate::wir::WStdBinaryOp::Sub
-            | crate::wir::WStdBinaryOp::Mul => self.infer_same_args(&[&call.a, &call.b]),
-            crate::wir::WStdBinaryOp::Eq
-            | crate::wir::WStdBinaryOp::Ne
-            | crate::wir::WStdBinaryOp::Lt
-            | crate::wir::WStdBinaryOp::Le
-            | crate::wir::WStdBinaryOp::Gt
-            | crate::wir::WStdBinaryOp::Ge => {
+            IrStdBinaryOp::BitAnd
+            | IrStdBinaryOp::BitOr
+            | IrStdBinaryOp::BitXor
+            | IrStdBinaryOp::Shl
+            | IrStdBinaryOp::Shr
+            | IrStdBinaryOp::Add
+            | IrStdBinaryOp::Sub
+            | IrStdBinaryOp::Mul => self.infer_same_args(&[&call.a, &call.b]),
+            IrStdBinaryOp::Eq
+            | IrStdBinaryOp::Ne
+            | IrStdBinaryOp::Lt
+            | IrStdBinaryOp::Le
+            | IrStdBinaryOp::Gt
+            | IrStdBinaryOp::Ge => {
                 // infer operands, but the result type is boolean
                 let _operand_type = self.infer_same_args(&[&call.a, &call.b]);
                 WPartialGeneralType::Normal(WBasicType::Boolean.into_type())
             }
-            crate::wir::WStdBinaryOp::Div | crate::wir::WStdBinaryOp::Rem => {
+            IrStdBinaryOp::Div | IrStdBinaryOp::Rem => {
                 // infer and convert to panic result
                 let ty = self.infer_same_args(&[&call.a, &call.b]);
                 if let WPartialGeneralType::Normal(ty) = ty {
@@ -119,14 +121,14 @@ impl super::FnInferrer<'_> {
         };
         // the argument type is a reference, dereference it
 
-        if matches!(from_type.reference, WReference::None) {
+        if matches!(from_type.reference, IrReference::None) {
             return Err(Error::unsupported_construct(
                 "Clone first argument not being a reference",
                 from.wir_span(),
             ));
         }
         let mut result_type = from_type.clone();
-        result_type.reference = WReference::None;
+        result_type.reference = IrReference::None;
         Ok(WPartialGeneralType::Normal(result_type))
     }
 
@@ -137,7 +139,7 @@ impl super::FnInferrer<'_> {
             return WPartialGeneralType::Unknown;
         };
         // the argument type is a reference to the array, construct the bitvector type
-        if matches!(array_type.reference, WReference::None) {
+        if matches!(array_type.reference, IrReference::None) {
             // array read reference argument is produced internally, so this is an internal error
             panic!("First argument of array read should be a reference");
         }
@@ -156,7 +158,7 @@ impl super::FnInferrer<'_> {
             return WPartialGeneralType::Unknown;
         };
         // the argument type is a reference to the array, construct the bitvector type
-        if matches!(array_type.reference, WReference::None) {
+        if matches!(array_type.reference, IrReference::None) {
             // array write reference argument is produced internally, so this is an internal error
             panic!("First argument of array read should be a reference");
         }
