@@ -51,6 +51,7 @@ pub(crate) fn create_refinement_description(
                     for impl_item_type in &item_impl.impl_item_types {
                         let special_trait = match impl_item_type.left_ident.name() {
                             "Input" => Some(SpecialTrait::Input),
+                            "Param" => Some(SpecialTrait::Param),
                             "State" => Some(SpecialTrait::State),
                             _ => None,
                         };

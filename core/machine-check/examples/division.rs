@@ -20,6 +20,9 @@ mod machine_module {
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    pub struct Param {}
+
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         signed_div: Signed<8>,
         signed_rem: Signed<8>,
@@ -33,14 +36,15 @@ mod machine_module {
     impl ::machine_check::Machine for System {
         type Input = Input;
         type State = State;
+        type Param = Param;
 
         #[allow(unused_variables)]
-        fn init(&self, input: &Input) -> State {
+        fn init(&self, input: &Input, _param: &Param) -> State {
             let state: State = Self::divrem(input.dividend, input.divisor);
             state
         }
 
-        fn next(&self, _state: &State, input: &Input) -> State {
+        fn next(&self, _state: &State, input: &Input, _param: &Param) -> State {
             let state: State = Self::divrem(input.dividend, input.divisor);
             state
         }

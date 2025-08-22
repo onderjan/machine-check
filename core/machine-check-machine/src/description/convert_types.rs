@@ -222,6 +222,7 @@ fn convert_basic_path(path: WPath) -> WPath {
 
     if path.starts_with_absolute(&["machine_check", "Input"])
         || path.starts_with_absolute(&["machine_check", "State"])
+        || path.starts_with_absolute(&["machine_check", "Param"])
         || path.starts_with_absolute(&["machine_check", "Machine"])
     {
         return path_start_to_mck_concr(path);

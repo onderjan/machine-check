@@ -29,19 +29,23 @@ mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {}
 
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    pub struct Param {}
+
     impl ::machine_check::Machine for System {
         type Input = Input;
         type State = State;
+        type Param = Param;
 
         #[allow(unused_variables)]
-        fn init(&self, input: &Input) -> State {
+        fn init(&self, input: &Input, _param: &Param) -> State {
             State {
                 counter: Unsigned::<3>::new(0),
                 value: Unsigned::<2>::new(0),
             }
         }
 
-        fn next(&self, state: &State, input: &Input) -> State {
+        fn next(&self, state: &State, input: &Input, _param: &Param) -> State {
             if state.value == Unsigned::<2>::new(3) {
                 ::std::panic!("Value must not be 3");
             }

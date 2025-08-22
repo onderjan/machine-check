@@ -31,6 +31,7 @@ pub(crate) fn for_abstract_description(description: &WDescription<YAbstr>) -> Ve
             if matches!(trait_, WItemImplTrait::Machine(_)) {
                 for impl_item_type in &item_impl.impl_item_types {
                     if impl_item_type.left_ident.name() == "Input"
+                        || impl_item_type.left_ident.name() == "Param"
                         || impl_item_type.left_ident.name() == "State"
                     {
                         if let Some(right_ident) = impl_item_type.right_path.get_ident() {
@@ -77,6 +78,7 @@ pub(crate) fn for_refinement_description(description: &WDescription<YRefin>) -> 
             if matches!(trait_, WItemImplTrait::Machine(_)) {
                 for impl_item_type in &item_impl.impl_item_types {
                     if impl_item_type.left_ident.name() == "Input"
+                        || impl_item_type.left_ident.name() == "Param"
                         || impl_item_type.left_ident.name() == "State"
                     {
                         if let Some(right_ident) = impl_item_type.right_path.get_ident() {

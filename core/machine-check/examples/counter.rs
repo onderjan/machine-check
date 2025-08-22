@@ -29,6 +29,9 @@ mod machine_module {
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    pub struct Param {}
+
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         value: Unsigned<8>,
         unused: BitvectorArray<16, 8>,
@@ -46,6 +49,9 @@ mod machine_module {
     impl ::machine_check::Machine for System {
         // The type of inputs to the finite-state machine.
         type Input = Input;
+        // The type of parameters of the finite-state machine.
+        type Param = Param;
+
         // The type of states of the finite-state machine.
         type State = State;
 
@@ -55,7 +61,7 @@ mod machine_module {
         //
         // Here, the value is initialized to zero, and the unused array
         // is taken from the input, i.e. can have any values.
-        fn init(&self, input: &Input) -> State {
+        fn init(&self, input: &Input, _param: &Param) -> State {
             State {
                 value: Unsigned::<8>::new(0),
                 unused: Clone::clone(&input.unused),
@@ -69,7 +75,7 @@ mod machine_module {
         // If it reaches 157, it is immediately reset to 0. The unused array
         // is again taken from the input, i.e. can have any values, and the
         // values do not have to match the previous ones.
-        fn next(&self, state: &State, input: &Input) -> State {
+        fn next(&self, state: &State, input: &Input, _param: &Param) -> State {
             // The increment is extended to 8 bits (zero-extension because
             // it is Unsigned), then added to the value in the current state.
             // Currently, it must be called using associated function call,

@@ -24,6 +24,9 @@ mod machine_module {
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    pub struct Param {}
+
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -46,14 +49,15 @@ mod machine_module {
     #[allow(unused_variables)]
     impl ::machine_check::Machine for System {
         type Input = Input;
+        type Param = Param;
         type State = State;
 
-        fn init(&self, input: &Input) -> State {
+        fn init(&self, input: &Input, param: &Param) -> State {
             State {}
         }
 
         #[allow(unreachable_code)]
-        fn next(&self, state: &State, input: &Input) -> State {
+        fn next(&self, state: &State, input: &Input, param: &Param) -> State {
             // Do not execute the following block.
             if false {
                 // The example function can be called as an associated

@@ -22,6 +22,18 @@ impl<
 {
 }
 
+pub trait Param<C: FullMachine>:
+    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Param> + Send + Sync
+{
+}
+
+impl<
+        C: FullMachine,
+        A: Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Param> + Send + Sync,
+    > Param<C> for A
+{
+}
+
 pub trait State<C: FullMachine>:
     Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State> + Send + Sync + Phi
 {
@@ -39,12 +51,18 @@ where
     Self: Sized + Send + Sync,
 {
     type Input: Input<C>;
+    type Param: Param<C>;
     type State: State<C>;
 
     #[must_use]
-    fn init(&self, input: &Self::Input) -> PanicResult<Self::State>;
+    fn init(&self, input: &Self::Input, param: &Self::Param) -> PanicResult<Self::State>;
     #[must_use]
-    fn next(&self, state: &Self::State, input: &Self::Input) -> PanicResult<Self::State>;
+    fn next(
+        &self,
+        state: &Self::State,
+        input: &Self::Input,
+        param: &Self::Param,
+    ) -> PanicResult<Self::State>;
 }
 
 pub trait Test {

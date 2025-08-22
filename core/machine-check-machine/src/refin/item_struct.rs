@@ -50,7 +50,7 @@ pub(super) fn special_impls(
     };
 
     match special_trait {
-        SpecialTrait::Input | SpecialTrait::State => {
+        SpecialTrait::Input | SpecialTrait::Param | SpecialTrait::State => {
             // add Meta and Refine implementations
             vec![
                 meta_impl(item_struct, &abstr_type_path),

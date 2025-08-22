@@ -34,6 +34,9 @@ pub mod machine_module {
         pub PIND: Bitvector<8>,
     }
 
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    pub struct Param {}
+
     /// ATmega328P system state.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
@@ -3003,9 +3006,10 @@ pub mod machine_module {
 
     impl ::machine_check::Machine for ATmega328P {
         type Input = Input;
+        type Param = Param;
         type State = State;
 
-        fn init(&self, input: &Input) -> State {
+        fn init(&self, input: &Input, _param: &Param) -> State {
             // --- Program Counter ---
             // initialized to 0 after reset
             let PC = Bitvector::<14>::new(0);
@@ -3070,7 +3074,7 @@ pub mod machine_module {
             }
         }
 
-        fn next(&self, state: &State, input: &Input) -> State {
+        fn next(&self, state: &State, input: &Input, _param: &Param) -> State {
             let mut PC = state.PC;
             let R = Clone::clone(&state.R);
             let DDRB = state.DDRB;

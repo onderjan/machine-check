@@ -41,6 +41,9 @@ mod machine_module {
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
+    pub struct Param {}
+
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         // Microcontroller program counter.
         // Stores the address of instruction
@@ -60,8 +63,9 @@ mod machine_module {
     impl ::machine_check::Machine for System {
         type Input = Input;
         type State = State;
+        type Param = Param;
 
-        fn init(&self, input: &Input) -> State {
+        fn init(&self, input: &Input, _param: &Param) -> State {
             // Only initialize Program Counter to 0 at reset.
             // Leave working registers and data uninitialized.
             State {
@@ -70,7 +74,7 @@ mod machine_module {
                 data: Clone::clone(&input.uninit_data),
             }
         }
-        fn next(&self, state: &State, input: &Input) -> State {
+        fn next(&self, state: &State, input: &Input, _param: &Param) -> State {
             // Fetch the instruction to execute from program memory.
             let instruction = self.progmem[state.pc];
             // Increment the program counter.

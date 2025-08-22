@@ -2,5 +2,6 @@
 pub enum SpecialTrait {
     Machine,
     Input,
+    Param,
     State,
 }

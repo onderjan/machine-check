@@ -49,6 +49,34 @@ impl<
 {
 }
 
+pub trait Param<C: FullMachine>:
+    Debug
+    + MetaEq
+    + Hash
+    + Clone
+    + Meta<<C::Abstr as abstr::Machine<C>>::Param>
+    + Refine<<C::Abstr as abstr::Machine<C>>::Param>
+    + Manipulatable
+    + Send
+    + Sync
+{
+}
+
+impl<
+        C: FullMachine,
+        R: Debug
+            + MetaEq
+            + Hash
+            + Clone
+            + Meta<<C::Abstr as abstr::Machine<C>>::Param>
+            + Refine<<C::Abstr as abstr::Machine<C>>::Param>
+            + Manipulatable
+            + Send
+            + Sync,
+    > Param<C> for R
+{
+}
+
 pub trait State<C: FullMachine>:
     Debug
     + MetaEq
@@ -80,13 +108,19 @@ where
     Self: Sized + Send + Sync,
 {
     type Input: Input<C>;
+    type Param: Param<C>;
     type State: State<C>;
 
+    #[allow(clippy::type_complexity)]
     #[must_use]
     fn init(
-        abstr_args: (&C::Abstr, &<C::Abstr as abstr::Machine<C>>::Input),
+        abstr_args: (
+            &C::Abstr,
+            &<C::Abstr as abstr::Machine<C>>::Input,
+            &<C::Abstr as abstr::Machine<C>>::Param,
+        ),
         later_mark: crate::refin::PanicResult<Self::State>,
-    ) -> (Self, Self::Input);
+    ) -> (Self, Self::Input, Self::Param);
     #[allow(clippy::type_complexity)]
     #[must_use]
     fn next(
@@ -94,9 +128,10 @@ where
             &C::Abstr,
             &<C::Abstr as abstr::Machine<C>>::State,
             &<C::Abstr as abstr::Machine<C>>::Input,
+            &<C::Abstr as abstr::Machine<C>>::Param,
         ),
         later_mark: crate::refin::PanicResult<Self::State>,
-    ) -> (Self, Self::State, Self::Input);
+    ) -> (Self, Self::State, Self::Input, Self::Param);
 }
 
 pub trait ManipField {

@@ -7,6 +7,10 @@ pub trait Input: Debug + PartialEq + Eq + Hash + Clone + Send + Sync {}
 
 impl<T: Debug + PartialEq + Eq + Hash + Clone + Send + Sync> Input for T {}
 
+pub trait Param: Debug + PartialEq + Eq + Hash + Clone + Send + Sync {}
+
+impl<T: Debug + PartialEq + Eq + Hash + Clone + Send + Sync> Param for T {}
+
 pub trait State {}
 
 impl<T: Debug + PartialEq + Eq + Hash + Clone + Send + Sync> State for T {}
@@ -19,6 +23,12 @@ where
      * Machine input.
      */
     type Input: Input;
+
+    /**
+     * Machine parameter.
+     */
+    type Param: Param;
+
     /**
      * Machine state.
      */
@@ -28,13 +38,13 @@ where
      * Creates an initial state from an initial input.
      */
     #[must_use]
-    fn init(&self, input: &Self::Input) -> Self::State;
+    fn init(&self, input: &Self::Input, param: &Self::Param) -> Self::State;
 
     /**
      * Creates next state from current state, given the input.
      */
     #[must_use]
-    fn next(&self, state: &Self::State, input: &Self::Input) -> Self::State;
+    fn next(&self, state: &Self::State, input: &Self::Input, param: &Self::Param) -> Self::State;
 }
 
 pub trait Test {
