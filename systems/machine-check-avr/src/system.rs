@@ -34,8 +34,6 @@ pub mod machine_module {
         pub PIND: Bitvector<8>,
     }
 
-    impl ::machine_check::Input for Input {}
-
     /// ATmega328P system state.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
@@ -108,8 +106,6 @@ pub mod machine_module {
         // --- EEPROM ---
         // unchangeable as SPM instruction is not supported
     }
-
-    impl ::machine_check::State for State {}
 
     /// ATmega328P system.
     ///

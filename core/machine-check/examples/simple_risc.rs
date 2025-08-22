@@ -39,7 +39,6 @@ mod machine_module {
         uninit_reg: BitvectorArray<2, 8>,
         uninit_data: BitvectorArray<8, 8>,
     }
-    impl ::machine_check::Input for Input {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
@@ -52,7 +51,7 @@ mod machine_module {
         // 256 (2^8) 8-bit data cells.
         data: BitvectorArray<8, 8>,
     }
-    impl ::machine_check::State for State {}
+
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {
         // 128 (2^7) 12-bit program memory instructions.

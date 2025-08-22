@@ -36,8 +36,6 @@ mod machine_module {
         unused: Bitvector<4>,
     }
 
-    impl ::machine_check::Input for Input {}
-
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         /// The maximum value of the input `value`.
@@ -49,8 +47,6 @@ mod machine_module {
         /// An irrelevant free-running counter.
         free_counter: Unsigned<4>,
     }
-
-    impl ::machine_check::State for State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {

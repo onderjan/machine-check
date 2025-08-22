@@ -19,8 +19,6 @@ mod machine_module {
         divisor: Bitvector<8>,
     }
 
-    impl ::machine_check::Input for Input {}
-
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         signed_div: Signed<8>,
@@ -28,8 +26,6 @@ mod machine_module {
         unsigned_div: Unsigned<8>,
         unsigned_rem: Unsigned<8>,
     }
-
-    impl ::machine_check::State for State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {}

@@ -18,16 +18,10 @@ pub use args::{ExecArgs, ExecStrategy};
 pub use traits::Ext;
 pub use types::{Bitvector, BitvectorArray, Signed, Unsigned};
 
-/// Input to [`Machine`].
-pub use ::mck::concr::Input;
-
-/// State of [`Machine`].
-pub use ::mck::concr::State;
-
 /// Finite-state machine intended to be verifiable by **machine-check**.
 ///
 /// To actually be verifiable by **machine-check**, further processing must be done by enclosing the structures
-/// and [`Input`], [`State`], and [`Machine`] implementations within the [`machine_description`] macro.
+/// and the [`Machine`] implementation within the [`machine_description`] macro.
 ///
 pub use ::mck::concr::Machine;
 
@@ -87,7 +81,7 @@ pub use ::machine_check_macros::bitmask_switch;
 /// ```
 /// #[machine_check::machine_description]
 /// mod machine_module {
-///     // ... structs implementing Input, State, Machine ...
+///     // ... structs including a struct implementing Machine ...
 /// }
 /// ```
 ///

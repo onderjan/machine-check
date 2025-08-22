@@ -20,15 +20,11 @@ mod machine_module {
         value: Unsigned<2>,
     }
 
-    impl ::machine_check::Input for Input {}
-
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         counter: Unsigned<3>,
         value: Unsigned<2>,
     }
-
-    impl ::machine_check::State for State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {}

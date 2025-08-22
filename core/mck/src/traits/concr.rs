@@ -5,7 +5,11 @@ use super::{abstr, misc::PanicMessage, refin};
 
 pub trait Input: Debug + PartialEq + Eq + Hash + Clone + Send + Sync {}
 
-pub trait State: Debug + PartialEq + Eq + Hash + Clone + Send + Sync {}
+impl<T: Debug + PartialEq + Eq + Hash + Clone + Send + Sync> Input for T {}
+
+pub trait State {}
+
+impl<T: Debug + PartialEq + Eq + Hash + Clone + Send + Sync> State for T {}
 
 pub trait Machine
 where

@@ -28,7 +28,7 @@ pub(crate) fn create_refinement_description(
     // create items to add to the module
     let mut result_structs = Vec::new();
     let mut result_impls = Vec::new();
-    let mut ident_special_traits = HashMap::new();
+    let mut ident_special_traits = HashMap::<WIdent, Vec<SpecialTrait>>::new();
 
     // first pass
     for item_struct in &abstract_description.structs {
@@ -39,25 +39,31 @@ pub(crate) fn create_refinement_description(
 
     for item_impl in &abstract_description.impls {
         // look for special traits
-        let special_trait = match &item_impl.trait_ {
-            Some(trait_) => match &trait_.trait_ {
-                WItemImplTrait::Machine(_) => Some(SpecialTrait::Machine),
-                WItemImplTrait::Input(_) => Some(SpecialTrait::Input),
-                WItemImplTrait::State(_) => Some(SpecialTrait::State),
-                WItemImplTrait::Path(_) => None,
-            },
-            None => None,
-        };
 
-        // if the implementation has a special trait, add it to the multimap
-        if let Some(special_trait) = special_trait {
-            if let Some(ident) = item_impl.self_ty.get_ident() {
-                ident_special_traits
-                    .entry(ident)
-                    .or_insert(Vec::new())
-                    .push(special_trait);
+        if let Some(abstract_trait) = &item_impl.trait_ {
+            if let WItemImplTrait::Machine(_) = abstract_trait.trait_ {
+                if let Some(ident) = item_impl.self_ty.get_ident() {
+                    ident_special_traits
+                        .entry(ident.clone())
+                        .or_default()
+                        .push(SpecialTrait::Machine);
+
+                    for impl_item_type in &item_impl.impl_item_types {
+                        let special_trait = match impl_item_type.left_ident.name() {
+                            "Input" => Some(SpecialTrait::Input),
+                            "State" => Some(SpecialTrait::State),
+                            _ => None,
+                        };
+                        if let Some(special_trait) = special_trait {
+                            ident_special_traits
+                                .entry(impl_item_type.left_ident.clone())
+                                .or_default()
+                                .push(special_trait);
+                        }
+                    }
+                }
             }
-        };
+        }
 
         // fold the implementation
         result_impls.push(item_impl::fold_item_impl(item_impl.clone()));
@@ -69,7 +75,7 @@ pub(crate) fn create_refinement_description(
     for item_struct in &abstract_description.structs {
         let special_traits = ident_special_traits
             .remove(&item_struct.ident)
-            .unwrap_or(Vec::new());
+            .unwrap_or_default();
         for special_trait in special_traits {
             let special_impls = item_struct::special_impls(special_trait, item_struct);
             misc_items.extend(special_impls.into_iter().map(Item::Impl));

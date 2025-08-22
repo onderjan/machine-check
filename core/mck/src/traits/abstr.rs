@@ -15,8 +15,22 @@ pub trait Input<C: FullMachine>:
 {
 }
 
+impl<
+        C: FullMachine,
+        A: Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Input> + Send + Sync,
+    > Input<C> for A
+{
+}
+
 pub trait State<C: FullMachine>:
     Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State> + Send + Sync + Phi
+{
+}
+
+impl<
+        C: FullMachine,
+        A: Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State> + Send + Sync + Phi,
+    > State<C> for A
 {
 }
 

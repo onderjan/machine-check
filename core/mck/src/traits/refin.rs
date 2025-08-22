@@ -34,6 +34,21 @@ pub trait Input<C: FullMachine>:
 {
 }
 
+impl<
+        C: FullMachine,
+        R: Debug
+            + MetaEq
+            + Hash
+            + Clone
+            + Meta<<C::Abstr as abstr::Machine<C>>::Input>
+            + Refine<<C::Abstr as abstr::Machine<C>>::Input>
+            + Manipulatable
+            + Send
+            + Sync,
+    > Input<C> for R
+{
+}
+
 pub trait State<C: FullMachine>:
     Debug
     + MetaEq
@@ -43,6 +58,20 @@ pub trait State<C: FullMachine>:
     + Manipulatable
     + Send
     + Sync
+{
+}
+
+impl<
+        C: FullMachine,
+        R: Debug
+            + MetaEq
+            + Clone
+            + Refine<<C::Abstr as abstr::Machine<C>>::State>
+            + Meta<<C::Abstr as abstr::Machine<C>>::State>
+            + Manipulatable
+            + Send
+            + Sync,
+    > State<C> for R
 {
 }
 

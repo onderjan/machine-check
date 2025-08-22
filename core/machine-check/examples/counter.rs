@@ -28,19 +28,11 @@ mod machine_module {
         unused: BitvectorArray<16, 8>,
     }
 
-    // Input implementation signifies that the struct
-    // can be used as input to a system implementing Machine.
-    impl ::machine_check::Input for Input {}
-
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         value: Unsigned<8>,
         unused: BitvectorArray<16, 8>,
     }
-
-    // State implementation signifies that the struct
-    // can be used as state of a system implementing Machine.
-    impl ::machine_check::State for State {}
 
     // The system can contain data that will be unchanging,
     // but usable within the machine-stepping functions.

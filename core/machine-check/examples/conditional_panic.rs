@@ -23,12 +23,8 @@ mod machine_module {
         panic_input: Bitvector<8>,
     }
 
-    impl ::machine_check::Input for Input {}
-
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {}
-
-    impl ::machine_check::State for State {}
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {}
