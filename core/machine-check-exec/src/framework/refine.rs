@@ -62,7 +62,7 @@ impl<M: FullMachine> super::Framework<M> {
         // try increasing precision of the state preceding current mark
         let mut iter = culprit.path.iter().cloned().rev().peekable();
         // store the input precision refinements so that the oldest input can be refined first
-        let mut input_precision_refinement: Option<(NodeId, RefinInput<M>)> = None;
+        let mut current_input_precision_refinement: Option<(NodeId, RefinInput<M>)> = None;
 
         while let Some(current_state_id) = iter.next() {
             let previous_node_id = match iter.peek() {
@@ -103,32 +103,16 @@ impl<M: FullMachine> super::Framework<M> {
             trace!("Input mark: {:?}", input_mark);
 
             if input_precision.apply_refin(&input_mark) {
-                // refinement can be applied to input precision, store it
-                if log_enabled!(log::Level::Trace) {
-                    if let Ok(previous_state_id) = previous_node_id.try_into() {
-                        trace!(
-                            "Step candidate id: {:?} node: {:?}, input mark: {:?}",
-                            previous_state_id,
-                            self.work_state.space.state_data(previous_state_id),
-                            input_mark
-                        );
-                    } else {
-                        trace!("Init candidate input mark: {:?}", input_mark);
-                    }
-                }
-
-                // decide if we should replace refinement
+                // refinement can be applied to input precision
+                // we will replace the refinement if either there has been no refinement previously
+                // or the current importance is equal or greater to the previous one
+                // i.e. we prefer to refine the earliest state possible when the importance is equal
                 let replace_refinement =
-                    if let Some(ref input_precision_refinement) = input_precision_refinement {
-                        trace!(
-                            "Candidate importance: {}, refinement importance: {}",
-                            input_precision.importance(),
-                            input_precision_refinement.1.importance()
-                        );
-                        input_precision.importance() >= input_precision_refinement.1.importance()
-                    } else {
-                        true
-                    };
+                    current_input_precision_refinement
+                        .as_ref()
+                        .is_none_or(|(_, refinement)| {
+                            input_precision.importance() >= refinement.importance()
+                        });
 
                 if replace_refinement {
                     trace!(
@@ -136,7 +120,7 @@ impl<M: FullMachine> super::Framework<M> {
                         input_precision.importance(),
                         input_precision
                     );
-                    input_precision_refinement = Some((previous_node_id, input_precision));
+                    current_input_precision_refinement = Some((previous_node_id, input_precision));
                 }
             }
             // mark not applied, continue iteration
@@ -155,7 +139,7 @@ impl<M: FullMachine> super::Framework<M> {
         }
 
         // if there is an input precision refinement candidate, apply it
-        let result = match input_precision_refinement {
+        let result = match current_input_precision_refinement {
             Some((node_id, refined_input_precision)) => {
                 // single mark applied, insert it back and regenerate
                 self.work_state.input_precision.insert(
