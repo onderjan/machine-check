@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::ops::ControlFlow;
 use std::time::Instant;
@@ -17,8 +16,6 @@ use machine_check_common::ExecStats;
 use machine_check_common::NodeId;
 use machine_check_common::StateId;
 use machine_check_common::ThreeValued;
-use machine_check_machine::iir::interpretation::FBitvector;
-use machine_check_machine::iir::interpretation::IValue;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
 use mck::refin::Manipulatable;
@@ -114,33 +111,6 @@ impl<M: FullMachine> Framework<M> {
         if log_enabled!(log::Level::Trace) {
             trace!("Model-checking state space: {:#?}", self.work_state.space);
         }
-
-        /*{
-            use mck::abstr::Abstr;
-            use mck::abstr::Manipulatable;
-
-            // TODO: use actual property
-            let Ok(new_property) = machine_check_machine::process_property::<M>(
-                &self.abstract_system,
-                "value == Unsigned::<8>::new(0)",
-            ) else {
-                panic!();
-            };
-            let state_id = self.work_state.space.initial_iter().next().unwrap();
-            let state = &self.work_state.space.state_data(state_id).result;
-
-            let mut global_values = BTreeMap::new();
-
-            for field_name in <<<M as mck::concr::FullMachine>::Abstr as mck::abstr::Machine<M>>::State as mck::abstr::Manipulatable>::field_names() {
-                let field = Manipulatable::get(state, field_name).unwrap();
-                println!("Field {}: {:?}", field_name, field.description());
-
-                global_values.insert(String::from(field_name), IValue::Bitvector(FBitvector { width: 8, inner: mck::abstr::Bitvector::from_concrete(mck::concr::Bitvector::new(0)) }));
-            }
-
-            let result = new_property.interpret_fn(String::from("property"), global_values);
-            println!("Interpretation result: {:?}", result);
-        }*/
 
         // perform model-checking
         match self

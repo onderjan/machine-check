@@ -4,7 +4,6 @@ mod item_struct;
 use syn::{GenericArgument, Item, Path};
 
 use crate::{
-    abstr::item_impl::process_property_item_impl,
     support::manipulate::{self},
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
@@ -113,27 +112,4 @@ pub(crate) fn create_abstract_description(
     );
 
     (abstract_description, misc_items)
-}
-
-pub(crate) fn create_abstract_property(
-    description: WDescription<YConverted>,
-) -> WDescription<YAbstr> {
-    let mut machine_types = Vec::new();
-    for item_impl in description.impls.iter() {
-        if let Some(ty) = preprocess_item_impl(item_impl) {
-            machine_types.push(ty);
-        }
-    }
-
-    let mut abstract_description = WDescription::<YAbstr> {
-        structs: Vec::new(),
-        impls: Vec::new(),
-    };
-
-    for item_impl in description.impls {
-        let item_impls = process_property_item_impl(item_impl);
-        abstract_description.impls.push(item_impls);
-    }
-
-    abstract_description
 }

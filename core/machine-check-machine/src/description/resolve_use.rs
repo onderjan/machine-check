@@ -6,7 +6,7 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     visit_mut::{self, VisitMut},
-    Expr, Ident, Item, Pat, Path, PathArguments, PathSegment, Token, UseTree,
+    Ident, Item, Pat, Path, PathArguments, PathSegment, Token, UseTree,
 };
 
 use crate::{description::Errors, util::extract_path_ident, wir::WSpan};
@@ -88,17 +88,6 @@ pub fn resolve_use_with_map(
     for item in items.iter_mut() {
         visitor.visit_item_mut(item);
     }
-    assert!(visitor.local_scopes_idents.is_empty());
-    visitor.result.map_err(Errors::single)
-}
-
-pub fn resolve_property_use(expr: &mut Expr, use_map: HashMap<Ident, Path>) -> Result<(), Errors> {
-    let mut visitor = Visitor {
-        result: Ok(()),
-        use_map,
-        local_scopes_idents: Vec::new(),
-    };
-    visitor.visit_expr_mut(expr);
     assert!(visitor.local_scopes_idents.is_empty());
     visitor.result.map_err(Errors::single)
 }

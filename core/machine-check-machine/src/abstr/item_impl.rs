@@ -1,5 +1,3 @@
-use proc_macro2::Span;
-
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, ZAbstr, ZAbstrIfPolarity},
     wir::{
@@ -56,29 +54,6 @@ pub fn process_item_impl(
     }
 
     results
-}
-
-pub fn process_property_item_impl(item_impl: WItemImpl<YConverted>) -> WItemImpl<YAbstr> {
-    let mut impl_item_fns = Vec::new();
-    for impl_item_fn in item_impl.impl_item_fns {
-        impl_item_fns.push(fold_impl_item_fn(impl_item_fn));
-    }
-
-    // add generics for the machine type
-    let current_trait = item_impl.trait_.as_ref().map(|trait_| WAbstrItemImplTrait {
-        machine_type: WPath::from_ident(WIdent::new(
-            String::from("PropertyComputer"),
-            Span::call_site(),
-        )),
-        trait_: trait_.clone(),
-    });
-
-    WItemImpl {
-        self_ty: item_impl.self_ty,
-        trait_: current_trait,
-        impl_item_fns,
-        impl_item_types: vec![],
-    }
 }
 
 pub fn fold_impl_item_fn(impl_item_fn: WImplItemFn<YConverted>) -> WImplItemFn<YAbstr> {
