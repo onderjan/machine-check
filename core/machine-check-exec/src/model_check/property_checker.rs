@@ -11,7 +11,7 @@ use std::{
 
 use log::trace;
 use machine_check_common::{
-    check::Property, property::PropertyType, ExecError, StateId, ThreeValued,
+    check::Property, property::PropertyType, ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
 
@@ -83,7 +83,7 @@ impl PropertyChecker {
     pub fn compute_interpretation<M: FullMachine>(
         &mut self,
         space: &StateSpace<M>,
-    ) -> Result<ThreeValued, ExecError> {
+    ) -> Result<ParamValuation, ExecError> {
         trace!(
             "Histories before computing interpretation: {:#?}",
             self.histories

@@ -2,7 +2,7 @@ use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
 use machine_check_common::property::NextOperator;
-use machine_check_common::{ExecError, StateId, ThreeValued};
+use machine_check_common::{ExecError, ParamValuation, StateId};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
 use crate::model_check::property_checker::{CheckValue, TimedCheckValue};
@@ -28,7 +28,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         state_id: StateId,
         computed_successors: &mut BTreeMap<StateId, TimedCheckValue>,
     ) -> Result<TimedCheckValue, ExecError> {
-        let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_universal));
+        let ground_value = CheckValue::eigen(ParamValuation::from_bool(op.is_universal));
 
         // for speed, try to find the appropriate successor without sorting first
         // this can be no successor at all, if the ground value remains,
@@ -48,9 +48,13 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             let successor_valuation = successor_timed.value.valuation;
 
             let is_better = if op.is_universal {
-                successor_valuation < current_valuation
+                successor_valuation
+                    .bitand_ordering(&current_valuation)
+                    .is_gt()
             } else {
-                successor_valuation > current_valuation
+                successor_valuation
+                    .bitor_ordering(&current_valuation)
+                    .is_gt()
             };
 
             if is_better {

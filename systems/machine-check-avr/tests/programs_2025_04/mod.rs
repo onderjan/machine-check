@@ -37,7 +37,11 @@ fn avr_test(group: &str, release: bool, name: &str, property: Option<String>, ex
         panic!("Expected to verify, but got {:?}", exec_result);
     };
 
-    if result != expected {
+    if result
+        .clone()
+        .try_into_bool()
+        .is_none_or(|result| result != expected)
+    {
         panic!("Expected verification result {expected}, but got {result}");
     }
 }

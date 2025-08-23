@@ -1,4 +1,4 @@
-use machine_check_common::ThreeValued;
+use machine_check_common::ParamValuation;
 use web_sys::CanvasRenderingContext2d;
 
 pub const RAW_TILE_SIZE: f64 = 46.;
@@ -10,6 +10,7 @@ pub const RAW_FONT_MARGIN: f64 = 4.;
 pub mod colors {
     pub const UNKNOWN: &str = "#CCCCCC"; // grey
     pub const TRUE: &str = "#4CBF50"; // green
+    pub const DEPENDENT: &str = "#BBBB00"; // yellow
     pub const FALSE: &str = "#CC2222"; // red
     pub const NOT_APPLICABLE: &str = "lightblue"; // light blue
     pub const REFERENCE: &str = "#F5F5DC"; // light yellow
@@ -19,17 +20,18 @@ pub mod colors {
 pub const NODE_LINE_WIDTH_SELECTED: f64 = 3.;
 pub const NODE_LINE_WIDTH_UNSELECTED: f64 = 1.;
 
-pub fn labelling_color(value: ThreeValued) -> &'static str {
+pub fn labelling_color(value: ParamValuation) -> &'static str {
     match value {
-        ThreeValued::Unknown => colors::UNKNOWN,
-        ThreeValued::True => colors::TRUE,
-        ThreeValued::False => colors::FALSE,
+        ParamValuation::True => colors::TRUE,
+        ParamValuation::False => colors::FALSE,
+        ParamValuation::Dependent => colors::DEPENDENT,
+        ParamValuation::Unknown => colors::UNKNOWN,
     }
 }
 
 pub fn setup_node_context(
     context: &CanvasRenderingContext2d,
-    labelling: Option<ThreeValued>,
+    labelling: Option<ParamValuation>,
     is_selected: bool,
 ) {
     let node_color = match labelling {

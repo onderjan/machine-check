@@ -1,6 +1,6 @@
 use crate::{ExecError, ExecResult, FullMachine};
 use log::{info, warn};
-use machine_check_common::{property::Property, ExecStats};
+use machine_check_common::{check::KnownConclusion, property::Property, ExecStats};
 use machine_check_exec::{Framework, Strategy};
 
 /// Verifies the given system with given arguments.
@@ -55,14 +55,19 @@ pub fn verify<M: FullMachine>(
 
     if let Some(inherent_result) = inherent_result {
         match inherent_result {
-            Ok(true) => {
+            Ok(KnownConclusion::True) => {
                 // Inherent holds, we can continue.
                 info!("The inherent property holds, proceeding to the given property.");
             }
-            Ok(false) => {
-                // inherent
+            Ok(KnownConclusion::False) => {
                 return ExecResult {
                     result: Err(ExecError::InherentPanic),
+                    stats: framework.info(),
+                };
+            }
+            Ok(KnownConclusion::Dependent) => {
+                return ExecResult {
+                    result: Err(ExecError::InherentPanicDependent),
                     stats: framework.info(),
                 };
             }

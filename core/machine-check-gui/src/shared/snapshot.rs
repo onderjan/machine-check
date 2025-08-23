@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::shared::snapshot::log::Log;
 use machine_check_common::{
-    check::Conclusion, property::Subproperty, ExecError, NodeId, StateId, ThreeValued,
+    check::Conclusion, property::Subproperty, ExecError, NodeId, ParamValuation, StateId,
+    ThreeValued,
 };
 use mck::abstr::Field;
 
@@ -44,7 +45,7 @@ pub struct Node {
 pub struct SubpropertySnapshot {
     pub subproperty: Subproperty,
     pub conclusion: Result<Conclusion, ExecError>,
-    pub labellings: BTreeMap<StateId, ThreeValued>,
+    pub labellings: BTreeMap<StateId, ParamValuation>,
     pub children: Vec<SubpropertySnapshot>,
 }
 

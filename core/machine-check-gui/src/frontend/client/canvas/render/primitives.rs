@@ -1,4 +1,4 @@
-use machine_check_common::{NodeId, ThreeValued};
+use machine_check_common::{NodeId, ParamValuation};
 use web_sys::CanvasRenderingContext2d;
 
 use crate::frontend::{
@@ -15,7 +15,7 @@ impl CanvasRenderer {
         view: &View,
         tile: Tile,
         node_id: NodeId,
-        labelling: Option<ThreeValued>,
+        labelling: Option<ParamValuation>,
         is_selected: bool,
     ) {
         let context = &self.main_context;

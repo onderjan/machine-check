@@ -56,20 +56,16 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             }
         }
 
-        if op.is_and {
-            // we prefer the lesser value
-            match a_valuation.cmp(&b_valuation) {
-                Ordering::Less => BiChoice::Left,
-                Ordering::Equal => unreachable!(),
-                Ordering::Greater => BiChoice::Right,
-            }
+        let ordering = if op.is_and {
+            a_valuation.bitand_ordering(&b_valuation)
         } else {
-            // we prefer the greater value
-            match a_valuation.cmp(&b_valuation) {
-                Ordering::Less => BiChoice::Right,
-                Ordering::Equal => unreachable!(),
-                Ordering::Greater => BiChoice::Left,
-            }
+            a_valuation.bitor_ordering(&b_valuation)
+        };
+
+        match ordering {
+            Ordering::Less => BiChoice::Right,
+            Ordering::Equal => unreachable!(),
+            Ordering::Greater => BiChoice::Left,
         }
     }
 }

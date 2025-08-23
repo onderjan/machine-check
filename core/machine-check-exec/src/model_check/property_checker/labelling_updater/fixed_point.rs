@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, ops::ControlFlow};
 
 use log::{debug, trace};
-use machine_check_common::{property::FixedPointOperator, ExecError, StateId, ThreeValued};
+use machine_check_common::{property::FixedPointOperator, ExecError, ParamValuation, StateId};
 
 use crate::{
     model_check::property_checker::{
@@ -69,7 +69,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         // update the dirty states to ground values
         // note that if there was no old computation, all states in the state space have been made dirty
 
-        let ground_value = CheckValue::eigen(ThreeValued::from_bool(op.is_greatest));
+        let ground_value = CheckValue::eigen(ParamValuation::from_bool(op.is_greatest));
         let history = select_history_mut(&mut self.property_checker.histories, fixed_point_index);
         trace!("Focus: {:?}", self.property_checker.focus);
         for state_id in self.property_checker.focus.dirty_iter() {

@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 
-use machine_check_common::{StateId, ThreeValued};
+use machine_check_common::{ParamValuation, StateId};
 
 use crate::model_check::property_checker::squash_time;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct CheckValue {
-    pub valuation: ThreeValued,
+    pub valuation: ParamValuation,
     pub next_states: Vec<StateId>,
 }
 
@@ -170,7 +170,7 @@ impl FixedPointHistory {
 }
 
 impl CheckValue {
-    pub fn eigen(value: ThreeValued) -> Self {
+    pub fn eigen(value: ParamValuation) -> Self {
         Self {
             valuation: value,
             next_states: vec![],
@@ -180,6 +180,6 @@ impl CheckValue {
 
 impl Debug for CheckValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}", self.valuation, self.next_states)
+        write!(f, "{:?} {:?}", self.valuation, self.next_states)
     }
 }

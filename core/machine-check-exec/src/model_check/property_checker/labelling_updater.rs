@@ -5,7 +5,7 @@ mod next;
 use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
-use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
+use machine_check_common::{property::PropertyType, ExecError, ParamValuation, StateId};
 use mck::concr::FullMachine;
 
 use crate::{
@@ -53,7 +53,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         LabellingCacher::new(self.property_checker, self.space, self.current_time)
     }
 
-    pub fn compute(mut self) -> Result<ThreeValued, ExecError> {
+    pub fn compute(mut self) -> Result<ParamValuation, ExecError> {
         trace!(
             "Computing, focus: {:?}, state space: {:#?}",
             self.property_checker.focus,
@@ -83,7 +83,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
 
         // conventionally, the property must hold in all initial states
 
-        let mut result = ThreeValued::True;
+        let mut result = ParamValuation::True;
 
         for state_id in self.space.initial_iter() {
             self.getter().compute_latest_timed(0, state_id)?;

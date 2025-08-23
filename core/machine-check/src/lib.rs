@@ -10,6 +10,7 @@ use log::info;
 use log::log_enabled;
 use log::trace;
 use log::warn;
+use machine_check_common::check::KnownConclusion;
 use machine_check_common::property::Property;
 use machine_check_exec::Strategy;
 
@@ -214,8 +215,9 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
         {
             // print the verification result nicely
             let result_title = match &result.result {
-                Ok(false) => "Result: DOES NOT HOLD",
-                Ok(true) => "Result: HOLDS",
+                Ok(KnownConclusion::False) => "Result: DOES NOT HOLD",
+                Ok(KnownConclusion::True) => "Result: HOLDS",
+                Ok(KnownConclusion::Dependent) => "Result: DEPENDS ON PARAMETERS",
                 Err(err) => &format!("Result: ERROR ({})", err),
             };
 

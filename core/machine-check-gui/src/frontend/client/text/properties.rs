@@ -1,4 +1,7 @@
-use machine_check_common::{check::Conclusion, ThreeValued};
+use machine_check_common::{
+    check::{Conclusion, KnownConclusion},
+    ParamValuation,
+};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, Event, HtmlElement};
 
@@ -47,15 +50,16 @@ impl PropertiesDisplayer<'_> {
             .next()
             .expect("The snapshot should have the inherent property");
 
-        let inherent_result: ThreeValued = inherent_property
+        let inherent_result: ParamValuation = inherent_property
             .conclusion
             .as_ref()
             .map(|conclusion| match conclusion {
-                Conclusion::Known(false) => ThreeValued::False,
-                Conclusion::Known(true) => ThreeValued::True,
-                _ => ThreeValued::Unknown,
+                Conclusion::Known(KnownConclusion::False) => ParamValuation::False,
+                Conclusion::Known(KnownConclusion::True) => ParamValuation::True,
+                Conclusion::Known(KnownConclusion::Dependent) => ParamValuation::Dependent,
+                _ => ParamValuation::Unknown,
             })
-            .unwrap_or(ThreeValued::Unknown);
+            .unwrap_or(ParamValuation::Unknown);
 
         let panic_message = self.view.snapshot().panic_message.as_ref();
 
@@ -84,7 +88,7 @@ impl PropertiesDisplayer<'_> {
         id_index: &mut usize,
         was_focused: bool,
         is_inherent: bool,
-        inherent_result: ThreeValued,
+        inherent_result: ParamValuation,
         panic_message: Option<&String>,
         is_subproperty: bool,
     ) {
@@ -128,12 +132,16 @@ impl PropertiesDisplayer<'_> {
                     // display a warning that the property value may be / is meaningless
                     // if the inherent property has not been proven
                     let inherent_warning_text = match inherent_result {
-                        ThreeValued::True => None,
-                        ThreeValued::False => Some(concat!(
+                        ParamValuation::True => None,
+                        ParamValuation::False => Some(concat!(
                             "The inherent property does not hold.\n",
                             "This verification result is meaningless."
                         )),
-                        ThreeValued::Unknown => Some(concat!(
+                        ParamValuation::Dependent => Some(concat!(
+                            "The inherent property holds or does not depending on parameters.\n",
+                            "This verification result is meaningless."
+                        )),
+                        ParamValuation::Unknown => Some(concat!(
                             "The inherent property has not been proven to hold yet.\n",
                             "If it does not hold, this verification result is meaningless."
                         )),
@@ -156,21 +164,26 @@ impl PropertiesDisplayer<'_> {
                     .conclusion
                 {
                     Ok(conclusion) => match conclusion {
-                        Conclusion::Known(true) => {
+                        Conclusion::Known(KnownConclusion::True) => {
                             ("conclusion-true", "\u{2714}\u{FE0F}", String::from("Holds"))
                         }
-                        Conclusion::Known(false) => ("conclusion-false", "\u{274C}", {
-                            let mut conclusion_string = String::from("Does not hold");
-                            if is_inherent {
-                                if let Some(panic_message) = panic_message {
-                                    conclusion_string = format!(
-                                        "Does not hold, panic message: '{}'",
-                                        panic_message
-                                    );
+                        Conclusion::Known(KnownConclusion::False) => {
+                            ("conclusion-false", "\u{274C}", {
+                                let mut conclusion_string = String::from("Does not hold");
+                                if is_inherent {
+                                    if let Some(panic_message) = panic_message {
+                                        conclusion_string = format!(
+                                            "Does not hold, panic message: '{}'",
+                                            panic_message
+                                        );
+                                    }
                                 }
-                            }
-                            conclusion_string
-                        }),
+                                conclusion_string
+                            })
+                        }
+                        Conclusion::Known(KnownConclusion::Dependent) => {
+                            ("conclusion-dependent", "dependent", String::from("Unknown"))
+                        }
                         Conclusion::Unknown(_culprit) => (
                             "conclusion-unknown",
                             "\u{2754}\u{FE0F}",

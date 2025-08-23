@@ -4,13 +4,14 @@ use std::ops::ControlFlow;
 use log::log_enabled;
 use log::trace;
 use machine_check_common::check::Conclusion;
+use machine_check_common::check::KnownConclusion;
 use machine_check_common::check::Property;
 use machine_check_common::property::Subproperty;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use machine_check_common::NodeId;
+use machine_check_common::ParamValuation;
 use machine_check_common::StateId;
-use machine_check_common::ThreeValued;
 use mck::concr::FullMachine;
 use work_state::WorkState;
 
@@ -65,7 +66,7 @@ impl<M: FullMachine> Framework<M> {
         }
     }
 
-    pub fn verify(&mut self, property: &Property) -> Result<bool, ExecError> {
+    pub fn verify(&mut self, property: &Property) -> Result<KnownConclusion, ExecError> {
         // loop verification steps until some conclusion is reached
         let result = loop {
             match self.step_verification(property) {
@@ -86,7 +87,7 @@ impl<M: FullMachine> Framework<M> {
     pub fn step_verification(
         &mut self,
         property: &Property,
-    ) -> ControlFlow<Result<bool, ExecError>> {
+    ) -> ControlFlow<Result<KnownConclusion, ExecError>> {
         // if the space is invalid (just after construction), regenerate it
         if !self.work_state.space.is_valid() {
             self.regenerate(NodeId::ROOT);
@@ -133,7 +134,7 @@ impl<M: FullMachine> Framework<M> {
     pub fn check_subproperty_with_labelling(
         &mut self,
         property: &Subproperty,
-    ) -> Result<(Conclusion, BTreeMap<StateId, ThreeValued>), ExecError> {
+    ) -> Result<(Conclusion, BTreeMap<StateId, ParamValuation>), ExecError> {
         self.work_state
             .checker
             .check_subproperty_with_labelling(&self.work_state.space, property)

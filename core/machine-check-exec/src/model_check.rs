@@ -5,9 +5,9 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use log::trace;
 use machine_check_common::{
-    check::Conclusion,
+    check::{Conclusion, KnownConclusion},
     property::{Property, Subproperty},
-    ExecError, StateId, ThreeValued,
+    ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
 
@@ -34,7 +34,7 @@ impl ThreeValuedChecker {
         &mut self,
         space: &StateSpace<M>,
         subproperty: &Subproperty,
-    ) -> Result<(Conclusion, BTreeMap<StateId, ThreeValued>), ExecError> {
+    ) -> Result<(Conclusion, BTreeMap<StateId, ParamValuation>), ExecError> {
         let property = subproperty.property();
         let conclusion = self.check_property(space, property)?;
 
@@ -85,9 +85,10 @@ impl ThreeValuedChecker {
 
         // compute optimistic and pessimistic interpretation and get the conclusion from that
         match result {
-            ThreeValued::False => Ok(Conclusion::Known(false)),
-            ThreeValued::True => Ok(Conclusion::Known(true)),
-            ThreeValued::Unknown => Ok(Conclusion::Unknown(deduce_culprit(
+            ParamValuation::False => Ok(Conclusion::Known(KnownConclusion::False)),
+            ParamValuation::True => Ok(Conclusion::Known(KnownConclusion::True)),
+            ParamValuation::Dependent => Ok(Conclusion::Known(KnownConclusion::Dependent)),
+            ParamValuation::Unknown => Ok(Conclusion::Unknown(deduce_culprit(
                 property_checker,
                 space,
                 property,
