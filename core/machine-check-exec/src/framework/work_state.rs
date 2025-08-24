@@ -85,7 +85,12 @@ impl<M: FullMachine> WorkState<M> {
 
         outside_used_ids.extend(self.input_precision.used_state_ids());
         outside_used_ids.extend(self.step_precision.used_state_ids());
-        self.space.make_compact(outside_used_ids);
+        let removed_states = self.space.make_compact(outside_used_ids);
+        self.checker.remove_states(&removed_states);
+        log::trace!(
+            "Compacted the state space by removing states {:?}",
+            removed_states
+        );
     }
 
     pub fn garbage_collect(&mut self) {

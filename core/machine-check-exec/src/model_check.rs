@@ -118,4 +118,10 @@ impl ThreeValuedChecker {
             property_checker.purge_states(space, &purge_states);
         }
     }
+
+    pub fn remove_states(&mut self, removed_states: &BTreeSet<StateId>) {
+        for property_checker in self.property_checkers.values_mut() {
+            property_checker.remove_states(removed_states);
+        }
+    }
 }

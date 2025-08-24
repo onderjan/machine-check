@@ -46,6 +46,14 @@ impl Focus {
         }
     }
 
+    pub fn remove_states(&mut self, removed_states: &BTreeSet<StateId>) {
+        for state in removed_states {
+            self.affected_backward.remove(state);
+            self.dirty.remove(state);
+            self.affected_forward.remove(state);
+        }
+    }
+
     pub fn dirty(&self) -> &BTreeSet<StateId> {
         &self.dirty
     }

@@ -126,6 +126,19 @@ impl FixedPointHistory {
         }
     }
 
+    pub fn remove_states(&mut self, removed_states: &BTreeSet<StateId>) {
+        self.states
+            .retain(|state_id, _| !removed_states.contains(state_id));
+        let mut times = BTreeMap::new();
+        std::mem::swap(&mut times, &mut self.times);
+        for (time, mut state_map) in times {
+            state_map.retain(|state_id, _| !removed_states.contains(state_id));
+            if !state_map.is_empty() {
+                self.times.insert(time, state_map);
+            }
+        }
+    }
+
     pub fn clear(&mut self) {
         self.times.clear();
         self.states.clear();

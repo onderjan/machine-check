@@ -79,8 +79,17 @@ impl<M: FullMachine> StateStore<M> {
         }
     }
 
-    pub fn retain_states(&mut self, states: &BTreeSet<StateId>) {
+    pub fn retain_states(&mut self, retained_states: &BTreeSet<StateId>) -> BTreeSet<StateId> {
+        let mut removed_states = BTreeSet::new();
+        for state_id in self.map.left_values() {
+            if !retained_states.contains(state_id) {
+                removed_states.insert(*state_id);
+            }
+        }
+
         self.map
-            .retain(|state_id, _state_data| states.contains(state_id));
+            .retain(|state_id, _state_data| !removed_states.contains(state_id));
+
+        removed_states
     }
 }

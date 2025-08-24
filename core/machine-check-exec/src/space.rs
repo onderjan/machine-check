@@ -76,7 +76,7 @@ impl<M: FullMachine> StateSpace<M> {
 
         states.extend(outside_used_state_ids);
 
-        self.store.retain_states(&states);
+        let removed_states = self.store.retain_states(&states);
 
         // update the number of nodes for sweep as 3/2 of current number of nodes
         // but at least the previous amount
@@ -86,7 +86,7 @@ impl<M: FullMachine> StateSpace<M> {
         if candidate > self.num_graph_nodes_for_sweep {
             self.num_graph_nodes_for_sweep = candidate;
         }
-        states
+        removed_states
     }
 
     pub fn state_id(&mut self, state_data: AbstrPanicState<M>) -> StateId {

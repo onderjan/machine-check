@@ -80,6 +80,14 @@ impl PropertyChecker {
         self.focus.regenerate(space, purge_states);
     }
 
+    pub fn remove_states(&mut self, removed_states: &BTreeSet<StateId>) {
+        println!("Removing states {:?}", removed_states);
+        self.focus.remove_states(removed_states);
+        for history in self.histories.values_mut() {
+            history.remove_states(removed_states)
+        }
+    }
+
     pub fn compute_interpretation<M: FullMachine>(
         &mut self,
         space: &StateSpace<M>,
