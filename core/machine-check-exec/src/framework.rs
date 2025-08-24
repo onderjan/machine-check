@@ -16,9 +16,8 @@ use mck::concr::FullMachine;
 use work_state::WorkState;
 
 use crate::space::StateSpace;
-use crate::RefinInput;
-use crate::RefinPanicState;
 use crate::Strategy;
+use crate::{RefinInput, RefinPanicState, RefinParam};
 use mck::refin::Refine;
 
 mod refine;
@@ -33,6 +32,9 @@ pub struct Framework<M: FullMachine> {
     /// Default input precision.
     default_input_precision: RefinInput<M>,
 
+    /// Default parameter precision.
+    default_param_precision: RefinParam<M>,
+
     /// Default step precision.
     default_step_precision: RefinPanicState<M>,
 
@@ -43,11 +45,11 @@ pub struct Framework<M: FullMachine> {
 impl<M: FullMachine> Framework<M> {
     /// Constructs the framework with a given system and strategy.
     pub fn new(abstract_system: M::Abstr, strategy: Strategy) -> Self {
-        // default the input precision to clean (inputs will be refined)
-        let default_input_precision = if strategy.naive_inputs {
-            Refine::dirty()
+        // default the input and param precision to clean (inputs will be refined)
+        let (default_input_precision, default_param_precision) = if strategy.naive_inputs {
+            (Refine::dirty(), Refine::dirty())
         } else {
-            Refine::clean()
+            (Refine::clean(), Refine::clean())
         };
 
         // default the step precision to dirty (steps will remain non-decayed)
@@ -62,6 +64,7 @@ impl<M: FullMachine> Framework<M> {
             abstract_system,
             default_input_precision,
             default_step_precision,
+            default_param_precision,
             work_state: WorkState::new(),
         }
     }

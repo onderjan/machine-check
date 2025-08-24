@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use crate::{RefinInput, RefinPanicState, RefinParam, RefinState};
 use log::debug;
 use log::log_enabled;
 use log::trace;
@@ -13,11 +14,6 @@ use mck::refin::Machine as RefinMachine;
 use mck::refin::Manipulatable;
 use mck::refin::Refine;
 use mck::refin::{self};
-
-type RefinInput<M> = <<M as FullMachine>::Refin as mck::refin::Machine<M>>::Input;
-type RefinParam<M> = <<M as FullMachine>::Refin as mck::refin::Machine<M>>::Param;
-type RefinState<M> = <<M as FullMachine>::Refin as mck::refin::Machine<M>>::State;
-type RefinPanicState<M> = mck::refin::PanicResult<RefinState<M>>;
 
 impl<M: FullMachine> super::Framework<M> {
     /// Refines the precision and the state space given a culprit of unknown verification result.

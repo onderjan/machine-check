@@ -24,11 +24,17 @@ pub enum VerificationType {
     Property(Property),
 }
 
-type AbstrPanicState<M> =
-    abstr::PanicResult<<<M as FullMachine>::Abstr as abstr::Machine<M>>::State>;
-type RefinPanicState<M> =
-    refin::PanicResult<<<M as mck::concr::FullMachine>::Refin as refin::Machine<M>>::State>;
 type AbstrInput<M> = <<M as FullMachine>::Abstr as abstr::Machine<M>>::Input;
 type RefinInput<M> = <<M as FullMachine>::Refin as refin::Machine<M>>::Input;
+
+type AbstrParam<M> = <<M as FullMachine>::Abstr as abstr::Machine<M>>::Param;
+type RefinParam<M> = <<M as FullMachine>::Refin as refin::Machine<M>>::Param;
+
+type AbstrState<M> = <<M as FullMachine>::Abstr as abstr::Machine<M>>::State;
+type RefinState<M> = <<M as FullMachine>::Refin as refin::Machine<M>>::State;
+
+type AbstrPanicState<M> = abstr::PanicResult<AbstrState<M>>;
+type RefinPanicState<M> = refin::PanicResult<RefinState<M>>;
+
 type WrappedInput<M> = MetaWrap<AbstrInput<M>>;
 type WrappedState<M> = MetaWrap<AbstrPanicState<M>>;

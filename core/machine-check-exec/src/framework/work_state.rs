@@ -8,15 +8,15 @@ use mck::concr::FullMachine;
 use crate::model_check::ThreeValuedChecker;
 use crate::precision::Precision;
 use crate::space::StateSpace;
-use crate::AbstrInput;
-use crate::AbstrPanicState;
-use crate::RefinInput;
-use crate::RefinPanicState;
+use crate::{AbstrInput, AbstrPanicState, AbstrParam};
+use crate::{RefinInput, RefinPanicState, RefinParam};
 
 /// Work state, i.e. the meta-state of the whole verification.
 pub struct WorkState<M: FullMachine> {
     /// Refinement precision for inputs (can make inputs more precise).
     pub input_precision: Precision<AbstrInput<M>, RefinInput<M>>,
+    /// Refinement precision for parameters (can make parameters more precise).
+    pub param_precision: Precision<AbstrParam<M>, RefinParam<M>>,
     /// Refinement precision for steps (can add step decay).
     pub step_precision: Precision<AbstrPanicState<M>, RefinPanicState<M>>,
     /// Current state space.
@@ -38,6 +38,7 @@ impl<M: FullMachine> WorkState<M> {
     pub fn new() -> Self {
         Self {
             input_precision: Precision::new(),
+            param_precision: Precision::new(),
             step_precision: Precision::new(),
             space: StateSpace::new(),
             checker: ThreeValuedChecker::new(),

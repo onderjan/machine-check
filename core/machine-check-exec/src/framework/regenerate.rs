@@ -7,16 +7,12 @@ use mck::abstr::Machine as AbstrMachine;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
 use mck::refin::Refine;
-use mck::refin::{self};
 
-use crate::RefinInput;
+use crate::{RefinInput, RefinPanicState, RefinParam};
 
 impl<M: FullMachine> super::Framework<M> {
     /// Regenerates the state space from a given node, keeping its other parts. Returns whether the state space changed.
     pub(super) fn regenerate(&mut self, from_node_id: NodeId) -> bool {
-        let default_input_precision = &self.default_input_precision;
-        let default_step_precision = &self.default_step_precision;
-
         let mut queue = VecDeque::new();
 
         // clear the step from the initial node so it is processed
@@ -49,12 +45,17 @@ impl<M: FullMachine> super::Framework<M> {
             let input_precision: RefinInput<M> = self.work_state.input_precision.get(
                 &self.work_state.space,
                 node_id,
-                default_input_precision,
+                &self.default_input_precision,
             );
-            let step_precision = self.work_state.step_precision.get(
+            let param_precision: RefinParam<M> = self.work_state.param_precision.get(
                 &self.work_state.space,
                 node_id,
-                default_step_precision,
+                &self.default_param_precision,
+            );
+            let step_precision: RefinPanicState<M> = self.work_state.step_precision.get(
+                &self.work_state.space,
+                node_id,
+                &self.default_step_precision,
             );
 
             // get current state, none if we are at start node
@@ -65,43 +66,47 @@ impl<M: FullMachine> super::Framework<M> {
             };
 
             // generate direct successors
-            for input in input_precision.into_proto_iter() {
-                // TODO param
-                let param =
-                    <<M as FullMachine>::Refin as refin::Machine<M>>::Param::clean().proto_first();
 
-                // compute the next state
-                let mut next_state = {
-                    if let Some(current_state) = &current_state {
-                        M::Abstr::next(&self.abstract_system, &current_state.result, &input, &param)
-                    } else {
-                        M::Abstr::init(&self.abstract_system, &input, &param)
+            for param in param_precision.into_proto_iter() {
+                for input in input_precision.clone().into_proto_iter() {
+                    // compute the next state
+                    let mut next_state = {
+                        if let Some(current_state) = &current_state {
+                            M::Abstr::next(
+                                &self.abstract_system,
+                                &current_state.result,
+                                &input,
+                                &param,
+                            )
+                        } else {
+                            M::Abstr::init(&self.abstract_system, &input, &param)
+                        }
+                    };
+
+                    // apply decay
+                    step_precision.force_decay(&mut next_state);
+
+                    // add the step to the state space
+                    self.work_state.num_generated_transitions += 1;
+                    let (next_state_index, inserted) =
+                        self.work_state.space.add_step(node_id, next_state, &input);
+
+                    if inserted {
+                        new_states.insert(next_state_index);
                     }
-                };
 
-                // apply decay
-                step_precision.force_decay(&mut next_state);
+                    // add the tail to the queue if it has no direct successors yet
+                    let next_has_direct_successor = self
+                        .work_state
+                        .space
+                        .direct_successor_iter(next_state_index.into())
+                        .next()
+                        .is_some();
 
-                // add the step to the state space
-                self.work_state.num_generated_transitions += 1;
-                let (next_state_index, inserted) =
-                    self.work_state.space.add_step(node_id, next_state, &input);
-
-                if inserted {
-                    new_states.insert(next_state_index);
-                }
-
-                // add the tail to the queue if it has no direct successors yet
-                let next_has_direct_successor = self
-                    .work_state
-                    .space
-                    .direct_successor_iter(next_state_index.into())
-                    .next()
-                    .is_some();
-
-                if !next_has_direct_successor {
-                    // add to queue
-                    queue.push_back(next_state_index.into());
+                    if !next_has_direct_successor {
+                        // add to queue
+                        queue.push_back(next_state_index.into());
+                    }
                 }
             }
 
