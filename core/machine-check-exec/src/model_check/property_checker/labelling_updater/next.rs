@@ -27,7 +27,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
                 let predecessor_value =
                     self.getter()
-                        .apply_next(op, predecessor_id, &mut BTreeMap::new())?;
+                        .apply_next(op, predecessor_id.into(), &mut BTreeMap::new())?;
                 result.insert(predecessor_id, predecessor_value);
             }
         }

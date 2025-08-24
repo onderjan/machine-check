@@ -3,6 +3,7 @@ use std::{collections::BTreeSet, fmt::Debug, ops::ControlFlow};
 use graph::StateGraph;
 use machine_check_common::{NodeId, StateId};
 use mck::concr::FullMachine;
+use partitions::PartitionVec;
 use store::StateStore;
 
 use crate::{AbstrInput, AbstrPanicState, AbstrParam};
@@ -44,7 +45,7 @@ impl<M: FullMachine> StateSpace<M> {
         input: &AbstrInput<M>,
         param: &AbstrParam<M>,
         param_id: Option<usize>,
-    ) -> (StateId, bool, Option<usize>) {
+    ) -> (StateId, bool, usize) {
         let (tail_id, state_inserted) = self.store.state_id(tail_data);
 
         let result_param_id = self
@@ -97,7 +98,10 @@ impl<M: FullMachine> StateSpace<M> {
         self.store.state_data(state_id)
     }
 
-    pub fn clear_step(&mut self, head_id: NodeId) -> BTreeSet<StateId> {
+    pub fn clear_step(
+        &mut self,
+        head_id: NodeId,
+    ) -> (BTreeSet<StateId>, Option<PartitionVec<StateId>>) {
         self.graph.clear_step(head_id)
     }
 
@@ -154,6 +158,13 @@ impl<M: FullMachine> StateSpace<M> {
         node_id: NodeId,
     ) -> impl Iterator<Item = StateId> + Clone + '_ {
         self.graph.direct_successor_iter(node_id)
+    }
+
+    pub fn direct_successor_param_partition(
+        &self,
+        node_id: NodeId,
+    ) -> Option<&partitions::PartitionVec<StateId>> {
+        self.graph.direct_successor_param_partition(node_id)
     }
 
     pub fn contains_edge(&self, head_id: NodeId, tail_id: StateId) -> bool {

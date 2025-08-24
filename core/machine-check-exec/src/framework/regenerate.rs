@@ -39,7 +39,8 @@ impl<M: FullMachine> super::Framework<M> {
 
             self.work_state.num_generated_states += 1;
             // remove outgoing edges
-            let removed_direct_successors = self.work_state.space.clear_step(node_id);
+            let (removed_direct_successors, removed_tail_partition) =
+                self.work_state.space.clear_step(node_id);
 
             // prepare precision
             let input_precision: RefinInput<M> = self.work_state.input_precision.get(
@@ -102,7 +103,7 @@ impl<M: FullMachine> super::Framework<M> {
                         .space
                         .add_step(node_id, next_state, &input, &param, param_id);
 
-                    param_id = added_param_id;
+                    param_id = Some(added_param_id);
 
                     if inserted {
                         new_states.insert(next_state_index);
@@ -130,7 +131,12 @@ impl<M: FullMachine> super::Framework<M> {
                 .direct_successor_iter(node_id)
                 .collect();
 
-            let node_changed = direct_successors != removed_direct_successors;
+            let node_changed = direct_successors != removed_direct_successors
+                || removed_tail_partition.as_ref()
+                    != self
+                        .work_state
+                        .space
+                        .direct_successor_param_partition(node_id);
 
             if node_changed {
                 if let Ok(state_id) = StateId::try_from(node_id) {

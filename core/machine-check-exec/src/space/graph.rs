@@ -60,14 +60,17 @@ impl<M: FullMachine> StateGraph<M> {
         }
     }
 
-    pub fn clear_step(&mut self, head_id: NodeId) -> BTreeSet<StateId> {
+    pub fn clear_step(
+        &mut self,
+        head_id: NodeId,
+    ) -> (BTreeSet<StateId>, Option<PartitionVec<StateId>>) {
         let direct_successor_indices: BTreeSet<_> = self.direct_successor_iter(head_id).collect();
         for direct_successor_id in direct_successor_indices.clone() {
             self.node_graph
                 .remove_edge(head_id, direct_successor_id.into());
         }
-        self.tail_partitions.remove(&head_id);
-        direct_successor_indices
+        let tail_partition = self.tail_partitions.remove(&head_id);
+        (direct_successor_indices, tail_partition)
     }
 
     pub fn add_step(
@@ -77,12 +80,21 @@ impl<M: FullMachine> StateGraph<M> {
         representative_input: &<M::Abstr as abstr::Machine<M>>::Input,
         representative_param: &<M::Abstr as abstr::Machine<M>>::Param,
         param_id: Option<usize>,
-    ) -> Option<usize> {
+    ) -> usize {
         let next_node = next_state.into();
+
+        let tail_partition = self.tail_partitions.entry(current_node).or_default();
+
+        let result_param_id = tail_partition.len();
+        tail_partition.push(next_state);
+
+        if let Some(param_id) = param_id {
+            tail_partition.union(param_id, result_param_id);
+        };
 
         if self.node_graph.contains_edge(current_node, next_node) {
             // no edge was added
-            return None;
+            return result_param_id;
         }
         // adding edge adds the next node if not already part of the graph
         self.node_graph.add_edge(
@@ -94,17 +106,8 @@ impl<M: FullMachine> StateGraph<M> {
             },
         );
 
-        let tail_partition = self.tail_partitions.entry(current_node).or_default();
-
-        let result_param_id = tail_partition.len();
-        tail_partition.push(next_state);
-
-        if let Some(param_id) = param_id {
-            tail_partition.union(param_id, result_param_id);
-        };
-
         // the edge was added
-        Some(result_param_id)
+        result_param_id
     }
 
     /// Makes the state space compact by removing unreachable states.
@@ -216,6 +219,13 @@ impl<M: FullMachine> StateGraph<M> {
         self.node_graph
             .neighbors_directed(node_id, petgraph::Direction::Outgoing)
             .map(|successor_id| StateId::try_from(successor_id).unwrap())
+    }
+
+    pub fn direct_successor_param_partition(
+        &self,
+        node_id: NodeId,
+    ) -> Option<&PartitionVec<StateId>> {
+        self.tail_partitions.get(&node_id)
     }
 
     pub fn contains_edge(&self, head_id: NodeId, tail_id: StateId) -> bool {

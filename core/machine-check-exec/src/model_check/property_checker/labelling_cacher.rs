@@ -62,7 +62,7 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
 
             PropertyType::Negation(inner) => self.compute_negation(*inner, state_id)?,
             PropertyType::BiLogic(op) => self.compute_binary_op(op, state_id)?,
-            PropertyType::Next(op) => self.compute_next_labelling(op, state_id)?,
+            PropertyType::Next(op) => self.compute_next_labelling(op, state_id.into())?,
             PropertyType::FixedPoint(op) => self.compute_fixed_point_op(op, state_id)?,
             PropertyType::FixedVariable(fixed_point_index) => {
                 self.compute_fixed_variable(*fixed_point_index, state_id)?

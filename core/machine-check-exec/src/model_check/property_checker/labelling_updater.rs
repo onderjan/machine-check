@@ -5,7 +5,10 @@ mod next;
 use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
-use machine_check_common::{property::PropertyType, ExecError, ParamValuation, StateId};
+use machine_check_common::{
+    property::{NextOperator, PropertyType},
+    ExecError, NodeId, ParamValuation, StateId,
+};
 use mck::concr::FullMachine;
 
 use crate::{
@@ -81,28 +84,23 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
 
         self.property_checker.focus.clear();
 
-        // conventionally, the property must hold in all initial states
+        // for a conventional result, we compute AX of the root node
+        // this will also allow us to handle parameters correctly
 
-        let mut result = ParamValuation::True;
-
-        for state_id in self.space.initial_iter() {
-            self.getter().compute_latest_timed(0, state_id)?;
-
-            let timed = self
-                .property_checker
-                .last_getter(self.space)
-                .compute_latest_timed(0, state_id)?;
-
-            let valuation = timed.value.valuation;
-            result = result & valuation;
-        }
+        let result = self.getter().compute_next_labelling(
+            &NextOperator {
+                is_universal: true,
+                inner: 0,
+            },
+            NodeId::ROOT,
+        )?;
 
         trace!(
             "Computed interpretation of {:?}",
             self.property_checker.property
         );
 
-        Ok(result)
+        Ok(result.value.valuation)
     }
 
     pub(super) fn compute_inner(&mut self) -> Result<(), ExecError> {
