@@ -42,11 +42,14 @@ impl<M: FullMachine> StateSpace<M> {
         head_id: NodeId,
         tail_data: AbstrPanicState<M>,
         representative_input: &AbstrInput<M>,
-    ) -> (StateId, bool) {
-        let (tail_id, inserted) = self.store.state_id(tail_data);
+        param_id: Option<usize>,
+    ) -> (StateId, bool, Option<usize>) {
+        let (tail_id, state_inserted) = self.store.state_id(tail_data);
 
-        self.graph.add_step(head_id, tail_id, representative_input);
-        (tail_id, inserted)
+        let result_param_id = self
+            .graph
+            .add_step(head_id, tail_id, representative_input, param_id);
+        (tail_id, state_inserted, result_param_id)
     }
 
     pub fn breadth_first_search<T>(

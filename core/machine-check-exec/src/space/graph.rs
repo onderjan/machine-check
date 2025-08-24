@@ -1,11 +1,12 @@
 use std::{
-    collections::{BTreeSet, HashSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, HashSet, VecDeque},
     fmt::Debug,
     ops::ControlFlow,
 };
 
 use machine_check_common::{NodeId, StateId};
 use mck::{abstr, concr::FullMachine, misc::MetaWrap};
+use partitions::PartitionVec;
 use petgraph::{prelude::GraphMap, Directed};
 
 use crate::WrappedInput;
@@ -16,19 +17,26 @@ pub struct StateGraph<M: FullMachine> {
     ///
     /// Always contains at least the root node. It can also contain states.
     node_graph: GraphMap<NodeId, Edge<WrappedInput<M>>, Directed>,
+
+    // Partitions of direct successors by parameter.
+    tail_partitions: BTreeMap<NodeId, PartitionVec<StateId>>,
 }
 
 impl<M: FullMachine> Debug for StateGraph<M> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // only use the tail partitions for the graph debug print
         write!(f, "StateGraph [")?;
-        let edge_set = BTreeSet::from_iter(
-            self.node_graph
-                .all_edges()
-                .map(|(head, tail, _edge)| (head, tail)),
-        );
-        for (head, tail) in edge_set {
-            write!(f, "{} -> {}, ", head, tail)?;
+        for (head, tail_partition) in &self.tail_partitions {
+            write!(f, "{} -> [", head)?;
+            for param_tail_set in tail_partition.all_sets() {
+                // sort set
+                let param_tails =
+                    BTreeSet::from_iter(param_tail_set.map(|(_, state_id)| *state_id));
+                write!(f, "{:?}, ", param_tails)?;
+            }
+            write!(f, "], ")?;
         }
+
         write!(f, "]")
     }
 }
@@ -45,7 +53,10 @@ impl<M: FullMachine> StateGraph<M> {
         // make the graph with only the root node
         let mut node_graph = GraphMap::new();
         node_graph.add_node(NodeId::ROOT);
-        Self { node_graph }
+        Self {
+            node_graph,
+            tail_partitions: BTreeMap::new(),
+        }
     }
 
     pub fn clear_step(&mut self, head_id: NodeId) -> BTreeSet<StateId> {
@@ -54,6 +65,7 @@ impl<M: FullMachine> StateGraph<M> {
             self.node_graph
                 .remove_edge(head_id, direct_successor_id.into());
         }
+        self.tail_partitions.remove(&head_id);
         direct_successor_indices
     }
 
@@ -62,12 +74,13 @@ impl<M: FullMachine> StateGraph<M> {
         current_node: NodeId,
         next_state: StateId,
         representative_input: &<M::Abstr as abstr::Machine<M>>::Input,
-    ) -> bool {
+        param_id: Option<usize>,
+    ) -> Option<usize> {
         let next_node = next_state.into();
 
         if self.node_graph.contains_edge(current_node, next_node) {
             // no edge was added
-            return false;
+            return None;
         }
         // adding edge adds the next node if not already part of the graph
         self.node_graph.add_edge(
@@ -77,8 +90,18 @@ impl<M: FullMachine> StateGraph<M> {
                 representative_input: MetaWrap(representative_input.clone()),
             },
         );
+
+        let tail_partition = self.tail_partitions.entry(current_node).or_default();
+
+        let result_param_id = tail_partition.len();
+        tail_partition.push(next_state);
+
+        if let Some(param_id) = param_id {
+            tail_partition.union(param_id, result_param_id);
+        };
+
         // the edge was added
-        true
+        Some(result_param_id)
     }
 
     /// Makes the state space compact by removing unreachable states.
@@ -116,6 +139,7 @@ impl<M: FullMachine> StateGraph<M> {
 
         for state in unmarked {
             self.node_graph.remove_node(state.into());
+            self.tail_partitions.remove(&state.into());
         }
 
         // Each node now still should have at least one direct successor.

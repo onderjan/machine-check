@@ -68,6 +68,8 @@ impl<M: FullMachine> super::Framework<M> {
             // generate direct successors
 
             for param in param_precision.into_proto_iter() {
+                let mut param_id = None;
+
                 for input in input_precision.clone().into_proto_iter() {
                     // compute the next state
                     let mut next_state = {
@@ -88,8 +90,12 @@ impl<M: FullMachine> super::Framework<M> {
 
                     // add the step to the state space
                     self.work_state.num_generated_transitions += 1;
-                    let (next_state_index, inserted) =
-                        self.work_state.space.add_step(node_id, next_state, &input);
+                    let (next_state_index, inserted, added_param_id) = self
+                        .work_state
+                        .space
+                        .add_step(node_id, next_state, &input, param_id);
+
+                    param_id = added_param_id;
 
                     if inserted {
                         new_states.insert(next_state_index);

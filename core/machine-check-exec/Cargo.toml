@@ -11,8 +11,9 @@ mck = "=0.5.0"
 machine-check-common = "=0.5.0"
 machine-check-machine = "=0.5.0"
 
+log = "0.4.20"
+serde = { version = "1.0.188", features = ["derive"] }
+
 bimap = "0.6.3"
 petgraph = "0.6.4"
-log = "0.4.20"
-
-serde = { version = "1.0.188", features = ["derive"] }
+partitions = "0.2.4"
