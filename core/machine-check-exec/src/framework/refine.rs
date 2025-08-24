@@ -9,7 +9,6 @@ use machine_check_common::ExecError;
 use machine_check_common::NodeId;
 use machine_check_common::StateId;
 use mck::concr::FullMachine;
-use mck::misc::Meta;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Manipulatable;
 use mck::refin::Refine;
@@ -57,8 +56,9 @@ impl<M: FullMachine> super::Framework<M> {
 
         // try increasing precision of the state preceding current mark
         let mut iter = culprit.path.iter().cloned().rev().peekable();
+
         // store the input precision refinements so that the oldest input can be refined first
-        let mut current_input_precision_refinement: Option<(NodeId, RefinInput<M>)> = None;
+        let mut candidate_refinement: Option<RefinCandidate<M>> = None;
 
         while let Some(current_state_id) = iter.next() {
             let previous_node_id = match iter.peek() {
@@ -91,34 +91,45 @@ impl<M: FullMachine> super::Framework<M> {
                 &self.default_input_precision,
             );
 
+            let mut param_precision = self.work_state.param_precision.get(
+                &self.work_state.space,
+                previous_node_id,
+                &self.default_param_precision,
+            );
+
             let (input_mark, param_mark, new_state_mark) =
                 self.compute_marks(previous_node_id, current_state_id, current_state_mark);
 
-            // TODO: do something with the param mark
+            // refinement can be applied to input or param precision
+            // we will replace the refinement if either there has been no refinement previously
+            // or the current importance is equal or greater to the previous one
+            // i.e. we prefer to refine the earliest state possible when the importance is equal
+            // we will also prefer refining inputs to parameters
 
-            trace!("Input mark: {:?}", input_mark);
+            if param_precision.apply_refin(&param_mark) {
+                let candidate_importance = candidate_refinement
+                    .as_ref()
+                    .map(|candidate| candidate.importance())
+                    .unwrap_or(0);
 
-            if input_precision.apply_refin(&input_mark) {
-                // refinement can be applied to input precision
-                // we will replace the refinement if either there has been no refinement previously
-                // or the current importance is equal or greater to the previous one
-                // i.e. we prefer to refine the earliest state possible when the importance is equal
-                let replace_refinement =
-                    current_input_precision_refinement
-                        .as_ref()
-                        .is_none_or(|(_, refinement)| {
-                            input_precision.importance() >= refinement.importance()
-                        });
-
-                if replace_refinement {
-                    trace!(
-                        "Replacing refinement with candidate with importance {}: {:?}",
-                        input_precision.importance(),
-                        input_precision
-                    );
-                    current_input_precision_refinement = Some((previous_node_id, input_precision));
+                if param_precision.importance() >= candidate_importance {
+                    candidate_refinement =
+                        Some(RefinCandidate::Param(previous_node_id, param_precision));
                 }
             }
+
+            if input_precision.apply_refin(&input_mark) {
+                let candidate_importance = candidate_refinement
+                    .as_ref()
+                    .map(|candidate| candidate.importance())
+                    .unwrap_or(0);
+
+                if input_precision.importance() >= candidate_importance {
+                    candidate_refinement =
+                        Some(RefinCandidate::Input(previous_node_id, input_precision));
+                }
+            }
+
             // mark not applied, continue iteration
             if let Some(new_state_mark) = new_state_mark {
                 // update current state mark
@@ -134,15 +145,26 @@ impl<M: FullMachine> super::Framework<M> {
             }
         }
 
-        // if there is an input precision refinement candidate, apply it
-        let result = match current_input_precision_refinement {
-            Some((node_id, refined_input_precision)) => {
+        // if there is an input/parameter precision refinement candidate, apply it
+        let result = match candidate_refinement {
+            Some(RefinCandidate::Input(node_id, refined_input_precision)) => {
                 // single mark applied, insert it back and regenerate
                 self.work_state.input_precision.insert(
                     &mut self.work_state.space,
                     node_id,
                     refined_input_precision,
                     &self.default_input_precision,
+                );
+
+                Ok(self.regenerate(node_id))
+            }
+            Some(RefinCandidate::Param(node_id, refined_param_precision)) => {
+                // single mark applied, insert it back and regenerate
+                self.work_state.param_precision.insert(
+                    &mut self.work_state.space,
+                    node_id,
+                    refined_param_precision,
+                    &self.default_param_precision,
                 );
 
                 Ok(self.regenerate(node_id))
@@ -175,8 +197,10 @@ impl<M: FullMachine> super::Framework<M> {
             .space
             .representative_input(previous_node_id, current_state_id);
 
-        // TODO: supply the actual param
-        let param = <M::Refin as refin::Machine<M>>::Param::clean().proto_first();
+        let param = self
+            .work_state
+            .space
+            .representative_param(previous_node_id, current_state_id);
 
         if let Ok(previous_state_id) = TryInto::<StateId>::try_into(previous_node_id) {
             trace!(
@@ -198,11 +222,9 @@ impl<M: FullMachine> super::Framework<M> {
             let previous_state = &previous_state.result;
 
             let (_refinement_machine, new_state_mark, input_mark, param_mark) = M::Refin::next(
-                (&self.abstract_system, previous_state, input, &param),
+                (&self.abstract_system, previous_state, input, param),
                 current_state_mark,
             );
-
-            // TODO do something with param mark
 
             return (input_mark, param_mark, Some(new_state_mark));
         }
@@ -219,9 +241,22 @@ impl<M: FullMachine> super::Framework<M> {
         }
         // the current state was generated by the init function
         let (_refinement_machine, input_mark, param_mark) =
-            M::Refin::init((&self.abstract_system, input, &param), current_state_mark);
+            M::Refin::init((&self.abstract_system, input, param), current_state_mark);
 
-        // TODO: use param mark
         (input_mark, param_mark, None)
+    }
+}
+
+enum RefinCandidate<M: FullMachine> {
+    Input(NodeId, RefinInput<M>),
+    Param(NodeId, RefinParam<M>),
+}
+
+impl<M: FullMachine> RefinCandidate<M> {
+    fn importance(&self) -> u8 {
+        match self {
+            RefinCandidate::Input(_, input) => input.importance(),
+            RefinCandidate::Param(_, param) => param.importance(),
+        }
     }
 }

@@ -37,4 +37,5 @@ type AbstrPanicState<M> = abstr::PanicResult<AbstrState<M>>;
 type RefinPanicState<M> = refin::PanicResult<RefinState<M>>;
 
 type WrappedInput<M> = MetaWrap<AbstrInput<M>>;
+type WrappedParam<M> = MetaWrap<AbstrParam<M>>;
 type WrappedState<M> = MetaWrap<AbstrPanicState<M>>;

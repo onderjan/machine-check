@@ -9,14 +9,14 @@ use mck::{abstr, concr::FullMachine, misc::MetaWrap};
 use partitions::PartitionVec;
 use petgraph::{prelude::GraphMap, Directed};
 
-use crate::WrappedInput;
+use crate::{AbstrInput, AbstrParam, WrappedInput, WrappedParam};
 
 /// Abstract state space graph.
 pub struct StateGraph<M: FullMachine> {
     /// Graph of node ids.
     ///
     /// Always contains at least the root node. It can also contain states.
-    node_graph: GraphMap<NodeId, Edge<WrappedInput<M>>, Directed>,
+    node_graph: GraphMap<NodeId, Edge<WrappedInput<M>, WrappedParam<M>>, Directed>,
 
     // Partitions of direct successors by parameter.
     tail_partitions: BTreeMap<NodeId, PartitionVec<StateId>>,
@@ -43,9 +43,10 @@ impl<M: FullMachine> Debug for StateGraph<M> {
 
 // Abstract state space edge.
 #[derive(Debug)]
-pub struct Edge<AI> {
+pub struct Edge<AI, AP> {
     // Representative abstract input for finding culprits.
     pub representative_input: AI,
+    pub representative_param: AP,
 }
 
 impl<M: FullMachine> StateGraph<M> {
@@ -74,6 +75,7 @@ impl<M: FullMachine> StateGraph<M> {
         current_node: NodeId,
         next_state: StateId,
         representative_input: &<M::Abstr as abstr::Machine<M>>::Input,
+        representative_param: &<M::Abstr as abstr::Machine<M>>::Param,
         param_id: Option<usize>,
     ) -> Option<usize> {
         let next_node = next_state.into();
@@ -88,6 +90,7 @@ impl<M: FullMachine> StateGraph<M> {
             next_node,
             Edge {
                 representative_input: MetaWrap(representative_input.clone()),
+                representative_param: MetaWrap(representative_param.clone()),
             },
         );
 
@@ -179,16 +182,21 @@ impl<M: FullMachine> StateGraph<M> {
         None
     }
 
-    pub fn representative_input(
-        &self,
-        head: NodeId,
-        tail: StateId,
-    ) -> &<M::Abstr as abstr::Machine<M>>::Input {
+    pub fn representative_input(&self, head: NodeId, tail: StateId) -> &AbstrInput<M> {
         &self
             .node_graph
             .edge_weight(head, tail.into())
             .expect("Edge should be present in graph")
             .representative_input
+            .0
+    }
+
+    pub fn representative_param(&self, head: NodeId, tail: StateId) -> &AbstrParam<M> {
+        &self
+            .node_graph
+            .edge_weight(head, tail.into())
+            .expect("Edge should be present in graph")
+            .representative_param
             .0
     }
 

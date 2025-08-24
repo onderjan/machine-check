@@ -84,6 +84,13 @@ impl<M: FullMachine> super::Framework<M> {
                             M::Abstr::init(&self.abstract_system, &input, &param)
                         }
                     };
+                    log::trace!(
+                        "Next state from {:?} with param {:?} and input {:?} is {:?}",
+                        current_state,
+                        param,
+                        input,
+                        next_state
+                    );
 
                     // apply decay
                     step_precision.force_decay(&mut next_state);
@@ -93,7 +100,7 @@ impl<M: FullMachine> super::Framework<M> {
                     let (next_state_index, inserted, added_param_id) = self
                         .work_state
                         .space
-                        .add_step(node_id, next_state, &input, param_id);
+                        .add_step(node_id, next_state, &input, &param, param_id);
 
                     param_id = added_param_id;
 

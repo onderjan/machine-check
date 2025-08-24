@@ -5,7 +5,7 @@ use machine_check_common::{NodeId, StateId};
 use mck::concr::FullMachine;
 use store::StateStore;
 
-use crate::{AbstrInput, AbstrPanicState};
+use crate::{AbstrInput, AbstrPanicState, AbstrParam};
 
 mod graph;
 mod labelling;
@@ -41,14 +41,15 @@ impl<M: FullMachine> StateSpace<M> {
         &mut self,
         head_id: NodeId,
         tail_data: AbstrPanicState<M>,
-        representative_input: &AbstrInput<M>,
+        input: &AbstrInput<M>,
+        param: &AbstrParam<M>,
         param_id: Option<usize>,
     ) -> (StateId, bool, Option<usize>) {
         let (tail_id, state_inserted) = self.store.state_id(tail_data);
 
         let result_param_id = self
             .graph
-            .add_step(head_id, tail_id, representative_input, param_id);
+            .add_step(head_id, tail_id, input, param, param_id);
         (tail_id, state_inserted, result_param_id)
     }
 
@@ -102,6 +103,10 @@ impl<M: FullMachine> StateSpace<M> {
 
     pub fn representative_input(&self, head_id: NodeId, tail_id: StateId) -> &AbstrInput<M> {
         self.graph.representative_input(head_id, tail_id)
+    }
+
+    pub fn representative_param(&self, head_id: NodeId, tail_id: StateId) -> &AbstrParam<M> {
+        self.graph.representative_param(head_id, tail_id)
     }
 
     pub fn nodes(&self) -> impl Iterator<Item = NodeId> + Clone + '_ {
