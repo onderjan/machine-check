@@ -22,7 +22,7 @@ mod original;
 /// Returns an error if it was not parsed successfully.
 pub fn parse(input: &str) -> Result<super::Property, ExecError> {
     let original = parse_inner(input)?;
-    Ok(fold::fold(original))
+    fold::fold(original)
 }
 
 pub fn parse_inner(input: &str) -> Result<Property, ExecError> {
@@ -36,6 +36,7 @@ pub fn parse_inner(input: &str) -> Result<Property, ExecError> {
 
 pub fn inherent() -> super::Property {
     fold::fold(original::Property::inherent())
+        .expect("Folding the inherent property should succeed")
 }
 
 struct PropertyParser {

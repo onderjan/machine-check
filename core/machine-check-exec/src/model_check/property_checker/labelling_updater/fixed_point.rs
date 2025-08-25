@@ -19,7 +19,6 @@ mod variable;
 
 struct FixedPointIterationParams {
     fixed_point_index: usize,
-    is_greatest: bool,
     inner_index: usize,
     old_computation_end_time: Option<u64>,
 }
@@ -82,7 +81,6 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         let mut params = FixedPointIterationParams {
             fixed_point_index,
-            is_greatest: op.is_greatest,
             inner_index: op.inner,
             old_computation_end_time,
         };

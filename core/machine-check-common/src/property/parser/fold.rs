@@ -1,20 +1,23 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use super::original;
-use crate::property::{
-    self as folded, BiLogicOperator, FixedPointOperator, NextOperator, SubpropertyEntry,
+use crate::{
+    property::{
+        self as folded, BiLogicOperator, FixedPointOperator, NextOperator, SubpropertyEntry,
+    },
+    ExecError,
 };
 
 /// Converts to canonical representation suitable for model-checking.
 ///
 /// This involves translating CTL into mu-calculus equivalents.
-#[must_use]
-pub fn fold(original: original::Property) -> folded::Property {
+pub fn fold(original: original::Property) -> Result<folded::Property, ExecError> {
     let mut folder = Folder {
         arena: Vec::new(),
         variable_indices: Vec::new(),
+        fixed_point_negations: BTreeMap::new(),
     };
-    assert_eq!(folder.fold_inner(original), 0);
+    assert_eq!(folder.fold_inner(original)?, 0);
     assert!(folder.variable_indices.is_empty());
 
     let arena = folder
@@ -22,18 +25,19 @@ pub fn fold(original: original::Property) -> folded::Property {
         .into_iter()
         .map(|ty| ty.expect("Subproperty in arena should be filled"))
         .collect();
-    folded::Property {
+    Ok(folded::Property {
         arena: Arc::new(arena),
-    }
+    })
 }
 
 struct Folder {
     arena: Vec<Option<folded::SubpropertyEntry>>,
     variable_indices: Vec<(String, usize)>,
+    fixed_point_negations: BTreeMap<usize, bool>,
 }
 
 impl Folder {
-    fn fold_inner(&mut self, original: original::Property) -> usize {
+    fn fold_inner(&mut self, original: original::Property) -> Result<usize, ExecError> {
         let display_string = original.to_string();
 
         let property_index = self.arena.len();
@@ -43,13 +47,25 @@ impl Folder {
             original::Property::Const(value) => folded::PropertyType::Const(value),
             original::Property::Atomic(atomic) => folded::PropertyType::Atomic(atomic),
             original::Property::Negation(inner) => {
-                folded::PropertyType::Negation(self.fold_inner(*inner))
+                // negate the fixed-point negations
+                for negation in self.fixed_point_negations.values_mut() {
+                    *negation = !*negation;
+                }
+
+                let ty = folded::PropertyType::Negation(self.fold_inner(*inner)?);
+
+                // negate afterward to counteract
+                for negation in self.fixed_point_negations.values_mut() {
+                    *negation = !*negation;
+                }
+
+                ty
             }
             original::Property::BiLogic(op) => {
                 folded::PropertyType::BiLogic(folded::BiLogicOperator {
                     is_and: op.is_and,
-                    a: self.fold_inner(*op.a),
-                    b: self.fold_inner(*op.b),
+                    a: self.fold_inner(*op.a)?,
+                    b: self.fold_inner(*op.b)?,
                     reverse_display: false,
                 })
             }
@@ -57,7 +73,7 @@ impl Folder {
                 original::TemporalOperator::X(inner) => {
                     folded::PropertyType::Next(folded::NextOperator {
                         is_universal: op.is_universal,
-                        inner: self.fold_inner(*inner),
+                        inner: self.fold_inner(*inner)?,
                     })
                 }
                 original::TemporalOperator::F(inner) => self.fixed_point(
@@ -67,7 +83,7 @@ impl Folder {
                     original::Property::Const(true),
                     *inner.0,
                     false,
-                ),
+                )?,
                 original::TemporalOperator::G(inner) => self.fixed_point(
                     property_index,
                     op.is_universal,
@@ -75,7 +91,7 @@ impl Folder {
                     original::Property::Const(false),
                     *inner.0,
                     false,
-                ),
+                )?,
                 original::TemporalOperator::U(inner) => self.fixed_point(
                     property_index,
                     op.is_universal,
@@ -83,7 +99,7 @@ impl Folder {
                     *inner.hold,
                     *inner.until,
                     true,
-                ),
+                )?,
                 original::TemporalOperator::R(inner) => self.fixed_point(
                     property_index,
                     op.is_universal,
@@ -91,13 +107,17 @@ impl Folder {
                     *inner.releaser,
                     *inner.releasee,
                     true,
-                ),
+                )?,
             },
             original::Property::FixedPoint(fixed_point) => {
                 self.variable_indices
                     .push((fixed_point.variable.clone(), property_index));
 
-                let inner = self.fold_inner(*fixed_point.inner);
+                // translate to mu-calculus with the fixed point added to negations
+
+                self.fixed_point_negations.insert(property_index, false);
+                let inner = self.fold_inner(*fixed_point.inner)?;
+                assert!(self.fixed_point_negations.remove(&property_index).is_some());
 
                 self.variable_indices
                     .pop()
@@ -110,14 +130,24 @@ impl Folder {
             }
             original::Property::FixedVariable(name) => {
                 // find the variable index, starting from the innermost
-                let (_, variable_index) = self
+                let (_, fixed_point_index) = self
                     .variable_indices
                     .iter()
                     .rev()
                     .find(|(variable_name, _)| *variable_name == name)
-                    .expect("Fixed-point variable index search should succed");
+                    .expect("Fixed-point variable index search should succeed");
 
-                folded::PropertyType::FixedVariable(*variable_index)
+                let fixed_point_negation = self
+                    .fixed_point_negations
+                    .get(fixed_point_index)
+                    .expect("Fixed point should be in negations map");
+
+                if *fixed_point_negation {
+                    // the variable is negated, this is not a monotone property
+                    return Err(ExecError::NonMonotoneProperty);
+                }
+
+                folded::PropertyType::FixedVariable(*fixed_point_index)
             }
         };
 
@@ -127,7 +157,7 @@ impl Folder {
             visible: true,
         });
 
-        property_index
+        Ok(property_index)
     }
 
     fn fixed_point(
@@ -138,10 +168,15 @@ impl Folder {
         permitting: original::Property,
         sufficient: original::Property,
         permitting_visible: bool,
-    ) -> folded::PropertyType {
-        // translate to mu-calculus
-        let permitting = self.fold_inner(permitting);
-        let sufficient = self.fold_inner(sufficient);
+    ) -> Result<folded::PropertyType, ExecError> {
+        // translate to mu-calculus with the fixed point added to negations
+
+        self.fixed_point_negations.insert(property_index, false);
+
+        let permitting = self.fold_inner(permitting)?;
+        let sufficient = self.fold_inner(sufficient)?;
+
+        assert!(self.fixed_point_negations.remove(&property_index).is_some());
 
         // add the variable Z to be used within the operator
         let variable_index =
@@ -192,10 +227,10 @@ impl Folder {
         // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
         let is_greatest = release;
 
-        folded::PropertyType::FixedPoint(FixedPointOperator {
+        Ok(folded::PropertyType::FixedPoint(FixedPointOperator {
             is_greatest,
             inner: outer_operator,
-        })
+        }))
     }
 
     fn arena_push(&mut self, ty: folded::PropertyType, visible: bool) -> usize {
