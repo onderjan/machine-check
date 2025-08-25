@@ -127,33 +127,22 @@ impl PropertyChecker {
             update_times.extend(history.time_keys())
         }
 
-        let mut time_subtracts = BTreeMap::new();
-
-        // if there are no fixed points, there are no update times, use last time 0
-        let after_last_time = *update_times.last().unwrap_or(&0) + 1;
+        let mut time_mapping = BTreeMap::new();
 
         for (squash_time, update_time) in update_times.into_iter().enumerate() {
-            let subtract = update_time - squash_time as u64;
-
-            time_subtracts.insert(update_time, subtract);
+            time_mapping.insert(update_time, squash_time as u64);
         }
 
         for history in self.histories.values_mut() {
-            history.squash(&time_subtracts, after_last_time);
+            history.squash(&time_mapping);
         }
 
         let mut computations = Vec::new();
         std::mem::swap(&mut computations, &mut self.computations);
 
         for mut computation in computations {
-            if computation.start_time >= after_last_time {
-                // this computation does not do anything
-                break;
-            }
-            computation.start_time =
-                squash_time(&time_subtracts, after_last_time, computation.start_time);
-            computation.end_time =
-                squash_time(&time_subtracts, after_last_time, computation.end_time);
+            computation.start_time = squash_time(&time_mapping, computation.start_time);
+            computation.end_time = squash_time(&time_mapping, computation.end_time);
             self.computations.push(computation);
         }
 
@@ -161,20 +150,18 @@ impl PropertyChecker {
     }
 }
 
-fn squash_time(
-    time_subtracts: &BTreeMap<u64, u64>,
-    after_last_time: u64,
-    mut original_time: u64,
-) -> u64 {
-    if original_time > after_last_time {
-        original_time = after_last_time;
+fn squash_time(time_mapping: &BTreeMap<u64, u64>, original_time: u64) -> u64 {
+    if let Some((_, squashed_time)) = time_mapping.range(original_time..).next() {
+        // return the squashed time corresponding to this original time
+        return *squashed_time;
     }
 
-    let subtract = *time_subtracts
-        .range(..=original_time)
-        .next_back()
-        .expect("Original time should have a time subtract")
-        .1;
+    // return time directly after the last squashed time present in histories
 
-    original_time - subtract
+    let last_squashed_time = time_mapping
+        .last_key_value()
+        .map(|(_, last_squashed_time)| *last_squashed_time)
+        .unwrap_or(0);
+
+    last_squashed_time + 1
 }

@@ -156,12 +156,12 @@ impl FixedPointHistory {
         self.states.get(&state_id)
     }
 
-    pub fn squash(&mut self, time_subtracts: &BTreeMap<u64, u64>, after_last_time: u64) {
+    pub fn squash(&mut self, time_mapping: &BTreeMap<u64, u64>) {
         let mut original_times = BTreeMap::new();
         std::mem::swap(&mut original_times, &mut self.times);
 
         for (original_time, state_map) in original_times {
-            let squashed_time = squash_time(time_subtracts, after_last_time, original_time);
+            let squashed_time = squash_time(time_mapping, original_time);
             self.times.insert(squashed_time, state_map);
         }
 
@@ -170,7 +170,7 @@ impl FixedPointHistory {
             std::mem::swap(&mut original_time_map, time_map);
 
             for (original_time, value) in original_time_map {
-                let squashed_time = squash_time(time_subtracts, after_last_time, original_time);
+                let squashed_time = squash_time(time_mapping, original_time);
 
                 time_map.insert(squashed_time, value);
             }
