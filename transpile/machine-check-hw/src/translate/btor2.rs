@@ -151,28 +151,30 @@ impl Translator {
                     #(#input_fields),*
                 }
 
-                impl ::machine_check::Input for Input {}
+                #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
+                pub struct Param {
+                    #(#input_fields),*
+                }
 
                 #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
                 pub struct State {
                     #(#state_fields),*
                 }
 
-                impl ::machine_check::State for State {}
-
                 #[derive(::std::clone::Clone, ::std::fmt::Debug, ::std::cmp::PartialEq, ::std::cmp::Eq, ::std::hash::Hash)]
                 pub struct System {}
 
                 impl ::machine_check::Machine for System {
                     type Input = Input;
+                    type Param = Param;
                     type State = State;
 
-                    fn init(&self, input: &Input) -> State {
+                    fn init(&self, input: &Input, _param: &Param) -> State {
                         #(#init_statements)*
                         #init_result
                     }
 
-                    fn next(&self, state: &State, input: &Input) -> State {
+                    fn next(&self, state: &State, input: &Input, _param: &Param) -> State {
                         #(#next_statements)*
                         #next_result
                     }
