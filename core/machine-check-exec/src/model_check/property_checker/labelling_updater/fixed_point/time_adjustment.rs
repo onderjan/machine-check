@@ -103,6 +103,10 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                         break;
                     }
                 }
+                // remove any histories remaining within
+                for history in self.property_checker.histories.values_mut() {
+                    history.remove_times(self.current_time, computation_clone.end_time);
+                }
 
                 self.current_time = computation_clone.end_time;
             }
