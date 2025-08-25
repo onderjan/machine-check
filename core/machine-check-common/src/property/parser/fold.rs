@@ -50,6 +50,7 @@ impl Folder {
                     is_and: op.is_and,
                     a: self.fold_inner(*op.a),
                     b: self.fold_inner(*op.b),
+                    reverse_display: false,
                 })
             }
             original::Property::Ctl(op) => match op.temporal {
@@ -65,6 +66,7 @@ impl Folder {
                     false,
                     original::Property::Const(true),
                     *inner.0,
+                    false,
                 ),
                 original::TemporalOperator::G(inner) => self.fixed_point(
                     property_index,
@@ -72,6 +74,7 @@ impl Folder {
                     true,
                     original::Property::Const(false),
                     *inner.0,
+                    false,
                 ),
                 original::TemporalOperator::U(inner) => self.fixed_point(
                     property_index,
@@ -79,6 +82,7 @@ impl Folder {
                     false,
                     *inner.hold,
                     *inner.until,
+                    true,
                 ),
                 original::TemporalOperator::R(inner) => self.fixed_point(
                     property_index,
@@ -86,6 +90,7 @@ impl Folder {
                     true,
                     *inner.releaser,
                     *inner.releasee,
+                    true,
                 ),
             },
             original::Property::FixedPoint(fixed_point) => {
@@ -119,6 +124,7 @@ impl Folder {
         self.arena[property_index] = Some(SubpropertyEntry {
             ty,
             display_string: Some(display_string),
+            visible: true,
         });
 
         property_index
@@ -131,43 +137,56 @@ impl Folder {
         release: bool,
         permitting: original::Property,
         sufficient: original::Property,
+        permitting_visible: bool,
     ) -> folded::PropertyType {
         // translate to mu-calculus
         let permitting = self.fold_inner(permitting);
         let sufficient = self.fold_inner(sufficient);
 
         // add the variable Z to be used within the operator
-        let variable_index = self.arena_push(folded::PropertyType::FixedVariable(property_index));
+        let variable_index =
+            self.arena_push(folded::PropertyType::FixedVariable(property_index), true);
 
         // the general form is [lfp/gfp] Z . sufficient [outer_operator] (permitting [inner_operator] [A/E]X(Z))
         // for R, gfp Z . sufficient && (permitting || [A/E]X(Z))
         // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
 
         // construct [A/E]X(Z) depending on the universal / existential quantification
-        let next = self.arena_push(folded::PropertyType::Next(NextOperator {
-            is_universal,
-            inner: variable_index,
-        }));
+        let next = self.arena_push(
+            folded::PropertyType::Next(NextOperator {
+                is_universal,
+                inner: variable_index,
+            }),
+            true,
+        );
 
         // for R, inner operator is (permitting || [A/E]X(Z))
         // for U, inner operator is (permitting && [A/E]X(Z))
         let inner_is_and = !release;
 
-        let inner_operator = self.arena_push(folded::PropertyType::BiLogic(BiLogicOperator {
-            is_and: inner_is_and,
-            a: permitting,
-            b: next,
-        }));
+        let inner_operator = self.arena_push(
+            folded::PropertyType::BiLogic(BiLogicOperator {
+                is_and: inner_is_and,
+                a: permitting,
+                b: next,
+                reverse_display: false,
+            }),
+            permitting_visible,
+        );
 
         // for R, outer operator is sufficient && inner_operator
         // for U, outer operator is sufficient || inner_operator
         let outer_is_and = release;
 
-        let outer_operator = self.arena_push(folded::PropertyType::BiLogic(BiLogicOperator {
-            is_and: outer_is_and,
-            a: sufficient,
-            b: inner_operator,
-        }));
+        let outer_operator = self.arena_push(
+            folded::PropertyType::BiLogic(BiLogicOperator {
+                is_and: outer_is_and,
+                a: sufficient,
+                b: inner_operator,
+                reverse_display: true,
+            }),
+            true,
+        );
 
         // for R, gfp Z . sufficient && (permitting || [A/E]X(Z))
         // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
@@ -179,11 +198,12 @@ impl Folder {
         })
     }
 
-    fn arena_push(&mut self, ty: folded::PropertyType) -> usize {
+    fn arena_push(&mut self, ty: folded::PropertyType, visible: bool) -> usize {
         let index = self.arena.len();
         self.arena.push(Some(SubpropertyEntry {
             ty,
             display_string: None,
+            visible,
         }));
         index
     }

@@ -76,6 +76,7 @@ impl PropertiesDisplayer<'_> {
                 inherent_result,
                 panic_message,
                 false,
+                true,
             );
         }
     }
@@ -91,8 +92,11 @@ impl PropertiesDisplayer<'_> {
         inherent_result: ParamValuation,
         panic_message: Option<&String>,
         is_subproperty: bool,
+        mut is_visible: bool,
     ) {
-        let parent_element = if let Some(property_str) = property_snapshot.subproperty.display_str()
+        is_visible &= property_snapshot.subproperty.is_visible();
+        let parent_element = if let (Some(property_str), true) =
+            (property_snapshot.subproperty.display_str(), is_visible)
         {
             let outer_div = create_element("div");
             outer_div.class_list().add_1("property-outer").unwrap();
@@ -259,6 +263,7 @@ impl PropertiesDisplayer<'_> {
                 inherent_result,
                 panic_message,
                 true,
+                is_visible,
             );
         }
     }

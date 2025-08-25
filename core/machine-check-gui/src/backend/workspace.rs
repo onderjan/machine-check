@@ -30,7 +30,7 @@ impl WorkspaceProperty {
 
     pub fn new_from_subproperty(subproperty: Subproperty) -> WorkspaceProperty {
         let children = subproperty
-            .children()
+            .displayed_children()
             .into_iter()
             .map(WorkspaceProperty::new_from_subproperty)
             .collect();

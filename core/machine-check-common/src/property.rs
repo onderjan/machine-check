@@ -95,12 +95,17 @@ impl Subproperty {
             .display_string
             .as_deref()
     }
+
+    pub fn is_visible(&self) -> bool {
+        self.property.get_by_index(self.index).visible
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct SubpropertyEntry {
     pub ty: PropertyType,
     display_string: Option<String>,
+    visible: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -119,6 +124,7 @@ pub struct BiLogicOperator {
     pub is_and: bool,
     pub a: usize,
     pub b: usize,
+    pub reverse_display: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -151,14 +157,20 @@ impl Subproperty {
         Self { property, index }
     }
 
-    pub fn children(&self) -> Vec<Subproperty> {
+    pub fn displayed_children(&self) -> Vec<Subproperty> {
         let ty = &self.property.get_by_index(self.index).ty;
 
         let indices: Vec<usize> = match ty {
             PropertyType::Const(_) => Vec::new(),
             PropertyType::Atomic(_) => Vec::new(),
             PropertyType::Negation(inner) => vec![*inner],
-            PropertyType::BiLogic(op) => vec![op.a, op.b],
+            PropertyType::BiLogic(op) => {
+                if op.reverse_display {
+                    vec![op.b, op.a]
+                } else {
+                    vec![op.a, op.b]
+                }
+            }
             PropertyType::Next(op) => vec![op.inner],
             PropertyType::FixedPoint(op) => {
                 vec![op.inner]
