@@ -1,7 +1,7 @@
 //! A system demonstrating "infinitely often" expressible in mu-calculus and LTL but not CTL.
 //!
 //! This is the classic standard example of a system where the CTL property 'AF![AG![p == 1]]'
-//! ("eventually always p") does not hold but the LTL property AFG[p == 1] ("infinitely often p") does.
+//! ("eventually always p") does not hold but the LTL property FG[p == 1] ("infinitely often p") does.
 //!
 //! In machine-check, we can express "infinitely often p" in mu-calculus as
 //! 'gfp![Y, lfp![X, (p == 1 && EX![Y]) || EX![X]]]'

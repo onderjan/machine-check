@@ -12,9 +12,9 @@
 //!
 //! 'AG![value == 1]' -> does not hold as value is always 0 in the initial state.
 //!
-//! 'EF![as_unsigned(value) >= 0]' -> holds.
-//! 'EF![as_unsigned(value) > 8]' -> depends on max_value.
 //! 'EF![as_unsigned(value) > 15]' -> does not hold.
+//! 'EF![as_unsigned(value) > 8]' -> depends on max_value.
+//! 'EF![as_unsigned(value) >= 0]' -> holds.
 //!
 //! 'AF![as_unsigned(value) > 0]' -> does not hold as there can always be a path
 //! where value remains zero forever.
@@ -28,7 +28,8 @@
 //! then there exists a path where the value is 0 until it is set to 5. If it is lesser than 5,
 //! no such path exists as the value is never set to 5.
 //!
-//! 'AU![value == 0, as_unsigned(value) >= 5]' -> does not hold as
+//! 'AU![value == 0, as_unsigned(value) >= 5]' -> does not hold as there can always
+//! be a path where value remains zero forever and thus will never reach 5.
 
 #[machine_check::machine_description]
 mod machine_module {
