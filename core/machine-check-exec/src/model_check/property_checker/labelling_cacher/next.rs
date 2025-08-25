@@ -1,5 +1,5 @@
 use std::collections::btree_map::Entry;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use machine_check_common::property::NextOperator;
 use machine_check_common::{ExecError, NodeId, ParamValuation, StateId};
@@ -48,11 +48,6 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         fn update_flag(flag: &mut Option<u64>, time: u64) {
             *flag = Some(flag.map(|flag_time| flag_time.min(time)).unwrap_or(time));
         }
-        log::trace!(
-            "Applying next to node {}, amount of parametric sets: {}",
-            node_id,
-            tail_partition.amount_of_sets()
-        );
 
         for parametric_set in tail_partition.all_sets() {
             let (set_valuation, set_valuation_time, best_set_successor) =
@@ -79,13 +74,6 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 }
             }
         }
-
-        log::trace!(
-            "Can be false: {:?}, can be true: {:?}, can be unknown: {:?}",
-            can_be_false_at_time,
-            can_be_true_at_time,
-            can_be_unknown_at_time
-        );
 
         if let (Some(can_be_false_at_time), Some(can_be_true_at_time)) =
             (can_be_false_at_time, can_be_true_at_time)
@@ -173,15 +161,6 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         parametric_set: partitions::partition_vec::Set<'_, StateId>,
         computed_successors: &mut BTreeMap<StateId, TimedCheckValue>,
     ) -> Result<(ParamValuation, u64, Option<StateId>), ExecError> {
-        if log::log_enabled!(log::Level::Trace) {
-            let parametric_set = BTreeSet::from_iter(
-                parametric_set
-                    .clone()
-                    .map(|(_, successor_id)| *successor_id),
-            );
-            log::trace!("Parametric set: {:?}", parametric_set);
-        }
-
         let ground_value = CheckValue::eigen(ParamValuation::from_bool(op.is_universal));
 
         let mut current_valuation = ground_value.valuation;
@@ -199,12 +178,6 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 .get(&successor_id)
                 .expect("Successor value should be computed");
             let successor_valuation = successor_timed.value.valuation;
-
-            log::trace!(
-                "Valuation of successor {}: {:?}",
-                successor_id,
-                successor_valuation
-            );
 
             let is_better = if op.is_universal {
                 successor_valuation
@@ -225,8 +198,6 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 valuation_time = valuation_time.min(successor_timed.time);
             }
         }
-
-        log::trace!("Parametric set valuation: {:?}", current_valuation);
 
         Ok((current_valuation, valuation_time, best_successor))
     }
