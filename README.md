@@ -23,7 +23,7 @@ analogues to the code it is applied to. You can then run **machine-check** from 
 constructing the system and providing it to the function [`run`].
 
 A very simple example of a system verifiable by **machine-check** is 
-[counter](https://docs.rs/crate/machine-check/0.5.0/source/examples/counter.rs), 
+[counter](https://docs.rs/crate/machine-check/0.6.0/source/examples/counter.rs), 
 a simple [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine) which contains 
 an eight-bit state field `value`, which is initialized to zero and then is incremented in each step exactly
 if the single-bit input `increment` is set (1). If the value reaches 157, it is immediately zeroed. 
@@ -38,12 +38,12 @@ $ cargo new my-example --bin
     (...)
 $ cd my-example
 ```
-Copy the source code of [counter](https://docs.rs/crate/machine-check/0.5.0/source/examples/counter.rs) 
+Copy the source code of [counter](https://docs.rs/crate/machine-check/0.6.0/source/examples/counter.rs) 
 to `src/main.rs` and add **machine-check** as a dependency to `Cargo.toml`:
 
 ```toml
 [dependencies]
-machine-check = "0.5.0"
+machine-check = "0.6.0"
 ```
 
 We can then verify that the counter is lesser than 157 in every reachable system state, 
@@ -53,15 +53,17 @@ using a specification property based on
 $ cargo run --release -- --property 'AG![as_unsigned(value) < 157]'
     Updating crates.io index
    (...)
-   Compiling machine-check v0.5.0
-   Compiling my-example v0.1.0 ({your_path}\my-example)
-    Finished `release` profile [optimized] target(s) in 5.25s
+   Compiling machine-check v0.6.0
+   Compiling my-example v0.1.0
+    Finished `release` profile [optimized] target(s) in 17.04s
+warning: the following packages contain code that will be rejected by a future version of Rust: partitions v0.2.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
      Running `target\release\my-example.exe --property "AG![as_unsigned(value) < 157]"`
-[2025-06-15T13:03:30Z INFO  machine_check] Starting verification.
-[2025-06-15T13:03:30Z INFO  machine_check::verify] Verifying the inherent property first.
-[2025-06-15T13:03:30Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
-[2025-06-15T13:03:30Z INFO  machine_check::verify] Verifying the given property.
-[2025-06-15T13:03:31Z INFO  machine_check] Verification ended.
+[2025-08-25T23:11:42Z INFO  machine_check] Starting verification.
+[2025-08-25T23:11:42Z INFO  machine_check::verify] Verifying the inherent property first.
+[2025-08-25T23:11:42Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
+[2025-08-25T23:11:42Z INFO  machine_check::verify] Verifying the given property.
+[2025-08-25T23:11:43Z INFO  machine_check] Verification ended.
 +--------------------------------+
 |         Result: HOLDS          |
 +--------------------------------+
@@ -77,13 +79,15 @@ We can also be informed that the value is **NOT** lesser than 156 in every reach
 
 ```console
 $ cargo run --release -- --property 'AG![as_unsigned(value) < 156]'
-    Finished `release` profile [optimized] target(s) in 0.06s
+    Finished `release` profile [optimized] target(s) in 0.11s
+warning: the following packages contain code that will be rejected by a future version of Rust: partitions v0.2.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
      Running `target\release\my-example.exe --property "AG![as_unsigned(value) < 156]"`
-[2025-06-15T13:04:07Z INFO  machine_check] Starting verification.
-[2025-06-15T13:04:07Z INFO  machine_check::verify] Verifying the inherent property first.
-[2025-06-15T13:04:07Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
-[2025-06-15T13:04:07Z INFO  machine_check::verify] Verifying the given property.
-[2025-06-15T13:04:08Z INFO  machine_check] Verification ended.
+[2025-08-25T23:12:37Z INFO  machine_check] Starting verification.
+[2025-08-25T23:12:37Z INFO  machine_check::verify] Verifying the inherent property first.
+[2025-08-25T23:12:37Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
+[2025-08-25T23:12:37Z INFO  machine_check::verify] Verifying the given property.
+[2025-08-25T23:12:38Z INFO  machine_check] Verification ended.
 +--------------------------------+
 |     Result: DOES NOT HOLD      |
 +--------------------------------+
@@ -98,7 +102,6 @@ $ cargo run --release -- --property 'AG![as_unsigned(value) < 156]'
 See the [website](https://machine-check.org) and [user guide](https://book.machine-check.org)
 for more information.
 
-
 ## Machine-code Verification
 
 The crate [machine-check-avr](https://docs.rs/machine-check-avr) includes a system description
@@ -112,11 +115,15 @@ and verification power. There may (and probably will be) some bugs or design ove
 Bug reports to the [repository](https://github.com/onderjan/machine-check) are very welcome.
 
 ## Minimum Supported Rust Version
-The Minimum Supported Rust Version for **machine-check** `0.5.0` is `1.83`.
+The Minimum Supported Rust Version for **machine-check** `0.6.0` is `1.83`.
 This can be raised to any stable Rust version in a minor release.
 The MSRV will not be raised in a patch release.
 
+It is planned to raise the MSRV to `1.88.0` in **machine-check** `0.7.0`.
+
 ## Changelog
+ - `0.6.0`: Support for parametric systems, properties extended to support 
+  propositional μ-calculus.
  - `0.5.0`: Support for division and remainder, experimental (opt-in) implementation
   of a dual-interval abstraction domain.
  - `0.4.0`: An initial version of a Graphical User Interface, a monotonicity fix,

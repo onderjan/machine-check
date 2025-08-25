@@ -20,7 +20,7 @@ In case something goes wrong with preparation, you can revert back to no-prepara
 $ machine-check-hw prepare --clean
 ```
 
-It is possible to verify various properties of Btor2 systems using **machine-check-hw**. The inherent property is also verified during property verification: there are no explicit panics created from the Btor2 files, but division and remainder by zero violate the inherent property. For example, consider [`beads.btor2`](https://docs.rs/crate/machine-check-hw/0.5.0/source/examples/beads.btor2) from **machine-check-hw** examples. By pointing machine-check-hw to a Btor2 file, it can verify the safety of the system, as specified in the Btor2 file, with a property `AG![safe == 1]`, which uses a special field `safe`:
+It is possible to verify various properties of Btor2 systems using **machine-check-hw**. The inherent property is also verified during property verification: there are no explicit panics created from the Btor2 files, but division and remainder by zero violate the inherent property. For example, consider [`beads.btor2`](https://docs.rs/crate/machine-check-hw/0.6.0/source/examples/beads.btor2) from **machine-check-hw** examples. By pointing machine-check-hw to a Btor2 file, it can verify the safety of the system, as specified in the Btor2 file, with a property `AG![safe == 1]`, which uses a special field `safe`:
 ```console
 $ machine-check-hw verify ./beads.btor2 --property 'AG![safe == 1]'
 [2025-06-15T17:12:53Z INFO  machine_check_compile::verify] Transcribing the system into a machine.
@@ -36,5 +36,5 @@ $ machine-check-hw verify ./beads.btor2 --property 'AG![safe == 1]'
 [2025-06-15T17:12:54Z INFO  machine_check_hw::verify] Reached conclusion: true
 ```
 
-For more examples, [read the **machine-check** book](https://book.machine-check.org/0.5.0/) and the [chapter on **machine-check-hw**](https://book.machine-check.org/0.5.0/systems/machine-check-hw.html).
+For more examples, [read the **machine-check** book](https://book.machine-check.org/0.6.0/) and the [chapter on **machine-check-hw**](https://book.machine-check.org/0.6.0/systems/machine-check-hw.html).
 
