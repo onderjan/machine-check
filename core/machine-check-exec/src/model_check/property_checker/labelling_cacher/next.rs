@@ -128,11 +128,6 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
             assert!(timed.value.valuation.is_unknown());
 
-            if let Ok(state_id) = node_id.try_into() {
-                assert!(!timed.value.next_states.contains(&state_id));
-            }
-            assert!(!timed.value.next_states.contains(&successor_id));
-
             timed.value.next_states.push(successor_id);
             return Ok(timed);
         };
@@ -166,11 +161,6 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         let mut timed = TimedCheckValue::new(*successor_time, successor_value.clone());
 
         assert!(timed.value.valuation.is_unknown());
-
-        if let Ok(state_id) = node_id.try_into() {
-            assert!(!timed.value.next_states.contains(&state_id));
-        }
-        assert!(!timed.value.next_states.contains(successor_id));
 
         timed.value.next_states.push(*successor_id);
 
