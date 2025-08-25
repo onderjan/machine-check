@@ -212,7 +212,10 @@ body {
 
 .property-icons {
     float: right;
-
+    background-color: #222;
+    margin: 0.1em;
+    font-size: large;
+    border: 1px solid black;
 }
 
 
