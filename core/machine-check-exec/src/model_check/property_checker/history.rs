@@ -99,8 +99,10 @@ impl FixedPointHistory {
         TimedCheckValue::new(*insert_time, check_value.clone())
     }
 
-    pub fn up_to_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
-        self.before_time(time + 1, state_id)
+    pub fn exactly_at_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {
+        let history = self.states.get(&state_id)?;
+        let check_value = history.get(&time)?;
+        Some(TimedCheckValue::new(time, check_value.clone()))
     }
 
     pub fn before_time_opt(&self, time: u64, state_id: StateId) -> Option<TimedCheckValue> {

@@ -57,9 +57,9 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         }
 
         let ordering = if op.is_and {
-            a_valuation.bitand_ordering(&b_valuation)
+            a_valuation.upward_bitand_ordering(&b_valuation)
         } else {
-            a_valuation.bitor_ordering(&b_valuation)
+            a_valuation.upward_bitor_ordering(&b_valuation)
         };
 
         match ordering {

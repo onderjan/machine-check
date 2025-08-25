@@ -33,7 +33,7 @@ impl BitAnd for ParamValuation {
     type Output = Self;
 
     fn bitand(self, rhs: Self) -> Self {
-        if self.bitand_ordering(&rhs).is_ge() {
+        if self.upward_bitand_ordering(&rhs).is_ge() {
             self
         } else {
             rhs
@@ -45,7 +45,7 @@ impl BitOr for ParamValuation {
     type Output = Self;
 
     fn bitor(self, rhs: Self) -> Self {
-        if self.bitor_ordering(&rhs).is_ge() {
+        if self.upward_bitor_ordering(&rhs).is_ge() {
             self
         } else {
             rhs
@@ -86,7 +86,8 @@ impl ParamValuation {
         !self.is_unknown()
     }
 
-    pub fn bitand_ordering(self, rhs: &Self) -> Ordering {
+    pub fn upward_bitand_ordering(self, rhs: &Self) -> Ordering {
+        // we order from lowest True (ground value) to greatest False
         // prefer False, then Unknown, then Dependent, then True
 
         match (self, rhs) {
@@ -103,7 +104,8 @@ impl ParamValuation {
         }
     }
 
-    pub fn bitor_ordering(self, rhs: &Self) -> Ordering {
+    pub fn upward_bitor_ordering(self, rhs: &Self) -> Ordering {
+        // we order from lowest False (ground value) to greatest True
         // prefer True, then Unknown, then Dependent, then False
 
         match (self, rhs) {

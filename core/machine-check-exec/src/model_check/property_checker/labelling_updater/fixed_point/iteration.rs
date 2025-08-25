@@ -1,7 +1,7 @@
 use std::ops::ControlFlow;
 
 use log::trace;
-use machine_check_common::ExecError;
+use machine_check_common::{ExecError, ParamValuation};
 
 use super::{select_history, select_history_mut};
 use crate::{
@@ -63,13 +63,21 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             // the timing of update is not relevant, as it will be the current time
             let update_value = update_timed.value;
 
-            let now_timed = history.up_to_time(self.current_time, state_id);
+            let before_timed = history.before_time(self.current_time, state_id);
+            let now_timed = if let Some(exactly_at_time) =
+                history.exactly_at_time_opt(self.current_time, state_id)
+            {
+                exactly_at_time
+            } else {
+                before_timed.clone()
+            };
 
             if update_value == now_timed.value {
                 continue;
             }
 
-            // the update differs
+            Self::ensure_monotone(params, before_timed.value.valuation, update_value.valuation)?;
+
             // insert the state and make it dirty
 
             history.insert(self.current_time, state_id, update_value);
@@ -91,5 +99,27 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         }
 
         Ok(ControlFlow::Continue(()))
+    }
+
+    fn ensure_monotone(
+        params: &FixedPointIterationParams,
+        before_valuation: ParamValuation,
+        update_valuation: ParamValuation,
+    ) -> Result<(), ExecError> {
+        let ordering = if params.is_greatest {
+            // greatest fixed point, we go from true to false
+            before_valuation.upward_bitand_ordering(&update_valuation)
+        } else {
+            // lowest fixed point, we go from false to true
+            before_valuation.upward_bitor_ordering(&update_valuation)
+        };
+        // we should never go downward, i.e. the valuation before
+        // should be lesser or equal to the valuation after
+        let is_monotone = ordering.is_le();
+
+        if !is_monotone {
+            return Err(ExecError::NonMonotoneProperty);
+        }
+        Ok(())
     }
 }

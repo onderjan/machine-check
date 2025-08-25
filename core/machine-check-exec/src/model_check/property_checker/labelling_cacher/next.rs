@@ -181,11 +181,11 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
             let is_better = if op.is_universal {
                 successor_valuation
-                    .bitand_ordering(&current_valuation)
+                    .upward_bitand_ordering(&current_valuation)
                     .is_gt()
             } else {
                 successor_valuation
-                    .bitor_ordering(&current_valuation)
+                    .upward_bitor_ordering(&current_valuation)
                     .is_gt()
             };
 

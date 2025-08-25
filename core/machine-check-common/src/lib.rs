@@ -57,6 +57,11 @@ pub enum ExecError {
     /// Verification of a standard property was requested, but the inherent property is dependent on parameters.
     #[error("inherent panic possible depending on parameters")]
     InherentPanicDependent,
+    /// Verification of a mu-calculus property encountered a non-monotone change.
+    ///
+    /// This is prohibited as it can lead to infinite verification loops.
+    #[error("non-monotone property")]
+    NonMonotoneProperty,
     /// It was requested to verify an inherent property while assuming that it holds.
     #[error("cannot verify inherent property while assuming it")]
     VerifiedInherentAssumed,
