@@ -168,7 +168,7 @@ impl PropertiesDisplayer<'_> {
                             ("conclusion-true", "\u{2714}\u{FE0F}", String::from("Holds"))
                         }
                         Conclusion::Known(KnownConclusion::False) => {
-                            ("conclusion-false", "\u{274C}", {
+                            ("conclusion-false", "\u{274C}\u{FE0F}", {
                                 let mut conclusion_string = String::from("Does not hold");
                                 if is_inherent {
                                     if let Some(panic_message) = panic_message {
@@ -181,9 +181,11 @@ impl PropertiesDisplayer<'_> {
                                 conclusion_string
                             })
                         }
-                        Conclusion::Known(KnownConclusion::Dependent) => {
-                            ("conclusion-dependent", "dependent", String::from("Unknown"))
-                        }
+                        Conclusion::Known(KnownConclusion::Dependent) => (
+                            "conclusion-dependent",
+                            "\u{2755}\u{FE0F}",
+                            String::from("Dependent on parameters"),
+                        ),
                         Conclusion::Unknown(_culprit) => (
                             "conclusion-unknown",
                             "\u{2754}\u{FE0F}",
@@ -191,7 +193,7 @@ impl PropertiesDisplayer<'_> {
                         ),
                         Conclusion::NotCheckable => (
                             "conclusion-not-checkable",
-                            "\u{2754}",
+                            "\u{2754}\u{FE0F}",
                             String::from("Unknown (the state space is currently not checkable)"),
                         ),
                     },
