@@ -143,7 +143,11 @@ impl PropertyChecker {
         for mut computation in computations {
             computation.start_time = squash_time(&time_mapping, computation.start_time);
             computation.end_time = squash_time(&time_mapping, computation.end_time);
-            self.computations.push(computation);
+
+            // do not consider the zero-time computations that have no effect
+            if computation.start_time != computation.end_time {
+                self.computations.push(computation);
+            }
         }
 
         Ok(())
