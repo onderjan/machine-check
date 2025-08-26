@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-common"
-version = "0.6.0-alpha.2"
+version = "0.6.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Utility crate for the formal verification tool machine-check"

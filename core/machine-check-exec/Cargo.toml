@@ -1,15 +1,15 @@
 [package]
 name = "machine-check-exec"
-version = "0.6.0-alpha.2"
+version = "0.6.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Utility crate for the formal verification tool machine-check"
 rust-version = "1.83"
 
 [dependencies]
-mck = "=0.6.0-alpha.2"
-machine-check-common = "=0.6.0-alpha.2"
-machine-check-machine = "=0.6.0-alpha.2"
+mck = "=0.6.0"
+machine-check-common = "=0.6.0"
+machine-check-machine = "=0.6.0"
 
 log = "0.4.20"
 serde = { version = "1.0.188", features = ["derive"] }

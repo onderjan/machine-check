@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-exec-target"
-version = "0.6.0-alpha.2"
+version = "0.6.0"
 edition = "2021"
 rust-version = "1.83"
 # internal artifact, do not publish
@@ -11,9 +11,9 @@ gui = ["machine-check/gui"]
 Zdual_interval = ["machine-check/Zdual_interval"]
 
 [dependencies]
-mck = "=0.6.0-alpha.2"
-machine-check = "=0.6.0-alpha.2"
-machine-check-exec = "=0.6.0-alpha.2"
+mck = "=0.6.0"
+machine-check = "=0.6.0"
+machine-check-exec = "=0.6.0"
 
 [workspace]
 # disallow workspace hijinks
