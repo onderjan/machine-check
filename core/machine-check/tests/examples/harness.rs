@@ -1,9 +1,6 @@
 //! This is a testing harness for testing examples.
 
-use std::{
-    borrow::Cow,
-    process::{Output, Stdio},
-};
+use std::process::{Output, Stdio};
 
 #[derive(Debug)]
 pub struct TestConfig {
@@ -48,17 +45,17 @@ impl TestConfig {
     }
 }
 
-fn print_example(example: &str, config: &TestConfig, stdout: Cow<'_, str>, stderr: &Vec<u8>) {
+fn print_example(example: &str, config: &TestConfig, stdout: &[u8], stderr: &[u8]) {
     println!(
         "Example '{}' with config {:?}\nStdout:\n{}\nStderr:\n{}",
         example,
         config,
-        stdout,
+        String::from_utf8_lossy(&stdout),
         String::from_utf8_lossy(&stderr)
     );
 }
 
-fn run_example(example: &str, config: &TestConfig) -> Output {
+fn run_example(example: &str, config: &TestConfig, assume_inherent: bool) -> Output {
     let mut build = escargot::CargoBuild::new()
         .example(example)
         .manifest_path(env!("CARGO_MANIFEST_PATH"));
@@ -82,6 +79,10 @@ fn run_example(example: &str, config: &TestConfig) -> Output {
         command.arg(property);
     } else {
         command.arg("--inherent");
+    }
+
+    if assume_inherent {
+        command.arg("--assume-inherent");
     }
 
     for arg in &config.args {
@@ -119,13 +120,13 @@ fn run_example(example: &str, config: &TestConfig) -> Output {
 }
 
 pub fn test_example(example: &str, config: TestConfig, expected: &str) {
-    let output = run_example(example, &config);
+    let output = run_example(example, &config, false);
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = &output.stderr;
 
     if !output.status.success() {
-        print_example(example, &config, stdout, stderr);
+        print_example(example, &config, stdout.as_bytes(), stderr);
         panic!(
             "Running example did not terminate successfully, code: {:?}",
             output.status.code()
@@ -135,21 +136,34 @@ pub fn test_example(example: &str, config: TestConfig, expected: &str) {
     let stdout = match stdout {
         std::borrow::Cow::Borrowed(stdout) => stdout,
         std::borrow::Cow::Owned(_) => {
-            print_example(example, &config, stdout, stderr);
+            print_example(example, &config, stdout.as_bytes(), stderr);
             panic!("Running example returned non-UTF8 output",)
         }
     };
 
     if stdout != expected {
-        print_example(example, &config, Cow::Borrowed(stdout), stderr);
+        print_example(example, &config, stdout.as_bytes(), stderr);
         panic!("Example stdout does not match expected");
+    }
+
+    // if there was a property specified, also test that it terminates successfully with assume inherent
+
+    if config.property.is_some() {
+        let output = run_example(example, &config, true);
+        if !output.status.success() {
+            print_example(example, &config, &output.stdout, &output.stderr);
+            panic!(
+                "When assuming inherent, example did not terminate successfully, code: {:?}",
+                output.status.code()
+            );
+        }
     }
 }
 
 pub fn test_example_expect_panic(example: &str, config: TestConfig) {
-    let output = run_example(example, &config);
+    let output = run_example(example, &config, false);
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = &output.stdout;
     let stderr = &output.stderr;
 
     // rust sets exit code 101 on panic (this is only current behaviour,
