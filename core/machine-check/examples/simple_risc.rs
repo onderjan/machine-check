@@ -13,7 +13,6 @@
 //!    `AF![reg[1] == 1 && as_unsigned(pc) < 3]`
 //!  - It is always possible to reach program location 9:
 //!    `AG![EF![pc == 9]]`
-//!    (use the decay strategy when verifying this)
 //!  - Program locations above 9 are never reached.
 //!    `AG![as_unsigned(pc) <= 9]`
 //!    (use the decay strategy when verifying this)

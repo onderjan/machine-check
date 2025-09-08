@@ -26,3 +26,22 @@ serde_json = "1.0.107"
 
 [dev-dependencies]
 trybuild = "1.0.105"
+escargot = "0.5.15"
+
+# These examples must be explicitely specified
+# as Cargo does not by default consider nested examples
+# except for those in subfolders with name main.rs.
+# 
+# We use them to test the examples in the book.
+
+[[example]]
+name = "book_quickstart"
+path = "examples/book/book_quickstart.rs"
+
+[[example]]
+name = "book_instances_input"
+path = "examples/book/book_instances_input.rs"
+
+[[example]]
+name = "book_instances_todo"
+path = "examples/book/book_instances_todo.rs"

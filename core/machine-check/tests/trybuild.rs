@@ -1,3 +1,9 @@
+//! Tests here test whether the machine_description macro parses
+//! or fails to parse various constructs.
+//!
+//! The tests for this must be here, not in machine-check-macros,
+//! as the namespace machine_check is used within the constructs.
+
 #[test]
 fn machine_description() {
     let t = trybuild::TestCases::new();
