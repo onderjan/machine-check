@@ -5,5 +5,6 @@
 mod examples {
     mod book;
     mod harness;
+    mod misc;
     mod standard;
 }

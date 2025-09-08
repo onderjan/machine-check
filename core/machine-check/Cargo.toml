@@ -45,3 +45,9 @@ path = "examples/book/book_instances_input.rs"
 [[example]]
 name = "book_instances_todo"
 path = "examples/book/book_instances_todo.rs"
+
+# Miscellaneous examples with use as tests.
+
+[[example]]
+name = "misc_freerun"
+path = "examples/misc/freerun.rs"
