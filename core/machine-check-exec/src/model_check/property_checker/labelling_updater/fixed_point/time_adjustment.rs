@@ -29,11 +29,30 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                         self.invalidate = true;
                         return Ok(ControlFlow::Break(()));
                     }
+
+                    // we need to ensure that subsequent iterations of the computation are also overwritten
+
+                    let mut search_computation_index = current_computation_index + 1;
+                    let mut end_time = old_computation.end_time;
+                    while let Some(old_computation) = self
+                        .property_checker
+                        .computations
+                        .get(search_computation_index)
+                    {
+                        if old_computation.fixed_point_index == fixed_point_index {
+                            // ensure it is overwritten
+                            end_time = old_computation.end_time;
+                            search_computation_index += 1;
+                        } else {
+                            break;
+                        }
+                    }
+
                     trace!(
                         "Old computation present, only considering focus {:?}",
                         self.property_checker.focus
                     );
-                    Some(old_computation.end_time)
+                    Some(end_time)
                 }
                 std::cmp::Ordering::Equal => {
                     // we do not have an old computation
@@ -76,7 +95,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         computation_clone: FixedPointComputation,
     ) -> Result<(), ExecError> {
         trace!(
-            "Current computation [{}, {}], old computation [{},{}]",
+            "Current computation {}..{}, old computation {}..{}",
             start_time,
             self.current_time,
             computation_clone.start_time,
@@ -87,6 +106,10 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         match self.current_time.cmp(&computation_clone.end_time) {
             std::cmp::Ordering::Less => {
+                trace!("Removing computations and histories remaining within");
+                trace!("Computations: {:?}", self.property_checker.computations);
+                trace!("Histories: {:?}", self.property_checker.histories);
+
                 // remove any computations remaining within
                 while let Some(next_computation) = self
                     .property_checker
@@ -96,13 +119,20 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                     if next_computation.start_time < computation_clone.end_time
                         && next_computation.end_time <= computation_clone.end_time
                     {
+                        trace!("Removing computation {:?}", next_computation);
                         self.property_checker
                             .computations
                             .remove(self.next_computation_index);
                     } else {
+                        trace!("Breaking, not removing computation {:?}", next_computation);
                         break;
                     }
                 }
+                trace!(
+                    "Removing history times {}..{}",
+                    self.current_time,
+                    computation_clone.end_time
+                );
                 // remove any histories remaining within
                 for history in self.property_checker.histories.values_mut() {
                     history.remove_times(self.current_time, computation_clone.end_time);

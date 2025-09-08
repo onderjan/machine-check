@@ -8,14 +8,20 @@ use crate::examples::harness::{test_example, TestConfig};
 fn misc_freerun() {
     // This uncovers a bug in version 0.6.0 where double-checking fails.
     //
+    // The problem was that the incremental model checking sometimes
+    // led to spurious computations retained, not discarding them. It seems
+    // that the computations were not wrong, but led to more computation
+    // and history entries than when computing fresh. In any case, this
+    // should not happen.
+    //
     // This did not impact soundness as machine-check panicked due to the
-    // failed double-checking instead of returning a result.
+    // failed double-checking instead of returning a result. This should be
+    // fixed from 0.6.1 onwards, as witnessed by this test.
     test_example(
         "misc_freerun",
         TestConfig::new_property("AG![lfp![X,gfp![Y, AX![X] || (value == 0 && AX![Y])]]]")
             .with_arg("--strategy")
             .with_arg("decay"),
-        // TODO: this should contain the correct result after this is unbroken
-        r#""#,
+        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":82,"num_generated_states":161,"num_final_states":8,"num_generated_transitions":161,"num_final_transitions":9,"inherent_panic_message":null}}"#,
     );
 }
