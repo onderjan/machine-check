@@ -166,19 +166,20 @@ fn book_ch10_mu_calculus() {
         r#"{"result":{"Ok":"True"},"stats":{"num_refinements":0,"num_generated_states":3,"num_final_states":2,"num_generated_transitions":3,"num_final_transitions":3,"inherent_panic_message":null}}"#,
     );
 
-    // chapter 10b: whether holds eventually forever
+    // chapter 10b: whether holds eventually forever (AF[AG[p == 1]])
     test_example(
         "mu_infinitely_often",
         TestConfig::new_property("AF![AG![p == 1]]"),
         r#"{"result":{"Ok":"False"},"stats":{"num_refinements":2,"num_generated_states":10,"num_final_states":4,"num_generated_transitions":12,"num_final_transitions":7,"inherent_panic_message":null}}"#,
     );
 
-    // chapter 10c: whether holds infinitely often
-    // TODO: THIS IS THE WRONG PROPERTY FOR AFG[p == 1], which we want to verify
-    // ... but this property gives the result as in the book ...
+    // chapter 10c: whether p == 1 holds infinitely often for all paths (AFG[p == 1])
+    // This is the translation to mu-calculus as per Cranen, Groote & Reniers,
+    // "A linear translation from LTL to the first-order modal μ-calculus"
+    // ( https://doi.org/10.1016/j.tcs.2011.02.034 ) page 6.
     test_example(
         "mu_infinitely_often",
-        TestConfig::new_property("gfp![Y, lfp![X, (p == 1 && EX![Y]) || EX![X]]]"),
+        TestConfig::new_property("lfp![X,gfp![Y, AX![X] || (p == 1 && AX![Y])]]"),
         r#"{"result":{"Ok":"True"},"stats":{"num_refinements":2,"num_generated_states":10,"num_final_states":4,"num_generated_transitions":12,"num_final_transitions":7,"inherent_panic_message":null}}"#,
     );
 }

@@ -70,8 +70,18 @@ fn mu_infinitely_often() {
         r#"{"result":{"Ok":"False"},"stats":{"num_refinements":2,"num_generated_states":10,"num_final_states":4,"num_generated_transitions":12,"num_final_transitions":7,"inherent_panic_message":null}}"#,
     );
 
-    // whether p == 1 holds infinitely often
-    // TODO: THIS IS THE WRONG PROPERTY FOR AFG[p == 1], which is written there
+    // whether p == 1 holds infinitely often for all paths (AFG[p == 1])
+    // This should be the correct translation as per Cranen, Groote & Reniers,
+    // "A linear translation from LTL to the first-order modal μ-calculus" page 6.
+    test_example(
+        "mu_infinitely_often",
+        TestConfig::new_property("lfp![X,gfp![Y, AX![X] || (p == 1 && AX![Y])]]"),
+        r#"{"result":{"Ok":"True"},"stats":{"num_refinements":2,"num_generated_states":10,"num_final_states":4,"num_generated_transitions":12,"num_final_transitions":7,"inherent_panic_message":null}}"#,
+    );
+
+    // Not used from 0.6.1 onward, but previously used in version 0.6.0
+    // whether p == 1 holds infinitely often for at least one path
+    // this does not give us the demonstration of difference between AFAG and AFG
     test_example(
         "mu_infinitely_often",
         TestConfig::new_property("gfp![Y, lfp![X, (p == 1 && EX![Y]) || EX![X]]]"),

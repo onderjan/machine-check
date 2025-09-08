@@ -1,11 +1,16 @@
-//! A system demonstrating "infinitely often" expressible in mu-calculus and LTL but not CTL.
+//! A system demonstrating "for all paths, infinitely often" expressible in mu-calculus and LTL but not CTL.
 //!
 //! This is the classic standard example of a system where the CTL property 'AF![AG![p == 1]]'
-//! ("eventually always p") does not hold but the LTL property FG[p == 1] ("infinitely often p") does.
+//! ("eventually always p") does not hold but the LTL property FG[p == 1] ("for all paths,
+//! infinitely often p") does.
 //!
-//! In machine-check, we can express "infinitely often p" in mu-calculus as
-//! 'gfp![Y, lfp![X, (p == 1 && EX![Y]) || EX![X]]]'
+//! In machine-check, we can express "for all paths, infinitely often p" (FG[p == 1] in LTL) in mu-calculus as
+//! 'lfp![X,gfp![Y, AX![X] || (p == 1 && AX![Y])]]'
 //! and we can verify that it holds. On the other hand, we can verify 'AF![AG![p == 1]]' does not.
+//!
+//! The translation of AFG[p == 1] to mu-calculus is given e.g. by Cranen, Groote & Reniers,
+//! "A linear translation from LTL to the first-order modal μ-calculus"
+//! ( https://doi.org/10.1016/j.tcs.2011.02.034 ).
 //!
 //! See the Handbook of Model Checking (2018) pp. 63-67 for a formal treatment why the aforementioned
 //! property and this example contribute to the result that CTL and LTL have different expressiveness.
@@ -17,8 +22,8 @@
 //!
 //! The general gist is that "eventually always p" does not hold since we can stay in state index 0
 //! as long as we like, being threatened by the possibility of going through state index 1 where p does not hold.
-//! On the other hand, "infinitely often p" holds since going through state index 1 is only a temporary setback
-//! and we will necessarily go to and stay in state index 2 where p holds again.
+//! On the other hand, "on all paths, infinitely often p" holds since going through state index 1 is only
+//! a temporary setback and we will necessarily go to and stay in state index 2 where p holds again.
 //!
 
 #[machine_check::machine_description]
