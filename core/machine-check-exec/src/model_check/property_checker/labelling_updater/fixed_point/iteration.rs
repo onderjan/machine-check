@@ -5,9 +5,12 @@ use machine_check_common::ExecError;
 
 use super::{select_history, select_history_mut};
 use crate::{
-    model_check::property_checker::labelling_updater::{
-        fixed_point::{misc::intersect_state_set_and_map, FixedPointIterationParams},
-        LabellingUpdater,
+    model_check::property_checker::{
+        labelling_updater::{
+            fixed_point::{misc::intersect_state_set_and_map, FixedPointIterationParams},
+            LabellingUpdater,
+        },
+        CheckValue, Reason,
     },
     FullMachine,
 };
@@ -61,13 +64,16 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         for (state_id, update_timed) in current_update {
             // check if the update differs
             // the timing of update is not relevant, as it will be the current time
-            let update_value = update_timed.value;
+            let mut update_value = update_timed.value;
 
             let now_timed = history.up_to_time(self.current_time, state_id);
 
             if update_value.valuation() == now_timed.value.valuation() {
                 continue;
             }
+            if let CheckValue::Unknown(reasons) = &mut update_value {
+                reasons.push(Reason::FixedPoint);
+            };
 
             // insert the state and make it dirty
 

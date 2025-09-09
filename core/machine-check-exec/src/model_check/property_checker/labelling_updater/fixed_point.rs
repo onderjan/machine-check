@@ -5,9 +5,7 @@ use machine_check_common::{property::FixedPointOperator, ExecError, StateId};
 
 use crate::{
     model_check::property_checker::{
-        history::FixedPointHistory,
-        labelling_updater::LabellingUpdater,
-        value::{Reason, TimedCheckValue},
+        history::FixedPointHistory, labelling_updater::LabellingUpdater, value::TimedCheckValue,
         CheckValue,
     },
     FullMachine,
@@ -132,14 +130,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                 // the update does not preserve the timing value, reconstruct it
                 // it is faster to do the reconstruction once per fixed-point computation
                 // rather than handle it throughout every iteration
-                let mut timed = self
+                let timed = self
                     .getter()
                     .compute_latest_timed(fixed_point_index, state_id)?;
-
-                // add the reason
-                if let CheckValue::Unknown(reasons) = &mut timed.value {
-                    reasons.push(Reason::FixedPoint);
-                };
 
                 result.insert(state_id, timed);
             }

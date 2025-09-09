@@ -153,6 +153,12 @@ impl PropertyChecker {
 
         Ok(())
     }
+
+    pub fn get_history(&self, fixed_point_index: usize) -> &FixedPointHistory {
+        self.histories
+            .get(&fixed_point_index)
+            .expect("History should exist")
+    }
 }
 
 fn squash_time(time_mapping: &BTreeMap<u64, u64>, original_time: u64) -> u64 {

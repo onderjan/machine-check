@@ -32,8 +32,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             let mut update_value = changed_value.clone();
             if let CheckValue::Unknown(reasons) = &mut update_value {
                 // clear the reasons and add the variable as the only reason
+                // include the timing of the value to precisely capture it
                 reasons.clear();
-                reasons.push(Reason::FixedVariable);
+                reasons.push(Reason::FixedVariable(last_time));
             };
             update.insert(state_id, TimedCheckValue::new(last_time, update_value));
         }

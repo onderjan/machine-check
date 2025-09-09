@@ -78,4 +78,8 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
 
         Ok(result)
     }
+
+    pub fn property_checker(&self) -> &PropertyChecker {
+        self.property_checker
+    }
 }

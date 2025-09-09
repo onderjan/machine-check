@@ -11,7 +11,7 @@ pub enum Reason {
     BiLogic(BiChoice),
     Next(StateId),
     FixedPoint,
-    FixedVariable,
+    FixedVariable(u64),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -82,7 +82,7 @@ impl Debug for CheckValue {
                         Reason::BiLogic(BiChoice::Right) => write!(f, "BR"),
                         Reason::Next(state_id) => write!(f, "N{}", state_id),
                         Reason::FixedPoint => write!(f, "F"),
-                        Reason::FixedVariable => write!(f, "V"),
+                        Reason::FixedVariable(time) => write!(f, "V({})", time),
                     }?;
                     write!(f, ", ")?;
                 }

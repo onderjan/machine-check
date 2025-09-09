@@ -65,7 +65,11 @@ impl<M: FullMachine> Deducer<'_, M> {
         subproperty_index: usize,
         reasons: &mut Vec<Reason>,
     ) -> Result<Culprit, ExecError> {
-        trace!("Deducing ending culprit states after {:?}", self.path);
+        trace!(
+            "Deducing ending culprit states after {:?}, reasons {:?}",
+            self.path,
+            reasons
+        );
 
         let subproperty_entry = self.property.subproperty_entry(subproperty_index);
 
@@ -74,8 +78,9 @@ impl<M: FullMachine> Deducer<'_, M> {
             .expect("Deduction reasons should not be exhausted");
 
         trace!(
-            "Reason {:?}, Subproperty entry {:?}",
+            "Reason {:?}, subproperty {} entry {:?}",
             reason,
+            subproperty_index,
             subproperty_entry,
         );
 
@@ -136,7 +141,7 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                 self.deduce_end(op.inner, reasons)
             }
-            Reason::FixedVariable => {
+            Reason::FixedVariable(time) => {
                 let PropertyType::FixedVariable(fixed_point_index) = ty else {
                     panic!("Should deduce on fixed variable");
                 };
@@ -145,13 +150,33 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // TODO: manage times correctly
 
                 let current_state_id = *self.path.back().unwrap();
-                let timed = self
-                    .getter
-                    .compute_latest_timed(*fixed_point_index, current_state_id)?;
+                /*let value = self
+                .getter
+                .property_checker()
+                .get_history(*fixed_point_index)
+                .for_state(current_state_id)
+                .expect("Should deduce on history of fixed variable state")
+                .get(&time)
+                .expect("Should deduce on exact time of fixed variable state");*/
 
-                let CheckValue::Unknown(mut reasons) = timed.value else {
-                    panic!("Check value should be unknown when deducing from fixed point");
+                let value = self
+                    .getter
+                    .property_checker()
+                    .get_history(*fixed_point_index)
+                    .before_time(time + 1, current_state_id)
+                    .value;
+
+                let CheckValue::Unknown(mut reasons) = value.clone() else {
+                    panic!("Check value should be unknown when deducing from fixed point with state {}, time {}", current_state_id, time);
                 };
+                // add the outer fixed point
+                //reasons.push(Reason::FixedPoint);
+
+                trace!(
+                    "Deducing on new fixed point index {} with reasons {:?}",
+                    fixed_point_index,
+                    reasons
+                );
 
                 self.deduce_end(*fixed_point_index, &mut reasons)
             }
