@@ -1,5 +1,5 @@
 use std::collections::btree_map::Entry;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use machine_check_common::property::NextOperator;
 use machine_check_common::{ExecError, KnownParamValuation, NodeId, ParamValuation, StateId};
@@ -28,6 +28,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         node_id: NodeId,
         computed_successors: &mut BTreeMap<StateId, TimedCheckValue>,
     ) -> Result<TimedCheckValue, ExecError> {
+        log::trace!("Computing next of node {}", node_id,);
+
         // for speed, try to find the appropriate successor without sorting first
         // this can be no successor at all, if the ground value remains,
         // or a single successor with the appropriate valuation
@@ -119,6 +121,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             if let CheckValue::Unknown(reasons) = &mut timed.value {
                 reasons.push(Reason::Next(successor_id));
             }
+            log::trace!("Next selected {} -> {} immediately", node_id, successor_id);
             return Ok(timed);
         };
 
@@ -154,6 +157,17 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         if let CheckValue::Unknown(reasons) = &mut timed.value {
             reasons.push(Reason::Next(*successor_id));
+        }
+
+        if log::log_enabled!(log::Level::Trace) {
+            let successors: BTreeSet<StateId> = self.space.direct_successor_iter(node_id).collect();
+            log::trace!(
+                "Next selected {} -> {} after elaboration using successors {:?} with sorter {:?}",
+                node_id,
+                successor_id,
+                successors,
+                successor_sorter
+            );
         }
 
         Ok(timed)

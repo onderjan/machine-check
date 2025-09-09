@@ -39,18 +39,20 @@ impl PropertyChecker {
             "Double-checking whether the incremental computation corresponds to non-incremental"
         );
 
+        // retain only states in state space for comparison
+        // as it is allowed for incremental model checking to retain states
+        // that are no longer in the state space
+        let states = BTreeSet::from_iter(space.states());
+
         let mut fresh_property_checker = self.clone();
         fresh_property_checker.invalidate();
         fresh_property_checker.focus.make_whole_dirty(space);
         LabellingUpdater::new(&mut fresh_property_checker, space)?.compute_inner()?;
-
-        // retain only states in state space for comparison
-        // as it is allowed for incremental model checking to retain states
-        // that are no longer in the state space
+        for history in fresh_property_checker.histories.values_mut() {
+            history.retain_states(&states);
+        }
 
         let mut incremental_property_checker = self.clone();
-
-        let states = BTreeSet::from_iter(space.states());
 
         for history in incremental_property_checker.histories.values_mut() {
             history.retain_states(&states);

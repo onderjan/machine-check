@@ -74,7 +74,8 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         let history = select_history_mut(&mut self.property_checker.histories, fixed_point_index);
         trace!("Focus: {:?}", self.property_checker.focus);
         for state_id in self.property_checker.focus.dirty_iter() {
-            // clear later times
+            // clear later entries
+            history.clear_entries_from(start_time, state_id);
             history.insert(start_time, state_id, ground_value.clone());
         }
 

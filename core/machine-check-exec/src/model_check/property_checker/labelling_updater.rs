@@ -68,9 +68,6 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         );
         self.compute_inner()?;
 
-        // TODO: remove invalidation
-        self.invalidate = true;
-
         if self.invalidate {
             debug!("Invalidated computation, computing once more");
             self.property_checker.invalidate();

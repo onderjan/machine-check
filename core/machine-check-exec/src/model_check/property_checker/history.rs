@@ -13,9 +13,13 @@ pub struct FixedPointHistory {
 }
 
 impl FixedPointHistory {
-    pub fn insert(&mut self, time_instant: u64, state_id: StateId, value: CheckValue) {
+    pub fn clear_entries_from(&mut self, time_instant: u64, state_id: StateId) {
         let time_values = self.states.entry(state_id).or_default();
-
+        log::trace!(
+            "Clearing time values of state {}: {:?}",
+            state_id,
+            time_values
+        );
         // clear the entries at or after this time for this state
         loop {
             let Some((entry_time, _)) = time_values.last_key_value() else {
@@ -34,6 +38,7 @@ impl FixedPointHistory {
 
             // remove entry both in time and state maps
             time_values.remove(&entry_time);
+            log::trace!("Removed entry of state {} at time {}", state_id, entry_time);
 
             let time_instant_state_map = self
                 .times
@@ -44,7 +49,9 @@ impl FixedPointHistory {
                 self.times.remove(&entry_time);
             }
         }
+    }
 
+    pub fn insert(&mut self, time_instant: u64, state_id: StateId, value: CheckValue) {
         if let Some(contained) = self.before_time_opt(time_instant, state_id) {
             if contained.value == value {
                 // do not insert as it is already implied
@@ -62,6 +69,12 @@ impl FixedPointHistory {
             .entry(state_id)
             .or_default()
             .insert(time_instant, value);
+
+        log::trace!(
+            "Inserted new value to state {} at time {}",
+            state_id,
+            time_instant
+        );
     }
 
     pub fn before_time(&self, time: u64, state_id: StateId) -> TimedCheckValue {
