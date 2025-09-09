@@ -104,8 +104,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                 continue;
             }
 
-            // make the state dirty, if it was not dirty, clear entries from start time
-            // excluding start time where the ground value is
+            // make the state dirty, if it was not dirty, clear entries from current time
             if !is_dirty {
                 self.property_checker
                     .focus

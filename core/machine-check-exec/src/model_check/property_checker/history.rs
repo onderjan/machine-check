@@ -55,6 +55,15 @@ impl FixedPointHistory {
         if let Some(contained) = self.before_time_opt(time_instant, state_id) {
             if contained.value == value {
                 // do not insert as it is already implied
+                // but make sure there is nothing at this exact time
+                if let Some(time_map) = self.times.get_mut(&time_instant) {
+                    time_map.remove(&state_id);
+                }
+
+                if let Some(state_map) = self.states.get_mut(&state_id) {
+                    state_map.remove(&time_instant);
+                }
+
                 return;
             }
         }
