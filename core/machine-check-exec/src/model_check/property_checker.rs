@@ -16,7 +16,7 @@ use machine_check_common::{
 };
 use mck::concr::FullMachine;
 
-pub(super) use value::{CheckValue, Reason, TimedCheckValue};
+pub(super) use value::{CheckValue, Reason};
 
 use crate::{
     model_check::property_checker::{

@@ -44,9 +44,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
             path,
             property,
         };
-        let Deduction::Culprit(culprit) = deducer.deduce_end(0, &mut reasons)? else {
-            panic!("Deduction should give the culprit");
-        };
+        let culprit = deducer.deduce_end(0, &mut reasons)?;
         trace!("Deduced culprit {:?}", culprit);
         return Ok(culprit);
     }
@@ -60,32 +58,14 @@ struct Deducer<'a, M: FullMachine> {
     path: VecDeque<StateId>,
 }
 
-#[derive(Debug)]
-struct FixedPointDeduction {
-    path: VecDeque<StateId>,
-    variable: usize,
-}
-
-#[derive(Debug)]
-enum Deduction {
-    Culprit(Culprit),
-    FixedPoint(FixedPointDeduction),
-}
-
 impl<M: FullMachine> Deducer<'_, M> {
     /// Deduces the ending states of the culprit, after the ones already found.
     fn deduce_end(
         &mut self,
         subproperty_index: usize,
         reasons: &mut Vec<Reason>,
-    ) -> Result<Deduction, ExecError> {
+    ) -> Result<Culprit, ExecError> {
         trace!("Deducing ending culprit states after {:?}", self.path);
-        /*let current_state_id = *self.path.back().unwrap();
-        assert!(self
-            .getter
-            .compute_latest_timed(subproperty_index, current_state_id)?
-            .value
-            .is_unknown());*/
 
         let subproperty_entry = self.property.subproperty_entry(subproperty_index);
 
@@ -108,10 +88,10 @@ impl<M: FullMachine> Deducer<'_, M> {
                 };
 
                 // culprit ends here
-                Ok(Deduction::Culprit(Culprit {
+                Ok(Culprit {
                     path: self.path.clone(),
                     atomic_property: atomic.clone(),
-                }))
+                })
             }
             Reason::Negation => {
                 let PropertyType::Negation(inner) = ty else {
@@ -174,80 +154,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 };
 
                 self.deduce_end(*fixed_point_index, &mut reasons)
-
-                //self.deduce_end(*fixed_point_index, reasons)
             }
         }
-
-        /*match &subproperty_entry.ty {
-            PropertyType::Const(_) => {
-                // never ends in const
-                panic!("const should never be the labelling culprit")
-            }
-            PropertyType::Atomic(literal) => {
-                // culprit ends here
-                Ok(Deduction::Culprit(Culprit {
-                    path: self.path.clone(),
-                    atomic_property: literal.clone(),
-                }))
-            }
-            PropertyType::Negation(inner) => {
-                // propagate to inner
-                self.deduce_end(*inner)
-            }
-            PropertyType::BiLogic(op) => {
-                let a_timed = self.getter.compute_latest_timed(op.a, last_state_id)?;
-                let b_timed = self.getter.compute_latest_timed(op.b, last_state_id)?;
-
-                match LabellingCacher::<M>::choose_binary_op(op, &a_timed, &b_timed) {
-                    BiChoice::Left => self.deduce_end(op.a),
-                    BiChoice::Right => self.deduce_end(op.b),
-                }
-            }
-            PropertyType::Next(op) => {
-                let label = self
-                    .getter
-                    .compute_latest_timed(subproperty_index, last_state_id)?;
-
-                let next_state = *label
-                    .value
-                    .next_states
-                    .last()
-                    .expect("Culprit state should have next state for next operator");
-
-                assert_ne!(last_state_id, next_state);
-                assert!(self
-                    .getter
-                    .space()
-                    .contains_edge(last_state_id.into(), next_state));
-
-                self.path.push_back(next_state);
-
-                self.deduce_end(op.inner)
-            }
-            PropertyType::FixedPoint(op) => {
-                loop {
-                    let deduction = self.deduce_end(op.inner)?;
-                    match deduction {
-                        Deduction::Culprit(_) => break Ok(deduction),
-                        Deduction::FixedPoint(deduction) => {
-                            if deduction.variable != subproperty_index {
-                                // not our variable, break
-                                break Ok(Deduction::FixedPoint(deduction));
-                            }
-                            // our variable, update path and loop
-                            self.path = deduction.path;
-                        }
-                    }
-                }
-            }
-            PropertyType::FixedVariable(variable) => {
-                // return fixed-point deduction
-                Ok(Deduction::FixedPoint(FixedPointDeduction {
-                    path: self.path.clone(),
-                    variable: *variable,
-                }))
-            }
-        }*/
     }
 }

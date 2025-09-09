@@ -32,9 +32,6 @@ impl CheckValue {
     pub fn is_unknown(&self) -> bool {
         matches!(self, CheckValue::Unknown(_))
     }
-    pub fn is_known(&self) -> bool {
-        !self.is_unknown()
-    }
 
     pub fn valuation(&self) -> ParamValuation {
         match self {
