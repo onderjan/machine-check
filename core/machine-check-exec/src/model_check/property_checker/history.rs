@@ -1,27 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 
-use machine_check_common::{ParamValuation, StateId};
+use machine_check_common::StateId;
 
 use crate::model_check::property_checker::squash_time;
-
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct CheckValue {
-    pub valuation: ParamValuation,
-    pub next_states: Vec<StateId>,
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct TimedCheckValue {
-    pub time: u64,
-    pub value: CheckValue,
-}
-
-impl TimedCheckValue {
-    pub fn new(time: u64, value: CheckValue) -> Self {
-        TimedCheckValue { time, value }
-    }
-}
+use crate::model_check::property_checker::value::{CheckValue, TimedCheckValue};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FixedPointHistory {
@@ -192,20 +175,5 @@ impl FixedPointHistory {
 
     pub fn time_keys(&self) -> impl Iterator<Item = u64> + use<'_> {
         self.times.keys().copied()
-    }
-}
-
-impl CheckValue {
-    pub fn eigen(value: ParamValuation) -> Self {
-        Self {
-            valuation: value,
-            next_states: vec![],
-        }
-    }
-}
-
-impl Debug for CheckValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?} {:?}", self.valuation, self.next_states)
     }
 }

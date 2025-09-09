@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use machine_check_common::{ExecError, StateId};
 
 use super::select_history;
-use crate::model_check::property_checker::history::TimedCheckValue;
 use crate::model_check::property_checker::labelling_updater::fixed_point::misc::intersect_state_set_and_map;
+use crate::model_check::property_checker::value::{CheckValue, Reason, TimedCheckValue};
 use crate::model_check::property_checker::LabellingUpdater;
 use crate::FullMachine;
 
@@ -30,7 +30,11 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             intersect_state_set_and_map(affected_forward, changed_states)
         {
             let mut update_value = changed_value.clone();
-            update_value.next_states.clear();
+            if let CheckValue::Unknown(reasons) = &mut update_value {
+                // clear the reasons and add the variable as the only reason
+                reasons.clear();
+                reasons.push(Reason::FixedVariable);
+            };
             update.insert(state_id, TimedCheckValue::new(last_time, update_value));
         }
 

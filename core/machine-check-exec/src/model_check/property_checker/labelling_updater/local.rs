@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
 
-use crate::model_check::property_checker::history::TimedCheckValue;
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
+use crate::model_check::property_checker::value::{CheckValue, Reason, TimedCheckValue};
 use crate::model_check::property_checker::{BiChoice, LabellingCacher};
 use crate::FullMachine;
 
@@ -13,9 +13,13 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         &mut self,
         inner: usize,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        let mut result = self.update_labelling(inner)?;
-        for timed in result.values_mut() {
-            timed.value.valuation = !timed.value.valuation;
+        let inner_result = self.update_labelling(inner)?;
+        let mut result = BTreeMap::new();
+
+        for (state_id, timed) in inner_result {
+            let timed = LabellingCacher::<M>::apply_negation(timed);
+
+            result.insert(state_id, timed);
         }
 
         Ok(result)
@@ -35,24 +39,33 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                 self.getter().compute_latest_timed(op.b, *state_id)?
             };
 
-            if matches!(
-                LabellingCacher::<M>::choose_binary_op(op, timed, &timed_b),
-                BiChoice::Right
-            ) {
+            let choice = LabellingCacher::<M>::choose_binary_op(op, timed, &timed_b);
+
+            if matches!(choice, BiChoice::Right) {
                 *timed = timed_b;
+            };
+
+            // add the reason
+            if let CheckValue::Unknown(reasons) = &mut timed.value {
+                reasons.push(Reason::BiLogic(choice));
             };
         }
 
         for (state_id, timed_b) in result_b {
             let timed_a = self.getter().compute_latest_timed(op.a, state_id)?;
 
-            let timed_result = match LabellingCacher::<M>::choose_binary_op(op, &timed_a, &timed_b)
-            {
+            let choice = LabellingCacher::<M>::choose_binary_op(op, &timed_a, &timed_b);
+            let mut timed = match choice {
                 BiChoice::Left => timed_a,
                 BiChoice::Right => timed_b,
             };
 
-            result.insert(state_id, timed_result);
+            // add the reason
+            if let CheckValue::Unknown(reasons) = &mut timed.value {
+                reasons.push(Reason::BiLogic(choice));
+            };
+
+            result.insert(state_id, timed);
         }
 
         Ok(result)

@@ -9,7 +9,10 @@ pub mod property;
 mod node_id;
 mod value;
 
-pub use value::{param_valuation::ParamValuation, three_valued::ThreeValued};
+pub use value::{
+    param_valuation::{KnownParamValuation, ParamValuation},
+    three_valued::ThreeValued,
+};
 
 pub use node_id::{NodeId, StateId};
 

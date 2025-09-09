@@ -1,7 +1,10 @@
 use machine_check_common::{property::FixedPointOperator, ExecError, StateId};
 
 use crate::{
-    model_check::property_checker::{labelling_cacher::LabellingCacher, TimedCheckValue},
+    model_check::property_checker::{
+        labelling_cacher::LabellingCacher,
+        value::{CheckValue, Reason, TimedCheckValue},
+    },
     FullMachine,
 };
 
@@ -12,7 +15,12 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
         // the current valuation is equal to the inner valuation
-        self.compute_latest_timed(op.inner, state_id)
+        let mut timed = self.compute_latest_timed(op.inner, state_id)?;
+        // add the reason
+        if let CheckValue::Unknown(reasons) = &mut timed.value {
+            reasons.push(Reason::FixedPoint);
+        };
+        Ok(timed)
     }
 
     pub fn compute_fixed_variable(
@@ -28,8 +36,12 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             .expect("History should exist for fixed point");
 
         let mut timed = history.before_time(self.current_time, state_id);
-        // clear next as we are considering a new time instant
-        timed.value.next_states.clear();
+        if let CheckValue::Unknown(reasons) = &mut timed.value {
+            // clear the reasons and add the variable as the only reason
+            reasons.clear();
+            reasons.push(Reason::FixedVariable);
+        };
+
         Ok(timed)
     }
 }

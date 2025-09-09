@@ -2,12 +2,15 @@ mod fixed_point;
 mod local;
 mod next;
 
-use machine_check_common::{property::PropertyType, ExecError, ParamValuation, StateId};
+use machine_check_common::{property::PropertyType, ExecError, StateId, ThreeValued};
 
 pub use local::BiChoice;
 
 use crate::{
-    model_check::property_checker::{CheckValue, PropertyChecker, TimedCheckValue},
+    model_check::property_checker::{
+        value::{CheckValue, Reason, TimedCheckValue},
+        PropertyChecker,
+    },
     space::StateSpace,
     FullMachine,
 };
@@ -49,14 +52,18 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
 
         let result = match &ty {
             PropertyType::Const(constant) => {
-                let constant = ParamValuation::from_bool(*constant);
-                let value = CheckValue::eigen(constant);
+                let value = CheckValue::from_bool(*constant);
                 TimedCheckValue::new(0, value)
             }
 
             PropertyType::Atomic(atomic_property) => {
                 let three_valued = self.space.atomic_label(atomic_property, state_id)?;
-                let value = CheckValue::eigen(ParamValuation::from_three_valued(three_valued));
+                let value = match three_valued {
+                    ThreeValued::False => CheckValue::False,
+                    ThreeValued::True => CheckValue::True,
+                    ThreeValued::Unknown => CheckValue::Unknown(vec![Reason::Atomic]),
+                };
+
                 TimedCheckValue::new(0, value)
             }
 

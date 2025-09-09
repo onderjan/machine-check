@@ -3,6 +3,7 @@ mod focus;
 mod history;
 mod labelling_cacher;
 mod labelling_updater;
+mod value;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -15,11 +16,11 @@ use machine_check_common::{
 };
 use mck::concr::FullMachine;
 
+pub(super) use value::{CheckValue, Reason, TimedCheckValue};
+
 use crate::{
     model_check::property_checker::{
-        focus::Focus,
-        history::{CheckValue, FixedPointHistory, TimedCheckValue},
-        labelling_updater::LabellingUpdater,
+        focus::Focus, history::FixedPointHistory, labelling_updater::LabellingUpdater,
     },
     space::StateSpace,
 };

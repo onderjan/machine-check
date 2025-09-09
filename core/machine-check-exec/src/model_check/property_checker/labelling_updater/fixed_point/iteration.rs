@@ -65,7 +65,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
             let now_timed = history.up_to_time(self.current_time, state_id);
 
-            if update_value == now_timed.value {
+            if update_value.valuation() == now_timed.value.valuation() {
                 continue;
             }
 

@@ -1,6 +1,7 @@
 use core::panic;
 use std::collections::VecDeque;
 
+use log::trace;
 use machine_check_common::{
     check::{Culprit, Property},
     property::PropertyType,
@@ -10,7 +11,7 @@ use mck::concr::FullMachine;
 
 use crate::{
     model_check::{
-        property_checker::{BiChoice, LabellingCacher},
+        property_checker::{BiChoice, CheckValue, LabellingCacher, Reason},
         PropertyChecker,
     },
     space::StateSpace,
@@ -22,7 +23,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     space: &StateSpace<M>,
     property: &Property,
 ) -> Result<Culprit, ExecError> {
-    //trace!("Deducing culprit, checker: {:#?}", checker);
+    trace!("Deducing culprit");
 
     // incomplete, compute culprit
     // it must start with one of the initial states
@@ -32,9 +33,9 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     for initial_id in space.initial_iter() {
         let timed = getter.compute_latest_timed(0, initial_id)?;
 
-        if timed.value.valuation.is_known() {
+        let CheckValue::Unknown(mut reasons) = timed.value else {
             continue;
-        }
+        };
         // unknown initial state, compute culprit from it
         let mut path = VecDeque::new();
         path.push_back(initial_id);
@@ -43,9 +44,10 @@ pub(super) fn deduce_culprit<M: FullMachine>(
             path,
             property,
         };
-        let Deduction::Culprit(culprit) = deducer.deduce_end(0)? else {
+        let Deduction::Culprit(culprit) = deducer.deduce_end(0, &mut reasons)? else {
             panic!("Deduction should give the culprit");
         };
+        trace!("Deduced culprit {:?}", culprit);
         return Ok(culprit);
     }
 
@@ -72,18 +74,112 @@ enum Deduction {
 
 impl<M: FullMachine> Deducer<'_, M> {
     /// Deduces the ending states of the culprit, after the ones already found.
-    fn deduce_end(&mut self, subproperty_index: usize) -> Result<Deduction, ExecError> {
-        let last_state_id = *self.path.back().unwrap();
+    fn deduce_end(
+        &mut self,
+        subproperty_index: usize,
+        reasons: &mut Vec<Reason>,
+    ) -> Result<Deduction, ExecError> {
+        trace!("Deducing ending culprit states after {:?}", self.path);
+        /*let current_state_id = *self.path.back().unwrap();
         assert!(self
             .getter
-            .compute_latest_timed(subproperty_index, last_state_id)?
+            .compute_latest_timed(subproperty_index, current_state_id)?
             .value
-            .valuation
-            .is_unknown());
+            .is_unknown());*/
 
         let subproperty_entry = self.property.subproperty_entry(subproperty_index);
 
-        match &subproperty_entry.ty {
+        let reason = reasons
+            .pop()
+            .expect("Deduction reasons should not be exhausted");
+
+        trace!(
+            "Reason {:?}, Subproperty entry {:?}",
+            reason,
+            subproperty_entry,
+        );
+
+        let ty = &subproperty_entry.ty;
+
+        match reason {
+            Reason::Atomic => {
+                let PropertyType::Atomic(atomic) = ty else {
+                    panic!("Should deduce on atomic property");
+                };
+
+                // culprit ends here
+                Ok(Deduction::Culprit(Culprit {
+                    path: self.path.clone(),
+                    atomic_property: atomic.clone(),
+                }))
+            }
+            Reason::Negation => {
+                let PropertyType::Negation(inner) = ty else {
+                    panic!("Should deduce on negation operator");
+                };
+
+                self.deduce_end(*inner, reasons)
+            }
+            Reason::BiLogic(bi_choice) => {
+                let PropertyType::BiLogic(op) = ty else {
+                    panic!("Should deduce on binary logic operator");
+                };
+
+                let chosen_inner = match bi_choice {
+                    BiChoice::Left => op.a,
+                    BiChoice::Right => op.b,
+                };
+
+                self.deduce_end(chosen_inner, reasons)
+            }
+            Reason::Next(next_state_id) => {
+                let PropertyType::Next(op) = ty else {
+                    panic!("Should deduce on next operator");
+                };
+
+                // sanity assertion
+                let current_state_id = *self.path.back().unwrap();
+                assert!(self
+                    .getter
+                    .space()
+                    .contains_edge(current_state_id.into(), next_state_id));
+
+                // add state to path
+                self.path.push_back(next_state_id);
+
+                self.deduce_end(op.inner, reasons)
+            }
+            Reason::FixedPoint => {
+                let PropertyType::FixedPoint(op) = ty else {
+                    panic!("Should deduce on fixed point");
+                };
+
+                self.deduce_end(op.inner, reasons)
+            }
+            Reason::FixedVariable => {
+                let PropertyType::FixedVariable(fixed_point_index) = ty else {
+                    panic!("Should deduce on fixed variable");
+                };
+
+                // deduce on the variable from the given state
+                // TODO: manage times correctly
+
+                let current_state_id = *self.path.back().unwrap();
+                let timed = self
+                    .getter
+                    .compute_latest_timed(*fixed_point_index, current_state_id)?;
+
+                let CheckValue::Unknown(mut reasons) = timed.value else {
+                    panic!("Check value should be unknown when deducing from fixed point");
+                };
+
+                self.deduce_end(*fixed_point_index, &mut reasons)
+
+                //self.deduce_end(*fixed_point_index, reasons)
+            }
+        }
+
+        /*match &subproperty_entry.ty {
             PropertyType::Const(_) => {
                 // never ends in const
                 panic!("const should never be the labelling culprit")
@@ -152,6 +248,6 @@ impl<M: FullMachine> Deducer<'_, M> {
                     variable: *variable,
                 }))
             }
-        }
+        }*/
     }
 }

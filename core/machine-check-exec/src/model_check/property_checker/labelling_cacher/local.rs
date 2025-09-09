@@ -4,9 +4,10 @@ use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
-use crate::model_check::property_checker::TimedCheckValue;
+use crate::model_check::property_checker::value::{CheckValue, Reason, TimedCheckValue};
 use crate::FullMachine;
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum BiChoice {
     Left,
     Right,
@@ -18,9 +19,28 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         inner: usize,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
-        let mut timed = self.compute_latest_timed(inner, state_id)?;
-        timed.value.valuation = !timed.value.valuation;
+        let timed = self.compute_latest_timed(inner, state_id)?;
+        let timed = Self::apply_negation(timed);
+
         Ok(timed)
+    }
+
+    pub fn apply_negation(mut timed: TimedCheckValue) -> TimedCheckValue {
+        timed.value = match timed.value {
+            CheckValue::False => CheckValue::True,
+            CheckValue::True => CheckValue::False,
+            CheckValue::Dependent => {
+                // no change
+                CheckValue::Dependent
+            }
+            CheckValue::Unknown(mut reasons) => {
+                // add negation reason
+                reasons.push(Reason::Negation);
+                CheckValue::Unknown(reasons)
+            }
+        };
+
+        timed
     }
 
     pub(super) fn compute_binary_op(
@@ -31,10 +51,19 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         let timed_a = self.compute_latest_timed(op.a, state_id)?;
         let timed_b = self.compute_latest_timed(op.b, state_id)?;
 
-        Ok(match Self::choose_binary_op(op, &timed_a, &timed_b) {
+        let choice = Self::choose_binary_op(op, &timed_a, &timed_b);
+
+        let mut timed = match choice {
             BiChoice::Left => timed_a,
             BiChoice::Right => timed_b,
-        })
+        };
+
+        // add the reason
+        if let CheckValue::Unknown(reasons) = &mut timed.value {
+            reasons.push(Reason::BiLogic(choice));
+        };
+
+        Ok(timed)
     }
 
     pub fn choose_binary_op(
@@ -42,8 +71,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         timed_a: &TimedCheckValue,
         timed_b: &TimedCheckValue,
     ) -> BiChoice {
-        let a_valuation = timed_a.value.valuation;
-        let b_valuation = timed_b.value.valuation;
+        let a_valuation = timed_a.value.valuation();
+        let b_valuation = timed_b.value.valuation();
 
         // use timing to freeze decision
         if a_valuation == b_valuation {

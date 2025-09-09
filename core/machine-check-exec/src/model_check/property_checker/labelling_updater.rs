@@ -13,7 +13,7 @@ use mck::concr::FullMachine;
 
 use crate::{
     model_check::property_checker::{
-        history::TimedCheckValue, labelling_cacher::LabellingCacher, PropertyChecker,
+        labelling_cacher::LabellingCacher, value::TimedCheckValue, PropertyChecker,
     },
     space::StateSpace,
 };
@@ -100,7 +100,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             self.property_checker.property
         );
 
-        Ok(result.value.valuation)
+        Ok(result.value.valuation())
     }
 
     pub(super) fn compute_inner(&mut self) -> Result<(), ExecError> {

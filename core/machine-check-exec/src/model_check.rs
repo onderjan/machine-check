@@ -49,7 +49,7 @@ impl ThreeValuedChecker {
         let getter = property_checker.last_getter(space);
         for state_id in space.states() {
             let timed = getter.compute_latest_timed(subproperty_index, state_id)?;
-            labelling.insert(state_id, timed.value.valuation);
+            labelling.insert(state_id, timed.value.valuation());
         }
         Ok((conclusion, labelling))
     }

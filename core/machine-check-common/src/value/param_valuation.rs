@@ -9,6 +9,13 @@ use serde::{Deserialize, Serialize};
 use crate::value::three_valued::ThreeValued;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+pub enum KnownParamValuation {
+    False,
+    True,
+    Dependent,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum ParamValuation {
     False,
     True,

@@ -2,10 +2,10 @@ use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
 use machine_check_common::property::NextOperator;
-use machine_check_common::{ExecError, NodeId, ParamValuation, StateId};
+use machine_check_common::{ExecError, KnownParamValuation, NodeId, ParamValuation, StateId};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
-use crate::model_check::property_checker::{CheckValue, TimedCheckValue};
+use crate::model_check::property_checker::value::{CheckValue, Reason, TimedCheckValue};
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingCacher<'_, M> {
@@ -35,7 +35,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             // no successors, return the ground value
             return Ok(TimedCheckValue::new(
                 0,
-                CheckValue::eigen(ParamValuation::from_bool(op.is_universal)),
+                CheckValue::from_bool(op.is_universal),
             ));
         };
 
@@ -82,7 +82,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             let time = can_be_false_at_time.min(can_be_true_at_time);
             return Ok(TimedCheckValue::new(
                 time,
-                CheckValue::eigen(ParamValuation::Dependent),
+                CheckValue::from_known(KnownParamValuation::Dependent),
             ));
         }
 
@@ -90,13 +90,13 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             if let Some(time) = can_be_false_at_time {
                 return Ok(TimedCheckValue::new(
                     time,
-                    CheckValue::eigen(ParamValuation::False),
+                    CheckValue::from_known(KnownParamValuation::False),
                 ));
             }
             if let Some(time) = can_be_true_at_time {
                 return Ok(TimedCheckValue::new(
                     time,
-                    CheckValue::eigen(ParamValuation::True),
+                    CheckValue::from_known(KnownParamValuation::True),
                 ));
             }
         }
@@ -114,9 +114,11 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 .expect("Successor value should be computed")
                 .clone();
 
-            assert!(timed.value.valuation.is_unknown());
+            assert!(timed.value.is_unknown());
 
-            timed.value.next_states.push(successor_id);
+            if let CheckValue::Unknown(reasons) = &mut timed.value {
+                reasons.push(Reason::Next(successor_id));
+            }
             return Ok(timed);
         };
 
@@ -129,7 +131,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             let successor_timed = computed_successors
                 .get(&successor_id)
                 .expect("Successor value should be computed");
-            if successor_timed.value.valuation.is_unknown() {
+            if successor_timed.value.is_unknown() {
                 successor_sorter.push((
                     (successor_timed.time, successor_id),
                     successor_timed.value.clone(),
@@ -148,9 +150,11 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         // add the successor id to next states to obtain our value
         let mut timed = TimedCheckValue::new(*successor_time, successor_value.clone());
 
-        assert!(timed.value.valuation.is_unknown());
+        assert!(timed.value.is_unknown());
 
-        timed.value.next_states.push(*successor_id);
+        if let CheckValue::Unknown(reasons) = &mut timed.value {
+            reasons.push(Reason::Next(*successor_id));
+        }
 
         Ok(timed)
     }
@@ -161,9 +165,9 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         parametric_set: partitions::partition_vec::Set<'_, StateId>,
         computed_successors: &mut BTreeMap<StateId, TimedCheckValue>,
     ) -> Result<(ParamValuation, u64, Option<StateId>), ExecError> {
-        let ground_value = CheckValue::eigen(ParamValuation::from_bool(op.is_universal));
+        let ground_value = CheckValue::from_bool(op.is_universal);
 
-        let mut current_valuation = ground_value.valuation;
+        let mut current_valuation = ground_value.valuation();
 
         let mut best_successor = None;
 
@@ -177,7 +181,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             let successor_timed = computed_successors
                 .get(&successor_id)
                 .expect("Successor value should be computed");
-            let successor_valuation = successor_timed.value.valuation;
+            let successor_valuation = successor_timed.value.valuation();
 
             let is_better = if op.is_universal {
                 successor_valuation

@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use machine_check_common::property::NextOperator;
 use machine_check_common::{ExecError, StateId};
 
-use crate::model_check::property_checker::history::TimedCheckValue;
+use crate::model_check::property_checker::value::TimedCheckValue;
 use crate::model_check::property_checker::LabellingUpdater;
 use crate::FullMachine;
 
