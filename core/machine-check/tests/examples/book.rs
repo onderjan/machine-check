@@ -170,7 +170,7 @@ fn book_ch10_mu_calculus() {
     test_example(
         "mu_infinitely_often",
         TestConfig::new_property("AF![AG![p == 1]]"),
-        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":2,"num_generated_states":10,"num_final_states":4,"num_generated_transitions":12,"num_final_transitions":7,"inherent_panic_message":null}}"#,
+        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":1,"num_generated_states":8,"num_final_states":3,"num_generated_transitions":9,"num_final_transitions":5,"inherent_panic_message":null}}"#,
     );
 
     // chapter 10c: whether p == 1 holds infinitely often for all paths (AFG[p == 1])
@@ -180,6 +180,6 @@ fn book_ch10_mu_calculus() {
     test_example(
         "mu_infinitely_often",
         TestConfig::new_property("lfp![X,gfp![Y, AX![X] || (p == 1 && AX![Y])]]"),
-        r#"{"result":{"Ok":"True"},"stats":{"num_refinements":2,"num_generated_states":10,"num_final_states":4,"num_generated_transitions":12,"num_final_transitions":7,"inherent_panic_message":null}}"#,
+        r#"{"result":{"Ok":"True"},"stats":{"num_refinements":1,"num_generated_states":8,"num_final_states":3,"num_generated_transitions":9,"num_final_transitions":5,"inherent_panic_message":null}}"#,
     );
 }

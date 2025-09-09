@@ -3,8 +3,8 @@ use std::fmt::Debug;
 
 use machine_check_common::StateId;
 
-use crate::model_check::property_checker::squash_time;
 use crate::model_check::property_checker::value::{CheckValue, TimedCheckValue};
+use crate::model_check::property_checker::{squash_time, Reason};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FixedPointHistory {
@@ -156,7 +156,11 @@ impl FixedPointHistory {
         let mut original_times = BTreeMap::new();
         std::mem::swap(&mut original_times, &mut self.times);
 
-        for (original_time, state_map) in original_times {
+        for (original_time, mut state_map) in original_times {
+            for value in state_map.values_mut() {
+                squash_value(value, time_mapping);
+            }
+
             let squashed_time = squash_time(time_mapping, original_time);
             self.times.insert(squashed_time, state_map);
         }
@@ -165,8 +169,9 @@ impl FixedPointHistory {
             let mut original_time_map = BTreeMap::new();
             std::mem::swap(&mut original_time_map, time_map);
 
-            for (original_time, value) in original_time_map {
+            for (original_time, mut value) in original_time_map {
                 let squashed_time = squash_time(time_mapping, original_time);
+                squash_value(&mut value, time_mapping);
 
                 time_map.insert(squashed_time, value);
             }
@@ -175,5 +180,15 @@ impl FixedPointHistory {
 
     pub fn time_keys(&self) -> impl Iterator<Item = u64> + use<'_> {
         self.times.keys().copied()
+    }
+}
+
+fn squash_value(value: &mut CheckValue, time_mapping: &BTreeMap<u64, u64>) {
+    if let CheckValue::Unknown(reasons) = value {
+        for reason in reasons {
+            if let Reason::FixedVariable(time) = reason {
+                *time = squash_time(time_mapping, *time);
+            }
+        }
     }
 }

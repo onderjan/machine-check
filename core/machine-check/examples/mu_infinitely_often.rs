@@ -62,7 +62,7 @@ mod machine_module {
             // the initial state has state index 0 and p == 1
             State {
                 index: Unsigned::<2>::new(0),
-                p: Unsigned::<1>::new(0),
+                p: Unsigned::<1>::new(1),
             }
         }
 

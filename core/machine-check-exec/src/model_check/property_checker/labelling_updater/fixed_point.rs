@@ -52,9 +52,11 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         // test for calmness, the fixed point must be in closed form
         // and also already once computed
-        if self.process_calm(fixed_point_index, current_computation_index, start_time)? {
+
+        // TODO: re-enable calmness
+        /*if self.process_calm(fixed_point_index, current_computation_index, start_time)? {
             return Ok(BTreeMap::new());
-        }
+        }*/
 
         debug!(
             "Computing fixed point {} with {}/{} states dirty (current computation index {}, start time {})",

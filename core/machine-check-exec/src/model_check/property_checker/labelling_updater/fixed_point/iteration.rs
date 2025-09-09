@@ -20,6 +20,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         &mut self,
         params: &mut FixedPointIterationParams,
     ) -> Result<ControlFlow<(), ()>, ExecError> {
+        let previous_time = self.current_time;
         // increment time
         self.current_time += 1;
         self.num_fixed_point_iterations += 1;
@@ -33,7 +34,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         let history = select_history(&self.property_checker.histories, params.fixed_point_index);
         let affected_backward = self.property_checker.focus.affected_backward();
-        if let Some(previously_updated) = history.states_at_exact_time_opt(self.current_time) {
+        if let Some(previously_updated) = history.states_at_exact_time_opt(previous_time) {
             // this also needs to be updated
             // iterate over the smaller collection
             // note that this is not easily

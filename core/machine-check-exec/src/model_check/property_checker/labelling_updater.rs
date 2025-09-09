@@ -157,6 +157,13 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             }
         };
 
+        trace!(
+            "Updated labelling of subproperty {} in time {}: {:?}",
+            subproperty_index,
+            self.current_time,
+            updated
+        );
+
         Ok(updated)
     }
 }
