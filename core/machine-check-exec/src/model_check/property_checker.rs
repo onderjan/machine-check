@@ -16,7 +16,7 @@ use machine_check_common::{
 };
 use mck::concr::FullMachine;
 
-pub(super) use value::{CheckValue, Reason};
+pub(super) use value::{CheckValue, CheckChoice};
 
 use crate::{
     model_check::property_checker::{

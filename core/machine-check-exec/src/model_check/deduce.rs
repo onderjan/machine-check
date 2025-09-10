@@ -1,5 +1,5 @@
 use core::panic;
-use std::collections::VecDeque;
+use std::{collections::VecDeque, ops::ControlFlow, u64};
 
 use log::trace;
 use machine_check_common::{
@@ -11,7 +11,7 @@ use mck::concr::FullMachine;
 
 use crate::{
     model_check::{
-        property_checker::{BiChoice, CheckValue, LabellingCacher, Reason},
+        property_checker::{BiChoice, CheckChoice, CheckValue, LabellingCacher},
         PropertyChecker,
     },
     space::StateSpace,
@@ -33,18 +33,21 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     for initial_id in space.initial_iter() {
         let timed = getter.compute_latest_timed(0, initial_id)?;
 
-        let CheckValue::Unknown(mut reasons) = timed.value else {
+        let CheckValue::Unknown(choices) = timed.value else {
             continue;
         };
         // unknown initial state, compute culprit from it
         let mut path = VecDeque::new();
         path.push_back(initial_id);
-        let mut deducer = Deducer::<M> {
+        let deducer = Deducer::<M> {
             getter,
             path,
             property,
+            subproperty_index: 0,
+            choices,
+            current_time: u64::MAX,
         };
-        let culprit = deducer.deduce_end(0, &mut reasons)?;
+        let culprit = deducer.deduce()?;
         trace!("Deduced culprit {:?}", culprit);
         return Ok(culprit);
     }
@@ -56,53 +59,68 @@ struct Deducer<'a, M: FullMachine> {
     getter: LabellingCacher<'a, M>,
     property: &'a Property,
     path: VecDeque<StateId>,
+    subproperty_index: usize,
+    choices: Vec<CheckChoice>,
+    current_time: u64,
 }
 
 impl<M: FullMachine> Deducer<'_, M> {
-    /// Deduces the ending states of the culprit, after the ones already found.
-    fn deduce_end(
-        &mut self,
-        subproperty_index: usize,
-        reasons: &mut Vec<Reason>,
-    ) -> Result<Culprit, ExecError> {
+    /// Deduces the culprit.
+    fn deduce(mut self) -> Result<Culprit, ExecError> {
+        loop {
+            if let ControlFlow::Break(culprit) = self.deduce_iteration()? {
+                return Ok(culprit);
+            }
+        }
+    }
+
+    /// Iterates on the deduction.
+    fn deduce_iteration(&mut self) -> Result<ControlFlow<Culprit, ()>, ExecError> {
         trace!(
             "Deducing ending culprit states after {:?}, reasons {:?}",
             self.path,
-            reasons
+            self.choices
         );
 
-        let subproperty_entry = self.property.subproperty_entry(subproperty_index);
+        let subproperty_entry = self.property.subproperty_entry(self.subproperty_index);
 
-        match &subproperty_entry.ty {
+        self.subproperty_index = match &subproperty_entry.ty {
             PropertyType::Const(_) => panic!("Deduction should never reach const"),
             PropertyType::Atomic(atomic) => {
                 // culprit ends here
-                Ok(Culprit {
+                return Ok(ControlFlow::Break(Culprit {
                     path: self.path.clone(),
                     atomic_property: atomic.clone(),
-                })
+                }));
             }
-            PropertyType::Negation(inner) => self.deduce_end(*inner, reasons),
+            PropertyType::Negation(inner) => {
+                // just move to inner
+                *inner
+            }
+
             PropertyType::BiLogic(op) => {
-                let reason = reasons
+                // find out the choice made
+                let choice = self
+                    .choices
                     .pop()
                     .expect("Deduction reasons should not be exhausted");
-                let Reason::BiLogic(choice) = reason else {
+                let CheckChoice::BiLogic(choice) = choice else {
                     panic!("Should deduce on binary logic operator");
                 };
 
-                let chosen_inner = match choice {
+                // move to the chosen
+                match choice {
                     BiChoice::Left => op.a,
                     BiChoice::Right => op.b,
-                };
-
-                self.deduce_end(chosen_inner, reasons)
+                }
             }
             PropertyType::Next(op) => {
-                let reason = reasons
+                // find out the choice made
+                let choice = self
+                    .choices
                     .pop()
                     .expect("Deduction reasons should not be exhausted");
-                let Reason::Next(next_state_id) = reason else {
+                let CheckChoice::Next(next_state_id) = choice else {
                     panic!("Should deduce on next operator");
                 };
 
@@ -116,41 +134,53 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // add state to path
                 self.path.push_back(next_state_id);
 
-                self.deduce_end(op.inner, reasons)
+                // move to inner
+                op.inner
             }
-            PropertyType::FixedPoint(op) => self.deduce_end(op.inner, reasons),
+            PropertyType::FixedPoint(op) => {
+                // just move to inner
+                op.inner
+            }
             PropertyType::FixedVariable(fixed_point_index) => {
-                let reason = reasons
+                // find out the choice made
+                let choice = self
+                    .choices
                     .pop()
                     .expect("Deduction reasons should not be exhausted");
-                let Reason::FixedVariable(time) = reason else {
+                let CheckChoice::FixedVariable(choice_time) = choice else {
                     panic!("Should deduce on fixed variable");
                 };
 
-                // deduce on the variable from the given state
-                // TODO: manage times correctly
+                // ensure the choice has lesser time than current to ensure the deduction will finish
+                assert!(choice_time < self.current_time);
 
+                // replace the reasons with the reasons on the variable from the latest state and choice time
                 let current_state_id = *self.path.back().unwrap();
 
                 let value = self
                     .getter
                     .property_checker()
                     .get_history(*fixed_point_index)
-                    .before_time(time + 1, current_state_id)
+                    .up_to_time(choice_time, current_state_id)
                     .value;
 
-                let CheckValue::Unknown(mut reasons) = value.clone() else {
-                    panic!("Check value should be unknown when deducing from fixed point with state {}, time {}", current_state_id, time);
+                let CheckValue::Unknown(choices) = value.clone() else {
+                    panic!("Check value should be unknown when deducing from fixed point with state {}, time {}", current_state_id, choice_time);
                 };
+
+                self.choices = choices;
+                self.current_time = choice_time;
 
                 trace!(
                     "Deducing on new fixed point index {} with reasons {:?}",
                     fixed_point_index,
-                    reasons
+                    self.choices
                 );
 
-                self.deduce_end(*fixed_point_index, &mut reasons)
+                // move to inner index
+                *fixed_point_index
             }
-        }
+        };
+        Ok(ControlFlow::Continue(()))
     }
 }

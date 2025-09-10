@@ -4,7 +4,7 @@ use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
-use crate::model_check::property_checker::value::{CheckValue, Reason, TimedCheckValue};
+use crate::model_check::property_checker::value::{CheckChoice, CheckValue, TimedCheckValue};
 use crate::model_check::property_checker::{BiChoice, LabellingCacher};
 use crate::FullMachine;
 
@@ -45,9 +45,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                 *timed = timed_b;
             };
 
-            // add the reason
-            if let CheckValue::Unknown(reasons) = &mut timed.value {
-                reasons.push(Reason::BiLogic(choice));
+            // add the choice
+            if let CheckValue::Unknown(choices) = &mut timed.value {
+                choices.push(CheckChoice::BiLogic(choice));
             };
         }
 
@@ -60,9 +60,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                 BiChoice::Right => timed_b,
             };
 
-            // add the reason
-            if let CheckValue::Unknown(reasons) = &mut timed.value {
-                reasons.push(Reason::BiLogic(choice));
+            // add the choice
+            if let CheckValue::Unknown(choices) = &mut timed.value {
+                choices.push(CheckChoice::BiLogic(choice));
             };
 
             result.insert(state_id, timed);

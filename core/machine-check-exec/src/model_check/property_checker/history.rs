@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use machine_check_common::StateId;
 
 use crate::model_check::property_checker::value::{CheckValue, TimedCheckValue};
-use crate::model_check::property_checker::{squash_time, Reason};
+use crate::model_check::property_checker::{squash_time, CheckChoice};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FixedPointHistory {
@@ -206,9 +206,9 @@ impl FixedPointHistory {
 }
 
 fn squash_value(value: &mut CheckValue, time_mapping: &BTreeMap<u64, u64>) {
-    if let CheckValue::Unknown(reasons) = value {
-        for reason in reasons {
-            if let Reason::FixedVariable(time) = reason {
+    if let CheckValue::Unknown(choices) = value {
+        for choice in choices {
+            if let CheckChoice::FixedVariable(time) = choice {
                 *time = squash_time(time_mapping, *time);
             }
         }

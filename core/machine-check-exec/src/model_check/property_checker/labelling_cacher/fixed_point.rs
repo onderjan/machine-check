@@ -3,7 +3,7 @@ use machine_check_common::{property::FixedPointOperator, ExecError, StateId};
 use crate::{
     model_check::property_checker::{
         labelling_cacher::LabellingCacher,
-        value::{CheckValue, Reason, TimedCheckValue},
+        value::{CheckChoice, CheckValue, TimedCheckValue},
     },
     FullMachine,
 };
@@ -31,11 +31,11 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             .expect("History should exist for fixed point");
 
         let mut timed = history.before_time(self.current_time, state_id);
-        if let CheckValue::Unknown(reasons) = &mut timed.value {
+        if let CheckValue::Unknown(choices) = &mut timed.value {
             // clear the reasons and add the variable as the only reason
             // include the timing of the value to precisely capture it
-            reasons.clear();
-            reasons.push(Reason::FixedVariable(timed.time));
+            choices.clear();
+            choices.push(CheckChoice::FixedVariable(timed.time));
         };
 
         Ok(timed)

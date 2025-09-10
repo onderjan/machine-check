@@ -5,7 +5,7 @@ use machine_check_common::property::NextOperator;
 use machine_check_common::{ExecError, KnownParamValuation, NodeId, ParamValuation, StateId};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
-use crate::model_check::property_checker::value::{CheckValue, Reason, TimedCheckValue};
+use crate::model_check::property_checker::value::{CheckChoice, CheckValue, TimedCheckValue};
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingCacher<'_, M> {
@@ -118,8 +118,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
             assert!(timed.value.is_unknown());
 
-            if let CheckValue::Unknown(reasons) = &mut timed.value {
-                reasons.push(Reason::Next(successor_id));
+            if let CheckValue::Unknown(choices) = &mut timed.value {
+                choices.push(CheckChoice::Next(successor_id));
             }
             //log::trace!("Next selected {} -> {} immediately", node_id, successor_id);
             return Ok(timed);
@@ -156,7 +156,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         assert!(timed.value.is_unknown());
 
         if let CheckValue::Unknown(reasons) = &mut timed.value {
-            reasons.push(Reason::Next(*successor_id));
+            reasons.push(CheckChoice::Next(*successor_id));
         }
 
         /*if log::log_enabled!(log::Level::Trace) {

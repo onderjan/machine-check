@@ -5,7 +5,7 @@ use machine_check_common::{KnownParamValuation, ParamValuation, StateId};
 use crate::model_check::property_checker::BiChoice;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum Reason {
+pub enum CheckChoice {
     BiLogic(BiChoice),
     Next(StateId),
     FixedVariable(u64),
@@ -16,7 +16,7 @@ pub enum CheckValue {
     False,
     True,
     Dependent,
-    Unknown(Vec<Reason>),
+    Unknown(Vec<CheckChoice>),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -68,15 +68,15 @@ impl Debug for CheckValue {
             Self::False => write!(f, "False"),
             Self::True => write!(f, "True"),
             Self::Dependent => write!(f, "Dependent"),
-            Self::Unknown(reasons) => {
+            Self::Unknown(choices) => {
                 write!(f, "Unknown [")?;
 
-                for reason in reasons {
-                    match reason {
-                        Reason::BiLogic(BiChoice::Left) => write!(f, "BL"),
-                        Reason::BiLogic(BiChoice::Right) => write!(f, "BR"),
-                        Reason::Next(state_id) => write!(f, "N{}", state_id),
-                        Reason::FixedVariable(time) => write!(f, "V({})", time),
+                for choice in choices {
+                    match choice {
+                        CheckChoice::BiLogic(BiChoice::Left) => write!(f, "BL"),
+                        CheckChoice::BiLogic(BiChoice::Right) => write!(f, "BR"),
+                        CheckChoice::Next(state_id) => write!(f, "N{}", state_id),
+                        CheckChoice::FixedVariable(time) => write!(f, "V({})", time),
                     }?;
                     write!(f, ", ")?;
                 }
