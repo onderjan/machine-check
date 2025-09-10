@@ -39,11 +39,13 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             for (state_id, _value) in
                 intersect_state_set_and_map(affected_backward, history_previously_updated)
             {
-                let timed = self
-                    .getter()
-                    .compute_latest_timed(params.inner_index, state_id)?;
+                if !current_update.contains_key(&state_id) {
+                    let timed = self
+                        .getter()
+                        .compute_latest_timed(params.inner_index, state_id)?;
 
-                current_update.insert(state_id, timed);
+                    current_update.insert(state_id, timed);
+                }
             }
         }
         // backward-affected states that have been updated in current time are in danger since there might be no current update
@@ -53,11 +55,13 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             for (state_id, _value) in
                 intersect_state_set_and_map(affected_backward, history_currently_updated)
             {
-                let timed = self
-                    .getter()
-                    .compute_latest_timed(params.inner_index, state_id)?;
+                if !current_update.contains_key(&state_id) {
+                    let timed = self
+                        .getter()
+                        .compute_latest_timed(params.inner_index, state_id)?;
 
-                current_update.insert(state_id, timed);
+                    current_update.insert(state_id, timed);
+                }
             }
         }
 
