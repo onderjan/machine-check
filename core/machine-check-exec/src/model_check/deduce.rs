@@ -84,11 +84,10 @@ impl<M: FullMachine> Deducer<'_, M> {
             subproperty_entry,
         );
 
-        let ty = &subproperty_entry.ty;
-
-        match reason {
-            Reason::Atomic => {
-                let PropertyType::Atomic(atomic) = ty else {
+        match &subproperty_entry.ty {
+            PropertyType::Const(_) => panic!("Deduction should never reach const"),
+            PropertyType::Atomic(atomic) => {
+                let Reason::Atomic = reason else {
                     panic!("Should deduce on atomic property");
                 };
 
@@ -98,27 +97,26 @@ impl<M: FullMachine> Deducer<'_, M> {
                     atomic_property: atomic.clone(),
                 })
             }
-            Reason::Negation => {
-                let PropertyType::Negation(inner) = ty else {
+            PropertyType::Negation(inner) => {
+                let Reason::Negation = reason else {
                     panic!("Should deduce on negation operator");
                 };
-
                 self.deduce_end(*inner, reasons)
             }
-            Reason::BiLogic(bi_choice) => {
-                let PropertyType::BiLogic(op) = ty else {
+            PropertyType::BiLogic(op) => {
+                let Reason::BiLogic(choice) = reason else {
                     panic!("Should deduce on binary logic operator");
                 };
 
-                let chosen_inner = match bi_choice {
+                let chosen_inner = match choice {
                     BiChoice::Left => op.a,
                     BiChoice::Right => op.b,
                 };
 
                 self.deduce_end(chosen_inner, reasons)
             }
-            Reason::Next(next_state_id) => {
-                let PropertyType::Next(op) = ty else {
+            PropertyType::Next(op) => {
+                let Reason::Next(next_state_id) = reason else {
                     panic!("Should deduce on next operator");
                 };
 
@@ -134,15 +132,15 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                 self.deduce_end(op.inner, reasons)
             }
-            Reason::FixedPoint => {
-                let PropertyType::FixedPoint(op) = ty else {
+            PropertyType::FixedPoint(op) => {
+                let Reason::FixedPoint = reason else {
                     panic!("Should deduce on fixed point");
                 };
 
                 self.deduce_end(op.inner, reasons)
             }
-            Reason::FixedVariable(time) => {
-                let PropertyType::FixedVariable(fixed_point_index) = ty else {
+            PropertyType::FixedVariable(fixed_point_index) => {
+                let Reason::FixedVariable(time) = reason else {
                     panic!("Should deduce on fixed variable");
                 };
 
@@ -150,14 +148,6 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // TODO: manage times correctly
 
                 let current_state_id = *self.path.back().unwrap();
-                /*let value = self
-                .getter
-                .property_checker()
-                .get_history(*fixed_point_index)
-                .for_state(current_state_id)
-                .expect("Should deduce on history of fixed variable state")
-                .get(&time)
-                .expect("Should deduce on exact time of fixed variable state");*/
 
                 let value = self
                     .getter
@@ -169,8 +159,6 @@ impl<M: FullMachine> Deducer<'_, M> {
                 let CheckValue::Unknown(mut reasons) = value.clone() else {
                     panic!("Check value should be unknown when deducing from fixed point with state {}, time {}", current_state_id, time);
                 };
-                // add the outer fixed point
-                //reasons.push(Reason::FixedPoint);
 
                 trace!(
                     "Deducing on new fixed point index {} with reasons {:?}",
