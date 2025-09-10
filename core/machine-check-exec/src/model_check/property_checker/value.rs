@@ -6,11 +6,8 @@ use crate::model_check::property_checker::BiChoice;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Reason {
-    Atomic,
-    Negation,
     BiLogic(BiChoice),
     Next(StateId),
-    FixedPoint,
     FixedVariable(u64),
 }
 
@@ -76,12 +73,9 @@ impl Debug for CheckValue {
 
                 for reason in reasons {
                     match reason {
-                        Reason::Atomic => write!(f, "A"),
-                        Reason::Negation => write!(f, "N"),
                         Reason::BiLogic(BiChoice::Left) => write!(f, "BL"),
                         Reason::BiLogic(BiChoice::Right) => write!(f, "BR"),
                         Reason::Next(state_id) => write!(f, "N{}", state_id),
-                        Reason::FixedPoint => write!(f, "F"),
                         Reason::FixedVariable(time) => write!(f, "V({})", time),
                     }?;
                     write!(f, ", ")?;

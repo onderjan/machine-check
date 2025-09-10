@@ -33,9 +33,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 // no change
                 CheckValue::Dependent
             }
-            CheckValue::Unknown(mut reasons) => {
-                // add negation reason
-                reasons.push(Reason::Negation);
+            CheckValue::Unknown(reasons) => {
+                // no change
                 CheckValue::Unknown(reasons)
             }
         };

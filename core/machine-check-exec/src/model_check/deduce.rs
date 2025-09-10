@@ -73,37 +73,20 @@ impl<M: FullMachine> Deducer<'_, M> {
 
         let subproperty_entry = self.property.subproperty_entry(subproperty_index);
 
-        let reason = reasons
-            .pop()
-            .expect("Deduction reasons should not be exhausted");
-
-        trace!(
-            "Reason {:?}, subproperty {} entry {:?}",
-            reason,
-            subproperty_index,
-            subproperty_entry,
-        );
-
         match &subproperty_entry.ty {
             PropertyType::Const(_) => panic!("Deduction should never reach const"),
             PropertyType::Atomic(atomic) => {
-                let Reason::Atomic = reason else {
-                    panic!("Should deduce on atomic property");
-                };
-
                 // culprit ends here
                 Ok(Culprit {
                     path: self.path.clone(),
                     atomic_property: atomic.clone(),
                 })
             }
-            PropertyType::Negation(inner) => {
-                let Reason::Negation = reason else {
-                    panic!("Should deduce on negation operator");
-                };
-                self.deduce_end(*inner, reasons)
-            }
+            PropertyType::Negation(inner) => self.deduce_end(*inner, reasons),
             PropertyType::BiLogic(op) => {
+                let reason = reasons
+                    .pop()
+                    .expect("Deduction reasons should not be exhausted");
                 let Reason::BiLogic(choice) = reason else {
                     panic!("Should deduce on binary logic operator");
                 };
@@ -116,6 +99,9 @@ impl<M: FullMachine> Deducer<'_, M> {
                 self.deduce_end(chosen_inner, reasons)
             }
             PropertyType::Next(op) => {
+                let reason = reasons
+                    .pop()
+                    .expect("Deduction reasons should not be exhausted");
                 let Reason::Next(next_state_id) = reason else {
                     panic!("Should deduce on next operator");
                 };
@@ -132,14 +118,11 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                 self.deduce_end(op.inner, reasons)
             }
-            PropertyType::FixedPoint(op) => {
-                let Reason::FixedPoint = reason else {
-                    panic!("Should deduce on fixed point");
-                };
-
-                self.deduce_end(op.inner, reasons)
-            }
+            PropertyType::FixedPoint(op) => self.deduce_end(op.inner, reasons),
             PropertyType::FixedVariable(fixed_point_index) => {
+                let reason = reasons
+                    .pop()
+                    .expect("Deduction reasons should not be exhausted");
                 let Reason::FixedVariable(time) = reason else {
                     panic!("Should deduce on fixed variable");
                 };

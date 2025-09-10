@@ -15,12 +15,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
         // the current valuation is equal to the inner valuation
-        let mut timed = self.compute_latest_timed(op.inner, state_id)?;
-        // add the reason
-        if let CheckValue::Unknown(reasons) = &mut timed.value {
-            reasons.push(Reason::FixedPoint);
-        };
-        Ok(timed)
+        self.compute_latest_timed(op.inner, state_id)
     }
 
     pub fn compute_fixed_variable(

@@ -8,7 +8,7 @@ pub use local::BiChoice;
 
 use crate::{
     model_check::property_checker::{
-        value::{CheckValue, Reason, TimedCheckValue},
+        value::{CheckValue, TimedCheckValue},
         PropertyChecker,
     },
     space::StateSpace,
@@ -61,7 +61,7 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
                 let value = match three_valued {
                     ThreeValued::False => CheckValue::False,
                     ThreeValued::True => CheckValue::True,
-                    ThreeValued::Unknown => CheckValue::Unknown(vec![Reason::Atomic]),
+                    ThreeValued::Unknown => CheckValue::Unknown(vec![]),
                 };
 
                 TimedCheckValue::new(0, value)
