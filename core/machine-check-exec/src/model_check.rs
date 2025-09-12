@@ -1,4 +1,5 @@
 mod deduce;
+mod nonincremental;
 mod property_checker;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -79,8 +80,17 @@ impl ThreeValuedChecker {
         }
 
         if result.is_known() {
-            // double-check known result
+            // double-check known result using the incremental algorithm non-incrementally
             property_checker.double_check(space)?;
+
+            // triple-check known result using the non-incremental algorithm
+            let basic_result = nonincremental::check_property(space, property)?;
+            if result != basic_result {
+                panic!(
+                    "Result {:?} does not match the result of basic non-incremental algorithm {:?}",
+                    result, basic_result
+                );
+            }
         }
 
         // compute optimistic and pessimistic interpretation and get the conclusion from that
