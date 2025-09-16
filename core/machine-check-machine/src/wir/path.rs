@@ -1,3 +1,4 @@
+use machine_check_common::iir::path::IIdent;
 use proc_macro2::Span;
 use std::hash::Hash;
 use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment, Token};
@@ -196,6 +197,10 @@ impl WIdent {
             format!("__mck_{}_{}", prefix, stripped_ident_str),
             self.span(),
         )
+    }
+
+    pub fn into_iir(self) -> IIdent {
+        IIdent::new(self.name, self.span)
     }
 }
 

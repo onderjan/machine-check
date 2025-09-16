@@ -6,9 +6,9 @@ use machine_check_common::property::AtomicProperty;
 use machine_check_common::property::ComparisonType;
 use machine_check_common::ExecError;
 use machine_check_common::Signedness;
-use machine_check_common::ThreeValued;
 use mck::abstr::{ManipField, Manipulatable};
 use mck::concr::FullMachine;
+use mck::three_valued::ThreeValued;
 use petgraph::graphmap::GraphMap;
 use petgraph::Directed;
 

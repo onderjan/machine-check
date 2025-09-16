@@ -167,4 +167,8 @@ impl<const I: u32, const W: u32> ManipField for Array<I, W> {
             inner,
         })
     }
+
+    fn runtime_bitvector(&self) -> Option<abstr::RBitvector> {
+        None
+    }
 }

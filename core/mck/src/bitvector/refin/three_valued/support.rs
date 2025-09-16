@@ -1,14 +1,74 @@
 use std::num::NonZeroU8;
 
 use crate::{
-    bitvector::{abstr::ThreeValuedBitvector, refin::FromRefin},
-    concr::ConcreteBitvector,
+    bitvector::{
+        abstr::{RThreeValuedBitvector, ThreeValuedBitvector},
+        refin::{
+            three_valued::{RBitvectorMark, RMarkBitvector},
+            FromRefin,
+        },
+    },
+    concr::{ConcreteBitvector, RConcreteBitvector},
     forward::{self, HwArith},
     refin::{Boolean, ManipField, Refine},
     traits::misc::MetaEq,
 };
 
 use super::{BitvectorMark, MarkBitvector};
+
+impl RMarkBitvector {
+    pub fn new(mark: RConcreteBitvector, importance: NonZeroU8, width: u32) -> Self {
+        assert_eq!(mark.width(), width);
+        let inner = if mark.is_nonzero() {
+            Some(RBitvectorMark { mark, importance })
+        } else {
+            None
+        };
+        Self { inner, width }
+    }
+
+    pub fn new_unmarked(width: u32) -> Self {
+        Self { inner: None, width }
+    }
+    pub fn new_marked(importance: NonZeroU8, width: u32) -> Self {
+        if width == 0 {
+            return Self::new_unmarked(width);
+        }
+        let zero = RConcreteBitvector::new(0, width);
+        let one = RConcreteBitvector::new(1, width);
+        // definitely nonzero
+        Self {
+            inner: Some(RBitvectorMark {
+                mark: HwArith::sub(zero, one),
+                importance,
+            }),
+            width,
+        }
+    }
+
+    pub fn new_marked_unimportant(width: u32) -> Self {
+        Self::new_marked(MarkBitvector::<64>::LOWEST_IMPORTANCE, width)
+    }
+
+    pub fn limit(&self, abstract_bitvec: RThreeValuedBitvector) -> RMarkBitvector {
+        assert_eq!(self.width, abstract_bitvec.width());
+        if let Some(own_mark) = self.inner {
+            let result_mark =
+                forward::Bitwise::bit_and(own_mark.mark, abstract_bitvec.get_unknown_bits());
+            Self::new(result_mark, own_mark.importance, self.width)
+        } else {
+            Self::new_unmarked(self.width)
+        }
+    }
+
+    pub fn marked_bits(&self) -> RConcreteBitvector {
+        if let Some(mark) = self.inner {
+            mark.mark
+        } else {
+            RConcreteBitvector::new(0, self.width)
+        }
+    }
+}
 
 impl<const W: u32> MarkBitvector<W> {
     const LOWEST_IMPORTANCE: NonZeroU8 = Self::lowest_importance();
@@ -80,6 +140,54 @@ impl<const W: u32> MarkBitvector<W> {
     pub fn get(&self) -> &Option<BitvectorMark<W>> {
         &self.0
     }
+
+    fn to_runtime(self) -> RMarkBitvector {
+        RMarkBitvector {
+            inner: self.0.map(|inner| RBitvectorMark {
+                importance: inner.importance,
+                mark: inner.mark.to_runtime(),
+            }),
+            width: W,
+        }
+    }
+}
+
+pub(super) fn runtime_default_uni_mark(
+    normal_input: (RThreeValuedBitvector,),
+    mark_later: RMarkBitvector,
+) -> (RMarkBitvector,) {
+    // normal input and earlier mark (result) have the same width
+    // mark later can have another width
+
+    let Some(mark_later) = mark_later.inner else {
+        return (RMarkBitvector::new_unmarked(normal_input.0.width()),);
+    };
+    (
+        RMarkBitvector::new_marked(mark_later.importance, normal_input.0.width())
+            .limit(normal_input.0),
+    )
+}
+
+pub(super) fn runtime_default_bi_mark(
+    normal_input: (RThreeValuedBitvector, RThreeValuedBitvector),
+    mark_later: RMarkBitvector,
+) -> (RMarkBitvector, RMarkBitvector) {
+    assert_eq!(normal_input.0.width(), normal_input.1.width());
+    let width = normal_input.0.width();
+
+    // normal inputs and earlier marks (result parts) have the same width
+    // mark later can have another width
+
+    let Some(mark_later) = mark_later.inner else {
+        return (
+            RMarkBitvector::new_unmarked(width),
+            RMarkBitvector::new_unmarked(width),
+        );
+    };
+    (
+        RMarkBitvector::new_marked(mark_later.importance, width).limit(normal_input.0),
+        RMarkBitvector::new_marked(mark_later.importance, width).limit(normal_input.1),
+    )
 }
 
 pub(super) fn default_uni_mark<const W: u32, const X: u32>(
@@ -138,5 +246,11 @@ impl From<Boolean> for MarkBitvector<1> {
 impl From<MarkBitvector<1>> for Boolean {
     fn from(value: MarkBitvector<1>) -> Self {
         Boolean(FromRefin::from_refin(value))
+    }
+}
+
+impl Boolean {
+    pub(crate) fn to_runtime_bitvector(self) -> RMarkBitvector {
+        self.0.to_runtime()
     }
 }

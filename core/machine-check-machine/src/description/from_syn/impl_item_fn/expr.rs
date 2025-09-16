@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use machine_check_common::ir_common::{IrReference, IrStdBinaryOp, IrStdUnaryOp, IrTypeArray};
 use syn::{
     punctuated::Punctuated, spanned::Spanned, token::Comma, Expr, ExprBinary, ExprCall, ExprField,
     ExprIndex, ExprLit, ExprReference, ExprStruct, ExprUnary, GenericArgument, Lit, Member, Path,
@@ -16,10 +17,9 @@ use crate::{
     wir::{
         WArrayBaseExpr, WBasicType, WCall, WCallArg, WExpr, WExprField, WExprHighCall,
         WExprReference, WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WHighStdIntoType,
-        WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt, WReference, WSpan, WStdBinary,
-        WStdBinaryOp, WStdUnary, WStdUnaryOp, WStmtAssign, WType, WTypeArray, ZTac,
-        MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW,
-        MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
+        WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt, WSpan, WStdBinary, WStdUnary,
+        WStmtAssign, WType, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW,
+        MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
     },
 };
 
@@ -140,10 +140,10 @@ impl RightExprFolder<'_> {
             nongeneric_path_string += &segment.ident.to_string();
         }
 
-        if let Ok(unary_op) = WStdUnaryOp::from_str(&nongeneric_path_string) {
+        if let Ok(unary_op) = IrStdUnaryOp::from_str(&nongeneric_path_string) {
             return self.create_std_unary(unary_op, fn_path, expr_call.args);
         }
-        if let Ok(binary_op) = WStdBinaryOp::from_str(&nongeneric_path_string) {
+        if let Ok(binary_op) = IrStdBinaryOp::from_str(&nongeneric_path_string) {
             return self.create_std_binary(binary_op, fn_path, expr_call.args);
         }
         match nongeneric_path_string.as_str() {
@@ -189,7 +189,7 @@ impl RightExprFolder<'_> {
 
     fn create_std_unary(
         &mut self,
-        op: WStdUnaryOp,
+        op: IrStdUnaryOp,
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
     ) -> Result<WExprHighCall, Error> {
@@ -200,7 +200,7 @@ impl RightExprFolder<'_> {
 
     fn create_std_binary(
         &mut self,
-        op: WStdBinaryOp,
+        op: IrStdBinaryOp,
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
     ) -> Result<WExprHighCall, Error> {
@@ -238,7 +238,7 @@ impl RightExprFolder<'_> {
             let fill_ident = self.parse_single_ident_arg(args)?;
 
             return Ok(WExprHighCall::MckNew(WHighMckNew::BitvectorArray(
-                WTypeArray {
+                IrTypeArray {
                     index_width,
                     element_width,
                 },
@@ -274,7 +274,7 @@ impl RightExprFolder<'_> {
         let ty = self.parse_single_type_generics(third_segment)?;
         third_segment.arguments = syn::PathArguments::None;
 
-        let WReference::None = ty.reference else {
+        let IrReference::None = ty.reference else {
             return Err(Error::unsupported_syn_construct(
                 "Reference type",
                 &third_segment,

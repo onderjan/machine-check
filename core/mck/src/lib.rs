@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+pub mod three_valued;
+
 mod array;
 mod bitvector;
 mod boolean;
@@ -64,5 +66,6 @@ pub mod backward {
 #[doc(hidden)]
 pub mod misc {
     pub use super::array::light::*;
+    pub use super::panic::message::*;
     pub use super::traits::misc::*;
 }

@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
+use machine_check_common::ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrStdBinaryOp, IrStdUnaryOp};
+
 use crate::{
     description::{Error, ErrorType},
     wir::{
         WBasicType, WCall, WExpr, WExprCall, WExprHighCall, WGeneralType, WHighMckExt, WHighMckNew,
-        WIdent, WMckBinary, WMckBinaryOp, WMckExt, WMckNew, WMckUnary, WMckUnaryOp, WSpanned,
-        WStdBinary, WStdBinaryOp, WStdUnary, WStdUnaryOp,
+        WIdent, WMckBinary, WMckExt, WMckNew, WMckUnary, WSpanned, WStdBinary, WStdUnary,
     },
 };
 
@@ -42,8 +43,8 @@ fn convert_call(call: WCall) -> WCall {
 
 fn convert_unary(call: WStdUnary) -> WMckUnary {
     let op = match call.op {
-        WStdUnaryOp::Not => WMckUnaryOp::Not,
-        WStdUnaryOp::Neg => WMckUnaryOp::Neg,
+        IrStdUnaryOp::Not => IrMckUnaryOp::Not,
+        IrStdUnaryOp::Neg => IrMckUnaryOp::Neg,
     };
     WMckUnary {
         op,
@@ -59,13 +60,13 @@ fn convert_binary(
     let mut right_arg = call.b;
 
     let op = match call.op {
-        WStdBinaryOp::BitAnd => WMckBinaryOp::BitAnd,
-        WStdBinaryOp::BitOr => WMckBinaryOp::BitOr,
-        WStdBinaryOp::BitXor => WMckBinaryOp::BitXor,
-        WStdBinaryOp::Shl => WMckBinaryOp::LogicShl,
-        WStdBinaryOp::Shr => match signedness(&left_arg, local_types) {
-            Some(true) => WMckBinaryOp::ArithShr,
-            Some(false) => WMckBinaryOp::LogicShr,
+        IrStdBinaryOp::BitAnd => IrMckBinaryOp::BitAnd,
+        IrStdBinaryOp::BitOr => IrMckBinaryOp::BitOr,
+        IrStdBinaryOp::BitXor => IrMckBinaryOp::BitXor,
+        IrStdBinaryOp::Shl => IrMckBinaryOp::LogicShl,
+        IrStdBinaryOp::Shr => match signedness(&left_arg, local_types) {
+            Some(true) => IrMckBinaryOp::ArithShr,
+            Some(false) => IrMckBinaryOp::LogicShr,
             None => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine right shift signedness"),
@@ -73,18 +74,18 @@ fn convert_binary(
                 ))
             }
         },
-        WStdBinaryOp::Add => WMckBinaryOp::Add,
-        WStdBinaryOp::Sub => WMckBinaryOp::Sub,
-        WStdBinaryOp::Mul => WMckBinaryOp::Mul,
-        WStdBinaryOp::Eq => WMckBinaryOp::Eq,
-        WStdBinaryOp::Ne => WMckBinaryOp::Ne,
-        WStdBinaryOp::Lt | WStdBinaryOp::Le | WStdBinaryOp::Gt | WStdBinaryOp::Ge => {
-            if matches!(call.op, WStdBinaryOp::Gt | WStdBinaryOp::Ge) {
+        IrStdBinaryOp::Add => IrMckBinaryOp::Add,
+        IrStdBinaryOp::Sub => IrMckBinaryOp::Sub,
+        IrStdBinaryOp::Mul => IrMckBinaryOp::Mul,
+        IrStdBinaryOp::Eq => IrMckBinaryOp::Eq,
+        IrStdBinaryOp::Ne => IrMckBinaryOp::Ne,
+        IrStdBinaryOp::Lt | IrStdBinaryOp::Le | IrStdBinaryOp::Gt | IrStdBinaryOp::Ge => {
+            if matches!(call.op, IrStdBinaryOp::Gt | IrStdBinaryOp::Ge) {
                 // swap arguments
                 std::mem::swap(&mut left_arg, &mut right_arg);
             }
 
-            let includes_equality = matches!(call.op, WStdBinaryOp::Le | WStdBinaryOp::Ge);
+            let includes_equality = matches!(call.op, IrStdBinaryOp::Le | IrStdBinaryOp::Ge);
 
             let (Some(left_is_signed), Some(right_is_signed)) = (
                 signedness(&left_arg, local_types),
@@ -104,19 +105,19 @@ fn convert_binary(
 
             if left_is_signed {
                 if includes_equality {
-                    WMckBinaryOp::Sle
+                    IrMckBinaryOp::Sle
                 } else {
-                    WMckBinaryOp::Slt
+                    IrMckBinaryOp::Slt
                 }
             } else if includes_equality {
-                WMckBinaryOp::Ule
+                IrMckBinaryOp::Ule
             } else {
-                WMckBinaryOp::Ult
+                IrMckBinaryOp::Ult
             }
         }
-        WStdBinaryOp::Div => match signedness(&left_arg, local_types) {
-            Some(true) => WMckBinaryOp::Sdiv,
-            Some(false) => WMckBinaryOp::Udiv,
+        IrStdBinaryOp::Div => match signedness(&left_arg, local_types) {
+            Some(true) => IrMckBinaryOp::Sdiv,
+            Some(false) => IrMckBinaryOp::Udiv,
             None => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine division signedness"),
@@ -124,9 +125,9 @@ fn convert_binary(
                 ))
             }
         },
-        WStdBinaryOp::Rem => match signedness(&left_arg, local_types) {
-            Some(true) => WMckBinaryOp::Srem,
-            Some(false) => WMckBinaryOp::Urem,
+        IrStdBinaryOp::Rem => match signedness(&left_arg, local_types) {
+            Some(true) => IrMckBinaryOp::Srem,
+            Some(false) => IrMckBinaryOp::Urem,
             None => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine remainder signedness"),

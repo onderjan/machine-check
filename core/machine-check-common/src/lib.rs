@@ -4,15 +4,16 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub mod check;
+pub mod iir;
+pub mod ir_common;
 pub mod property;
 
 mod node_id;
 mod value;
 
-pub use value::{
-    param_valuation::{KnownParamValuation, ParamValuation},
-    three_valued::ThreeValued,
-};
+pub use value::param_valuation::{KnownParamValuation, ParamValuation};
+
+pub use mck::three_valued::ThreeValued;
 
 pub use node_id::{NodeId, StateId};
 
@@ -117,34 +118,3 @@ pub enum Signedness {
     Unsigned,
     Signed,
 }
-
-/// Number of the message that signifies no panic.
-///
-/// This is only an implementation detail and should be removed later.
-pub const PANIC_NUM_NO_PANIC: u64 = 0;
-
-/// Number of the message that signifies a panic due to a division by zero.
-///
-/// This is only an implementation detail and should be removed later.
-pub const PANIC_NUM_DIV_BY_ZERO: u64 = 1;
-
-/// Message that signifies a panic due to a division by zero.
-///
-/// This is only an implementation detail and should be removed later.
-pub const PANIC_MSG_DIV_BY_ZERO: &str = "attempt to divide by zero";
-
-/// Number of the message that signifies a panic due to a division by zero
-/// when computing the remainder.
-///
-/// This is only an implementation detail and should be removed later.
-pub const PANIC_NUM_REM_BY_ZERO: u64 = 2;
-
-/// Message that signifies a panic due to a division by zero when computing the remainder.
-///
-/// This is only an implementation detail and should be removed later.
-pub const PANIC_MSG_REM_BY_ZERO: &str = "attempt to calculate the remainder with a divisor of zero";
-
-/// Number of the first custom message that signifies a panic.
-///
-/// This is only an implementation detail and should be removed later.
-pub const PANIC_NUM_FIRST_CUSTOM: u64 = 3;

@@ -1436,7 +1436,10 @@ dependencies = [
 name = "machine-check-common"
 version = "0.6.1"
 dependencies = [
+ "mck",
+ "proc-macro2",
  "serde",
+ "strum 0.27.1",
  "thiserror 1.0.49",
 ]
 
@@ -1581,7 +1584,6 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 name = "mck"
 version = "0.6.1"
 dependencies = [
- "machine-check-common",
  "num",
  "seq-macro",
  "serde",

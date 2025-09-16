@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use machine_check_common::ir_common::IrReference;
 use syn_path::path;
 
 use crate::{
@@ -7,8 +8,8 @@ use crate::{
     refin::{WRefinRightExpr, ZRefin},
     util::{create_expr_call, create_expr_path, ArgType},
     wir::{
-        IntoSyn, WBlock, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent, WReference,
-        WStmt, WStmtAssign, WStmtIf, WType,
+        IntoSyn, WBlock, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent, WStmt,
+        WStmtAssign, WStmtIf, WType,
     },
 };
 
@@ -72,14 +73,14 @@ impl ForwardFolder {
 
         let (was_reference, clone_type) = match ty {
             WGeneralType::Normal(ty) => (
-                !matches!(ty.reference, WReference::None),
+                !matches!(ty.reference, IrReference::None),
                 WGeneralType::Normal(WType {
-                    reference: WReference::None,
+                    reference: IrReference::None,
                     inner: ty.inner.clone(),
                 }),
             ),
             WGeneralType::PanicResult(ty) => {
-                assert!(matches!(ty.reference, WReference::None));
+                assert!(matches!(ty.reference, IrReference::None));
                 (false, WGeneralType::PanicResult(ty.clone()))
             }
             WGeneralType::PhiArg(_) => panic!("Unexpected phi arg"),

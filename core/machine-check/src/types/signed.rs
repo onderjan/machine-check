@@ -3,10 +3,10 @@ use std::{
     ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub},
 };
 
-use machine_check_common::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO};
 use mck::{
     concr::{self, IntoMck},
     forward::{Bitwise, HwArith, HwShift},
+    misc::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO},
 };
 
 use crate::{traits::Ext, Bitvector, Unsigned};

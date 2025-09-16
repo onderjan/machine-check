@@ -6,11 +6,91 @@ use std::{
 use num::{One, Zero};
 
 use crate::{
-    concr::PanicResult,
+    concr::{PanicResult, RConcreteBitvector},
     forward::{Ext, HwArith, HwShift},
 };
 
 use super::ConcreteBitvector;
+
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct RUnsignedBitvector(RConcreteBitvector);
+
+impl RUnsignedBitvector {
+    pub(super) const fn from_bitvector(bitvector: RConcreteBitvector) -> Self {
+        RUnsignedBitvector(bitvector)
+    }
+
+    pub fn as_bitvector(self) -> RConcreteBitvector {
+        self.0
+    }
+
+    pub fn to_u64(self) -> u64 {
+        self.0.to_u64()
+    }
+}
+
+impl PartialOrd for RUnsignedBitvector {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for RUnsignedBitvector {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // unsigned comparison
+        self.0.unsigned_cmp(&other.0)
+    }
+}
+
+impl Add<RUnsignedBitvector> for RUnsignedBitvector {
+    type Output = Self;
+
+    fn add(self, rhs: RUnsignedBitvector) -> Self::Output {
+        Self(self.0.add(rhs.0))
+    }
+}
+
+impl Sub<RUnsignedBitvector> for RUnsignedBitvector {
+    type Output = Self;
+
+    fn sub(self, rhs: RUnsignedBitvector) -> Self::Output {
+        Self(self.0.sub(rhs.0))
+    }
+}
+
+impl Mul<RUnsignedBitvector> for RUnsignedBitvector {
+    type Output = Self;
+
+    fn mul(self, rhs: RUnsignedBitvector) -> Self::Output {
+        Self(self.0.mul(rhs.0))
+    }
+}
+
+impl Div<RUnsignedBitvector> for RUnsignedBitvector {
+    type Output = PanicResult<Self>;
+
+    fn div(self, rhs: RUnsignedBitvector) -> PanicResult<Self> {
+        // unsigned division
+        let panic_result = self.0.udiv(rhs.0);
+        PanicResult {
+            panic: panic_result.panic,
+            result: Self(panic_result.result),
+        }
+    }
+}
+
+impl Rem<RUnsignedBitvector> for RUnsignedBitvector {
+    type Output = PanicResult<Self>;
+
+    fn rem(self, rhs: RUnsignedBitvector) -> PanicResult<Self> {
+        // unsigned remainder
+        let panic_result = self.0.urem(rhs.0);
+        PanicResult {
+            panic: panic_result.panic,
+            result: Self(panic_result.result),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UnsignedBitvector<const W: u32>(ConcreteBitvector<W>);

@@ -2,19 +2,19 @@ use crate::{concr::RConcreteBitvector, forward::Bitwise};
 
 use super::ConcreteBitvector;
 
-impl RConcreteBitvector {
-    pub fn bit_not(self) -> Self {
+impl Bitwise for RConcreteBitvector {
+    fn bit_not(self) -> Self {
         Self::from_masked_u64(!self.value, self.width)
     }
-    pub fn bit_and(self, rhs: Self) -> Self {
+    fn bit_and(self, rhs: Self) -> Self {
         assert_eq!(self.width, rhs.width);
         Self::from_masked_u64(self.value & rhs.value, self.width)
     }
-    pub fn bit_or(self, rhs: Self) -> Self {
+    fn bit_or(self, rhs: Self) -> Self {
         assert_eq!(self.width, rhs.width);
         Self::from_masked_u64(self.value | rhs.value, self.width)
     }
-    pub fn bit_xor(self, rhs: Self) -> Self {
+    fn bit_xor(self, rhs: Self) -> Self {
         assert_eq!(self.width, rhs.width);
         Self::from_masked_u64(self.value ^ rhs.value, self.width)
     }

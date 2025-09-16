@@ -2,10 +2,10 @@ use crate::backend::BackendSettings;
 use crate::shared::snapshot::log::Log;
 use crate::shared::snapshot::{Node, Snapshot, StateInfo, StateSpace, SubpropertySnapshot};
 use machine_check_common::property::{Property, Subproperty};
-use machine_check_common::ThreeValued;
 use machine_check_exec::Framework;
 use mck::abstr::BitvectorDomain;
 use mck::concr::FullMachine;
+use mck::three_valued::ThreeValued;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Backend workspace.

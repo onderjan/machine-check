@@ -21,7 +21,9 @@ pub struct RConcreteBitvector {
     width: u32,
 }
 
-pub(crate) use signed::SignedBitvector;
+pub(crate) use signed::{RSignedBitvector, SignedBitvector};
 
-pub use unsigned::UnsignedBitvector;
+pub use unsigned::{RUnsignedBitvector, UnsignedBitvector};
+
 pub use ConcreteBitvector as Bitvector;
+pub use RConcreteBitvector as RBitvector;

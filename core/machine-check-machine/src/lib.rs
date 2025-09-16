@@ -1,22 +1,27 @@
 #![doc = include_str!("../README.md")]
 
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
+use machine_check_common::iir::IProperty;
+use machine_check_common::ir_common::IrTypeArray;
+use mck::concr::FullMachine;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use support::error_list::ErrorList;
 use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
-use syn::{parse_quote, Attribute, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
+use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
 use syn_path::path;
 use wir::IntoSyn;
 
 use crate::util::create_item_mod;
-use crate::wir::WSpan;
+use crate::wir::{WBasicType, WElementaryType, WIdent, WSpan};
 
 mod abstr;
 mod concr;
 mod description;
+mod into_iir;
 mod refin;
 mod support;
 mod util;
@@ -45,6 +50,96 @@ pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Errors> {
     };
     process_items(items)?;
     Ok(module)
+}
+
+pub fn process_property<M: FullMachine>(
+    machine: &M::Abstr,
+    property: &str,
+) -> Result<IProperty, Errors> {
+    let expr: Expr = syn::parse_str(property).map_err(|err| {
+        Errors::single(Error::new(
+            ErrorType::ExpressionParseError(err.to_string()),
+            WSpan::from_span(err.span()),
+        ))
+    })?;
+    println!("Parsed: {:?}", expr);
+
+    // TODO: get field descriptions without constructing and stepping the machine
+    let mut global_ident_types = {
+        use mck::abstr::Machine;
+        use mck::misc::Meta;
+        use mck::refin::Refine;
+
+        let input_precision = <<M as FullMachine>::Refin as mck::refin::Machine<M>>::Input::clean();
+        let mut input_proto_iter = input_precision.into_proto_iter();
+        let param_precision = <<M as FullMachine>::Refin as mck::refin::Machine<M>>::Param::clean();
+        let mut param_proto_iter = param_precision.into_proto_iter();
+        let panic_result = machine.init(
+            &input_proto_iter
+                .next()
+                .expect("Proto iterator should have at least one element"),
+            &param_proto_iter
+                .next()
+                .expect("Proto iterator should have at least one element"),
+        );
+        use mck::abstr::Manipulatable;
+        let mut global_ident_types = BTreeMap::new();
+        for field_name in
+            <<M::Abstr as mck::abstr::Machine<M>>::State as Manipulatable>::field_names()
+        {
+            let field = Manipulatable::get(&panic_result.result, field_name)
+                .expect("Field should be gettable");
+
+            let ty = match field.description() {
+                mck::abstr::Field::Bitvector(field) => WElementaryType::Bitvector(field.bit_width),
+
+                mck::abstr::Field::Array(field) => WElementaryType::Array(IrTypeArray {
+                    index_width: field.bit_length,
+                    element_width: field.bit_width,
+                }),
+            };
+
+            global_ident_types.insert(WIdent::new(String::from(field_name), Span::call_site()), ty);
+        }
+
+        global_ident_types
+    };
+
+    global_ident_types.insert(
+        WIdent::new(String::from("__panic"), Span::call_site()),
+        WElementaryType::Bitvector(32),
+    );
+
+    global_ident_types.insert(
+        WIdent::new(String::from("__mck_subproperty_0"), Span::call_site()),
+        WElementaryType::Bitvector(32),
+    );
+
+    let mut global_basic_types = HashMap::new();
+
+    // TODO: get signedness information
+    for (global_name, elementary_type) in &global_ident_types {
+        let ty = match elementary_type {
+            WElementaryType::Bitvector(width) => WBasicType::Bitvector(*width),
+            WElementaryType::Array(type_array) => WBasicType::BitvectorArray(type_array.clone()),
+            WElementaryType::Boolean => todo!(),
+            WElementaryType::Path(_path) => todo!(),
+        };
+        global_basic_types.insert(global_name.clone(), ty);
+    }
+
+    // TODO: do something with the panic messages
+    let (description, _panic_messages) =
+        description::create_property_description(expr, &global_basic_types)?;
+    let description = abstr::create_abstract_property(description);
+
+    //println!("Abstract description: {:?}", description);
+
+    let property = description.into_property_iir(global_ident_types);
+    println!("Property: {:#?}", property);
+
+    //interpret::execute_function(&description, "property");
+    Ok(property)
 }
 
 pub fn default_main() -> Item {

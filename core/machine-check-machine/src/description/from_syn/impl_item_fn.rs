@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
+use machine_check_common::ir_common::IrReference;
 use proc_macro2::Span;
 use syn::{
     spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, Pat, Signature,
@@ -16,8 +17,8 @@ use crate::{
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WReference,
-        WSignature, WSpan, WTacLocal, WType, YTac,
+        WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WSignature, WSpan,
+        WTacLocal, WType, YTac,
     },
 };
 
@@ -215,10 +216,10 @@ impl FunctionFolder {
                                 &receiver.mutability,
                             ));
                         } else {
-                            WReference::Immutable
+                            IrReference::Immutable
                         }
                     }
-                    None => WReference::None,
+                    None => IrReference::None,
                 };
 
                 // do not scope self, it is unnecessary

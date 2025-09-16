@@ -7,31 +7,35 @@ use crate::{
 
 use super::ConcreteBitvector;
 
-impl RConcreteBitvector {
-    pub fn typed_slt(self, rhs: Self) -> Boolean {
+impl TypedCmp for RConcreteBitvector {
+    type Output = Boolean;
+
+    fn slt(self, rhs: Self) -> Boolean {
         assert_eq!(self.width, rhs.width);
         let result = self.to_i64() < rhs.to_i64();
         Boolean::new(result as u64)
     }
 
-    pub fn typed_ult(self, rhs: Self) -> Boolean {
+    fn ult(self, rhs: Self) -> Boolean {
         assert_eq!(self.width, rhs.width);
         let result = self.to_u64() < rhs.to_u64();
         Boolean::new(result as u64)
     }
 
-    pub fn typed_sle(self, rhs: Self) -> Boolean {
+    fn sle(self, rhs: Self) -> Boolean {
         assert_eq!(self.width, rhs.width);
         let result = self.to_i64() <= rhs.to_i64();
         Boolean::new(result as u64)
     }
 
-    pub fn typed_ule(self, rhs: Self) -> Boolean {
+    fn ule(self, rhs: Self) -> Boolean {
         assert_eq!(self.width, rhs.width);
         let result = self.to_u64() <= rhs.to_u64();
         Boolean::new(result as u64)
     }
+}
 
+impl RConcreteBitvector {
     pub fn unsigned_cmp(&self, rhs: &Self) -> Ordering {
         assert_eq!(self.width, rhs.width);
         self.to_u64().cmp(&rhs.to_u64())
@@ -47,22 +51,22 @@ impl<const W: u32> TypedCmp for ConcreteBitvector<W> {
 
     fn slt(self, rhs: Self) -> Self::Output {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
-        lhs.typed_slt(rhs)
+        lhs.slt(rhs)
     }
 
     fn ult(self, rhs: Self) -> Self::Output {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
-        lhs.typed_ult(rhs)
+        lhs.ult(rhs)
     }
 
     fn sle(self, rhs: Self) -> Self::Output {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
-        lhs.typed_sle(rhs)
+        lhs.sle(rhs)
     }
 
     fn ule(self, rhs: Self) -> Self::Output {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
-        lhs.typed_ule(rhs)
+        lhs.ule(rhs)
     }
 }
 

@@ -9,7 +9,13 @@ mod ext;
 mod shift;
 mod support;
 
-use crate::concr::ConcreteBitvector;
+use crate::concr::{ConcreteBitvector, RConcreteBitvector};
+
+#[derive(Clone, Copy, Hash)]
+pub struct RThreeValuedBitvector {
+    zeros: RConcreteBitvector,
+    ones: RConcreteBitvector,
+}
 
 #[derive(Clone, Copy, Hash)]
 pub struct ThreeValuedBitvector<const W: u32> {
