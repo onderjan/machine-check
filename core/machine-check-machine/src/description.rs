@@ -10,11 +10,13 @@ mod resolve_use;
 
 use std::collections::HashMap;
 
-use machine_check_common::iir::ISubpropertyType;
+use machine_check_common::iir::{ISubpropertyInfo, ISubpropertyType};
 use quote::ToTokens;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, File, Ident, ImplItem, Item, Path, PathArguments,
-    PathSegment, Stmt, Token,
+    punctuated::Punctuated,
+    spanned::Spanned,
+    visit::{self, Visit},
+    Expr, File, Ident, ImplItem, Item, Path, PathArguments, PathSegment, Stmt, Token,
 };
 
 use crate::{
@@ -32,7 +34,7 @@ pub fn create_description(
 pub fn create_property_description(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WBasicType>,
-) -> Result<(WDescription<YConverted>, Vec<String>, Vec<ISubpropertyType>), crate::Errors> {
+) -> Result<(WDescription<YConverted>, Vec<String>, Vec<ISubpropertyInfo>), crate::Errors> {
     create_property_description_inner(expr, global_ident_types).map_err(Errors::convert_inner)
 }
 
@@ -81,7 +83,7 @@ fn create_description_inner(
 fn create_property_description_inner(
     mut expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WBasicType>,
-) -> Result<(WDescription<YConverted>, Vec<String>, Vec<ISubpropertyType>), Errors> {
+) -> Result<(WDescription<YConverted>, Vec<String>, Vec<ISubpropertyInfo>), Errors> {
     let span = expr.span();
     println!(
         "Original syn string:\n{}",
@@ -144,6 +146,11 @@ fn create_property_description_inner(
 
     let bool_return_type = create_type_path(create_path_from_ident(Ident::new("bool", span)));
 
+    let mut subproperty_infos = vec![ISubpropertyInfo {
+        ty: ISubpropertyType::Root,
+        inner_subproperties: discover_underlings(&expr),
+    }];
+
     let mut fns = vec![create_impl_item_fn(
         Ident::new("fn_0", span),
         vec![],
@@ -151,20 +158,26 @@ fn create_property_description_inner(
         vec![Stmt::Expr(expr, None)],
     )];
 
-    let mut subproperty_types = vec![ISubpropertyType::Root];
-
     let mut function_index = 1;
 
     for (expanded_type, expanded_expr) in expanded_subproperties.into_iter() {
+        let inner_subproperties = discover_underlings(&expanded_expr);
+
         fns.push(create_impl_item_fn(
             Ident::new(&format!("fn_{}", function_index), span),
             vec![],
             Some(bool_return_type.clone()),
             vec![Stmt::Expr(expanded_expr, None)],
         ));
-        subproperty_types.push(expanded_type);
+
+        subproperty_infos.push(ISubpropertyInfo {
+            ty: expanded_type,
+            inner_subproperties,
+        });
         function_index += 1;
     }
+
+    println!("Subproperty infos: {:?}", subproperty_infos);
 
     let mut items = vec![Item::Impl(create_item_impl(
         None,
@@ -201,7 +214,27 @@ fn create_property_description_inner(
         prettyplease::unparse(&w_description.clone().into_syn())
     );
     println!("---");
-    Ok((w_description, panic_messages, subproperty_types))
+    Ok((w_description, panic_messages, subproperty_infos))
+}
+
+fn discover_underlings(expr: &Expr) -> Vec<usize> {
+    struct UnderlingVisitor(Vec<usize>);
+
+    impl Visit<'_> for UnderlingVisitor {
+        fn visit_ident(&mut self, ident: &proc_macro2::Ident) {
+            let string = ident.to_string();
+            if let Some(stripped) = string.strip_prefix("__mck_subproperty_") {
+                if let Ok(subproperty_index) = stripped.parse() {
+                    self.0.push(subproperty_index);
+                }
+            }
+        }
+    }
+
+    let mut visitor = UnderlingVisitor(Vec::new());
+    visit::visit_expr(&mut visitor, expr);
+
+    visitor.0
 }
 
 #[derive(thiserror::Error, Debug, Clone)]

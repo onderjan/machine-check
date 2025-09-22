@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use machine_check_common::iir::{
-    func::IGlobal, path::IIdent, variable::IVarId, IProperty, ISubproperty, ISubpropertyType,
+    func::IGlobal, path::IIdent, variable::IVarId, IProperty, ISubproperty, ISubpropertyInfo,
 };
 
 use crate::{
@@ -19,7 +19,7 @@ impl WDescription<YAbstr> {
     pub fn into_property_iir(
         self,
         global_ident_types: BTreeMap<WIdent, WElementaryType>,
-        subproperty_types: Vec<ISubpropertyType>,
+        subproperty_infos: Vec<ISubpropertyInfo>,
     ) -> IProperty {
         let mut next_var_id: usize = 0;
         let mut used_globals = BTreeMap::new();
@@ -71,7 +71,7 @@ impl WDescription<YAbstr> {
 
                 subproperties.push(ISubproperty {
                     function,
-                    ty: subproperty_types[subproperty_index].clone(),
+                    info: subproperty_infos[subproperty_index].clone(),
                 });
                 subproperty_index += 1;
             }

@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
 use machine_check_common::{
+    iir::ISubpropertyType,
     property::{NextOperator, PropertyType},
     ExecError, NodeId, ParamValuation, StateId,
 };
@@ -13,7 +14,7 @@ use mck::concr::FullMachine;
 
 use crate::{
     model_check::property_checker::{
-        labelling_cacher::LabellingCacher, value::TimedCheckValue, PropertyChecker,
+        interpret, labelling_cacher::LabellingCacher, value::TimedCheckValue, PropertyChecker,
     },
     space::StateSpace,
 };
@@ -129,9 +130,9 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             .property
             .subproperty_entry(subproperty_index);
 
-        let ty = subproperty_entry.ty.clone();
+        let ty = subproperty_entry.info.ty.clone();
 
-        let updated = match &ty {
+        /*let updated = match &ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
                 let mut result = BTreeMap::new();
                 if self.current_time == 0 {
@@ -152,6 +153,31 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             PropertyType::FixedVariable(fixed_point_index) => {
                 self.update_fixed_variable(*fixed_point_index)?
             }
+        };*/
+
+        let updated = match &ty {
+            ISubpropertyType::Root => {
+                // TODO: interpret inner recursively
+
+                let global_values =
+                    interpret::global_values(self.space, &self.property_checker.property);
+
+                // update dirty states
+                for state_id in self.property_checker.focus.dirty_iter() {
+                    interpret::interpret_subproperty(
+                        &self.property_checker.property,
+                        subproperty_index,
+                        &global_values,
+                        &self.space,
+                        state_id,
+                    );
+                }
+
+                // TODO: return reasonable updated
+                BTreeMap::new()
+            }
+            ISubpropertyType::Next(isubproperty_type_next) => todo!(),
+            ISubpropertyType::FixedPoint(isubproperty_type_fixed_point) => todo!(),
         };
 
         trace!(

@@ -1,6 +1,7 @@
 mod double_check;
 mod focus;
 mod history;
+mod interpret;
 mod labelling_cacher;
 mod labelling_updater;
 mod value;
@@ -12,7 +13,8 @@ use std::{
 
 use log::trace;
 use machine_check_common::{
-    check::Property, property::PropertyType, ExecError, ParamValuation, StateId,
+    iir::{IProperty, ISubpropertyType},
+    ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
 
@@ -30,9 +32,10 @@ pub use labelling_cacher::LabellingCacher;
 
 #[derive(Debug, Clone)]
 pub struct PropertyChecker {
-    property: Property,
-    closed_form_subproperties: BTreeSet<usize>,
+    property: IProperty,
 
+    // TODO: re-add closed-form subproperties
+    //closed_form_subproperties: BTreeSet<usize>,
     histories: BTreeMap<usize, FixedPointHistory>,
     computations: Vec<FixedPointComputation>,
 
@@ -47,17 +50,17 @@ pub(super) struct FixedPointComputation {
 }
 
 impl PropertyChecker {
-    pub fn new(property: Property) -> Self {
-        let mut closed_form_subproperties = BTreeSet::new();
+    pub fn new(property: IProperty) -> Self {
+        //let mut closed_form_subproperties = BTreeSet::new();
         let mut histories = BTreeMap::new();
 
         for subproperty_index in 0..property.num_subproperties() {
-            if property.is_subproperty_closed_form(subproperty_index) {
+            /*if property.is_subproperty_closed_form(subproperty_index) {
                 closed_form_subproperties.insert(subproperty_index);
-            }
+            }*/
 
             let subproperty = property.subproperty_entry(subproperty_index);
-            if matches!(subproperty.ty, PropertyType::FixedPoint(_)) {
+            if matches!(subproperty.info.ty, ISubpropertyType::FixedPoint(_)) {
                 histories.insert(subproperty_index, FixedPointHistory::default());
             }
         }
@@ -66,7 +69,7 @@ impl PropertyChecker {
 
         Self {
             property,
-            closed_form_subproperties,
+            //closed_form_subproperties,
             focus,
             histories,
             computations: Vec::new(),

@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use machine_check_common::{
     check::Property,
+    iir::IProperty,
     property::{FixedPointOperator, NextOperator},
     ExecError, NodeId, ParamValuation, StateId,
 };
@@ -17,7 +18,7 @@ use crate::space::StateSpace;
 /// the incremental model-checking really produced a correct result.
 pub fn check_property<M: FullMachine>(
     space: &StateSpace<M>,
-    property: &Property,
+    property: &IProperty,
 ) -> Result<ParamValuation, ExecError> {
     NonincrementalChecker {
         space,
@@ -30,7 +31,7 @@ pub fn check_property<M: FullMachine>(
 
 struct NonincrementalChecker<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
-    property: &'a Property,
+    property: &'a IProperty,
     environment: BTreeMap<(usize, StateId), ParamValuation>,
     calmable_fixed_points: BTreeSet<usize>,
 }
@@ -52,7 +53,9 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
     fn check_subproperty(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
         let subproperty_entry = self.property.subproperty_entry(subproperty_index);
 
-        match &subproperty_entry.ty {
+        todo!("Nonincremental checking");
+
+        /*match &subproperty_entry.ty {
             machine_check_common::property::PropertyType::Const(value) => {
                 for state_id in self.space.states() {
                     self.environment.insert(
@@ -152,7 +155,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                         .insert((subproperty_index, state_id), *value);
                 }
             }
-        };
+        };*/
 
         if log::log_enabled!(log::Level::Trace) {
             let subprop_env: BTreeMap<StateId, ParamValuation> = self

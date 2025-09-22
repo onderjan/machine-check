@@ -2,6 +2,8 @@ mod fixed_point;
 mod local;
 mod next;
 
+use std::result;
+
 use machine_check_common::{property::PropertyType, ExecError, StateId};
 
 pub use local::BiChoice;
@@ -9,6 +11,7 @@ use mck::three_valued::ThreeValued;
 
 use crate::{
     model_check::property_checker::{
+        interpret,
         value::{CheckValue, TimedCheckValue},
         PropertyChecker,
     },
@@ -49,7 +52,7 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
             .property
             .subproperty_entry(subproperty_index);
 
-        let ty = subproperty_entry.ty.clone();
+        /*let ty = subproperty_entry.ty.clone();
 
         let result = match &ty {
             PropertyType::Const(constant) => {
@@ -75,6 +78,30 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
             PropertyType::FixedVariable(fixed_point_index) => {
                 self.compute_fixed_variable(*fixed_point_index, state_id)?
             }
+        };*/
+
+        let result = match &subproperty_entry.info.ty {
+            machine_check_common::iir::ISubpropertyType::Root => {
+                // TODO: interpret inner recursively
+
+                let global_values =
+                    interpret::global_values(self.space, &self.property_checker.property);
+
+                interpret::interpret_subproperty(
+                    &self.property_checker.property,
+                    subproperty_index,
+                    &global_values,
+                    &self.space,
+                    state_id,
+                );
+
+                // TODO: return the result of intepretation
+                TimedCheckValue::new(0, CheckValue::False)
+            }
+            machine_check_common::iir::ISubpropertyType::Next(isubproperty_type_next) => todo!(),
+            machine_check_common::iir::ISubpropertyType::FixedPoint(
+                isubproperty_type_fixed_point,
+            ) => todo!(),
         };
 
         Ok(result)

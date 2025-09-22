@@ -6,7 +6,7 @@ use crate::iir::{
     variable::IVarId,
 };
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum IExpr {
     Move(IVarId),
     Call(IExprCall),

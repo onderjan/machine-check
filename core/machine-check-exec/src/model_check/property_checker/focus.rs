@@ -1,7 +1,8 @@
 use std::collections::BTreeSet;
 
 use log::trace;
-use machine_check_common::{check::Property, StateId};
+use machine_check_common::iir::IProperty;
+use machine_check_common::StateId;
 
 use crate::space::StateSpace;
 use crate::FullMachine;
@@ -16,9 +17,12 @@ pub struct Focus {
 }
 
 impl Focus {
-    pub fn new(property: &Property) -> Self {
+    pub fn new(property: &IProperty) -> Self {
         let result = Self {
-            depth: property.transition_depth(),
+            // TODO: compute transition depth for interpreted properties
+            depth: usize::MAX,
+
+            //depth: property.transition_depth(),
             dirty: BTreeSet::new(),
             affected_forward: BTreeSet::new(),
             affected_backward: BTreeSet::new(),

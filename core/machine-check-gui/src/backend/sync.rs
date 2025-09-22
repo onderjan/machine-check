@@ -247,10 +247,14 @@ impl BackendSync {
 
         // Spawn and detach the backend thread.
         let worker_stats = Arc::clone(&stats);
-        std::thread::Builder::new()
-            .name(String::from("backend worker"))
-            .spawn(|| BackendWorker::new(workspace, worker_stats, settings, recv_from_server).run())
-            .expect("Worker thread should be spawned");
+
+        // TODO: resolve spans preventing Send of IProperty
+        todo!("Fix GUI with new properties");
+
+        /*std::thread::Builder::new()
+        .name(String::from("backend worker"))
+        .spawn(|| BackendWorker::new(workspace, worker_stats, settings, recv_from_server).run())
+        .expect("Worker thread should be spawned");*/
         BackendSync {
             stats,
             send_to_worker,

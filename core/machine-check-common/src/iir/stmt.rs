@@ -1,6 +1,6 @@
 use crate::iir::{expr::IExpr, interpretation::Interpretation, variable::IVarId};
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum IStmt {
     Assign(IAssignStmt),
     // TODO if
@@ -22,7 +22,7 @@ impl IStmt {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IAssignStmt {
     pub left: IVarId,
     pub right: IExpr,

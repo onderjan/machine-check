@@ -1,16 +1,16 @@
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum IrReference {
     Immutable,
     None,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IrTypeArray {
     pub index_width: u32,
     pub element_width: u32,
 }
 
-#[derive(Clone, Debug, Hash, strum::EnumString, strum::Display)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, strum::EnumString, strum::Display)]
 pub enum IrMckUnaryOp {
     #[strum(to_string = "::mck::forward::Bitwise::bit_not")]
     Not,
@@ -18,7 +18,7 @@ pub enum IrMckUnaryOp {
     Neg,
 }
 
-#[derive(Clone, Debug, Hash, strum::EnumString, strum::Display)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, strum::EnumString, strum::Display)]
 pub enum IrMckBinaryOp {
     // bitwise
     #[strum(to_string = "::mck::forward::Bitwise::bit_and")]

@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use log::trace;
 use machine_check_common::{
     check::{Conclusion, KnownConclusion},
-    property::{Property, Subproperty},
+    iir::IProperty,
     ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
@@ -21,7 +21,7 @@ use std::fmt::Debug;
 #[derive(Debug)]
 /// Three-valued model checker.
 pub struct ThreeValuedChecker {
-    property_checkers: HashMap<Property, PropertyChecker>,
+    property_checkers: HashMap<IProperty, PropertyChecker>,
 }
 
 impl ThreeValuedChecker {
@@ -34,9 +34,9 @@ impl ThreeValuedChecker {
     pub fn check_subproperty_with_labelling<M: FullMachine>(
         &mut self,
         space: &StateSpace<M>,
-        subproperty: &Subproperty,
+        property: &IProperty,
+        subproperty_index: usize,
     ) -> Result<(Conclusion, BTreeMap<StateId, ParamValuation>), ExecError> {
-        let property = subproperty.property();
         let conclusion = self.check_property(space, property)?;
 
         let property_checker = self
@@ -45,7 +45,6 @@ impl ThreeValuedChecker {
             .expect("Property checker should be inserted after the property was checked");
 
         // get the labelling as well
-        let subproperty_index = subproperty.index();
         let mut labelling = BTreeMap::new();
         let getter = property_checker.last_getter(space);
         for state_id in space.states() {
@@ -59,7 +58,7 @@ impl ThreeValuedChecker {
     pub fn check_property<M: FullMachine>(
         &mut self,
         space: &StateSpace<M>,
-        property: &Property,
+        property: &IProperty,
     ) -> Result<Conclusion, ExecError> {
         trace!("Checking property {:#?}", property);
 
@@ -80,10 +79,13 @@ impl ThreeValuedChecker {
         }
 
         if result.is_known() {
+            // TODO: double/triple-check with new properties
+            /*
             // double-check known result using the incremental algorithm non-incrementally
             property_checker.double_check(space)?;
 
             // triple-check known result using the non-incremental algorithm
+
             let basic_result = nonincremental::check_property(space, property)?;
             if result != basic_result {
                 panic!(
@@ -91,6 +93,7 @@ impl ThreeValuedChecker {
                     result, basic_result
                 );
             }
+            */
         }
 
         // compute optimistic and pessimistic interpretation and get the conclusion from that
@@ -98,11 +101,14 @@ impl ThreeValuedChecker {
             ParamValuation::False => Ok(Conclusion::Known(KnownConclusion::False)),
             ParamValuation::True => Ok(Conclusion::Known(KnownConclusion::True)),
             ParamValuation::Dependent => Ok(Conclusion::Known(KnownConclusion::Dependent)),
-            ParamValuation::Unknown => Ok(Conclusion::Unknown(deduce_culprit(
-                property_checker,
-                space,
-                property,
-            )?)),
+            ParamValuation::Unknown => {
+                todo!("Deduce culprit with new properties");
+                /*Ok(Conclusion::Unknown(deduce_culprit(
+                    property_checker,
+                    space,
+                    property,
+                )?)),*/
+            }
         }
     }
 

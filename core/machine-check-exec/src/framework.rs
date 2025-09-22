@@ -20,7 +20,6 @@ use crate::Strategy;
 use crate::{RefinInput, RefinPanicState, RefinParam};
 use mck::refin::Refine;
 
-mod interpret;
 mod refine;
 mod regenerate;
 mod work_state;
@@ -109,11 +108,8 @@ impl<M: FullMachine> Framework<M> {
             trace!("Model-checking state space: {:#?}", self.work_state.space);
         }
 
-        /*{
-            let property_string = &property.original_string();
-            println!("Property string: {}", property_string);
-
-            let interpretable_property = match machine_check_machine::process_property::<M>(
+        let interpretable_property = {
+            match machine_check_machine::process_property::<M>(
                 &self.abstract_system,
                 &property.original_string(),
             ) {
@@ -124,16 +120,14 @@ impl<M: FullMachine> Framework<M> {
                     }
                     panic!();
                 }
-            };
-
-            interpret::interpret_property(self.space(), &interpretable_property);
-        }*/
+            }
+        };
 
         // perform model-checking
         match self
             .work_state
             .checker
-            .check_property(&self.work_state.space, property)
+            .check_property(&self.work_state.space, &interpretable_property)
         {
             Ok(Conclusion::Known(conclusion)) => {
                 // conclude the result
@@ -157,11 +151,31 @@ impl<M: FullMachine> Framework<M> {
 
     pub fn check_subproperty_with_labelling(
         &mut self,
-        property: &Subproperty,
+        subproperty: &Subproperty,
     ) -> Result<(Conclusion, BTreeMap<StateId, ParamValuation>), ExecError> {
-        self.work_state
-            .checker
-            .check_subproperty_with_labelling(&self.work_state.space, property)
+        let property = subproperty.property();
+        let subproperty_index = subproperty.index();
+
+        let interpretable_property = {
+            match machine_check_machine::process_property::<M>(
+                &self.abstract_system,
+                &property.original_string(),
+            ) {
+                Ok(ok) => ok,
+                Err(err) => {
+                    for error in err.into_errors() {
+                        eprintln!("Error: {:?}", error);
+                    }
+                    panic!();
+                }
+            }
+        };
+
+        self.work_state.checker.check_subproperty_with_labelling(
+            &self.work_state.space,
+            &interpretable_property,
+            subproperty_index,
+        )
     }
 
     pub fn find_panic_string(&mut self) -> Option<&'static str> {

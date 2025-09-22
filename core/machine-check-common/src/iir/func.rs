@@ -8,31 +8,31 @@ use crate::iir::{
     variable::{IVarId, IVarInfo},
 };
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IBlock {
     pub stmts: Vec<IStmt>,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IFnOutput {
     pub normal: IVarId,
     pub panic: IVarId,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ISignature {
     pub ident: IIdent,
     pub inputs: Vec<IVarId>,
     pub output: IFnOutput,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IGlobal {
     pub ident: IIdent,
     pub ty: IElementaryType,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IFn {
     pub signature: ISignature,
     pub variables: BTreeMap<IVarId, IVarInfo>,

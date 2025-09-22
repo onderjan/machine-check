@@ -15,31 +15,37 @@ pub mod stmt;
 pub mod ty;
 pub mod variable;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ISubpropertyTypeNext {
     pub universal: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ISubpropertyTypeFixedPoint {
     pub universal: bool,
     pub variable: Ident,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ISubpropertyType {
     Root,
     Next(ISubpropertyTypeNext),
     FixedPoint(ISubpropertyTypeFixedPoint),
 }
 
-#[derive(Clone, Debug)]
-pub struct ISubproperty {
-    pub function: IFn,
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ISubpropertyInfo {
     pub ty: ISubpropertyType,
+    pub inner_subproperties: Vec<usize>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ISubproperty {
+    pub function: IFn,
+    pub info: ISubpropertyInfo,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IProperty {
     pub subproperties: Vec<ISubproperty>,
 }
@@ -90,5 +96,13 @@ impl IProperty {
         println!("Backward function interpretation: {:#?}", inter);
 
         BTreeMap::new()
+    }
+
+    pub fn num_subproperties(&self) -> usize {
+        self.subproperties.len()
+    }
+
+    pub fn subproperty_entry(&self, index: usize) -> &ISubproperty {
+        &self.subproperties[index]
     }
 }

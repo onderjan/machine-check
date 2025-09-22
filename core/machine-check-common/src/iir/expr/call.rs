@@ -6,7 +6,7 @@ use crate::{
     ir_common::{IrMckBinaryOp, IrMckUnaryOp},
 };
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IMckUnary {
     pub op: IrMckUnaryOp,
     pub operand: IVarId,
@@ -38,7 +38,7 @@ impl IMckUnary {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IMckBinary {
     pub op: IrMckBinaryOp,
     pub a: IVarId,
@@ -171,7 +171,7 @@ impl IMckBinary {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum IMckNew {
     Bitvector(u32, i128),
     // TODO: bitvector array
@@ -191,7 +191,7 @@ impl IMckNew {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum IExprCall {
     //Call(WCall),
     MckUnary(IMckUnary),
