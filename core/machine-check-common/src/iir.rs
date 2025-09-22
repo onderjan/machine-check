@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use proc_macro2::Ident;
+
 use {
     func::IFn,
     interpretation::{IAbstractValue, IRefinementValue, Interpretation},
@@ -14,24 +16,42 @@ pub mod ty;
 pub mod variable;
 
 #[derive(Clone, Debug)]
+pub struct ISubpropertyTypeNext {
+    pub universal: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct ISubpropertyTypeFixedPoint {
+    pub universal: bool,
+    pub variable: Ident,
+}
+
+#[derive(Clone, Debug)]
+pub enum ISubpropertyType {
+    Root,
+    Next(ISubpropertyTypeNext),
+    FixedPoint(ISubpropertyTypeFixedPoint),
+}
+
+#[derive(Clone, Debug)]
+pub struct ISubproperty {
+    pub function: IFn,
+    pub ty: ISubpropertyType,
+}
+
+#[derive(Clone, Debug)]
 pub struct IProperty {
-    pub subproperties: Vec<IFn>,
+    pub subproperties: Vec<ISubproperty>,
 }
 
 impl IProperty {
-    pub fn forward_interpret(
-        &self,
-        global_abstract_values: &BTreeMap<String, IAbstractValue>,
-    ) -> IAbstractValue {
-        self.forward_interpret_subproperty(global_abstract_values, 0)
-    }
-
     pub fn forward_interpret_subproperty(
         &self,
         global_forward: &BTreeMap<String, IAbstractValue>,
         subproperty_index: usize,
     ) -> IAbstractValue {
-        let func = &self.subproperties[subproperty_index];
+        let subproperty = &self.subproperties[subproperty_index];
+        let func = &subproperty.function;
 
         let mut inter = Interpretation::new();
 
@@ -48,21 +68,14 @@ impl IProperty {
         normal_result
     }
 
-    pub fn backward_interpret(
-        &self,
-        global_forward: &BTreeMap<String, IAbstractValue>,
-        result_backward: IRefinementValue,
-    ) -> BTreeMap<String, IRefinementValue> {
-        self.backward_interpret_subproperty(global_forward, result_backward, 0)
-    }
-
     pub fn backward_interpret_subproperty(
         &self,
         global_forward: &BTreeMap<String, IAbstractValue>,
         result_backward: IRefinementValue,
         subproperty_index: usize,
     ) -> BTreeMap<String, IRefinementValue> {
-        let func = &self.subproperties[subproperty_index];
+        let subproperty = &self.subproperties[subproperty_index];
+        let func = &subproperty.function;
 
         let mut inter = Interpretation::new();
 

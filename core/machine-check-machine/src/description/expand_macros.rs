@@ -1,3 +1,6 @@
+use machine_check_common::iir::{
+    ISubpropertyType, ISubpropertyTypeFixedPoint, ISubpropertyTypeNext,
+};
 use quote::ToTokens;
 use syn::{
     parse2,
@@ -16,7 +19,7 @@ use crate::{
 
 use super::{Error, ErrorType};
 
-pub struct ExpandedNext {
+/*pub struct ExpandedNext {
     // TODO: do something with expanded
     pub _universal: bool,
     pub expr: Expr,
@@ -32,16 +35,16 @@ pub struct ExpandedFixedPoint {
 pub enum ExpandedSubproperty {
     Next(ExpandedNext),
     FixedPoint(ExpandedFixedPoint),
-}
+}*/
 
 pub struct MacroExpander {
-    expanded_subproperties: Vec<ExpandedSubproperty>,
+    subproperties: Vec<(ISubpropertyType, Expr)>,
 }
 
 impl MacroExpander {
     pub fn new() -> Self {
         Self {
-            expanded_subproperties: Vec::new(),
+            subproperties: Vec::new(),
         }
     }
 
@@ -73,8 +76,8 @@ impl MacroExpander {
         Ok(visitor.expanded_some_macro)
     }
 
-    pub fn into_expanded_subproperties(self) -> Vec<ExpandedSubproperty> {
-        self.expanded_subproperties
+    pub fn into_subproperties(self) -> Vec<(ISubpropertyType, Expr)> {
+        self.subproperties
     }
 }
 
@@ -161,7 +164,7 @@ impl Visitor<'_> {
                     Error::new(ErrorType::MacroParseError(err), WSpan::from_span(err_span))
                 })?;
 
-            let subproperty = if ex || ax {
+            let (subproperty_type, expr) = if ex || ax {
                 if punctuated_inside_expr.len() != 1 {
                     return Err(Error::new(
                         ErrorType::IllegalConstruct(String::from("Exactly one argument expected")),
@@ -171,10 +174,10 @@ impl Visitor<'_> {
                 let mut expr = punctuated_inside_expr.into_iter().next().unwrap();
                 self.visit_expr_mut(&mut expr);
 
-                ExpandedSubproperty::Next(ExpandedNext {
-                    _universal: universal,
+                (
+                    ISubpropertyType::Next(ISubpropertyTypeNext { universal }),
                     expr,
-                })
+                )
             } else {
                 if punctuated_inside_expr.len() != 2 {
                     return Err(Error::new(
@@ -202,21 +205,21 @@ impl Visitor<'_> {
 
                 let mut expr = punctuated_inside_expr.into_iter().nth(1).unwrap();
                 self.visit_expr_mut(&mut expr);
-                ExpandedSubproperty::FixedPoint(ExpandedFixedPoint {
-                    _universal: universal,
-                    _variable: variable,
+
+                (
+                    ISubpropertyType::FixedPoint(ISubpropertyTypeFixedPoint {
+                        universal,
+                        variable,
+                    }),
                     expr,
-                })
+                )
             };
 
             let ident = Ident::new(
-                &format!(
-                    "__mck_subproperty_{}",
-                    self.expander.expanded_subproperties.len()
-                ),
+                &format!("__mck_subproperty_{}", self.expander.subproperties.len()),
                 mac.path.span(),
             );
-            self.expander.expanded_subproperties.push(subproperty);
+            self.expander.subproperties.push((subproperty_type, expr));
             let expr = create_expr_ident(ident);
 
             self.expanded_some_macro = true;

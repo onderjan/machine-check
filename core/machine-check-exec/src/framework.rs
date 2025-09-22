@@ -20,6 +20,7 @@ use crate::Strategy;
 use crate::{RefinInput, RefinPanicState, RefinParam};
 use mck::refin::Refine;
 
+mod interpret;
 mod refine;
 mod regenerate;
 mod work_state;
@@ -109,14 +110,10 @@ impl<M: FullMachine> Framework<M> {
         }
 
         /*{
-            use machine_check_common::iir::interpretation::IAbstractValue;
-            use machine_check_common::iir::interpretation::IRefinementValue;
-            use mck::abstr::Manipulatable;
-
             let property_string = &property.original_string();
-            println!("Original property string: {}", property_string);
-            // TODO: use actual property
-            let new_property = match machine_check_machine::process_property::<M>(
+            println!("Property string: {}", property_string);
+
+            let interpretable_property = match machine_check_machine::process_property::<M>(
                 &self.abstract_system,
                 &property.original_string(),
             ) {
@@ -128,39 +125,8 @@ impl<M: FullMachine> Framework<M> {
                     panic!();
                 }
             };
-            let state_id = self.work_state.space.initial_iter().next().unwrap();
-            let state = &self.work_state.space.state_data(state_id).result;
 
-            let mut global_values = BTreeMap::new();
-
-            for field_name in <<<M as mck::concr::FullMachine>::Abstr as mck::abstr::Machine<M>>::State as mck::abstr::Manipulatable>::field_names() {
-                let field = Manipulatable::get(state, field_name).unwrap();
-                println!("Field {}: {:?}", field_name, field.description());
-                if let Some(value) = field.runtime_bitvector() {
-                    global_values.insert(String::from(field_name), IAbstractValue::Bitvector(value));
-                }
-            }
-
-            // add panic kludge
-
-            global_values.insert(
-                String::from("__panic"),
-                IAbstractValue::Bitvector(mck::abstr::RBitvector::new(0, 32)),
-            );
-
-            global_values.insert(
-                String::from("__mck_subproperty_0"),
-                IAbstractValue::Bool(mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)),
-            );
-
-            let result = new_property.forward_interpret(&global_values);
-
-            println!("Forward interpretation result: {:?}", result);
-
-            new_property.backward_interpret(
-                &global_values,
-                IRefinementValue::Bool(mck::refin::Boolean::new_marked_unimportant()),
-            );
+            interpret::interpret_property(self.space(), &interpretable_property);
         }*/
 
         // perform model-checking

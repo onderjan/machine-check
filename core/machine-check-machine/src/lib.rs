@@ -129,13 +129,13 @@ pub fn process_property<M: FullMachine>(
     }
 
     // TODO: do something with the panic messages
-    let (description, _panic_messages) =
+    let (description, _panic_messages, subproperty_types) =
         description::create_property_description(expr, &global_basic_types)?;
     let description = abstr::create_abstract_property(description);
 
     //println!("Abstract description: {:?}", description);
 
-    let property = description.into_property_iir(global_ident_types);
+    let property = description.into_property_iir(global_ident_types, subproperty_types);
     println!("Property: {:#?}", property);
 
     //interpret::execute_function(&description, "property");

@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use machine_check_common::iir::{func::IGlobal, path::IIdent, variable::IVarId, IProperty};
+use machine_check_common::iir::{
+    func::IGlobal, path::IIdent, variable::IVarId, IProperty, ISubproperty, ISubpropertyType,
+};
 
 use crate::{
     abstr::YAbstr,
@@ -17,6 +19,7 @@ impl WDescription<YAbstr> {
     pub fn into_property_iir(
         self,
         global_ident_types: BTreeMap<WIdent, WElementaryType>,
+        subproperty_types: Vec<ISubpropertyType>,
     ) -> IProperty {
         let mut next_var_id: usize = 0;
         let mut used_globals = BTreeMap::new();
@@ -50,11 +53,13 @@ impl WDescription<YAbstr> {
 
         let mut subproperties = Vec::new();
 
-        for item_impl in self.impls {
-            for func in item_impl.impl_item_fns {
-                let func = func.into_iir(&mut data);
+        let mut subproperty_index = 0;
 
-                let fn_num: usize = func
+        for item_impl in self.impls {
+            for function in item_impl.impl_item_fns {
+                let function = function.into_iir(&mut data);
+
+                let fn_num: usize = function
                     .signature
                     .ident
                     .name()
@@ -64,7 +69,11 @@ impl WDescription<YAbstr> {
                     .expect("Property function should consist of a prefix and a number");
                 assert_eq!(fn_num, subproperties.len());
 
-                subproperties.push(func);
+                subproperties.push(ISubproperty {
+                    function,
+                    ty: subproperty_types[subproperty_index].clone(),
+                });
+                subproperty_index += 1;
             }
         }
 

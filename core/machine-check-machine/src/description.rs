@@ -10,6 +10,7 @@ mod resolve_use;
 
 use std::collections::HashMap;
 
+use machine_check_common::iir::ISubpropertyType;
 use quote::ToTokens;
 use syn::{
     punctuated::Punctuated, spanned::Spanned, File, Ident, ImplItem, Item, Path, PathArguments,
@@ -31,7 +32,7 @@ pub fn create_description(
 pub fn create_property_description(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WBasicType>,
-) -> Result<(WDescription<YConverted>, Vec<String>), crate::Errors> {
+) -> Result<(WDescription<YConverted>, Vec<String>, Vec<ISubpropertyType>), crate::Errors> {
     create_property_description_inner(expr, global_ident_types).map_err(Errors::convert_inner)
 }
 
@@ -80,7 +81,7 @@ fn create_description_inner(
 fn create_property_description_inner(
     mut expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WBasicType>,
-) -> Result<(WDescription<YConverted>, Vec<String>), Errors> {
+) -> Result<(WDescription<YConverted>, Vec<String>, Vec<ISubpropertyType>), Errors> {
     let span = expr.span();
     println!(
         "Original syn string:\n{}",
@@ -139,7 +140,7 @@ fn create_property_description_inner(
             break;
         }
     }
-    let expanded_subproperties = macro_expander.into_expanded_subproperties();
+    let expanded_subproperties = macro_expander.into_subproperties();
 
     let bool_return_type = create_type_path(create_path_from_ident(Ident::new("bool", span)));
 
@@ -150,21 +151,18 @@ fn create_property_description_inner(
         vec![Stmt::Expr(expr, None)],
     )];
 
+    let mut subproperty_types = vec![ISubpropertyType::Root];
+
     let mut function_index = 1;
 
-    for expanded in expanded_subproperties.into_iter() {
-        let expr = match expanded {
-            expand_macros::ExpandedSubproperty::Next(expanded_next) => expanded_next.expr,
-            expand_macros::ExpandedSubproperty::FixedPoint(expanded_fixed_point) => {
-                expanded_fixed_point.expr
-            }
-        };
+    for (expanded_type, expanded_expr) in expanded_subproperties.into_iter() {
         fns.push(create_impl_item_fn(
             Ident::new(&format!("fn_{}", function_index), span),
             vec![],
             Some(bool_return_type.clone()),
-            vec![Stmt::Expr(expr, None)],
+            vec![Stmt::Expr(expanded_expr, None)],
         ));
+        subproperty_types.push(expanded_type);
         function_index += 1;
     }
 
@@ -203,7 +201,7 @@ fn create_property_description_inner(
         prettyplease::unparse(&w_description.clone().into_syn())
     );
     println!("---");
-    Ok((w_description, panic_messages))
+    Ok((w_description, panic_messages, subproperty_types))
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
