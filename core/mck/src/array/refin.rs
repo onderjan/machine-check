@@ -51,7 +51,6 @@ impl<const I: u32, const W: u32> ReadWrite for abstr::Array<I, W> {
     type IndexMark = Bitvector<I>;
     type ElementMark = Bitvector<W>;
 
-    #[must_use]
     fn read(
         normal_input: (&Self, Self::Index),
         mark_later: Self::ElementMark,

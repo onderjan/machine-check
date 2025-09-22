@@ -4,7 +4,7 @@ version = "0.6.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Utility crate for the formal verification tool machine-check"
-rust-version = "1.83"
+rust-version = "1.88"
 include = ["/**", "!/target/**", "!/.gitignore"]
 
 [lib]
