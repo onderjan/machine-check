@@ -51,3 +51,6 @@ path = "examples/book/book_instances_todo.rs"
 [[example]]
 name = "misc_freerun"
 path = "examples/misc/freerun.rs"
+
+[lints.clippy]
+uninlined_format_args = "allow"

@@ -17,3 +17,6 @@ serde = { version = "1.0.188", features = ["derive"] }
 bimap = "0.6.3"
 petgraph = "0.6.4"
 partitions = "0.2.4"
+
+[lints.clippy]
+uninlined_format_args = "allow"

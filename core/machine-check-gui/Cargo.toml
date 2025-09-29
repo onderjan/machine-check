@@ -86,3 +86,6 @@ anyhow = "1.0.89"
 tinyjson = "2"
 merkle_hash = "3.7.0"
 hex = "0.4.3"
+
+[lints.clippy]
+uninlined_format_args = "allow"
