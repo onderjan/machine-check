@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Write};
+
 use machine_check_common::ir_common::{IrReference, IrTypeArray};
 use proc_macro2::Span;
 use syn::{
@@ -8,7 +10,7 @@ use syn::{
 
 use super::{IntoSyn, WIdent, WPath};
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WBasicType {
     Bitvector(u32),
     BitvectorArray(IrTypeArray),
@@ -18,7 +20,7 @@ pub enum WBasicType {
     Path(WPath),
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WElementaryType {
     Bitvector(u32),
     Array(IrTypeArray),
@@ -26,16 +28,16 @@ pub enum WElementaryType {
     Path(WPath),
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WType<FT: IntoSyn<Type>> {
     pub reference: IrReference,
     pub inner: FT,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WPanicResultType<T: IntoSyn<Type>>(pub T);
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WGeneralType<FT: IntoSyn<Type>> {
     Normal(WType<FT>),
     PanicResult(WType<FT>),
@@ -344,5 +346,64 @@ impl IntoSyn<Expr> for WPanicResult {
             dot2_token: None,
             rest: None,
         })
+    }
+}
+
+impl Debug for WBasicType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bitvector(width) => write!(f, "::mck::Bitvector<{}>", width),
+            Self::Unsigned(width) => write!(f, "::mck::Unsigned<{}>", width),
+            Self::Signed(width) => write!(f, "::mck::Signed<{}>", width),
+            Self::BitvectorArray(type_array) => write!(
+                f,
+                "::machine_check::BitvectorArray<{},{}>",
+                type_array.element_width, type_array.index_width
+            ),
+            Self::Boolean => write!(f, "Boolean"),
+            Self::Path(path) => path.fmt(f),
+        }
+    }
+}
+
+impl Debug for WElementaryType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bitvector(width) => write!(f, "::mck::Bitvector<{}>", width),
+            Self::Array(type_array) => write!(
+                f,
+                "::mck::Array<{},{}>",
+                type_array.element_width, type_array.index_width
+            ),
+            Self::Boolean => write!(f, "Boolean"),
+            Self::Path(path) => path.fmt(f),
+        }
+    }
+}
+
+impl<FT: IntoSyn<Type> + Debug> Debug for WType<FT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.reference {
+            IrReference::Immutable => f.write_char('&')?,
+            IrReference::None => {}
+        }
+
+        write!(f, "{:?}", self.inner)
+    }
+}
+
+impl<FT: IntoSyn<Type> + Debug> Debug for WPanicResultType<FT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "::mck::PanicResult<{:?}>", self.0)
+    }
+}
+
+impl<FT: IntoSyn<Type> + Debug> Debug for WGeneralType<FT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WGeneralType::Normal(ty) => write!(f, "{:?}", ty),
+            WGeneralType::PanicResult(ty) => write!(f, "::mck::PanicResult<{:?}>", ty),
+            WGeneralType::PhiArg(ty) => write!(f, "::mck::PhiArg<{:?}>", ty),
+        }
     }
 }

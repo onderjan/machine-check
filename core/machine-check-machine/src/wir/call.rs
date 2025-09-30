@@ -1,5 +1,6 @@
 use machine_check_common::ir_common::IrTypeArray;
 use proc_macro2::Span;
+use std::fmt::Debug;
 use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, LitInt};
 
 use crate::{util::create_expr_ident, wir::WSpan};
@@ -23,7 +24,7 @@ pub enum WExprHighCall {
     PhiUninit,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub enum WExprCall {
     Call(WCall),
     MckUnary(WMckUnary),
@@ -136,7 +137,7 @@ pub struct WCall {
     pub args: Vec<WCallArg>,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub enum WCallArg {
     Ident(WIdent),
     Literal(Lit),
@@ -336,5 +337,30 @@ fn construct_call_fn_path(fn_operand: String) -> WPath {
     WPath {
         leading_colon: Some(WSpan::from_span(span)),
         segments,
+    }
+}
+
+impl Debug for WExprCall {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (call_fn, args) = self.clone().call_fn_and_args();
+
+        write!(f, "{:?}", call_fn)?;
+
+        let mut franz = f.debug_tuple("");
+
+        for arg in &args {
+            franz.field(arg);
+        }
+
+        franz.finish()
+    }
+}
+
+impl Debug for WCallArg {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ident(ident) => ident.fmt(f),
+            Self::Literal(lit) => write!(f, "{:?}", lit),
+        }
     }
 }

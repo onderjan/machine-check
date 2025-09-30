@@ -1,5 +1,6 @@
 use machine_check_common::iir::path::IIdent;
 use proc_macro2::Span;
+use std::fmt::Debug;
 use std::hash::Hash;
 use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment, Token};
 
@@ -7,7 +8,7 @@ use crate::wir::{WSpan, WSpanned};
 
 use super::IntoSyn;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct WPath {
     pub leading_colon: Option<WSpan>,
     pub segments: Vec<WPathSegment>,
@@ -144,7 +145,26 @@ impl Hash for WPath {
     }
 }
 
-#[derive(Clone, Debug)]
+impl Debug for WPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.leading_colon.is_some() {
+            f.write_str("::")?;
+        }
+
+        let mut first = true;
+        for segment in &self.segments {
+            if first {
+                first = false;
+            } else {
+                f.write_str("::")?;
+            }
+            f.write_str(&segment.ident.name)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
 pub struct WIdent {
     name: String,
     span: Span,
@@ -201,6 +221,13 @@ impl WIdent {
 
     pub fn into_iir(self) -> IIdent {
         IIdent::new(self.name, self.span)
+    }
+}
+
+impl Debug for WIdent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // just print the name
+        f.write_str(&self.name)
     }
 }
 

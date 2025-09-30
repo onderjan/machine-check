@@ -1,4 +1,5 @@
 use proc_macro2::Span;
+use std::fmt::Debug;
 use syn::{
     token::{Brace, Bracket},
     Expr, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, FieldValue, Index, Lit, Token,
@@ -8,7 +9,7 @@ use crate::util::create_expr_ident;
 
 use super::{IntoSyn, WIdent, WPath};
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub enum WExpr<CF: IntoSyn<Expr>> {
     Move(WIdent),
     Call(CF),
@@ -161,4 +162,24 @@ fn indexed_ident(array: Expr, index: Expr) -> Expr {
         bracket_token: Bracket::default(),
         index: Box::new(index),
     })
+}
+
+impl<CF: IntoSyn<Expr> + Debug> Debug for WExpr<CF> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Move(ident) => ident.fmt(f),
+            Self::Call(call) => call.fmt(f),
+            Self::Field(field) => write!(f, "{:?}.{:?}", field.base, field.member),
+            Self::Struct(s) => {
+                s.type_path.fmt(f)?;
+                let mut franz = f.debug_map();
+                for (field_name, field_value) in &s.fields {
+                    franz.entry(field_name, field_value);
+                }
+                franz.finish()
+            }
+            Self::Reference(inner) => write!(f, "&{:?}", inner),
+            Self::Lit(lit) => lit.fmt(f),
+        }
+    }
 }

@@ -1,5 +1,6 @@
 use proc_macro2::{Literal, Span};
 use quote::ToTokens;
+use std::fmt::{Debug, Pointer};
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Paren},
@@ -24,13 +25,13 @@ pub enum WMacroableStmt<Z: ZAssignTypes> {
     PanicMacro(WStmtPanicMacro),
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub enum WStmt<Z: ZAssignTypes> {
     Assign(WStmtAssign<Z>),
     If(WStmtIf<Z>),
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub struct WStmtAssign<Z: ZAssignTypes> {
     pub left: Z::AssignLeft,
     pub right: Z::AssignRight,
@@ -159,5 +160,20 @@ impl<Z: ZAssignTypes> IntoSyn<Stmt> for WMacroableStmt<Z> {
             mac,
             semi_token: Some(Token![;](span)),
         })
+    }
+}
+
+impl<Z: ZAssignTypes> Debug for WStmt<Z> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WStmt::Assign(assign) => assign.fmt(f),
+            WStmt::If(if_stmt) => if_stmt.fmt(f),
+        }
+    }
+}
+
+impl<Z: ZAssignTypes> Debug for WStmtAssign<Z> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} = {:?};", self.left, self.right)
     }
 }
