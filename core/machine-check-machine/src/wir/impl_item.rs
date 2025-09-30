@@ -3,14 +3,14 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Bracket, Paren},
-    Attribute, FnArg, Generics, ImplItemFn, ImplItemType, Local, MetaNameValue, Pat, PatIdent,
-    PatType, Receiver, Signature, Stmt, Token, Type, TypePath, TypeReference,
+    Attribute, FnArg, Generics, ImplItemFn, ImplItemType, ItemFn, Local, MetaNameValue, Pat,
+    PatIdent, PatType, Receiver, Signature, Stmt, Token, Type, TypePath, TypeReference,
 };
 use syn_path::path;
 
 use crate::{
     util::{create_expr_path, create_path_from_ident},
-    wir::WVisibility,
+    wir::{WItemFn, WVisibility},
 };
 
 use super::{IntoSyn, WBlock, WIdent, WPath, YStage};
@@ -20,15 +20,6 @@ pub struct WImplItemType {
     pub visibility: WVisibility,
     pub left_ident: WIdent,
     pub right_path: WPath,
-}
-
-#[derive(Clone, Debug, Hash)]
-pub struct WImplItemFn<Y: YStage> {
-    pub visibility: WVisibility,
-    pub signature: WSignature<Y>,
-    pub locals: Vec<Y::Local>,
-    pub block: WBlock<Y::AssignTypes>,
-    pub result: Y::FnResult,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -78,8 +69,22 @@ impl IntoSyn<ImplItemType> for WImplItemType {
     }
 }
 
-impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
+impl<Y: YStage> IntoSyn<ImplItemFn> for WItemFn<Y> {
     fn into_syn(self) -> ImplItemFn {
+        let item_fn: ItemFn = self.into_syn();
+
+        ImplItemFn {
+            attrs: item_fn.attrs,
+            vis: item_fn.vis,
+            defaultness: None,
+            sig: item_fn.sig,
+            block: *item_fn.block,
+        }
+    }
+}
+
+impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
+    fn into_syn(self) -> ItemFn {
         let span = Span::call_site();
 
         let mut block = self.block.into_syn();
@@ -93,10 +98,9 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
         block.stmts.extend(standard_stmts);
         block.stmts.push(Stmt::Expr(self.result.into_syn(), None));
 
-        ImplItemFn {
+        ItemFn {
             attrs: Vec::new(),
             vis: self.visibility.into_syn(),
-            defaultness: None,
             sig: Signature {
                 constness: None,
                 asyncness: None,
@@ -159,7 +163,7 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WImplItemFn<Y> {
                     Box::new(self.signature.output.into_syn()),
                 ),
             },
-            block,
+            block: Box::new(block),
         }
     }
 }

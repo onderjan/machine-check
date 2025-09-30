@@ -3,12 +3,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
     WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WHighMckNew, WIdent, WIfCondition,
-    WPartialGeneralType, WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa,
-    ZTotal,
+    WPartialGeneralType, WProperty, WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
+    WSubproperty, ZSsa, ZTotal,
 };
-use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
+use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
 
-pub fn convert_to_ssa(description: WDescription<YTotal>) -> Result<WDescription<YSsa>, Errors> {
+pub fn convert_description(
+    description: WDescription<YTotal>,
+) -> Result<WDescription<YSsa>, Errors> {
     let mut impls = Vec::new();
     for item_impl in description.impls {
         let mut impl_item_fns = Vec::new();
@@ -30,7 +32,17 @@ pub fn convert_to_ssa(description: WDescription<YTotal>) -> Result<WDescription<
     })
 }
 
-fn process_fn(impl_item_fn: WImplItemFn<YTotal>) -> Result<WImplItemFn<YSsa>, Errors> {
+pub fn convert_property(property: WProperty<YTotal>) -> Result<WProperty<YSsa>, Errors> {
+    let mut subproperties = Vec::new();
+    for subproperty in property.subproperties {
+        let func = process_fn(subproperty.func)?;
+        subproperties.push(WSubproperty { func });
+    }
+
+    Ok(WProperty { subproperties })
+}
+
+fn process_fn(impl_item_fn: WItemFn<YTotal>) -> Result<WItemFn<YSsa>, Errors> {
     // initialise local idents
     let mut local_ident_counters = BTreeMap::new();
 
@@ -72,10 +84,7 @@ struct Counter {
 }
 
 impl LocalVisitor {
-    pub fn process(
-        &mut self,
-        mut impl_item_fn: WImplItemFn<YTotal>,
-    ) -> Result<WImplItemFn<YSsa>, Errors> {
+    pub fn process(&mut self, mut impl_item_fn: WItemFn<YTotal>) -> Result<WItemFn<YSsa>, Errors> {
         let signature = WSignature {
             ident: impl_item_fn.signature.ident,
             inputs: impl_item_fn.signature.inputs,
@@ -100,7 +109,7 @@ impl LocalVisitor {
             });
         }
 
-        Ok(WImplItemFn {
+        Ok(WItemFn {
             visibility: impl_item_fn.visibility,
             signature,
             locals,

@@ -3,7 +3,7 @@ use proc_macro2::Span;
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, ZAbstr, ZAbstrIfPolarity},
     wir::{
-        WBlock, WExpr, WExprCall, WIdent, WIfCondition, WIfConditionIdent, WImplItemFn, WItemImpl,
+        WBlock, WExpr, WExprCall, WIdent, WIfCondition, WIfConditionIdent, WItemFn, WItemImpl,
         WItemImplTrait, WPath, WPathSegment, WPhiMaybeTaken, WSignature, WStmt, WStmtAssign,
         WStmtIf, YConverted, ZConverted,
     },
@@ -81,7 +81,7 @@ pub fn process_property_item_impl(item_impl: WItemImpl<YConverted>) -> WItemImpl
     }
 }
 
-pub fn fold_impl_item_fn(impl_item_fn: WImplItemFn<YConverted>) -> WImplItemFn<YAbstr> {
+pub fn fold_impl_item_fn(impl_item_fn: WItemFn<YConverted>) -> WItemFn<YAbstr> {
     let signature = WSignature {
         ident: impl_item_fn.signature.ident,
         inputs: impl_item_fn.signature.inputs,
@@ -89,7 +89,7 @@ pub fn fold_impl_item_fn(impl_item_fn: WImplItemFn<YConverted>) -> WImplItemFn<Y
     };
     let block = fold_block(impl_item_fn.block);
 
-    WImplItemFn {
+    WItemFn {
         visibility: impl_item_fn.visibility,
         signature,
         locals: impl_item_fn.locals,

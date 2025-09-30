@@ -9,7 +9,7 @@ use crate::{
     into_wir::{Error, ErrorType, Errors},
     wir::{
         WBasicType, WBlock, WDescription, WExpr, WExprHighCall, WGeneralType, WHighMckNew, WIdent,
-        WImplItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WSignature, WSpanned,
+        WItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WSignature, WSpanned,
         WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YInferred, YSsa, ZSsa,
     },
 };
@@ -63,11 +63,11 @@ pub fn infer_types(
 }
 
 fn infer_fn_types(
-    mut impl_item_fn: WImplItemFn<YSsa>,
+    mut impl_item_fn: WItemFn<YSsa>,
     structs: &HashMap<WPath, WItemStruct<WBasicType>>,
     self_path: &WPath,
     global_ident_types: &HashMap<WIdent, WBasicType>,
-) -> Result<WImplItemFn<YInferred>, Errors> {
+) -> Result<WItemFn<YInferred>, Errors> {
     fn convert_self(ty: &mut WType<WBasicType>, self_path: &WPath) {
         if let WBasicType::Path(path) = &mut ty.inner {
             if path.matches_relative(&["Self"]) {
@@ -127,7 +127,7 @@ struct FnInferrer<'a> {
 }
 
 impl FnInferrer<'_> {
-    fn infer_fn_types_next(&mut self, impl_item_fn: &WImplItemFn<YSsa>) -> Result<(), Errors> {
+    fn infer_fn_types_next(&mut self, impl_item_fn: &WItemFn<YSsa>) -> Result<(), Errors> {
         loop {
             // infer as much as we can
             let inferred_something = self.process_impl_item_fn(impl_item_fn)?;
@@ -189,8 +189,8 @@ impl FnInferrer<'_> {
 
     fn update_local_types(
         &mut self,
-        impl_item_fn: WImplItemFn<YSsa>,
-    ) -> Result<WImplItemFn<YInferred>, Errors> {
+        impl_item_fn: WItemFn<YSsa>,
+    ) -> Result<WItemFn<YInferred>, Errors> {
         let mut errors = Vec::new();
 
         /*let syn_impl_item_fn = impl_item_fn.clone().into_syn();
@@ -249,7 +249,7 @@ impl FnInferrer<'_> {
             output: impl_item_fn.signature.output,
         };
 
-        Ok(WImplItemFn {
+        Ok(WItemFn {
             visibility: impl_item_fn.visibility,
             signature,
             locals,

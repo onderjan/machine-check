@@ -17,7 +17,7 @@ use crate::{
 pub fn create_description(
     items: Vec<Item>,
 ) -> Result<(WDescription<YConverted>, Vec<String>), crate::Errors> {
-    description::create_from_syn(items).map_err(Errors::convert_inner)
+    description::description_from_syn(items).map_err(Errors::convert_inner)
 }
 
 pub fn create_property_description(

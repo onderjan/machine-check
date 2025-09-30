@@ -6,7 +6,7 @@ use crate::{
     into_wir::Errors,
     wir::{
         WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprHighCall,
-        WExprStruct, WField, WFnArg, WGeneralType, WIdent, WImplItemFn, WImplItemType, WItemImpl,
+        WExprStruct, WField, WFnArg, WGeneralType, WIdent, WItemFn, WImplItemType, WItemImpl,
         WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt,
         WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
     },
@@ -102,8 +102,8 @@ fn convert_general_type(ty: WGeneralType<WBasicType>) -> WGeneralType<WElementar
 }
 
 fn convert_impl_item_fn(
-    impl_item: WImplItemFn<YInferred>,
-) -> Result<WImplItemFn<YConverted>, Errors> {
+    impl_item: WItemFn<YInferred>,
+) -> Result<WItemFn<YConverted>, Errors> {
     let mut local_types = BTreeMap::from_iter(
         impl_item
             .locals
@@ -143,7 +143,7 @@ fn convert_impl_item_fn(
         })
         .collect();
 
-    Ok(WImplItemFn {
+    Ok(WItemFn {
         visibility: impl_item.visibility,
         signature,
         locals,

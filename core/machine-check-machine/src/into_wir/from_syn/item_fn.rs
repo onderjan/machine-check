@@ -3,21 +3,22 @@ use std::collections::{BTreeMap, HashMap};
 use machine_check_common::ir_common::IrReference;
 use proc_macro2::Span;
 use syn::{
-    spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, Pat, Signature,
+    spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat,
+    Signature,
 };
 
 use crate::{
     into_wir::{
         conversion::attribute_disallower::AttributeDisallower,
         from_syn::{
-            item::fold_visibility,
+            item::{self, fold_visibility},
             ty::{fold_basic_type, fold_type},
         },
-        Error, Errors,
+        Error, ErrorType, Errors,
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WBasicType, WFnArg, WIdent, WImplItemFn, WPartialGeneralType, WPath, WSignature, WSpan,
+        WBasicType, WFnArg, WIdent, WItemFn, WPartialGeneralType, WPath, WSignature, WSpan,
         WTacLocal, WType, YTac,
     },
 };
@@ -27,18 +28,45 @@ use super::path::fold_path;
 mod expr;
 mod stmt;
 
-pub fn fold_impl_item_fn(
-    impl_item: ImplItemFn,
-    self_ty: &WPath,
-) -> Result<WImplItemFn<YTac>, Errors> {
+pub fn fold_item_fn(item_fn: ItemFn) -> Result<WItemFn<YTac>, Errors> {
     FunctionFolder {
-        self_ty: self_ty.clone(),
+        self_ty: None,
         ident_creator: IdentCreator::new(String::from("")),
         scopes: Vec::new(),
         local_types: BTreeMap::new(),
         next_scope_id: 0,
     }
-    .fold(impl_item)
+    .fold(item_fn)
+}
+
+pub fn fold_impl_item_fn(
+    impl_item_fn: ImplItemFn,
+    self_ty: &WPath,
+) -> Result<WItemFn<YTac>, Errors> {
+    if impl_item_fn.defaultness.is_some() {
+        return Err(Errors::single(Error::unsupported_syn_construct(
+            "Defaultness",
+            &impl_item_fn.defaultness,
+        )));
+    }
+
+    let item_fn = ItemFn {
+        attrs: impl_item_fn.attrs,
+        vis: impl_item_fn.vis,
+        sig: impl_item_fn.sig,
+        block: Box::new(impl_item_fn.block),
+    };
+
+    let item_fn = FunctionFolder {
+        self_ty: Some(self_ty.clone()),
+        ident_creator: IdentCreator::new(String::from("")),
+        scopes: Vec::new(),
+        local_types: BTreeMap::new(),
+        next_scope_id: 0,
+    }
+    .fold(item_fn)?;
+
+    Ok((item_fn))
 }
 
 struct FunctionScope {
@@ -46,7 +74,7 @@ struct FunctionScope {
 }
 
 struct FunctionFolder {
-    self_ty: WPath,
+    self_ty: Option<WPath>,
     ident_creator: IdentCreator,
     local_types: BTreeMap<WIdent, WPartialGeneralType<WBasicType>>,
     scopes: Vec<FunctionScope>,
@@ -54,15 +82,8 @@ struct FunctionFolder {
 }
 
 impl FunctionFolder {
-    pub fn fold(mut self, mut impl_item: ImplItemFn) -> Result<WImplItemFn<YTac>, Errors> {
+    pub fn fold(mut self, mut impl_item: ItemFn) -> Result<WItemFn<YTac>, Errors> {
         let impl_item_span = WSpan::from_syn(&impl_item);
-
-        if impl_item.defaultness.is_some() {
-            return Err(Errors::single(Error::unsupported_syn_construct(
-                "Defaultness",
-                &impl_item.defaultness,
-            )));
-        }
 
         // do not disallow the 'allow' attributes
         impl_item.attrs.retain(|attr| {
@@ -75,7 +96,7 @@ impl FunctionFolder {
 
         // disallow attributes
         let mut attribute_disallower = AttributeDisallower::new();
-        attribute_disallower.visit_impl_item_fn(&impl_item);
+        attribute_disallower.visit_item_fn(&impl_item);
         attribute_disallower.into_result()?;
 
         let visibility = fold_visibility(impl_item.vis)?;
@@ -89,7 +110,7 @@ impl FunctionFolder {
 
         let signature = self.fold_signature(scope_id, impl_item.sig)?;
 
-        let (block, result) = self.fold_block(impl_item.block)?;
+        let (block, result) = self.fold_block(*impl_item.block)?;
 
         let Some(result) = result else {
             return Err(Errors::single(Error::unsupported_construct(
@@ -115,7 +136,7 @@ impl FunctionFolder {
             });
         }
 
-        Ok(WImplItemFn {
+        Ok(WItemFn {
             visibility,
             signature,
             locals,
@@ -183,7 +204,7 @@ impl FunctionFolder {
                     signature_span,
                 )))
             }
-            syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty, Some(&self.self_ty)),
+            syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty, self.self_ty.as_ref()),
         }
         .map_err(Errors::single);
 
@@ -203,6 +224,15 @@ impl FunctionFolder {
     ) -> Result<WFnArg<WType<WBasicType>>, Error> {
         let fn_arg = match fn_arg {
             syn::FnArg::Receiver(receiver) => {
+                let Some(self_ty) = &self.self_ty else {
+                    return Err(Error::new(
+                        ErrorType::IllegalConstruct(String::from(
+                            "Self argument in non-impl function",
+                        )),
+                        WSpan::from_syn(&receiver),
+                    ));
+                };
+
                 let receiver_span = receiver.span();
                 let reference = match receiver.reference {
                     Some((_and, lifetime)) => {
@@ -227,7 +257,7 @@ impl FunctionFolder {
 
                 let self_type = WType {
                     reference,
-                    inner: WBasicType::Path(self.self_ty.clone()),
+                    inner: WBasicType::Path(self_ty.clone()),
                 };
 
                 self.add_unique_scoped_ident(self_ident.clone(), self_ident.clone());
@@ -246,7 +276,7 @@ impl FunctionFolder {
                 };
 
                 let original_ident = WIdent::from_syn_ident(pat_ident.ident);
-                let ty = fold_type(*pat_type.ty, Some(&self.self_ty))?;
+                let ty = fold_type(*pat_type.ty, self.self_ty.as_ref())?;
 
                 let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
 
@@ -275,7 +305,7 @@ impl FunctionFolder {
             ));
         }
 
-        let path = fold_path(expr_path.path, Some(&self.self_ty))?;
+        let path = fold_path(expr_path.path, self.self_ty.as_ref())?;
         let mut segments_iter = path.segments.into_iter();
         if path.leading_colon.is_none() {
             if let Some(first) = segments_iter.next() {

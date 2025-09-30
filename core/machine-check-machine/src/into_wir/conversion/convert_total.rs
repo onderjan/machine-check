@@ -8,13 +8,14 @@ use crate::{
     support::ident_creator::IdentCreator,
     wir::{
         WBasicType, WBlock, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent,
-        WIfCondition, WIfConditionIdent, WImplItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity,
-        WPanicResult, WPanicResultType, WPartialGeneralType, WSignature, WStdBinary, WStmt,
-        WStmtAssign, WStmtIf, WTacLocal, WType, YNonindexed, YTotal, ZNonindexed, ZTotal,
+        WIfCondition, WIfConditionIdent, WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity,
+        WPanicResult, WPanicResultType, WPartialGeneralType, WProperty, WSignature, WStdBinary,
+        WStmt, WStmtAssign, WStmtIf, WSubproperty, WTacLocal, WType, YNonindexed, YTotal,
+        ZNonindexed, ZTotal,
     },
 };
 
-pub fn convert_total(
+pub fn convert_description(
     description: WDescription<YNonindexed>,
 ) -> (WDescription<YTotal>, Vec<String>) {
     // add the division and remainder panic messages first
@@ -48,6 +49,24 @@ pub fn convert_total(
     )
 }
 
+pub fn convert_property(property: WProperty<YNonindexed>) -> (WProperty<YTotal>, Vec<String>) {
+    // add the division and remainder panic messages first
+    let mut panic_messages = vec![
+        String::from(PANIC_MSG_DIV_BY_ZERO),
+        String::from(PANIC_MSG_REM_BY_ZERO),
+    ];
+
+    let mut subproperties = Vec::new();
+
+    for subproperty in property.subproperties {
+        subproperties.push(WSubproperty {
+            func: FnConverter::fold_fn(subproperty.func, &mut panic_messages),
+        });
+    }
+
+    (WProperty { subproperties }, panic_messages)
+}
+
 struct FnConverter<'a> {
     ident_creator: IdentCreator,
     panic_ident: WIdent,
@@ -58,9 +77,9 @@ struct FnConverter<'a> {
 
 impl FnConverter<'_> {
     fn fold_fn(
-        impl_item_fn: WImplItemFn<YNonindexed>,
+        impl_item_fn: WItemFn<YNonindexed>,
         panic_messages: &mut Vec<String>,
-    ) -> WImplItemFn<YTotal> {
+    ) -> WItemFn<YTotal> {
         let span = Span::call_site();
 
         let mut locals = impl_item_fn.locals;
@@ -119,7 +138,7 @@ impl FnConverter<'_> {
             inputs: impl_item_fn.signature.inputs,
             output: WPanicResultType(impl_item_fn.signature.output),
         };
-        WImplItemFn {
+        WItemFn {
             visibility: impl_item_fn.visibility,
             signature,
             locals,

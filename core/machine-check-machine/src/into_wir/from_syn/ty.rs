@@ -86,9 +86,28 @@ pub fn extract_generic_sizes(
 ) -> Result<Vec<u32>, Error> {
     let mut generic_sizes = Vec::new();
     match arguments {
-        syn::PathArguments::None => {}
+        syn::PathArguments::None => {
+            if expected_length != 0 {
+                return Err(Error::new(
+                    ErrorType::IllegalConstruct(format!(
+                        "Expected {} generic arguments but none supplied",
+                        expected_length
+                    )),
+                    WSpan::from_syn(&arguments),
+                ));
+            }
+        }
         syn::PathArguments::AngleBracketed(generic_args) => {
-            assert_eq!(expected_length, generic_args.args.len());
+            if expected_length != generic_args.args.len() {
+                return Err(Error::new(
+                    ErrorType::IllegalConstruct(format!(
+                        "Expected {} generic arguments, but {} supplied",
+                        expected_length,
+                        generic_args.args.len()
+                    )),
+                    WSpan::from_syn(&generic_args),
+                ));
+            }
             for arg in generic_args.args.into_iter() {
                 let arg_span = WSpan::from_syn(&arg);
                 let parsed = match arg {

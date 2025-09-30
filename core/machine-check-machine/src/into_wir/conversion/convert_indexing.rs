@@ -4,24 +4,32 @@ use crate::{
     support::ident_creator::IdentCreator,
     wir::{
         WArrayBaseExpr, WArrayRead, WArrayWrite, WBlock, WDescription, WExpr, WExprField,
-        WExprHighCall, WExprReference, WIdent, WImplItemFn, WIndexedExpr, WIndexedIdent, WItemImpl,
-        WMacroableStmt, WSignature, WStmtAssign, WStmtIf, WTacLocal, YNonindexed, YTac,
-        ZNonindexed, ZTac,
+        WExprHighCall, WExprReference, WIdent, WItemFn, WIndexedExpr, WIndexedIdent, WItemImpl,
+        WMacroableStmt, WProperty, WSignature, WStmtAssign, WStmtIf, WSubproperty, WTacLocal,
+        YNonindexed, YTac, ZNonindexed, ZTac,
     },
 };
 
-pub fn convert_indexing(description: WDescription<YTac>) -> WDescription<YNonindexed> {
-    IndexingConverter {
-        ident_creator: IdentCreator::new(String::from("index")),
-    }
-    .convert_indexing(description)
+pub fn convert_description(description: WDescription<YTac>) -> WDescription<YNonindexed> {
+    IndexingConverter::new().convert_description(description)
 }
+
+pub fn convert_property(property: WProperty<YTac>) -> WProperty<YNonindexed> {
+    IndexingConverter::new().convert_property(property)
+}
+
 struct IndexingConverter {
     ident_creator: IdentCreator,
 }
 
 impl IndexingConverter {
-    pub fn convert_indexing(
+    fn new() -> IndexingConverter {
+        IndexingConverter {
+            ident_creator: IdentCreator::new(String::from("index")),
+        }
+    }
+
+    fn convert_description(
         &mut self,
         description: WDescription<YTac>,
     ) -> WDescription<YNonindexed> {
@@ -46,7 +54,18 @@ impl IndexingConverter {
         }
     }
 
-    fn fold_fn(&mut self, impl_item_fn: WImplItemFn<YTac>) -> WImplItemFn<YNonindexed> {
+    fn convert_property(&mut self, property: WProperty<YTac>) -> WProperty<YNonindexed> {
+        let mut subproperties = Vec::new();
+
+        for subproperty in property.subproperties {
+            let func = self.fold_fn(subproperty.func);
+            subproperties.push(WSubproperty { func });
+        }
+
+        WProperty { subproperties }
+    }
+
+    fn fold_fn(&mut self, impl_item_fn: WItemFn<YTac>) -> WItemFn<YNonindexed> {
         let signature = WSignature {
             ident: impl_item_fn.signature.ident,
             inputs: impl_item_fn.signature.inputs,
@@ -60,7 +79,7 @@ impl IndexingConverter {
                 ty: crate::wir::WPartialGeneralType::Unknown,
             });
         }
-        WImplItemFn {
+        WItemFn {
             visibility: impl_item_fn.visibility,
             signature,
             locals,

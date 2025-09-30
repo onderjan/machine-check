@@ -15,7 +15,7 @@ use crate::{
     wir::WSpan,
 };
 
-pub fn resolve_use(items: &mut [Item]) -> Result<(), Errors> {
+pub fn extract_use_map(items: &mut [Item]) -> Result<HashMap<Ident, Path>, Errors> {
     // construct the use map first
     let mut use_map = HashMap::new();
     let mut use_path_vec = Vec::new();
@@ -75,13 +75,10 @@ pub fn resolve_use(items: &mut [Item]) -> Result<(), Errors> {
 
     Errors::vec_result(errors)?;
 
-    resolve_use_with_map(items, use_map)
+    Ok(use_map)
 }
 
-pub fn resolve_use_with_map(
-    items: &mut [Item],
-    use_map: HashMap<Ident, Path>,
-) -> Result<(), Errors> {
+pub fn resolve_use_items(items: &mut [Item], use_map: &HashMap<Ident, Path>) -> Result<(), Errors> {
     let mut visitor = Visitor {
         result: Ok(()),
         use_map,
@@ -94,7 +91,7 @@ pub fn resolve_use_with_map(
     visitor.result.map_err(Errors::single)
 }
 
-pub fn resolve_property_use(expr: &mut Expr, use_map: HashMap<Ident, Path>) -> Result<(), Errors> {
+pub fn resolve_use_expr(expr: &mut Expr, use_map: &HashMap<Ident, Path>) -> Result<(), Errors> {
     let mut visitor = Visitor {
         result: Ok(()),
         use_map,
@@ -166,12 +163,12 @@ fn recurse_use_tree(
     }
 }
 
-struct Visitor {
+struct Visitor<'a> {
     result: Result<(), Error>,
-    use_map: HashMap<Ident, Path>,
+    use_map: &'a HashMap<Ident, Path>,
     local_scopes_idents: Vec<HashSet<Ident>>,
 }
-impl VisitMut for Visitor {
+impl VisitMut for Visitor<'_> {
     fn visit_path_mut(&mut self, path: &mut Path) {
         // do not convert local idents
         if let Some(path_ident) = extract_path_ident(path) {

@@ -13,13 +13,13 @@ use crate::{
         create_expr_tuple,
     },
     wir::{
-        IntoSyn, WBlock, WFnArg, WGeneralType, WIdent, WImplItemFn, WSignature, WStmt, WStmtAssign,
+        IntoSyn, WBlock, WFnArg, WGeneralType, WIdent, WItemFn, WSignature, WStmt, WStmtAssign,
     },
 };
 
 use super::{backward_folder::BackwardFolder, forward_folder::ForwardFolder};
 
-pub fn fold_impl_item_fn(forward_fn: WImplItemFn<YAbstr>) -> WImplItemFn<YRefin> {
+pub fn fold_impl_item_fn(forward_fn: WItemFn<YAbstr>) -> WItemFn<YRefin> {
     let abstract_args_ident = WIdent::new(String::from("__mck_abstr_args"), Span::call_site());
     let backward_later_ident = WIdent::new(String::from("__mck_input_later"), Span::call_site());
 
@@ -240,7 +240,7 @@ pub fn fold_impl_item_fn(forward_fn: WImplItemFn<YAbstr>) -> WImplItemFn<YRefin>
         right: WRefinRightExpr(result_tuple),
     }));
 
-    WImplItemFn {
+    WItemFn {
         visibility: forward_fn.visibility,
         signature,
         locals,

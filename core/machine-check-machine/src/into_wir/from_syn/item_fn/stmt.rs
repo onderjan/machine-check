@@ -7,7 +7,7 @@ use syn::{
 
 use crate::{
     into_wir::{
-        from_syn::{impl_item_fn::FunctionScope, ty::fold_type},
+        from_syn::{item_fn::FunctionScope, ty::fold_type},
         Error, ErrorType, Errors,
     },
     util::{create_expr_ident, path_matches_global_names},
@@ -90,7 +90,7 @@ impl super::FunctionFolder {
                 let mut pat = local.pat.clone();
                 let mut ty = WPartialGeneralType::Unknown;
                 if let Pat::Type(pat_type) = pat {
-                    ty = fold_type(*pat_type.ty, Some(&self.self_ty))
+                    ty = fold_type(*pat_type.ty, self.self_ty.as_ref())
                         .map(WPartialGeneralType::Normal)
                         .map_err(Errors::single)?;
                     pat = *pat_type.pat;

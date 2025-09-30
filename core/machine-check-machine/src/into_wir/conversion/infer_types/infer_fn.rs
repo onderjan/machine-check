@@ -3,13 +3,13 @@ use machine_check_common::ir_common::IrReference;
 use crate::{
     into_wir::Errors,
     wir::{
-        WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn,
+        WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WItemFn,
         WPartialGeneralType, WStmtAssign, WType, YSsa, ZSsa,
     },
 };
 
 impl super::FnInferrer<'_> {
-    pub fn process_impl_item_fn(&mut self, impl_item: &WImplItemFn<YSsa>) -> Result<bool, Errors> {
+    pub fn process_impl_item_fn(&mut self, impl_item: &WItemFn<YSsa>) -> Result<bool, Errors> {
         self.process_block(&impl_item.block)
     }
 

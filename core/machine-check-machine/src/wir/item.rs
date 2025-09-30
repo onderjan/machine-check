@@ -10,9 +10,18 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::wir::{WSpan, WSpanned};
+use crate::wir::{WBlock, WSignature, WSpan, WSpanned};
 
-use super::{IntoSyn, WIdent, WImplItemFn, WImplItemType, WPath, YStage};
+use super::{IntoSyn, WIdent, WImplItemType, WPath, YStage};
+
+#[derive(Clone, Debug, Hash)]
+pub struct WItemFn<Y: YStage> {
+    pub visibility: WVisibility,
+    pub signature: WSignature<Y>,
+    pub locals: Vec<Y::Local>,
+    pub block: WBlock<Y::AssignTypes>,
+    pub result: Y::FnResult,
+}
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemStruct<FT: IntoSyn<Type>> {
@@ -45,7 +54,7 @@ pub struct WField<FT: IntoSyn<Type>> {
 pub struct WItemImpl<Y: YStage> {
     pub self_ty: WPath,
     pub trait_: Option<Y::ItemImplTrait>,
-    pub impl_item_fns: Vec<WImplItemFn<Y>>,
+    pub impl_item_fns: Vec<WItemFn<Y>>,
     pub impl_item_types: Vec<WImplItemType>,
 }
 
@@ -155,7 +164,7 @@ impl<FT: IntoSyn<Type>> WSpanned for WItemStruct<FT> {
 
 impl<Y: YStage> IntoSyn<ItemImpl> for WItemImpl<Y>
 where
-    WImplItemFn<Y>: IntoSyn<ImplItemFn>,
+    WItemFn<Y>: IntoSyn<ImplItemFn>,
 {
     fn into_syn(self) -> ItemImpl {
         let span = Span::call_site();
@@ -192,7 +201,7 @@ where
 
 impl<Y: YStage> WSpanned for WItemImpl<Y>
 where
-    WImplItemFn<Y>: IntoSyn<ImplItemFn>,
+    WItemFn<Y>: IntoSyn<ImplItemFn>,
 {
     fn wir_span(&self) -> WSpan {
         self.self_ty.wir_span()

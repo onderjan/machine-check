@@ -165,7 +165,7 @@ impl RightExprFolder<'_> {
             _ => {}
         }
 
-        let wir_fn_path = fold_path(fn_path.clone(), Some(&self.fn_folder.self_ty))?;
+        let wir_fn_path = fold_path(fn_path.clone(), self.fn_folder.self_ty.as_ref())?;
         // ensure it is not a local-scope ident
         if wir_fn_path.leading_colon.is_none() && wir_fn_path.segments.len() == 1 {
             let ident = &wir_fn_path.segments[0].ident;
@@ -349,7 +349,7 @@ impl RightExprFolder<'_> {
             ));
         };
 
-        let ty = fold_type(arg.clone(), Some(&self.fn_folder.self_ty))?;
+        let ty = fold_type(arg.clone(), self.fn_folder.self_ty.as_ref())?;
         Ok(ty)
     }
 
@@ -498,7 +498,7 @@ impl RightExprFolder<'_> {
         }
 
         Ok(WExprStruct {
-            type_path: fold_path(expr_struct.path, Some(&self.fn_folder.self_ty))?,
+            type_path: fold_path(expr_struct.path, self.fn_folder.self_ty.as_ref())?,
             fields: args,
         })
     }

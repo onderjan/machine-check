@@ -13,7 +13,7 @@ use crate::{
     },
 };
 
-use super::{impl_item_fn::fold_impl_item_fn, path::fold_path, ty::fold_basic_type};
+use super::{item_fn::fold_impl_item_fn, path::fold_path, ty::fold_basic_type};
 
 pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>, Errors> {
     let item_span = WSpan::from_syn(&item);

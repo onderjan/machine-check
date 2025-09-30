@@ -35,7 +35,7 @@ pub struct WDescription<Y: YStage> {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WSubproperty<Y: YStage> {
-    pub func: WImplItemFn<Y>,
+    pub func: WItemFn<Y>,
 }
 
 #[derive(Clone, Debug, Hash)]

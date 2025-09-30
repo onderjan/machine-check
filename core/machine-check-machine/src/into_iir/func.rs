@@ -9,9 +9,9 @@ use machine_check_common::{
     ir_common::IrReference,
 };
 
-use crate::{abstr::YAbstr, into_iir::FromWirData, wir::WImplItemFn};
+use crate::{abstr::YAbstr, into_iir::FromWirData, wir::WItemFn};
 
-impl WImplItemFn<YAbstr> {
+impl WItemFn<YAbstr> {
     pub(super) fn into_iir(self, data: &mut FromWirData) -> IFn {
         let fn_ident = self.signature.ident;
 
