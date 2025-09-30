@@ -6,7 +6,7 @@ use syn::{
 };
 
 use crate::{
-    description::{
+    into_wir::{
         from_syn::{impl_item_fn::FunctionScope, ty::fold_type},
         Error, ErrorType, Errors,
     },

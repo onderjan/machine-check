@@ -7,7 +7,7 @@ use syn::{
 };
 
 use crate::{
-    description::{
+    into_wir::{
         attribute_disallower::AttributeDisallower,
         from_syn::{
             item::fold_visibility,

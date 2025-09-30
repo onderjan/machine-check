@@ -2,7 +2,7 @@ use machine_check_common::ir_common::{IrReference, IrTypeArray};
 use syn::{Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
-    description::{from_syn::path::fold_path, Error, ErrorType},
+    into_wir::{from_syn::path::fold_path, Error, ErrorType},
     wir::{WBasicType, WPath, WSpan, WType},
 };
 

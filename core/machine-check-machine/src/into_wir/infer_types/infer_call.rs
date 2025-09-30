@@ -1,7 +1,7 @@
 use machine_check_common::ir_common::{IrReference, IrStdBinaryOp};
 
 use crate::{
-    description::Error,
+    into_wir::Error,
     wir::{
         WArrayRead, WArrayWrite, WBasicType, WExprHighCall, WHighMckExt, WHighMckNew, WHighStdInto,
         WHighStdIntoType, WIdent, WPartialGeneralType, WSpanned, WStdBinary, WStdUnary,

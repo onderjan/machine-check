@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use machine_check_common::ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrStdBinaryOp, IrStdUnaryOp};
 
 use crate::{
-    description::{Error, ErrorType},
+    into_wir::{Error, ErrorType},
     wir::{
         WBasicType, WCall, WExpr, WExprCall, WExprHighCall, WGeneralType, WHighMckExt, WHighMckNew,
         WIdent, WMckBinary, WMckExt, WMckNew, WMckUnary, WSpanned, WStdBinary, WStdUnary,

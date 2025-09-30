@@ -1,7 +1,7 @@
 use syn::{Path, PathArguments};
 
 use crate::{
-    description::Error,
+    into_wir::Error,
     wir::{WIdent, WPath, WPathSegment, WSpan},
 };
 

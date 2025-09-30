@@ -1,7 +1,7 @@
 use machine_check_common::ir_common::IrReference;
 
 use crate::{
-    description::Errors,
+    into_wir::Errors,
     wir::{
         WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WImplItemFn,
         WPartialGeneralType, WStmtAssign, WType, YSsa, ZSsa,

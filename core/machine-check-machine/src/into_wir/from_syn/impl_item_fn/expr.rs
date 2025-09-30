@@ -9,7 +9,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    description::{
+    into_wir::{
         from_syn::{path::fold_path, ty::fold_type},
         Error, ErrorType,
     },

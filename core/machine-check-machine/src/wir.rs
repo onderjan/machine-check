@@ -34,8 +34,13 @@ pub struct WDescription<Y: YStage> {
 }
 
 #[derive(Clone, Debug, Hash)]
+pub struct WSubproperty<Y: YStage> {
+    pub func: WImplItemFn<Y>,
+}
+
+#[derive(Clone, Debug, Hash)]
 pub struct WProperty<Y: YStage> {
-    pub fns: Vec<WImplItemFn<Y>>,
+    pub subproperties: Vec<WSubproperty<Y>>,
 }
 
 pub trait IntoSyn<T> {
@@ -85,9 +90,9 @@ where
                 )))),
                 brace_token: Brace::default(),
                 items: self
-                    .fns
+                    .subproperties
                     .into_iter()
-                    .map(|fun| ImplItem::Fn(fun.into_syn()))
+                    .map(|subprop| ImplItem::Fn(subprop.func.into_syn()))
                     .collect(),
             })],
         }

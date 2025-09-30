@@ -20,8 +20,8 @@ use crate::wir::{WBasicType, WElementaryType, WIdent, WSpan};
 
 mod abstr;
 mod concr;
-mod description;
 mod into_iir;
+mod into_wir;
 mod refin;
 mod support;
 mod util;
@@ -130,7 +130,7 @@ pub fn process_property<M: FullMachine>(
 
     // TODO: do something with the panic messages
     let (description, _panic_messages, subproperty_infos) =
-        description::create_property_description(expr, &global_basic_types)?;
+        into_wir::create_property_description(expr, &global_basic_types)?;
     let description = abstr::create_abstract_property(description);
 
     //println!("Abstract description: {:?}", description);
@@ -188,7 +188,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         None
     };
 
-    let (description, panic_messages) = description::create_description(items.clone())?;
+    let (description, panic_messages) = into_wir::create_description(items.clone())?;
 
     if let Some(out_dir) = &out_dir {
         std::fs::write(
