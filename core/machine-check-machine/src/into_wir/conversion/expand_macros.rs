@@ -13,11 +13,10 @@ use syn::{
 use syn_path::path;
 
 use crate::{
+    into_wir::{Error, ErrorType},
     util::{create_expr_ident, path_matches_global_names},
     wir::WSpan,
 };
-
-use super::{Error, ErrorType};
 
 /*pub struct ExpandedNext {
     // TODO: do something with expanded

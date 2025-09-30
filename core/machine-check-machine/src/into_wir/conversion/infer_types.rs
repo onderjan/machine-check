@@ -5,13 +5,14 @@ use std::collections::HashMap;
 
 use machine_check_common::ir_common::IrReference;
 
-use crate::wir::{
-    WBasicType, WBlock, WDescription, WExpr, WExprHighCall, WGeneralType, WHighMckNew, WIdent,
-    WImplItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WSignature, WSpanned,
-    WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YInferred, YSsa, ZSsa,
+use crate::{
+    into_wir::{Error, ErrorType, Errors},
+    wir::{
+        WBasicType, WBlock, WDescription, WExpr, WExprHighCall, WGeneralType, WHighMckNew, WIdent,
+        WImplItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WSignature, WSpanned,
+        WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YInferred, YSsa, ZSsa,
+    },
 };
-
-use super::{Error, ErrorType, Errors};
 
 pub fn infer_types(
     description: WDescription<YSsa>,

@@ -1,6 +1,6 @@
 use syn::visit::Visit;
 
-use super::{Error, Errors};
+use crate::into_wir::{Error, Errors};
 
 pub struct AttributeDisallower {
     errors: Vec<Error>,

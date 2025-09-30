@@ -8,7 +8,7 @@ use syn::{
 
 use crate::{
     into_wir::{
-        attribute_disallower::AttributeDisallower,
+        conversion::attribute_disallower::AttributeDisallower,
         from_syn::{
             item::fold_visibility,
             ty::{fold_basic_type, fold_type},

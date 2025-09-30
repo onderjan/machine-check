@@ -1,13 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
     WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WHighMckNew, WIdent, WIfCondition,
     WPartialGeneralType, WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, ZSsa,
     ZTotal,
 };
 use crate::wir::{WDescription, WImplItemFn, WItemImpl, YSsa, YTotal};
-
-use super::{Error, ErrorType, Errors};
 
 pub fn convert_to_ssa(description: WDescription<YTotal>) -> Result<WDescription<YSsa>, Errors> {
     let mut impls = Vec::new();

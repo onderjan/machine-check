@@ -2,14 +2,15 @@ use std::collections::BTreeMap;
 
 use convert_calls::convert_call_fn_path;
 
-use crate::wir::{
-    WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprHighCall,
-    WExprStruct, WField, WFnArg, WGeneralType, WIdent, WImplItemFn, WImplItemType, WItemImpl,
-    WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt, WStmtAssign,
-    WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
+use crate::{
+    into_wir::Errors,
+    wir::{
+        WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprHighCall,
+        WExprStruct, WField, WFnArg, WGeneralType, WIdent, WImplItemFn, WImplItemType, WItemImpl,
+        WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt,
+        WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
+    },
 };
-
-use super::Errors;
 
 mod convert_calls;
 

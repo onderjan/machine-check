@@ -9,9 +9,11 @@ use syn::{
     Expr, Ident, Item, Pat, Path, PathArguments, PathSegment, Token, UseTree,
 };
 
-use crate::{into_wir::Errors, util::extract_path_ident, wir::WSpan};
-
-use super::Error;
+use crate::{
+    into_wir::{Error, Errors},
+    util::extract_path_ident,
+    wir::WSpan,
+};
 
 pub fn resolve_use(items: &mut [Item]) -> Result<(), Errors> {
     // construct the use map first
