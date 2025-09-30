@@ -4,7 +4,7 @@ use crate::{
     support::ident_creator::IdentCreator,
     wir::{
         WArrayBaseExpr, WArrayRead, WArrayWrite, WBlock, WDescription, WExpr, WExprField,
-        WExprHighCall, WExprReference, WIdent, WItemFn, WIndexedExpr, WIndexedIdent, WItemImpl,
+        WExprHighCall, WExprReference, WIdent, WIndexedExpr, WIndexedIdent, WItemFn, WItemImpl,
         WMacroableStmt, WProperty, WSignature, WStmtAssign, WStmtIf, WSubproperty, WTacLocal,
         YNonindexed, YTac, ZNonindexed, ZTac,
     },
@@ -59,7 +59,10 @@ impl IndexingConverter {
 
         for subproperty in property.subproperties {
             let func = self.fold_fn(subproperty.func);
-            subproperties.push(WSubproperty { func });
+            subproperties.push(WSubproperty {
+                func,
+                info: subproperty.info,
+            });
         }
 
         WProperty { subproperties }

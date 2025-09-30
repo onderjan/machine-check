@@ -9,12 +9,13 @@ use crate::{
     into_wir::{Error, ErrorType, Errors},
     wir::{
         WBasicType, WBlock, WDescription, WExpr, WExprHighCall, WGeneralType, WHighMckNew, WIdent,
-        WItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WSignature, WSpanned,
-        WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YInferred, YSsa, ZSsa,
+        WItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WProperty, WSignature,
+        WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty, WType, YInferred, YSsa,
+        ZSsa,
     },
 };
 
-pub fn infer_types(
+pub fn infer_description(
     description: WDescription<YSsa>,
     global_ident_types: &HashMap<WIdent, WBasicType>,
 ) -> Result<WDescription<YInferred>, Errors> {
@@ -36,7 +37,7 @@ pub fn infer_types(
             fn_items.push(infer_fn_types(
                 fn_item,
                 &structs,
-                self_path,
+                Some(self_path),
                 global_ident_types,
             ));
         }
@@ -62,16 +63,36 @@ pub fn infer_types(
     })
 }
 
+pub fn infer_property(
+    property: WProperty<YSsa>,
+    global_ident_types: &HashMap<WIdent, WBasicType>,
+) -> Result<WProperty<YInferred>, Errors> {
+    let mut subproperties = Vec::new();
+
+    for subproperty in property.subproperties {
+        let func = infer_fn_types(subproperty.func, &HashMap::new(), None, global_ident_types)?;
+
+        subproperties.push(WSubproperty {
+            func,
+            info: subproperty.info,
+        });
+    }
+
+    Ok(WProperty { subproperties })
+}
+
 fn infer_fn_types(
     mut impl_item_fn: WItemFn<YSsa>,
     structs: &HashMap<WPath, WItemStruct<WBasicType>>,
-    self_path: &WPath,
+    self_path: Option<&WPath>,
     global_ident_types: &HashMap<WIdent, WBasicType>,
 ) -> Result<WItemFn<YInferred>, Errors> {
-    fn convert_self(ty: &mut WType<WBasicType>, self_path: &WPath) {
-        if let WBasicType::Path(path) = &mut ty.inner {
-            if path.matches_relative(&["Self"]) {
-                *path = self_path.clone();
+    fn convert_self(ty: &mut WType<WBasicType>, self_path: Option<&WPath>) {
+        if let Some(self_path) = self_path {
+            if let WBasicType::Path(path) = &mut ty.inner {
+                if path.matches_relative(&["Self"]) {
+                    *path = self_path.clone();
+                }
             }
         }
     }

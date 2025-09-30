@@ -4,13 +4,13 @@ mod item_struct;
 use syn::{GenericArgument, Item, Path};
 
 use crate::{
-    abstr::item_impl::process_property_item_impl,
+    abstr::item_impl::fold_impl_item_fn,
     support::manipulate::{self},
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
         IntoSyn, WDescription, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
-        WItemImplTrait, WPanicResult, WPanicResultType, WPath, WSsaLocal, WStmt, WType, YConverted,
-        YStage, ZAssignTypes, ZIfPolarity,
+        WItemImplTrait, WPanicResult, WPanicResultType, WPath, WProperty, WSsaLocal, WStmt,
+        WSubproperty, WType, YConverted, YStage, ZAssignTypes, ZIfPolarity,
     },
 };
 
@@ -115,25 +115,16 @@ pub(crate) fn create_abstract_description(
     (abstract_description, misc_items)
 }
 
-pub(crate) fn create_abstract_property(
-    description: WDescription<YConverted>,
-) -> WDescription<YAbstr> {
-    let mut machine_types = Vec::new();
-    for item_impl in description.impls.iter() {
-        if let Some(ty) = preprocess_item_impl(item_impl) {
-            machine_types.push(ty);
-        }
+pub(crate) fn create_abstract_property(property: WProperty<YConverted>) -> WProperty<YAbstr> {
+    let mut subproperties = Vec::new();
+
+    for subproperty in property.subproperties {
+        let func = fold_impl_item_fn(subproperty.func);
+        subproperties.push(WSubproperty {
+            func,
+            info: subproperty.info,
+        });
     }
 
-    let mut abstract_description = WDescription::<YAbstr> {
-        structs: Vec::new(),
-        impls: Vec::new(),
-    };
-
-    for item_impl in description.impls {
-        let item_impls = process_property_item_impl(item_impl);
-        abstract_description.impls.push(item_impls);
-    }
-
-    abstract_description
+    WProperty { subproperties }
 }

@@ -1,9 +1,8 @@
 use machine_check_common::iir::{
-    ISubpropertyType, ISubpropertyTypeFixedPoint, ISubpropertyTypeNext,
+    ISubpropertyInfo, ISubpropertyType, ISubpropertyTypeFixedPoint, ISubpropertyTypeNext,
 };
 use quote::ToTokens;
 use syn::{
-    parse2,
     punctuated::Punctuated,
     spanned::Spanned,
     token::Paren,
@@ -169,31 +168,21 @@ impl Visitor {
                 &format!("__mck_subproperty_{}", new_subproperty_index),
                 mac.path.span(),
             );
-            self.new_subproperties.push(ExprSubproperty {
+
+            let info = ISubpropertyInfo {
                 ty: subproperty_type,
-                expr,
-            });
+                inner_subproperties: Vec::new(),
+            };
+
+            // TODO: update inner subproperties
+
+            self.new_subproperties.push(ExprSubproperty { info, expr });
             let expr = create_expr_ident(ident);
 
             self.expanded_some_macro = true;
             return Ok(expr);
         }
         Ok(Expr::Macro(ExprMacro { attrs, mac }))
-    }
-
-    fn process_bitmask_switch(&self, mut mac: Macro) -> Result<Expr, Error> {
-        let macro_result =
-            match machine_check_bitmask_switch::process(::std::mem::take(&mut mac.tokens)) {
-                Ok(ok) => ok,
-                Err(err) => {
-                    return Err(Error::new(
-                        ErrorType::MacroError(err.msg()),
-                        WSpan::from_syn(&mac),
-                    ));
-                }
-            };
-        parse2(macro_result)
-            .map_err(|err| Error::new(ErrorType::MacroParseError(err), WSpan::from_syn(&mac)))
     }
 
     fn push_error(&mut self, err: Error) {

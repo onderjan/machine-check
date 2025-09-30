@@ -5,13 +5,12 @@ mod property;
 
 use std::collections::HashMap;
 
-use machine_check_common::iir::ISubpropertyInfo;
 use quote::ToTokens;
 use syn::Item;
 
 use crate::{
     support::error_list::ErrorList,
-    wir::{WBasicType, WDescription, WIdent, WSpan, YConverted},
+    wir::{WBasicType, WDescription, WIdent, WProperty, WSpan, YConverted},
 };
 
 pub fn create_description(
@@ -23,7 +22,7 @@ pub fn create_description(
 pub fn create_property_description(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WBasicType>,
-) -> Result<(WDescription<YConverted>, Vec<String>, Vec<ISubpropertyInfo>), crate::Errors> {
+) -> Result<(WProperty<YConverted>, Vec<String>), crate::Errors> {
     property::create_from_syn(expr, global_ident_types).map_err(Errors::convert_inner)
 }
 

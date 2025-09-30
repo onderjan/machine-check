@@ -41,7 +41,7 @@ pub struct ISubpropertyInfo {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ISubproperty {
-    pub function: IFn,
+    pub func: IFn,
     pub info: ISubpropertyInfo,
 }
 
@@ -57,7 +57,7 @@ impl IProperty {
         subproperty_index: usize,
     ) -> IAbstractValue {
         let subproperty = &self.subproperties[subproperty_index];
-        let func = &subproperty.function;
+        let func = &subproperty.func;
 
         let mut inter = Interpretation::new();
 
@@ -81,7 +81,7 @@ impl IProperty {
         subproperty_index: usize,
     ) -> BTreeMap<String, IRefinementValue> {
         let subproperty = &self.subproperties[subproperty_index];
-        let func = &subproperty.function;
+        let func = &subproperty.func;
 
         let mut inter = Interpretation::new();
 

@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use machine_check_common::iir::{
-    func::IGlobal, path::IIdent, variable::IVarId, IProperty, ISubproperty, ISubpropertyInfo,
+    func::IGlobal, path::IIdent, variable::IVarId, IProperty, ISubproperty,
 };
 
 use crate::{
     abstr::YAbstr,
-    wir::{WDescription, WElementaryType, WIdent},
+    wir::{WElementaryType, WIdent, WProperty},
 };
 
 mod expr;
@@ -15,11 +15,10 @@ mod path;
 mod stmt;
 mod ty;
 
-impl WDescription<YAbstr> {
+impl WProperty<YAbstr> {
     pub fn into_property_iir(
         self,
         global_ident_types: BTreeMap<WIdent, WElementaryType>,
-        subproperty_infos: Vec<ISubpropertyInfo>,
     ) -> IProperty {
         let mut next_var_id: usize = 0;
         let mut used_globals = BTreeMap::new();
@@ -53,32 +52,14 @@ impl WDescription<YAbstr> {
 
         let mut subproperties = Vec::new();
 
-        let mut subproperty_index = 0;
+        for subproperty in self.subproperties {
+            let func = subproperty.func.into_iir(&mut data);
 
-        for item_impl in self.impls {
-            for function in item_impl.impl_item_fns {
-                let function = function.into_iir(&mut data);
-
-                let fn_num: usize = function
-                    .signature
-                    .ident
-                    .name()
-                    .strip_prefix("fn_")
-                    .expect("Property function should be regularly prefixed")
-                    .parse()
-                    .expect("Property function should consist of a prefix and a number");
-                assert_eq!(fn_num, subproperties.len());
-
-                subproperties.push(ISubproperty {
-                    function,
-                    info: subproperty_infos[subproperty_index].clone(),
-                });
-                subproperty_index += 1;
-            }
+            subproperties.push(ISubproperty {
+                func,
+                info: subproperty.info,
+            });
         }
-
-        // TODO: only retain used globals
-        //used_globals.retain(|var_id, _| data.used_globals.contains(var_id));
 
         IProperty { subproperties }
     }

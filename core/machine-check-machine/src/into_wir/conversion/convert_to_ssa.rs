@@ -36,7 +36,10 @@ pub fn convert_property(property: WProperty<YTotal>) -> Result<WProperty<YSsa>, 
     let mut subproperties = Vec::new();
     for subproperty in property.subproperties {
         let func = process_fn(subproperty.func)?;
-        subproperties.push(WSubproperty { func });
+        subproperties.push(WSubproperty {
+            func,
+            info: subproperty.info,
+        });
     }
 
     Ok(WProperty { subproperties })

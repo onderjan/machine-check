@@ -8,24 +8,25 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Brace, Paren},
-    visit::{self, Visit},
-    AngleBracketedGenericArguments, Block, Expr, ExprLit, GenericArgument, Generics, Ident,
-    ImplItemFn, LitInt, Path, PathArguments, PathSegment, Signature, Stmt, Token, Type,
+    Block, Expr, Generics, Ident, ItemFn, Path, PathArguments, PathSegment, Signature, Stmt, Token,
 };
 use syn_path::path;
 
 use crate::{
     into_wir::{
-        conversion::{convert_indexing, convert_to_ssa, convert_total, expand_macros, resolve_use},
+        conversion::{
+            convert_indexing, convert_to_ssa, convert_total, convert_types, expand_macros,
+            infer_types, resolve_use,
+        },
         from_syn, Errors,
     },
     util::create_type_path,
-    wir::{WBasicType, WDescription, WIdent, WPath, WProperty, WSubproperty, YConverted, YTac},
+    wir::{WBasicType, WIdent, WProperty, WSubproperty, YConverted, YTac},
 };
 
 #[derive(Clone, Debug, Hash)]
 struct ExprSubproperty {
-    ty: ISubpropertyType,
+    info: ISubpropertyInfo,
     expr: Expr,
 }
 
@@ -46,7 +47,7 @@ impl ExprProperty {
 pub fn create_from_syn(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WBasicType>,
-) -> Result<(WDescription<YConverted>, Vec<String>, Vec<ISubpropertyInfo>), Errors> {
+) -> Result<(WProperty<YConverted>, Vec<String>), Errors> {
     let span = expr.span();
     println!(
         "Original syn string:\n{}",
@@ -60,7 +61,10 @@ pub fn create_from_syn(
     // expand macros
     let mut property = ExprProperty {
         subproperties: vec![ExprSubproperty {
-            ty: ISubpropertyType::Root,
+            info: ISubpropertyInfo {
+                ty: ISubpropertyType::Root,
+                inner_subproperties: Vec::new(),
+            },
             expr,
         }],
     };
@@ -84,23 +88,12 @@ pub fn create_from_syn(
     let property = convert_indexing::convert_property(property);
     let (property, panic_messages) = convert_total::convert_property(property);
     let property = convert_to_ssa::convert_property(property)?;
+    let property = infer_types::infer_property(property, global_ident_types)?;
+    let property = convert_types::convert_property(property)?;
 
     println!("Property: {:#?}", property);
 
-    todo!("Rewrite property");
-
-    /*
-
-    let w_description = infer_types::infer_types(w_description, global_ident_types)?;
-    let w_description = convert_types::convert_types(w_description)?;
-
-    println!(
-        "Compared syn string:\n{}",
-        prettyplease::unparse(&w_description.clone().into_syn())
-    );
-    println!("---");
-    Ok((w_description, panic_messages, subproperty_infos))
-    */
+    Ok((property, panic_messages))
 }
 
 fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors> {
@@ -112,7 +105,7 @@ fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors
         // TODO: add inputs
         let inputs = Punctuated::default();
 
-        let mut path = path!(::machine_check::Bitvector);
+        /*let mut path = path!(::machine_check::Bitvector);
         path.segments.last_mut().unwrap().arguments =
             PathArguments::AngleBracketed(AngleBracketedGenericArguments {
                 colon2_token: None,
@@ -122,7 +115,9 @@ fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors
                     lit: syn::Lit::Int(LitInt::new("1", span)),
                 }))]),
                 gt_token: Token![>](span),
-            });
+            });*/
+
+        let path = path!(bool);
 
         let output_type = create_type_path(path);
 
@@ -140,22 +135,22 @@ fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors
             output: syn::ReturnType::Type(Token![->](span), Box::new(output_type)),
         };
 
-        let func = ImplItemFn {
+        let func = ItemFn {
             attrs: Vec::new(),
             vis: syn::Visibility::Inherited,
-            defaultness: None,
             sig: signature,
-            block: Block {
+            block: Box::new(Block {
                 brace_token: Brace::default(),
                 stmts: vec![Stmt::Expr(subproperty.expr, None)],
-            },
+            }),
         };
 
-        let self_ty = &WPath::from_ident(WIdent::new(String::from("dummy"), span));
+        let func = from_syn::fold_item_fn(func)?;
 
-        let func = from_syn::fold_impl_item_fn(func, self_ty)?;
-
-        subproperties.push(WSubproperty { func });
+        subproperties.push(WSubproperty {
+            func,
+            info: subproperty.info,
+        });
     }
 
     Ok(WProperty { subproperties })

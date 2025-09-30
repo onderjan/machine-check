@@ -61,6 +61,7 @@ pub fn convert_property(property: WProperty<YNonindexed>) -> (WProperty<YTotal>,
     for subproperty in property.subproperties {
         subproperties.push(WSubproperty {
             func: FnConverter::fold_fn(subproperty.func, &mut panic_messages),
+            info: subproperty.info,
         });
     }
 

@@ -31,8 +31,8 @@ pub fn description_from_syn(
     let w_description = convert_indexing::convert_description(w_description);
     let (w_description, panic_messages) = convert_total::convert_description(w_description);
     let w_description = convert_to_ssa::convert_description(w_description)?;
-    let w_description = infer_types::infer_types(w_description, &HashMap::new())?;
-    let w_description = convert_types::convert_types(w_description)?;
+    let w_description = infer_types::infer_description(w_description, &HashMap::new())?;
+    let w_description = convert_types::convert_description(w_description)?;
 
     Ok((w_description, panic_messages))
 }

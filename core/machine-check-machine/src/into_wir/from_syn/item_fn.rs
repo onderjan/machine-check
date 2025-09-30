@@ -11,7 +11,7 @@ use crate::{
     into_wir::{
         conversion::attribute_disallower::AttributeDisallower,
         from_syn::{
-            item::{self, fold_visibility},
+            item::fold_visibility,
             ty::{fold_basic_type, fold_type},
         },
         Error, ErrorType, Errors,
@@ -66,7 +66,7 @@ pub fn fold_impl_item_fn(
     }
     .fold(item_fn)?;
 
-    Ok((item_fn))
+    Ok(item_fn)
 }
 
 struct FunctionScope {

@@ -6,37 +6,39 @@ use crate::{
     into_wir::Errors,
     wir::{
         WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprHighCall,
-        WExprStruct, WField, WFnArg, WGeneralType, WIdent, WItemFn, WImplItemType, WItemImpl,
-        WItemStruct, WPanicResultType, WPath, WPathSegment, WSignature, WSsaLocal, WStmt,
-        WStmtAssign, WStmtIf, WType, YConverted, YInferred, ZConverted, ZSsa,
+        WExprStruct, WField, WFnArg, WGeneralType, WIdent, WImplItemType, WItemFn, WItemImpl,
+        WItemStruct, WPanicResultType, WPath, WPathSegment, WProperty, WSignature, WSsaLocal,
+        WStmt, WStmtAssign, WStmtIf, WSubproperty, WType, YConverted, YInferred, ZConverted, ZSsa,
     },
 };
 
 mod convert_calls;
 
-pub fn convert_types(
+pub fn convert_description(
     description: WDescription<YInferred>,
 ) -> Result<WDescription<YConverted>, Errors> {
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     for item_struct in description.structs {
+        let derives = item_struct
+            .derives
+            .into_iter()
+            .map(convert_basic_path)
+            .collect();
+        let fields = item_struct
+            .fields
+            .into_iter()
+            .map(|field| WField {
+                visibility: field.visibility,
+                ident: field.ident,
+                ty: convert_basic_type(field.ty),
+            })
+            .collect();
         structs.push(WItemStruct {
             visibility: item_struct.visibility,
-            derives: item_struct
-                .derives
-                .into_iter()
-                .map(convert_basic_path)
-                .collect(),
+            derives,
             ident: item_struct.ident,
-            fields: item_struct
-                .fields
-                .into_iter()
-                .map(|field| WField {
-                    visibility: field.visibility,
-                    ident: field.ident,
-                    ty: convert_basic_type(field.ty),
-                })
-                .collect(),
+            fields,
         });
     }
 
@@ -44,7 +46,7 @@ pub fn convert_types(
         let mut impl_item_fns = Vec::new();
 
         for impl_item_fn in item_impl.impl_item_fns {
-            impl_item_fns.push(convert_impl_item_fn(impl_item_fn));
+            impl_item_fns.push(convert_item_fn(impl_item_fn));
         }
 
         let impl_item_types = item_impl
@@ -75,6 +77,20 @@ pub fn convert_types(
     Ok(WDescription { structs, impls })
 }
 
+pub fn convert_property(property: WProperty<YInferred>) -> Result<WProperty<YConverted>, Errors> {
+    let mut subproperties = Vec::new();
+
+    for subproperty in property.subproperties {
+        let func = convert_item_fn(subproperty.func)?;
+        subproperties.push(WSubproperty {
+            func,
+            info: subproperty.info,
+        });
+    }
+
+    Ok(WProperty { subproperties })
+}
+
 fn convert_basic_type(ty: WBasicType) -> WElementaryType {
     match ty {
         WBasicType::Bitvector(width) => WElementaryType::Bitvector(width),
@@ -101,9 +117,7 @@ fn convert_general_type(ty: WGeneralType<WBasicType>) -> WGeneralType<WElementar
     }
 }
 
-fn convert_impl_item_fn(
-    impl_item: WItemFn<YInferred>,
-) -> Result<WItemFn<YConverted>, Errors> {
+fn convert_item_fn(impl_item: WItemFn<YInferred>) -> Result<WItemFn<YConverted>, Errors> {
     let mut local_types = BTreeMap::from_iter(
         impl_item
             .locals

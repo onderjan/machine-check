@@ -1,3 +1,4 @@
+use machine_check_common::iir::ISubpropertyInfo;
 use proc_macro2::Span;
 use std::{fmt::Debug, hash::Hash};
 use syn::{
@@ -36,6 +37,7 @@ pub struct WDescription<Y: YStage> {
 #[derive(Clone, Debug, Hash)]
 pub struct WSubproperty<Y: YStage> {
     pub func: WItemFn<Y>,
+    pub info: ISubpropertyInfo,
 }
 
 #[derive(Clone, Debug, Hash)]

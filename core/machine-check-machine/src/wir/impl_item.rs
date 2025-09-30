@@ -13,7 +13,7 @@ use crate::{
     wir::{WItemFn, WVisibility},
 };
 
-use super::{IntoSyn, WBlock, WIdent, WPath, YStage};
+use super::{IntoSyn, WIdent, WPath, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WImplItemType {
