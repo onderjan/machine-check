@@ -174,6 +174,6 @@ impl<Z: ZAssignTypes> Debug for WStmt<Z> {
 
 impl<Z: ZAssignTypes> Debug for WStmtAssign<Z> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?} = {:?};", self.left, self.right)
+        write!(f, "{:?} = {:?}", self.left, self.right)
     }
 }

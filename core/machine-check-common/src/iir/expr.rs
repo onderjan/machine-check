@@ -1,12 +1,14 @@
 pub mod call;
 
+use std::fmt::Debug;
+
 use crate::iir::{
     expr::call::IExprCall,
     interpretation::{IAbstractValue, IRefinementValue, Interpretation},
     variable::IVarId,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum IExpr {
     Move(IVarId),
     Call(IExprCall),
@@ -31,6 +33,15 @@ impl IExpr {
                 inter.insert_refinement_value(*var_id, later);
             }
             IExpr::Call(expr_call) => expr_call.backward_interpret(inter, later),
+        }
+    }
+}
+
+impl Debug for IExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Move(ident) => write!(f, "{:?}", ident),
+            Self::Call(call) => write!(f, "{:?}", call),
         }
     }
 }

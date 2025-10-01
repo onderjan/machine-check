@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::{
     iir::{
         interpretation::{IAbstractValue, IRefinementValue, Interpretation},
@@ -6,7 +8,7 @@ use crate::{
     ir_common::{IrMckBinaryOp, IrMckUnaryOp},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct IMckUnary {
     pub op: IrMckUnaryOp,
     pub operand: IVarId,
@@ -38,7 +40,13 @@ impl IMckUnary {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+impl Debug for IMckUnary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}({:?})", self.op, self.operand)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct IMckBinary {
     pub op: IrMckBinaryOp,
     pub a: IVarId,
@@ -171,7 +179,13 @@ impl IMckBinary {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+impl Debug for IMckBinary {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}({:?}, {:?})", self.op, self.a, self.b)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum IMckNew {
     Bitvector(u32, i128),
     // TODO: bitvector array
@@ -191,7 +205,17 @@ impl IMckNew {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+impl Debug for IMckNew {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bitvector(width, constant) => {
+                write!(f, "::mck::Bitvector::<{}>::new({})", width, constant)
+            }
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum IExprCall {
     //Call(WCall),
     MckUnary(IMckUnary),
@@ -223,6 +247,16 @@ impl IExprCall {
             IExprCall::MckNew(_) => {
                 // there is no variable to propagate to, do nothing
             }
+        }
+    }
+}
+
+impl Debug for IExprCall {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MckUnary(unary) => unary.fmt(f),
+            Self::MckBinary(binary) => binary.fmt(f),
+            Self::MckNew(mck_new) => mck_new.fmt(f),
         }
     }
 }

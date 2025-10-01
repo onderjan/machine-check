@@ -1,6 +1,8 @@
+use std::fmt::Debug;
+
 use crate::iir::{expr::IExpr, interpretation::Interpretation, variable::IVarId};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum IStmt {
     Assign(IAssignStmt),
     // TODO if
@@ -22,7 +24,7 @@ impl IStmt {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct IAssignStmt {
     pub left: IVarId,
     pub right: IExpr,
@@ -49,5 +51,19 @@ impl IAssignStmt {
         if let Some(later_refinement_value) = inter.refinement_value_opt(left_ident) {
             self.right.backward_interpret(inter, later_refinement_value);
         }
+    }
+}
+
+impl Debug for IStmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IStmt::Assign(assign_stmt) => assign_stmt.fmt(f),
+        }
+    }
+}
+
+impl Debug for IAssignStmt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} = {:?}", self.left, self.right)
     }
 }

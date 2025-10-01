@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::iir::{
     interpretation::{IAbstractValue, Interpretation},
@@ -8,7 +8,7 @@ use crate::iir::{
     variable::{IVarId, IVarInfo},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct IBlock {
     pub stmts: Vec<IStmt>,
 }
@@ -84,5 +84,17 @@ impl IFn {
                 panic!("Used global not supplied: {:?}", global);
             }
         }
+    }
+}
+
+impl Debug for IBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut franz = f.debug_set();
+
+        for stmt in &self.stmts {
+            franz.entry(stmt);
+        }
+
+        franz.finish()
     }
 }

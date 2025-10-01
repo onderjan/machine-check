@@ -1,7 +1,7 @@
 use proc_macro2::Span;
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct IPath {
     pub leading_colon: Option<Span>,
     pub segments: Vec<IPathSegment>,
@@ -96,7 +96,26 @@ impl Hash for IPath {
     }
 }
 
-#[derive(Clone, Debug)]
+impl Debug for IPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.leading_colon.is_some() {
+            f.write_str("::")?;
+        }
+
+        let mut first = true;
+        for segment in &self.segments {
+            if first {
+                first = false;
+            } else {
+                f.write_str("::")?;
+            }
+            f.write_str(&segment.ident.name)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
 pub struct IIdent {
     name: String,
     span: Span,
@@ -169,5 +188,12 @@ impl Ord for IIdent {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // do not consider span for comparison
         self.name.cmp(&other.name)
+    }
+}
+
+impl Debug for IIdent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // just write the name
+        f.write_str(&self.name)
     }
 }
