@@ -63,7 +63,7 @@ pub fn create_from_syn(
         subproperties: vec![ExprSubproperty {
             info: ISubpropertyInfo {
                 ty: ISubpropertyType::Root,
-                inner_subproperties: Vec::new(),
+                children: Vec::new(),
             },
             expr,
         }],
@@ -87,7 +87,9 @@ pub fn create_from_syn(
     let property = property_from_exprs(property)?;
     let property = convert_indexing::convert_property(property);
     let (property, panic_messages) = convert_total::convert_property(property);
-    let property = convert_to_ssa::convert_property(property)?;
+    let property = convert_to_ssa::convert_property(property, global_ident_types)?;
+
+    println!("Global ident types: {:?}", global_ident_types);
     let property = infer_types::infer_property(property, global_ident_types)?;
     let property = convert_types::convert_property(property)?;
 
@@ -105,22 +107,6 @@ fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors
         // TODO: add inputs
         let inputs = Punctuated::default();
 
-        /*let mut path = path!(::machine_check::Bitvector);
-        path.segments.last_mut().unwrap().arguments =
-            PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                colon2_token: None,
-                lt_token: Token![<](span),
-                args: Punctuated::from_iter([GenericArgument::Const(Expr::Lit(ExprLit {
-                    attrs: Vec::new(),
-                    lit: syn::Lit::Int(LitInt::new("1", span)),
-                }))]),
-                gt_token: Token![>](span),
-            });*/
-
-        let path = path!(bool);
-
-        let output_type = create_type_path(path);
-
         let signature = Signature {
             constness: None,
             asyncness: None,
@@ -132,7 +118,10 @@ fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors
             paren_token: Paren::default(),
             inputs,
             variadic: None,
-            output: syn::ReturnType::Type(Token![->](span), Box::new(output_type)),
+            output: syn::ReturnType::Type(
+                Token![->](span),
+                Box::new(create_type_path(path!(bool))),
+            ),
         };
 
         let func = ItemFn {
@@ -179,16 +168,18 @@ fn property_use_map(span: Span) -> HashMap<Ident, Path> {
     use_map
 }
 
-const MACHINE_CHECK_USE: [&str; 13] = [
+const MACHINE_CHECK_USE: [&str; 15] = [
     "Bitvector",
     "Unsigned",
     "Signed",
     "lfp",
     "gfp",
+    "AX",
     "AG",
     "AF",
     "AR",
     "AU",
+    "EX",
     "EG",
     "EF",
     "ER",

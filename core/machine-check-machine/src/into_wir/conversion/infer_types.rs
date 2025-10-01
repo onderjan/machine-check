@@ -100,10 +100,6 @@ fn infer_fn_types(
     let mut local_ident_types = HashMap::new();
 
     for (global_ident, global_ident_type) in global_ident_types {
-        println!(
-            "Inserting global ident '{:?}' to local idents with type {:?}",
-            global_ident, global_ident_type
-        );
         local_ident_types.insert(
             global_ident.clone(),
             WPartialGeneralType::Normal(global_ident_type.clone().into_type()),

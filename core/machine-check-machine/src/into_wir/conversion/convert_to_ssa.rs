@@ -1,10 +1,14 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::borrow::Cow;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+
+use machine_check_common::iir::ISubpropertyType;
+use machine_check_common::ir_common::IrReference;
 
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WHighMckNew, WIdent, WIfCondition,
-    WPartialGeneralType, WProperty, WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
-    WSubproperty, ZSsa, ZTotal,
+    WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WFnArg, WHighMckNew, WIdent, WIfCondition,
+    WPartialGeneralType, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign,
+    WStmtIf, WSubproperty, WType, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
 
@@ -15,7 +19,16 @@ pub fn convert_description(
     for item_impl in description.impls {
         let mut impl_item_fns = Vec::new();
         for impl_item_fn in item_impl.impl_item_fns {
-            let impl_item_fn = process_fn(impl_item_fn)?;
+            let (impl_item_fn, nonlocal_idents) = process_fn(impl_item_fn, &BTreeMap::new())?;
+            let mut errors = Vec::new();
+            for nonlocal_ident in nonlocal_idents {
+                errors.push(Error::new(
+                    ErrorType::UndefinedVariable(nonlocal_ident.name().to_string()),
+                    WSpan::from_span(nonlocal_ident.span()),
+                ));
+            }
+            Errors::iter_to_result(errors)?;
+
             impl_item_fns.push(impl_item_fn);
         }
         impls.push(WItemImpl {
@@ -32,24 +45,145 @@ pub fn convert_description(
     })
 }
 
-pub fn convert_property(property: WProperty<YTotal>) -> Result<WProperty<YSsa>, Errors> {
+pub fn convert_property(
+    property: WProperty<YTotal>,
+    global_ident_types: &HashMap<WIdent, WBasicType>,
+) -> Result<WProperty<YSsa>, Errors> {
+    println!("Converting property: {:#?}", property);
+
+    let num_subproperties = property.subproperties.len();
+
+    let mut converter = SubpropertyConverter {
+        num_subproperties,
+        global_ident_types,
+        old_subproperties: BTreeMap::from_iter(
+            property
+                .subproperties
+                .into_iter()
+                .enumerate()
+                .map(|(index, subproperty)| (index, subproperty)),
+        ),
+        new_subproperties: BTreeMap::new(),
+    };
+    converter.convert_subproperty(0, &BTreeMap::new())?;
+
     let mut subproperties = Vec::new();
-    for subproperty in property.subproperties {
-        let func = process_fn(subproperty.func)?;
-        subproperties.push(WSubproperty {
-            func,
-            info: subproperty.info,
-        });
+
+    for subproperty_index in 0..num_subproperties {
+        subproperties.push(
+            converter
+                .new_subproperties
+                .remove(&subproperty_index)
+                .expect("Subproperty should be converted"),
+        );
     }
 
     Ok(WProperty { subproperties })
 }
 
-fn process_fn(impl_item_fn: WItemFn<YTotal>) -> Result<WItemFn<YSsa>, Errors> {
+struct SubpropertyConverter<'a> {
+    global_ident_types: &'a HashMap<WIdent, WBasicType>,
+    num_subproperties: usize,
+    old_subproperties: BTreeMap<usize, WSubproperty<YTotal>>,
+    new_subproperties: BTreeMap<usize, WSubproperty<YSsa>>,
+}
+impl SubpropertyConverter<'_> {
+    fn convert_subproperty(
+        &mut self,
+        subproperty_index: usize,
+        global_rewrites: &BTreeMap<WIdent, WIdent>,
+    ) -> Result<(), Errors> {
+        let subproperty = self
+            .old_subproperties
+            .remove(&subproperty_index)
+            .expect("Subproperty should be present");
+
+        let (mut func, nonlocal_idents) = {
+            println!(
+                "Considering subproperty {} info: {:?}",
+                subproperty_index, subproperty.info
+            );
+            let global_rewrites =
+                if let ISubpropertyType::FixedPoint(fixed_point_info) = &subproperty.info.ty {
+                    let subproperty_ident = WIdent::new(
+                        format!("__mck_subproperty_{}", subproperty_index),
+                        fixed_point_info.variable.span(),
+                    );
+                    println!(
+                        "Need to rewrite from {:?} to {:?}",
+                        fixed_point_info.variable, subproperty_ident
+                    );
+                    let mut global_rewrites = global_rewrites.clone();
+                    global_rewrites.insert(
+                        WIdent::from_syn_ident(fixed_point_info.variable.clone()),
+                        subproperty_ident,
+                    );
+                    Cow::Owned(global_rewrites)
+                } else {
+                    Cow::Borrowed(global_rewrites)
+                };
+
+            for child_index in &subproperty.info.children {
+                self.convert_subproperty(*child_index, &global_rewrites)?;
+            }
+
+            process_fn(subproperty.func, &global_rewrites)?
+        };
+        // add all non-local idents to the function arguments if possible
+        let mut errors = Vec::new();
+        for nonlocal_ident in nonlocal_idents {
+            let ty = if let Some(ty) = self.global_ident_types.get(&nonlocal_ident) {
+                Some(ty)
+            } else {
+                let mut ty = None;
+                for subproperty_index in 0..self.num_subproperties {
+                    let subproperty_ident_name = format!("__mck_subproperty_{}", subproperty_index);
+                    if nonlocal_ident.name() == &subproperty_ident_name {
+                        ty = Some(&WBasicType::Boolean);
+                        break;
+                    }
+                }
+
+                ty
+            };
+
+            if let Some(ty) = ty {
+                func.signature.inputs.push(WFnArg {
+                    ident: nonlocal_ident,
+                    ty: WType {
+                        reference: IrReference::None,
+                        inner: ty.clone(),
+                    },
+                });
+            } else {
+                errors.push(Error::new(
+                    ErrorType::UndefinedVariable(nonlocal_ident.name().to_string()),
+                    WSpan::from_span(nonlocal_ident.span()),
+                ));
+            }
+        }
+        Errors::iter_to_result(errors)?;
+
+        self.new_subproperties.insert(
+            subproperty_index,
+            WSubproperty {
+                func,
+                info: subproperty.info,
+            },
+        );
+
+        Ok(())
+    }
+}
+
+fn process_fn(
+    item_fn: WItemFn<YTotal>,
+    global_rewrites: &BTreeMap<WIdent, WIdent>,
+) -> Result<(WItemFn<YSsa>, BTreeSet<WIdent>), Errors> {
     // initialise local idents
     let mut local_ident_counters = BTreeMap::new();
 
-    for local in &impl_item_fn.locals {
+    for local in &item_fn.locals {
         local_ident_counters.insert(
             local.ident.clone(),
             Counter {
@@ -60,20 +194,34 @@ fn process_fn(impl_item_fn: WItemFn<YTotal>) -> Result<WItemFn<YSsa>, Errors> {
         );
     }
 
+    let arg_idents = item_fn
+        .signature
+        .inputs
+        .iter()
+        .map(|arg| arg.ident.clone())
+        .collect();
+
     // visit
     let mut local_visitor = LocalVisitor {
+        global_rewrites,
+        arg_idents,
         local_ident_counters,
+        nonlocal_idents: BTreeSet::new(),
         errors: Vec::new(),
         temps: BTreeMap::new(),
         branch_counter: 0,
         uninit_counter: 0,
     };
-    local_visitor.process(impl_item_fn)
+    let item_fn = local_visitor.process(item_fn)?;
+    Ok((item_fn, local_visitor.nonlocal_idents))
 }
 
-struct LocalVisitor {
+struct LocalVisitor<'a> {
+    pub global_rewrites: &'a BTreeMap<WIdent, WIdent>,
+    pub arg_idents: BTreeSet<WIdent>,
     pub branch_counter: u32,
     pub local_ident_counters: BTreeMap<WIdent, Counter>,
+    pub nonlocal_idents: BTreeSet<WIdent>,
     pub temps: BTreeMap<WIdent, (WIdent, WPartialGeneralType<WBasicType>)>,
     pub errors: Vec<Error>,
     pub uninit_counter: u32,
@@ -86,17 +234,17 @@ struct Counter {
     pub ty: WPartialGeneralType<WBasicType>,
 }
 
-impl LocalVisitor {
-    pub fn process(&mut self, mut impl_item_fn: WItemFn<YTotal>) -> Result<WItemFn<YSsa>, Errors> {
+impl LocalVisitor<'_> {
+    pub fn process(&mut self, mut item_fn: WItemFn<YTotal>) -> Result<WItemFn<YSsa>, Errors> {
         let signature = WSignature {
-            ident: impl_item_fn.signature.ident,
-            inputs: impl_item_fn.signature.inputs,
-            output: impl_item_fn.signature.output,
+            ident: item_fn.signature.ident,
+            inputs: item_fn.signature.inputs,
+            output: item_fn.signature.output,
         };
 
-        let block = self.process_block(impl_item_fn.block);
-        self.process_ident(&mut impl_item_fn.result.result_ident);
-        self.process_ident(&mut impl_item_fn.result.panic_ident);
+        let block = self.process_block(item_fn.block);
+        self.process_ident(&mut item_fn.result.result_ident);
+        self.process_ident(&mut item_fn.result.panic_ident);
 
         let mut errors = Vec::new();
         errors.append(&mut self.errors);
@@ -113,11 +261,11 @@ impl LocalVisitor {
         }
 
         Ok(WItemFn {
-            visibility: impl_item_fn.visibility,
+            visibility: item_fn.visibility,
             signature,
             locals,
             block,
-            result: impl_item_fn.result,
+            result: item_fn.result,
         })
     }
 
@@ -391,6 +539,20 @@ impl LocalVisitor {
                 return;
             };
             *ident = construct_temp_ident(ident, *current_counter);
+        } else {
+            println!(
+                "Considering {:?}, global rewrites {:?}",
+                ident, self.global_rewrites
+            );
+            // rewrite first
+            if let Some(rewrite_ident) = self.global_rewrites.get(&ident) {
+                // just replace the name and not the span
+                *ident = WIdent::new(rewrite_ident.name().to_string(), ident.span());
+            }
+
+            if !self.arg_idents.contains(ident) && !self.nonlocal_idents.contains(ident) {
+                self.nonlocal_idents.insert(ident.clone());
+            }
         }
     }
 }

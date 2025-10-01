@@ -36,7 +36,7 @@ pub enum ISubpropertyType {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ISubpropertyInfo {
     pub ty: ISubpropertyType,
-    pub inner_subproperties: Vec<usize>,
+    pub children: Vec<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

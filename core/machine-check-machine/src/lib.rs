@@ -62,7 +62,6 @@ pub fn process_property<M: FullMachine>(
             WSpan::from_span(err.span()),
         ))
     })?;
-    println!("Parsed: {:?}", expr);
 
     // TODO: get field descriptions without constructing and stepping the machine
     let mut global_ident_types = {
@@ -135,8 +134,9 @@ pub fn process_property<M: FullMachine>(
 
     //println!("Abstract description: {:?}", description);
 
+    println!("WIR property: {:#?}", property);
     let property = property.into_property_iir(global_ident_types);
-    println!("Property: {:#?}", property);
+    println!("IIR property: {:#?}", property);
 
     //interpret::execute_function(&description, "property");
     Ok(property)

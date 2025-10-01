@@ -21,17 +21,28 @@ use crate::{
 };
 
 pub fn expand_property_macros(property: &mut ExprProperty) -> Result<bool, Error> {
+    println!("Expanding property macros");
     let mut visitor = Visitor {
         num_subproperties: property.subproperties.len(),
+        current_subproperty: 0,
         result: Ok(()),
         expanded_some_macro: false,
         new_subproperties: Vec::new(),
     };
-    for subproperty in &mut property.subproperties {
+    for (index, subproperty) in property.subproperties.iter_mut().enumerate() {
+        println!("Visiting subproperty {}", index);
+        visitor.current_subproperty = index;
         visitor.visit_expr_mut(&mut subproperty.expr);
     }
 
-    property.subproperties.extend(visitor.new_subproperties);
+    for (parent_index, new_subproperty) in visitor.new_subproperties {
+        let new_subproperty_index = property.subproperties.len();
+        property.subproperties[parent_index]
+            .info
+            .children
+            .push(new_subproperty_index);
+        property.subproperties.push(new_subproperty);
+    }
 
     visitor.result?;
     Ok(visitor.expanded_some_macro)
@@ -39,9 +50,10 @@ pub fn expand_property_macros(property: &mut ExprProperty) -> Result<bool, Error
 
 struct Visitor {
     num_subproperties: usize,
+    current_subproperty: usize,
     result: Result<(), Error>,
     expanded_some_macro: bool,
-    new_subproperties: Vec<ExprSubproperty>,
+    new_subproperties: Vec<(usize, ExprSubproperty)>,
 }
 
 impl VisitMut for Visitor {
@@ -74,6 +86,11 @@ impl VisitMut for Visitor {
 
 impl Visitor {
     fn process_macro(&mut self, mac: Macro, attrs: Vec<Attribute>) -> Result<Expr, Error> {
+        println!(
+            "Visiting macro {}",
+            quote::ToTokens::into_token_stream(mac.clone().into_token_stream())
+        );
+
         let ef = path_matches_global_names(&mac.path, &["machine_check", "EF"]);
         let af = path_matches_global_names(&mac.path, &["machine_check", "AF"]);
         let eg = path_matches_global_names(&mac.path, &["machine_check", "EG"]);
@@ -118,8 +135,7 @@ impl Visitor {
                         WSpan::from_syn(&punctuated_inside_expr),
                     ));
                 }
-                let mut expr = punctuated_inside_expr.into_iter().next().unwrap();
-                self.visit_expr_mut(&mut expr);
+                let expr = punctuated_inside_expr.into_iter().next().unwrap();
 
                 (
                     ISubpropertyType::Next(ISubpropertyTypeNext { universal }),
@@ -150,8 +166,7 @@ impl Visitor {
                     ));
                 };
 
-                let mut expr = punctuated_inside_expr.into_iter().nth(1).unwrap();
-                self.visit_expr_mut(&mut expr);
+                let expr = punctuated_inside_expr.into_iter().nth(1).unwrap();
 
                 (
                     ISubpropertyType::FixedPoint(ISubpropertyTypeFixedPoint {
@@ -171,17 +186,25 @@ impl Visitor {
 
             let info = ISubpropertyInfo {
                 ty: subproperty_type,
-                inner_subproperties: Vec::new(),
+                children: Vec::new(),
             };
+
+            println!(
+                "Converted to subproperty {} (child of {})",
+                new_subproperty_index, self.current_subproperty
+            );
 
             // TODO: update inner subproperties
 
-            self.new_subproperties.push(ExprSubproperty { info, expr });
+            self.new_subproperties
+                .push((self.current_subproperty, ExprSubproperty { info, expr }));
             let expr = create_expr_ident(ident);
 
             self.expanded_some_macro = true;
+            println!("Expanded mu-calculus macro");
             return Ok(expr);
         }
+        println!("Not expanded");
         Ok(Expr::Macro(ExprMacro { attrs, mac }))
     }
 
@@ -248,6 +271,8 @@ impl Visitor {
         let fixed_point = if global { "gfp" } else { "lfp" };
         let ident = &mut mac.path.segments[1].ident;
         *ident = Ident::new(fixed_point, ident.span());
+
+        println!("Rewritten: {}", quote::quote!(#mac));
 
         mac
     }
