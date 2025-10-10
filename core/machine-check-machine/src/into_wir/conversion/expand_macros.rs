@@ -73,7 +73,7 @@ impl Visitor {
             return self.process_bitmask_switch(mac);
         }
 
-        return Ok(Expr::Macro(ExprMacro { attrs, mac }));
+        Ok(Expr::Macro(ExprMacro { attrs, mac }))
     }
 
     fn process_bitmask_switch(&self, mut mac: Macro) -> Result<Expr, Error> {

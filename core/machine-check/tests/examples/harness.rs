@@ -50,8 +50,8 @@ fn print_example(example: &str, config: &TestConfig, stdout: &[u8], stderr: &[u8
         "Example '{}' with config {:?}\nStdout:\n{}\nStderr:\n{}",
         example,
         config,
-        String::from_utf8_lossy(&stdout),
-        String::from_utf8_lossy(&stderr)
+        String::from_utf8_lossy(stdout),
+        String::from_utf8_lossy(stderr)
     );
 }
 

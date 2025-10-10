@@ -38,7 +38,7 @@ struct ExprProperty {
 impl ExprProperty {
     fn resolve_use(&mut self, use_map: &HashMap<Ident, Path>) -> Result<(), Errors> {
         for subproperty in &mut self.subproperties {
-            resolve_use::resolve_use_expr(&mut subproperty.expr, &use_map)?;
+            resolve_use::resolve_use_expr(&mut subproperty.expr, use_map)?;
         }
         Ok(())
     }

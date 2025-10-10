@@ -56,13 +56,7 @@ pub fn convert_property(
     let mut converter = SubpropertyConverter {
         num_subproperties,
         global_ident_types,
-        old_subproperties: BTreeMap::from_iter(
-            property
-                .subproperties
-                .into_iter()
-                .enumerate()
-                .map(|(index, subproperty)| (index, subproperty)),
-        ),
+        old_subproperties: BTreeMap::from_iter(property.subproperties.into_iter().enumerate()),
         new_subproperties: BTreeMap::new(),
     };
     converter.convert_subproperty(0, &BTreeMap::new())?;
@@ -138,7 +132,7 @@ impl SubpropertyConverter<'_> {
                 let mut ty = None;
                 for subproperty_index in 0..self.num_subproperties {
                     let subproperty_ident_name = format!("__mck_subproperty_{}", subproperty_index);
-                    if nonlocal_ident.name() == &subproperty_ident_name {
+                    if nonlocal_ident.name() == subproperty_ident_name {
                         ty = Some(&WBasicType::Boolean);
                         break;
                     }
@@ -545,7 +539,7 @@ impl LocalVisitor<'_> {
                 ident, self.global_rewrites
             );
             // rewrite first
-            if let Some(rewrite_ident) = self.global_rewrites.get(&ident) {
+            if let Some(rewrite_ident) = self.global_rewrites.get(ident) {
                 // just replace the name and not the span
                 *ident = WIdent::new(rewrite_ident.name().to_string(), ident.span());
             }
