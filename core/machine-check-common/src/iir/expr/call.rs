@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use mck::forward::Bitwise;
+
 use crate::{
     iir::{
         interpretation::{IAbstractValue, IRefinementValue, Interpretation},
@@ -55,8 +57,36 @@ pub struct IMckBinary {
 
 impl IMckBinary {
     fn forward_interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
-        let a = inter.abstract_value(self.a).expect_bitvector();
-        let b = inter.abstract_value(self.b).expect_bitvector();
+        let a = inter.abstract_value(self.a);
+        let b = inter.abstract_value(self.b);
+
+        if let (IAbstractValue::Bool(a), IAbstractValue::Bool(b)) = (a, b) {
+            let (a, b) = (*a, *b);
+            return IAbstractValue::Bool(match self.op {
+                IrMckBinaryOp::BitAnd => Bitwise::bit_and(a, b),
+                IrMckBinaryOp::BitOr => Bitwise::bit_or(a, b),
+                IrMckBinaryOp::BitXor => Bitwise::bit_xor(a, b),
+                IrMckBinaryOp::LogicShl => todo!(),
+                IrMckBinaryOp::LogicShr => todo!(),
+                IrMckBinaryOp::ArithShr => todo!(),
+                IrMckBinaryOp::Add => todo!(),
+                IrMckBinaryOp::Sub => todo!(),
+                IrMckBinaryOp::Mul => todo!(),
+                IrMckBinaryOp::Udiv => todo!(),
+                IrMckBinaryOp::Urem => todo!(),
+                IrMckBinaryOp::Sdiv => todo!(),
+                IrMckBinaryOp::Srem => todo!(),
+                IrMckBinaryOp::Eq => todo!(),
+                IrMckBinaryOp::Ne => todo!(),
+                IrMckBinaryOp::Ult => todo!(),
+                IrMckBinaryOp::Ule => todo!(),
+                IrMckBinaryOp::Slt => todo!(),
+                IrMckBinaryOp::Sle => todo!(),
+            });
+        }
+
+        let a = a.expect_bitvector();
+        let b = b.expect_bitvector();
 
         match self.op {
             IrMckBinaryOp::BitAnd => {

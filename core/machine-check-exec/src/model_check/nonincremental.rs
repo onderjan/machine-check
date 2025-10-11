@@ -47,12 +47,6 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
     fn check_subproperty(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
         let subproperty_entry = &self.property.subproperties[subproperty_index];
 
-        /*for child in &subproperty_entry.children() {
-            self.check_subproperty(*child)?;
-        }
-
-        println!("Checking subproperty {}", subproperty_index);*/
-
         match subproperty_entry {
             machine_check_common::iir::ISubproperty::Func(func, children) => {
                 for child in children {
@@ -74,7 +68,13 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                         .insert((subproperty_index, state_id), value);
                 }
             }
-            machine_check_common::iir::ISubproperty::FixedPoint(fixed_point) => todo!(),
+            machine_check_common::iir::ISubproperty::FixedPoint(fixed_point) => {
+                self.check_fixed_point(
+                    subproperty_index,
+                    fixed_point.universal,
+                    fixed_point.inner,
+                )?;
+            }
         }
 
         if log::log_enabled!(log::Level::Trace) {
@@ -94,13 +94,14 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
         Ok(())
     }
 
-    /*fn check_fixed_point(
+    fn check_fixed_point(
         &mut self,
         subproperty_index: usize,
-        fixed_point_operator: &FixedPointOperator,
+        is_greatest: bool,
+        inner_index: usize,
     ) -> Result<(), ExecError> {
         // set fixed-point values to ground value (true for universal, false for existential)
-        let ground_value = ParamValuation::from_bool(fixed_point_operator.is_greatest);
+        let ground_value = ParamValuation::from_bool(is_greatest);
         for state_id in self.space.states() {
             self.environment
                 .insert((subproperty_index, state_id), ground_value);
@@ -108,7 +109,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
 
         loop {
             // check inner
-            self.check_subproperty(fixed_point_operator.inner)?;
+            self.check_subproperty(inner_index)?;
 
             // update the fixed-point values with inner
             let mut updated = false;
@@ -119,7 +120,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                     .expect("Previous value should be present");
                 let current_value = *self
                     .environment
-                    .get(&(fixed_point_operator.inner, state_id))
+                    .get(&(inner_index, state_id))
                     .expect("Current value should be present");
 
                 if previous_value != current_value {
@@ -136,7 +137,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
         }
 
         Ok(())
-    }*/
+    }
 
     fn compute_fn_value(&self, func: &IFn, state_id: StateId) -> ParamValuation {
         let mut globals = BTreeMap::new();
@@ -156,23 +157,6 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                 let Ok(input_subproperty_index) = stripped.parse::<usize>() else {
                     panic!("Input subproperty should have valid index");
                 };
-
-                /*let input_subproperty_entry = &self.property.subproperties[input_subproperty_index];
-
-                let valuation = match &input_subproperty_entry.info.ty {
-                    machine_check_common::iir::ISubpropertyType::Root => {
-                        panic!("Root subproperty should never be a child")
-                    }
-                    machine_check_common::iir::ISubpropertyType::Next(next) => self
-                        .compute_next_value(
-                            next.universal,
-                            input_subproperty_index,
-                            state_id.into(),
-                        ),
-                    machine_check_common::iir::ISubpropertyType::FixedPoint(fixed_point) => {
-                        todo!()
-                    }
-                };*/
 
                 let valuation = *self
                     .environment
