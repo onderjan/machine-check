@@ -5,7 +5,7 @@ mod model_check;
 mod precision;
 mod space;
 
-use machine_check_common::property::Property;
+use machine_check_common::iir::IProperty;
 use mck::{abstr, concr::FullMachine, misc::MetaWrap, refin};
 
 pub use framework::Framework;
@@ -21,7 +21,7 @@ pub struct Strategy {
 /// Whether we are verifying the inherent property or a standard property.
 pub enum VerificationType {
     Inherent,
-    Property(Property),
+    Property(IProperty),
 }
 
 type AbstrInput<M> = <<M as FullMachine>::Abstr as abstr::Machine<M>>::Input;

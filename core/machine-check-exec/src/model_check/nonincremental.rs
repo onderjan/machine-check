@@ -1,11 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use machine_check_common::{
-    check::Property,
-    iir::IProperty,
-    property::{FixedPointOperator, NextOperator},
-    ExecError, NodeId, ParamValuation, StateId,
-};
+use machine_check_common::{iir::IProperty, ExecError, NodeId, ParamValuation, StateId};
 use mck::concr::FullMachine;
 
 use crate::space::StateSpace;
@@ -40,14 +35,16 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
     fn check_property(&mut self) -> Result<ParamValuation, ExecError> {
         self.check_subproperty(0)?;
 
+        todo!();
+
         // treat as AX! from root node
-        Ok(self.compute_next_value(
+        /*Ok(self.compute_next_value(
             &NextOperator {
                 is_universal: true,
                 inner: 0,
             },
             NodeId::ROOT,
-        ))
+        ))*/
     }
 
     fn check_subproperty(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
@@ -175,7 +172,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
         Ok(())
     }
 
-    fn check_fixed_point(
+    /*fn check_fixed_point(
         &mut self,
         subproperty_index: usize,
         fixed_point_operator: &FixedPointOperator,
@@ -291,5 +288,5 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                 (ParamValuation::False, ParamValuation::False) => ParamValuation::False,
             }
         }
-    }
+    }*/
 }

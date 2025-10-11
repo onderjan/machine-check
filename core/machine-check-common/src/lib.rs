@@ -6,7 +6,7 @@ use thiserror::Error;
 pub mod check;
 pub mod iir;
 pub mod ir_common;
-pub mod property;
+mod property;
 
 mod node_id;
 mod value;
@@ -49,12 +49,9 @@ pub enum ExecError {
     /// as field signedness currently does not yet propagate to property verification.
     #[error("signedness of the use of field '{0}' was not estabilished")]
     SignednessNotEstabilished(String),
-    /// The specified property is invalid and could not be lexed into tokens.
-    #[error("property '{0}' could not be lexed: {1}")]
-    PropertyNotLexable(String, String),
-    /// The specified property is invalid and could not be parsed.
-    #[error("property '{0}' could not be parsed: {1}")]
-    PropertyNotParseable(String, String),
+    /// The specified property is invalid and could not be constructed.
+    #[error("property '{0}' could not be constructed: {1}")]
+    PropertyNotConstructible(String, String),
     /// Verification of a standard property was requested, but the inherent property does not hold.
     #[error("inherent panic")]
     InherentPanic,

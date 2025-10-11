@@ -1,10 +1,10 @@
-mod fixed_point;
+/*mod fixed_point;
 mod local;
 mod next;
 
 use std::result;
 
-use machine_check_common::{property::PropertyType, ExecError, StateId};
+use machine_check_common::{ExecError, StateId};
 
 pub use local::BiChoice;
 use mck::three_valued::ThreeValued;
@@ -111,3 +111,4 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         self.property_checker
     }
 }
+*/

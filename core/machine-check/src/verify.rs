@@ -1,6 +1,6 @@
 use crate::{ExecError, ExecResult, FullMachine};
 use log::{info, warn};
-use machine_check_common::{check::KnownConclusion, property::Property, ExecStats};
+use machine_check_common::{check::KnownConclusion, iir::IProperty, ExecStats};
 use machine_check_exec::{Framework, Strategy};
 
 /// Verifies the given system with given arguments.
@@ -10,13 +10,11 @@ use machine_check_exec::{Framework, Strategy};
 /// If verifying a standard property and the inherent property is not assumed,
 /// it is verified first. If it does not hold, it is an execution error.
 pub fn verify<M: FullMachine>(
-    system: M,
-    prop: Option<Property>,
+    abstract_system: M::Abstr,
+    prop: Option<IProperty>,
     assume_inherent: bool,
     strategy: Strategy,
 ) -> ExecResult {
-    let abstract_system = <M::Abstr as mck::abstr::Abstr<M>>::from_concrete(system);
-
     // Short-circuit error on assumption of the inherent property that we are trying to verify.
     if prop.is_none() && assume_inherent {
         return ExecResult {
@@ -37,7 +35,7 @@ pub fn verify<M: FullMachine>(
         } else {
             info!("Verifying the inherent property.");
         }
-        let inherent_property = Property::inherent();
+        let inherent_property = IProperty::inherent();
         Some(framework.verify(&inherent_property))
     };
 

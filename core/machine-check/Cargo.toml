@@ -15,6 +15,7 @@ Zdual_interval = ["mck/Zdual_interval"]
 machine-check-common = "=0.6.1"
 mck = "=0.6.1"
 machine-check-macros = "=0.6.1"
+machine-check-machine = "=0.6.1"
 machine-check-exec = "=0.6.1"
 machine-check-gui = { version = "=0.6.1", optional = true }
 

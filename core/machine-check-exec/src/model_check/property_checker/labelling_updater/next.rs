@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use machine_check_common::property::NextOperator;
+use machine_check_common::iir::ISubpropertyTypeNext;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::value::TimedCheckValue;
@@ -10,7 +10,7 @@ use crate::FullMachine;
 impl<M: FullMachine> LabellingUpdater<'_, M> {
     pub(super) fn update_next_labelling(
         &mut self,
-        op: &NextOperator,
+        op: &ISubpropertyTypeNext,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let inner_updated = self.update_labelling(op.inner)?;
 

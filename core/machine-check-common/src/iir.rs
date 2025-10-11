@@ -105,4 +105,8 @@ impl IProperty {
     pub fn subproperty_entry(&self, index: usize) -> &ISubproperty {
         &self.subproperties[index]
     }
+
+    pub fn inherent() -> IProperty {
+        todo!()
+    }
 }

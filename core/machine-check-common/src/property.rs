@@ -1,4 +1,4 @@
-//! Computation Tree Logic properties.
+/*//! Computation Tree Logic properties.
 use std::{collections::BTreeSet, fmt::Debug};
 
 use std::sync::Arc;
@@ -191,3 +191,4 @@ impl Subproperty {
             .collect()
     }
 }
+*/

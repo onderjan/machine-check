@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 
-use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;

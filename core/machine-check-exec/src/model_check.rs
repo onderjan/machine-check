@@ -2,7 +2,7 @@ mod deduce;
 mod nonincremental;
 mod property_checker;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 use log::trace;
 use machine_check_common::{
@@ -12,22 +12,20 @@ use machine_check_common::{
 };
 use mck::concr::FullMachine;
 
-use crate::{model_check::property_checker::PropertyChecker, space::StateSpace};
-
-use self::deduce::deduce_culprit;
+use crate::space::StateSpace;
 
 use std::fmt::Debug;
 
 #[derive(Debug)]
 /// Three-valued model checker.
 pub struct ThreeValuedChecker {
-    property_checkers: HashMap<IProperty, PropertyChecker>,
+    //    property_checkers: HashMap<IProperty, PropertyChecker>,
 }
 
 impl ThreeValuedChecker {
     pub fn new() -> Self {
         Self {
-            property_checkers: HashMap::new(),
+            //property_checkers: HashMap::new(),
         }
     }
 
@@ -35,9 +33,9 @@ impl ThreeValuedChecker {
         &mut self,
         space: &StateSpace<M>,
         property: &IProperty,
-        subproperty_index: usize,
+        _subproperty_index: usize,
     ) -> Result<(Conclusion, BTreeMap<StateId, ParamValuation>), ExecError> {
-        let conclusion = self.check_property(space, property)?;
+        /*let conclusion = self.check_property(space, property)?;
 
         let property_checker = self
             .property_checkers
@@ -51,7 +49,21 @@ impl ThreeValuedChecker {
             let timed = getter.compute_latest_timed(subproperty_index, state_id)?;
             labelling.insert(state_id, timed.value.valuation());
         }
-        Ok((conclusion, labelling))
+        Ok((conclusion, labelling))*/
+
+        let param_valuation = nonincremental::check_property(space, property)?;
+
+        let conclusion = match param_valuation {
+            ParamValuation::False => KnownConclusion::False,
+            ParamValuation::True => KnownConclusion::True,
+            ParamValuation::Dependent => KnownConclusion::Dependent,
+            ParamValuation::Unknown => todo!(),
+        };
+
+        // TODO labelling
+        let labelling = BTreeMap::new();
+
+        Ok((Conclusion::Known(conclusion), labelling))
     }
 
     /// Model-checks a mu-calculus proposition.
@@ -62,7 +74,18 @@ impl ThreeValuedChecker {
     ) -> Result<Conclusion, ExecError> {
         trace!("Checking property {:#?}", property);
 
-        if !self.property_checkers.contains_key(property) {
+        let param_valuation = nonincremental::check_property(space, property)?;
+
+        let conclusion = match param_valuation {
+            ParamValuation::False => KnownConclusion::False,
+            ParamValuation::True => KnownConclusion::True,
+            ParamValuation::Dependent => KnownConclusion::Dependent,
+            ParamValuation::Unknown => todo!(),
+        };
+
+        Ok(Conclusion::Known(conclusion))
+
+        /*if !self.property_checkers.contains_key(property) {
             self.property_checkers
                 .insert(property.clone(), PropertyChecker::new(property.clone()));
         }
@@ -109,12 +132,12 @@ impl ThreeValuedChecker {
                     property,
                 )?)),*/
             }
-        }
+        }*/
     }
 
     pub fn declare_regeneration<M: FullMachine>(
         &mut self,
-        space: &StateSpace<M>,
+        _space: &StateSpace<M>,
         new_states: &BTreeSet<StateId>,
         changed_successors: &BTreeSet<StateId>,
     ) {
@@ -130,14 +153,14 @@ impl ThreeValuedChecker {
             purge_states
         );
 
-        for property_checker in self.property_checkers.values_mut() {
+        /*for property_checker in self.property_checkers.values_mut() {
             property_checker.purge_states(space, &purge_states);
-        }
+        }*/
     }
 
-    pub fn remove_states(&mut self, removed_states: &BTreeSet<StateId>) {
-        for property_checker in self.property_checkers.values_mut() {
+    pub fn remove_states(&mut self, _removed_states: &BTreeSet<StateId>) {
+        /*for property_checker in self.property_checkers.values_mut() {
             property_checker.remove_states(removed_states);
-        }
+        }*/
     }
 }

@@ -5,8 +5,7 @@ use log::log_enabled;
 use log::trace;
 use machine_check_common::check::Conclusion;
 use machine_check_common::check::KnownConclusion;
-use machine_check_common::check::Property;
-use machine_check_common::property::Subproperty;
+use machine_check_common::iir::IProperty;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use machine_check_common::NodeId;
@@ -69,7 +68,7 @@ impl<M: FullMachine> Framework<M> {
         }
     }
 
-    pub fn verify(&mut self, property: &Property) -> Result<KnownConclusion, ExecError> {
+    pub fn verify(&mut self, property: &IProperty) -> Result<KnownConclusion, ExecError> {
         // loop verification steps until some conclusion is reached
         let result = loop {
             match self.step_verification(property) {
@@ -89,7 +88,7 @@ impl<M: FullMachine> Framework<M> {
 
     pub fn step_verification(
         &mut self,
-        property: &Property,
+        property: &IProperty,
     ) -> ControlFlow<Result<KnownConclusion, ExecError>> {
         // if the space is invalid (just after construction), regenerate it
         if !self.work_state.space.is_valid() {
@@ -108,7 +107,7 @@ impl<M: FullMachine> Framework<M> {
             trace!("Model-checking state space: {:#?}", self.work_state.space);
         }
 
-        let interpretable_property = {
+        /*let interpretable_property = {
             match machine_check_machine::process_property::<M>(
                 &self.abstract_system,
                 &property.original_string(),
@@ -121,13 +120,13 @@ impl<M: FullMachine> Framework<M> {
                     panic!();
                 }
             }
-        };
+        };*/
 
         // perform model-checking
         match self
             .work_state
             .checker
-            .check_property(&self.work_state.space, &interpretable_property)
+            .check_property(&self.work_state.space, property)
         {
             Ok(Conclusion::Known(conclusion)) => {
                 // conclude the result
@@ -151,29 +150,12 @@ impl<M: FullMachine> Framework<M> {
 
     pub fn check_subproperty_with_labelling(
         &mut self,
-        subproperty: &Subproperty,
+        property: &IProperty,
+        subproperty_index: usize,
     ) -> Result<(Conclusion, BTreeMap<StateId, ParamValuation>), ExecError> {
-        let property = subproperty.property();
-        let subproperty_index = subproperty.index();
-
-        let interpretable_property = {
-            match machine_check_machine::process_property::<M>(
-                &self.abstract_system,
-                &property.original_string(),
-            ) {
-                Ok(ok) => ok,
-                Err(err) => {
-                    for error in err.into_errors() {
-                        eprintln!("Error: {:?}", error);
-                    }
-                    panic!();
-                }
-            }
-        };
-
         self.work_state.checker.check_subproperty_with_labelling(
             &self.work_state.space,
-            &interpretable_property,
+            property,
             subproperty_index,
         )
     }

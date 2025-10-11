@@ -1,15 +1,11 @@
-mod fixed_point;
+/*mod fixed_point;
 mod local;
 mod next;
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
-use machine_check_common::{
-    iir::ISubpropertyType,
-    property::{NextOperator, PropertyType},
-    ExecError, NodeId, ParamValuation, StateId,
-};
+use machine_check_common::{iir::ISubpropertyType, ExecError, NodeId, ParamValuation, StateId};
 use mck::concr::FullMachine;
 
 use crate::{
@@ -190,3 +186,4 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         Ok(updated)
     }
 }
+*/

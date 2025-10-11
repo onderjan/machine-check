@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, ops::ControlFlow};
 
 use log::{debug, trace};
-use machine_check_common::{property::FixedPointOperator, ExecError, StateId};
+use machine_check_common::{ExecError, StateId};
 
 use crate::{
     model_check::property_checker::{

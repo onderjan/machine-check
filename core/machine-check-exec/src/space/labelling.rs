@@ -1,9 +1,7 @@
-use std::collections::BTreeSet;
+/*use std::collections::BTreeSet;
 
 use super::StateId;
 use super::StateSpace;
-use machine_check_common::property::AtomicProperty;
-use machine_check_common::property::ComparisonType;
 use machine_check_common::ExecError;
 use machine_check_common::Signedness;
 use mck::abstr::{ManipField, Manipulatable};
@@ -178,3 +176,4 @@ impl<M: FullMachine> StateSpace<M> {
         }
     }
 }
+*/

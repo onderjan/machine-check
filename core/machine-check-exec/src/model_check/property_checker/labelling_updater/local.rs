@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use machine_check_common::property::BiLogicOperator;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;

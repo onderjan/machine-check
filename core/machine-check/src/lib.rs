@@ -11,7 +11,7 @@ use log::log_enabled;
 use log::trace;
 use log::warn;
 use machine_check_common::check::KnownConclusion;
-use machine_check_common::property::Property;
+use machine_check_common::iir::IProperty;
 use machine_check_exec::Strategy;
 
 use args::ProgramArgs;
@@ -159,14 +159,18 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
         use_decay: matches!(exec_args.strategy, ExecStrategy::Decay),
     };
 
+    let abstract_system = <M::Abstr as mck::abstr::Abstr<M>>::from_concrete(system);
+
     // determine the property to verify
     let prop = if let Some(property_str) = exec_args.property {
-        match Property::parse(&property_str) {
-            Ok(prop) => Some(prop),
+        match machine_check_machine::process_property::<M>(&abstract_system, &property_str) {
+            Ok(ok) => Some(ok),
             Err(err) => {
-                error!("Cannot construct the property: {}", err);
                 return ExecResult {
-                    result: Err(err),
+                    result: Err(ExecError::PropertyNotConstructible(
+                        property_str,
+                        err.to_string(),
+                    )),
                     stats: ExecStats::default(),
                 };
             }
@@ -182,13 +186,14 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     let result = if exec_args.gui {
         // start the GUI instead of verifying
         ExecResult {
-            result: Err(start_gui(system, prop, strategy)),
+            result: Err(start_gui::<M>(abstract_system, prop, strategy)),
             stats: ExecStats::default(),
         }
     } else {
         info!("Starting verification.");
 
-        let result = verify::verify(system, prop, exec_args.assume_inherent, strategy);
+        let result =
+            verify::verify::<M>(abstract_system, prop, exec_args.assume_inherent, strategy);
 
         if log_enabled!(log::Level::Trace) {
             trace!("Verification result: {:?}", result);
@@ -273,20 +278,20 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
 }
 
 fn start_gui<M: FullMachine>(
-    system: M,
-    property: Option<Property>,
+    abstract_system: M::Abstr,
+    property: Option<IProperty>,
     strategy: Strategy,
 ) -> ExecError {
     // the GUI will, at best, return no result
     #[cfg(feature = "gui")]
-    match machine_check_gui::run(system, property, strategy) {
+    match machine_check_gui::run(abstract_system, property, strategy) {
         Ok(()) => ExecError::NoResult,
         Err(err) => err,
     }
     #[cfg(not(feature = "gui"))]
     {
         // make sure there is no warning about unused variables
-        let _ = (system, property, strategy);
+        let _ = (abstract_system, property, strategy);
         ExecError::GuiError(String::from("The GUI feature was not enabled during build"))
     }
 }

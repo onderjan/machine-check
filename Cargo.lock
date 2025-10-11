@@ -1403,6 +1403,7 @@ dependencies = [
  "machine-check-common",
  "machine-check-exec",
  "machine-check-gui",
+ "machine-check-machine",
  "machine-check-macros",
  "mck",
  "serde",

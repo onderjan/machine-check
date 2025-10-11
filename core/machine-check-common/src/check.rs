@@ -3,9 +3,7 @@ use std::{collections::VecDeque, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
-pub use crate::property::Property;
-
-use crate::{property::AtomicProperty, StateId};
+use crate::{iir::path::IIdent, StateId};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum KnownConclusion {
@@ -22,6 +20,31 @@ pub enum Conclusion {
     Known(KnownConclusion),
     Unknown(Culprit),
     NotCheckable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AtomicLeft {
+    // TODO
+}
+impl AtomicLeft {
+    pub fn name(&self) -> &str {
+        todo!()
+    }
+
+    pub fn index(&self) -> Option<u64> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AtomicProperty {
+    // TODO
+}
+
+impl AtomicProperty {
+    pub fn left(&self) -> AtomicLeft {
+        todo!()
+    }
 }
 
 /// The culprit of an unknown three-valued model-checking result.

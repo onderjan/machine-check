@@ -1,4 +1,4 @@
-use core::panic;
+/*use core::panic;
 use std::{collections::VecDeque, ops::ControlFlow, u64};
 
 use log::trace;
@@ -184,3 +184,4 @@ impl<M: FullMachine> Deducer<'_, M> {
         Ok(ControlFlow::Continue(()))
     }
 }
+*/
