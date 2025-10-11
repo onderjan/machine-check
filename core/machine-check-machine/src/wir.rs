@@ -1,4 +1,3 @@
-use machine_check_common::iir::ISubpropertyInfo;
 use proc_macro2::Span;
 use std::{fmt::Debug, hash::Hash};
 use syn::{
@@ -35,9 +34,33 @@ pub struct WDescription<Y: YStage> {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WSubproperty<Y: YStage> {
-    pub func: WItemFn<Y>,
-    pub info: ISubpropertyInfo,
+pub struct WFixedPointOperator {
+    pub universal: bool,
+    pub variable: WIdent,
+    pub inner: usize,
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WNextOperator {
+    pub universal: bool,
+    pub inner: usize,
+}
+
+#[derive(Clone, Debug, Hash)]
+pub enum WSubproperty<Y: YStage> {
+    Func(WItemFn<Y>, Vec<usize>),
+    FixedPoint(WFixedPointOperator),
+    Next(WNextOperator),
+}
+
+impl<Y: YStage> WSubproperty<Y> {
+    pub fn children(&self) -> Vec<usize> {
+        match self {
+            WSubproperty::Func(_item_fn, children) => children.clone(),
+            WSubproperty::FixedPoint(fixed_point) => vec![fixed_point.inner],
+            WSubproperty::Next(next) => vec![next.inner],
+        }
+    }
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -71,7 +94,7 @@ where
     }
 }
 
-impl<Y: YStage> IntoSyn<File> for WProperty<Y>
+/*impl<Y: YStage> IntoSyn<File> for WProperty<Y>
 where
     WItemImpl<Y>: IntoSyn<ItemImpl>,
 {
@@ -99,7 +122,7 @@ where
             })],
         }
     }
-}
+}*/
 
 pub trait ZIfPolarity: IntoSyn<Path> + Clone + Debug + Hash {}
 

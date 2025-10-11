@@ -1,11 +1,4 @@
-use std::collections::BTreeMap;
-
-use proc_macro2::Ident;
-
-use {
-    func::IFn,
-    interpretation::{IAbstractValue, IRefinementValue, Interpretation},
-};
+use func::IFn;
 
 pub mod expr;
 pub mod func;
@@ -16,33 +9,16 @@ pub mod ty;
 pub mod variable;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ISubpropertyTypeNext {
+pub struct ICalculusOperator {
     pub universal: bool,
+    pub inner: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ISubpropertyTypeFixedPoint {
-    pub universal: bool,
-    pub variable: Ident,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ISubpropertyType {
-    Root,
-    Next(ISubpropertyTypeNext),
-    FixedPoint(ISubpropertyTypeFixedPoint),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ISubpropertyInfo {
-    pub ty: ISubpropertyType,
-    pub children: Vec<usize>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ISubproperty {
-    pub func: IFn,
-    pub info: ISubpropertyInfo,
+pub enum ISubproperty {
+    Func(IFn, Vec<usize>),
+    Next(ICalculusOperator),
+    FixedPoint(ICalculusOperator),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

@@ -119,11 +119,15 @@ pub(crate) fn create_abstract_property(property: WProperty<YConverted>) -> WProp
     let mut subproperties = Vec::new();
 
     for subproperty in property.subproperties {
-        let func = fold_impl_item_fn(subproperty.func);
-        subproperties.push(WSubproperty {
-            func,
-            info: subproperty.info,
-        });
+        let subproperty = match subproperty {
+            WSubproperty::Func(item_fn, children) => {
+                WSubproperty::Func(fold_impl_item_fn(item_fn), children)
+            }
+            WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
+            WSubproperty::Next(next) => WSubproperty::Next(next),
+        };
+
+        subproperties.push(subproperty);
     }
 
     WProperty { subproperties }

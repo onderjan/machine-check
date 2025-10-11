@@ -2,7 +2,6 @@ mod macros;
 
 use std::{collections::HashMap, hash::Hash};
 
-use machine_check_common::iir::{ISubpropertyInfo, ISubpropertyType};
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated,
@@ -21,13 +20,17 @@ use crate::{
         from_syn, Errors,
     },
     util::create_type_path,
-    wir::{WBasicType, WIdent, WProperty, WSubproperty, YConverted, YTac},
+    wir::{
+        WBasicType, WFixedPointOperator, WIdent, WNextOperator, WProperty, WSubproperty,
+        YConverted, YTac,
+    },
 };
 
 #[derive(Clone, Debug, Hash)]
-struct ExprSubproperty {
-    info: ISubpropertyInfo,
-    expr: Expr,
+enum ExprSubproperty {
+    Expr(Expr, Vec<usize>),
+    Next(WNextOperator),
+    FixedPoint(WFixedPointOperator),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -38,7 +41,9 @@ struct ExprProperty {
 impl ExprProperty {
     fn resolve_use(&mut self, use_map: &HashMap<Ident, Path>) -> Result<(), Errors> {
         for subproperty in &mut self.subproperties {
-            resolve_use::resolve_use_expr(&mut subproperty.expr, use_map)?;
+            if let ExprSubproperty::Expr(expr, _children) = subproperty {
+                resolve_use::resolve_use_expr(expr, use_map)?;
+            }
         }
         Ok(())
     }
@@ -60,13 +65,7 @@ pub fn create_from_syn(
 
     // expand macros
     let mut property = ExprProperty {
-        subproperties: vec![ExprSubproperty {
-            info: ISubpropertyInfo {
-                ty: ISubpropertyType::Root,
-                children: Vec::new(),
-            },
-            expr,
-        }],
+        subproperties: vec![ExprSubproperty::Expr(expr, Vec::new())],
     };
 
     loop {
@@ -76,7 +75,9 @@ pub fn create_from_syn(
         expanded_some_macro |= macros::expand_property_macros(&mut property)?;
         property.resolve_use(&use_map)?;
         for subproperty in &mut property.subproperties {
-            expanded_some_macro |= expand_macros::expand_in_expr(&mut subproperty.expr)?;
+            if let ExprSubproperty::Expr(expr, _children) = subproperty {
+                expanded_some_macro |= expand_macros::expand_in_expr(expr)?;
+            }
         }
 
         if !expanded_some_macro {
@@ -102,44 +103,49 @@ fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors
     let mut subproperties = Vec::new();
 
     for (index, subproperty) in property.subproperties.into_iter().enumerate() {
-        let span = subproperty.expr.span();
+        let subproperty = match subproperty {
+            ExprSubproperty::Expr(expr, children) => {
+                let span = expr.span();
 
-        // TODO: add inputs
-        let inputs = Punctuated::default();
+                // the inputs will be added later
+                let signature = Signature {
+                    constness: None,
+                    asyncness: None,
+                    unsafety: None,
+                    abi: None,
+                    fn_token: Token![fn](span),
+                    ident: Ident::new(&format!("__mck_subfn_{}", index), span),
+                    generics: Generics::default(),
+                    paren_token: Paren::default(),
+                    inputs: Punctuated::default(),
+                    variadic: None,
+                    output: syn::ReturnType::Type(
+                        Token![->](span),
+                        Box::new(create_type_path(path!(bool))),
+                    ),
+                };
 
-        let signature = Signature {
-            constness: None,
-            asyncness: None,
-            unsafety: None,
-            abi: None,
-            fn_token: Token![fn](span),
-            ident: Ident::new(&format!("__mck_subfn_{}", index), span),
-            generics: Generics::default(),
-            paren_token: Paren::default(),
-            inputs,
-            variadic: None,
-            output: syn::ReturnType::Type(
-                Token![->](span),
-                Box::new(create_type_path(path!(bool))),
-            ),
+                let func = ItemFn {
+                    attrs: Vec::new(),
+                    vis: syn::Visibility::Inherited,
+                    sig: signature,
+                    block: Box::new(Block {
+                        brace_token: Brace::default(),
+                        stmts: vec![Stmt::Expr(expr, None)],
+                    }),
+                };
+
+                let func = from_syn::fold_item_fn(func)?;
+
+                WSubproperty::Func(func, children)
+            }
+            ExprSubproperty::Next(next_operator) => WSubproperty::Next(next_operator),
+            ExprSubproperty::FixedPoint(fixed_point_operator) => {
+                WSubproperty::FixedPoint(fixed_point_operator)
+            }
         };
 
-        let func = ItemFn {
-            attrs: Vec::new(),
-            vis: syn::Visibility::Inherited,
-            sig: signature,
-            block: Box::new(Block {
-                brace_token: Brace::default(),
-                stmts: vec![Stmt::Expr(subproperty.expr, None)],
-            }),
-        };
-
-        let func = from_syn::fold_item_fn(func)?;
-
-        subproperties.push(WSubproperty {
-            func,
-            info: subproperty.info,
-        });
+        subproperties.push(subproperty);
     }
 
     Ok(WProperty { subproperties })

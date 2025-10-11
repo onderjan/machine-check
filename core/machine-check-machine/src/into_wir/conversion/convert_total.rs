@@ -59,10 +59,15 @@ pub fn convert_property(property: WProperty<YNonindexed>) -> (WProperty<YTotal>,
     let mut subproperties = Vec::new();
 
     for subproperty in property.subproperties {
-        subproperties.push(WSubproperty {
-            func: FnConverter::fold_fn(subproperty.func, &mut panic_messages),
-            info: subproperty.info,
-        });
+        let subproperty = match subproperty {
+            WSubproperty::Func(item_fn, children) => {
+                WSubproperty::Func(FnConverter::fold_fn(item_fn, &mut panic_messages), children)
+            }
+            WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
+            WSubproperty::Next(next) => WSubproperty::Next(next),
+        };
+
+        subproperties.push(subproperty);
     }
 
     (WProperty { subproperties }, panic_messages)

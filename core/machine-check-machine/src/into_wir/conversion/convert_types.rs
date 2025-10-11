@@ -81,11 +81,15 @@ pub fn convert_property(property: WProperty<YInferred>) -> Result<WProperty<YCon
     let mut subproperties = Vec::new();
 
     for subproperty in property.subproperties {
-        let func = convert_item_fn(subproperty.func)?;
-        subproperties.push(WSubproperty {
-            func,
-            info: subproperty.info,
-        });
+        let subproperty = match subproperty {
+            WSubproperty::Func(item_fn, children) => {
+                WSubproperty::Func(convert_item_fn(item_fn)?, children)
+            }
+            WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
+            WSubproperty::Next(next) => WSubproperty::Next(next),
+        };
+
+        subproperties.push(subproperty);
     }
 
     Ok(WProperty { subproperties })

@@ -1,6 +1,3 @@
-use machine_check_common::iir::{
-    ISubpropertyInfo, ISubpropertyType, ISubpropertyTypeFixedPoint, ISubpropertyTypeNext,
-};
 use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
@@ -17,7 +14,7 @@ use crate::{
         Error, ErrorType,
     },
     util::{create_expr_ident, path_matches_global_names},
-    wir::WSpan,
+    wir::{WFixedPointOperator, WIdent, WNextOperator, WSpan},
 };
 
 pub fn expand_property_macros(property: &mut ExprProperty) -> Result<bool, Error> {
@@ -32,15 +29,20 @@ pub fn expand_property_macros(property: &mut ExprProperty) -> Result<bool, Error
     for (index, subproperty) in property.subproperties.iter_mut().enumerate() {
         println!("Visiting subproperty {}", index);
         visitor.current_subproperty = index;
-        visitor.visit_expr_mut(&mut subproperty.expr);
+        if let ExprSubproperty::Expr(expr, _children) = subproperty {
+            visitor.visit_expr_mut(expr);
+        }
     }
 
     for (parent_index, new_subproperty) in visitor.new_subproperties {
-        let new_subproperty_index = property.subproperties.len();
-        property.subproperties[parent_index]
-            .info
-            .children
-            .push(new_subproperty_index);
+        if let Some(parent_index) = parent_index {
+            let new_subproperty_index = property.subproperties.len();
+
+            let parent = &mut property.subproperties[parent_index];
+            if let ExprSubproperty::Expr(_expr, children) = parent {
+                children.push(new_subproperty_index);
+            }
+        }
         property.subproperties.push(new_subproperty);
     }
 
@@ -53,7 +55,7 @@ struct Visitor {
     current_subproperty: usize,
     result: Result<(), Error>,
     expanded_some_macro: bool,
-    new_subproperties: Vec<(usize, ExprSubproperty)>,
+    new_subproperties: Vec<(Option<usize>, ExprSubproperty)>,
 }
 
 impl VisitMut for Visitor {
@@ -128,7 +130,11 @@ impl Visitor {
                     Error::new(ErrorType::MacroParseError(err), WSpan::from_span(err_span))
                 })?;
 
-            let (subproperty_type, expr) = if ex || ax {
+            let outer_subproperty_index = self.num_subproperties + self.new_subproperties.len();
+
+            let inner_subproperty_index = outer_subproperty_index + 1;
+
+            let (outer_subproperty, inner_expr) = if ex || ax {
                 if punctuated_inside_expr.len() != 1 {
                     return Err(Error::new(
                         ErrorType::IllegalConstruct(String::from("Exactly one argument expected")),
@@ -137,10 +143,12 @@ impl Visitor {
                 }
                 let expr = punctuated_inside_expr.into_iter().next().unwrap();
 
-                (
-                    ISubpropertyType::Next(ISubpropertyTypeNext { universal }),
-                    expr,
-                )
+                let outer_subproperty = ExprSubproperty::Next(WNextOperator {
+                    universal,
+                    inner: inner_subproperty_index,
+                });
+
+                (outer_subproperty, expr)
             } else {
                 if punctuated_inside_expr.len() != 2 {
                     return Err(Error::new(
@@ -153,7 +161,7 @@ impl Visitor {
 
                 if let Expr::Path(expr_path) = &punctuated_inside_expr[0] {
                     if let Some(ident) = expr_path.path.get_ident() {
-                        variable = Some(ident.clone());
+                        variable = Some(WIdent::from_syn_ident(ident.clone()));
                     }
                 }
 
@@ -168,36 +176,27 @@ impl Visitor {
 
                 let expr = punctuated_inside_expr.into_iter().nth(1).unwrap();
 
-                (
-                    ISubpropertyType::FixedPoint(ISubpropertyTypeFixedPoint {
-                        universal,
-                        variable,
-                    }),
-                    expr,
-                )
+                let outer_subproperty = ExprSubproperty::FixedPoint(WFixedPointOperator {
+                    universal,
+                    variable,
+                    inner: inner_subproperty_index,
+                });
+
+                (outer_subproperty, expr)
             };
 
-            let new_subproperty_index = self.num_subproperties + self.new_subproperties.len();
+            let inner_subproperty = ExprSubproperty::Expr(inner_expr, Vec::new());
 
             let ident = Ident::new(
-                &format!("__mck_subproperty_{}", new_subproperty_index),
+                &format!("__mck_subproperty_{}", outer_subproperty_index),
                 mac.path.span(),
-            );
-
-            let info = ISubpropertyInfo {
-                ty: subproperty_type,
-                children: Vec::new(),
-            };
-
-            println!(
-                "Converted to subproperty {} (child of {})",
-                new_subproperty_index, self.current_subproperty
             );
 
             // TODO: update inner subproperties
 
             self.new_subproperties
-                .push((self.current_subproperty, ExprSubproperty { info, expr }));
+                .push((Some(self.current_subproperty), outer_subproperty));
+            self.new_subproperties.push((None, inner_subproperty));
             let expr = create_expr_ident(ident);
 
             self.expanded_some_macro = true;

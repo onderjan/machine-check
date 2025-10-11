@@ -58,11 +58,15 @@ impl IndexingConverter {
         let mut subproperties = Vec::new();
 
         for subproperty in property.subproperties {
-            let func = self.fold_fn(subproperty.func);
-            subproperties.push(WSubproperty {
-                func,
-                info: subproperty.info,
-            });
+            let subproperty = match subproperty {
+                WSubproperty::Func(item_fn, children) => {
+                    WSubproperty::Func(self.fold_fn(item_fn), children)
+                }
+                WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
+                WSubproperty::Next(next) => WSubproperty::Next(next),
+            };
+
+            subproperties.push(subproperty);
         }
 
         WProperty { subproperties }

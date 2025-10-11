@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use machine_check_common::{
-    iir::{interpretation::IAbstractValue, IProperty},
+    iir::{func::IFn, interpretation::IAbstractValue, IProperty},
     ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
 use mck::{abstr::Manipulatable, concr::FullMachine};
@@ -47,198 +47,35 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
     fn check_subproperty(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
         let subproperty_entry = &self.property.subproperties[subproperty_index];
 
-        for child in &subproperty_entry.info.children {
+        /*for child in &subproperty_entry.children() {
             self.check_subproperty(*child)?;
         }
 
-        println!("Checking subproperty {}", subproperty_index);
+        println!("Checking subproperty {}", subproperty_index);*/
 
-        for state_id in self.space.states() {
-            let mut globals = BTreeMap::new();
-
-            let state_data = self.space.state_data(state_id);
-
-            let state_result = &state_data.result;
-
-            for input_var_id in &subproperty_entry.func.signature.inputs {
-                let input_var_name = subproperty_entry
-                    .func
-                    .variables
-                    .get(input_var_id)
-                    .expect("Input should be in variables")
-                    .ident
-                    .name();
-                let value = if let Some(stripped) =
-                    input_var_name.strip_prefix("__mck_subproperty_")
-                {
-                    let Ok(input_subproperty_index) = stripped.parse::<usize>() else {
-                        panic!("Input subproperty should have valid index");
-                    };
-
-                    let input_subproperty_entry =
-                        &self.property.subproperties[input_subproperty_index];
-
-                    let valuation = match &input_subproperty_entry.info.ty {
-                        machine_check_common::iir::ISubpropertyType::Root => {
-                            panic!("Root subproperty should never be a child")
-                        }
-                        machine_check_common::iir::ISubpropertyType::Next(next) => self
-                            .compute_next_value(
-                                next.universal,
-                                input_subproperty_index,
-                                state_id.into(),
-                            ),
-                        machine_check_common::iir::ISubpropertyType::FixedPoint(fixed_point) => {
-                            todo!()
-                        }
-                    };
-
-                    println!(
-                        "Input subproperty index: {}, valuation: {:?}",
-                        input_subproperty_index, valuation
-                    );
-
-                    let boolean = match valuation {
-                        ParamValuation::False => {
-                            mck::abstr::Boolean::from_three_valued(ThreeValued::False)
-                        }
-                        ParamValuation::True => {
-                            mck::abstr::Boolean::from_three_valued(ThreeValued::True)
-                        }
-                        ParamValuation::Dependent => todo!(),
-                        ParamValuation::Unknown => {
-                            mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)
-                        }
-                    };
-
-                    IAbstractValue::Bool(boolean)
-                } else {
-                    let field = state_result
-                        .get(input_var_name)
-                        .expect("Input should be in fields");
-
-                    let bitvec = field
-                        .runtime_bitvector()
-                        .expect("Input should be a bitvector");
-                    IAbstractValue::Bitvector(bitvec)
-                };
-
-                globals.insert(input_var_name.to_string(), value);
-            }
-
-            let result = subproperty_entry.func.call_with_globals(&globals);
-
-            let IAbstractValue::Bool(result) = result else {
-                panic!("Result should be abstract Boolean");
-            };
-
-            let valuation = ParamValuation::from_three_valued(result.into_three_valued());
-
-            self.environment
-                .insert((subproperty_index, state_id), valuation);
-        }
-
-        /*match &subproperty_entry.ty {
-            machine_check_common::property::PropertyType::Const(value) => {
-                for state_id in self.space.states() {
-                    self.environment.insert(
-                        (subproperty_index, state_id),
-                        ParamValuation::from_bool(*value),
-                    );
+        match subproperty_entry {
+            machine_check_common::iir::ISubproperty::Func(func, children) => {
+                for child in children {
+                    self.check_subproperty(*child)?;
                 }
-            }
-            machine_check_common::property::PropertyType::Atomic(atomic_property) => {
-                for state_id in self.space.states() {
-                    let value = self.space.atomic_label(atomic_property, state_id)?;
 
-                    self.environment.insert(
-                        (subproperty_index, state_id),
-                        ParamValuation::from_three_valued(value),
-                    );
-                }
-            }
-            machine_check_common::property::PropertyType::Negation(inner) => {
-                // check inner
-                self.check_subproperty(*inner)?;
-
-                // negate inner
                 for state_id in self.space.states() {
-                    let inner_value = self
-                        .environment
-                        .get(&(*inner, state_id))
-                        .expect("Negation inner value should be present");
-                    let value = match inner_value {
-                        ParamValuation::False => ParamValuation::True,
-                        ParamValuation::True => ParamValuation::False,
-                        ParamValuation::Dependent => ParamValuation::Dependent,
-                        ParamValuation::Unknown => ParamValuation::Unknown,
-                    };
+                    let value = self.compute_fn_value(func, state_id);
                     self.environment
                         .insert((subproperty_index, state_id), value);
                 }
             }
-            machine_check_common::property::PropertyType::BiLogic(bi_logic_operator) => {
-                let left_index = bi_logic_operator.a;
-                let right_index = bi_logic_operator.b;
-
-                // check inner left and right
-                self.check_subproperty(left_index)?;
-                self.check_subproperty(right_index)?;
-
-                // perform the binary operation
+            machine_check_common::iir::ISubproperty::Next(next) => {
+                self.check_subproperty(next.inner)?;
                 for state_id in self.space.states() {
-                    let left_value = *self
-                        .environment
-                        .get(&(left_index, state_id))
-                        .expect("Left value should be present");
-                    let right_value = *self
-                        .environment
-                        .get(&(right_index, state_id))
-                        .expect("Right value should be present");
-
                     let value =
-                        Self::choose_binary(bi_logic_operator.is_and, left_value, right_value);
-
+                        self.compute_next_value(next.universal, next.inner, state_id.into());
                     self.environment
                         .insert((subproperty_index, state_id), value);
                 }
             }
-            machine_check_common::property::PropertyType::Next(next_operator) => {
-                // check inner
-                self.check_subproperty(next_operator.inner)?;
-
-                // compose the value using the direct successors
-                for state_id in self.space.states() {
-                    let value = self.compute_next_value(next_operator, state_id.into());
-
-                    self.environment
-                        .insert((subproperty_index, state_id), value);
-                }
-            }
-            machine_check_common::property::PropertyType::FixedPoint(fixed_point_operator) => {
-                // do not recompute fixed points that have been already computed (calmable)
-                // and are closed, i.e. do not contain any fixed-point variables that may change from outside
-                // this means the values will not change on a subsequent recomputation, so it is unnecessary
-                let is_calm = self.calmable_fixed_points.contains(&subproperty_index)
-                    && self.property.is_subproperty_closed_form(subproperty_index);
-
-                if !is_calm {
-                    self.check_fixed_point(subproperty_index, fixed_point_operator)?;
-                    self.calmable_fixed_points.insert(subproperty_index);
-                }
-            }
-            machine_check_common::property::PropertyType::FixedVariable(fixed_point_index) => {
-                // just propagate the value from the fixed point
-                for state_id in self.space.states() {
-                    let value = self
-                        .environment
-                        .get(&(*fixed_point_index, state_id))
-                        .expect("Fixed-point value should be present");
-                    self.environment
-                        .insert((subproperty_index, state_id), *value);
-                }
-            }
-        };*/
+            machine_check_common::iir::ISubproperty::FixedPoint(fixed_point) => todo!(),
+        }
 
         if log::log_enabled!(log::Level::Trace) {
             let subprop_env: BTreeMap<StateId, ParamValuation> = self
@@ -300,6 +137,88 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
 
         Ok(())
     }*/
+
+    fn compute_fn_value(&self, func: &IFn, state_id: StateId) -> ParamValuation {
+        let mut globals = BTreeMap::new();
+
+        let state_data = self.space.state_data(state_id);
+
+        let state_result = &state_data.result;
+
+        for input_var_id in &func.signature.inputs {
+            let input_var_name = func
+                .variables
+                .get(input_var_id)
+                .expect("Input should be in variables")
+                .ident
+                .name();
+            let value = if let Some(stripped) = input_var_name.strip_prefix("__mck_subproperty_") {
+                let Ok(input_subproperty_index) = stripped.parse::<usize>() else {
+                    panic!("Input subproperty should have valid index");
+                };
+
+                /*let input_subproperty_entry = &self.property.subproperties[input_subproperty_index];
+
+                let valuation = match &input_subproperty_entry.info.ty {
+                    machine_check_common::iir::ISubpropertyType::Root => {
+                        panic!("Root subproperty should never be a child")
+                    }
+                    machine_check_common::iir::ISubpropertyType::Next(next) => self
+                        .compute_next_value(
+                            next.universal,
+                            input_subproperty_index,
+                            state_id.into(),
+                        ),
+                    machine_check_common::iir::ISubpropertyType::FixedPoint(fixed_point) => {
+                        todo!()
+                    }
+                };*/
+
+                let valuation = *self
+                    .environment
+                    .get(&(input_subproperty_index, state_id))
+                    .expect("Input valuation should be present");
+                println!(
+                    "Input subproperty index: {}, valuation: {:?}",
+                    input_subproperty_index, valuation
+                );
+
+                let boolean = match valuation {
+                    ParamValuation::False => {
+                        mck::abstr::Boolean::from_three_valued(ThreeValued::False)
+                    }
+                    ParamValuation::True => {
+                        mck::abstr::Boolean::from_three_valued(ThreeValued::True)
+                    }
+                    ParamValuation::Dependent => todo!(),
+                    ParamValuation::Unknown => {
+                        mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)
+                    }
+                };
+
+                IAbstractValue::Bool(boolean)
+            } else {
+                let field = state_result
+                    .get(input_var_name)
+                    .expect("Input should be in fields");
+
+                let bitvec = field
+                    .runtime_bitvector()
+                    .expect("Input should be a bitvector");
+                IAbstractValue::Bitvector(bitvec)
+            };
+
+            globals.insert(input_var_name.to_string(), value);
+        }
+
+        let result = func.call_with_globals(&globals);
+
+        let IAbstractValue::Bool(result) = result else {
+            panic!("Result should be abstract Boolean");
+        };
+
+        ParamValuation::from_three_valued(result.into_three_valued())
+    }
 
     fn compute_next_value(
         &self,

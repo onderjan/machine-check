@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use machine_check_common::iir::ISubpropertyType;
 use machine_check_common::ir_common::IrReference;
 
 use crate::into_wir::{Error, ErrorType, Errors};
@@ -90,82 +89,84 @@ impl SubpropertyConverter<'_> {
         let subproperty = self
             .old_subproperties
             .remove(&subproperty_index)
-            .expect("Subproperty should be present");
+            .expect("Old subproperty should be present");
 
-        let (mut func, nonlocal_idents) = {
+        let global_rewrites = {
             println!(
-                "Considering subproperty {} info: {:?}",
-                subproperty_index, subproperty.info
+                "Considering subproperty {}: {:?}",
+                subproperty_index, subproperty
             );
-            let global_rewrites =
-                if let ISubpropertyType::FixedPoint(fixed_point_info) = &subproperty.info.ty {
-                    let subproperty_ident = WIdent::new(
-                        format!("__mck_subproperty_{}", subproperty_index),
-                        fixed_point_info.variable.span(),
-                    );
-                    println!(
-                        "Need to rewrite from {:?} to {:?}",
-                        fixed_point_info.variable, subproperty_ident
-                    );
-                    let mut global_rewrites = global_rewrites.clone();
-                    global_rewrites.insert(
-                        WIdent::from_syn_ident(fixed_point_info.variable.clone()),
-                        subproperty_ident,
-                    );
-                    Cow::Owned(global_rewrites)
-                } else {
-                    Cow::Borrowed(global_rewrites)
-                };
+            let global_rewrites = if let WSubproperty::FixedPoint(fixed_point_info) = &subproperty {
+                let subproperty_ident = WIdent::new(
+                    format!("__mck_subproperty_{}", subproperty_index),
+                    fixed_point_info.variable.span(),
+                );
+                println!(
+                    "Need to rewrite from {:?} to {:?}",
+                    fixed_point_info.variable, subproperty_ident
+                );
+                let mut global_rewrites = global_rewrites.clone();
+                global_rewrites.insert(fixed_point_info.variable.clone(), subproperty_ident);
+                Cow::Owned(global_rewrites)
+            } else {
+                Cow::Borrowed(global_rewrites)
+            };
 
-            for child_index in &subproperty.info.children {
-                self.convert_subproperty(*child_index, &global_rewrites)?;
+            for child_index in subproperty.children() {
+                self.convert_subproperty(child_index, &global_rewrites)?;
             }
 
-            process_fn(subproperty.func, &global_rewrites)?
+            global_rewrites
         };
-        // add all non-local idents to the function arguments if possible
-        let mut errors = Vec::new();
-        for nonlocal_ident in nonlocal_idents {
-            let ty = if let Some(ty) = self.global_ident_types.get(&nonlocal_ident) {
-                Some(ty)
-            } else {
-                let mut ty = None;
-                for subproperty_index in 0..self.num_subproperties {
-                    let subproperty_ident_name = format!("__mck_subproperty_{}", subproperty_index);
-                    if nonlocal_ident.name() == subproperty_ident_name {
-                        ty = Some(&WBasicType::Boolean);
-                        break;
+
+        let subproperty = match subproperty {
+            WSubproperty::Func(func, children) => {
+                let (mut func, nonlocal_idents) = process_fn(func, &global_rewrites)?;
+
+                // add all non-local idents to the function arguments if possible
+                let mut errors = Vec::new();
+                for nonlocal_ident in nonlocal_idents {
+                    let ty = if let Some(ty) = self.global_ident_types.get(&nonlocal_ident) {
+                        Some(ty)
+                    } else {
+                        let mut ty = None;
+                        for subproperty_index in 0..self.num_subproperties {
+                            let subproperty_ident_name =
+                                format!("__mck_subproperty_{}", subproperty_index);
+                            if nonlocal_ident.name() == subproperty_ident_name {
+                                ty = Some(&WBasicType::Boolean);
+                                break;
+                            }
+                        }
+
+                        ty
+                    };
+
+                    if let Some(ty) = ty {
+                        func.signature.inputs.push(WFnArg {
+                            ident: nonlocal_ident,
+                            ty: WType {
+                                reference: IrReference::None,
+                                inner: ty.clone(),
+                            },
+                        });
+                    } else {
+                        errors.push(Error::new(
+                            ErrorType::UndefinedVariable(nonlocal_ident.name().to_string()),
+                            WSpan::from_span(nonlocal_ident.span()),
+                        ));
                     }
                 }
 
-                ty
-            };
-
-            if let Some(ty) = ty {
-                func.signature.inputs.push(WFnArg {
-                    ident: nonlocal_ident,
-                    ty: WType {
-                        reference: IrReference::None,
-                        inner: ty.clone(),
-                    },
-                });
-            } else {
-                errors.push(Error::new(
-                    ErrorType::UndefinedVariable(nonlocal_ident.name().to_string()),
-                    WSpan::from_span(nonlocal_ident.span()),
-                ));
+                Errors::iter_to_result(errors)?;
+                WSubproperty::Func(func, children)
             }
-        }
+            WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
+            WSubproperty::Next(next) => WSubproperty::Next(next),
+        };
 
-        Errors::iter_to_result(errors)?;
-
-        self.new_subproperties.insert(
-            subproperty_index,
-            WSubproperty {
-                func,
-                info: subproperty.info,
-            },
-        );
+        self.new_subproperties
+            .insert(subproperty_index, subproperty);
 
         Ok(())
     }

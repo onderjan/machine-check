@@ -61,12 +61,15 @@ pub fn infer_property(property: WProperty<YSsa>) -> Result<WProperty<YInferred>,
     let mut subproperties = Vec::new();
 
     for subproperty in property.subproperties {
-        let func = infer_fn_types(subproperty.func, &HashMap::new(), None)?;
+        let subproperty = match subproperty {
+            WSubproperty::Func(item_fn, children) => {
+                WSubproperty::Func(infer_fn_types(item_fn, &HashMap::new(), None)?, children)
+            }
+            WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
+            WSubproperty::Next(next) => WSubproperty::Next(next),
+        };
 
-        subproperties.push(WSubproperty {
-            func,
-            info: subproperty.info,
-        });
+        subproperties.push(subproperty);
     }
 
     Ok(WProperty { subproperties })
