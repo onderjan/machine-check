@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use machine_check_common::{
     iir::{interpretation::IAbstractValue, IProperty},
-    ExecError, NodeId, ParamValuation, StateId,
+    ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
 use mck::{abstr::Manipulatable, concr::FullMachine};
 
@@ -45,11 +45,13 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
     }
 
     fn check_subproperty(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
-        let subproperty_entry = self.property.subproperty_entry(subproperty_index);
+        let subproperty_entry = &self.property.subproperties[subproperty_index];
 
-        println!("Subproperty entry: {:?}", subproperty_entry);
+        for child in &subproperty_entry.info.children {
+            self.check_subproperty(*child)?;
+        }
 
-        // TODO compute children
+        println!("Checking subproperty {}", subproperty_index);
 
         for state_id in self.space.states() {
             let mut globals = BTreeMap::new();
@@ -66,18 +68,62 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                     .expect("Input should be in variables")
                     .ident
                     .name();
-                let field = state_result
-                    .get(input_var_name)
-                    .expect("Input should be in fields");
+                let value = if let Some(stripped) =
+                    input_var_name.strip_prefix("__mck_subproperty_")
+                {
+                    let Ok(input_subproperty_index) = stripped.parse::<usize>() else {
+                        panic!("Input subproperty should have valid index");
+                    };
 
-                let bitvec = field
-                    .runtime_bitvector()
-                    .expect("Input should be a bitvector");
+                    let input_subproperty_entry =
+                        &self.property.subproperties[input_subproperty_index];
 
-                globals.insert(
-                    input_var_name.to_string(),
-                    machine_check_common::iir::interpretation::IAbstractValue::Bitvector(bitvec),
-                );
+                    let valuation = match &input_subproperty_entry.info.ty {
+                        machine_check_common::iir::ISubpropertyType::Root => {
+                            panic!("Root subproperty should never be a child")
+                        }
+                        machine_check_common::iir::ISubpropertyType::Next(next) => self
+                            .compute_next_value(
+                                next.universal,
+                                input_subproperty_index,
+                                state_id.into(),
+                            ),
+                        machine_check_common::iir::ISubpropertyType::FixedPoint(fixed_point) => {
+                            todo!()
+                        }
+                    };
+
+                    println!(
+                        "Input subproperty index: {}, valuation: {:?}",
+                        input_subproperty_index, valuation
+                    );
+
+                    let boolean = match valuation {
+                        ParamValuation::False => {
+                            mck::abstr::Boolean::from_three_valued(ThreeValued::False)
+                        }
+                        ParamValuation::True => {
+                            mck::abstr::Boolean::from_three_valued(ThreeValued::True)
+                        }
+                        ParamValuation::Dependent => todo!(),
+                        ParamValuation::Unknown => {
+                            mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)
+                        }
+                    };
+
+                    IAbstractValue::Bool(boolean)
+                } else {
+                    let field = state_result
+                        .get(input_var_name)
+                        .expect("Input should be in fields");
+
+                    let bitvec = field
+                        .runtime_bitvector()
+                        .expect("Input should be a bitvector");
+                    IAbstractValue::Bitvector(bitvec)
+                };
+
+                globals.insert(input_var_name.to_string(), value);
             }
 
             let result = subproperty_entry.func.call_with_globals(&globals);

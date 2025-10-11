@@ -32,7 +32,7 @@ pub struct IAssignStmt {
 
 impl IAssignStmt {
     fn forward_interpret(&self, inter: &mut Interpretation) {
-        println!("Forward-interpreting statement {:?}", self);
+        //println!("Forward-interpreting statement {:?}", self);
         let left_ident = self.left;
         let right_value = self.right.forward_interpret(inter);
 
@@ -40,7 +40,7 @@ impl IAssignStmt {
     }
 
     pub fn backward_interpret(&self, inter: &mut Interpretation) {
-        println!("Backward-interpreting statement {:?}", self);
+        //println!("Backward-interpreting statement {:?}", self);
         // when interpreting backwards, we take the later (left) refinement value
         // and the earlier (right) abstract values and process them
         // to arrive at the earlier (right) refinement values

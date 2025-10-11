@@ -89,7 +89,7 @@ impl IFn {
 
         self.forward_interpret(&mut inter);
 
-        println!("Call interpretation: {:#?}", inter);
+        //println!("Call interpretation: {:#?}", inter);
 
         inter
     }
