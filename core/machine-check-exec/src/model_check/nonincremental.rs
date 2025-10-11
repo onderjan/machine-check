@@ -1,7 +1,10 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
-use machine_check_common::{iir::IProperty, ExecError, NodeId, ParamValuation, StateId};
-use mck::concr::FullMachine;
+use machine_check_common::{
+    iir::{interpretation::IAbstractValue, IProperty},
+    ExecError, NodeId, ParamValuation, StateId,
+};
+use mck::{abstr::Manipulatable, concr::FullMachine};
 
 use crate::space::StateSpace;
 
@@ -19,7 +22,7 @@ pub fn check_property<M: FullMachine>(
         space,
         property,
         environment: BTreeMap::new(),
-        calmable_fixed_points: BTreeSet::new(),
+        //calmable_fixed_points: BTreeSet::new(),
     }
     .check_property()
 }
@@ -28,29 +31,66 @@ struct NonincrementalChecker<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
     property: &'a IProperty,
     environment: BTreeMap<(usize, StateId), ParamValuation>,
-    calmable_fixed_points: BTreeSet<usize>,
+    //calmable_fixed_points: BTreeSet<usize>,
 }
 
 impl<M: FullMachine> NonincrementalChecker<'_, M> {
     fn check_property(&mut self) -> Result<ParamValuation, ExecError> {
+        println!("Checking property: {:?}", self.property);
+
         self.check_subproperty(0)?;
 
-        todo!();
-
         // treat as AX! from root node
-        /*Ok(self.compute_next_value(
-            &NextOperator {
-                is_universal: true,
-                inner: 0,
-            },
-            NodeId::ROOT,
-        ))*/
+        Ok(self.compute_next_value(true, 0, NodeId::ROOT))
     }
 
     fn check_subproperty(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
         let subproperty_entry = self.property.subproperty_entry(subproperty_index);
 
-        todo!("Nonincremental checking");
+        println!("Subproperty entry: {:?}", subproperty_entry);
+
+        // TODO compute children
+
+        for state_id in self.space.states() {
+            let mut globals = BTreeMap::new();
+
+            let state_data = self.space.state_data(state_id);
+
+            let state_result = &state_data.result;
+
+            for input_var_id in &subproperty_entry.func.signature.inputs {
+                let input_var_name = subproperty_entry
+                    .func
+                    .variables
+                    .get(input_var_id)
+                    .expect("Input should be in variables")
+                    .ident
+                    .name();
+                let field = state_result
+                    .get(input_var_name)
+                    .expect("Input should be in fields");
+
+                let bitvec = field
+                    .runtime_bitvector()
+                    .expect("Input should be a bitvector");
+
+                globals.insert(
+                    input_var_name.to_string(),
+                    machine_check_common::iir::interpretation::IAbstractValue::Bitvector(bitvec),
+                );
+            }
+
+            let result = subproperty_entry.func.call_with_globals(&globals);
+
+            let IAbstractValue::Bool(result) = result else {
+                panic!("Result should be abstract Boolean");
+            };
+
+            let valuation = ParamValuation::from_three_valued(result.into_three_valued());
+
+            self.environment
+                .insert((subproperty_index, state_id), valuation);
+        }
 
         /*match &subproperty_entry.ty {
             machine_check_common::property::PropertyType::Const(value) => {
@@ -163,9 +203,8 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                 .collect();
 
             log::trace!(
-                "Resolved subproperty #{}: {:?}, environment:\n{:?}",
+                "Resolved subproperty #{} environment:\n{:?}",
                 subproperty_index,
-                subproperty_entry,
                 subprop_env,
             );
         }
@@ -214,9 +253,14 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
         }
 
         Ok(())
-    }
+    }*/
 
-    fn compute_next_value(&self, next_operator: &NextOperator, node_id: NodeId) -> ParamValuation {
+    fn compute_next_value(
+        &self,
+        is_universal: bool,
+        inner: usize,
+        node_id: NodeId,
+    ) -> ParamValuation {
         let param_partition = self
             .space
             .direct_successor_param_partition(node_id)
@@ -228,18 +272,15 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
         let mut can_be_true = false;
 
         for param_set in param_partition.all_sets() {
-            let mut parameter_value = ParamValuation::from_bool(next_operator.is_universal);
+            let mut parameter_value = ParamValuation::from_bool(is_universal);
             for successor_id in param_set.map(|(_, state_id)| *state_id) {
                 let successor_value = *self
                     .environment
-                    .get(&(next_operator.inner, successor_id))
+                    .get(&(inner, successor_id))
                     .expect("Left value should be present");
 
-                parameter_value = Self::choose_binary(
-                    next_operator.is_universal,
-                    parameter_value,
-                    successor_value,
-                );
+                parameter_value =
+                    Self::choose_binary(is_universal, parameter_value, successor_value);
             }
 
             match parameter_value {
@@ -288,5 +329,5 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                 (ParamValuation::False, ParamValuation::False) => ParamValuation::False,
             }
         }
-    }*/
+    }
 }

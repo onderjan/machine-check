@@ -17,7 +17,6 @@ use crate::{
 
 pub fn infer_description(
     description: WDescription<YSsa>,
-    global_ident_types: &HashMap<WIdent, WBasicType>,
 ) -> Result<WDescription<YInferred>, Errors> {
     let mut structs = HashMap::new();
     // add structures first
@@ -34,12 +33,7 @@ pub fn infer_description(
         let mut fn_items = Vec::new();
 
         for fn_item in item_impl.impl_item_fns {
-            fn_items.push(infer_fn_types(
-                fn_item,
-                &structs,
-                Some(self_path),
-                global_ident_types,
-            ));
+            fn_items.push(infer_fn_types(fn_item, &structs, Some(self_path)));
         }
 
         let fn_items = Errors::flat_result(fn_items);
@@ -63,14 +57,11 @@ pub fn infer_description(
     })
 }
 
-pub fn infer_property(
-    property: WProperty<YSsa>,
-    global_ident_types: &HashMap<WIdent, WBasicType>,
-) -> Result<WProperty<YInferred>, Errors> {
+pub fn infer_property(property: WProperty<YSsa>) -> Result<WProperty<YInferred>, Errors> {
     let mut subproperties = Vec::new();
 
     for subproperty in property.subproperties {
-        let func = infer_fn_types(subproperty.func, &HashMap::new(), None, global_ident_types)?;
+        let func = infer_fn_types(subproperty.func, &HashMap::new(), None)?;
 
         subproperties.push(WSubproperty {
             func,
@@ -85,7 +76,6 @@ fn infer_fn_types(
     mut impl_item_fn: WItemFn<YSsa>,
     structs: &HashMap<WPath, WItemStruct<WBasicType>>,
     self_path: Option<&WPath>,
-    global_ident_types: &HashMap<WIdent, WBasicType>,
 ) -> Result<WItemFn<YInferred>, Errors> {
     fn convert_self(ty: &mut WType<WBasicType>, self_path: Option<&WPath>) {
         if let Some(self_path) = self_path {
@@ -98,13 +88,6 @@ fn infer_fn_types(
     }
 
     let mut local_ident_types = HashMap::new();
-
-    for (global_ident, global_ident_type) in global_ident_types {
-        local_ident_types.insert(
-            global_ident.clone(),
-            WPartialGeneralType::Normal(global_ident_type.clone().into_type()),
-        );
-    }
 
     // add param idents
     for fn_arg in &mut impl_item_fn.signature.inputs {

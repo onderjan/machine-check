@@ -30,18 +30,6 @@ impl WItemFn<YAbstr> {
             inputs.push(var_id);
         }
 
-        for (var_id, global) in &data.global_var_infos {
-            let var_info = IVarInfo {
-                ident: global.ident.clone(),
-                ty: IGeneralType::Normal(IType {
-                    reference: IrReference::None,
-                    inner: global.ty.clone(),
-                }),
-            };
-
-            variables.insert(*var_id, var_info);
-        }
-
         for local in self.locals {
             let info = IVarInfo {
                 ident: local.ident.into_iir(),
@@ -92,25 +80,10 @@ impl WItemFn<YAbstr> {
 
         let block = IBlock { stmts };
 
-        let mut used_globals = BTreeMap::new();
-
-        for var_id in &data.used_globals {
-            used_globals.insert(
-                *var_id,
-                data.global_var_infos
-                    .get(var_id)
-                    .expect("Used global should be in variables")
-                    .clone(),
-            );
-        }
-
-        data.used_globals.clear();
-
         IFn {
             signature,
             variables,
             block,
-            used_globals,
         }
     }
 }

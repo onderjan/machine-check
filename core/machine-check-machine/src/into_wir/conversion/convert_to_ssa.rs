@@ -156,6 +156,7 @@ impl SubpropertyConverter<'_> {
                 ));
             }
         }
+
         Errors::iter_to_result(errors)?;
 
         self.new_subproperties.insert(

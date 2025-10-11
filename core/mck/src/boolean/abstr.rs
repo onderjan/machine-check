@@ -28,6 +28,15 @@ impl Boolean {
         }
     }
 
+    pub fn into_three_valued(self) -> ThreeValued {
+        match (self.can_be_false(), self.can_be_true()) {
+            (true, true) => ThreeValued::Unknown,
+            (true, false) => ThreeValued::False,
+            (false, true) => ThreeValued::True,
+            (false, false) => unreachable!(),
+        }
+    }
+
     pub(crate) fn from_zeros_ones(
         zeros: crate::concr::Bitvector<1>,
         ones: crate::concr::Bitvector<1>,

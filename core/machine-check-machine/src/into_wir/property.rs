@@ -90,7 +90,7 @@ pub fn create_from_syn(
     let property = convert_to_ssa::convert_property(property, global_ident_types)?;
 
     println!("Global ident types: {:?}", global_ident_types);
-    let property = infer_types::infer_property(property, global_ident_types)?;
+    let property = infer_types::infer_property(property)?;
     let property = convert_types::convert_property(property)?;
 
     println!("Property: {:#?}", property);

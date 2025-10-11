@@ -135,7 +135,7 @@ pub fn process_property<M: FullMachine>(
     //println!("Abstract description: {:?}", description);
 
     println!("WIR property: {:#?}", property);
-    let property = property.into_property_iir(global_ident_types);
+    let property = property.into_property_iir();
     println!("IIR property: {:#?}", property);
 
     //interpret::execute_function(&description, "property");
