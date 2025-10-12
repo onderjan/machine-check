@@ -1,4 +1,7 @@
 use func::IFn;
+use proc_macro2::Span;
+
+use crate::iir::{func::ISignature, path::IIdent};
 
 pub mod expr;
 pub mod func;
@@ -33,9 +36,5 @@ impl IProperty {
 
     pub fn subproperty_entry(&self, index: usize) -> &ISubproperty {
         &self.subproperties[index]
-    }
-
-    pub fn inherent() -> IProperty {
-        todo!()
     }
 }

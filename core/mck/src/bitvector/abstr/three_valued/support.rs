@@ -180,7 +180,7 @@ impl<const W: u32> ThreeValuedBitvector<W> {
         Self::from_concrete(ConcreteBitvector::new(value))
     }
 
-    pub(crate) fn to_runtime(self) -> RThreeValuedBitvector {
+    pub fn to_runtime(self) -> RThreeValuedBitvector {
         RThreeValuedBitvector {
             zeros: self.zeros.to_runtime(),
             ones: self.ones.to_runtime(),

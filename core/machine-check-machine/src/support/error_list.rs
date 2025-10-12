@@ -2,6 +2,7 @@ use std::{error::Error, fmt::Display};
 
 use vec1::Vec1;
 
+#[derive(Debug)]
 pub struct ErrorList<E: Error> {
     errors: Vec1<E>,
 }

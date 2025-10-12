@@ -35,7 +35,7 @@ pub fn verify<M: FullMachine>(
         } else {
             info!("Verifying the inherent property.");
         }
-        let inherent_property = IProperty::inherent();
+        let inherent_property = machine_check_machine::inherent_property();
         Some(framework.verify(&inherent_property))
     };
 

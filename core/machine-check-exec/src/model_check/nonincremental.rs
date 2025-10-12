@@ -145,6 +145,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
         let state_data = self.space.state_data(state_id);
 
         let state_result = &state_data.result;
+        let state_panic = &state_data.panic;
 
         for input_var_id in &func.signature.inputs {
             let input_var_name = func
@@ -181,10 +182,12 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                 };
 
                 IAbstractValue::Bool(boolean)
+            } else if input_var_name == "__panic" {
+                IAbstractValue::Bitvector(state_panic.to_runtime())
             } else {
-                let field = state_result
-                    .get(input_var_name)
-                    .expect("Input should be in fields");
+                let Some(field) = state_result.get(input_var_name) else {
+                    panic!("Input '{}' should be in fields", input_var_name);
+                };
 
                 let bitvec = field
                     .runtime_bitvector()

@@ -52,6 +52,25 @@ pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Errors> {
     Ok(module)
 }
 
+pub fn inherent_property() -> IProperty {
+    let mut global_basic_types = HashMap::new();
+    global_basic_types.insert(
+        WIdent::new(String::from("__panic"), Span::call_site()),
+        WBasicType::Bitvector(32),
+    );
+
+    let expr = parse_quote!(AG![__panic == 0]);
+
+    let (property, _panic_messages) =
+        into_wir::create_property_description(expr, &global_basic_types)
+            .expect("Inherent property should be created");
+    let property = abstr::create_abstract_property(property);
+
+    //println!("Abstract description: {:?}", description);
+
+    property.into_property_iir()
+}
+
 pub fn process_property<M: FullMachine>(
     machine: &M::Abstr,
     property: &str,
