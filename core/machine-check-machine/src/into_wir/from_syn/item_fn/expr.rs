@@ -13,13 +13,14 @@ use crate::{
         from_syn::{path::fold_path, ty::fold_type},
         Error, ErrorType,
     },
-    util::{create_expr_call, create_expr_path, ArgType},
+    util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
     wir::{
-        WArrayBaseExpr, WBasicType, WCall, WCallArg, WExpr, WExprField, WExprHighCall,
+        WArrayBaseExpr, WBasicType, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall,
         WExprReference, WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WHighStdIntoType,
-        WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt, WSpan, WStdBinary, WStdUnary,
-        WStmtAssign, WType, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW,
-        MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
+        WIdent, WIfConditionIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
+        WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, WType, ZTac,
+        MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW,
+        MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
     },
 };
 
@@ -92,8 +93,8 @@ impl RightExprFolder<'_> {
             )),
             Expr::Lit(expr_lit) => WIndexedExpr::NonIndexed(WExpr::Lit(expr_lit.lit)),
             Expr::Index(expr_index) => self.fold_right_expr_index(expr_index)?,
-            Expr::Binary(expr_binary) => self.fold_right_expr(normalize_binary(expr_binary)?)?,
-            Expr::Unary(expr_unary) => self.fold_right_expr(normalize_unary(expr_unary)?)?,
+            Expr::Binary(expr_binary) => self.fold_binary(expr_binary)?,
+            Expr::Unary(expr_unary) => self.fold_unary(expr_unary)?,
             Expr::Paren(expr_paren) => {
                 // just fold the inside
                 self.fold_right_expr(*expr_paren.expr)?
@@ -613,89 +614,143 @@ impl RightExprFolder<'_> {
         // return the temporary variable ident
         Ok(tmp_ident)
     }
-}
 
-fn normalize_unary(expr_unary: ExprUnary) -> Result<Expr, Error> {
-    let path = match expr_unary.op {
-        syn::UnOp::Deref(_) => {
-            return Err(Error::unsupported_syn_construct(
-                "Dereference",
-                &expr_unary.op,
-            ))
-        }
-        syn::UnOp::Not(_) => path!(::std::ops::Not::not),
-        syn::UnOp::Neg(_) => path!(::std::ops::Neg::neg),
-        _ => {
-            return Err(Error::unsupported_syn_construct(
-                "Unary operator",
-                &expr_unary.op,
-            ));
-        }
-    };
-    // construct the call
-    Ok(create_expr_call(
-        create_expr_path(path),
-        vec![(ArgType::Normal, *expr_unary.expr)],
-    ))
-}
+    fn fold_unary(&mut self, expr_unary: ExprUnary) -> Result<WIndexedExpr<WExprHighCall>, Error> {
+        let path = match expr_unary.op {
+            syn::UnOp::Deref(_) => {
+                return Err(Error::unsupported_syn_construct(
+                    "Dereference",
+                    &expr_unary.op,
+                ))
+            }
+            syn::UnOp::Not(_) => path!(::std::ops::Not::not),
+            syn::UnOp::Neg(_) => path!(::std::ops::Neg::neg),
+            _ => {
+                return Err(Error::unsupported_syn_construct(
+                    "Unary operator",
+                    &expr_unary.op,
+                ));
+            }
+        };
+        // construct the call
+        let call = create_expr_call(
+            create_expr_path(path),
+            vec![(ArgType::Normal, *expr_unary.expr)],
+        );
+        // fold it
+        self.fold_right_expr(call)
+    }
 
-fn normalize_binary(expr_binary: ExprBinary) -> Result<Expr, Error> {
-    let call_func = match expr_binary.op {
-        syn::BinOp::Add(_) => path!(::std::ops::Add::add),
-        syn::BinOp::Sub(_) => path!(::std::ops::Sub::sub),
-        syn::BinOp::Mul(_) => path!(::std::ops::Mul::mul),
-        syn::BinOp::Div(_) => path!(::std::ops::Div::div),
-        syn::BinOp::Rem(_) => path!(::std::ops::Rem::rem),
-        syn::BinOp::And(_) => {
-            return Err(Error::unsupported_syn_construct(
-                "Short-circuiting AND",
-                &expr_binary.op,
-            ))
-        }
-        syn::BinOp::Or(_) => {
-            return Err(Error::unsupported_syn_construct(
-                "Short-circuiting OR",
-                &expr_binary.op,
-            ))
-        }
-        syn::BinOp::BitAnd(_) => path!(::std::ops::BitAnd::bitand),
-        syn::BinOp::BitOr(_) => path!(::std::ops::BitOr::bitor),
-        syn::BinOp::BitXor(_) => path!(::std::ops::BitXor::bitxor),
-        syn::BinOp::Shl(_) => path!(::std::ops::Shl::shl),
-        syn::BinOp::Shr(_) => path!(::std::ops::Shr::shr),
-        syn::BinOp::Eq(_) => path!(::std::cmp::PartialEq::eq),
-        syn::BinOp::Ne(_) => path!(::std::cmp::PartialEq::ne),
-        syn::BinOp::Lt(_) => path!(::std::cmp::PartialOrd::lt),
-        syn::BinOp::Le(_) => path!(::std::cmp::PartialOrd::le),
-        syn::BinOp::Gt(_) => path!(::std::cmp::PartialOrd::gt),
-        syn::BinOp::Ge(_) => path!(::std::cmp::PartialOrd::ge),
-        syn::BinOp::AddAssign(_)
-        | syn::BinOp::SubAssign(_)
-        | syn::BinOp::MulAssign(_)
-        | syn::BinOp::DivAssign(_)
-        | syn::BinOp::RemAssign(_)
-        | syn::BinOp::BitXorAssign(_)
-        | syn::BinOp::BitAndAssign(_)
-        | syn::BinOp::BitOrAssign(_)
-        | syn::BinOp::ShlAssign(_)
-        | syn::BinOp::ShrAssign(_) => {
-            return Err(Error::unsupported_syn_construct(
-                "Assignment operators",
-                &expr_binary.op,
-            ))
-        }
-        _ => {
-            return Err(Error::unsupported_syn_construct(
-                "Binary operator",
-                &expr_binary.op,
-            ))
-        }
-    };
-    Ok(create_expr_call(
-        create_expr_path(call_func),
-        vec![
-            (ArgType::Normal, *expr_binary.left),
-            (ArgType::Normal, *expr_binary.right),
-        ],
-    ))
+    fn fold_binary(
+        &mut self,
+        expr_binary: ExprBinary,
+    ) -> Result<WIndexedExpr<WExprHighCall>, Error> {
+        let call_func = match expr_binary.op {
+            syn::BinOp::Add(_) => path!(::std::ops::Add::add),
+            syn::BinOp::Sub(_) => path!(::std::ops::Sub::sub),
+            syn::BinOp::Mul(_) => path!(::std::ops::Mul::mul),
+            syn::BinOp::Div(_) => path!(::std::ops::Div::div),
+            syn::BinOp::Rem(_) => path!(::std::ops::Rem::rem),
+            syn::BinOp::And(_) => {
+                return self.fold_short_circuiting(true, *expr_binary.left, *expr_binary.right);
+            }
+            syn::BinOp::Or(_) => {
+                return self.fold_short_circuiting(false, *expr_binary.left, *expr_binary.right);
+            }
+            syn::BinOp::BitAnd(_) => path!(::std::ops::BitAnd::bitand),
+            syn::BinOp::BitOr(_) => path!(::std::ops::BitOr::bitor),
+            syn::BinOp::BitXor(_) => path!(::std::ops::BitXor::bitxor),
+            syn::BinOp::Shl(_) => path!(::std::ops::Shl::shl),
+            syn::BinOp::Shr(_) => path!(::std::ops::Shr::shr),
+            syn::BinOp::Eq(_) => path!(::std::cmp::PartialEq::eq),
+            syn::BinOp::Ne(_) => path!(::std::cmp::PartialEq::ne),
+            syn::BinOp::Lt(_) => path!(::std::cmp::PartialOrd::lt),
+            syn::BinOp::Le(_) => path!(::std::cmp::PartialOrd::le),
+            syn::BinOp::Gt(_) => path!(::std::cmp::PartialOrd::gt),
+            syn::BinOp::Ge(_) => path!(::std::cmp::PartialOrd::ge),
+            syn::BinOp::AddAssign(_)
+            | syn::BinOp::SubAssign(_)
+            | syn::BinOp::MulAssign(_)
+            | syn::BinOp::DivAssign(_)
+            | syn::BinOp::RemAssign(_)
+            | syn::BinOp::BitXorAssign(_)
+            | syn::BinOp::BitAndAssign(_)
+            | syn::BinOp::BitOrAssign(_)
+            | syn::BinOp::ShlAssign(_)
+            | syn::BinOp::ShrAssign(_) => {
+                return Err(Error::unsupported_syn_construct(
+                    "Assignment operators",
+                    &expr_binary.op,
+                ))
+            }
+            _ => {
+                return Err(Error::unsupported_syn_construct(
+                    "Binary operator",
+                    &expr_binary.op,
+                ))
+            }
+        };
+
+        // create the call and fold it
+        let call = create_expr_call(
+            create_expr_path(call_func),
+            vec![
+                (ArgType::Normal, *expr_binary.left),
+                (ArgType::Normal, *expr_binary.right),
+            ],
+        );
+
+        self.fold_right_expr(call)
+    }
+
+    fn fold_short_circuiting(
+        &mut self,
+        is_and: bool,
+        left: Expr,
+        right: Expr,
+    ) -> Result<WIndexedExpr<WExprHighCall>, Error> {
+        let left = self.force_ident(left)?;
+        let right = self.force_ident(right)?;
+
+        // convert left && right to something like
+        // let mut tmp_result = left;
+        // if left {
+        //   tmp_result = right;
+        // } else {}
+
+        // convert left || right to something like
+        // let mut tmp_result = left;
+        // if left {} else {
+        //   tmp_result = right;
+        //}
+
+        let tmp_result = self.move_through_temp(create_expr_ident(left.to_syn_ident()))?;
+
+        let right_assign = WMacroableStmt::Assign(WStmtAssign {
+            left: WIndexedIdent::NonIndexed(tmp_result.clone()),
+            right: WIndexedExpr::NonIndexed(WExpr::Move(right)),
+        });
+        let right_assign_block = WBlock {
+            stmts: vec![right_assign],
+        };
+        let empty_block = WBlock { stmts: Vec::new() };
+
+        let (then_block, else_block) = if is_and {
+            (right_assign_block, empty_block)
+        } else {
+            (empty_block, right_assign_block)
+        };
+
+        self.stmts.push(WMacroableStmt::If(WStmtIf {
+            condition: crate::wir::WIfCondition::Ident(WIfConditionIdent {
+                polarity: WNoIfPolarity,
+                ident: left,
+            }),
+            then_block,
+            else_block,
+        }));
+
+        // return tmp_result
+        Ok(WIndexedExpr::NonIndexed(WExpr::Move(tmp_result)))
+    }
 }
