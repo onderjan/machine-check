@@ -40,22 +40,10 @@ pub struct IFn {
 }
 
 impl IFn {
-    pub fn call_with_globals(&self, globals: &BTreeMap<String, IAbstractValue>) -> IAbstractValue {
-        let inter = self.call_interpret_with_globals(globals);
-
-        let normal_result = inter.abstract_value(self.signature.output.normal).clone();
-        // TODO: raise an error on nonzero panic result
-        let panic_result = inter
-            .abstract_value(self.signature.output.panic)
-            .expect_bitvector();
-        assert!(panic_result.concrete_value().is_some_and(|v| v.is_zero()));
-        normal_result
-    }
-
-    pub fn call_interpret_with_globals(
+    pub fn globals_to_input_values(
         &self,
         globals: &BTreeMap<String, IAbstractValue>,
-    ) -> Interpretation {
+    ) -> Vec<IAbstractValue> {
         let mut input_values = Vec::new();
 
         for input_id in &self.signature.inputs {
@@ -69,7 +57,19 @@ impl IFn {
             input_values.push(abstract_value.clone());
         }
 
-        self.call_interpret(input_values)
+        input_values
+    }
+
+    pub fn call(&self, input_values: Vec<IAbstractValue>) -> IAbstractValue {
+        let inter = self.call_interpret(input_values);
+
+        let normal_result = inter.abstract_value(self.signature.output.normal).clone();
+        // TODO: raise an error on nonzero panic result
+        let panic_result = inter
+            .abstract_value(self.signature.output.panic)
+            .expect_bitvector();
+        assert!(panic_result.concrete_value().is_some_and(|v| v.is_zero()));
+        normal_result
     }
 
     pub fn call_interpret(&self, input_values: Vec<IAbstractValue>) -> Interpretation {

@@ -28,10 +28,29 @@ pub fn check_property<M: FullMachine>(
     .check_property()
 }
 
+#[derive(Clone, Debug)]
+pub enum CheckChoice {
+    Next(Option<StateId>),
+    FixedPoint,
+    Func(Vec<IAbstractValue>),
+}
+
+#[derive(Clone, Debug)]
+pub struct CheckValue {
+    pub valuation: ParamValuation,
+    pub choice: CheckChoice,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum BiChoice {
+    Left,
+    Right,
+}
+
 pub(super) struct IncrementalChecker<'a, M: FullMachine> {
     pub(super) space: &'a StateSpace<M>,
     pub(super) property: &'a IProperty,
-    pub(super) environment: &'a mut BTreeMap<(usize, StateId), ParamValuation>,
+    pub(super) environment: &'a mut BTreeMap<(usize, StateId), CheckValue>,
     //calmable_fixed_points: BTreeSet<usize>,
 }
 
@@ -42,7 +61,21 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
         self.check_subproperty(0)?;
 
         // treat as AX! from root node
-        Ok(self.compute_next_value(true, 0, NodeId::ROOT))
+        Ok(self.compute_next_value(true, 0, NodeId::ROOT).valuation)
+    }
+
+    fn update_value(&mut self, subproperty_index: usize, state_id: StateId, value: CheckValue) {
+        let should_update =
+            if let Some(previous_value) = self.environment.get(&(subproperty_index, state_id)) {
+                value.valuation != previous_value.valuation
+            } else {
+                true
+            };
+
+        if should_update {
+            self.environment
+                .insert((subproperty_index, state_id), value);
+        }
     }
 
     fn check_subproperty(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
@@ -56,8 +89,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
 
                 for state_id in self.space.states() {
                     let value = self.compute_fn_value(func, state_id);
-                    self.environment
-                        .insert((subproperty_index, state_id), value);
+                    self.update_value(subproperty_index, state_id, value);
                 }
             }
             machine_check_common::iir::ISubproperty::Next(next) => {
@@ -65,8 +97,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
                 for state_id in self.space.states() {
                     let value =
                         self.compute_next_value(next.universal, next.inner, state_id.into());
-                    self.environment
-                        .insert((subproperty_index, state_id), value);
+                    self.update_value(subproperty_index, state_id, value);
                 }
             }
             machine_check_common::iir::ISubproperty::FixedPoint(fixed_point) => {
@@ -79,11 +110,11 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
         }
 
         if log::log_enabled!(log::Level::Trace) {
-            let subprop_env: BTreeMap<StateId, ParamValuation> = self
+            let subprop_env: BTreeMap<StateId, &CheckValue> = self
                 .environment
                 .iter()
                 .filter(|((index, _), _)| *index == subproperty_index)
-                .map(|((_, state_id), value)| (*state_id, *value))
+                .map(|((_, state_id), value)| (*state_id, value))
                 .collect();
 
             log::trace!(
@@ -104,8 +135,13 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
         // set fixed-point values to ground value (true for universal, false for existential)
         let ground_value = ParamValuation::from_bool(is_greatest);
         for state_id in self.space.states() {
-            self.environment
-                .insert((subproperty_index, state_id), ground_value);
+            self.environment.insert(
+                (subproperty_index, state_id),
+                CheckValue {
+                    valuation: ground_value,
+                    choice: CheckChoice::FixedPoint,
+                },
+            );
         }
 
         loop {
@@ -115,18 +151,23 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
             // update the fixed-point values with inner
             let mut updated = false;
             for state_id in self.space.states() {
-                let previous_value = *self
+                let previous_value = self
                     .environment
                     .get(&(subproperty_index, state_id))
                     .expect("Previous value should be present");
-                let current_value = *self
+                let current_value = self
                     .environment
                     .get(&(inner_index, state_id))
                     .expect("Current value should be present");
 
-                if previous_value != current_value {
-                    self.environment
-                        .insert((subproperty_index, state_id), current_value);
+                if previous_value.valuation != current_value.valuation {
+                    self.environment.insert(
+                        (subproperty_index, state_id),
+                        CheckValue {
+                            valuation: current_value.valuation,
+                            choice: CheckChoice::FixedPoint,
+                        },
+                    );
                     updated = true;
                 }
             }
@@ -140,7 +181,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
         Ok(())
     }
 
-    fn compute_fn_value(&self, func: &IFn, state_id: StateId) -> ParamValuation {
+    fn compute_fn_value(&self, func: &IFn, state_id: StateId) -> CheckValue {
         let mut globals = BTreeMap::new();
 
         let state_data = self.space.state_data(state_id);
@@ -160,10 +201,11 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
                     panic!("Input subproperty should have valid index");
                 };
 
-                let valuation = *self
+                let valuation = self
                     .environment
                     .get(&(input_subproperty_index, state_id))
-                    .expect("Input valuation should be present");
+                    .expect("Input valuation should be present")
+                    .valuation;
 
                 let boolean = match valuation {
                     ParamValuation::False => {
@@ -197,21 +239,21 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
 
         let input_values = func.globals_to_input_values(&globals);
 
-        let result = func.call(input_values);
+        let result = func.call(input_values.clone());
 
         let IAbstractValue::Bool(result) = result else {
             panic!("Result should be abstract Boolean");
         };
 
-        ParamValuation::from_three_valued(result.into_three_valued())
+        let valuation = ParamValuation::from_three_valued(result.into_three_valued());
+
+        CheckValue {
+            valuation,
+            choice: CheckChoice::Func(input_values),
+        }
     }
 
-    fn compute_next_value(
-        &self,
-        is_universal: bool,
-        inner: usize,
-        node_id: NodeId,
-    ) -> ParamValuation {
+    fn compute_next_value(&self, is_universal: bool, inner: usize, node_id: NodeId) -> CheckValue {
         let param_partition = self
             .space
             .direct_successor_param_partition(node_id)
@@ -222,16 +264,26 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
         let mut can_be_false = false;
         let mut can_be_true = false;
 
+        let mut successor_state_id = None;
+
         for param_set in param_partition.all_sets() {
             let mut parameter_value = ParamValuation::from_bool(is_universal);
             for successor_id in param_set.map(|(_, state_id)| *state_id) {
-                let successor_value = *self
+                let successor_value = self
                     .environment
                     .get(&(inner, successor_id))
-                    .expect("Left value should be present");
-
-                parameter_value =
+                    .expect("Left value should be present")
+                    .valuation;
+                let binary_choice =
                     Self::choose_binary(is_universal, parameter_value, successor_value);
+
+                match binary_choice {
+                    BiChoice::Left => {}
+                    BiChoice::Right => {
+                        successor_state_id = Some(successor_id);
+                        parameter_value = successor_value;
+                    }
+                }
             }
 
             match parameter_value {
@@ -245,7 +297,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
             }
         }
 
-        match (can_be_unknown, can_be_false, can_be_true) {
+        let valuation = match (can_be_unknown, can_be_false, can_be_true) {
             (_, true, true) => ParamValuation::Dependent,
             (true, _, _) => ParamValuation::Unknown,
             (false, true, false) => ParamValuation::False,
@@ -253,31 +305,41 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
             (false, false, false) => {
                 panic!("Parameters should be unknown, false, or true")
             }
+        };
+
+        let choice = if let ParamValuation::Unknown = valuation {
+            Some(successor_state_id.expect("Unknown should be due to state"))
+        } else {
+            None
+        };
+
+        CheckValue {
+            valuation,
+            choice: CheckChoice::Next(choice),
         }
     }
 
-    fn choose_binary(is_and: bool, left: ParamValuation, right: ParamValuation) -> ParamValuation {
+    fn choose_binary(is_and: bool, left: ParamValuation, right: ParamValuation) -> BiChoice {
         if is_and {
             match (left, right) {
-                (ParamValuation::False, _) | (_, ParamValuation::False) => ParamValuation::False,
-                (ParamValuation::Unknown, _) | (_, ParamValuation::Unknown) => {
-                    ParamValuation::Unknown
-                }
-                (ParamValuation::Dependent, _) | (_, ParamValuation::Dependent) => {
-                    ParamValuation::Dependent
-                }
-                (ParamValuation::True, ParamValuation::True) => ParamValuation::True,
+                (ParamValuation::False, _) => BiChoice::Left,
+                (_, ParamValuation::False) => BiChoice::Right,
+
+                (ParamValuation::Unknown, _) => BiChoice::Left,
+                (_, ParamValuation::Unknown) => BiChoice::Right,
+                (ParamValuation::Dependent, _) => BiChoice::Left,
+                (_, ParamValuation::Dependent) => BiChoice::Right,
+                (ParamValuation::True, ParamValuation::True) => BiChoice::Left,
             }
         } else {
             match (left, right) {
-                (ParamValuation::True, _) | (_, ParamValuation::True) => ParamValuation::True,
-                (ParamValuation::Unknown, _) | (_, ParamValuation::Unknown) => {
-                    ParamValuation::Unknown
-                }
-                (ParamValuation::Dependent, _) | (_, ParamValuation::Dependent) => {
-                    ParamValuation::Dependent
-                }
-                (ParamValuation::False, ParamValuation::False) => ParamValuation::False,
+                (ParamValuation::True, _) => BiChoice::Left,
+                (_, ParamValuation::True) => BiChoice::Right,
+                (ParamValuation::Unknown, _) => BiChoice::Left,
+                (_, ParamValuation::Unknown) => BiChoice::Right,
+                (ParamValuation::Dependent, _) => BiChoice::Left,
+                (_, ParamValuation::Dependent) => BiChoice::Right,
+                (ParamValuation::False, ParamValuation::False) => BiChoice::Left,
             }
         }
     }

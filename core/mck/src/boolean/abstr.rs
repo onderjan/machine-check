@@ -55,7 +55,7 @@ impl Boolean {
 impl Debug for Boolean {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match (self.can_be_false(), self.can_be_true()) {
-            (true, true) => write!(f, "both"),
+            (true, true) => write!(f, "unknown"),
             (true, false) => write!(f, "false"),
             (false, true) => write!(f, "true"),
             (false, false) => panic!("Three-valued Boolean should be true or false"),

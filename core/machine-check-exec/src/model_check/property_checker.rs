@@ -1,3 +1,46 @@
+use machine_check_common::{iir::IProperty, ExecError, ParamValuation, StateId};
+use mck::concr::FullMachine;
+use std::{collections::BTreeMap, fmt::Debug};
+
+use crate::{
+    model_check::incremental::{self, CheckValue},
+    space::StateSpace,
+};
+
+#[derive(Debug, Clone)]
+pub struct PropertyChecker {
+    property: IProperty,
+    environment: BTreeMap<(usize, StateId), CheckValue>,
+}
+
+impl PropertyChecker {
+    pub fn new(property: IProperty) -> Self {
+        Self {
+            property,
+            environment: BTreeMap::new(),
+        }
+    }
+
+    pub fn compute_interpretation<M: FullMachine>(
+        &mut self,
+        space: &StateSpace<M>,
+    ) -> Result<ParamValuation, ExecError> {
+        let mut nonincremental = incremental::IncrementalChecker {
+            space,
+            property: &self.property,
+            environment: &mut self.environment,
+        };
+
+        let result = nonincremental.check_property()?;
+
+        Ok(result)
+    }
+
+    pub fn environment(&self) -> &BTreeMap<(usize, StateId), CheckValue> {
+        &self.environment
+    }
+}
+
 /*mod double_check;
 mod focus;
 mod history;

@@ -34,23 +34,24 @@ impl<M: FullMachine> super::Framework<M> {
         let mut current_state_mark = RefinPanicState::<M>::clean();
 
         // TODO: rework panic name kludge
-        if culprit.atomic_property.left().name() == "__panic" {
+        if culprit.atomic_property.name == "__panic" {
             current_state_mark.panic = refin::PanicBitvector::dirty();
         } else {
             // TODO: mark more adequately
             let manip_mark = current_state_mark
                 .result
-                .get_mut(culprit.atomic_property.left().name())
+                .get_mut(&culprit.atomic_property.name)
                 .expect("Culprit mark should be manipulatable");
 
-            let manip_mark = if let Some(index) = culprit.atomic_property.left().index() {
+            // TODO: allow indexed properties
+            /*let manip_mark = if let Some(index) = culprit.atomic_property.left().index() {
                 let Some(indexed_manip_mark) = manip_mark.index_mut(index) else {
                     panic!("Indexed culprit mark should be indexable");
                 };
                 indexed_manip_mark
             } else {
                 manip_mark
-            };
+            };*/
             manip_mark.mark();
         }
 

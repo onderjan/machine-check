@@ -23,28 +23,8 @@ pub enum Conclusion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct AtomicLeft {
-    // TODO
-}
-impl AtomicLeft {
-    pub fn name(&self) -> &str {
-        todo!()
-    }
-
-    pub fn index(&self) -> Option<u64> {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AtomicProperty {
-    // TODO
-}
-
-impl AtomicProperty {
-    pub fn left(&self) -> AtomicLeft {
-        todo!()
-    }
+    pub name: String,
 }
 
 /// The culprit of an unknown three-valued model-checking result.

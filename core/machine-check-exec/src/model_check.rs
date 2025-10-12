@@ -1,8 +1,9 @@
 mod deduce;
+mod incremental;
 mod nonincremental;
 mod property_checker;
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use log::trace;
 use machine_check_common::{
@@ -12,20 +13,20 @@ use machine_check_common::{
 };
 use mck::concr::FullMachine;
 
-use crate::space::StateSpace;
+use crate::{model_check::property_checker::PropertyChecker, space::StateSpace};
 
 use std::fmt::Debug;
 
 #[derive(Debug)]
 /// Three-valued model checker.
 pub struct ThreeValuedChecker {
-    //    property_checkers: HashMap<IProperty, PropertyChecker>,
+    property_checkers: HashMap<IProperty, PropertyChecker>,
 }
 
 impl ThreeValuedChecker {
     pub fn new() -> Self {
         Self {
-            //property_checkers: HashMap::new(),
+            property_checkers: HashMap::new(),
         }
     }
 
@@ -33,9 +34,9 @@ impl ThreeValuedChecker {
         &mut self,
         space: &StateSpace<M>,
         property: &IProperty,
-        _subproperty_index: usize,
+        subproperty_index: usize,
     ) -> Result<(Conclusion, BTreeMap<StateId, ParamValuation>), ExecError> {
-        /*let conclusion = self.check_property(space, property)?;
+        let conclusion = self.check_property(space, property)?;
 
         let property_checker = self
             .property_checkers
@@ -44,14 +45,16 @@ impl ThreeValuedChecker {
 
         // get the labelling as well
         let mut labelling = BTreeMap::new();
-        let getter = property_checker.last_getter(space);
+        let environment = property_checker.environment();
         for state_id in space.states() {
-            let timed = getter.compute_latest_timed(subproperty_index, state_id)?;
-            labelling.insert(state_id, timed.value.valuation());
+            let value = environment
+                .get(&(subproperty_index, state_id))
+                .expect("Valuation should be in environment");
+            labelling.insert(state_id, value.valuation);
         }
-        Ok((conclusion, labelling))*/
+        Ok((conclusion, labelling))
 
-        let param_valuation = nonincremental::check_property(space, property)?;
+        /*let param_valuation = nonincremental::check_property(space, property)?;
 
         let conclusion = match param_valuation {
             ParamValuation::False => KnownConclusion::False,
@@ -63,7 +66,7 @@ impl ThreeValuedChecker {
         // TODO labelling
         let labelling = BTreeMap::new();
 
-        Ok((Conclusion::Known(conclusion), labelling))
+        Ok((Conclusion::Known(conclusion), labelling))*/
     }
 
     /// Model-checks a mu-calculus proposition.
@@ -74,7 +77,7 @@ impl ThreeValuedChecker {
     ) -> Result<Conclusion, ExecError> {
         trace!("Checking property {:#?}", property);
 
-        let param_valuation = nonincremental::check_property(space, property)?;
+        /*let param_valuation = nonincremental::check_property(space, property)?;
 
         let conclusion = match param_valuation {
             ParamValuation::False => KnownConclusion::False,
@@ -83,9 +86,9 @@ impl ThreeValuedChecker {
             ParamValuation::Unknown => todo!(),
         };
 
-        Ok(Conclusion::Known(conclusion))
+        Ok(Conclusion::Known(conclusion))*/
 
-        /*if !self.property_checkers.contains_key(property) {
+        if !self.property_checkers.contains_key(property) {
             self.property_checkers
                 .insert(property.clone(), PropertyChecker::new(property.clone()));
         }
@@ -124,15 +127,12 @@ impl ThreeValuedChecker {
             ParamValuation::False => Ok(Conclusion::Known(KnownConclusion::False)),
             ParamValuation::True => Ok(Conclusion::Known(KnownConclusion::True)),
             ParamValuation::Dependent => Ok(Conclusion::Known(KnownConclusion::Dependent)),
-            ParamValuation::Unknown => {
-                todo!("Deduce culprit with new properties");
-                /*Ok(Conclusion::Unknown(deduce_culprit(
-                    property_checker,
-                    space,
-                    property,
-                )?)),*/
-            }
-        }*/
+            ParamValuation::Unknown => Ok(Conclusion::Unknown(deduce::deduce_culprit(
+                property_checker,
+                space,
+                property,
+            )?)),
+        }
     }
 
     pub fn declare_regeneration<M: FullMachine>(
