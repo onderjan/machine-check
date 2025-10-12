@@ -64,7 +64,6 @@ impl WExpr<WExprCall> {
 }
 
 fn from_variable_map(ident: WIdent, ident_var_map: &HashMap<IIdent, IVarId>) -> IVarId {
-    println!("Getting ident {:?} from variable map", ident);
     let ident = ident.into_iir();
     if let Some(local_var_id) = ident_var_map.get(&ident) {
         *local_var_id

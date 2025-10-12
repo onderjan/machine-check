@@ -109,8 +109,6 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // TODO: use backward deduction
                 let mut culprit_input_index = None;
 
-                println!("Inputs: {:?}", inputs);
-
                 for (input_index, input) in inputs.iter().enumerate() {
                     if let IAbstractValue::Bool(input) = input {
                         if input.into_three_valued().is_unknown() {

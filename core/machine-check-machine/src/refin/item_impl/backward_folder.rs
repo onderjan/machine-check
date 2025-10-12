@@ -317,7 +317,6 @@ impl BackwardFolder {
         if let Some(forward_ident) = self.forward_ident_map.get(&original_ident) {
             forward_ident.clone()
         } else {
-            println!("Not found forward ident: {:?}", original_ident);
             original_ident
         }
     }
@@ -326,7 +325,6 @@ impl BackwardFolder {
         if let Some(backward_ident) = self.backward_ident_map.get(&original_ident) {
             backward_ident.clone()
         } else {
-            println!("Not found backward ident: {:?}", original_ident);
             original_ident
         }
     }

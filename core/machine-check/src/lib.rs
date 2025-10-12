@@ -161,52 +161,54 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
 
     let abstract_system = <M::Abstr as mck::abstr::Abstr<M>>::from_concrete(system);
 
-    // determine the property to verify
-    let prop = if let Some(property_str) = exec_args.property {
-        match machine_check_machine::process_property::<M>(&abstract_system, &property_str) {
-            Ok(ok) => Some(ok),
-            Err(err) => {
-                return ExecResult {
-                    result: Err(ExecError::PropertyNotConstructible(
-                        property_str,
-                        err.to_string(),
-                    )),
-                    stats: ExecStats::default(),
-                };
+    let result = 'result: {
+        // determine the property to verify
+        let prop = if let Some(property_str) = exec_args.property {
+            match machine_check_machine::process_property::<M>(&abstract_system, &property_str) {
+                Ok(ok) => Some(ok),
+                Err(err) => {
+                    break 'result ExecResult {
+                        result: Err(ExecError::PropertyNotConstructible(
+                            property_str,
+                            err.to_string(),
+                        )),
+                        stats: ExecStats::default(),
+                    };
+                }
             }
-        }
-    } else {
-        // check for inherent panics
-        None
-    };
-    if prop.is_none() && !exec_args.gui && !exec_args.inherent {
-        panic!("Expected either a property or inherent verification");
-    }
-
-    let result = if exec_args.gui {
-        // start the GUI instead of verifying
-        ExecResult {
-            result: Err(start_gui::<M>(abstract_system, prop, strategy)),
-            stats: ExecStats::default(),
-        }
-    } else {
-        info!("Starting verification.");
-
-        let result =
-            verify::verify::<M>(abstract_system, prop, exec_args.assume_inherent, strategy);
-
-        if log_enabled!(log::Level::Trace) {
-            trace!("Verification result: {:?}", result);
+        } else {
+            // check for inherent panics
+            None
+        };
+        if prop.is_none() && !exec_args.gui && !exec_args.inherent {
+            panic!("Expected either a property or inherent verification");
         }
 
-        if log_enabled!(log::Level::Info) {
-            // the result will be propagated, just inform that we ended somehow
-            match result.result {
-                Ok(_) => info!("Verification ended."),
-                Err(_) => error!("Verification returned an error."),
+        if exec_args.gui {
+            // start the GUI instead of verifying
+            ExecResult {
+                result: Err(start_gui::<M>(abstract_system, prop, strategy)),
+                stats: ExecStats::default(),
             }
+        } else {
+            info!("Starting verification.");
+
+            let result =
+                verify::verify::<M>(abstract_system, prop, exec_args.assume_inherent, strategy);
+
+            if log_enabled!(log::Level::Trace) {
+                trace!("Verification result: {:?}", result);
+            }
+
+            if log_enabled!(log::Level::Info) {
+                // the result will be propagated, just inform that we ended somehow
+                match result.result {
+                    Ok(_) => info!("Verification ended."),
+                    Err(_) => error!("Verification returned an error."),
+                }
+            }
+            result
         }
-        result
     };
 
     if !silent {
@@ -223,7 +225,7 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
                 Ok(KnownConclusion::False) => "Result: DOES NOT HOLD",
                 Ok(KnownConclusion::True) => "Result: HOLDS",
                 Ok(KnownConclusion::Dependent) => "Result: DEPENDS ON PARAMETERS",
-                Err(err) => &format!("Result: ERROR ({})", err),
+                Err(err) => &format!("Result: ERROR ({:?})", err.to_string()),
             };
 
             let mut stats_cells: Vec<(&str, String)> = [

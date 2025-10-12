@@ -18,7 +18,6 @@ use crate::{
 };
 
 pub fn expand_property_macros(property: &mut ExprProperty) -> Result<bool, Error> {
-    println!("Expanding property macros");
     let mut visitor = Visitor {
         num_subproperties: property.subproperties.len(),
         current_subproperty: 0,
@@ -27,7 +26,6 @@ pub fn expand_property_macros(property: &mut ExprProperty) -> Result<bool, Error
         new_subproperties: Vec::new(),
     };
     for (index, subproperty) in property.subproperties.iter_mut().enumerate() {
-        println!("Visiting subproperty {}", index);
         visitor.current_subproperty = index;
         if let ExprSubproperty::Expr(expr, _children) = subproperty {
             visitor.visit_expr_mut(expr);
@@ -88,11 +86,6 @@ impl VisitMut for Visitor {
 
 impl Visitor {
     fn process_macro(&mut self, mac: Macro, attrs: Vec<Attribute>) -> Result<Expr, Error> {
-        println!(
-            "Visiting macro {}",
-            quote::ToTokens::into_token_stream(mac.clone().into_token_stream())
-        );
-
         let ef = path_matches_global_names(&mac.path, &["machine_check", "EF"]);
         let af = path_matches_global_names(&mac.path, &["machine_check", "AF"]);
         let eg = path_matches_global_names(&mac.path, &["machine_check", "EG"]);
@@ -200,10 +193,8 @@ impl Visitor {
             let expr = create_expr_ident(ident);
 
             self.expanded_some_macro = true;
-            println!("Expanded mu-calculus macro");
             return Ok(expr);
         }
-        println!("Not expanded");
         Ok(Expr::Macro(ExprMacro { attrs, mac }))
     }
 
@@ -270,8 +261,6 @@ impl Visitor {
         let fixed_point = if global { "gfp" } else { "lfp" };
         let ident = &mut mac.path.segments[1].ident;
         *ident = Ident::new(fixed_point, ident.span());
-
-        println!("Rewritten: {}", quote::quote!(#mac));
 
         mac
     }

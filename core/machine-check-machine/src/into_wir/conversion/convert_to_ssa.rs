@@ -48,8 +48,6 @@ pub fn convert_property(
     property: WProperty<YTotal>,
     global_ident_types: &HashMap<WIdent, WBasicType>,
 ) -> Result<WProperty<YSsa>, Errors> {
-    println!("Converting property: {:#?}", property);
-
     let num_subproperties = property.subproperties.len();
 
     let mut converter = SubpropertyConverter {
@@ -92,18 +90,10 @@ impl SubpropertyConverter<'_> {
             .expect("Old subproperty should be present");
 
         let global_rewrites = {
-            println!(
-                "Considering subproperty {}: {:?}",
-                subproperty_index, subproperty
-            );
             let global_rewrites = if let WSubproperty::FixedPoint(fixed_point_info) = &subproperty {
                 let subproperty_ident = WIdent::new(
                     format!("__mck_subproperty_{}", subproperty_index),
                     fixed_point_info.variable.span(),
-                );
-                println!(
-                    "Need to rewrite from {:?} to {:?}",
-                    fixed_point_info.variable, subproperty_ident
                 );
                 let mut global_rewrites = global_rewrites.clone();
                 global_rewrites.insert(fixed_point_info.variable.clone(), subproperty_ident);
@@ -536,10 +526,6 @@ impl LocalVisitor<'_> {
             };
             *ident = construct_temp_ident(ident, *current_counter);
         } else {
-            println!(
-                "Considering {:?}, global rewrites {:?}",
-                ident, self.global_rewrites
-            );
             // rewrite first
             if let Some(rewrite_ident) = self.global_rewrites.get(ident) {
                 // just replace the name and not the span

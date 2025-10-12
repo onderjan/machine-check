@@ -41,8 +41,8 @@ impl WItemFn<YAbstr> {
             variables.insert(var_id, info);
         }
 
-        println!("Variables: {:?}", variables);
-        println!("Result normal ident: {:?}", self.result.result_ident);
+        //println!("Variables: {:?}", variables);
+        //println!("Result normal ident: {:?}", self.result.result_ident);
         let result_ident = self.result.result_ident.into_iir();
         let panic_ident = self.result.panic_ident.into_iir();
 

@@ -54,11 +54,11 @@ pub fn create_from_syn(
     global_ident_types: &HashMap<WIdent, WBasicType>,
 ) -> Result<(WProperty<YConverted>, Vec<String>), Errors> {
     let span = expr.span();
-    println!(
+    /*println!(
         "Original syn string:\n{}",
         quote::ToTokens::into_token_stream(expr.clone())
     );
-    println!("---");
+    println!("---");*/
 
     // use the property use map
     let use_map = property_use_map(span);
@@ -90,11 +90,11 @@ pub fn create_from_syn(
     let (property, panic_messages) = convert_total::convert_property(property);
     let property = convert_to_ssa::convert_property(property, global_ident_types)?;
 
-    println!("Global ident types: {:?}", global_ident_types);
+    //println!("Global ident types: {:?}", global_ident_types);
     let property = infer_types::infer_property(property)?;
     let property = convert_types::convert_property(property)?;
 
-    println!("Property: {:#?}", property);
+    //println!("Property: {:#?}", property);
 
     Ok((property, panic_messages))
 }
