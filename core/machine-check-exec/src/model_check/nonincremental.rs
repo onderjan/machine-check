@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+/*use std::collections::BTreeMap;
 
 use machine_check_common::{
     iir::{func::IFn, interpretation::IAbstractValue, IProperty},
@@ -19,7 +19,7 @@ pub fn check_property<M: FullMachine>(
     property: &IProperty,
 ) -> Result<ParamValuation, ExecError> {
     let mut environment = BTreeMap::new();
-    IncrementalChecker {
+    NonincrementalChecker {
         space,
         property,
         environment: &mut environment,
@@ -28,14 +28,14 @@ pub fn check_property<M: FullMachine>(
     .check_property()
 }
 
-pub(super) struct IncrementalChecker<'a, M: FullMachine> {
+pub(super) struct NonincrementalChecker<'a, M: FullMachine> {
     pub(super) space: &'a StateSpace<M>,
     pub(super) property: &'a IProperty,
     pub(super) environment: &'a mut BTreeMap<(usize, StateId), ParamValuation>,
     //calmable_fixed_points: BTreeSet<usize>,
 }
 
-impl<M: FullMachine> IncrementalChecker<'_, M> {
+impl<M: FullMachine> NonincrementalChecker<'_, M> {
     pub(super) fn check_property(&mut self) -> Result<ParamValuation, ExecError> {
         self.environment.clear();
 
@@ -282,3 +282,4 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
         }
     }
 }
+*/

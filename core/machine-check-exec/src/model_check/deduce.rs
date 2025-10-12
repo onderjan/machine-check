@@ -2,7 +2,6 @@ use core::panic;
 use std::{
     collections::{BTreeMap, VecDeque},
     ops::ControlFlow,
-    u64,
 };
 
 use log::trace;
@@ -162,11 +161,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 };
 
                 // sanity assertion
-                /*let current_state_id = *self.path.back().unwrap();
-                assert!(self
-                    .environment
-                    .space()
-                    .contains_edge(current_state_id.into(), next_state_id));*/
+                assert!(self.space.contains_edge(state_id.into(), next_state_id));
 
                 assert_ne!(state_id, next_state_id);
 

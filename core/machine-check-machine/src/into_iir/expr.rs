@@ -9,17 +9,10 @@ use machine_check_common::iir::{
     variable::IVarId,
 };
 
-use crate::{
-    into_iir::FromWirData,
-    wir::{WExpr, WExprCall, WIdent, WMckNew},
-};
+use crate::wir::{WExpr, WExprCall, WIdent, WMckNew};
 
 impl WExpr<WExprCall> {
-    pub(super) fn into_iir(
-        self,
-        data: &mut FromWirData,
-        ident_var_map: &HashMap<IIdent, IVarId>,
-    ) -> IExpr {
+    pub(super) fn into_iir(self, ident_var_map: &HashMap<IIdent, IVarId>) -> IExpr {
         // TODO: finish this
         #[allow(unused_variables)]
         match self {

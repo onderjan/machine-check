@@ -1,12 +1,8 @@
-use std::collections::{BTreeMap, BTreeSet};
-
-use machine_check_common::iir::{
-    func::IGlobal, path::IIdent, variable::IVarId, ICalculusOperator, IProperty, ISubproperty,
-};
+use machine_check_common::iir::{ICalculusOperator, IProperty, ISubproperty};
 
 use crate::{
     abstr::YAbstr,
-    wir::{WElementaryType, WIdent, WProperty, WSubproperty},
+    wir::{WProperty, WSubproperty},
 };
 
 mod expr;
@@ -17,14 +13,12 @@ mod ty;
 
 impl WProperty<YAbstr> {
     pub fn into_property_iir(self) -> IProperty {
-        let mut data = FromWirData { next_var_id: 0 };
-
         let mut subproperties = Vec::new();
 
         for subproperty in self.subproperties {
             let subproperty = match subproperty {
                 WSubproperty::Func(item_fn, children) => {
-                    let func = item_fn.into_iir(&mut data);
+                    let func = item_fn.into_iir();
                     ISubproperty::Func(func, children)
                 }
                 WSubproperty::FixedPoint(fixed_point) => {
@@ -44,8 +38,4 @@ impl WProperty<YAbstr> {
 
         IProperty { subproperties }
     }
-}
-
-struct FromWirData {
-    next_var_id: usize,
 }

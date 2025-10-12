@@ -1,7 +1,4 @@
 use func::IFn;
-use proc_macro2::Span;
-
-use crate::iir::{func::ISignature, path::IIdent};
 
 pub mod expr;
 pub mod func;

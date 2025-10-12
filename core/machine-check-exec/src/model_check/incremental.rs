@@ -8,26 +8,6 @@ use mck::{abstr::Manipulatable, concr::FullMachine};
 
 use crate::space::StateSpace;
 
-/// Checks the property non-incrementally.
-///
-/// This is supposed to be a simple algorithm with basic computation
-/// that will run only when incremental property checking determines
-/// a known value. This provides an additional sanity check that
-/// the incremental model-checking really produced a correct result.
-pub fn check_property<M: FullMachine>(
-    space: &StateSpace<M>,
-    property: &IProperty,
-) -> Result<ParamValuation, ExecError> {
-    let mut environment = BTreeMap::new();
-    IncrementalChecker {
-        space,
-        property,
-        environment: &mut environment,
-        //calmable_fixed_points: BTreeSet::new(),
-    }
-    .check_property()
-}
-
 #[derive(Clone, Debug)]
 pub enum CheckChoice {
     Next(Option<StateId>),

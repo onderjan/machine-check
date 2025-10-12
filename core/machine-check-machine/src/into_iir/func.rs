@@ -1,18 +1,17 @@
 use std::collections::{BTreeMap, HashMap};
 
-use machine_check_common::{
-    iir::{
-        func::{IBlock, IFn, IFnOutput, ISignature},
-        ty::{IGeneralType, IType},
-        variable::{IVarId, IVarInfo},
-    },
-    ir_common::IrReference,
+use machine_check_common::iir::{
+    func::{IBlock, IFn, IFnOutput, ISignature},
+    ty::IGeneralType,
+    variable::{IVarId, IVarInfo},
 };
 
-use crate::{abstr::YAbstr, into_iir::FromWirData, wir::WItemFn};
+use crate::{abstr::YAbstr, wir::WItemFn};
 
 impl WItemFn<YAbstr> {
-    pub(super) fn into_iir(self, data: &mut FromWirData) -> IFn {
+    pub(super) fn into_iir(self) -> IFn {
+        let mut next_var_id = 0;
+
         let fn_ident = self.signature.ident;
 
         let mut inputs = Vec::new();
@@ -23,8 +22,8 @@ impl WItemFn<YAbstr> {
                 ident: input.ident.into_iir(),
                 ty: IGeneralType::Normal(input.ty.into_iir()),
             };
-            let var_id = IVarId(data.next_var_id);
-            data.next_var_id += 1;
+            let var_id = IVarId(next_var_id);
+            next_var_id += 1;
 
             variables.insert(var_id, info);
             inputs.push(var_id);
@@ -35,8 +34,8 @@ impl WItemFn<YAbstr> {
                 ident: local.ident.into_iir(),
                 ty: local.ty.into_iir(),
             };
-            let var_id = IVarId(data.next_var_id);
-            data.next_var_id += 1;
+            let var_id = IVarId(next_var_id);
+            next_var_id += 1;
 
             variables.insert(var_id, info);
         }
@@ -75,7 +74,7 @@ impl WItemFn<YAbstr> {
         let mut stmts = Vec::new();
 
         for stmt in self.block.stmts {
-            stmts.push(stmt.into_iir(data, &ident_var_map));
+            stmts.push(stmt.into_iir(&ident_var_map));
         }
 
         let block = IBlock { stmts };

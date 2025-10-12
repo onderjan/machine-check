@@ -3,7 +3,7 @@ use std::{collections::VecDeque, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{iir::path::IIdent, StateId};
+use crate::StateId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum KnownConclusion {
