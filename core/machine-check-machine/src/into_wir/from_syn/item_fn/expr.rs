@@ -615,6 +615,24 @@ impl RightExprFolder<'_> {
         Ok(tmp_ident)
     }
 
+    fn force_assign_to_temp(&mut self, expr: Expr) -> Result<WIdent, Error> {
+        // create a temporary variable
+        let tmp_ident = self
+            .fn_folder
+            .ident_creator
+            .create_temporary_ident(expr.span());
+        // fold expression
+        let expr = self.fold_right_expr(expr)?;
+        // add assignment statement; the temporary is only assigned to once here
+        self.stmts.push(WMacroableStmt::Assign(WStmtAssign {
+            left: WIndexedIdent::NonIndexed(tmp_ident.clone()),
+            right: expr,
+        }));
+
+        // return the temporary variable ident
+        Ok(tmp_ident)
+    }
+
     fn fold_unary(&mut self, expr_unary: ExprUnary) -> Result<WIndexedExpr<WExprHighCall>, Error> {
         let path = match expr_unary.op {
             syn::UnOp::Deref(_) => {
@@ -724,7 +742,8 @@ impl RightExprFolder<'_> {
         //   tmp_result = right;
         //}
 
-        let tmp_result = self.move_through_temp(create_expr_ident(left.to_syn_ident()))?;
+        // the temporary must be force-assigned
+        let tmp_result = self.force_assign_to_temp(create_expr_ident(left.to_syn_ident()))?;
 
         let right_assign = WMacroableStmt::Assign(WStmtAssign {
             left: WIndexedIdent::NonIndexed(tmp_result.clone()),

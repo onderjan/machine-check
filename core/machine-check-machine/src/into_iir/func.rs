@@ -1,15 +1,20 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use machine_check_common::iir::{
     func::{IBlock, IFn, IFnOutput, ISignature},
+    path::IIdent,
     ty::IGeneralType,
     variable::{IVarId, IVarInfo},
 };
 
-use crate::{abstr::YAbstr, wir::WItemFn};
+use crate::{
+    abstr::{YAbstr, ZAbstr},
+    wir::{WBlock, WItemFn},
+};
 
 impl WItemFn<YAbstr> {
     pub(super) fn into_iir(self) -> IFn {
+        //eprintln!("WIR: {:#?}", self);
         let mut next_var_id = 0;
 
         let fn_ident = self.signature.ident;
@@ -40,8 +45,8 @@ impl WItemFn<YAbstr> {
             variables.insert(var_id, info);
         }
 
-        //println!("Variables: {:?}", variables);
-        //println!("Result normal ident: {:?}", self.result.result_ident);
+        //eprintln!("Variables: {:?}", variables);
+        //eprintln!("Result normal ident: {:?}", self.result.result_ident);
         let result_ident = self.result.result_ident.into_iir();
         let panic_ident = self.result.panic_ident.into_iir();
 
@@ -66,23 +71,29 @@ impl WItemFn<YAbstr> {
             },
         };
 
-        let mut ident_var_map = HashMap::new();
+        let mut ident_var_map = BTreeMap::new();
         for (var_id, var_data) in variables.iter() {
             ident_var_map.insert(var_data.ident.clone(), *var_id);
         }
 
-        let mut stmts = Vec::new();
-
-        for stmt in self.block.stmts {
-            stmts.push(stmt.into_iir(&ident_var_map));
-        }
-
-        let block = IBlock { stmts };
+        let block = self.block.into_iir(&ident_var_map);
 
         IFn {
             signature,
             variables,
             block,
         }
+    }
+}
+
+impl WBlock<ZAbstr> {
+    pub(super) fn into_iir(self, ident_var_map: &BTreeMap<IIdent, IVarId>) -> IBlock {
+        let mut stmts = Vec::new();
+
+        for stmt in self.stmts {
+            stmts.push(stmt.into_iir(ident_var_map));
+        }
+
+        IBlock { stmts }
     }
 }

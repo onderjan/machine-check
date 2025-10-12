@@ -36,6 +36,8 @@ impl WProperty<YAbstr> {
             subproperties.push(subproperty);
         }
 
+        //log::trace!("Property IIR: {:#?}", subproperties);
+
         IProperty { subproperties }
     }
 }

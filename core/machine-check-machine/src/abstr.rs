@@ -23,7 +23,7 @@ use self::{
 pub struct YAbstr;
 
 #[derive(Clone, Debug, Hash)]
-pub struct ZAbstrIfPolarity(bool);
+pub struct ZAbstrIfPolarity(pub bool);
 
 impl IntoSyn<Path> for ZAbstrIfPolarity {
     fn into_syn(self) -> Path {

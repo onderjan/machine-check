@@ -161,6 +161,13 @@ impl RThreeValuedBitvector {
     pub fn get_possibly_zero_flags(&self) -> RConcreteBitvector {
         self.zeros
     }
+
+    pub fn join(self, other: Self) -> Self {
+        let zeros = self.zeros.bit_or(other.zeros);
+        let ones = self.ones.bit_or(other.ones);
+
+        Self::from_zeros_ones(zeros, ones)
+    }
 }
 
 impl<const W: u32> Abstr<concr::Bitvector<W>> for ThreeValuedBitvector<W> {

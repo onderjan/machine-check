@@ -1,6 +1,6 @@
 use proc_macro2::{Literal, Span};
 use quote::ToTokens;
-use std::fmt::{Debug, Pointer};
+use std::fmt::Debug;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Paren},
@@ -13,7 +13,7 @@ use crate::util::create_expr_path;
 
 use super::{IntoSyn, WIdent, ZAssignTypes, ZIfPolarity};
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub struct WBlock<Z: ZAssignTypes> {
     pub stmts: Vec<Z::Stmt>,
 }
@@ -37,7 +37,7 @@ pub struct WStmtAssign<Z: ZAssignTypes> {
     pub right: Z::AssignRight,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub struct WStmtIf<Z: ZAssignTypes> {
     pub condition: WIfCondition<Z::IfPolarity>,
     pub then_block: WBlock<Z>,
@@ -175,5 +175,26 @@ impl<Z: ZAssignTypes> Debug for WStmt<Z> {
 impl<Z: ZAssignTypes> Debug for WStmtAssign<Z> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?} = {:?}", self.left, self.right)
+    }
+}
+
+impl<Z: ZAssignTypes> Debug for WStmtIf<Z> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "if {:?} ", self.condition)?;
+        Debug::fmt(&self.then_block, f)?;
+        write!(f, " else ")?;
+        Debug::fmt(&self.else_block, f)
+    }
+}
+
+impl<Z: ZAssignTypes> Debug for WBlock<Z> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut franz = f.debug_set();
+
+        for stmt in &self.stmts {
+            franz.entry(stmt);
+        }
+
+        franz.finish()
     }
 }

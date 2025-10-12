@@ -50,6 +50,18 @@ impl Boolean {
             crate::concr::Bitvector::new(can_be_true as u64),
         )
     }
+
+    pub fn join(self, other: Self) -> Self {
+        Self::from_three_valued(
+            match (self.into_three_valued(), other.into_three_valued()) {
+                (ThreeValued::Unknown, _) | (_, ThreeValued::Unknown) => ThreeValued::Unknown,
+                (ThreeValued::False, ThreeValued::True)
+                | (ThreeValued::True, ThreeValued::False) => ThreeValued::Unknown,
+                (ThreeValued::False, ThreeValued::False) => ThreeValued::False,
+                (ThreeValued::True, ThreeValued::True) => ThreeValued::True,
+            },
+        )
+    }
 }
 
 impl Debug for Boolean {

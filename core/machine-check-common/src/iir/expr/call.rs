@@ -246,6 +246,12 @@ impl Debug for IMckNew {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
+pub struct IPhiMaybeTaken {
+    pub taken: IVarId,
+    pub condition: IVarId,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum IExprCall {
     //Call(WCall),
     MckUnary(IMckUnary),
@@ -254,12 +260,12 @@ pub enum IExprCall {
     MckNew(IMckNew),
     /*StdClone(IVarId),
     ArrayRead(IArrayRead),
-    ArrayWrite(IArrayWrite),
+    ArrayWrite(IArrayWrite),*/
     Phi(IVarId, IVarId),
     PhiTaken(IVarId),
     PhiMaybeTaken(IPhiMaybeTaken),
     PhiNotTaken,
-    PhiUninit,*/
+    PhiUninit,
 }
 
 impl IExprCall {
@@ -268,6 +274,20 @@ impl IExprCall {
             IExprCall::MckUnary(unary) => unary.forward_interpret(inter),
             IExprCall::MckBinary(binary) => binary.forward_interpret(inter),
             IExprCall::MckNew(mck_new) => mck_new.forward_interpret(),
+            IExprCall::Phi(left, right) => {
+                // join the left and right variable
+                let left = inter.abstract_value(*left);
+                let right = inter.abstract_value(*right);
+
+                left.join(right)
+            }
+            IExprCall::PhiTaken(taken) => inter.abstract_value(*taken).clone(),
+            IExprCall::PhiMaybeTaken(maybe_taken) => {
+                // take the value normally for forward intepretation
+                inter.abstract_value(maybe_taken.taken).clone()
+            }
+            IExprCall::PhiNotTaken => IAbstractValue::Absent,
+            IExprCall::PhiUninit => panic!("Phi uninit should not be in interpretation"),
         }
     }
     pub fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
@@ -277,6 +297,7 @@ impl IExprCall {
             IExprCall::MckNew(_) => {
                 // there is no variable to propagate to, do nothing
             }
+            _ => todo!(),
         }
     }
 }
@@ -284,9 +305,18 @@ impl IExprCall {
 impl Debug for IExprCall {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::MckUnary(unary) => unary.fmt(f),
-            Self::MckBinary(binary) => binary.fmt(f),
-            Self::MckNew(mck_new) => mck_new.fmt(f),
+            IExprCall::MckUnary(unary) => unary.fmt(f),
+            IExprCall::MckBinary(binary) => binary.fmt(f),
+            IExprCall::MckNew(mck_new) => mck_new.fmt(f),
+            IExprCall::Phi(left, right) => write!(f, "Phi({:?},{:?})", left, right),
+            IExprCall::PhiTaken(taken) => write!(f, "PhiTaken({:?})", taken),
+            IExprCall::PhiMaybeTaken(maybe_taken) => write!(
+                f,
+                "PhiMaybeTaken({:?},{:?})",
+                maybe_taken.taken, maybe_taken.condition
+            ),
+            IExprCall::PhiNotTaken => write!(f, "PhiNotTaken()"),
+            IExprCall::PhiUninit => write!(f, "PhiUninit()"),
         }
     }
 }

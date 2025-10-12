@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use machine_check_common::iir::{
     expr::{
-        call::{IExprCall, IMckBinary, IMckNew},
+        call::{IExprCall, IMckBinary, IMckNew, IPhiMaybeTaken},
         IExpr,
     },
     path::IIdent,
@@ -12,7 +12,7 @@ use machine_check_common::iir::{
 use crate::wir::{WExpr, WExprCall, WIdent, WMckNew};
 
 impl WExpr<WExprCall> {
-    pub(super) fn into_iir(self, ident_var_map: &HashMap<IIdent, IVarId>) -> IExpr {
+    pub(super) fn into_iir(self, ident_var_map: &BTreeMap<IIdent, IVarId>) -> IExpr {
         // TODO: finish this
         #[allow(unused_variables)]
         match self {
@@ -42,11 +42,22 @@ impl WExpr<WExprCall> {
                 WExprCall::StdClone(wident) => todo!(),
                 WExprCall::ArrayRead(warray_read) => todo!(),
                 WExprCall::ArrayWrite(warray_write) => todo!(),
-                WExprCall::Phi(wident, wident1) => todo!(),
-                WExprCall::PhiTaken(wident) => todo!(),
-                WExprCall::PhiMaybeTaken(wphi_maybe_taken) => todo!(),
-                WExprCall::PhiNotTaken => todo!(),
-                WExprCall::PhiUninit => todo!(),
+                WExprCall::Phi(left, right) => {
+                    let left = from_variable_map(left, ident_var_map);
+                    let right = from_variable_map(right, ident_var_map);
+                    IExprCall::Phi(left, right)
+                }
+                WExprCall::PhiTaken(ident) => {
+                    let taken = from_variable_map(ident, ident_var_map);
+                    IExprCall::PhiTaken(taken)
+                }
+                WExprCall::PhiMaybeTaken(maybe_taken) => {
+                    let taken = from_variable_map(maybe_taken.taken, ident_var_map);
+                    let condition = from_variable_map(maybe_taken.condition, ident_var_map);
+                    IExprCall::PhiMaybeTaken(IPhiMaybeTaken { taken, condition })
+                }
+                WExprCall::PhiNotTaken => IExprCall::PhiNotTaken,
+                WExprCall::PhiUninit => IExprCall::PhiUninit,
             }),
             WExpr::Field(wexpr_field) => todo!(),
             WExpr::Struct(wexpr_struct) => todo!(),
@@ -56,7 +67,7 @@ impl WExpr<WExprCall> {
     }
 }
 
-fn from_variable_map(ident: WIdent, ident_var_map: &HashMap<IIdent, IVarId>) -> IVarId {
+fn from_variable_map(ident: WIdent, ident_var_map: &BTreeMap<IIdent, IVarId>) -> IVarId {
     let ident = ident.into_iir();
     if let Some(local_var_id) = ident_var_map.get(&ident) {
         *local_var_id
