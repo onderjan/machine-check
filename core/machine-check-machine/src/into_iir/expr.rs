@@ -2,7 +2,8 @@ use std::collections::BTreeMap;
 
 use machine_check_common::iir::{
     expr::{
-        call::{IExprCall, IMckBinary, IMckNew, IPhiMaybeTaken},
+        call::{IExprCall, IMckNew, IPhiMaybeTaken},
+        op::IMckBinary,
         IExpr,
     },
     path::IIdent,
