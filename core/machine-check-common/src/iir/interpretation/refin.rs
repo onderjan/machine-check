@@ -1,9 +1,10 @@
-use crate::iir::interpretation::IAbstractValue;
+use crate::iir::interpretation::{IAbstractValue, Join};
+use mck::refin::Refine;
 
 #[derive(Clone, Debug)]
 pub enum IRefinementValue {
     Bitvector(mck::refin::RBitvector),
-    Bool(mck::refin::Boolean),
+    Boolean(mck::refin::Boolean),
     PanicResult(mck::refin::PanicResult<mck::refin::RBitvector>),
 }
 
@@ -16,10 +17,34 @@ impl IRefinementValue {
     }
 
     pub fn expect_boolean(&self) -> mck::refin::Boolean {
-        let IRefinementValue::Bool(result) = self else {
+        let IRefinementValue::Boolean(result) = self else {
             panic!("Value is not a Boolean");
         };
         *result
+    }
+}
+
+impl Join for IRefinementValue {
+    fn join(&self, right: &Self) -> Self {
+        match (self, right) {
+            (IRefinementValue::Bitvector(left), IRefinementValue::Bitvector(right)) => {
+                let mut left = left.clone();
+                left.apply_join(right);
+                IRefinementValue::Bitvector(left)
+            }
+            (IRefinementValue::Boolean(left), IRefinementValue::Boolean(right)) => {
+                let mut left = left.clone();
+                left.apply_join(right);
+                IRefinementValue::Boolean(left)
+            }
+            (IRefinementValue::PanicResult(_), _) | (_, IRefinementValue::PanicResult(_)) => {
+                panic!("Panic result should never be joined")
+            }
+            _ => panic!(
+                "Unjoinable combination of values {:?} and {:?}",
+                self, right
+            ),
+        }
     }
 }
 
@@ -38,14 +63,14 @@ macro_rules! bitwise_bi_op {
                     IRefinementValue::Bitvector(b),
                 )
             }
-            IRefinementValue::Bool(mark_later) => {
+            IRefinementValue::Boolean(mark_later) => {
                 let (a, b) = (
                     $normal_input.0.expect_boolean(),
                     $normal_input.1.expect_boolean(),
                 );
                 let (a, b) = $op((a, b), mark_later);
 
-                (IRefinementValue::Bool(a), IRefinementValue::Bool(b))
+                (IRefinementValue::Boolean(a), IRefinementValue::Boolean(b))
             }
             IRefinementValue::PanicResult(_) => {
                 panic!("Bitwise operations not supported by panic result")
@@ -65,11 +90,11 @@ impl mck::backward::Bitwise for IAbstractValue {
 
                 (IRefinementValue::Bitvector(a),)
             }
-            IRefinementValue::Bool(mark_later) => {
+            IRefinementValue::Boolean(mark_later) => {
                 let (a,) = (normal_input.0.expect_boolean(),);
                 let (a,) = mck::backward::Bitwise::bit_not((a,), mark_later);
 
-                (IRefinementValue::Bool(a),)
+                (IRefinementValue::Boolean(a),)
             }
             IRefinementValue::PanicResult(_) => {
                 panic!("Bitwise operations not supported by panic result")
@@ -105,7 +130,7 @@ macro_rules! shift_bi_op {
                     IRefinementValue::Bitvector(b),
                 )
             }
-            IRefinementValue::Bool(_) => {
+            IRefinementValue::Boolean(_) => {
                 panic!("Shift operations do not support booleans")
             }
             IRefinementValue::PanicResult(_) => {
@@ -146,7 +171,7 @@ macro_rules! hw_arith_bi_op {
                     IRefinementValue::Bitvector(b),
                 )
             }
-            IRefinementValue::Bool(_) => panic!("Arithmetic not supported by booleans"),
+            IRefinementValue::Boolean(_) => panic!("Arithmetic not supported by booleans"),
             IRefinementValue::PanicResult(_) => {
                 panic!("Arithmetic not supported by panic result")
             }
@@ -185,7 +210,7 @@ impl mck::backward::HwArith for IAbstractValue {
 
                 (IRefinementValue::Bitvector(a),)
             }
-            IRefinementValue::Bool(_) => panic!("Booleans not supported by panic result"),
+            IRefinementValue::Boolean(_) => panic!("Booleans not supported by panic result"),
             IRefinementValue::PanicResult(_) => {
                 panic!("Arithmetic not supported by panic result")
             }

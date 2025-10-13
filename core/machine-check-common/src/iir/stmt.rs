@@ -79,23 +79,7 @@ pub struct IIfStmt {
 
 impl IIfStmt {
     fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) {
-        let condition_value = abstr.value(self.condition);
-
-        let IAbstractValue::Boolean(condition_value) = condition_value else {
-            panic!("Condition value should be bool");
-        };
-
-        let condition_value = condition_value.into_three_valued();
-
-        let should_take_then = if self.is_positive {
-            // take then if can be true
-            matches!(condition_value, ThreeValued::True | ThreeValued::Unknown)
-        } else {
-            // take then if can be false
-            matches!(condition_value, ThreeValued::False | ThreeValued::Unknown)
-        };
-
-        if should_take_then {
+        if self.should_take_then(&abstr) {
             for stmt in &self.then_block.stmts {
                 stmt.forward_interpret(abstr);
             }
@@ -111,7 +95,29 @@ impl IIfStmt {
         abstr: &Interpretation<IAbstractValue>,
         refin: &mut Interpretation<IRefinementValue>,
     ) {
-        todo!("Backward if interpretation")
+        if self.should_take_then(abstr) {
+            self.then_block.backward_interpret(abstr, refin);
+        } else {
+            self.else_block.backward_interpret(abstr, refin);
+        }
+    }
+
+    fn should_take_then(&self, abstr: &Interpretation<IAbstractValue>) -> bool {
+        let condition_value = abstr.value(self.condition);
+
+        let IAbstractValue::Boolean(condition_value) = condition_value else {
+            panic!("Condition value should be bool");
+        };
+
+        let condition_value = condition_value.into_three_valued();
+
+        if self.is_positive {
+            // take then if can be true
+            matches!(condition_value, ThreeValued::True | ThreeValued::Unknown)
+        } else {
+            // take then if can be false
+            matches!(condition_value, ThreeValued::False | ThreeValued::Unknown)
+        }
     }
 }
 

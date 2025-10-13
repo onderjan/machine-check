@@ -29,7 +29,7 @@ impl RMarkBitvector {
         }
     }
 
-    fn to_condition(self) -> Boolean {
+    pub fn to_condition(self) -> Boolean {
         if let Some(our_mark) = self.inner {
             assert!(our_mark.mark.is_nonzero());
             Boolean::new_marked(our_mark.importance)

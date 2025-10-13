@@ -7,12 +7,16 @@ use crate::iir::variable::IVarId;
 
 pub use {abstr::IAbstractValue, refin::IRefinementValue};
 
+pub trait Join {
+    fn join(&self, other: &Self) -> Self;
+}
+
 #[derive(Debug)]
-pub struct Interpretation<V> {
+pub struct Interpretation<V: Join> {
     values: BTreeMap<IVarId, V>,
 }
 
-impl<V> Interpretation<V> {
+impl<V: Join> Interpretation<V> {
     pub fn new() -> Self {
         Self {
             values: BTreeMap::new(),
@@ -36,9 +40,18 @@ impl<V> Interpretation<V> {
             panic!("Interpretation value should not be inserted twice");
         }
     }
+
+    pub(super) fn join_value(&mut self, var_id: IVarId, value: V) {
+        let value = if let Some(prev_value) = self.values.remove(&var_id) {
+            prev_value.join(&value)
+        } else {
+            value
+        };
+        self.values.insert(var_id, value);
+    }
 }
 
-impl<V> Default for Interpretation<V> {
+impl<V: Join> Default for Interpretation<V> {
     fn default() -> Self {
         Self::new()
     }

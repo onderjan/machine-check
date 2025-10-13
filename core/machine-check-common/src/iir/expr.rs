@@ -36,7 +36,7 @@ impl IExpr {
         match self {
             IExpr::Move(var_id) => {
                 // propagate the later value to earlier
-                refin.insert_value(*var_id, later);
+                refin.join_value(*var_id, later);
             }
             IExpr::Call(expr_call) => expr_call.backward_interpret(abstr, refin, later),
         }

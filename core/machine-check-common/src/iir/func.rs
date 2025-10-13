@@ -69,7 +69,7 @@ impl IFn {
         &self,
         input_values: Vec<IAbstractValue>,
     ) -> Interpretation<IAbstractValue> {
-        let mut inter = Interpretation::new();
+        let mut abstr = Interpretation::new();
 
         assert_eq!(self.signature.inputs.len(), input_values.len());
 
@@ -80,16 +80,14 @@ impl IFn {
             .cloned()
             .zip(input_values.into_iter())
         {
-            inter.insert_value(input_var_id, input_value);
+            abstr.insert_value(input_var_id, input_value);
         }
 
-        for stmt in &self.block.stmts {
-            stmt.forward_interpret(&mut inter);
-        }
+        self.block.forward_interpret(&mut abstr);
 
         //println!("Call interpretation: {:#?}", inter);
 
-        inter
+        abstr
     }
 
     pub fn forward_result(&self, abstr: &Interpretation<IAbstractValue>) -> IAbstractValue {
@@ -109,7 +107,7 @@ impl IFn {
         // TODO: correct marking
         refin.insert_value(
             self.signature.output.normal,
-            IRefinementValue::Bool(mck::refin::Boolean::new_marked_unimportant()),
+            IRefinementValue::Boolean(mck::refin::Boolean::new_marked_unimportant()),
         );
         // TODO panic value
         /*refin.insert_value(
@@ -117,12 +115,28 @@ impl IFn {
             IRefinementValue::Bitvector(mck::refin::Bitvector::new_unmarked()),
         );*/
 
-        // go in reverse
-        for stmt in self.block.stmts.iter().rev() {
-            stmt.backward_interpret(abstr, &mut refin);
-        }
+        self.block.backward_interpret(abstr, &mut refin);
 
         refin
+    }
+}
+
+impl IBlock {
+    pub fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) {
+        for stmt in &self.stmts {
+            stmt.forward_interpret(abstr);
+        }
+    }
+
+    pub fn backward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+        refin: &mut Interpretation<IRefinementValue>,
+    ) {
+        // go in reverse
+        for stmt in self.stmts.iter().rev() {
+            stmt.backward_interpret(abstr, refin);
+        }
     }
 }
 

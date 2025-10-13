@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use crate::iir::{
     expr::op::{IMckBinary, IMckUnary},
+    interpretation::Join,
     interpretation::{IAbstractValue, IRefinementValue, Interpretation},
     variable::IVarId,
 };
@@ -93,7 +94,30 @@ impl IExprCall {
             IExprCall::MckNew(_) => {
                 // there is no variable to propagate to, do nothing
             }
-            _ => todo!(),
+            IExprCall::Phi(a, b) => {
+                // propagate into both
+                refin.insert_value(*a, later.clone());
+                refin.insert_value(*b, later);
+            }
+            IExprCall::PhiMaybeTaken(maybe_taken) => {
+                // propagate into taken
+                refin.insert_value(maybe_taken.taken, later.clone());
+
+                let condition_value = IRefinementValue::Boolean(match later {
+                    IRefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
+                    IRefinementValue::Boolean(boolean) => boolean,
+                    IRefinementValue::PanicResult(_) => {
+                        panic!("Panic result should never be joined")
+                    }
+                });
+
+                // convert to condition and propagate
+                refin.join_value(maybe_taken.condition, condition_value);
+            }
+            IExprCall::PhiNotTaken => {
+                // do nothing
+            }
+            _ => todo!("Backward-interpret call {:?}", self),
         }
     }
 }

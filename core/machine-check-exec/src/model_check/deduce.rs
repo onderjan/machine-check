@@ -147,7 +147,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                                     break;
                                 }
                             }
-                            IRefinementValue::Bool(mark) => {
+                            IRefinementValue::Boolean(mark) => {
                                 if *mark != mck::refin::Boolean::new_unmarked() {
                                     culprit_input_index = Some(input_index);
                                     break;
@@ -217,8 +217,6 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                 // sanity assertion
                 assert!(self.space.contains_edge(state_id.into(), next_state_id));
-
-                assert_ne!(state_id, next_state_id);
 
                 // add state to path
                 self.path.push_back(next_state_id);

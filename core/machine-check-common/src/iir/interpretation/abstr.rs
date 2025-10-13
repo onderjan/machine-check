@@ -1,5 +1,7 @@
 use mck::forward::{Bitwise, HwArith, HwShift, TypedCmp, TypedEq};
 
+use crate::iir::interpretation::Join;
+
 #[derive(Clone, Debug)]
 pub enum IAbstractValue {
     Bitvector(mck::abstr::RBitvector),
@@ -22,8 +24,10 @@ impl IAbstractValue {
         };
         *boolean
     }
+}
 
-    pub fn join(&self, right: &Self) -> Self {
+impl Join for IAbstractValue {
+    fn join(&self, right: &Self) -> Self {
         match (self, right) {
             (_, IAbstractValue::Absent) => self.clone(),
             (IAbstractValue::Absent, _) => right.clone(),
