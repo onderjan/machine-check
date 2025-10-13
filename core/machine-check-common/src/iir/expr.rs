@@ -19,20 +19,25 @@ pub enum IExpr {
 }
 
 impl IExpr {
-    pub fn forward_interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
+    pub fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) -> IAbstractValue {
         match self {
-            IExpr::Move(var_id) => inter.abstract_value(*var_id).clone(),
-            IExpr::Call(expr_call) => expr_call.forward_interpret(inter),
+            IExpr::Move(var_id) => abstr.value(*var_id).clone(),
+            IExpr::Call(expr_call) => expr_call.forward_interpret(abstr),
         }
     }
 
-    pub fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
+    pub fn backward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+        refin: &mut Interpretation<IRefinementValue>,
+        later: IRefinementValue,
+    ) {
         match self {
             IExpr::Move(var_id) => {
                 // propagate the later value to earlier
-                inter.insert_refinement_value(*var_id, later);
+                refin.insert_value(*var_id, later);
             }
-            IExpr::Call(expr_call) => expr_call.backward_interpret(inter, later),
+            IExpr::Call(expr_call) => expr_call.backward_interpret(abstr, refin, later),
         }
     }
 }

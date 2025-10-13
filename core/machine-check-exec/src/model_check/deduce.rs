@@ -7,7 +7,7 @@ use std::{
 use log::trace;
 use machine_check_common::{
     check::{AtomicProperty, Culprit},
-    iir::{interpretation::IAbstractValue, IProperty, ISubproperty},
+    iir::{interpretation::IRefinementValue, IProperty, ISubproperty},
     ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
@@ -101,12 +101,67 @@ impl<M: FullMachine> Deducer<'_, M> {
             ISubproperty::Func(func, _children) => {
                 //todo!("Func, value {:?}", value);
 
-                let CheckChoice::Func(inputs) = &value.choice else {
+                let CheckChoice::Func(input_values) = &value.choice else {
                     panic!("Should deduce on function inputs");
                 };
 
-                // TODO: use backward deduction
+                eprintln!("Function: {:#?}", func);
+
+                let mut abstr = func.forward_interpret(input_values.clone());
+
+                eprintln!("Abstract interpretation: {:?}", abstr);
+
+                /*let state_data = self.space.state_data(state_id);
+
+                let panic_output = state_data.panic.to_runtime();
+                let state = state_data.result;
+
+                for input_var_id in func.signature.inputs {
+                    let input_name = func
+                        .variables
+                        .get(&input_var_id)
+                        .expect("Input should be in variables")
+                        .ident
+                        .name();
+
+                    let input_value = state
+                        .get(input_name)
+                        .expect("Subproperty input should be in state");
+
+                    let Some(input_value) = input_value.runtime_bitvector() else {
+                        todo!("Non-bitvector input value");
+                    };
+                }*/
+
+                let refin = func.backward_interpret(&mut abstr);
+
+                eprintln!("Refin interpretation: {:?}", refin);
+
                 let mut culprit_input_index = None;
+                for (input_index, input_var_id) in func.signature.inputs.iter().enumerate() {
+                    if let Some(refin_value) = refin.value_opt(*input_var_id) {
+                        match refin_value {
+                            IRefinementValue::Bitvector(mark) => {
+                                if mark.marked_bits().is_nonzero() {
+                                    culprit_input_index = Some(input_index);
+                                    break;
+                                }
+                            }
+                            IRefinementValue::Bool(mark) => {
+                                if *mark != mck::refin::Boolean::new_unmarked() {
+                                    culprit_input_index = Some(input_index);
+                                    break;
+                                }
+                            }
+                            IRefinementValue::PanicResult(_panic_result) => todo!(),
+                        }
+                    }
+                }
+
+                //todo!("Func");
+
+                // TODO: use backward deduction
+                /*let mut culprit_input_index = None;
 
                 for (input_index, input) in inputs.iter().enumerate() {
                     if let IAbstractValue::Bool(input) = input {
@@ -122,7 +177,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                     } else {
                         todo!();
                     }
-                }
+                }*/
 
                 let input_index =
                     culprit_input_index.expect("Unknown func result should be caused by input");
@@ -175,84 +230,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 // just go to inner
                 assert!(matches!(value.choice, CheckChoice::FixedPoint));
                 fixed_point.inner
-            } /*PropertyType::Const(_) => panic!("Deduction should never reach const"),
-              PropertyType::Atomic(atomic) => {
-                  // culprit ends here
-                  return Ok(ControlFlow::Break(Culprit {
-                      path: self.path.clone(),
-                      atomic_property: atomic.clone(),
-                  }));
-              }
-              PropertyType::Negation(inner) => {
-                  // just move to inner
-                  *inner
-              }
-              PropertyType::BiLogic(op) => {
-                  // find out the choice made
-                  let choice = self
-                      .choices
-                      .pop()
-                      .expect("Deduction reasons should not be exhausted");
-                  let CheckChoice::BiLogic(choice) = choice else {
-                      panic!("Should deduce on binary logic operator");
-                  };
-
-                  // move to the chosen
-                  match choice {
-                      BiChoice::Left => op.a,
-                      BiChoice::Right => op.b,
-                  }
-              }
-              PropertyType::Next(op) => {
-                  // find out the choice made
-                  let choice = self
-                      .choices
-                      .pop()
-                      .expect("Deduction reasons should not be exhausted");
-              }
-              PropertyType::FixedPoint(op) => {
-                  // just move to inner
-                  op.inner
-              }
-              PropertyType::FixedVariable(fixed_point_index) => {
-                  // find out the choice made
-                  let choice = self
-                      .choices
-                      .pop()
-                      .expect("Deduction reasons should not be exhausted");
-                  let CheckChoice::FixedVariable(choice_time) = choice else {
-                      panic!("Should deduce on fixed variable");
-                  };
-
-                  // ensure the choice has lesser time than current to ensure the deduction will finish
-                  assert!(choice_time < self.current_time);
-
-                  // replace the reasons with the reasons on the variable from the latest state and choice time
-                  let current_state_id = *self.path.back().unwrap();
-
-                  let value = self
-                      .environment
-                      .property_checker()
-                      .get_history(*fixed_point_index)
-                      .up_to_time(choice_time, current_state_id)
-                      .value;
-
-                  let CheckValue::Unknown(choices) = value.clone() else {
-                      panic!("Check value should be unknown when deducing from fixed point with state {}, time {}", current_state_id, choice_time);
-                  };
-
-                  self.choices = choices;
-                  self.current_time = choice_time;
-
-                  trace!(
-                      "Deducing on new fixed point index {} with reasons {:?}",
-                      fixed_point_index,
-                      self.choices
-                  );
-
-                  // move to inner index
-                  *fixed_point_index
-              }*/
+            }
         };
         Ok(ControlFlow::Continue(()))
     }

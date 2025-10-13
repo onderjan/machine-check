@@ -11,6 +11,7 @@ use super::CombinedMark;
 
 impl<const W: u32> HwArith for CombinedBitvector<W> {
     type Mark = CombinedMark<W>;
+    type DivRemResult = PanicResult<CombinedMark<W>>;
 
     fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         Self::uni_op(

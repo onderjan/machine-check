@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::iir::{
-    interpretation::{IAbstractValue, Interpretation},
+    interpretation::{IAbstractValue, IRefinementValue, Interpretation},
     path::IIdent,
     stmt::IStmt,
     ty::IElementaryType,
@@ -61,18 +61,14 @@ impl IFn {
     }
 
     pub fn call(&self, input_values: Vec<IAbstractValue>) -> IAbstractValue {
-        let inter = self.call_interpret(input_values);
-
-        let normal_result = inter.abstract_value(self.signature.output.normal).clone();
-        // TODO: raise an error on nonzero panic result
-        let panic_result = inter
-            .abstract_value(self.signature.output.panic)
-            .expect_bitvector();
-        assert!(panic_result.concrete_value().is_some_and(|v| v.is_zero()));
-        normal_result
+        let abstr = self.forward_interpret(input_values);
+        self.forward_result(&abstr)
     }
 
-    pub fn call_interpret(&self, input_values: Vec<IAbstractValue>) -> Interpretation {
+    pub fn forward_interpret(
+        &self,
+        input_values: Vec<IAbstractValue>,
+    ) -> Interpretation<IAbstractValue> {
         let mut inter = Interpretation::new();
 
         assert_eq!(self.signature.inputs.len(), input_values.len());
@@ -84,27 +80,49 @@ impl IFn {
             .cloned()
             .zip(input_values.into_iter())
         {
-            inter.insert_abstract_value(input_var_id, input_value);
+            inter.insert_value(input_var_id, input_value);
         }
 
-        self.forward_interpret(&mut inter);
+        for stmt in &self.block.stmts {
+            stmt.forward_interpret(&mut inter);
+        }
 
         //println!("Call interpretation: {:#?}", inter);
 
         inter
     }
 
-    fn forward_interpret(&self, inter: &mut Interpretation) {
-        for stmt in &self.block.stmts {
-            stmt.forward_interpret(inter);
-        }
+    pub fn forward_result(&self, abstr: &Interpretation<IAbstractValue>) -> IAbstractValue {
+        let normal_result = abstr.value(self.signature.output.normal).clone();
+        // TODO: raise an error on nonzero panic result
+        let panic_result = abstr.value(self.signature.output.panic).expect_bitvector();
+        assert!(panic_result.concrete_value().is_some_and(|v| v.is_zero()));
+        normal_result
     }
 
-    pub fn backward_interpret(&self, inter: &mut Interpretation) {
+    pub fn backward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+    ) -> Interpretation<IRefinementValue> {
+        let mut refin = Interpretation::new();
+
+        // TODO: correct marking
+        refin.insert_value(
+            self.signature.output.normal,
+            IRefinementValue::Bool(mck::refin::Boolean::new_marked_unimportant()),
+        );
+        // TODO panic value
+        /*refin.insert_value(
+            self.signature.output.panic,
+            IRefinementValue::Bitvector(mck::refin::Bitvector::new_unmarked()),
+        );*/
+
         // go in reverse
         for stmt in self.block.stmts.iter().rev() {
-            stmt.backward_interpret(inter);
+            stmt.backward_interpret(abstr, &mut refin);
         }
+
+        refin
     }
 }
 

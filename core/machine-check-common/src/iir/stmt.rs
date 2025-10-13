@@ -5,7 +5,7 @@ use mck::three_valued::ThreeValued;
 use crate::iir::{
     expr::IExpr,
     func::IBlock,
-    interpretation::{IAbstractValue, Interpretation},
+    interpretation::{IAbstractValue, IRefinementValue, Interpretation},
     variable::IVarId,
 };
 
@@ -16,17 +16,21 @@ pub enum IStmt {
 }
 
 impl IStmt {
-    pub fn forward_interpret(&self, inter: &mut Interpretation) {
+    pub fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) {
         match self {
-            IStmt::Assign(stmt_assign) => stmt_assign.forward_interpret(inter),
-            IStmt::If(stmt_if) => stmt_if.forward_interpret(inter),
+            IStmt::Assign(stmt_assign) => stmt_assign.forward_interpret(abstr),
+            IStmt::If(stmt_if) => stmt_if.forward_interpret(abstr),
         }
     }
 
-    pub fn backward_interpret(&self, inter: &mut Interpretation) {
+    pub fn backward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+        refin: &mut Interpretation<IRefinementValue>,
+    ) {
         match self {
-            IStmt::Assign(stmt_assign) => stmt_assign.backward_interpret(inter),
-            IStmt::If(stmt_if) => stmt_if.backward_interpret(inter),
+            IStmt::Assign(stmt_assign) => stmt_assign.backward_interpret(abstr, refin),
+            IStmt::If(stmt_if) => stmt_if.backward_interpret(abstr, refin),
         }
     }
 }
@@ -38,14 +42,18 @@ pub struct IAssignStmt {
 }
 
 impl IAssignStmt {
-    fn forward_interpret(&self, inter: &mut Interpretation) {
+    fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) {
         //println!("Forward-interpreting statement {:?}", self);
         let left_ident = self.left;
-        let right_value = self.right.forward_interpret(inter);
-        inter.insert_abstract_value(left_ident, right_value);
+        let right_value = self.right.forward_interpret(abstr);
+        abstr.insert_value(left_ident, right_value);
     }
 
-    pub fn backward_interpret(&self, inter: &mut Interpretation) {
+    pub fn backward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+        refin: &mut Interpretation<IRefinementValue>,
+    ) {
         //println!("Backward-interpreting statement {:?}", self);
         // when interpreting backwards, we take the later (left) refinement value
         // and the earlier (right) abstract values and process them
@@ -54,8 +62,9 @@ impl IAssignStmt {
         // in the statement, we just take the later refinement value and move it into the expression
 
         let left_ident = self.left;
-        if let Some(later_refinement_value) = inter.refinement_value_opt(left_ident) {
-            self.right.backward_interpret(inter, later_refinement_value);
+        if let Some(later_refinement_value) = refin.value_opt(left_ident) {
+            self.right
+                .backward_interpret(abstr, refin, later_refinement_value.clone());
         }
     }
 }
@@ -69,8 +78,8 @@ pub struct IIfStmt {
 }
 
 impl IIfStmt {
-    fn forward_interpret(&self, inter: &mut Interpretation) {
-        let condition_value = inter.abstract_value(self.condition);
+    fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) {
+        let condition_value = abstr.value(self.condition);
 
         let IAbstractValue::Bool(condition_value) = condition_value else {
             panic!("Condition value should be bool");
@@ -88,16 +97,20 @@ impl IIfStmt {
 
         if should_take_then {
             for stmt in &self.then_block.stmts {
-                stmt.forward_interpret(inter);
+                stmt.forward_interpret(abstr);
             }
         } else {
             for stmt in &self.else_block.stmts {
-                stmt.forward_interpret(inter);
+                stmt.forward_interpret(abstr);
             }
         }
     }
 
-    pub fn backward_interpret(&self, _inter: &mut Interpretation) {
+    pub fn backward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+        refin: &mut Interpretation<IRefinementValue>,
+    ) {
         todo!("Backward if interpretation")
     }
 }

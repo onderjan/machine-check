@@ -19,6 +19,7 @@ use super::{
 
 impl HwArith for RThreeValuedBitvector {
     type Mark = RMarkBitvector;
+    type DivRemResult = PanicResult<RMarkBitvector>;
 
     fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         runtime_default_uni_mark(normal_input, mark_later)
@@ -67,6 +68,7 @@ impl HwArith for RThreeValuedBitvector {
 
 impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
     type Mark = MarkBitvector<W>;
+    type DivRemResult = PanicResult<MarkBitvector<W>>;
 
     fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         default_uni_mark(normal_input, mark_later)

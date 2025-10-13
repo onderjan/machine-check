@@ -17,8 +17,8 @@ pub struct IMckUnary {
 }
 
 impl IMckUnary {
-    fn forward_interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
-        let operand = inter.abstract_value(self.operand).expect_bitvector();
+    fn forward_interpret(&self, abstr: &Interpretation<IAbstractValue>) -> IAbstractValue {
+        let operand = abstr.value(self.operand).expect_bitvector();
         match self.op {
             IrMckUnaryOp::Not => IAbstractValue::Bitvector(mck::forward::Bitwise::bit_not(operand)),
             IrMckUnaryOp::Neg => {
@@ -27,8 +27,13 @@ impl IMckUnary {
         }
     }
 
-    fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
-        let operand = inter.abstract_value(self.operand).expect_bitvector();
+    fn backward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+        refin: &mut Interpretation<IRefinementValue>,
+        later: IRefinementValue,
+    ) {
+        let operand = abstr.value(self.operand).expect_bitvector();
         let earlier = match self.op {
             IrMckUnaryOp::Not => IRefinementValue::Bitvector(
                 mck::backward::Bitwise::bit_not((operand,), later.expect_bitvector()).0,
@@ -38,7 +43,7 @@ impl IMckUnary {
             ),
         };
 
-        inter.insert_refinement_value(self.operand, earlier);
+        refin.insert_value(self.operand, earlier);
     }
 }
 
@@ -56,9 +61,9 @@ pub struct IMckBinary {
 }
 
 impl IMckBinary {
-    fn forward_interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
-        let a = inter.abstract_value(self.a);
-        let b = inter.abstract_value(self.b);
+    fn forward_interpret(&self, inter: &Interpretation<IAbstractValue>) -> IAbstractValue {
+        let a = inter.value(self.a);
+        let b = inter.value(self.b);
 
         if let (IAbstractValue::Bool(a), IAbstractValue::Bool(b)) = (a, b) {
             let (a, b) = (*a, *b);
@@ -121,91 +126,43 @@ impl IMckBinary {
         }
     }
 
-    fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
-        let a = inter.compute_abstract_value(self.a);
-        let b = inter.compute_abstract_value(self.b);
-
-        fn handle_standard(
-            a: IAbstractValue,
-            b: IAbstractValue,
-            later: IRefinementValue,
-            func: fn(
-                (mck::abstr::RBitvector, mck::abstr::RBitvector),
-                mck::refin::RBitvector,
-            ) -> (mck::refin::RBitvector, mck::refin::RBitvector),
-        ) -> (IRefinementValue, IRefinementValue) {
-            let (earlier_a, earlier_b) = (func)(
-                (a.expect_bitvector(), b.expect_bitvector()),
-                later.expect_bitvector(),
-            );
-            (
-                IRefinementValue::Bitvector(earlier_a),
-                IRefinementValue::Bitvector(earlier_b),
-            )
-        }
-
-        fn handle_comparison(
-            a: IAbstractValue,
-            b: IAbstractValue,
-            later: IRefinementValue,
-            func: fn(
-                (mck::abstr::RBitvector, mck::abstr::RBitvector),
-                mck::refin::Boolean,
-            ) -> (mck::refin::RBitvector, mck::refin::RBitvector),
-        ) -> (IRefinementValue, IRefinementValue) {
-            let (earlier_a, earlier_b) = (func)(
-                (a.expect_bitvector(), b.expect_bitvector()),
-                later.expect_boolean(),
-            );
-            (
-                IRefinementValue::Bitvector(earlier_a),
-                IRefinementValue::Bitvector(earlier_b),
-            )
-        }
+    fn backward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+        refin: &mut Interpretation<IRefinementValue>,
+        later: IRefinementValue,
+    ) {
+        let a = abstr.value(self.a).clone();
+        let b = abstr.value(self.b).clone();
 
         let (earlier_a, earlier_b) = match self.op {
-            IrMckBinaryOp::BitAnd => handle_standard(a, b, later, mck::backward::Bitwise::bit_and),
-            IrMckBinaryOp::BitOr => handle_standard(a, b, later, mck::backward::Bitwise::bit_or),
-            IrMckBinaryOp::BitXor => handle_standard(a, b, later, mck::backward::Bitwise::bit_xor),
-            IrMckBinaryOp::LogicShl => {
-                handle_standard(a, b, later, mck::backward::HwShift::logic_shl)
-            }
-            IrMckBinaryOp::LogicShr => {
-                handle_standard(a, b, later, mck::backward::HwShift::logic_shr)
-            }
-            IrMckBinaryOp::ArithShr => {
-                handle_standard(a, b, later, mck::backward::HwShift::arith_shr)
-            }
-            IrMckBinaryOp::Add => handle_standard(a, b, later, mck::backward::HwArith::add),
-            IrMckBinaryOp::Sub => handle_standard(a, b, later, mck::backward::HwArith::sub),
-            IrMckBinaryOp::Mul => handle_standard(a, b, later, mck::backward::HwArith::mul),
-            IrMckBinaryOp::Udiv => {
-                todo!();
-                // IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::udiv)
-            }
-            IrMckBinaryOp::Urem => {
-                todo!();
-                //IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::urem)
-            }
-            IrMckBinaryOp::Sdiv => {
-                todo!();
-                //IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::sdiv)
-            }
-            IrMckBinaryOp::Srem => {
-                todo!();
-                //IAbstractValue::PanicResult(a, b, later, mck::backward::HwArith::srem)
-            }
+            IrMckBinaryOp::BitAnd => mck::backward::Bitwise::bit_and((a, b), later),
+            IrMckBinaryOp::BitOr => mck::backward::Bitwise::bit_or((a, b), later),
+            IrMckBinaryOp::BitXor => mck::backward::Bitwise::bit_xor((a, b), later),
 
-            IrMckBinaryOp::Eq => handle_comparison(a, b, later, mck::backward::TypedEq::eq),
-            IrMckBinaryOp::Ne => handle_comparison(a, b, later, mck::backward::TypedEq::ne),
-            IrMckBinaryOp::Ult => handle_comparison(a, b, later, mck::backward::TypedCmp::ult),
-            IrMckBinaryOp::Ule => handle_comparison(a, b, later, mck::backward::TypedCmp::ule),
-            IrMckBinaryOp::Slt => handle_comparison(a, b, later, mck::backward::TypedCmp::slt),
-            IrMckBinaryOp::Sle => handle_comparison(a, b, later, mck::backward::TypedCmp::sle),
+            IrMckBinaryOp::LogicShl => mck::backward::HwShift::logic_shl((a, b), later),
+            IrMckBinaryOp::LogicShr => mck::backward::HwShift::logic_shr((a, b), later),
+            IrMckBinaryOp::ArithShr => mck::backward::HwShift::arith_shr((a, b), later),
+
+            IrMckBinaryOp::Add => mck::backward::HwArith::add((a, b), later),
+            IrMckBinaryOp::Sub => mck::backward::HwArith::sub((a, b), later),
+            IrMckBinaryOp::Mul => mck::backward::HwArith::mul((a, b), later),
+            IrMckBinaryOp::Udiv => mck::backward::HwArith::udiv((a, b), later),
+            IrMckBinaryOp::Urem => mck::backward::HwArith::urem((a, b), later),
+            IrMckBinaryOp::Sdiv => mck::backward::HwArith::sdiv((a, b), later),
+            IrMckBinaryOp::Srem => mck::backward::HwArith::srem((a, b), later),
+
+            IrMckBinaryOp::Eq => mck::backward::TypedEq::eq((a, b), later),
+            IrMckBinaryOp::Ne => mck::backward::TypedEq::ne((a, b), later),
+
+            IrMckBinaryOp::Ult => mck::backward::TypedCmp::ult((a, b), later),
+            IrMckBinaryOp::Ule => mck::backward::TypedCmp::ule((a, b), later),
+            IrMckBinaryOp::Slt => mck::backward::TypedCmp::slt((a, b), later),
+            IrMckBinaryOp::Sle => mck::backward::TypedCmp::sle((a, b), later),
         };
 
-        inter.insert_refinement_value(self.a, earlier_a);
-        inter.insert_refinement_value(self.b, earlier_b);
+        refin.insert_value(self.a, earlier_a);
+        refin.insert_value(self.b, earlier_b);
     }
 }
 
@@ -269,31 +226,36 @@ pub enum IExprCall {
 }
 
 impl IExprCall {
-    pub fn forward_interpret(&self, inter: &mut Interpretation) -> IAbstractValue {
+    pub fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) -> IAbstractValue {
         match self {
-            IExprCall::MckUnary(unary) => unary.forward_interpret(inter),
-            IExprCall::MckBinary(binary) => binary.forward_interpret(inter),
+            IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
+            IExprCall::MckBinary(binary) => binary.forward_interpret(abstr),
             IExprCall::MckNew(mck_new) => mck_new.forward_interpret(),
             IExprCall::Phi(left, right) => {
                 // join the left and right variable
-                let left = inter.abstract_value(*left);
-                let right = inter.abstract_value(*right);
+                let left = abstr.value(*left);
+                let right = abstr.value(*right);
 
                 left.join(right)
             }
-            IExprCall::PhiTaken(taken) => inter.abstract_value(*taken).clone(),
+            IExprCall::PhiTaken(taken) => abstr.value(*taken).clone(),
             IExprCall::PhiMaybeTaken(maybe_taken) => {
                 // take the value normally for forward intepretation
-                inter.abstract_value(maybe_taken.taken).clone()
+                abstr.value(maybe_taken.taken).clone()
             }
             IExprCall::PhiNotTaken => IAbstractValue::Absent,
             IExprCall::PhiUninit => panic!("Phi uninit should not be in interpretation"),
         }
     }
-    pub fn backward_interpret(&self, inter: &mut Interpretation, later: IRefinementValue) {
+    pub fn backward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+        refin: &mut Interpretation<IRefinementValue>,
+        later: IRefinementValue,
+    ) {
         match self {
-            IExprCall::MckUnary(unary) => unary.backward_interpret(inter, later),
-            IExprCall::MckBinary(binary) => binary.backward_interpret(inter, later),
+            IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, later),
+            IExprCall::MckBinary(binary) => binary.backward_interpret(abstr, refin, later),
             IExprCall::MckNew(_) => {
                 // there is no variable to propagate to, do nothing
             }

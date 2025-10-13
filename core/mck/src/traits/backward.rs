@@ -1,5 +1,3 @@
-use crate::refin::PanicResult;
-
 pub trait TypedEq
 where
     Self: Sized,
@@ -70,6 +68,7 @@ where
     Self: Sized,
 {
     type Mark;
+    type DivRemResult;
 
     #[must_use]
     fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,);
@@ -82,26 +81,18 @@ where
     fn mul(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
 
     #[must_use]
-    fn udiv(
-        normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
-    ) -> (Self::Mark, Self::Mark);
+    fn udiv(normal_input: (Self, Self), mark_later: Self::DivRemResult)
+        -> (Self::Mark, Self::Mark);
     #[must_use]
-    fn sdiv(
-        normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
-    ) -> (Self::Mark, Self::Mark);
+    fn sdiv(normal_input: (Self, Self), mark_later: Self::DivRemResult)
+        -> (Self::Mark, Self::Mark);
 
     #[must_use]
-    fn urem(
-        normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
-    ) -> (Self::Mark, Self::Mark);
+    fn urem(normal_input: (Self, Self), mark_later: Self::DivRemResult)
+        -> (Self::Mark, Self::Mark);
     #[must_use]
-    fn srem(
-        normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
-    ) -> (Self::Mark, Self::Mark);
+    fn srem(normal_input: (Self, Self), mark_later: Self::DivRemResult)
+        -> (Self::Mark, Self::Mark);
 }
 
 pub trait HwShift
