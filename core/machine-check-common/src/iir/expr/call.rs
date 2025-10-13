@@ -1,7 +1,5 @@
 use std::fmt::Debug;
 
-use mck::forward::Bitwise;
-
 use crate::{
     iir::{
         interpretation::{IAbstractValue, IRefinementValue, Interpretation},
@@ -62,67 +60,33 @@ pub struct IMckBinary {
 
 impl IMckBinary {
     fn forward_interpret(&self, inter: &Interpretation<IAbstractValue>) -> IAbstractValue {
-        let a = inter.value(self.a);
-        let b = inter.value(self.b);
-
-        if let (IAbstractValue::Bool(a), IAbstractValue::Bool(b)) = (a, b) {
-            let (a, b) = (*a, *b);
-            return IAbstractValue::Bool(match self.op {
-                IrMckBinaryOp::BitAnd => Bitwise::bit_and(a, b),
-                IrMckBinaryOp::BitOr => Bitwise::bit_or(a, b),
-                IrMckBinaryOp::BitXor => Bitwise::bit_xor(a, b),
-                IrMckBinaryOp::LogicShl => todo!(),
-                IrMckBinaryOp::LogicShr => todo!(),
-                IrMckBinaryOp::ArithShr => todo!(),
-                IrMckBinaryOp::Add => todo!(),
-                IrMckBinaryOp::Sub => todo!(),
-                IrMckBinaryOp::Mul => todo!(),
-                IrMckBinaryOp::Udiv => todo!(),
-                IrMckBinaryOp::Urem => todo!(),
-                IrMckBinaryOp::Sdiv => todo!(),
-                IrMckBinaryOp::Srem => todo!(),
-                IrMckBinaryOp::Eq => todo!(),
-                IrMckBinaryOp::Ne => todo!(),
-                IrMckBinaryOp::Ult => todo!(),
-                IrMckBinaryOp::Ule => todo!(),
-                IrMckBinaryOp::Slt => todo!(),
-                IrMckBinaryOp::Sle => todo!(),
-            });
-        }
-
-        let a = a.expect_bitvector();
-        let b = b.expect_bitvector();
+        let a = inter.value(self.a).clone();
+        let b = inter.value(self.b).clone();
 
         match self.op {
-            IrMckBinaryOp::BitAnd => {
-                IAbstractValue::Bitvector(mck::forward::Bitwise::bit_and(a, b))
-            }
-            IrMckBinaryOp::BitOr => IAbstractValue::Bitvector(mck::forward::Bitwise::bit_or(a, b)),
-            IrMckBinaryOp::BitXor => {
-                IAbstractValue::Bitvector(mck::forward::Bitwise::bit_xor(a, b))
-            }
-            IrMckBinaryOp::LogicShl => {
-                IAbstractValue::Bitvector(mck::forward::HwShift::logic_shl(a, b))
-            }
-            IrMckBinaryOp::LogicShr => {
-                IAbstractValue::Bitvector(mck::forward::HwShift::logic_shr(a, b))
-            }
-            IrMckBinaryOp::ArithShr => {
-                IAbstractValue::Bitvector(mck::forward::HwShift::arith_shr(a, b))
-            }
-            IrMckBinaryOp::Add => IAbstractValue::Bitvector(mck::forward::HwArith::add(a, b)),
-            IrMckBinaryOp::Sub => IAbstractValue::Bitvector(mck::forward::HwArith::sub(a, b)),
-            IrMckBinaryOp::Mul => IAbstractValue::Bitvector(mck::forward::HwArith::mul(a, b)),
-            IrMckBinaryOp::Udiv => IAbstractValue::PanicResult(mck::forward::HwArith::udiv(a, b)),
-            IrMckBinaryOp::Urem => IAbstractValue::PanicResult(mck::forward::HwArith::urem(a, b)),
-            IrMckBinaryOp::Sdiv => IAbstractValue::PanicResult(mck::forward::HwArith::sdiv(a, b)),
-            IrMckBinaryOp::Srem => IAbstractValue::PanicResult(mck::forward::HwArith::srem(a, b)),
-            IrMckBinaryOp::Eq => IAbstractValue::Bool(mck::forward::TypedEq::eq(a, b)),
-            IrMckBinaryOp::Ne => IAbstractValue::Bool(mck::forward::TypedEq::ne(a, b)),
-            IrMckBinaryOp::Ult => IAbstractValue::Bool(mck::forward::TypedCmp::ult(a, b)),
-            IrMckBinaryOp::Ule => IAbstractValue::Bool(mck::forward::TypedCmp::ule(a, b)),
-            IrMckBinaryOp::Slt => IAbstractValue::Bool(mck::forward::TypedCmp::slt(a, b)),
-            IrMckBinaryOp::Sle => IAbstractValue::Bool(mck::forward::TypedCmp::sle(a, b)),
+            IrMckBinaryOp::BitAnd => mck::forward::Bitwise::bit_and(a, b),
+            IrMckBinaryOp::BitOr => mck::forward::Bitwise::bit_or(a, b),
+            IrMckBinaryOp::BitXor => mck::forward::Bitwise::bit_xor(a, b),
+
+            IrMckBinaryOp::LogicShl => mck::forward::HwShift::logic_shl(a, b),
+            IrMckBinaryOp::LogicShr => mck::forward::HwShift::logic_shr(a, b),
+            IrMckBinaryOp::ArithShr => mck::forward::HwShift::arith_shr(a, b),
+
+            IrMckBinaryOp::Add => mck::forward::HwArith::add(a, b),
+            IrMckBinaryOp::Sub => mck::forward::HwArith::sub(a, b),
+            IrMckBinaryOp::Mul => mck::forward::HwArith::mul(a, b),
+            IrMckBinaryOp::Udiv => mck::forward::HwArith::udiv(a, b),
+            IrMckBinaryOp::Urem => mck::forward::HwArith::urem(a, b),
+            IrMckBinaryOp::Sdiv => mck::forward::HwArith::sdiv(a, b),
+            IrMckBinaryOp::Srem => mck::forward::HwArith::srem(a, b),
+
+            IrMckBinaryOp::Eq => mck::forward::TypedEq::eq(a, b),
+            IrMckBinaryOp::Ne => mck::forward::TypedEq::ne(a, b),
+
+            IrMckBinaryOp::Ult => mck::forward::TypedCmp::ult(a, b),
+            IrMckBinaryOp::Ule => mck::forward::TypedCmp::ule(a, b),
+            IrMckBinaryOp::Slt => mck::forward::TypedCmp::slt(a, b),
+            IrMckBinaryOp::Sle => mck::forward::TypedCmp::sle(a, b),
         }
     }
 

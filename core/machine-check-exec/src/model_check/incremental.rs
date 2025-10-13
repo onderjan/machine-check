@@ -200,7 +200,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
                     }
                 };
 
-                IAbstractValue::Bool(boolean)
+                IAbstractValue::Boolean(boolean)
             } else if input_var_name == "__panic" {
                 IAbstractValue::Bitvector(state_panic.to_runtime())
             } else {
@@ -221,7 +221,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
 
         let result = func.call(input_values.clone());
 
-        let IAbstractValue::Bool(result) = result else {
+        let IAbstractValue::Boolean(result) = result else {
             panic!("Result should be abstract Boolean");
         };
 

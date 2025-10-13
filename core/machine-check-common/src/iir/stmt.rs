@@ -81,7 +81,7 @@ impl IIfStmt {
     fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) {
         let condition_value = abstr.value(self.condition);
 
-        let IAbstractValue::Bool(condition_value) = condition_value else {
+        let IAbstractValue::Boolean(condition_value) = condition_value else {
             panic!("Condition value should be bool");
         };
 

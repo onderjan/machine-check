@@ -39,7 +39,10 @@ macro_rules! bitwise_bi_op {
                 )
             }
             IRefinementValue::Bool(mark_later) => {
-                let (a, b) = ($normal_input.0.expect_bool(), $normal_input.1.expect_bool());
+                let (a, b) = (
+                    $normal_input.0.expect_boolean(),
+                    $normal_input.1.expect_boolean(),
+                );
                 let (a, b) = $op((a, b), mark_later);
 
                 (IRefinementValue::Bool(a), IRefinementValue::Bool(b))
@@ -63,7 +66,7 @@ impl mck::backward::Bitwise for IAbstractValue {
                 (IRefinementValue::Bitvector(a),)
             }
             IRefinementValue::Bool(mark_later) => {
-                let (a,) = (normal_input.0.expect_bool(),);
+                let (a,) = (normal_input.0.expect_boolean(),);
                 let (a,) = mck::backward::Bitwise::bit_not((a,), mark_later);
 
                 (IRefinementValue::Bool(a),)
@@ -244,7 +247,7 @@ macro_rules! typed_eq_cmp_bi_op {
                     IRefinementValue::Bitvector(b),
                 )
             }
-            IAbstractValue::Bool(_) => todo!("Equality/comparison of booleans"),
+            IAbstractValue::Boolean(_) => todo!("Equality/comparison of booleans"),
             IAbstractValue::PanicResult(_) => {
                 panic!("Equality/comparison not supported by panic result")
             }
