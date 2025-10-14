@@ -165,17 +165,11 @@ fn convert_ext(
 
 fn convert_mck_new(call: WHighMckNew) -> WMckNew {
     match call {
-        WHighMckNew::Bitvector(width, constant) => {
+        WHighMckNew::Bitvector(_signedness, width, constant) => {
             WMckNew::Bitvector(width.expect("Created width should be known"), constant)
         }
         WHighMckNew::BitvectorArray(type_array, fill_element) => {
             WMckNew::BitvectorArray(type_array, fill_element)
-        }
-        WHighMckNew::Unsigned(width, constant) => {
-            WMckNew::Bitvector(width.expect("Created width should be known"), constant)
-        }
-        WHighMckNew::Signed(width, constant) => {
-            WMckNew::Bitvector(width.expect("Created width should be known"), constant)
         }
     }
 }
@@ -191,8 +185,11 @@ fn signedness(
     };
     match ty {
         WGeneralType::Normal(ty) => match ty.inner {
-            WBasicType::Unsigned(_) => Some(false),
-            WBasicType::Signed(_) => Some(true),
+            WBasicType::Bitvector(signedness, _) => match signedness {
+                machine_check_common::Signedness::None => None,
+                machine_check_common::Signedness::Unsigned => Some(true),
+                machine_check_common::Signedness::Signed => Some(false),
+            },
             _ => None,
         },
         _ => None,

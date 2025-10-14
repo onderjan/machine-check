@@ -1,6 +1,9 @@
 use std::fmt::{Debug, Write};
 
-use machine_check_common::ir_common::{IrReference, IrTypeArray};
+use machine_check_common::{
+    ir_common::{IrReference, IrTypeArray},
+    Signedness,
+};
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, ExprStruct, FieldValue,
@@ -12,20 +15,16 @@ use super::{IntoSyn, WIdent, WPath};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WPartialBasicType {
-    Bitvector(Option<u32>),
+    Bitvector(Signedness, Option<u32>),
     BitvectorArray(IrTypeArray),
-    Unsigned(Option<u32>),
-    Signed(Option<u32>),
     Boolean,
     Path(WPath),
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WBasicType {
-    Bitvector(u32),
+    Bitvector(Signedness, u32),
     BitvectorArray(IrTypeArray),
-    Unsigned(u32),
-    Signed(u32),
     Boolean,
     Path(WPath),
 }
@@ -54,15 +53,6 @@ pub enum WGeneralType<FT: IntoSyn<Type>> {
     PhiArg(WType<FT>),
 }
 
-impl WBasicType {
-    pub fn into_type(self) -> WType<WBasicType> {
-        WType {
-            reference: IrReference::None,
-            inner: self,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WPartialGeneralType {
     Unknown,
@@ -86,9 +76,9 @@ impl IntoSyn<Type> for WBasicType {
     fn into_syn(self) -> Type {
         let span = Span::call_site();
         match self {
-            WBasicType::Bitvector(width) => create_machine_check_type("Bitvector", &[width], span),
-            WBasicType::Unsigned(width) => create_machine_check_type("Unsigned", &[width], span),
-            WBasicType::Signed(width) => create_machine_check_type("Signed", &[width], span),
+            WBasicType::Bitvector(signedness, width) => {
+                create_machine_check_type(bitvector_signedness_str(signedness), &[width], span)
+            }
             WBasicType::BitvectorArray(array) => create_machine_check_type(
                 "BitvectorArray",
                 &[array.index_width, array.element_width],
@@ -107,15 +97,11 @@ impl IntoSyn<Type> for WPartialBasicType {
     fn into_syn(self) -> Type {
         let span = Span::call_site();
         match self {
-            WPartialBasicType::Bitvector(width) => {
-                create_machine_check_type_opt_width("Bitvector", width, span)
-            }
-            WPartialBasicType::Unsigned(width) => {
-                create_machine_check_type_opt_width("Unsigned", width, span)
-            }
-            WPartialBasicType::Signed(width) => {
-                create_machine_check_type_opt_width("Signed", width, span)
-            }
+            WPartialBasicType::Bitvector(signedness, width) => create_machine_check_type_opt_width(
+                bitvector_signedness_str(signedness),
+                width,
+                span,
+            ),
             WPartialBasicType::BitvectorArray(array) => create_machine_check_type(
                 "BitvectorArray",
                 &[array.index_width, array.element_width],
@@ -140,25 +126,10 @@ impl WPartialBasicType {
 
     pub fn try_total(self) -> Option<WBasicType> {
         Some(match self {
-            WPartialBasicType::Bitvector(width) => {
-                let Some(width) = width else {
-                    return None;
-                };
-                WBasicType::Bitvector(width)
+            WPartialBasicType::Bitvector(signedness, width) => {
+                WBasicType::Bitvector(signedness, width?)
             }
             WPartialBasicType::BitvectorArray(array) => WBasicType::BitvectorArray(array),
-            WPartialBasicType::Unsigned(width) => {
-                let Some(width) = width else {
-                    return None;
-                };
-                WBasicType::Unsigned(width)
-            }
-            WPartialBasicType::Signed(width) => {
-                let Some(width) = width else {
-                    return None;
-                };
-                WBasicType::Signed(width)
-            }
             WPartialBasicType::Boolean => WBasicType::Boolean,
             WPartialBasicType::Path(path) => WBasicType::Path(path),
         })
@@ -166,10 +137,10 @@ impl WPartialBasicType {
 
     pub fn from_total(ty: WBasicType) -> WPartialBasicType {
         match ty {
-            WBasicType::Bitvector(width) => WPartialBasicType::Bitvector(Some(width)),
+            WBasicType::Bitvector(signedness, width) => {
+                WPartialBasicType::Bitvector(signedness, Some(width))
+            }
             WBasicType::BitvectorArray(array) => WPartialBasicType::BitvectorArray(array),
-            WBasicType::Unsigned(width) => WPartialBasicType::Unsigned(Some(width)),
-            WBasicType::Signed(width) => WPartialBasicType::Signed(Some(width)),
             WBasicType::Boolean => WPartialBasicType::Boolean,
             WBasicType::Path(path) => WPartialBasicType::Path(path),
         }
@@ -489,25 +460,13 @@ impl IntoSyn<Expr> for WPanicResult {
 impl Debug for WPartialBasicType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Bitvector(width) => {
+            Self::Bitvector(signedness, width) => {
+                let name = bitvector_signedness_str(*signedness);
+
                 if let Some(width) = width {
-                    write!(f, "::mck::Bitvector<{}>", width)
+                    write!(f, "::mck::{}<{}>", name, width)
                 } else {
-                    write!(f, "::mck::Bitvector")
-                }
-            }
-            Self::Unsigned(width) => {
-                if let Some(width) = width {
-                    write!(f, "::mck::Unsigned<{}>", width)
-                } else {
-                    write!(f, "::mck::Unsigned")
-                }
-            }
-            Self::Signed(width) => {
-                if let Some(width) = width {
-                    write!(f, "::mck::Signed<{}>", width)
-                } else {
-                    write!(f, "::mck::Signed")
+                    write!(f, "::mck::{}", name)
                 }
             }
             Self::BitvectorArray(type_array) => write!(
@@ -524,9 +483,10 @@ impl Debug for WPartialBasicType {
 impl Debug for WBasicType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Bitvector(width) => write!(f, "::mck::Bitvector<{}>", width),
-            Self::Unsigned(width) => write!(f, "::mck::Unsigned<{}>", width),
-            Self::Signed(width) => write!(f, "::mck::Signed<{}>", width),
+            Self::Bitvector(signedness, width) => {
+                let name = bitvector_signedness_str(*signedness);
+                write!(f, "::mck::{}<{}>", name, width)
+            }
             Self::BitvectorArray(type_array) => write!(
                 f,
                 "::machine_check::BitvectorArray<{},{}>",
@@ -577,5 +537,13 @@ impl<FT: IntoSyn<Type> + Debug> Debug for WGeneralType<FT> {
             WGeneralType::PanicResult(ty) => write!(f, "::mck::PanicResult<{:?}>", ty),
             WGeneralType::PhiArg(ty) => write!(f, "::mck::PhiArg<{:?}>", ty),
         }
+    }
+}
+
+fn bitvector_signedness_str(signedness: Signedness) -> &'static str {
+    match signedness {
+        Signedness::None => "Bitvector",
+        Signedness::Unsigned => "Unsigned",
+        Signedness::Signed => "Signed",
     }
 }

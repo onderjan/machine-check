@@ -1,11 +1,13 @@
-use machine_check_common::ir_common::{IrReference, IrStdBinaryOp};
+use machine_check_common::{
+    ir_common::{IrReference, IrStdBinaryOp},
+    Signedness,
+};
 
 use crate::{
     into_wir::Error,
     wir::{
-        WArrayRead, WArrayWrite, WBasicType, WExprHighCall, WHighMckExt, WHighMckNew, WHighStdInto,
-        WHighStdIntoType, WIdent, WPartialBasicType, WPartialGeneralType, WSpanned, WStdBinary,
-        WStdUnary, WType,
+        WArrayRead, WArrayWrite, WExprHighCall, WHighMckExt, WHighMckNew, WHighStdInto, WIdent,
+        WPartialBasicType, WPartialGeneralType, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
 
@@ -13,7 +15,6 @@ impl super::FnInferrer<'_> {
     pub fn infer_call_result_type(
         &mut self,
         expr_call: &mut WExprHighCall,
-        current_result_type: &WPartialGeneralType,
     ) -> Result<WPartialGeneralType, Error> {
         Ok(match expr_call {
             WExprHighCall::Call(_) => {
@@ -28,7 +29,7 @@ impl super::FnInferrer<'_> {
                 reference: IrReference::None,
                 inner: WPartialBasicType::Boolean,
             }),
-            WExprHighCall::StdInto(call) => self.infer_into(call, current_result_type),
+            WExprHighCall::StdInto(call) => self.infer_into(call),
             WExprHighCall::StdClone(from) => self.infer_clone(from)?,
             WExprHighCall::ArrayRead(read) => self.infer_array_read(read),
             WExprHighCall::ArrayWrite(write) => self.infer_array_write(write),
@@ -84,9 +85,9 @@ impl super::FnInferrer<'_> {
         };
 
         let result = match arg_type.inner {
-            WPartialBasicType::Bitvector(_) => Some(WPartialBasicType::Bitvector(call.width)),
-            WPartialBasicType::Unsigned(_) => Some(WPartialBasicType::Unsigned(call.width)),
-            WPartialBasicType::Signed(_) => Some(WPartialBasicType::Signed(call.width)),
+            WPartialBasicType::Bitvector(signedness, _) => {
+                Some(WPartialBasicType::Bitvector(signedness, call.width))
+            }
             _ => None,
         };
         if let Some(result) = result {
@@ -102,67 +103,25 @@ impl super::FnInferrer<'_> {
                 WHighMckNew::BitvectorArray(type_array, _) => {
                     WPartialBasicType::BitvectorArray(type_array.clone())
                 }
-                WHighMckNew::Bitvector(width, _) => WPartialBasicType::Bitvector(*width),
-                WHighMckNew::Unsigned(width, _) => WPartialBasicType::Unsigned(*width),
-                WHighMckNew::Signed(width, _) => WPartialBasicType::Signed(*width),
+                WHighMckNew::Bitvector(signedness, width, _) => {
+                    WPartialBasicType::Bitvector(*signedness, *width)
+                }
             }
             .into_type(),
         )
     }
 
-    fn infer_into(
-        &mut self,
-        call: &mut WHighStdInto,
-        current_result_type: &WPartialGeneralType,
-    ) -> WPartialGeneralType {
+    fn infer_into(&mut self, call: &mut WHighStdInto) -> WPartialGeneralType {
         let arg_type = self.local_ident_types.get(&call.from);
-        let mut known_width = None;
+
         if let Some(WPartialGeneralType::Normal(arg_type)) = arg_type {
-            match arg_type.inner {
-                WPartialBasicType::Bitvector(width)
-                | WPartialBasicType::Unsigned(width)
-                | WPartialBasicType::Signed(width) => {
-                    known_width = width;
-                }
-                _ => {}
+            if let WPartialBasicType::Bitvector(_signedness, width) = arg_type.inner {
+                call.width = width;
             }
         }
 
-        eprintln!(
-            "Inferring into: {:?}, current result type: {:?}",
-            call, current_result_type
-        );
         WPartialGeneralType::Normal(
-            match &mut call.ty {
-                WHighStdIntoType::Bitvector(call_width) => {
-                    if call_width.is_none() {
-                        if let Some(known_width) = known_width {
-                            *call_width = Some(known_width);
-                        }
-                    }
-
-                    WPartialBasicType::Bitvector(*call_width)
-                }
-                WHighStdIntoType::Unsigned(call_width) => {
-                    if call_width.is_none() {
-                        if let Some(known_width) = known_width {
-                            *call_width = Some(known_width);
-                        }
-                    }
-
-                    WPartialBasicType::Unsigned(*call_width)
-                }
-                WHighStdIntoType::Signed(call_width) => {
-                    if call_width.is_none() {
-                        if let Some(known_width) = known_width {
-                            *call_width = Some(known_width);
-                        }
-                    }
-
-                    WPartialBasicType::Signed(*call_width)
-                }
-            }
-            .into_type(),
+            WPartialBasicType::Bitvector(call.signedness, call.width).into_type(),
         )
     }
 
@@ -200,7 +159,8 @@ impl super::FnInferrer<'_> {
             return WPartialGeneralType::Unknown;
         };
         WPartialGeneralType::Normal(
-            WPartialBasicType::Bitvector(Some(array_type.element_width)).into_type(),
+            WPartialBasicType::Bitvector(Signedness::None, Some(array_type.element_width))
+                .into_type(),
         )
     }
 

@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 
-use machine_check_common::ir_common::{IrReference, IrStdBinaryOp};
+use machine_check_common::{
+    ir_common::{IrReference, IrStdBinaryOp},
+    Signedness,
+};
 use mck::misc::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO};
 use proc_macro2::Span;
 
@@ -324,6 +327,7 @@ impl FnConverter<'_> {
 
 fn create_panic_call(int_val: i128) -> WExpr<WExprHighCall> {
     WExpr::Call(WExprHighCall::MckNew(WHighMckNew::Bitvector(
+        Signedness::None,
         Some(32),
         int_val,
     )))
@@ -334,7 +338,7 @@ fn create_panic_type_local(ident: WIdent) -> WTacLocal<WPartialGeneralType> {
         ident,
         ty: crate::wir::WPartialGeneralType::Normal(WType {
             reference: IrReference::None,
-            inner: WPartialBasicType::Bitvector(Some(32)),
+            inner: WPartialBasicType::Bitvector(Signedness::None, Some(32)),
         }),
     }
 }

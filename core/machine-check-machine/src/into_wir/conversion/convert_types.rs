@@ -97,9 +97,10 @@ pub fn convert_property(property: WProperty<YInferred>) -> Result<WProperty<YCon
 
 fn convert_basic_type(ty: WBasicType) -> WElementaryType {
     match ty {
-        WBasicType::Bitvector(width) => WElementaryType::Bitvector(width),
-        WBasicType::Unsigned(width) => WElementaryType::Bitvector(width),
-        WBasicType::Signed(width) => WElementaryType::Bitvector(width),
+        WBasicType::Bitvector(_signedness, width) => {
+            // lose signedness information
+            WElementaryType::Bitvector(width)
+        }
         WBasicType::BitvectorArray(type_array) => WElementaryType::Array(type_array),
         WBasicType::Boolean => WElementaryType::Boolean,
         WBasicType::Path(path) => WElementaryType::Path(convert_basic_path(path)),

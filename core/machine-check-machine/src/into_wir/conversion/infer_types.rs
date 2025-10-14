@@ -291,14 +291,8 @@ impl FnInferrer<'_> {
                             }) = left_type
                             {
                                 right_replacement = match inner {
-                                    WPartialBasicType::Bitvector(width) => {
-                                        Some(WHighMckNew::Bitvector(*width, lit_int))
-                                    }
-                                    WPartialBasicType::Unsigned(width) => {
-                                        Some(WHighMckNew::Unsigned(*width, lit_int))
-                                    }
-                                    WPartialBasicType::Signed(width) => {
-                                        Some(WHighMckNew::Signed(*width, lit_int))
+                                    WPartialBasicType::Bitvector(signedness, width) => {
+                                        Some(WHighMckNew::Bitvector(*signedness, *width, lit_int))
                                     }
                                     _ => None,
                                 };

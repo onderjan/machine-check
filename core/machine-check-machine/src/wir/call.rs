@@ -1,4 +1,4 @@
-use machine_check_common::ir_common::IrTypeArray;
+use machine_check_common::{ir_common::IrTypeArray, Signedness};
 use proc_macro2::Span;
 use std::fmt::Debug;
 use syn::{
@@ -52,10 +52,8 @@ pub struct WPhiTaken {
 
 #[derive(Clone, Debug, Hash)]
 pub enum WHighMckNew {
-    Bitvector(Option<u32>, i128),
+    Bitvector(Signedness, Option<u32>, i128),
     BitvectorArray(IrTypeArray, WIdent),
-    Unsigned(Option<u32>, i128),
-    Signed(Option<u32>, i128),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -88,15 +86,9 @@ pub struct WMckExt {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WHighStdInto {
-    pub ty: WHighStdIntoType,
+    pub signedness: Signedness,
+    pub width: Option<u32>,
     pub from: WIdent,
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WHighStdIntoType {
-    Bitvector(Option<u32>),
-    Unsigned(Option<u32>),
-    Signed(Option<u32>),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -250,22 +242,12 @@ impl IntoSyn<Expr> for WExprHighCall {
                     String::from(MCK_HIGH_BITVECTOR_ARRAY_NEW),
                     vec![WCallArg::Ident(ident)],
                 ),
-                WHighMckNew::Bitvector(_width, constant) => (
-                    String::from(MCK_HIGH_BITVECTOR_NEW),
-                    vec![WCallArg::Literal(Lit::Int(LitInt::new(
-                        constant.to_string().as_str(),
-                        span,
-                    )))],
-                ),
-                WHighMckNew::Unsigned(_width, constant) => (
-                    String::from(MCK_HIGH_UNSIGNED_NEW),
-                    vec![WCallArg::Literal(Lit::Int(LitInt::new(
-                        constant.to_string().as_str(),
-                        span,
-                    )))],
-                ),
-                WHighMckNew::Signed(_width, constant) => (
-                    String::from(MCK_HIGH_SIGNED_NEW),
+                WHighMckNew::Bitvector(signedness, _width, constant) => (
+                    String::from(match signedness {
+                        Signedness::None => MCK_HIGH_BITVECTOR_NEW,
+                        Signedness::Unsigned => MCK_HIGH_UNSIGNED_NEW,
+                        Signedness::Signed => MCK_HIGH_SIGNED_NEW,
+                    }),
                     vec![WCallArg::Literal(Lit::Int(LitInt::new(
                         constant.to_string().as_str(),
                         span,

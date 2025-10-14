@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use machine_check_common::ir_common::{IrReference, IrStdBinaryOp, IrStdUnaryOp, IrTypeArray};
+use machine_check_common::{
+    ir_common::{IrReference, IrStdBinaryOp, IrStdUnaryOp, IrTypeArray},
+    Signedness,
+};
 use syn::{
     punctuated::Punctuated, spanned::Spanned, token::Comma, Expr, ExprBinary, ExprCall, ExprField,
     ExprIndex, ExprLit, ExprReference, ExprStruct, ExprUnary, GenericArgument, Lit, Member, Path,
@@ -15,12 +18,12 @@ use crate::{
     },
     util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
     wir::{
-        WArrayBaseExpr, WBasicType, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall,
-        WExprReference, WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WHighStdIntoType,
-        WIdent, WIfCondition, WIndexedExpr, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
-        WPartialBasicType, WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, WType, ZTac,
-        MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW,
-        MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
+        WArrayBaseExpr, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall, WExprReference,
+        WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WIdent, WIfCondition, WIndexedExpr,
+        WIndexedIdent, WMacroableStmt, WNoIfPolarity, WPartialBasicType, WSpan, WStdBinary,
+        WStdUnary, WStmtAssign, WStmtIf, WType, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW,
+        MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW,
+        STD_CLONE, STD_INTO,
     },
 };
 
@@ -239,9 +242,9 @@ impl RightExprFolder<'_> {
         let value = self.parse_single_const_arg(args)?;
 
         let kind = match second_segment.ident.to_string().as_str() {
-            "Bitvector" => WHighMckNew::Bitvector(width, value),
-            "Unsigned" => WHighMckNew::Unsigned(width, value),
-            "Signed" => WHighMckNew::Signed(width, value),
+            "Bitvector" => WHighMckNew::Bitvector(Signedness::None, width, value),
+            "Unsigned" => WHighMckNew::Bitvector(Signedness::Unsigned, width, value),
+            "Signed" => WHighMckNew::Bitvector(Signedness::Signed, width, value),
             _ => panic!("Unexpected function path here"),
         };
 
@@ -268,10 +271,8 @@ impl RightExprFolder<'_> {
             ));
         };
 
-        let ty = match ty.inner {
-            WPartialBasicType::Bitvector(width) => WHighStdIntoType::Bitvector(width),
-            WPartialBasicType::Unsigned(width) => WHighStdIntoType::Unsigned(width),
-            WPartialBasicType::Signed(width) => WHighStdIntoType::Signed(width),
+        let (signedness, width) = match ty.inner {
+            WPartialBasicType::Bitvector(signedness, width) => (signedness, width),
             _ => {
                 return Err(Error::unsupported_syn_construct(
                     "Non-bitvector type",
@@ -281,7 +282,11 @@ impl RightExprFolder<'_> {
         };
 
         let from = self.parse_single_ident_arg(args)?;
-        Ok(WExprHighCall::StdInto(WHighStdInto { ty, from }))
+        Ok(WExprHighCall::StdInto(WHighStdInto {
+            signedness,
+            width,
+            from,
+        }))
     }
 
     fn parse_single_u32_generics_opt(segment: &PathSegment) -> Result<Option<u32>, Error> {

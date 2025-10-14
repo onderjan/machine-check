@@ -1,9 +1,12 @@
-use machine_check_common::ir_common::{IrReference, IrTypeArray};
+use machine_check_common::{
+    ir_common::{IrReference, IrTypeArray},
+    Signedness,
+};
 use syn::{Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
     into_wir::{from_syn::path::fold_path, Error, ErrorType},
-    wir::{WBasicType, WPartialBasicType, WPath, WSpan, WType},
+    wir::{WPartialBasicType, WPath, WSpan, WType},
 };
 
 pub fn fold_type(mut ty: Type, self_ty: Option<&WPath>) -> Result<WType<WPartialBasicType>, Error> {
@@ -48,15 +51,18 @@ pub fn fold_basic_type(ty: Type, self_ty: Option<&WPath>) -> Result<WPartialBasi
 
             if ty.path.segments.len() == 2 {
                 known_type = match second_segment.ident.to_string().as_str() {
-                    "Bitvector" => Some(WPartialBasicType::Bitvector(extract_generic_size_opt(
-                        arguments,
-                    )?)),
-                    "Unsigned" => Some(WPartialBasicType::Unsigned(extract_generic_size_opt(
-                        arguments,
-                    )?)),
-                    "Signed" => Some(WPartialBasicType::Signed(extract_generic_size_opt(
-                        arguments,
-                    )?)),
+                    "Bitvector" => Some(WPartialBasicType::Bitvector(
+                        Signedness::None,
+                        extract_generic_size_opt(arguments)?,
+                    )),
+                    "Unsigned" => Some(WPartialBasicType::Bitvector(
+                        Signedness::Unsigned,
+                        extract_generic_size_opt(arguments)?,
+                    )),
+                    "Signed" => Some(WPartialBasicType::Bitvector(
+                        Signedness::Signed,
+                        extract_generic_size_opt(arguments)?,
+                    )),
                     "BitvectorArray" => {
                         let sizes = extract_generic_sizes(arguments, 2)?;
                         Some(WPartialBasicType::BitvectorArray(IrTypeArray {

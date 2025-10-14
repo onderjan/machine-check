@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use machine_check_common::iir::IProperty;
 use machine_check_common::ir_common::IrTypeArray;
+use machine_check_common::Signedness;
 use mck::concr::FullMachine;
 use proc_macro2::{Ident, Span};
 use quote::quote;
@@ -56,7 +57,7 @@ pub fn inherent_property() -> IProperty {
     let mut global_basic_types = HashMap::new();
     global_basic_types.insert(
         WIdent::new(String::from("__panic"), Span::call_site()),
-        WBasicType::Bitvector(32),
+        WBasicType::Bitvector(Signedness::None, 32),
     );
 
     let expr = parse_quote!(AG![__panic == 0]);
@@ -137,7 +138,7 @@ pub fn process_property<M: FullMachine>(
     // TODO: get signedness information
     for (global_name, elementary_type) in &global_ident_types {
         let ty = match elementary_type {
-            WElementaryType::Bitvector(width) => WBasicType::Bitvector(*width),
+            WElementaryType::Bitvector(width) => WBasicType::Bitvector(Signedness::None, *width),
             WElementaryType::Array(type_array) => WBasicType::BitvectorArray(type_array.clone()),
             WElementaryType::Boolean => todo!(),
             WElementaryType::Path(_path) => todo!(),

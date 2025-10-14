@@ -467,9 +467,7 @@ impl LocalVisitor<'_> {
                     crate::wir::WHighMckNew::BitvectorArray(_type_array, ident) => {
                         self.process_ident(ident);
                     }
-                    WHighMckNew::Bitvector(..)
-                    | WHighMckNew::Unsigned(..)
-                    | WHighMckNew::Signed(..) => {
+                    WHighMckNew::Bitvector(..) => {
                         // do nothing
                     }
                 }

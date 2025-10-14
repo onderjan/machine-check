@@ -3,7 +3,7 @@ use machine_check_common::ir_common::IrReference;
 use crate::{
     into_wir::Errors,
     wir::{
-        WBasicType, WBlock, WExpr, WExprField, WExprReference, WIdent, WItemFn, WPartialBasicType,
+        WBlock, WExpr, WExprField, WExprReference, WIdent, WItemFn, WPartialBasicType,
         WPartialGeneralType, WStmtAssign, WType, YSsa, ZSsa,
     },
 };
@@ -44,12 +44,12 @@ impl super::FnInferrer<'_> {
             return Ok(false);
         };
 
-        let ty = ty.clone();
-
         // check whether the left type has already a determined left type
         if ty.is_fully_determined() {
             // we already have determined left type
             // try to infer PanicResult type if it is field base
+
+            let ty = ty.clone();
 
             if let WPartialGeneralType::Normal(left_type) = ty {
                 if let WExpr::Field(right_field) = &assign.right {
@@ -68,7 +68,7 @@ impl super::FnInferrer<'_> {
 
         let inferred_type = match &mut assign.right {
             WExpr::Move(right_ident) => self.infer_move_result_type(right_ident),
-            WExpr::Call(right_call) => self.infer_call_result_type(right_call, &ty)?,
+            WExpr::Call(right_call) => self.infer_call_result_type(right_call)?,
             WExpr::Field(right_field) => self.infer_field_result_type(right_field),
             WExpr::Reference(right_reference) => self.infer_reference_result_type(right_reference),
             WExpr::Struct(right_struct) => WPartialGeneralType::Normal(WType {

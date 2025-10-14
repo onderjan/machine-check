@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::{
-    parse::Parser, punctuated::Punctuated, spanned::Spanned, visit::Visit, Fields, Generics, Ident,
-    ImplItem, ImplItemType, ItemImpl, ItemStruct, Path, Token, Type, Visibility,
+    parse::Parser, punctuated::Punctuated, visit::Visit, Fields, Generics, Ident, ImplItem,
+    ImplItemType, ItemImpl, ItemStruct, Path, Token, Type, Visibility,
 };
 
 use crate::{
@@ -112,7 +112,6 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
     let mut fields = Vec::new();
 
     for field in fields_named.named {
-        let span = field.span();
         let Some(field_ident) = field.ident else {
             panic!("Unexpected tuple struct");
         };
