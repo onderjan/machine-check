@@ -82,7 +82,7 @@ mod machine_module {
             // i.e. Ext::<8>::ext(a), rather than method call input.increment.ext()
             let mut next_value = state.value + Ext::<8>::ext(input.increment);
             // If the next value is 157, it is immediately set to 0.
-            if false {
+            if next_value == Unsigned::<8>::new(157) {
                 next_value = Unsigned::<8>::new(0);
             }
 
