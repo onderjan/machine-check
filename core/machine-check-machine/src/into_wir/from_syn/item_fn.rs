@@ -76,7 +76,7 @@ struct FunctionScope {
 struct FunctionFolder {
     self_ty: Option<WPath>,
     ident_creator: IdentCreator,
-    local_types: BTreeMap<WIdent, WPartialGeneralType<WBasicType>>,
+    local_types: BTreeMap<WIdent, WPartialGeneralType>,
     scopes: Vec<FunctionScope>,
     next_scope_id: u32,
 }
@@ -210,6 +210,13 @@ impl FunctionFolder {
 
         let (inputs, output) = Errors::combine(inputs, output)?;
 
+        let Some(output) = output.try_total() else {
+            return Err(Errors::single(Error::new(
+                ErrorType::IllegalConstruct(String::from("Result with partially specified type")),
+                signature_span,
+            )));
+        };
+
         Ok(WSignature {
             ident: WIdent::from_syn_ident(signature.ident),
             inputs,
@@ -276,7 +283,22 @@ impl FunctionFolder {
                 };
 
                 let original_ident = WIdent::from_syn_ident(pat_ident.ident);
+                let pat_ty = pat_type.ty.clone();
                 let ty = fold_type(*pat_type.ty, self.self_ty.as_ref())?;
+
+                let ty = if let Some(basic_type) = ty.inner.try_total() {
+                    WType {
+                        reference: ty.reference,
+                        inner: basic_type,
+                    }
+                } else {
+                    return Err(Error::new(
+                        ErrorType::IllegalConstruct(String::from(
+                            "Field with partially specified type",
+                        )),
+                        WSpan::from_syn(&pat_ty),
+                    ));
+                };
 
                 let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
 
@@ -334,12 +356,7 @@ impl FunctionFolder {
         None
     }
 
-    fn add_local_ident(
-        &mut self,
-        scope_id: u32,
-        original_ident: WIdent,
-        ty: WPartialGeneralType<WBasicType>,
-    ) {
+    fn add_local_ident(&mut self, scope_id: u32, original_ident: WIdent, ty: WPartialGeneralType) {
         let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
         self.local_types.insert(locally_unique_ident, ty);
     }

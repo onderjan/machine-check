@@ -9,9 +9,9 @@ use crate::{
     into_wir::{Error, ErrorType, Errors},
     wir::{
         WBasicType, WBlock, WDescription, WExpr, WExprHighCall, WGeneralType, WHighMckNew, WIdent,
-        WItemFn, WItemImpl, WItemStruct, WPartialGeneralType, WPath, WProperty, WSignature,
-        WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty, WType, YInferred, YSsa,
-        ZSsa,
+        WItemFn, WItemImpl, WItemStruct, WPartialBasicType, WPartialGeneralType, WPath, WProperty,
+        WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty, WType,
+        YInferred, YSsa, ZSsa,
     },
 };
 
@@ -90,6 +90,16 @@ fn infer_fn_types(
         }
     }
 
+    fn convert_self_partial(ty: &mut WType<WPartialBasicType>, self_path: Option<&WPath>) {
+        if let Some(self_path) = self_path {
+            if let WPartialBasicType::Path(path) = &mut ty.inner {
+                if path.matches_relative(&["Self"]) {
+                    *path = self_path.clone();
+                }
+            }
+        }
+    }
+
     let mut local_ident_types = HashMap::new();
 
     // add param idents
@@ -99,14 +109,14 @@ fn infer_fn_types(
 
         local_ident_types.insert(
             fn_arg.ident.clone(),
-            WPartialGeneralType::Normal(arg_ty.clone()),
+            WPartialGeneralType::Normal(WType::from_total(arg_ty.clone())),
         );
     }
 
     // determine local idents and initial types
     for local in &mut impl_item_fn.locals {
         if let WPartialGeneralType::Normal(ty) = &mut local.ty {
-            convert_self(ty, self_path);
+            convert_self_partial(ty, self_path);
         }
         local_ident_types.insert(local.ident.clone(), local.ty.clone());
     }
@@ -118,19 +128,19 @@ fn infer_fn_types(
     };
 
     // infer within a loop to allow for transitive inference
-    inferrer.infer_fn_types_next(&impl_item_fn)?;
+    inferrer.infer_fn_types_next(&mut impl_item_fn)?;
 
     // update the local types
     inferrer.update_local_types(impl_item_fn)
 }
 
 struct FnInferrer<'a> {
-    local_ident_types: HashMap<WIdent, WPartialGeneralType<WBasicType>>,
+    local_ident_types: HashMap<WIdent, WPartialGeneralType>,
     structs: &'a HashMap<WPath, WItemStruct<WBasicType>>,
 }
 
 impl FnInferrer<'_> {
-    fn infer_fn_types_next(&mut self, impl_item_fn: &WItemFn<YSsa>) -> Result<(), Errors> {
+    fn infer_fn_types_next(&mut self, impl_item_fn: &mut WItemFn<YSsa>) -> Result<(), Errors> {
         loop {
             // infer as much as we can
             let inferred_something = self.process_impl_item_fn(impl_item_fn)?;
@@ -216,9 +226,11 @@ impl FnInferrer<'_> {
             let inferred_type = self.local_ident_types.get(&local.ident).unwrap().clone();
 
             let inferred_type = match inferred_type {
-                WPartialGeneralType::Normal(ty) => Some(WGeneralType::Normal(ty)),
-                WPartialGeneralType::PanicResult(Some(ty)) => Some(WGeneralType::PanicResult(ty)),
-                WPartialGeneralType::PhiArg(Some(ty)) => Some(WGeneralType::PhiArg(ty)),
+                WPartialGeneralType::Normal(ty) => ty.try_total().map(WGeneralType::Normal),
+                WPartialGeneralType::PanicResult(Some(ty)) => {
+                    ty.try_total().map(WGeneralType::PanicResult)
+                }
+                WPartialGeneralType::PhiArg(Some(ty)) => ty.try_total().map(WGeneralType::PhiArg),
                 _ => None,
             };
 
@@ -279,13 +291,13 @@ impl FnInferrer<'_> {
                             }) = left_type
                             {
                                 right_replacement = match inner {
-                                    WBasicType::Bitvector(width) => {
+                                    WPartialBasicType::Bitvector(width) => {
                                         Some(WHighMckNew::Bitvector(*width, lit_int))
                                     }
-                                    WBasicType::Unsigned(width) => {
+                                    WPartialBasicType::Unsigned(width) => {
                                         Some(WHighMckNew::Unsigned(*width, lit_int))
                                     }
-                                    WBasicType::Signed(width) => {
+                                    WPartialBasicType::Signed(width) => {
                                         Some(WHighMckNew::Signed(*width, lit_int))
                                     }
                                     _ => None,

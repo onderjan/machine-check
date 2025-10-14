@@ -7,9 +7,9 @@ use proc_macro2::Span;
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WBasicType, WBlock, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent,
-        WIfCondition, WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity, WPanicResult,
-        WPanicResultType, WPartialGeneralType, WProperty, WSignature, WStdBinary, WStmt,
+        WBlock, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent, WIfCondition,
+        WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity, WPanicResult, WPanicResultType,
+        WPartialBasicType, WPartialGeneralType, WProperty, WSignature, WStdBinary, WStmt,
         WStmtAssign, WStmtIf, WSubproperty, WTacLocal, WType, YNonindexed, YTotal, ZNonindexed,
         ZTotal,
     },
@@ -323,15 +323,18 @@ impl FnConverter<'_> {
 }
 
 fn create_panic_call(int_val: i128) -> WExpr<WExprHighCall> {
-    WExpr::Call(WExprHighCall::MckNew(WHighMckNew::Bitvector(32, int_val)))
+    WExpr::Call(WExprHighCall::MckNew(WHighMckNew::Bitvector(
+        Some(32),
+        int_val,
+    )))
 }
 
-fn create_panic_type_local(ident: WIdent) -> WTacLocal<WPartialGeneralType<WBasicType>> {
+fn create_panic_type_local(ident: WIdent) -> WTacLocal<WPartialGeneralType> {
     WTacLocal {
         ident,
         ty: crate::wir::WPartialGeneralType::Normal(WType {
             reference: IrReference::None,
-            inner: WBasicType::Bitvector(32),
+            inner: WPartialBasicType::Bitvector(Some(32)),
         }),
     }
 }

@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::{
-    parse::Parser, punctuated::Punctuated, visit::Visit, Fields, Generics, Ident, ImplItem,
-    ImplItemType, ItemImpl, ItemStruct, Path, Token, Type, Visibility,
+    parse::Parser, punctuated::Punctuated, spanned::Spanned, visit::Visit, Fields, Generics, Ident,
+    ImplItem, ImplItemType, ItemImpl, ItemStruct, Path, Token, Type, Visibility,
 };
 
 use crate::{
@@ -112,18 +112,31 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
     let mut fields = Vec::new();
 
     for field in fields_named.named {
+        let span = field.span();
         let Some(field_ident) = field.ident else {
             panic!("Unexpected tuple struct");
         };
 
         let visibility = fold_visibility(field.vis)?;
         let ident = WIdent::from_syn_ident(field_ident);
+        let field_ty = field.ty.clone();
         let field = match fold_basic_type(field.ty, Some(&self_path)) {
-            Ok(ty) => Ok(WField {
-                visibility,
-                ident,
-                ty,
-            }),
+            Ok(ty) => {
+                if let Some(ty) = ty.try_total() {
+                    Ok(WField {
+                        visibility,
+                        ident,
+                        ty,
+                    })
+                } else {
+                    Err(Error::new(
+                        ErrorType::IllegalConstruct(String::from(
+                            "Field with partially specified type",
+                        )),
+                        WSpan::from_syn(&field_ty),
+                    ))
+                }
+            }
             Err(err) => Err(err),
         };
 

@@ -181,7 +181,7 @@ impl YStage for YTac {
     type InputType = WType<WBasicType>;
     type OutputType = WBasicType;
     type FnResult = WIdent;
-    type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
+    type Local = WTacLocal<WPartialGeneralType>;
     type ItemImplTrait = WItemImplTrait;
 }
 
@@ -193,7 +193,7 @@ impl YStage for YNonindexed {
     type InputType = WType<WBasicType>;
     type OutputType = WBasicType;
     type FnResult = WIdent;
-    type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
+    type Local = WTacLocal<WPartialGeneralType>;
     type ItemImplTrait = WItemImplTrait;
 }
 
@@ -205,7 +205,7 @@ impl YStage for YTotal {
     type InputType = WType<WBasicType>;
     type OutputType = WPanicResultType<WBasicType>;
     type FnResult = WPanicResult;
-    type Local = WTacLocal<WPartialGeneralType<WBasicType>>;
+    type Local = WTacLocal<WPartialGeneralType>;
     type ItemImplTrait = WItemImplTrait;
 }
 
@@ -217,7 +217,7 @@ impl YStage for YSsa {
     type InputType = WType<WBasicType>;
     type OutputType = WPanicResultType<WBasicType>;
     type FnResult = WPanicResult;
-    type Local = WSsaLocal<WPartialGeneralType<WBasicType>>;
+    type Local = WSsaLocal<WPartialGeneralType>;
     type ItemImplTrait = WItemImplTrait;
 }
 

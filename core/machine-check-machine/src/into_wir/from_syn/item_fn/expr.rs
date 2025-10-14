@@ -17,10 +17,10 @@ use crate::{
     wir::{
         WArrayBaseExpr, WBasicType, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall,
         WExprReference, WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WHighStdIntoType,
-        WIdent, WIfCondition, WIndexedExpr, WIndexedIdent, WMacroableStmt, WNoIfPolarity, WSpan,
-        WStdBinary, WStdUnary, WStmtAssign, WStmtIf, WType, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW,
-        MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW,
-        STD_CLONE, STD_INTO,
+        WIdent, WIfCondition, WIndexedExpr, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
+        WPartialBasicType, WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, WType, ZTac,
+        MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW,
+        MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
     },
 };
 
@@ -204,7 +204,7 @@ impl RightExprFolder<'_> {
         let mut fn_path = fn_path.clone();
 
         let second_segment = &mut fn_path.segments[1];
-        let width = Self::parse_single_u32_generics(second_segment)?;
+        let width = Self::parse_single_u32_generics_opt(second_segment)?;
         second_segment.arguments = syn::PathArguments::None;
 
         Self::assure_nongeneric_fn_path(&fn_path)?;
@@ -233,7 +233,7 @@ impl RightExprFolder<'_> {
             )));
         }
 
-        let width = Self::parse_single_u32_generics(second_segment)?;
+        let width = Self::parse_single_u32_generics_opt(second_segment)?;
         second_segment.arguments = syn::PathArguments::None;
 
         let value = self.parse_single_const_arg(args)?;
@@ -269,9 +269,9 @@ impl RightExprFolder<'_> {
         };
 
         let ty = match ty.inner {
-            WBasicType::Bitvector(width) => WHighStdIntoType::Bitvector(width),
-            WBasicType::Unsigned(width) => WHighStdIntoType::Unsigned(width),
-            WBasicType::Signed(width) => WHighStdIntoType::Signed(width),
+            WPartialBasicType::Bitvector(width) => WHighStdIntoType::Bitvector(width),
+            WPartialBasicType::Unsigned(width) => WHighStdIntoType::Unsigned(width),
+            WPartialBasicType::Signed(width) => WHighStdIntoType::Signed(width),
             _ => {
                 return Err(Error::unsupported_syn_construct(
                     "Non-bitvector type",
@@ -282,6 +282,14 @@ impl RightExprFolder<'_> {
 
         let from = self.parse_single_ident_arg(args)?;
         Ok(WExprHighCall::StdInto(WHighStdInto { ty, from }))
+    }
+
+    fn parse_single_u32_generics_opt(segment: &PathSegment) -> Result<Option<u32>, Error> {
+        Ok(if matches!(segment.arguments, PathArguments::None) {
+            None
+        } else {
+            Some(Self::parse_single_u32_generics(segment)?)
+        })
     }
 
     fn parse_single_u32_generics(segment: &PathSegment) -> Result<u32, Error> {
@@ -317,7 +325,7 @@ impl RightExprFolder<'_> {
     fn parse_single_type_generics(
         &self,
         segment: &PathSegment,
-    ) -> Result<WType<WBasicType>, Error> {
+    ) -> Result<WType<WPartialBasicType>, Error> {
         let turbofished = Self::extract_turbofished(segment)?;
         if turbofished.len() != 1 {
             return Err(Error::new(

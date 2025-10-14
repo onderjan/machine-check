@@ -165,12 +165,18 @@ fn convert_ext(
 
 fn convert_mck_new(call: WHighMckNew) -> WMckNew {
     match call {
-        WHighMckNew::Bitvector(width, constant) => WMckNew::Bitvector(width, constant),
+        WHighMckNew::Bitvector(width, constant) => {
+            WMckNew::Bitvector(width.expect("Created width should be known"), constant)
+        }
         WHighMckNew::BitvectorArray(type_array, fill_element) => {
             WMckNew::BitvectorArray(type_array, fill_element)
         }
-        WHighMckNew::Unsigned(width, constant) => WMckNew::Bitvector(width, constant),
-        WHighMckNew::Signed(width, constant) => WMckNew::Bitvector(width, constant),
+        WHighMckNew::Unsigned(width, constant) => {
+            WMckNew::Bitvector(width.expect("Created width should be known"), constant)
+        }
+        WHighMckNew::Signed(width, constant) => {
+            WMckNew::Bitvector(width.expect("Created width should be known"), constant)
+        }
     }
 }
 

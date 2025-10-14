@@ -208,7 +208,7 @@ struct LocalVisitor<'a> {
     pub branch_counter: u32,
     pub local_ident_counters: BTreeMap<WIdent, Counter>,
     pub nonlocal_idents: BTreeSet<WIdent>,
-    pub temps: BTreeMap<WIdent, (WIdent, WPartialGeneralType<WBasicType>)>,
+    pub temps: BTreeMap<WIdent, (WIdent, WPartialGeneralType)>,
     pub errors: Vec<Error>,
     pub uninit_counter: u32,
 }
@@ -217,7 +217,7 @@ struct LocalVisitor<'a> {
 struct Counter {
     pub present: BTreeSet<u32>,
     pub next: u32,
-    pub ty: WPartialGeneralType<WBasicType>,
+    pub ty: WPartialGeneralType,
 }
 
 impl LocalVisitor<'_> {
@@ -563,7 +563,7 @@ fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
 }
 
 fn create_new_temporary(
-    temps: &mut BTreeMap<WIdent, (WIdent, WPartialGeneralType<WBasicType>)>,
+    temps: &mut BTreeMap<WIdent, (WIdent, WPartialGeneralType)>,
     orig_ident: &WIdent,
     counter: &mut Counter,
 ) -> WIdent {
@@ -580,10 +580,10 @@ fn create_new_temporary(
 
 fn create_existing_temporary(
     block: &mut WBlock<ZSsa>,
-    temps: &mut BTreeMap<WIdent, (WIdent, WPartialGeneralType<WBasicType>)>,
+    temps: &mut BTreeMap<WIdent, (WIdent, WPartialGeneralType)>,
     orig_ident: &WIdent,
     current: Option<u32>,
-    ty: WPartialGeneralType<WBasicType>,
+    ty: WPartialGeneralType,
     uninit_counter: &mut u32,
 ) -> WIdent {
     if let Some(current) = current {

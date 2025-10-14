@@ -11,6 +11,16 @@ use syn::{
 use super::{IntoSyn, WIdent, WPath};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
+pub enum WPartialBasicType {
+    Bitvector(Option<u32>),
+    BitvectorArray(IrTypeArray),
+    Unsigned(Option<u32>),
+    Signed(Option<u32>),
+    Boolean,
+    Path(WPath),
+}
+
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WBasicType {
     Bitvector(u32),
     BitvectorArray(IrTypeArray),
@@ -54,14 +64,14 @@ impl WBasicType {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum WPartialGeneralType<FT: IntoSyn<Type>> {
+pub enum WPartialGeneralType {
     Unknown,
-    Normal(WType<FT>),
-    PanicResult(Option<WType<FT>>),
-    PhiArg(Option<WType<FT>>),
+    Normal(WType<WPartialBasicType>),
+    PanicResult(Option<WType<WPartialBasicType>>),
+    PhiArg(Option<WType<WPartialBasicType>>),
 }
 
-impl WPartialGeneralType<WBasicType> {
+impl WPartialGeneralType {
     pub fn is_fully_determined(&self) -> bool {
         match &self {
             WPartialGeneralType::Unknown => false,
@@ -89,6 +99,99 @@ impl IntoSyn<Type> for WBasicType {
                 path: path.into(),
             }),
             WBasicType::Boolean => create_machine_check_type("Boolean", &[], span),
+        }
+    }
+}
+
+impl IntoSyn<Type> for WPartialBasicType {
+    fn into_syn(self) -> Type {
+        let span = Span::call_site();
+        match self {
+            WPartialBasicType::Bitvector(width) => {
+                create_machine_check_type_opt_width("Bitvector", width, span)
+            }
+            WPartialBasicType::Unsigned(width) => {
+                create_machine_check_type_opt_width("Unsigned", width, span)
+            }
+            WPartialBasicType::Signed(width) => {
+                create_machine_check_type_opt_width("Signed", width, span)
+            }
+            WPartialBasicType::BitvectorArray(array) => create_machine_check_type(
+                "BitvectorArray",
+                &[array.index_width, array.element_width],
+                span,
+            ),
+            WPartialBasicType::Path(path) => Type::Path(TypePath {
+                qself: None,
+                path: path.into(),
+            }),
+            WPartialBasicType::Boolean => create_machine_check_type("Boolean", &[], span),
+        }
+    }
+}
+
+impl WPartialBasicType {
+    pub fn into_type(self) -> WType<WPartialBasicType> {
+        WType {
+            reference: IrReference::None,
+            inner: self,
+        }
+    }
+
+    pub fn try_total(self) -> Option<WBasicType> {
+        Some(match self {
+            WPartialBasicType::Bitvector(width) => {
+                let Some(width) = width else {
+                    return None;
+                };
+                WBasicType::Bitvector(width)
+            }
+            WPartialBasicType::BitvectorArray(array) => WBasicType::BitvectorArray(array),
+            WPartialBasicType::Unsigned(width) => {
+                let Some(width) = width else {
+                    return None;
+                };
+                WBasicType::Unsigned(width)
+            }
+            WPartialBasicType::Signed(width) => {
+                let Some(width) = width else {
+                    return None;
+                };
+                WBasicType::Signed(width)
+            }
+            WPartialBasicType::Boolean => WBasicType::Boolean,
+            WPartialBasicType::Path(path) => WBasicType::Path(path),
+        })
+    }
+
+    pub fn from_total(ty: WBasicType) -> WPartialBasicType {
+        match ty {
+            WBasicType::Bitvector(width) => WPartialBasicType::Bitvector(Some(width)),
+            WBasicType::BitvectorArray(array) => WPartialBasicType::BitvectorArray(array),
+            WBasicType::Unsigned(width) => WPartialBasicType::Unsigned(Some(width)),
+            WBasicType::Signed(width) => WPartialBasicType::Signed(Some(width)),
+            WBasicType::Boolean => WPartialBasicType::Boolean,
+            WBasicType::Path(path) => WPartialBasicType::Path(path),
+        }
+    }
+}
+
+impl WType<WPartialBasicType> {
+    pub fn try_total(self) -> Option<WType<WBasicType>> {
+        if let Some(inner) = self.inner.try_total() {
+            Some(WType {
+                reference: self.reference,
+                inner,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn from_total(ty: WType<WBasicType>) -> WType<WPartialBasicType> {
+        WType {
+            reference: ty.reference,
+            inner: WPartialBasicType::from_total(ty.inner),
         }
     }
 }
@@ -178,9 +281,35 @@ impl<FT: IntoSyn<Type>> WType<FT> {
 impl<FT: IntoSyn<Type>> IntoSyn<Type> for WGeneralType<FT> {
     fn into_syn(self) -> Type {
         match self {
-            WGeneralType::Normal(ty) => WPartialGeneralType::Normal(ty).into_syn(),
-            WGeneralType::PanicResult(ty) => WPartialGeneralType::PanicResult(Some(ty)).into_syn(),
-            WGeneralType::PhiArg(ty) => WPartialGeneralType::PhiArg(Some(ty)).into_syn(),
+            WGeneralType::Normal(normal) => normal.into_syn(),
+            WGeneralType::PanicResult(inner) => {
+                panic_result_syn_type("forward", Some(IntoSyn::into_syn(inner)))
+            }
+            WGeneralType::PhiArg(inner) => {
+                let span = Span::call_site();
+                let mut segments =
+                    Punctuated::from_iter(["mck", "forward", "PhiArg"].into_iter().map(|name| {
+                        PathSegment {
+                            ident: Ident::new(name, span),
+                            arguments: PathArguments::None,
+                        }
+                    }));
+                let inner = inner.into_syn();
+                segments[2].arguments =
+                    PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                        colon2_token: None,
+                        lt_token: Token![<](span),
+                        args: Punctuated::from_iter(vec![GenericArgument::Type(inner)]),
+                        gt_token: Token![>](span),
+                    });
+                Type::Path(TypePath {
+                    qself: None,
+                    path: Path {
+                        leading_colon: Some(Token![::](span)),
+                        segments,
+                    },
+                })
+            }
         }
     }
 }
@@ -217,7 +346,7 @@ pub fn panic_result_syn_type(flavour: &str, inner: Option<Type>) -> Type {
     })
 }
 
-impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPartialGeneralType<FT> {
+impl IntoSyn<Type> for WPartialGeneralType {
     fn into_syn(self) -> Type {
         let span = Span::call_site();
         match self {
@@ -256,6 +385,14 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WPartialGeneralType<FT> {
                 underscore_token: Token![_](span),
             }),
         }
+    }
+}
+
+fn create_machine_check_type_opt_width(name: &str, width: Option<u32>, span: Span) -> Type {
+    if let Some(width) = width {
+        create_machine_check_type(name, &[width], span)
+    } else {
+        create_machine_check_type(name, &[], span)
     }
 }
 
@@ -346,6 +483,41 @@ impl IntoSyn<Expr> for WPanicResult {
             dot2_token: None,
             rest: None,
         })
+    }
+}
+
+impl Debug for WPartialBasicType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bitvector(width) => {
+                if let Some(width) = width {
+                    write!(f, "::mck::Bitvector<{}>", width)
+                } else {
+                    write!(f, "::mck::Bitvector")
+                }
+            }
+            Self::Unsigned(width) => {
+                if let Some(width) = width {
+                    write!(f, "::mck::Unsigned<{}>", width)
+                } else {
+                    write!(f, "::mck::Unsigned")
+                }
+            }
+            Self::Signed(width) => {
+                if let Some(width) = width {
+                    write!(f, "::mck::Signed<{}>", width)
+                } else {
+                    write!(f, "::mck::Signed")
+                }
+            }
+            Self::BitvectorArray(type_array) => write!(
+                f,
+                "::machine_check::BitvectorArray<{},{}>",
+                type_array.element_width, type_array.index_width
+            ),
+            Self::Boolean => write!(f, "Boolean"),
+            Self::Path(path) => path.fmt(f),
+        }
     }
 }
 

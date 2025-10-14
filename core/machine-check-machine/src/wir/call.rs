@@ -52,10 +52,10 @@ pub struct WPhiTaken {
 
 #[derive(Clone, Debug, Hash)]
 pub enum WHighMckNew {
-    Bitvector(u32, i128),
+    Bitvector(Option<u32>, i128),
     BitvectorArray(IrTypeArray, WIdent),
-    Unsigned(u32, i128),
-    Signed(u32, i128),
+    Unsigned(Option<u32>, i128),
+    Signed(Option<u32>, i128),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -75,14 +75,14 @@ pub struct WArrayNew {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WHighMckExt {
-    pub width: u32,
+    pub width: Option<u32>,
     pub from: WIdent,
 }
 
 #[derive(Clone, Debug, Hash)]
 pub struct WMckExt {
     pub signed: bool,
-    pub width: u32,
+    pub width: Option<u32>,
     pub from: WIdent,
 }
 
@@ -94,9 +94,9 @@ pub struct WHighStdInto {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WHighStdIntoType {
-    Bitvector(u32),
-    Unsigned(u32),
-    Signed(u32),
+    Bitvector(Option<u32>),
+    Unsigned(Option<u32>),
+    Signed(Option<u32>),
 }
 
 #[derive(Clone, Debug, Hash)]
