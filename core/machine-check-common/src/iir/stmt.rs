@@ -79,7 +79,7 @@ pub struct IIfStmt {
 
 impl IIfStmt {
     fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) {
-        if self.should_take_then(&abstr) {
+        if self.should_take_then(abstr) {
             for stmt in &self.then_block.stmts {
                 stmt.forward_interpret(abstr);
             }

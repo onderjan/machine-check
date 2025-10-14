@@ -28,12 +28,12 @@ impl Join for IRefinementValue {
     fn join(&self, right: &Self) -> Self {
         match (self, right) {
             (IRefinementValue::Bitvector(left), IRefinementValue::Bitvector(right)) => {
-                let mut left = left.clone();
+                let mut left = *left;
                 left.apply_join(right);
                 IRefinementValue::Bitvector(left)
             }
             (IRefinementValue::Boolean(left), IRefinementValue::Boolean(right)) => {
-                let mut left = left.clone();
+                let mut left = *left;
                 left.apply_join(right);
                 IRefinementValue::Boolean(left)
             }

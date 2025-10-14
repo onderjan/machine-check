@@ -99,41 +99,17 @@ impl<M: FullMachine> Deducer<'_, M> {
 
         self.subproperty_index = match &subproperty_entry {
             ISubproperty::Func(func, _children) => {
-                //todo!("Func, value {:?}", value);
-
                 let CheckChoice::Func(input_values) = &value.choice else {
                     panic!("Should deduce on function inputs");
                 };
 
                 eprintln!("Function: {:#?}", func);
 
-                let mut abstr = func.forward_interpret(input_values.clone());
+                let abstr = func.forward_interpret(input_values.clone());
 
                 eprintln!("Abstract interpretation: {:?}", abstr);
 
-                /*let state_data = self.space.state_data(state_id);
-
-                let panic_output = state_data.panic.to_runtime();
-                let state = state_data.result;
-
-                for input_var_id in func.signature.inputs {
-                    let input_name = func
-                        .variables
-                        .get(&input_var_id)
-                        .expect("Input should be in variables")
-                        .ident
-                        .name();
-
-                    let input_value = state
-                        .get(input_name)
-                        .expect("Subproperty input should be in state");
-
-                    let Some(input_value) = input_value.runtime_bitvector() else {
-                        todo!("Non-bitvector input value");
-                    };
-                }*/
-
-                let refin = func.backward_interpret(&mut abstr);
+                let refin = func.backward_interpret(&abstr);
 
                 eprintln!("Refin interpretation: {:?}", refin);
 
@@ -157,27 +133,6 @@ impl<M: FullMachine> Deducer<'_, M> {
                         }
                     }
                 }
-
-                //todo!("Func");
-
-                // TODO: use backward deduction
-                /*let mut culprit_input_index = None;
-
-                for (input_index, input) in inputs.iter().enumerate() {
-                    if let IAbstractValue::Bool(input) = input {
-                        if input.into_three_valued().is_unknown() {
-                            culprit_input_index = Some(input_index);
-                            break;
-                        }
-                    } else if let IAbstractValue::Bitvector(input) = input {
-                        if input.concrete_value().is_none() {
-                            culprit_input_index = Some(input_index);
-                            break;
-                        }
-                    } else {
-                        todo!();
-                    }
-                }*/
 
                 let input_index =
                     culprit_input_index.expect("Unknown func result should be caused by input");
