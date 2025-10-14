@@ -6,8 +6,8 @@ use machine_check_common::ir_common::IrReference;
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
     WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WFnArg, WHighMckNew, WIdent,
-    WPartialGeneralType, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign,
-    WStmtIf, WSubproperty, WType, ZSsa, ZTotal,
+    WPartialGeneralType, WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt,
+    WStmtAssign, WStmtIf, WSubproperty, WType, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
 
@@ -374,6 +374,7 @@ impl LocalVisitor<'_> {
             then_block.stmts.push(create_taken_assign(
                 phi_then_ident.clone(),
                 last_then_ident.clone(),
+                condition.ident.clone(),
             ));
             else_block
                 .stmts
@@ -383,9 +384,11 @@ impl LocalVisitor<'_> {
             then_block
                 .stmts
                 .push(create_not_taken_assign(phi_else_ident.clone()));
-            else_block
-                .stmts
-                .push(create_taken_assign(phi_else_ident.clone(), last_else_ident));
+            else_block.stmts.push(create_taken_assign(
+                phi_else_ident.clone(),
+                last_else_ident,
+                condition.ident.clone(),
+            ));
 
             // create temporary after the if that will phi the then and else temporaries
             let append_ident = create_new_temporary(&mut self.temps, ident, else_counter);
@@ -501,8 +504,9 @@ impl LocalVisitor<'_> {
                 self.process_ident(a);
                 self.process_ident(b);
             }
-            WExprHighCall::PhiTaken(ident) => {
-                self.process_ident(ident);
+            WExprHighCall::PhiTaken(taken) => {
+                self.process_ident(&mut taken.ident);
+                self.process_ident(&mut taken.condition);
             }
             WExprHighCall::PhiNotTaken => {}
             WExprHighCall::PhiUninit => {}
@@ -537,10 +541,17 @@ impl LocalVisitor<'_> {
     }
 }
 
-fn create_taken_assign(phi_arg_ident: WIdent, taken_ident: WIdent) -> WStmt<ZSsa> {
+fn create_taken_assign(
+    phi_arg_ident: WIdent,
+    taken_ident: WIdent,
+    condition_ident: WIdent,
+) -> WStmt<ZSsa> {
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
-        right: WExpr::Call(WExprHighCall::PhiTaken(taken_ident)),
+        right: WExpr::Call(WExprHighCall::PhiTaken(WPhiTaken {
+            ident: taken_ident,
+            condition: condition_ident,
+        })),
     })
 }
 

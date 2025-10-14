@@ -57,6 +57,13 @@ pub enum IExprCall {
     ArrayRead(IArrayRead),
     ArrayWrite(IArrayWrite),*/
     Phi(IVarId, IVarId),
+    PhiTaken(IPhiTaken),
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct IPhiTaken {
+    pub var: IVarId,
+    pub condition: IVarId,
 }
 
 impl IExprCall {
@@ -83,17 +90,11 @@ impl IExprCall {
                     (None, Some(right)) => right.clone(),
                     (None, None) => panic!("At least one phi variable should be present"),
                 }
-            } /*IExprCall::PhiTaken(taken) => abstr.value(*taken).clone(),
-              IExprCall::PhiMaybeTaken(maybe_taken) => {
-                  todo!()
-                  // take the value normally for forward intepretation
-                  //abstr.value(maybe_taken.taken).clone()
-              }
-              IExprCall::PhiNotTaken => {
-                  // insert nothing
-                  return None;
-              }
-              IExprCall::PhiUninit => panic!("Phi uninit should not be in interpretation"),*/
+            }
+            IExprCall::PhiTaken(taken) => {
+                // just return the value
+                abstr.value(taken.var).clone()
+            }
         })
     }
     pub fn backward_interpret(
@@ -112,26 +113,22 @@ impl IExprCall {
                 // propagate into both
                 refin.insert_value(*a, later.clone());
                 refin.insert_value(*b, later);
-            } // TODO: propagate to condition
-              /*IExprCall::PhiMaybeTaken(maybe_taken) => {
-                  // propagate into taken
-                  refin.insert_value(maybe_taken.taken, later.clone());
+            }
+            IExprCall::PhiTaken(taken) => {
+                // propagate into taken
+                refin.insert_value(taken.var, later.clone());
 
-                  let condition_value = IRefinementValue::Boolean(match later {
-                      IRefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
-                      IRefinementValue::Boolean(boolean) => boolean,
-                      IRefinementValue::PanicResult(_) => {
-                          panic!("Panic result should never be joined")
-                      }
-                  });
+                // convert to condition and propagate
+                let condition_value = IRefinementValue::Boolean(match later {
+                    IRefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
+                    IRefinementValue::Boolean(boolean) => boolean,
+                    IRefinementValue::PanicResult(_) => {
+                        panic!("Panic result should never be joined")
+                    }
+                });
 
-                  // convert to condition and propagate
-                  refin.join_value(maybe_taken.condition, condition_value);
-              }
-              IExprCall::PhiNotTaken => {
-                  // do nothing
-              }
-              _ => todo!("Backward-interpret call {:?}", self),*/
+                refin.join_value(taken.condition, condition_value)
+            }
         }
     }
 }
@@ -142,16 +139,11 @@ impl Debug for IExprCall {
             IExprCall::MckUnary(unary) => unary.fmt(f),
             IExprCall::MckBinary(binary) => binary.fmt(f),
             IExprCall::MckNew(mck_new) => mck_new.fmt(f),
-            IExprCall::Phi(left, right) => write!(f, "Phi({:?},{:?})", left, right),
+            IExprCall::Phi(left, right) => write!(f, "Phi({:?}, {:?})", left, right),
             IExprCall::BooleanNew(value) => write!(f, "Boolean({:?})", value),
-            /*IExprCall::PhiTaken(taken) => write!(f, "PhiTaken({:?})", taken),
-            IExprCall::PhiMaybeTaken(maybe_taken) => write!(
-                f,
-                "PhiMaybeTaken({:?},{:?})",
-                maybe_taken.taken, maybe_taken.condition
-            ),
-            IExprCall::PhiNotTaken => write!(f, "PhiNotTaken()"),
-            IExprCall::PhiUninit => write!(f, "PhiUninit()"),*/
+            IExprCall::PhiTaken(taken) => {
+                write!(f, "PhiTaken({:?}, {:?})", taken.var, taken.condition)
+            }
         }
     }
 }

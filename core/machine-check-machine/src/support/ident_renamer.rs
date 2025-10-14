@@ -105,12 +105,9 @@ impl IdentRenamer {
                 self.visit_ident(ident_a);
                 self.visit_ident(ident_b);
             }
-            WExprCall::PhiTaken(ident) => {
-                self.visit_ident(ident);
-            }
-            WExprCall::PhiMaybeTaken(maybe_taken) => {
-                self.visit_ident(&mut maybe_taken.taken);
-                self.visit_ident(&mut maybe_taken.condition);
+            WExprCall::PhiTaken(taken) => {
+                self.visit_ident(&mut taken.ident);
+                self.visit_ident(&mut taken.condition);
             }
             WExprCall::PhiNotTaken => {}
             WExprCall::PhiUninit => {}

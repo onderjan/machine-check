@@ -22,7 +22,7 @@ pub enum WExprHighCall {
     ArrayRead(WArrayRead),
     ArrayWrite(WArrayWrite),
     Phi(WIdent, WIdent),
-    PhiTaken(WIdent),
+    PhiTaken(WPhiTaken),
     PhiNotTaken,
     PhiUninit,
 }
@@ -39,15 +39,14 @@ pub enum WExprCall {
     ArrayRead(WArrayRead),
     ArrayWrite(WArrayWrite),
     Phi(WIdent, WIdent),
-    PhiTaken(WIdent),
-    PhiMaybeTaken(WPhiMaybeTaken),
+    PhiTaken(WPhiTaken),
     PhiNotTaken,
     PhiUninit,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WPhiMaybeTaken {
-    pub taken: WIdent,
+pub struct WPhiTaken {
+    pub ident: WIdent,
     pub condition: WIdent,
 }
 
@@ -133,7 +132,6 @@ pub const ARRAY_WRITE: &str = "::mck::forward::ReadWrite::write";
 
 pub const PHI: &str = "::mck::forward::PhiArg::phi";
 pub const PHI_TAKEN: &str = "::mck::forward::PhiArg::Taken";
-pub const PHI_MAYBE_TAKEN: &str = "::mck::forward::PhiArg::MaybeTaken";
 pub const PHI_NOT_TAKEN: &str = "::mck::forward::PhiArg::NotTaken";
 pub const PHI_UNINIT: &str = "::mck::forward::Phi::uninit";
 
@@ -214,16 +212,15 @@ impl WExprCall {
                 String::from(PHI),
                 vec![WCallArg::Ident(a), WCallArg::Ident(b)],
             ),
-            WExprCall::PhiTaken(ident) => (String::from(PHI_TAKEN), vec![WCallArg::Ident(ident)]),
-            WExprCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
-            WExprCall::PhiUninit => (String::from(PHI_UNINIT), vec![]),
-            WExprCall::PhiMaybeTaken(maybe_taken) => (
-                String::from(PHI_MAYBE_TAKEN),
+            WExprCall::PhiTaken(taken) => (
+                String::from(PHI_TAKEN),
                 vec![
-                    WCallArg::Ident(maybe_taken.taken),
-                    WCallArg::Ident(maybe_taken.condition),
+                    WCallArg::Ident(taken.ident),
+                    WCallArg::Ident(taken.condition),
                 ],
             ),
+            WExprCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
+            WExprCall::PhiUninit => (String::from(PHI_UNINIT), vec![]),
         };
         (construct_call_fn_path(fn_operand), args)
     }
@@ -299,9 +296,13 @@ impl IntoSyn<Expr> for WExprHighCall {
                 String::from(PHI),
                 vec![WCallArg::Ident(a), WCallArg::Ident(b)],
             ),
-            WExprHighCall::PhiTaken(ident) => {
-                (String::from(PHI_TAKEN), vec![WCallArg::Ident(ident)])
-            }
+            WExprHighCall::PhiTaken(taken) => (
+                String::from(PHI_TAKEN),
+                vec![
+                    WCallArg::Ident(taken.ident),
+                    WCallArg::Ident(taken.condition),
+                ],
+            ),
             WExprHighCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
             WExprHighCall::PhiUninit => (String::from(PHI_UNINIT), vec![]),
         };

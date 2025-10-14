@@ -128,7 +128,6 @@ impl BackwardFolder {
         enum Special {
             Phi,
             PhiTaken,
-            PhiMaybeTaken,
             None,
         }
 
@@ -139,7 +138,6 @@ impl BackwardFolder {
             }
             WExprCall::Phi(_, _) => Special::Phi,
             WExprCall::PhiTaken(_) => Special::PhiTaken,
-            WExprCall::PhiMaybeTaken(_) => Special::PhiMaybeTaken,
             WExprCall::PhiNotTaken => {
                 // not taken branch does not have any effect
                 return vec![];
@@ -227,14 +225,6 @@ impl BackwardFolder {
                 }));
             }
             Special::PhiTaken => {
-                backward_stmts.push(WStmt::Assign(WStmtAssign {
-                    left: backward_call_result.clone(),
-                    right: WRefinRightExpr(create_expr_tuple(vec![later_backward_arg
-                        .clone()
-                        .into_syn()])),
-                }));
-            }
-            Special::PhiMaybeTaken => {
                 // we are using backward later twice, need to clone it
                 let clone_tmp = self.create_local_ident(span);
                 backward_stmts.push(WStmt::Assign(WStmtAssign {

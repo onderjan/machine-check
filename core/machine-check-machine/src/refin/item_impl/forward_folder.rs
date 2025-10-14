@@ -49,10 +49,7 @@ impl ForwardFolder {
         let phi_taking = match &stmt.right {
             WExpr::Call(call) => matches!(
                 call,
-                WExprCall::PhiTaken(_)
-                    | WExprCall::PhiMaybeTaken(_)
-                    | WExprCall::PhiNotTaken
-                    | WExprCall::PhiUninit
+                WExprCall::PhiTaken(_) | WExprCall::PhiNotTaken | WExprCall::PhiUninit
             ),
             _ => false,
         };

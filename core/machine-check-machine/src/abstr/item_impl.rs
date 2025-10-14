@@ -2,8 +2,7 @@ use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, ZAbstr, ZAbstrIfPolarity},
     wir::{
         WBlock, WExpr, WExprCall, WIdent, WIfCondition, WItemFn, WItemImpl, WItemImplTrait, WPath,
-        WPathSegment, WPhiMaybeTaken, WSignature, WStmt, WStmtAssign, WStmtIf, YConverted,
-        ZConverted,
+        WPathSegment, WSignature, WStmt, WStmtAssign, WStmtIf, YConverted, ZConverted,
     },
 };
 
@@ -113,7 +112,7 @@ fn create_branch_if(
     polarity: bool,
     taken_block: WBlock<ZConverted>,
 ) -> WStmtIf<ZAbstr> {
-    let (taken_block, not_taken_block) = process_taken_branch_block(condition, taken_block);
+    let (taken_block, not_taken_block) = process_taken_branch_block(taken_block);
 
     WStmtIf {
         condition: WIfCondition {
@@ -125,10 +124,7 @@ fn create_branch_if(
     }
 }
 
-fn process_taken_branch_block(
-    condition: &WIdent,
-    taken_block: WBlock<ZConverted>,
-) -> (WBlock<ZAbstr>, WBlock<ZAbstr>) {
+fn process_taken_branch_block(taken_block: WBlock<ZConverted>) -> (WBlock<ZAbstr>, WBlock<ZAbstr>) {
     // change Taken statements to MaybeTaken and also add them changed to NotTaken to else block
     // eliminate the NotTaken statements
     let mut taken_stmts = Vec::new();
@@ -143,7 +139,7 @@ fn process_taken_branch_block(
             }
         };
 
-        let taken_ident = match stmt_assign.right {
+        let taken = match stmt_assign.right {
             WExpr::Call(WExprCall::PhiTaken(ident)) => ident,
             WExpr::Call(WExprCall::PhiNotTaken) => {
                 // eliminate NotTaken, do not retain the statement
@@ -157,14 +153,10 @@ fn process_taken_branch_block(
             }
         };
 
-        // this was Taken
-        // retain as MaybeTaken
+        // this was Taken, retain
         taken_stmts.push(WStmt::Assign(WStmtAssign {
             left: stmt_assign.left.clone(),
-            right: WExpr::Call(WExprCall::PhiMaybeTaken(WPhiMaybeTaken {
-                taken: taken_ident,
-                condition: condition.clone(),
-            })),
+            right: WExpr::Call(WExprCall::PhiTaken(taken)),
         }));
 
         // also add as NotTaken to the else block

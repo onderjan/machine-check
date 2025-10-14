@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use machine_check_common::iir::{
     expr::{
-        call::{IExprCall, IMckNew},
+        call::{IExprCall, IMckNew, IPhiTaken},
         op::IMckBinary,
         IExpr,
     },
@@ -49,15 +49,15 @@ impl WExpr<WExprCall> {
                     let right = from_variable_map(right, ident_var_map);
                     IExprCall::Phi(left, right)
                 }
-                WExprCall::PhiTaken(ident) => {
+                WExprCall::PhiTaken(taken) => {
                     // translate as a move
-                    let var_id = *ident_var_map
-                        .get(&ident.into_iir())
+                    let var = *ident_var_map
+                        .get(&taken.ident.into_iir())
                         .expect("Left-side variable should be in variable map");
-                    return Some(IExpr::Move(var_id));
-                }
-                WExprCall::PhiMaybeTaken(_) => {
-                    panic!("Phi maybe taken should not be here")
+                    let condition = *ident_var_map
+                        .get(&taken.condition.into_iir())
+                        .expect("Left-side variable should be in variable map");
+                    IExprCall::PhiTaken(IPhiTaken { var, condition })
                 }
                 WExprCall::PhiNotTaken => {
                     // do not translate to IIR as it is not needed there
