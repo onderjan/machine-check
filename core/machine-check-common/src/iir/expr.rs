@@ -20,9 +20,12 @@ pub enum IExpr {
 }
 
 impl IExpr {
-    pub fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) -> IAbstractValue {
+    pub fn forward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+    ) -> Option<IAbstractValue> {
         match self {
-            IExpr::Move(var_id) => abstr.value(*var_id).clone(),
+            IExpr::Move(var_id) => Some(abstr.value(*var_id).clone()),
             IExpr::Call(expr_call) => expr_call.forward_interpret(abstr),
         }
     }

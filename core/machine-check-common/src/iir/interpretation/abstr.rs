@@ -7,7 +7,6 @@ pub enum IAbstractValue {
     Bitvector(mck::abstr::RBitvector),
     Boolean(mck::abstr::Boolean),
     PanicResult(mck::abstr::PanicResult<mck::abstr::RBitvector>),
-    Absent,
 }
 
 impl IAbstractValue {
@@ -29,8 +28,6 @@ impl IAbstractValue {
 impl Join for IAbstractValue {
     fn join(&self, right: &Self) -> Self {
         match (self, right) {
-            (_, IAbstractValue::Absent) => self.clone(),
-            (IAbstractValue::Absent, _) => right.clone(),
             (IAbstractValue::Bitvector(left), IAbstractValue::Bitvector(right)) => {
                 IAbstractValue::Bitvector(left.join(*right))
             }
@@ -70,7 +67,6 @@ impl Bitwise for IAbstractValue {
             IAbstractValue::PanicResult(_) => {
                 panic!("Bitwise operations not supported by panic result")
             }
-            IAbstractValue::Absent => panic!("Should not operate on absent value"),
         }
     }
 

@@ -6,10 +6,10 @@ use machine_check_common::iir::{
     variable::IVarId,
 };
 
-use crate::{abstr::ZAbstr, wir::WStmt};
+use crate::wir::{WStmt, ZConverted};
 
-impl WStmt<ZAbstr> {
-    pub(super) fn into_iir(self, ident_var_map: &BTreeMap<IIdent, IVarId>) -> IStmt {
+impl WStmt<ZConverted> {
+    pub(super) fn into_iir(self, ident_var_map: &BTreeMap<IIdent, IVarId>) -> Option<IStmt> {
         match self {
             WStmt::Assign(stmt_assign) => {
                 let left_ident = stmt_assign.left.into_iir();
@@ -17,17 +17,17 @@ impl WStmt<ZAbstr> {
                     .get(&left_ident)
                     .expect("Left-side variable should be in variable map");
 
-                let right = stmt_assign.right.into_iir(ident_var_map);
-
-                IStmt::Assign(IAssignStmt { left, right })
+                stmt_assign
+                    .right
+                    .into_iir(ident_var_map)
+                    .map(|right| IStmt::Assign(IAssignStmt { left, right }))
             }
             // TODO: finish this
             #[allow(unused_variables)]
             WStmt::If(stmt_if) => {
-                let (condition, is_positive) = match stmt_if.condition {
+                let condition = match stmt_if.condition {
                     crate::wir::WIfCondition::Ident(condition_ident) => {
-                        let is_positive = condition_ident.polarity.0;
-                        (condition_ident.ident.into_iir(), is_positive)
+                        condition_ident.ident.into_iir()
                     }
                     crate::wir::WIfCondition::Literal(lit) => todo!("Literals in conditions"),
                 };
@@ -39,12 +39,11 @@ impl WStmt<ZAbstr> {
                 let then_block = stmt_if.then_block.into_iir(ident_var_map);
                 let else_block = stmt_if.else_block.into_iir(ident_var_map);
 
-                IStmt::If(IIfStmt {
+                Some(IStmt::If(IIfStmt {
                     condition,
-                    is_positive,
                     then_block,
                     else_block,
-                })
+                }))
             }
         }
     }

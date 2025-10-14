@@ -64,7 +64,6 @@ pub fn inherent_property() -> IProperty {
     let (property, _panic_messages) =
         into_wir::create_property_description(expr, &global_basic_types)
             .expect("Inherent property should be created");
-    let property = abstr::create_abstract_property(property);
 
     //println!("Abstract description: {:?}", description);
 
@@ -149,7 +148,6 @@ pub fn process_property<M: FullMachine>(
     // TODO: do something with the panic messages
     let (property, _panic_messages) =
         into_wir::create_property_description(expr, &global_basic_types)?;
-    let property = abstr::create_abstract_property(property);
 
     //println!("Abstract description: {:?}", description);
 

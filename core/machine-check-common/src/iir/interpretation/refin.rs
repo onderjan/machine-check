@@ -276,9 +276,6 @@ macro_rules! typed_eq_cmp_bi_op {
             IAbstractValue::PanicResult(_) => {
                 panic!("Equality/comparison not supported by panic result")
             }
-            IAbstractValue::Absent => {
-                panic!("Abstract value should not be absent when mark is present")
-            }
         }
     }};
 }

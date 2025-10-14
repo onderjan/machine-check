@@ -54,33 +54,41 @@ pub enum IExprCall {
     ArrayRead(IArrayRead),
     ArrayWrite(IArrayWrite),*/
     Phi(IVarId, IVarId),
-    PhiTaken(IVarId),
-    PhiMaybeTaken(IPhiMaybeTaken),
-    PhiNotTaken,
-    PhiUninit,
 }
 
 impl IExprCall {
-    pub fn forward_interpret(&self, abstr: &mut Interpretation<IAbstractValue>) -> IAbstractValue {
-        match self {
+    pub fn forward_interpret(
+        &self,
+        abstr: &Interpretation<IAbstractValue>,
+    ) -> Option<IAbstractValue> {
+        Some(match self {
             IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
             IExprCall::MckBinary(binary) => binary.forward_interpret(abstr),
             IExprCall::MckNew(mck_new) => mck_new.forward_interpret(),
             IExprCall::Phi(left, right) => {
-                // join the left and right variable
-                let left = abstr.value(*left);
-                let right = abstr.value(*right);
+                // join the left and right variable value
+                // at least one must be present, but not necessarily both
+                let left = abstr.value_opt(*left);
+                let right = abstr.value_opt(*right);
 
-                left.join(right)
-            }
-            IExprCall::PhiTaken(taken) => abstr.value(*taken).clone(),
-            IExprCall::PhiMaybeTaken(maybe_taken) => {
-                // take the value normally for forward intepretation
-                abstr.value(maybe_taken.taken).clone()
-            }
-            IExprCall::PhiNotTaken => IAbstractValue::Absent,
-            IExprCall::PhiUninit => panic!("Phi uninit should not be in interpretation"),
-        }
+                match (left, right) {
+                    (Some(left), Some(right)) => left.join(right),
+                    (Some(left), None) => left.clone(),
+                    (None, Some(right)) => right.clone(),
+                    (None, None) => panic!("At least one phi variable should be present"),
+                }
+            } /*IExprCall::PhiTaken(taken) => abstr.value(*taken).clone(),
+              IExprCall::PhiMaybeTaken(maybe_taken) => {
+                  todo!()
+                  // take the value normally for forward intepretation
+                  //abstr.value(maybe_taken.taken).clone()
+              }
+              IExprCall::PhiNotTaken => {
+                  // insert nothing
+                  return None;
+              }
+              IExprCall::PhiUninit => panic!("Phi uninit should not be in interpretation"),*/
+        })
     }
     pub fn backward_interpret(
         &self,
@@ -98,26 +106,26 @@ impl IExprCall {
                 // propagate into both
                 refin.insert_value(*a, later.clone());
                 refin.insert_value(*b, later);
-            }
-            IExprCall::PhiMaybeTaken(maybe_taken) => {
-                // propagate into taken
-                refin.insert_value(maybe_taken.taken, later.clone());
+            } // TODO: propagate to condition
+              /*IExprCall::PhiMaybeTaken(maybe_taken) => {
+                  // propagate into taken
+                  refin.insert_value(maybe_taken.taken, later.clone());
 
-                let condition_value = IRefinementValue::Boolean(match later {
-                    IRefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
-                    IRefinementValue::Boolean(boolean) => boolean,
-                    IRefinementValue::PanicResult(_) => {
-                        panic!("Panic result should never be joined")
-                    }
-                });
+                  let condition_value = IRefinementValue::Boolean(match later {
+                      IRefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
+                      IRefinementValue::Boolean(boolean) => boolean,
+                      IRefinementValue::PanicResult(_) => {
+                          panic!("Panic result should never be joined")
+                      }
+                  });
 
-                // convert to condition and propagate
-                refin.join_value(maybe_taken.condition, condition_value);
-            }
-            IExprCall::PhiNotTaken => {
-                // do nothing
-            }
-            _ => todo!("Backward-interpret call {:?}", self),
+                  // convert to condition and propagate
+                  refin.join_value(maybe_taken.condition, condition_value);
+              }
+              IExprCall::PhiNotTaken => {
+                  // do nothing
+              }
+              _ => todo!("Backward-interpret call {:?}", self),*/
         }
     }
 }
@@ -129,14 +137,14 @@ impl Debug for IExprCall {
             IExprCall::MckBinary(binary) => binary.fmt(f),
             IExprCall::MckNew(mck_new) => mck_new.fmt(f),
             IExprCall::Phi(left, right) => write!(f, "Phi({:?},{:?})", left, right),
-            IExprCall::PhiTaken(taken) => write!(f, "PhiTaken({:?})", taken),
+            /*IExprCall::PhiTaken(taken) => write!(f, "PhiTaken({:?})", taken),
             IExprCall::PhiMaybeTaken(maybe_taken) => write!(
                 f,
                 "PhiMaybeTaken({:?},{:?})",
                 maybe_taken.taken, maybe_taken.condition
             ),
             IExprCall::PhiNotTaken => write!(f, "PhiNotTaken()"),
-            IExprCall::PhiUninit => write!(f, "PhiUninit()"),
+            IExprCall::PhiUninit => write!(f, "PhiUninit()"),*/
         }
     }
 }

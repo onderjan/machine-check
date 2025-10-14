@@ -7,12 +7,9 @@ use machine_check_common::iir::{
     variable::{IVarId, IVarInfo},
 };
 
-use crate::{
-    abstr::{YAbstr, ZAbstr},
-    wir::{WBlock, WItemFn},
-};
+use crate::wir::{WBlock, WItemFn, YConverted, ZConverted};
 
-impl WItemFn<YAbstr> {
+impl WItemFn<YConverted> {
     pub(super) fn into_iir(self) -> IFn {
         //eprintln!("WIR: {:#?}", self);
         let mut next_var_id = 0;
@@ -86,12 +83,14 @@ impl WItemFn<YAbstr> {
     }
 }
 
-impl WBlock<ZAbstr> {
+impl WBlock<ZConverted> {
     pub(super) fn into_iir(self, ident_var_map: &BTreeMap<IIdent, IVarId>) -> IBlock {
         let mut stmts = Vec::new();
 
         for stmt in self.stmts {
-            stmts.push(stmt.into_iir(ident_var_map));
+            if let Some(stmt) = stmt.into_iir(ident_var_map) {
+                stmts.push(stmt);
+            }
         }
 
         IBlock { stmts }

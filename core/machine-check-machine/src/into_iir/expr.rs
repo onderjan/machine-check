@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use machine_check_common::iir::{
     expr::{
-        call::{IExprCall, IMckNew, IPhiMaybeTaken},
+        call::{IExprCall, IMckNew},
         op::IMckBinary,
         IExpr,
     },
@@ -13,10 +13,10 @@ use machine_check_common::iir::{
 use crate::wir::{WExpr, WExprCall, WIdent, WMckNew};
 
 impl WExpr<WExprCall> {
-    pub(super) fn into_iir(self, ident_var_map: &BTreeMap<IIdent, IVarId>) -> IExpr {
-        // TODO: finish this
-        #[allow(unused_variables)]
-        match self {
+    // TODO: finish this
+    #[allow(unused_variables)]
+    pub(super) fn into_iir(self, ident_var_map: &BTreeMap<IIdent, IVarId>) -> Option<IExpr> {
+        Some(match self {
             WExpr::Move(ident) => {
                 let var_id = *ident_var_map
                     .get(&ident.into_iir())
@@ -49,22 +49,26 @@ impl WExpr<WExprCall> {
                     IExprCall::Phi(left, right)
                 }
                 WExprCall::PhiTaken(ident) => {
-                    let taken = from_variable_map(ident, ident_var_map);
-                    IExprCall::PhiTaken(taken)
+                    // translate as a move
+                    let var_id = *ident_var_map
+                        .get(&ident.into_iir())
+                        .expect("Left-side variable should be in variable map");
+                    return Some(IExpr::Move(var_id));
                 }
-                WExprCall::PhiMaybeTaken(maybe_taken) => {
-                    let taken = from_variable_map(maybe_taken.taken, ident_var_map);
-                    let condition = from_variable_map(maybe_taken.condition, ident_var_map);
-                    IExprCall::PhiMaybeTaken(IPhiMaybeTaken { taken, condition })
+                WExprCall::PhiMaybeTaken(_) => {
+                    panic!("Phi maybe taken should not be here")
                 }
-                WExprCall::PhiNotTaken => IExprCall::PhiNotTaken,
-                WExprCall::PhiUninit => IExprCall::PhiUninit,
+                WExprCall::PhiNotTaken => {
+                    // do not translate to IIR as it is not needed there
+                    return None;
+                }
+                WExprCall::PhiUninit => panic!("Phi uninit should not be here"),
             }),
             WExpr::Field(wexpr_field) => todo!(),
             WExpr::Struct(wexpr_struct) => todo!(),
             WExpr::Reference(wexpr_reference) => todo!(),
             WExpr::Lit(lit) => todo!(),
-        }
+        })
     }
 }
 

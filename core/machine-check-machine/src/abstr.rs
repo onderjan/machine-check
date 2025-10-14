@@ -4,13 +4,12 @@ mod item_struct;
 use syn::{GenericArgument, Item, Path};
 
 use crate::{
-    abstr::item_impl::fold_impl_item_fn,
     support::manipulate::{self},
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
         IntoSyn, WDescription, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
-        WItemImplTrait, WPanicResult, WPanicResultType, WPath, WProperty, WSsaLocal, WStmt,
-        WSubproperty, WType, YConverted, YStage, ZAssignTypes, ZIfPolarity,
+        WItemImplTrait, WPanicResult, WPanicResultType, WPath, WSsaLocal, WStmt, WType, YConverted,
+        YStage, ZAssignTypes, ZIfPolarity,
     },
 };
 
@@ -113,22 +112,4 @@ pub(crate) fn create_abstract_description(
     );
 
     (abstract_description, misc_items)
-}
-
-pub(crate) fn create_abstract_property(property: WProperty<YConverted>) -> WProperty<YAbstr> {
-    let mut subproperties = Vec::new();
-
-    for subproperty in property.subproperties {
-        let subproperty = match subproperty {
-            WSubproperty::Func(item_fn, children) => {
-                WSubproperty::Func(fold_impl_item_fn(item_fn), children)
-            }
-            WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
-            WSubproperty::Next(next) => WSubproperty::Next(next),
-        };
-
-        subproperties.push(subproperty);
-    }
-
-    WProperty { subproperties }
 }

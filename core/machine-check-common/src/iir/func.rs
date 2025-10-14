@@ -69,6 +69,7 @@ impl IFn {
         &self,
         input_values: Vec<IAbstractValue>,
     ) -> Interpretation<IAbstractValue> {
+        eprintln!("Forward-interpreting {:?}", self);
         let mut abstr = Interpretation::new();
 
         assert_eq!(self.signature.inputs.len(), input_values.len());

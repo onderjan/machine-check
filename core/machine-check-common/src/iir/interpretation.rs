@@ -2,6 +2,7 @@ mod abstr;
 mod refin;
 
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 
 use crate::iir::variable::IVarId;
 
@@ -12,11 +13,11 @@ pub trait Join {
 }
 
 #[derive(Debug)]
-pub struct Interpretation<V: Join> {
+pub struct Interpretation<V: Join + Debug> {
     values: BTreeMap<IVarId, V>,
 }
 
-impl<V: Join> Interpretation<V> {
+impl<V: Join + Debug> Interpretation<V> {
     pub fn new() -> Self {
         Self {
             values: BTreeMap::new(),
@@ -36,6 +37,7 @@ impl<V: Join> Interpretation<V> {
     }
 
     pub(super) fn insert_value(&mut self, var_id: IVarId, value: V) {
+        eprintln!("Inserting {:?} -> {:?} to {:?}", var_id, value, self);
         if self.values.insert(var_id, value).is_some() {
             panic!("Interpretation value should not be inserted twice");
         }
@@ -51,7 +53,7 @@ impl<V: Join> Interpretation<V> {
     }
 }
 
-impl<V: Join> Default for Interpretation<V> {
+impl<V: Join + Debug> Default for Interpretation<V> {
     fn default() -> Self {
         Self::new()
     }

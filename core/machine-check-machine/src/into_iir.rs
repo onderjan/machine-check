@@ -1,9 +1,6 @@
 use machine_check_common::iir::{ICalculusOperator, IProperty, ISubproperty};
 
-use crate::{
-    abstr::YAbstr,
-    wir::{WProperty, WSubproperty},
-};
+use crate::wir::{WProperty, WSubproperty, YConverted};
 
 mod expr;
 mod func;
@@ -11,7 +8,7 @@ mod path;
 mod stmt;
 mod ty;
 
-impl WProperty<YAbstr> {
+impl WProperty<YConverted> {
     pub fn into_property_iir(self) -> IProperty {
         let mut subproperties = Vec::new();
 
