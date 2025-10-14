@@ -37,7 +37,7 @@ impl<V: Join + Debug> Interpretation<V> {
     }
 
     pub(super) fn insert_value(&mut self, var_id: IVarId, value: V) {
-        eprintln!("Inserting {:?} -> {:?} to {:?}", var_id, value, self);
+        //eprintln!("Inserting {:?} -> {:?} to {:?}", var_id, value, self);
         if self.values.insert(var_id, value).is_some() {
             panic!("Interpretation value should not be inserted twice");
         }

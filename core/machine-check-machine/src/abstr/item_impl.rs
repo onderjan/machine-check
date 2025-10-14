@@ -1,9 +1,9 @@
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, ZAbstr, ZAbstrIfPolarity},
     wir::{
-        WBlock, WExpr, WExprCall, WIdent, WIfCondition, WIfConditionIdent, WItemFn, WItemImpl,
-        WItemImplTrait, WPath, WPathSegment, WPhiMaybeTaken, WSignature, WStmt, WStmtAssign,
-        WStmtIf, YConverted, ZConverted,
+        WBlock, WExpr, WExprCall, WIdent, WIfCondition, WItemFn, WItemImpl, WItemImplTrait, WPath,
+        WPathSegment, WPhiMaybeTaken, WSignature, WStmt, WStmtAssign, WStmtIf, YConverted,
+        ZConverted,
     },
 };
 
@@ -92,27 +92,15 @@ fn fold_stmt(stmt: WStmt<ZConverted>) -> Vec<WStmt<ZAbstr>> {
 }
 
 fn fold_if(stmt_if: WStmtIf<ZConverted>) -> Vec<WStmt<ZAbstr>> {
-    let condition_ident = match stmt_if.condition {
-        WIfCondition::Ident(condition_ident) => condition_ident,
-        WIfCondition::Literal(lit) => {
-            // if statements with literal conditions can be used as-is
-            // just fold the inner blocks
-            return vec![WStmt::If(WStmtIf {
-                condition: WIfCondition::Literal(lit),
-                then_block: fold_block(stmt_if.then_block),
-                else_block: fold_block(stmt_if.else_block),
-            })];
-        }
-    };
-
     // split into two if statements with then branch for each branch of original:
     // 1. can be true
     // 2. can be false
     // in then branch, retain Taken within the statements, but eliminate NotTaken
     // in else branch, convert the Taken from then branch to NotTaken
 
-    let can_be_true_stmt_if = create_branch_if(&condition_ident.ident, true, stmt_if.then_block);
-    let can_be_false_stmt_if = create_branch_if(&condition_ident.ident, false, stmt_if.else_block);
+    let can_be_true_stmt_if = create_branch_if(&stmt_if.condition.ident, true, stmt_if.then_block);
+    let can_be_false_stmt_if =
+        create_branch_if(&stmt_if.condition.ident, false, stmt_if.else_block);
 
     vec![
         WStmt::If(can_be_true_stmt_if),
@@ -128,10 +116,10 @@ fn create_branch_if(
     let (taken_block, not_taken_block) = process_taken_branch_block(condition, taken_block);
 
     WStmtIf {
-        condition: WIfCondition::Ident(WIfConditionIdent {
+        condition: WIfCondition {
             polarity: ZAbstrIfPolarity(polarity),
             ident: condition.clone(),
-        }),
+        },
         then_block: taken_block,
         else_block: not_taken_block,
     }

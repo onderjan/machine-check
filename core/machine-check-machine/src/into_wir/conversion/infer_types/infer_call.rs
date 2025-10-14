@@ -4,7 +4,7 @@ use crate::{
     into_wir::Error,
     wir::{
         WArrayRead, WArrayWrite, WBasicType, WExprHighCall, WHighMckExt, WHighMckNew, WHighStdInto,
-        WHighStdIntoType, WIdent, WPartialGeneralType, WSpanned, WStdBinary, WStdUnary,
+        WHighStdIntoType, WIdent, WPartialGeneralType, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
 
@@ -22,6 +22,10 @@ impl super::FnInferrer<'_> {
             WExprHighCall::StdBinary(call) => self.infer_binary(call),
             WExprHighCall::MckExt(call) => self.infer_ext(call),
             WExprHighCall::MckNew(call) => self.infer_new(call),
+            WExprHighCall::BooleanNew(_) => WPartialGeneralType::Normal(WType {
+                reference: IrReference::None,
+                inner: WBasicType::Boolean,
+            }),
             WExprHighCall::StdInto(call) => self.infer_into(call),
             WExprHighCall::StdClone(from) => self.infer_clone(from)?,
             WExprHighCall::ArrayRead(read) => self.infer_array_read(read),

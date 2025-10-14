@@ -12,8 +12,8 @@ use crate::{
         create_expr_reference, create_expr_tuple, ArgType,
     },
     wir::{
-        IntoSyn, WBlock, WCallArg, WExpr, WExprCall, WExprStruct, WIdent, WIfCondition,
-        WIfConditionIdent, WStmt, WStmtAssign, WStmtIf,
+        IntoSyn, WBlock, WCallArg, WExpr, WExprCall, WExprStruct, WIdent, WIfCondition, WStmt,
+        WStmtAssign, WStmtIf,
     },
 };
 
@@ -49,16 +49,13 @@ impl BackwardFolder {
         match stmt {
             WStmt::Assign(stmt) => self.fold_assign(stmt),
             WStmt::If(stmt) => {
-                let condition = match stmt.condition {
-                    WIfCondition::Ident(condition_ident) => {
-                        WIfCondition::Ident(WIfConditionIdent {
-                            polarity: condition_ident.polarity,
-                            ident: self
-                                .right_cloned_ident(self.forward_ident(condition_ident.ident))
-                                .0,
-                        })
+                let condition = {
+                    WIfCondition {
+                        polarity: stmt.condition.polarity,
+                        ident: self
+                            .right_cloned_ident(self.forward_ident(stmt.condition.ident))
+                            .0,
                     }
-                    WIfCondition::Literal(lit) => WIfCondition::Literal(lit),
                 };
                 vec![WStmt::If(WStmtIf {
                     condition,

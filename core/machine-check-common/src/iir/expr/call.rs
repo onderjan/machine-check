@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use mck::three_valued::ThreeValued;
+
 use crate::iir::{
     expr::op::{IMckBinary, IMckUnary},
     interpretation::Join,
@@ -50,6 +52,7 @@ pub enum IExprCall {
     MckBinary(IMckBinary),
     //MckExt(IMckExt),
     MckNew(IMckNew),
+    BooleanNew(bool),
     /*StdClone(IVarId),
     ArrayRead(IArrayRead),
     ArrayWrite(IArrayWrite),*/
@@ -65,6 +68,9 @@ impl IExprCall {
             IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
             IExprCall::MckBinary(binary) => binary.forward_interpret(abstr),
             IExprCall::MckNew(mck_new) => mck_new.forward_interpret(),
+            IExprCall::BooleanNew(value) => IAbstractValue::Boolean(
+                mck::abstr::Boolean::from_three_valued(ThreeValued::from_bool(*value)),
+            ),
             IExprCall::Phi(left, right) => {
                 // join the left and right variable value
                 // at least one must be present, but not necessarily both
@@ -99,7 +105,7 @@ impl IExprCall {
         match self {
             IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, later),
             IExprCall::MckBinary(binary) => binary.backward_interpret(abstr, refin, later),
-            IExprCall::MckNew(_) => {
+            IExprCall::MckNew(_) | IExprCall::BooleanNew(_) => {
                 // there is no variable to propagate to, do nothing
             }
             IExprCall::Phi(a, b) => {
@@ -137,6 +143,7 @@ impl Debug for IExprCall {
             IExprCall::MckBinary(binary) => binary.fmt(f),
             IExprCall::MckNew(mck_new) => mck_new.fmt(f),
             IExprCall::Phi(left, right) => write!(f, "Phi({:?},{:?})", left, right),
+            IExprCall::BooleanNew(value) => write!(f, "Boolean({:?})", value),
             /*IExprCall::PhiTaken(taken) => write!(f, "PhiTaken({:?})", taken),
             IExprCall::PhiMaybeTaken(maybe_taken) => write!(
                 f,

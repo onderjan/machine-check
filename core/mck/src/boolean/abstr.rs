@@ -20,6 +20,10 @@ impl Test for Boolean {
 }
 
 impl Boolean {
+    pub fn new(value: bool) -> Self {
+        Self::from_bools(!value, value)
+    }
+
     pub fn from_three_valued(value: ThreeValued) -> Self {
         match value {
             ThreeValued::False => Self::from_bools(true, false),

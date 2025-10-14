@@ -25,12 +25,7 @@ impl WStmt<ZConverted> {
             // TODO: finish this
             #[allow(unused_variables)]
             WStmt::If(stmt_if) => {
-                let condition = match stmt_if.condition {
-                    crate::wir::WIfCondition::Ident(condition_ident) => {
-                        condition_ident.ident.into_iir()
-                    }
-                    crate::wir::WIfCondition::Literal(lit) => todo!("Literals in conditions"),
-                };
+                let condition = stmt_if.condition.ident.into_iir();
 
                 let condition = *ident_var_map
                     .get(&condition)

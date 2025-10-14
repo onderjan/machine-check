@@ -3,8 +3,8 @@ use proc_macro2::Span;
 use crate::{
     abstr::ZAbstr,
     wir::{
-        WBlock, WCallArg, WExpr, WExprCall, WIdent, WIfCondition, WMckNew, WPath, WPathSegment,
-        WStmt, WStmtAssign,
+        WBlock, WCallArg, WExpr, WExprCall, WIdent, WMckNew, WPath, WPathSegment, WStmt,
+        WStmtAssign,
     },
 };
 
@@ -28,12 +28,7 @@ impl IdentRenamer {
         match stmt {
             WStmt::Assign(stmt) => self.visit_assign(stmt),
             WStmt::If(stmt) => {
-                match &mut stmt.condition {
-                    WIfCondition::Ident(condition_ident) => {
-                        self.visit_ident(&mut condition_ident.ident)
-                    }
-                    WIfCondition::Literal(_) => {}
-                };
+                self.visit_ident(&mut stmt.condition.ident);
                 self.visit_block(&mut stmt.then_block);
                 self.visit_block(&mut stmt.else_block);
             }
@@ -93,6 +88,7 @@ impl IdentRenamer {
                 WMckNew::Bitvector(_, _) => {}
                 WMckNew::BitvectorArray(_, element) => self.visit_ident(element),
             },
+            WExprCall::BooleanNew(_) => {}
             WExprCall::StdClone(ident) => {
                 self.visit_ident(ident);
             }

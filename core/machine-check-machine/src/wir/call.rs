@@ -1,7 +1,9 @@
 use machine_check_common::ir_common::IrTypeArray;
 use proc_macro2::Span;
 use std::fmt::Debug;
-use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, LitInt};
+use syn::{
+    punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, LitBool, LitInt,
+};
 
 use crate::{util::create_expr_ident, wir::WSpan};
 
@@ -14,6 +16,7 @@ pub enum WExprHighCall {
     StdBinary(WStdBinary),
     MckExt(WHighMckExt),
     MckNew(WHighMckNew),
+    BooleanNew(bool),
     StdInto(WHighStdInto),
     StdClone(WIdent),
     ArrayRead(WArrayRead),
@@ -31,6 +34,7 @@ pub enum WExprCall {
     MckBinary(WMckBinary),
     MckExt(WMckExt),
     MckNew(WMckNew),
+    BooleanNew(bool),
     StdClone(WIdent),
     ArrayRead(WArrayRead),
     ArrayWrite(WArrayWrite),
@@ -114,6 +118,8 @@ pub const MCK_HIGH_UNSIGNED_NEW: &str = "::machine_check::Unsigned::new";
 pub const MCK_HIGH_SIGNED_NEW: &str = "::machine_check::Signed::new";
 pub const MCK_HIGH_BITVECTOR_ARRAY_NEW: &str = "::machine_check::BitvectorArray::new_filled";
 
+pub const BOOLEAN_NEW: &str = "::mck::forward::Boolean::new";
+
 pub const MCK_UEXT: &str = "::mck::forward::Ext::uext";
 pub const MCK_SEXT: &str = "::mck::forward::Ext::sext";
 pub const MCK_BITVECTOR_NEW: &str = "::mck::forward::Bitvector::new";
@@ -187,6 +193,10 @@ impl WExprCall {
                     )))],
                 ),
             },
+            WExprCall::BooleanNew(value) => (
+                String::from(BOOLEAN_NEW),
+                vec![WCallArg::Literal(Lit::Bool(LitBool { value, span }))],
+            ),
             WExprCall::StdClone(from) => (String::from(STD_CLONE), vec![WCallArg::Ident(from)]),
             WExprCall::ArrayRead(read) => (
                 String::from(ARRAY_READ),
@@ -265,6 +275,10 @@ impl IntoSyn<Expr> for WExprHighCall {
                     )))],
                 ),
             },
+            WExprHighCall::BooleanNew(value) => (
+                String::from(BOOLEAN_NEW),
+                vec![WCallArg::Literal(Lit::Bool(LitBool { value, span }))],
+            ),
             WExprHighCall::StdInto(call) => {
                 (String::from(STD_INTO), vec![WCallArg::Ident(call.from)])
             }

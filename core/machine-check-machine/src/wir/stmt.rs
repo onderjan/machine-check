@@ -4,8 +4,7 @@ use std::fmt::Debug;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Paren},
-    Block, Expr, ExprAssign, ExprBlock, ExprCall, ExprIf, ExprLit, Lit, Macro, Stmt, StmtMacro,
-    Token,
+    Block, Expr, ExprAssign, ExprBlock, ExprCall, ExprIf, Macro, Stmt, StmtMacro, Token,
 };
 use syn_path::path;
 
@@ -45,13 +44,7 @@ pub struct WStmtIf<Z: ZAssignTypes> {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub enum WIfCondition<P: ZIfPolarity> {
-    Ident(WIfConditionIdent<P>),
-    Literal(Lit),
-}
-
-#[derive(Clone, Debug, Hash)]
-pub struct WIfConditionIdent<P: ZIfPolarity> {
+pub struct WIfCondition<P: ZIfPolarity> {
     pub polarity: P,
     pub ident: WIdent,
 }
@@ -98,17 +91,14 @@ impl<Z: ZAssignTypes> IntoSyn<Stmt> for WStmt<Z> {
                 )
             }
             WStmt::If(stmt) => {
-                let condition = match stmt.condition {
-                    WIfCondition::Literal(lit) => Expr::Lit(ExprLit { attrs: vec![], lit }),
-                    WIfCondition::Ident(condition_ident) => {
-                        let func_operator = condition_ident.polarity.into_syn();
-                        Expr::Call(ExprCall {
-                            attrs: vec![],
-                            func: Box::new(create_expr_path(func_operator)),
-                            paren_token: Default::default(),
-                            args: Punctuated::from_iter([condition_ident.ident.into_syn()]),
-                        })
-                    }
+                let condition = {
+                    let func_operator = stmt.condition.polarity.into_syn();
+                    Expr::Call(ExprCall {
+                        attrs: vec![],
+                        func: Box::new(create_expr_path(func_operator)),
+                        paren_token: Default::default(),
+                        args: Punctuated::from_iter([stmt.condition.ident.into_syn()]),
+                    })
                 };
 
                 Stmt::Expr(

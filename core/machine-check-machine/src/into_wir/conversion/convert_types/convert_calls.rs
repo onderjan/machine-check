@@ -22,6 +22,7 @@ pub fn convert_call_fn_path(
         WExprHighCall::StdBinary(call) => WExprCall::MckBinary(convert_binary(call, local_types)?),
         WExprHighCall::MckExt(call) => WExprCall::MckExt(convert_ext(call, local_types)?),
         WExprHighCall::MckNew(call) => WExprCall::MckNew(convert_mck_new(call)),
+        WExprHighCall::BooleanNew(value) => WExprCall::BooleanNew(value),
         WExprHighCall::StdInto(call) => return Ok(WExpr::Move(call.from)),
         WExprHighCall::StdClone(ident) => WExprCall::StdClone(ident),
         WExprHighCall::ArrayRead(read) => WExprCall::ArrayRead(read),

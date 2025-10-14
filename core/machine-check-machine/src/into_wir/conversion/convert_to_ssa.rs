@@ -5,7 +5,7 @@ use machine_check_common::ir_common::IrReference;
 
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WFnArg, WHighMckNew, WIdent, WIfCondition,
+    WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WFnArg, WHighMckNew, WIdent,
     WPartialGeneralType, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign,
     WStmtIf, WSubproperty, WType, ZSsa, ZTotal,
 };
@@ -274,12 +274,7 @@ impl LocalVisitor<'_> {
     fn process_if(&mut self, stmt: WStmtIf<ZTotal>) -> impl Iterator<Item = WStmt<ZSsa>> {
         // process the condition if it is an identifier
         let mut condition = stmt.condition;
-        match &mut condition {
-            WIfCondition::Ident(condition_ident) => self.process_ident(&mut condition_ident.ident),
-            WIfCondition::Literal(_) => {
-                // do nothing
-            }
-        }
+        self.process_ident(&mut condition.ident);
 
         // process the branches
 
@@ -475,6 +470,9 @@ impl LocalVisitor<'_> {
                         // do nothing
                     }
                 }
+            }
+            WExprHighCall::BooleanNew(_) => {
+                // no ident, do nothing
             }
             WExprHighCall::StdUnary(call) => {
                 self.process_ident(&mut call.operand);

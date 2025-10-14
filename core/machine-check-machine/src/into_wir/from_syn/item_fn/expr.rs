@@ -17,10 +17,10 @@ use crate::{
     wir::{
         WArrayBaseExpr, WBasicType, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall,
         WExprReference, WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WHighStdIntoType,
-        WIdent, WIfConditionIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
-        WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, WType, ZTac,
-        MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW,
-        MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
+        WIdent, WIfCondition, WIndexedExpr, WIndexedIdent, WMacroableStmt, WNoIfPolarity, WSpan,
+        WStdBinary, WStdUnary, WStmtAssign, WStmtIf, WType, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW,
+        MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW,
+        STD_CLONE, STD_INTO,
     },
 };
 
@@ -50,20 +50,6 @@ impl super::FunctionFolder {
                 stmts,
             }
             .force_ident(expr)
-        }
-    }
-
-    pub fn force_right_expr_to_call_arg<'a>(
-        &'a mut self,
-        expr: Expr,
-        stmts: &'a mut Vec<WMacroableStmt<ZTac>>,
-    ) -> Result<WCallArg, Error> {
-        {
-            RightExprFolder {
-                fn_folder: self,
-                stmts,
-            }
-            .force_call_arg(expr)
         }
     }
 }
@@ -593,6 +579,13 @@ impl RightExprFolder<'_> {
                 // move statement in parentheses
                 return self.move_through_temp(*paren.expr);
             }
+            syn::Expr::Lit(ExprLit {
+                lit: Lit::Bool(lit),
+                ..
+            }) => {
+                // if bool, convert to Boolean
+                WIndexedExpr::NonIndexed(WExpr::Call(WExprHighCall::BooleanNew(lit.value)))
+            }
             _ => {
                 // fold the expression normally
                 // so that nested expressions are properly converted to SSA
@@ -761,10 +754,10 @@ impl RightExprFolder<'_> {
         };
 
         self.stmts.push(WMacroableStmt::If(WStmtIf {
-            condition: crate::wir::WIfCondition::Ident(WIfConditionIdent {
+            condition: WIfCondition {
                 polarity: WNoIfPolarity,
                 ident: left,
-            }),
+            },
             then_block,
             else_block,
         }));

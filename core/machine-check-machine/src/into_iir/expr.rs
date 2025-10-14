@@ -40,6 +40,7 @@ impl WExpr<WExprCall> {
                     WMckNew::Bitvector(width, constant) => IMckNew::Bitvector(width, constant),
                     WMckNew::BitvectorArray(wtype_array, wident) => todo!(),
                 }),
+                WExprCall::BooleanNew(value) => IExprCall::BooleanNew(value),
                 WExprCall::StdClone(wident) => todo!(),
                 WExprCall::ArrayRead(warray_read) => todo!(),
                 WExprCall::ArrayWrite(warray_write) => todo!(),

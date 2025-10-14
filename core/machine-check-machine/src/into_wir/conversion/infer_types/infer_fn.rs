@@ -75,10 +75,14 @@ impl super::FnInferrer<'_> {
                 reference: IrReference::None,
                 inner: WBasicType::Path(right_struct.type_path.clone()),
             }),
-            WExpr::Lit(_) => {
-                // currently cannot infer anything
-                WPartialGeneralType::Unknown
-            }
+            WExpr::Lit(lit) => match lit {
+                // infer Boolean
+                syn::Lit::Bool(_) => WPartialGeneralType::Normal(WType {
+                    reference: IrReference::None,
+                    inner: WBasicType::Boolean,
+                }),
+                _ => WPartialGeneralType::Unknown,
+            },
         };
 
         // add inferred type
