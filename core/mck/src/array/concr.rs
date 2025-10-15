@@ -3,24 +3,27 @@ use std::fmt::Debug;
 use crate::{
     concr::{self, UnsignedBitvector},
     forward::ReadWrite,
+    misc::CMax,
 };
 
 use super::light::LightArray;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const W: u32> {
-    pub(super) inner: LightArray<UnsignedBitvector<I>, concr::Bitvector<W>>,
+    pub(super) inner: LightArray<UnsignedBitvector<I>, concr::Bitvector<W>, CMax<I>>,
 }
 
 impl<const I: u32, const W: u32> Array<I, W> {
     pub fn new_filled(element: concr::Bitvector<W>) -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(element),
+            inner: LightArray::new_filled(element, CMax),
         }
     }
 
-    pub fn from_inner(inner: LightArray<UnsignedBitvector<I>, concr::Bitvector<W>>) -> Self {
+    pub fn from_inner(
+        inner: LightArray<UnsignedBitvector<I>, concr::Bitvector<W>, CMax<I>>,
+    ) -> Self {
         Self { inner }
     }
 }

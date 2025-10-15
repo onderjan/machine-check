@@ -2,6 +2,7 @@ use std::{fmt::Debug, num::NonZeroU8};
 
 use std::ops::ControlFlow;
 
+use crate::misc::CMax;
 use crate::{
     abstr,
     backward::ReadWrite,
@@ -15,13 +16,13 @@ use super::{abstr::extract_bounds, light::LightArray};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const W: u32> {
-    inner: LightArray<UnsignedBitvector<I>, MetaWrap<refin::Bitvector<W>>>,
+    inner: LightArray<UnsignedBitvector<I>, MetaWrap<refin::Bitvector<W>>, CMax<I>>,
 }
 
 impl<const I: u32, const W: u32> Array<I, W> {
     pub fn new_unmarked() -> Self {
         Array {
-            inner: LightArray::new_filled(MetaWrap(refin::Bitvector::<W>::new_unmarked())),
+            inner: LightArray::new_filled(MetaWrap(refin::Bitvector::<W>::new_unmarked()), CMax),
         }
     }
 }
@@ -191,14 +192,14 @@ impl<const I: u32, const W: u32> Refine<abstr::Array<I, W>> for Array<I, W> {
     fn clean() -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(MetaWrap(Bitvector::clean())),
+            inner: LightArray::new_filled(MetaWrap(Bitvector::clean()), CMax),
         }
     }
 
     fn dirty() -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(MetaWrap(Bitvector::dirty())),
+            inner: LightArray::new_filled(MetaWrap(Bitvector::dirty()), CMax),
         }
     }
 
@@ -261,7 +262,7 @@ impl<const I: u32, const W: u32> ManipField for Array<I, W> {
     }
 
     fn mark(&mut self) {
-        self.inner = LightArray::new_filled(MetaWrap(refin::Bitvector::<W>::dirty()));
+        self.inner = LightArray::new_filled(MetaWrap(refin::Bitvector::<W>::dirty()), CMax);
     }
 }
 

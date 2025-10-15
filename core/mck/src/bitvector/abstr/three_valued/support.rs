@@ -377,6 +377,13 @@ impl<const W: u32> ThreeValuedBitvector<W> {
     }
 }
 
+impl MetaEq for RThreeValuedBitvector {
+    fn meta_eq(&self, other: &Self) -> bool {
+        assert_eq!(self.zeros.width(), other.zeros.width());
+        self.ones == other.ones && self.zeros == other.zeros
+    }
+}
+
 impl<const W: u32> MetaEq for ThreeValuedBitvector<W> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.ones == other.ones && self.zeros == other.zeros

@@ -6,15 +6,20 @@ use crate::{
     abstr::{self, Abstr, BitvectorDomain, BitvectorElement, Field, ManipField, Phi},
     concr::{self, UnsignedBitvector},
     forward::ReadWrite,
-    misc::MetaWrap,
+    misc::{CMax, MetaWrap, RMax},
     traits::misc::MetaEq,
 };
 
 use super::light::LightArray;
 
 #[derive(Clone, Hash)]
+pub struct RArray {
+    pub(super) inner: LightArray<u64, MetaWrap<abstr::RBitvector>, RMax>,
+}
+
+#[derive(Clone, Hash)]
 pub struct Array<const I: u32, const W: u32> {
-    pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<W>>>,
+    pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<W>>, CMax<I>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -38,7 +43,7 @@ impl<const I: u32, const W: u32> Array<I, W> {
     pub fn new_filled(element: abstr::Bitvector<W>) -> Self {
         assert!(I < isize::BITS);
         Self {
-            inner: LightArray::new_filled(MetaWrap(element)),
+            inner: LightArray::new_filled(MetaWrap(element), CMax),
         }
     }
 }
@@ -121,6 +126,12 @@ impl<const I: u32, const W: u32> Phi for Array<I, W> {
 }
 
 impl<const I: u32, const W: u32> Debug for Array<I, W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl Debug for RArray {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
     }

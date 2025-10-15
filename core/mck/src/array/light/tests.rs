@@ -1,8 +1,10 @@
+use crate::misc::RMax;
+
 use super::LightArray;
 
 #[test]
 fn map_inplace_indexed() {
-    let mut a = LightArray::new_filled(0);
+    let mut a = LightArray::new_filled(0, RMax { width: 32 });
 
     a.map_inplace_indexed(2, Some(4), |_| 0xCAFE);
     assert_eq!(a[0], 0);
@@ -25,7 +27,7 @@ fn map_inplace_indexed() {
 
 #[test]
 fn map_write() {
-    let mut a = LightArray::new_filled(0);
+    let mut a = LightArray::new_filled(0, RMax { width: 32 });
 
     a.write(2, 0xCAFE);
     assert_eq!(a[0], 0);

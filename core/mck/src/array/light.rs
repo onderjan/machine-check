@@ -8,8 +8,17 @@ use std::{
 
 use num::{One, Zero};
 
+pub use max::{CMax, RMax};
+
 #[cfg(test)]
 mod tests;
+
+mod max;
+
+pub trait LightMax<I>: Clone + Copy + PartialEq + Eq + Debug {
+    fn max(&self) -> I;
+    fn allowed(&self, value: I) -> bool;
+}
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct LightArray<
@@ -24,8 +33,10 @@ pub struct LightArray<
         + Add<Output = I>
         + Sub<Output = I>,
     E: Clone + PartialEq + Eq,
+    M: LightMax<I>,
 > {
     inner: Arc<BTreeMap<I, E>>,
+    bound: M,
 }
 
 impl<
@@ -40,12 +51,13 @@ impl<
             + Add<Output = I>
             + Sub<Output = I>,
         E: Clone + PartialEq + Eq,
-    > LightArray<I, E>
+        M: LightMax<I>,
+    > LightArray<I, E, M>
 {
-    pub fn new_filled(element: E) -> Self {
+    pub fn new_filled(element: E, bound: M) -> Self {
         let zero_index = <I as Zero>::zero();
         let inner = Arc::new(BTreeMap::from_iter([(zero_index, element)]));
-        Self { inner }
+        Self { inner, bound }
     }
 
     pub fn write(&mut self, index: I, value: E) {
@@ -74,8 +86,8 @@ impl<
         // insert the previous value immediately after the written one
         // if it does not already exist
 
-        let next_index = index + <I as One>::one();
-        if next_index != <I as Zero>::zero() {
+        if index != self.bound.max() {
+            let next_index = index + <I as One>::one();
             inner.entry(next_index).or_insert(previous_value);
         }
 
@@ -196,21 +208,18 @@ impl<
             previous_value = Some(current_value);
         }
 
-        let index_one = <I as One>::one();
-
         // if the old high value is not the same as the previous value,
         // insert it if necessary
         if let (Some(previous_value), Some(max_index)) = (previous_value, max_index) {
-            if old_high_value != previous_value {
-                let above_max_index = max_index + index_one;
-                if above_max_index != <I as Zero>::zero() {
-                    inner.entry(above_max_index).or_insert(old_high_value);
-                }
+            if old_high_value != previous_value && max_index != self.bound.max() {
+                let above_max_index = max_index + <I as One>::one();
+                inner.entry(above_max_index).or_insert(old_high_value);
             }
         }
     }
 
     pub fn bi_fold<B: Copy>(&self, other: &Self, init: B, func: fn(B, &E, &E) -> B) -> B {
+        assert_eq!(self.bound, other.bound);
         Self::immutable_bi_func(
             self.inner.iter().map(|e| (*e.0, e.1)),
             other.inner.iter().map(|e| (*e.0, e.1)),
@@ -220,6 +229,7 @@ impl<
     }
 
     pub fn subsume(&mut self, other: Self, func: fn(&mut E, E)) {
+        assert_eq!(self.bound, other.bound);
         // unwrap or clone other so it can be mutated
         let other_inner = Arc::try_unwrap(other.inner).unwrap_or_else(|rc| (*rc).clone());
 
@@ -234,7 +244,7 @@ impl<
         );
     }
 
-    pub fn map<U: Debug + Clone + PartialEq + Eq>(&self, func: fn(&E) -> U) -> LightArray<I, U> {
+    pub fn map<U: Debug + Clone + PartialEq + Eq>(&self, func: fn(&E) -> U) -> LightArray<I, U, M> {
         let mut result_inner = BTreeMap::new();
 
         for entry in self.inner.iter() {
@@ -242,12 +252,13 @@ impl<
         }
         LightArray {
             inner: Arc::new(result_inner),
+            bound: self.bound,
         }
     }
 
     pub fn involve<V: Debug + Clone + PartialEq + Eq>(
         &mut self,
-        other: &LightArray<I, V>,
+        other: &LightArray<I, V, M>,
         func: fn(&mut E, &V),
     ) {
         self.involve_with_flow(
@@ -262,10 +273,11 @@ impl<
 
     pub fn involve_with_flow<V: Debug + Clone + PartialEq + Eq, R>(
         &mut self,
-        other: &LightArray<I, V>,
+        other: &LightArray<I, V, M>,
         func: impl Fn(R, &mut E, &V) -> ControlFlow<R, R>,
         default_result: R,
     ) -> R {
+        assert_eq!(self.bound, other.bound);
         Self::mutable_bi_func(
             self,
             other.inner.iter().map(|e| (*e.0, e.1)),
@@ -275,7 +287,7 @@ impl<
     }
 
     fn mutable_bi_func<U: Clone + PartialEq + Eq, V: Clone, R>(
-        lhs: &mut LightArray<I, U>,
+        lhs: &mut LightArray<I, U, M>,
         rhs_iter: impl Iterator<Item = (I, V)>,
         func: impl Fn(R, &mut U, V) -> ControlFlow<R, R>,
         default_result: R,
@@ -467,7 +479,8 @@ impl<
             + Add<Output = I>
             + Sub<Output = I>,
         E: Debug + Clone + PartialEq + Eq,
-    > Debug for LightArray<I, E>
+        B: LightMax<I>,
+    > Debug for LightArray<I, E, B>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
@@ -481,7 +494,8 @@ impl<
             let next_index_minus_one = if let Some(next_index) = next_index {
                 *next_index - <I as One>::one()
             } else {
-                <I as Zero>::zero() - <I as One>::one()
+                // maximum bound
+                self.bound.max()
             };
             if next_index_minus_one != *current_index {
                 write!(
@@ -509,7 +523,8 @@ impl<
             + Add<Output = I>
             + Sub<Output = I>,
         E: Clone + PartialEq + Eq,
-    > Index<I> for LightArray<I, E>
+        M: LightMax<I>,
+    > Index<I> for LightArray<I, E, M>
 {
     type Output = E;
 

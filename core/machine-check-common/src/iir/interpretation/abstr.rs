@@ -4,6 +4,7 @@ use crate::iir::interpretation::Join;
 
 #[derive(Clone, Debug)]
 pub enum IAbstractValue {
+    Array(mck::abstr::RArray),
     Bitvector(mck::abstr::RBitvector),
     Boolean(mck::abstr::Boolean),
     PanicResult(mck::abstr::PanicResult<mck::abstr::RBitvector>),
@@ -34,9 +35,6 @@ impl Join for IAbstractValue {
             (IAbstractValue::Boolean(left), IAbstractValue::Boolean(right)) => {
                 IAbstractValue::Boolean(left.join(*right))
             }
-            (IAbstractValue::PanicResult(_), _) | (_, IAbstractValue::PanicResult(_)) => {
-                panic!("Panic result should never be joined")
-            }
             _ => panic!(
                 "Unjoinable combination of values {:?} and {:?}",
                 self, right
@@ -64,9 +62,7 @@ impl Bitwise for IAbstractValue {
         match self {
             IAbstractValue::Bitvector(a) => IAbstractValue::Bitvector(Bitwise::bit_not(a)),
             IAbstractValue::Boolean(a) => IAbstractValue::Boolean(Bitwise::bit_not(a)),
-            IAbstractValue::PanicResult(_) => {
-                panic!("Bitwise operations not supported by panic result")
-            }
+            _ => panic!("Illegal type for bitwise negation"),
         }
     }
 

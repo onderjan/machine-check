@@ -1,4 +1,4 @@
-pub(super) const fn compute_u64_mask(width: u32) -> u64 {
+pub const fn compute_u64_mask(width: u32) -> u64 {
     if width == 0 {
         return 0;
     }

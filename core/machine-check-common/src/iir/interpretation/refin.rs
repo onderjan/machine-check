@@ -273,8 +273,8 @@ macro_rules! typed_eq_cmp_bi_op {
                 )
             }
             IAbstractValue::Boolean(_) => todo!("Equality/comparison of booleans"),
-            IAbstractValue::PanicResult(_) => {
-                panic!("Equality/comparison not supported by panic result")
+            _ => {
+                panic!("Equality/comparison not supported")
             }
         }
     }};

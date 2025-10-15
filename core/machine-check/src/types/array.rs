@@ -2,7 +2,7 @@ use std::ops::{Index, IndexMut};
 
 use mck::{
     concr::{IntoMck, UnsignedBitvector},
-    misc::LightArray,
+    misc::{CMax, LightArray},
 };
 
 use crate::Bitvector;
@@ -17,14 +17,14 @@ use crate::Bitvector;
 ///
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct BitvectorArray<const I: u32, const W: u32> {
-    pub(super) inner: LightArray<UnsignedBitvector<I>, Bitvector<W>>,
+    pub(super) inner: LightArray<UnsignedBitvector<I>, Bitvector<W>, CMax<I>>,
 }
 
 impl<const I: u32, const W: u32> BitvectorArray<I, W> {
     /// Creates a new array filled with the given element.
     pub fn new_filled(element: Bitvector<W>) -> Self {
         Self {
-            inner: LightArray::new_filled(element),
+            inner: LightArray::new_filled(element, CMax),
         }
     }
 
@@ -37,7 +37,7 @@ impl<const I: u32, const W: u32> BitvectorArray<I, W> {
         assert!(I < usize::BITS);
         assert_eq!(1 << I, slice.len());
         // make zeroed first
-        let mut inner = LightArray::new_filled(Bitvector::new(0));
+        let mut inner = LightArray::new_filled(Bitvector::new(0), CMax);
         // assign each element
         let mut index = UnsignedBitvector::zero();
         for element in slice.iter().cloned() {
