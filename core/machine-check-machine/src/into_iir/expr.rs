@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use machine_check_common::iir::{
     expr::{
         call::{IExprCall, IMckNew, IPhiTaken},
-        op::IMckBinary,
+        op::{IMckBinary, IMckUnary},
         IExpr,
     },
     path::IIdent,
@@ -25,7 +25,13 @@ impl WExpr<WExprCall> {
             }
             WExpr::Call(expr_call) => IExpr::Call(match expr_call {
                 WExprCall::Call(wcall) => todo!(),
-                WExprCall::MckUnary(wmck_unary) => todo!(),
+                WExprCall::MckUnary(mck_unary) => {
+                    let operand = from_variable_map(mck_unary.operand, ident_var_map);
+                    IExprCall::MckUnary(IMckUnary {
+                        op: mck_unary.op,
+                        operand,
+                    })
+                }
                 WExprCall::MckBinary(mck_binary) => {
                     let a = from_variable_map(mck_binary.a, ident_var_map);
                     let b = from_variable_map(mck_binary.b, ident_var_map);

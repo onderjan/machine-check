@@ -19,12 +19,10 @@ impl IMckUnary {
         &self,
         abstr: &Interpretation<IAbstractValue>,
     ) -> IAbstractValue {
-        let operand = abstr.value(self.operand).expect_bitvector();
+        let operand = abstr.value(self.operand).clone();
         match self.op {
-            IrMckUnaryOp::Not => IAbstractValue::Bitvector(mck::forward::Bitwise::bit_not(operand)),
-            IrMckUnaryOp::Neg => {
-                IAbstractValue::Bitvector(mck::forward::HwArith::arith_neg(operand))
-            }
+            IrMckUnaryOp::Not => mck::forward::Bitwise::bit_not(operand),
+            IrMckUnaryOp::Neg => mck::forward::HwArith::arith_neg(operand),
         }
     }
 
@@ -34,14 +32,11 @@ impl IMckUnary {
         refin: &mut Interpretation<IRefinementValue>,
         later: IRefinementValue,
     ) {
-        let operand = abstr.value(self.operand).expect_bitvector();
+        let operand = abstr.value(self.operand).clone();
         let earlier = match self.op {
-            IrMckUnaryOp::Not => IRefinementValue::Bitvector(
-                mck::backward::Bitwise::bit_not((operand,), later.expect_bitvector()).0,
-            ),
-            IrMckUnaryOp::Neg => IRefinementValue::Bitvector(
-                mck::backward::HwArith::arith_neg((operand,), later.expect_bitvector()).0,
-            ),
+            IrMckUnaryOp::Not => mck::backward::Bitwise::bit_not((operand,), later).0,
+
+            IrMckUnaryOp::Neg => mck::backward::HwArith::arith_neg((operand,), later).0,
         };
 
         refin.insert_value(self.operand, earlier);
