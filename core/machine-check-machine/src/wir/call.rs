@@ -79,7 +79,7 @@ pub struct WHighMckExt {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WMckExt {
-    pub signed: bool,
+    pub signedness: Signedness,
     pub width: Option<u32>,
     pub from: WIdent,
 }
@@ -113,6 +113,7 @@ pub const BOOLEAN_NEW: &str = "::mck::forward::Boolean::new";
 
 pub const MCK_UEXT: &str = "::mck::forward::Ext::uext";
 pub const MCK_SEXT: &str = "::mck::forward::Ext::sext";
+pub const MCK_NO_SIGNEDNESS_EXT: &str = "::mck::forward::Ext::no_signedness_ext";
 pub const MCK_BITVECTOR_NEW: &str = "::mck::forward::Bitvector::new";
 pub const MCK_BITVECTOR_ARRAY_NEW: &str = "::mck::forward::Array::new_filled";
 
@@ -163,11 +164,11 @@ impl WExprCall {
                 )
             }
             WExprCall::MckExt(call) => (
-                if call.signed {
-                    String::from(MCK_SEXT)
-                } else {
-                    String::from(MCK_UEXT)
-                },
+                String::from(match call.signedness {
+                    Signedness::None => MCK_NO_SIGNEDNESS_EXT,
+                    Signedness::Unsigned => MCK_UEXT,
+                    Signedness::Signed => MCK_SEXT,
+                }),
                 vec![WCallArg::Ident(call.from)],
             ),
             WExprCall::MckNew(call) => match call {

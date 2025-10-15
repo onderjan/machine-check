@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
-use machine_check_common::ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrStdBinaryOp, IrStdUnaryOp};
+use machine_check_common::{
+    ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrStdBinaryOp, IrStdUnaryOp},
+    Signedness,
+};
 
 use crate::{
     into_wir::{Error, ErrorType},
@@ -66,9 +69,9 @@ fn convert_binary(
         IrStdBinaryOp::BitXor => IrMckBinaryOp::BitXor,
         IrStdBinaryOp::Shl => IrMckBinaryOp::LogicShl,
         IrStdBinaryOp::Shr => match signedness(&left_arg, local_types) {
-            Some(true) => IrMckBinaryOp::ArithShr,
-            Some(false) => IrMckBinaryOp::LogicShr,
-            None => {
+            Some(Signedness::Signed) => IrMckBinaryOp::ArithShr,
+            Some(Signedness::Unsigned) => IrMckBinaryOp::LogicShr,
+            _ => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine right shift signedness"),
                     left_arg.wir_span(),
@@ -88,7 +91,7 @@ fn convert_binary(
 
             let includes_equality = matches!(call.op, IrStdBinaryOp::Le | IrStdBinaryOp::Ge);
 
-            let (Some(left_is_signed), Some(right_is_signed)) = (
+            let (Some(left_signedness), Some(right_signedness)) = (
                 signedness(&left_arg, local_types),
                 signedness(&right_arg, local_types),
             ) else {
@@ -97,29 +100,42 @@ fn convert_binary(
                     left_arg.wir_span(),
                 ));
             };
-            if left_is_signed != right_is_signed {
+            if left_signedness != right_signedness {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Signedness of compared types does not match"),
                     left_arg.wir_span(),
                 ));
             }
 
-            if left_is_signed {
-                if includes_equality {
-                    IrMckBinaryOp::Sle
-                } else {
-                    IrMckBinaryOp::Slt
+            match left_signedness {
+                Signedness::None => {
+                    return Err(Error::new(
+                        ErrorType::CallConversionError(
+                            "Cannot compare bitvectors without signedness",
+                        ),
+                        left_arg.wir_span(),
+                    ))
                 }
-            } else if includes_equality {
-                IrMckBinaryOp::Ule
-            } else {
-                IrMckBinaryOp::Ult
+                Signedness::Unsigned => {
+                    if includes_equality {
+                        IrMckBinaryOp::Ule
+                    } else {
+                        IrMckBinaryOp::Ult
+                    }
+                }
+                Signedness::Signed => {
+                    if includes_equality {
+                        IrMckBinaryOp::Sle
+                    } else {
+                        IrMckBinaryOp::Slt
+                    }
+                }
             }
         }
         IrStdBinaryOp::Div => match signedness(&left_arg, local_types) {
-            Some(true) => IrMckBinaryOp::Sdiv,
-            Some(false) => IrMckBinaryOp::Udiv,
-            None => {
+            Some(Signedness::Signed) => IrMckBinaryOp::Sdiv,
+            Some(Signedness::Unsigned) => IrMckBinaryOp::Udiv,
+            _ => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine division signedness"),
                     left_arg.wir_span(),
@@ -127,9 +143,9 @@ fn convert_binary(
             }
         },
         IrStdBinaryOp::Rem => match signedness(&left_arg, local_types) {
-            Some(true) => IrMckBinaryOp::Srem,
-            Some(false) => IrMckBinaryOp::Urem,
-            None => {
+            Some(Signedness::Signed) => IrMckBinaryOp::Srem,
+            Some(Signedness::Unsigned) => IrMckBinaryOp::Urem,
+            _ => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine remainder signedness"),
                     left_arg.wir_span(),
@@ -149,7 +165,7 @@ fn convert_ext(
     call: WHighMckExt,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
 ) -> Result<WMckExt, Error> {
-    let Some(signed) = signedness(&call.from, local_types) else {
+    let Some(signedness) = signedness(&call.from, local_types) else {
         return Err(Error::new(
             ErrorType::CallConversionError("Cannot determine bit extension signedness"),
             call.from.wir_span(),
@@ -157,7 +173,7 @@ fn convert_ext(
     };
 
     Ok(WMckExt {
-        signed,
+        signedness,
         width: call.width,
         from: call.from,
     })
@@ -177,7 +193,7 @@ fn convert_mck_new(call: WHighMckNew) -> WMckNew {
 fn signedness(
     ident: &WIdent,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Option<bool> {
+) -> Option<Signedness> {
     let ty = local_types.get(ident);
     let Some(ty) = ty else {
         // type is not in local ident types, do not determine signedness
@@ -185,11 +201,7 @@ fn signedness(
     };
     match ty {
         WGeneralType::Normal(ty) => match ty.inner {
-            WBasicType::Bitvector(signedness, _) => match signedness {
-                machine_check_common::Signedness::None => None,
-                machine_check_common::Signedness::Unsigned => Some(true),
-                machine_check_common::Signedness::Signed => Some(false),
-            },
+            WBasicType::Bitvector(signedness, _) => Some(signedness),
             _ => None,
         },
         _ => None,
