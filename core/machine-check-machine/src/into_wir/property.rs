@@ -7,6 +7,7 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Brace, Paren},
+    visit_mut::VisitMut,
     Block, Expr, Generics, Ident, ItemFn, Path, PathArguments, PathSegment, Signature, Stmt, Token,
 };
 use syn_path::path;
@@ -19,7 +20,7 @@ use crate::{
         },
         from_syn, Errors,
     },
-    util::create_type_path,
+    util::{create_type_path, path_matches_global_names},
     wir::{
         WBasicType, WFixedPointOperator, WIdent, WNextOperator, WProperty, WSubproperty,
         YConverted, YTac,
@@ -82,6 +83,34 @@ pub fn create_from_syn(
 
         if !expanded_some_macro {
             break;
+        }
+    }
+
+    // KLUDGE: convert as_unsigned and as_signed to Into
+    struct Visitor;
+
+    impl VisitMut for Visitor {
+        fn visit_expr_call_mut(&mut self, expr_call: &mut syn::ExprCall) {
+            if let Expr::Path(expr_path) = &mut *expr_call.func {
+                let is_as_unsigned =
+                    path_matches_global_names(&expr_path.path, &["machine_check", "as_unsigned"]);
+                let is_as_signed =
+                    path_matches_global_names(&expr_path.path, &["machine_check", "as_signed"]);
+
+                if is_as_unsigned || is_as_signed {
+                    expr_path.path = if is_as_unsigned {
+                        syn::parse_quote!(::std::convert::Into::<::machine_check::Unsigned>::into)
+                    } else {
+                        syn::parse_quote!(::std::convert::Into::<::machine_check::Signed>::into)
+                    };
+                }
+            }
+        }
+    }
+
+    for subproperty in &mut property.subproperties {
+        if let ExprSubproperty::Expr(expr, _) = subproperty {
+            Visitor.visit_expr_mut(expr)
         }
     }
 
@@ -155,7 +184,7 @@ fn property_use_map(span: Span) -> HashMap<Ident, Path> {
     let machine_check_ident = Ident::new("machine_check", span);
 
     let mut use_map = HashMap::new();
-    for use_name in MACHINE_CHECK_USE {
+    for use_name in PROPERTY_USE_MACHINE_CHECK {
         let path = Path {
             leading_colon: Some(Token![::](span)),
             segments: Punctuated::from_iter([
@@ -174,7 +203,7 @@ fn property_use_map(span: Span) -> HashMap<Ident, Path> {
     use_map
 }
 
-const MACHINE_CHECK_USE: [&str; 15] = [
+const PROPERTY_USE_MACHINE_CHECK: [&str; 17] = [
     "Bitvector",
     "Unsigned",
     "Signed",
@@ -190,4 +219,6 @@ const MACHINE_CHECK_USE: [&str; 15] = [
     "EF",
     "ER",
     "EU",
+    "as_signed",
+    "as_unsigned",
 ];
