@@ -1,3 +1,4 @@
+use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
@@ -91,22 +92,48 @@ impl Visitor {
         let eg = path_matches_global_names(&mac.path, &["machine_check", "EG"]);
         let ag = path_matches_global_names(&mac.path, &["machine_check", "AG"]);
 
-        if ef || af || eg || ag {
-            let universal = af || ag;
-            let global = eg || ag;
+        let eu = path_matches_global_names(&mac.path, &["machine_check", "EU"]);
+        let au = path_matches_global_names(&mac.path, &["machine_check", "AU"]);
+        let er = path_matches_global_names(&mac.path, &["machine_check", "ER"]);
+        let ar = path_matches_global_names(&mac.path, &["machine_check", "AR"]);
 
-            let inside_expr: Expr = mac.parse_body().map_err(|err| {
+        let ctl = if ef || af || eg || ag {
+            let universal = af || ag;
+            let greatest = eg || ag;
+
+            let sufficient: Expr = mac.parse_body().map_err(|err| {
                 let err_span = err.span();
                 Error::new(ErrorType::MacroParseError(err), WSpan::from_span(err_span))
             })?;
 
-            let mac = self.rewrite_ctl_uni(universal, global, mac, inside_expr);
+            Some((universal, greatest, None, sufficient))
+        } else if eu || au || er || ar {
+            let universal = au || ar;
+            let greatest = er || ar;
+
+            let punctuated_inside_expr = parse_punctuated_in_macro(&mac)?;
+            if punctuated_inside_expr.len() != 2 {
+                return Err(Error::new(
+                    ErrorType::IllegalConstruct(String::from("Exactly two arguments expected")),
+                    WSpan::from_syn(&punctuated_inside_expr),
+                ));
+            }
+            let mut iter = punctuated_inside_expr.into_iter();
+
+            let permitting = Some(iter.next().unwrap());
+            let sufficient = iter.next().unwrap();
+
+            Some((universal, greatest, permitting, sufficient))
+        } else {
+            None
+        };
+
+        if let Some((universal, greatest, permitting, sufficient)) = ctl {
+            let mac = self.rewrite_ctl(universal, greatest, mac, permitting, sufficient);
 
             self.expanded_some_macro = true;
             return Ok(Expr::Macro(ExprMacro { attrs, mac }));
         }
-
-        // TODO: EU/AU/ER/AR
 
         let ex = path_matches_global_names(&mac.path, &["machine_check", "EX"]);
         let ax = path_matches_global_names(&mac.path, &["machine_check", "AX"]);
@@ -116,12 +143,7 @@ impl Visitor {
         if ex || ax || lfp || gfp {
             let universal = ax || gfp;
 
-            let punctuated_inside_expr: Punctuated<Expr, Token![,]> = mac
-                .parse_body_with(Punctuated::parse_terminated)
-                .map_err(|err| {
-                    let err_span = err.span();
-                    Error::new(ErrorType::MacroParseError(err), WSpan::from_span(err_span))
-                })?;
+            let punctuated_inside_expr = parse_punctuated_in_macro(&mac)?;
 
             let outer_subproperty_index = self.num_subproperties + self.new_subproperties.len();
 
@@ -185,8 +207,6 @@ impl Visitor {
                 mac.path.span(),
             );
 
-            // TODO: update inner subproperties
-
             self.new_subproperties
                 .push((Some(self.current_subproperty), outer_subproperty));
             self.new_subproperties.push((None, inner_subproperty));
@@ -204,13 +224,22 @@ impl Visitor {
         }
     }
 
-    fn rewrite_ctl_uni(
+    fn rewrite_ctl(
         &mut self,
         universal: bool,
-        global: bool,
+        greatest: bool,
         mut mac: Macro,
+        permitting: Option<Expr>,
         sufficient: Expr,
     ) -> Macro {
+        fn logical_bi_operator(is_and: bool, span: Span) -> BinOp {
+            if is_and {
+                BinOp::BitAnd(Token![&](span))
+            } else {
+                BinOp::BitOr(Token![|](span))
+            }
+        }
+
         // the general form is [lfp/gfp] Z . sufficient [outer_operator] (permitting [inner_operator] [A/E]X(Z))
         // for R, gfp Z . sufficient && (permitting || [A/E]X(Z))
         // for U, lfp Z . sufficient || (permitting && [A/E]X(Z))
@@ -225,11 +254,6 @@ impl Visitor {
         // process the expr
         let variable = Ident::new("__mck_Z", span);
 
-        let outer_operator = if global {
-            BinOp::BitAnd(Token![&](span))
-        } else {
-            BinOp::BitOr(Token![|](span))
-        };
         let next_path = if universal {
             path!(::machine_check::AX)
         } else {
@@ -246,11 +270,24 @@ impl Visitor {
             },
         });
 
+        let inner_expr = if let Some(permitting) = permitting {
+            let inner_operator = logical_bi_operator(!greatest, span);
+            Expr::Binary(ExprBinary {
+                attrs: vec![],
+                left: Box::new(permitting),
+                op: inner_operator,
+                right: Box::new(next_expr),
+            })
+        } else {
+            next_expr
+        };
+
+        let outer_operator = logical_bi_operator(greatest, span);
         let expr = Expr::Binary(ExprBinary {
             attrs: vec![],
             left: Box::new(sufficient),
             op: outer_operator,
-            right: Box::new(next_expr),
+            right: Box::new(inner_expr),
         });
 
         let args: Punctuated<Expr, Token![,]> =
@@ -258,10 +295,18 @@ impl Visitor {
 
         mac.tokens = args.into_token_stream();
 
-        let fixed_point = if global { "gfp" } else { "lfp" };
+        let fixed_point = if greatest { "gfp" } else { "lfp" };
         let ident = &mut mac.path.segments[1].ident;
         *ident = Ident::new(fixed_point, ident.span());
 
         mac
     }
+}
+
+fn parse_punctuated_in_macro(mac: &Macro) -> Result<Punctuated<Expr, Token![,]>, Error> {
+    mac.parse_body_with(Punctuated::parse_terminated)
+        .map_err(|err| {
+            let err_span = err.span();
+            Error::new(ErrorType::MacroParseError(err), WSpan::from_span(err_span))
+        })
 }
