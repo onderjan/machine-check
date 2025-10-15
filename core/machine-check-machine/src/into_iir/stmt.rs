@@ -22,8 +22,6 @@ impl WStmt<ZConverted> {
                     .into_iir(ident_var_map)
                     .map(|right| IStmt::Assign(IAssignStmt { left, right }))
             }
-            // TODO: finish this
-            #[allow(unused_variables)]
             WStmt::If(stmt_if) => {
                 let condition = stmt_if.condition.ident.into_iir();
 

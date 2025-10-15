@@ -24,6 +24,13 @@ impl IAbstractValue {
         };
         *boolean
     }
+
+    pub fn expect_array(&self) -> &mck::abstr::RArray {
+        let IAbstractValue::Array(array) = self else {
+            panic!("Value is not an array");
+        };
+        array
+    }
 }
 
 impl Join for IAbstractValue {

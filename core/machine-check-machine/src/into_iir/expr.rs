@@ -2,15 +2,15 @@ use std::collections::BTreeMap;
 
 use machine_check_common::iir::{
     expr::{
-        call::{IExprCall, IMckNew, IPhiTaken},
+        call::{IArrayRead, IExprCall, IMckNew, IPhiTaken},
         op::{IMckBinary, IMckUnary},
-        IExpr,
+        IExpr, IExprReference,
     },
     path::IIdent,
     variable::IVarId,
 };
 
-use crate::wir::{WExpr, WExprCall, WIdent, WMckNew};
+use crate::wir::{WExpr, WExprCall, WExprReference, WIdent, WMckNew};
 
 impl WExpr<WExprCall> {
     // TODO: finish this
@@ -18,9 +18,7 @@ impl WExpr<WExprCall> {
     pub(super) fn into_iir(self, ident_var_map: &BTreeMap<IIdent, IVarId>) -> Option<IExpr> {
         Some(match self {
             WExpr::Move(ident) => {
-                let var_id = *ident_var_map
-                    .get(&ident.into_iir())
-                    .expect("Left-side variable should be in variable map");
+                let var_id = from_variable_map(ident, ident_var_map);
                 IExpr::Move(var_id)
             }
             WExpr::Call(expr_call) => IExpr::Call(match expr_call {
@@ -48,7 +46,10 @@ impl WExpr<WExprCall> {
                 }),
                 WExprCall::BooleanNew(value) => IExprCall::BooleanNew(value),
                 WExprCall::StdClone(wident) => todo!(),
-                WExprCall::ArrayRead(warray_read) => todo!(),
+                WExprCall::ArrayRead(array_read) => IExprCall::ArrayRead(IArrayRead {
+                    base: from_variable_map(array_read.base, ident_var_map),
+                    index: from_variable_map(array_read.index, ident_var_map),
+                }),
                 WExprCall::ArrayWrite(warray_write) => todo!(),
                 WExprCall::Phi(left, right) => {
                     let left = from_variable_map(left, ident_var_map);
@@ -57,12 +58,8 @@ impl WExpr<WExprCall> {
                 }
                 WExprCall::PhiTaken(taken) => {
                     // translate as a move
-                    let var = *ident_var_map
-                        .get(&taken.ident.into_iir())
-                        .expect("Left-side variable should be in variable map");
-                    let condition = *ident_var_map
-                        .get(&taken.condition.into_iir())
-                        .expect("Left-side variable should be in variable map");
+                    let var = from_variable_map(taken.ident, ident_var_map);
+                    let condition = from_variable_map(taken.condition, ident_var_map);
                     IExprCall::PhiTaken(IPhiTaken { var, condition })
                 }
                 WExprCall::PhiNotTaken => {
@@ -73,7 +70,12 @@ impl WExpr<WExprCall> {
             }),
             WExpr::Field(wexpr_field) => todo!(),
             WExpr::Struct(wexpr_struct) => todo!(),
-            WExpr::Reference(wexpr_reference) => todo!(),
+            WExpr::Reference(expr_reference) => IExpr::Reference(match expr_reference {
+                WExprReference::Ident(ident) => {
+                    IExprReference::Ident(from_variable_map(ident, ident_var_map))
+                }
+                WExprReference::Field(expr_field) => todo!(),
+            }),
             WExpr::Lit(lit) => todo!(),
         })
     }

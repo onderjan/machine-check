@@ -158,9 +158,29 @@ impl super::FnInferrer<'_> {
             // unexpected type, do not infer
             return WPartialGeneralType::Unknown;
         };
+
+        eprintln!("Array read type: {:?}", array_type);
+
+        let index_width = array_type.index_width;
+        let element_width = array_type.element_width;
+
+        let emplace_index_type = if let Some(index_type) = self.local_ident_types.get(&read.index) {
+            !index_type.is_fully_determined()
+        } else {
+            true
+        };
+
+        if emplace_index_type {
+            self.local_ident_types.insert(
+                read.index.clone(),
+                WPartialGeneralType::Normal(
+                    WPartialBasicType::Bitvector(Signedness::None, Some(index_width)).into_type(),
+                ),
+            );
+        }
+
         WPartialGeneralType::Normal(
-            WPartialBasicType::Bitvector(Signedness::None, Some(array_type.element_width))
-                .into_type(),
+            WPartialBasicType::Bitvector(Signedness::None, Some(element_width)).into_type(),
         )
     }
 

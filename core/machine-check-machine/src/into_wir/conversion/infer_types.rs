@@ -246,7 +246,7 @@ impl FnInferrer<'_> {
                     });
                 }
                 None => {
-                    //println!("Inference failure for ident: {:?}", local.ident);
+                    eprintln!("Inference failure for ident: {:?}", local.ident);
                     // inference failure
                     errors.push(Error::new(
                         ErrorType::InferenceFailure,

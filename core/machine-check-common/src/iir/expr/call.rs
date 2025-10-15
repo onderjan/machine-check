@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{array, fmt::Debug};
 
 use mck::three_valued::ThreeValued;
 
@@ -46,6 +46,12 @@ pub struct IPhiMaybeTaken {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
+pub struct IArrayRead {
+    pub base: IVarId,
+    pub index: IVarId,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum IExprCall {
     //Call(WCall),
     MckUnary(IMckUnary),
@@ -53,9 +59,9 @@ pub enum IExprCall {
     //MckExt(IMckExt),
     MckNew(IMckNew),
     BooleanNew(bool),
-    /*StdClone(IVarId),
+    //StdClone(IVarId),
     ArrayRead(IArrayRead),
-    ArrayWrite(IArrayWrite),*/
+    //ArrayWrite(IArrayWrite),
     Phi(IVarId, IVarId),
     PhiTaken(IPhiTaken),
 }
@@ -78,6 +84,11 @@ impl IExprCall {
             IExprCall::BooleanNew(value) => IAbstractValue::Boolean(
                 mck::abstr::Boolean::from_three_valued(ThreeValued::from_bool(*value)),
             ),
+            IExprCall::ArrayRead(array_read) => {
+                let array = abstr.value(array_read.base).expect_array();
+
+                todo!("Array read")
+            }
             IExprCall::Phi(left, right) => {
                 // join the left and right variable value
                 // at least one must be present, but not necessarily both
@@ -129,6 +140,7 @@ impl IExprCall {
 
                 refin.join_value(taken.condition, condition_value)
             }
+            IExprCall::ArrayRead(iarray_read) => todo!(),
         }
     }
 }
@@ -139,8 +151,11 @@ impl Debug for IExprCall {
             IExprCall::MckUnary(unary) => unary.fmt(f),
             IExprCall::MckBinary(binary) => binary.fmt(f),
             IExprCall::MckNew(mck_new) => mck_new.fmt(f),
-            IExprCall::Phi(left, right) => write!(f, "Phi({:?}, {:?})", left, right),
+            IExprCall::ArrayRead(array_read) => {
+                write!(f, "ArrayRead({:?},{:?})", array_read.base, array_read.index)
+            }
             IExprCall::BooleanNew(value) => write!(f, "Boolean({:?})", value),
+            IExprCall::Phi(left, right) => write!(f, "Phi({:?}, {:?})", left, right),
             IExprCall::PhiTaken(taken) => {
                 write!(f, "PhiTaken({:?}, {:?})", taken.var, taken.condition)
             }
