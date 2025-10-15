@@ -39,7 +39,7 @@ impl IMckUnary {
             IrMckUnaryOp::Neg => mck::backward::HwArith::arith_neg((operand,), later).0,
         };
 
-        refin.insert_value(self.operand, earlier);
+        refin.join_value(self.operand, earlier);
     }
 }
 
@@ -126,8 +126,8 @@ impl IMckBinary {
             IrMckBinaryOp::Sle => mck::backward::TypedCmp::sle((a, b), later),
         };
 
-        refin.insert_value(self.a, earlier_a);
-        refin.insert_value(self.b, earlier_b);
+        refin.join_value(self.a, earlier_a);
+        refin.join_value(self.b, earlier_b);
     }
 }
 
