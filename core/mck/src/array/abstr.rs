@@ -38,7 +38,6 @@ impl ReadWrite for &RArray {
     fn read(self, index: Self::Index) -> Self::Element {
         // ensure we always have the first element to join
         let (min_index, max_index) = (index.umin().to_u64(), index.umax().to_u64());
-        eprintln!("Reading {}..={}", min_index, max_index);
         self.inner
             .reduce_indexed(min_index, Some(max_index), |reduced, value| {
                 MetaWrap(reduced.0.join(&value.0))
@@ -243,11 +242,6 @@ impl<const I: u32, const W: u32> ManipField for Array<I, W> {
             |index| index.to_u64(),
             |element| MetaWrap(element.0.to_runtime()),
             RMax { width: I },
-        );
-
-        eprintln!(
-            "Converted abstract array {:?} to {:?}, index width {}, element width {}",
-            self, runtime_array, I, W
         );
 
         AbstractValue::Array(RArray {

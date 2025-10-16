@@ -103,15 +103,15 @@ impl<M: FullMachine> Deducer<'_, M> {
                     panic!("Should deduce on function inputs");
                 };
 
-                eprintln!("Function: {:#?}", func);
+                //eprintln!("Function: {:#?}", func);
 
                 let abstr = func.forward_interpret(input_values.clone());
 
-                eprintln!("Abstract interpretation: {:?}", abstr);
+                //eprintln!("Abstract interpretation: {:?}", abstr);
 
                 let refin = func.backward_interpret(&abstr);
 
-                eprintln!("Refin interpretation: {:?}", refin);
+                //eprintln!("Refin interpretation: {:?}", refin);
 
                 let mut culprit_input_index = None;
                 for (input_index, input_var_id) in func.signature.inputs.iter().enumerate() {

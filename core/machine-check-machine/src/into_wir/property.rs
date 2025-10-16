@@ -119,8 +119,8 @@ pub fn create_from_syn(
     let (property, panic_messages) = convert_total::convert_property(property);
     let property = convert_to_ssa::convert_property(property, global_ident_types)?;
 
-    eprintln!("Global ident types: {:?}", global_ident_types);
-    eprintln!("Inferring property: {:#?}", property);
+    //eprintln!("Global ident types: {:?}", global_ident_types);
+    //eprintln!("Inferring property: {:#?}", property);
     let property = infer_types::infer_property(property)?;
     let property = convert_types::convert_property(property)?;
 

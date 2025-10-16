@@ -89,8 +89,6 @@ impl IExprCall {
                 let array = abstr.value(array_read.base).expect_array();
                 let index = abstr.value(array_read.index).expect_bitvector();
 
-                eprintln!("Array: {:?}, index: {:?}", array, index);
-
                 AbstractValue::Bitvector(array.read(index))
             }
             IExprCall::Phi(left, right) => {

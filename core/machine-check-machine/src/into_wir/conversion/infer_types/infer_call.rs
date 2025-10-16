@@ -159,8 +159,6 @@ impl super::FnInferrer<'_> {
             return WPartialGeneralType::Unknown;
         };
 
-        eprintln!("Array read type: {:?}", array_type);
-
         let index_width = array_type.index_width;
         let element_width = array_type.element_width;
 
