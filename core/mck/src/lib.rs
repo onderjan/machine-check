@@ -7,6 +7,7 @@ mod bitvector;
 mod boolean;
 mod panic;
 mod traits;
+mod value;
 
 #[doc(hidden)]
 pub mod concr {
@@ -24,6 +25,7 @@ pub mod abstr {
     pub use super::boolean::abstr::*;
     pub use super::panic::abstr::*;
     pub use super::traits::abstr::*;
+    pub use super::value::abstr::*;
 
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub enum Field {
@@ -39,6 +41,7 @@ pub mod refin {
     pub use super::boolean::refin::*;
     pub use super::panic::refin::*;
     pub use super::traits::refin::*;
+    pub use super::value::refin::*;
 }
 
 #[doc(hidden)]

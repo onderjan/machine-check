@@ -1,10 +1,9 @@
 use std::fmt::Debug;
 
+use mck::{abstr::AbstractValue, refin::RefinementValue};
+
 use crate::{
-    iir::{
-        interpretation::{IAbstractValue, IRefinementValue, Interpretation},
-        variable::IVarId,
-    },
+    iir::{interpretation::Interpretation, variable::IVarId},
     ir_common::{IrMckBinaryOp, IrMckUnaryOp},
 };
 
@@ -15,10 +14,7 @@ pub struct IMckUnary {
 }
 
 impl IMckUnary {
-    pub(super) fn forward_interpret(
-        &self,
-        abstr: &Interpretation<IAbstractValue>,
-    ) -> IAbstractValue {
+    pub(super) fn forward_interpret(&self, abstr: &Interpretation<AbstractValue>) -> AbstractValue {
         let operand = abstr.value(self.operand).clone();
         match self.op {
             IrMckUnaryOp::Not => mck::forward::Bitwise::bit_not(operand),
@@ -28,9 +24,9 @@ impl IMckUnary {
 
     pub(super) fn backward_interpret(
         &self,
-        abstr: &Interpretation<IAbstractValue>,
-        refin: &mut Interpretation<IRefinementValue>,
-        later: IRefinementValue,
+        abstr: &Interpretation<AbstractValue>,
+        refin: &mut Interpretation<RefinementValue>,
+        later: RefinementValue,
     ) {
         let operand = abstr.value(self.operand).clone();
         let earlier = match self.op {
@@ -57,10 +53,7 @@ pub struct IMckBinary {
 }
 
 impl IMckBinary {
-    pub(super) fn forward_interpret(
-        &self,
-        inter: &Interpretation<IAbstractValue>,
-    ) -> IAbstractValue {
+    pub(super) fn forward_interpret(&self, inter: &Interpretation<AbstractValue>) -> AbstractValue {
         let a = inter.value(self.a).clone();
         let b = inter.value(self.b).clone();
 
@@ -93,9 +86,9 @@ impl IMckBinary {
 
     pub(super) fn backward_interpret(
         &self,
-        abstr: &Interpretation<IAbstractValue>,
-        refin: &mut Interpretation<IRefinementValue>,
-        later: IRefinementValue,
+        abstr: &Interpretation<AbstractValue>,
+        refin: &mut Interpretation<RefinementValue>,
+        later: RefinementValue,
     ) {
         let a = abstr.value(self.a).clone();
         let b = abstr.value(self.b).clone();

@@ -1,11 +1,12 @@
-use std::{array, fmt::Debug};
+use std::fmt::Debug;
 
 use mck::three_valued::ThreeValued;
 
+use mck::{abstr::AbstractValue, misc::Join, refin::RefinementValue};
+
 use crate::iir::{
     expr::op::{IMckBinary, IMckUnary},
-    interpretation::Join,
-    interpretation::{IAbstractValue, IRefinementValue, Interpretation},
+    interpretation::Interpretation,
     variable::IVarId,
 };
 
@@ -17,13 +18,13 @@ pub enum IMckNew {
 }
 
 impl IMckNew {
-    fn forward_interpret(&self) -> IAbstractValue {
+    fn forward_interpret(&self) -> AbstractValue {
         match self {
             IMckNew::Bitvector(width, constant) => {
                 let Ok(constant) = u64::try_from(*constant) else {
                     panic!("Constant outside u64");
                 };
-                IAbstractValue::Bitvector(mck::abstr::RBitvector::new(constant, *width))
+                AbstractValue::Bitvector(mck::abstr::RBitvector::new(constant, *width))
             }
         }
     }
@@ -75,13 +76,13 @@ pub struct IPhiTaken {
 impl IExprCall {
     pub fn forward_interpret(
         &self,
-        abstr: &Interpretation<IAbstractValue>,
-    ) -> Option<IAbstractValue> {
+        abstr: &Interpretation<AbstractValue>,
+    ) -> Option<AbstractValue> {
         Some(match self {
             IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
             IExprCall::MckBinary(binary) => binary.forward_interpret(abstr),
             IExprCall::MckNew(mck_new) => mck_new.forward_interpret(),
-            IExprCall::BooleanNew(value) => IAbstractValue::Boolean(
+            IExprCall::BooleanNew(value) => AbstractValue::Boolean(
                 mck::abstr::Boolean::from_three_valued(ThreeValued::from_bool(*value)),
             ),
             IExprCall::ArrayRead(array_read) => {
@@ -96,7 +97,7 @@ impl IExprCall {
                 let right = abstr.value_opt(*right);
 
                 match (left, right) {
-                    (Some(left), Some(right)) => left.join(right),
+                    (Some(left), Some(right)) => left.clone().join(right),
                     (Some(left), None) => left.clone(),
                     (None, Some(right)) => right.clone(),
                     (None, None) => panic!("At least one phi variable should be present"),
@@ -110,9 +111,9 @@ impl IExprCall {
     }
     pub fn backward_interpret(
         &self,
-        abstr: &Interpretation<IAbstractValue>,
-        refin: &mut Interpretation<IRefinementValue>,
-        later: IRefinementValue,
+        abstr: &Interpretation<AbstractValue>,
+        refin: &mut Interpretation<RefinementValue>,
+        later: RefinementValue,
     ) {
         match self {
             IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, later),
@@ -130,10 +131,10 @@ impl IExprCall {
                 refin.insert_value(taken.var, later.clone());
 
                 // convert to condition and propagate
-                let condition_value = IRefinementValue::Boolean(match later {
-                    IRefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
-                    IRefinementValue::Boolean(boolean) => boolean,
-                    IRefinementValue::PanicResult(_) => {
+                let condition_value = RefinementValue::Boolean(match later {
+                    RefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
+                    RefinementValue::Boolean(boolean) => boolean,
+                    RefinementValue::PanicResult(_) => {
                         panic!("Panic result should never be joined")
                     }
                 });

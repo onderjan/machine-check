@@ -5,12 +5,7 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 use crate::iir::variable::IVarId;
-
-pub use {abstr::IAbstractValue, refin::IRefinementValue};
-
-pub trait Join {
-    fn join(&self, other: &Self) -> Self;
-}
+use mck::misc::Join;
 
 #[derive(Debug)]
 pub struct Interpretation<V: Join + Debug> {

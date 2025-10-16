@@ -1,10 +1,13 @@
 use std::collections::BTreeMap;
 
 use machine_check_common::{
-    iir::{func::IFn, interpretation::IAbstractValue, IProperty},
+    iir::{func::IFn, IProperty},
     ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
-use mck::{abstr::Manipulatable, concr::FullMachine};
+use mck::{
+    abstr::{AbstractValue, Manipulatable},
+    concr::FullMachine,
+};
 
 use crate::space::StateSpace;
 
@@ -12,7 +15,7 @@ use crate::space::StateSpace;
 pub enum CheckChoice {
     Next(Option<StateId>),
     FixedPoint,
-    Func(Vec<IAbstractValue>),
+    Func(Vec<AbstractValue>),
 }
 
 #[derive(Clone, Debug)]
@@ -200,9 +203,9 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
                     }
                 };
 
-                IAbstractValue::Boolean(boolean)
+                AbstractValue::Boolean(boolean)
             } else if input_var_name == "__panic" {
-                IAbstractValue::Bitvector(state_panic.to_runtime())
+                AbstractValue::Bitvector(state_panic.to_runtime())
             } else {
                 let Some(field) = state_result.get(input_var_name) else {
                     panic!("Input '{}' should be in fields", input_var_name);
@@ -211,7 +214,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
                 let bitvec = field
                     .runtime_bitvector()
                     .expect("Input should be a bitvector");
-                IAbstractValue::Bitvector(bitvec)
+                AbstractValue::Bitvector(bitvec)
             };
 
             globals.insert(input_var_name.to_string(), value);
@@ -221,7 +224,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
 
         let result = func.call(input_values.clone());
 
-        let IAbstractValue::Boolean(result) = result else {
+        let AbstractValue::Boolean(result) = result else {
             panic!("Result should be abstract Boolean");
         };
 

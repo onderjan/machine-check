@@ -3,11 +3,9 @@ pub mod op;
 
 use std::fmt::Debug;
 
-use crate::iir::{
-    expr::call::IExprCall,
-    interpretation::{IAbstractValue, IRefinementValue, Interpretation},
-    variable::IVarId,
-};
+use mck::{abstr::AbstractValue, refin::RefinementValue};
+
+use crate::iir::{expr::call::IExprCall, interpretation::Interpretation, variable::IVarId};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum IExpr {
@@ -34,8 +32,8 @@ pub enum IExprReference {
 impl IExpr {
     pub fn forward_interpret(
         &self,
-        abstr: &Interpretation<IAbstractValue>,
-    ) -> Option<IAbstractValue> {
+        abstr: &Interpretation<AbstractValue>,
+    ) -> Option<AbstractValue> {
         match self {
             IExpr::Move(var_id) => Some(abstr.value(*var_id).clone()),
             IExpr::Call(expr_call) => expr_call.forward_interpret(abstr),
@@ -52,9 +50,9 @@ impl IExpr {
 
     pub fn backward_interpret(
         &self,
-        abstr: &Interpretation<IAbstractValue>,
-        refin: &mut Interpretation<IRefinementValue>,
-        later: IRefinementValue,
+        abstr: &Interpretation<AbstractValue>,
+        refin: &mut Interpretation<RefinementValue>,
+        later: RefinementValue,
     ) {
         match self {
             IExpr::Move(var_id) => {

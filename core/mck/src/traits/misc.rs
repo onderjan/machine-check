@@ -78,3 +78,8 @@ impl<M: Meta<P>, P: Clone> Iterator for ProtoIterator<M, P> {
 pub trait PanicMessage {
     fn panic_message(panic_id: u32) -> &'static str;
 }
+
+// TODO: integrate Join, Phi, and apply_join
+pub trait Join {
+    fn join(self, other: &Self) -> Self;
+}

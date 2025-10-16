@@ -7,10 +7,10 @@ use std::{
 use log::trace;
 use machine_check_common::{
     check::{AtomicProperty, Culprit},
-    iir::{interpretation::IRefinementValue, IProperty, ISubproperty},
+    iir::{IProperty, ISubproperty},
     ExecError, ParamValuation, StateId,
 };
-use mck::concr::FullMachine;
+use mck::{concr::FullMachine, refin::RefinementValue};
 
 use crate::{
     model_check::{
@@ -117,19 +117,19 @@ impl<M: FullMachine> Deducer<'_, M> {
                 for (input_index, input_var_id) in func.signature.inputs.iter().enumerate() {
                     if let Some(refin_value) = refin.value_opt(*input_var_id) {
                         match refin_value {
-                            IRefinementValue::Bitvector(mark) => {
+                            RefinementValue::Bitvector(mark) => {
                                 if mark.marked_bits().is_nonzero() {
                                     culprit_input_index = Some(input_index);
                                     break;
                                 }
                             }
-                            IRefinementValue::Boolean(mark) => {
+                            RefinementValue::Boolean(mark) => {
                                 if *mark != mck::refin::Boolean::new_unmarked() {
                                     culprit_input_index = Some(input_index);
                                     break;
                                 }
                             }
-                            IRefinementValue::PanicResult(_panic_result) => todo!(),
+                            RefinementValue::PanicResult(_panic_result) => todo!(),
                         }
                     }
                 }

@@ -17,6 +17,7 @@ use crate::{
         SignedBitvector, UnsignedBitvector,
     },
     forward::Bitwise,
+    misc::Join,
     traits::misc::MetaEq,
 };
 
@@ -161,8 +162,10 @@ impl RThreeValuedBitvector {
     pub fn get_possibly_zero_flags(&self) -> RConcreteBitvector {
         self.zeros
     }
+}
 
-    pub fn join(self, other: Self) -> Self {
+impl Join for RThreeValuedBitvector {
+    fn join(self, other: &Self) -> Self {
         let zeros = self.zeros.bit_or(other.zeros);
         let ones = self.ones.bit_or(other.ones);
 

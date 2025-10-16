@@ -3,6 +3,7 @@ use std::fmt::{Debug, Display};
 use crate::{
     abstr::{BooleanBitvector, Phi, Test},
     forward::Bitwise,
+    misc::Join,
     three_valued::ThreeValued,
 };
 
@@ -54,8 +55,10 @@ impl Boolean {
             crate::concr::Bitvector::new(can_be_true as u64),
         )
     }
+}
 
-    pub fn join(self, other: Self) -> Self {
+impl Join for Boolean {
+    fn join(self, other: &Self) -> Self {
         Self::from_three_valued(
             match (self.into_three_valued(), other.into_three_valued()) {
                 (ThreeValued::Unknown, _) | (_, ThreeValued::Unknown) => ThreeValued::Unknown,
