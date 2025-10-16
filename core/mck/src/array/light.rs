@@ -502,6 +502,10 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
     pub fn light_iter(&self) -> impl Iterator<Item = (&I, &E)> {
         self.inner.iter()
     }
+
+    pub fn bound(&self) -> M {
+        self.bound
+    }
 }
 
 impl<

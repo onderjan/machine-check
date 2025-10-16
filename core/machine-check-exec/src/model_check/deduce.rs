@@ -129,6 +129,13 @@ impl<M: FullMachine> Deducer<'_, M> {
                                     break;
                                 }
                             }
+                            RefinementValue::Array(mark) => {
+                                use mck::refin::Refine;
+                                if mark.to_condition().importance() > 0 {
+                                    culprit_input_index = Some(input_index);
+                                    break;
+                                }
+                            }
                             RefinementValue::PanicResult(_panic_result) => todo!(),
                         }
                     }

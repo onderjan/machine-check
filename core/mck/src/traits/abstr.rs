@@ -1,4 +1,4 @@
-use crate::abstr::{AbstractValue, Field, PanicResult, RBitvector};
+use crate::abstr::{AbstractValue, Field, PanicResult};
 use crate::concr::FullMachine;
 use std::fmt::Debug;
 use std::hash::Hash;

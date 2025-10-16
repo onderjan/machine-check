@@ -6,7 +6,7 @@ use crate::{
     abstr::{
         self, Abstr, AbstractValue, BitvectorDomain, BitvectorElement, Field, ManipField, Phi,
     },
-    concr::{self, UnsignedBitvector},
+    concr::{self, RUnsignedBitvector, UnsignedBitvector},
     forward::ReadWrite,
     misc::{CMax, Join, MetaWrap, RMax},
     traits::misc::MetaEq,
@@ -14,9 +14,20 @@ use crate::{
 
 use super::light::LightArray;
 
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub struct RArray {
+    pub(super) element_width: u32,
     pub(super) inner: LightArray<u64, MetaWrap<abstr::RBitvector>, RMax>,
+}
+
+impl RArray {
+    pub fn index_width(&self) -> u32 {
+        self.inner.bound().width
+    }
+
+    pub fn element_width(&self) -> u32 {
+        self.element_width
+    }
 }
 
 impl ReadWrite for &RArray {
@@ -121,6 +132,16 @@ impl<const I: u32, const W: u32> ReadWrite for &Array<I, W> {
     }
 }
 
+pub(super) fn extract_runtime_bounds(
+    index: abstr::RBitvector,
+) -> (RUnsignedBitvector, RUnsignedBitvector) {
+    let umin = index.umin();
+    let umax = index.umax();
+    assert!(umin <= umax);
+
+    (umin, umax)
+}
+
 pub(super) fn extract_bounds<const I: u32>(
     index: abstr::Bitvector<I>,
 ) -> (UnsignedBitvector<I>, UnsignedBitvector<I>) {
@@ -169,11 +190,11 @@ impl<const I: u32, const W: u32> Debug for Array<I, W> {
     }
 }
 
-impl Debug for RArray {
+/*impl Debug for RArray {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
     }
-}
+}*/
 
 impl<const I: u32, const W: u32> ManipField for Array<I, W> {
     fn index(&self, index: u64) -> Option<&dyn ManipField> {
@@ -224,7 +245,13 @@ impl<const I: u32, const W: u32> ManipField for Array<I, W> {
             RMax { width: I },
         );
 
+        eprintln!(
+            "Converted abstract array {:?} to {:?}, index width {}, element width {}",
+            self, runtime_array, I, W
+        );
+
         AbstractValue::Array(RArray {
+            element_width: W,
             inner: runtime_array,
         })
     }

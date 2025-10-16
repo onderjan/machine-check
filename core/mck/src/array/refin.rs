@@ -2,7 +2,9 @@ use std::{fmt::Debug, num::NonZeroU8};
 
 use std::ops::ControlFlow;
 
-use crate::misc::CMax;
+use crate::array::abstr::extract_runtime_bounds;
+use crate::misc::{CMax, RMax};
+use crate::refin::RBitvector;
 use crate::{
     abstr,
     backward::ReadWrite,
@@ -14,6 +16,39 @@ use crate::{
 
 use super::{abstr::extract_bounds, light::LightArray};
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct RArray {
+    element_width: u32,
+    inner: LightArray<u64, MetaWrap<refin::RBitvector>, RMax>,
+}
+
+impl RArray {
+    pub fn new_unmarked(index_width: u32, element_width: u32) -> Self {
+        RArray {
+            element_width,
+            inner: LightArray::new_filled(
+                MetaWrap(refin::RBitvector::new_unmarked(element_width)),
+                RMax { width: index_width },
+            ),
+        }
+    }
+
+    pub fn to_condition(&self) -> Boolean {
+        // marked with the highest marking importance
+        self.inner.fold(Boolean::new_unmarked(), |result, value| {
+            if let Some(importance) = value.0.importance() {
+                if importance.get() > result.importance() {
+                    Boolean::new_marked(importance)
+                } else {
+                    result
+                }
+            } else {
+                result
+            }
+        })
+    }
+}
+
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const W: u32> {
     inner: LightArray<UnsignedBitvector<I>, MetaWrap<refin::Bitvector<W>>, CMax<I>>,
@@ -24,6 +59,64 @@ impl<const I: u32, const W: u32> Array<I, W> {
         Array {
             inner: LightArray::new_filled(MetaWrap(refin::Bitvector::<W>::new_unmarked()), CMax),
         }
+    }
+}
+
+impl ReadWrite for abstr::RArray {
+    type Index = abstr::RBitvector;
+    type Element = abstr::RBitvector;
+
+    type Mark = RArray;
+    type IndexMark = RBitvector;
+    type ElementMark = RBitvector;
+
+    fn read(
+        normal_input: (&Self, Self::Index),
+        mark_later: Self::ElementMark,
+    ) -> (Self::Mark, Self::IndexMark) {
+        let index_width = normal_input.0.index_width();
+        let element_width = normal_input.0.element_width();
+
+        assert_eq!(index_width, normal_input.1.width());
+        assert_eq!(element_width, mark_later.marked_bits().width());
+
+        let Some(importance) = mark_later.importance() else {
+            // no marking
+            return (
+                Self::Mark::new_unmarked(index_width, element_width),
+                Self::IndexMark::new_unmarked(index_width),
+            );
+        };
+
+        // prefer marking index
+        let (min_index, max_index) = extract_runtime_bounds(normal_input.1);
+        let (min_index, max_index) = (min_index.to_u64(), max_index.to_u64());
+        if min_index == max_index {
+            // mark array element
+            let limited_mark = mark_later.limit(normal_input.0.inner[min_index].0);
+            let mut earlier_array_mark = Self::Mark::new_unmarked(index_width, element_width);
+            earlier_array_mark
+                .inner
+                .write(min_index, MetaWrap(limited_mark));
+            (
+                earlier_array_mark,
+                Self::IndexMark::new_unmarked(index_width),
+            )
+        } else {
+            // mark index with higher importance
+            (
+                Self::Mark::new_unmarked(index_width, element_width),
+                Self::IndexMark::new_marked(index_importance(importance), index_width)
+                    .limit(normal_input.1),
+            )
+        }
+    }
+
+    fn write(
+        _normal_input: (&Self, Self::Index, Self::Element),
+        _mark_later: Self::Mark,
+    ) -> (Self::Mark, Self::IndexMark, Self::ElementMark) {
+        todo!();
     }
 }
 
@@ -245,6 +338,12 @@ impl<const I: u32, const W: u32> Debug for Array<I, W> {
         self.inner.fmt(f)
     }
 }
+
+/*impl Debug for RArray {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
+    }
+}*/
 
 impl<const I: u32, const W: u32> ManipField for Array<I, W> {
     fn index(&self, index: u64) -> Option<&dyn ManipField> {

@@ -94,14 +94,6 @@ impl RMarkBitvector {
     fn dirty(width: u32) -> Self {
         Self::new_marked_unimportant(width)
     }
-
-    fn importance(&self) -> u8 {
-        if let Some(mark) = self.inner {
-            mark.importance.into()
-        } else {
-            0
-        }
-    }
 }
 
 impl<const W: u32> Refine<ThreeValuedBitvector<W>> for MarkBitvector<W> {

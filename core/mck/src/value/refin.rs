@@ -7,6 +7,7 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub enum RefinementValue {
+    Array(refin::RArray),
     Bitvector(refin::RBitvector),
     Boolean(refin::Boolean),
     PanicResult(refin::PanicResult<refin::RBitvector>),
@@ -74,8 +75,8 @@ macro_rules! bitwise_bi_op {
 
                 (RefinementValue::Boolean(a), RefinementValue::Boolean(b))
             }
-            RefinementValue::PanicResult(_) => {
-                panic!("Bitwise operations not supported by panic result")
+            _ => {
+                panic!("Bitwise operations not supported by type combination")
             }
         }
     };
@@ -98,8 +99,8 @@ impl backward::Bitwise for AbstractValue {
 
                 (RefinementValue::Boolean(a),)
             }
-            RefinementValue::PanicResult(_) => {
-                panic!("Bitwise operations not supported by panic result")
+            _ => {
+                panic!("Bitwise operations not supported by type combination")
             }
         }
     }
@@ -129,11 +130,8 @@ macro_rules! shift_bi_op {
 
                 (RefinementValue::Bitvector(a), RefinementValue::Bitvector(b))
             }
-            RefinementValue::Boolean(_) => {
-                panic!("Shift operations do not support booleans")
-            }
-            RefinementValue::PanicResult(_) => {
-                panic!("Shift operations do not support panic result")
+            _ => {
+                panic!("Shift operations not supported by type")
             }
         }
     };
@@ -167,9 +165,8 @@ macro_rules! hw_arith_bi_op {
 
                 (RefinementValue::Bitvector(a), RefinementValue::Bitvector(b))
             }
-            RefinementValue::Boolean(_) => panic!("Arithmetic not supported by booleans"),
-            RefinementValue::PanicResult(_) => {
-                panic!("Arithmetic not supported by panic result")
+            _ => {
+                panic!("Arithmetic not supported by type combination")
             }
         }
     };
@@ -203,9 +200,8 @@ impl backward::HwArith for AbstractValue {
 
                 (RefinementValue::Bitvector(a),)
             }
-            RefinementValue::Boolean(_) => panic!("Booleans not supported by panic result"),
-            RefinementValue::PanicResult(_) => {
-                panic!("Arithmetic not supported by panic result")
+            _ => {
+                panic!("Arithmetic negation not supported by type")
             }
         }
     }

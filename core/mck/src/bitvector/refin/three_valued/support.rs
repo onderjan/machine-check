@@ -68,6 +68,17 @@ impl RMarkBitvector {
             RConcreteBitvector::new(0, self.width)
         }
     }
+
+    pub fn importance(&self) -> Option<NonZeroU8> {
+        self.inner.map(|mark| mark.importance)
+    }
+}
+
+impl MetaEq for RMarkBitvector {
+    fn meta_eq(&self, other: &Self) -> bool {
+        assert_eq!(self.width, other.width);
+        self.inner == other.inner
+    }
 }
 
 impl<const W: u32> MarkBitvector<W> {

@@ -126,17 +126,18 @@ impl IExprCall {
             }
             IExprCall::Phi(a, b) => {
                 // propagate into both
-                refin.insert_value(*a, later.clone());
-                refin.insert_value(*b, later);
+                refin.join_value(*a, later.clone());
+                refin.join_value(*b, later);
             }
             IExprCall::PhiTaken(taken) => {
                 // propagate into taken
-                refin.insert_value(taken.var, later.clone());
+                refin.join_value(taken.var, later.clone());
 
                 // convert to condition and propagate
                 let condition_value = RefinementValue::Boolean(match later {
                     RefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
                     RefinementValue::Boolean(boolean) => boolean,
+                    RefinementValue::Array(array) => array.to_condition(),
                     RefinementValue::PanicResult(_) => {
                         panic!("Panic result should never be joined")
                     }
@@ -144,7 +145,16 @@ impl IExprCall {
 
                 refin.join_value(taken.condition, condition_value)
             }
-            IExprCall::ArrayRead(array_read) => todo!(),
+            IExprCall::ArrayRead(array_read) => {
+                let refin_element = later.expect_bitvector();
+                let abstr_array = abstr.value(array_read.base).expect_array();
+                let abstr_index = abstr.value(array_read.index).expect_bitvector();
+                let (refin_array, refin_index) =
+                    mck::backward::ReadWrite::read((abstr_array, abstr_index), refin_element);
+
+                refin.join_value(array_read.base, RefinementValue::Array(refin_array));
+                refin.join_value(array_read.index, RefinementValue::Bitvector(refin_index));
+            }
         }
     }
 }
