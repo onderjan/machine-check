@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use mck::three_valued::ThreeValued;
 
-use mck::{abstr::AbstractValue, misc::Join, refin::RefinementValue};
+use mck::{abstr::AbstractValue, forward::ReadWrite, misc::Join, refin::RefinementValue};
 
 use crate::iir::{
     expr::op::{IMckBinary, IMckUnary},
@@ -40,13 +40,13 @@ impl Debug for IMckNew {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IPhiMaybeTaken {
     pub taken: IVarId,
     pub condition: IVarId,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IArrayRead {
     pub base: IVarId,
     pub index: IVarId,
@@ -87,8 +87,11 @@ impl IExprCall {
             ),
             IExprCall::ArrayRead(array_read) => {
                 let array = abstr.value(array_read.base).expect_array();
+                let index = abstr.value(array_read.index).expect_bitvector();
 
-                todo!("Array read")
+                eprintln!("Array: {:?}, index: {:?}", array, index);
+
+                AbstractValue::Bitvector(array.read(index))
             }
             IExprCall::Phi(left, right) => {
                 // join the left and right variable value
@@ -141,7 +144,7 @@ impl IExprCall {
 
                 refin.join_value(taken.condition, condition_value)
             }
-            IExprCall::ArrayRead(iarray_read) => todo!(),
+            IExprCall::ArrayRead(array_read) => todo!(),
         }
     }
 }

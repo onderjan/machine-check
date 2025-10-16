@@ -3,10 +3,12 @@ use std::{collections::BTreeMap, fmt::Debug};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{self, Abstr, BitvectorDomain, BitvectorElement, Field, ManipField, Phi},
+    abstr::{
+        self, Abstr, AbstractValue, BitvectorDomain, BitvectorElement, Field, ManipField, Phi,
+    },
     concr::{self, UnsignedBitvector},
     forward::ReadWrite,
-    misc::{CMax, MetaWrap, RMax},
+    misc::{CMax, Join, MetaWrap, RMax},
     traits::misc::MetaEq,
 };
 
@@ -15,6 +17,42 @@ use super::light::LightArray;
 #[derive(Clone, Hash)]
 pub struct RArray {
     pub(super) inner: LightArray<u64, MetaWrap<abstr::RBitvector>, RMax>,
+}
+
+impl ReadWrite for &RArray {
+    type Index = abstr::RBitvector;
+    type Element = abstr::RBitvector;
+    type Deref = RArray;
+
+    fn read(self, index: Self::Index) -> Self::Element {
+        // ensure we always have the first element to join
+        let (min_index, max_index) = (index.umin().to_u64(), index.umax().to_u64());
+        eprintln!("Reading {}..={}", min_index, max_index);
+        self.inner
+            .reduce_indexed(min_index, Some(max_index), |reduced, value| {
+                MetaWrap(reduced.0.join(&value.0))
+            })
+            .0
+    }
+
+    fn write(self, index: Self::Index, element: Self::Element) -> Self::Deref {
+        let (min_index, max_index) = (index.umin().to_u64(), index.umax().to_u64());
+
+        let mut result = self.clone();
+
+        if min_index == max_index {
+            // just set the single element
+            result.inner.write(min_index, MetaWrap(element));
+        } else {
+            // unsure which element is being set, join the previous values
+            result
+                .inner
+                .map_inplace_indexed(min_index, Some(max_index), |value| {
+                    MetaWrap(value.0.join(&element))
+                });
+        }
+        result
+    }
 }
 
 #[derive(Clone, Hash)]
@@ -69,7 +107,7 @@ impl<const I: u32, const W: u32> ReadWrite for &Array<I, W> {
         let mut result = self.clone();
 
         if min_index == max_index {
-            // just set the single elementW
+            // just set the single element
             result.inner.write(min_index, MetaWrap(element));
         } else {
             // unsure which element is being set, join the previous values
@@ -179,7 +217,15 @@ impl<const I: u32, const W: u32> ManipField for Array<I, W> {
         })
     }
 
-    fn runtime_bitvector(&self) -> Option<abstr::RBitvector> {
-        None
+    fn runtime_value(&self) -> AbstractValue {
+        let runtime_array = self.inner.create_converted(
+            |index| index.to_u64(),
+            |element| MetaWrap(element.0.to_runtime()),
+            RMax { width: I },
+        );
+
+        AbstractValue::Array(RArray {
+            inner: runtime_array,
+        })
     }
 }

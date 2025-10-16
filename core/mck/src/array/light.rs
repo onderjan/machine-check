@@ -20,27 +20,22 @@ pub trait LightMax<I>: Clone + Copy + PartialEq + Eq + Debug {
     fn allowed(&self, value: I) -> bool;
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct LightArray<
-    I: Clone
-        + Copy
-        + PartialEq
-        + Eq
-        + PartialOrd
-        + Ord
-        + Zero
-        + One
-        + Add<Output = I>
-        + Sub<Output = I>,
-    E: Clone + PartialEq + Eq,
-    M: LightMax<I>,
-> {
-    inner: Arc<BTreeMap<I, E>>,
-    bound: M,
+pub trait LightIndex:
+    Clone
+    + Copy
+    + PartialEq
+    + Eq
+    + PartialOrd
+    + Ord
+    + Zero
+    + One
+    + Add<Output = Self>
+    + Sub<Output = Self>
+{
 }
 
 impl<
-        I: Clone
+        T: Clone
             + Copy
             + PartialEq
             + Eq
@@ -48,12 +43,19 @@ impl<
             + Ord
             + Zero
             + One
-            + Add<Output = I>
-            + Sub<Output = I>,
-        E: Clone + PartialEq + Eq,
-        M: LightMax<I>,
-    > LightArray<I, E, M>
+            + Add<Output = Self>
+            + Sub<Output = Self>,
+    > LightIndex for T
 {
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct LightArray<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> {
+    inner: Arc<BTreeMap<I, E>>,
+    bound: M,
+}
+
+impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, M> {
     pub fn new_filled(element: E, bound: M) -> Self {
         let zero_index = <I as Zero>::zero();
         let inner = Arc::new(BTreeMap::from_iter([(zero_index, element)]));
@@ -61,6 +63,7 @@ impl<
     }
 
     pub fn write(&mut self, index: I, value: E) {
+        assert!(self.bound.allowed(index));
         use std::ops::Bound::{Included, Unbounded};
 
         // first, we will get the previous value
@@ -95,15 +98,18 @@ impl<
         // that have the same values
     }
 
-    fn indexed_iter(&self, min_index: I, max_index: Option<I>) -> impl Iterator<Item = &E> {
+    fn indexed_iter(&self, min_index: I, max_index: Option<I>) -> impl Iterator<Item = (&I, &E)> {
+        assert!(self.bound.allowed(min_index));
+        if let Some(max_index) = max_index {
+            assert!(self.bound.allowed(max_index));
+        }
         // the lower element may not be within the range, find it specifically
         use std::ops::Bound::{Excluded, Included, Unbounded};
         let lower_element = self
             .inner
             .range((Unbounded, Included(min_index)))
             .last()
-            .expect("Expected lower bound entry when iterator-indexing")
-            .1;
+            .expect("Expected lower bound entry when iterator-indexing");
 
         let max_bound = if let Some(max_index) = max_index {
             assert!(min_index <= max_index);
@@ -111,10 +117,7 @@ impl<
         } else {
             Unbounded
         };
-        let other_elements_iter = self
-            .inner
-            .range((Excluded(min_index), max_bound))
-            .map(|(_index, value)| value);
+        let other_elements_iter = self.inner.range((Excluded(min_index), max_bound));
         std::iter::once(lower_element).chain(other_elements_iter)
     }
 
@@ -126,7 +129,7 @@ impl<
         func: fn(B, &E) -> B,
     ) -> B {
         let mut accumulator = init;
-        for value in self.indexed_iter(min_index, max_index) {
+        for (_index, value) in self.indexed_iter(min_index, max_index) {
             accumulator = (func)(accumulator, value);
         }
         accumulator
@@ -136,13 +139,42 @@ impl<
         self.fold_indexed(<I as Zero>::zero(), None, init, func)
     }
 
+    pub fn create_converted<FI, FE, FM>(
+        &self,
+        index_folder: fn(I) -> FI,
+        element_folder: fn(E) -> FE,
+        bound: FM,
+    ) -> LightArray<FI, FE, FM>
+    where
+        FI: LightIndex,
+        FE: Clone + PartialEq + Eq,
+        FM: LightMax<FI>,
+    {
+        let mut inner = BTreeMap::new();
+
+        for (index, element) in self.indexed_iter(I::zero(), None) {
+            let index = index_folder(*index);
+            let value = element_folder(element.clone());
+
+            assert!(bound.allowed(index));
+
+            inner.insert(index, value);
+        }
+
+        LightArray {
+            inner: Arc::new(inner),
+            bound,
+        }
+    }
+
     pub fn reduce_indexed(&self, min_index: I, max_index: Option<I>, func: fn(E, &E) -> E) -> E {
         let mut result = self
             .indexed_iter(min_index, max_index)
             .next()
+            .map(|(_index, value)| value)
             .cloned()
             .expect("Indexed iterator should have at least one element");
-        for value in self.indexed_iter(min_index, max_index) {
+        for (_index, value) in self.indexed_iter(min_index, max_index) {
             result = (func)(result, value);
         }
         result
@@ -154,6 +186,10 @@ impl<
         max_index: Option<I>,
         map_fn: impl Fn(E) -> E,
     ) {
+        assert!(self.bound.allowed(min_index));
+        if let Some(max_index) = max_index {
+            assert!(self.bound.allowed(max_index));
+        }
         // the lower element may not be within the range, find it specifically
         use std::ops::Bound::{Excluded, Included, Unbounded};
 
@@ -435,6 +471,8 @@ impl<
     }
 
     pub fn mutable_index(&mut self, index: I) -> &mut E {
+        assert!(self.bound.allowed(index));
+
         // currently retained but not available by IndexMut
         // TODO: remove as it does not keep representation compact
 
@@ -529,6 +567,7 @@ impl<
     type Output = E;
 
     fn index(&self, index: I) -> &Self::Output {
+        assert!(self.bound.allowed(index));
         use std::ops::Bound::{Included, Unbounded};
 
         // we can return the lower bound

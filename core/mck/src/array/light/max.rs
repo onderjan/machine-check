@@ -11,7 +11,7 @@ impl LightMax<u64> for RMax {
     }
 
     fn allowed(&self, value: u64) -> bool {
-        value < compute_u64_mask(self.width)
+        value <= compute_u64_mask(self.width)
     }
 }
 

@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     abstr::{
-        Abstr, BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field, ManipField, Phi,
-        Test,
+        Abstr, AbstractValue, BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field,
+        ManipField, Phi, Test,
     },
     bitvector::{
         abstr::three_valued::RThreeValuedBitvector,
@@ -480,8 +480,8 @@ impl<const W: u32> ManipField for ThreeValuedBitvector<W> {
         Some(W)
     }
 
-    fn runtime_bitvector(&self) -> Option<crate::abstr::RBitvector> {
-        Some(self.to_runtime())
+    fn runtime_value(&self) -> AbstractValue {
+        AbstractValue::Bitvector(self.to_runtime())
     }
 
     fn min_unsigned(&self) -> Option<u64> {

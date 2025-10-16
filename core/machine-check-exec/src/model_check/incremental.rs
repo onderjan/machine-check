@@ -211,10 +211,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
                     panic!("Input '{}' should be in fields", input_var_name);
                 };
 
-                let bitvec = field
-                    .runtime_bitvector()
-                    .expect("Input should be a bitvector");
-                AbstractValue::Bitvector(bitvec)
+                field.runtime_value()
             };
 
             globals.insert(input_var_name.to_string(), value);

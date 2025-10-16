@@ -5,8 +5,8 @@ use std::hash::Hash;
 
 use crate::{
     abstr::{
-        BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field, ManipField, PanicResult,
-        Phi, Test,
+        AbstractValue, BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field,
+        ManipField, PanicResult, Phi, Test,
     },
     bitvector::interval::{UnsignedInterval, WrappingInterval},
     concr::ConcreteBitvector,
@@ -141,7 +141,7 @@ impl<const W: u32> ManipField for CombinedBitvector<W> {
         None
     }
 
-    fn runtime_bitvector(&self) -> Option<super::RBitvector> {
+    fn runtime_value(&self) -> AbstractValue {
         todo!()
     }
 

@@ -1,4 +1,4 @@
-use crate::abstr::{Field, PanicResult, RBitvector};
+use crate::abstr::{AbstractValue, Field, PanicResult, RBitvector};
 use crate::concr::FullMachine;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -80,7 +80,7 @@ where
 
 pub trait ManipField {
     fn index(&self, index: u64) -> Option<&dyn ManipField>;
-    fn runtime_bitvector(&self) -> Option<RBitvector>;
+    fn runtime_value(&self) -> AbstractValue;
 
     fn num_bits(&self) -> Option<u32>;
     fn min_unsigned(&self) -> Option<u64>;
