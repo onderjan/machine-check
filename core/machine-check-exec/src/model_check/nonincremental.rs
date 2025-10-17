@@ -1,10 +1,10 @@
-/*use std::collections::BTreeMap;
+use std::collections::BTreeMap;
 
 use machine_check_common::{
-    iir::{func::IFn, interpretation::IAbstractValue, IProperty},
+    iir::{func::IFn, IProperty},
     ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
-use mck::{abstr::Manipulatable, concr::FullMachine};
+use mck::{abstr::AbstractValue, abstr::Manipulatable, concr::FullMachine};
 
 use crate::space::StateSpace;
 
@@ -23,7 +23,6 @@ pub fn check_property<M: FullMachine>(
         space,
         property,
         environment: &mut environment,
-        //calmable_fixed_points: BTreeSet::new(),
     }
     .check_property()
 }
@@ -32,7 +31,6 @@ pub(super) struct NonincrementalChecker<'a, M: FullMachine> {
     pub(super) space: &'a StateSpace<M>,
     pub(super) property: &'a IProperty,
     pub(super) environment: &'a mut BTreeMap<(usize, StateId), ParamValuation>,
-    //calmable_fixed_points: BTreeSet<usize>,
 }
 
 impl<M: FullMachine> NonincrementalChecker<'_, M> {
@@ -178,18 +176,15 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                     }
                 };
 
-                IAbstractValue::Bool(boolean)
+                AbstractValue::Boolean(boolean)
             } else if input_var_name == "__panic" {
-                IAbstractValue::Bitvector(state_panic.to_runtime())
+                AbstractValue::Bitvector(state_panic.to_runtime())
             } else {
                 let Some(field) = state_result.get(input_var_name) else {
                     panic!("Input '{}' should be in fields", input_var_name);
                 };
 
-                let bitvec = field
-                    .runtime_bitvector()
-                    .expect("Input should be a bitvector");
-                IAbstractValue::Bitvector(bitvec)
+                field.runtime_value()
             };
 
             globals.insert(input_var_name.to_string(), value);
@@ -199,7 +194,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
 
         let result = func.call(input_values);
 
-        let IAbstractValue::Bool(result) = result else {
+        let AbstractValue::Boolean(result) = result else {
             panic!("Result should be abstract Boolean");
         };
 
@@ -282,4 +277,3 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
         }
     }
 }
-*/

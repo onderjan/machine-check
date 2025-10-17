@@ -108,7 +108,7 @@ impl ThreeValuedChecker {
             // TODO: double/triple-check with new properties
             /*
             // double-check known result using the incremental algorithm non-incrementally
-            property_checker.double_check(space)?;
+            property_checker.double_check(space)?;*/
 
             // triple-check known result using the non-incremental algorithm
 
@@ -119,7 +119,6 @@ impl ThreeValuedChecker {
                     result, basic_result
                 );
             }
-            */
         }
 
         // compute optimistic and pessimistic interpretation and get the conclusion from that
