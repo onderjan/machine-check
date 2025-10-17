@@ -1,4 +1,4 @@
-use machine_check_common::{ExecError, StateId};
+use machine_check_common::{iir::ISubpropertyFixedPoint, ExecError, StateId};
 
 use crate::{
     model_check::property_checker::{
@@ -11,7 +11,7 @@ use crate::{
 impl<M: FullMachine> LabellingCacher<'_, M> {
     pub(super) fn compute_fixed_point_op(
         &self,
-        op: &FixedPointOperator,
+        op: &ISubpropertyFixedPoint,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
         // the current valuation is equal to the inner valuation
@@ -30,14 +30,16 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             .get(&fixed_point_index)
             .expect("History should exist for fixed point");
 
-        let mut timed = history.before_time(self.current_time, state_id);
-        if let CheckValue::Unknown(choices) = &mut timed.value {
-            // clear the reasons and add the variable as the only reason
-            // include the timing of the value to precisely capture it
-            choices.clear();
-            choices.push(CheckChoice::FixedVariable(timed.time));
-        };
+        let timed = history.before_time(self.current_time, state_id);
 
-        Ok(timed)
+        // the variable is the reason
+        // include the timing of the value to precisely capture it
+        Ok(TimedCheckValue {
+            time: timed.time,
+            value: CheckValue {
+                valuation: timed.value.valuation,
+                choice: CheckChoice::FixedVariable(timed.time),
+            },
+        })
     }
 }

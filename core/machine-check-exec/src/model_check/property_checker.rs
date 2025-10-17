@@ -1,47 +1,6 @@
-use machine_check_common::{iir::IProperty, ExecError, ParamValuation, StateId};
-use mck::concr::FullMachine;
-use std::{collections::BTreeMap, fmt::Debug};
-
-use crate::{
-    model_check::incremental::{self, CheckValue},
-    space::StateSpace,
-};
-
-#[derive(Debug, Clone)]
-pub struct PropertyChecker {
-    property: IProperty,
-    environment: BTreeMap<(usize, StateId), CheckValue>,
-}
-
-impl PropertyChecker {
-    pub fn new(property: IProperty) -> Self {
-        Self {
-            property,
-            environment: BTreeMap::new(),
-        }
-    }
-
-    pub fn compute_interpretation<M: FullMachine>(
-        &mut self,
-        space: &StateSpace<M>,
-    ) -> Result<ParamValuation, ExecError> {
-        let mut incremental =
-            incremental::IncrementalChecker::new(space, &self.property, &mut self.environment);
-
-        let result = incremental.check_property()?;
-
-        Ok(result)
-    }
-
-    pub fn environment(&self) -> &BTreeMap<(usize, StateId), CheckValue> {
-        &self.environment
-    }
-}
-
-/*mod double_check;
+mod double_check;
 mod focus;
 mod history;
-mod interpret;
 mod labelling_cacher;
 mod labelling_updater;
 mod value;
@@ -53,7 +12,7 @@ use std::{
 
 use log::trace;
 use machine_check_common::{
-    iir::{IProperty, ISubpropertyType},
+    iir::{IProperty, ISubproperty},
     ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
@@ -62,13 +21,11 @@ pub(super) use value::{CheckChoice, CheckValue};
 
 use crate::{
     model_check::property_checker::{
-        focus::Focus, history::FixedPointHistory, labelling_updater::LabellingUpdater,
+        focus::Focus, history::FixedPointHistory, labelling_cacher::LabellingCacher,
+        labelling_updater::LabellingUpdater,
     },
     space::StateSpace,
 };
-
-pub use labelling_cacher::BiChoice;
-pub use labelling_cacher::LabellingCacher;
 
 #[derive(Debug, Clone)]
 pub struct PropertyChecker {
@@ -100,7 +57,7 @@ impl PropertyChecker {
             }*/
 
             let subproperty = property.subproperty_entry(subproperty_index);
-            if matches!(subproperty.info.ty, ISubpropertyType::FixedPoint(_)) {
+            if matches!(subproperty, ISubproperty::FixedPoint(_)) {
                 histories.insert(subproperty_index, FixedPointHistory::default());
             }
         }
@@ -219,4 +176,3 @@ fn squash_time(time_mapping: &BTreeMap<u64, u64>, original_time: u64) -> u64 {
 
     last_squashed_time + 1
 }
-*/

@@ -44,7 +44,7 @@ impl ThreeValuedChecker {
             .expect("Property checker should be inserted after the property was checked");
 
         // get the labelling as well
-        let mut labelling = BTreeMap::new();
+        /*let mut labelling = BTreeMap::new();
         let environment = property_checker.environment();
         for state_id in space.states() {
             let value = environment
@@ -52,6 +52,17 @@ impl ThreeValuedChecker {
                 .expect("Valuation should be in environment");
             labelling.insert(state_id, value.valuation);
         }
+        Ok((conclusion, labelling))*/
+
+        let mut labelling = BTreeMap::new();
+
+        for state_id in space.states() {
+            let timed = property_checker
+                .last_getter(space)
+                .compute_latest_timed(subproperty_index, state_id)?;
+            labelling.insert(state_id, timed.value.valuation);
+        }
+
         Ok((conclusion, labelling))
 
         /*let param_valuation = nonincremental::check_property(space, property)?;

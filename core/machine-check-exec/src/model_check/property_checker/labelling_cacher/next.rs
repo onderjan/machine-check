@@ -1,6 +1,7 @@
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
+use machine_check_common::iir::ISubpropertyNext;
 use machine_check_common::{ExecError, KnownParamValuation, NodeId, ParamValuation, StateId};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
@@ -10,7 +11,7 @@ use crate::FullMachine;
 impl<M: FullMachine> LabellingCacher<'_, M> {
     pub fn compute_next_labelling(
         &self,
-        op: &NextOperator,
+        op: &ISubpropertyNext,
         node_id: NodeId,
     ) -> Result<TimedCheckValue, ExecError> {
         // cache inner labellings of successors
@@ -23,7 +24,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
     pub fn apply_next(
         &self,
-        op: &NextOperator,
+        op: &ISubpropertyNext,
         node_id: NodeId,
         computed_successors: &mut BTreeMap<StateId, TimedCheckValue>,
     ) -> Result<TimedCheckValue, ExecError> {
@@ -36,7 +37,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             // no successors, return the ground value
             return Ok(TimedCheckValue::new(
                 0,
-                CheckValue::from_bool(op.is_universal),
+                CheckValue::next_from_bool(op.universal),
             ));
         };
 
@@ -83,7 +84,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             let time = can_be_false_at_time.min(can_be_true_at_time);
             return Ok(TimedCheckValue::new(
                 time,
-                CheckValue::from_known(KnownParamValuation::Dependent),
+                CheckValue::next_from_known(KnownParamValuation::Dependent),
             ));
         }
 
@@ -91,13 +92,13 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             if let Some(time) = can_be_false_at_time {
                 return Ok(TimedCheckValue::new(
                     time,
-                    CheckValue::from_known(KnownParamValuation::False),
+                    CheckValue::next_from_known(KnownParamValuation::False),
                 ));
             }
             if let Some(time) = can_be_true_at_time {
                 return Ok(TimedCheckValue::new(
                     time,
-                    CheckValue::from_known(KnownParamValuation::True),
+                    CheckValue::next_from_known(KnownParamValuation::True),
                 ));
             }
         }
@@ -117,9 +118,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
             assert!(timed.value.is_unknown());
 
-            if let CheckValue::Unknown(choices) = &mut timed.value {
-                choices.push(CheckChoice::Next(successor_id));
-            }
+            timed.value.choice = CheckChoice::Next(Some(successor_id));
+
             //log::trace!("Next selected {} -> {} immediately", node_id, successor_id);
             return Ok(timed);
         };
@@ -154,9 +154,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         assert!(timed.value.is_unknown());
 
-        if let CheckValue::Unknown(reasons) = &mut timed.value {
-            reasons.push(CheckChoice::Next(*successor_id));
-        }
+        timed.value.choice = CheckChoice::Next(Some(*successor_id));
 
         /*if log::log_enabled!(log::Level::Trace) {
             let successors: BTreeSet<StateId> = self.space.direct_successor_iter(node_id).collect();
@@ -174,13 +172,13 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
     fn compute_set_valuation(
         &self,
-        op: &NextOperator,
+        op: &ISubpropertyNext,
         parametric_set: partitions::partition_vec::Set<'_, StateId>,
         computed_successors: &mut BTreeMap<StateId, TimedCheckValue>,
     ) -> Result<(ParamValuation, u64, Option<StateId>), ExecError> {
-        let ground_value = CheckValue::from_bool(op.is_universal);
+        let ground_value = CheckValue::next_from_bool(op.universal);
 
-        let mut current_valuation = ground_value.valuation();
+        let mut current_valuation = ground_value.valuation;
 
         let mut best_successor = None;
 
@@ -194,9 +192,9 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             let successor_timed = computed_successors
                 .get(&successor_id)
                 .expect("Successor value should be computed");
-            let successor_valuation = successor_timed.value.valuation();
+            let successor_valuation = successor_timed.value.valuation;
 
-            let is_better = if op.is_universal {
+            let is_better = if op.universal {
                 successor_valuation
                     .upward_bitand_ordering(&current_valuation)
                     .is_gt()

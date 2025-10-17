@@ -1,16 +1,19 @@
-/*mod fixed_point;
+mod fixed_point;
 mod local;
 mod next;
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
-use machine_check_common::{iir::ISubpropertyType, ExecError, NodeId, ParamValuation, StateId};
+use machine_check_common::{
+    iir::{ISubproperty, ISubpropertyNext},
+    ExecError, NodeId, ParamValuation, StateId,
+};
 use mck::concr::FullMachine;
 
 use crate::{
     model_check::property_checker::{
-        interpret, labelling_cacher::LabellingCacher, value::TimedCheckValue, PropertyChecker,
+        labelling_cacher::LabellingCacher, value::TimedCheckValue, PropertyChecker,
     },
     space::StateSpace,
 };
@@ -85,8 +88,9 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         // this will also allow us to handle parameters correctly
 
         let result = self.getter().compute_next_labelling(
-            &NextOperator {
-                is_universal: true,
+            &ISubpropertyNext {
+                parent: None,
+                universal: true,
                 inner: 0,
             },
             NodeId::ROOT,
@@ -97,7 +101,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             self.property_checker.property
         );
 
-        Ok(result.value.valuation())
+        Ok(result.value.valuation)
     }
 
     pub(super) fn compute_inner(&mut self) -> Result<(), ExecError> {
@@ -124,9 +128,8 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         let subproperty_entry = self
             .property_checker
             .property
-            .subproperty_entry(subproperty_index);
-
-        let ty = subproperty_entry.info.ty.clone();
+            .subproperty_entry(subproperty_index)
+            .clone();
 
         /*let updated = match &ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
@@ -151,29 +154,10 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             }
         };*/
 
-        let updated = match &ty {
-            ISubpropertyType::Root => {
-                // TODO: interpret inner recursively
-
-                let global_values =
-                    interpret::global_values(self.space, &self.property_checker.property);
-
-                // update dirty states
-                for state_id in self.property_checker.focus.dirty_iter() {
-                    interpret::interpret_subproperty(
-                        &self.property_checker.property,
-                        subproperty_index,
-                        &global_values,
-                        &self.space,
-                        state_id,
-                    );
-                }
-
-                // TODO: return reasonable updated
-                BTreeMap::new()
-            }
-            ISubpropertyType::Next(isubproperty_type_next) => todo!(),
-            ISubpropertyType::FixedPoint(isubproperty_type_fixed_point) => todo!(),
+        let updated = match &subproperty_entry {
+            ISubproperty::Func(op) => self.update_func(op)?,
+            ISubproperty::Next(op) => self.update_next_labelling(op)?,
+            ISubproperty::FixedPoint(op) => self.update_fixed_point_op(subproperty_index, op)?,
         };
 
         trace!(
@@ -186,4 +170,3 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         Ok(updated)
     }
 }
-*/

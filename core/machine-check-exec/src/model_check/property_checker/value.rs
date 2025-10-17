@@ -1,25 +1,25 @@
 use std::fmt::Debug;
 
-use machine_check_common::{KnownParamValuation, ParamValuation, StateId};
+use machine_check_common::{ParamValuation, StateId};
 
-use crate::model_check::property_checker::BiChoice;
+use crate::MetaWrap;
+use machine_check_common::KnownParamValuation;
+use mck::abstr::AbstractValue;
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum CheckChoice {
-    BiLogic(BiChoice),
-    Next(StateId),
+    Next(Option<StateId>),
     FixedVariable(u64),
+    Func(Vec<MetaWrap<AbstractValue>>),
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub enum CheckValue {
-    False,
-    True,
-    Dependent,
-    Unknown(Vec<CheckChoice>),
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct CheckValue {
+    pub valuation: ParamValuation,
+    pub choice: CheckChoice,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Hash)]
 pub struct TimedCheckValue {
     pub time: u64,
     pub value: CheckValue,
@@ -27,19 +27,49 @@ pub struct TimedCheckValue {
 
 impl CheckValue {
     pub fn is_unknown(&self) -> bool {
-        matches!(self, CheckValue::Unknown(_))
+        matches!(self.valuation, ParamValuation::Unknown)
     }
 
-    pub fn valuation(&self) -> ParamValuation {
-        match self {
-            CheckValue::False => ParamValuation::False,
-            CheckValue::True => ParamValuation::True,
-            CheckValue::Dependent => ParamValuation::Dependent,
-            CheckValue::Unknown(_) => ParamValuation::Unknown,
+    pub fn fixed_from_bool(value: bool) -> Self {
+        let valuation = if value {
+            ParamValuation::True
+        } else {
+            ParamValuation::False
+        };
+
+        CheckValue {
+            valuation,
+            choice: CheckChoice::FixedVariable(0),
         }
     }
 
-    pub fn from_bool(value: bool) -> Self {
+    pub fn next_from_bool(value: bool) -> Self {
+        let valuation = if value {
+            ParamValuation::True
+        } else {
+            ParamValuation::False
+        };
+
+        CheckValue {
+            valuation,
+            choice: CheckChoice::Next(None),
+        }
+    }
+
+    pub fn next_from_known(valuation: KnownParamValuation) -> Self {
+        let valuation = match valuation {
+            KnownParamValuation::False => ParamValuation::False,
+            KnownParamValuation::True => ParamValuation::True,
+            KnownParamValuation::Dependent => ParamValuation::Dependent,
+        };
+
+        CheckValue {
+            valuation,
+            choice: CheckChoice::Next(None),
+        }
+    }
+
+    /*pub fn from_bool(value: bool) -> Self {
         if value {
             CheckValue::True
         } else {
@@ -47,13 +77,7 @@ impl CheckValue {
         }
     }
 
-    pub fn from_known(value: KnownParamValuation) -> Self {
-        match value {
-            KnownParamValuation::False => CheckValue::False,
-            KnownParamValuation::True => CheckValue::True,
-            KnownParamValuation::Dependent => CheckValue::Dependent,
-        }
-    }
+    */
 }
 
 impl TimedCheckValue {
@@ -64,22 +88,24 @@ impl TimedCheckValue {
 
 impl Debug for CheckValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::False => write!(f, "False"),
-            Self::True => write!(f, "True"),
-            Self::Dependent => write!(f, "Dependent"),
-            Self::Unknown(choices) => {
+        match self.valuation {
+            ParamValuation::False => write!(f, "False"),
+            ParamValuation::True => write!(f, "True"),
+            ParamValuation::Dependent => write!(f, "Dependent"),
+            ParamValuation::Unknown => {
                 write!(f, "Unknown [")?;
 
-                for choice in choices {
-                    match choice {
-                        CheckChoice::BiLogic(BiChoice::Left) => write!(f, "BL"),
-                        CheckChoice::BiLogic(BiChoice::Right) => write!(f, "BR"),
-                        CheckChoice::Next(state_id) => write!(f, "N{}", state_id),
-                        CheckChoice::FixedVariable(time) => write!(f, "V({})", time),
-                    }?;
-                    write!(f, ", ")?;
-                }
+                match &self.choice {
+                    CheckChoice::Next(state_id) => {
+                        write!(
+                            f,
+                            "N{}",
+                            state_id.expect("Next state should be present when unknown")
+                        )
+                    }
+                    CheckChoice::FixedVariable(time) => write!(f, "V({})", time),
+                    CheckChoice::Func(abstract_values) => write!(f, "F({:?})", abstract_values),
+                }?;
 
                 write!(f, "]")
             }

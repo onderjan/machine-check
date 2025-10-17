@@ -14,7 +14,7 @@ use mck::{concr::FullMachine, refin::RefinementValue};
 
 use crate::{
     model_check::{
-        incremental::{CheckChoice, CheckValue},
+        property_checker::{CheckChoice, CheckValue},
         PropertyChecker,
     },
     space::StateSpace,
@@ -30,8 +30,9 @@ pub(super) fn deduce_culprit<M: FullMachine>(
 
     // incomplete, compute culprit
     // it must start with one of the initial states
+    todo!();
 
-    let environment = checker.environment();
+    /*let environment = checker.environment();
 
     for initial_id in space.initial_iter() {
         let value = environment
@@ -56,7 +57,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
         return Ok(culprit);
     }
 
-    unreachable!("Labelling culprit should start in initial states");
+    unreachable!("Labelling culprit should start in initial states");*/
 }
 
 struct Deducer<'a, M: FullMachine> {
@@ -107,7 +108,8 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                 //eprintln!("Function: {:#?}", func);
 
-                let abstr = func.forward_interpret(input_values.clone());
+                let abstr = func
+                    .forward_interpret(input_values.iter().map(|wrap| wrap.0.clone()).collect());
 
                 //eprintln!("Abstract interpretation: {:?}", abstr);
 
@@ -190,7 +192,8 @@ impl<M: FullMachine> Deducer<'_, M> {
             }
             ISubproperty::FixedPoint(fixed_point) => {
                 // just go to inner
-                assert!(matches!(value.choice, CheckChoice::FixedPoint));
+                // TODO: time
+                assert!(matches!(value.choice, CheckChoice::FixedVariable(time)));
                 fixed_point.inner
             }
         };

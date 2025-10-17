@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+/*use std::collections::BTreeMap;
 
 use machine_check_common::{
     iir::{func::IFn, IProperty, ISubproperty},
@@ -580,3 +580,4 @@ impl<'a, M: FullMachine> IncrementalChecker<'a, M> {
         }
     }
 }
+*/

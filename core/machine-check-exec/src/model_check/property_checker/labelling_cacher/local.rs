@@ -1,9 +1,8 @@
-use std::cmp::Ordering;
-
+use machine_check_common::iir::ISubpropertyFunc;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
-use crate::model_check::property_checker::value::{CheckChoice, CheckValue, TimedCheckValue};
+use crate::model_check::property_checker::value::TimedCheckValue;
 use crate::FullMachine;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -13,7 +12,15 @@ pub enum BiChoice {
 }
 
 impl<M: FullMachine> LabellingCacher<'_, M> {
-    pub(super) fn compute_negation(
+    pub(super) fn compute_func(
+        &self,
+        op: &ISubpropertyFunc,
+        state_id: StateId,
+    ) -> Result<TimedCheckValue, ExecError> {
+        todo!()
+    }
+
+    /*pub(super) fn compute_negation(
         &self,
         inner: usize,
         state_id: StateId,
@@ -94,5 +101,5 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             Ordering::Equal => unreachable!(),
             Ordering::Greater => BiChoice::Left,
         }
-    }
+    }*/
 }

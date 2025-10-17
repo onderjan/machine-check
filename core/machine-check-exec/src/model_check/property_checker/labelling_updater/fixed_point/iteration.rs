@@ -95,7 +95,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
             // the values are not exactly the same
             // but we do not want to update an unknown value
-            if update_value.valuation() == now_timed.value.valuation()
+            if update_value.valuation == now_timed.value.valuation
                 && now_timed.time != self.current_time
             {
                 continue;

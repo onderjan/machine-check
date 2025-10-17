@@ -1,17 +1,16 @@
-/*mod fixed_point;
+mod fixed_point;
 mod local;
 mod next;
 
 use std::result;
 
-use machine_check_common::{ExecError, StateId};
+use machine_check_common::{iir::ISubproperty, ExecError, StateId};
 
 pub use local::BiChoice;
 use mck::three_valued::ThreeValued;
 
 use crate::{
     model_check::property_checker::{
-        interpret,
         value::{CheckValue, TimedCheckValue},
         PropertyChecker,
     },
@@ -80,28 +79,14 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
             }
         };*/
 
-        let result = match &subproperty_entry.info.ty {
-            machine_check_common::iir::ISubpropertyType::Root => {
-                // TODO: interpret inner recursively
-
-                let global_values =
-                    interpret::global_values(self.space, &self.property_checker.property);
-
-                interpret::interpret_subproperty(
-                    &self.property_checker.property,
-                    subproperty_index,
-                    &global_values,
-                    &self.space,
-                    state_id,
-                );
-
-                // TODO: return the result of intepretation
-                TimedCheckValue::new(0, CheckValue::False)
+        let result = match &subproperty_entry {
+            ISubproperty::Func(subproperty) => self.compute_func(subproperty, state_id)?,
+            ISubproperty::Next(subproperty) => {
+                self.compute_next_labelling(subproperty, state_id.into())?
             }
-            machine_check_common::iir::ISubpropertyType::Next(isubproperty_type_next) => todo!(),
-            machine_check_common::iir::ISubpropertyType::FixedPoint(
-                isubproperty_type_fixed_point,
-            ) => todo!(),
+            ISubproperty::FixedPoint(subproperty) => {
+                self.compute_fixed_point_op(subproperty, state_id)?
+            }
         };
 
         Ok(result)
@@ -111,4 +96,3 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         self.property_checker
     }
 }
-*/

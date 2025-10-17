@@ -1,10 +1,10 @@
 use crate::{
     abstr::{Boolean, PanicResult, RArray, RBitvector},
     forward::{Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
-    misc::Join,
+    misc::{Join, MetaEq},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum AbstractValue {
     Array(RArray),
     Bitvector(RBitvector),
@@ -218,5 +218,18 @@ impl TypedCmp for AbstractValue {
 
     fn sle(self, rhs: Self) -> Self::Output {
         typed_eq_cmp_bi_op!(TypedCmp::sle, self, rhs)
+    }
+}
+
+impl MetaEq for AbstractValue {
+    fn meta_eq(&self, other: &Self) -> bool {
+        todo!();
+        /*match (self, other) {
+            (Self::Array(l0), Self::Array(r0)) => l0.meta_eq(r0),
+            (Self::Bitvector(l0), Self::Bitvector(r0)) => l0.meta_eq(r0),
+            (Self::Boolean(l0), Self::Boolean(r0)) => l0.meta_eq(r0),
+            (Self::PanicResult(l0), Self::PanicResult(r0)) => l0.meta_eq(r0),
+            _ => false,
+        }*/
     }
 }

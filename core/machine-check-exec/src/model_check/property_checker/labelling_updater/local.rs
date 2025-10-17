@@ -1,14 +1,21 @@
 use std::collections::BTreeMap;
 
+use machine_check_common::iir::ISubpropertyFunc;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
-use crate::model_check::property_checker::value::{CheckChoice, CheckValue, TimedCheckValue};
-use crate::model_check::property_checker::{BiChoice, LabellingCacher};
+use crate::model_check::property_checker::value::TimedCheckValue;
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
-    pub(super) fn update_negation(
+    pub(super) fn update_func(
+        &self,
+        op: &ISubpropertyFunc,
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+        todo!()
+    }
+
+    /*pub(super) fn update_negation(
         &mut self,
         inner: usize,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
@@ -68,5 +75,5 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         }
 
         Ok(result)
-    }
+    }*/
 }
