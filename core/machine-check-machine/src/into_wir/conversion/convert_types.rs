@@ -8,7 +8,8 @@ use crate::{
         WBasicType, WBlock, WDescription, WElementaryType, WExpr, WExprCall, WExprHighCall,
         WExprStruct, WField, WFnArg, WGeneralType, WIdent, WImplItemType, WItemFn, WItemImpl,
         WItemStruct, WPanicResultType, WPath, WPathSegment, WProperty, WSignature, WSsaLocal,
-        WStmt, WStmtAssign, WStmtIf, WSubproperty, WType, YConverted, YInferred, ZConverted, ZSsa,
+        WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WType, YConverted, YInferred,
+        ZConverted, ZSsa,
     },
 };
 
@@ -82,9 +83,11 @@ pub fn convert_property(property: WProperty<YInferred>) -> Result<WProperty<YCon
 
     for subproperty in property.subproperties {
         let subproperty = match subproperty {
-            WSubproperty::Func(item_fn, children) => {
-                WSubproperty::Func(convert_item_fn(item_fn)?, children)
-            }
+            WSubproperty::Func(subproperty_func) => WSubproperty::Func(WSubpropertyFunc {
+                parent: subproperty_func.parent,
+                func: convert_item_fn(subproperty_func.func)?,
+                children: subproperty_func.children,
+            }),
             WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
             WSubproperty::Next(next) => WSubproperty::Next(next),
         };

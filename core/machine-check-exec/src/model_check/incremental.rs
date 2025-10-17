@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use machine_check_common::{
-    iir::{func::IFn, IProperty},
+    iir::{func::IFn, IProperty, ISubproperty},
     ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
 use mck::{
@@ -30,48 +30,291 @@ pub enum BiChoice {
     Right,
 }
 
-pub(super) struct IncrementalChecker<'a, M: FullMachine> {
-    pub(super) space: &'a StateSpace<M>,
-    pub(super) property: &'a IProperty,
-    pub(super) environment: &'a mut BTreeMap<(usize, StateId), CheckValue>,
-    //calmable_fixed_points: BTreeSet<usize>,
+pub struct IncrementalChecker<'a, M: FullMachine> {
+    space: &'a StateSpace<M>,
+    property: &'a IProperty,
+    environment: &'a mut BTreeMap<(usize, StateId), CheckValue>,
+    open: BTreeMap<(usize, StateId), usize>,
 }
 
-impl<M: FullMachine> IncrementalChecker<'_, M> {
-    pub(super) fn check_property(&mut self) -> Result<ParamValuation, ExecError> {
+impl<'a, M: FullMachine> IncrementalChecker<'a, M> {
+    pub fn new(
+        space: &'a StateSpace<M>,
+        property: &'a IProperty,
+        environment: &'a mut BTreeMap<(usize, StateId), CheckValue>,
+    ) -> Self {
+        Self {
+            space,
+            property,
+            environment,
+            open: BTreeMap::new(),
+        }
+    }
+
+    pub fn check_property(&mut self) -> Result<ParamValuation, ExecError> {
         self.environment.clear();
 
-        self.check_subproperty(0)?;
+        eprintln!("Checking property: {:#?}", self.property);
+
+        for (subproperty_index, subproperty) in self.property.subproperties.iter().enumerate() {
+            if let ISubproperty::FixedPoint(subproperty) = subproperty {}
+        }
+
+        //self.check_subproperty(0)?;
+        for successor_id in self.space.direct_successor_iter(NodeId::ROOT) {
+            eprintln!("Opening (0,{})", successor_id);
+            self.open.insert((0, successor_id), 0);
+        }
+
+        while let Some(((subproperty_index, state_id), impact)) = self.open.pop_last() {
+            eprintln!("Updating labelling of ({},{})", subproperty_index, state_id);
+            self.update_label(subproperty_index, state_id, impact)?;
+        }
+
+        eprintln!("Computed the environment");
+        for ((subproperty_index, state_id), labelling) in self.environment.iter() {
+            eprintln!("({},{}) -> {:?}", subproperty_index, state_id, labelling);
+        }
 
         // treat as AX! from root node
         Ok(self.compute_next_value(true, 0, NodeId::ROOT).valuation)
     }
 
-    fn update_value(&mut self, subproperty_index: usize, state_id: StateId, value: CheckValue) {
+    fn update_label(
+        &mut self,
+        subproperty_index: usize,
+        state_id: StateId,
+        impact: usize,
+    ) -> Result<(), ExecError> {
+        if !self.calculate_dependencies(subproperty_index, state_id, impact)? {
+            // we do not have enough information yet
+            return Ok(());
+        }
+        let subproperty = &self.property.subproperties[subproperty_index];
+
+        // TODO: improve child computation order and do not compute unnecessary children
+        match subproperty {
+            ISubproperty::Func(subproperty) => {
+                // compute the function value
+                let value = self.compute_fn_value(&subproperty.func, state_id);
+                eprintln!(
+                    "Computed func labelling: ({},{}) -> {:?}",
+                    subproperty_index, state_id, value
+                );
+                // update the value
+                if Self::update_value(self.environment, subproperty_index, state_id, value) {
+                    // if it changed, propagate to parent
+                    if let Some(parent_index) = subproperty.parent {
+                        self.make_dirty(parent_index, state_id, impact);
+                    }
+                }
+            }
+            ISubproperty::Next(subproperty) => {
+                // compute the next value
+                let value = self.compute_next_value(
+                    subproperty.universal,
+                    subproperty.inner,
+                    state_id.into(),
+                );
+                eprintln!(
+                    "Computed next labelling: ({},{}) -> {:?}",
+                    subproperty_index, state_id, value
+                );
+                // update the value
+                if Self::update_value(self.environment, subproperty_index, state_id, value) {
+                    // if it changed, propagate to parent
+                    if let Some(parent_index) = subproperty.parent {
+                        self.make_dirty(parent_index, state_id, impact);
+                    }
+                }
+            }
+            ISubproperty::FixedPoint(subproperty) => {
+                // insert the initial variable value if not already in the map
+                let own_label = (subproperty_index, state_id);
+
+                let old_labelling = self
+                    .environment
+                    .get(&own_label)
+                    .expect("Old fixed-point labelling should be present");
+                // look at inner value
+
+                let new_labelling = self
+                    .environment
+                    .get(&(subproperty.inner, state_id))
+                    .expect("New fixed-point labelling should be present");
+                eprintln!(
+                    "Computed fixed-point inner labelling: ({},{}) -> {:?}",
+                    subproperty_index, state_id, new_labelling
+                );
+
+                if old_labelling.valuation != new_labelling.valuation {
+                    let value = CheckValue {
+                        valuation: new_labelling.valuation,
+                        choice: CheckChoice::FixedPoint,
+                    };
+
+                    // update the value
+                    if Self::update_value(self.environment, subproperty_index, state_id, value) {
+                        // if it changed, propagate to dependents and parent
+                        for dependent_index in subproperty.dependents.iter().cloned() {
+                            self.make_dirty(dependent_index, state_id, subproperty_index);
+                        }
+                        if let Some(parent_index) = subproperty.parent {
+                            self.make_dirty(parent_index, state_id, impact);
+                        }
+                    }
+                } else {
+                    eprintln!(
+                        "Fixed-point labelling ({},{}) stays {:?}",
+                        subproperty_index, state_id, old_labelling.valuation
+                    );
+                }
+            }
+        };
+
+        Ok(())
+    }
+
+    fn calculate_dependencies(
+        &mut self,
+        subproperty_index: usize,
+        state_id: StateId,
+        impact: usize,
+    ) -> Result<bool, ExecError> {
+        let subproperty = &self.property.subproperties[subproperty_index];
+
+        let mut computable = true;
+
+        match subproperty {
+            ISubproperty::Func(subproperty) => {
+                for dependency_index in subproperty.dependencies.iter().cloned() {
+                    let dependency_label = (dependency_index, state_id);
+                    if !self.environment.contains_key(&dependency_label) {
+                        // compute this first
+                        eprintln!("Need to compute func dependency {:?}", dependency_label);
+                        if dependency_index < subproperty_index {
+                            let ISubproperty::FixedPoint(_) =
+                                &self.property.subproperties[dependency_index]
+                            else {
+                                panic!("Func dependency with lower index should be a fixed point:");
+                            };
+                        } else {
+                            self.open.insert(dependency_label, impact);
+                            computable = false;
+                        }
+                    }
+                }
+            }
+            ISubproperty::Next(subproperty) => {
+                for next_state_id in self.space.direct_successor_iter(state_id.into()) {
+                    let next_label = (subproperty.inner, next_state_id);
+                    if !self.environment.contains_key(&next_label) {
+                        // compute this first
+                        eprintln!("Need to compute next dependency {:?}", next_label);
+                        self.open.insert(next_label, impact);
+                        computable = false;
+                    }
+                }
+            }
+            ISubproperty::FixedPoint(subproperty) => {
+                let own_label = (subproperty_index, state_id);
+                let inner_label = (subproperty.inner, state_id);
+
+                if self.environment.get(&own_label).is_none() || impact < subproperty_index {
+                    // add ground value
+                    let value = CheckValue {
+                        valuation: ParamValuation::from_bool(subproperty.universal),
+                        choice: CheckChoice::FixedPoint,
+                    };
+                    eprintln!(
+                        "Inserting ground value ({},{}) -> {:?}",
+                        subproperty_index, state_id, value
+                    );
+                    self.environment.insert(own_label, value);
+
+                    // compute inner first
+                    // but with our impact
+                    self.open.insert(inner_label, subproperty_index);
+
+                    computable = false;
+                } else if !self.environment.contains_key(&inner_label) {
+                    eprintln!("Need to compute fixed-point inner {:?}", inner_label);
+                    // compute inner first
+                    self.open.insert(inner_label, impact);
+
+                    computable = false;
+                }
+            }
+        };
+
+        if !computable {
+            // compute this property afterwards
+            eprintln!("Not computable, will compute afterwards");
+            self.open.insert((subproperty_index, state_id), impact);
+        }
+
+        Ok(computable)
+    }
+
+    fn make_dirty(&mut self, subproperty_index: usize, inner_state_id: StateId, impact: usize) {
+        let subproperty = &self.property.subproperties[subproperty_index];
+        match subproperty {
+            ISubproperty::Func(_) | ISubproperty::FixedPoint(_) => {
+                // make the dependent dirty in this state
+                eprintln!("Making ({},{}) dirty", subproperty_index, inner_state_id);
+                self.open
+                    .insert((subproperty_index, inner_state_id), impact);
+            }
+            ISubproperty::Next(_) => {
+                // make the previous states of the dependent dirty
+                for predecessor_id in self.space.direct_predecessor_iter(inner_state_id.into()) {
+                    if let Ok(predecessor_id) = StateId::try_from(predecessor_id) {
+                        eprintln!(
+                            "Making ({},{}) dirty (next state is {})",
+                            subproperty_index, predecessor_id, inner_state_id
+                        );
+                        self.open
+                            .insert((subproperty_index, predecessor_id), impact);
+                    }
+                }
+            }
+        }
+    }
+
+    fn update_value(
+        environment: &mut BTreeMap<(usize, StateId), CheckValue>,
+        subproperty_index: usize,
+        state_id: StateId,
+        value: CheckValue,
+    ) -> bool {
         let should_update =
-            if let Some(previous_value) = self.environment.get(&(subproperty_index, state_id)) {
+            if let Some(previous_value) = environment.get(&(subproperty_index, state_id)) {
                 value.valuation != previous_value.valuation
             } else {
                 true
             };
 
         if should_update {
-            self.environment
-                .insert((subproperty_index, state_id), value);
+            eprintln!(
+                "Updating environment: ({},{}) -> {:?}",
+                subproperty_index, state_id, value
+            );
+            environment.insert((subproperty_index, state_id), value);
         }
+        should_update
     }
 
-    fn check_subproperty(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
+    /*fn check_subproperty(&mut self, subproperty_index: usize) -> Result<(), ExecError> {
         let subproperty_entry = &self.property.subproperties[subproperty_index];
 
         match subproperty_entry {
-            machine_check_common::iir::ISubproperty::Func(func, children) => {
-                for child in children {
-                    self.check_subproperty(*child)?;
+            machine_check_common::iir::ISubproperty::Func(subproperty_func) => {
+                for dependency in &subproperty_func.dependencies {
+                    self.check_subproperty(*dependency)?;
                 }
 
                 for state_id in self.space.states() {
-                    let value = self.compute_fn_value(func, state_id);
+                    let value = self.compute_fn_value(&subproperty_func.func, state_id);
                     self.update_value(subproperty_index, state_id, value);
                 }
             }
@@ -92,7 +335,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
             }
         }
 
-        if log::log_enabled!(log::Level::Trace) {
+        /*if log::log_enabled!(log::Level::Trace) {
             let subprop_env: BTreeMap<StateId, &CheckValue> = self
                 .environment
                 .iter()
@@ -105,11 +348,11 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
                 subproperty_index,
                 subprop_env,
             );
-        }
+        }*/
         Ok(())
-    }
+    }*/
 
-    fn check_fixed_point(
+    /*fn check_fixed_point(
         &mut self,
         subproperty_index: usize,
         is_greatest: bool,
@@ -162,7 +405,7 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
         }
 
         Ok(())
-    }
+    }*/
 
     fn compute_fn_value(&self, func: &IFn, state_id: StateId) -> CheckValue {
         let mut globals = BTreeMap::new();
@@ -184,11 +427,24 @@ impl<M: FullMachine> IncrementalChecker<'_, M> {
                     panic!("Input subproperty should have valid index");
                 };
 
-                let valuation = self
-                    .environment
-                    .get(&(input_subproperty_index, state_id))
-                    .expect("Input valuation should be present")
-                    .valuation;
+                let value = if let Some(value) =
+                    self.environment.get(&(input_subproperty_index, state_id))
+                {
+                    value
+                } else if let ISubproperty::FixedPoint(input_subproperty) =
+                    &self.property.subproperties[input_subproperty_index]
+                {
+                    &CheckValue {
+                        valuation: ParamValuation::from_bool(input_subproperty.universal),
+                        choice: CheckChoice::FixedPoint,
+                    }
+                } else {
+                    panic!(
+                        "Input subproperty labelling ({},{}) should be present",
+                        input_subproperty_index, state_id
+                    );
+                };
+                let valuation = value.valuation;
 
                 let boolean = match valuation {
                     ParamValuation::False => {

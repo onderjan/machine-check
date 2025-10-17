@@ -25,13 +25,10 @@ impl PropertyChecker {
         &mut self,
         space: &StateSpace<M>,
     ) -> Result<ParamValuation, ExecError> {
-        let mut nonincremental = incremental::IncrementalChecker {
-            space,
-            property: &self.property,
-            environment: &mut self.environment,
-        };
+        let mut incremental =
+            incremental::IncrementalChecker::new(space, &self.property, &mut self.environment);
 
-        let result = nonincremental.check_property()?;
+        let result = incremental.check_property()?;
 
         Ok(result)
     }

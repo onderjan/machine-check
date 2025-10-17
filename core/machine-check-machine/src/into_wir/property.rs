@@ -22,16 +22,33 @@ use crate::{
     },
     util::{create_type_path, path_matches_global_names},
     wir::{
-        WBasicType, WFixedPointOperator, WIdent, WNextOperator, WProperty, WSubproperty,
-        YConverted, YTac,
+        WBasicType, WIdent, WProperty, WSubproperty, WSubpropertyFixedPoint, WSubpropertyFunc,
+        WSubpropertyNext, YConverted, YTac,
     },
 };
 
 #[derive(Clone, Debug, Hash)]
+pub struct ExprSubpropertyFunc {
+    pub parent: Option<usize>,
+    pub expr: Expr,
+    pub dependencies: Vec<usize>,
+}
+
+#[derive(Clone, Debug, Hash)]
 enum ExprSubproperty {
-    Expr(Expr, Vec<usize>),
-    Next(WNextOperator),
-    FixedPoint(WFixedPointOperator),
+    Expr(ExprSubpropertyFunc),
+    Next(WSubpropertyNext),
+    FixedPoint(WSubpropertyFixedPoint),
+}
+
+impl ExprSubproperty {
+    fn parent(&self) -> Option<usize> {
+        match self {
+            ExprSubproperty::Expr(func) => func.parent,
+            ExprSubproperty::Next(next) => next.parent,
+            ExprSubproperty::FixedPoint(fixed_point) => fixed_point.parent,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -42,8 +59,8 @@ struct ExprProperty {
 impl ExprProperty {
     fn resolve_use(&mut self, use_map: &HashMap<Ident, Path>) -> Result<(), Errors> {
         for subproperty in &mut self.subproperties {
-            if let ExprSubproperty::Expr(expr, _children) = subproperty {
-                resolve_use::resolve_use_expr(expr, use_map)?;
+            if let ExprSubproperty::Expr(subproperty_func) = subproperty {
+                resolve_use::resolve_use_expr(&mut subproperty_func.expr, use_map)?;
             }
         }
         Ok(())
@@ -66,7 +83,11 @@ pub fn create_from_syn(
 
     // expand macros
     let mut property = ExprProperty {
-        subproperties: vec![ExprSubproperty::Expr(expr, Vec::new())],
+        subproperties: vec![ExprSubproperty::Expr(ExprSubpropertyFunc {
+            parent: None,
+            expr,
+            dependencies: Vec::new(),
+        })],
     };
 
     loop {
@@ -76,8 +97,8 @@ pub fn create_from_syn(
         expanded_some_macro |= macros::expand_property_macros(&mut property)?;
         property.resolve_use(&use_map)?;
         for subproperty in &mut property.subproperties {
-            if let ExprSubproperty::Expr(expr, _children) = subproperty {
-                expanded_some_macro |= expand_macros::expand_in_expr(expr)?;
+            if let ExprSubproperty::Expr(subproperty_func) = subproperty {
+                expanded_some_macro |= expand_macros::expand_in_expr(&mut subproperty_func.expr)?;
             }
         }
 
@@ -109,8 +130,8 @@ pub fn create_from_syn(
     }
 
     for subproperty in &mut property.subproperties {
-        if let ExprSubproperty::Expr(expr, _) = subproperty {
-            Visitor.visit_expr_mut(expr)
+        if let ExprSubproperty::Expr(subproperty_func) = subproperty {
+            Visitor.visit_expr_mut(&mut subproperty_func.expr)
         }
     }
 
@@ -134,8 +155,8 @@ fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors
 
     for (index, subproperty) in property.subproperties.into_iter().enumerate() {
         let subproperty = match subproperty {
-            ExprSubproperty::Expr(expr, children) => {
-                let span = expr.span();
+            ExprSubproperty::Expr(subproperty_func) => {
+                let span = subproperty_func.expr.span();
 
                 // the inputs will be added later
                 let signature = Signature {
@@ -161,13 +182,17 @@ fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors
                     sig: signature,
                     block: Box::new(Block {
                         brace_token: Brace::default(),
-                        stmts: vec![Stmt::Expr(expr, None)],
+                        stmts: vec![Stmt::Expr(subproperty_func.expr, None)],
                     }),
                 };
 
                 let func = from_syn::fold_item_fn(func)?;
 
-                WSubproperty::Func(func, children)
+                WSubproperty::Func(WSubpropertyFunc {
+                    parent: subproperty_func.parent,
+                    func,
+                    children: subproperty_func.dependencies,
+                })
             }
             ExprSubproperty::Next(next_operator) => WSubproperty::Next(next_operator),
             ExprSubproperty::FixedPoint(fixed_point_operator) => {

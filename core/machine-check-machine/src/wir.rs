@@ -1,4 +1,4 @@
-use std::{fmt::Debug, hash::Hash};
+use std::{collections::BTreeSet, fmt::Debug, hash::Hash};
 use syn::{Expr, File, Item, ItemImpl, Local, Path, Stmt, Type};
 
 mod call;
@@ -28,31 +28,62 @@ pub struct WDescription<Y: YStage> {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WFixedPointOperator {
+pub struct WSubpropertyFunc<Y: YStage> {
+    pub parent: Option<usize>,
+    pub func: WItemFn<Y>,
+    pub children: Vec<usize>,
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WSubpropertyFixedPoint {
+    pub parent: Option<usize>,
     pub universal: bool,
     pub variable: WIdent,
     pub inner: usize,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WNextOperator {
+pub struct WSubpropertyNext {
+    pub parent: Option<usize>,
     pub universal: bool,
     pub inner: usize,
 }
 
 #[derive(Clone, Debug, Hash)]
 pub enum WSubproperty<Y: YStage> {
-    Func(WItemFn<Y>, Vec<usize>),
-    FixedPoint(WFixedPointOperator),
-    Next(WNextOperator),
+    Func(WSubpropertyFunc<Y>),
+    FixedPoint(WSubpropertyFixedPoint),
+    Next(WSubpropertyNext),
 }
 
 impl<Y: YStage> WSubproperty<Y> {
-    pub fn children(&self) -> Vec<usize> {
+    pub fn children(&self) -> &[usize] {
         match self {
-            WSubproperty::Func(_item_fn, children) => children.clone(),
-            WSubproperty::FixedPoint(fixed_point) => vec![fixed_point.inner],
-            WSubproperty::Next(next) => vec![next.inner],
+            WSubproperty::Func(subprop) => &subprop.children,
+            WSubproperty::FixedPoint(fixed_point) => std::slice::from_ref(&fixed_point.inner),
+            WSubproperty::Next(next) => std::slice::from_ref(&next.inner),
+        }
+    }
+}
+
+impl WSubproperty<YConverted> {
+    pub fn dependencies(&self) -> BTreeSet<usize> {
+        match self {
+            WSubproperty::Func(subprop) => {
+                let mut dependencies = BTreeSet::new();
+                for input_arg in &subprop.func.signature.inputs {
+                    let input_var_name = input_arg.ident.name();
+                    if let Some(stripped) = input_var_name.strip_prefix("__mck_subproperty_") {
+                        let Ok(input_subproperty_index) = stripped.parse::<usize>() else {
+                            panic!("Input subproperty should have valid index");
+                        };
+                        dependencies.insert(input_subproperty_index);
+                    }
+                }
+                dependencies
+            }
+            WSubproperty::FixedPoint(fixed_point) => BTreeSet::from([fixed_point.inner]),
+            WSubproperty::Next(next) => BTreeSet::from([next.inner]),
         }
     }
 }

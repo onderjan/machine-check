@@ -98,10 +98,12 @@ impl<M: FullMachine> Deducer<'_, M> {
         let subproperty_entry = self.property.subproperty_entry(self.subproperty_index);
 
         self.subproperty_index = match &subproperty_entry {
-            ISubproperty::Func(func, _children) => {
+            ISubproperty::Func(subproperty_func) => {
                 let CheckChoice::Func(input_values) = &value.choice else {
                     panic!("Should deduce on function inputs");
                 };
+
+                let func = &subproperty_func.func;
 
                 //eprintln!("Function: {:#?}", func);
 

@@ -5,8 +5,8 @@ use crate::{
     wir::{
         WArrayBaseExpr, WArrayRead, WArrayWrite, WBlock, WDescription, WExpr, WExprField,
         WExprHighCall, WExprReference, WIdent, WIndexedExpr, WIndexedIdent, WItemFn, WItemImpl,
-        WMacroableStmt, WProperty, WSignature, WStmtAssign, WStmtIf, WSubproperty, WTacLocal,
-        YNonindexed, YTac, ZNonindexed, ZTac,
+        WMacroableStmt, WProperty, WSignature, WStmtAssign, WStmtIf, WSubproperty,
+        WSubpropertyFunc, WTacLocal, YNonindexed, YTac, ZNonindexed, ZTac,
     },
 };
 
@@ -59,9 +59,11 @@ impl IndexingConverter {
 
         for subproperty in property.subproperties {
             let subproperty = match subproperty {
-                WSubproperty::Func(item_fn, children) => {
-                    WSubproperty::Func(self.fold_fn(item_fn), children)
-                }
+                WSubproperty::Func(subproperty_func) => WSubproperty::Func(WSubpropertyFunc {
+                    parent: subproperty_func.parent,
+                    func: self.fold_fn(subproperty_func.func),
+                    children: subproperty_func.children,
+                }),
                 WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
                 WSubproperty::Next(next) => WSubproperty::Next(next),
             };

@@ -11,11 +11,11 @@ use syn_path::path;
 
 use crate::{
     into_wir::{
-        property::{ExprProperty, ExprSubproperty},
+        property::{ExprProperty, ExprSubproperty, ExprSubpropertyFunc},
         Error, ErrorType,
     },
     util::{create_expr_ident, path_matches_global_names},
-    wir::{WFixedPointOperator, WIdent, WNextOperator, WSpan},
+    wir::{WIdent, WSpan, WSubpropertyFixedPoint, WSubpropertyNext},
 };
 
 pub fn expand_property_macros(property: &mut ExprProperty) -> Result<bool, Error> {
@@ -28,18 +28,18 @@ pub fn expand_property_macros(property: &mut ExprProperty) -> Result<bool, Error
     };
     for (index, subproperty) in property.subproperties.iter_mut().enumerate() {
         visitor.current_subproperty = index;
-        if let ExprSubproperty::Expr(expr, _children) = subproperty {
-            visitor.visit_expr_mut(expr);
+        if let ExprSubproperty::Expr(subproperty_func) = subproperty {
+            visitor.visit_expr_mut(&mut subproperty_func.expr);
         }
     }
 
-    for (parent_index, new_subproperty) in visitor.new_subproperties {
-        if let Some(parent_index) = parent_index {
+    for new_subproperty in visitor.new_subproperties {
+        if let Some(parent_index) = new_subproperty.parent() {
             let new_subproperty_index = property.subproperties.len();
 
             let parent = &mut property.subproperties[parent_index];
-            if let ExprSubproperty::Expr(_expr, children) = parent {
-                children.push(new_subproperty_index);
+            if let ExprSubproperty::Expr(subproperty_func) = parent {
+                subproperty_func.dependencies.push(new_subproperty_index);
             }
         }
         property.subproperties.push(new_subproperty);
@@ -54,7 +54,7 @@ struct Visitor {
     current_subproperty: usize,
     result: Result<(), Error>,
     expanded_some_macro: bool,
-    new_subproperties: Vec<(Option<usize>, ExprSubproperty)>,
+    new_subproperties: Vec<ExprSubproperty>,
 }
 
 impl VisitMut for Visitor {
@@ -158,7 +158,8 @@ impl Visitor {
                 }
                 let expr = punctuated_inside_expr.into_iter().next().unwrap();
 
-                let outer_subproperty = ExprSubproperty::Next(WNextOperator {
+                let outer_subproperty = ExprSubproperty::Next(WSubpropertyNext {
+                    parent: Some(self.current_subproperty),
                     universal,
                     inner: inner_subproperty_index,
                 });
@@ -191,7 +192,8 @@ impl Visitor {
 
                 let expr = punctuated_inside_expr.into_iter().nth(1).unwrap();
 
-                let outer_subproperty = ExprSubproperty::FixedPoint(WFixedPointOperator {
+                let outer_subproperty = ExprSubproperty::FixedPoint(WSubpropertyFixedPoint {
+                    parent: Some(self.current_subproperty),
                     universal,
                     variable,
                     inner: inner_subproperty_index,
@@ -200,16 +202,19 @@ impl Visitor {
                 (outer_subproperty, expr)
             };
 
-            let inner_subproperty = ExprSubproperty::Expr(inner_expr, Vec::new());
+            let inner_subproperty = ExprSubproperty::Expr(ExprSubpropertyFunc {
+                parent: Some(outer_subproperty_index),
+                expr: inner_expr,
+                dependencies: Vec::new(),
+            });
 
             let ident = Ident::new(
                 &format!("__mck_subproperty_{}", outer_subproperty_index),
                 mac.path.span(),
             );
 
-            self.new_subproperties
-                .push((Some(self.current_subproperty), outer_subproperty));
-            self.new_subproperties.push((None, inner_subproperty));
+            self.new_subproperties.push(outer_subproperty);
+            self.new_subproperties.push(inner_subproperty);
             let expr = create_expr_ident(ident);
 
             self.expanded_some_macro = true;

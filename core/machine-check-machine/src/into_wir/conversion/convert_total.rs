@@ -13,8 +13,8 @@ use crate::{
         WBlock, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent, WIfCondition,
         WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity, WPanicResult, WPanicResultType,
         WPartialBasicType, WPartialGeneralType, WProperty, WSignature, WStdBinary, WStmt,
-        WStmtAssign, WStmtIf, WSubproperty, WTacLocal, WType, YNonindexed, YTotal, ZNonindexed,
-        ZTotal,
+        WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTacLocal, WType, YNonindexed,
+        YTotal, ZNonindexed, ZTotal,
     },
 };
 
@@ -63,9 +63,11 @@ pub fn convert_property(property: WProperty<YNonindexed>) -> (WProperty<YTotal>,
 
     for subproperty in property.subproperties {
         let subproperty = match subproperty {
-            WSubproperty::Func(item_fn, children) => {
-                WSubproperty::Func(FnConverter::fold_fn(item_fn, &mut panic_messages), children)
-            }
+            WSubproperty::Func(subproperty_func) => WSubproperty::Func(WSubpropertyFunc {
+                parent: subproperty_func.parent,
+                func: FnConverter::fold_fn(subproperty_func.func, &mut panic_messages),
+                children: subproperty_func.children,
+            }),
             WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
             WSubproperty::Next(next) => WSubproperty::Next(next),
         };

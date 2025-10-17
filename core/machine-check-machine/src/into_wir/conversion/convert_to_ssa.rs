@@ -7,7 +7,7 @@ use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
     WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WFnArg, WHighMckNew, WIdent,
     WPartialGeneralType, WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt,
-    WStmtAssign, WStmtIf, WSubproperty, WType, ZSsa, ZTotal,
+    WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WType, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
 
@@ -58,10 +58,10 @@ pub fn convert_property(
     };
     converter.convert_subproperty(0, &BTreeMap::new())?;
 
-    let mut subproperties = Vec::new();
+    let mut unordered_subproperties = Vec::new();
 
     for subproperty_index in 0..num_subproperties {
-        subproperties.push(
+        unordered_subproperties.push(
             converter
                 .new_subproperties
                 .remove(&subproperty_index)
@@ -69,7 +69,9 @@ pub fn convert_property(
         );
     }
 
-    Ok(WProperty { subproperties })
+    Ok(WProperty {
+        subproperties: unordered_subproperties,
+    })
 }
 
 struct SubpropertyConverter<'a> {
@@ -103,15 +105,16 @@ impl SubpropertyConverter<'_> {
             };
 
             for child_index in subproperty.children() {
-                self.convert_subproperty(child_index, &global_rewrites)?;
+                self.convert_subproperty(*child_index, &global_rewrites)?;
             }
 
             global_rewrites
         };
 
         let subproperty = match subproperty {
-            WSubproperty::Func(func, children) => {
-                let (mut func, nonlocal_idents) = process_fn(func, &global_rewrites)?;
+            WSubproperty::Func(subproperty_func) => {
+                let (mut func, nonlocal_idents) =
+                    process_fn(subproperty_func.func, &global_rewrites)?;
 
                 // add all non-local idents to the function arguments if possible
                 let mut errors = Vec::new();
@@ -149,7 +152,11 @@ impl SubpropertyConverter<'_> {
                 }
 
                 Errors::iter_to_result(errors)?;
-                WSubproperty::Func(func, children)
+                WSubproperty::Func(WSubpropertyFunc {
+                    parent: subproperty_func.parent,
+                    func,
+                    children: subproperty_func.children,
+                })
             }
             WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
             WSubproperty::Next(next) => WSubproperty::Next(next),

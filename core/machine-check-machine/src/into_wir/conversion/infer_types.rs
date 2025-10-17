@@ -10,8 +10,8 @@ use crate::{
     wir::{
         WBasicType, WBlock, WDescription, WExpr, WExprHighCall, WGeneralType, WHighMckNew, WIdent,
         WItemFn, WItemImpl, WItemStruct, WPartialBasicType, WPartialGeneralType, WPath, WProperty,
-        WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty, WType,
-        YInferred, YSsa, ZSsa,
+        WSignature, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty,
+        WSubpropertyFunc, WType, YInferred, YSsa, ZSsa,
     },
 };
 
@@ -62,9 +62,11 @@ pub fn infer_property(property: WProperty<YSsa>) -> Result<WProperty<YInferred>,
 
     for subproperty in property.subproperties {
         let subproperty = match subproperty {
-            WSubproperty::Func(item_fn, children) => {
-                WSubproperty::Func(infer_fn_types(item_fn, &HashMap::new(), None)?, children)
-            }
+            WSubproperty::Func(subproperty_func) => WSubproperty::Func(WSubpropertyFunc {
+                parent: subproperty_func.parent,
+                func: infer_fn_types(subproperty_func.func, &HashMap::new(), None)?,
+                children: subproperty_func.children,
+            }),
             WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
             WSubproperty::Next(next) => WSubproperty::Next(next),
         };

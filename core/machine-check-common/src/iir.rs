@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use func::IFn;
 
 pub mod expr;
@@ -9,16 +11,43 @@ pub mod ty;
 pub mod variable;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ICalculusOperator {
+pub struct ISubpropertyFunc {
+    pub parent: Option<usize>,
+    pub func: IFn,
+    pub children: Vec<usize>,
+    pub dependencies: BTreeSet<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ISubpropertyNext {
+    pub parent: Option<usize>,
     pub universal: bool,
     pub inner: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ISubpropertyFixedPoint {
+    pub parent: Option<usize>,
+    pub universal: bool,
+    pub inner: usize,
+    pub dependents: Vec<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ISubproperty {
-    Func(IFn, Vec<usize>),
-    Next(ICalculusOperator),
-    FixedPoint(ICalculusOperator),
+    Func(ISubpropertyFunc),
+    Next(ISubpropertyNext),
+    FixedPoint(ISubpropertyFixedPoint),
+}
+
+impl ISubproperty {
+    pub fn parent(&self) -> Option<usize> {
+        match self {
+            ISubproperty::Func(subproperty) => subproperty.parent,
+            ISubproperty::Next(subproperty) => subproperty.parent,
+            ISubproperty::FixedPoint(subproperty) => subproperty.parent,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

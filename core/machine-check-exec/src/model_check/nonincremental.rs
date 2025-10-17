@@ -47,13 +47,13 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
         let subproperty_entry = &self.property.subproperties[subproperty_index];
 
         match subproperty_entry {
-            machine_check_common::iir::ISubproperty::Func(func, children) => {
-                for child in children {
-                    self.check_subproperty(*child)?;
+            machine_check_common::iir::ISubproperty::Func(subproperty_func) => {
+                for dependency in &subproperty_func.children {
+                    self.check_subproperty(*dependency)?;
                 }
 
                 for state_id in self.space.states() {
-                    let value = self.compute_fn_value(func, state_id);
+                    let value = self.compute_fn_value(&subproperty_func.func, state_id);
                     self.environment
                         .insert((subproperty_index, state_id), value);
                 }
