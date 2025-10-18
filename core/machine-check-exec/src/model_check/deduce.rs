@@ -127,21 +127,29 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                 let mut culprit_input_index = None;
                 for (input_index, input_var_id) in func.signature.inputs.iter().enumerate() {
+                    let abstr_value = abstr.value(*input_var_id);
                     if let Some(refin_value) = refin.value_opt(*input_var_id) {
                         match refin_value {
                             RefinementValue::Bitvector(mark) => {
+                                let mark = mark.limit(abstr_value.expect_bitvector());
                                 if mark.marked_bits().is_nonzero() {
                                     culprit_input_index = Some(input_index);
                                     break;
                                 }
                             }
                             RefinementValue::Boolean(mark) => {
-                                if *mark != mck::refin::Boolean::new_unmarked() {
+                                if abstr_value
+                                    .expect_boolean()
+                                    .into_three_valued()
+                                    .is_unknown()
+                                    && *mark != mck::refin::Boolean::new_unmarked()
+                                {
                                     culprit_input_index = Some(input_index);
                                     break;
                                 }
                             }
                             RefinementValue::Array(mark) => {
+                                // TODO: limit more reasonably
                                 use mck::refin::Refine;
                                 if mark.to_condition().importance() > 0 {
                                     culprit_input_index = Some(input_index);
