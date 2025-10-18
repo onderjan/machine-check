@@ -28,12 +28,17 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         fixed_point_index: usize,
         op: &ISubpropertyFixedPoint,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+        trace!("Updating fixed-point labelling");
+
         if self.invalidate {
+            trace!("Fixed-point immediately invalidated");
             // just invalidate fast
             return Ok(BTreeMap::new());
         }
 
         let start_time = self.current_time;
+
+        trace!("Processing old end time");
 
         // either check old computation (excluding end time) or add new computation
 
@@ -49,6 +54,8 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             ControlFlow::Break(()) => return Ok(BTreeMap::new()),
             ControlFlow::Continue(old_computation_end_time) => old_computation_end_time,
         };
+
+        trace!("Testing for calmness");
 
         // test for calmness, the fixed point must be in closed form
         // and also already once computed

@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use log::trace;
 use machine_check_common::iir::ISubpropertyNext;
 use machine_check_common::{ExecError, StateId};
 
@@ -13,6 +14,8 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         op: &ISubpropertyNext,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let inner_updated = self.update_labelling(op.inner)?;
+
+        trace!("Updating next labelling");
 
         let mut result = BTreeMap::new();
 

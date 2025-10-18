@@ -20,7 +20,7 @@ impl Focus {
     pub fn new(property: &IProperty) -> Self {
         let result = Self {
             // TODO: compute transition depth for interpreted properties
-            depth: usize::MAX,
+            depth: 20,
 
             //depth: property.transition_depth(),
             dirty: BTreeSet::new(),
@@ -75,9 +75,11 @@ impl Focus {
     }
 
     pub fn make_whole_dirty<M: FullMachine>(&mut self, space: &StateSpace<M>) {
+        trace!("Making whole space dirty");
         for state_id in space.states() {
             self.insert_dirty(space, state_id);
         }
+        trace!("Made whole space dirty");
     }
 
     pub fn insert_dirty<M: FullMachine>(&mut self, space: &StateSpace<M>, state_id: StateId) {

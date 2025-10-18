@@ -131,6 +131,12 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             .subproperty_entry(subproperty_index)
             .clone();
 
+        trace!(
+            "Updating subproperty {} labelling: {:?}",
+            subproperty_index,
+            subproperty_entry
+        );
+
         /*let updated = match &ty {
             PropertyType::Const(_) | PropertyType::Atomic(_) => {
                 let mut result = BTreeMap::new();

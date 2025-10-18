@@ -17,12 +17,12 @@ use machine_check_common::{
 };
 use mck::concr::FullMachine;
 
+pub use labelling_cacher::LabellingCacher;
 pub(super) use value::{CheckChoice, CheckValue};
 
 use crate::{
     model_check::property_checker::{
-        focus::Focus, history::FixedPointHistory, labelling_cacher::LabellingCacher,
-        labelling_updater::LabellingUpdater,
+        focus::Focus, history::FixedPointHistory, labelling_updater::LabellingUpdater,
     },
     space::StateSpace,
 };
@@ -92,6 +92,8 @@ impl PropertyChecker {
         &mut self,
         space: &StateSpace<M>,
     ) -> Result<ParamValuation, ExecError> {
+        // TODO: do not clear histories
+        self.histories.clear();
         trace!(
             "Histories before computing interpretation: {:#?}",
             self.histories

@@ -14,7 +14,7 @@ use mck::{concr::FullMachine, refin::RefinementValue};
 
 use crate::{
     model_check::{
-        property_checker::{CheckChoice, CheckValue},
+        property_checker::{CheckChoice, CheckValue, LabellingCacher},
         PropertyChecker,
     },
     space::StateSpace,
@@ -30,16 +30,13 @@ pub(super) fn deduce_culprit<M: FullMachine>(
 
     // incomplete, compute culprit
     // it must start with one of the initial states
-    todo!();
 
-    /*let environment = checker.environment();
+    let environment = checker.last_getter(space);
 
     for initial_id in space.initial_iter() {
-        let value = environment
-            .get(&(0, initial_id))
-            .expect("Environment should contain initial valuation");
+        let timed = environment.compute_latest_timed(0, initial_id)?;
 
-        let ParamValuation::Unknown = value.valuation else {
+        let ParamValuation::Unknown = timed.value.valuation else {
             continue;
         };
         // unknown initial state, compute culprit from it
@@ -57,12 +54,12 @@ pub(super) fn deduce_culprit<M: FullMachine>(
         return Ok(culprit);
     }
 
-    unreachable!("Labelling culprit should start in initial states");*/
+    unreachable!("Labelling culprit should start in initial states");
 }
 
 struct Deducer<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
-    environment: &'a BTreeMap<(usize, StateId), CheckValue>,
+    environment: LabellingCacher<'a, M>,
     property: &'a IProperty,
     subproperty_index: usize,
     path: VecDeque<StateId>,
@@ -93,8 +90,8 @@ impl<M: FullMachine> Deducer<'_, M> {
 
         let value = self
             .environment
-            .get(&(self.subproperty_index, state_id))
-            .expect("Culprit prefix back should have value");
+            .compute_latest_timed(self.subproperty_index, state_id)?
+            .value;
 
         let subproperty_entry = self.property.subproperty_entry(self.subproperty_index);
 

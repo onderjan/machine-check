@@ -4,6 +4,7 @@ mod next;
 
 use std::result;
 
+use log::trace;
 use machine_check_common::{iir::ISubproperty, ExecError, StateId};
 
 pub use local::BiChoice;
@@ -46,6 +47,12 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         subproperty_index: usize,
         state_id: StateId,
     ) -> Result<TimedCheckValue, ExecError> {
+        trace!(
+            "Computing subproperty {} for state {}",
+            subproperty_index,
+            state_id
+        );
+
         let subproperty_entry = self
             .property_checker
             .property
