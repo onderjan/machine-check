@@ -147,7 +147,7 @@ impl ThreeValuedChecker {
 
     pub fn declare_regeneration<M: FullMachine>(
         &mut self,
-        _space: &StateSpace<M>,
+        space: &StateSpace<M>,
         new_states: &BTreeSet<StateId>,
         changed_successors: &BTreeSet<StateId>,
     ) {
@@ -163,14 +163,14 @@ impl ThreeValuedChecker {
             purge_states
         );
 
-        /*for property_checker in self.property_checkers.values_mut() {
+        for property_checker in self.property_checkers.values_mut() {
             property_checker.purge_states(space, &purge_states);
-        }*/
+        }
     }
 
-    pub fn remove_states(&mut self, _removed_states: &BTreeSet<StateId>) {
-        /*for property_checker in self.property_checkers.values_mut() {
+    pub fn remove_states(&mut self, removed_states: &BTreeSet<StateId>) {
+        for property_checker in self.property_checkers.values_mut() {
             property_checker.remove_states(removed_states);
-        }*/
+        }
     }
 }

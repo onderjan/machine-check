@@ -77,8 +77,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             self.compute_inner()?;
             assert!(!self.invalidate);
         } else {
-            // TODO: double-check
-            //self.property_checker.incremental_double_check(self.space)?;
+            self.property_checker.incremental_double_check(self.space)?;
         }
 
         trace!("Computed, focus: {:?}", self.property_checker.focus);

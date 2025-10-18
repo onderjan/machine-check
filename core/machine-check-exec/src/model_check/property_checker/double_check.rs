@@ -1,4 +1,4 @@
-/*use std::collections::BTreeSet;
+use std::collections::BTreeSet;
 use std::sync::LazyLock;
 
 use log::{trace, warn};
@@ -103,4 +103,3 @@ impl PropertyChecker {
         );
     }
 }
-*/

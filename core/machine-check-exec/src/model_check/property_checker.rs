@@ -13,7 +13,7 @@ use std::{
 use log::trace;
 use machine_check_common::{
     iir::{IProperty, ISubproperty},
-    ExecError, ParamValuation,
+    ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
 
@@ -73,7 +73,7 @@ impl PropertyChecker {
         }
     }
 
-    /*pub fn purge_states<M: FullMachine>(
+    pub fn purge_states<M: FullMachine>(
         &mut self,
         space: &StateSpace<M>,
         purge_states: &BTreeSet<StateId>,
@@ -86,7 +86,7 @@ impl PropertyChecker {
         for history in self.histories.values_mut() {
             history.remove_states(removed_states)
         }
-    }*/
+    }
 
     pub fn compute_interpretation<M: FullMachine>(
         &mut self,
