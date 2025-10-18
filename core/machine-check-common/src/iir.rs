@@ -65,7 +65,43 @@ impl IProperty {
     }
 
     pub fn transition_depth(&self) -> usize {
-        // TODO: compute transition depth
-        5
+        let (open_number, max_closed_number) = self.subproperty_transition_depth(0);
+
+        open_number.max(max_closed_number)
+    }
+
+    fn subproperty_transition_depth(&self, subproperty_index: usize) -> (usize, usize) {
+        let subproperty = &self.subproperties[subproperty_index];
+        match subproperty {
+            ISubproperty::Func(subproperty) => {
+                // maximum of children
+                let mut open_number = 0;
+                let mut max_closed_number = 0;
+
+                for child_index in subproperty.children.iter().cloned() {
+                    let (candidate_open_number, candidate_max_closed_number) =
+                        self.subproperty_transition_depth(child_index);
+
+                    open_number = open_number.max(candidate_open_number);
+                    max_closed_number = max_closed_number.max(candidate_max_closed_number);
+                }
+
+                (open_number, max_closed_number)
+            }
+            ISubproperty::Next(subproperty) => {
+                // increment open number
+                let (mut open_number, max_closed_number) =
+                    self.subproperty_transition_depth(subproperty.inner);
+                open_number += 1;
+                (open_number, max_closed_number)
+            }
+            ISubproperty::FixedPoint(subproperty) => {
+                // close the opening
+                let (open_number, max_closed_number) =
+                    self.subproperty_transition_depth(subproperty.inner);
+                let max_closed_number = max_closed_number.max(open_number);
+                (0, max_closed_number)
+            }
+        }
     }
 }
