@@ -1,16 +1,19 @@
 use std::fmt::Debug;
 
-use machine_check_common::{ParamValuation, StateId};
+use mck::abstr::AbstractValue;
+
+use machine_check_common::KnownParamValuation;
+use machine_check_common::ParamValuation;
+use machine_check_common::StateId;
 
 use crate::MetaWrap;
-use machine_check_common::KnownParamValuation;
-use mck::abstr::AbstractValue;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum CheckChoice {
-    Next(Option<StateId>),
-    FixedPoint,
-    Func(Vec<MetaWrap<AbstractValue>>),
+    Atomic(MetaWrap<AbstractValue>),
+    Next(Vec<(StateId, CheckChoice)>),
+    FixedVariable,
+    Func(Vec<(MetaWrap<AbstractValue>, CheckChoice)>),
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -33,7 +36,7 @@ impl CheckValue {
 
         CheckValue {
             valuation,
-            choice: CheckChoice::FixedPoint,
+            choice: CheckChoice::FixedVariable,
         }
     }
 
@@ -46,7 +49,7 @@ impl CheckValue {
 
         CheckValue {
             valuation,
-            choice: CheckChoice::Next(None),
+            choice: CheckChoice::Next(Vec::new()),
         }
     }
 
@@ -59,7 +62,7 @@ impl CheckValue {
 
         CheckValue {
             valuation,
-            choice: CheckChoice::Next(None),
+            choice: CheckChoice::Next(Vec::new()),
         }
     }
 
@@ -81,21 +84,7 @@ impl Debug for CheckValue {
             ParamValuation::True => write!(f, "True"),
             ParamValuation::Dependent => write!(f, "Dependent"),
             ParamValuation::Unknown => {
-                write!(f, "Unknown [")?;
-
-                match &self.choice {
-                    CheckChoice::Next(state_id) => {
-                        write!(
-                            f,
-                            "N{}",
-                            state_id.expect("Next state should be present when unknown")
-                        )
-                    }
-                    CheckChoice::FixedPoint => write!(f, "F"),
-                    CheckChoice::Func(abstract_values) => write!(f, "F({:?})", abstract_values),
-                }?;
-
-                write!(f, "]")
+                write!(f, "Unknown ({:?})", self.choice)
             }
         }
     }

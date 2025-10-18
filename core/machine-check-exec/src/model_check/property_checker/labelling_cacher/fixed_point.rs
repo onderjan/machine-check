@@ -24,7 +24,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         Ok(CheckValue {
             valuation: timed.valuation,
-            choice: CheckChoice::FixedPoint,
+            choice: CheckChoice::FixedVariable,
         })
     }
 }

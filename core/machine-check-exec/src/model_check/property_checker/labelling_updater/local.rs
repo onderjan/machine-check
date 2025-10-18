@@ -49,6 +49,9 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             let state_panic = &state_data.panic;
 
             let mut globals = BTreeMap::new();
+
+            let mut input_choices = Vec::new();
+
             for input_var_id in &func.signature.inputs {
                 let input_var_name = func
                     .variables
@@ -86,9 +89,20 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                             }
                         };
 
-                        AbstractValue::Boolean(boolean)
+                        let choice = value.choice;
+
+                        let value = AbstractValue::Boolean(boolean);
+
+                        input_choices.push((MetaWrap(value.clone()), choice));
+
+                        value
                     } else if input_var_name == "__panic" {
-                        AbstractValue::Bitvector(state_panic.to_runtime())
+                        let value = AbstractValue::Bitvector(state_panic.to_runtime());
+                        input_choices.push((
+                            MetaWrap(value.clone()),
+                            CheckChoice::Atomic(MetaWrap(value.clone())),
+                        ));
+                        value
                     } else {
                         use mck::abstr::Manipulatable;
 
@@ -96,7 +110,12 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                             panic!("Input '{}' should be in fields", input_var_name);
                         };
 
-                        field.runtime_value()
+                        let value = field.runtime_value();
+                        input_choices.push((
+                            MetaWrap(value.clone()),
+                            CheckChoice::Atomic(MetaWrap(value.clone())),
+                        ));
+                        value
                     };
 
                 globals.insert(input_var_name.to_string(), value);
@@ -106,8 +125,6 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
             let result_value = func.call(input_values.clone());
 
-            let input_values = input_values.into_iter().map(MetaWrap).collect();
-
             let AbstractValue::Boolean(result_value) = result_value else {
                 panic!("Result should be abstract Boolean");
             };
@@ -116,7 +133,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
             let state_result = CheckValue {
                 valuation,
-                choice: CheckChoice::Func(input_values),
+                choice: CheckChoice::Func(input_choices),
             };
 
             result.insert(state_id, state_result);

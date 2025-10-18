@@ -45,6 +45,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
             property,
             subproperty_index: 0,
             path,
+            choice: value.choice,
         };
         let culprit = deducer.deduce()?;
         trace!("Deduced culprit {:?}", culprit);
@@ -60,6 +61,7 @@ struct Deducer<'a, M: FullMachine> {
     property: &'a IProperty,
     subproperty_index: usize,
     path: VecDeque<StateId>,
+    choice: CheckChoice,
 }
 
 impl<M: FullMachine> Deducer<'_, M> {
@@ -75,9 +77,10 @@ impl<M: FullMachine> Deducer<'_, M> {
     /// Iterates on the deduction.
     fn deduce_iteration(&mut self) -> Result<ControlFlow<Culprit, ()>, ExecError> {
         trace!(
-            "Deducing ending culprit states on subproperty {} with prefix {:?}",
+            "Deducing ending culprit states on subproperty {} with prefix {:?}, choice: {:?}",
             self.subproperty_index,
-            self.path
+            self.path,
+            self.choice,
         );
 
         let state_id = *self
@@ -85,15 +88,16 @@ impl<M: FullMachine> Deducer<'_, M> {
             .back()
             .expect("Culprit prefix should have back state");
 
-        let value = self
-            .environment
-            .compute_latest(self.subproperty_index, state_id)?;
+        /*let value = self
+        .environment
+        .compute_latest(self.subproperty_index, state_id)?;*/
 
         let subproperty_entry = self.property.subproperty_entry(self.subproperty_index);
+        trace!("subproperty: {:?}", subproperty_entry);
 
         self.subproperty_index = match &subproperty_entry {
             ISubproperty::Func(subproperty_func) => {
-                let CheckChoice::Func(input_values) = &value.choice else {
+                let CheckChoice::Func(input_choices) = &self.choice else {
                     panic!("Should deduce on function inputs");
                 };
 
@@ -104,11 +108,12 @@ impl<M: FullMachine> Deducer<'_, M> {
                 trace!(
                     "Deducing function in state {} with inputs {:?}",
                     state_id,
-                    input_values
+                    input_choices
                 );
 
-                let abstr = func
-                    .forward_interpret(input_values.iter().map(|wrap| wrap.0.clone()).collect());
+                let input_values = input_choices.iter().map(|wrap| wrap.0 .0.clone()).collect();
+
+                let abstr = func.forward_interpret(input_values);
 
                 //eprintln!("Abstract interpretation: {:?}", abstr);
 
@@ -147,6 +152,8 @@ impl<M: FullMachine> Deducer<'_, M> {
                 let input_index =
                     culprit_input_index.expect("Unknown func result should be caused by input");
 
+                self.choice = input_choices[input_index].1.clone();
+
                 let input_var_id = func.signature.inputs[input_index];
                 let input_name = func
                     .variables
@@ -173,12 +180,17 @@ impl<M: FullMachine> Deducer<'_, M> {
                 }
             }
             ISubproperty::Next(next) => {
-                let CheckChoice::Next(next_state_id) = value.choice else {
-                    panic!("Should deduce on next operator");
+                let CheckChoice::Next(states) = &mut self.choice else {
+                    panic!("Should deduce on next operator, choice: {:?}", self.choice);
                 };
-                let Some(next_state_id) = next_state_id else {
+                let Some((next_state_id, choice)) = states.iter_mut().next() else {
                     panic!("Value of next should contain next state choice");
                 };
+                let next_state_id = *next_state_id;
+
+                let choice = choice.clone();
+
+                self.choice = choice;
 
                 // sanity assertion
                 assert!(self.space.contains_edge(state_id.into(), next_state_id));
@@ -191,8 +203,18 @@ impl<M: FullMachine> Deducer<'_, M> {
             }
             ISubproperty::FixedPoint(fixed_point) => {
                 // just go to inner
-                // TODO: time
-                assert!(matches!(value.choice, CheckChoice::FixedPoint));
+                assert!(matches!(self.choice, CheckChoice::FixedVariable));
+
+                let value = self
+                    .environment
+                    .property_checker()
+                    .get_history(self.subproperty_index)
+                    .require(state_id);
+
+                assert!(value.is_unknown());
+
+                self.choice = value.choice.clone();
+
                 fixed_point.inner
             }
         };

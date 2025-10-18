@@ -42,10 +42,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         let mut can_be_true_at_time = false;
         let mut can_be_unknown_at_time = false;
 
-        let mut best_unknown_successor = None;
-
         for parametric_set in tail_partition.all_sets() {
-            let (set_valuation, best_set_successor) =
+            let (set_valuation, _) =
                 self.compute_set_valuation(op, parametric_set, computed_successors)?;
 
             match set_valuation {
@@ -60,11 +58,6 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                     can_be_true_at_time = true;
                 }
                 ParamValuation::Unknown => {
-                    if can_be_unknown_at_time {
-                        best_unknown_successor = None;
-                    } else if let Some(best_set_successor) = best_set_successor {
-                        best_unknown_successor = Some(best_set_successor);
-                    }
                     can_be_unknown_at_time = true;
                 }
             }
@@ -89,7 +82,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         assert!(can_be_unknown_at_time);
 
-        if let Some(successor_id) = best_unknown_successor {
+        /*if let Some(successor_id) = best_unknown_successor {
             // single allowed successor
             // add the successor id to next states to obtain our value
             let mut value = computed_successors
@@ -99,11 +92,11 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
             assert!(value.is_unknown());
 
-            value.choice = CheckChoice::Next(Some(successor_id));
+            value.choices.push(CheckChoice::Next(Some(successor_id)));
 
             //log::trace!("Next selected {} -> {} immediately", node_id, successor_id);
             return Ok(value);
-        };
+        };*/
 
         // no best unknown successor
         // we have to sort the successors that have the given valuation
@@ -123,7 +116,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         // the first successor is the wanted one
 
-        let (successor_id, successor_value) = successor_sorter
+        let (_successor_id, successor_value) = successor_sorter
             .first()
             .expect("There should be a first successor");
 
@@ -132,7 +125,12 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         assert!(value.is_unknown());
 
-        value.choice = CheckChoice::Next(Some(*successor_id));
+        value.choice = CheckChoice::Next(
+            successor_sorter
+                .into_iter()
+                .map(|(state_id, value)| (state_id, value.choice))
+                .collect(),
+        );
 
         /*if log::log_enabled!(log::Level::Trace) {
             let successors: BTreeSet<StateId> = self.space.direct_successor_iter(node_id).collect();

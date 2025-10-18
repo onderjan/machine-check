@@ -5,7 +5,7 @@ use machine_check_common::{iir::ISubpropertyFixedPoint, ExecError, StateId};
 
 use crate::{
     model_check::property_checker::{
-        history::FixedPointHistory, labelling_updater::LabellingUpdater, CheckValue,
+        history::FixedPointHistory, labelling_updater::LabellingUpdater, CheckChoice, CheckValue,
     },
     FullMachine,
 };
@@ -75,12 +75,16 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         let mut result = BTreeMap::new();
 
         for state_id in self.property_checker.focus.dirty_iter() {
+            let value = self
+                .property_checker
+                .get_history(fixed_point_index)
+                .require(state_id);
             result.insert(
                 state_id,
-                self.property_checker
-                    .get_history(fixed_point_index)
-                    .require(state_id)
-                    .clone(),
+                CheckValue {
+                    valuation: value.valuation,
+                    choice: CheckChoice::FixedVariable,
+                },
             );
         }
 
