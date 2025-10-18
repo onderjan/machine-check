@@ -9,7 +9,7 @@ use mck::abstr::AbstractValue;
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum CheckChoice {
     Next(Option<StateId>),
-    FixedVariable(u64),
+    FixedPoint,
     Func(Vec<MetaWrap<AbstractValue>>),
 }
 
@@ -17,12 +17,6 @@ pub enum CheckChoice {
 pub struct CheckValue {
     pub valuation: ParamValuation,
     pub choice: CheckChoice,
-}
-
-#[derive(Clone, Hash)]
-pub struct TimedCheckValue {
-    pub time: u64,
-    pub value: CheckValue,
 }
 
 impl CheckValue {
@@ -39,7 +33,7 @@ impl CheckValue {
 
         CheckValue {
             valuation,
-            choice: CheckChoice::FixedVariable(0),
+            choice: CheckChoice::FixedPoint,
         }
     }
 
@@ -80,12 +74,6 @@ impl CheckValue {
     */
 }
 
-impl TimedCheckValue {
-    pub fn new(time: u64, value: CheckValue) -> Self {
-        TimedCheckValue { time, value }
-    }
-}
-
 impl Debug for CheckValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.valuation {
@@ -103,18 +91,12 @@ impl Debug for CheckValue {
                             state_id.expect("Next state should be present when unknown")
                         )
                     }
-                    CheckChoice::FixedVariable(time) => write!(f, "V({})", time),
+                    CheckChoice::FixedPoint => write!(f, "F"),
                     CheckChoice::Func(abstract_values) => write!(f, "F({:?})", abstract_values),
                 }?;
 
                 write!(f, "]")
             }
         }
-    }
-}
-
-impl Debug for TimedCheckValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}, {:?})", self.time, self.value)
     }
 }

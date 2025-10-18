@@ -1,8 +1,5 @@
 use core::panic;
-use std::{
-    collections::{BTreeMap, VecDeque},
-    ops::ControlFlow,
-};
+use std::{collections::VecDeque, ops::ControlFlow};
 
 use log::trace;
 use machine_check_common::{
@@ -14,7 +11,7 @@ use mck::{concr::FullMachine, refin::RefinementValue};
 
 use crate::{
     model_check::{
-        property_checker::{CheckChoice, CheckValue, LabellingCacher},
+        property_checker::{CheckChoice, LabellingCacher},
         PropertyChecker,
     },
     space::StateSpace,
@@ -26,17 +23,17 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     space: &StateSpace<M>,
     property: &IProperty,
 ) -> Result<Culprit, ExecError> {
-    trace!("Deducing culprit");
-
     // incomplete, compute culprit
     // it must start with one of the initial states
+
+    trace!("Deducing culprit from checker {:?}", checker);
 
     let environment = checker.last_getter(space);
 
     for initial_id in space.initial_iter() {
-        let timed = environment.compute_latest_timed(0, initial_id)?;
+        let value = environment.compute_latest(0, initial_id)?;
 
-        let ParamValuation::Unknown = timed.value.valuation else {
+        let ParamValuation::Unknown = value.valuation else {
             continue;
         };
         // unknown initial state, compute culprit from it
@@ -90,8 +87,7 @@ impl<M: FullMachine> Deducer<'_, M> {
 
         let value = self
             .environment
-            .compute_latest_timed(self.subproperty_index, state_id)?
-            .value;
+            .compute_latest(self.subproperty_index, state_id)?;
 
         let subproperty_entry = self.property.subproperty_entry(self.subproperty_index);
 
@@ -104,6 +100,12 @@ impl<M: FullMachine> Deducer<'_, M> {
                 let func = &subproperty_func.func;
 
                 //eprintln!("Function: {:#?}", func);
+
+                trace!(
+                    "Deducing function in state {} with inputs {:?}",
+                    state_id,
+                    input_values
+                );
 
                 let abstr = func
                     .forward_interpret(input_values.iter().map(|wrap| wrap.0.clone()).collect());
@@ -190,7 +192,7 @@ impl<M: FullMachine> Deducer<'_, M> {
             ISubproperty::FixedPoint(fixed_point) => {
                 // just go to inner
                 // TODO: time
-                assert!(matches!(value.choice, CheckChoice::FixedVariable(time)));
+                assert!(matches!(value.choice, CheckChoice::FixedPoint));
                 fixed_point.inner
             }
         };

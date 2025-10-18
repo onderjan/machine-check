@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+/*use std::collections::BTreeMap;
 
 use machine_check_common::{ExecError, StateId};
 
@@ -37,3 +37,4 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         Ok(update)
     }
 }
+*/

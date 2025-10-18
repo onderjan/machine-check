@@ -5,14 +5,14 @@ use machine_check_common::iir::ISubpropertyNext;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
-use crate::model_check::property_checker::value::TimedCheckValue;
+use crate::model_check::property_checker::CheckValue;
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
     pub(super) fn update_next_labelling(
         &mut self,
         op: &ISubpropertyNext,
-    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
+    ) -> Result<BTreeMap<StateId, CheckValue>, ExecError> {
         let inner_updated = self.update_labelling(op.inner)?;
 
         trace!("Updating next labelling");
