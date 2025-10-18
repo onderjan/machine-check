@@ -16,6 +16,15 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         op: &ISubpropertyFunc,
         state_id: StateId,
     ) -> Result<CheckValue, ExecError> {
+        self.apply_func(op, state_id, &mut BTreeMap::new())
+    }
+
+    pub fn apply_func(
+        &self,
+        op: &ISubpropertyFunc,
+        state_id: StateId,
+        labellings: &mut BTreeMap<usize, BTreeMap<StateId, CheckValue>>,
+    ) -> Result<CheckValue, ExecError> {
         let func = &op.func;
 
         let mut globals = BTreeMap::new();
@@ -39,7 +48,15 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                     panic!("Input subproperty should have valid index");
                 };
 
-                let value = self.compute_latest(input_subproperty_index, state_id)?;
+                let value = if let Some(value) = labellings
+                    .get_mut(&input_subproperty_index)
+                    .expect("Input subproperty should be in labellings")
+                    .remove(&state_id)
+                {
+                    value
+                } else {
+                    self.compute_latest(input_subproperty_index, state_id)?
+                };
 
                 let boolean = match value.valuation {
                     ParamValuation::False => {

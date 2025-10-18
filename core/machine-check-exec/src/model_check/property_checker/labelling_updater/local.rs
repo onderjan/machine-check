@@ -1,15 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use log::trace;
-use mck::abstr::AbstractValue;
 
 use machine_check_common::iir::ISubpropertyFunc;
-use machine_check_common::{ExecError, ParamValuation, StateId, ThreeValued};
+use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
-use crate::model_check::property_checker::{CheckChoice, CheckValue};
+use crate::model_check::property_checker::CheckValue;
 use crate::FullMachine;
-use crate::MetaWrap;
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
     pub(super) fn update_func(
@@ -17,8 +15,6 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         op: &ISubpropertyFunc,
     ) -> Result<BTreeMap<StateId, CheckValue>, ExecError> {
         trace!("Updating function labelling");
-
-        let func = &op.func;
 
         let mut labellings = BTreeMap::new();
         let mut updated_states = BTreeSet::new();
@@ -38,105 +34,14 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             };
 
             updated_states.extend(labelling.keys());
-            labellings.insert(dependency, labelling);
+            labellings.insert(*dependency, labelling);
         }
 
         let mut result = BTreeMap::new();
 
         for state_id in updated_states {
-            let state_data = self.space.state_data(state_id);
-            let state_result = &state_data.result;
-            let state_panic = &state_data.panic;
-
-            let mut globals = BTreeMap::new();
-
-            let mut input_choices = Vec::new();
-
-            for input_var_id in &func.signature.inputs {
-                let input_var_name = func
-                    .variables
-                    .get(input_var_id)
-                    .expect("Input should be in variables")
-                    .ident
-                    .name();
-                let value =
-                    if let Some(stripped) = input_var_name.strip_prefix("__mck_subproperty_") {
-                        let Ok(input_subproperty_index) = stripped.parse::<usize>() else {
-                            panic!("Input subproperty should have valid index");
-                        };
-
-                        let value = if let Some(value) = labellings
-                            .get_mut(&input_subproperty_index)
-                            .expect("Input subproperty should be in labellings")
-                            .remove(&state_id)
-                        {
-                            value
-                        } else {
-                            self.getter()
-                                .compute_latest(input_subproperty_index, state_id)?
-                        };
-
-                        let boolean = match value.valuation {
-                            ParamValuation::False => {
-                                mck::abstr::Boolean::from_three_valued(ThreeValued::False)
-                            }
-                            ParamValuation::True => {
-                                mck::abstr::Boolean::from_three_valued(ThreeValued::True)
-                            }
-                            ParamValuation::Dependent => todo!(),
-                            ParamValuation::Unknown => {
-                                mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)
-                            }
-                        };
-
-                        let choice = value.choice;
-
-                        let value = AbstractValue::Boolean(boolean);
-
-                        input_choices.push((MetaWrap(value.clone()), choice));
-
-                        value
-                    } else if input_var_name == "__panic" {
-                        let value = AbstractValue::Bitvector(state_panic.to_runtime());
-                        input_choices.push((
-                            MetaWrap(value.clone()),
-                            CheckChoice::Atomic(MetaWrap(value.clone())),
-                        ));
-                        value
-                    } else {
-                        use mck::abstr::Manipulatable;
-
-                        let Some(field) = state_result.get(input_var_name) else {
-                            panic!("Input '{}' should be in fields", input_var_name);
-                        };
-
-                        let value = field.runtime_value();
-                        input_choices.push((
-                            MetaWrap(value.clone()),
-                            CheckChoice::Atomic(MetaWrap(value.clone())),
-                        ));
-                        value
-                    };
-
-                globals.insert(input_var_name.to_string(), value);
-            }
-
-            let input_values = func.globals_to_input_values(&globals);
-
-            let result_value = func.call(input_values.clone());
-
-            let AbstractValue::Boolean(result_value) = result_value else {
-                panic!("Result should be abstract Boolean");
-            };
-
-            let valuation = ParamValuation::from_three_valued(result_value.into_three_valued());
-
-            let state_result = CheckValue {
-                valuation,
-                choice: CheckChoice::Func(input_choices),
-            };
-
-            result.insert(state_id, state_result);
+            let value = self.getter().apply_func(op, state_id, &mut labellings)?;
+            result.insert(state_id, value);
         }
 
         Ok(result)
