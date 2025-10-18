@@ -63,4 +63,9 @@ impl IProperty {
     pub fn subproperty_entry(&self, index: usize) -> &ISubproperty {
         &self.subproperties[index]
     }
+
+    pub fn transition_depth(&self) -> usize {
+        // TODO: compute transition depth
+        5
+    }
 }

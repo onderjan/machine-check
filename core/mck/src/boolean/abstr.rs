@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use crate::{
     abstr::{BooleanBitvector, Phi, Test},
     forward::Bitwise,
-    misc::Join,
+    misc::{Join, MetaEq},
     three_valued::ThreeValued,
 };
 
@@ -113,5 +113,11 @@ impl Bitwise for Boolean {
 
     fn bit_xor(self, rhs: Self) -> Self {
         Self(self.0.bit_xor(rhs.0))
+    }
+}
+
+impl MetaEq for Boolean {
+    fn meta_eq(&self, other: &Self) -> bool {
+        self.0.meta_eq(&other.0)
     }
 }

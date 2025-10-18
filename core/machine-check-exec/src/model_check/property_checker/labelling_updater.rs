@@ -2,7 +2,7 @@ mod fixed_point;
 mod local;
 mod next;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
 use machine_check_common::{
@@ -13,7 +13,7 @@ use mck::concr::FullMachine;
 
 use crate::{
     model_check::property_checker::{
-        labelling_cacher::LabellingCacher, CheckValue, PropertyChecker,
+        labelling_cacher::LabellingCacher, value::TimedCheckValue, PropertyChecker,
     },
     space::StateSpace,
 };
@@ -22,9 +22,13 @@ pub struct LabellingUpdater<'a, M: FullMachine> {
     property_checker: &'a mut PropertyChecker,
     space: &'a StateSpace<M>,
 
+    current_time: u64,
+    next_computation_index: usize,
+
     invalidate: bool,
 
-    //calmable_fixed_points: BTreeSet<usize>,
+    calmable_fixed_points: BTreeSet<usize>,
+
     num_fixed_point_computations: u64,
     num_fixed_point_iterations: u64,
 }
@@ -37,8 +41,10 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         let computer = Self {
             property_checker,
             space,
+            current_time: 0,
+            next_computation_index: 0,
             invalidate: false,
-            //calmable_fixed_points: BTreeSet::new(),
+            calmable_fixed_points: BTreeSet::new(),
             num_fixed_point_computations: 0,
             num_fixed_point_iterations: 0,
         };
@@ -47,7 +53,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
     }
 
     fn getter(&self) -> LabellingCacher<M> {
-        LabellingCacher::new(self.property_checker, self.space)
+        LabellingCacher::new(self.property_checker, self.space, self.current_time)
     }
 
     pub fn compute(mut self) -> Result<ParamValuation, ExecError> {
@@ -71,6 +77,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             self.compute_inner()?;
             assert!(!self.invalidate);
         } else {
+            // TODO: double-check
             //self.property_checker.incremental_double_check(self.space)?;
         }
 
@@ -95,11 +102,13 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             self.property_checker.property
         );
 
-        Ok(result.valuation)
+        Ok(result.value.valuation)
     }
 
     pub(super) fn compute_inner(&mut self) -> Result<(), ExecError> {
-        //self.calmable_fixed_points.clear();
+        self.current_time = 0;
+        self.next_computation_index = 0;
+        self.calmable_fixed_points.clear();
         self.num_fixed_point_computations = 0;
         self.num_fixed_point_iterations = 0;
         self.update_labelling(0)?;
@@ -116,7 +125,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
     fn update_labelling(
         &mut self,
         subproperty_index: usize,
-    ) -> Result<BTreeMap<StateId, CheckValue>, ExecError> {
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let subproperty_entry = self
             .property_checker
             .property
@@ -129,7 +138,28 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             subproperty_entry
         );
 
-        //eprintln!("Backtrace: {}", std::backtrace::Backtrace::force_capture());
+        /*let updated = match &ty {
+            PropertyType::Const(_) | PropertyType::Atomic(_) => {
+                let mut result = BTreeMap::new();
+                if self.current_time == 0 {
+                    // update dirty states
+                    for state_id in self.property_checker.focus.dirty_iter() {
+                        let timed = self
+                            .getter()
+                            .compute_latest_timed(subproperty_index, state_id)?;
+                        result.insert(state_id, timed);
+                    }
+                }
+                result
+            }
+            PropertyType::Negation(inner) => self.update_negation(*inner)?,
+            PropertyType::BiLogic(op) => self.update_binary_op(op)?,
+            PropertyType::Next(op) => self.update_next_labelling(op)?,
+            PropertyType::FixedPoint(op) => self.update_fixed_point_op(subproperty_index, op)?,
+            PropertyType::FixedVariable(fixed_point_index) => {
+                self.update_fixed_variable(*fixed_point_index)?
+            }
+        };*/
 
         let updated = match &subproperty_entry {
             ISubproperty::Func(op) => self.update_func(op)?,
@@ -138,8 +168,9 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         };
 
         trace!(
-            "Updated labelling of subproperty {}: {:?}",
+            "Updated labelling of subproperty {} in time {}: {:?}",
             subproperty_index,
+            self.current_time,
             updated
         );
 

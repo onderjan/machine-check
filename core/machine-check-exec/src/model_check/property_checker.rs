@@ -5,7 +5,10 @@ mod labelling_cacher;
 mod labelling_updater;
 mod value;
 
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
+};
 
 use log::trace;
 use machine_check_common::{
@@ -113,7 +116,7 @@ impl PropertyChecker {
         &'a self,
         space: &'a StateSpace<M>,
     ) -> LabellingCacher<'a, M> {
-        LabellingCacher::new(self, space)
+        LabellingCacher::new(self, space, u64::MAX)
     }
 
     fn invalidate(&mut self) {
@@ -123,9 +126,58 @@ impl PropertyChecker {
         self.computations.clear();
     }
 
+    fn squash(&mut self) -> Result<(), ExecError> {
+        let mut update_times = BTreeSet::new();
+
+        for history in self.histories.values() {
+            update_times.extend(history.time_keys())
+        }
+
+        let mut time_mapping = BTreeMap::new();
+
+        for (squash_time, update_time) in update_times.into_iter().enumerate() {
+            time_mapping.insert(update_time, squash_time as u64);
+        }
+
+        for history in self.histories.values_mut() {
+            history.squash(&time_mapping);
+        }
+
+        let mut computations = Vec::new();
+        std::mem::swap(&mut computations, &mut self.computations);
+
+        for mut computation in computations {
+            computation.start_time = squash_time(&time_mapping, computation.start_time);
+            computation.end_time = squash_time(&time_mapping, computation.end_time);
+
+            // do not consider the zero-time computations that have no effect
+            if computation.start_time != computation.end_time {
+                self.computations.push(computation);
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn get_history(&self, fixed_point_index: usize) -> &FixedPointHistory {
         self.histories
             .get(&fixed_point_index)
             .expect("History should exist")
     }
+}
+
+fn squash_time(time_mapping: &BTreeMap<u64, u64>, original_time: u64) -> u64 {
+    if let Some((_, squashed_time)) = time_mapping.range(original_time..).next() {
+        // return the squashed time corresponding to this original time
+        return *squashed_time;
+    }
+
+    // return time directly after the last squashed time present in histories
+
+    let last_squashed_time = time_mapping
+        .last_key_value()
+        .map(|(_, last_squashed_time)| *last_squashed_time)
+        .unwrap_or(0);
+
+    last_squashed_time + 1
 }

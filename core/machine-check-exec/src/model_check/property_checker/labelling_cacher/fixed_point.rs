@@ -2,7 +2,7 @@ use machine_check_common::{ExecError, StateId};
 
 use crate::{
     model_check::property_checker::{
-        labelling_cacher::LabellingCacher, value::CheckValue, CheckChoice,
+        labelling_cacher::LabellingCacher, value::TimedCheckValue, CheckChoice,
     },
     FullMachine,
 };
@@ -12,7 +12,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         &self,
         fixed_point_index: usize,
         state_id: StateId,
-    ) -> Result<CheckValue, ExecError> {
+    ) -> Result<TimedCheckValue, ExecError> {
         // look into the history
         let history = self
             .property_checker
@@ -20,11 +20,10 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             .get(&fixed_point_index)
             .expect("History should exist for fixed point");
 
-        let timed = history.require(state_id);
+        let mut timed = history.before_time(self.current_time, state_id);
 
-        Ok(CheckValue {
-            valuation: timed.valuation,
-            choice: CheckChoice::FixedVariable,
-        })
+        timed.value.choice = CheckChoice::FixedVariable(timed.time);
+
+        Ok(timed)
     }
 }

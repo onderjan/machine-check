@@ -11,8 +11,8 @@ use crate::MetaWrap;
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum CheckChoice {
     Atomic(MetaWrap<AbstractValue>),
-    Next(Vec<(StateId, CheckChoice)>),
-    FixedVariable,
+    Next(Option<(StateId, Box<CheckChoice>)>),
+    FixedVariable(u64),
     Func(Vec<(MetaWrap<AbstractValue>, CheckChoice)>),
 }
 
@@ -22,12 +22,24 @@ pub struct CheckValue {
     pub choice: CheckChoice,
 }
 
+#[derive(Clone, Hash)]
+pub struct TimedCheckValue {
+    pub time: u64,
+    pub value: CheckValue,
+}
+
+impl TimedCheckValue {
+    pub fn new(time: u64, value: CheckValue) -> Self {
+        TimedCheckValue { time, value }
+    }
+}
+
 impl CheckValue {
     pub fn is_unknown(&self) -> bool {
         matches!(self.valuation, ParamValuation::Unknown)
     }
 
-    pub fn fixed_from_bool(value: bool) -> Self {
+    pub fn fixed_from_bool(value: bool, time: u64) -> Self {
         let valuation = if value {
             ParamValuation::True
         } else {
@@ -36,7 +48,7 @@ impl CheckValue {
 
         CheckValue {
             valuation,
-            choice: CheckChoice::FixedVariable,
+            choice: CheckChoice::FixedVariable(time),
         }
     }
 
@@ -49,7 +61,7 @@ impl CheckValue {
 
         CheckValue {
             valuation,
-            choice: CheckChoice::Next(Vec::new()),
+            choice: CheckChoice::Next(None),
         }
     }
 
@@ -62,7 +74,7 @@ impl CheckValue {
 
         CheckValue {
             valuation,
-            choice: CheckChoice::Next(Vec::new()),
+            choice: CheckChoice::Next(None),
         }
     }
 
@@ -87,5 +99,11 @@ impl Debug for CheckValue {
                 write!(f, "Unknown ({:?})", self.choice)
             }
         }
+    }
+}
+
+impl Debug for TimedCheckValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {:?})", self.time, self.value)
     }
 }

@@ -223,13 +223,12 @@ impl TypedCmp for AbstractValue {
 
 impl MetaEq for AbstractValue {
     fn meta_eq(&self, other: &Self) -> bool {
-        todo!();
-        /*match (self, other) {
+        match (self, other) {
             (Self::Array(l0), Self::Array(r0)) => l0.meta_eq(r0),
             (Self::Bitvector(l0), Self::Bitvector(r0)) => l0.meta_eq(r0),
             (Self::Boolean(l0), Self::Boolean(r0)) => l0.meta_eq(r0),
             (Self::PanicResult(l0), Self::PanicResult(r0)) => l0.meta_eq(r0),
             _ => false,
-        }*/
+        }
     }
 }

@@ -65,6 +65,16 @@ impl ReadWrite for &RArray {
     }
 }
 
+impl MetaEq for RArray {
+    fn meta_eq(&self, other: &Self) -> bool {
+        self.inner
+            .bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
+                // we are comparing meta-wrapped elements, so we use normal equality
+                can_be_eq && (lhs == rhs)
+            })
+    }
+}
+
 #[derive(Clone, Hash)]
 pub struct Array<const I: u32, const W: u32> {
     pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<W>>, CMax<I>>,

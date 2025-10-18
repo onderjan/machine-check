@@ -6,6 +6,7 @@ use machine_check_common::iir::ISubpropertyFunc;
 use machine_check_common::{ExecError, ParamValuation, StateId, ThreeValued};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
+use crate::model_check::property_checker::value::TimedCheckValue;
 use crate::model_check::property_checker::{CheckChoice, CheckValue};
 use crate::FullMachine;
 use crate::MetaWrap;
@@ -15,7 +16,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         &self,
         op: &ISubpropertyFunc,
         state_id: StateId,
-    ) -> Result<CheckValue, ExecError> {
+    ) -> Result<TimedCheckValue, ExecError> {
         self.apply_func(op, state_id, &mut BTreeMap::new())
     }
 
@@ -23,8 +24,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         &self,
         op: &ISubpropertyFunc,
         state_id: StateId,
-        labellings: &mut BTreeMap<usize, BTreeMap<StateId, CheckValue>>,
-    ) -> Result<CheckValue, ExecError> {
+        labellings: &mut BTreeMap<usize, BTreeMap<StateId, TimedCheckValue>>,
+    ) -> Result<TimedCheckValue, ExecError> {
         let func = &op.func;
 
         let mut globals = BTreeMap::new();
@@ -35,6 +36,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         let state_panic = &state_data.panic;
 
         let mut input_choices = Vec::new();
+
+        let mut max_unknown_time = 0;
 
         for input_var_id in &func.signature.inputs {
             let input_var_name = func
@@ -48,17 +51,16 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                     panic!("Input subproperty should have valid index");
                 };
 
-                let value = if let Some(value) = labellings
+                let timed = if let Some(timed) = labellings
                     .get_mut(&input_subproperty_index)
-                    .expect("Input subproperty should be in labellings")
-                    .remove(&state_id)
+                    .and_then(|labelling| labelling.remove(&state_id))
                 {
-                    value
+                    timed
                 } else {
-                    self.compute_latest(input_subproperty_index, state_id)?
+                    self.compute_latest_timed(input_subproperty_index, state_id)?
                 };
 
-                let boolean = match value.valuation {
+                let boolean = match timed.value.valuation {
                     ParamValuation::False => {
                         mck::abstr::Boolean::from_three_valued(ThreeValued::False)
                     }
@@ -67,11 +69,12 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                     }
                     ParamValuation::Dependent => todo!(),
                     ParamValuation::Unknown => {
+                        max_unknown_time = max_unknown_time.max(timed.time);
                         mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)
                     }
                 };
 
-                let choice = value.choice;
+                let choice = timed.value.choice;
 
                 let value = AbstractValue::Boolean(boolean);
 
@@ -113,9 +116,12 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         let valuation = ParamValuation::from_three_valued(result.into_three_valued());
 
-        Ok(CheckValue {
-            valuation,
-            choice: CheckChoice::Func(input_choices),
+        Ok(TimedCheckValue {
+            time: max_unknown_time,
+            value: CheckValue {
+                valuation,
+                choice: CheckChoice::Func(input_choices),
+            },
         })
     }
 }

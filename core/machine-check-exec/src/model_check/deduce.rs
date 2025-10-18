@@ -26,14 +26,16 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     // incomplete, compute culprit
     // it must start with one of the initial states
 
+    //todo!("Deduction");
+
     trace!("Deducing culprit from checker {:?}", checker);
 
     let environment = checker.last_getter(space);
 
     for initial_id in space.initial_iter() {
-        let value = environment.compute_latest(0, initial_id)?;
+        let timed = environment.compute_latest_timed(0, initial_id)?;
 
-        let ParamValuation::Unknown = value.valuation else {
+        let ParamValuation::Unknown = timed.value.valuation else {
             continue;
         };
         // unknown initial state, compute culprit from it
@@ -45,7 +47,8 @@ pub(super) fn deduce_culprit<M: FullMachine>(
             property,
             subproperty_index: 0,
             path,
-            choice: value.choice,
+            choice: timed.value.choice,
+            current_time: timed.time,
         };
         let culprit = deducer.deduce()?;
         trace!("Deduced culprit {:?}", culprit);
@@ -62,6 +65,7 @@ struct Deducer<'a, M: FullMachine> {
     subproperty_index: usize,
     path: VecDeque<StateId>,
     choice: CheckChoice,
+    current_time: u64,
 }
 
 impl<M: FullMachine> Deducer<'_, M> {
@@ -180,17 +184,13 @@ impl<M: FullMachine> Deducer<'_, M> {
                 }
             }
             ISubproperty::Next(next) => {
-                let CheckChoice::Next(states) = &mut self.choice else {
+                let CheckChoice::Next(Some((next_state_id, inner_choice))) = &mut self.choice
+                else {
                     panic!("Should deduce on next operator, choice: {:?}", self.choice);
-                };
-                let Some((next_state_id, choice)) = states.iter_mut().next() else {
-                    panic!("Value of next should contain next state choice");
                 };
                 let next_state_id = *next_state_id;
 
-                let choice = choice.clone();
-
-                self.choice = choice;
+                self.choice = *inner_choice.clone();
 
                 // sanity assertion
                 assert!(self.space.contains_edge(state_id.into(), next_state_id));
@@ -203,17 +203,23 @@ impl<M: FullMachine> Deducer<'_, M> {
             }
             ISubproperty::FixedPoint(fixed_point) => {
                 // just go to inner
-                assert!(matches!(self.choice, CheckChoice::FixedVariable));
+                let CheckChoice::FixedVariable(time) = self.choice else {
+                    panic!("Should deduce on next operator, choice: {:?}", self.choice);
+                };
 
                 let value = self
                     .environment
                     .property_checker()
                     .get_history(self.subproperty_index)
-                    .require(state_id);
+                    .states_at_exact_time_opt(time)
+                    .expect("History should have fixed-point states at exact time")
+                    .get(&state_id)
+                    .expect("History should have fixed-point state at exact time");
 
                 assert!(value.is_unknown());
 
                 self.choice = value.choice.clone();
+                self.current_time = time;
 
                 fixed_point.inner
             }

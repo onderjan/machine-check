@@ -5,7 +5,7 @@ use machine_check_common::iir::ISubpropertyNext;
 use machine_check_common::{ExecError, KnownParamValuation, NodeId, ParamValuation, StateId};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
-use crate::model_check::property_checker::value::{CheckChoice, CheckValue};
+use crate::model_check::property_checker::value::{CheckChoice, CheckValue, TimedCheckValue};
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingCacher<'_, M> {
@@ -13,10 +13,10 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         &self,
         op: &ISubpropertyNext,
         node_id: NodeId,
-    ) -> Result<CheckValue, ExecError> {
+    ) -> Result<TimedCheckValue, ExecError> {
         // cache inner labellings of successors
         for successor_id in self.space.direct_successor_iter(node_id) {
-            self.compute_latest(op.inner, successor_id)?;
+            self.compute_latest_timed(op.inner, successor_id)?;
         }
 
         self.apply_next(op, node_id, &mut BTreeMap::new())
@@ -26,8 +26,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         &self,
         op: &ISubpropertyNext,
         node_id: NodeId,
-        computed_successors: &mut BTreeMap<StateId, CheckValue>,
-    ) -> Result<CheckValue, ExecError> {
+        computed_successors: &mut BTreeMap<StateId, TimedCheckValue>,
+    ) -> Result<TimedCheckValue, ExecError> {
         //log::trace!("Computing next of node {}", node_id);
 
         // for speed, try to find the appropriate successor without sorting first
@@ -35,68 +35,95 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         // or a single successor with the appropriate valuation
         let Some(tail_partition) = self.space.direct_successor_param_partition(node_id) else {
             // no successors, return the ground value
-            return Ok(CheckValue::next_from_bool(op.universal));
+            return Ok(TimedCheckValue::new(
+                0,
+                CheckValue::next_from_bool(op.universal),
+            ));
         };
 
-        let mut can_be_false_at_time = false;
-        let mut can_be_true_at_time = false;
-        let mut can_be_unknown_at_time = false;
+        let mut can_be_false_at_time: Option<u64> = None;
+        let mut can_be_true_at_time: Option<u64> = None;
+        let mut can_be_unknown_at_time: Option<u64> = None;
+
+        let mut best_unknown_successor = None;
+
+        fn update_flag(flag: &mut Option<u64>, time: u64) {
+            *flag = Some(flag.map(|flag_time| flag_time.min(time)).unwrap_or(time));
+        }
 
         for parametric_set in tail_partition.all_sets() {
-            let (set_valuation, _) =
+            let (set_valuation, set_valuation_time, best_set_successor) =
                 self.compute_set_valuation(op, parametric_set, computed_successors)?;
 
             match set_valuation {
                 ParamValuation::False => {
-                    can_be_false_at_time = true;
+                    update_flag(&mut can_be_false_at_time, set_valuation_time);
                 }
                 ParamValuation::True => {
-                    can_be_true_at_time = true;
+                    update_flag(&mut can_be_true_at_time, set_valuation_time);
                 }
                 ParamValuation::Dependent => {
-                    can_be_false_at_time = true;
-                    can_be_true_at_time = true;
+                    update_flag(&mut can_be_false_at_time, set_valuation_time);
+                    update_flag(&mut can_be_true_at_time, set_valuation_time);
                 }
                 ParamValuation::Unknown => {
-                    can_be_unknown_at_time = true;
+                    if can_be_unknown_at_time.is_some() {
+                        best_unknown_successor = None;
+                    } else if let Some(best_set_successor) = best_set_successor {
+                        best_unknown_successor = Some(best_set_successor);
+                    }
+                    update_flag(&mut can_be_unknown_at_time, set_valuation_time);
                 }
             }
         }
 
-        if can_be_false_at_time && can_be_true_at_time {
+        if let (Some(can_be_false_at_time), Some(can_be_true_at_time)) =
+            (can_be_false_at_time, can_be_true_at_time)
+        {
             // we know that the valuation definitely depends on the parameter
-            return Ok(CheckValue::next_from_known(KnownParamValuation::Dependent));
+            let time = can_be_false_at_time.min(can_be_true_at_time);
+            return Ok(TimedCheckValue::new(
+                time,
+                CheckValue::next_from_known(KnownParamValuation::Dependent),
+            ));
         }
 
-        if !can_be_unknown_at_time {
-            if can_be_false_at_time {
-                return Ok(CheckValue::next_from_known(KnownParamValuation::False));
+        if can_be_unknown_at_time.is_none() {
+            if let Some(time) = can_be_false_at_time {
+                return Ok(TimedCheckValue::new(
+                    time,
+                    CheckValue::next_from_known(KnownParamValuation::False),
+                ));
             }
-            if can_be_true_at_time {
-                return Ok(CheckValue::next_from_known(KnownParamValuation::True));
+            if let Some(time) = can_be_true_at_time {
+                return Ok(TimedCheckValue::new(
+                    time,
+                    CheckValue::next_from_known(KnownParamValuation::True),
+                ));
             }
         }
 
         // the valuation is definitely unknown
         // try to return the best unknown successor first
 
-        assert!(can_be_unknown_at_time);
+        assert!(can_be_unknown_at_time.is_some());
 
-        /*if let Some(successor_id) = best_unknown_successor {
+        if let Some(successor_id) = best_unknown_successor {
             // single allowed successor
             // add the successor id to next states to obtain our value
-            let mut value = computed_successors
+            let mut timed = computed_successors
                 .get(&successor_id)
                 .expect("Successor value should be computed")
                 .clone();
 
-            assert!(value.is_unknown());
+            assert!(timed.value.is_unknown());
 
-            value.choices.push(CheckChoice::Next(Some(successor_id)));
+            timed.value.choice =
+                CheckChoice::Next(Some((successor_id, Box::new(timed.value.choice))));
 
             //log::trace!("Next selected {} -> {} immediately", node_id, successor_id);
-            return Ok(value);
-        };*/
+            return Ok(timed);
+        };
 
         // no best unknown successor
         // we have to sort the successors that have the given valuation
@@ -104,11 +131,14 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
         let mut successor_sorter = Vec::new();
 
         for successor_id in self.space.direct_successor_iter(node_id) {
-            let successor_value = computed_successors
+            let successor_timed = computed_successors
                 .get(&successor_id)
                 .expect("Successor value should be computed");
-            if successor_value.is_unknown() {
-                successor_sorter.push((successor_id, successor_value.clone()));
+            if successor_timed.value.is_unknown() {
+                successor_sorter.push((
+                    (successor_timed.time, successor_id),
+                    successor_timed.value.clone(),
+                ));
             }
         }
 
@@ -116,21 +146,16 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         // the first successor is the wanted one
 
-        let (_successor_id, successor_value) = successor_sorter
+        let ((successor_time, successor_id), successor_value) = successor_sorter
             .first()
             .expect("There should be a first successor");
 
         // add the successor id to next states to obtain our value
-        let mut value = successor_value.clone();
+        let mut timed = TimedCheckValue::new(*successor_time, successor_value.clone());
 
-        assert!(value.is_unknown());
+        assert!(timed.value.is_unknown());
 
-        value.choice = CheckChoice::Next(
-            successor_sorter
-                .into_iter()
-                .map(|(state_id, value)| (state_id, value.choice))
-                .collect(),
-        );
+        timed.value.choice = CheckChoice::Next(Some((*successor_id, Box::new(timed.value.choice))));
 
         /*if log::log_enabled!(log::Level::Trace) {
             let successors: BTreeSet<StateId> = self.space.direct_successor_iter(node_id).collect();
@@ -143,30 +168,32 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             );
         }*/
 
-        Ok(value)
+        Ok(timed)
     }
 
     fn compute_set_valuation(
         &self,
         op: &ISubpropertyNext,
         parametric_set: partitions::partition_vec::Set<'_, StateId>,
-        computed_successors: &mut BTreeMap<StateId, CheckValue>,
-    ) -> Result<(ParamValuation, Option<StateId>), ExecError> {
+        computed_successors: &mut BTreeMap<StateId, TimedCheckValue>,
+    ) -> Result<(ParamValuation, u64, Option<StateId>), ExecError> {
         let ground_value = CheckValue::next_from_bool(op.universal);
 
         let mut current_valuation = ground_value.valuation;
 
         let mut best_successor = None;
 
+        let mut valuation_time = 0;
+
         for successor_id in parametric_set.map(|(_, successor_id)| *successor_id) {
             if let Entry::Vacant(e) = computed_successors.entry(successor_id) {
-                e.insert(self.compute_latest(op.inner, successor_id)?);
+                e.insert(self.compute_latest_timed(op.inner, successor_id)?);
             }
 
-            let successor_value = computed_successors
+            let successor_timed = computed_successors
                 .get(&successor_id)
                 .expect("Successor value should be computed");
-            let successor_valuation = successor_value.valuation;
+            let successor_valuation = successor_timed.value.valuation;
 
             let is_better = if op.universal {
                 successor_valuation
@@ -181,11 +208,13 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             if is_better {
                 current_valuation = successor_valuation;
                 best_successor = Some(successor_id);
+                valuation_time = successor_timed.time;
             } else if successor_valuation == current_valuation {
                 best_successor = None;
+                valuation_time = valuation_time.min(successor_timed.time);
             }
         }
 
-        Ok((current_valuation, best_successor))
+        Ok((current_valuation, valuation_time, best_successor))
     }
 }

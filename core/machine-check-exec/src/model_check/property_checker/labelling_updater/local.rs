@@ -6,14 +6,14 @@ use machine_check_common::iir::ISubpropertyFunc;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
-use crate::model_check::property_checker::CheckValue;
+use crate::model_check::property_checker::value::TimedCheckValue;
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
     pub(super) fn update_func(
         &mut self,
         op: &ISubpropertyFunc,
-    ) -> Result<BTreeMap<StateId, CheckValue>, ExecError> {
+    ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         trace!("Updating function labelling");
 
         let mut labellings = BTreeMap::new();
@@ -27,7 +27,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                 for state_id in self.property_checker.focus.dirty_iter() {
                     labelling.insert(
                         state_id,
-                        self.getter().compute_latest(*dependency, state_id)?,
+                        self.getter().compute_latest_timed(*dependency, state_id)?,
                     );
                 }
                 labelling
