@@ -30,12 +30,10 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct PropertyChecker {
     property: IProperty,
+    closed_form_subproperties: BTreeSet<usize>,
 
-    // TODO: re-add closed-form subproperties
-    //closed_form_subproperties: BTreeSet<usize>,
     histories: BTreeMap<usize, FixedPointHistory>,
     computations: Vec<FixedPointComputation>,
-
     focus: Focus,
 }
 
@@ -48,13 +46,13 @@ pub(super) struct FixedPointComputation {
 
 impl PropertyChecker {
     pub fn new(property: IProperty) -> Self {
-        //let mut closed_form_subproperties = BTreeSet::new();
+        let mut closed_form_subproperties = BTreeSet::new();
         let mut histories = BTreeMap::new();
 
         for subproperty_index in 0..property.num_subproperties() {
-            /*if property.is_subproperty_closed_form(subproperty_index) {
+            if property.is_subproperty_closed_form(subproperty_index) {
                 closed_form_subproperties.insert(subproperty_index);
-            }*/
+            }
 
             let subproperty = property.subproperty_entry(subproperty_index);
             if matches!(subproperty, ISubproperty::FixedPoint(_)) {
@@ -62,11 +60,13 @@ impl PropertyChecker {
             }
         }
 
+        trace!("Closed form subproperties: {:?}", closed_form_subproperties);
+
         let focus = Focus::new(&property);
 
         Self {
             property,
-            //closed_form_subproperties,
+            closed_form_subproperties,
             focus,
             histories,
             computations: Vec::new(),

@@ -104,4 +104,53 @@ impl IProperty {
             }
         }
     }
+
+    pub fn is_subproperty_closed_form(&self, subproperty_index: usize) -> bool {
+        let mut self_descendants = BTreeSet::new();
+        let mut dependencies = BTreeSet::new();
+
+        self.compute_self_descendants_and_dependencies(
+            subproperty_index,
+            &mut self_descendants,
+            &mut dependencies,
+        );
+        self_descendants == dependencies
+    }
+
+    fn compute_self_descendants_and_dependencies(
+        &self,
+        subproperty_index: usize,
+        self_descendants: &mut BTreeSet<usize>,
+        dependencies: &mut BTreeSet<usize>,
+    ) {
+        self_descendants.insert(subproperty_index);
+        dependencies.insert(subproperty_index);
+        let subproperty = &self.subproperties[subproperty_index];
+        match subproperty {
+            ISubproperty::Func(subproperty) => {
+                dependencies.extend(subproperty.dependencies.iter().cloned());
+                for child_index in subproperty.children.iter().cloned() {
+                    self.compute_self_descendants_and_dependencies(
+                        child_index,
+                        self_descendants,
+                        dependencies,
+                    );
+                }
+            }
+            ISubproperty::Next(subproperty) => {
+                self.compute_self_descendants_and_dependencies(
+                    subproperty.inner,
+                    self_descendants,
+                    dependencies,
+                );
+            }
+            ISubproperty::FixedPoint(subproperty) => {
+                self.compute_self_descendants_and_dependencies(
+                    subproperty.inner,
+                    self_descendants,
+                    dependencies,
+                );
+            }
+        };
+    }
 }

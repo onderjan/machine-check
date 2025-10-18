@@ -177,10 +177,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         current_computation_index: usize,
         start_time: u64,
     ) -> Result<bool, ExecError> {
-        // TODO: re-add calmness
-        Ok(false)
-
-        /*if !self
+        if !self
             .property_checker
             .closed_form_subproperties
             .contains(&fixed_point_index)
@@ -200,6 +197,6 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
                 fixed_point_index
             );
         }
-        Ok(true)*/
+        Ok(true)
     }
 }
