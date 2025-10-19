@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use mck::{abstr::AbstractValue, refin::RefinementValue};
 
 use crate::{
-    iir::{interpretation::Interpretation, variable::IVarId},
+    iir::{interpretation::Interpretation, join_limited, variable::IVarId},
     ir_common::{IrMckBinaryOp, IrMckUnaryOp},
 };
 
@@ -35,7 +35,7 @@ impl IMckUnary {
             IrMckUnaryOp::Neg => mck::backward::HwArith::arith_neg((operand,), later).0,
         };
 
-        refin.join_value(self.operand, earlier);
+        join_limited(abstr, refin, self.operand, earlier);
     }
 }
 
@@ -119,8 +119,8 @@ impl IMckBinary {
             IrMckBinaryOp::Sle => mck::backward::TypedCmp::sle((a, b), later),
         };
 
-        refin.join_value(self.a, earlier_a);
-        refin.join_value(self.b, earlier_b);
+        join_limited(abstr, refin, self.a, earlier_a);
+        join_limited(abstr, refin, self.b, earlier_b);
     }
 }
 

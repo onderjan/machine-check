@@ -2,7 +2,7 @@ use crate::{
     abstr::AbstractValue,
     backward,
     misc::Join,
-    refin::{self, Refine},
+    refin::{self, Limit, Refine},
 };
 
 #[derive(Clone, Debug)]
@@ -54,13 +54,34 @@ impl Join for RefinementValue {
     }
 }
 
+impl Limit for RefinementValue {
+    type Abstr = AbstractValue;
+
+    fn limit(self, abstr: &Self::Abstr) -> Self {
+        match self {
+            RefinementValue::Array(refin) => {
+                RefinementValue::Array(refin.limit(abstr.expect_array()))
+            }
+            RefinementValue::Bitvector(refin) => {
+                RefinementValue::Bitvector(refin.limit(abstr.expect_bitvector()))
+            }
+            RefinementValue::Boolean(refin) => {
+                RefinementValue::Boolean(refin.limit(abstr.expect_boolean()))
+            }
+            RefinementValue::PanicResult(refin) => {
+                RefinementValue::PanicResult(refin.limit(abstr.expect_panic_result()))
+            }
+        }
+    }
+}
+
 macro_rules! bitwise_bi_op {
     ($op: path,$normal_input: ident, $mark_later: ident) => {
         match $mark_later {
             RefinementValue::Bitvector(mark_later) => {
                 let (a, b) = (
-                    $normal_input.0.expect_bitvector(),
-                    $normal_input.1.expect_bitvector(),
+                    $normal_input.0.expect_bitvector().clone(),
+                    $normal_input.1.expect_bitvector().clone(),
                 );
                 let (a, b) = $op((a, b), mark_later);
 
@@ -68,8 +89,8 @@ macro_rules! bitwise_bi_op {
             }
             RefinementValue::Boolean(mark_later) => {
                 let (a, b) = (
-                    $normal_input.0.expect_boolean(),
-                    $normal_input.1.expect_boolean(),
+                    $normal_input.0.expect_boolean().clone(),
+                    $normal_input.1.expect_boolean().clone(),
                 );
                 let (a, b) = $op((a, b), mark_later);
 
@@ -88,13 +109,13 @@ impl backward::Bitwise for AbstractValue {
     fn bit_not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         match mark_later {
             RefinementValue::Bitvector(mark_later) => {
-                let (a,) = (normal_input.0.expect_bitvector(),);
+                let (a,) = (*normal_input.0.expect_bitvector(),);
                 let (a,) = backward::Bitwise::bit_not((a,), mark_later);
 
                 (RefinementValue::Bitvector(a),)
             }
             RefinementValue::Boolean(mark_later) => {
-                let (a,) = (normal_input.0.expect_boolean(),);
+                let (a,) = (*normal_input.0.expect_boolean(),);
                 let (a,) = backward::Bitwise::bit_not((a,), mark_later);
 
                 (RefinementValue::Boolean(a),)
@@ -123,8 +144,8 @@ macro_rules! shift_bi_op {
         match $mark_later {
             RefinementValue::Bitvector(mark_later) => {
                 let (a, b) = (
-                    $normal_input.0.expect_bitvector(),
-                    $normal_input.1.expect_bitvector(),
+                    $normal_input.0.expect_bitvector().clone(),
+                    $normal_input.1.expect_bitvector().clone(),
                 );
                 let (a, b) = $op((a, b), mark_later);
 
@@ -158,8 +179,8 @@ macro_rules! hw_arith_bi_op {
         match $mark_later {
             RefinementValue::Bitvector(mark_later) => {
                 let (a, b) = (
-                    $normal_input.0.expect_bitvector(),
-                    $normal_input.1.expect_bitvector(),
+                    $normal_input.0.expect_bitvector().clone(),
+                    $normal_input.1.expect_bitvector().clone(),
                 );
                 let (a, b) = $op((a, b), mark_later);
 
@@ -179,8 +200,8 @@ macro_rules! divrem_bi_op {
         };
 
         let (a, b) = (
-            $normal_input.0.expect_bitvector(),
-            $normal_input.1.expect_bitvector(),
+            $normal_input.0.expect_bitvector().clone(),
+            $normal_input.1.expect_bitvector().clone(),
         );
         let (a, b) = $op((a, b), mark_later);
 
@@ -195,7 +216,7 @@ impl backward::HwArith for AbstractValue {
     fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         match mark_later {
             RefinementValue::Bitvector(mark_later) => {
-                let (a,) = (normal_input.0.expect_bitvector(),);
+                let (a,) = (*normal_input.0.expect_bitvector(),);
                 let (a,) = backward::HwArith::arith_neg((a,), mark_later);
 
                 (RefinementValue::Bitvector(a),)
@@ -253,7 +274,7 @@ macro_rules! typed_eq_cmp_bi_op {
 
         match $normal_input.0 {
             AbstractValue::Bitvector(a) => {
-                let b = $normal_input.1.expect_bitvector();
+                let b = $normal_input.1.expect_bitvector().clone();
                 let (a, b) = $op((a, b), mark_later);
 
                 (RefinementValue::Bitvector(a), RefinementValue::Bitvector(b))

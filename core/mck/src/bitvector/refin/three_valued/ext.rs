@@ -6,6 +6,7 @@ use crate::{
         refin::three_valued::RMarkBitvector,
     },
     concr::RConcreteBitvector,
+    refin::Limit,
 };
 
 use super::MarkBitvector;
@@ -25,7 +26,7 @@ impl RThreeValuedBitvector {
         // propagate marking of given bits with limitation
         let mark_earlier = mark_later.mark.uext(earlier_width);
         let extended = RMarkBitvector::new(mark_earlier, mark_later.importance, earlier_width);
-        (extended.limit(normal_input.0),)
+        (extended.limit(&normal_input.0),)
     }
 
     pub fn mark_sext(normal_input: (Self,), mark_later: RMarkBitvector) -> (RMarkBitvector,) {
@@ -60,7 +61,7 @@ impl RThreeValuedBitvector {
 
         let extended = RMarkBitvector::new(extended, mark_later.importance, earlier_width);
 
-        (extended.limit(normal_input.0),)
+        (extended.limit(&normal_input.0),)
     }
 }
 

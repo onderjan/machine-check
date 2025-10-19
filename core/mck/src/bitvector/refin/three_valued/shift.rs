@@ -7,6 +7,7 @@ use crate::{
     },
     concr::{ConcreteBitvector, RConcreteBitvector},
     forward,
+    refin::Limit,
     traits::refin::Refine,
 };
 
@@ -128,8 +129,8 @@ fn runtime_shift(
         }
     }
     (
-        shifted_mark_earlier.limit(normal_input.0),
-        RMarkBitvector::new_marked(mark_later.importance, width).limit(normal_input.1),
+        shifted_mark_earlier.limit(&normal_input.0),
+        RMarkBitvector::new_marked(mark_later.importance, width).limit(&normal_input.1),
     )
 }
 

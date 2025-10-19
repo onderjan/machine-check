@@ -2,7 +2,7 @@ use std::num::NonZeroU8;
 
 use crate::{
     backward::Bitwise,
-    refin::{BooleanBitvector, Refine},
+    refin::{BooleanBitvector, Limit, Refine},
 };
 
 use super::abstr;
@@ -50,6 +50,14 @@ impl Refine<super::abstr::Boolean> for Boolean {
 
     fn importance(&self) -> u8 {
         self.0.importance()
+    }
+}
+
+impl Limit for Boolean {
+    type Abstr = abstr::Boolean;
+
+    fn limit(self, abstr: &Self::Abstr) -> Self {
+        Self(self.0.limit(abstr.0))
     }
 }
 

@@ -9,7 +9,7 @@ use crate::{
             RMarkBitvector,
         },
     },
-    refin::PanicResult,
+    refin::{Limit, PanicResult},
 };
 
 use super::{
@@ -134,7 +134,7 @@ fn runtime_divrem_mark(
         };
         return (
             RMarkBitvector::new_unmarked(width),
-            RMarkBitvector::new_marked(importance, width).limit(normal_input.1),
+            RMarkBitvector::new_marked(importance, width).limit(&normal_input.1),
         );
     }
 

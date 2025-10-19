@@ -13,18 +13,18 @@ pub enum AbstractValue {
 }
 
 impl AbstractValue {
-    pub fn expect_bitvector(&self) -> RBitvector {
+    pub fn expect_bitvector(&self) -> &RBitvector {
         let AbstractValue::Bitvector(bitvec) = self else {
             panic!("Value is not a bitvector");
         };
-        *bitvec
+        bitvec
     }
 
-    pub fn expect_boolean(&self) -> Boolean {
+    pub fn expect_boolean(&self) -> &Boolean {
         let AbstractValue::Boolean(boolean) = self else {
             panic!("Value is not a boolean");
         };
-        *boolean
+        boolean
     }
 
     pub fn expect_array(&self) -> &RArray {
@@ -32,6 +32,13 @@ impl AbstractValue {
             panic!("Value is not an array");
         };
         array
+    }
+
+    pub fn expect_panic_result(&self) -> &PanicResult<RBitvector> {
+        let AbstractValue::PanicResult(panic_result) = self else {
+            panic!("Value is not a panic result");
+        };
+        panic_result
     }
 }
 

@@ -5,7 +5,7 @@ use crate::{
         refin::{three_valued::RMarkBitvector, FromRefin},
     },
     forward,
-    refin::Boolean,
+    refin::{Boolean, Limit},
 };
 
 use super::MarkBitvector;
@@ -35,8 +35,8 @@ impl TypedEq for RThreeValuedBitvector {
         let extended =
             RMarkBitvector::new(mark_later.mark.sext(width), mark_later.importance, width);
         (
-            extended.limit(normal_input.0),
-            extended.limit(normal_input.1),
+            extended.limit(&normal_input.0),
+            extended.limit(&normal_input.1),
         )
     }
 
@@ -61,8 +61,8 @@ impl TypedEq for RThreeValuedBitvector {
         let extended =
             RMarkBitvector::new(mark_later.mark.sext(width), mark_later.importance, width);
         (
-            extended.limit(normal_input.0),
-            extended.limit(normal_input.1),
+            extended.limit(&normal_input.0),
+            extended.limit(&normal_input.1),
         )
     }
 }

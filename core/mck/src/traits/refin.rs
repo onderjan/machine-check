@@ -148,3 +148,8 @@ pub trait Manipulatable {
     #[must_use]
     fn field_names() -> Vec<&'static str>;
 }
+
+pub trait Limit {
+    type Abstr;
+    fn limit(self, abstr: &Self::Abstr) -> Self;
+}

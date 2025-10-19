@@ -10,7 +10,7 @@ use crate::{
     },
     concr::{ConcreteBitvector, RConcreteBitvector},
     forward::{self, HwArith},
-    refin::{Boolean, ManipField, Refine},
+    refin::{Boolean, Limit, ManipField, Refine},
     traits::misc::MetaEq,
 };
 
@@ -50,17 +50,6 @@ impl RMarkBitvector {
         Self::new_marked(MarkBitvector::<64>::LOWEST_IMPORTANCE, width)
     }
 
-    pub fn limit(&self, abstract_bitvec: RThreeValuedBitvector) -> RMarkBitvector {
-        assert_eq!(self.width, abstract_bitvec.width());
-        if let Some(own_mark) = self.inner {
-            let result_mark =
-                forward::Bitwise::bit_and(own_mark.mark, abstract_bitvec.get_unknown_bits());
-            Self::new(result_mark, own_mark.importance, self.width)
-        } else {
-            Self::new_unmarked(self.width)
-        }
-    }
-
     pub fn marked_bits(&self) -> RConcreteBitvector {
         if let Some(mark) = self.inner {
             mark.mark
@@ -71,6 +60,20 @@ impl RMarkBitvector {
 
     pub fn importance(&self) -> Option<NonZeroU8> {
         self.inner.map(|mark| mark.importance)
+    }
+}
+
+impl Limit for RMarkBitvector {
+    type Abstr = RThreeValuedBitvector;
+    fn limit(self, abstract_bitvec: &RThreeValuedBitvector) -> Self {
+        assert_eq!(self.width, abstract_bitvec.width());
+        if let Some(own_mark) = self.inner {
+            let result_mark =
+                forward::Bitwise::bit_and(own_mark.mark, abstract_bitvec.get_unknown_bits());
+            Self::new(result_mark, own_mark.importance, self.width)
+        } else {
+            Self::new_unmarked(self.width)
+        }
     }
 }
 
@@ -175,7 +178,7 @@ pub(super) fn runtime_default_uni_mark(
     };
     (
         RMarkBitvector::new_marked(mark_later.importance, normal_input.0.width())
-            .limit(normal_input.0),
+            .limit(&normal_input.0),
     )
 }
 
@@ -196,8 +199,8 @@ pub(super) fn runtime_default_bi_mark(
         );
     };
     (
-        RMarkBitvector::new_marked(mark_later.importance, width).limit(normal_input.0),
-        RMarkBitvector::new_marked(mark_later.importance, width).limit(normal_input.1),
+        RMarkBitvector::new_marked(mark_later.importance, width).limit(&normal_input.0),
+        RMarkBitvector::new_marked(mark_later.importance, width).limit(&normal_input.1),
     )
 }
 

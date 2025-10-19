@@ -2,6 +2,13 @@ use std::collections::BTreeSet;
 
 use func::IFn;
 
+use mck::{
+    abstr::AbstractValue,
+    refin::{Limit, RefinementValue},
+};
+
+use crate::iir::{interpretation::Interpretation, variable::IVarId};
+
 pub mod expr;
 pub mod func;
 pub mod interpretation;
@@ -153,4 +160,15 @@ impl IProperty {
             }
         };
     }
+}
+
+fn join_limited(
+    abstr: &Interpretation<AbstractValue>,
+    refin: &mut Interpretation<RefinementValue>,
+    var_id: IVarId,
+    refin_value: RefinementValue,
+) {
+    let abstr_value = abstr.value(var_id);
+    let refin_value = refin_value.limit(abstr_value);
+    refin.join_value(var_id, refin_value);
 }

@@ -2,8 +2,14 @@ use std::fmt::Debug;
 
 use mck::three_valued::ThreeValued;
 
-use mck::{abstr::AbstractValue, forward::ReadWrite, misc::Join, refin::RefinementValue};
+use mck::{
+    abstr::AbstractValue,
+    forward::ReadWrite,
+    misc::Join,
+    refin::{Limit, RefinementValue},
+};
 
+use crate::iir::join_limited;
 use crate::iir::{
     expr::op::{IMckBinary, IMckUnary},
     interpretation::Interpretation,
@@ -89,7 +95,7 @@ impl IExprCall {
                 let array = abstr.value(array_read.base).expect_array();
                 let index = abstr.value(array_read.index).expect_bitvector();
 
-                AbstractValue::Bitvector(array.read(index))
+                AbstractValue::Bitvector(array.read(*index))
             }
             IExprCall::Phi(left, right) => {
                 // join the left and right variable value
@@ -124,12 +130,19 @@ impl IExprCall {
             }
             IExprCall::Phi(a, b) => {
                 // propagate into both
-                refin.join_value(*a, later.clone());
-                refin.join_value(*b, later);
+                // the abstract value might not be present, limit manually, skipping when not present
+                if let Some(abstr_a) = abstr.value_opt(*a) {
+                    let refin_a = later.clone().limit(abstr_a);
+                    refin.join_value(*a, refin_a);
+                }
+                if let Some(abstr_b) = abstr.value_opt(*b) {
+                    let refin_b = later.clone().limit(abstr_b);
+                    refin.join_value(*b, refin_b);
+                }
             }
             IExprCall::PhiTaken(taken) => {
                 // propagate into taken
-                refin.join_value(taken.var, later.clone());
+                join_limited(abstr, refin, taken.var, later.clone());
 
                 // convert to condition and propagate
                 let condition_value = RefinementValue::Boolean(match later {
@@ -141,14 +154,18 @@ impl IExprCall {
                     }
                 });
 
-                refin.join_value(taken.condition, condition_value)
+                join_limited(abstr, refin, taken.condition, condition_value)
             }
             IExprCall::ArrayRead(array_read) => {
                 let refin_element = later.expect_bitvector();
                 let abstr_array = abstr.value(array_read.base).expect_array();
                 let abstr_index = abstr.value(array_read.index).expect_bitvector();
                 let (refin_array, refin_index) =
-                    mck::backward::ReadWrite::read((abstr_array, abstr_index), refin_element);
+                    mck::backward::ReadWrite::read((abstr_array, *abstr_index), refin_element);
+
+                // we already have the abstract values, limit them here
+                let refin_array = refin_array.limit(abstr_array);
+                let refin_index = refin_index.limit(abstr_index);
 
                 refin.join_value(array_read.base, RefinementValue::Array(refin_array));
                 refin.join_value(array_read.index, RefinementValue::Bitvector(refin_index));

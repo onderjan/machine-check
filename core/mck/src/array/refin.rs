@@ -4,7 +4,7 @@ use std::ops::ControlFlow;
 
 use crate::array::abstr::extract_runtime_bounds;
 use crate::misc::{CMax, RMax};
-use crate::refin::RBitvector;
+use crate::refin::{Limit, RBitvector};
 use crate::{
     abstr,
     backward::ReadWrite,
@@ -46,6 +46,18 @@ impl RArray {
                 result
             }
         })
+    }
+}
+
+impl Limit for RArray {
+    type Abstr = abstr::RArray;
+
+    fn limit(mut self, abstr: &Self::Abstr) -> Self {
+        self.inner
+            .involve(&abstr.inner, |refin_element, abstr_element| {
+                refin_element.0 = refin_element.0.limit(&abstr_element.0);
+            });
+        self
     }
 }
 
@@ -93,7 +105,7 @@ impl ReadWrite for abstr::RArray {
         let (min_index, max_index) = (min_index.to_u64(), max_index.to_u64());
         if min_index == max_index {
             // mark array element
-            let limited_mark = mark_later.limit(normal_input.0.inner[min_index].0);
+            let limited_mark = mark_later.limit(&normal_input.0.inner[min_index].0);
             let mut earlier_array_mark = Self::Mark::new_unmarked(index_width, element_width);
             earlier_array_mark
                 .inner
@@ -107,7 +119,7 @@ impl ReadWrite for abstr::RArray {
             (
                 Self::Mark::new_unmarked(index_width, element_width),
                 Self::IndexMark::new_marked(index_importance(importance), index_width)
-                    .limit(normal_input.1),
+                    .limit(&normal_input.1),
             )
         }
     }

@@ -60,7 +60,7 @@ pub mod abstr {
 }
 
 pub mod refin {
-    use crate::refin::{self, Refine};
+    use crate::refin::{self, Limit, Refine};
 
     #[derive(Debug, Clone, Hash)]
     pub struct PanicResult<T> {
@@ -107,6 +107,17 @@ pub mod refin {
 
         fn importance(&self) -> u8 {
             self.panic.importance().max(self.result.importance())
+        }
+    }
+
+    impl<T: Limit> Limit for PanicResult<T> {
+        type Abstr = super::abstr::PanicResult<T::Abstr>;
+
+        fn limit(self, abstr: &Self::Abstr) -> Self {
+            Self {
+                panic: self.panic.limit(abstr.panic),
+                result: self.result.limit(&abstr.result),
+            }
         }
     }
 }

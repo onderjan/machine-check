@@ -5,7 +5,9 @@ use std::fmt::Debug;
 
 use mck::{abstr::AbstractValue, refin::RefinementValue};
 
-use crate::iir::{expr::call::IExprCall, interpretation::Interpretation, variable::IVarId};
+use crate::iir::{
+    expr::call::IExprCall, interpretation::Interpretation, join_limited, variable::IVarId,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum IExpr {
@@ -57,14 +59,14 @@ impl IExpr {
         match self {
             IExpr::Move(var_id) => {
                 // propagate the later value to earlier
-                refin.join_value(*var_id, later);
+                join_limited(abstr, refin, *var_id, later);
             }
             IExpr::Call(expr_call) => expr_call.backward_interpret(abstr, refin, later),
             IExpr::Reference(expr_reference) => {
                 // TODO: actually reference
                 match expr_reference {
                     IExprReference::Ident(var_id) => {
-                        refin.join_value(*var_id, later);
+                        join_limited(abstr, refin, *var_id, later);
                     }
                     IExprReference::Field(_expr_field) => {
                         todo!()
