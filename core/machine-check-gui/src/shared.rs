@@ -1,6 +1,8 @@
-use machine_check_common::check::Property;
+use machine_check_common::iir::IProperty;
 use serde::{Deserialize, Serialize};
-use snapshot::{RootPropertyIndex, Snapshot};
+use snapshot::Snapshot;
+
+use crate::shared::snapshot::PropertyIndex;
 
 pub mod snapshot;
 
@@ -8,7 +10,7 @@ pub mod snapshot;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StepSettings {
     pub max_refinements: Option<u64>,
-    pub selected_property: Property,
+    pub selected_property: IProperty,
 }
 
 /// Request for the backend to do something.
@@ -20,8 +22,8 @@ pub enum Request {
     Cancel,
     Reset,
     Step(StepSettings),
-    AddProperty(Property),
-    RemoveProperty(RootPropertyIndex),
+    AddProperty(String),
+    RemoveProperty(PropertyIndex),
 }
 
 /// Backend status.

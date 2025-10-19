@@ -1,13 +1,14 @@
 use std::fmt::Debug;
 
 use mck::{abstr::AbstractValue, refin::RefinementValue};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     iir::{interpretation::Interpretation, join_limited, variable::IVarId},
     ir_common::{IrMckBinaryOp, IrMckUnaryOp},
 };
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IMckUnary {
     pub op: IrMckUnaryOp,
     pub operand: IVarId,
@@ -45,7 +46,7 @@ impl Debug for IMckUnary {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IMckBinary {
     pub op: IrMckBinaryOp,
     pub a: IVarId,

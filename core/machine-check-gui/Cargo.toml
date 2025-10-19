@@ -67,6 +67,7 @@ hex = "0.4.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Backend-only dependencies.
+machine-check-machine = "=0.6.1"
 machine-check-exec = "=0.6.1"
 
 petgraph = "0.6.4"

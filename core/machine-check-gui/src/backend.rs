@@ -3,7 +3,7 @@ use std::{borrow::Cow, ffi::OsStr, path::Path};
 use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
-use machine_check_common::{property::Property, ExecError};
+use machine_check_common::{iir::IProperty, ExecError};
 use machine_check_exec::{Framework, Strategy};
 use mck::concr::FullMachine;
 use sync::BackendSync;
@@ -21,8 +21,8 @@ const FAVICON_ICO: &[u8] = include_bytes!("../content/favicon.ico");
 
 /// Runs the Graphical User Interface backend.
 pub fn run<M: FullMachine>(
-    system: M,
-    property: Option<Property>,
+    abstract_system: M::Abstr,
+    property: Option<IProperty>,
     strategy: Strategy,
 ) -> Result<(), ExecError> {
     // TODO: allow setting custom titles instead of relying on the binary name
@@ -35,7 +35,6 @@ pub fn run<M: FullMachine>(
         .map(String::from)
         .unwrap_or(String::from("Unknown executable"));
 
-    let abstract_system = <M::Abstr as mck::abstr::Abstr<M>>::from_concrete(system);
     // create the backend
     let backend = Backend::new(
         Workspace::<M>::new(Framework::new(abstract_system, strategy), property),

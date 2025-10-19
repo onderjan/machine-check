@@ -1,3 +1,4 @@
+use machine_check_common::iir::path::ISpan;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use syn::Token;
@@ -39,6 +40,11 @@ impl WSpan {
             first: span,
             last: span,
         }
+    }
+
+    pub(crate) fn into_iir(self) -> ISpan {
+        // TODO: convert to IIR span
+        ISpan::Unspecified
     }
 
     pub(crate) fn from_delimiters(first: Span, last: Span) -> Self {

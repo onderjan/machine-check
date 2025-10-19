@@ -1490,6 +1490,7 @@ dependencies = [
  "log",
  "machine-check-common",
  "machine-check-exec",
+ "machine-check-machine",
  "mck",
  "merkle_hash",
  "mime_guess",

@@ -52,9 +52,14 @@ impl CanvasRenderer {
         self.render_background(view);
 
         // use the labellings corresponding to the selected subproperty
-        let labellings = view
-            .selected_subproperty()
-            .map(|selected_property| &selected_property.labellings);
+
+        let labellings =
+            if let Some((property_index, subproperty_index)) = view.selected_subproperty_index() {
+                view.snapshot()
+                    .subproperty_labellings(property_index, subproperty_index)
+            } else {
+                None
+            };
 
         let lesser_visible_point = view_offset;
         let greater_visible_point = lesser_visible_point

@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-use super::{extract_space_info, workspace::WorkspaceProperty};
+use super::extract_space_info;
 
 /// A command for the worker to work.
 struct WorkCommand {
@@ -109,10 +109,16 @@ impl<M: FullMachine> BackendWorker<M> {
                 None
             }
             Request::Step(step_settings) => Some(AsynchronousRequest::Step(step_settings)),
-            Request::AddProperty(prepared_property) => {
-                self.workspace
-                    .properties
-                    .push(WorkspaceProperty::new(prepared_property));
+            Request::AddProperty(property) => {
+                let property = match machine_check_machine::process_property::<M>(
+                    self.workspace.framework.abstract_system(),
+                    &property,
+                ) {
+                    Ok(ok) => ok,
+                    Err(err) => todo!("Nice message with add property error: {:?}", err),
+                };
+
+                self.workspace.properties.push(property);
                 None
             }
             Request::RemoveProperty(root_property_index) => {
@@ -248,13 +254,10 @@ impl BackendSync {
         // Spawn and detach the backend thread.
         let worker_stats = Arc::clone(&stats);
 
-        // TODO: resolve spans preventing Send of IProperty
-        todo!("Fix GUI with new properties");
-
-        /*std::thread::Builder::new()
-        .name(String::from("backend worker"))
-        .spawn(|| BackendWorker::new(workspace, worker_stats, settings, recv_from_server).run())
-        .expect("Worker thread should be spawned");*/
+        std::thread::Builder::new()
+            .name(String::from("backend worker"))
+            .spawn(|| BackendWorker::new(workspace, worker_stats, settings, recv_from_server).run())
+            .expect("Worker thread should be spawned");
         BackendSync {
             stats,
             send_to_worker,

@@ -1,6 +1,7 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
 use mck::{abstr::AbstractValue, refin::RefinementValue};
+use serde::{Deserialize, Serialize};
 
 use crate::iir::{
     interpretation::Interpretation,
@@ -10,18 +11,18 @@ use crate::iir::{
     variable::{IVarId, IVarInfo},
 };
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IBlock {
     pub stmts: Vec<IStmt>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IFnOutput {
     pub normal: IVarId,
     pub panic: IVarId,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ISignature {
     pub ident: IIdent,
     pub inputs: Vec<IVarId>,
@@ -34,7 +35,7 @@ pub struct IGlobal {
     pub ty: IElementaryType,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IFn {
     pub signature: ISignature,
     pub variables: BTreeMap<IVarId, IVarInfo>,

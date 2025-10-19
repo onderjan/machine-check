@@ -1,16 +1,20 @@
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IrReference {
     Immutable,
     None,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IrTypeArray {
     pub index_width: u32,
     pub element_width: u32,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, strum::EnumString, strum::Display)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, strum::EnumString, strum::Display,
+)]
 pub enum IrMckUnaryOp {
     #[strum(to_string = "::mck::forward::Bitwise::bit_not")]
     Not,
@@ -18,7 +22,9 @@ pub enum IrMckUnaryOp {
     Neg,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, strum::EnumString, strum::Display)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, strum::EnumString, strum::Display,
+)]
 pub enum IrMckBinaryOp {
     // bitwise
     #[strum(to_string = "::mck::forward::Bitwise::bit_and")]

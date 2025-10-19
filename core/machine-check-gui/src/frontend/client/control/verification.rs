@@ -138,12 +138,17 @@ pub async fn issue_step(max_refinements: Option<u64>) {
         // select the property to use for stepping
         // use the root property, not the subproperty, as we are interested
         // in whether the root property holds or not
-        let Some(selected_property) = view_guard.as_ref().selected_root_property() else {
+        let Some(selected_property) = view_guard.as_ref().selected_property_index() else {
             // if no property is selected, just quietly return
             return;
         };
 
-        selected_property.subproperty.property().clone()
+        view_guard
+            .as_ref()
+            .snapshot()
+            .property_snapshot(selected_property)
+            .property
+            .clone()
     };
 
     issue_command(Request::Step(StepSettings {

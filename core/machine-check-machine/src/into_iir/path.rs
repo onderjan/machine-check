@@ -5,7 +5,7 @@ use crate::wir::WPath;
 impl WPath {
     pub fn into_iir(self) -> IPath {
         IPath {
-            leading_colon: self.leading_colon.map(|span| span.first()),
+            leading_colon: self.leading_colon.map(|span| span.into_iir()),
             segments: self
                 .segments
                 .into_iter()

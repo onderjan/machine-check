@@ -1,12 +1,12 @@
-use proc_macro2::Span;
+use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct IPath {
-    pub leading_colon: Option<Span>,
+    pub leading_colon: Option<ISpan>,
     pub segments: Vec<IPathSegment>,
 }
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IPathSegment {
     pub ident: IIdent,
 }
@@ -55,12 +55,12 @@ impl IPath {
         }
     }
 
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> &ISpan {
         // TODO: correct span
         if let Some(last_segment) = self.segments.last() {
-            last_segment.ident.span
+            &last_segment.ident.span
         } else {
-            Span::call_site()
+            &ISpan::Unspecified
         }
     }
 
@@ -115,14 +115,14 @@ impl Debug for IPath {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct IIdent {
     name: String,
-    span: Span,
+    span: ISpan,
 }
 
 impl IIdent {
-    pub fn new(name: String, span: Span) -> Self {
+    pub fn new(name: String, span: ISpan) -> Self {
         Self { name, span }
     }
 
@@ -130,16 +130,8 @@ impl IIdent {
         &self.name
     }
 
-    pub fn span(&self) -> Span {
-        self.span
-    }
-
     pub fn set_name(&mut self, name: String) {
         self.name = name;
-    }
-
-    pub fn set_span(&mut self, span: Span) {
-        self.span = span;
     }
 
     pub fn into_path(self) -> IPath {
@@ -155,7 +147,7 @@ impl IIdent {
 
         IIdent::new(
             format!("__mck_{}_{}", prefix, stripped_ident_str),
-            self.span(),
+            self.span.clone(),
         )
     }
 }
@@ -196,4 +188,9 @@ impl Debug for IIdent {
         // just write the name
         f.write_str(&self.name)
     }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum ISpan {
+    Unspecified, // TODO add span information
 }

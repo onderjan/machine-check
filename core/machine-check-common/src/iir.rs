@@ -6,6 +6,7 @@ use mck::{
     abstr::AbstractValue,
     refin::{Limit, RefinementValue},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::iir::{interpretation::Interpretation, variable::IVarId};
 
@@ -17,7 +18,7 @@ pub mod stmt;
 pub mod ty;
 pub mod variable;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ISubpropertyFunc {
     pub parent: Option<usize>,
     pub func: IFn,
@@ -25,14 +26,14 @@ pub struct ISubpropertyFunc {
     pub dependencies: BTreeSet<usize>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ISubpropertyNext {
     pub parent: Option<usize>,
     pub universal: bool,
     pub inner: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ISubpropertyFixedPoint {
     pub parent: Option<usize>,
     pub universal: bool,
@@ -40,7 +41,7 @@ pub struct ISubpropertyFixedPoint {
     pub dependents: Vec<usize>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ISubproperty {
     Func(ISubpropertyFunc),
     Next(ISubpropertyNext),
@@ -55,9 +56,22 @@ impl ISubproperty {
             ISubproperty::FixedPoint(subproperty) => subproperty.parent,
         }
     }
+
+    pub fn children(&self) -> &[usize] {
+        match self {
+            ISubproperty::Func(subproperty) => &subproperty.children,
+            ISubproperty::Next(subproperty) => std::slice::from_ref(&subproperty.inner),
+            ISubproperty::FixedPoint(subproperty) => std::slice::from_ref(&subproperty.inner),
+        }
+    }
+
+    pub fn display_str(&self) -> &str {
+        // TODO
+        "tbd"
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IProperty {
     pub subproperties: Vec<ISubproperty>,
 }

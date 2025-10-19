@@ -1,10 +1,11 @@
 use std::fmt::Debug;
 
 use mck::{abstr::AbstractValue, refin::RefinementValue, three_valued::ThreeValued};
+use serde::{Deserialize, Serialize};
 
 use crate::iir::{expr::IExpr, func::IBlock, interpretation::Interpretation, variable::IVarId};
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IStmt {
     Assign(IAssignStmt),
     If(IIfStmt),
@@ -30,7 +31,7 @@ impl IStmt {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IAssignStmt {
     pub left: IVarId,
     pub right: IExpr,
@@ -65,7 +66,7 @@ impl IAssignStmt {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IIfStmt {
     pub condition: IVarId,
     pub then_block: IBlock,

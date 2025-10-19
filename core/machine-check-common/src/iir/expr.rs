@@ -4,12 +4,13 @@ pub mod op;
 use std::fmt::Debug;
 
 use mck::{abstr::AbstractValue, refin::RefinementValue};
+use serde::{Deserialize, Serialize};
 
 use crate::iir::{
     expr::call::IExprCall, interpretation::Interpretation, join_limited, variable::IVarId,
 };
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IExpr {
     Move(IVarId),
     Call(IExprCall),
@@ -19,13 +20,13 @@ pub enum IExpr {
     Lit(Lit),*/
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IExprField {
     pub base: IVarId,
     pub member: IVarId,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IExprReference {
     Ident(IVarId),
     Field(IExprField),

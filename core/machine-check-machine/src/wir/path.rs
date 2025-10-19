@@ -220,7 +220,7 @@ impl WIdent {
     }
 
     pub fn into_iir(self) -> IIdent {
-        IIdent::new(self.name, self.span)
+        IIdent::new(self.name, WSpan::from_span(self.span).into_iir())
     }
 }
 

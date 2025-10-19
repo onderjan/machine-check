@@ -13,7 +13,7 @@ use rstar::{
 use crate::{
     frontend::tiling::TileType,
     shared::{
-        snapshot::{Snapshot, SubpropertyIndex, SubpropertySnapshot},
+        snapshot::{PropertyIndex, Snapshot},
         BackendInfo,
     },
 };
@@ -135,15 +135,19 @@ impl AxisSizing {
 #[derive(Debug)]
 struct Selection {
     selected_node_id: Option<NodeId>,
-    selected_subproperty: Option<SubpropertyIndex>,
+    selected_subproperty: Option<(PropertyIndex, usize)>,
 }
 
 impl Selection {
     fn new(snapshot: &Snapshot) -> Self {
         // select the last property if it is available
+        let selected_subproperty = snapshot
+            .last_property_index()
+            .map(|property_index| (property_index, 0));
+
         Self {
             selected_node_id: None,
-            selected_subproperty: snapshot.last_property_subindex(),
+            selected_subproperty,
         }
     }
 
@@ -155,16 +159,16 @@ impl Selection {
             }
         }
 
-        if let Some(selected_property_index) = self.selected_subproperty {
-            if !snapshot.contains_subindex(selected_property_index) {
+        if let Some((property_index, subproperty_index)) = self.selected_subproperty {
+            if !snapshot.contains_subproperty(property_index, subproperty_index) {
                 self.selected_subproperty = None;
             }
         }
 
         // if no property is selected, select the last one if it is available
         if self.selected_subproperty.is_none() {
-            if let Some(last_property_subindex) = snapshot.last_property_subindex() {
-                self.selected_subproperty = Some(last_property_subindex);
+            if let Some(last_property_index) = snapshot.last_property_index() {
+                self.selected_subproperty = Some((last_property_index, 0));
             }
         }
     }
@@ -424,29 +428,25 @@ impl View {
         self.camera.ensure_in_view(bottom_right);
     }
 
-    pub fn selected_subproperty(&self) -> Option<&SubpropertySnapshot> {
+    pub fn selected_property_index(&self) -> Option<PropertyIndex> {
         self.selection
             .selected_subproperty
-            .map(|selected_property_index| {
-                self.snapshot().select_subproperty(selected_property_index)
-            })
+            .map(|(property_index, _)| property_index)
     }
 
-    pub fn selected_subproperty_index(&self) -> Option<SubpropertyIndex> {
+    pub fn selected_subproperty_index(&self) -> Option<(PropertyIndex, usize)> {
         self.selection.selected_subproperty
     }
 
-    pub fn selected_root_property(&self) -> Option<&SubpropertySnapshot> {
-        self.selection
-            .selected_subproperty
-            .map(|selected_subproperty_index| {
-                let selected_property_index = self
-                    .snapshot()
-                    .subindex_to_root_index(selected_subproperty_index);
-
-                self.snapshot()
-                    .select_root_property(selected_property_index)
-            })
+    pub fn select_subproperty_index(
+        &mut self,
+        property_index: PropertyIndex,
+        subproperty_index: usize,
+    ) {
+        assert!(self
+            .snapshot()
+            .contains_subproperty(property_index, subproperty_index));
+        self.selection.selected_subproperty = Some((property_index, subproperty_index));
     }
 
     pub fn selected_node_id(&self) -> Option<NodeId> {
@@ -462,10 +462,6 @@ impl View {
     pub fn tile_at_viewport_point(&self, point: PixelPoint) -> Tile {
         let global_point = point + self.camera.view_offset();
         self.tile_at_global_point(global_point)
-    }
-
-    pub fn select_subproperty_index(&mut self, index: Option<SubpropertyIndex>) {
-        self.selection.selected_subproperty = index;
     }
 
     pub fn scheme(&self) -> &Scheme {

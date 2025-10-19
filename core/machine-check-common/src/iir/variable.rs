@@ -1,11 +1,13 @@
 use std::fmt::Debug;
 
+use serde::{Deserialize, Serialize};
+
 use crate::iir::{path::IIdent, ty::IGeneralType};
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IVarId(pub usize);
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IVarInfo {
     pub ident: IIdent,
     pub ty: IGeneralType,

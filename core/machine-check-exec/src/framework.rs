@@ -148,16 +148,19 @@ impl<M: FullMachine> Framework<M> {
         }
     }
 
-    pub fn check_subproperty_with_labelling(
+    pub fn current_labellings(
         &mut self,
         property: &IProperty,
-        subproperty_index: usize,
-    ) -> Result<(Conclusion, BTreeMap<StateId, ParamValuation>), ExecError> {
-        self.work_state.checker.check_subproperty_with_labelling(
-            &self.work_state.space,
-            property,
-            subproperty_index,
-        )
+    ) -> Result<BTreeMap<usize, BTreeMap<StateId, ParamValuation>>, ExecError> {
+        self.work_state
+            .checker
+            .get_labellings(&self.work_state.space, property)
+    }
+
+    pub fn current_conclusion(&mut self, property: &IProperty) -> Result<Conclusion, ExecError> {
+        self.work_state
+            .checker
+            .check_property(&self.work_state.space, property)
     }
 
     pub fn find_panic_string(&mut self) -> Option<&'static str> {
@@ -179,5 +182,9 @@ impl<M: FullMachine> Framework<M> {
 
     pub fn make_compact(&mut self) {
         self.work_state.make_compact();
+    }
+
+    pub fn abstract_system(&self) -> &M::Abstr {
+        &self.abstract_system
     }
 }

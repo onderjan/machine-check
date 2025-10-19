@@ -1,7 +1,7 @@
 use crate::backend::BackendSettings;
 use crate::shared::snapshot::log::Log;
-use crate::shared::snapshot::{Node, Snapshot, StateInfo, StateSpace, SubpropertySnapshot};
-use machine_check_common::property::{Property, Subproperty};
+use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
+use machine_check_common::iir::IProperty;
 use machine_check_exec::Framework;
 use mck::abstr::BitvectorDomain;
 use mck::concr::FullMachine;
@@ -13,41 +13,17 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Contains the verification framework among others.
 pub struct Workspace<M: FullMachine> {
     pub framework: Framework<M>,
-    pub properties: Vec<WorkspaceProperty>,
+    pub properties: Vec<IProperty>,
     pub log: Log,
 }
 
-/// A property stored in the backend.
-pub struct WorkspaceProperty {
-    pub subproperty: Subproperty,
-    pub children: Vec<WorkspaceProperty>,
-}
-
-impl WorkspaceProperty {
-    pub fn new(property: Property) -> WorkspaceProperty {
-        Self::new_from_subproperty(property.root_subproperty())
-    }
-
-    pub fn new_from_subproperty(subproperty: Subproperty) -> WorkspaceProperty {
-        let children = subproperty
-            .displayed_children()
-            .into_iter()
-            .map(WorkspaceProperty::new_from_subproperty)
-            .collect();
-        WorkspaceProperty {
-            subproperty,
-            children,
-        }
-    }
-}
-
 impl<M: FullMachine> Workspace<M> {
-    pub fn new(framework: Framework<M>, property: Option<Property>) -> Self {
+    pub fn new(framework: Framework<M>, property: Option<IProperty>) -> Self {
         // always put the inherent property first, add the other property afterwards if there is one
-        let mut properties = vec![WorkspaceProperty::new(Property::inherent())];
+        let mut properties = vec![machine_check_machine::inherent_property()];
 
         if let Some(property) = property {
-            properties.push(WorkspaceProperty::new(property));
+            properties.push(property);
         }
 
         Workspace {
@@ -139,23 +115,20 @@ impl<M: FullMachine> Workspace<M> {
 
     fn create_property_snapshot(
         framework: &mut Framework<M>,
-        business_property: &WorkspaceProperty,
-    ) -> SubpropertySnapshot {
-        let (conclusion, labellings) =
-            match framework.check_subproperty_with_labelling(&business_property.subproperty) {
-                Ok((conclusion, labellings)) => (Ok(conclusion), labellings),
+        property: &IProperty,
+    ) -> PropertySnapshot {
+        let (conclusion, labellings) = match framework.current_conclusion(property) {
+            Ok(conclusion) => match framework.current_labellings(property) {
+                Ok(labellings) => (Ok(conclusion), labellings),
                 Err(error) => (Err(error), BTreeMap::new()),
-            };
-        let children = business_property
-            .children
-            .iter()
-            .map(|child| Self::create_property_snapshot(framework, child))
-            .collect();
-        SubpropertySnapshot {
-            subproperty: business_property.subproperty.clone(),
+            },
+            Err(error) => (Err(error), BTreeMap::new()),
+        };
+
+        PropertySnapshot {
+            property: property.clone(),
             conclusion,
             labellings,
-            children,
         }
     }
 }

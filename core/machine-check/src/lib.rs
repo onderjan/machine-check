@@ -286,7 +286,7 @@ fn start_gui<M: FullMachine>(
 ) -> ExecError {
     // the GUI will, at best, return no result
     #[cfg(feature = "gui")]
-    match machine_check_gui::run(abstract_system, property, strategy) {
+    match machine_check_gui::run::<M>(abstract_system, property, strategy) {
         Ok(()) => ExecError::NoResult,
         Err(err) => err,
     }

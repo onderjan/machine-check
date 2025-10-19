@@ -1,4 +1,3 @@
-use machine_check_common::property::Property;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlButtonElement;
 
@@ -58,7 +57,7 @@ async fn on_new_property_click() {
         return;
     };
 
-    let property = match Property::parse(&property) {
+    /*let property = match IProperty::parse(&property) {
         Ok(ok) => ok,
         Err(err) => {
             window
@@ -66,19 +65,19 @@ async fn on_new_property_click() {
                 .unwrap();
             return;
         }
-    };
+    };*/
 
     client::issue_command(Request::AddProperty(property)).await;
 }
 
 async fn on_delete_property_click() {
-    let property_index = {
+    let Some(property_index) = ({
         let view_guard = lock_view();
         let view = view_guard.as_ref();
-        let Some(property_subindex) = view.selected_subproperty_index() else {
-            return;
-        };
-        view.snapshot().subindex_to_root_index(property_subindex)
+        view.selected_property_index()
+    }) else {
+        // nothing selected
+        return;
     };
 
     // TODO: disallow removing the inherent property more elegantly

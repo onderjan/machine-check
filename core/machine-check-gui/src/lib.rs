@@ -1,4 +1,4 @@
-/*#![doc = include_str!("../README.md")]
+#![doc = include_str!("../README.md")]
 
 /// The backend of the GUI, built on the same architecture as the rest of machine-check,
 /// can interact with it normally.
@@ -26,4 +26,3 @@ mod frontend;
 ///
 /// See also build.rs of this package for the build implementation.
 const _: &[u8] = include_bytes!("../content/wasm/machine_check_gui_wasm.js");
-*/

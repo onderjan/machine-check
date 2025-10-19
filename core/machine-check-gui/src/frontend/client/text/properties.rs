@@ -5,12 +5,14 @@ use machine_check_common::{
 use wasm_bindgen::JsCast;
 use web_sys::{Element, Event, HtmlElement};
 
-use crate::frontend::{
-    client::{lock_view, render},
-    util::web_idl::{create_element, document, get_element_by_id, setup_element_listener},
-    view::View,
+use crate::{
+    frontend::{
+        client::{lock_view, render},
+        util::web_idl::{create_element, document, get_element_by_id, setup_element_listener},
+        view::View,
+    },
+    shared::snapshot::PropertyIndex,
 };
-use crate::shared::snapshot::{SubpropertyIndex, SubpropertySnapshot};
 
 pub fn display(view: &View) {
     PropertiesDisplayer::new(view).display();
@@ -43,12 +45,7 @@ impl PropertiesDisplayer<'_> {
         self.properties_element.set_inner_html("");
 
         // TODO: do not force the inherent property to be the first
-        let inherent_property = self
-            .view
-            .snapshot()
-            .root_properties_iter()
-            .next()
-            .expect("The snapshot should have the inherent property");
+        let inherent_property = self.view.snapshot().property_snapshot(PropertyIndex(0));
 
         let inherent_result: ParamValuation = inherent_property
             .conclusion
@@ -61,43 +58,42 @@ impl PropertiesDisplayer<'_> {
             })
             .unwrap_or(ParamValuation::Unknown);
 
-        let panic_message = self.view.snapshot().panic_message.as_ref();
-
-        let mut id_index = 0;
-        for property in self.view.snapshot().root_properties_iter() {
-            let is_inherent = id_index == 0;
-            Self::display_property(
-                property,
+        let mut is_inherent = true;
+        for property_index in 0..self.view.snapshot().properties.len() {
+            self.display_subproperty(
+                PropertyIndex(property_index),
+                0,
                 &self.properties_element,
-                self.view.selected_subproperty_index(),
-                &mut id_index,
                 was_focused,
                 is_inherent,
                 inherent_result,
-                panic_message,
-                false,
-                true,
             );
+            is_inherent = false;
         }
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn display_property(
-        property_snapshot: &SubpropertySnapshot,
+    fn display_subproperty(
+        &self,
+        property_index: PropertyIndex,
+        subproperty_index: usize,
         parent_element: &Element,
-        selected_subproperty: Option<SubpropertyIndex>,
-        id_index: &mut usize,
         was_focused: bool,
         is_inherent: bool,
         inherent_result: ParamValuation,
-        panic_message: Option<&String>,
-        is_subproperty: bool,
-        mut is_visible: bool,
     ) {
-        is_visible &= property_snapshot.subproperty.is_visible();
-        let parent_element = if let (Some(property_str), true) =
-            (property_snapshot.subproperty.display_str(), is_visible)
-        {
+        let selected_subproperty = self.view.selected_subproperty_index();
+        let panic_message = self.view.snapshot().panic_message.as_ref();
+        let property_snapshot = self.view.snapshot().property_snapshot(property_index);
+
+        let is_subproperty = subproperty_index != 0;
+        let subproperty = &property_snapshot.property.subproperties[subproperty_index];
+
+        // TODO: invisible subproperties
+        let is_visible = true;
+        //is_visible &= property_snapshot.subproperty.is_visible();
+
+        let parent_element = if let (property_str, true) = (subproperty.display_str(), is_visible) {
             let outer_div = create_element("div");
             outer_div.class_list().add_1("property-outer").unwrap();
 
@@ -106,9 +102,13 @@ impl PropertiesDisplayer<'_> {
             radio_input.set_attribute("type", "radio").unwrap();
             radio_input.set_attribute("name", "property_group").unwrap();
             radio_input
-                .set_attribute("data-index", &id_index.to_string())
+                .set_attribute("data-property", &property_index.0.to_string())
                 .unwrap();
-            let radio_input_id = &format!("property_radio_{}", id_index);
+            radio_input
+                .set_attribute("data-subproperty", &subproperty_index.to_string())
+                .unwrap();
+            let radio_input_id =
+                &format!("property_radio_{}_{}", property_index.0, subproperty_index);
             radio_input.set_id(radio_input_id);
             radio_input.class_list().add_1("property-radio").unwrap();
 
@@ -228,7 +228,7 @@ impl PropertiesDisplayer<'_> {
             parent_element.append_child(&outer_div).unwrap();
 
             if let Some(selected_subproperty) = selected_subproperty {
-                if selected_subproperty.0 == *id_index {
+                if selected_subproperty == (property_index, subproperty_index) {
                     radio_input.set_attribute("checked", "true").unwrap();
                     // if a radio button was focused, focus on the currently checked
                     console_log!("Checking radio button");
@@ -250,20 +250,15 @@ impl PropertiesDisplayer<'_> {
         } else {
             parent_element.clone()
         };
-        *id_index += 1;
 
-        for child in &property_snapshot.children {
-            Self::display_property(
-                child,
+        for child_index in subproperty.children() {
+            self.display_subproperty(
+                property_index,
+                *child_index,
                 &parent_element,
-                selected_subproperty,
-                id_index,
                 was_focused,
                 is_inherent,
                 inherent_result,
-                panic_message,
-                true,
-                is_visible,
             );
         }
     }
@@ -275,20 +270,28 @@ async fn on_radio_change(event: Event) {
 
     let element: Element = event.current_target().unwrap().dyn_into().unwrap();
 
-    let index: usize = element
-        .get_attribute("data-index")
+    let property_index = PropertyIndex(
+        element
+            .get_attribute("data-property")
+            .unwrap()
+            .parse()
+            .unwrap(),
+    );
+
+    let subproperty_index: usize = element
+        .get_attribute("data-subproperty")
         .unwrap()
         .parse()
         .unwrap();
 
-    if let Some(current_selected_subproperty_index) = view.selected_subproperty_index() {
-        if current_selected_subproperty_index.0 == index {
+    if let Some(selected) = view.selected_subproperty_index() {
+        if selected == (property_index, subproperty_index) {
             // already selected, do nothing
             return;
         }
     }
 
     // change and redraw
-    view.select_subproperty_index(Some(SubpropertyIndex(index)));
+    view.select_subproperty_index(property_index, subproperty_index);
     render(view);
 }

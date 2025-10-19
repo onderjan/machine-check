@@ -3,8 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::shared::snapshot::log::Log;
 use machine_check_common::{
-    check::Conclusion, property::Subproperty, ExecError, NodeId, ParamValuation, StateId,
-    ThreeValued,
+    check::Conclusion, iir::IProperty, ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
 use mck::abstr::Field;
 
@@ -18,7 +17,7 @@ pub struct Snapshot {
     pub exec_name: String,
     pub state_space: StateSpace,
     pub state_info: StateInfo,
-    subproperties: Vec<SubpropertySnapshot>,
+    pub properties: Vec<PropertySnapshot>,
     pub log: Log,
     pub panic_message: Option<String>,
 }
@@ -42,24 +41,21 @@ pub struct Node {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SubpropertySnapshot {
-    pub subproperty: Subproperty,
+pub struct PropertySnapshot {
+    pub property: IProperty,
     pub conclusion: Result<Conclusion, ExecError>,
-    pub labellings: BTreeMap<StateId, ParamValuation>,
-    pub children: Vec<SubpropertySnapshot>,
+    pub labellings: BTreeMap<usize, BTreeMap<StateId, ParamValuation>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RootPropertyIndex(pub usize);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SubpropertyIndex(pub usize);
+pub struct PropertyIndex(pub usize);
 
 impl Snapshot {
     pub fn new(
         exec_name: String,
         state_space: StateSpace,
         state_info: StateInfo,
-        properties: Vec<SubpropertySnapshot>,
+        properties: Vec<PropertySnapshot>,
         log: Log,
         panic_message: Option<String>,
     ) -> Self {
@@ -67,128 +63,51 @@ impl Snapshot {
             exec_name,
             state_space,
             state_info,
-            subproperties: properties,
+            properties,
             log,
             panic_message,
         }
     }
 
-    pub fn root_properties_iter(&self) -> impl Iterator<Item = &SubpropertySnapshot> {
-        self.subproperties.iter()
-    }
-
-    fn num_subproperties(&self) -> usize {
-        fn recurse(property: &SubpropertySnapshot, count: &mut usize) {
-            *count += 1;
-            for child in &property.children {
-                recurse(child, count);
-            }
-        }
-        let mut result = 0;
-        for property in &self.subproperties {
-            recurse(property, &mut result);
-        }
-        result
-    }
-
-    pub fn contains_subindex(&self, index: SubpropertyIndex) -> bool {
-        index.0 < self.num_subproperties()
-    }
-
-    pub fn select_root_property(&self, index: RootPropertyIndex) -> &SubpropertySnapshot {
-        let Some(property) = self.subproperties.get(index.0) else {
-            panic!(
-                "Property index out of bounds: the len is {} but the index is {}",
-                self.subproperties.len(),
-                index.0
-            );
-        };
-        property
-    }
-
-    pub fn select_subproperty(&self, subindex: SubpropertyIndex) -> &SubpropertySnapshot {
-        fn recurse<'a>(
-            property: &'a SubpropertySnapshot,
-            subindex: usize,
-            count: &mut usize,
-        ) -> Option<&'a SubpropertySnapshot> {
-            if *count == subindex {
-                return Some(property);
-            }
-            *count += 1;
-            for child in &property.children {
-                if let Some(property) = recurse(child, subindex, count) {
-                    return Some(property);
-                }
-            }
-            None
-        }
-        let mut current_subindex = 0;
-        for property in &self.subproperties {
-            if let Some(property) = recurse(property, subindex.0, &mut current_subindex) {
-                return property;
-            }
-        }
-        panic!(
-            "Property subindex out of bounds: the sublen is {} but the subindex is {}",
-            current_subindex, subindex.0
-        );
-    }
-
-    pub fn subindex_to_root_index(&self, subindex: SubpropertyIndex) -> RootPropertyIndex {
-        fn recurse(property: &SubpropertySnapshot, subindex: usize, count: &mut usize) -> bool {
-            if *count == subindex {
-                return true;
-            }
-            *count += 1;
-            for child in &property.children {
-                if recurse(child, subindex, count) {
-                    return true;
-                }
-            }
-            false
-        }
-        let mut count = 0;
-        for (property_index, property) in self.subproperties.iter().enumerate() {
-            if recurse(property, subindex.0, &mut count) {
-                return RootPropertyIndex(property_index);
-            }
-        }
-        panic!(
-            "Property subindex out of bounds: the sublen is {} but the subindex is {}",
-            count, subindex.0
-        );
-    }
-
-    pub fn root_index_to_subindex(&self, index: RootPropertyIndex) -> SubpropertyIndex {
-        fn recurse(property: &SubpropertySnapshot, count: &mut usize) {
-            *count += 1;
-            for child in &property.children {
-                recurse(child, count);
-            }
-        }
-        let mut current_subindex = 0;
-        let mut current_index = 0;
-        for property in &self.subproperties {
-            if current_index == index.0 {
-                return SubpropertyIndex(current_subindex);
-            }
-            recurse(property, &mut current_subindex);
-            current_index += 1;
-        }
-        panic!(
-            "Property index out of bounds: the len is {} but the index is {}",
-            self.subproperties.len(),
-            current_index
-        );
-    }
-
-    pub fn last_property_subindex(&self) -> Option<SubpropertyIndex> {
-        let len = self.subproperties.len();
-        if len > 0 {
-            Some(self.root_index_to_subindex(RootPropertyIndex(len - 1)))
+    pub fn last_property_index(&self) -> Option<PropertyIndex> {
+        if !self.properties.is_empty() {
+            Some(PropertyIndex(self.properties.len() - 1))
         } else {
             None
         }
+    }
+
+    pub fn contains_property(&self, property_index: PropertyIndex) -> bool {
+        property_index.0 < self.properties.len()
+    }
+
+    pub fn contains_subproperty(
+        &self,
+        property_index: PropertyIndex,
+        subproperty_index: usize,
+    ) -> bool {
+        self.properties
+            .get(property_index.0)
+            .is_some_and(|property_snapshot| {
+                subproperty_index < property_snapshot.property.num_subproperties()
+            })
+    }
+
+    pub fn subproperty_labellings(
+        &self,
+        property_index: PropertyIndex,
+        subproperty_index: usize,
+    ) -> Option<&BTreeMap<StateId, ParamValuation>> {
+        self.properties
+            .get(property_index.0)
+            .and_then(|property_snapshot| property_snapshot.labellings.get(&subproperty_index))
+    }
+
+    pub fn property_snapshot(&self, property_index: PropertyIndex) -> &PropertySnapshot {
+        &self.properties[property_index.0]
+    }
+
+    pub fn property_snapshots(&self) -> &Vec<PropertySnapshot> {
+        &self.properties
     }
 }

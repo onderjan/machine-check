@@ -1,11 +1,13 @@
 use std::fmt::Debug;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     iir::path::IPath,
     ir_common::{IrReference, IrTypeArray},
 };
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IElementaryType {
     Bitvector(u32),
     Array(IrTypeArray),
@@ -13,13 +15,13 @@ pub enum IElementaryType {
     Path(IPath),
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IType {
     pub reference: IrReference,
     pub inner: IElementaryType,
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IGeneralType {
     Normal(IType),
     PanicResult(IType),

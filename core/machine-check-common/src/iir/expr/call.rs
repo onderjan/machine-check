@@ -8,6 +8,7 @@ use mck::{
     misc::Join,
     refin::{Limit, RefinementValue},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::iir::join_limited;
 use crate::iir::{
@@ -16,7 +17,7 @@ use crate::iir::{
     variable::IVarId,
 };
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IMckNew {
     Bitvector(u32, i128),
     // TODO: bitvector array
@@ -46,19 +47,13 @@ impl Debug for IMckNew {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct IPhiMaybeTaken {
-    pub taken: IVarId,
-    pub condition: IVarId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IArrayRead {
     pub base: IVarId,
     pub index: IVarId,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IExprCall {
     //Call(WCall),
     MckUnary(IMckUnary),
@@ -73,7 +68,7 @@ pub enum IExprCall {
     PhiTaken(IPhiTaken),
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IPhiTaken {
     pub var: IVarId,
     pub condition: IVarId,

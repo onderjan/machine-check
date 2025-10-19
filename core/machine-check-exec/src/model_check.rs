@@ -30,30 +30,30 @@ impl ThreeValuedChecker {
         }
     }
 
-    pub fn check_subproperty_with_labelling<M: FullMachine>(
+    pub fn get_labellings<M: FullMachine>(
         &mut self,
         space: &StateSpace<M>,
         property: &IProperty,
-        subproperty_index: usize,
-    ) -> Result<(Conclusion, BTreeMap<StateId, ParamValuation>), ExecError> {
-        let conclusion = self.check_property(space, property)?;
-
+    ) -> Result<BTreeMap<usize, BTreeMap<StateId, ParamValuation>>, ExecError> {
         let property_checker = self
             .property_checkers
             .get_mut(property)
             .expect("Property checker should be inserted after the property was checked");
 
-        // get the labelling as well
-        let mut labelling = BTreeMap::new();
+        // get the labellings as well
+        let mut labellings = BTreeMap::<usize, BTreeMap<StateId, ParamValuation>>::new();
+        for subproperty_index in 0..property.num_subproperties() {
+            let labelling = labellings.entry(subproperty_index).or_default();
 
-        for state_id in space.states() {
-            let timed = property_checker
-                .last_getter(space)
-                .compute_latest_timed(subproperty_index, state_id)?;
-            labelling.insert(state_id, timed.value.valuation());
+            for state_id in space.states() {
+                let timed = property_checker
+                    .last_getter(space)
+                    .compute_latest_timed(subproperty_index, state_id)?;
+                labelling.insert(state_id, timed.value.valuation());
+            }
         }
 
-        Ok((conclusion, labelling))
+        Ok(labellings)
     }
 
     /// Model-checks a mu-calculus proposition.
