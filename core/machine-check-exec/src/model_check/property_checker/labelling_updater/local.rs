@@ -19,22 +19,11 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         let mut labellings = BTreeMap::new();
         let mut updated_states = BTreeSet::new();
 
-        for dependency in &op.dependencies {
-            let labelling = if op.children.contains(dependency) {
-                self.update_labelling(*dependency)?
-            } else {
-                let mut labelling = BTreeMap::new();
-                for state_id in self.property_checker.focus.dirty_iter() {
-                    labelling.insert(
-                        state_id,
-                        self.getter().compute_latest_timed(*dependency, state_id)?,
-                    );
-                }
-                labelling
-            };
-
+        for dependency_index in &op.dependencies {
+            let labelling =
+                self.update_labelling(*dependency_index, op.children.contains(dependency_index))?;
             updated_states.extend(labelling.keys());
-            labellings.insert(*dependency, labelling);
+            labellings.insert(*dependency_index, labelling);
         }
 
         let mut result = BTreeMap::new();

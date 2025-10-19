@@ -13,7 +13,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         &mut self,
         op: &ISubpropertyNext,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
-        let inner_updated = self.update_labelling(op.inner)?;
+        let inner_updated = self.update_labelling(op.inner, true)?;
 
         trace!("Updating next labelling");
 

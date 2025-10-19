@@ -44,40 +44,16 @@ impl ThreeValuedChecker {
             .expect("Property checker should be inserted after the property was checked");
 
         // get the labelling as well
-        /*let mut labelling = BTreeMap::new();
-        let environment = property_checker.environment();
-        for state_id in space.states() {
-            let value = environment
-                .get(&(subproperty_index, state_id))
-                .expect("Valuation should be in environment");
-            labelling.insert(state_id, value.valuation);
-        }
-        Ok((conclusion, labelling))*/
-
         let mut labelling = BTreeMap::new();
 
         for state_id in space.states() {
             let timed = property_checker
                 .last_getter(space)
                 .compute_latest_timed(subproperty_index, state_id)?;
-            labelling.insert(state_id, timed.value.valuation);
+            labelling.insert(state_id, timed.value.valuation());
         }
 
         Ok((conclusion, labelling))
-
-        /*let param_valuation = nonincremental::check_property(space, property)?;
-
-        let conclusion = match param_valuation {
-            ParamValuation::False => KnownConclusion::False,
-            ParamValuation::True => KnownConclusion::True,
-            ParamValuation::Dependent => KnownConclusion::Dependent,
-            ParamValuation::Unknown => todo!(),
-        };
-
-        // TODO labelling
-        let labelling = BTreeMap::new();
-
-        Ok((Conclusion::Known(conclusion), labelling))*/
     }
 
     /// Model-checks a mu-calculus proposition.
@@ -87,17 +63,6 @@ impl ThreeValuedChecker {
         property: &IProperty,
     ) -> Result<Conclusion, ExecError> {
         trace!("Checking property {:#?}", property);
-
-        /*let param_valuation = nonincremental::check_property(space, property)?;
-
-        let conclusion = match param_valuation {
-            ParamValuation::False => KnownConclusion::False,
-            ParamValuation::True => KnownConclusion::True,
-            ParamValuation::Dependent => KnownConclusion::Dependent,
-            ParamValuation::Unknown => todo!(),
-        };
-
-        Ok(Conclusion::Known(conclusion))*/
 
         if !self.property_checkers.contains_key(property) {
             self.property_checkers
@@ -116,10 +81,8 @@ impl ThreeValuedChecker {
         }
 
         if result.is_known() {
-            // TODO: double/triple-check with new properties
-            /*
             // double-check known result using the incremental algorithm non-incrementally
-            property_checker.double_check(space)?;*/
+            property_checker.double_check(space)?;
 
             // triple-check known result using the non-incremental algorithm
 

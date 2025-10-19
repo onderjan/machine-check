@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use mck::abstr::AbstractValue;
 
-use machine_check_common::iir::ISubpropertyFunc;
+use machine_check_common::iir::{ISubproperty, ISubpropertyFunc};
 use machine_check_common::{ExecError, ParamValuation, StateId, ThreeValued};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;
@@ -57,24 +57,37 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 {
                     timed
                 } else {
-                    self.compute_latest_timed(input_subproperty_index, state_id)?
+                    let mut timed = None;
+                    if !op.children.contains(&input_subproperty_index)
+                        && matches!(
+                            self.property_checker.property.subproperties[input_subproperty_index],
+                            ISubproperty::FixedPoint(_)
+                        )
+                    {
+                        // we should have the variable instead of computing the fixed point
+                        timed =
+                            Some(self.compute_fixed_variable(input_subproperty_index, state_id)?);
+                    }
+
+                    if let Some(timed) = timed {
+                        timed
+                    } else {
+                        self.compute_latest_timed(input_subproperty_index, state_id)?
+                    }
                 };
 
-                let boolean = match timed.value.valuation {
-                    ParamValuation::False => {
-                        mck::abstr::Boolean::from_three_valued(ThreeValued::False)
-                    }
-                    ParamValuation::True => {
-                        mck::abstr::Boolean::from_three_valued(ThreeValued::True)
-                    }
-                    ParamValuation::Dependent => todo!(),
-                    ParamValuation::Unknown => {
+                let mut choice = None;
+
+                let boolean = match timed.value {
+                    CheckValue::False => mck::abstr::Boolean::from_three_valued(ThreeValued::False),
+                    CheckValue::True => mck::abstr::Boolean::from_three_valued(ThreeValued::True),
+                    CheckValue::Dependent => todo!(),
+                    CheckValue::Unknown(timed_choice) => {
                         max_unknown_time = max_unknown_time.max(timed.time);
+                        choice = Some(*timed_choice);
                         mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)
                     }
                 };
-
-                let choice = timed.value.choice;
 
                 let value = AbstractValue::Boolean(boolean);
 
@@ -85,7 +98,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 let value = AbstractValue::Bitvector(state_panic.to_runtime());
                 input_choices.push((
                     MetaWrap(value.clone()),
-                    CheckChoice::Atomic(MetaWrap(value.clone())),
+                    None, //CheckChoice::Atomic(MetaWrap(value.clone())),
                 ));
                 value
             } else {
@@ -98,7 +111,8 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 let value = field.runtime_value();
                 input_choices.push((
                     MetaWrap(value.clone()),
-                    CheckChoice::Atomic(MetaWrap(value.clone())),
+                    None,
+                    //CheckChoice::Atomic(MetaWrap(value.clone())),
                 ));
                 value
             };
@@ -116,12 +130,18 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         let valuation = ParamValuation::from_three_valued(result.into_three_valued());
 
+        let value = match valuation {
+            ParamValuation::False => CheckValue::False,
+            ParamValuation::True => CheckValue::True,
+            ParamValuation::Dependent => CheckValue::Dependent,
+            ParamValuation::Unknown => {
+                CheckValue::Unknown(Box::new(CheckChoice::Func(input_choices)))
+            }
+        };
+
         Ok(TimedCheckValue {
             time: max_unknown_time,
-            value: CheckValue {
-                valuation,
-                choice: CheckChoice::Func(input_choices),
-            },
+            value,
         })
     }
 }

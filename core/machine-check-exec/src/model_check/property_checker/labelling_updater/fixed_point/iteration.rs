@@ -24,7 +24,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
         // compute the iteration
 
-        let mut current_update = self.update_labelling(params.inner_index)?;
+        let mut current_update = self.update_labelling(params.inner_index, true)?;
 
         // states that have been updated in previous or current time also must be double-checked
         // only do this for backward-affected states since the others will not see a meaningful change during one iteration
@@ -99,7 +99,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
 
             // the values are not exactly the same
             // but we do not want to update an unknown value
-            if update_value.valuation == now_timed.value.valuation
+            if update_value.valuation() == now_timed.value.valuation()
                 && now_timed.time != self.current_time
             {
                 continue;

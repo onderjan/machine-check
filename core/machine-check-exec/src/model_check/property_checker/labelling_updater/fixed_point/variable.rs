@@ -1,4 +1,4 @@
-/*use std::collections::BTreeMap;
+use std::collections::BTreeMap;
 
 use machine_check_common::{ExecError, StateId};
 
@@ -6,10 +6,11 @@ use super::select_history;
 use crate::model_check::property_checker::labelling_updater::fixed_point::misc::intersect_state_set_and_map;
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
 use crate::model_check::property_checker::value::{CheckChoice, TimedCheckValue};
+use crate::model_check::property_checker::CheckValue;
 use crate::FullMachine;
 
 impl<M: FullMachine> LabellingUpdater<'_, M> {
-    pub(in super::super) fn update_fixed_variable(
+    pub fn update_fixed_variable(
         &mut self,
         fixed_point_index: usize,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
@@ -29,12 +30,15 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         for (state_id, changed_value) in
             intersect_state_set_and_map(affected_forward, changed_states)
         {
-            let mut update_value = changed_value.clone();
-            update_value.choice = CheckChoice::FixedVariable(last_time);
+            let update_value = if let CheckValue::Unknown(_choice) = changed_value {
+                CheckValue::Unknown(Box::new(CheckChoice::FixedVariable(last_time)))
+            } else {
+                changed_value.clone()
+            };
+
             update.insert(state_id, TimedCheckValue::new(last_time, update_value));
         }
 
         Ok(update)
     }
 }
-*/

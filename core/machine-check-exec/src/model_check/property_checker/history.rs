@@ -206,9 +206,28 @@ impl FixedPointHistory {
 }
 
 fn squash_value(value: &mut CheckValue, time_mapping: &BTreeMap<u64, u64>) {
-    if value.is_unknown() {
-        if let CheckChoice::FixedVariable(time) = &mut value.choice {
+    if let CheckValue::Unknown(choice) = value {
+        squash_choice(choice, time_mapping);
+    }
+}
+
+fn squash_choice(choice: &mut CheckChoice, time_mapping: &BTreeMap<u64, u64>) {
+    match choice {
+        CheckChoice::Next(_state_id, inner) => {
+            squash_choice(inner, time_mapping);
+        }
+        CheckChoice::FixedPoint(inner) => {
+            squash_choice(inner, time_mapping);
+        }
+        CheckChoice::FixedVariable(time) => {
             *time = squash_time(time_mapping, *time);
+        }
+        CheckChoice::Func(inputs) => {
+            for (_input_value, input_choice) in inputs {
+                if let Some(input_choice) = input_choice {
+                    squash_choice(input_choice, time_mapping);
+                }
+            }
         }
     }
 }

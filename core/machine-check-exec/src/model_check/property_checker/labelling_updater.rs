@@ -101,7 +101,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             self.property_checker.property
         );
 
-        Ok(result.value.valuation)
+        Ok(result.value.valuation())
     }
 
     pub(super) fn compute_inner(&mut self) -> Result<(), ExecError> {
@@ -110,7 +110,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         self.calmable_fixed_points.clear();
         self.num_fixed_point_computations = 0;
         self.num_fixed_point_iterations = 0;
-        self.update_labelling(0)?;
+        self.update_labelling(0, true)?;
         debug!(
             "Model-checked, fixed points: {} computations, {} iterations, {}/{} states dirty",
             self.num_fixed_point_computations,
@@ -124,6 +124,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
     fn update_labelling(
         &mut self,
         subproperty_index: usize,
+        is_child: bool,
     ) -> Result<BTreeMap<StateId, TimedCheckValue>, ExecError> {
         let subproperty_entry = self
             .property_checker
@@ -137,33 +138,20 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             subproperty_entry
         );
 
-        /*let updated = match &ty {
-            PropertyType::Const(_) | PropertyType::Atomic(_) => {
-                let mut result = BTreeMap::new();
-                if self.current_time == 0 {
-                    // update dirty states
-                    for state_id in self.property_checker.focus.dirty_iter() {
-                        let timed = self
-                            .getter()
-                            .compute_latest_timed(subproperty_index, state_id)?;
-                        result.insert(state_id, timed);
-                    }
+        let updated = if is_child {
+            match &subproperty_entry {
+                ISubproperty::Func(op) => self.update_func(op)?,
+                ISubproperty::Next(op) => self.update_next_labelling(op)?,
+                ISubproperty::FixedPoint(op) => {
+                    self.update_fixed_point_op(subproperty_index, op)?
                 }
-                result
             }
-            PropertyType::Negation(inner) => self.update_negation(*inner)?,
-            PropertyType::BiLogic(op) => self.update_binary_op(op)?,
-            PropertyType::Next(op) => self.update_next_labelling(op)?,
-            PropertyType::FixedPoint(op) => self.update_fixed_point_op(subproperty_index, op)?,
-            PropertyType::FixedVariable(fixed_point_index) => {
-                self.update_fixed_variable(*fixed_point_index)?
-            }
-        };*/
+        } else {
+            let ISubproperty::FixedPoint(_) = &subproperty_entry else {
+                panic!("Non-child subproperty should be a fixed point");
+            };
 
-        let updated = match &subproperty_entry {
-            ISubproperty::Func(op) => self.update_func(op)?,
-            ISubproperty::Next(op) => self.update_next_labelling(op)?,
-            ISubproperty::FixedPoint(op) => self.update_fixed_point_op(subproperty_index, op)?,
+            self.update_fixed_variable(subproperty_index)?
         };
 
         trace!(

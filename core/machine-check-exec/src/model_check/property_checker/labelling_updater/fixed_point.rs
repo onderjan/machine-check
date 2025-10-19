@@ -76,7 +76,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         // update the dirty states to ground values
         // note that if there was no old computation, all states in the state space have been made dirty
 
-        let ground_value = CheckValue::fixed_from_bool(op.universal, self.current_time);
+        let ground_value = CheckValue::from_bool(op.universal);
         let history = select_history_mut(&mut self.property_checker.histories, fixed_point_index);
         trace!("Focus: {:?}", self.property_checker.focus);
         for state_id in self.property_checker.focus.dirty_iter() {

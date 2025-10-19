@@ -30,9 +30,9 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         }
     }
 
-    pub fn space(&self) -> &StateSpace<M> {
+    /*pub fn space(&self) -> &StateSpace<M> {
         self.space
-    }
+    }*/
 
     pub fn compute_latest_timed(
         &self,
@@ -55,8 +55,8 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
             ISubproperty::Next(subproperty) => {
                 self.compute_next_labelling(subproperty, state_id.into())?
             }
-            ISubproperty::FixedPoint(_) => {
-                self.compute_fixed_point_op(subproperty_index, state_id)?
+            ISubproperty::FixedPoint(subproperty) => {
+                self.compute_fixed_point_op(subproperty, state_id)?
             }
         };
 

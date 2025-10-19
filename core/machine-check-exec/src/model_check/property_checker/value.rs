@@ -10,16 +10,19 @@ use crate::MetaWrap;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum CheckChoice {
-    Atomic(MetaWrap<AbstractValue>),
-    Next(Option<(StateId, Box<CheckChoice>)>),
+    //Atomic(MetaWrap<AbstractValue>),
+    Next(StateId, Box<CheckChoice>),
+    FixedPoint(Box<CheckChoice>),
     FixedVariable(u64),
-    Func(Vec<(MetaWrap<AbstractValue>, CheckChoice)>),
+    Func(Vec<(MetaWrap<AbstractValue>, Option<CheckChoice>)>),
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct CheckValue {
-    pub valuation: ParamValuation,
-    pub choice: CheckChoice,
+pub enum CheckValue {
+    True,
+    False,
+    Dependent,
+    Unknown(Box<CheckChoice>),
 }
 
 #[derive(Clone, Hash)]
@@ -36,67 +39,42 @@ impl TimedCheckValue {
 
 impl CheckValue {
     pub fn is_unknown(&self) -> bool {
-        matches!(self.valuation, ParamValuation::Unknown)
+        matches!(self, CheckValue::Unknown(_))
     }
 
-    pub fn fixed_from_bool(value: bool, time: u64) -> Self {
-        let valuation = if value {
-            ParamValuation::True
-        } else {
-            ParamValuation::False
-        };
-
-        CheckValue {
-            valuation,
-            choice: CheckChoice::FixedVariable(time),
+    pub fn from_bool(value: bool) -> Self {
+        match value {
+            true => CheckValue::True,
+            false => CheckValue::False,
         }
     }
 
-    pub fn next_from_bool(value: bool) -> Self {
-        let valuation = if value {
-            ParamValuation::True
-        } else {
-            ParamValuation::False
-        };
-
-        CheckValue {
-            valuation,
-            choice: CheckChoice::Next(None),
+    pub fn from_known(valuation: KnownParamValuation) -> Self {
+        match valuation {
+            KnownParamValuation::False => CheckValue::False,
+            KnownParamValuation::True => CheckValue::True,
+            KnownParamValuation::Dependent => CheckValue::Dependent,
         }
     }
 
-    pub fn next_from_known(valuation: KnownParamValuation) -> Self {
-        let valuation = match valuation {
-            KnownParamValuation::False => ParamValuation::False,
-            KnownParamValuation::True => ParamValuation::True,
-            KnownParamValuation::Dependent => ParamValuation::Dependent,
-        };
-
-        CheckValue {
-            valuation,
-            choice: CheckChoice::Next(None),
+    pub fn valuation(&self) -> ParamValuation {
+        match self {
+            CheckValue::False => ParamValuation::False,
+            CheckValue::True => ParamValuation::True,
+            CheckValue::Dependent => ParamValuation::Dependent,
+            CheckValue::Unknown(_) => ParamValuation::Unknown,
         }
     }
-
-    /*pub fn from_bool(value: bool) -> Self {
-        if value {
-            CheckValue::True
-        } else {
-            CheckValue::False
-        }
-    }
-
-    */
 }
 
 impl Debug for CheckValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.valuation {
-            ParamValuation::False => write!(f, "False"),
-            ParamValuation::True => write!(f, "True"),
-            ParamValuation::Dependent => write!(f, "Dependent"),
-            ParamValuation::Unknown => {
-                write!(f, "Unknown ({:?})", self.choice)
+        match self {
+            CheckValue::False => write!(f, "False"),
+            CheckValue::True => write!(f, "True"),
+            CheckValue::Dependent => write!(f, "Dependent"),
+            CheckValue::Unknown(choice) => {
+                write!(f, "Unknown ({:?})", choice)
             }
         }
     }

@@ -93,10 +93,10 @@ impl PropertyChecker {
         space: &StateSpace<M>,
     ) -> Result<ParamValuation, ExecError> {
         // TODO: do not clear histories and make whole dirty
-        for history in self.histories.values_mut() {
+        /*for history in self.histories.values_mut() {
             history.clear();
-        }
-        self.focus.make_whole_dirty(space);
+        }*/
+        //self.focus.make_whole_dirty(space);
         trace!(
             "Histories before computing interpretation: {:#?}",
             self.histories
