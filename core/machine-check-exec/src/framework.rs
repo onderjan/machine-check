@@ -107,21 +107,6 @@ impl<M: FullMachine> Framework<M> {
             trace!("Model-checking state space: {:#?}", self.work_state.space);
         }
 
-        /*let interpretable_property = {
-            match machine_check_machine::process_property::<M>(
-                &self.abstract_system,
-                &property.original_string(),
-            ) {
-                Ok(ok) => ok,
-                Err(err) => {
-                    for error in err.into_errors() {
-                        eprintln!("Error: {:?}", error);
-                    }
-                    panic!();
-                }
-            }
-        };*/
-
         // perform model-checking
         match self
             .work_state

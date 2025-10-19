@@ -30,10 +30,6 @@ impl<'a, M: FullMachine> LabellingCacher<'a, M> {
         }
     }
 
-    /*pub fn space(&self) -> &StateSpace<M> {
-        self.space
-    }*/
-
     pub fn compute_latest_timed(
         &self,
         subproperty_index: usize,

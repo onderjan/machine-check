@@ -10,7 +10,6 @@ use crate::MetaWrap;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum CheckChoice {
-    //Atomic(MetaWrap<AbstractValue>),
     Next(StateId, Box<CheckChoice>),
     FixedPoint(Box<CheckChoice>),
     FixedVariable(u64),

@@ -26,8 +26,6 @@ pub(super) fn deduce_culprit<M: FullMachine>(
     // incomplete, compute culprit
     // it must start with one of the initial states
 
-    //todo!("Deduction");
-
     trace!("Deducing culprit from checker {:?}", checker);
 
     let environment = checker.last_getter(space);

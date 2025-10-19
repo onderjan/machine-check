@@ -42,16 +42,6 @@ impl<M: FullMachine> super::Framework<M> {
                 .result
                 .get_mut(&culprit.atomic_property.name)
                 .expect("Culprit mark should be manipulatable");
-
-            // TODO: allow indexed properties
-            /*let manip_mark = if let Some(index) = culprit.atomic_property.left().index() {
-                let Some(indexed_manip_mark) = manip_mark.index_mut(index) else {
-                    panic!("Indexed culprit mark should be indexable");
-                };
-                indexed_manip_mark
-            } else {
-                manip_mark
-            };*/
             manip_mark.mark();
         }
 

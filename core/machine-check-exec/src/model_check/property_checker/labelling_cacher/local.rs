@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use mck::abstr::AbstractValue;
+use mck::abstr::{AbstractValue, Manipulatable};
 
 use machine_check_common::iir::{ISubproperty, ISubpropertyFunc};
 use machine_check_common::{ExecError, ParamValuation, StateId, ThreeValued};
@@ -94,26 +94,17 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 input_choices.push((MetaWrap(value.clone()), choice));
 
                 value
-            } else if input_var_name == "__panic" {
-                let value = AbstractValue::Bitvector(state_panic.to_runtime());
-                input_choices.push((
-                    MetaWrap(value.clone()),
-                    None, //CheckChoice::Atomic(MetaWrap(value.clone())),
-                ));
-                value
             } else {
-                use mck::abstr::Manipulatable;
+                let value = if input_var_name == "__panic" {
+                    AbstractValue::Bitvector(state_panic.to_runtime())
+                } else {
+                    let Some(field) = Manipulatable::get(state_result, input_var_name) else {
+                        panic!("Input '{}' should be in fields", input_var_name);
+                    };
 
-                let Some(field) = state_result.get(input_var_name) else {
-                    panic!("Input '{}' should be in fields", input_var_name);
+                    field.runtime_value()
                 };
-
-                let value = field.runtime_value();
-                input_choices.push((
-                    MetaWrap(value.clone()),
-                    None,
-                    //CheckChoice::Atomic(MetaWrap(value.clone())),
-                ));
+                input_choices.push((MetaWrap(value.clone()), None));
                 value
             };
 

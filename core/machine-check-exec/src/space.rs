@@ -9,7 +9,6 @@ use store::StateStore;
 use crate::{AbstrInput, AbstrPanicState, AbstrParam};
 
 mod graph;
-mod labelling;
 mod store;
 
 pub struct StateSpace<M: FullMachine> {

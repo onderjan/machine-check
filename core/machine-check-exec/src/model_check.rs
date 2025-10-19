@@ -1,5 +1,4 @@
 mod deduce;
-mod incremental;
 mod nonincremental;
 mod property_checker;
 
