@@ -71,4 +71,5 @@ pub mod misc {
     pub use super::array::light::*;
     pub use super::panic::message::*;
     pub use super::traits::misc::*;
+    pub use super::value::Interpretation;
 }

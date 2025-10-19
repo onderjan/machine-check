@@ -6,9 +6,7 @@ use std::fmt::Debug;
 use mck::{abstr::AbstractValue, refin::RefinementValue};
 use serde::{Deserialize, Serialize};
 
-use crate::iir::{
-    expr::call::IExprCall, interpretation::Interpretation, join_limited, variable::IVarId,
-};
+use crate::iir::{expr::call::IExprCall, join_limited, variable::IVarId, IAbstr, IRefin};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IExpr {
@@ -33,10 +31,7 @@ pub enum IExprReference {
 }
 
 impl IExpr {
-    pub fn forward_interpret(
-        &self,
-        abstr: &Interpretation<AbstractValue>,
-    ) -> Option<AbstractValue> {
+    pub fn forward_interpret(&self, abstr: &IAbstr) -> Option<AbstractValue> {
         match self {
             IExpr::Move(var_id) => Some(abstr.value(*var_id).clone()),
             IExpr::Call(expr_call) => expr_call.forward_interpret(abstr),
@@ -51,12 +46,7 @@ impl IExpr {
         }
     }
 
-    pub fn backward_interpret(
-        &self,
-        abstr: &Interpretation<AbstractValue>,
-        refin: &mut Interpretation<RefinementValue>,
-        later: RefinementValue,
-    ) {
+    pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin, later: RefinementValue) {
         match self {
             IExpr::Move(var_id) => {
                 // propagate the later value to earlier

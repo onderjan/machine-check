@@ -8,11 +8,13 @@ use mck::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::iir::{interpretation::Interpretation, variable::IVarId};
+use crate::iir::variable::IVarId;
+
+type IAbstr = mck::misc::Interpretation<IVarId, AbstractValue>;
+type IRefin = mck::misc::Interpretation<IVarId, RefinementValue>;
 
 pub mod expr;
 pub mod func;
-pub mod interpretation;
 pub mod path;
 pub mod stmt;
 pub mod ty;
@@ -176,12 +178,7 @@ impl IProperty {
     }
 }
 
-fn join_limited(
-    abstr: &Interpretation<AbstractValue>,
-    refin: &mut Interpretation<RefinementValue>,
-    var_id: IVarId,
-    refin_value: RefinementValue,
-) {
+fn join_limited(abstr: &IAbstr, refin: &mut IRefin, var_id: IVarId, refin_value: RefinementValue) {
     let abstr_value = abstr.value(var_id);
     let refin_value = refin_value.limit(abstr_value);
     refin.join_value(var_id, refin_value);

@@ -4,11 +4,11 @@ use mck::{abstr::AbstractValue, refin::RefinementValue};
 use serde::{Deserialize, Serialize};
 
 use crate::iir::{
-    interpretation::Interpretation,
     path::IIdent,
     stmt::IStmt,
     ty::IElementaryType,
     variable::{IVarId, IVarInfo},
+    IAbstr, IRefin,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -68,12 +68,9 @@ impl IFn {
         self.forward_result(&abstr)
     }
 
-    pub fn forward_interpret(
-        &self,
-        input_values: Vec<AbstractValue>,
-    ) -> Interpretation<AbstractValue> {
+    pub fn forward_interpret(&self, input_values: Vec<AbstractValue>) -> IAbstr {
         //eprintln!("Forward-interpreting {:#?}", self);
-        let mut abstr = Interpretation::new();
+        let mut abstr = IAbstr::new();
 
         assert_eq!(self.signature.inputs.len(), input_values.len());
 
@@ -94,7 +91,7 @@ impl IFn {
         abstr
     }
 
-    pub fn forward_result(&self, abstr: &Interpretation<AbstractValue>) -> AbstractValue {
+    pub fn forward_result(&self, abstr: &IAbstr) -> AbstractValue {
         let normal_result = abstr.value(self.signature.output.normal).clone();
         // TODO: raise an error on nonzero panic result
         let panic_result = abstr.value(self.signature.output.panic).expect_bitvector();
@@ -102,11 +99,8 @@ impl IFn {
         normal_result
     }
 
-    pub fn backward_interpret(
-        &self,
-        abstr: &Interpretation<AbstractValue>,
-    ) -> Interpretation<RefinementValue> {
-        let mut refin = Interpretation::new();
+    pub fn backward_interpret(&self, abstr: &IAbstr) -> IRefin {
+        let mut refin = IRefin::new();
 
         // TODO: correct marking
         refin.insert_value(
@@ -126,17 +120,13 @@ impl IFn {
 }
 
 impl IBlock {
-    pub fn forward_interpret(&self, abstr: &mut Interpretation<AbstractValue>) {
+    pub fn forward_interpret(&self, abstr: &mut IAbstr) {
         for stmt in &self.stmts {
             stmt.forward_interpret(abstr);
         }
     }
 
-    pub fn backward_interpret(
-        &self,
-        abstr: &Interpretation<AbstractValue>,
-        refin: &mut Interpretation<RefinementValue>,
-    ) {
+    pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin) {
         // go in reverse
         for stmt in self.stmts.iter().rev() {
             stmt.backward_interpret(abstr, refin);

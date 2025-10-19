@@ -4,7 +4,7 @@ use mck::{abstr::AbstractValue, refin::RefinementValue};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    iir::{interpretation::Interpretation, join_limited, variable::IVarId},
+    iir::{join_limited, variable::IVarId, IAbstr, IRefin},
     ir_common::{IrMckBinaryOp, IrMckUnaryOp},
 };
 
@@ -15,7 +15,7 @@ pub struct IMckUnary {
 }
 
 impl IMckUnary {
-    pub(super) fn forward_interpret(&self, abstr: &Interpretation<AbstractValue>) -> AbstractValue {
+    pub(super) fn forward_interpret(&self, abstr: &IAbstr) -> AbstractValue {
         let operand = abstr.value(self.operand).clone();
         match self.op {
             IrMckUnaryOp::Not => mck::forward::Bitwise::bit_not(operand),
@@ -25,8 +25,8 @@ impl IMckUnary {
 
     pub(super) fn backward_interpret(
         &self,
-        abstr: &Interpretation<AbstractValue>,
-        refin: &mut Interpretation<RefinementValue>,
+        abstr: &IAbstr,
+        refin: &mut IRefin,
         later: RefinementValue,
     ) {
         let operand = abstr.value(self.operand).clone();
@@ -54,7 +54,7 @@ pub struct IMckBinary {
 }
 
 impl IMckBinary {
-    pub(super) fn forward_interpret(&self, inter: &Interpretation<AbstractValue>) -> AbstractValue {
+    pub(super) fn forward_interpret(&self, inter: &IAbstr) -> AbstractValue {
         let a = inter.value(self.a).clone();
         let b = inter.value(self.b).clone();
 
@@ -87,8 +87,8 @@ impl IMckBinary {
 
     pub(super) fn backward_interpret(
         &self,
-        abstr: &Interpretation<AbstractValue>,
-        refin: &mut Interpretation<RefinementValue>,
+        abstr: &IAbstr,
+        refin: &mut IRefin,
         later: RefinementValue,
     ) {
         let a = abstr.value(self.a).clone();

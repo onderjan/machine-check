@@ -10,12 +10,11 @@ use mck::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::iir::join_limited;
 use crate::iir::{
     expr::op::{IMckBinary, IMckUnary},
-    interpretation::Interpretation,
     variable::IVarId,
 };
+use crate::iir::{join_limited, IAbstr, IRefin};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IMckNew {
@@ -75,10 +74,7 @@ pub struct IPhiTaken {
 }
 
 impl IExprCall {
-    pub fn forward_interpret(
-        &self,
-        abstr: &Interpretation<AbstractValue>,
-    ) -> Option<AbstractValue> {
+    pub fn forward_interpret(&self, abstr: &IAbstr) -> Option<AbstractValue> {
         Some(match self {
             IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
             IExprCall::MckBinary(binary) => binary.forward_interpret(abstr),
@@ -111,12 +107,7 @@ impl IExprCall {
             }
         })
     }
-    pub fn backward_interpret(
-        &self,
-        abstr: &Interpretation<AbstractValue>,
-        refin: &mut Interpretation<RefinementValue>,
-        later: RefinementValue,
-    ) {
+    pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin, later: RefinementValue) {
         match self {
             IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, later),
             IExprCall::MckBinary(binary) => binary.backward_interpret(abstr, refin, later),
