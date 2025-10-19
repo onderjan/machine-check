@@ -26,6 +26,7 @@ pub struct ISubpropertyFunc {
     pub func: IFn,
     pub children: Vec<usize>,
     pub dependencies: BTreeSet<usize>,
+    pub display: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -33,6 +34,7 @@ pub struct ISubpropertyNext {
     pub parent: Option<usize>,
     pub universal: bool,
     pub inner: usize,
+    pub display: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -41,6 +43,7 @@ pub struct ISubpropertyFixedPoint {
     pub universal: bool,
     pub inner: usize,
     pub dependents: Vec<usize>,
+    pub display: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -68,8 +71,11 @@ impl ISubproperty {
     }
 
     pub fn display_str(&self) -> &str {
-        // TODO
-        "tbd"
+        match self {
+            ISubproperty::Func(subproperty) => &subproperty.display,
+            ISubproperty::Next(subproperty) => &subproperty.display,
+            ISubproperty::FixedPoint(subproperty) => &subproperty.display,
+        }
     }
 }
 

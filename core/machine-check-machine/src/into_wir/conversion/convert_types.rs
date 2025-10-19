@@ -87,6 +87,7 @@ pub fn convert_property(property: WProperty<YInferred>) -> Result<WProperty<YCon
                 parent: subproperty_func.parent,
                 func: convert_item_fn(subproperty_func.func)?,
                 children: subproperty_func.children,
+                display: subproperty_func.display,
             }),
             WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
             WSubproperty::Next(next) => WSubproperty::Next(next),

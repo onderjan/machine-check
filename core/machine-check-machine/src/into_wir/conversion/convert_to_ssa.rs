@@ -156,6 +156,7 @@ impl SubpropertyConverter<'_> {
                     parent: subproperty_func.parent,
                     func,
                     children: subproperty_func.children,
+                    display: subproperty_func.display,
                 })
             }
             WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),

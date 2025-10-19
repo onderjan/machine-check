@@ -92,6 +92,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
                 parent: None,
                 universal: true,
                 inner: 0,
+                display: String::new(),
             },
             NodeId::ROOT,
         )?;

@@ -43,30 +43,33 @@ impl WProperty<YConverted> {
 
         for (subproperty_index, subproperty) in self.subproperties.into_iter().enumerate() {
             let subproperty = match subproperty {
-                WSubproperty::Func(subproperty_func) => ISubproperty::Func(ISubpropertyFunc {
-                    parent: subproperty_func.parent,
-                    func: subproperty_func.func.into_iir(),
-                    children: subproperty_func.children,
+                WSubproperty::Func(subproperty) => ISubproperty::Func(ISubpropertyFunc {
+                    parent: subproperty.parent,
+                    func: subproperty.func.into_iir(),
+                    children: subproperty.children,
                     dependencies: subproperty_dependencies
                         .remove(&subproperty_index)
                         .expect("Subproperty should have dependencies available"),
+                    display: subproperty.display,
                 }),
-                WSubproperty::FixedPoint(fixed_point) => {
+                WSubproperty::FixedPoint(subproperty) => {
                     let dependents = subproperty_dependents
                         .remove(&subproperty_index)
                         .expect("Fixed point should have dependents available");
 
                     ISubproperty::FixedPoint(ISubpropertyFixedPoint {
-                        parent: fixed_point.parent,
-                        universal: fixed_point.universal,
-                        inner: fixed_point.inner,
+                        parent: subproperty.parent,
+                        universal: subproperty.universal,
+                        inner: subproperty.inner,
                         dependents,
+                        display: subproperty.display,
                     })
                 }
-                WSubproperty::Next(next) => ISubproperty::Next(ISubpropertyNext {
-                    parent: next.parent,
-                    universal: next.universal,
-                    inner: next.inner,
+                WSubproperty::Next(subproperty) => ISubproperty::Next(ISubpropertyNext {
+                    parent: subproperty.parent,
+                    universal: subproperty.universal,
+                    inner: subproperty.inner,
+                    display: subproperty.display,
                 }),
             };
 

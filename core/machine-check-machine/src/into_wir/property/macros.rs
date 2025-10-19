@@ -11,7 +11,7 @@ use syn_path::path;
 
 use crate::{
     into_wir::{
-        property::{ExprProperty, ExprSubproperty, ExprSubpropertyFunc},
+        property::{make_display_string, ExprProperty, ExprSubproperty, ExprSubpropertyFunc},
         Error, ErrorType,
     },
     util::{create_expr_ident, path_matches_global_names},
@@ -101,15 +101,19 @@ impl Visitor {
             let universal = af || ag;
             let greatest = eg || ag;
 
+            let display = make_display_string(&mac);
+
             let sufficient: Expr = mac.parse_body().map_err(|err| {
                 let err_span = err.span();
                 Error::new(ErrorType::MacroParseError(err), WSpan::from_span(err_span))
             })?;
 
-            Some((universal, greatest, None, sufficient))
+            Some((universal, greatest, None, sufficient, display))
         } else if eu || au || er || ar {
             let universal = au || ar;
             let greatest = er || ar;
+
+            let display = make_display_string(&mac);
 
             let punctuated_inside_expr = parse_punctuated_in_macro(&mac)?;
             if punctuated_inside_expr.len() != 2 {
@@ -123,12 +127,13 @@ impl Visitor {
             let permitting = Some(iter.next().unwrap());
             let sufficient = iter.next().unwrap();
 
-            Some((universal, greatest, permitting, sufficient))
+            Some((universal, greatest, permitting, sufficient, display))
         } else {
             None
         };
 
-        if let Some((universal, greatest, permitting, sufficient)) = ctl {
+        // TODO: display original CTL
+        if let Some((universal, greatest, permitting, sufficient, _display)) = ctl {
             let mac = self.rewrite_ctl(universal, greatest, mac, permitting, sufficient);
 
             self.expanded_some_macro = true;
@@ -142,6 +147,7 @@ impl Visitor {
 
         if ex || ax || lfp || gfp {
             let universal = ax || gfp;
+            let outer_display = make_display_string(&mac);
 
             let punctuated_inside_expr = parse_punctuated_in_macro(&mac)?;
 
@@ -162,6 +168,7 @@ impl Visitor {
                     parent: Some(self.current_subproperty),
                     universal,
                     inner: inner_subproperty_index,
+                    display: outer_display,
                 });
 
                 (outer_subproperty, expr)
@@ -197,15 +204,19 @@ impl Visitor {
                     universal,
                     variable,
                     inner: inner_subproperty_index,
+                    display: outer_display,
                 });
 
                 (outer_subproperty, expr)
             };
 
+            let inner_display = make_display_string(&inner_expr);
+
             let inner_subproperty = ExprSubproperty::Expr(ExprSubpropertyFunc {
                 parent: Some(outer_subproperty_index),
                 expr: inner_expr,
                 dependencies: Vec::new(),
+                display: inner_display,
             });
 
             let ident = Ident::new(

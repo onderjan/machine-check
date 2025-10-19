@@ -32,6 +32,7 @@ pub struct WSubpropertyFunc<Y: YStage> {
     pub parent: Option<usize>,
     pub func: WItemFn<Y>,
     pub children: Vec<usize>,
+    pub display: String,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -40,6 +41,7 @@ pub struct WSubpropertyFixedPoint {
     pub universal: bool,
     pub variable: WIdent,
     pub inner: usize,
+    pub display: String,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -47,6 +49,7 @@ pub struct WSubpropertyNext {
     pub parent: Option<usize>,
     pub universal: bool,
     pub inner: usize,
+    pub display: String,
 }
 
 #[derive(Clone, Debug, Hash)]
