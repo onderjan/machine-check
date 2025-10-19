@@ -6,12 +6,11 @@ use thiserror::Error;
 pub mod check;
 pub mod iir;
 pub mod ir_common;
-mod property;
 
 mod node_id;
 mod value;
 
-pub use value::param_valuation::{KnownParamValuation, ParamValuation};
+pub use value::{KnownParamValuation, ParamValuation};
 
 pub use mck::three_valued::ThreeValued;
 
