@@ -1,5 +1,5 @@
 use crate::concr::FullMachine;
-use crate::refin::Boolean;
+use crate::refin::{Boolean, RefinementValue};
 
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -138,7 +138,7 @@ pub trait ManipField {
     fn index(&self, index: u64) -> Option<&dyn ManipField>;
     fn index_mut(&mut self, index: u64) -> Option<&mut dyn ManipField>;
     fn num_bits(&self) -> Option<u32>;
-    fn mark(&mut self);
+    fn mark(&mut self, refin_value: &RefinementValue);
 }
 pub trait Manipulatable {
     #[must_use]

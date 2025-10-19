@@ -14,7 +14,7 @@ use crate::{
 
 use super::light::LightArray;
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct RArray {
     pub(super) element_width: u32,
     pub(super) inner: LightArray<u64, MetaWrap<abstr::RBitvector>, RMax>,

@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use serde::{Deserialize, Serialize};
+
 pub trait MetaEq {
     fn meta_eq(&self, other: &Self) -> bool;
 }
@@ -22,6 +24,7 @@ pub trait Meta<P: Clone>: Sized {
 /// Types in meta wrap can be compared against each other.
 /// Outside the meta-wrap, there is no danger of confusing
 /// meta-equality with equality.
+#[derive(Serialize, Deserialize)]
 pub struct MetaWrap<E: MetaEq>(pub E);
 
 impl<E: MetaEq> PartialEq for MetaWrap<E> {

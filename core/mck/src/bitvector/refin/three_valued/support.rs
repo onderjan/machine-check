@@ -10,7 +10,7 @@ use crate::{
     },
     concr::{ConcreteBitvector, RConcreteBitvector},
     forward::{self, HwArith},
-    refin::{Boolean, Limit, ManipField, Refine},
+    refin::{Boolean, Limit, ManipField, Refine, RefinementValue},
     traits::misc::MetaEq,
 };
 
@@ -164,6 +164,17 @@ impl<const W: u32> MarkBitvector<W> {
             width: W,
         }
     }
+
+    pub fn from_runtime(runtime: RMarkBitvector) -> Self {
+        assert_eq!(runtime.width, W);
+
+        let inner = runtime.inner.map(|inner| BitvectorMark {
+            importance: inner.importance,
+            mark: ConcreteBitvector::<W>::from_runtime(inner.mark),
+        });
+
+        Self(inner)
+    }
 }
 
 pub(super) fn runtime_default_uni_mark(
@@ -238,8 +249,12 @@ impl<const W: u32> ManipField for MarkBitvector<W> {
         Some(W)
     }
 
-    fn mark(&mut self) {
-        *self = Self::dirty();
+    fn mark(&mut self, refin_value: &RefinementValue) {
+        self.apply_join(&MarkBitvector::from_runtime(
+            *refin_value.expect_bitvector(),
+        ));
+
+        // *self = Self::dirty();
     }
 
     fn index(&self, _index: u64) -> Option<&dyn ManipField> {

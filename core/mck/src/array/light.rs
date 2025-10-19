@@ -9,6 +9,7 @@ use std::{
 use num::{One, Zero};
 
 pub use max::{CMax, RMax};
+use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 mod tests;
@@ -49,7 +50,7 @@ impl<
 {
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LightArray<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> {
     inner: Arc<BTreeMap<I, E>>,
     bound: M,

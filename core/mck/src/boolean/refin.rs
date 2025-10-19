@@ -1,12 +1,15 @@
 use std::num::NonZeroU8;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     backward::Bitwise,
+    misc::MetaEq,
     refin::{BooleanBitvector, Limit, Refine},
 };
 
 use super::abstr;
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct Boolean(pub(crate) BooleanBitvector);
 
 impl Boolean {
@@ -82,5 +85,11 @@ impl Bitwise for abstr::Boolean {
     fn bit_xor(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         let out = Bitwise::bit_xor((normal_input.0 .0, normal_input.1 .0), mark_later.0);
         (Boolean(out.0), Boolean(out.1))
+    }
+}
+
+impl MetaEq for Boolean {
+    fn meta_eq(&self, other: &Self) -> bool {
+        self.0.meta_eq(&other.0)
     }
 }

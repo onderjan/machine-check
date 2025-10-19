@@ -2,9 +2,11 @@ use std::{fmt::Debug, num::NonZeroU8};
 
 use std::ops::ControlFlow;
 
+use serde::{Deserialize, Serialize};
+
 use crate::array::abstr::extract_runtime_bounds;
 use crate::misc::{CMax, RMax};
-use crate::refin::{Limit, RBitvector};
+use crate::refin::{Limit, RBitvector, RefinementValue};
 use crate::{
     abstr,
     backward::ReadWrite,
@@ -16,7 +18,7 @@ use crate::{
 
 use super::{abstr::extract_bounds, light::LightArray};
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RArray {
     element_width: u32,
     inner: LightArray<u64, MetaWrap<refin::RBitvector>, RMax>,
@@ -46,6 +48,14 @@ impl RArray {
                 result
             }
         })
+    }
+
+    pub fn index_width(&self) -> u32 {
+        self.inner.bound().width
+    }
+
+    pub fn element_width(&self) -> u32 {
+        self.element_width
     }
 }
 
@@ -146,6 +156,18 @@ impl<const I: u32, const W: u32> Array<I, W> {
             },
         );
         (earlier_element.limit(normal_input.0),)
+    }
+
+    pub fn from_runtime(runtime: RArray) -> Self {
+        assert_eq!(runtime.index_width(), I);
+        assert_eq!(runtime.element_width(), W);
+        let array = runtime.inner.create_converted(
+            UnsignedBitvector::new,
+            |element| MetaWrap(refin::Bitvector::from_runtime(element.0)),
+            CMax,
+        );
+
+        Self { inner: array }
     }
 }
 
@@ -372,11 +394,27 @@ impl<const I: u32, const W: u32> ManipField for Array<I, W> {
         None
     }
 
-    fn mark(&mut self) {
-        self.inner = LightArray::new_filled(MetaWrap(refin::Bitvector::<W>::dirty()), CMax);
+    fn mark(&mut self, refin_value: &RefinementValue) {
+        let refin_array = refin_value.expect_array().clone();
+        let refin_array = Array::from_runtime(refin_array);
+
+        self.inner
+            .involve(&refin_array.inner, |our_value, refin_value| {
+                our_value.0.apply_join(&refin_value.0)
+            });
     }
 }
 
 fn index_importance(element_importance: NonZeroU8) -> NonZeroU8 {
     element_importance.saturating_add(1)
+}
+
+impl MetaEq for RArray {
+    fn meta_eq(&self, other: &Self) -> bool {
+        self.inner
+            .bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
+                // we are comparing meta-wrapped elements, so we use normal equality
+                can_be_eq && (lhs == rhs)
+            })
+    }
 }

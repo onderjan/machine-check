@@ -241,6 +241,11 @@ impl<const W: u32> ConcreteBitvector<W> {
             width: W,
         }
     }
+
+    pub fn from_runtime(runtime: RConcreteBitvector) -> Self {
+        assert_eq!(runtime.width, W);
+        Self(runtime.value)
+    }
 }
 
 impl<const W: u32> Debug for ConcreteBitvector<W> {

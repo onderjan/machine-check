@@ -175,6 +175,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 } else {
                     let atomic_property = AtomicProperty {
                         name: input_name.to_string(),
+                        refin_value: refin.value(input_var_id).clone(),
                     };
                     let culprit = Culprit {
                         path: self.path.clone(),

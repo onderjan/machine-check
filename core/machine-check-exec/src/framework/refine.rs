@@ -42,7 +42,7 @@ impl<M: FullMachine> super::Framework<M> {
                 .result
                 .get_mut(&culprit.atomic_property.name)
                 .expect("Culprit mark should be manipulatable");
-            manip_mark.mark();
+            manip_mark.mark(&culprit.atomic_property.refin_value);
         }
 
         // try increasing precision of the state preceding current mark

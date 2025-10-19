@@ -16,12 +16,14 @@ pub mod concr {
 }
 
 pub mod abstr {
+    use serde::{Deserialize, Serialize};
+
     use crate::{
         abstr::{PanicBitvector, Phi},
         traits::misc::MetaEq,
     };
 
-    #[derive(Debug, Clone, Hash)]
+    #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
     pub struct PanicResult<T> {
         pub panic: PanicBitvector,
         pub result: T,
@@ -60,9 +62,14 @@ pub mod abstr {
 }
 
 pub mod refin {
-    use crate::refin::{self, Limit, Refine};
+    use serde::{Deserialize, Serialize};
 
-    #[derive(Debug, Clone, Hash)]
+    use crate::{
+        misc::MetaEq,
+        refin::{self, Limit, Refine},
+    };
+
+    #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
     pub struct PanicResult<T> {
         pub panic: crate::refin::PanicBitvector,
         pub result: T,
@@ -118,6 +125,12 @@ pub mod refin {
                 panic: self.panic.limit(abstr.panic),
                 result: self.result.limit(&abstr.result),
             }
+        }
+    }
+
+    impl<T: MetaEq> MetaEq for PanicResult<T> {
+        fn meta_eq(&self, other: &Self) -> bool {
+            self.panic.meta_eq(&other.panic) && self.result.meta_eq(&other.result)
         }
     }
 }

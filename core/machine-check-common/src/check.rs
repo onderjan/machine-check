@@ -3,6 +3,8 @@ use std::{collections::VecDeque, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 
+use mck::refin::RefinementValue;
+
 use crate::StateId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -15,15 +17,16 @@ pub enum KnownConclusion {
 /// Three-valued model-checking result.
 ///
 /// If the result is unknown, the culprit is given.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub enum Conclusion {
     Known(KnownConclusion),
     Unknown(Culprit),
     NotCheckable,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct AtomicProperty {
+    pub refin_value: RefinementValue,
     pub name: String,
 }
 
@@ -31,7 +34,7 @@ pub struct AtomicProperty {
 ///
 /// Comprises of a path and an atomic property which is unknown in the last
 /// state of the path.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct Culprit {
     pub path: VecDeque<StateId>,
     pub atomic_property: AtomicProperty,

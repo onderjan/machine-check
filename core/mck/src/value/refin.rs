@@ -1,11 +1,13 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     abstr::AbstractValue,
     backward,
-    misc::Join,
+    misc::{Join, MetaEq},
     refin::{self, Limit, Refine},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub enum RefinementValue {
     Array(refin::RArray),
     Bitvector(refin::RBitvector),
@@ -14,18 +16,25 @@ pub enum RefinementValue {
 }
 
 impl RefinementValue {
-    pub fn expect_bitvector(&self) -> refin::RBitvector {
+    pub fn expect_bitvector(&self) -> &refin::RBitvector {
         let RefinementValue::Bitvector(result) = self else {
             panic!("Value is not a bitvector");
         };
-        *result
+        result
     }
 
-    pub fn expect_boolean(&self) -> refin::Boolean {
+    pub fn expect_boolean(&self) -> &refin::Boolean {
         let RefinementValue::Boolean(result) = self else {
             panic!("Value is not a Boolean");
         };
-        *result
+        result
+    }
+
+    pub fn expect_array(&self) -> &refin::RArray {
+        let RefinementValue::Array(array) = self else {
+            panic!("Value is not an array");
+        };
+        array
     }
 }
 
@@ -275,7 +284,7 @@ macro_rules! typed_eq_cmp_bi_op {
         match $normal_input.0 {
             AbstractValue::Bitvector(a) => {
                 let b = $normal_input.1.expect_bitvector().clone();
-                let (a, b) = $op((a, b), mark_later);
+                let (a, b) = $op((a, b), *mark_later);
 
                 (RefinementValue::Bitvector(a), RefinementValue::Bitvector(b))
             }
@@ -336,5 +345,17 @@ impl backward::TypedCmp for AbstractValue {
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
         typed_eq_cmp_bi_op!(backward::TypedCmp::ule, normal_input, mark_later)
+    }
+}
+
+impl MetaEq for RefinementValue {
+    fn meta_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Array(l0), Self::Array(r0)) => l0.meta_eq(r0),
+            (Self::Bitvector(l0), Self::Bitvector(r0)) => l0.meta_eq(r0),
+            (Self::Boolean(l0), Self::Boolean(r0)) => l0.meta_eq(r0),
+            (Self::PanicResult(l0), Self::PanicResult(r0)) => l0.meta_eq(r0),
+            _ => false,
+        }
     }
 }

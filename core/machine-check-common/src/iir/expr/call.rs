@@ -147,7 +147,7 @@ impl IExprCall {
                 let abstr_array = abstr.value(array_read.base).expect_array();
                 let abstr_index = abstr.value(array_read.index).expect_bitvector();
                 let (refin_array, refin_index) =
-                    mck::backward::ReadWrite::read((abstr_array, *abstr_index), refin_element);
+                    mck::backward::ReadWrite::read((abstr_array, *abstr_index), *refin_element);
 
                 // we already have the abstract values, limit them here
                 let refin_array = refin_array.limit(abstr_array);

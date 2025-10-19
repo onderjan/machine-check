@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{bitvector::compute_u64_mask, concr::UnsignedBitvector, misc::LightMax};
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
 pub struct RMax {
     pub width: u32,
 }

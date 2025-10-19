@@ -8,7 +8,7 @@ use crate::{
             FromRefin,
         },
     },
-    refin::{Boolean, ManipField, Refine},
+    refin::{Boolean, ManipField, RefinementValue},
     traits::misc::MetaEq,
 };
 
@@ -51,8 +51,8 @@ impl<const W: u32> ManipField for CombinedMark<W> {
         Some(W)
     }
 
-    fn mark(&mut self) {
-        *self = Self::dirty();
+    fn mark(&mut self, _refinement_value: &RefinementValue) {
+        todo!()
     }
 
     fn index(&self, _index: u64) -> Option<&dyn ManipField> {

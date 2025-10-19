@@ -12,15 +12,16 @@ mod support;
 mod signed;
 mod unsigned;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ConcreteBitvector<const W: u32>(u64);
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RConcreteBitvector {
     value: u64,
     width: u32,
 }
 
+use serde::{Deserialize, Serialize};
 pub(crate) use signed::{RSignedBitvector, SignedBitvector};
 
 pub use unsigned::{RUnsignedBitvector, UnsignedBitvector};

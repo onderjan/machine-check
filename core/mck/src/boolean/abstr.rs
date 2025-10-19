@@ -1,5 +1,7 @@
 use std::fmt::{Debug, Display};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     abstr::{BooleanBitvector, Phi, Test},
     forward::Bitwise,
@@ -7,7 +9,7 @@ use crate::{
     three_valued::ThreeValued,
 };
 
-#[derive(Clone, Copy, Hash, Default)]
+#[derive(Clone, Copy, Hash, Default, Serialize, Deserialize)]
 pub struct Boolean(pub(crate) BooleanBitvector);
 
 impl Test for Boolean {

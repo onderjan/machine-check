@@ -1,10 +1,12 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     abstr::{Boolean, PanicResult, RArray, RBitvector},
     forward::{Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     misc::{Join, MetaEq},
 };
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub enum AbstractValue {
     Array(RArray),
     Bitvector(RBitvector),
