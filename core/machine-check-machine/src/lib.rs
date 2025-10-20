@@ -216,6 +216,12 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("SSA machine file should be writable");
     }
 
+    /*eprintln!("Description: {:?}", description);
+
+    let iir = description.clone().into_iir();
+
+    eprintln!("Description IIR: {:?}", iir);*/
+
     let (abstract_description, misc_abstract_items) =
         abstr::create_abstract_description(description);
 
