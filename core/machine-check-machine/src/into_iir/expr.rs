@@ -1,16 +1,22 @@
-use machine_check_common::iir::{
-    expr::{
-        call::{IArrayRead, IExprCall, IMckNew, IPhiTaken},
-        op::{IMckBinary, IMckExt, IMckUnary},
-        IExpr, IExprField, IExprReference, IExprStruct,
+use indexmap::IndexMap;
+use machine_check_common::{
+    iir::{
+        description::ITrait,
+        expr::{
+            call::{IArrayRead, IArrayWrite, ICall, ICallId, IExprCall, IMckNew, IPhiTaken},
+            op::{IMckBinary, IMckExt, IMckUnary},
+            IExpr, IExprField, IExprReference, IExprStruct,
+        },
+        path::{IIdent, ISpan},
+        ty::{IElementaryType, IGeneralType, IType},
+        variable::IVarId,
     },
-    ty::{IElementaryType, IGeneralType, IType},
-    variable::IVarId,
+    ir_common::IrReference,
 };
 
 use crate::{
     into_iir::func::WFnData,
-    wir::{WExpr, WExprCall, WExprField, WExprReference, WExprStruct, WIdent, WMckNew},
+    wir::{WCallArg, WExpr, WExprCall, WExprField, WExprReference, WExprStruct, WIdent, WMckNew},
 };
 
 impl WExpr<WExprCall> {
@@ -21,7 +27,59 @@ impl WExpr<WExprCall> {
                 IExpr::Move(var_id)
             }
             WExpr::Call(expr_call) => IExpr::Call(match expr_call {
-                WExprCall::Call(call) => todo!(),
+                WExprCall::Call(call) => {
+                    // pop last segment and hopefully get the struct
+                    let mut call_path = call.fn_path.clone();
+                    let Some(call_ident) = call_path.segments.pop() else {
+                        panic!(
+                            "Unresolved call {:?} should have struct parent",
+                            call.fn_path
+                        );
+                    };
+                    let call_ident = call_ident.ident.into_iir();
+
+                    let Some(struct_ident) = call_path.get_ident() else {
+                        panic!(
+                            "Unresolved call {:?} should point to a struct",
+                            call.fn_path
+                        );
+                    };
+
+                    let Some((struct_index, struct_data)) =
+                        fn_data.struct_index_and_data(&struct_ident.clone().into_iir())
+                    else {
+                        panic!(
+                            "No known struct parent for called function {:?}",
+                            call.fn_path
+                        );
+                    };
+
+                    let Some((call_index, _, call_declaration)) =
+                        struct_data.fns.get_full(&(ITrait::Inherent, call_ident))
+                    else {
+                        panic!("Unresolved call {:?} not found in struct", call.fn_path);
+                    };
+
+                    assert_eq!(call_declaration.signature.inputs.len(), call.args.len());
+
+                    let mut args = Vec::new();
+
+                    for arg in call.args {
+                        let WCallArg::Ident(arg) = arg else {
+                            panic!("Normal call should have ident arguments");
+                        };
+                        let arg = from_variable_map(arg, fn_data);
+                        args.push(arg);
+                    }
+
+                    IExprCall::Call(ICall {
+                        func: ICallId {
+                            struct_index,
+                            call_index,
+                        },
+                        args,
+                    })
+                }
                 WExprCall::MckUnary(mck_unary) => {
                     let operand = from_variable_map(mck_unary.operand, fn_data);
                     IExprCall::MckUnary(IMckUnary {
@@ -60,7 +118,12 @@ impl WExpr<WExprCall> {
                     base: from_variable_map(array_read.base, fn_data),
                     index: from_variable_map(array_read.index, fn_data),
                 }),
-                WExprCall::ArrayWrite(warray_write) => todo!(),
+                WExprCall::ArrayWrite(array_write) => IExprCall::ArrayWrite(IArrayWrite {
+                    base: from_variable_map(array_write.base, fn_data),
+                    index: from_variable_map(array_write.index, fn_data),
+                    right: from_variable_map(array_write.right, fn_data),
+                }),
+
                 WExprCall::Phi(left, right) => {
                     let left = from_variable_map(left, fn_data);
                     let right = from_variable_map(right, fn_data);
@@ -88,7 +151,7 @@ impl WExpr<WExprCall> {
                     IExprReference::Field(expr_field.into_iir(fn_data))
                 }
             }),
-            WExpr::Lit(lit) => todo!(),
+            WExpr::Lit(_lit) => panic!("Unexpected literal"),
         })
     }
 }
@@ -99,34 +162,56 @@ impl WExprField {
         let base_var_info = fn_data
             .var_data(base_var_id)
             .expect("Base field variable should have info");
-        let IGeneralType::Normal(IType { inner, .. }) = &base_var_info.ty else {
-            panic!(
-                "Field variable type {:?} should be normal",
-                base_var_info.ty
-            );
-        };
 
-        let IElementaryType::Path(base_path) = inner else {
-            panic!("Field variable type {:?} should be path-based", inner);
-        };
+        let fields = match &base_var_info.ty {
+            IGeneralType::Normal(IType { inner, .. }) => {
+                let IElementaryType::Path(base_path) = inner else {
+                    panic!("Field variable type {:?} should be path-based", inner);
+                };
 
-        let Some(base_ident) = base_path.get_ident() else {
-            panic!("Field variable type {:?} should be ident", base_path);
-        };
+                let Some(base_ident) = base_path.get_ident() else {
+                    panic!("Field variable type {:?} should be ident", base_path);
+                };
 
-        let Some(base_ty) = fn_data.struct_data(base_ident) else {
-            panic!(
-                "Field variable type {:?} should be in struct data",
-                base_ident
-            );
+                let Some(base_ty) = fn_data.struct_data(base_ident) else {
+                    panic!(
+                        "Field variable type {:?} should be in struct data",
+                        base_ident
+                    );
+                };
+                base_ty.fields.clone()
+            }
+            IGeneralType::PanicResult(ty) => {
+                assert_eq!(ty.reference, IrReference::None);
+
+                let mut fields = IndexMap::new();
+
+                fields.insert(
+                    IIdent::new(String::from("result"), ISpan::Unspecified),
+                    ty.inner.clone(),
+                );
+
+                fields.insert(
+                    IIdent::new(String::from("panic"), ISpan::Unspecified),
+                    IElementaryType::Bitvector(32),
+                );
+
+                fields
+            }
+            IGeneralType::PhiArg(_) => {
+                panic!(
+                    "Field variable type {:?} should be not be phi arg",
+                    base_var_info.ty
+                )
+            }
         };
 
         let member_ident = self.member.into_iir();
 
-        let Some(member_index) = base_ty.fields.get_index_of(&member_ident) else {
+        let Some(member_index) = fields.get_index_of(&member_ident) else {
             panic!(
-                "Struct {:?} should have a field {:?}",
-                base_ident, member_ident
+                "Struct {:?} should have a field '{:?}'",
+                base_var_info.ty, member_ident
             );
         };
 

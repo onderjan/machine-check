@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use indexmap::IndexMap;
 use machine_check_common::iir::{
-    description::IStruct,
-    func::{IBlock, IFn, IFnOutput, ISignature},
+    description::IStructDeclaration,
+    func::{IBlock, IFn, IFnDeclaration, IFnOutput, ISignature},
     path::IIdent,
     ty::IGeneralType,
     variable::{IVarId, IVarInfo},
@@ -14,7 +14,7 @@ use crate::wir::{WBlock, WItemFn, YConverted, ZConverted};
 pub(super) struct WFnData<'a> {
     ident_var_map: BTreeMap<IIdent, IVarId>,
     variables: &'a BTreeMap<IVarId, IVarInfo>,
-    structs: &'a IndexMap<IIdent, IStruct>,
+    structs: &'a IndexMap<IIdent, IStructDeclaration>,
 }
 
 impl WFnData<'_> {
@@ -26,13 +26,19 @@ impl WFnData<'_> {
         self.variables.get(&var_id)
     }
 
-    pub fn struct_data(&self, ident: &IIdent) -> Option<&IStruct> {
+    pub fn struct_data(&self, ident: &IIdent) -> Option<&IStructDeclaration> {
         self.structs.get(ident)
+    }
+
+    pub fn struct_index_and_data(&self, ident: &IIdent) -> Option<(usize, &IStructDeclaration)> {
+        self.structs
+            .get_full(ident)
+            .map(|(index, _, data)| (index, data))
     }
 }
 
 impl WItemFn<YConverted> {
-    pub(super) fn into_iir(self, structs: &IndexMap<IIdent, IStruct>) -> IFn {
+    pub(super) fn into_declaration(self) -> IFnDeclaration {
         //eprintln!("WIR: {:#?}", self);
         let mut next_var_id = 0;
 
@@ -90,20 +96,29 @@ impl WItemFn<YConverted> {
             },
         };
 
+        IFnDeclaration {
+            signature,
+            variables,
+        }
+    }
+
+    pub(super) fn into_iir(self, structs: &IndexMap<IIdent, IStructDeclaration>) -> IFn {
+        let declaration = self.clone().into_declaration();
+
         let mut ident_var_map = BTreeMap::new();
-        for (var_id, var_data) in variables.iter() {
+        for (var_id, var_data) in declaration.variables.iter() {
             ident_var_map.insert(var_data.ident.clone(), *var_id);
         }
 
         let block = self.block.into_iir(&WFnData {
             ident_var_map,
-            variables: &variables,
+            variables: &declaration.variables,
             structs,
         });
 
         IFn {
-            signature,
-            variables,
+            signature: declaration.signature,
+            variables: declaration.variables,
             block,
         }
     }

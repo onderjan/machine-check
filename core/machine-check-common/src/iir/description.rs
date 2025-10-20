@@ -1,7 +1,11 @@
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::iir::{func::IFn, path::IIdent, ty::IElementaryType};
+use crate::iir::{
+    func::{IFn, IFnDeclaration},
+    path::IIdent,
+    ty::IElementaryType,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IDescription {
@@ -9,18 +13,24 @@ pub struct IDescription {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct IStruct {
+pub struct IStructDeclaration {
     pub fields: IndexMap<IIdent, IElementaryType>,
-    pub impls: IndexMap<IImplTrait, IImpl>,
+    pub fns: IndexMap<(ITrait, IIdent), IFnDeclaration>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum IImplTrait {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct IStruct {
+    pub fields: IndexMap<IIdent, IElementaryType>,
+    pub fns: IndexMap<(ITrait, IIdent), IFn>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ITrait {
     Inherent,
     Machine,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct IImpl {
-    pub fns: IndexMap<IIdent, IFn>,
+    fns: IndexMap<IIdent, IFn>,
 }

@@ -53,9 +53,16 @@ pub struct IArrayRead {
     pub index: IVarId,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct IArrayWrite {
+    pub base: IVarId,
+    pub index: IVarId,
+    pub right: IVarId,
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IExprCall {
-    //Call(WCall),
+    Call(ICall),
     MckUnary(IMckUnary),
     MckBinary(IMckBinary),
     MckExt(IMckExt),
@@ -63,7 +70,7 @@ pub enum IExprCall {
     BooleanNew(bool),
     StdClone(IVarId),
     ArrayRead(IArrayRead),
-    //ArrayWrite(IArrayWrite),
+    ArrayWrite(IArrayWrite),
     Phi(IVarId, IVarId),
     PhiTaken(IPhiTaken),
 }
@@ -77,6 +84,7 @@ pub struct IPhiTaken {
 impl IExprCall {
     pub fn forward_interpret(&self, abstr: &IAbstr) -> Option<AbstractValue> {
         Some(match self {
+            IExprCall::Call(call) => todo!("Forward call"),
             IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
             IExprCall::MckBinary(binary) => binary.forward_interpret(abstr),
             IExprCall::MckExt(ext) => ext.forward_interpret(abstr),
@@ -90,6 +98,7 @@ impl IExprCall {
 
                 AbstractValue::Bitvector(array.read(*index))
             }
+            IExprCall::ArrayWrite(array_write) => todo!("Forward array write"),
             IExprCall::Phi(left, right) => {
                 // join the left and right variable value
                 // at least one must be present, but not necessarily both
@@ -115,6 +124,7 @@ impl IExprCall {
     }
     pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin, later: RefinementValue) {
         match self {
+            IExprCall::Call(call) => todo!("Backward call"),
             IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, later),
             IExprCall::MckBinary(binary) => binary.backward_interpret(abstr, refin, later),
             IExprCall::MckExt(ext) => ext.backward_interpret(abstr, refin, later),
@@ -168,6 +178,7 @@ impl IExprCall {
                 refin.join_value(array_read.base, RefinementValue::Array(refin_array));
                 refin.join_value(array_read.index, RefinementValue::Bitvector(refin_index));
             }
+            IExprCall::ArrayWrite(array_write) => todo!("Backward array write"),
         }
     }
 }
@@ -175,6 +186,7 @@ impl IExprCall {
 impl Debug for IExprCall {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            IExprCall::Call(call) => call.fmt(f),
             IExprCall::MckUnary(unary) => unary.fmt(f),
             IExprCall::MckBinary(binary) => binary.fmt(f),
             IExprCall::MckExt(ext) => ext.fmt(f),
@@ -183,7 +195,14 @@ impl Debug for IExprCall {
                 write!(f, "StdClone({:?})", var_id)
             }
             IExprCall::ArrayRead(array_read) => {
-                write!(f, "ArrayRead({:?},{:?})", array_read.base, array_read.index)
+                write!(f, "{:?}[{:?}]", array_read.base, array_read.index)
+            }
+            IExprCall::ArrayWrite(array_write) => {
+                write!(
+                    f,
+                    "({:?}[{:?}] <-- {:?})",
+                    array_write.base, array_write.index, array_write.right
+                )
             }
             IExprCall::BooleanNew(value) => write!(f, "Boolean({:?})", value),
             IExprCall::Phi(left, right) => write!(f, "Phi({:?}, {:?})", left, right),
@@ -191,5 +210,33 @@ impl Debug for IExprCall {
                 write!(f, "PhiTaken({:?}, {:?})", taken.var, taken.condition)
             }
         }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ICallId {
+    pub struct_index: usize,
+    pub call_index: usize,
+}
+
+impl Debug for ICallId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "${}::{}", self.struct_index, self.call_index)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ICall {
+    pub func: ICallId,
+    pub args: Vec<IVarId>,
+}
+
+impl Debug for ICall {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}(", self.func)?;
+        for arg in &self.args {
+            write!(f, "{:?}, ", arg)?;
+        }
+        write!(f, ")")
     }
 }

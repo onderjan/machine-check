@@ -36,6 +36,12 @@ pub struct IGlobal {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct IFnDeclaration {
+    pub signature: ISignature,
+    pub variables: BTreeMap<IVarId, IVarInfo>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IFn {
     pub signature: ISignature,
     pub variables: BTreeMap<IVarId, IVarInfo>,
