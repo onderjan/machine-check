@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
-use machine_check_common::iir::IProperty;
+use machine_check_common::iir::property::IProperty;
 use machine_check_common::ir_common::IrTypeArray;
 use machine_check_common::Signedness;
 use mck::concr::FullMachine;
@@ -68,7 +68,7 @@ pub fn inherent_property() -> IProperty {
 
     //println!("Abstract description: {:?}", description);
 
-    property.into_property_iir()
+    property.into_iir()
 }
 
 pub fn process_property<M: FullMachine>(
@@ -153,7 +153,7 @@ pub fn process_property<M: FullMachine>(
     //println!("Abstract description: {:?}", description);
 
     //println!("WIR property: {:#?}", property);
-    let property = property.into_property_iir();
+    let property = property.into_iir();
     //println!("IIR property: {:#?}", property);
 
     //interpret::execute_function(&description, "property");
@@ -216,11 +216,11 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("SSA machine file should be writable");
     }
 
-    /*eprintln!("Description: {:?}", description);
+    //eprintln!("Description: {:?}", description);
 
-    let iir = description.clone().into_iir();
+    let _iir = description.clone().into_iir();
 
-    eprintln!("Description IIR: {:?}", iir);*/
+    //eprintln!("Description IIR: {:?}", iir);
 
     let (abstract_description, misc_abstract_items) =
         abstr::create_abstract_description(description);

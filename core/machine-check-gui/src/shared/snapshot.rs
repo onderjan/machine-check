@@ -3,7 +3,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::shared::snapshot::log::Log;
 use machine_check_common::{
-    check::Conclusion, iir::IProperty, ExecError, NodeId, ParamValuation, StateId, ThreeValued,
+    check::Conclusion, iir::property::IProperty, ExecError, NodeId, ParamValuation, StateId,
+    ThreeValued,
 };
 use mck::abstr::Field;
 

@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
 use machine_check_common::{
-    iir::{ISubproperty, ISubpropertyNext},
+    iir::property::{ISubproperty, ISubpropertyNext},
     ExecError, NodeId, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;

@@ -5,7 +5,7 @@ use log::log_enabled;
 use log::trace;
 use machine_check_common::check::Conclusion;
 use machine_check_common::check::KnownConclusion;
-use machine_check_common::iir::IProperty;
+use machine_check_common::iir::property::IProperty;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
 use machine_check_common::NodeId;

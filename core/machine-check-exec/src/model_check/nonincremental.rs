@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use machine_check_common::{
-    iir::{func::IFn, IProperty},
+    iir::{
+        func::IFn,
+        property::{IProperty, ISubproperty},
+    },
     ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
 use mck::{abstr::AbstractValue, abstr::Manipulatable, concr::FullMachine};
@@ -47,7 +50,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
         let subproperty_entry = &self.property.subproperties[subproperty_index];
 
         match subproperty_entry {
-            machine_check_common::iir::ISubproperty::Func(subproperty_func) => {
+            ISubproperty::Func(subproperty_func) => {
                 for dependency in &subproperty_func.children {
                     self.check_subproperty(*dependency)?;
                 }
@@ -58,7 +61,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                         .insert((subproperty_index, state_id), value);
                 }
             }
-            machine_check_common::iir::ISubproperty::Next(next) => {
+            ISubproperty::Next(next) => {
                 self.check_subproperty(next.inner)?;
                 for state_id in self.space.states() {
                     let value =
@@ -67,7 +70,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                         .insert((subproperty_index, state_id), value);
                 }
             }
-            machine_check_common::iir::ISubproperty::FixedPoint(fixed_point) => {
+            ISubproperty::FixedPoint(fixed_point) => {
                 self.check_fixed_point(
                     subproperty_index,
                     fixed_point.universal,

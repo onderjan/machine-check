@@ -1,6 +1,6 @@
 use crate::{ExecError, ExecResult, FullMachine};
 use log::{info, warn};
-use machine_check_common::{check::KnownConclusion, iir::IProperty, ExecStats};
+use machine_check_common::{check::KnownConclusion, iir::property::IProperty, ExecStats};
 use machine_check_exec::{Framework, Strategy};
 
 /// Verifies the given system with given arguments.

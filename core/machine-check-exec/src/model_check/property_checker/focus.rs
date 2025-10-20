@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use log::trace;
-use machine_check_common::iir::IProperty;
+use machine_check_common::iir::property::IProperty;
 use machine_check_common::StateId;
 
 use crate::space::StateSpace;

@@ -3,7 +3,7 @@ use std::{borrow::Cow, ffi::OsStr, path::Path};
 use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
-use machine_check_common::{iir::IProperty, ExecError};
+use machine_check_common::{iir::property::IProperty, ExecError};
 use machine_check_exec::{Framework, Strategy};
 use mck::concr::FullMachine;
 use sync::BackendSync;

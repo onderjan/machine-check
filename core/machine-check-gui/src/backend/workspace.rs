@@ -1,7 +1,7 @@
 use crate::backend::BackendSettings;
 use crate::shared::snapshot::log::Log;
 use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
-use machine_check_common::iir::IProperty;
+use machine_check_common::iir::property::IProperty;
 use machine_check_exec::Framework;
 use mck::abstr::BitvectorDomain;
 use mck::concr::FullMachine;

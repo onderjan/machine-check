@@ -5,7 +5,7 @@ mod model_check;
 mod precision;
 mod space;
 
-use machine_check_common::iir::IProperty;
+use machine_check_common::iir::property::IProperty;
 use mck::{abstr, concr::FullMachine, misc::MetaWrap, refin};
 
 pub use framework::Framework;

@@ -11,7 +11,7 @@ use log::log_enabled;
 use log::trace;
 use log::warn;
 use machine_check_common::check::KnownConclusion;
-use machine_check_common::iir::IProperty;
+use machine_check_common::iir::property::IProperty;
 use machine_check_exec::Strategy;
 
 use args::ProgramArgs;

@@ -3,7 +3,7 @@ mod local;
 mod next;
 
 use log::trace;
-use machine_check_common::{iir::ISubproperty, ExecError, StateId};
+use machine_check_common::{iir::property::ISubproperty, ExecError, StateId};
 
 use crate::{
     model_check::property_checker::{value::TimedCheckValue, PropertyChecker},

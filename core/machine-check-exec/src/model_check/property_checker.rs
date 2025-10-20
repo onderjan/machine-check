@@ -12,7 +12,7 @@ use std::{
 
 use log::trace;
 use machine_check_common::{
-    iir::{IProperty, ISubproperty},
+    iir::property::{IProperty, ISubproperty},
     ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;

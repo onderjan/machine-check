@@ -10,9 +10,10 @@ rust-version = "1.88"
 mck = "=0.6.1"
 
 thiserror = "1.0.49"
-serde = { version = "1.0.188", features = ["derive", "rc"] }
+serde = { version = "1.0.228", features = ["derive", "rc"] }
 proc-macro2 = "1.0.67"
 strum = { version = "0.27", features = ["derive"] }
+indexmap = { version = "2.12.0", features = ["serde"] }
 
 [lints.clippy]
 uninlined_format_args = "allow"

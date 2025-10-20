@@ -1,4 +1,4 @@
-use machine_check_common::iir::IProperty;
+use machine_check_common::iir::property::IProperty;
 use serde::{Deserialize, Serialize};
 use snapshot::Snapshot;
 

@@ -1,4 +1,4 @@
-use machine_check_common::{iir::ISubpropertyFixedPoint, ExecError, StateId};
+use machine_check_common::{iir::property::ISubpropertyFixedPoint, ExecError, StateId};
 
 use crate::{
     model_check::property_checker::{

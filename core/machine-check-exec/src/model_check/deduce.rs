@@ -4,7 +4,7 @@ use std::{collections::VecDeque, ops::ControlFlow};
 use log::trace;
 use machine_check_common::{
     check::{AtomicProperty, Culprit},
-    iir::{IProperty, ISubproperty},
+    iir::property::{IProperty, ISubproperty},
     ExecError, StateId,
 };
 use mck::{concr::FullMachine, refin::RefinementValue};

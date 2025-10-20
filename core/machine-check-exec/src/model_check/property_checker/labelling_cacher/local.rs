@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use mck::abstr::{AbstractValue, Manipulatable};
 
-use machine_check_common::iir::{ISubproperty, ISubpropertyFunc};
+use machine_check_common::iir::property::{ISubproperty, ISubpropertyFunc};
 use machine_check_common::{ExecError, ParamValuation, StateId, ThreeValued};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;

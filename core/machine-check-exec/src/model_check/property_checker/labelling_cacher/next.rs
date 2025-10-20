@@ -1,7 +1,7 @@
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
-use machine_check_common::iir::ISubpropertyNext;
+use machine_check_common::iir::property::ISubpropertyNext;
 use machine_check_common::{ExecError, KnownParamValuation, NodeId, ParamValuation, StateId};
 
 use crate::model_check::property_checker::labelling_cacher::LabellingCacher;

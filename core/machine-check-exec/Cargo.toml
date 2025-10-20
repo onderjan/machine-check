@@ -12,7 +12,7 @@ machine-check-common = "=0.6.1"
 machine-check-machine = "=0.6.1"
 
 log = "0.4.20"
-serde = { version = "1.0.188", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 
 bimap = "0.6.3"
 petgraph = "0.6.4"

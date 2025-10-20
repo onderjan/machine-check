@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use log::trace;
-use machine_check_common::iir::ISubpropertyNext;
+use machine_check_common::iir::property::ISubpropertyNext;
 use machine_check_common::{ExecError, StateId};
 
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;

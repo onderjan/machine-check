@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use log::trace;
 use machine_check_common::{
     check::{Conclusion, KnownConclusion},
-    iir::IProperty,
+    iir::property::IProperty,
     ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
