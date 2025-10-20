@@ -22,6 +22,6 @@ fn misc_freerun() {
         TestConfig::new_property("AG![lfp![X,gfp![Y, AX![X] || (value == 0 && AX![Y])]]]")
             .with_arg("--strategy")
             .with_arg("decay"),
-        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":82,"num_generated_states":161,"num_final_states":8,"num_generated_transitions":161,"num_final_transitions":9,"inherent_panic_message":null}}"#,
+        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":86,"num_generated_states":159,"num_final_states":4,"num_generated_transitions":159,"num_final_transitions":5,"inherent_panic_message":null}}"#,
     );
 }

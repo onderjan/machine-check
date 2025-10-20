@@ -31,7 +31,7 @@ fn division() {
     test_example(
         "division",
         TestConfig::new_inherent(),
-        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":8,"num_generated_states":20,"num_final_states":11,"num_generated_transitions":522,"num_final_transitions":21,"inherent_panic_message":"attempt to divide by zero"}}"#,
+        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":8,"num_generated_states":20,"num_final_states":11,"num_generated_transitions":1534,"num_final_transitions":76,"inherent_panic_message":"attempt to divide by zero"}}"#,
     );
 }
 
@@ -133,7 +133,7 @@ fn parametric() {
     test_example(
         "parametric",
         TestConfig::new_property("EX![AF![as_unsigned(value) > 8]]"),
-        r#"{"result":{"Ok":"Dependent"},"stats":{"num_refinements":30,"num_generated_states":115,"num_final_states":44,"num_generated_transitions":172,"num_final_transitions":88,"inherent_panic_message":null}}"#,
+        r#"{"result":{"Ok":"Dependent"},"stats":{"num_refinements":42,"num_generated_states":140,"num_final_states":52,"num_generated_transitions":233,"num_final_transitions":105,"inherent_panic_message":null}}"#,
     );
     test_example(
         "parametric",
@@ -143,12 +143,12 @@ fn parametric() {
     test_example(
         "parametric",
         TestConfig::new_property("EU![value == 0, as_unsigned(value) >= 5]"),
-        r#"{"result":{"Ok":"Dependent"},"stats":{"num_refinements":21,"num_generated_states":109,"num_final_states":43,"num_generated_transitions":240,"num_final_transitions":70,"inherent_panic_message":null}}"#,
+        r#"{"result":{"Ok":"Dependent"},"stats":{"num_refinements":21,"num_generated_states":97,"num_final_states":41,"num_generated_transitions":156,"num_final_transitions":66,"inherent_panic_message":null}}"#,
     );
     test_example(
         "parametric",
         TestConfig::new_property("AU![value == 0, as_unsigned(value) >= 5]"),
-        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":52,"num_generated_states":340,"num_final_states":149,"num_generated_transitions":656,"num_final_transitions":279,"inherent_panic_message":null}}"#,
+        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":41,"num_generated_states":229,"num_final_states":107,"num_generated_transitions":380,"num_final_transitions":184,"inherent_panic_message":null}}"#,
     );
 }
 
@@ -223,7 +223,7 @@ fn simple_risc() {
             .with_arg("--strategy")
             .with_arg("decay")
             .with_release(),
-        r#"{"result":{"Ok":"True"},"stats":{"num_refinements":427,"num_generated_states":736,"num_final_states":11,"num_generated_transitions":751,"num_final_transitions":13,"inherent_panic_message":null}}"#,
+        r#"{"result":{"Ok":"True"},"stats":{"num_refinements":455,"num_generated_states":767,"num_final_states":11,"num_generated_transitions":782,"num_final_transitions":13,"inherent_panic_message":null}}"#,
     );
 }
 

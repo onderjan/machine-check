@@ -70,18 +70,6 @@ error: machine-check: Dereference not supported
 32 |             a = *b;
    |                 ^
 
-error: machine-check: Short-circuiting AND not supported
-  --> tests/cases/10-expr-unsupported.rs:34:19
-   |
-34 |             a = a && b;
-   |                   ^^
-
-error: machine-check: Short-circuiting OR not supported
-  --> tests/cases/10-expr-unsupported.rs:35:19
-   |
-35 |             a = a || b;
-   |                   ^^
-
 error: machine-check: Assignment operators not supported
   --> tests/cases/10-expr-unsupported.rs:37:19
    |
