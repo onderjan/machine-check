@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use indexmap::IndexMap;
 use machine_check_common::iir::property::{
     IProperty, ISubproperty, ISubpropertyFixedPoint, ISubpropertyFunc, ISubpropertyNext,
 };
@@ -39,7 +40,7 @@ impl WProperty<YConverted> {
             let subproperty = match subproperty {
                 WSubproperty::Func(subproperty) => ISubproperty::Func(ISubpropertyFunc {
                     parent: subproperty.parent,
-                    func: subproperty.func.into_iir(),
+                    func: subproperty.func.into_iir(&IndexMap::new()),
                     children: subproperty.children,
                     dependencies: subproperty_dependencies
                         .remove(&subproperty_index)

@@ -42,6 +42,14 @@ impl AbstractValue {
         };
         panic_result
     }
+
+    pub fn uext(&self, new_width: u32) -> Self {
+        AbstractValue::Bitvector(self.expect_bitvector().uext(new_width))
+    }
+
+    pub fn sext(&self, new_width: u32) -> Self {
+        AbstractValue::Bitvector(self.expect_bitvector().sext(new_width))
+    }
 }
 
 impl Join for AbstractValue {

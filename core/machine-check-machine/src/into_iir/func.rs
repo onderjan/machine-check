@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
+use indexmap::IndexMap;
 use machine_check_common::iir::{
+    description::IStruct,
     func::{IBlock, IFn, IFnOutput, ISignature},
     path::IIdent,
     ty::IGeneralType,
@@ -9,8 +11,28 @@ use machine_check_common::iir::{
 
 use crate::wir::{WBlock, WItemFn, YConverted, ZConverted};
 
+pub(super) struct WFnData<'a> {
+    ident_var_map: BTreeMap<IIdent, IVarId>,
+    variables: &'a BTreeMap<IVarId, IVarInfo>,
+    structs: &'a IndexMap<IIdent, IStruct>,
+}
+
+impl WFnData<'_> {
+    pub fn ident_var(&self, ident: &IIdent) -> Option<IVarId> {
+        self.ident_var_map.get(ident).copied()
+    }
+
+    pub fn var_data(&self, var_id: IVarId) -> Option<&IVarInfo> {
+        self.variables.get(&var_id)
+    }
+
+    pub fn struct_data(&self, ident: &IIdent) -> Option<&IStruct> {
+        self.structs.get(ident)
+    }
+}
+
 impl WItemFn<YConverted> {
-    pub(super) fn into_iir(self) -> IFn {
+    pub(super) fn into_iir(self, structs: &IndexMap<IIdent, IStruct>) -> IFn {
         //eprintln!("WIR: {:#?}", self);
         let mut next_var_id = 0;
 
@@ -73,7 +95,11 @@ impl WItemFn<YConverted> {
             ident_var_map.insert(var_data.ident.clone(), *var_id);
         }
 
-        let block = self.block.into_iir(&ident_var_map);
+        let block = self.block.into_iir(&WFnData {
+            ident_var_map,
+            variables: &variables,
+            structs,
+        });
 
         IFn {
             signature,
@@ -84,11 +110,11 @@ impl WItemFn<YConverted> {
 }
 
 impl WBlock<ZConverted> {
-    pub(super) fn into_iir(self, ident_var_map: &BTreeMap<IIdent, IVarId>) -> IBlock {
+    pub(super) fn into_iir(self, fn_data: &WFnData) -> IBlock {
         let mut stmts = Vec::new();
 
         for stmt in self.stmts {
-            if let Some(stmt) = stmt.into_iir(ident_var_map) {
+            if let Some(stmt) = stmt.into_iir(fn_data) {
                 stmts.push(stmt);
             }
         }

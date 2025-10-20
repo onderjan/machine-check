@@ -130,3 +130,49 @@ impl Debug for IMckBinary {
         write!(f, "{}({:?}, {:?})", self.op, self.a, self.b)
     }
 }
+
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct IMckExt {
+    pub signed: bool,
+    pub width: u32,
+    pub inner: IVarId,
+}
+impl IMckExt {
+    pub(super) fn forward_interpret(&self, inter: &IAbstr) -> AbstractValue {
+        let inner = inter.value(self.inner).clone();
+
+        if self.signed {
+            inner.sext(self.width)
+        } else {
+            inner.uext(self.width)
+        }
+    }
+
+    pub(super) fn backward_interpret(
+        &self,
+        abstr: &IAbstr,
+        refin: &mut IRefin,
+        later: RefinementValue,
+    ) {
+        let later = *later.expect_bitvector();
+        let inner = *abstr.value(self.inner).expect_bitvector();
+
+        let earlier = RefinementValue::Bitvector(
+            if self.signed {
+                mck::abstr::RBitvector::mark_sext((inner,), later)
+            } else {
+                mck::abstr::RBitvector::mark_uext((inner,), later)
+            }
+            .0,
+        );
+
+        join_limited(abstr, refin, self.inner, earlier);
+    }
+}
+
+impl Debug for IMckExt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let op_str = if self.signed { "Sext" } else { "Uext" };
+        write!(f, "{}({:?}, {})", op_str, self.inner, self.width)
+    }
+}

@@ -165,16 +165,20 @@ fn convert_ext(
     call: WHighMckExt,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
 ) -> Result<WMckExt, Error> {
-    let Some(signedness) = signedness(&call.from, local_types) else {
-        return Err(Error::new(
-            ErrorType::CallConversionError("Cannot determine bit extension signedness"),
-            call.from.wir_span(),
-        ));
+    let signed = match signedness(&call.from, local_types) {
+        Some(Signedness::Signed) => true,
+        Some(Signedness::Unsigned) => false,
+        _ => {
+            return Err(Error::new(
+                ErrorType::CallConversionError("Cannot determine bit extension signedness"),
+                call.from.wir_span(),
+            ))
+        }
     };
 
     Ok(WMckExt {
-        signedness,
-        width: call.width,
+        signed,
+        width: call.width.expect("Cannot determine bit extension width"),
         from: call.from,
     })
 }

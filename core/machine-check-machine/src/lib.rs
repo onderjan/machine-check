@@ -216,11 +216,16 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("SSA machine file should be writable");
     }
 
+    /*fn panic_hook(panic_info: &std::panic::PanicHookInfo<'_>) {
+        eprintln!("Machine-check compile: {}", panic_info);
+    }
+    std::panic::set_hook(Box::new(panic_hook));
+
     //eprintln!("Description: {:?}", description);
 
-    let _iir = description.clone().into_iir();
+    let iir = description.clone().into_iir();
 
-    //eprintln!("Description IIR: {:?}", iir);
+    eprintln!("Description IIR: {:#?}", iir);*/
 
     let (abstract_description, misc_abstract_items) =
         abstr::create_abstract_description(description);

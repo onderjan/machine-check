@@ -10,6 +10,7 @@ use mck::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::iir::expr::op::IMckExt;
 use crate::iir::{
     expr::op::{IMckBinary, IMckUnary},
     variable::IVarId,
@@ -57,10 +58,10 @@ pub enum IExprCall {
     //Call(WCall),
     MckUnary(IMckUnary),
     MckBinary(IMckBinary),
-    //MckExt(IMckExt),
+    MckExt(IMckExt),
     MckNew(IMckNew),
     BooleanNew(bool),
-    //StdClone(IVarId),
+    StdClone(IVarId),
     ArrayRead(IArrayRead),
     //ArrayWrite(IArrayWrite),
     Phi(IVarId, IVarId),
@@ -78,6 +79,7 @@ impl IExprCall {
         Some(match self {
             IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
             IExprCall::MckBinary(binary) => binary.forward_interpret(abstr),
+            IExprCall::MckExt(ext) => ext.forward_interpret(abstr),
             IExprCall::MckNew(mck_new) => mck_new.forward_interpret(),
             IExprCall::BooleanNew(value) => AbstractValue::Boolean(
                 mck::abstr::Boolean::from_three_valued(ThreeValued::from_bool(*value)),
@@ -105,14 +107,24 @@ impl IExprCall {
                 // just return the value
                 abstr.value(taken.var).clone()
             }
+            IExprCall::StdClone(var_id) => {
+                // clone
+                abstr.value(*var_id).clone()
+            }
         })
     }
     pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin, later: RefinementValue) {
         match self {
             IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, later),
             IExprCall::MckBinary(binary) => binary.backward_interpret(abstr, refin, later),
+            IExprCall::MckExt(ext) => ext.backward_interpret(abstr, refin, later),
             IExprCall::MckNew(_) | IExprCall::BooleanNew(_) => {
                 // there is no variable to propagate to, do nothing
+            }
+            IExprCall::StdClone(var_id) => {
+                // limit and join previous
+
+                join_limited(abstr, refin, *var_id, later);
             }
             IExprCall::Phi(a, b) => {
                 // propagate into both
@@ -165,7 +177,11 @@ impl Debug for IExprCall {
         match self {
             IExprCall::MckUnary(unary) => unary.fmt(f),
             IExprCall::MckBinary(binary) => binary.fmt(f),
+            IExprCall::MckExt(ext) => ext.fmt(f),
             IExprCall::MckNew(mck_new) => mck_new.fmt(f),
+            IExprCall::StdClone(var_id) => {
+                write!(f, "StdClone({:?})", var_id)
+            }
             IExprCall::ArrayRead(array_read) => {
                 write!(f, "ArrayRead({:?},{:?})", array_read.base, array_read.index)
             }

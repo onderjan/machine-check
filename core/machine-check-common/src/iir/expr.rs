@@ -13,15 +13,20 @@ pub enum IExpr {
     Move(IVarId),
     Call(IExprCall),
     Reference(IExprReference),
-    /*Field(IExprField),
+    Field(IExprField),
     Struct(IExprStruct),
-    Lit(Lit),*/
+    /*Lit(Lit),*/
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IExprField {
     pub base: IVarId,
-    pub member: IVarId,
+    pub member_index: usize,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct IExprStruct {
+    pub fields: Vec<IVarId>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -39,9 +44,15 @@ impl IExpr {
                 // TODO: actually reference
                 let var_id = match expr_reference {
                     IExprReference::Ident(var_id) => *var_id,
-                    IExprReference::Field(_expr_field) => todo!(),
+                    IExprReference::Field(_expr_field) => todo!("Forward-intepret field reference"),
                 };
                 Some(abstr.value(var_id).clone())
+            }
+            IExpr::Field(_expr_field) => {
+                todo!("Forward-interpret field")
+            }
+            IExpr::Struct(_expr_struct) => {
+                todo!("Forward-interpret struct")
             }
         }
     }
@@ -60,9 +71,15 @@ impl IExpr {
                         join_limited(abstr, refin, *var_id, later);
                     }
                     IExprReference::Field(_expr_field) => {
-                        todo!()
+                        todo!("Backward-intepret field reference")
                     }
                 }
+            }
+            IExpr::Field(_expr_field) => {
+                todo!("Backward-interpret field")
+            }
+            IExpr::Struct(_expr_struct) => {
+                todo!("Backward-interpret struct")
             }
         }
     }
@@ -74,13 +91,25 @@ impl Debug for IExpr {
             IExpr::Move(ident) => write!(f, "{:?}", ident),
             IExpr::Call(call) => write!(f, "{:?}", call),
             IExpr::Reference(reference) => write!(f, "{:?}", reference),
+            IExpr::Field(field) => write!(f, "{:?}", field),
+            IExpr::Struct(expr_struct) => write!(f, "{:?}", expr_struct),
         }
     }
 }
 
 impl Debug for IExprField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}.{:?}", self.base, self.member)
+        write!(f, "{:?}.{:?}", self.base, self.member_index)
+    }
+}
+
+impl Debug for IExprStruct {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{ ")?;
+        for (index, field) in self.fields.iter().enumerate() {
+            write!(f, "{}: {:?}, ", index, field)?;
+        }
+        write!(f, " }}")
     }
 }
 

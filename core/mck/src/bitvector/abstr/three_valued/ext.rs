@@ -3,7 +3,7 @@ use crate::{bitvector::util, concr::RConcreteBitvector, forward::Ext};
 use super::{RThreeValuedBitvector, ThreeValuedBitvector};
 
 impl RThreeValuedBitvector {
-    fn uext(self, new_width: u32) -> RThreeValuedBitvector {
+    pub fn uext(self, new_width: u32) -> RThreeValuedBitvector {
         let old_mask = self.bit_mask_u64();
         let new_mask = util::compute_u64_mask(new_width);
 
@@ -26,7 +26,7 @@ impl RThreeValuedBitvector {
         )
     }
 
-    fn sext(self, new_width: u32) -> RThreeValuedBitvector {
+    pub fn sext(self, new_width: u32) -> RThreeValuedBitvector {
         if self.width() == 0 {
             // no zeros nor ones, handle specially by returning zero
             return RThreeValuedBitvector::new(0, new_width);
