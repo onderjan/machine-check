@@ -1475,6 +1475,7 @@ dependencies = [
  "mck",
  "partitions",
  "petgraph",
+ "rmp-serde",
  "serde",
 ]
 
@@ -1546,6 +1547,8 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "quote",
+ "rmp-serde",
+ "serde",
  "strum 0.27.1",
  "syn 2.0.95",
  "syn-path",

@@ -1,18 +1,23 @@
 mod item_impl;
 
+use machine_check_common::iir::description::IDescription;
 use syn::Item;
 
 use crate::Error;
 
 use self::item_impl::process_item_impl;
 
-pub fn process_items(items: &mut Vec<Item>, panic_messages: &[String]) -> Result<(), Error> {
+pub fn process_items(
+    items: &mut Vec<Item>,
+    panic_messages: &[String],
+    iir: IDescription,
+) -> Result<(), Error> {
     let mut added_items = Vec::new();
     for item in items.iter_mut() {
         match item {
             syn::Item::Impl(ref mut item_impl) => {
                 // add concrete traits for inputs, states, and machines
-                added_items.extend(process_item_impl(item_impl, panic_messages)?);
+                added_items.extend(process_item_impl(item_impl, panic_messages, &iir)?);
             }
             syn::Item::Struct(_) | syn::Item::Use(_) => {
                 // do nothing

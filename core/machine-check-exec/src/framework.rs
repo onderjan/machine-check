@@ -5,6 +5,7 @@ use log::log_enabled;
 use log::trace;
 use machine_check_common::check::Conclusion;
 use machine_check_common::check::KnownConclusion;
+use machine_check_common::iir::description::IDescription;
 use machine_check_common::iir::property::IProperty;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
@@ -28,6 +29,8 @@ pub struct Framework<M: FullMachine> {
     /// Abstract system.
     abstract_system: M::Abstr,
 
+    description: IDescription,
+
     /// Default input precision.
     default_input_precision: RefinInput<M>,
 
@@ -44,6 +47,11 @@ pub struct Framework<M: FullMachine> {
 impl<M: FullMachine> Framework<M> {
     /// Constructs the framework with a given system and strategy.
     pub fn new(abstract_system: M::Abstr, strategy: Strategy) -> Self {
+        let description = M::description();
+
+        let description =
+            rmp_serde::from_slice(description).expect("Description should be deserialized");
+
         // default the input and param precision to clean (inputs will be refined)
         let (default_input_precision, default_param_precision) = if strategy.naive_inputs {
             (Refine::dirty(), Refine::dirty())
@@ -61,6 +69,7 @@ impl<M: FullMachine> Framework<M> {
         // return the framework with empty state space, before any construction
         Framework {
             abstract_system,
+            description,
             default_input_precision,
             default_step_precision,
             default_param_precision,
@@ -69,6 +78,9 @@ impl<M: FullMachine> Framework<M> {
     }
 
     pub fn verify(&mut self, property: &IProperty) -> Result<KnownConclusion, ExecError> {
+        // TODO: actually use the description
+        eprintln!("Verifying description {:?}", self.description);
+
         // loop verification steps until some conclusion is reached
         let result = loop {
             match self.step_verification(property) {

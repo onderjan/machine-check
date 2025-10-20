@@ -1,9 +1,11 @@
+use machine_check_common::iir::description::IDescription;
+use proc_macro2::Span;
 use syn_path::path;
 
 use syn::{
     punctuated::Punctuated, spanned::Spanned, Arm, Expr, ExprLit, ExprMatch, FnArg, Ident,
-    ImplItem, Item, ItemImpl, Lifetime, Lit, LitInt, LitStr, Pat, PatIdent, PatType, Path,
-    PathSegment, Stmt, Token, Type, TypeReference,
+    ImplItem, ImplItemFn, Item, ItemImpl, Lifetime, Lit, LitByteStr, LitInt, LitStr, Pat, PatIdent,
+    PatType, Path, PathSegment, Stmt, Token, Type, TypeReference, TypeSlice,
 };
 
 use crate::{
@@ -18,6 +20,7 @@ use crate::{
 pub fn process_item_impl(
     item_impl: &mut syn::ItemImpl,
     panic_messages: &[String],
+    iir: &IDescription,
 ) -> Result<Vec<Item>, Error> {
     let mut concrete_impl = item_impl.clone();
     let Some((None, trait_path, _for_token)) = &mut concrete_impl.trait_ else {
@@ -80,15 +83,60 @@ pub fn process_item_impl(
 
     concrete_impl.items = vec![abstr_impl_item_type, refin_impl_item_type];
 
-    // add PanicMessage trait implementation
-    let panic_message_impl = create_panic_message_impl(item_impl, panic_messages);
+    // add MachineMisc trait implementation
+    let panic_message_impl = create_machine_misc_impl(item_impl, panic_messages, iir);
     Ok(vec![
         Item::Impl(concrete_impl),
         Item::Impl(panic_message_impl),
     ])
 }
 
-fn create_panic_message_impl(item_impl: &ItemImpl, panic_messages: &[String]) -> ItemImpl {
+fn create_machine_misc_impl(
+    item_impl: &ItemImpl,
+    panic_messages: &[String],
+    iir: &IDescription,
+) -> ItemImpl {
+    let span = item_impl.span();
+    let panic_message_fn = create_panic_message_fn(item_impl, panic_messages);
+    let description_fn = create_description_fn(item_impl, iir);
+    ItemImpl {
+        attrs: vec![],
+        defaultness: None,
+        unsafety: None,
+        impl_token: Token![impl](span),
+        generics: Default::default(),
+        trait_: Some((None, path!(::mck::misc::MachineMisc), Token![for](span))),
+        self_ty: item_impl.self_ty.clone(),
+        brace_token: Default::default(),
+        items: vec![ImplItem::Fn(panic_message_fn), ImplItem::Fn(description_fn)],
+    }
+}
+
+fn create_description_fn(item_impl: &ItemImpl, iir: &IDescription) -> ImplItemFn {
+    let span = item_impl.span();
+
+    let iir = rmp_serde::to_vec(iir).expect("IIR description should be serialized");
+    let expr = Expr::Lit(ExprLit {
+        attrs: vec![],
+        lit: Lit::ByteStr(LitByteStr::new(&iir, span)),
+    });
+
+    let u8_slice = Type::Slice(TypeSlice {
+        bracket_token: Default::default(),
+        elem: Box::new(create_type_path(create_path_from_ident(Ident::new(
+            "u8", span,
+        )))),
+    });
+
+    create_impl_item_fn(
+        Ident::new("description", span),
+        vec![],
+        Some(static_ref(u8_slice, span)),
+        vec![Stmt::Expr(expr, None)],
+    )
+}
+
+fn create_panic_message_fn(item_impl: &ItemImpl, panic_messages: &[String]) -> ImplItemFn {
     let span = item_impl.span();
     let panic_id_ident = Ident::new("panic_id", span);
     let mut panic_match_expr = ExprMatch {
@@ -127,7 +175,7 @@ fn create_panic_message_impl(item_impl: &ItemImpl, panic_messages: &[String]) ->
         comma: Some(Token![,](span)),
     });
 
-    let panic_message_fn = create_impl_item_fn(
+    create_impl_item_fn(
         Ident::new("panic_message", span),
         vec![FnArg::Typed(PatType {
             attrs: vec![],
@@ -143,26 +191,20 @@ fn create_panic_message_impl(item_impl: &ItemImpl, panic_messages: &[String]) ->
                 "u32", span,
             )))),
         })],
-        Some(Type::Reference(TypeReference {
-            and_token: Token![&](span),
-            lifetime: Some(Lifetime::new("'static", span)),
-            mutability: None,
-            elem: Box::new(create_type_path(create_path_from_ident(Ident::new(
-                "str", span,
-            )))),
-        })),
+        Some(static_ref(
+            create_type_path(create_path_from_ident(Ident::new("str", span))),
+            span,
+        )),
         vec![Stmt::Expr(Expr::Match(panic_match_expr), None)],
-    );
+    )
+}
 
-    ItemImpl {
-        attrs: vec![],
-        defaultness: None,
-        unsafety: None,
-        impl_token: Token![impl](span),
-        generics: Default::default(),
-        trait_: Some((None, path!(::mck::misc::PanicMessage), Token![for](span))),
-        self_ty: item_impl.self_ty.clone(),
-        brace_token: Default::default(),
-        items: vec![ImplItem::Fn(panic_message_fn)],
-    }
+fn static_ref(elem: Type, span: Span) -> Type {
+    // &'static <name>
+    Type::Reference(TypeReference {
+        and_token: Token![&](span),
+        lifetime: Some(Lifetime::new("'static", span)),
+        mutability: None,
+        elem: Box::new(elem),
+    })
 }

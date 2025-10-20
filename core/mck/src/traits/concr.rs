@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use super::{abstr, misc::PanicMessage, refin};
+use super::{abstr, misc::MachineMisc, refin};
 
 pub trait Input: Debug + PartialEq + Eq + Hash + Clone + Send + Sync {}
 
@@ -51,7 +51,7 @@ pub trait Test {
     fn into_bool(self) -> bool;
 }
 
-pub trait FullMachine: Machine + PanicMessage {
+pub trait FullMachine: Machine + MachineMisc {
     type Abstr: abstr::Machine<Self>;
     type Refin: refin::Machine<Self>;
 }

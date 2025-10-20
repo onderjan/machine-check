@@ -221,8 +221,6 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     }
     std::panic::set_hook(Box::new(panic_hook));
 
-    //eprintln!("Description: {:?}", description);
-
     let iir = description.clone().into_iir();
 
     eprintln!("Description IIR: {:#?}", iir);
@@ -259,7 +257,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     support::strip_machine::strip_machine(&mut abstract_description)?;
 
-    concr::process_items(items, &panic_messages)?;
+    concr::process_items(items, &panic_messages, iir)?;
 
     let abstract_module = create_machine_module("__mck_mod_abstr", abstract_description);
     items.push(abstract_module);
