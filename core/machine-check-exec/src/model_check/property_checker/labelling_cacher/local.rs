@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use mck::abstr::{AbstractValue, Manipulatable};
+use mck::abstr::{Abstr, AbstractValue, Manipulatable};
 
 use machine_check_common::iir::property::{ISubproperty, ISubpropertyFunc};
 use machine_check_common::{ExecError, ParamValuation, StateId, ThreeValued};
@@ -96,7 +96,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 value
             } else {
                 let value = if input_var_name == "__panic" {
-                    AbstractValue::Bitvector(state_panic.to_runtime())
+                    state_panic.to_runtime()
                 } else {
                     let Some(field) = Manipulatable::get(state_result, input_var_name) else {
                         panic!("Input '{}' should be in fields", input_var_name);

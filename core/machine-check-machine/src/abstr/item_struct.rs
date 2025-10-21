@@ -13,9 +13,11 @@ use crate::{
 };
 
 use self::from_concrete::from_concrete_fn;
+use self::runtime::{from_runtime_fn, to_runtime_fn};
 
 mod from_concrete;
 mod phi;
+mod runtime;
 
 pub fn process_item_struct(
     mut item_struct: WItemStruct<WElementaryType>,
@@ -79,6 +81,8 @@ fn create_abstr(item_struct: &WItemStruct<WElementaryType>) -> ItemImpl {
         create_path_with_last_generic_type(path!(::mck::abstr::Abstr), concr_ty.clone());
 
     let from_concrete_fn = ImplItem::Fn(from_concrete_fn(item_struct, concr_ty));
+    let from_runtime_fn = ImplItem::Fn(from_runtime_fn(item_struct));
+    let to_runtime_fn = ImplItem::Fn(to_runtime_fn(item_struct));
 
     ItemImpl {
         attrs: vec![],
@@ -91,6 +95,6 @@ fn create_abstr(item_struct: &WItemStruct<WElementaryType>) -> ItemImpl {
             item_struct.ident.to_syn_ident(),
         ))),
         brace_token: Default::default(),
-        items: vec![from_concrete_fn],
+        items: vec![from_concrete_fn, from_runtime_fn, to_runtime_fn],
     }
 }

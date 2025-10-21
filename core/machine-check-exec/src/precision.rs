@@ -8,6 +8,7 @@ use machine_check_common::{NodeId, StateId};
 use mck::abstr::Phi;
 use mck::concr::FullMachine;
 use mck::misc::MetaEq;
+use mck::refin::RefinementValue;
 use petgraph::prelude::GraphMap;
 use petgraph::Directed;
 
@@ -17,8 +18,8 @@ use crate::AbstrPanicState;
 /// Precision configurable by state space nodes.
 ///
 #[derive(Debug)]
-pub struct Precision<A, R: Debug + Clone + mck::refin::Refine<A>> {
-    map: BTreeMap<NodeId, R>,
+pub struct Precision<A> {
+    map: BTreeMap<NodeId, RefinementValue>,
     phantom: PhantomData<A>,
     get_elapsed: RefCell<Duration>,
     insert_elapsed: RefCell<Duration>,
@@ -26,7 +27,7 @@ pub struct Precision<A, R: Debug + Clone + mck::refin::Refine<A>> {
     ordering_graph: GraphMap<StateId, (), Directed>,
 }
 
-impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
+impl<A> Precision<A> {
     pub fn new() -> Self {
         Precision {
             map: BTreeMap::new(),
@@ -46,8 +47,8 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
         &self,
         state_space: &StateSpace<M>,
         node_id: NodeId,
-        default: &R,
-    ) -> R {
+        default: &RefinementValue,
+    ) -> RefinementValue {
         let mut node_precision = match self.map.get(&node_id) {
             Some(input) => input.clone(),
             None => default.clone(),
@@ -79,7 +80,14 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
                         .map
                         .get(&NodeId::from(stack_id))
                         .expect("Precision should contain state in ordering graph");
-                    mck::refin::Refine::apply_join(&mut node_precision, important_precision);
+
+                    //todo!("Apply join");
+
+                    use mck::misc::Join;
+                    let new_precision = node_precision.join(important_precision);
+                    node_precision = new_precision;
+
+                    //mck::refin::Refine::apply_join(&mut node_precision, important_precision);
 
                     for child_id in self.ordering_graph.neighbors(stack_id) {
                         if !opened.contains(&child_id) {
@@ -101,8 +109,8 @@ impl<A, R: Debug + Clone + mck::refin::Refine<A>> Precision<A, R> {
         &mut self,
         state_space: &mut StateSpace<M>,
         target_id: NodeId,
-        value: R,
-        default: &R,
+        value: RefinementValue,
+        default: &RefinementValue,
     ) {
         let start = std::time::Instant::now();
 

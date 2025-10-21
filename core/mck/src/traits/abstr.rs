@@ -6,8 +6,9 @@ use std::hash::Hash;
 use super::misc::MetaEq;
 
 pub trait Abstr<C> {
-    #[must_use]
     fn from_concrete(value: C) -> Self;
+    fn from_runtime(value: &AbstractValue) -> Self;
+    fn to_runtime(&self) -> AbstractValue;
 }
 
 pub trait Input<C: FullMachine>:

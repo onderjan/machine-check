@@ -3,8 +3,12 @@ use std::{collections::VecDeque, ops::ControlFlow};
 
 use log::trace;
 use machine_check_common::{
-    check::{AtomicProperty, Culprit},
-    iir::property::{IProperty, ISubproperty},
+    check::Culprit,
+    iir::{
+        description::IMachine,
+        path::{IIdent, ISpan},
+        property::{IProperty, ISubproperty},
+    },
     ExecError, StateId,
 };
 use mck::{concr::FullMachine, refin::RefinementValue};
@@ -21,6 +25,7 @@ use crate::{
 pub(super) fn deduce_culprit<M: FullMachine>(
     checker: &PropertyChecker,
     space: &StateSpace<M>,
+    machine: &IMachine,
     property: &IProperty,
 ) -> Result<Culprit, ExecError> {
     // incomplete, compute culprit
@@ -42,6 +47,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
         let deducer = Deducer {
             space,
             environment,
+            machine,
             property,
             subproperty_index: 0,
             path,
@@ -59,6 +65,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
 struct Deducer<'a, M: FullMachine> {
     space: &'a StateSpace<M>,
     environment: LabellingCacher<'a, M>,
+    machine: &'a IMachine,
     property: &'a IProperty,
     subproperty_index: usize,
     path: VecDeque<StateId>,
@@ -119,42 +126,43 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                 //eprintln!("Abstract interpretation: {:?}", abstr);
 
-                let refin = func.backward_interpret(&abstr);
+                // consider unknown result with no panic
+                let later_normal =
+                    RefinementValue::Boolean(mck::refin::Boolean::new_marked_unimportant());
+                let later_panic =
+                    RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
+
+                let refin = func.backward_interpret(&abstr, later_normal, later_panic);
 
                 //eprintln!("Refin interpretation: {:?}", refin);
 
-                let mut culprit_input_index = None;
+                let mut atomic_culprit = None;
                 for (input_index, input_var_id) in func.signature.inputs.iter().enumerate() {
                     if let Some(refin_value) = refin.value_opt(*input_var_id) {
-                        match refin_value {
-                            RefinementValue::Bitvector(mark) => {
-                                if mark.marked_bits().is_nonzero() {
-                                    culprit_input_index = Some(input_index);
-                                    break;
-                                }
-                            }
+                        let nonempty_mark = match refin_value {
+                            RefinementValue::Bitvector(mark) => mark.marked_bits().is_nonzero(),
                             RefinementValue::Boolean(mark) => {
-                                if *mark != mck::refin::Boolean::new_unmarked() {
-                                    culprit_input_index = Some(input_index);
-                                    break;
-                                }
+                                *mark != mck::refin::Boolean::new_unmarked()
                             }
                             RefinementValue::Array(mark) => {
                                 use mck::refin::Refine;
-                                if mark.to_condition().importance() > 0 {
-                                    culprit_input_index = Some(input_index);
-                                    break;
-                                }
+                                mark.to_condition().importance() > 0
                             }
                             RefinementValue::PanicResult(_panic_result) => todo!(),
+                            RefinementValue::Struct(refin_value) => todo!("Struct cuplrit"),
+                        };
+
+                        if nonempty_mark {
+                            atomic_culprit =
+                                Some((input_index, *input_var_id, refin_value.clone()));
+                            break;
                         }
                     }
                 }
 
-                let input_index =
-                    culprit_input_index.expect("Unknown func result should be caused by input");
+                let (input_index, input_var_id, input_refin_value) =
+                    atomic_culprit.expect("Unknown func result should be caused by input");
 
-                let input_var_id = func.signature.inputs[input_index];
                 let input_name = func
                     .variables
                     .get(&input_var_id)
@@ -173,13 +181,31 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                     inner
                 } else {
-                    let atomic_property = AtomicProperty {
+                    let mut earlier_normal = self.machine.state().clean_refin();
+                    let mut earlier_panic =
+                        RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
+
+                    // TODO: remove panic name kludge
+                    if input_name == "__panic" {
+                        earlier_panic = input_refin_value;
+                    } else {
+                        let field_index = self
+                            .machine
+                            .state()
+                            .fields
+                            .get_index_of(&IIdent::new(input_name.to_string(), ISpan::Unspecified))
+                            .expect("State should have field");
+                        earlier_normal.expect_struct_mut()[field_index] = input_refin_value;
+                    }
+
+                    /*let atomic_property = AtomicProperty {
                         name: input_name.to_string(),
                         refin_value: refin.value(input_var_id).clone(),
-                    };
+                    };*/
                     let culprit = Culprit {
                         path: self.path.clone(),
-                        atomic_property,
+                        result: earlier_normal,
+                        panic: earlier_panic,
                     };
                     return Ok(ControlFlow::Break(culprit));
                 }

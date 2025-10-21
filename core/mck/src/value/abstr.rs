@@ -12,10 +12,18 @@ pub enum AbstractValue {
     Bitvector(RBitvector),
     Boolean(Boolean),
     PanicResult(PanicResult<RBitvector>),
+    Struct(Vec<AbstractValue>),
 }
 
 impl AbstractValue {
     pub fn expect_bitvector(&self) -> &RBitvector {
+        let AbstractValue::Bitvector(bitvec) = self else {
+            panic!("Value is not a bitvector");
+        };
+        bitvec
+    }
+
+    pub fn expect_bitvector_mut(&mut self) -> &mut RBitvector {
         let AbstractValue::Bitvector(bitvec) = self else {
             panic!("Value is not a bitvector");
         };
@@ -36,11 +44,32 @@ impl AbstractValue {
         array
     }
 
+    pub fn expect_array_mut(&mut self) -> &mut RArray {
+        let AbstractValue::Array(array) = self else {
+            panic!("Value is not an array");
+        };
+        array
+    }
+
     pub fn expect_panic_result(&self) -> &PanicResult<RBitvector> {
         let AbstractValue::PanicResult(panic_result) = self else {
             panic!("Value is not a panic result");
         };
         panic_result
+    }
+
+    pub fn expect_struct(&self) -> &Vec<AbstractValue> {
+        let AbstractValue::Struct(fields) = self else {
+            panic!("Value is not a struct");
+        };
+        fields
+    }
+
+    pub fn expect_struct_mut(&mut self) -> &mut Vec<AbstractValue> {
+        let AbstractValue::Struct(fields) = self else {
+            panic!("Value is not a struct");
+        };
+        fields
     }
 
     pub fn uext(&self, new_width: u32) -> Self {

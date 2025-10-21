@@ -105,22 +105,22 @@ impl<const W: u32> TypedCmp for ThreeValuedBitvector<W> {
     type Output = crate::abstr::Boolean;
 
     fn ult(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.ult(rhs)
     }
 
     fn ule(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.ule(rhs)
     }
 
     fn slt(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.slt(rhs)
     }
 
     fn sle(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.sle(rhs)
     }
 }

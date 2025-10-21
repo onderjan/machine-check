@@ -48,11 +48,19 @@ impl IExpr {
                 };
                 Some(abstr.value(var_id).clone())
             }
-            IExpr::Field(_expr_field) => {
-                todo!("Forward-interpret field")
+            IExpr::Field(expr_field) => {
+                let base = abstr.value(expr_field.base).expect_struct();
+
+                Some(base[expr_field.member_index].clone())
             }
-            IExpr::Struct(_expr_struct) => {
-                todo!("Forward-interpret struct")
+            IExpr::Struct(expr_struct) => {
+                let mut values = Vec::new();
+
+                for field in expr_struct.fields.iter().cloned() {
+                    values.push(abstr.value(field).clone());
+                }
+
+                Some(AbstractValue::Struct(values))
             }
         }
     }
@@ -75,11 +83,28 @@ impl IExpr {
                     }
                 }
             }
-            IExpr::Field(_expr_field) => {
-                todo!("Backward-interpret field")
+            IExpr::Field(expr_field) => {
+                // limited-join the part of the struct
+                let mut base = if let Some(base) = refin.value_opt(expr_field.base) {
+                    base.clone()
+                } else {
+                    RefinementValue::unmarked_for(abstr.value(expr_field.base))
+                };
+
+                let base_fields = base.expect_struct_mut();
+                let member = &mut base_fields[expr_field.member_index];
+                *member = mck::misc::Join::join(later, member);
+
+                join_limited(abstr, refin, expr_field.base, base);
             }
-            IExpr::Struct(_expr_struct) => {
-                todo!("Backward-interpret struct")
+            IExpr::Struct(expr_struct) => {
+                let later_fields = later.expect_struct();
+                assert_eq!(expr_struct.fields.len(), later_fields.len());
+
+                // limited-join all the fields comprising the struct
+                for (field_id, field_earlier) in expr_struct.fields.iter().zip(later_fields) {
+                    join_limited(abstr, refin, *field_id, field_earlier.clone());
+                }
             }
         }
     }
@@ -115,6 +140,7 @@ impl Debug for IExprStruct {
 
 impl Debug for IExprReference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "&")?;
         match self {
             Self::Ident(ident) => write!(f, "{:?}", ident),
             Self::Field(field) => field.fmt(f),

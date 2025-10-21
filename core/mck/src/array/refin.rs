@@ -26,24 +26,36 @@ pub struct RArray {
 
 impl RArray {
     pub fn new_unmarked(index_width: u32, element_width: u32) -> Self {
+        Self::new_with_element(
+            index_width,
+            element_width,
+            refin::RBitvector::new_unmarked(element_width),
+        )
+    }
+
+    pub fn new_marked_unimportant(index_width: u32, element_width: u32) -> Self {
+        Self::new_with_element(
+            index_width,
+            element_width,
+            refin::RBitvector::new_marked_unimportant(element_width),
+        )
+    }
+
+    fn new_with_element(index_width: u32, element_width: u32, element: refin::RBitvector) -> Self {
         RArray {
             element_width,
-            inner: LightArray::new_filled(
-                MetaWrap(refin::RBitvector::new_unmarked(element_width)),
-                RMax { width: index_width },
-            ),
+            inner: LightArray::new_filled(MetaWrap(element), RMax { width: index_width }),
         }
     }
 
     pub fn to_condition(&self) -> Boolean {
         // marked with the highest marking importance
         self.inner.fold(Boolean::new_unmarked(), |result, value| {
-            if let Some(importance) = value.0.importance() {
-                if importance.get() > result.importance() {
-                    Boolean::new_marked(importance)
-                } else {
-                    result
-                }
+            let value_importance = value.0.importance();
+            if value_importance > result.importance() {
+                Boolean::new_marked(
+                    NonZeroU8::new(value_importance).expect("Importance should be nonzero"),
+                )
             } else {
                 result
             }
@@ -56,6 +68,11 @@ impl RArray {
 
     pub fn element_width(&self) -> u32 {
         self.element_width
+    }
+
+    pub fn importance(&self) -> u8 {
+        self.inner
+            .fold(0, |accum, element| accum.max(element.0.importance()))
     }
 }
 
@@ -102,7 +119,8 @@ impl ReadWrite for abstr::RArray {
         assert_eq!(index_width, normal_input.1.width());
         assert_eq!(element_width, mark_later.marked_bits().width());
 
-        let Some(importance) = mark_later.importance() else {
+        let importance = mark_later.importance();
+        if importance == 0 {
             // no marking
             return (
                 Self::Mark::new_unmarked(index_width, element_width),
@@ -202,7 +220,7 @@ impl<const I: u32, const W: u32> ReadWrite for abstr::Array<I, W> {
             // mark index with higher importance
             (
                 Self::Mark::new_unmarked(),
-                Self::IndexMark::new_marked(index_importance(later_mark.importance))
+                Self::IndexMark::new_marked(index_importance(later_mark.importance.get()))
                     .limit(normal_input.1),
             )
         }
@@ -251,7 +269,7 @@ impl<const I: u32, const W: u32> ReadWrite for abstr::Array<I, W> {
                 // do not mark anything else and mark index with index importance
                 (
                     Self::Mark::new_unmarked(),
-                    Self::IndexMark::new_marked(index_importance(max_importance))
+                    Self::IndexMark::new_marked(index_importance(max_importance.get()))
                         .limit(normal_input.1),
                     Self::ElementMark::new_unmarked(),
                 )
@@ -345,6 +363,29 @@ impl<const I: u32, const W: u32> MetaEq for Array<I, W> {
     }
 }
 
+impl Meta<abstr::RArray> for RArray {
+    fn proto_first(&self) -> abstr::RArray {
+        abstr::RArray {
+            element_width: self.element_width,
+            inner: self.inner.map(|element| MetaWrap(element.0.proto_first())),
+        }
+    }
+
+    fn proto_increment(&self, proto: &mut abstr::RArray) -> bool {
+        proto.inner.involve_with_flow(
+            &self.inner,
+            |result, abstr_element, refin_element| {
+                if refin_element.0.proto_increment(&mut abstr_element.0) {
+                    ControlFlow::Break(true)
+                } else {
+                    ControlFlow::Continue(result)
+                }
+            },
+            false,
+        )
+    }
+}
+
 impl<const I: u32, const W: u32> Meta<abstr::Array<I, W>> for Array<I, W> {
     fn proto_first(&self) -> abstr::Array<I, W> {
         abstr::Array {
@@ -405,8 +446,8 @@ impl<const I: u32, const W: u32> ManipField for Array<I, W> {
     }
 }
 
-fn index_importance(element_importance: NonZeroU8) -> NonZeroU8 {
-    element_importance.saturating_add(1)
+fn index_importance(element_importance: u8) -> NonZeroU8 {
+    NonZeroU8::new(element_importance.saturating_add(1)).unwrap()
 }
 
 impl MetaEq for RArray {

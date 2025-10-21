@@ -105,23 +105,33 @@ impl IFn {
         normal_result
     }
 
-    pub fn backward_interpret(&self, abstr: &IAbstr) -> IRefin {
+    pub fn backward_interpret(
+        &self,
+        abstr: &IAbstr,
+        later_normal: RefinementValue,
+        later_panic: RefinementValue,
+    ) -> IRefin {
         let mut refin = IRefin::new();
 
-        // TODO: correct marking
-        refin.insert_value(
-            self.signature.output.normal,
-            RefinementValue::Boolean(mck::refin::Boolean::new_marked_unimportant()),
-        );
-        // TODO panic value
-        /*refin.insert_value(
-            self.signature.output.panic,
-            IRefinementValue::Bitvector(mck::refin::Bitvector::new_unmarked()),
-        );*/
+        refin.insert_value(self.signature.output.normal, later_normal);
+        refin.insert_value(self.signature.output.panic, later_panic);
 
         self.block.backward_interpret(abstr, &mut refin);
 
         refin
+    }
+
+    pub fn backward_earlier(&self, abstr: &IAbstr, refin: &IRefin) -> Vec<RefinementValue> {
+        let mut result = Vec::new();
+        for input_var_id in &self.signature.inputs {
+            result.push(
+                refin
+                    .value_opt(*input_var_id)
+                    .cloned()
+                    .unwrap_or_else(|| RefinementValue::unmarked_for(abstr.value(*input_var_id))),
+            );
+        }
+        result
     }
 }
 

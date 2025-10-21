@@ -67,10 +67,10 @@ impl<const W: u32, const X: u32> Ext<X> for ThreeValuedBitvector<W> {
     type Output = ThreeValuedBitvector<X>;
 
     fn uext(self) -> Self::Output {
-        self.to_runtime().uext(X).unwrap_typed()
+        self.to_runtime_bitvector().uext(X).unwrap_typed()
     }
 
     fn sext(self) -> Self::Output {
-        self.to_runtime().sext(X).unwrap_typed()
+        self.to_runtime_bitvector().sext(X).unwrap_typed()
     }
 }

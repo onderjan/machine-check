@@ -1,4 +1,7 @@
-use machine_check_common::iir::description::IDescription;
+use machine_check_common::iir::{
+    description::{IDescription, IFnId, IMachine, IStructId},
+    path::IIdent,
+};
 use proc_macro2::Span;
 use syn_path::path;
 
@@ -11,16 +14,17 @@ use syn::{
 use crate::{
     util::{
         create_expr_ident, create_impl_item_fn, create_impl_item_type, create_pat_wild,
-        create_path_from_ident, create_path_segment, create_type_path, extract_type_path,
-        path_matches_global_names,
+        create_path_from_ident, create_path_segment, create_type_path, extract_path_ident,
+        extract_type_path, path_matches_global_names,
     },
+    wir::WIdent,
     Error,
 };
 
 pub fn process_item_impl(
     item_impl: &mut syn::ItemImpl,
     panic_messages: &[String],
-    iir: &IDescription,
+    description_iir: &IDescription,
 ) -> Result<Vec<Item>, Error> {
     let mut concrete_impl = item_impl.clone();
     let Some((None, trait_path, _for_token)) = &mut concrete_impl.trait_ else {
@@ -31,6 +35,68 @@ pub fn process_item_impl(
         // not a special trait impl, do nothing
         return Ok(vec![]);
     };
+
+    fn extract_ty_iir_ident(ty: &Type) -> Option<IIdent> {
+        extract_type_path(ty)
+            .and_then(|path| extract_path_ident(&path).cloned())
+            .map(|ident| WIdent::from_syn_ident(ident).into_iir())
+    }
+
+    let Some(machine_ident) = extract_ty_iir_ident(&item_impl.self_ty) else {
+        panic!("Machine type should be ident");
+    };
+
+    let mut init_id = None;
+    let mut next_id = None;
+
+    let mut input_ident = None;
+    let mut param_ident = None;
+    let mut state_ident = None;
+
+    let mut fn_index = 0;
+
+    for impl_item in &item_impl.items {
+        match impl_item {
+            ImplItem::Fn(impl_item_) => {
+                match impl_item_.sig.ident.to_string().as_str() {
+                    "init" => init_id = Some(fn_index),
+                    "next" => next_id = Some(fn_index),
+                    _ => {}
+                };
+
+                fn_index += 1;
+            }
+            ImplItem::Type(impl_item) => match impl_item.ident.to_string().as_str() {
+                "Input" => {
+                    input_ident = Some(
+                        extract_ty_iir_ident(&impl_item.ty)
+                            .expect("Machine input type should be ident"),
+                    );
+                }
+                "Param" => {
+                    param_ident = Some(
+                        extract_ty_iir_ident(&impl_item.ty)
+                            .expect("Parameter input type should be ident"),
+                    );
+                }
+                "State" => {
+                    state_ident = Some(
+                        extract_ty_iir_ident(&impl_item.ty)
+                            .expect("State input type should be ident"),
+                    );
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+
+    let init_id = init_id.expect("Machine should have init function");
+    let next_id = next_id.expect("Machine should have next function");
+
+    let input_ident = input_ident.expect("Machine should have input type");
+    let param_ident = param_ident.expect("Machine should have param type");
+    let state_ident = state_ident.expect("Machine should have state type");
 
     // implement the trait that points to the analogues
     // change to mck::concr, change the trait name to FullMachine and replace the impl with the pointed-to types
@@ -83,8 +149,36 @@ pub fn process_item_impl(
 
     concrete_impl.items = vec![abstr_impl_item_type, refin_impl_item_type];
 
+    let extract_struct_index = |ident| {
+        IStructId(
+            description_iir
+                .structs
+                .get_index_of(ident)
+                .expect("Ident should be in structs"),
+        )
+    };
+
+    let machine = extract_struct_index(&machine_ident);
+
     // add MachineMisc trait implementation
-    let panic_message_impl = create_machine_misc_impl(item_impl, panic_messages, iir);
+    let machine_iir = IMachine {
+        machine,
+        init: IFnId {
+            struct_id: machine,
+            fn_index: init_id,
+        },
+        next: IFnId {
+            struct_id: machine,
+            fn_index: next_id,
+        },
+        input: extract_struct_index(&input_ident),
+        param: extract_struct_index(&param_ident),
+        state: extract_struct_index(&state_ident),
+        description: description_iir.clone(),
+    };
+
+    let panic_message_impl = create_machine_misc_impl(item_impl, panic_messages, &machine_iir);
+
     Ok(vec![
         Item::Impl(concrete_impl),
         Item::Impl(panic_message_impl),
@@ -94,11 +188,11 @@ pub fn process_item_impl(
 fn create_machine_misc_impl(
     item_impl: &ItemImpl,
     panic_messages: &[String],
-    iir: &IDescription,
+    iir: &IMachine,
 ) -> ItemImpl {
     let span = item_impl.span();
     let panic_message_fn = create_panic_message_fn(item_impl, panic_messages);
-    let description_fn = create_description_fn(item_impl, iir);
+    let description_fn = create_machine_fn(item_impl, iir);
     ItemImpl {
         attrs: vec![],
         defaultness: None,
@@ -112,10 +206,10 @@ fn create_machine_misc_impl(
     }
 }
 
-fn create_description_fn(item_impl: &ItemImpl, iir: &IDescription) -> ImplItemFn {
+fn create_machine_fn(item_impl: &ItemImpl, iir: &IMachine) -> ImplItemFn {
     let span = item_impl.span();
 
-    let iir = rmp_serde::to_vec(iir).expect("IIR description should be serialized");
+    let iir = rmp_serde::to_vec(iir).expect("IIR machine should be serialized");
     let expr = Expr::Lit(ExprLit {
         attrs: vec![],
         lit: Lit::ByteStr(LitByteStr::new(&iir, span)),
@@ -129,7 +223,7 @@ fn create_description_fn(item_impl: &ItemImpl, iir: &IDescription) -> ImplItemFn
     });
 
     create_impl_item_fn(
-        Ident::new("description", span),
+        Ident::new("machine", span),
         vec![],
         Some(static_ref(u8_slice, span)),
         vec![Stmt::Expr(expr, None)],

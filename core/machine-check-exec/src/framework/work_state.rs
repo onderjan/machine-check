@@ -9,16 +9,15 @@ use crate::model_check::ThreeValuedChecker;
 use crate::precision::Precision;
 use crate::space::StateSpace;
 use crate::{AbstrInput, AbstrPanicState, AbstrParam};
-use crate::{RefinInput, RefinPanicState, RefinParam};
 
 /// Work state, i.e. the meta-state of the whole verification.
 pub struct WorkState<M: FullMachine> {
     /// Refinement precision for inputs (can make inputs more precise).
-    pub input_precision: Precision<AbstrInput<M>, RefinInput<M>>,
+    pub input_precision: Precision<AbstrInput<M>>,
     /// Refinement precision for parameters (can make parameters more precise).
-    pub param_precision: Precision<AbstrParam<M>, RefinParam<M>>,
+    pub param_precision: Precision<AbstrParam<M>>,
     /// Refinement precision for steps (can add step decay).
-    pub step_precision: Precision<AbstrPanicState<M>, RefinPanicState<M>>,
+    pub step_precision: Precision<AbstrPanicState<M>>,
     /// Current state space.
     pub space: StateSpace<M>,
     /// Model checker.

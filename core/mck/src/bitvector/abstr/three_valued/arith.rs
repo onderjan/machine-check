@@ -120,38 +120,38 @@ impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
     type DivRemResult = PanicResult<Self>;
 
     fn arith_neg(self) -> Self {
-        self.to_runtime().arith_neg().unwrap_typed()
+        self.to_runtime_bitvector().arith_neg().unwrap_typed()
     }
     fn add(self, rhs: Self) -> Self {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.add(rhs).unwrap_typed()
     }
     fn sub(self, rhs: Self) -> Self {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.sub(rhs).unwrap_typed()
     }
     fn mul(self, rhs: Self) -> Self {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.mul(rhs).unwrap_typed()
     }
 
     fn udiv(self, rhs: Self) -> PanicResult<Self> {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.udiv(rhs).unwrap_typed()
     }
 
     fn sdiv(self, rhs: Self) -> PanicResult<Self> {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.sdiv(rhs).unwrap_typed()
     }
 
     fn urem(self, rhs: Self) -> PanicResult<Self> {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.urem(rhs).unwrap_typed()
     }
 
     fn srem(self, rhs: Self) -> PanicResult<Self> {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.srem(rhs).unwrap_typed()
     }
 }

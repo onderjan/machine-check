@@ -52,6 +52,15 @@ pub fn create_let_mut(left_ident: Ident, right_expr: Expr, ty: Option<Type>) -> 
     ))
 }
 
+pub fn create_let(left_ident: Ident, right_expr: Expr, ty: Option<Type>) -> Stmt {
+    Stmt::Local(create_let_mut_choice(
+        false,
+        left_ident,
+        Some(right_expr),
+        ty,
+    ))
+}
+
 pub fn create_let_bare(ident: Ident, ty: Option<Type>) -> Stmt {
     Stmt::Local(create_let_mut_choice(false, ident, None, ty))
 }

@@ -5,13 +5,18 @@ use log::debug;
 use log::log_enabled;
 use log::trace;
 use machine_check_common::check::Culprit;
+use machine_check_common::iir::description::ITrait;
+use machine_check_common::iir::path::IIdent;
+use machine_check_common::iir::path::ISpan;
 use machine_check_common::ExecError;
 use machine_check_common::NodeId;
 use machine_check_common::StateId;
+use mck::abstr::Abstr;
 use mck::concr::FullMachine;
 use mck::refin::Machine as RefinMachine;
 use mck::refin::Manipulatable;
 use mck::refin::Refine;
+use mck::refin::RefinementValue;
 use mck::refin::{self};
 
 impl<M: FullMachine> super::Framework<M> {
@@ -25,31 +30,45 @@ impl<M: FullMachine> super::Framework<M> {
 
     /// Refines a single bit. OK result contains whether the state space changed.
     fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
+        eprintln!("Culprit: {:?}", culprit);
+
+        // try increasing precision of the state preceding current mark
+        let mut iter = culprit.path.iter().cloned().rev().peekable();
+
         let start_instant = if log_enabled!(log::Level::Debug) {
             Some(Instant::now())
         } else {
             None
         };
-        // compute marking
-        let mut current_state_mark = RefinPanicState::<M>::clean();
 
+        // compute marking
+        let mut current_state_mark = culprit.result.clone();
+        let mut current_panic_mark = culprit.panic.clone();
+
+        /*
         // TODO: rework panic name kludge
         if culprit.atomic_property.name == "__panic" {
-            current_state_mark.panic = refin::PanicBitvector::dirty();
+            current_panic_mark =
+                RefinementValue::Bitvector(mck::refin::RBitvector::new_marked_unimportant(32));
         } else {
             // TODO: mark more adequately
-            let manip_mark = current_state_mark
+            /*let manip_mark = current_state_mark
                 .result
                 .get_mut(&culprit.atomic_property.name)
                 .expect("Culprit mark should be manipulatable");
-            manip_mark.mark(&culprit.atomic_property.refin_value);
-        }
+            manip_mark.mark(&culprit.atomic_property.refin_value);*/
+
+            let
+
+            current_state_mark.expect_struct().
+
+        }*/
 
         // try increasing precision of the state preceding current mark
         let mut iter = culprit.path.iter().cloned().rev().peekable();
 
         // store the input precision refinements so that the oldest input can be refined first
-        let mut candidate_refinement: Option<RefinCandidate<M>> = None;
+        let mut candidate_refinement: Option<RefinCandidate> = None;
 
         while let Some(current_state_id) = iter.next() {
             let previous_node_id = match iter.peek() {
@@ -64,7 +83,8 @@ impl<M: FullMachine> super::Framework<M> {
                 &self.default_step_precision,
             );
 
-            if step_precision.apply_refin(&current_state_mark) {
+            // TODO: refine step precision
+            /*if step_precision.apply_refin(&current_state_mark) {
                 // single mark applied to decay, insert it back and regenerate
                 self.work_state.step_precision.insert(
                     &mut self.work_state.space,
@@ -74,7 +94,7 @@ impl<M: FullMachine> super::Framework<M> {
                 );
 
                 return Ok(self.regenerate(previous_node_id));
-            }
+            }*/
 
             let mut input_precision = self.work_state.input_precision.get(
                 &self.work_state.space,
@@ -88,8 +108,22 @@ impl<M: FullMachine> super::Framework<M> {
                 &self.default_param_precision,
             );
 
-            let (input_mark, param_mark, new_state_mark) =
-                self.compute_marks(previous_node_id, current_state_id, current_state_mark);
+            let (input_mark, param_mark, new_state_mark) = self.compute_marks(
+                previous_node_id,
+                current_state_id,
+                current_state_mark,
+                current_panic_mark,
+            );
+
+            // TODO: what to do with the panic mark?
+
+            current_panic_mark =
+                RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
+
+            /*todo!(
+                "Do something with computed marks: {:#?}",
+                (input_mark, param_mark, new_state_mark)
+            );*/
 
             // refinement can be applied to input or param precision
             // we will replace the refinement if either there has been no refinement previously
@@ -125,10 +159,7 @@ impl<M: FullMachine> super::Framework<M> {
             if let Some(new_state_mark) = new_state_mark {
                 // update current state mark
                 // note that the preceding state could not have panicked
-                current_state_mark = mck::refin::PanicResult {
-                    panic: refin::PanicBitvector::new_unmarked(),
-                    result: new_state_mark,
-                };
+                current_state_mark = new_state_mark;
             } else {
                 // we already know the iterator will end
                 // break early as current_state_mark is moved from
@@ -181,8 +212,11 @@ impl<M: FullMachine> super::Framework<M> {
         &mut self,
         previous_node_id: NodeId,
         current_state_id: StateId,
-        current_state_mark: RefinPanicState<M>,
-    ) -> (RefinInput<M>, RefinParam<M>, Option<RefinState<M>>) {
+        current_state_mark: RefinementValue,
+        current_panic_mark: RefinementValue,
+    ) -> (RefinementValue, RefinementValue, Option<RefinementValue>) {
+        let runtime_machine = self.abstract_system.to_runtime();
+
         let input = self
             .work_state
             .space
@@ -209,15 +243,35 @@ impl<M: FullMachine> super::Framework<M> {
                 trace!("Later mark: {:?}", current_state_mark);
             }
 
-            // the previous state must definitely be non-panicking
+            // the previous state must definitely be non-panicking ???
             let previous_state = &previous_state.result;
 
-            let (_refinement_machine, new_state_mark, input_mark, param_mark) = M::Refin::next(
+            let previous_state = previous_state.to_runtime();
+            let input = input.to_runtime();
+            let param = param.to_runtime();
+
+            let next_fn = self.machine.next();
+
+            let in_data = vec![runtime_machine, previous_state, input, param];
+
+            let abstr = next_fn.forward_interpret(in_data);
+
+            let refin = next_fn.backward_interpret(&abstr, current_state_mark, current_panic_mark);
+
+            let mut earlier_marks = next_fn.backward_earlier(&abstr, &refin).into_iter();
+            assert_eq!(earlier_marks.len(), 4);
+            let _machine_mark = earlier_marks.next().unwrap();
+
+            let state_mark = earlier_marks.next().unwrap();
+            let input_mark = earlier_marks.next().unwrap();
+            let param_mark = earlier_marks.next().unwrap();
+
+            /*let (_refinement_machine, new_state_mark, input_mark, param_mark) = M::Refin::next(
                 (&self.abstract_system, previous_state, input, param),
                 current_state_mark,
-            );
+            );*/
 
-            return (input_mark, param_mark, Some(new_state_mark));
+            return (input_mark, param_mark, Some(state_mark));
         }
 
         trace!(
@@ -230,20 +284,36 @@ impl<M: FullMachine> super::Framework<M> {
             trace!("Later state: {:?}", current_state);
             trace!("Later mark: {:?}", current_state_mark);
         }
-        // the current state was generated by the init function
-        let (_refinement_machine, input_mark, param_mark) =
-            M::Refin::init((&self.abstract_system, input, param), current_state_mark);
+
+        let input = input.to_runtime();
+        let param = param.to_runtime();
+
+        let init_fn = self.machine.init();
+
+        let in_data = vec![runtime_machine, input, param];
+
+        let abstr = init_fn.forward_interpret(in_data);
+
+        let refin = init_fn.backward_interpret(&abstr, current_state_mark, current_panic_mark);
+
+        let mut earlier_marks = init_fn.backward_earlier(&abstr, &refin).into_iter();
+        assert_eq!(earlier_marks.len(), 3);
+        let _machine_mark = earlier_marks.next().unwrap();
+        let input_mark = earlier_marks.next().unwrap();
+        let param_mark = earlier_marks.next().unwrap();
+
+        //todo!("Compute init mark")
 
         (input_mark, param_mark, None)
     }
 }
 
-enum RefinCandidate<M: FullMachine> {
-    Input(NodeId, RefinInput<M>),
-    Param(NodeId, RefinParam<M>),
+enum RefinCandidate {
+    Input(NodeId, RefinementValue),
+    Param(NodeId, RefinementValue),
 }
 
-impl<M: FullMachine> RefinCandidate<M> {
+impl RefinCandidate {
     fn importance(&self) -> u8 {
         match self {
             RefinCandidate::Input(_, input) => input.importance(),

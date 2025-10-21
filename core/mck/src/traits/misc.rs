@@ -80,7 +80,7 @@ impl<M: Meta<P>, P: Clone> Iterator for ProtoIterator<M, P> {
 
 pub trait MachineMisc {
     fn panic_message(panic_id: u32) -> &'static str;
-    fn description() -> &'static [u8];
+    fn machine() -> &'static [u8];
 }
 
 // TODO: integrate Join, Phi, and apply_join

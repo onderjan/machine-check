@@ -33,12 +33,12 @@ impl TypedEq for RThreeValuedBitvector {
 impl<const W: u32> TypedEq for ThreeValuedBitvector<W> {
     type Output = Boolean;
     fn eq(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.eq(rhs)
     }
 
     fn ne(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
+        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
         lhs.ne(rhs)
     }
 }

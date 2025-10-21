@@ -58,8 +58,8 @@ impl RMarkBitvector {
         }
     }
 
-    pub fn importance(&self) -> Option<NonZeroU8> {
-        self.inner.map(|mark| mark.importance)
+    pub fn importance(&self) -> u8 {
+        self.inner.map(|mark| mark.importance.get()).unwrap_or(0)
     }
 }
 

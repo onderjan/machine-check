@@ -1,9 +1,9 @@
 use indexmap::IndexMap;
 use machine_check_common::{
     iir::{
-        description::ITrait,
+        description::{IFnId, IStructId, ITrait},
         expr::{
-            call::{IArrayRead, IArrayWrite, ICall, ICallId, IExprCall, IMckNew, IPhiTaken},
+            call::{IArrayRead, IArrayWrite, ICall, IExprCall, IMckNew, IPhiTaken},
             op::{IMckBinary, IMckExt, IMckUnary},
             IExpr, IExprField, IExprReference, IExprStruct,
         },
@@ -54,7 +54,7 @@ impl WExpr<WExprCall> {
                         );
                     };
 
-                    let Some((call_index, _, call_declaration)) =
+                    let Some((fn_index, _, call_declaration)) =
                         struct_data.fns.get_full(&(ITrait::Inherent, call_ident))
                     else {
                         panic!("Unresolved call {:?} not found in struct", call.fn_path);
@@ -73,9 +73,9 @@ impl WExpr<WExprCall> {
                     }
 
                     IExprCall::Call(ICall {
-                        func: ICallId {
-                            struct_index,
-                            call_index,
+                        func: IFnId {
+                            struct_id: IStructId(struct_index),
+                            fn_index,
                         },
                         args,
                     })

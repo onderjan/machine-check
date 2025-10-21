@@ -12,8 +12,6 @@ use crate::{
 
 use super::MarkBitvector;
 
-// TODO: use this
-#[allow(dead_code)]
 impl RMarkBitvector {
     pub fn apply_join(&mut self, other: &Self) {
         assert_eq!(self.width, other.width);
@@ -38,7 +36,7 @@ impl RMarkBitvector {
         }
     }
 
-    fn apply_refin(&mut self, offer: &Self) -> bool {
+    pub fn apply_refin(&mut self, offer: &Self) -> bool {
         assert_eq!(self.width, offer.width);
         let width = self.width;
 

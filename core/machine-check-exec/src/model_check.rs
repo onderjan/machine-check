@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use log::trace;
 use machine_check_common::{
     check::{Conclusion, KnownConclusion},
-    iir::property::IProperty,
+    iir::{description::IMachine, property::IProperty},
     ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
@@ -59,6 +59,7 @@ impl ThreeValuedChecker {
     pub fn check_property<M: FullMachine>(
         &mut self,
         space: &StateSpace<M>,
+        machine: &IMachine,
         property: &IProperty,
     ) -> Result<Conclusion, ExecError> {
         trace!("Checking property {:#?}", property);
@@ -102,6 +103,7 @@ impl ThreeValuedChecker {
             ParamValuation::Unknown => Ok(Conclusion::Unknown(deduce::deduce_culprit(
                 property_checker,
                 space,
+                machine,
                 property,
             )?)),
         }

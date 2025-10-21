@@ -10,6 +10,7 @@ use mck::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::iir::description::IFnId;
 use crate::iir::expr::op::IMckExt;
 use crate::iir::{
     expr::op::{IMckBinary, IMckUnary},
@@ -160,6 +161,9 @@ impl IExprCall {
                     RefinementValue::PanicResult(_) => {
                         panic!("Panic result should never be joined")
                     }
+                    RefinementValue::Struct(_) => {
+                        todo!("Convert struct to condition value")
+                    }
                 });
 
                 join_limited(abstr, refin, taken.condition, condition_value)
@@ -214,20 +218,8 @@ impl Debug for IExprCall {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ICallId {
-    pub struct_index: usize,
-    pub call_index: usize,
-}
-
-impl Debug for ICallId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "${}::{}", self.struct_index, self.call_index)
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ICall {
-    pub func: ICallId,
+    pub func: IFnId,
     pub args: Vec<IVarId>,
 }
 

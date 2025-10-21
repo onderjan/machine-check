@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::AbstractValue,
+    abstr::{AbstractValue, RArray},
     backward,
-    misc::{Join, MetaEq},
+    misc::{Join, Meta, MetaEq},
     refin::{self, Limit, Refine},
 };
 
@@ -13,28 +13,104 @@ pub enum RefinementValue {
     Bitvector(refin::RBitvector),
     Boolean(refin::Boolean),
     PanicResult(refin::PanicResult<refin::RBitvector>),
+    Struct(Vec<RefinementValue>),
 }
 
 impl RefinementValue {
     pub fn expect_bitvector(&self) -> &refin::RBitvector {
         let RefinementValue::Bitvector(result) = self else {
-            panic!("Value is not a bitvector");
+            panic!("Value should be a bitvector");
         };
         result
     }
 
     pub fn expect_boolean(&self) -> &refin::Boolean {
         let RefinementValue::Boolean(result) = self else {
-            panic!("Value is not a Boolean");
+            panic!("Value should be a Boolean");
         };
         result
     }
 
     pub fn expect_array(&self) -> &refin::RArray {
         let RefinementValue::Array(array) = self else {
-            panic!("Value is not an array");
+            panic!("Value should be an array");
         };
         array
+    }
+
+    pub fn expect_struct(&self) -> &Vec<RefinementValue> {
+        let RefinementValue::Struct(fields) = self else {
+            panic!("Value should be a struct, but is {:?}", self);
+        };
+        fields
+    }
+
+    pub fn expect_struct_mut(&mut self) -> &mut Vec<RefinementValue> {
+        let RefinementValue::Struct(fields) = self else {
+            panic!("Value should be a struct, but is {:?}", self);
+        };
+        fields
+    }
+
+    pub fn unmarked_for(abstr: &AbstractValue) -> RefinementValue {
+        match abstr {
+            AbstractValue::Array(abstr) => RefinementValue::Array(refin::RArray::new_unmarked(
+                abstr.index_width(),
+                abstr.element_width(),
+            )),
+            AbstractValue::Bitvector(abstr) => {
+                RefinementValue::Bitvector(refin::RBitvector::new_unmarked(abstr.width()))
+            }
+            AbstractValue::Boolean(_) => RefinementValue::Boolean(refin::Boolean::new_unmarked()),
+            AbstractValue::PanicResult(_) => todo!(),
+            AbstractValue::Struct(abstr) => {
+                let mut fields = Vec::new();
+                for field in abstr {
+                    fields.push(Self::unmarked_for(field));
+                }
+                RefinementValue::Struct(fields)
+            }
+        }
+    }
+
+    pub fn apply_refin(&mut self, other: &Self) -> bool {
+        match self {
+            RefinementValue::Array(refin) => {
+                todo!()
+            }
+            RefinementValue::Bitvector(refin) => refin.apply_refin(other.expect_bitvector()),
+            RefinementValue::Boolean(refin) => refin.apply_refin(other.expect_boolean()),
+            RefinementValue::PanicResult(refin) => todo!(),
+            RefinementValue::Struct(fields) => {
+                // refine in succession, break on first
+                let other = other.expect_struct();
+                assert_eq!(fields.len(), other.len());
+
+                for (field, other) in fields.iter_mut().zip(other) {
+                    if field.apply_refin(other) {
+                        return true;
+                    }
+                }
+                false
+            }
+        }
+    }
+
+    pub fn importance(&self) -> u8 {
+        match self {
+            RefinementValue::Array(refin) => refin.importance(),
+            RefinementValue::Bitvector(refin) => refin.importance(),
+            RefinementValue::Boolean(refin) => refin.importance(),
+            RefinementValue::PanicResult(refin) => todo!(),
+            RefinementValue::Struct(fields) => {
+                // take the maximum, zero for no fields
+                fields
+                    .iter()
+                    .map(|field| field.importance())
+                    .max()
+                    .unwrap_or(0)
+            }
+        }
     }
 }
 
@@ -51,6 +127,13 @@ impl Join for RefinementValue {
             (RefinementValue::Boolean(mut left), RefinementValue::Boolean(right)) => {
                 left.apply_join(right);
                 RefinementValue::Boolean(left)
+            }
+            (RefinementValue::Struct(mut left), RefinementValue::Struct(right)) => {
+                assert_eq!(left.len(), right.len());
+                for (left, right) in left.iter_mut().zip(right.iter()) {
+                    *left = left.clone().join(right);
+                }
+                RefinementValue::Struct(left)
             }
             (RefinementValue::PanicResult(_), _) | (_, RefinementValue::PanicResult(_)) => {
                 panic!("Panic result should never be joined")
@@ -79,6 +162,15 @@ impl Limit for RefinementValue {
             }
             RefinementValue::PanicResult(refin) => {
                 RefinementValue::PanicResult(refin.limit(abstr.expect_panic_result()))
+            }
+            RefinementValue::Struct(fields) => {
+                let abstr_fields = abstr.expect_struct();
+                assert_eq!(fields.len(), abstr_fields.len());
+                let mut result = Vec::new();
+                for (refin_field, abstr_field) in fields.into_iter().zip(abstr_fields) {
+                    result.push(refin_field.limit(abstr_field))
+                }
+                RefinementValue::Struct(result)
             }
         }
     }
@@ -356,6 +448,42 @@ impl MetaEq for RefinementValue {
             (Self::Boolean(l0), Self::Boolean(r0)) => l0.meta_eq(r0),
             (Self::PanicResult(l0), Self::PanicResult(r0)) => l0.meta_eq(r0),
             _ => false,
+        }
+    }
+}
+
+impl Meta<AbstractValue> for RefinementValue {
+    fn proto_first(&self) -> AbstractValue {
+        match self {
+            RefinementValue::Array(array) => AbstractValue::Array(array.proto_first()),
+            RefinementValue::Bitvector(bitvector) => {
+                AbstractValue::Bitvector(bitvector.proto_first())
+            }
+            RefinementValue::Boolean(boolean) => todo!(),
+            RefinementValue::PanicResult(panic_result) => todo!(),
+            RefinementValue::Struct(fields) => {
+                AbstractValue::Struct(fields.iter().map(|field| field.proto_first()).collect())
+            }
+        }
+    }
+
+    fn proto_increment(&self, proto: &mut AbstractValue) -> bool {
+        match self {
+            RefinementValue::Array(array) => array.proto_increment(proto.expect_array_mut()),
+            RefinementValue::Bitvector(bitvector) => {
+                bitvector.proto_increment(proto.expect_bitvector_mut())
+            }
+            RefinementValue::Boolean(boolean) => todo!(),
+            RefinementValue::PanicResult(panic_result) => todo!(),
+            RefinementValue::Struct(fields) => {
+                let abstr_iter = proto.expect_struct_mut().iter_mut();
+                for (refin, abstr) in fields.iter().zip(abstr_iter) {
+                    if refin.proto_increment(abstr) {
+                        return true;
+                    }
+                }
+                false
+            }
         }
     }
 }

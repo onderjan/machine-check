@@ -37,6 +37,12 @@ impl RThreeValuedBitvector {
         Self::from_zeros_ones(zeros, ones)
     }
 
+    #[must_use]
+    pub fn new_value_known(value: RConcreteBitvector, known: RConcreteBitvector) -> Self {
+        let unknown = Bitwise::bit_not(known);
+        Self::new_value_unknown(value, unknown)
+    }
+
     fn from_concrete(value: RConcreteBitvector) -> Self {
         // bit-negate for zeros
         let zeros = Bitwise::bit_not(value);
@@ -182,6 +188,14 @@ impl<const W: u32> Abstr<concr::Bitvector<W>> for ThreeValuedBitvector<W> {
 
         Self::from_zeros_ones(zeros, ones)
     }
+
+    fn from_runtime(value: &AbstractValue) -> Self {
+        Self::from_runtime_bitvector(*value.expect_bitvector())
+    }
+
+    fn to_runtime(&self) -> AbstractValue {
+        AbstractValue::Bitvector(self.to_runtime_bitvector())
+    }
 }
 
 impl<const W: u32> ThreeValuedBitvector<W> {
@@ -190,11 +204,20 @@ impl<const W: u32> ThreeValuedBitvector<W> {
         Self::from_concrete(ConcreteBitvector::new(value))
     }
 
-    pub fn to_runtime(self) -> RThreeValuedBitvector {
+    pub fn to_runtime_bitvector(&self) -> RThreeValuedBitvector {
         RThreeValuedBitvector {
             zeros: self.zeros.to_runtime(),
             ones: self.ones.to_runtime(),
         }
+    }
+
+    pub fn from_runtime_bitvector(bitvector: RThreeValuedBitvector) -> Self {
+        assert_eq!(bitvector.width(), W);
+
+        let zeros = ConcreteBitvector::from_runtime(bitvector.zeros);
+        let ones = ConcreteBitvector::from_runtime(bitvector.ones);
+
+        Self::from_zeros_ones(zeros, ones)
     }
 
     #[must_use]
@@ -481,7 +504,7 @@ impl<const W: u32> ManipField for ThreeValuedBitvector<W> {
     }
 
     fn runtime_value(&self) -> AbstractValue {
-        AbstractValue::Bitvector(self.to_runtime())
+        self.to_runtime()
     }
 
     fn min_unsigned(&self) -> Option<u64> {

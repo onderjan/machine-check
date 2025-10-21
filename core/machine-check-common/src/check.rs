@@ -24,11 +24,11 @@ pub enum Conclusion {
     NotCheckable,
 }
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+/*#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct AtomicProperty {
     pub refin_value: RefinementValue,
     pub name: String,
-}
+}*/
 
 /// The culprit of an unknown three-valued model-checking result.
 ///
@@ -37,7 +37,9 @@ pub struct AtomicProperty {
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct Culprit {
     pub path: VecDeque<StateId>,
-    pub atomic_property: AtomicProperty,
+    //pub atomic_property: AtomicProperty,
+    pub result: RefinementValue,
+    pub panic: RefinementValue,
 }
 
 impl KnownConclusion {

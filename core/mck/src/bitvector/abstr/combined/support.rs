@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    abstr::{Abstr, BitvectorDomain},
+    abstr::{Abstr, AbstractValue, BitvectorDomain},
     bitvector::{
         abstr::{dual_interval::DualInterval, ThreeValuedBitvector},
         concr,
@@ -17,6 +17,14 @@ impl<const W: u32> Abstr<concr::Bitvector<W>> for CombinedBitvector<W> {
             three_valued: ThreeValuedBitvector::from_concrete(value),
             dual_interval: DualInterval::from_value(value),
         }
+    }
+
+    fn from_runtime(_value: &AbstractValue) -> Self {
+        todo!()
+    }
+
+    fn to_runtime(&self) -> AbstractValue {
+        todo!()
     }
 }
 

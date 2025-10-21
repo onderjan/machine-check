@@ -5,7 +5,7 @@ use log::log_enabled;
 use log::trace;
 use machine_check_common::check::Conclusion;
 use machine_check_common::check::KnownConclusion;
-use machine_check_common::iir::description::IDescription;
+use machine_check_common::iir::description::IMachine;
 use machine_check_common::iir::property::IProperty;
 use machine_check_common::ExecError;
 use machine_check_common::ExecStats;
@@ -18,7 +18,7 @@ use work_state::WorkState;
 use crate::space::StateSpace;
 use crate::Strategy;
 use crate::{RefinInput, RefinPanicState, RefinParam};
-use mck::refin::Refine;
+use mck::refin::{Refine, RefinementValue};
 
 mod refine;
 mod regenerate;
@@ -29,16 +29,16 @@ pub struct Framework<M: FullMachine> {
     /// Abstract system.
     abstract_system: M::Abstr,
 
-    description: IDescription,
+    machine: IMachine,
 
     /// Default input precision.
-    default_input_precision: RefinInput<M>,
+    default_input_precision: RefinementValue,
 
     /// Default parameter precision.
-    default_param_precision: RefinParam<M>,
+    default_param_precision: RefinementValue,
 
     /// Default step precision.
-    default_step_precision: RefinPanicState<M>,
+    default_step_precision: RefinementValue,
 
     /// Work state containing the structures that change during verification.
     work_state: WorkState<M>,
@@ -47,29 +47,41 @@ pub struct Framework<M: FullMachine> {
 impl<M: FullMachine> Framework<M> {
     /// Constructs the framework with a given system and strategy.
     pub fn new(abstract_system: M::Abstr, strategy: Strategy) -> Self {
-        let description = M::description();
+        let machine = M::machine();
+        let machine: IMachine = rmp_serde::from_slice(machine).expect(
+            "Machine
+             should be deserialized",
+        );
 
-        let description =
-            rmp_serde::from_slice(description).expect("Description should be deserialized");
+        eprintln!("Using machine: {:#?}", machine);
+
+        let input = machine.input();
+        let param = machine.param();
+        let state = machine.state();
 
         // default the input and param precision to clean (inputs will be refined)
         let (default_input_precision, default_param_precision) = if strategy.naive_inputs {
-            (Refine::dirty(), Refine::dirty())
+            (input.dirty_refin(), param.dirty_refin())
         } else {
-            (Refine::clean(), Refine::clean())
+            (input.clean_refin(), param.clean_refin())
         };
 
         // default the step precision to dirty (steps will remain non-decayed)
         let default_step_precision = if strategy.use_decay {
-            Refine::clean()
+            state.clean_refin()
         } else {
-            Refine::dirty()
+            state.dirty_refin()
         };
+
+        eprintln!(
+            "Default input precision: {:#?}, step: {:#?}",
+            default_input_precision, default_step_precision
+        );
 
         // return the framework with empty state space, before any construction
         Framework {
             abstract_system,
-            description,
+            machine,
             default_input_precision,
             default_step_precision,
             default_param_precision,
@@ -78,9 +90,6 @@ impl<M: FullMachine> Framework<M> {
     }
 
     pub fn verify(&mut self, property: &IProperty) -> Result<KnownConclusion, ExecError> {
-        // TODO: actually use the description
-        eprintln!("Verifying description {:?}", self.description);
-
         // loop verification steps until some conclusion is reached
         let result = loop {
             match self.step_verification(property) {
@@ -120,11 +129,11 @@ impl<M: FullMachine> Framework<M> {
         }
 
         // perform model-checking
-        match self
-            .work_state
-            .checker
-            .check_property(&self.work_state.space, property)
-        {
+        match self.work_state.checker.check_property(
+            &self.work_state.space,
+            &self.machine,
+            property,
+        ) {
             Ok(Conclusion::Known(conclusion)) => {
                 // conclude the result
                 ControlFlow::Break(Ok(conclusion))
@@ -157,7 +166,7 @@ impl<M: FullMachine> Framework<M> {
     pub fn current_conclusion(&mut self, property: &IProperty) -> Result<Conclusion, ExecError> {
         self.work_state
             .checker
-            .check_property(&self.work_state.space, property)
+            .check_property(&self.work_state.space, &self.machine, property)
     }
 
     pub fn find_panic_string(&mut self) -> Option<&'static str> {

@@ -7,7 +7,11 @@ use machine_check_common::{
     },
     ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
-use mck::{abstr::AbstractValue, abstr::Manipulatable, concr::FullMachine};
+use mck::{
+    abstr::Manipulatable,
+    abstr::{Abstr, AbstractValue},
+    concr::FullMachine,
+};
 
 use crate::space::StateSpace;
 
@@ -181,7 +185,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
 
                 AbstractValue::Boolean(boolean)
             } else if input_var_name == "__panic" {
-                AbstractValue::Bitvector(state_panic.to_runtime())
+                state_panic.to_runtime()
             } else {
                 let Some(field) = state_result.get(input_var_name) else {
                     panic!("Input '{}' should be in fields", input_var_name);

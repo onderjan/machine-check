@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 
 use machine_check_common::NodeId;
 use machine_check_common::StateId;
+use mck::abstr::Abstr;
 use mck::abstr::Machine as AbstrMachine;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
@@ -43,17 +44,17 @@ impl<M: FullMachine> super::Framework<M> {
                 self.work_state.space.clear_step(node_id);
 
             // prepare precision
-            let input_precision: RefinInput<M> = self.work_state.input_precision.get(
+            let input_precision = self.work_state.input_precision.get(
                 &self.work_state.space,
                 node_id,
                 &self.default_input_precision,
             );
-            let param_precision: RefinParam<M> = self.work_state.param_precision.get(
+            let param_precision = self.work_state.param_precision.get(
                 &self.work_state.space,
                 node_id,
                 &self.default_param_precision,
             );
-            let step_precision: RefinPanicState<M> = self.work_state.step_precision.get(
+            let step_precision = self.work_state.step_precision.get(
                 &self.work_state.space,
                 node_id,
                 &self.default_step_precision,
@@ -71,7 +72,11 @@ impl<M: FullMachine> super::Framework<M> {
             for param in param_precision.into_proto_iter() {
                 let mut param_id = None;
 
+                let param = <M::Abstr as AbstrMachine<M>>::Param::from_runtime(&param);
+
                 for input in input_precision.clone().into_proto_iter() {
+                    let input = <M::Abstr as AbstrMachine<M>>::Input::from_runtime(&input);
+
                     // compute the next state
                     let mut next_state = {
                         if let Some(current_state) = &current_state {
@@ -93,8 +98,10 @@ impl<M: FullMachine> super::Framework<M> {
                         next_state
                     );
 
+                    // TODO: force decay
+
                     // apply decay
-                    step_precision.force_decay(&mut next_state);
+                    //step_precision.force_decay(&mut next_state);
 
                     // add the step to the state space
                     self.work_state.num_generated_transitions += 1;

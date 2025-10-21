@@ -95,6 +95,34 @@ impl<const I: u32, const W: u32> Abstr<concr::Array<I, W>> for Array<I, W> {
                 .map(|v| MetaWrap(abstr::Bitvector::from_concrete(*v))),
         }
     }
+
+    fn from_runtime(value: &AbstractValue) -> Self {
+        let value = value.expect_array();
+
+        assert_eq!(value.index_width(), I);
+        assert_eq!(value.element_width(), W);
+
+        Self {
+            inner: value.inner.create_converted(
+                UnsignedBitvector::new,
+                |element| MetaWrap(abstr::Bitvector::from_runtime_bitvector(element.0)),
+                CMax,
+            ),
+        }
+    }
+
+    fn to_runtime(&self) -> AbstractValue {
+        let runtime_array = self.inner.create_converted(
+            |index| index.to_u64(),
+            |element| MetaWrap(element.0.to_runtime_bitvector()),
+            RMax { width: I },
+        );
+
+        AbstractValue::Array(RArray {
+            element_width: W,
+            inner: runtime_array,
+        })
+    }
 }
 
 impl<const I: u32, const W: u32> Array<I, W> {
@@ -248,15 +276,6 @@ impl<const I: u32, const W: u32> ManipField for Array<I, W> {
     }
 
     fn runtime_value(&self) -> AbstractValue {
-        let runtime_array = self.inner.create_converted(
-            |index| index.to_u64(),
-            |element| MetaWrap(element.0.to_runtime()),
-            RMax { width: I },
-        );
-
-        AbstractValue::Array(RArray {
-            element_width: W,
-            inner: runtime_array,
-        })
+        self.to_runtime()
     }
 }
