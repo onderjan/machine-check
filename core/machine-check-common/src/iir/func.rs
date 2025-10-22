@@ -70,7 +70,11 @@ impl IFn {
         input_values
     }
 
-    pub fn call(&self, context: &IContext, input_values: Vec<AbstractValue>) -> AbstractValue {
+    pub fn call(
+        &self,
+        context: &IContext,
+        input_values: Vec<AbstractValue>,
+    ) -> (AbstractValue, AbstractValue) {
         let abstr = self.forward_interpret(context, input_values);
         self.forward_result(&abstr)
     }
@@ -102,12 +106,10 @@ impl IFn {
         abstr
     }
 
-    pub fn forward_result(&self, abstr: &IAbstr) -> AbstractValue {
+    pub fn forward_result(&self, abstr: &IAbstr) -> (AbstractValue, AbstractValue) {
         let normal_result = abstr.value(self.signature.output.normal).clone();
-        // TODO: raise an error on nonzero panic result
-        let panic_result = abstr.value(self.signature.output.panic).expect_bitvector();
-        assert!(panic_result.concrete_value().is_some_and(|v| v.is_zero()));
-        normal_result
+        let panic_result = abstr.value(self.signature.output.panic).clone();
+        (normal_result, panic_result)
     }
 
     pub fn backward_interpret(

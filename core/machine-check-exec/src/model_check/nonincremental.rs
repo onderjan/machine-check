@@ -200,7 +200,13 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
 
         let input_values = func.globals_to_input_values(&globals);
 
-        let result = func.call(&IContext::empty(), input_values);
+        let (result, panic) = func.call(&IContext::empty(), input_values);
+
+        // TODO: raise an error on nonzero panic result
+        assert!(panic
+            .expect_bitvector()
+            .concrete_value()
+            .is_some_and(|v| v.is_zero()));
 
         let AbstractValue::Boolean(result) = result else {
             panic!("Result should be abstract Boolean");

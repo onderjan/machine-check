@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{Boolean, PanicResult, RArray, RBitvector},
+    abstr::{Boolean, RArray, RBitvector},
     forward::{Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     misc::{Join, MetaEq},
 };
@@ -11,7 +11,6 @@ pub enum AbstractValue {
     Array(RArray),
     Bitvector(RBitvector),
     Boolean(Boolean),
-    PanicResult(PanicResult<RBitvector>),
     Struct(Vec<AbstractValue>),
 }
 
@@ -56,13 +55,6 @@ impl AbstractValue {
             panic!("Value should be an array");
         };
         array
-    }
-
-    pub fn expect_panic_result(&self) -> &PanicResult<RBitvector> {
-        let AbstractValue::PanicResult(panic_result) = self else {
-            panic!("Value should be a panic result");
-        };
-        panic_result
     }
 
     pub fn expect_struct(&self) -> &Vec<AbstractValue> {
@@ -186,7 +178,13 @@ macro_rules! divrem_bi_op {
         let (AbstractValue::Bitvector(a), AbstractValue::Bitvector(b)) = ($a, $b) else {
             panic!("Illegal type for division/remainder operation");
         };
-        AbstractValue::PanicResult($op(a, b))
+        let result = $op(a, b);
+
+        // the panic result is a struct
+        AbstractValue::Struct(::std::vec![
+            AbstractValue::Bitvector(result.result),
+            AbstractValue::Bitvector(result.panic.as_runtime_bitvector())
+        ])
     }};
 }
 
@@ -283,7 +281,6 @@ impl MetaEq for AbstractValue {
             (Self::Array(l0), Self::Array(r0)) => l0.meta_eq(r0),
             (Self::Bitvector(l0), Self::Bitvector(r0)) => l0.meta_eq(r0),
             (Self::Boolean(l0), Self::Boolean(r0)) => l0.meta_eq(r0),
-            (Self::PanicResult(l0), Self::PanicResult(r0)) => l0.meta_eq(r0),
             _ => false,
         }
     }

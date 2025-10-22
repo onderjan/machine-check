@@ -151,7 +151,6 @@ impl<M: FullMachine> Deducer<'_, M> {
                                 use mck::refin::Refine;
                                 mark.to_condition().importance() > 0
                             }
-                            RefinementValue::PanicResult(_panic_result) => todo!(),
                             RefinementValue::Struct(_refin_value) => todo!("Struct cuplrit"),
                         };
 
