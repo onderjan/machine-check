@@ -37,6 +37,13 @@ impl AbstractValue {
         boolean
     }
 
+    pub fn expect_boolean_mut(&mut self) -> &mut Boolean {
+        let AbstractValue::Boolean(boolean) = self else {
+            panic!("Value is not a boolean");
+        };
+        boolean
+    }
+
     pub fn expect_array(&self) -> &RArray {
         let AbstractValue::Array(array) = self else {
             panic!("Value is not an array");

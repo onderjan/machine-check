@@ -75,7 +75,7 @@ impl RMarkBitvector {
         true
     }
 
-    fn force_decay(&self, target: &mut RThreeValuedBitvector) {
+    pub fn force_decay(&self, target: &mut RThreeValuedBitvector) {
         assert_eq!(self.width, target.width());
 
         // unmarked fields become unknown

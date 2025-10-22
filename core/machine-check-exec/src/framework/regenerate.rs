@@ -8,6 +8,8 @@ use mck::abstr::Machine as AbstrMachine;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
 
+use crate::AbstrState;
+
 impl<M: FullMachine> super::Framework<M> {
     /// Regenerates the state space from a given node, keeping its other parts. Returns whether the state space changed.
     pub(super) fn regenerate(&mut self, from_node_id: NodeId) -> bool {
@@ -95,10 +97,14 @@ impl<M: FullMachine> super::Framework<M> {
                         next_state
                     );
 
-                    // TODO: force decay
+                    // TODO: apply decay without conversion to/from runtime and to panic as well
+
+                    let mut next_result = next_state.result.to_runtime();
 
                     // apply decay
-                    //step_precision.force_decay(&mut next_state);
+                    step_precision.force_decay(&mut next_result);
+
+                    next_state.result = AbstrState::<M>::from_runtime(&next_result);
 
                     // add the step to the state space
                     self.work_state.num_generated_transitions += 1;

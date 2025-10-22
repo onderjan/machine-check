@@ -95,6 +95,15 @@ impl RArray {
             false,
         )
     }
+
+    pub fn force_decay(&self, target: &mut abstr::RArray) {
+        // force decay for every element
+        target
+            .inner
+            .involve(&self.inner, |abstr_element, refin_element| {
+                refin_element.0.force_decay(&mut abstr_element.0);
+            });
+    }
 }
 
 impl Limit for RArray {

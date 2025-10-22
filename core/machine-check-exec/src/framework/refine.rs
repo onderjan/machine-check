@@ -52,7 +52,7 @@ impl<M: FullMachine> super::Framework<M> {
             );
 
             // TODO: refine step precision
-            /*if step_precision.apply_refin(&current_state_mark) {
+            if step_precision.apply_refin(&current_state_mark) {
                 // single mark applied to decay, insert it back and regenerate
                 self.work_state.step_precision.insert(
                     &mut self.work_state.space,
@@ -62,7 +62,7 @@ impl<M: FullMachine> super::Framework<M> {
                 );
 
                 return Ok(self.regenerate(previous_node_id));
-            }*/
+            }
 
             let mut input_precision = self.work_state.input_precision.get(
                 &self.work_state.space,

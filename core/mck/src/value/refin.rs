@@ -110,6 +110,30 @@ impl RefinementValue {
             }
         }
     }
+
+    pub fn force_decay(&self, abstr: &mut AbstractValue) {
+        if self.importance() == 0 {
+            // no decay, return early
+            return;
+        }
+        match self {
+            RefinementValue::Array(refin) => refin.force_decay(abstr.expect_array_mut()),
+            RefinementValue::Bitvector(refin) => {
+                refin.force_decay(&mut abstr.expect_bitvector_mut())
+            }
+            RefinementValue::Boolean(refin) => refin.force_decay(abstr.expect_boolean_mut()),
+            RefinementValue::PanicResult(refin) => todo!(),
+            RefinementValue::Struct(fields) => {
+                // force decay on all fields
+                let abstr = abstr.expect_struct_mut();
+                assert_eq!(fields.len(), abstr.len());
+
+                for (field, abstr_field) in fields.iter().zip(abstr) {
+                    field.force_decay(abstr_field);
+                }
+            }
+        }
+    }
 }
 
 impl Join for RefinementValue {
