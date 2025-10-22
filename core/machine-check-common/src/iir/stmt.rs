@@ -3,7 +3,17 @@ use std::fmt::Debug;
 use mck::{abstr::AbstractValue, three_valued::ThreeValued};
 use serde::{Deserialize, Serialize};
 
-use crate::iir::{context::IContext, expr::IExpr, func::IBlock, variable::IVarId, IAbstr, IRefin};
+use crate::{
+    iir::{
+        context::{IContext, IFnContext},
+        expr::IExpr,
+        func::IBlock,
+        ty::{IElementaryType, IGeneralType, IType},
+        variable::IVarId,
+        IAbstr, IRefin,
+    },
+    ir_common::IrReference,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IStmt {
@@ -12,14 +22,14 @@ pub enum IStmt {
 }
 
 impl IStmt {
-    pub fn forward_interpret(&self, context: &IContext, abstr: &mut IAbstr) {
+    pub fn forward_interpret(&self, context: &IFnContext, abstr: &mut IAbstr) {
         match self {
             IStmt::Assign(stmt_assign) => stmt_assign.forward_interpret(context, abstr),
             IStmt::If(stmt_if) => stmt_if.forward_interpret(context, abstr),
         }
     }
 
-    pub fn backward_interpret(&self, context: &IContext, abstr: &IAbstr, refin: &mut IRefin) {
+    pub fn backward_interpret(&self, context: &IFnContext, abstr: &IAbstr, refin: &mut IRefin) {
         match self {
             IStmt::Assign(stmt_assign) => stmt_assign.backward_interpret(context, abstr, refin),
             IStmt::If(stmt_if) => stmt_if.backward_interpret(context, abstr, refin),
@@ -34,15 +44,29 @@ pub struct IAssignStmt {
 }
 
 impl IAssignStmt {
-    fn forward_interpret(&self, context: &IContext, abstr: &mut IAbstr) {
+    fn forward_interpret(&self, context: &IFnContext, abstr: &mut IAbstr) {
         //println!("Forward-interpreting statement {:?}", self);
-        let left_ident = self.left;
-        if let Some(right_value) = self.right.forward_interpret(context, abstr) {
-            abstr.insert_value(left_ident, right_value);
+        let left_var_id = self.left;
+        if let Some(left_value) = self.right.forward_interpret(context, abstr) {
+            let left_type = &context
+                .func
+                .variables
+                .get(&left_var_id)
+                .expect("Function variable should have type")
+                .ty;
+
+            eprintln!(
+                "Variable {:?} type: {:?}, value: {:?}",
+                left_var_id, left_type, left_value
+            );
+
+            ensure_abstract_general_type(context.context, &left_value, left_type);
+
+            abstr.insert_value(left_var_id, left_value);
         }
     }
 
-    pub fn backward_interpret(&self, context: &IContext, abstr: &IAbstr, refin: &mut IRefin) {
+    pub fn backward_interpret(&self, context: &IFnContext, abstr: &IAbstr, refin: &mut IRefin) {
         //println!("Backward-interpreting statement {:?}", self);
         // when interpreting backwards, we take the later (left) refinement value
         // and the earlier (right) abstract values and process them
@@ -66,7 +90,7 @@ pub struct IIfStmt {
 }
 
 impl IIfStmt {
-    fn forward_interpret(&self, context: &IContext, abstr: &mut IAbstr) {
+    fn forward_interpret(&self, context: &IFnContext, abstr: &mut IAbstr) {
         let (can_take_then, can_take_else) = self.can_take_then_else(abstr);
         if can_take_then {
             self.then_block.forward_interpret(context, abstr);
@@ -76,7 +100,7 @@ impl IIfStmt {
         }
     }
 
-    pub fn backward_interpret(&self, context: &IContext, abstr: &IAbstr, refin: &mut IRefin) {
+    pub fn backward_interpret(&self, context: &IFnContext, abstr: &IAbstr, refin: &mut IRefin) {
         let (can_take_then, can_take_else) = self.can_take_then_else(abstr);
         if can_take_then {
             self.then_block.backward_interpret(context, abstr, refin);
@@ -136,5 +160,55 @@ impl Debug for IIfStmt {
         franz.finish()?;
 
         Ok(())
+    }
+}
+
+fn ensure_abstract_general_type(context: &IContext, value: &AbstractValue, ty: &IGeneralType) {
+    match ty {
+        IGeneralType::Normal(ty) => ensure_abstract_type(context, value, ty),
+        IGeneralType::PanicResult(ty) => {
+            let AbstractValue::Struct(fields) = value else {
+                panic!("Expected panic result type of value (represented by fields)");
+            };
+            assert_eq!(fields.len(), 2);
+            ensure_abstract_type(context, &fields[0], ty);
+            ensure_abstract_type(
+                context,
+                &fields[1],
+                &IType {
+                    reference: IrReference::None,
+                    inner: IElementaryType::Bitvector(32),
+                },
+            );
+        }
+        IGeneralType::PhiArg(ty) => ensure_abstract_type(context, value, ty),
+    }
+}
+
+fn ensure_abstract_type(context: &IContext, value: &AbstractValue, ty: &IType) {
+    match &ty.inner {
+        IElementaryType::Bitvector(width) => {
+            let AbstractValue::Bitvector(bitvector) = value else {
+                panic!("Expected bitvector type of value");
+            };
+
+            assert_eq!(*width, bitvector.width());
+        }
+        IElementaryType::Array(array_type) => {
+            let AbstractValue::Array(array) = value else {
+                panic!("Expected array type of value");
+            };
+
+            assert_eq!(array_type.index_width, array.index_width());
+            assert_eq!(array_type.element_width, array.element_width());
+        }
+        IElementaryType::Boolean => {
+            let AbstractValue::Boolean(_) = value else {
+                panic!("Expected boolean type of value");
+            };
+        }
+        IElementaryType::Path(path) => {
+            // TODO
+        }
     }
 }

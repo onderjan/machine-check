@@ -95,6 +95,17 @@ impl Join for AbstractValue {
             (AbstractValue::Array(left), AbstractValue::Array(right)) => {
                 AbstractValue::Array(left.join(right))
             }
+            (AbstractValue::Struct(left), AbstractValue::Struct(right)) => {
+                assert_eq!(left.len(), right.len());
+
+                let result = left
+                    .into_iter()
+                    .zip(right)
+                    .map(|(left, right)| left.join(right))
+                    .collect();
+
+                AbstractValue::Struct(result)
+            }
             _ => panic!(
                 "Unjoinable combination of values {:?} and {:?}",
                 tuple.0, tuple.1

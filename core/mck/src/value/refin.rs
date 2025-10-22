@@ -127,6 +127,22 @@ impl RefinementValue {
             }
         }
     }
+
+    pub fn to_condition(&self) -> refin::Boolean {
+        match self {
+            RefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
+            RefinementValue::Boolean(boolean) => *boolean,
+            RefinementValue::Array(array) => array.to_condition(),
+            RefinementValue::Struct(fields) => {
+                let mut result = refin::Boolean::new_unmarked();
+
+                for field in fields {
+                    result.apply_join(&field.to_condition());
+                }
+                result
+            }
+        }
+    }
 }
 
 impl Join for RefinementValue {

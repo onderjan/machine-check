@@ -10,7 +10,7 @@ use mck::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::iir::context::IContext;
+use crate::iir::context::IFnContext;
 use crate::iir::description::IFnId;
 use crate::iir::expr::op::IMckExt;
 use crate::iir::{
@@ -84,7 +84,7 @@ pub struct IPhi {
 }
 
 impl IExprCall {
-    pub fn forward_interpret(&self, context: &IContext, abstr: &IAbstr) -> Option<AbstractValue> {
+    pub fn forward_interpret(&self, context: &IFnContext, abstr: &IAbstr) -> Option<AbstractValue> {
         Some(match self {
             IExprCall::Call(call) => call.forward_interpret(context, abstr),
             IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
@@ -128,7 +128,7 @@ impl IExprCall {
     }
     pub fn backward_interpret(
         &self,
-        context: &IContext,
+        context: &IFnContext,
         abstr: &IAbstr,
         refin: &mut IRefin,
         refin_later: RefinementValue,
@@ -159,16 +159,14 @@ impl IExprCall {
                 }
 
                 // convert to condition and propagate
-                let condition_value = RefinementValue::Boolean(match refin_later {
-                    RefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
-                    RefinementValue::Boolean(boolean) => boolean,
-                    RefinementValue::Array(array) => array.to_condition(),
-                    RefinementValue::Struct(_) => {
-                        todo!("Convert struct to condition value")
-                    }
-                });
+                let condition_value = refin_later.to_condition();
 
-                join_limited(abstr, refin, phi.condition, condition_value)
+                join_limited(
+                    abstr,
+                    refin,
+                    phi.condition,
+                    RefinementValue::Boolean(condition_value),
+                )
             }
             IExprCall::ArrayRead(array_read) => {
                 let refin_element = refin_later.expect_bitvector();
@@ -215,8 +213,8 @@ impl IExprCall {
 }
 
 impl ICall {
-    pub fn forward_interpret(&self, context: &IContext, abstr: &IAbstr) -> AbstractValue {
-        let func = context.fn_with_id(self.func);
+    pub fn forward_interpret(&self, context: &IFnContext, abstr: &IAbstr) -> AbstractValue {
+        let func = context.context.fn_with_id(self.func);
         let mut input_values = Vec::new();
 
         for var_id in self.args.iter().cloned() {
@@ -224,18 +222,18 @@ impl ICall {
             input_values.push(input_value);
         }
 
-        let (normal, panic) = func.call(context, input_values);
+        let (normal, panic) = func.call(context.context, input_values);
         AbstractValue::Struct(vec![normal, panic])
     }
 
     pub fn backward_interpret(
         &self,
-        context: &IContext,
+        context: &IFnContext,
         abstr: &IAbstr,
         refin: &mut IRefin,
         refin_later: RefinementValue,
     ) {
-        let func = context.fn_with_id(self.func);
+        let func = context.context.fn_with_id(self.func);
 
         let refin_later = refin_later.expect_struct();
 
@@ -249,9 +247,10 @@ impl ICall {
             input_values.push(input_value);
         }
 
-        let func_abstr = func.forward_interpret(context, input_values);
+        let func_abstr = func.forward_interpret(context.context, input_values);
 
-        let func_refin = func.backward_interpret(context, &func_abstr, later_normal, later_panic);
+        let func_refin =
+            func.backward_interpret(context.context, &func_abstr, later_normal, later_panic);
 
         let refin_inputs = func.backward_earlier(&func_abstr, &func_refin);
 

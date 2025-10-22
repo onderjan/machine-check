@@ -7,6 +7,12 @@ use crate::iir::{
 };
 
 #[derive(Clone, Debug)]
+pub struct IFnContext<'a> {
+    pub func: &'a IFn,
+    pub context: &'a IContext<'a>,
+}
+
+#[derive(Clone, Debug)]
 pub struct IContext<'a> {
     pub structs: Option<&'a IndexMap<IIdent, IStruct>>,
 }

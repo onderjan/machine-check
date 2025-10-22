@@ -4,7 +4,7 @@ use mck::{abstr::AbstractValue, refin::RefinementValue};
 use serde::{Deserialize, Serialize};
 
 use crate::iir::{
-    context::IContext,
+    context::{IContext, IFnContext},
     path::IIdent,
     stmt::IStmt,
     ty::IElementaryType,
@@ -99,7 +99,12 @@ impl IFn {
             abstr.insert_value(input_var_id, input_value);
         }
 
-        self.block.forward_interpret(context, &mut abstr);
+        let fn_context = IFnContext {
+            func: self,
+            context,
+        };
+
+        self.block.forward_interpret(&fn_context, &mut abstr);
 
         //println!("Call interpretation: {:#?}", inter);
 
@@ -124,7 +129,13 @@ impl IFn {
         refin.insert_value(self.signature.output.normal, later_normal);
         refin.insert_value(self.signature.output.panic, later_panic);
 
-        self.block.backward_interpret(context, abstr, &mut refin);
+        let fn_context = IFnContext {
+            func: self,
+            context,
+        };
+
+        self.block
+            .backward_interpret(&fn_context, abstr, &mut refin);
 
         refin
     }
@@ -144,13 +155,13 @@ impl IFn {
 }
 
 impl IBlock {
-    pub fn forward_interpret(&self, context: &IContext, abstr: &mut IAbstr) {
+    pub fn forward_interpret(&self, context: &IFnContext, abstr: &mut IAbstr) {
         for stmt in &self.stmts {
             stmt.forward_interpret(context, abstr);
         }
     }
 
-    pub fn backward_interpret(&self, context: &IContext, abstr: &IAbstr, refin: &mut IRefin) {
+    pub fn backward_interpret(&self, context: &IFnContext, abstr: &IAbstr, refin: &mut IRefin) {
         // go in reverse
         for stmt in self.stmts.iter().rev() {
             stmt.backward_interpret(context, abstr, refin);

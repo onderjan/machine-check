@@ -7,7 +7,7 @@ use mck::{abstr::AbstractValue, refin::RefinementValue};
 use serde::{Deserialize, Serialize};
 
 use crate::iir::{
-    context::IContext, expr::call::IExprCall, join_limited, variable::IVarId, IAbstr, IRefin,
+    context::IFnContext, expr::call::IExprCall, join_limited, variable::IVarId, IAbstr, IRefin,
 };
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -38,7 +38,7 @@ pub enum IExprReference {
 }
 
 impl IExpr {
-    pub fn forward_interpret(&self, context: &IContext, abstr: &IAbstr) -> Option<AbstractValue> {
+    pub fn forward_interpret(&self, context: &IFnContext, abstr: &IAbstr) -> Option<AbstractValue> {
         match self {
             IExpr::Move(var_id) => Some(abstr.value(*var_id).clone()),
             IExpr::Call(expr_call) => expr_call.forward_interpret(context, abstr),
@@ -64,7 +64,7 @@ impl IExpr {
 
     pub fn backward_interpret(
         &self,
-        context: &IContext,
+        context: &IFnContext,
         abstr: &IAbstr,
         refin: &mut IRefin,
         later: RefinementValue,
