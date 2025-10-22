@@ -1,6 +1,6 @@
 use machine_check_common::iir::{
-    description::{IDescription, IFnId, IMachine, IStructId},
-    path::IIdent,
+    description::{IDescription, IFnId, IMachine, IStructId, ITrait},
+    path::{IIdent, ISpan},
 };
 use proc_macro2::Span;
 use syn_path::path;
@@ -46,27 +46,13 @@ pub fn process_item_impl(
         panic!("Machine type should be ident");
     };
 
-    let mut init_id = None;
-    let mut next_id = None;
-
     let mut input_ident = None;
     let mut param_ident = None;
     let mut state_ident = None;
 
-    let mut fn_index = 0;
-
     for impl_item in &item_impl.items {
-        match impl_item {
-            ImplItem::Fn(impl_item_) => {
-                match impl_item_.sig.ident.to_string().as_str() {
-                    "init" => init_id = Some(fn_index),
-                    "next" => next_id = Some(fn_index),
-                    _ => {}
-                };
-
-                fn_index += 1;
-            }
-            ImplItem::Type(impl_item) => match impl_item.ident.to_string().as_str() {
+        if let ImplItem::Type(impl_item) = impl_item {
+            match impl_item.ident.to_string().as_str() {
                 "Input" => {
                     input_ident = Some(
                         extract_ty_iir_ident(&impl_item.ty)
@@ -86,13 +72,9 @@ pub fn process_item_impl(
                     );
                 }
                 _ => {}
-            },
-            _ => {}
+            }
         }
     }
-
-    let init_id = init_id.expect("Machine should have init function");
-    let next_id = next_id.expect("Machine should have next function");
 
     let input_ident = input_ident.expect("Machine should have input type");
     let param_ident = param_ident.expect("Machine should have param type");
@@ -159,6 +141,24 @@ pub fn process_item_impl(
     };
 
     let machine = extract_struct_index(&machine_ident);
+
+    let init_id = description_iir
+        .struct_with_id(machine)
+        .fns
+        .get_index_of(&(
+            ITrait::Machine,
+            IIdent::new(String::from("init"), ISpan::Unspecified),
+        ))
+        .expect("Machine should have init function");
+
+    let next_id = description_iir
+        .struct_with_id(machine)
+        .fns
+        .get_index_of(&(
+            ITrait::Machine,
+            IIdent::new(String::from("next"), ISpan::Unspecified),
+        ))
+        .expect("Machine should have next function");
 
     // add MachineMisc trait implementation
     let machine_iir = IMachine {
