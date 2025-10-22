@@ -6,7 +6,7 @@ mod precision;
 mod space;
 
 use machine_check_common::iir::property::IProperty;
-use mck::{abstr, concr::FullMachine, misc::MetaWrap, refin};
+use mck::{concr::FullMachine, misc::MetaWrap};
 
 pub use framework::Framework;
 
@@ -24,17 +24,10 @@ pub enum VerificationType {
     Property(IProperty),
 }
 
-type AbstrInput<M> = <<M as FullMachine>::Abstr as abstr::Machine<M>>::Input;
-type RefinInput<M> = <<M as FullMachine>::Refin as refin::Machine<M>>::Input;
-
-type AbstrParam<M> = <<M as FullMachine>::Abstr as abstr::Machine<M>>::Param;
-type RefinParam<M> = <<M as FullMachine>::Refin as refin::Machine<M>>::Param;
-
-type AbstrState<M> = <<M as FullMachine>::Abstr as abstr::Machine<M>>::State;
-type RefinState<M> = <<M as FullMachine>::Refin as refin::Machine<M>>::State;
-
-type AbstrPanicState<M> = abstr::PanicResult<AbstrState<M>>;
-type RefinPanicState<M> = refin::PanicResult<RefinState<M>>;
+type AbstrInput<M> = <<M as FullMachine>::Abstr as mck::abstr::Machine<M>>::Input;
+type AbstrParam<M> = <<M as FullMachine>::Abstr as mck::abstr::Machine<M>>::Param;
+type AbstrState<M> = <<M as FullMachine>::Abstr as mck::abstr::Machine<M>>::State;
+type AbstrPanicState<M> = mck::abstr::PanicResult<AbstrState<M>>;
 
 type WrappedInput<M> = MetaWrap<AbstrInput<M>>;
 type WrappedParam<M> = MetaWrap<AbstrParam<M>>;

@@ -1,23 +1,15 @@
 use std::time::Instant;
 
-use crate::{RefinInput, RefinPanicState, RefinParam, RefinState};
 use log::debug;
 use log::log_enabled;
 use log::trace;
 use machine_check_common::check::Culprit;
-use machine_check_common::iir::description::ITrait;
-use machine_check_common::iir::path::IIdent;
-use machine_check_common::iir::path::ISpan;
 use machine_check_common::ExecError;
 use machine_check_common::NodeId;
 use machine_check_common::StateId;
 use mck::abstr::Abstr;
 use mck::concr::FullMachine;
-use mck::refin::Machine as RefinMachine;
-use mck::refin::Manipulatable;
-use mck::refin::Refine;
 use mck::refin::RefinementValue;
-use mck::refin::{self};
 
 impl<M: FullMachine> super::Framework<M> {
     /// Refines the precision and the state space given a culprit of unknown verification result.
@@ -30,11 +22,6 @@ impl<M: FullMachine> super::Framework<M> {
 
     /// Refines a single bit. OK result contains whether the state space changed.
     fn subrefine(&mut self, culprit: &Culprit) -> Result<bool, ExecError> {
-        eprintln!("Culprit: {:?}", culprit);
-
-        // try increasing precision of the state preceding current mark
-        let mut iter = culprit.path.iter().cloned().rev().peekable();
-
         let start_instant = if log_enabled!(log::Level::Debug) {
             Some(Instant::now())
         } else {
@@ -44,25 +31,6 @@ impl<M: FullMachine> super::Framework<M> {
         // compute marking
         let mut current_state_mark = culprit.result.clone();
         let mut current_panic_mark = culprit.panic.clone();
-
-        /*
-        // TODO: rework panic name kludge
-        if culprit.atomic_property.name == "__panic" {
-            current_panic_mark =
-                RefinementValue::Bitvector(mck::refin::RBitvector::new_marked_unimportant(32));
-        } else {
-            // TODO: mark more adequately
-            /*let manip_mark = current_state_mark
-                .result
-                .get_mut(&culprit.atomic_property.name)
-                .expect("Culprit mark should be manipulatable");
-            manip_mark.mark(&culprit.atomic_property.refin_value);*/
-
-            let
-
-            current_state_mark.expect_struct().
-
-        }*/
 
         // try increasing precision of the state preceding current mark
         let mut iter = culprit.path.iter().cloned().rev().peekable();
@@ -119,11 +87,6 @@ impl<M: FullMachine> super::Framework<M> {
 
             current_panic_mark =
                 RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
-
-            /*todo!(
-                "Do something with computed marks: {:#?}",
-                (input_mark, param_mark, new_state_mark)
-            );*/
 
             // refinement can be applied to input or param precision
             // we will replace the refinement if either there has been no refinement previously
@@ -266,11 +229,6 @@ impl<M: FullMachine> super::Framework<M> {
             let input_mark = earlier_marks.next().unwrap();
             let param_mark = earlier_marks.next().unwrap();
 
-            /*let (_refinement_machine, new_state_mark, input_mark, param_mark) = M::Refin::next(
-                (&self.abstract_system, previous_state, input, param),
-                current_state_mark,
-            );*/
-
             return (input_mark, param_mark, Some(state_mark));
         }
 
@@ -301,8 +259,6 @@ impl<M: FullMachine> super::Framework<M> {
         let _machine_mark = earlier_marks.next().unwrap();
         let input_mark = earlier_marks.next().unwrap();
         let param_mark = earlier_marks.next().unwrap();
-
-        //todo!("Compute init mark")
 
         (input_mark, param_mark, None)
     }

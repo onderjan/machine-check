@@ -194,7 +194,7 @@ impl<const W: u32> Abstr<concr::Bitvector<W>> for ThreeValuedBitvector<W> {
     }
 
     fn to_runtime(&self) -> AbstractValue {
-        AbstractValue::Bitvector(self.to_runtime_bitvector())
+        AbstractValue::Bitvector(self.as_runtime_bitvector())
     }
 }
 
@@ -204,7 +204,7 @@ impl<const W: u32> ThreeValuedBitvector<W> {
         Self::from_concrete(ConcreteBitvector::new(value))
     }
 
-    pub fn to_runtime_bitvector(&self) -> RThreeValuedBitvector {
+    pub fn as_runtime_bitvector(&self) -> RThreeValuedBitvector {
         RThreeValuedBitvector {
             zeros: self.zeros.to_runtime(),
             ones: self.ones.to_runtime(),

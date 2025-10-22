@@ -17,8 +17,7 @@ use work_state::WorkState;
 
 use crate::space::StateSpace;
 use crate::Strategy;
-use crate::{RefinInput, RefinPanicState, RefinParam};
-use mck::refin::{Refine, RefinementValue};
+use mck::refin::RefinementValue;
 
 mod refine;
 mod regenerate;

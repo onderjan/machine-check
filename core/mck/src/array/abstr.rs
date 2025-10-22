@@ -114,7 +114,7 @@ impl<const I: u32, const W: u32> Abstr<concr::Array<I, W>> for Array<I, W> {
     fn to_runtime(&self) -> AbstractValue {
         let runtime_array = self.inner.create_converted(
             |index| index.to_u64(),
-            |element| MetaWrap(element.0.to_runtime_bitvector()),
+            |element| MetaWrap(element.0.as_runtime_bitvector()),
             RMax { width: I },
         );
 

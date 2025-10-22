@@ -38,18 +38,18 @@ impl Bitwise for super::RThreeValuedBitvector {
 
 impl<const W: u32> Bitwise for ThreeValuedBitvector<W> {
     fn bit_not(self) -> Self {
-        self.to_runtime_bitvector().bit_not().unwrap_typed()
+        self.as_runtime_bitvector().bit_not().unwrap_typed()
     }
     fn bit_and(self, rhs: Self) -> Self {
-        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
+        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
         lhs.bit_and(rhs).unwrap_typed()
     }
     fn bit_or(self, rhs: Self) -> Self {
-        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
+        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
         lhs.bit_or(rhs).unwrap_typed()
     }
     fn bit_xor(self, rhs: Self) -> Self {
-        let (lhs, rhs) = (self.to_runtime_bitvector(), rhs.to_runtime_bitvector());
+        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
         lhs.bit_xor(rhs).unwrap_typed()
     }
 }

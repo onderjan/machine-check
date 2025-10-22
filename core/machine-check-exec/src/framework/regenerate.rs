@@ -7,9 +7,6 @@ use mck::abstr::Abstr;
 use mck::abstr::Machine as AbstrMachine;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
-use mck::refin::Refine;
-
-use crate::{RefinInput, RefinPanicState, RefinParam};
 
 impl<M: FullMachine> super::Framework<M> {
     /// Regenerates the state space from a given node, keeping its other parts. Returns whether the state space changed.

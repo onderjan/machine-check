@@ -16,7 +16,7 @@ use crate::{
 
 pub fn from_runtime_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn {
     let span = item_struct.wir_span().first();
-    let runtime_ident = Ident::new("runtime", span);
+    let runtime_ident = Ident::new("__mck_runtime", span);
     let runtime_ty =
         create_type_reference(false, create_type_path(path!(::mck::abstr::AbstractValue)));
     let runtime_arg = create_arg(ArgType::Normal, runtime_ident.clone(), Some(runtime_ty));

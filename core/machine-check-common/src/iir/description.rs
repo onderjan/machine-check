@@ -6,11 +6,9 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::iir::{
-    expr::call::ICall,
     func::{IFn, IFnDeclaration},
     path::IIdent,
     ty::IElementaryType,
-    variable::IVarId,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

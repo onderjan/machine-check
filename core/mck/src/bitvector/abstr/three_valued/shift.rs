@@ -1,5 +1,4 @@
 use crate::{
-    abstr::Abstr,
     bitvector::abstr::three_valued::RThreeValuedBitvector,
     concr::RConcreteBitvector,
     forward::{Bitwise, HwShift},
@@ -85,17 +84,17 @@ impl<const W: u32> HwShift for ThreeValuedBitvector<W> {
     type Output = Self;
 
     fn logic_shl(self, amount: Self) -> Self {
-        let (lhs, rhs) = (self.to_runtime_bitvector(), amount.to_runtime_bitvector());
+        let (lhs, rhs) = (self.as_runtime_bitvector(), amount.as_runtime_bitvector());
         lhs.logic_shl(rhs).unwrap_typed()
     }
 
     fn logic_shr(self, amount: Self) -> Self {
-        let (lhs, rhs) = (self.to_runtime_bitvector(), amount.to_runtime_bitvector());
+        let (lhs, rhs) = (self.as_runtime_bitvector(), amount.as_runtime_bitvector());
         lhs.logic_shr(rhs).unwrap_typed()
     }
 
     fn arith_shr(self, amount: Self) -> Self {
-        let (lhs, rhs) = (self.to_runtime_bitvector(), amount.to_runtime_bitvector());
+        let (lhs, rhs) = (self.as_runtime_bitvector(), amount.as_runtime_bitvector());
         lhs.arith_shr(rhs).unwrap_typed()
     }
 }
