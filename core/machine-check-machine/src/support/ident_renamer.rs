@@ -103,8 +103,8 @@ impl IdentRenamer {
             }
             WExprCall::Phi(phi) => {
                 self.visit_ident(&mut phi.condition);
-                self.visit_ident(&mut phi.left);
-                self.visit_ident(&mut phi.right);
+                self.visit_ident(&mut phi.then_ident);
+                self.visit_ident(&mut phi.else_ident);
             }
             WExprCall::PhiTaken(taken) => {
                 self.visit_ident(&mut taken.ident);

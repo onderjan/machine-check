@@ -3,7 +3,7 @@ use machine_check_common::{
     iir::{
         description::{IFnId, IStructId, ITrait},
         expr::{
-            call::{IArrayRead, IArrayWrite, ICall, IExprCall, IMckNew, IPhi, IPhiTaken},
+            call::{IArrayRead, IArrayWrite, ICall, IExprCall, IMckNew, IPhi},
             op::{IMckBinary, IMckExt, IMckUnary},
             IExpr, IExprField, IExprReference, IExprStruct,
         },
@@ -126,19 +126,18 @@ impl WExpr<WExprCall> {
 
                 WExprCall::Phi(phi) => {
                     let condition = from_variable_map(phi.condition, fn_data);
-                    let left = from_variable_map(phi.left, fn_data);
-                    let right = from_variable_map(phi.right, fn_data);
+                    let left = from_variable_map(phi.then_ident, fn_data);
+                    let right = from_variable_map(phi.else_ident, fn_data);
                     IExprCall::Phi(IPhi {
                         condition,
-                        left,
-                        right,
+                        then_var_id: left,
+                        else_var_id: right,
                     })
                 }
                 WExprCall::PhiTaken(taken) => {
-                    // translate as a move
-                    let var = from_variable_map(taken.ident, fn_data);
-                    let condition = from_variable_map(taken.condition, fn_data);
-                    IExprCall::PhiTaken(IPhiTaken { var, condition })
+                    // translate as a move, ignore condition
+                    let var_id = from_variable_map(taken.ident, fn_data);
+                    return Some(IExpr::Move(var_id));
                 }
                 WExprCall::PhiNotTaken => {
                     // do not translate to IIR as it is not needed there

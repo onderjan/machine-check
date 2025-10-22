@@ -47,8 +47,8 @@ pub enum WExprCall {
 #[derive(Clone, Debug, Hash)]
 pub struct WPhi {
     pub condition: WIdent,
-    pub left: WIdent,
-    pub right: WIdent,
+    pub then_ident: WIdent,
+    pub else_ident: WIdent,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -208,7 +208,10 @@ impl WExprCall {
             ),
             WExprCall::Phi(phi) => (
                 String::from(PHI),
-                vec![WCallArg::Ident(phi.left), WCallArg::Ident(phi.right)],
+                vec![
+                    WCallArg::Ident(phi.then_ident),
+                    WCallArg::Ident(phi.else_ident),
+                ],
             ),
             WExprCall::PhiTaken(taken) => (
                 String::from(PHI_TAKEN),
@@ -282,7 +285,10 @@ impl IntoSyn<Expr> for WExprHighCall {
             ),
             WExprHighCall::Phi(phi) => (
                 String::from(PHI),
-                vec![WCallArg::Ident(phi.left), WCallArg::Ident(phi.right)],
+                vec![
+                    WCallArg::Ident(phi.then_ident),
+                    WCallArg::Ident(phi.else_ident),
+                ],
             ),
             WExprHighCall::PhiTaken(taken) => (
                 String::from(PHI_TAKEN),

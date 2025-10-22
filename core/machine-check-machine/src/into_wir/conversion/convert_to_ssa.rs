@@ -405,8 +405,8 @@ impl LocalVisitor<'_> {
                 left: append_ident,
                 right: WExpr::Call(WExprHighCall::Phi(WPhi {
                     condition: condition.ident.clone(),
-                    left: phi_then_ident,
-                    right: phi_else_ident,
+                    then_ident: phi_then_ident,
+                    else_ident: phi_else_ident,
                 })),
             }));
         }
@@ -512,8 +512,8 @@ impl LocalVisitor<'_> {
             }
             WExprHighCall::Phi(phi) => {
                 self.process_ident(&mut phi.condition);
-                self.process_ident(&mut phi.left);
-                self.process_ident(&mut phi.right);
+                self.process_ident(&mut phi.then_ident);
+                self.process_ident(&mut phi.else_ident);
             }
             WExprHighCall::PhiTaken(taken) => {
                 self.process_ident(&mut taken.ident);

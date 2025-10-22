@@ -73,20 +73,13 @@ pub enum IExprCall {
     ArrayRead(IArrayRead),
     ArrayWrite(IArrayWrite),
     Phi(IPhi),
-    PhiTaken(IPhiTaken),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IPhi {
     pub condition: IVarId,
-    pub left: IVarId,
-    pub right: IVarId,
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct IPhiTaken {
-    pub var: IVarId,
-    pub condition: IVarId,
+    pub then_var_id: IVarId,
+    pub else_var_id: IVarId,
 }
 
 impl IExprCall {
@@ -110,8 +103,8 @@ impl IExprCall {
             IExprCall::Phi(phi) => {
                 // join the left and right variable value
                 // at least one must be present, but not necessarily both
-                let left = abstr.value_opt(phi.left);
-                let right = abstr.value_opt(phi.right);
+                let left = abstr.value_opt(phi.then_var_id);
+                let right = abstr.value_opt(phi.else_var_id);
 
                 match (left, right) {
                     (Some(left), Some(right)) => left.clone().join(right),
@@ -119,10 +112,6 @@ impl IExprCall {
                     (None, Some(right)) => right.clone(),
                     (None, None) => panic!("At least one phi variable should be present"),
                 }
-            }
-            IExprCall::PhiTaken(taken) => {
-                // just return the value
-                abstr.value(taken.var).clone()
             }
             IExprCall::StdClone(var_id) => {
                 // clone
@@ -147,13 +136,13 @@ impl IExprCall {
             IExprCall::Phi(phi) => {
                 // propagate into both
                 // the abstract value might not be present, limit manually, skipping when not present
-                if let Some(abstr_a) = abstr.value_opt(phi.left) {
+                if let Some(abstr_a) = abstr.value_opt(phi.then_var_id) {
                     let refin_a = later.clone().limit(abstr_a);
-                    refin.join_value(phi.left, refin_a);
+                    refin.join_value(phi.then_var_id, refin_a);
                 }
-                if let Some(abstr_b) = abstr.value_opt(phi.right) {
+                if let Some(abstr_b) = abstr.value_opt(phi.else_var_id) {
                     let refin_b = later.clone().limit(abstr_b);
-                    refin.join_value(phi.right, refin_b);
+                    refin.join_value(phi.else_var_id, refin_b);
                 }
 
                 // convert to condition and propagate
@@ -170,25 +159,6 @@ impl IExprCall {
                 });
 
                 join_limited(abstr, refin, phi.condition, condition_value)
-            }
-            IExprCall::PhiTaken(taken) => {
-                // propagate into taken
-                join_limited(abstr, refin, taken.var, later.clone());
-
-                // convert to condition and propagate
-                let condition_value = RefinementValue::Boolean(match later {
-                    RefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
-                    RefinementValue::Boolean(boolean) => boolean,
-                    RefinementValue::Array(array) => array.to_condition(),
-                    RefinementValue::PanicResult(_) => {
-                        panic!("Panic result should never be joined")
-                    }
-                    RefinementValue::Struct(_) => {
-                        todo!("Convert struct to condition value")
-                    }
-                });
-
-                join_limited(abstr, refin, taken.condition, condition_value)
             }
             IExprCall::ArrayRead(array_read) => {
                 let refin_element = later.expect_bitvector();
@@ -231,9 +201,12 @@ impl Debug for IExprCall {
                 )
             }
             IExprCall::BooleanNew(value) => write!(f, "Boolean({:?})", value),
-            IExprCall::Phi(phi) => write!(f, "Phi({:?}, {:?})", phi.left, phi.right),
-            IExprCall::PhiTaken(taken) => {
-                write!(f, "PhiTaken({:?}, {:?})", taken.var, taken.condition)
+            IExprCall::Phi(phi) => {
+                write!(
+                    f,
+                    "{:?} ? {:?} : {:?}",
+                    phi.condition, phi.then_var_id, phi.else_var_id
+                )
             }
         }
     }
