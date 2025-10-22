@@ -28,6 +28,14 @@ impl RArray {
     pub fn element_width(&self) -> u32 {
         self.element_width
     }
+
+    pub fn join(mut self, other: &Self) -> Self {
+        self.inner.subsume(other.inner.clone(), |lhs, rhs| {
+            *lhs = MetaWrap(lhs.0.join(&rhs.0))
+        });
+
+        self
+    }
 }
 
 impl ReadWrite for &RArray {

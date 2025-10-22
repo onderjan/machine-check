@@ -107,7 +107,7 @@ pub struct WArrayRead {
 pub struct WArrayWrite {
     pub base: WIdent,
     pub index: WIdent,
-    pub right: WIdent,
+    pub element: WIdent,
 }
 
 pub const MCK_HIGH_EXT: &str = "::machine_check::Ext::ext";
@@ -203,7 +203,7 @@ impl WExprCall {
                 vec![
                     WCallArg::Ident(write.base),
                     WCallArg::Ident(write.index),
-                    WCallArg::Ident(write.right),
+                    WCallArg::Ident(write.element),
                 ],
             ),
             WExprCall::Phi(phi) => (
@@ -280,7 +280,7 @@ impl IntoSyn<Expr> for WExprHighCall {
                 vec![
                     WCallArg::Ident(write.base),
                     WCallArg::Ident(write.index),
-                    WCallArg::Ident(write.right),
+                    WCallArg::Ident(write.element),
                 ],
             ),
             WExprHighCall::Phi(phi) => (

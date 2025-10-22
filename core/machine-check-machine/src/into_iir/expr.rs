@@ -121,7 +121,7 @@ impl WExpr<WExprCall> {
                 WExprCall::ArrayWrite(array_write) => IExprCall::ArrayWrite(IArrayWrite {
                     base: from_variable_map(array_write.base, fn_data),
                     index: from_variable_map(array_write.index, fn_data),
-                    right: from_variable_map(array_write.right, fn_data),
+                    element: from_variable_map(array_write.element, fn_data),
                 }),
 
                 WExprCall::Phi(phi) => {

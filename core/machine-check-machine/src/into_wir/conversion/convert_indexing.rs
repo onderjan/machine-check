@@ -187,7 +187,7 @@ impl IndexingConverter {
                 let write_call = WExprHighCall::ArrayWrite(WArrayWrite {
                     base: array_ref_ident,
                     index: left_index,
-                    right,
+                    element: right,
                 });
                 (left_array, WExpr::Call(write_call))
             }

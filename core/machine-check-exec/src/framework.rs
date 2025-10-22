@@ -52,7 +52,7 @@ impl<M: FullMachine> Framework<M> {
              should be deserialized",
         );
 
-        //eprintln!("Using machine: {:#?}", machine);
+        eprintln!("Using machine: {:#?}", machine);
 
         let input = machine.input();
         let param = machine.param();

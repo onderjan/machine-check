@@ -174,10 +174,69 @@ impl ReadWrite for abstr::RArray {
     }
 
     fn write(
-        _normal_input: (&Self, Self::Index, Self::Element),
-        _mark_later: Self::Mark,
+        normal_input: (&Self, Self::Index, Self::Element),
+        mark_later: Self::Mark,
     ) -> (Self::Mark, Self::IndexMark, Self::ElementMark) {
-        todo!();
+        let index_width = normal_input.0.index_width();
+        let element_width = normal_input.0.element_width();
+
+        // mark if we could have written indices
+        let (min_index, max_index) = extract_runtime_bounds(normal_input.1);
+        if min_index == max_index {
+            // we definitely wrote to a single index
+            // no index marking
+            // propagate its marking
+            let mut earlier_array_mark = mark_later.clone();
+            let earlier_element_mark = earlier_array_mark.inner[min_index.to_u64()].0;
+            earlier_array_mark.inner.write(
+                min_index.to_u64(),
+                MetaWrap(Self::ElementMark::new_unmarked(element_width)),
+            );
+            (
+                earlier_array_mark,
+                Self::IndexMark::new_unmarked(index_width),
+                earlier_element_mark.limit(&normal_input.2),
+            )
+        } else {
+            // the index is the most important, mark it if we have some mark within the elements
+            let max_importance = mark_later.inner.fold_indexed(
+                min_index.to_u64(),
+                Some(max_index.to_u64()),
+                None,
+                |max_importance: Option<NonZeroU8>, value| {
+                    if let Some(importance) = NonZeroU8::new(value.0.importance()) {
+                        if let Some(max_importance) = max_importance {
+                            Some(max_importance.max(importance))
+                        } else {
+                            Some(importance)
+                        }
+                    } else {
+                        max_importance
+                    }
+                },
+            );
+
+            if let Some(max_importance) = max_importance {
+                // do not mark anything else and mark index with index importance
+                (
+                    Self::Mark::new_unmarked(index_width, element_width),
+                    Self::IndexMark::new_marked(
+                        index_importance(max_importance.get()),
+                        index_width,
+                    )
+                    .limit(&normal_input.1),
+                    Self::ElementMark::new_unmarked(element_width),
+                )
+            } else {
+                // retain the array marks, do not mark anything else
+                let earlier_array_mark = mark_later.clone();
+                (
+                    earlier_array_mark,
+                    Self::IndexMark::new_unmarked(index_width),
+                    Self::ElementMark::new_unmarked(element_width),
+                )
+            }
+        }
     }
 }
 

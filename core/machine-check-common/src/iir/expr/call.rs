@@ -58,7 +58,7 @@ pub struct IArrayRead {
 pub struct IArrayWrite {
     pub base: IVarId,
     pub index: IVarId,
-    pub right: IVarId,
+    pub element: IVarId,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -99,7 +99,13 @@ impl IExprCall {
 
                 AbstractValue::Bitvector(array.read(*index))
             }
-            IExprCall::ArrayWrite(array_write) => todo!("Forward array write"),
+            IExprCall::ArrayWrite(array_write) => {
+                let array = abstr.value(array_write.base).expect_array();
+                let index = abstr.value(array_write.index).expect_bitvector();
+                let element = abstr.value(array_write.element).expect_bitvector();
+
+                AbstractValue::Array(array.write(*index, *element))
+            }
             IExprCall::Phi(phi) => {
                 // join the left and right variable value
                 // at least one must be present, but not necessarily both
@@ -119,34 +125,39 @@ impl IExprCall {
             }
         })
     }
-    pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin, later: RefinementValue) {
+    pub fn backward_interpret(
+        &self,
+        abstr: &IAbstr,
+        refin: &mut IRefin,
+        refin_later: RefinementValue,
+    ) {
         match self {
             IExprCall::Call(call) => todo!("Backward call"),
-            IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, later),
-            IExprCall::MckBinary(binary) => binary.backward_interpret(abstr, refin, later),
-            IExprCall::MckExt(ext) => ext.backward_interpret(abstr, refin, later),
+            IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, refin_later),
+            IExprCall::MckBinary(binary) => binary.backward_interpret(abstr, refin, refin_later),
+            IExprCall::MckExt(ext) => ext.backward_interpret(abstr, refin, refin_later),
             IExprCall::MckNew(_) | IExprCall::BooleanNew(_) => {
                 // there is no variable to propagate to, do nothing
             }
             IExprCall::StdClone(var_id) => {
                 // limit and join previous
 
-                join_limited(abstr, refin, *var_id, later);
+                join_limited(abstr, refin, *var_id, refin_later);
             }
             IExprCall::Phi(phi) => {
                 // propagate into both
                 // the abstract value might not be present, limit manually, skipping when not present
                 if let Some(abstr_a) = abstr.value_opt(phi.then_var_id) {
-                    let refin_a = later.clone().limit(abstr_a);
+                    let refin_a = refin_later.clone().limit(abstr_a);
                     refin.join_value(phi.then_var_id, refin_a);
                 }
                 if let Some(abstr_b) = abstr.value_opt(phi.else_var_id) {
-                    let refin_b = later.clone().limit(abstr_b);
+                    let refin_b = refin_later.clone().limit(abstr_b);
                     refin.join_value(phi.else_var_id, refin_b);
                 }
 
                 // convert to condition and propagate
-                let condition_value = RefinementValue::Boolean(match later {
+                let condition_value = RefinementValue::Boolean(match refin_later {
                     RefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
                     RefinementValue::Boolean(boolean) => boolean,
                     RefinementValue::Array(array) => array.to_condition(),
@@ -161,20 +172,45 @@ impl IExprCall {
                 join_limited(abstr, refin, phi.condition, condition_value)
             }
             IExprCall::ArrayRead(array_read) => {
-                let refin_element = later.expect_bitvector();
-                let abstr_array = abstr.value(array_read.base).expect_array();
+                let refin_element = refin_later.expect_bitvector();
+                let abstr_earlier = abstr.value(array_read.base).expect_array();
                 let abstr_index = abstr.value(array_read.index).expect_bitvector();
-                let (refin_array, refin_index) =
-                    mck::backward::ReadWrite::read((abstr_array, *abstr_index), *refin_element);
+                let (refin_earlier, refin_index) =
+                    mck::backward::ReadWrite::read((abstr_earlier, *abstr_index), *refin_element);
 
                 // we already have the abstract values, limit them here
-                let refin_array = refin_array.limit(abstr_array);
+                let refin_earlier = refin_earlier.limit(abstr_earlier);
                 let refin_index = refin_index.limit(abstr_index);
 
-                refin.join_value(array_read.base, RefinementValue::Array(refin_array));
+                refin.join_value(array_read.base, RefinementValue::Array(refin_earlier));
                 refin.join_value(array_read.index, RefinementValue::Bitvector(refin_index));
             }
-            IExprCall::ArrayWrite(array_write) => todo!("Backward array write"),
+            IExprCall::ArrayWrite(array_write) => {
+                let RefinementValue::Array(refin_later) = refin_later else {
+                    panic!("Array write later should be an array");
+                };
+
+                let abstr_earlier = abstr.value(array_write.base).expect_array();
+                let abstr_index = abstr.value(array_write.index).expect_bitvector();
+                let abstr_element = abstr.value(array_write.element).expect_bitvector();
+
+                let (refin_earlier, refin_index, refin_element) = mck::backward::ReadWrite::write(
+                    (abstr_earlier, *abstr_index, *abstr_element),
+                    refin_later.clone(),
+                );
+
+                // we already have the abstract values, limit them here
+                let refin_earlier = refin_earlier.limit(abstr_earlier);
+                let refin_index = refin_index.limit(abstr_index);
+                let refin_element = refin_element.limit(abstr_element);
+
+                refin.join_value(array_write.base, RefinementValue::Array(refin_earlier));
+                refin.join_value(array_write.index, RefinementValue::Bitvector(refin_index));
+                refin.join_value(
+                    array_write.element,
+                    RefinementValue::Bitvector(refin_element),
+                );
+            }
         }
     }
 }
@@ -197,7 +233,7 @@ impl Debug for IExprCall {
                 write!(
                     f,
                     "({:?}[{:?}] <-- {:?})",
-                    array_write.base, array_write.index, array_write.right
+                    array_write.base, array_write.index, array_write.element
                 )
             }
             IExprCall::BooleanNew(value) => write!(f, "Boolean({:?})", value),

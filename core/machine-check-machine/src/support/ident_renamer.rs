@@ -99,7 +99,7 @@ impl IdentRenamer {
             WExprCall::ArrayWrite(call) => {
                 self.visit_ident(&mut call.base);
                 self.visit_ident(&mut call.index);
-                self.visit_ident(&mut call.right);
+                self.visit_ident(&mut call.element);
             }
             WExprCall::Phi(phi) => {
                 self.visit_ident(&mut phi.condition);

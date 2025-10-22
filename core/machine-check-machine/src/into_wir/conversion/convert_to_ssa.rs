@@ -508,7 +508,7 @@ impl LocalVisitor<'_> {
             WExprHighCall::ArrayWrite(write) => {
                 self.process_ident(&mut write.base);
                 self.process_ident(&mut write.index);
-                self.process_ident(&mut write.right);
+                self.process_ident(&mut write.element);
             }
             WExprHighCall::Phi(phi) => {
                 self.process_ident(&mut phi.condition);

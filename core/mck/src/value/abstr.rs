@@ -93,6 +93,9 @@ impl Join for AbstractValue {
             (AbstractValue::Boolean(left), AbstractValue::Boolean(right)) => {
                 AbstractValue::Boolean(left.join(right))
             }
+            (AbstractValue::Array(left), AbstractValue::Array(right)) => {
+                AbstractValue::Array(left.join(right))
+            }
             _ => panic!(
                 "Unjoinable combination of values {:?} and {:?}",
                 tuple.0, tuple.1
