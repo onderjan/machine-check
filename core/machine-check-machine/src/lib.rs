@@ -8,15 +8,16 @@ use machine_check_common::ir_common::IrTypeArray;
 use machine_check_common::Signedness;
 use mck::concr::FullMachine;
 use proc_macro2::{Ident, Span};
-use quote::quote;
+use quote::{quote, ToTokens};
 use support::error_list::ErrorList;
+use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
 use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
 use syn_path::path;
 use wir::IntoSyn;
 
-use crate::util::create_item_mod;
+use crate::util::{create_item_mod, path_matches_global_names};
 use crate::wir::{WBasicType, WElementaryType, WIdent, WSpan};
 
 mod abstr;
@@ -301,6 +302,20 @@ impl VisitMut for RedirectVisitor {
             }
         }
         visit_mut::visit_path_mut(self, path);
+    }
+
+    fn visit_macro_mut(&mut self, mac: &mut syn::Macro) {
+        // ensure paths in ::std::vec![...] are correctly redirected
+        if path_matches_global_names(&mac.path, &["std", "vec"]) {
+            let mut parsed = mac
+                .parse_body_with(Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated)
+                .expect("Macro ::std::vec! should be parseable");
+            for expr in &mut parsed {
+                visit_mut::visit_expr_mut(self, expr);
+            }
+            mac.tokens = parsed.into_token_stream();
+        }
+        visit_mut::visit_macro_mut(self, mac);
     }
 }
 
