@@ -52,7 +52,7 @@ impl<M: FullMachine> Framework<M> {
              should be deserialized",
         );
 
-        eprintln!("Using machine: {:#?}", machine);
+        //eprintln!("Using machine: {:#?}", machine);
 
         let input = machine.input();
         let param = machine.param();
@@ -71,11 +71,6 @@ impl<M: FullMachine> Framework<M> {
         } else {
             state.dirty_refin()
         };
-
-        eprintln!(
-            "Default input precision: {:#?}, step: {:#?}",
-            default_input_precision, default_step_precision
-        );
 
         // return the framework with empty state space, before any construction
         Framework {

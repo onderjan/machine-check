@@ -21,7 +21,7 @@ pub enum WExprHighCall {
     StdClone(WIdent),
     ArrayRead(WArrayRead),
     ArrayWrite(WArrayWrite),
-    Phi(WIdent, WIdent),
+    Phi(WPhi),
     PhiTaken(WPhiTaken),
     PhiNotTaken,
     PhiUninit,
@@ -38,10 +38,17 @@ pub enum WExprCall {
     StdClone(WIdent),
     ArrayRead(WArrayRead),
     ArrayWrite(WArrayWrite),
-    Phi(WIdent, WIdent),
+    Phi(WPhi),
     PhiTaken(WPhiTaken),
     PhiNotTaken,
     PhiUninit,
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct WPhi {
+    pub condition: WIdent,
+    pub left: WIdent,
+    pub right: WIdent,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -199,9 +206,9 @@ impl WExprCall {
                     WCallArg::Ident(write.right),
                 ],
             ),
-            WExprCall::Phi(a, b) => (
+            WExprCall::Phi(phi) => (
                 String::from(PHI),
-                vec![WCallArg::Ident(a), WCallArg::Ident(b)],
+                vec![WCallArg::Ident(phi.left), WCallArg::Ident(phi.right)],
             ),
             WExprCall::PhiTaken(taken) => (
                 String::from(PHI_TAKEN),
@@ -273,9 +280,9 @@ impl IntoSyn<Expr> for WExprHighCall {
                     WCallArg::Ident(write.right),
                 ],
             ),
-            WExprHighCall::Phi(a, b) => (
+            WExprHighCall::Phi(phi) => (
                 String::from(PHI),
-                vec![WCallArg::Ident(a), WCallArg::Ident(b)],
+                vec![WCallArg::Ident(phi.left), WCallArg::Ident(phi.right)],
             ),
             WExprHighCall::PhiTaken(taken) => (
                 String::from(PHI_TAKEN),

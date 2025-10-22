@@ -72,8 +72,15 @@ pub enum IExprCall {
     StdClone(IVarId),
     ArrayRead(IArrayRead),
     ArrayWrite(IArrayWrite),
-    Phi(IVarId, IVarId),
+    Phi(IPhi),
     PhiTaken(IPhiTaken),
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct IPhi {
+    pub condition: IVarId,
+    pub left: IVarId,
+    pub right: IVarId,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -100,11 +107,11 @@ impl IExprCall {
                 AbstractValue::Bitvector(array.read(*index))
             }
             IExprCall::ArrayWrite(array_write) => todo!("Forward array write"),
-            IExprCall::Phi(left, right) => {
+            IExprCall::Phi(phi) => {
                 // join the left and right variable value
                 // at least one must be present, but not necessarily both
-                let left = abstr.value_opt(*left);
-                let right = abstr.value_opt(*right);
+                let left = abstr.value_opt(phi.left);
+                let right = abstr.value_opt(phi.right);
 
                 match (left, right) {
                     (Some(left), Some(right)) => left.clone().join(right),
@@ -137,17 +144,32 @@ impl IExprCall {
 
                 join_limited(abstr, refin, *var_id, later);
             }
-            IExprCall::Phi(a, b) => {
+            IExprCall::Phi(phi) => {
                 // propagate into both
                 // the abstract value might not be present, limit manually, skipping when not present
-                if let Some(abstr_a) = abstr.value_opt(*a) {
+                if let Some(abstr_a) = abstr.value_opt(phi.left) {
                     let refin_a = later.clone().limit(abstr_a);
-                    refin.join_value(*a, refin_a);
+                    refin.join_value(phi.left, refin_a);
                 }
-                if let Some(abstr_b) = abstr.value_opt(*b) {
+                if let Some(abstr_b) = abstr.value_opt(phi.right) {
                     let refin_b = later.clone().limit(abstr_b);
-                    refin.join_value(*b, refin_b);
+                    refin.join_value(phi.right, refin_b);
                 }
+
+                // convert to condition and propagate
+                let condition_value = RefinementValue::Boolean(match later {
+                    RefinementValue::Bitvector(bitvector) => bitvector.to_condition(),
+                    RefinementValue::Boolean(boolean) => boolean,
+                    RefinementValue::Array(array) => array.to_condition(),
+                    RefinementValue::PanicResult(_) => {
+                        panic!("Panic result should never be joined")
+                    }
+                    RefinementValue::Struct(_) => {
+                        todo!("Convert struct to condition value")
+                    }
+                });
+
+                join_limited(abstr, refin, phi.condition, condition_value)
             }
             IExprCall::PhiTaken(taken) => {
                 // propagate into taken
@@ -209,7 +231,7 @@ impl Debug for IExprCall {
                 )
             }
             IExprCall::BooleanNew(value) => write!(f, "Boolean({:?})", value),
-            IExprCall::Phi(left, right) => write!(f, "Phi({:?}, {:?})", left, right),
+            IExprCall::Phi(phi) => write!(f, "Phi({:?}, {:?})", phi.left, phi.right),
             IExprCall::PhiTaken(taken) => {
                 write!(f, "PhiTaken({:?}, {:?})", taken.var, taken.condition)
             }

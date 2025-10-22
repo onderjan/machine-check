@@ -3,7 +3,7 @@ use machine_check_common::{
     iir::{
         description::{IFnId, IStructId, ITrait},
         expr::{
-            call::{IArrayRead, IArrayWrite, ICall, IExprCall, IMckNew, IPhiTaken},
+            call::{IArrayRead, IArrayWrite, ICall, IExprCall, IMckNew, IPhi, IPhiTaken},
             op::{IMckBinary, IMckExt, IMckUnary},
             IExpr, IExprField, IExprReference, IExprStruct,
         },
@@ -124,10 +124,15 @@ impl WExpr<WExprCall> {
                     right: from_variable_map(array_write.right, fn_data),
                 }),
 
-                WExprCall::Phi(left, right) => {
-                    let left = from_variable_map(left, fn_data);
-                    let right = from_variable_map(right, fn_data);
-                    IExprCall::Phi(left, right)
+                WExprCall::Phi(phi) => {
+                    let condition = from_variable_map(phi.condition, fn_data);
+                    let left = from_variable_map(phi.left, fn_data);
+                    let right = from_variable_map(phi.right, fn_data);
+                    IExprCall::Phi(IPhi {
+                        condition,
+                        left,
+                        right,
+                    })
                 }
                 WExprCall::PhiTaken(taken) => {
                     // translate as a move

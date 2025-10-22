@@ -136,7 +136,7 @@ impl BackwardFolder {
                 // convert specially
                 return self.fold_clone_call(left, right);
             }
-            WExprCall::Phi(_, _) => Special::Phi,
+            WExprCall::Phi(_) => Special::Phi,
             WExprCall::PhiTaken(_) => Special::PhiTaken,
             WExprCall::PhiNotTaken => {
                 // not taken branch does not have any effect

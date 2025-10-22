@@ -6,7 +6,7 @@ use machine_check_common::ir_common::IrReference;
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
     WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WFnArg, WHighMckNew, WIdent,
-    WPartialGeneralType, WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt,
+    WPartialGeneralType, WPhi, WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt,
     WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WType, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
@@ -403,7 +403,11 @@ impl LocalVisitor<'_> {
 
             append_stmts.push(WStmt::Assign(WStmtAssign {
                 left: append_ident,
-                right: WExpr::Call(WExprHighCall::Phi(phi_then_ident, phi_else_ident)),
+                right: WExpr::Call(WExprHighCall::Phi(WPhi {
+                    condition: condition.ident.clone(),
+                    left: phi_then_ident,
+                    right: phi_else_ident,
+                })),
             }));
         }
         let stmt = WStmtIf {
@@ -506,9 +510,10 @@ impl LocalVisitor<'_> {
                 self.process_ident(&mut write.index);
                 self.process_ident(&mut write.right);
             }
-            WExprHighCall::Phi(a, b) => {
-                self.process_ident(a);
-                self.process_ident(b);
+            WExprHighCall::Phi(phi) => {
+                self.process_ident(&mut phi.condition);
+                self.process_ident(&mut phi.left);
+                self.process_ident(&mut phi.right);
             }
             WExprHighCall::PhiTaken(taken) => {
                 self.process_ident(&mut taken.ident);

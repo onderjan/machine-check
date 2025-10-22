@@ -76,12 +76,19 @@ impl<M: FullMachine> super::Framework<M> {
                 &self.default_param_precision,
             );
 
+            /*eprintln!(
+                "Refining step, current state mark {:#?}",
+                current_state_mark
+            );*/
+
             let (input_mark, param_mark, new_state_mark) = self.compute_marks(
                 previous_node_id,
                 current_state_id,
                 current_state_mark,
                 current_panic_mark,
             );
+
+            //eprintln!("Refining step, new state mark {:#?}", new_state_mark);
 
             // TODO: what to do with the panic mark?
 
@@ -220,6 +227,9 @@ impl<M: FullMachine> super::Framework<M> {
             let abstr = next_fn.forward_interpret(in_data);
 
             let refin = next_fn.backward_interpret(&abstr, current_state_mark, current_panic_mark);
+
+            //eprintln!("Abstract: {:#?}", abstr);
+            //eprintln!("Refinement: {:#?}", refin);
 
             let mut earlier_marks = next_fn.backward_earlier(&abstr, &refin).into_iter();
             assert_eq!(earlier_marks.len(), 4);
