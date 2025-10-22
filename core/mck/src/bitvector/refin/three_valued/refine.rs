@@ -84,14 +84,6 @@ impl RMarkBitvector {
         let ones = forward::Bitwise::bit_or(target.get_possibly_one_flags(), forced_unknown);
         *target = RThreeValuedBitvector::from_zeros_ones(zeros, ones);
     }
-
-    fn clean(width: u32) -> Self {
-        Self::new_unmarked(width)
-    }
-
-    fn dirty(width: u32) -> Self {
-        Self::new_marked_unimportant(width)
-    }
 }
 
 impl<const W: u32> Refine<ThreeValuedBitvector<W>> for MarkBitvector<W> {

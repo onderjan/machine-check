@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{AbstractValue, RArray},
+    abstr::AbstractValue,
     backward,
     misc::{Join, Meta, MetaEq},
     refin::{self, Limit, Refine},
@@ -78,7 +78,7 @@ impl RefinementValue {
             RefinementValue::Array(refin) => refin.apply_refin(other.expect_array()),
             RefinementValue::Bitvector(refin) => refin.apply_refin(other.expect_bitvector()),
             RefinementValue::Boolean(refin) => refin.apply_refin(other.expect_boolean()),
-            RefinementValue::PanicResult(refin) => todo!(),
+            RefinementValue::PanicResult(_refin) => todo!(),
             RefinementValue::Struct(fields) => {
                 // refine in succession, break on first
                 let other = other.expect_struct();
@@ -99,7 +99,7 @@ impl RefinementValue {
             RefinementValue::Array(refin) => refin.importance(),
             RefinementValue::Bitvector(refin) => refin.importance(),
             RefinementValue::Boolean(refin) => refin.importance(),
-            RefinementValue::PanicResult(refin) => todo!(),
+            RefinementValue::PanicResult(_refin) => todo!(),
             RefinementValue::Struct(fields) => {
                 // take the maximum, zero for no fields
                 fields
@@ -118,11 +118,9 @@ impl RefinementValue {
         }
         match self {
             RefinementValue::Array(refin) => refin.force_decay(abstr.expect_array_mut()),
-            RefinementValue::Bitvector(refin) => {
-                refin.force_decay(&mut abstr.expect_bitvector_mut())
-            }
+            RefinementValue::Bitvector(refin) => refin.force_decay(abstr.expect_bitvector_mut()),
             RefinementValue::Boolean(refin) => refin.force_decay(abstr.expect_boolean_mut()),
-            RefinementValue::PanicResult(refin) => todo!(),
+            RefinementValue::PanicResult(_refin) => todo!(),
             RefinementValue::Struct(fields) => {
                 // force decay on all fields
                 let abstr = abstr.expect_struct_mut();
@@ -485,8 +483,8 @@ impl Meta<AbstractValue> for RefinementValue {
             RefinementValue::Bitvector(bitvector) => {
                 AbstractValue::Bitvector(bitvector.proto_first())
             }
-            RefinementValue::Boolean(boolean) => todo!(),
-            RefinementValue::PanicResult(panic_result) => todo!(),
+            RefinementValue::Boolean(boolean) => AbstractValue::Boolean(boolean.proto_first()),
+            RefinementValue::PanicResult(_panic_result) => todo!(),
             RefinementValue::Struct(fields) => {
                 AbstractValue::Struct(fields.iter().map(|field| field.proto_first()).collect())
             }
@@ -499,8 +497,10 @@ impl Meta<AbstractValue> for RefinementValue {
             RefinementValue::Bitvector(bitvector) => {
                 bitvector.proto_increment(proto.expect_bitvector_mut())
             }
-            RefinementValue::Boolean(boolean) => todo!(),
-            RefinementValue::PanicResult(panic_result) => todo!(),
+            RefinementValue::Boolean(boolean) => {
+                boolean.proto_increment(proto.expect_boolean_mut())
+            }
+            RefinementValue::PanicResult(_panic_result) => todo!(),
             RefinementValue::Struct(fields) => {
                 let abstr_iter = proto.expect_struct_mut().iter_mut();
                 for (refin, abstr) in fields.iter().zip(abstr_iter) {

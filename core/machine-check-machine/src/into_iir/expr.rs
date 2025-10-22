@@ -107,7 +107,7 @@ impl WExpr<WExprCall> {
                 }
                 WExprCall::MckNew(mck_new) => IExprCall::MckNew(match mck_new {
                     WMckNew::Bitvector(width, constant) => IMckNew::Bitvector(width, constant),
-                    WMckNew::BitvectorArray(wtype_array, wident) => todo!(),
+                    WMckNew::BitvectorArray(_wtype_array, _wident) => todo!(),
                 }),
                 WExprCall::BooleanNew(value) => IExprCall::BooleanNew(value),
                 WExprCall::StdClone(ident) => {

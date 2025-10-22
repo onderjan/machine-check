@@ -149,7 +149,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                                 mark.to_condition().importance() > 0
                             }
                             RefinementValue::PanicResult(_panic_result) => todo!(),
-                            RefinementValue::Struct(refin_value) => todo!("Struct cuplrit"),
+                            RefinementValue::Struct(_refin_value) => todo!("Struct cuplrit"),
                         };
 
                         if nonempty_mark {

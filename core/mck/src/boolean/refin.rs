@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     backward::Bitwise,
-    misc::MetaEq,
+    misc::{Meta, MetaEq},
     refin::{BooleanBitvector, Limit, Refine},
 };
 
@@ -53,6 +53,16 @@ impl Refine<super::abstr::Boolean> for Boolean {
 
     fn importance(&self) -> u8 {
         self.0.importance()
+    }
+}
+
+impl Meta<super::abstr::Boolean> for Boolean {
+    fn proto_first(&self) -> super::abstr::Boolean {
+        super::abstr::Boolean(self.0.proto_first())
+    }
+
+    fn proto_increment(&self, proto: &mut super::abstr::Boolean) -> bool {
+        self.0.proto_increment(&mut proto.0)
     }
 }
 
