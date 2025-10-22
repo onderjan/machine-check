@@ -4,6 +4,7 @@ use mck::{abstr::AbstractValue, refin::RefinementValue};
 use serde::{Deserialize, Serialize};
 
 use crate::iir::{
+    context::IContext,
     path::IIdent,
     stmt::IStmt,
     ty::IElementaryType,
@@ -69,12 +70,16 @@ impl IFn {
         input_values
     }
 
-    pub fn call(&self, input_values: Vec<AbstractValue>) -> AbstractValue {
-        let abstr = self.forward_interpret(input_values);
+    pub fn call(&self, context: &IContext, input_values: Vec<AbstractValue>) -> AbstractValue {
+        let abstr = self.forward_interpret(context, input_values);
         self.forward_result(&abstr)
     }
 
-    pub fn forward_interpret(&self, input_values: Vec<AbstractValue>) -> IAbstr {
+    pub fn forward_interpret(
+        &self,
+        context: &IContext,
+        input_values: Vec<AbstractValue>,
+    ) -> IAbstr {
         //eprintln!("Forward-interpreting {:#?}", self);
         let mut abstr = IAbstr::new();
 
@@ -90,7 +95,7 @@ impl IFn {
             abstr.insert_value(input_var_id, input_value);
         }
 
-        self.block.forward_interpret(&mut abstr);
+        self.block.forward_interpret(context, &mut abstr);
 
         //println!("Call interpretation: {:#?}", inter);
 
@@ -107,6 +112,7 @@ impl IFn {
 
     pub fn backward_interpret(
         &self,
+        context: &IContext,
         abstr: &IAbstr,
         later_normal: RefinementValue,
         later_panic: RefinementValue,
@@ -116,7 +122,7 @@ impl IFn {
         refin.insert_value(self.signature.output.normal, later_normal);
         refin.insert_value(self.signature.output.panic, later_panic);
 
-        self.block.backward_interpret(abstr, &mut refin);
+        self.block.backward_interpret(context, abstr, &mut refin);
 
         refin
     }
@@ -136,16 +142,16 @@ impl IFn {
 }
 
 impl IBlock {
-    pub fn forward_interpret(&self, abstr: &mut IAbstr) {
+    pub fn forward_interpret(&self, context: &IContext, abstr: &mut IAbstr) {
         for stmt in &self.stmts {
-            stmt.forward_interpret(abstr);
+            stmt.forward_interpret(context, abstr);
         }
     }
 
-    pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin) {
+    pub fn backward_interpret(&self, context: &IContext, abstr: &IAbstr, refin: &mut IRefin) {
         // go in reverse
         for stmt in self.stmts.iter().rev() {
-            stmt.backward_interpret(abstr, refin);
+            stmt.backward_interpret(context, abstr, refin);
         }
     }
 }

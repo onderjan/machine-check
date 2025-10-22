@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use mck::{abstr::AbstractValue, three_valued::ThreeValued};
 use serde::{Deserialize, Serialize};
 
-use crate::iir::{expr::IExpr, func::IBlock, variable::IVarId, IAbstr, IRefin};
+use crate::iir::{context::IContext, expr::IExpr, func::IBlock, variable::IVarId, IAbstr, IRefin};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IStmt {
@@ -12,17 +12,17 @@ pub enum IStmt {
 }
 
 impl IStmt {
-    pub fn forward_interpret(&self, abstr: &mut IAbstr) {
+    pub fn forward_interpret(&self, context: &IContext, abstr: &mut IAbstr) {
         match self {
-            IStmt::Assign(stmt_assign) => stmt_assign.forward_interpret(abstr),
-            IStmt::If(stmt_if) => stmt_if.forward_interpret(abstr),
+            IStmt::Assign(stmt_assign) => stmt_assign.forward_interpret(context, abstr),
+            IStmt::If(stmt_if) => stmt_if.forward_interpret(context, abstr),
         }
     }
 
-    pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin) {
+    pub fn backward_interpret(&self, context: &IContext, abstr: &IAbstr, refin: &mut IRefin) {
         match self {
-            IStmt::Assign(stmt_assign) => stmt_assign.backward_interpret(abstr, refin),
-            IStmt::If(stmt_if) => stmt_if.backward_interpret(abstr, refin),
+            IStmt::Assign(stmt_assign) => stmt_assign.backward_interpret(context, abstr, refin),
+            IStmt::If(stmt_if) => stmt_if.backward_interpret(context, abstr, refin),
         }
     }
 }
@@ -34,15 +34,15 @@ pub struct IAssignStmt {
 }
 
 impl IAssignStmt {
-    fn forward_interpret(&self, abstr: &mut IAbstr) {
+    fn forward_interpret(&self, context: &IContext, abstr: &mut IAbstr) {
         //println!("Forward-interpreting statement {:?}", self);
         let left_ident = self.left;
-        if let Some(right_value) = self.right.forward_interpret(abstr) {
+        if let Some(right_value) = self.right.forward_interpret(context, abstr) {
             abstr.insert_value(left_ident, right_value);
         }
     }
 
-    pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin) {
+    pub fn backward_interpret(&self, context: &IContext, abstr: &IAbstr, refin: &mut IRefin) {
         //println!("Backward-interpreting statement {:?}", self);
         // when interpreting backwards, we take the later (left) refinement value
         // and the earlier (right) abstract values and process them
@@ -53,7 +53,7 @@ impl IAssignStmt {
         let left_ident = self.left;
         if let Some(later_refinement_value) = refin.value_opt(left_ident) {
             self.right
-                .backward_interpret(abstr, refin, later_refinement_value.clone());
+                .backward_interpret(context, abstr, refin, later_refinement_value.clone());
         }
     }
 }
@@ -66,23 +66,23 @@ pub struct IIfStmt {
 }
 
 impl IIfStmt {
-    fn forward_interpret(&self, abstr: &mut IAbstr) {
+    fn forward_interpret(&self, context: &IContext, abstr: &mut IAbstr) {
         let (can_take_then, can_take_else) = self.can_take_then_else(abstr);
         if can_take_then {
-            self.then_block.forward_interpret(abstr);
+            self.then_block.forward_interpret(context, abstr);
         }
         if can_take_else {
-            self.else_block.forward_interpret(abstr);
+            self.else_block.forward_interpret(context, abstr);
         }
     }
 
-    pub fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin) {
+    pub fn backward_interpret(&self, context: &IContext, abstr: &IAbstr, refin: &mut IRefin) {
         let (can_take_then, can_take_else) = self.can_take_then_else(abstr);
         if can_take_then {
-            self.then_block.backward_interpret(abstr, refin);
+            self.then_block.backward_interpret(context, abstr, refin);
         }
         if can_take_else {
-            self.else_block.backward_interpret(abstr, refin);
+            self.else_block.backward_interpret(context, abstr, refin);
         }
     }
 

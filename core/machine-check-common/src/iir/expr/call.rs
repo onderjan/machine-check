@@ -10,6 +10,7 @@ use mck::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::iir::context::IContext;
 use crate::iir::description::IFnId;
 use crate::iir::expr::op::IMckExt;
 use crate::iir::{
@@ -83,9 +84,22 @@ pub struct IPhi {
 }
 
 impl IExprCall {
-    pub fn forward_interpret(&self, abstr: &IAbstr) -> Option<AbstractValue> {
+    pub fn forward_interpret(&self, context: &IContext, abstr: &IAbstr) -> Option<AbstractValue> {
         Some(match self {
-            IExprCall::Call(call) => todo!("Forward call"),
+            IExprCall::Call(call) => {
+                let func = context.fn_with_id(call.func);
+
+                let mut input_values = Vec::new();
+
+                for var_id in call.args.iter().cloned() {
+                    let input_value = abstr.value(var_id).clone();
+                    input_values.push(input_value);
+                }
+
+                eprintln!("Calling with ({:?}): {:#?}", input_values, func);
+
+                func.call(context, input_values)
+            }
             IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
             IExprCall::MckBinary(binary) => binary.forward_interpret(abstr),
             IExprCall::MckExt(ext) => ext.forward_interpret(abstr),
@@ -127,12 +141,15 @@ impl IExprCall {
     }
     pub fn backward_interpret(
         &self,
+        context: &IContext,
         abstr: &IAbstr,
         refin: &mut IRefin,
         refin_later: RefinementValue,
     ) {
         match self {
-            IExprCall::Call(call) => todo!("Backward call"),
+            IExprCall::Call(call) => {
+                todo!("Backward call to {:?} with context {:#?}", call, context)
+            }
             IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, refin_later),
             IExprCall::MckBinary(binary) => binary.backward_interpret(abstr, refin, refin_later),
             IExprCall::MckExt(ext) => ext.backward_interpret(abstr, refin, refin_later),

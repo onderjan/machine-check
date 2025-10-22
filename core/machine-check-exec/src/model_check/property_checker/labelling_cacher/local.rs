@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use machine_check_common::iir::context::IContext;
 use mck::abstr::{Abstr, AbstractValue, Manipulatable};
 
 use machine_check_common::iir::property::{ISubproperty, ISubpropertyFunc};
@@ -113,7 +114,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         let input_values = func.globals_to_input_values(&globals);
 
-        let result = func.call(input_values.clone());
+        let result = func.call(&IContext::empty(), input_values.clone());
 
         let AbstractValue::Boolean(result) = result else {
             panic!("Result should be abstract Boolean");

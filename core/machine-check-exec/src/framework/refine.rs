@@ -224,9 +224,16 @@ impl<M: FullMachine> super::Framework<M> {
 
             let in_data = vec![runtime_machine, previous_state, input, param];
 
-            let abstr = next_fn.forward_interpret(in_data);
+            let context = self.machine.description.context();
 
-            let refin = next_fn.backward_interpret(&abstr, current_state_mark, current_panic_mark);
+            let abstr = next_fn.forward_interpret(&context, in_data);
+
+            let refin = next_fn.backward_interpret(
+                &context,
+                &abstr,
+                current_state_mark,
+                current_panic_mark,
+            );
 
             //eprintln!("Abstract: {:#?}", abstr);
             //eprintln!("Refinement: {:#?}", refin);
@@ -260,9 +267,10 @@ impl<M: FullMachine> super::Framework<M> {
 
         let in_data = vec![runtime_machine, input, param];
 
-        let abstr = init_fn.forward_interpret(in_data);
-
-        let refin = init_fn.backward_interpret(&abstr, current_state_mark, current_panic_mark);
+        let context = self.machine.description.context();
+        let abstr = init_fn.forward_interpret(&context, in_data);
+        let refin =
+            init_fn.backward_interpret(&context, &abstr, current_state_mark, current_panic_mark);
 
         let mut earlier_marks = init_fn.backward_earlier(&abstr, &refin).into_iter();
         assert_eq!(earlier_marks.len(), 3);

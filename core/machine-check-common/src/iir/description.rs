@@ -6,6 +6,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::iir::{
+    context::IContext,
     func::{IFn, IFnDeclaration},
     path::IIdent,
     ty::IElementaryType,
@@ -81,6 +82,12 @@ impl IMachine {
 }
 
 impl IDescription {
+    pub fn context(&self) -> IContext {
+        IContext {
+            structs: Some(&self.structs),
+        }
+    }
+
     pub fn struct_with_id(&self, id: IStructId) -> &IStruct {
         self.structs
             .get_index(id.0)

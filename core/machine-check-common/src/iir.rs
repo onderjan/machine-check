@@ -8,6 +8,7 @@ use crate::iir::variable::IVarId;
 type IAbstr = mck::misc::Interpretation<IVarId, AbstractValue>;
 type IRefin = mck::misc::Interpretation<IVarId, RefinementValue>;
 
+pub mod context;
 pub mod description;
 pub mod expr;
 pub mod func;

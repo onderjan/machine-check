@@ -18,63 +18,63 @@ pub enum AbstractValue {
 impl AbstractValue {
     pub fn expect_bitvector(&self) -> &RBitvector {
         let AbstractValue::Bitvector(bitvec) = self else {
-            panic!("Value is not a bitvector");
+            panic!("Value should be a bitvector");
         };
         bitvec
     }
 
     pub fn expect_bitvector_mut(&mut self) -> &mut RBitvector {
         let AbstractValue::Bitvector(bitvec) = self else {
-            panic!("Value is not a bitvector");
+            panic!("Value should be a bitvector");
         };
         bitvec
     }
 
     pub fn expect_boolean(&self) -> &Boolean {
         let AbstractValue::Boolean(boolean) = self else {
-            panic!("Value is not a boolean");
+            panic!("Value should be a boolean");
         };
         boolean
     }
 
     pub fn expect_boolean_mut(&mut self) -> &mut Boolean {
         let AbstractValue::Boolean(boolean) = self else {
-            panic!("Value is not a boolean");
+            panic!("Value should be a boolean");
         };
         boolean
     }
 
     pub fn expect_array(&self) -> &RArray {
         let AbstractValue::Array(array) = self else {
-            panic!("Value is not an array");
+            panic!("Value should be an array");
         };
         array
     }
 
     pub fn expect_array_mut(&mut self) -> &mut RArray {
         let AbstractValue::Array(array) = self else {
-            panic!("Value is not an array");
+            panic!("Value should be an array");
         };
         array
     }
 
     pub fn expect_panic_result(&self) -> &PanicResult<RBitvector> {
         let AbstractValue::PanicResult(panic_result) = self else {
-            panic!("Value is not a panic result");
+            panic!("Value should be a panic result");
         };
         panic_result
     }
 
     pub fn expect_struct(&self) -> &Vec<AbstractValue> {
         let AbstractValue::Struct(fields) = self else {
-            panic!("Value is not a struct");
+            panic!("Value should be a struct");
         };
         fields
     }
 
     pub fn expect_struct_mut(&mut self) -> &mut Vec<AbstractValue> {
         let AbstractValue::Struct(fields) = self else {
-            panic!("Value is not a struct");
+            panic!("Value should be a struct");
         };
         fields
     }

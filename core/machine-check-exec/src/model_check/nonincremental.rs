@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use machine_check_common::{
     iir::{
+        context::IContext,
         func::IFn,
         property::{IProperty, ISubproperty},
     },
@@ -199,7 +200,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
 
         let input_values = func.globals_to_input_values(&globals);
 
-        let result = func.call(input_values);
+        let result = func.call(&IContext::empty(), input_values);
 
         let AbstractValue::Boolean(result) = result else {
             panic!("Result should be abstract Boolean");

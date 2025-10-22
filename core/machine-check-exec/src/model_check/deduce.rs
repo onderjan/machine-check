@@ -5,6 +5,7 @@ use log::trace;
 use machine_check_common::{
     check::Culprit,
     iir::{
+        context::IContext,
         description::IMachine,
         path::{IIdent, ISpan},
         property::{IProperty, ISubproperty},
@@ -122,7 +123,9 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                 let input_values = input_choices.iter().map(|wrap| wrap.0 .0.clone()).collect();
 
-                let abstr = func.forward_interpret(input_values);
+                let context = IContext::empty();
+
+                let abstr = func.forward_interpret(&context, input_values);
 
                 //eprintln!("Abstract interpretation: {:?}", abstr);
 
@@ -132,7 +135,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                 let later_panic =
                     RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
 
-                let refin = func.backward_interpret(&abstr, later_normal, later_panic);
+                let refin = func.backward_interpret(&context, &abstr, later_normal, later_panic);
 
                 //eprintln!("Refin interpretation: {:?}", refin);
 
