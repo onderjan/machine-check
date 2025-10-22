@@ -75,9 +75,7 @@ impl RefinementValue {
 
     pub fn apply_refin(&mut self, other: &Self) -> bool {
         match self {
-            RefinementValue::Array(refin) => {
-                todo!()
-            }
+            RefinementValue::Array(refin) => refin.apply_refin(other.expect_array()),
             RefinementValue::Bitvector(refin) => refin.apply_refin(other.expect_bitvector()),
             RefinementValue::Boolean(refin) => refin.apply_refin(other.expect_boolean()),
             RefinementValue::PanicResult(refin) => todo!(),
@@ -134,6 +132,10 @@ impl Join for RefinementValue {
                     *left = left.clone().join(right);
                 }
                 RefinementValue::Struct(left)
+            }
+            (RefinementValue::Array(mut left), RefinementValue::Array(right)) => {
+                left.apply_join(right);
+                RefinementValue::Array(left)
             }
             (RefinementValue::PanicResult(_), _) | (_, RefinementValue::PanicResult(_)) => {
                 panic!("Panic result should never be joined")

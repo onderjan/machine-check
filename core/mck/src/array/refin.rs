@@ -74,6 +74,27 @@ impl RArray {
         self.inner
             .fold(0, |accum, element| accum.max(element.0.importance()))
     }
+
+    pub fn apply_join(&mut self, other: &Self) {
+        self.inner.involve(&other.inner, |our, other| {
+            RBitvector::apply_join(&mut our.0, &other.0)
+        });
+    }
+
+    pub fn apply_refin(&mut self, offer: &RArray) -> bool {
+        // try to apply refin within our elements, stop when done
+        self.inner.involve_with_flow(
+            &offer.inner,
+            |result, lhs, rhs| {
+                if lhs.0.apply_refin(&rhs.0) {
+                    ControlFlow::Break(true)
+                } else {
+                    ControlFlow::Continue(result)
+                }
+            },
+            false,
+        )
+    }
 }
 
 impl Limit for RArray {

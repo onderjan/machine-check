@@ -42,17 +42,12 @@ impl IExpr {
             IExpr::Call(expr_call) => expr_call.forward_interpret(abstr),
             IExpr::Reference(expr_reference) => {
                 // TODO: actually reference
-                let var_id = match expr_reference {
-                    IExprReference::Ident(var_id) => *var_id,
-                    IExprReference::Field(_expr_field) => todo!("Forward-intepret field reference"),
-                };
-                Some(abstr.value(var_id).clone())
+                match expr_reference {
+                    IExprReference::Ident(var_id) => Some(abstr.value(*var_id).clone()),
+                    IExprReference::Field(expr_field) => expr_field.forward_interpret(abstr),
+                }
             }
-            IExpr::Field(expr_field) => {
-                let base = abstr.value(expr_field.base).expect_struct();
-
-                Some(base[expr_field.member_index].clone())
-            }
+            IExpr::Field(expr_field) => expr_field.forward_interpret(abstr),
             IExpr::Struct(expr_struct) => {
                 let mut values = Vec::new();
 
@@ -78,8 +73,8 @@ impl IExpr {
                     IExprReference::Ident(var_id) => {
                         join_limited(abstr, refin, *var_id, later);
                     }
-                    IExprReference::Field(_expr_field) => {
-                        todo!("Backward-intepret field reference")
+                    IExprReference::Field(expr_field) => {
+                        expr_field.backward_interpret(abstr, refin, later);
                     }
                 }
             }
@@ -107,6 +102,28 @@ impl IExpr {
                 }
             }
         }
+    }
+}
+
+impl IExprField {
+    pub fn forward_interpret(&self, abstr: &IAbstr) -> Option<AbstractValue> {
+        let base = abstr.value(self.base).expect_struct();
+        Some(base[self.member_index].clone())
+    }
+
+    fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin, later: RefinementValue) {
+        // limited-join the part of the struct
+        let mut base = if let Some(base) = refin.value_opt(self.base) {
+            base.clone()
+        } else {
+            RefinementValue::unmarked_for(abstr.value(self.base))
+        };
+
+        let base_fields = base.expect_struct_mut();
+        let member = &mut base_fields[self.member_index];
+        *member = mck::misc::Join::join(later, member);
+
+        join_limited(abstr, refin, self.base, base);
     }
 }
 
