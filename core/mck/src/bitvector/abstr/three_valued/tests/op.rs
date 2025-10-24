@@ -197,7 +197,7 @@ pub(super) fn join_concr_iter<const W: u32>(
         .next()
         .expect("Expected at least one concrete bitvector in iterator");
 
-    let mut result = ThreeValuedBitvector::from_concrete(first_concrete);
+    let mut result = ThreeValuedBitvector::from_concrete_value(first_concrete);
 
     for c in iter {
         result = result.concrete_join(c)

@@ -7,6 +7,7 @@ description = "Type/operation utility crate for the formal verification tool mac
 rust-version = "1.88"
 
 [features]
+#default = ["Zdual_interval"]
 Zdual_interval = []
 
 [dependencies]

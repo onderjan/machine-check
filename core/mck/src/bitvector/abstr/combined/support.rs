@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use crate::{
     abstr::{Abstr, AbstractValue, BitvectorDomain},
     bitvector::{
-        abstr::{dual_interval::DualInterval, ThreeValuedBitvector},
+        abstr::{combined::RCombinedBitvector, dual_interval::DualInterval, ThreeValuedBitvector},
         concr,
     },
     misc::MetaEq,
@@ -11,19 +11,20 @@ use crate::{
 
 use super::CombinedBitvector;
 
-impl<const W: u32> Abstr<concr::Bitvector<W>> for CombinedBitvector<W> {
-    fn from_concrete(value: concr::Bitvector<W>) -> Self {
-        Self {
+impl<const W: u32> CombinedBitvector<W> {
+    pub(crate) fn from_concrete_value(value: concr::Bitvector<W>) -> Self {
+        todo!()
+        /*Self {
             three_valued: ThreeValuedBitvector::from_concrete(value),
             dual_interval: DualInterval::from_value(value),
-        }
+        }*/
     }
 
-    fn from_runtime(_value: &AbstractValue) -> Self {
+    pub(crate) fn from_runtime_bitvector(value: RCombinedBitvector) -> Self {
         todo!()
     }
 
-    fn to_runtime(&self) -> AbstractValue {
+    pub(crate) fn as_runtime_bitvector(&self) -> RCombinedBitvector {
         todo!()
     }
 }

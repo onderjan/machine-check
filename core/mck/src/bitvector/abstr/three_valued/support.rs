@@ -209,29 +209,10 @@ impl Join for RThreeValuedBitvector {
     }
 }
 
-impl<const W: u32> Abstr<concr::Bitvector<W>> for ThreeValuedBitvector<W> {
-    fn from_concrete(value: concr::Bitvector<W>) -> Self {
-        // bit-negate for zeros
-        let zeros = Bitwise::bit_not(value);
-        // leave as-is for ones
-        let ones = value;
-
-        Self::from_zeros_ones(zeros, ones)
-    }
-
-    fn from_runtime(value: &AbstractValue) -> Self {
-        Self::from_runtime_bitvector(*value.expect_bitvector())
-    }
-
-    fn to_runtime(&self) -> AbstractValue {
-        AbstractValue::Bitvector(self.as_runtime_bitvector())
-    }
-}
-
 impl<const W: u32> ThreeValuedBitvector<W> {
     #[must_use]
     pub fn new(value: u64) -> Self {
-        Self::from_concrete(ConcreteBitvector::new(value))
+        Self::from_concrete_value(ConcreteBitvector::new(value))
     }
 
     pub fn as_runtime_bitvector(&self) -> RThreeValuedBitvector {
@@ -280,7 +261,7 @@ impl<const W: u32> ThreeValuedBitvector<W> {
         let xor = min.bit_xor(max);
         let Some(unknown_positions) = xor.to_u64().checked_ilog2() else {
             // min is equal to max
-            return Self::from_concrete(min);
+            return Self::from_concrete_value(min);
         };
 
         let unknown_mask = ConcreteBitvector::new(compute_u64_mask(unknown_positions + 1));
@@ -430,6 +411,15 @@ impl<const W: u32> ThreeValuedBitvector<W> {
             zeros: self.zeros.to_u64(),
             ones: self.ones.to_u64(),
         }
+    }
+
+    pub fn from_concrete_value(value: concr::Bitvector<W>) -> Self {
+        // bit-negate for zeros
+        let zeros = Bitwise::bit_not(value);
+        // leave as-is for ones
+        let ones = value;
+
+        Self::from_zeros_ones(zeros, ones)
     }
 }
 

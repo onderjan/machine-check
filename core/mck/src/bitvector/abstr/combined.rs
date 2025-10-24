@@ -3,18 +3,23 @@ mod support;
 
 use std::hash::Hash;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     abstr::{
         AbstractValue, BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field,
         ManipField, PanicResult, Phi, Test,
     },
-    bitvector::interval::{UnsignedInterval, WrappingInterval},
+    bitvector::{
+        abstr::{dual_interval::RDualInterval, RThreeValuedBitvector},
+        interval::{UnsignedInterval, WrappingInterval},
+    },
     concr::ConcreteBitvector,
 };
 
 use super::{dual_interval::DualInterval, three_valued::ThreeValuedBitvector};
 
-#[derive(Clone, Copy, Hash, Default)]
+#[derive(Clone, Copy, Hash, Serialize, Deserialize)]
 pub struct CombinedBitvector<const W: u32> {
     three_valued: ThreeValuedBitvector<W>,
     dual_interval: DualInterval<W>,
@@ -98,6 +103,12 @@ impl<const W: u32> CombinedBitvector<W> {
     pub(crate) fn dual_interval(&self) -> &DualInterval<W> {
         &self.dual_interval
     }
+}
+
+#[derive(Clone, Copy, Hash, Debug, Serialize, Deserialize)]
+pub struct RCombinedBitvector {
+    three_valued: RThreeValuedBitvector,
+    dual_interval: RDualInterval,
 }
 
 impl<const W: u32> Phi for CombinedBitvector<W> {

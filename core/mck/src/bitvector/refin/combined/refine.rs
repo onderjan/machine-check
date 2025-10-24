@@ -1,11 +1,8 @@
-use crate::{
-    bitvector::{abstr::CombinedBitvector, refin::three_valued::MarkBitvector},
-    refin::{Boolean, Refine},
+/*use crate::{
+    abstr::combined::RCombinedBitvector, bitvector::refin::combined::RCombinedMark, refin::Boolean,
 };
 
-use super::CombinedMark;
-
-impl<const W: u32> Refine<CombinedBitvector<W>> for CombinedMark<W> {
+impl RCombinedMark {
     fn apply_join(&mut self, other: &Self) {
         self.0.apply_join(&other.0);
     }
@@ -18,24 +15,17 @@ impl<const W: u32> Refine<CombinedBitvector<W>> for CombinedMark<W> {
         self.0.apply_refin(&offer.0)
     }
 
-    fn force_decay(&self, target: &mut CombinedBitvector<W>) {
+    fn force_decay(&self, target: &mut RCombinedBitvector) {
         // TODO: force decay on both
 
         let mut three_valued = *target.three_valued();
         self.0.force_decay(&mut three_valued);
 
-        *target = CombinedBitvector::combine(three_valued, *target.dual_interval());
-    }
-
-    fn clean() -> Self {
-        Self(MarkBitvector::clean())
-    }
-
-    fn dirty() -> Self {
-        Self(MarkBitvector::dirty())
+        *target = RCombinedBitvector::combine(three_valued, *target.dual_interval());
     }
 
     fn importance(&self) -> u8 {
         self.0.importance()
     }
 }
+*/

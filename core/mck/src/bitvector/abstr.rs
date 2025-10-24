@@ -1,10 +1,10 @@
 use super::interval::UnsignedInterval;
-use crate::abstr::{ManipField, Phi};
+use crate::abstr::{Abstr, AbstractValue, ManipField, Phi};
 use std::{fmt::Display, hash::Hash};
 
-mod combined;
+pub mod combined;
 mod dual_interval;
-mod three_valued;
+pub mod three_valued;
 
 pub trait BitvectorDomain<const W: u32>: Clone + Copy + Hash + Phi + ManipField {
     fn unsigned_interval(&self) -> UnsignedInterval<W>;
@@ -69,5 +69,19 @@ pub struct BitvectorField {
 impl Display for BitvectorField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.element.write(f, self.bit_width)
+    }
+}
+
+impl<const W: u32> Abstr<super::concr::Bitvector<W>> for Bitvector<W> {
+    fn from_concrete(value: super::concr::Bitvector<W>) -> Self {
+        Self::from_concrete_value(value)
+    }
+
+    fn from_runtime(value: &AbstractValue) -> Self {
+        Self::from_runtime_bitvector(*value.expect_bitvector())
+    }
+
+    fn to_runtime(&self) -> AbstractValue {
+        AbstractValue::Bitvector(self.as_runtime_bitvector())
     }
 }

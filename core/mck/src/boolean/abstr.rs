@@ -9,7 +9,7 @@ use crate::{
     three_valued::ThreeValued,
 };
 
-#[derive(Clone, Copy, Hash, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Hash, Serialize, Deserialize)]
 pub struct Boolean(pub(crate) BooleanBitvector);
 
 impl Test for Boolean {

@@ -1,6 +1,8 @@
 use crate::{
     abstr::Phi,
-    bitvector::interval::{SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval},
+    bitvector::interval::{
+        RSignlessInterval, SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval,
+    },
     concr::ConcreteBitvector,
 };
 
@@ -41,7 +43,7 @@ mod tests;
 /// or a wrapping-interval domain (which does not, but can be more precise than
 /// a non-wrapping interval) by an increase in time and memory, which should not
 /// be problematic for our use.
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DualInterval<const W: u32> {
     // The interval usually located between (including) 0 and (2^N)/2-1.
     //
@@ -53,6 +55,21 @@ pub struct DualInterval<const W: u32> {
     far_half: SignlessInterval<W>,
 }
 
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct RDualInterval {
+    width: u32,
+
+    // The interval usually located between (including) 0 and (2^N)/2-1.
+    //
+    // If it is not, it must be equal to the far half.
+    near_half: RSignlessInterval,
+    // The interval usually located between (including) (2^N)/2 and (2^N)-1.
+    //
+    // If it is not, it must be equal to the near half.
+    far_half: RSignlessInterval,
+}
+
+use serde::{Deserialize, Serialize};
 pub use support::DualIntervalFieldValue;
 
 impl<const W: u32> DualInterval<W> {

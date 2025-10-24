@@ -137,22 +137,31 @@ impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
 
     fn udiv(self, rhs: Self) -> PanicResult<Self> {
         let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.udiv(rhs).unwrap_typed()
+        unwrap_typed(lhs.udiv(rhs))
     }
 
     fn sdiv(self, rhs: Self) -> PanicResult<Self> {
         let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.sdiv(rhs).unwrap_typed()
+        unwrap_typed(lhs.sdiv(rhs))
     }
 
     fn urem(self, rhs: Self) -> PanicResult<Self> {
         let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.urem(rhs).unwrap_typed()
+        unwrap_typed(lhs.urem(rhs))
     }
 
     fn srem(self, rhs: Self) -> PanicResult<Self> {
         let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.srem(rhs).unwrap_typed()
+        unwrap_typed(lhs.srem(rhs))
+    }
+}
+
+fn unwrap_typed<const W: u32>(
+    typed: PanicResult<RThreeValuedBitvector>,
+) -> PanicResult<ThreeValuedBitvector<W>> {
+    PanicResult {
+        panic: typed.panic,
+        result: typed.result.unwrap_typed(),
     }
 }
 

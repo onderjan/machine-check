@@ -185,22 +185,22 @@ impl<const W: u32> HwArith for ConcreteBitvector<W> {
 
     fn udiv(self, rhs: Self) -> PanicResult<Self> {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
-        lhs.udiv(rhs).unwrap_typed()
+        unwrap_typed(lhs.udiv(rhs))
     }
 
     fn urem(self, rhs: Self) -> PanicResult<Self> {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
-        lhs.urem(rhs).unwrap_typed()
+        unwrap_typed(lhs.urem(rhs))
     }
 
     fn sdiv(self, rhs: Self) -> PanicResult<Self> {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
-        lhs.sdiv(rhs).unwrap_typed()
+        unwrap_typed(lhs.sdiv(rhs))
     }
 
     fn srem(self, rhs: Self) -> PanicResult<Self> {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
-        lhs.srem(rhs).unwrap_typed()
+        unwrap_typed(lhs.srem(rhs))
     }
 }
 
@@ -213,5 +213,14 @@ impl<const W: u32> ConcreteBitvector<W> {
     pub(crate) fn checked_mul(self, rhs: Self) -> Option<Self> {
         let (lhs, rhs) = (self.to_runtime(), rhs.to_runtime());
         lhs.checked_mul(rhs).map(|r| r.unwrap_typed())
+    }
+}
+
+pub fn unwrap_typed<const W: u32>(
+    value: PanicResult<RConcreteBitvector>,
+) -> PanicResult<ConcreteBitvector<W>> {
+    PanicResult {
+        panic: value.panic,
+        result: value.result.unwrap_typed(),
     }
 }

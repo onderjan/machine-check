@@ -1,8 +1,10 @@
 use std::fmt::{Debug, Display};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     bitvector::interval::{SignedInterval, UnsignedInterval, WrappingInterval},
-    concr::ConcreteBitvector,
+    concr::{ConcreteBitvector, RConcreteBitvector},
 };
 
 /// A signless interval with a minimum and a maximum value.
@@ -11,10 +13,15 @@ use crate::{
 /// and maximum value in the same half-plane.
 /// It is required that min <= max, which means the interval
 /// does not support wrapping nor representing an empty set.
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignlessInterval<const W: u32> {
     pub(super) min: ConcreteBitvector<W>,
     pub(super) max: ConcreteBitvector<W>,
+}
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct RSignlessInterval {
+    pub(super) min: RConcreteBitvector,
+    pub(super) max: RConcreteBitvector,
 }
 
 impl<const W: u32> SignlessInterval<W> {

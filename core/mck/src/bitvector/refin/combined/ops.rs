@@ -1,23 +1,22 @@
-use crate::{
-    backward::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq},
+/*use crate::{
+    abstr::{combined::RCombinedBitvector, RPanicResult},
+    backward::{Bitwise, HwArith, HwShift, RExt, TypedCmp, TypedEq},
     bitvector::{
-        abstr::{CombinedBitvector, ThreeValuedBitvector},
-        refin::three_valued::MarkBitvector,
+        abstr::RThreeValuedBitvector,
+        refin::{combined::RCombinedMark, three_valued::RMarkBitvector},
     },
-    refin::{Boolean, PanicResult},
+    refin::Boolean,
 };
 
-use super::CombinedMark;
-
-impl<const W: u32> HwArith for CombinedBitvector<W> {
-    type Mark = CombinedMark<W>;
-    type DivRemResult = PanicResult<CombinedMark<W>>;
+impl HwArith for RCombinedBitvector {
+    type Mark = RCombinedMark;
+    type DivRemResult = RPanicResult<RCombinedMark>;
 
     fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         Self::uni_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwArith>::arith_neg,
+            <RThreeValuedBitvector as HwArith>::arith_neg,
         )
     }
 
@@ -25,7 +24,7 @@ impl<const W: u32> HwArith for CombinedBitvector<W> {
         Self::bi_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwArith>::add,
+            <RThreeValuedBitvector as HwArith>::add,
         )
     }
 
@@ -33,7 +32,7 @@ impl<const W: u32> HwArith for CombinedBitvector<W> {
         Self::bi_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwArith>::sub,
+            <RThreeValuedBitvector as HwArith>::sub,
         )
     }
 
@@ -41,139 +40,139 @@ impl<const W: u32> HwArith for CombinedBitvector<W> {
         Self::bi_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwArith>::mul,
+            <RThreeValuedBitvector as HwArith>::mul,
         )
     }
 
     fn udiv(
         normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
+        mark_later: RPanicResult<Self::Mark>,
     ) -> (Self::Mark, Self::Mark) {
         Self::divrem_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwArith>::udiv,
+            <RThreeValuedBitvector as HwArith>::udiv,
         )
     }
 
     fn sdiv(
         normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
+        mark_later: RPanicResult<Self::Mark>,
     ) -> (Self::Mark, Self::Mark) {
         Self::divrem_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwArith>::sdiv,
+            <RThreeValuedBitvector as HwArith>::sdiv,
         )
     }
 
     fn urem(
         normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
+        mark_later: RPanicResult<Self::Mark>,
     ) -> (Self::Mark, Self::Mark) {
         Self::divrem_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwArith>::urem,
+            <RThreeValuedBitvector as HwArith>::urem,
         )
     }
 
     fn srem(
         normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
+        mark_later: RPanicResult<Self::Mark>,
     ) -> (Self::Mark, Self::Mark) {
         Self::divrem_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwArith>::srem,
+            <RThreeValuedBitvector as HwArith>::srem,
         )
     }
 }
 
-impl<const W: u32> CombinedBitvector<W> {
+impl RCombinedBitvector {
     fn uni_op(
         normal_input: (Self,),
-        mark_later: CombinedMark<W>,
-        op: fn((ThreeValuedBitvector<W>,), MarkBitvector<W>) -> (MarkBitvector<W>,),
-    ) -> (CombinedMark<W>,) {
+        mark_later: RCombinedMark,
+        op: fn((RThreeValuedBitvector,), RMarkBitvector) -> (RMarkBitvector,),
+    ) -> (RCombinedMark,) {
         let normal_input = (*normal_input.0.three_valued(),);
         let mark_earlier = op(normal_input, mark_later.0);
-        (CombinedMark(mark_earlier.0),)
+        (RCombinedMark(mark_earlier.0),)
     }
 
     fn bi_op(
         normal_input: (Self, Self),
-        mark_later: CombinedMark<W>,
+        mark_later: RCombinedMark,
         op: fn(
-            (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
-            MarkBitvector<W>,
-        ) -> (MarkBitvector<W>, MarkBitvector<W>),
-    ) -> (CombinedMark<W>, CombinedMark<W>) {
+            (RThreeValuedBitvector, RThreeValuedBitvector),
+            RMarkBitvector,
+        ) -> (RMarkBitvector, RMarkBitvector),
+    ) -> (RCombinedMark, RCombinedMark) {
         let normal_input = (
             *normal_input.0.three_valued(),
             *normal_input.1.three_valued(),
         );
         let mark_earlier = op(normal_input, mark_later.0);
-        (CombinedMark(mark_earlier.0), CombinedMark(mark_earlier.1))
+        (RCombinedMark(mark_earlier.0), RCombinedMark(mark_earlier.1))
     }
 
     #[allow(clippy::type_complexity)]
     fn divrem_op(
         normal_input: (Self, Self),
-        mark_later: PanicResult<CombinedMark<W>>,
+        mark_later: RPanicResult<RCombinedMark>,
         op: fn(
-            (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
-            PanicResult<MarkBitvector<W>>,
-        ) -> (MarkBitvector<W>, MarkBitvector<W>),
-    ) -> (CombinedMark<W>, CombinedMark<W>) {
+            (RThreeValuedBitvector, RThreeValuedBitvector),
+            RPanicResult<RMarkBitvector>,
+        ) -> (RMarkBitvector, RMarkBitvector),
+    ) -> (RCombinedMark, RCombinedMark) {
         let normal_input = (
             *normal_input.0.three_valued(),
             *normal_input.1.three_valued(),
         );
-        let mark_later = PanicResult {
+        let mark_later = RPanicResult {
             panic: mark_later.panic,
             result: mark_later.result.0,
         };
 
         let mark_earlier = op(normal_input, mark_later);
-        (CombinedMark(mark_earlier.0), CombinedMark(mark_earlier.1))
+        (RCombinedMark(mark_earlier.0), RCombinedMark(mark_earlier.1))
     }
 
     fn cmp_op(
         normal_input: (Self, Self),
         mark_later: Boolean,
         op: fn(
-            (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
+            (RThreeValuedBitvector, RThreeValuedBitvector),
             Boolean,
-        ) -> (MarkBitvector<W>, MarkBitvector<W>),
-    ) -> (CombinedMark<W>, CombinedMark<W>) {
+        ) -> (RMarkBitvector, RMarkBitvector),
+    ) -> (RCombinedMark, RCombinedMark) {
         let normal_input = (
             *normal_input.0.three_valued(),
             *normal_input.1.three_valued(),
         );
         let mark_earlier = op(normal_input, mark_later);
-        (CombinedMark(mark_earlier.0), CombinedMark(mark_earlier.1))
+        (RCombinedMark(mark_earlier.0), RCombinedMark(mark_earlier.1))
     }
 
     fn ext_op<const X: u32>(
         normal_input: (Self,),
-        mark_later: CombinedMark<X>,
-        op: fn((ThreeValuedBitvector<W>,), MarkBitvector<X>) -> (MarkBitvector<W>,),
-    ) -> (CombinedMark<W>,) {
+        mark_later: RCombinedMark,
+        op: fn((RThreeValuedBitvector,), RMarkBitvector) -> (RMarkBitvector,),
+    ) -> (RCombinedMark,) {
         let normal_input = (*normal_input.0.three_valued(),);
         let mark_earlier = op(normal_input, mark_later.0);
-        (CombinedMark(mark_earlier.0),)
+        (RCombinedMark(mark_earlier.0),)
     }
 }
 
-impl<const W: u32> Bitwise for CombinedBitvector<W> {
-    type Mark = CombinedMark<W>;
+impl Bitwise for RCombinedBitvector {
+    type Mark = RCombinedMark;
 
     fn bit_not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         Self::uni_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as Bitwise>::bit_not,
+            <RThreeValuedBitvector as Bitwise>::bit_not,
         )
     }
 
@@ -181,7 +180,7 @@ impl<const W: u32> Bitwise for CombinedBitvector<W> {
         Self::bi_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as Bitwise>::bit_and,
+            <RThreeValuedBitvector as Bitwise>::bit_and,
         )
     }
 
@@ -189,7 +188,7 @@ impl<const W: u32> Bitwise for CombinedBitvector<W> {
         Self::bi_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as Bitwise>::bit_or,
+            <RThreeValuedBitvector as Bitwise>::bit_or,
         )
     }
 
@@ -197,13 +196,13 @@ impl<const W: u32> Bitwise for CombinedBitvector<W> {
         Self::bi_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as Bitwise>::bit_xor,
+            <RThreeValuedBitvector as Bitwise>::bit_xor,
         )
     }
 }
 
-impl<const W: u32> TypedCmp for CombinedBitvector<W> {
-    type MarkEarlier = CombinedMark<W>;
+impl TypedCmp for RCombinedBitvector {
+    type MarkEarlier = RCombinedMark;
     type MarkLater = Boolean;
 
     fn slt(
@@ -213,7 +212,7 @@ impl<const W: u32> TypedCmp for CombinedBitvector<W> {
         Self::cmp_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as TypedCmp>::slt,
+            <RThreeValuedBitvector as TypedCmp>::slt,
         )
     }
 
@@ -224,7 +223,7 @@ impl<const W: u32> TypedCmp for CombinedBitvector<W> {
         Self::cmp_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as TypedCmp>::ult,
+            <RThreeValuedBitvector as TypedCmp>::ult,
         )
     }
 
@@ -235,7 +234,7 @@ impl<const W: u32> TypedCmp for CombinedBitvector<W> {
         Self::cmp_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as TypedCmp>::sle,
+            <RThreeValuedBitvector as TypedCmp>::sle,
         )
     }
 
@@ -246,13 +245,13 @@ impl<const W: u32> TypedCmp for CombinedBitvector<W> {
         Self::cmp_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as TypedCmp>::ule,
+            <RThreeValuedBitvector as TypedCmp>::ule,
         )
     }
 }
 
-impl<const W: u32> TypedEq for CombinedBitvector<W> {
-    type MarkEarlier = CombinedMark<W>;
+impl TypedEq for RCombinedBitvector {
+    type MarkEarlier = RCombinedMark;
     type MarkLater = Boolean;
 
     fn eq(
@@ -262,7 +261,7 @@ impl<const W: u32> TypedEq for CombinedBitvector<W> {
         Self::cmp_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as TypedEq>::eq,
+            <RThreeValuedBitvector as TypedEq>::eq,
         )
     }
 
@@ -273,40 +272,39 @@ impl<const W: u32> TypedEq for CombinedBitvector<W> {
         Self::cmp_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as TypedEq>::ne,
+            <RThreeValuedBitvector as TypedEq>::ne,
         )
     }
 }
 
-impl<const W: u32, const X: u32> Ext<X> for CombinedBitvector<W> {
-    type MarkEarlier = CombinedMark<W>;
-    type MarkLater = CombinedMark<X>;
+impl RExt for RCombinedBitvector {
+    type Mark = RCombinedMark;
 
-    fn uext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
+    fn uext(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         Self::ext_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as Ext<X>>::uext,
+            <RThreeValuedBitvector as RExt>::uext,
         )
     }
 
-    fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,) {
+    fn sext(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         Self::ext_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as Ext<X>>::sext,
+            <RThreeValuedBitvector as RExt>::sext,
         )
     }
 }
 
-impl<const W: u32> HwShift for CombinedBitvector<W> {
-    type Mark = CombinedMark<W>;
+impl HwShift for RCombinedBitvector {
+    type Mark = RCombinedMark;
 
     fn logic_shl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         Self::bi_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwShift>::logic_shl,
+            <RThreeValuedBitvector as HwShift>::logic_shl,
         )
     }
 
@@ -314,7 +312,7 @@ impl<const W: u32> HwShift for CombinedBitvector<W> {
         Self::bi_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwShift>::logic_shr,
+            <RThreeValuedBitvector as HwShift>::logic_shr,
         )
     }
 
@@ -322,7 +320,8 @@ impl<const W: u32> HwShift for CombinedBitvector<W> {
         Self::bi_op(
             normal_input,
             mark_later,
-            <ThreeValuedBitvector<W> as HwShift>::arith_shr,
+            <RThreeValuedBitvector as HwShift>::arith_shr,
         )
     }
 }
+*/
