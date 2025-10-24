@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use indexmap::IndexMap;
 use machine_check_common::iir::{
-    description::IStructDeclaration,
+    description::{IStructDeclaration, IStructId},
     func::{IBlock, IFn, IFnDeclaration, IFnOutput, ISignature},
     path::IIdent,
     ty::IGeneralType,
@@ -30,6 +30,12 @@ impl WFnData<'_> {
         self.structs.get(ident)
     }
 
+    pub fn struct_data_by_id(&self, struct_id: IStructId) -> Option<&IStructDeclaration> {
+        self.structs
+            .get_index(struct_id.0)
+            .map(|(_ident, value)| value)
+    }
+
     pub fn struct_index_and_data(&self, ident: &IIdent) -> Option<(usize, &IStructDeclaration)> {
         self.structs
             .get_full(ident)
@@ -38,7 +44,10 @@ impl WFnData<'_> {
 }
 
 impl WItemFn<YConverted> {
-    pub(super) fn into_declaration(self) -> IFnDeclaration {
+    pub(super) fn into_declaration(
+        self,
+        struct_declarations: &IndexMap<IIdent, IStructDeclaration>,
+    ) -> IFnDeclaration {
         //eprintln!("WIR: {:#?}", self);
         let mut next_var_id = 0;
 
@@ -50,7 +59,7 @@ impl WItemFn<YConverted> {
         for input in self.signature.inputs {
             let info = IVarInfo {
                 ident: input.ident.into_iir(),
-                ty: IGeneralType::Normal(input.ty.into_iir()),
+                ty: IGeneralType::Normal(input.ty.into_iir(struct_declarations)),
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
@@ -62,7 +71,7 @@ impl WItemFn<YConverted> {
         for local in self.locals {
             let info = IVarInfo {
                 ident: local.ident.into_iir(),
-                ty: local.ty.into_iir(),
+                ty: local.ty.into_iir(struct_declarations),
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
@@ -103,7 +112,7 @@ impl WItemFn<YConverted> {
     }
 
     pub(super) fn into_iir(self, structs: &IndexMap<IIdent, IStructDeclaration>) -> IFn {
-        let declaration = self.clone().into_declaration();
+        let declaration = self.clone().into_declaration(structs);
 
         let mut ident_var_map = BTreeMap::new();
         for (var_id, var_data) in declaration.variables.iter() {

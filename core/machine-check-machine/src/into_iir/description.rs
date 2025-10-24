@@ -7,21 +7,32 @@ impl WDescription<YConverted> {
     pub fn into_iir(self) -> IDescription {
         let mut struct_declarations = IndexMap::new();
 
-        for item_struct in self.structs {
-            let mut fields = IndexMap::new();
-            for field in item_struct.fields {
-                fields.insert(field.ident.into_iir(), field.ty.into_iir());
-            }
+        // first pass: create struct declarations
+
+        for item_struct in &self.structs {
             struct_declarations.insert(
-                item_struct.ident.into_iir(),
+                item_struct.ident.clone().into_iir(),
                 IStructDeclaration {
-                    fields,
+                    fields: IndexMap::new(),
                     fns: IndexMap::new(),
                 },
             );
         }
 
-        // first pass: only add function declarations
+        // second pass: add fields
+        for (index, item_struct) in self.structs.into_iter().enumerate() {
+            let mut fields = IndexMap::new();
+            for field in item_struct.fields {
+                fields.insert(
+                    field.ident.into_iir(),
+                    field.ty.into_iir(&struct_declarations),
+                );
+            }
+
+            struct_declarations[index].fields = fields;
+        }
+
+        // third pass: add function declarations
 
         for item_impl in &self.impls {
             let Some(ty_ident) = item_impl.self_ty.get_ident() else {
@@ -38,7 +49,7 @@ impl WDescription<YConverted> {
             let mut fn_declarations = IndexMap::new();
 
             for wir_fn in &item_impl.impl_item_fns {
-                let declaration = wir_fn.clone().into_declaration();
+                let declaration = wir_fn.clone().into_declaration(&struct_declarations);
                 fn_declarations.insert((trait_, declaration.signature.ident.clone()), declaration);
             }
 
@@ -49,7 +60,7 @@ impl WDescription<YConverted> {
             iir_struct.fns.extend(fn_declarations);
         }
 
-        // second pass: add normal functions
+        // fourth pass: add normal functions
 
         let mut structs = IndexMap::new();
 

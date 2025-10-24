@@ -169,18 +169,14 @@ impl WExprField {
 
         let fields = match &base_var_info.ty {
             IGeneralType::Normal(IType { inner, .. }) => {
-                let IElementaryType::Path(base_path) = inner else {
+                let IElementaryType::Struct(base_struct_id) = inner else {
                     panic!("Field variable type {:?} should be path-based", inner);
                 };
 
-                let Some(base_ident) = base_path.get_ident() else {
-                    panic!("Field variable type {:?} should be ident", base_path);
-                };
-
-                let Some(base_ty) = fn_data.struct_data(base_ident) else {
+                let Some(base_ty) = fn_data.struct_data_by_id(*base_struct_id) else {
                     panic!(
                         "Field variable type {:?} should be in struct data",
-                        base_ident
+                        base_struct_id
                     );
                 };
                 base_ty.fields.clone()

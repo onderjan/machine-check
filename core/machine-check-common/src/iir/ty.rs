@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    iir::path::IPath,
+    iir::description::IStructId,
     ir_common::{IrReference, IrTypeArray},
 };
 
@@ -12,7 +12,7 @@ pub enum IElementaryType {
     Bitvector(u32),
     Array(IrTypeArray),
     Boolean,
-    Path(IPath),
+    Struct(IStructId),
 }
 
 #[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
@@ -38,7 +38,7 @@ impl Debug for IElementaryType {
                 array.index_width, array.element_width
             ),
             Self::Boolean => write!(f, "Boolean"),
-            Self::Path(path) => path.fmt(f),
+            Self::Struct(struct_id) => struct_id.fmt(f),
         }
     }
 }

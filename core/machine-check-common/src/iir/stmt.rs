@@ -202,8 +202,24 @@ fn ensure_abstract_type(context: &IContext, value: &AbstractValue, ty: &IType) {
                 panic!("Expected boolean type of value");
             };
         }
-        IElementaryType::Path(path) => {
-            // TODO
+        IElementaryType::Struct(struct_id) => {
+            let AbstractValue::Struct(fields) = value else {
+                panic!("Expected struct type of value");
+            };
+
+            let struct_data = context.struct_with_id(*struct_id);
+            assert_eq!(fields.len(), struct_data.fields.len());
+
+            for (value, ty) in fields.iter().zip(struct_data.fields.values()) {
+                ensure_abstract_type(
+                    context,
+                    value,
+                    &IType {
+                        reference: IrReference::None,
+                        inner: ty.clone(),
+                    },
+                );
+            }
         }
     }
 }

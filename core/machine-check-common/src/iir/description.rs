@@ -117,7 +117,7 @@ impl IStruct {
                     array.element_width,
                 )),
                 IElementaryType::Boolean => todo!(),
-                IElementaryType::Path(_) => todo!(),
+                IElementaryType::Struct(_) => todo!(),
             };
             result.push(field_result)
         }
@@ -136,7 +136,7 @@ impl IStruct {
                     RArray::new_marked_unimportant(array.index_width, array.element_width),
                 ),
                 IElementaryType::Boolean => todo!(),
-                IElementaryType::Path(_) => todo!(),
+                IElementaryType::Struct(_) => todo!(),
             };
             result.push(field_result)
         }
