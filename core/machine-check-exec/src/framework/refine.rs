@@ -51,7 +51,6 @@ impl<M: FullMachine> super::Framework<M> {
                 &self.default_step_precision,
             );
 
-            // TODO: refine step precision
             if step_precision.apply_refin(&current_state_mark) {
                 // single mark applied to decay, insert it back and regenerate
                 self.work_state.step_precision.insert(
@@ -76,21 +75,12 @@ impl<M: FullMachine> super::Framework<M> {
                 &self.default_param_precision,
             );
 
-            /*eprintln!(
-                "Refining step, current state mark {:#?}",
-                current_state_mark
-            );*/
-
             let (input_mark, param_mark, new_state_mark) = self.compute_marks(
                 previous_node_id,
                 current_state_id,
                 current_state_mark,
                 current_panic_mark,
             );
-
-            //eprintln!("Refining step, new state mark {:#?}", new_state_mark);
-
-            // TODO: what to do with the panic mark?
 
             current_panic_mark =
                 RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
@@ -213,7 +203,7 @@ impl<M: FullMachine> super::Framework<M> {
                 trace!("Later mark: {:?}", current_state_mark);
             }
 
-            // the previous state must definitely be non-panicking ???
+            // the previous state is assumed to definitely be non-panicking
             let previous_state = &previous_state.result;
 
             let previous_state = previous_state.to_runtime();
@@ -234,9 +224,6 @@ impl<M: FullMachine> super::Framework<M> {
                 current_state_mark,
                 current_panic_mark,
             );
-
-            //eprintln!("Abstract: {:#?}", abstr);
-            //eprintln!("Refinement: {:#?}", refin);
 
             let mut earlier_marks = next_fn.backward_earlier(&abstr, &refin).into_iter();
             assert_eq!(earlier_marks.len(), 4);

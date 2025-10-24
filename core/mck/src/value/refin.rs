@@ -108,10 +108,6 @@ impl RefinementValue {
     }
 
     pub fn force_decay(&self, abstr: &mut AbstractValue) {
-        if self.importance() == 0 {
-            // no decay, return early
-            return;
-        }
         match self {
             RefinementValue::Array(refin) => refin.force_decay(abstr.expect_array_mut()),
             RefinementValue::Bitvector(refin) => refin.force_decay(abstr.expect_bitvector_mut()),
