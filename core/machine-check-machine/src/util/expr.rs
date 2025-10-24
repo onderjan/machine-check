@@ -1,31 +1,10 @@
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, BinOp, Expr, ExprBinary, ExprCall, ExprField,
-    ExprPath, ExprReference, ExprStruct, ExprTuple, FieldValue, Ident, Index, Member, Path,
+    punctuated::Punctuated, BinOp, Expr, ExprBinary, ExprCall, ExprField, ExprPath, ExprReference,
+    Ident, Member, Path,
 };
 use syn_path::path;
 
 use super::{create_path_from_ident, ArgType};
-
-pub fn create_expr_tuple(expressions: Vec<Expr>) -> Expr {
-    Expr::Tuple(ExprTuple {
-        attrs: vec![],
-        paren_token: Default::default(),
-        elems: Punctuated::from_iter(expressions),
-    })
-}
-
-pub fn create_expr_field_unnamed(base: Expr, index: usize) -> Expr {
-    let span = base.span();
-    Expr::Field(ExprField {
-        attrs: vec![],
-        base: Box::new(base),
-        dot_token: Default::default(),
-        member: Member::Unnamed(Index {
-            index: index as u32,
-            span,
-        }),
-    })
-}
 
 pub fn create_expr_field_named(base: Expr, ident: Ident) -> Expr {
     Expr::Field(ExprField {
@@ -41,15 +20,6 @@ pub fn create_expr_logical_and(left: Expr, right: Expr) -> Expr {
         attrs: vec![],
         left: Box::new(left),
         op: BinOp::And(Default::default()),
-        right: Box::new(right),
-    })
-}
-
-pub fn create_expr_logical_or(left: Expr, right: Expr) -> Expr {
-    Expr::Binary(ExprBinary {
-        attrs: vec![],
-        left: Box::new(left),
-        op: BinOp::Or(Default::default()),
         right: Box::new(right),
     })
 }
@@ -96,17 +66,5 @@ pub fn create_expr_reference(mutable: bool, expr: Expr) -> Expr {
         and_token: Default::default(),
         mutability,
         expr: Box::new(expr),
-    })
-}
-
-pub fn create_struct_expr(type_path: Path, fields: Vec<FieldValue>) -> Expr {
-    Expr::Struct(ExprStruct {
-        attrs: vec![],
-        qself: None,
-        path: type_path,
-        brace_token: Default::default(),
-        fields: Punctuated::from_iter(fields),
-        dot2_token: None,
-        rest: None,
     })
 }

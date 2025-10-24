@@ -1,9 +1,6 @@
 pub mod error_list;
 pub mod ident_creator;
-pub mod ident_renamer;
 pub mod machine_error;
 pub mod manipulate;
 pub mod meta_eq;
-pub mod special_trait;
 pub mod strip_machine;
-pub mod types;

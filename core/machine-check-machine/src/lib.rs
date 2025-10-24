@@ -26,7 +26,6 @@ mod abstr;
 mod concr;
 mod into_iir;
 mod into_wir;
-mod refin;
 mod support;
 mod util;
 mod wir;

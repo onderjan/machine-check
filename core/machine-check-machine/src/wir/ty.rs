@@ -227,28 +227,6 @@ impl<FT: IntoSyn<Type>> IntoSyn<Type> for WType<FT> {
     }
 }
 
-impl<FT: IntoSyn<Type>> WType<FT> {
-    pub fn into_syn_with_inner(self, simple_type: Type) -> Type {
-        let span = Span::call_site();
-
-        match self.reference {
-            /*WReference::Mutable => Type::Reference(TypeReference {
-                and_token: Token![&](span),
-                lifetime: None,
-                mutability: Some(Token![mut](span)),
-                elem: Box::new(simple_type),
-            }),*/
-            IrReference::Immutable => Type::Reference(TypeReference {
-                and_token: Token![&](span),
-                lifetime: None,
-                mutability: None,
-                elem: Box::new(simple_type),
-            }),
-            IrReference::None => simple_type,
-        }
-    }
-}
-
 impl<FT: IntoSyn<Type>> IntoSyn<Type> for WGeneralType<FT> {
     fn into_syn(self) -> Type {
         match self {

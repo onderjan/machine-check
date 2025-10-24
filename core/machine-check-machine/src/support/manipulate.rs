@@ -11,7 +11,6 @@ use syn_path::path;
 
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr},
-    refin::{WRefinItemImplTrait, YRefin},
     util::{
         create_arg, create_expr_call, create_expr_field_named, create_expr_ident, create_expr_path,
         create_ident, create_impl_item_fn, create_item_impl, create_pat_wild,
@@ -61,86 +60,22 @@ pub(crate) fn for_abstract_description(description: &WDescription<YAbstr>) -> Ve
                 item_struct.ident.span(),
                 item_struct.ident.to_syn_ident(),
                 &manipulable_field_idents,
-                ManipulateKind::Forward,
             ));
         }
     }
     impls_to_add
-}
-
-pub(crate) fn for_refinement_description(description: &WDescription<YRefin>) -> Vec<ItemImpl> {
-    let mut impls_to_add = Vec::new();
-
-    let mut process_idents = HashSet::new();
-
-    for item_impl in description.impls.iter() {
-        if let Some(WRefinItemImplTrait { trait_, .. }) = &item_impl.trait_ {
-            if matches!(trait_, WItemImplTrait::Machine(_)) {
-                for impl_item_type in &item_impl.impl_item_types {
-                    if impl_item_type.left_ident.name() == "Input"
-                        || impl_item_type.left_ident.name() == "Param"
-                        || impl_item_type.left_ident.name() == "State"
-                    {
-                        if let Some(right_ident) = impl_item_type.right_path.get_ident() {
-                            process_idents.insert(right_ident.clone());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    for item_struct in description.structs.iter() {
-        if process_idents.remove(&item_struct.ident) {
-            let manipulable_field_idents = item_struct
-                .fields
-                .iter()
-                .filter_map(|field| {
-                    if is_manipulable(field.ty.forward_type()) {
-                        Some(field.ident.to_syn_ident())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            impls_to_add.push(create_manipulatable_impl(
-                item_struct.ident.span(),
-                item_struct.ident.to_syn_ident(),
-                &manipulable_field_idents,
-                ManipulateKind::Backward,
-            ));
-        }
-    }
-    impls_to_add
-}
-
-#[derive(Clone, Copy)]
-enum ManipulateKind {
-    Forward,
-    Backward,
-}
-
-impl ManipulateKind {
-    fn str(&self) -> &'static str {
-        match self {
-            ManipulateKind::Forward => "forward",
-            ManipulateKind::Backward => "backward",
-        }
-    }
 }
 
 fn create_manipulatable_impl(
     span: Span,
     ident: Ident,
     manipulable_field_idents: &Vec<Ident>,
-    kind: ManipulateKind,
 ) -> ItemImpl {
-    let get_fn = create_fn(false, manipulable_field_idents, kind, span);
-    let get_mut_fn = create_fn(true, manipulable_field_idents, kind, span);
+    let get_fn = create_fn(false, manipulable_field_idents, span);
+    let get_mut_fn = create_fn(true, manipulable_field_idents, span);
     let create_field_names_fn = create_field_names_fn(manipulable_field_idents, span);
 
-    let trait_path = kind_path(kind, "Manipulatable", span);
+    let trait_path = forward_path("Manipulatable", span);
 
     create_item_impl(
         Some(trait_path),
@@ -153,7 +88,7 @@ fn create_manipulatable_impl(
     )
 }
 
-fn kind_path(kind: ManipulateKind, last_str: &str, span: Span) -> Path {
+fn forward_path(last_str: &str, span: Span) -> Path {
     Path {
         leading_colon: Some(Token![::](span)),
         segments: Punctuated::from_iter([
@@ -162,7 +97,7 @@ fn kind_path(kind: ManipulateKind, last_str: &str, span: Span) -> Path {
                 arguments: PathArguments::None,
             },
             PathSegment {
-                ident: Ident::new(kind.str(), span),
+                ident: Ident::new("forward", span),
                 arguments: PathArguments::None,
             },
             PathSegment {
@@ -180,12 +115,7 @@ fn is_manipulable(ty: &WElementaryType) -> bool {
     )
 }
 
-fn create_fn(
-    mutable: bool,
-    manipulable_field_idents: &Vec<Ident>,
-    kind: ManipulateKind,
-    span: Span,
-) -> ImplItemFn {
+fn create_fn(mutable: bool, manipulable_field_idents: &Vec<Ident>, span: Span) -> ImplItemFn {
     let fn_ident: Ident = Ident::new(if mutable { "get_mut" } else { "get" }, span);
     let self_arg_ty = if mutable {
         ArgType::MutableReference
@@ -209,7 +139,7 @@ fn create_fn(
                 paren_token: None,
                 modifier: syn::TraitBoundModifier::None,
                 lifetimes: None,
-                path: kind_path(kind, "ManipField", span),
+                path: forward_path("ManipField", span),
             })]),
         }),
     );
