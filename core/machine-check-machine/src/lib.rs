@@ -1,10 +1,12 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
+use machine_check_common::iir::description::IMachine;
+use machine_check_common::iir::path::{IIdent, ISpan};
 use machine_check_common::iir::property::IProperty;
-use machine_check_common::ir_common::IrTypeArray;
+use machine_check_common::iir::ty::IElementaryType;
 use machine_check_common::Signedness;
 use mck::concr::FullMachine;
 use proc_macro2::{Ident, Span};
@@ -18,7 +20,7 @@ use syn_path::path;
 use wir::IntoSyn;
 
 use crate::util::{create_item_mod, path_matches_global_names};
-use crate::wir::{WBasicType, WElementaryType, WIdent, WSpan};
+use crate::wir::{WBasicType, WIdent, WSpan};
 
 mod abstr;
 mod concr;
@@ -73,7 +75,7 @@ pub fn inherent_property() -> IProperty {
 }
 
 pub fn process_property<M: FullMachine>(
-    machine: &M::Abstr,
+    machine: &IMachine,
     property: &str,
 ) -> Result<IProperty, Errors> {
     let expr: Expr = syn::parse_str(property).map_err(|err| {
@@ -83,68 +85,27 @@ pub fn process_property<M: FullMachine>(
         ))
     })?;
 
-    // TODO: get field descriptions without constructing and stepping the machine
-    let mut global_ident_types = {
-        use mck::abstr::Machine;
-        use mck::misc::Meta;
-        use mck::refin::Refine;
-
-        let input_precision = <<M as FullMachine>::Refin as mck::refin::Machine<M>>::Input::clean();
-        let mut input_proto_iter = input_precision.into_proto_iter();
-        let param_precision = <<M as FullMachine>::Refin as mck::refin::Machine<M>>::Param::clean();
-        let mut param_proto_iter = param_precision.into_proto_iter();
-        let panic_result = machine.init(
-            &input_proto_iter
-                .next()
-                .expect("Proto iterator should have at least one element"),
-            &param_proto_iter
-                .next()
-                .expect("Proto iterator should have at least one element"),
-        );
-        use mck::abstr::Manipulatable;
-        let mut global_ident_types = BTreeMap::new();
-        for field_name in
-            <<M::Abstr as mck::abstr::Machine<M>>::State as Manipulatable>::field_names()
-        {
-            let field = Manipulatable::get(&panic_result.result, field_name)
-                .expect("Field should be gettable");
-
-            let ty = match field.description() {
-                mck::abstr::Field::Bitvector(field) => WElementaryType::Bitvector(field.bit_width),
-
-                mck::abstr::Field::Array(field) => WElementaryType::Array(IrTypeArray {
-                    index_width: field.bit_length,
-                    element_width: field.bit_width,
-                }),
-            };
-
-            global_ident_types.insert(WIdent::new(String::from(field_name), Span::call_site()), ty);
-        }
-
-        global_ident_types
-    };
+    let mut global_ident_types = machine.state().fields.clone();
 
     global_ident_types.insert(
-        WIdent::new(String::from("__panic"), Span::call_site()),
-        WElementaryType::Bitvector(32),
-    );
-
-    global_ident_types.insert(
-        WIdent::new(String::from("__mck_subproperty_0"), Span::call_site()),
-        WElementaryType::Bitvector(32),
+        IIdent::new(String::from("__panic"), ISpan::Unspecified),
+        IElementaryType::Bitvector(32),
     );
 
     let mut global_basic_types = HashMap::new();
 
     // TODO: get signedness information
-    for (global_name, elementary_type) in &global_ident_types {
+    for (global_ident, elementary_type) in &global_ident_types {
         let ty = match elementary_type {
-            WElementaryType::Bitvector(width) => WBasicType::Bitvector(Signedness::None, *width),
-            WElementaryType::Array(type_array) => WBasicType::BitvectorArray(type_array.clone()),
-            WElementaryType::Boolean => todo!(),
-            WElementaryType::Path(_path) => todo!(),
+            IElementaryType::Bitvector(width) => WBasicType::Bitvector(Signedness::None, *width),
+            IElementaryType::Array(type_array) => WBasicType::BitvectorArray(type_array.clone()),
+            IElementaryType::Boolean => todo!(),
+            IElementaryType::Path(_path) => todo!(),
         };
-        global_basic_types.insert(global_name.clone(), ty);
+        global_basic_types.insert(
+            WIdent::new(global_ident.name().to_string(), Span::call_site()),
+            ty,
+        );
     }
 
     // TODO: do something with the panic messages

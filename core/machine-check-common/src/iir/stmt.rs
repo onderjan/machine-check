@@ -55,11 +55,6 @@ impl IAssignStmt {
                 .expect("Function variable should have type")
                 .ty;
 
-            eprintln!(
-                "Variable {:?} type: {:?}, value: {:?}",
-                left_var_id, left_type, left_value
-            );
-
             ensure_abstract_general_type(context.context, &left_value, left_type);
 
             abstr.insert_value(left_var_id, left_value);

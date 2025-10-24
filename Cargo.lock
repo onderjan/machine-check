@@ -1408,6 +1408,7 @@ dependencies = [
  "machine-check-machine",
  "machine-check-macros",
  "mck",
+ "rmp-serde",
  "serde",
  "serde_json",
  "trybuild",

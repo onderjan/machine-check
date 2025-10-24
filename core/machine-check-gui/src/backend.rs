@@ -3,7 +3,10 @@ use std::{borrow::Cow, ffi::OsStr, path::Path};
 use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
-use machine_check_common::{iir::property::IProperty, ExecError};
+use machine_check_common::{
+    iir::{description::IMachine, property::IProperty},
+    ExecError,
+};
 use machine_check_exec::{Framework, Strategy};
 use mck::concr::FullMachine;
 use sync::BackendSync;
@@ -22,6 +25,7 @@ const FAVICON_ICO: &[u8] = include_bytes!("../content/favicon.ico");
 /// Runs the Graphical User Interface backend.
 pub fn run<M: FullMachine>(
     abstract_system: M::Abstr,
+    machine: IMachine,
     property: Option<IProperty>,
     strategy: Strategy,
 ) -> Result<(), ExecError> {
@@ -37,7 +41,7 @@ pub fn run<M: FullMachine>(
 
     // create the backend
     let backend = Backend::new(
-        Workspace::<M>::new(Framework::new(abstract_system, strategy), property),
+        Workspace::<M>::new(Framework::new(abstract_system, machine, strategy), property),
         exec_name.clone(),
     );
     let response_fn = move |_web_view_id: WebViewId, request: http::Request<Vec<u8>>| {

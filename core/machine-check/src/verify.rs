@@ -1,6 +1,10 @@
 use crate::{ExecError, ExecResult, FullMachine};
 use log::{info, warn};
-use machine_check_common::{check::KnownConclusion, iir::property::IProperty, ExecStats};
+use machine_check_common::{
+    check::KnownConclusion,
+    iir::{description::IMachine, property::IProperty},
+    ExecStats,
+};
 use machine_check_exec::{Framework, Strategy};
 
 /// Verifies the given system with given arguments.
@@ -11,6 +15,7 @@ use machine_check_exec::{Framework, Strategy};
 /// it is verified first. If it does not hold, it is an execution error.
 pub fn verify<M: FullMachine>(
     abstract_system: M::Abstr,
+    machine: IMachine,
     prop: Option<IProperty>,
     assume_inherent: bool,
     strategy: Strategy,
@@ -24,7 +29,7 @@ pub fn verify<M: FullMachine>(
     }
 
     // Construct the framework.
-    let mut framework = Framework::<M>::new(abstract_system, strategy);
+    let mut framework = Framework::<M>::new(abstract_system, machine, strategy);
 
     // Verify the inherent property first if not assumed.
     let inherent_result = if assume_inherent {

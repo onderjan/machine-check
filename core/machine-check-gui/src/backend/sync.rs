@@ -111,7 +111,7 @@ impl<M: FullMachine> BackendWorker<M> {
             Request::Step(step_settings) => Some(AsynchronousRequest::Step(step_settings)),
             Request::AddProperty(property) => {
                 let property = match machine_check_machine::process_property::<M>(
-                    self.workspace.framework.abstract_system(),
+                    self.workspace.framework.machine(),
                     &property,
                 ) {
                     Ok(ok) => ok,

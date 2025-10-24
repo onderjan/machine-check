@@ -45,15 +45,7 @@ pub struct Framework<M: FullMachine> {
 
 impl<M: FullMachine> Framework<M> {
     /// Constructs the framework with a given system and strategy.
-    pub fn new(abstract_system: M::Abstr, strategy: Strategy) -> Self {
-        let machine = M::machine();
-        let machine: IMachine = rmp_serde::from_slice(machine).expect(
-            "Machine
-             should be deserialized",
-        );
-
-        eprintln!("Using machine: {:#?}", machine);
-
+    pub fn new(abstract_system: M::Abstr, machine: IMachine, strategy: Strategy) -> Self {
         let input = machine.input();
         let param = machine.param();
         let state = machine.state();
@@ -186,5 +178,8 @@ impl<M: FullMachine> Framework<M> {
 
     pub fn abstract_system(&self) -> &M::Abstr {
         &self.abstract_system
+    }
+    pub fn machine(&self) -> &IMachine {
+        &self.machine
     }
 }

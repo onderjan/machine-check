@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, ops::ControlFlow};
 
-use log::{debug, trace};
+use log::trace;
 use machine_check_common::{iir::property::ISubpropertyFixedPoint, ExecError, StateId};
 
 use crate::{
@@ -64,7 +64,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             return Ok(BTreeMap::new());
         }
 
-        debug!(
+        trace!(
             "Computing fixed point {} with {}/{} states dirty (current computation index {}, start time {})",
             fixed_point_index,
             self.property_checker.focus.dirty().len(),
@@ -98,7 +98,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
         // we reached the fixed point
         // the inner updated have been cleared
 
-        debug!(
+        trace!(
             "Reached fixed point {} with {}/{} states dirty, current time: {}, history: {:?}",
             fixed_point_index,
             self.property_checker.focus.dirty().len(),
@@ -116,7 +116,7 @@ impl<M: FullMachine> LabellingUpdater<'_, M> {
             self.adjust_end_time_padding(current_computation_index, computation_clone);
         }
 
-        debug!(
+        trace!(
             "Adjusted end time of fixed point {} with {}/{} states dirty",
             fixed_point_index,
             self.property_checker.focus.dirty().len(),
