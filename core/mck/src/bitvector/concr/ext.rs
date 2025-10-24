@@ -1,14 +1,18 @@
-use crate::{bitvector::util, concr::RConcreteBitvector, forward::Ext};
+use crate::{
+    bitvector::util,
+    concr::RConcreteBitvector,
+    forward::{Ext, RExt},
+};
 
 use super::ConcreteBitvector;
 
-impl RConcreteBitvector {
-    pub fn uext(self, new_width: u32) -> RConcreteBitvector {
+impl RExt for RConcreteBitvector {
+    fn uext(self, new_width: u32) -> RConcreteBitvector {
         // shorten or lengthen as needed
         RConcreteBitvector::from_masked_u64(self.value, new_width)
     }
 
-    pub fn sext(self, new_width: u32) -> RConcreteBitvector {
+    fn sext(self, new_width: u32) -> RConcreteBitvector {
         let mut value = self.value;
         // copy sign bit to higher positions
         if self.is_sign_bit_set() {

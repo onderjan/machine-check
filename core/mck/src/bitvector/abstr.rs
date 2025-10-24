@@ -14,7 +14,6 @@ pub trait BitvectorDomain<const W: u32>: Clone + Copy + Hash + Phi + ManipField 
     fn meet(self, other: Self) -> Option<Self>;
 }
 
-pub(super) use combined::CombinedBitvector;
 use serde::{Deserialize, Serialize};
 pub(super) use three_valued::{RThreeValuedBitvector, ThreeValuedBitvector};
 

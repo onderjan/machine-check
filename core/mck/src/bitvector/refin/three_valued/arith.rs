@@ -3,23 +3,17 @@ use std::num::NonZero;
 use crate::{
     backward::HwArith,
     bitvector::{
-        abstr::{RThreeValuedBitvector, ThreeValuedBitvector},
+        abstr::RThreeValuedBitvector,
         refin::three_valued::{
             support::{runtime_default_bi_mark, runtime_default_uni_mark},
             RMarkBitvector,
         },
     },
-    refin::{Limit, PanicResult},
-};
-
-use super::{
-    support::{default_bi_mark, default_uni_mark},
-    MarkBitvector,
 };
 
 impl HwArith for RThreeValuedBitvector {
     type Mark = RMarkBitvector;
-    type DivRemResult = PanicResult<RMarkBitvector>;
+    type DivRemResult = (RMarkBitvector, RMarkBitvector);
 
     fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         runtime_default_uni_mark(normal_input, mark_later)
@@ -39,95 +33,48 @@ impl HwArith for RThreeValuedBitvector {
 
     fn udiv(
         normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
+        mark_later: (RMarkBitvector, RMarkBitvector),
     ) -> (Self::Mark, Self::Mark) {
         runtime_divrem_mark(normal_input, mark_later)
     }
 
     fn sdiv(
         normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
+        mark_later: (RMarkBitvector, RMarkBitvector),
     ) -> (Self::Mark, Self::Mark) {
         runtime_divrem_mark(normal_input, mark_later)
     }
 
     fn urem(
         normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
+        mark_later: (RMarkBitvector, RMarkBitvector),
     ) -> (Self::Mark, Self::Mark) {
         runtime_divrem_mark(normal_input, mark_later)
     }
 
     fn srem(
         normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
+        mark_later: (RMarkBitvector, RMarkBitvector),
     ) -> (Self::Mark, Self::Mark) {
         runtime_divrem_mark(normal_input, mark_later)
-    }
-}
-
-impl<const W: u32> HwArith for ThreeValuedBitvector<W> {
-    type Mark = MarkBitvector<W>;
-    type DivRemResult = PanicResult<MarkBitvector<W>>;
-
-    fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
-        default_uni_mark(normal_input, mark_later)
-    }
-
-    fn add(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        default_bi_mark(normal_input, mark_later)
-    }
-
-    fn sub(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        default_bi_mark(normal_input, mark_later)
-    }
-
-    fn mul(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        default_bi_mark(normal_input, mark_later)
-    }
-
-    fn udiv(
-        normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
-    ) -> (Self::Mark, Self::Mark) {
-        divrem_mark(normal_input, mark_later)
-    }
-
-    fn sdiv(
-        normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
-    ) -> (Self::Mark, Self::Mark) {
-        divrem_mark(normal_input, mark_later)
-    }
-
-    fn urem(
-        normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
-    ) -> (Self::Mark, Self::Mark) {
-        divrem_mark(normal_input, mark_later)
-    }
-
-    fn srem(
-        normal_input: (Self, Self),
-        mark_later: PanicResult<Self::Mark>,
-    ) -> (Self::Mark, Self::Mark) {
-        divrem_mark(normal_input, mark_later)
     }
 }
 
 fn runtime_divrem_mark(
     normal_input: (RThreeValuedBitvector, RThreeValuedBitvector),
-    mark_later: PanicResult<RMarkBitvector>,
+    mark_later: (RMarkBitvector, RMarkBitvector),
 ) -> (RMarkBitvector, RMarkBitvector) {
     assert_eq!(normal_input.0.width(), normal_input.1.width());
     let width = normal_input.0.width();
-    let mark_later_panic = mark_later.panic;
-    let mark_later_result = mark_later.result;
+
+    // first is result, second is panic
+    let mark_later_result = mark_later.0;
+    let mark_later_panic = mark_later.1;
 
     // prefer marking panic
-    if mark_later_panic.is_marked() {
+    if mark_later_panic.importance() > 0 {
         // this only depends on the divisor, mark just the divisor
-        let importance = if let Some(mark_later) = mark_later.result.inner {
+        let importance = if let Some(mark_later) = mark_later_result.inner {
             mark_later.importance
         } else {
             NonZero::<u8>::MIN
@@ -140,29 +87,4 @@ fn runtime_divrem_mark(
 
     // no panic marking, mark normally
     runtime_default_bi_mark(normal_input, mark_later_result)
-}
-
-fn divrem_mark<const W: u32>(
-    normal_input: (ThreeValuedBitvector<W>, ThreeValuedBitvector<W>),
-    mark_later: PanicResult<MarkBitvector<W>>,
-) -> (MarkBitvector<W>, MarkBitvector<W>) {
-    let mark_later_panic = mark_later.panic;
-    let mark_later_result = mark_later.result;
-
-    // prefer marking panic
-    if mark_later_panic.is_marked() {
-        // this only depends on the divisor, mark just the divisor
-        let importance = if let Some(mark_later) = mark_later.result.0 {
-            mark_later.importance
-        } else {
-            NonZero::<u8>::MIN
-        };
-        return (
-            MarkBitvector::new_unmarked(),
-            MarkBitvector::new_marked(importance).limit(normal_input.1),
-        );
-    }
-
-    // no panic marking, mark normally
-    default_bi_mark(normal_input, mark_later_result)
 }

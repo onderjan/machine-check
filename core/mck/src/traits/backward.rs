@@ -109,14 +109,13 @@ where
     fn arith_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark);
 }
 
-pub trait Ext<const M: u32> {
-    type MarkEarlier;
-    type MarkLater;
+pub trait RExt {
+    type Mark;
 
     #[must_use]
-    fn uext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,);
+    fn uext(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,);
     #[must_use]
-    fn sext(normal_input: (Self,), mark_later: Self::MarkLater) -> (Self::MarkEarlier,);
+    fn sext(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,);
 }
 
 pub trait ReadWrite

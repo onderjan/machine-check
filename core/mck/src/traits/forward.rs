@@ -84,6 +84,13 @@ pub trait Ext<const M: u32> {
     fn sext(self) -> Self::Output;
 }
 
+pub trait RExt {
+    #[must_use]
+    fn uext(self, width: u32) -> Self;
+    #[must_use]
+    fn sext(self, width: u32) -> Self;
+}
+
 pub enum PhiArg<T: Phi> {
     Taken(T, abstr::Boolean),
     NotTaken(),

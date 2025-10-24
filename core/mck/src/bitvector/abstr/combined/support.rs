@@ -46,13 +46,3 @@ impl<const W: u32> Display for CombinedBitvector<W> {
         <Self as Debug>::fmt(self, f)
     }
 }
-
-impl CombinedBitvector<1> {
-    pub fn can_be_true(self) -> bool {
-        self.three_valued.can_be_true()
-    }
-
-    pub fn can_be_false(self) -> bool {
-        self.three_valued.can_be_false()
-    }
-}

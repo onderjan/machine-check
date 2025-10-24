@@ -78,7 +78,7 @@ pub fn support() {
     ));
 
     assert_eq!(
-        ThreeValuedBitvector::<8>::all_with_length_iter().count(),
+        ThreeValuedBitvector::<8>::all_with_width_iter().count(),
         3usize.pow(8)
     );
 }

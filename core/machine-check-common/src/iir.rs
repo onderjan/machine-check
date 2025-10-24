@@ -1,7 +1,4 @@
-use mck::{
-    abstr::AbstractValue,
-    refin::{Limit, RefinementValue},
-};
+use mck::{abstr::AbstractValue, refin::RefinementValue};
 
 use crate::iir::variable::IVarId;
 

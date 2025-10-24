@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     abstr::{Boolean, RArray, RBitvector},
-    forward::{Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
+    forward::{Bitwise, HwArith, HwShift, RExt, TypedCmp, TypedEq},
     misc::{Join, MetaEq},
 };
 

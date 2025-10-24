@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
 
+use crate::bitvector::compute_u64_mask;
 use crate::bitvector::util;
 use crate::concr::RConcreteBitvector;
 use crate::concr::RSignedBitvector;
@@ -102,6 +103,10 @@ impl RConcreteBitvector {
 
     pub fn is_nonzero(&self) -> bool {
         self.value != 0
+    }
+
+    pub fn all_with_width_iter(width: u32) -> impl Iterator<Item = Self> {
+        (0..=compute_u64_mask(width)).map(move |value| Self { width, value })
     }
 }
 

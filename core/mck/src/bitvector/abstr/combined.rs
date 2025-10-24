@@ -20,6 +20,7 @@ pub struct CombinedBitvector<const W: u32> {
     dual_interval: DualInterval<W>,
 }
 
+#[allow(dead_code)]
 impl<const W: u32> CombinedBitvector<W> {
     pub fn new(value: u64) -> Self {
         let three_valued = ThreeValuedBitvector::new(value);

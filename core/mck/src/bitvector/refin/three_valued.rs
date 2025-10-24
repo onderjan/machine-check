@@ -2,7 +2,7 @@ use std::num::NonZeroU8;
 
 use serde::{Deserialize, Serialize};
 
-use crate::concr::{ConcreteBitvector, RConcreteBitvector};
+use crate::concr::RConcreteBitvector;
 
 #[cfg(test)]
 mod tests;
@@ -28,14 +28,4 @@ pub struct RMarkBitvector {
 pub struct RBitvectorMark {
     pub importance: NonZeroU8,
     pub mark: RConcreteBitvector,
-}
-
-// TODO: remove equality in favour of meta-equality
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct MarkBitvector<const W: u32>(Option<BitvectorMark<W>>);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct BitvectorMark<const W: u32> {
-    pub importance: NonZeroU8,
-    pub mark: ConcreteBitvector<W>,
 }

@@ -4,7 +4,7 @@ use crate::{
     abstr::AbstractValue,
     backward,
     misc::{Join, Meta, MetaEq},
-    refin::{self, Limit, Refine},
+    refin::{self},
 };
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
@@ -143,6 +143,29 @@ impl RefinementValue {
             }
         }
     }
+
+    pub fn limit(self, abstr: &AbstractValue) -> Self {
+        match self {
+            RefinementValue::Array(refin) => {
+                RefinementValue::Array(refin.limit(abstr.expect_array()))
+            }
+            RefinementValue::Bitvector(refin) => {
+                RefinementValue::Bitvector(refin.limit(abstr.expect_bitvector()))
+            }
+            RefinementValue::Boolean(refin) => {
+                RefinementValue::Boolean(refin.limit(abstr.expect_boolean()))
+            }
+            RefinementValue::Struct(fields) => {
+                let abstr_fields = abstr.expect_struct();
+                assert_eq!(fields.len(), abstr_fields.len());
+                let mut result = Vec::new();
+                for (refin_field, abstr_field) in fields.into_iter().zip(abstr_fields) {
+                    result.push(refin_field.limit(abstr_field))
+                }
+                RefinementValue::Struct(result)
+            }
+        }
+    }
 }
 
 impl Join for RefinementValue {
@@ -174,33 +197,6 @@ impl Join for RefinementValue {
                 "Unjoinable combination of values {:?} and {:?}",
                 tuple.0, tuple.1
             ),
-        }
-    }
-}
-
-impl Limit for RefinementValue {
-    type Abstr = AbstractValue;
-
-    fn limit(self, abstr: &Self::Abstr) -> Self {
-        match self {
-            RefinementValue::Array(refin) => {
-                RefinementValue::Array(refin.limit(abstr.expect_array()))
-            }
-            RefinementValue::Bitvector(refin) => {
-                RefinementValue::Bitvector(refin.limit(abstr.expect_bitvector()))
-            }
-            RefinementValue::Boolean(refin) => {
-                RefinementValue::Boolean(refin.limit(abstr.expect_boolean()))
-            }
-            RefinementValue::Struct(fields) => {
-                let abstr_fields = abstr.expect_struct();
-                assert_eq!(fields.len(), abstr_fields.len());
-                let mut result = Vec::new();
-                for (refin_field, abstr_field) in fields.into_iter().zip(abstr_fields) {
-                    result.push(refin_field.limit(abstr_field))
-                }
-                RefinementValue::Struct(result)
-            }
         }
     }
 }
@@ -329,10 +325,10 @@ macro_rules! divrem_bi_op {
             panic!("Division/remainder should produce panic result struct");
         };
 
-        let mark_later = $crate::refin::PanicResult {
-            result: *mark_later[0].expect_bitvector(),
-            panic: $crate::refin::Bitvector::from_runtime(*mark_later[1].expect_bitvector()),
-        };
+        let result = *mark_later[0].expect_bitvector();
+        let panic = *mark_later[1].expect_bitvector();
+
+        let mark_later = (result, panic);
 
         let (a, b) = (
             $normal_input.0.expect_bitvector().clone(),

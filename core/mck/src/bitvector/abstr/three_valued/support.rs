@@ -58,8 +58,30 @@ impl RThreeValuedBitvector {
 
     #[must_use]
     pub fn from_zeros_ones(zeros: RConcreteBitvector, ones: RConcreteBitvector) -> Self {
+        match Self::try_from_zeros_ones(zeros, ones) {
+            Ok(ok) => ok,
+            Err(_) => panic!(
+                "Invalid zeros-ones with some unset bits (width {}, zeros {}, ones {})",
+                zeros.width(),
+                zeros,
+                ones
+            ),
+        }
+    }
+
+    pub fn try_from_zeros_ones(
+        zeros: RConcreteBitvector,
+        ones: RConcreteBitvector,
+    ) -> Result<Self, ()> {
         assert_eq!(zeros.width(), ones.width());
-        RThreeValuedBitvector { zeros, ones }
+        let width = zeros.width();
+
+        let mask = compute_u64_mask(width);
+
+        if Bitwise::bit_or(zeros, ones).to_u64() != mask {
+            return Err(());
+        }
+        Ok(Self { zeros, ones })
     }
 
     pub(crate) fn unwrap_typed<const W: u32>(self) -> ThreeValuedBitvector<W> {
@@ -167,6 +189,14 @@ impl RThreeValuedBitvector {
     #[must_use]
     pub fn get_possibly_zero_flags(&self) -> RConcreteBitvector {
         self.zeros
+    }
+
+    pub fn all_with_width_iter(width: u32) -> impl Iterator<Item = Self> {
+        let zeros_iter = RConcreteBitvector::all_with_width_iter(width);
+        zeros_iter.flat_map(move |zeros| {
+            let ones_iter = RConcreteBitvector::all_with_width_iter(width);
+            ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
+        })
     }
 }
 
@@ -387,7 +417,7 @@ impl<const W: u32> ThreeValuedBitvector<W> {
         Self::from_zeros_ones(zeros, ones)
     }
 
-    pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
+    pub fn all_with_width_iter() -> impl Iterator<Item = Self> {
         let zeros_iter = ConcreteBitvector::<W>::all_with_width_iter();
         zeros_iter.flat_map(|zeros| {
             let ones_iter = ConcreteBitvector::<W>::all_with_width_iter();

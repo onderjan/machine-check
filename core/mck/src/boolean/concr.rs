@@ -1,5 +1,5 @@
 use crate::{
-    concr::{Bitvector, Test},
+    concr::{Bitvector, RConcreteBitvector, Test},
     forward::Bitwise,
 };
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -38,5 +38,34 @@ impl Bitwise for Boolean {
 
     fn bit_xor(self, rhs: Self) -> Self {
         Self(self.0.bit_xor(rhs.0))
+    }
+}
+
+// this is used in tests
+#[allow(dead_code)]
+pub(crate) trait BoolConvert<T> {
+    fn bool_from(value: T) -> Self;
+    fn bool_into(value: Self) -> T;
+}
+
+impl<T> BoolConvert<T> for T {
+    fn bool_from(value: T) -> Self {
+        value
+    }
+
+    fn bool_into(value: Self) -> T {
+        value
+    }
+}
+
+impl BoolConvert<RConcreteBitvector> for super::concr::Boolean {
+    fn bool_from(value: RConcreteBitvector) -> Self {
+        assert_eq!(value.width(), 1);
+
+        Self(crate::concr::ConcreteBitvector::from_runtime(value))
+    }
+
+    fn bool_into(value: Self) -> RConcreteBitvector {
+        value.0.to_runtime()
     }
 }

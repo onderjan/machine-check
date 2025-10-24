@@ -159,9 +159,9 @@ impl IMckExt {
 
         let earlier = RefinementValue::Bitvector(
             if self.signed {
-                mck::abstr::RBitvector::mark_sext((inner,), later)
+                mck::backward::RExt::sext((inner,), later)
             } else {
-                mck::abstr::RBitvector::mark_uext((inner,), later)
+                mck::backward::RExt::uext((inner,), later)
             }
             .0,
         );

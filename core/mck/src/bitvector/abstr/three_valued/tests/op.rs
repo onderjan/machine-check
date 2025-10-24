@@ -69,7 +69,7 @@ pub(super) fn exec_uni_check<const W: u32, const X: u32>(
     abstr_func: fn(ThreeValuedBitvector<W>) -> ThreeValuedBitvector<X>,
     concr_func: fn(ConcreteBitvector<W>) -> ConcreteBitvector<X>,
 ) {
-    for a in ThreeValuedBitvector::<W>::all_with_length_iter() {
+    for a in ThreeValuedBitvector::<W>::all_with_width_iter() {
         let abstr_result = abstr_func(a);
         let equiv_result = join_concr_iter(
             ConcreteBitvector::<W>::all_with_width_iter()
@@ -90,8 +90,8 @@ pub(super) fn exec_bi_check<const W: u32, const X: u32>(
     concr_func: fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> ConcreteBitvector<X>,
     exact: bool,
 ) {
-    for a in ThreeValuedBitvector::<W>::all_with_length_iter() {
-        for b in ThreeValuedBitvector::<W>::all_with_length_iter() {
+    for a in ThreeValuedBitvector::<W>::all_with_width_iter() {
+        for b in ThreeValuedBitvector::<W>::all_with_width_iter() {
             let abstr_result = abstr_func(a, b);
 
             let a_concr_iter =
@@ -138,8 +138,8 @@ pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
         ConcreteBitvector<W>,
     ) -> concr::PanicResult<ConcreteBitvector<X>>,
 ) {
-    for a in ThreeValuedBitvector::<W>::all_with_length_iter() {
-        for b in ThreeValuedBitvector::<W>::all_with_length_iter() {
+    for a in ThreeValuedBitvector::<W>::all_with_width_iter() {
+        for b in ThreeValuedBitvector::<W>::all_with_width_iter() {
             let abstr_panic_result = abstr_func(a, b);
             let abstr_result = abstr_panic_result.result;
             let abstr_panic = abstr_panic_result.panic;

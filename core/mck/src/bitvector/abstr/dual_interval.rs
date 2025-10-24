@@ -56,6 +56,7 @@ pub struct DualInterval<const W: u32> {
 pub use support::DualIntervalFieldValue;
 
 impl<const W: u32> DualInterval<W> {
+    #[allow(dead_code)]
     pub const FULL: Self = Self {
         near_half: SignlessInterval::FULL_NEAR_HALFPLANE,
         far_half: SignlessInterval::FULL_FAR_HALFPLANE,

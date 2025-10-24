@@ -147,10 +147,7 @@ impl<M: FullMachine> Deducer<'_, M> {
                             RefinementValue::Boolean(mark) => {
                                 *mark != mck::refin::Boolean::new_unmarked()
                             }
-                            RefinementValue::Array(mark) => {
-                                use mck::refin::Refine;
-                                mark.to_condition().importance() > 0
-                            }
+                            RefinementValue::Array(mark) => mark.to_condition().importance() > 0,
                             RefinementValue::Struct(_refin_value) => todo!("Struct cuplrit"),
                         };
 
