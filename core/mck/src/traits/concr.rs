@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use super::{abstr, misc::MachineMisc, refin};
+use super::{abstr, misc::MachineMisc};
 
 pub trait Input: Debug + PartialEq + Eq + Hash + Clone + Send + Sync {}
 
@@ -53,7 +53,6 @@ pub trait Test {
 
 pub trait FullMachine: Machine + MachineMisc {
     type Abstr: abstr::Machine<Self>;
-    type Refin: refin::Machine<Self>;
 }
 
 pub trait IntoMck {

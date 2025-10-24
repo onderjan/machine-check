@@ -114,22 +114,7 @@ pub fn process_item_impl(
         create_type_path(abstr_path),
     ));
 
-    let mut refin_segments = Punctuated::new();
-    refin_segments.push(create_path_segment(Ident::new("self", span)));
-    refin_segments.push(create_path_segment(Ident::new("__mck_mod_abstr", span)));
-    refin_segments.push(create_path_segment(Ident::new("__mck_mod_refin", span)));
-    refin_segments.push(create_path_segment(Ident::new(&type_name, span)));
-    let refin_path = Path {
-        leading_colon: None,
-        segments: refin_segments,
-    };
-
-    let refin_impl_item_type = ImplItem::Type(create_impl_item_type(
-        Ident::new("Refin", span),
-        create_type_path(refin_path),
-    ));
-
-    concrete_impl.items = vec![abstr_impl_item_type, refin_impl_item_type];
+    concrete_impl.items = vec![abstr_impl_item_type];
 
     let extract_struct_index = |ident| {
         IStructId(
