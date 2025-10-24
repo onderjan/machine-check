@@ -8,7 +8,7 @@ use machine_check_common::{
         context::IContext,
         description::IMachine,
         path::{IIdent, ISpan},
-        property::{IProperty, ISubproperty},
+        property::{IProperty, ISubproperty, ISubpropertyFunc},
     },
     ExecError, StateId,
 };
@@ -93,123 +93,17 @@ impl<M: FullMachine> Deducer<'_, M> {
             self.choice,
         );
 
-        let state_id = *self
-            .path
-            .back()
-            .expect("Culprit prefix should have back state");
-
-        /*let value = self
-        .environment
-        .compute_latest(self.subproperty_index, state_id)?;*/
-
         let subproperty_entry = self.property.subproperty_entry(self.subproperty_index);
         trace!("subproperty: {:?}", subproperty_entry);
 
-        self.subproperty_index = match &subproperty_entry {
-            ISubproperty::Func(subproperty_func) => {
-                let CheckChoice::Func(input_choices) = &self.choice else {
-                    panic!("Should deduce on function inputs");
-                };
-
-                let func = &subproperty_func.func;
-
-                //eprintln!("Function: {:#?}", func);
-
-                trace!(
-                    "Deducing function in state {} with inputs {:?}",
-                    state_id,
-                    input_choices
-                );
-
-                let input_values = input_choices.iter().map(|wrap| wrap.0 .0.clone()).collect();
-
-                let context = IContext::empty();
-
-                let abstr = func.forward_interpret(&context, input_values);
-
-                //eprintln!("Abstract interpretation: {:?}", abstr);
-
-                // consider unknown result with no panic
-                let later_normal =
-                    RefinementValue::Boolean(mck::refin::Boolean::new_marked_unimportant());
-                let later_panic =
-                    RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
-
-                let refin = func.backward_interpret(&context, &abstr, later_normal, later_panic);
-
-                //eprintln!("Refin interpretation: {:?}", refin);
-
-                let mut atomic_culprit = None;
-                for (input_index, input_var_id) in func.signature.inputs.iter().enumerate() {
-                    if let Some(refin_value) = refin.value_opt(*input_var_id) {
-                        let nonempty_mark = match refin_value {
-                            RefinementValue::Bitvector(mark) => mark.marked_bits().is_nonzero(),
-                            RefinementValue::Boolean(mark) => {
-                                *mark != mck::refin::Boolean::new_unmarked()
-                            }
-                            RefinementValue::Array(mark) => mark.to_condition().importance() > 0,
-                            RefinementValue::Struct(_refin_value) => todo!("Struct cuplrit"),
-                        };
-
-                        if nonempty_mark {
-                            atomic_culprit =
-                                Some((input_index, *input_var_id, refin_value.clone()));
-                            break;
-                        }
-                    }
-                }
-
-                let (input_index, input_var_id, input_refin_value) =
-                    atomic_culprit.expect("Unknown func result should be caused by input");
-
-                let input_name = func
-                    .variables
-                    .get(&input_var_id)
-                    .expect("Input should be in variables")
-                    .ident
-                    .name();
-
-                if let Some(choice) = &input_choices[input_index].1 {
-                    let Some(stripped) = input_name.strip_prefix("__mck_subproperty_") else {
-                        panic!("Unknown func input with choices should be a subproperty");
-                    };
-                    let Ok(inner) = stripped.parse() else {
-                        panic!("Input subproperty should be valid");
-                    };
-                    self.choice = choice.clone();
-
-                    inner
-                } else {
-                    let mut earlier_normal = self.machine.state().clean_refin();
-                    let mut earlier_panic =
-                        RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
-
-                    // TODO: remove panic name kludge
-                    if input_name == "__panic" {
-                        earlier_panic = input_refin_value;
-                    } else {
-                        let field_index = self
-                            .machine
-                            .state()
-                            .fields
-                            .get_index_of(&IIdent::new(input_name.to_string(), ISpan::Unspecified))
-                            .expect("State should have field");
-                        earlier_normal.expect_struct_mut()[field_index] = input_refin_value;
-                    }
-
-                    /*let atomic_property = AtomicProperty {
-                        name: input_name.to_string(),
-                        refin_value: refin.value(input_var_id).clone(),
-                    };*/
-                    let culprit = Culprit {
-                        path: self.path.clone(),
-                        result: earlier_normal,
-                        panic: earlier_panic,
-                    };
-                    return Ok(ControlFlow::Break(culprit));
-                }
-            }
+        match &subproperty_entry {
+            ISubproperty::Func(subproperty_func) => return Ok(self.deduce_func(subproperty_func)),
             ISubproperty::Next(next) => {
+                let state_id = *self
+                    .path
+                    .back()
+                    .expect("Culprit prefix should have back state");
+
                 let CheckChoice::Next(next_state_id, inner_choice) = &mut self.choice else {
                     panic!("Should deduce on next operator, choice: {:?}", self.choice);
                 };
@@ -224,17 +118,22 @@ impl<M: FullMachine> Deducer<'_, M> {
                 self.path.push_back(next_state_id);
 
                 // move to inner
-                next.inner
+                self.subproperty_index = next.inner;
             }
             ISubproperty::FixedPoint(fixed_point) => {
                 if let CheckChoice::FixedPoint(op) = &self.choice {
                     // just move toinner
                     self.choice = *op.clone();
-                    fixed_point.inner
+                    self.subproperty_index = fixed_point.inner;
                 } else {
                     let CheckChoice::FixedVariable(time) = self.choice else {
                         panic!("Should deduce on next operator, choice: {:?}", self.choice);
                     };
+
+                    let state_id = *self
+                        .path
+                        .back()
+                        .expect("Culprit prefix should have back state");
 
                     let value = self
                         .environment
@@ -251,11 +150,113 @@ impl<M: FullMachine> Deducer<'_, M> {
 
                     self.choice = *choice.clone();
                     self.current_time = time;
-
-                    fixed_point.inner
+                    self.subproperty_index = fixed_point.inner;
                 }
             }
         };
         Ok(ControlFlow::Continue(()))
+    }
+
+    fn deduce_func(&mut self, subproperty_func: &ISubpropertyFunc) -> ControlFlow<Culprit> {
+        let CheckChoice::Func(input_choices) = &self.choice else {
+            panic!("Should deduce on function inputs");
+        };
+
+        let func = &subproperty_func.func;
+
+        //eprintln!("Function: {:#?}", func);
+
+        let state_id = *self
+            .path
+            .back()
+            .expect("Culprit prefix should have back state");
+
+        trace!(
+            "Deducing function in state {} with inputs {:?}",
+            state_id,
+            input_choices
+        );
+
+        let input_values = input_choices.iter().map(|wrap| wrap.0 .0.clone()).collect();
+
+        let context = IContext::empty();
+
+        let abstr = func.forward_interpret(&context, input_values);
+
+        //eprintln!("Abstract interpretation: {:?}", abstr);
+
+        // consider unknown result with no panic
+        let later_normal = RefinementValue::Boolean(mck::refin::Boolean::new_marked_unimportant());
+        let later_panic = RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
+
+        let refin = func.backward_interpret(&context, &abstr, later_normal, later_panic);
+
+        //eprintln!("Refin interpretation: {:?}", refin);
+
+        let mut chosen = None;
+        for (input_index, input_var_id) in func.signature.inputs.iter().enumerate() {
+            let Some(refin_value) = refin.value_opt(*input_var_id) else {
+                continue;
+            };
+            if !refin_value.is_marked() {
+                continue;
+            }
+            let input_name = func
+                .variables
+                .get(input_var_id)
+                .expect("Input should be in variables")
+                .ident
+                .name();
+
+            if let Some(choice) = &input_choices[input_index].1 {
+                // should be a subproperty
+                let Some(stripped) = input_name.strip_prefix("__mck_subproperty_") else {
+                    panic!("Unknown func input with choices should be a subproperty");
+                };
+                let Ok(inner) = stripped.parse::<usize>() else {
+                    panic!("Input subproperty should be valid");
+                };
+
+                if chosen.is_none() {
+                    chosen = Some((inner, choice.clone()));
+                }
+            } else {
+                // prefer a marked atomic property to subproperties
+
+                let mut earlier_normal = self.machine.state().clean_refin();
+                let mut earlier_panic =
+                    RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
+
+                // TODO: remove panic name kludge
+                if input_name == "__panic" {
+                    earlier_panic = refin_value.clone();
+                } else {
+                    let field_index = self
+                        .machine
+                        .state()
+                        .fields
+                        .get_index_of(&IIdent::new(input_name.to_string(), ISpan::Unspecified))
+                        .expect("State should have field");
+                    earlier_normal.expect_struct_mut()[field_index] = refin_value.clone();
+                }
+
+                let culprit = Culprit {
+                    path: self.path.clone(),
+                    result: earlier_normal,
+                    panic: earlier_panic,
+                };
+
+                return ControlFlow::Break(culprit);
+            }
+        }
+
+        let Some((subproperty_index, choice)) = chosen else {
+            panic!("Unknown func result should be caused by some input");
+        };
+
+        self.subproperty_index = subproperty_index;
+        self.choice = choice;
+
+        ControlFlow::Continue(())
     }
 }

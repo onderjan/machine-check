@@ -166,6 +166,22 @@ impl RefinementValue {
             }
         }
     }
+
+    pub fn is_marked(&self) -> bool {
+        match self {
+            RefinementValue::Array(refin) => refin.importance() > 0,
+            RefinementValue::Bitvector(refin) => refin.importance() > 0,
+            RefinementValue::Boolean(refin) => refin.importance() > 0,
+            RefinementValue::Struct(fields) => {
+                for field in fields {
+                    if field.is_marked() {
+                        return true;
+                    }
+                }
+                false
+            }
+        }
+    }
 }
 
 impl Join for RefinementValue {
