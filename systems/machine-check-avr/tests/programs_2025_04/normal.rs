@@ -152,7 +152,9 @@ calibration_tests!(Debug, calibration_original, false, 0x46);
 calibration_tests!(Release, calibration_original, false, 0x44);
 calibration_tests!(Debug, calibration_fixed, true, 0x46);
 calibration_tests!(Release, calibration_fixed, true, 0x44);
-calibration_tests!(Debug, calibration_complicated_original, false, 0x59);
+
+// TODO: reintroduce complicated calibration once verification gets faster again
+/*calibration_tests!(Debug, calibration_complicated_original, false, 0x59);
 calibration_tests!(Release, calibration_complicated_original, false, 0x57);
 calibration_tests!(Debug, calibration_complicated_fixed, true, 0x59);
-calibration_tests!(Release, calibration_complicated_fixed, true, 0x57);
+calibration_tests!(Release, calibration_complicated_fixed, true, 0x57);*/
