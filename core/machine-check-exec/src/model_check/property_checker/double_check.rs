@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 use std::sync::LazyLock;
 
 use log::{trace, warn};
+use machine_check_common::iir::description::IMachine;
 use machine_check_common::ExecError;
 
 use crate::model_check::property_checker::labelling_updater::LabellingUpdater;
@@ -26,15 +27,20 @@ static INCREMENTAL_DOUBLE_CHECK: LazyLock<bool> = LazyLock::new(|| {
 impl PropertyChecker {
     pub(super) fn incremental_double_check<M: FullMachine>(
         &mut self,
+        machine: &IMachine,
         space: &StateSpace<M>,
     ) -> Result<(), ExecError> {
         if !*INCREMENTAL_DOUBLE_CHECK {
             return Ok(());
         }
-        self.double_check(space)
+        self.double_check(machine, space)
     }
 
-    pub fn double_check<M: FullMachine>(&self, space: &StateSpace<M>) -> Result<(), ExecError> {
+    pub fn double_check<M: FullMachine>(
+        &self,
+        machine: &IMachine,
+        space: &StateSpace<M>,
+    ) -> Result<(), ExecError> {
         trace!(
             "Double-checking whether the incremental computation corresponds to non-incremental"
         );
@@ -47,7 +53,7 @@ impl PropertyChecker {
         let mut fresh_property_checker = self.clone();
         fresh_property_checker.invalidate();
         fresh_property_checker.focus.make_whole_dirty(space);
-        LabellingUpdater::new(&mut fresh_property_checker, space)?.compute_inner()?;
+        LabellingUpdater::new(&mut fresh_property_checker, machine, space)?.compute_inner()?;
         for history in fresh_property_checker.histories.values_mut() {
             history.retain_states(&states);
         }

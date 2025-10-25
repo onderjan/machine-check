@@ -1492,6 +1492,7 @@ dependencies = [
  "hex",
  "http",
  "include_dir",
+ "indexmap 2.12.0",
  "log",
  "machine-check-common",
  "machine-check-exec",

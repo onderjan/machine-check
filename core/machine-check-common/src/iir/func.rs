@@ -152,6 +152,13 @@ impl IFn {
         }
         result
     }
+
+    pub fn into_declaration(self) -> IFnDeclaration {
+        IFnDeclaration {
+            signature: self.signature,
+            variables: self.variables,
+        }
+    }
 }
 
 impl IBlock {

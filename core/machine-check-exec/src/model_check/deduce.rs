@@ -34,7 +34,7 @@ pub(super) fn deduce_culprit<M: FullMachine>(
 
     trace!("Deducing culprit from checker {:?}", checker);
 
-    let environment = checker.last_getter(space);
+    let environment = checker.last_getter(machine, space);
 
     for initial_id in space.initial_iter() {
         let timed = environment.compute_latest_timed(0, initial_id)?;

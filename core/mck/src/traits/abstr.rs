@@ -1,4 +1,4 @@
-use crate::abstr::{AbstractValue, Field, PanicResult};
+use crate::abstr::{AbstractValue, PanicResult};
 use crate::concr::FullMachine;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -12,38 +12,32 @@ pub trait Abstr<C> {
 }
 
 pub trait Input<C: FullMachine>:
-    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Input> + Send + Sync
+    Debug + MetaEq + Hash + Clone + Abstr<C::Input> + Send + Sync
 {
 }
 
-impl<
-        C: FullMachine,
-        A: Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Input> + Send + Sync,
-    > Input<C> for A
+impl<C: FullMachine, A: Debug + MetaEq + Hash + Clone + Abstr<C::Input> + Send + Sync> Input<C>
+    for A
 {
 }
 
 pub trait Param<C: FullMachine>:
-    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Param> + Send + Sync
+    Debug + MetaEq + Hash + Clone + Abstr<C::Param> + Send + Sync
 {
 }
 
-impl<
-        C: FullMachine,
-        A: Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::Param> + Send + Sync,
-    > Param<C> for A
+impl<C: FullMachine, A: Debug + MetaEq + Hash + Clone + Abstr<C::Param> + Send + Sync> Param<C>
+    for A
 {
 }
 
 pub trait State<C: FullMachine>:
-    Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State> + Send + Sync + Phi
+    Debug + MetaEq + Hash + Clone + Abstr<C::State> + Send + Sync + Phi
 {
 }
 
-impl<
-        C: FullMachine,
-        A: Debug + MetaEq + Hash + Clone + Manipulatable + Abstr<C::State> + Send + Sync + Phi,
-    > State<C> for A
+impl<C: FullMachine, A: Debug + MetaEq + Hash + Clone + Abstr<C::State> + Send + Sync + Phi>
+    State<C> for A
 {
 }
 
@@ -77,24 +71,4 @@ where
 {
     fn phi(self, other: Self) -> Self;
     fn uninit() -> Self;
-}
-
-pub trait ManipField {
-    fn index(&self, index: u64) -> Option<&dyn ManipField>;
-    fn runtime_value(&self) -> AbstractValue;
-
-    fn num_bits(&self) -> Option<u32>;
-    fn min_unsigned(&self) -> Option<u64>;
-    fn max_unsigned(&self) -> Option<u64>;
-    fn min_signed(&self) -> Option<i64>;
-    fn max_signed(&self) -> Option<i64>;
-    fn description(&self) -> Field;
-}
-pub trait Manipulatable {
-    #[must_use]
-    fn get(&self, name: &str) -> Option<&dyn ManipField>;
-    #[must_use]
-    fn get_mut(&mut self, name: &str) -> Option<&mut dyn ManipField>;
-    #[must_use]
-    fn field_names() -> Vec<&'static str>;
 }

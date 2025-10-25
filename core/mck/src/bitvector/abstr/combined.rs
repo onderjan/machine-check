@@ -6,10 +6,7 @@ use std::hash::Hash;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{
-        AbstractValue, BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field,
-        ManipField, PanicResult, Phi, Test,
-    },
+    abstr::{BitvectorDomain, Boolean, PanicResult, Phi, Test},
     bitvector::{
         abstr::{dual_interval::RDualInterval, RThreeValuedBitvector},
         interval::{UnsignedInterval, WrappingInterval},
@@ -131,12 +128,6 @@ impl<const W: u32> BitvectorDomain<W> for CombinedBitvector<W> {
         self.dual_interval.to_unsigned_interval()
     }
 
-    fn element_description(&self) -> BitvectorElement {
-        let mut element_description = self.three_valued.element_description();
-        element_description.dual_interval = Some(self.dual_interval.field_value());
-        element_description
-    }
-
     fn join(self, other: Self) -> Self {
         self.phi(other)
     }
@@ -145,42 +136,5 @@ impl<const W: u32> BitvectorDomain<W> for CombinedBitvector<W> {
         let three_valued = self.three_valued.meet(other.three_valued)?;
         let dual_interval = self.dual_interval.meet(other.dual_interval)?;
         Some(Self::combine(three_valued, dual_interval))
-    }
-}
-
-impl<const W: u32> ManipField for CombinedBitvector<W> {
-    fn index(&self, _index: u64) -> Option<&dyn ManipField> {
-        None
-    }
-
-    fn runtime_value(&self) -> AbstractValue {
-        todo!()
-    }
-
-    fn num_bits(&self) -> Option<u32> {
-        Some(W)
-    }
-
-    fn min_unsigned(&self) -> Option<u64> {
-        Some(self.dual_interval.unsigned_min().to_u64())
-    }
-
-    fn max_unsigned(&self) -> Option<u64> {
-        Some(self.dual_interval.unsigned_max().to_u64())
-    }
-
-    fn min_signed(&self) -> Option<i64> {
-        Some(self.dual_interval.signed_min().to_i64())
-    }
-
-    fn max_signed(&self) -> Option<i64> {
-        Some(self.dual_interval.signed_max().to_i64())
-    }
-
-    fn description(&self) -> crate::abstr::Field {
-        Field::Bitvector(BitvectorField {
-            bit_width: W,
-            element: self.element_description(),
-        })
     }
 }

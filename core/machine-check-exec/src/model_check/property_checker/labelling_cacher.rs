@@ -3,7 +3,10 @@ mod local;
 mod next;
 
 use log::trace;
-use machine_check_common::{iir::property::ISubproperty, ExecError, StateId};
+use machine_check_common::{
+    iir::{description::IMachine, property::ISubproperty},
+    ExecError, StateId,
+};
 
 use crate::{
     model_check::property_checker::{value::TimedCheckValue, PropertyChecker},
@@ -13,6 +16,7 @@ use crate::{
 
 pub struct LabellingCacher<'a, M: FullMachine> {
     property_checker: &'a PropertyChecker,
+    machine: &'a IMachine,
     space: &'a StateSpace<M>,
     current_time: u64,
 }
@@ -20,11 +24,13 @@ pub struct LabellingCacher<'a, M: FullMachine> {
 impl<'a, M: FullMachine> LabellingCacher<'a, M> {
     pub(super) fn new(
         property_checker: &'a PropertyChecker,
+        machine: &'a IMachine,
         space: &'a StateSpace<M>,
         current_time: u64,
     ) -> Self {
         LabellingCacher {
             property_checker,
+            machine,
             space,
             current_time,
         }

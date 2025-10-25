@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use machine_check_common::iir::context::IContext;
-use mck::abstr::{Abstr, AbstractValue, Manipulatable};
+use machine_check_common::iir::path::{IIdent, ISpan};
+use mck::abstr::{Abstr, AbstractValue};
 
 use machine_check_common::iir::property::{ISubproperty, ISubpropertyFunc};
 use machine_check_common::{ExecError, ParamValuation, StateId, ThreeValued};
@@ -99,11 +100,21 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 let value = if input_var_name == "__panic" {
                     state_panic.to_runtime()
                 } else {
-                    let Some(field) = Manipulatable::get(state_result, input_var_name) else {
+                    let state_fields = &self.machine.state().fields;
+                    let AbstractValue::Struct(state_field_values) = state_result.to_runtime()
+                    else {
+                        panic!("Input '{}' should be in a struct", input_var_name);
+                    };
+
+                    assert_eq!(state_fields.len(), state_field_values.len());
+
+                    let Some(field_index) = state_fields
+                        .get_index_of(&IIdent::new(input_var_name.to_string(), ISpan::Unspecified))
+                    else {
                         panic!("Input '{}' should be in fields", input_var_name);
                     };
 
-                    field.runtime_value()
+                    state_field_values[field_index].clone()
                 };
                 input_choices.push((MetaWrap(value.clone()), None));
                 value

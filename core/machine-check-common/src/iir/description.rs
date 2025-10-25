@@ -143,6 +143,19 @@ impl IStruct {
 
         RefinementValue::Struct(result)
     }
+
+    pub fn into_declaration(self) -> IStructDeclaration {
+        let fns = self
+            .fns
+            .into_iter()
+            .map(|func| (func.0, func.1.into_declaration()))
+            .collect();
+
+        IStructDeclaration {
+            fields: self.fields,
+            fns,
+        }
+    }
 }
 
 impl Debug for IStructId {

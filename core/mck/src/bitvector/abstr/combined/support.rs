@@ -38,7 +38,10 @@ impl<const W: u32> MetaEq for CombinedBitvector<W> {
 
 impl<const W: u32> Debug for CombinedBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.element_description().write(f, W)
+        std::fmt::Debug::fmt(&self.three_valued, f)?;
+        write!(f, " ⊓ ")?;
+        std::fmt::Debug::fmt(&self.dual_interval, f)?;
+        Ok(())
     }
 }
 

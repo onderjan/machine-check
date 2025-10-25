@@ -146,7 +146,7 @@ impl<M: FullMachine> Framework<M> {
     ) -> Result<BTreeMap<usize, BTreeMap<StateId, ParamValuation>>, ExecError> {
         self.work_state
             .checker
-            .get_labellings(&self.work_state.space, property)
+            .get_labellings(&self.machine, &self.work_state.space, property)
     }
 
     pub fn current_conclusion(&mut self, property: &IProperty) -> Result<Conclusion, ExecError> {

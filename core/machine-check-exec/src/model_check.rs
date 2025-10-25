@@ -31,6 +31,7 @@ impl ThreeValuedChecker {
 
     pub fn get_labellings<M: FullMachine>(
         &mut self,
+        machine: &IMachine,
         space: &StateSpace<M>,
         property: &IProperty,
     ) -> Result<BTreeMap<usize, BTreeMap<StateId, ParamValuation>>, ExecError> {
@@ -46,7 +47,7 @@ impl ThreeValuedChecker {
 
             for state_id in space.states() {
                 let timed = property_checker
-                    .last_getter(space)
+                    .last_getter(machine, space)
                     .compute_latest_timed(subproperty_index, state_id)?;
                 labelling.insert(state_id, timed.value.valuation());
             }
@@ -74,7 +75,7 @@ impl ThreeValuedChecker {
             .get_mut(property)
             .expect("Property checker should be just inserted");
 
-        let result = property_checker.compute_interpretation(space)?;
+        let result = property_checker.compute_interpretation(machine, space)?;
 
         if !space.is_valid() {
             return Ok(Conclusion::NotCheckable);
@@ -82,11 +83,11 @@ impl ThreeValuedChecker {
 
         if result.is_known() {
             // double-check known result using the incremental algorithm non-incrementally
-            property_checker.double_check(space)?;
+            property_checker.double_check(machine, space)?;
 
             // triple-check known result using the non-incremental algorithm
 
-            let basic_result = nonincremental::check_property(space, property)?;
+            let basic_result = nonincremental::check_property(space, machine, property)?;
             if result != basic_result {
                 panic!(
                     "Result {:?} does not match the result of basic non-incremental algorithm {:?}",

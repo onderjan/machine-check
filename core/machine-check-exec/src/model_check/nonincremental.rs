@@ -3,13 +3,14 @@ use std::collections::BTreeMap;
 use machine_check_common::{
     iir::{
         context::IContext,
+        description::IMachine,
         func::IFn,
+        path::{IIdent, ISpan},
         property::{IProperty, ISubproperty},
     },
     ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
 use mck::{
-    abstr::Manipulatable,
     abstr::{Abstr, AbstractValue},
     concr::FullMachine,
 };
@@ -24,11 +25,13 @@ use crate::space::StateSpace;
 /// the incremental model-checking really produced a correct result.
 pub fn check_property<M: FullMachine>(
     space: &StateSpace<M>,
+    machine: &IMachine,
     property: &IProperty,
 ) -> Result<ParamValuation, ExecError> {
     let mut environment = BTreeMap::new();
     NonincrementalChecker {
         space,
+        machine,
         property,
         environment: &mut environment,
     }
@@ -37,6 +40,7 @@ pub fn check_property<M: FullMachine>(
 
 pub(super) struct NonincrementalChecker<'a, M: FullMachine> {
     pub(super) space: &'a StateSpace<M>,
+    pub(super) machine: &'a IMachine,
     pub(super) property: &'a IProperty,
     pub(super) environment: &'a mut BTreeMap<(usize, StateId), ParamValuation>,
 }
@@ -188,11 +192,20 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
             } else if input_var_name == "__panic" {
                 state_panic.to_runtime()
             } else {
-                let Some(field) = state_result.get(input_var_name) else {
+                let state_fields = &self.machine.state().fields;
+                let AbstractValue::Struct(state_field_values) = state_result.to_runtime() else {
+                    panic!("Input '{}' should be in a struct", input_var_name);
+                };
+
+                assert_eq!(state_fields.len(), state_field_values.len());
+
+                let Some(field_index) = state_fields
+                    .get_index_of(&IIdent::new(input_var_name.to_string(), ISpan::Unspecified))
+                else {
                     panic!("Input '{}' should be in fields", input_var_name);
                 };
 
-                field.runtime_value()
+                state_field_values[field_index].clone()
             };
 
             globals.insert(input_var_name.to_string(), value);

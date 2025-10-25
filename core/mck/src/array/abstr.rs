@@ -1,11 +1,9 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{
-        self, Abstr, AbstractValue, BitvectorDomain, BitvectorElement, Field, ManipField, Phi,
-    },
+    abstr::{self, Abstr, AbstractValue, BitvectorDomain, Phi},
     concr::{self, RUnsignedBitvector, UnsignedBitvector},
     forward::ReadWrite,
     misc::{CMax, Join, MetaWrap, RMax},
@@ -35,6 +33,10 @@ impl RArray {
         });
 
         self
+    }
+
+    pub fn inner(&self) -> &LightArray<u64, MetaWrap<abstr::RBitvector>, RMax> {
+        &self.inner
     }
 }
 
@@ -86,13 +88,6 @@ impl MetaEq for RArray {
 #[derive(Clone, Hash)]
 pub struct Array<const I: u32, const W: u32> {
     pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<W>>, CMax<I>>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ArrayField {
-    pub bit_width: u32,
-    pub bit_length: u32,
-    pub inner: BTreeMap<u64, BitvectorElement>,
 }
 
 impl<const I: u32, const W: u32> Abstr<concr::Array<I, W>> for Array<I, W> {
@@ -232,58 +227,5 @@ impl<const I: u32, const W: u32> Phi for Array<I, W> {
 impl<const I: u32, const W: u32> Debug for Array<I, W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
-    }
-}
-
-/*impl Debug for RArray {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.inner.fmt(f)
-    }
-}*/
-
-impl<const I: u32, const W: u32> ManipField for Array<I, W> {
-    fn index(&self, index: u64) -> Option<&dyn ManipField> {
-        let index = concr::Bitvector::try_new(index)?.cast_unsigned();
-        Some(&self.inner[index].0)
-    }
-
-    fn num_bits(&self) -> Option<u32> {
-        None
-    }
-
-    fn min_unsigned(&self) -> Option<u64> {
-        None
-    }
-
-    fn max_unsigned(&self) -> Option<u64> {
-        None
-    }
-
-    fn min_signed(&self) -> Option<i64> {
-        None
-    }
-
-    fn max_signed(&self) -> Option<i64> {
-        None
-    }
-
-    fn description(&self) -> Field {
-        let mut inner = BTreeMap::new();
-        for (index, element) in self.inner.light_iter() {
-            inner.insert(
-                index.as_bitvector().to_u64(),
-                element.0.element_description(),
-            );
-        }
-
-        Field::Array(ArrayField {
-            bit_width: W,
-            bit_length: I,
-            inner,
-        })
-    }
-
-    fn runtime_value(&self) -> AbstractValue {
-        self.to_runtime()
     }
 }

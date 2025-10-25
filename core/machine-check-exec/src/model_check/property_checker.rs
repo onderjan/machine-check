@@ -12,7 +12,10 @@ use std::{
 
 use log::trace;
 use machine_check_common::{
-    iir::property::{IProperty, ISubproperty},
+    iir::{
+        description::IMachine,
+        property::{IProperty, ISubproperty},
+    },
     ExecError, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
@@ -90,13 +93,14 @@ impl PropertyChecker {
 
     pub fn compute_interpretation<M: FullMachine>(
         &mut self,
+        machine: &IMachine,
         space: &StateSpace<M>,
     ) -> Result<ParamValuation, ExecError> {
         trace!(
             "Histories before computing interpretation: {:#?}",
             self.histories
         );
-        let labelling_computer = LabellingUpdater::new(self, space)?;
+        let labelling_computer = LabellingUpdater::new(self, machine, space)?;
         let result = labelling_computer.compute()?;
 
         trace!(
@@ -109,9 +113,10 @@ impl PropertyChecker {
 
     pub fn last_getter<'a, M: FullMachine>(
         &'a self,
+        machine: &'a IMachine,
         space: &'a StateSpace<M>,
     ) -> LabellingCacher<'a, M> {
-        LabellingCacher::new(self, space, u64::MAX)
+        LabellingCacher::new(self, machine, space, u64::MAX)
     }
 
     fn invalidate(&mut self) {

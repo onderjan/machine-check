@@ -1,7 +1,6 @@
-use std::collections::BTreeMap;
-
 use machine_check_common::NodeId;
-use mck::abstr::{ArrayField, BitvectorField, Field};
+use mck::abstr::{AbstractValue, RArray};
+
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlTableCellElement, HtmlTableElement, HtmlTableRowElement};
 
@@ -50,57 +49,93 @@ impl FieldDisplayer<'_> {
     fn display_node_fields(&self, node_id: NodeId, node: &Node) {
         self.add_field_row("id", &node_id.to_string(), &["bold", "italic"], &[]);
 
-        let panic_value = match &node.panic {
-            Some(tvb) => tvb.to_string(),
+        let panic_value = match &node.panic_state {
+            Some(panic_state) => {
+                let bitvec = panic_state.expect_struct()[1].expect_bitvector();
+
+                match bitvec.concrete_value() {
+                    Some(value) => {
+                        if value.is_nonzero() {
+                            "\"1\""
+                        } else {
+                            "\"0\""
+                        }
+                    }
+                    None => "\"X\"",
+                }
+                .to_string()
+            }
             None => String::from("(none)"),
         };
 
         self.add_field_row("panic", &panic_value, &["bold", "italic"], &["bold"]);
 
-        for (field_name, value) in node.fields.iter() {
+        let Some(panic_state) = &node.panic_state else {
+            return;
+        };
+
+        let field_types = &self.view.snapshot().state_info.fields;
+        let field_values = panic_state.expect_struct()[0].expect_struct();
+        assert_eq!(field_types.len(), field_values.len());
+
+        for (field_ident, value) in field_types.keys().zip(field_values) {
             match value {
-                Field::Bitvector(bitvector) => {
+                AbstractValue::Bitvector(bitvector) => {
                     self.add_field_row(
-                        field_name,
+                        field_ident.name(),
                         &bitvector.to_string(),
                         STANDARD_FIELD_CLASSES,
                         STANDARD_VALUE_CLASSES,
                     );
                 }
-                Field::Array(array) => {
-                    self.display_array_field(field_name, array);
+                AbstractValue::Array(array) => {
+                    self.display_array_field(field_ident.name(), array);
+                }
+                AbstractValue::Boolean(boolean) => {
+                    self.add_field_row(
+                        field_ident.name(),
+                        &boolean.to_string(),
+                        STANDARD_FIELD_CLASSES,
+                        STANDARD_VALUE_CLASSES,
+                    );
+                }
+                AbstractValue::Struct(_values) => {
+                    todo!("Struct within state")
                 }
             };
         }
     }
 
-    fn display_array_field(&self, field_name: &str, array: &ArrayField) {
+    fn display_array_field(&self, field_name: &str, array: &RArray) {
         // the light array contains the values only for the leftmost indices in the runs of same elements
         // we want to create the names of slices where all elements correspond to the same value
         // i.e. field_name[i..=j] where there is a multi-element run and field_name[i] where there is
         // a single-element run, i.e. i == j
-        let inner: BTreeMap<u64, _> = BTreeMap::from_iter(
+        /*let inner: BTreeMap<u64, _> = BTreeMap::from_iter(
             array
                 .inner
                 .iter()
                 .map(|(index, bitvector)| (*index, *bitvector)),
-        );
+        );*/
+
+        let index_width = array.index_width();
 
         // we need to be able to look at the successive two elements, so we use peeking
-        let mut iter = inner.into_iter().peekable();
+        let mut iter = array.inner().light_iter().peekable();
         while let Some((start_index, element)) = iter.next() {
             let peek = iter.peek();
+            let start_index = *start_index;
             let end_index = if let Some(peek) = peek {
                 // we have a next index, the end index of this run is just before it
                 peek.0 - 1
-            } else if array.bit_length == u64::BITS {
+            } else if index_width == u64::BITS {
                 // there is no next index; since the array is the maximum amount of bits wide,
                 // we must explicitly use the maximum value since the right shift would overflow
                 u64::MAX
             } else {
                 // there is no next index; we can compute the end index here by (2^N)-1
                 // without overflow
-                (1u64 << array.bit_length) - 1
+                (1u64 << index_width) - 1
             };
 
             // format the field part name accordingly
@@ -110,14 +145,9 @@ impl FieldDisplayer<'_> {
                 format!("{}[{}..={}]", field_name, start_index, end_index)
             };
 
-            // setup the value for printing
-            let value = BitvectorField {
-                bit_width: array.bit_width,
-                element,
-            };
             self.add_field_row(
                 &field_part_name,
-                &value.to_string(),
+                &element.0.to_string(),
                 STANDARD_FIELD_CLASSES,
                 STANDARD_VALUE_CLASSES,
             );

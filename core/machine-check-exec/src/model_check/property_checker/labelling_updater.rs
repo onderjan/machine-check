@@ -6,7 +6,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use log::{debug, trace};
 use machine_check_common::{
-    iir::property::{ISubproperty, ISubpropertyNext},
+    iir::{
+        description::IMachine,
+        property::{ISubproperty, ISubpropertyNext},
+    },
     ExecError, NodeId, ParamValuation, StateId,
 };
 use mck::concr::FullMachine;
@@ -20,6 +23,7 @@ use crate::{
 
 pub struct LabellingUpdater<'a, M: FullMachine> {
     property_checker: &'a mut PropertyChecker,
+    machine: &'a IMachine,
     space: &'a StateSpace<M>,
 
     current_time: u64,
@@ -36,10 +40,12 @@ pub struct LabellingUpdater<'a, M: FullMachine> {
 impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
     pub fn new(
         property_checker: &'a mut PropertyChecker,
+        machine: &'a IMachine,
         space: &'a StateSpace<M>,
     ) -> Result<Self, ExecError> {
         let computer = Self {
             property_checker,
+            machine,
             space,
             current_time: 0,
             next_computation_index: 0,
@@ -53,7 +59,12 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
     }
 
     fn getter(&self) -> LabellingCacher<M> {
-        LabellingCacher::new(self.property_checker, self.space, self.current_time)
+        LabellingCacher::new(
+            self.property_checker,
+            self.machine,
+            self.space,
+            self.current_time,
+        )
     }
 
     pub fn compute(mut self) -> Result<ParamValuation, ExecError> {
@@ -77,7 +88,8 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
             self.compute_inner()?;
             assert!(!self.invalidate);
         } else {
-            self.property_checker.incremental_double_check(self.space)?;
+            self.property_checker
+                .incremental_double_check(self.machine, self.space)?;
         }
 
         trace!("Computed, focus: {:?}", self.property_checker.focus);

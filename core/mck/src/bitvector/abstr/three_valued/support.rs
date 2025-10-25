@@ -3,10 +3,7 @@ use std::fmt::{Debug, Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{
-        Abstr, AbstractValue, BitvectorDomain, BitvectorElement, BitvectorField, Boolean, Field,
-        ManipField, Phi, Test,
-    },
+    abstr::{BitvectorDomain, Boolean, Phi, Test},
     bitvector::{
         abstr::three_valued::RThreeValuedBitvector,
         interval::UnsignedInterval,
@@ -487,13 +484,6 @@ impl<const W: u32> BitvectorDomain<W> for ThreeValuedBitvector<W> {
         UnsignedInterval::new(self.umin(), self.umax())
     }
 
-    fn element_description(&self) -> BitvectorElement {
-        BitvectorElement {
-            three_valued: Some(self.field_value()),
-            dual_interval: None,
-        }
-    }
-
     fn join(self, other: Self) -> Self {
         self.phi(other)
     }
@@ -515,43 +505,6 @@ pub struct ThreeValuedFieldValue {
 impl ThreeValuedFieldValue {
     pub fn write(&self, f: &mut std::fmt::Formatter<'_>, bit_width: u32) -> std::fmt::Result {
         format_zeros_ones(f, bit_width, self.zeros, self.ones)
-    }
-}
-
-impl<const W: u32> ManipField for ThreeValuedBitvector<W> {
-    fn num_bits(&self) -> Option<u32> {
-        Some(W)
-    }
-
-    fn runtime_value(&self) -> AbstractValue {
-        self.to_runtime()
-    }
-
-    fn min_unsigned(&self) -> Option<u64> {
-        Some(self.umin().to_u64())
-    }
-
-    fn max_unsigned(&self) -> Option<u64> {
-        Some(self.umax().to_u64())
-    }
-
-    fn min_signed(&self) -> Option<i64> {
-        Some(self.smin().to_i64())
-    }
-
-    fn max_signed(&self) -> Option<i64> {
-        Some(self.smax().to_i64())
-    }
-
-    fn index(&self, _index: u64) -> Option<&dyn ManipField> {
-        None
-    }
-
-    fn description(&self) -> Field {
-        Field::Bitvector(BitvectorField {
-            bit_width: W,
-            element: self.element_description(),
-        })
     }
 }
 

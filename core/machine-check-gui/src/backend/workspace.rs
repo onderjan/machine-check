@@ -3,9 +3,7 @@ use crate::shared::snapshot::log::Log;
 use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
 use machine_check_common::iir::property::IProperty;
 use machine_check_exec::Framework;
-use mck::abstr::BitvectorDomain;
 use mck::concr::FullMachine;
-use mck::three_valued::ThreeValued;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Backend workspace.
@@ -34,21 +32,13 @@ impl<M: FullMachine> Workspace<M> {
     }
 
     pub fn generate_snapshot(&mut self, settings: &BackendSettings) -> Snapshot {
-        let state_field_names: Vec<String> =
-        <<M::Abstr as mck::abstr::Machine<M>>::State as mck::abstr::Manipulatable>::field_names()
-            .into_iter()
-            .map(String::from)
-            .collect();
-
         let state_info = StateInfo {
-            field_names: state_field_names.clone(),
+            fields: self.framework.machine().state().fields.clone(),
         };
 
         let space = &self.framework.space();
 
         let mut nodes = BTreeMap::new();
-
-        //let graph_nodes = BTreeSet::from_iter();
 
         for node_id in space.nodes() {
             let incoming = BTreeSet::from_iter(space.direct_predecessor_iter(node_id));
@@ -58,35 +48,25 @@ impl<M: FullMachine> Workspace<M> {
                     .map(|state_id| state_id.into()),
             );
 
-            let (fields, panic) = if let Ok(state_id) = node_id.try_into() {
-                let state = space.state_data(state_id);
-                let panic_unsigned = state.panic.unsigned_interval();
-                let can_be_nonpanic = panic_unsigned.min().is_zero();
-                let can_be_panic = panic_unsigned.max().is_nonzero();
-                let panic = match (can_be_nonpanic, can_be_panic) {
-                    (true, true) => ThreeValued::Unknown,
-                    (false, true) => ThreeValued::True,
-                    (true, false) => ThreeValued::False,
-                    (false, false) => panic!("Panic result should always contain some value"),
-                };
-                let mut fields = BTreeMap::new();
-                for field_name in state_field_names.iter() {
-                    let field_get = mck::abstr::Manipulatable::get(&state.result, field_name)
-                        .expect("Field name should correspond to a field");
-                    let description = field_get.description();
+            let panic_state = if let Ok(state_id) = node_id.try_into() {
+                let panic_state = space.state_data(state_id);
 
-                    fields.insert(field_name.clone(), description);
-                }
-                (fields, Some(panic))
+                use mck::abstr::{Abstr, AbstractValue, Bitvector};
+
+                let panic_state = AbstractValue::Struct(vec![
+                    panic_state.result.to_runtime(),
+                    AbstractValue::Bitvector(Bitvector::as_runtime_bitvector(&panic_state.panic)),
+                ]);
+
+                Some(panic_state)
             } else {
-                (BTreeMap::new(), None)
+                None
             };
 
             let node_info = Node {
                 incoming,
                 outgoing,
-                panic,
-                fields,
+                panic_state,
             };
             nodes.insert(node_id, node_info);
         }
