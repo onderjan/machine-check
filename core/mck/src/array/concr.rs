@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     bitvector::{BitvectorBound, CBound},
-    concr::{self, CConcreteBitvector, UnsignedBitvector},
+    concr::{CConcreteBitvector, UnsignedBitvector},
     forward::ReadWrite,
     misc::LightIndex,
 };

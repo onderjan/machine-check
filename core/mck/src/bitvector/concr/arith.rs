@@ -2,6 +2,7 @@ use crate::{
     bitvector::bound::BitvectorBound,
     concr::PanicResult,
     forward::HwArith,
+    misc::CBound,
     panic::message::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO},
 };
 
@@ -36,39 +37,35 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
     fn udiv(self, rhs: Self) -> PanicResult<Self> {
         assert_eq!(self.bound, rhs.bound);
 
-        todo!("Udiv");
-
-        /*let dividend = self.to_u64();
+        let dividend = self.to_u64();
         let divisor = rhs.to_u64();
         if divisor == 0 {
             // return panic
             // put all-ones in the division result
             return PanicResult {
-                panic: ConcreteBitvector::new(PANIC_NUM_DIV_BY_ZERO),
-                result: RConcreteBitvector::from_masked_u64(!0u64, self.bound),
+                panic: ConcreteBitvector::new(PANIC_NUM_DIV_BY_ZERO, CBound),
+                result: Self::from_masked_u64(!0u64, self.bound),
             };
         }
         let result = dividend
             .checked_div(divisor)
             .expect("Unsigned division should only return none on zero divisor");
         PanicResult {
-            panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC),
-            result: RConcreteBitvector::from_masked_u64(result, self.bound),
-        }*/
+            panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC, CBound),
+            result: Self::from_masked_u64(result, self.bound),
+        }
     }
 
     fn urem(self, rhs: Self) -> PanicResult<Self> {
         assert_eq!(self.bound, rhs.bound);
 
-        todo!("Urem");
-
-        /*let dividend = self.to_u64();
+        let dividend = self.to_u64();
         let divisor = rhs.to_u64();
         if divisor == 0 {
             // return panic
             // put the dividend in the remainder result
             return PanicResult {
-                panic: ConcreteBitvector::new(PANIC_NUM_REM_BY_ZERO),
+                panic: ConcreteBitvector::new(PANIC_NUM_REM_BY_ZERO, CBound),
                 result: self,
             };
         }
@@ -76,32 +73,30 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
             .checked_rem(divisor)
             .expect("Unsigned remainder should only return none on zero divisor");
         PanicResult {
-            panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC),
-            result: RConcreteBitvector::from_masked_u64(result, self.bound),
-        }*/
+            panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC, CBound),
+            result: Self::from_masked_u64(result, self.bound),
+        }
     }
 
     fn sdiv(self, rhs: Self) -> PanicResult<Self> {
         assert_eq!(self.bound, rhs.bound);
 
-        todo!("Sdiv");
-
-        /*let dividend = self.to_i64();
+        let dividend = self.to_i64();
         let divisor = rhs.to_i64();
         if divisor == 0 {
             // return panic
             // put all-ones in the division result
             return PanicResult {
-                panic: ConcreteBitvector::new(PANIC_NUM_DIV_BY_ZERO),
-                result: RConcreteBitvector::from_masked_u64(!0u64, self.bound),
+                panic: ConcreteBitvector::new(PANIC_NUM_DIV_BY_ZERO, CBound),
+                result: Self::from_masked_u64(!0u64, self.bound),
             };
         }
-        let signed_minus_one = self.bit_mask_u64();
-        let signed_minimum = self.sign_bit_mask_u64();
+        let signed_minus_one = self.bound.mask();
+        let signed_minimum = self.bound.sign_bit_mask();
         if self.value == signed_minimum && rhs.value == signed_minus_one {
             // division result is dividend on overflow, no panic
             return PanicResult {
-                panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC),
+                panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC, CBound),
                 result: self,
             };
         }
@@ -110,33 +105,31 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
             .map(|r| r as u64)
             .expect("Signed division should only return none on zero divisor or overflow");
         PanicResult {
-            panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC),
-            result: RConcreteBitvector::from_masked_u64(result, self.bound),
-        }*/
+            panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC, CBound),
+            result: Self::from_masked_u64(result, self.bound),
+        }
     }
 
     fn srem(self, rhs: Self) -> PanicResult<Self> {
         assert_eq!(self.bound, rhs.bound);
 
-        todo!("Srem")
-
-        /*let dividend = self.to_i64();
+        let dividend = self.to_i64();
         let divisor = rhs.to_i64();
         if divisor == 0 {
             // return panic
             // put the dividend in the remainder result
             return PanicResult {
-                panic: ConcreteBitvector::new(PANIC_NUM_REM_BY_ZERO),
+                panic: ConcreteBitvector::new(PANIC_NUM_REM_BY_ZERO, CBound),
                 result: self,
             };
         }
-        let signed_minus_one = self.bit_mask_u64();
-        let signed_minimum = self.sign_bit_mask_u64();
+        let signed_minus_one = self.bound.mask();
+        let signed_minimum = self.bound.sign_bit_mask();
         if self.value == signed_minimum && rhs.value == signed_minus_one {
             // remainder result is zero on overflow, no panic
             return PanicResult {
-                panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC),
-                result: RConcreteBitvector::new(0, self.bound),
+                panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC, CBound),
+                result: Self::new(0, self.bound),
             };
         }
         // result after division overflow is zero
@@ -144,9 +137,9 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
             .checked_rem(divisor)
             .expect("Signed remainder should only return none on zero divisor or overflow");
         PanicResult {
-            panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC),
-            result: RConcreteBitvector::from_masked_u64(result as u64, self.bound),
-        }*/
+            panic: ConcreteBitvector::new(PANIC_NUM_NO_PANIC, CBound),
+            result: Self::from_masked_u64(result as u64, self.bound),
+        }
     }
 }
 

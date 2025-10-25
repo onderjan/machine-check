@@ -3,14 +3,10 @@ use std::fmt::{Debug, Display};
 use crate::{
     abstr::{
         three_valued::{InvalidZerosOnes, RThreeValuedBitvector},
-        BitvectorDomain, Boolean, Phi, Test,
+        Phi,
     },
-    bitvector::{
-        interval::UnsignedInterval,
-        util::{self, compute_u64_mask},
-        BitvectorBound,
-    },
-    concr::{self, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
+    bitvector::BitvectorBound,
+    concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     forward::Bitwise,
     misc::{CBound, Join},
     traits::misc::MetaEq,
@@ -147,6 +143,14 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     }
 
     #[must_use]
+    pub(super) fn new_unknown(bound: B) -> Self {
+        // all zeros and ones set within mask
+        let zeros = ConcreteBitvector::bit_mask(bound);
+        let ones = ConcreteBitvector::bit_mask(bound);
+        Self::from_zeros_ones(zeros, ones)
+    }
+
+    #[must_use]
     pub fn new_value_known(value: ConcreteBitvector<B>, known: ConcreteBitvector<B>) -> Self {
         let unknown = Bitwise::bit_not(known);
         Self::new_value_unknown(value, unknown)
@@ -206,15 +210,6 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
 
         Self::from_zeros_ones(zeros, ones)
     }
-
-    #[must_use]
-    pub fn new_unknown() -> Self {
-        // all zeros and ones set within mask
-        let zeros = Self::get_mask();
-        let ones = Self::get_mask();
-        Self::from_zeros_ones(zeros, ones)
-    }
-
 
 
 
@@ -301,14 +296,6 @@ impl ThreeValuedBitvector<1> {
         self.zeros.is_nonzero()
     }
 }
-
-impl<B: BitvectorBound> Default for ThreeValuedBitvector<B> {
-    fn default() -> Self {
-        // default to fully unknown
-        Self::new_unknown()
-    }
-}
-
 
 impl<B: BitvectorBound> BitvectorDomain<B> for ThreeValuedBitvector<B> {
     fn unsigned_interval(&self) -> UnsignedInterval<B> {

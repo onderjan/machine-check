@@ -2,13 +2,8 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 use crate::bitvector::bound::BitvectorBound;
-use crate::bitvector::compute_u64_mask;
-use crate::bitvector::util;
 use crate::bitvector::RBound;
 use crate::concr::RConcreteBitvector;
-use crate::concr::Test;
-use crate::forward::Bitwise;
-use crate::forward::TypedCmp;
 use crate::misc::CBound;
 
 use super::ConcreteBitvector;

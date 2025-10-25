@@ -6,7 +6,7 @@ use std::{
 use mck::{
     concr::{self, IntoMck},
     forward::{Bitwise, HwArith, HwShift},
-    misc::{CBound, PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO},
+    misc::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO},
 };
 
 use crate::{traits::Ext, Bitvector, Unsigned};

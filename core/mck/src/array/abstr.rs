@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{self, Abstr, AbstractValue, BitvectorDomain, Phi},
+    abstr::{self, Abstr, AbstractValue, Phi},
     bitvector::{BitvectorBound, CBound, RBound},
     concr::{self, ConcreteBitvector, UnsignedBitvector},
     forward::ReadWrite,
@@ -16,7 +16,7 @@ use super::light::LightArray;
 #[derive(Clone, Hash, Serialize, Deserialize)]
 pub struct Array<I: BitvectorBound, E: BitvectorBound> {
     pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<E>>>,
-    element_bound: E,
+    pub(super) element_bound: E,
 }
 
 pub type RArray = Array<RBound, RBound>;

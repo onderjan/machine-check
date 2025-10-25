@@ -46,13 +46,6 @@ impl Boolean {
         }
     }
 
-    /*pub(crate) fn from_zeros_ones(
-        zeros: crate::concr::Bitvector<1>,
-        ones: crate::concr::Bitvector<1>,
-    ) -> Self {
-        Boolean(BooleanBitvector::from_zeros_ones(zeros, ones))
-    }*/
-
     pub fn as_runtime_bitvector(self) -> RBitvector {
         let bound = RBound::new(1);
         let zeros = RConcreteBitvector::new(self.can_be_false() as u64, bound);

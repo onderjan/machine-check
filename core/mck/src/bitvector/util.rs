@@ -27,7 +27,3 @@ pub(super) const fn compute_u64_sign_bit_mask(width: u32) -> u64 {
         panic!("Sign bit mask length should fit")
     }
 }
-
-pub(super) fn is_u64_highest_bit_set(value: u64, width: u32) -> bool {
-    value & compute_u64_sign_bit_mask(width) != 0
-}

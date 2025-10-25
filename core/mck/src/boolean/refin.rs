@@ -74,20 +74,30 @@ impl Boolean {
     }
 }
 
-/*impl Meta<super::abstr::Boolean> for Boolean {
+impl Meta<super::abstr::Boolean> for Boolean {
     fn proto_first(&self) -> super::abstr::Boolean {
-        super::abstr::Boolean(crate::abstr::Bitvector::from_runtime_bitvector(
-            self.0.proto_first(),
-        ))
+        let result = if self.0 == 0 {
+            // unmarked, return unknown
+            ThreeValued::Unknown
+        } else {
+            // marked, start with false
+            ThreeValued::False
+        };
+
+        super::abstr::Boolean::from_three_valued(result)
     }
 
     fn proto_increment(&self, proto: &mut super::abstr::Boolean) -> bool {
-        let mut runtime = proto.as_runtime_bitvector();
-        let result = self.0.proto_increment(&mut runtime);
-        proto.0 = abstr::Bitvector::from_runtime_bitvector(runtime);
-        result
+        if proto.into_three_valued().is_false() {
+            // move to true
+            *proto = super::abstr::Boolean::from_three_valued(ThreeValued::True);
+            true
+        } else {
+            // end
+            false
+        }
     }
-}*/
+}
 
 impl Bitwise for abstr::Boolean {
     type Mark = Boolean;

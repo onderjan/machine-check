@@ -2,7 +2,7 @@ use crate::{
     bitvector::{
         abstr::three_valued::RThreeValuedBitvector, refin::three_valued::RMarkBitvector, RBound,
     },
-    concr::{ConcreteBitvector, RConcreteBitvector},
+    concr::RConcreteBitvector,
     traits::misc::Meta,
 };
 

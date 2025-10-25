@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     bitvector::BitvectorBound,
     concr::PanicResult,
-    forward::{BExt, Ext, HwArith, HwShift},
-    misc::RBound,
+    forward::{BExt, HwArith, HwShift},
 };
 
 use super::ConcreteBitvector;

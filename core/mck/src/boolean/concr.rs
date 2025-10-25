@@ -1,7 +1,6 @@
 use crate::{
     bitvector::RBound,
-    concr::{Bitvector, RConcreteBitvector, Test},
-    forward::Bitwise,
+    concr::{RConcreteBitvector, Test},
     misc::BitvectorBound,
 };
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -18,31 +17,6 @@ impl Boolean {
         Boolean(value)
     }
 }
-
-/*
-impl From<Boolean> for Bitvector<1> {
-    fn from(value: Boolean) -> Self {
-        value.0
-    }
-}
-
-impl Bitwise for Boolean {
-    fn bit_not(self) -> Self {
-        Self(self.0.bit_not())
-    }
-
-    fn bit_and(self, rhs: Self) -> Self {
-        Self(self.0.bit_and(rhs.0))
-    }
-
-    fn bit_or(self, rhs: Self) -> Self {
-        Self(self.0.bit_or(rhs.0))
-    }
-
-    fn bit_xor(self, rhs: Self) -> Self {
-        Self(self.0.bit_xor(rhs.0))
-    }
-}*/
 
 // this is used in tests
 #[allow(dead_code)]

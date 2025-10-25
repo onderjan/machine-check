@@ -495,8 +495,7 @@ impl MetaEq for RefinementValue {
 
 impl Meta<AbstractValue> for RefinementValue {
     fn proto_first(&self) -> AbstractValue {
-        todo!("proto first");
-        /*match self {
+        match self {
             RefinementValue::Array(array) => AbstractValue::Array(array.proto_first()),
             RefinementValue::Bitvector(bitvector) => {
                 AbstractValue::Bitvector(bitvector.proto_first())
@@ -505,12 +504,11 @@ impl Meta<AbstractValue> for RefinementValue {
             RefinementValue::Struct(fields) => {
                 AbstractValue::Struct(fields.iter().map(|field| field.proto_first()).collect())
             }
-        }*/
+        }
     }
 
     fn proto_increment(&self, proto: &mut AbstractValue) -> bool {
-        todo!("proto increment");
-        /*match self {
+        match self {
             RefinementValue::Array(array) => array.proto_increment(proto.expect_array_mut()),
             RefinementValue::Bitvector(bitvector) => {
                 bitvector.proto_increment(proto.expect_bitvector_mut())
@@ -527,6 +525,6 @@ impl Meta<AbstractValue> for RefinementValue {
                 }
                 false
             }
-        }*/
+        }
     }
 }

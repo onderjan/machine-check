@@ -239,10 +239,10 @@ impl ReadWrite for abstr::RArray {
     }
 }
 
-/*impl Meta<abstr::RArray> for RArray {
+impl Meta<abstr::RArray> for RArray {
     fn proto_first(&self) -> abstr::RArray {
         abstr::RArray {
-            element_width: self.element_width,
+            element_bound: RBound::new(self.element_width),
             inner: self.inner.map(|element| MetaWrap(element.0.proto_first())),
         }
     }
@@ -260,7 +260,7 @@ impl ReadWrite for abstr::RArray {
             false,
         )
     }
-}*/
+}
 
 impl MetaEq for RArray {
     fn meta_eq(&self, other: &Self) -> bool {

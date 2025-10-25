@@ -19,7 +19,7 @@ pub trait BitvectorDomain<B: BitvectorBound>: Clone + Copy + Hash + Phi {
 }
 
 #[cfg(not(feature = "Zdual_interval"))]
-pub type Bitvector<W: BitvectorBound> = three_valued::ThreeValuedBitvector<W>;
+pub type Bitvector<W> = three_valued::ThreeValuedBitvector<W>;
 
 #[cfg(feature = "Zdual_interval")]
 pub type Bitvector<const W: u32> = combined::CombinedBitvector<W>;

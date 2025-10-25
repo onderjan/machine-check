@@ -6,4 +6,4 @@ mod wrapping;
 pub use signed::SignedInterval;
 pub use signless::SignlessInterval;
 pub use unsigned::UnsignedInterval;
-pub use wrapping::{WrappingInterpretation, WrappingInterval};
+pub use wrapping::WrappingInterval;

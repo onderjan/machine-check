@@ -19,13 +19,13 @@ impl<B: BitvectorBound> SignedBitvector<B> {
         SignedBitvector(ConcreteBitvector::new(value, bound))
     }
 
-    fn zero(bound: B) -> Self {
+    /*fn zero(bound: B) -> Self {
         SignedBitvector(ConcreteBitvector::zero(bound))
     }
 
     fn one(bound: B) -> Self {
         SignedBitvector(ConcreteBitvector::one(bound))
-    }
+    }*/
 
     pub(super) const fn from_bitvector(bitvector: ConcreteBitvector<B>) -> Self {
         SignedBitvector(bitvector)
@@ -43,13 +43,13 @@ impl<B: BitvectorBound> SignedBitvector<B> {
         self.0.to_i64()
     }
 
-    fn is_zero(&self) -> bool {
+    /*fn is_zero(&self) -> bool {
         self.0.is_zero()
     }
 
-    pub fn is_nonzero(&self) -> bool {
+    fn is_nonzero(&self) -> bool {
         self.0.is_nonzero()
-    }
+    }*/
 
     pub fn ext<X: BitvectorBound>(self, new_bound: X) -> SignedBitvector<X> {
         SignedBitvector(self.0.sext(new_bound))
