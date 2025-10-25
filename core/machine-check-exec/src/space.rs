@@ -89,7 +89,6 @@ impl<M: FullMachine> StateSpace<M> {
     }
 
     pub fn state_id(&mut self, state_data: AbstrPanicState<M>) -> StateId {
-        // TODO: this is a dangerous thing with garbage collection
         self.store.state_id(state_data).0
     }
 

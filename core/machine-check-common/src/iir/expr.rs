@@ -17,7 +17,6 @@ pub enum IExpr {
     Reference(IExprReference),
     Field(IExprField),
     Struct(IExprStruct),
-    /*Lit(Lit),*/
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -43,7 +42,7 @@ impl IExpr {
             IExpr::Move(var_id) => Some(abstr.value(*var_id).clone()),
             IExpr::Call(expr_call) => expr_call.forward_interpret(context, abstr),
             IExpr::Reference(expr_reference) => {
-                // TODO: actually reference
+                // copies instead of referencing for simplicity
                 match expr_reference {
                     IExprReference::Ident(var_id) => Some(abstr.value(*var_id).clone()),
                     IExprReference::Field(expr_field) => expr_field.forward_interpret(abstr),
@@ -76,7 +75,7 @@ impl IExpr {
             }
             IExpr::Call(expr_call) => expr_call.backward_interpret(context, abstr, refin, later),
             IExpr::Reference(expr_reference) => {
-                // TODO: actually reference
+                // copies instead of referencing for simplicity
                 match expr_reference {
                     IExprReference::Ident(var_id) => {
                         join_limited(abstr, refin, *var_id, later);
@@ -87,18 +86,7 @@ impl IExpr {
                 }
             }
             IExpr::Field(expr_field) => {
-                // limited-join the part of the struct
-                let mut base = if let Some(base) = refin.value_opt(expr_field.base) {
-                    base.clone()
-                } else {
-                    RefinementValue::unmarked_for(abstr.value(expr_field.base))
-                };
-
-                let base_fields = base.expect_struct_mut();
-                let member = &mut base_fields[expr_field.member_index];
-                *member = mck::misc::Join::join(later, member);
-
-                join_limited(abstr, refin, expr_field.base, base);
+                expr_field.backward_interpret(abstr, refin, later);
             }
             IExpr::Struct(expr_struct) => {
                 let later_fields = later.expect_struct();

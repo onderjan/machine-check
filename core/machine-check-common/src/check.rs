@@ -24,12 +24,6 @@ pub enum Conclusion {
     NotCheckable,
 }
 
-/*#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct AtomicProperty {
-    pub refin_value: RefinementValue,
-    pub name: String,
-}*/
-
 /// The culprit of an unknown three-valued model-checking result.
 ///
 /// Comprises of a path and an atomic property which is unknown in the last

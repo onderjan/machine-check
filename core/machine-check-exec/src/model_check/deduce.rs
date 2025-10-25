@@ -94,7 +94,6 @@ impl<M: FullMachine> Deducer<'_, M> {
         );
 
         let subproperty_entry = self.property.subproperty_entry(self.subproperty_index);
-        trace!("subproperty: {:?}", subproperty_entry);
 
         match &subproperty_entry {
             ISubproperty::Func(subproperty_func) => return Ok(self.deduce_func(subproperty_func)),
@@ -164,8 +163,6 @@ impl<M: FullMachine> Deducer<'_, M> {
 
         let func = &subproperty_func.func;
 
-        //eprintln!("Function: {:#?}", func);
-
         let state_id = *self
             .path
             .back()
@@ -183,15 +180,11 @@ impl<M: FullMachine> Deducer<'_, M> {
 
         let abstr = func.forward_interpret(&context, input_values);
 
-        //eprintln!("Abstract interpretation: {:?}", abstr);
-
         // consider unknown result with no panic
         let later_normal = RefinementValue::Boolean(mck::refin::Boolean::new_marked_unimportant());
         let later_panic = RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
 
         let refin = func.backward_interpret(&context, &abstr, later_normal, later_panic);
-
-        //eprintln!("Refin interpretation: {:?}", refin);
 
         let mut chosen = None;
         for (input_index, input_var_id) in func.signature.inputs.iter().enumerate() {

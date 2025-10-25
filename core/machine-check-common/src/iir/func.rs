@@ -84,7 +84,6 @@ impl IFn {
         context: &IContext,
         input_values: Vec<AbstractValue>,
     ) -> IAbstr {
-        //eprintln!("Forward-interpreting {:#?}", self);
         let mut abstr = IAbstr::new();
 
         assert_eq!(self.signature.inputs.len(), input_values.len());
@@ -105,8 +104,6 @@ impl IFn {
         };
 
         self.block.forward_interpret(&fn_context, &mut abstr);
-
-        //println!("Call interpretation: {:#?}", inter);
 
         abstr
     }

@@ -98,7 +98,6 @@ impl FnConverter<'_> {
         let panic_ident = WIdent::new(String::from("__mck_panic"), span);
 
         let zero_bitvec_ident = WIdent::new(String::from("__mck_paniczbv"), span);
-        //let zero_bitvec_ref_ident = WIdent::new(String::from("__mck_paniczbvr"), span);
 
         let mut fn_converter = FnConverter {
             ident_creator: IdentCreator::new(String::from("panic")),

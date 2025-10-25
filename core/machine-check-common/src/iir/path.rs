@@ -56,7 +56,6 @@ impl IPath {
     }
 
     pub fn span(&self) -> &ISpan {
-        // TODO: correct span
         if let Some(last_segment) = self.segments.last() {
             &last_segment.ident.span
         } else {

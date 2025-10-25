@@ -86,7 +86,6 @@ impl ThreeValuedChecker {
             property_checker.double_check(machine, space)?;
 
             // triple-check known result using the non-incremental algorithm
-
             let basic_result = nonincremental::check_property(space, machine, property)?;
             if result != basic_result {
                 panic!(

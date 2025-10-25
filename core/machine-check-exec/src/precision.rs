@@ -81,13 +81,9 @@ impl<A> Precision<A> {
                         .get(&NodeId::from(stack_id))
                         .expect("Precision should contain state in ordering graph");
 
-                    //todo!("Apply join");
-
                     use mck::misc::Join;
                     let new_precision = node_precision.join(important_precision);
                     node_precision = new_precision;
-
-                    //mck::refin::Refine::apply_join(&mut node_precision, important_precision);
 
                     for child_id in self.ordering_graph.neighbors(stack_id) {
                         if !opened.contains(&child_id) {

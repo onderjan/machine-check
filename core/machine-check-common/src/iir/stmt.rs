@@ -45,7 +45,6 @@ pub struct IAssignStmt {
 
 impl IAssignStmt {
     fn forward_interpret(&self, context: &IFnContext, abstr: &mut IAbstr) {
-        //println!("Forward-interpreting statement {:?}", self);
         let left_var_id = self.left;
         if let Some(left_value) = self.right.forward_interpret(context, abstr) {
             let left_type = &context
@@ -62,7 +61,6 @@ impl IAssignStmt {
     }
 
     pub fn backward_interpret(&self, context: &IFnContext, abstr: &IAbstr, refin: &mut IRefin) {
-        //println!("Backward-interpreting statement {:?}", self);
         // when interpreting backwards, we take the later (left) refinement value
         // and the earlier (right) abstract values and process them
         // to arrive at the earlier (right) refinement values

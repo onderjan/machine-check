@@ -111,13 +111,8 @@ pub fn process_property<M: FullMachine>(
     let (property, _panic_messages) =
         into_wir::create_property_description(expr, &global_basic_types)?;
 
-    //println!("Abstract description: {:?}", description);
-
-    //println!("WIR property: {:#?}", property);
     let property = property.into_iir();
-    //println!("IIR property: {:#?}", property);
 
-    //interpret::execute_function(&description, "property");
     Ok(property)
 }
 

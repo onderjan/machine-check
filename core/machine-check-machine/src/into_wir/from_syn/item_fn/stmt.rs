@@ -220,14 +220,6 @@ impl super::FunctionFolder {
     ) -> Result<(), Errors> {
         let condition = self.force_right_expr_to_ident(*expr.cond, result_stmts)?;
 
-        /* {
-            WCallArg::Ident(ident) => WIfCondition::Ident(WIfConditionIdent {
-                polarity: WNoIfPolarity,
-                ident,
-            }),
-            WCallArg::Literal(lit) => WIfCondition::Literal(lit),
-        };*/
-
         let then_block = self.fold_block(expr.then_branch)?.0;
 
         let mut else_stmts = Vec::new();
