@@ -1,7 +1,7 @@
 use crate::{
     bitvector::RBound,
-    concr::{RConcreteBitvector, Test},
-    misc::BitvectorBound,
+    concr::{CConcreteBitvector, RConcreteBitvector, Test},
+    misc::{BitvectorBound, CBound},
 };
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Boolean(bool);
@@ -52,6 +52,27 @@ impl BoolConvert<RConcreteBitvector> for super::concr::Boolean {
             RConcreteBitvector::one(bound)
         } else {
             RConcreteBitvector::zero(bound)
+        }
+    }
+}
+
+impl BoolConvert<CConcreteBitvector<1>> for super::concr::Boolean {
+    fn bool_from(value: CConcreteBitvector<1>) -> Self {
+        assert_eq!(value.bound().width(), 1);
+
+        if value.is_nonzero() {
+            Self(true)
+        } else {
+            Self(false)
+        }
+    }
+
+    fn bool_into(value: Self) -> CConcreteBitvector<1> {
+        let bound = CBound;
+        if value.0 {
+            CConcreteBitvector::one(bound)
+        } else {
+            CConcreteBitvector::zero(bound)
         }
     }
 }

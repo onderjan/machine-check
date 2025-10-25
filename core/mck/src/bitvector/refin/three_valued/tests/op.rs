@@ -1,9 +1,7 @@
-// TODO
-
-/*use crate::{
-    bitvector::{abstr::RThreeValuedBitvector, refin::three_valued::RMarkBitvector},
+use crate::{
+    bitvector::{abstr::three_valued::RThreeValuedBitvector, refin::three_valued::RMarkBitvector},
     concr::RConcreteBitvector,
-    misc::MetaEq,
+    misc::{MetaEq, RBound},
 };
 
 macro_rules! uni_op_test {
@@ -34,7 +32,7 @@ macro_rules! ext_op_test {
                 let mark_func = |a,
                                 a_mark: RMarkBitvector|
                 -> RMarkBitvector { $crate::backward::$ty::$op((a,), a_mark).0 };
-                let concr_func = |a| { $crate::forward::$ty::$op(a, X) };
+                let concr_func = |a| { $crate::forward::BExt::$op(a, RBound::new(X)) };
                 $crate::bitvector::refin::three_valued::tests::op::exec_uni_check(mark_func, concr_func, L, X, $exact);
             }
             });
@@ -84,7 +82,7 @@ macro_rules! divrem_op_test {
             };
             let concr_func = |a: RConcreteBitvector, b: RConcreteBitvector| {
                 let panic_result = $crate::forward::$ty::$op(a,b);
-                (panic_result.result, panic_result.panic.to_runtime())
+                (panic_result.result, panic_result.panic.as_runtime_bitvector())
             };
             $crate::bitvector::refin::three_valued::tests::op::exec_divrem_check(&mark_func, &concr_func, L, $exact);
         }
@@ -105,13 +103,13 @@ fn exact_uni_mark(
     // determine for each input bit separately
     let mut result = 0;
     for i in 0..input_width {
-        for a in RConcreteBitvector::all_with_width_iter(input_width) {
+        for a in RConcreteBitvector::all_with_bound_iter(RBound::new(input_width)) {
             if a.to_u64() & (1 << i) != 0 {
                 continue;
             }
             let with_zero = a;
-            let with_one = RConcreteBitvector::new(a.to_u64() | (1 << i), input_width);
-            if !a_abstr.contains_concr(&with_zero) || !a_abstr.contains_concr(&with_one) {
+            let with_one = RConcreteBitvector::new(a.to_u64() | (1 << i), RBound::new(input_width));
+            if !a_abstr.contains_concrete(&with_zero) || !a_abstr.contains_concrete(&with_one) {
                 continue;
             }
             if concr_func(with_zero).to_u64() & mark_mask
@@ -121,7 +119,7 @@ fn exact_uni_mark(
             }
         }
     }
-    RMarkBitvector::new_from_flag(RConcreteBitvector::new(result, output_width))
+    RMarkBitvector::new_from_flag(RConcreteBitvector::new(result, RBound::new(output_width)))
 }
 
 fn eval_mark(
@@ -172,10 +170,10 @@ pub(super) fn exec_uni_check(
     // a mark bit is necessary if changing the input bit can impact the output
     // test this for all concretizations of the input
 
-    for a_later in RConcreteBitvector::all_with_width_iter(output_width) {
+    for a_later in RConcreteBitvector::all_with_bound_iter(RBound::new(output_width)) {
         let a_later = RMarkBitvector::new_from_flag(a_later);
 
-        for a_abstr in RThreeValuedBitvector::all_with_width_iter(input_width) {
+        for a_abstr in RThreeValuedBitvector::all_with_bound_iter(RBound::new(input_width)) {
             let exact_earlier =
                 exact_uni_mark(a_abstr, a_later, input_width, output_width, concr_func);
             let our_earlier = mark_func(a_abstr, a_later);
@@ -208,20 +206,23 @@ fn exact_left_mark(
             if our & (1 << i) != 0 {
                 continue;
             }
-            let with_zero = RConcreteBitvector::new(our, input_width);
+            let with_zero = RConcreteBitvector::new(our, RBound::new(input_width));
             let with_one = if input_width > 0 {
-                RConcreteBitvector::new(our | (1 << i), input_width)
+                RConcreteBitvector::new(our | (1 << i), RBound::new(input_width))
             } else {
                 with_zero
             };
-            if !left_abstr.contains_concr(&with_zero) || !left_abstr.contains_concr(&with_one) {
+            if !left_abstr.contains_concrete(&with_zero) || !left_abstr.contains_concrete(&with_one)
+            {
                 continue;
             }
             for other in 0..(1 << input_width) {
-                if !right_abstr.contains_concr(&RConcreteBitvector::new(other, input_width)) {
+                if !right_abstr
+                    .contains_concrete(&RConcreteBitvector::new(other, RBound::new(input_width)))
+                {
                     continue;
                 }
-                let other = RConcreteBitvector::new(other, input_width);
+                let other = RConcreteBitvector::new(other, RBound::new(input_width));
                 if concr_func(with_zero, other).to_u64() & mark_mask
                     != concr_func(with_one, other).to_u64() & mark_mask
                 {
@@ -230,7 +231,10 @@ fn exact_left_mark(
             }
         }
     }
-    RMarkBitvector::new_from_flag(RConcreteBitvector::new(left_result, output_width))
+    RMarkBitvector::new_from_flag(RConcreteBitvector::new(
+        left_result,
+        RBound::new(output_width),
+    ))
 }
 
 fn exec_left_check(
@@ -243,11 +247,11 @@ fn exec_left_check(
     // a mark bit is necessary if changing the input bit can impact the output
     // test this for all concretizations of the input
 
-    for later in RConcreteBitvector::all_with_width_iter(output_width) {
+    for later in RConcreteBitvector::all_with_bound_iter(RBound::new(output_width)) {
         let later = RMarkBitvector::new_from_flag(later);
 
-        for a_abstr in RThreeValuedBitvector::all_with_width_iter(input_width) {
-            for b_abstr in RThreeValuedBitvector::all_with_width_iter(input_width) {
+        for a_abstr in RThreeValuedBitvector::all_with_bound_iter(RBound::new(input_width)) {
+            for b_abstr in RThreeValuedBitvector::all_with_bound_iter(RBound::new(input_width)) {
                 let exact_earlier = exact_left_mark(
                     (a_abstr, b_abstr),
                     later,
@@ -325,8 +329,8 @@ pub(super) fn exec_divrem_check(
     exec_left_check(right_mark_func, right_concr_func, width, width, want_exact);
 
     // test that panic propagates
-    for a_abstr in RThreeValuedBitvector::all_with_width_iter(width) {
-        for b_abstr in RThreeValuedBitvector::all_with_width_iter(width) {
+    for a_abstr in RThreeValuedBitvector::all_with_bound_iter(RBound::new(width)) {
+        for b_abstr in RThreeValuedBitvector::all_with_bound_iter(RBound::new(width)) {
             let later_mark_result = RMarkBitvector::new_unmarked(width);
             let later_mark_panic = RMarkBitvector::new_marked_unimportant(32);
             let (marked_a, marked_b) =
@@ -343,4 +347,3 @@ pub(super) fn exec_divrem_check(
         }
     }
 }
-*/

@@ -3,11 +3,11 @@ use std::fmt::{Debug, Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{Phi, RBitvector, Test},
+    abstr::{CBitvector, Phi, RBitvector, Test},
     bitvector::RBound,
-    concr::RConcreteBitvector,
+    concr::{BoolConvert, CConcreteBitvector, RConcreteBitvector},
     forward::Bitwise,
-    misc::{Join, MetaEq},
+    misc::{BitvectorBound, CBound, Join, MetaEq},
     three_valued::ThreeValued,
 };
 
@@ -127,5 +127,34 @@ impl Bitwise for Boolean {
 impl MetaEq for Boolean {
     fn meta_eq(&self, other: &Self) -> bool {
         self.0 == other.0
+    }
+}
+
+impl BoolConvert<CBitvector<1>> for Boolean {
+    fn bool_from(value: CBitvector<1>) -> Self {
+        assert_eq!(value.bound().width(), 1);
+
+        let can_be_false = value.is_zeros_sign_bit_set();
+        let can_be_true = value.is_ones_sign_bit_set();
+
+        Self::from_bools(can_be_false, can_be_true)
+    }
+
+    fn bool_into(value: Self) -> CBitvector<1> {
+        let bound = CBound;
+
+        let zeros = if value.can_be_false() {
+            CConcreteBitvector::one(bound)
+        } else {
+            CConcreteBitvector::zero(bound)
+        };
+
+        let ones = if value.can_be_true() {
+            CConcreteBitvector::one(bound)
+        } else {
+            CConcreteBitvector::zero(bound)
+        };
+
+        CBitvector::from_zeros_ones(zeros, ones)
     }
 }

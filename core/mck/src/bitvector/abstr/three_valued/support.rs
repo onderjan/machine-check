@@ -221,14 +221,6 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
 
 
 
-    #[must_use]
-    pub fn contains(&self, rhs: &Self) -> bool {
-        // rhs zeros must be within our zeros and rhs ones must be within our ones
-        let excessive_rhs_zeros = rhs.zeros.bit_and(self.zeros.bit_not());
-        let excessive_rhs_ones = rhs.ones.bit_and(self.ones.bit_not());
-        excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
-    }
-
 
     #[must_use]
     pub fn concrete_join(&self, concrete: ConcreteBitvector<B>) -> Self {
@@ -237,15 +229,25 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
         Self::from_zeros_ones(zeros, ones)
     }
 
-    pub fn all_with_width_iter() -> impl Iterator<Item = Self> {
-        let zeros_iter = ConcreteBitvector::<B>::all_with_width_iter();
-        zeros_iter.flat_map(|zeros| {
-            let ones_iter = ConcreteBitvector::<B>::all_with_width_iter();
+
+    */
+
+    #[must_use]
+    pub fn contains(&self, rhs: &Self) -> bool {
+        // rhs zeros must be within our zeros and rhs ones must be within our ones
+        let excessive_rhs_zeros = rhs.zeros.bit_and(self.zeros.bit_not());
+        let excessive_rhs_ones = rhs.ones.bit_and(self.ones.bit_not());
+        excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn all_with_bound_iter(bound: B) -> impl Iterator<Item = Self> {
+        let zeros_iter = ConcreteBitvector::<B>::all_with_bound_iter(bound);
+        zeros_iter.flat_map(move |zeros| {
+            let ones_iter = ConcreteBitvector::<B>::all_with_bound_iter(bound);
             ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
         })
     }
-
-    */
 }
 
 impl<const W: u32> ThreeValuedBitvector<CBound<W>> {

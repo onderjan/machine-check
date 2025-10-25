@@ -12,6 +12,7 @@ mod support;
 use crate::{
     bitvector::{BitvectorBound, RBound},
     concr::ConcreteBitvector,
+    misc::CBound,
 };
 
 #[derive(Clone, Copy, Hash, Serialize, Deserialize)]
@@ -21,6 +22,7 @@ pub struct ThreeValuedBitvector<B: BitvectorBound> {
 }
 
 pub type RThreeValuedBitvector = ThreeValuedBitvector<RBound>;
+pub type CThreeValuedBitvector<const W: u32> = ThreeValuedBitvector<CBound<W>>;
 
 use serde::{Deserialize, Serialize};
 

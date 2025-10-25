@@ -1,23 +1,22 @@
-// TODO
-
-/*use core::panic;
+use core::panic;
 
 use crate::{
     concr::{PanicResult, Test},
     forward::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq},
+    misc::CBound,
     panic::message::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO},
 };
 
-use super::ConcreteBitvector;
+use super::CConcreteBitvector;
 
 #[test]
 fn support() {
-    let a = ConcreteBitvector::<16>::new(0xCAFE);
-    let b = ConcreteBitvector::<16>::new(0x1337);
+    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
 
-    let zero = ConcreteBitvector::<16>::new(0);
-    let full = ConcreteBitvector::<16>::new(0xFFFF);
-    let min = ConcreteBitvector::<16>::new(0x8000);
+    let zero = CConcreteBitvector::<16>::new(0, CBound);
+    let full = CConcreteBitvector::<16>::new(0xFFFF, CBound);
+    let min = CConcreteBitvector::<16>::new(0x8000, CBound);
 
     assert_eq!(a.to_u64(), 0xCAFE);
     assert_eq!(b.to_u64(), 0x1337);
@@ -49,19 +48,19 @@ fn support() {
     assert!(full.is_sign_bit_set());
     assert!(min.is_sign_bit_set());
 
-    assert_eq!(min, ConcreteBitvector::sign_bit_mask());
-    assert_eq!(full, ConcreteBitvector::bit_mask());
+    assert_eq!(min, CConcreteBitvector::sign_bit_mask(CBound));
+    assert_eq!(full, CConcreteBitvector::bit_mask(CBound));
 
     assert_eq!(
-        ConcreteBitvector::<8>::all_with_width_iter().count(),
+        CConcreteBitvector::<8>::all_with_bound_iter(CBound).count(),
         2usize.pow(8)
     );
 }
 
 #[test]
 fn eq() {
-    let a = ConcreteBitvector::<16>::new(0xCAFE);
-    let b = ConcreteBitvector::<16>::new(0x1337);
+    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
 
     assert!(a.eq(a).into_bool());
     assert!(b.eq(b).into_bool());
@@ -71,8 +70,8 @@ fn eq() {
 
 #[test]
 fn cmp() {
-    let a = ConcreteBitvector::<16>::new(0xCAFE);
-    let b = ConcreteBitvector::<16>::new(0x1337);
+    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
 
     // identity
     assert!(!a.ult(a).into_bool());
@@ -95,8 +94,8 @@ fn cmp() {
 
 #[test]
 fn bitwise() {
-    let a = ConcreteBitvector::<16>::new(0xCAFE);
-    let b = ConcreteBitvector::<16>::new(0x1337);
+    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
 
     // compare results to calculated values
     assert_eq!(a.bit_not().to_u64(), 0x3501);
@@ -109,8 +108,8 @@ fn bitwise() {
 
 #[test]
 fn ext() {
-    let a = ConcreteBitvector::<16>::new(0xCAFE);
-    let b = ConcreteBitvector::<16>::new(0x1337);
+    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
 
     // longer uext will preserve unsigned value
     assert_eq!(Ext::<32>::uext(a).to_u64(), 0xCAFE);
@@ -139,11 +138,11 @@ fn ext() {
 
 #[test]
 fn shift() {
-    let a = ConcreteBitvector::<16>::new(0xCAFE);
-    let b = ConcreteBitvector::<16>::new(0x1337);
-    let four = ConcreteBitvector::<16>::new(0x4);
-    let sixteen = ConcreteBitvector::<16>::new(0x16);
-    let too_much = ConcreteBitvector::<16>::new(0x42);
+    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
+    let four = CConcreteBitvector::<16>::new(0x4, CBound);
+    let sixteen = CConcreteBitvector::<16>::new(0x16, CBound);
+    let too_much = CConcreteBitvector::<16>::new(0x42, CBound);
 
     // shift by a reasonable value
     assert_eq!(a.logic_shl(four).to_u64(), 0xAFE0);
@@ -174,12 +173,12 @@ fn shift() {
 
 #[test]
 fn arith() {
-    let a = ConcreteBitvector::<16>::new(0xCAFE);
-    let b = ConcreteBitvector::<16>::new(0x1337);
-    let c = ConcreteBitvector::<16>::new(0x4000);
-    let d = ConcreteBitvector::<16>::new(0xBADA);
+    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
+    let c = CConcreteBitvector::<16>::new(0x4000, CBound);
+    let d = CConcreteBitvector::<16>::new(0xBADA, CBound);
 
-    let zero = ConcreteBitvector::<16>::new(0);
+    let zero = CConcreteBitvector::<16>::new(0, CBound);
 
     // add, sub, mul do not have corner cases except wrapping
     // compare results to calculated values
@@ -236,36 +235,35 @@ fn arith() {
     // because the minimum value is not representable in positive
     // in that case, we expect the minimum value remain in divisor
     // and no remainder
-    let min = ConcreteBitvector::<16>::new(0x8000);
-    let minus_one = ConcreteBitvector::<16>::new(0xFFFF);
+    let min = CConcreteBitvector::<16>::new(0x8000, CBound);
+    let minus_one = CConcreteBitvector::<16>::new(0xFFFF, CBound);
     assert_eq!(expect_no_panic(min.sdiv(minus_one)), min);
     assert_eq!(expect_no_panic(min.srem(minus_one)), zero);
 }
 
 fn expect_no_panic<const W: u32>(
-    panic_result: PanicResult<ConcreteBitvector<W>>,
-) -> ConcreteBitvector<W> {
-    if panic_result.panic != ConcreteBitvector::new(PANIC_NUM_NO_PANIC) {
+    panic_result: PanicResult<CConcreteBitvector<W>>,
+) -> CConcreteBitvector<W> {
+    if panic_result.panic != CConcreteBitvector::new(PANIC_NUM_NO_PANIC, CBound) {
         panic!("Expected no panic")
     }
     panic_result.result
 }
 
 fn expect_div_panic<const W: u32>(
-    panic_result: PanicResult<ConcreteBitvector<W>>,
-) -> ConcreteBitvector<W> {
-    if panic_result.panic != ConcreteBitvector::new(PANIC_NUM_DIV_BY_ZERO) {
+    panic_result: PanicResult<CConcreteBitvector<W>>,
+) -> CConcreteBitvector<W> {
+    if panic_result.panic != CConcreteBitvector::new(PANIC_NUM_DIV_BY_ZERO, CBound) {
         panic!("Expected division panic")
     }
     panic_result.result
 }
 
 fn expect_rem_panic<const W: u32>(
-    panic_result: PanicResult<ConcreteBitvector<W>>,
-) -> ConcreteBitvector<W> {
-    if panic_result.panic != ConcreteBitvector::new(PANIC_NUM_REM_BY_ZERO) {
+    panic_result: PanicResult<CConcreteBitvector<W>>,
+) -> CConcreteBitvector<W> {
+    if panic_result.panic != CConcreteBitvector::new(PANIC_NUM_REM_BY_ZERO, CBound) {
         panic!("Expected remainder panic")
     }
     panic_result.result
 }
-*/
