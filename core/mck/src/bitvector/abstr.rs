@@ -13,11 +13,7 @@ pub trait BitvectorDomain<const W: u32>: Clone + Copy + Hash + Phi {
     fn meet(self, other: Self) -> Option<Self>;
 }
 
-use serde::{Deserialize, Serialize};
 pub(super) use three_valued::{RThreeValuedBitvector, ThreeValuedBitvector};
-
-pub(crate) use dual_interval::DualIntervalFieldValue;
-pub(crate) use three_valued::ThreeValuedFieldValue;
 
 #[cfg(not(feature = "Zdual_interval"))]
 pub type Bitvector<const W: u32> = three_valued::ThreeValuedBitvector<W>;

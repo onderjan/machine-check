@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 use super::DualInterval;
 use crate::{
     bitvector::interval::{SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval},
@@ -107,28 +105,15 @@ impl<const W: u32> DualInterval<W> {
 
         DualInterval::from_unsigned_intervals([nn_result, nf_result, fn_result, ff_result])
     }
-
-    pub fn field_value(&self) -> DualIntervalFieldValue {
-        DualIntervalFieldValue {
-            near_min: self.near_half.min().to_u64(),
-            near_max: self.near_half.max().to_u64(),
-            far_min: self.far_half.min().to_u64(),
-            far_max: self.far_half.max().to_u64(),
-        }
-    }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct DualIntervalFieldValue {
-    near_min: u64,
-    near_max: u64,
-    far_min: u64,
-    far_max: u64,
-}
-
-impl DualIntervalFieldValue {
-    pub fn write(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn write_interval(f: &mut std::fmt::Formatter<'_>, min: u64, max: u64) -> std::fmt::Result {
+impl<const W: u32> Debug for DualInterval<W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn write_interval<const W: u32>(
+            f: &mut std::fmt::Formatter<'_>,
+            min: ConcreteBitvector<W>,
+            max: ConcreteBitvector<W>,
+        ) -> std::fmt::Result {
             if min == max {
                 write!(f, "{}", min)
             } else {
@@ -136,33 +121,31 @@ impl DualIntervalFieldValue {
             }
         }
 
-        if self.near_min == self.far_min && self.near_max == self.far_max {
+        let near_min = self.near_half.min();
+        let near_max = self.near_half.max();
+        let far_min = self.far_half.min();
+        let far_max = self.far_half.max();
+
+        if near_min == far_min && near_max == far_max {
             // write just one interval
-            write_interval(f, self.near_min, self.near_max)?;
-        } else if self
-            .near_max
-            .checked_add(1)
-            .map(|above_near_max| above_near_max == self.far_min)
+            write_interval(f, near_min, near_max)?;
+        } else if near_max
+            .checked_add(ConcreteBitvector::new(1))
+            .map(|above_near_max| above_near_max == far_min)
             .unwrap_or(false)
         {
             // the near half directly precedes and touches the far half
             // write them together
-            write_interval(f, self.near_min, self.far_max)?;
+            write_interval(f, near_min, far_max)?;
         } else {
             // write the union of two intervals
             write!(f, "(")?;
-            write_interval(f, self.near_min, self.near_max)?;
+            write_interval(f, near_min, near_max)?;
             write!(f, " ∪ ")?;
-            write_interval(f, self.far_min, self.far_max)?;
+            write_interval(f, far_min, far_max)?;
             write!(f, ")")?;
         }
         Ok(())
-    }
-}
-
-impl<const W: u32> Debug for DualInterval<W> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.field_value().write(f)
     }
 }
 

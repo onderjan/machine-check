@@ -1,9 +1,7 @@
 use std::fmt::{Debug, Display};
 
-use serde::{Deserialize, Serialize};
-
 use crate::{
-    abstr::{BitvectorDomain, Boolean, Phi, Test},
+    abstr::{three_valued::InvalidZerosOnes, BitvectorDomain, Boolean, Phi, Test},
     bitvector::{
         abstr::three_valued::RThreeValuedBitvector,
         interval::UnsignedInterval,
@@ -69,14 +67,14 @@ impl RThreeValuedBitvector {
     pub fn try_from_zeros_ones(
         zeros: RConcreteBitvector,
         ones: RConcreteBitvector,
-    ) -> Result<Self, ()> {
+    ) -> Result<Self, InvalidZerosOnes> {
         assert_eq!(zeros.width(), ones.width());
         let width = zeros.width();
 
         let mask = compute_u64_mask(width);
 
         if Bitwise::bit_or(zeros, ones).to_u64() != mask {
-            return Err(());
+            return Err(InvalidZerosOnes);
         }
         Ok(Self { zeros, ones })
     }
@@ -242,11 +240,11 @@ impl<const W: u32> ThreeValuedBitvector<W> {
     pub fn try_from_zeros_ones(
         zeros: ConcreteBitvector<W>,
         ones: ConcreteBitvector<W>,
-    ) -> Result<Self, ()> {
+    ) -> Result<Self, InvalidZerosOnes> {
         let mask = Self::get_mask();
         // the used bits must be set in zeros, ones, or both
         if Bitwise::bit_or(zeros, ones) != mask {
-            return Err(());
+            return Err(InvalidZerosOnes);
         }
         Ok(Self { zeros, ones })
     }
@@ -403,13 +401,6 @@ impl<const W: u32> ThreeValuedBitvector<W> {
         })
     }
 
-    fn field_value(&self) -> ThreeValuedFieldValue {
-        ThreeValuedFieldValue {
-            zeros: self.zeros.to_u64(),
-            ones: self.ones.to_u64(),
-        }
-    }
-
     pub fn from_concrete_value(value: concr::Bitvector<W>) -> Self {
         // bit-negate for zeros
         let zeros = Bitwise::bit_not(value);
@@ -496,21 +487,12 @@ impl<const W: u32> BitvectorDomain<W> for ThreeValuedBitvector<W> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct ThreeValuedFieldValue {
-    zeros: u64,
-    ones: u64,
-}
-
-impl ThreeValuedFieldValue {
-    pub fn write(&self, f: &mut std::fmt::Formatter<'_>, bit_width: u32) -> std::fmt::Result {
-        format_zeros_ones(f, bit_width, self.zeros, self.ones)
-    }
-}
-
 impl<const W: u32> Debug for ThreeValuedBitvector<W> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.field_value().write(f, W)
+        let zeros = self.zeros.to_u64();
+        let ones = self.ones.to_u64();
+
+        format_zeros_ones(f, W, zeros, ones)
     }
 }
 

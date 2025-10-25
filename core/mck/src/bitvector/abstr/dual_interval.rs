@@ -70,7 +70,6 @@ pub struct RDualInterval {
 }
 
 use serde::{Deserialize, Serialize};
-pub use support::DualIntervalFieldValue;
 
 impl<const W: u32> DualInterval<W> {
     #[allow(dead_code)]

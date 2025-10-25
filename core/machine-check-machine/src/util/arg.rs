@@ -7,6 +7,7 @@ use super::{create_converted_type, create_pat_ident, create_type_path, create_ty
 pub enum ArgType {
     Normal,
     Reference,
+    #[allow(dead_code)]
     MutableReference,
 }
 

@@ -24,4 +24,5 @@ pub struct ThreeValuedBitvector<const W: u32> {
 }
 
 use serde::{Deserialize, Serialize};
-pub use support::ThreeValuedFieldValue;
+
+pub struct InvalidZerosOnes;
