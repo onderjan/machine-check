@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     abstr::{Boolean, RArray, RBitvector},
-    forward::{Bitwise, HwArith, HwShift, RExt, TypedCmp, TypedEq},
+    bitvector::RBound,
+    forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     misc::{Join, MetaEq},
 };
 
@@ -72,11 +73,15 @@ impl AbstractValue {
     }
 
     pub fn uext(&self, new_width: u32) -> Self {
-        AbstractValue::Bitvector(self.expect_bitvector().uext(new_width))
+        let bitvector = *self.expect_bitvector();
+        let extended = BExt::uext(bitvector, RBound::new(new_width));
+        AbstractValue::Bitvector(extended)
     }
 
     pub fn sext(&self, new_width: u32) -> Self {
-        AbstractValue::Bitvector(self.expect_bitvector().sext(new_width))
+        let bitvector = *self.expect_bitvector();
+        let extended = BExt::sext(bitvector, RBound::new(new_width));
+        AbstractValue::Bitvector(extended)
     }
 }
 

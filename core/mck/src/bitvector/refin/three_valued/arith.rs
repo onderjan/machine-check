@@ -1,13 +1,11 @@
 use std::num::NonZero;
 
 use crate::{
+    abstr::three_valued::RThreeValuedBitvector,
     backward::HwArith,
-    bitvector::{
-        abstr::RThreeValuedBitvector,
-        refin::three_valued::{
-            support::{runtime_default_bi_mark, runtime_default_uni_mark},
-            RMarkBitvector,
-        },
+    bitvector::refin::three_valued::{
+        support::{runtime_default_bi_mark, runtime_default_uni_mark},
+        RMarkBitvector,
     },
 };
 

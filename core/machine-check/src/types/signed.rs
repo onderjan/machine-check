@@ -6,7 +6,7 @@ use std::{
 use mck::{
     concr::{self, IntoMck},
     forward::{Bitwise, HwArith, HwShift},
-    misc::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO},
+    misc::{CBound, PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO},
 };
 
 use crate::{traits::Ext, Bitvector, Unsigned};
@@ -20,7 +20,7 @@ use crate::{traits::Ext, Bitvector, Unsigned};
 ///
 /// Currently, it is not possible to create signed bitvectors directly, only convert into them.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Signed<const W: u32>(pub(super) concr::Bitvector<W>);
+pub struct Signed<const W: u32>(pub(super) concr::Bitvector<CBound<W>>);
 
 // --- BITWISE OPERATIONS ---
 
@@ -221,7 +221,7 @@ impl<const W: u32> Debug for Signed<W> {
 
 #[doc(hidden)]
 impl<const W: u32> IntoMck for Signed<W> {
-    type Type = mck::concr::Bitvector<W>;
+    type Type = mck::concr::Bitvector<CBound<W>>;
 
     fn into_mck(self) -> Self::Type {
         self.0

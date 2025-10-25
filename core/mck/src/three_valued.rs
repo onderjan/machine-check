@@ -1,10 +1,12 @@
 use std::{
     cmp::Ordering,
     fmt::Display,
-    ops::{BitAnd, BitOr, Not},
+    ops::{BitAnd, BitOr, BitXor, Not},
 };
 
 use serde::{Deserialize, Serialize};
+
+use crate::misc::Join;
 
 /// An extension of a Boolean to three-valued logic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -107,6 +109,35 @@ impl BitOr for ThreeValued {
             (ThreeValued::Unknown, _) => ThreeValued::Unknown,
             (_, ThreeValued::Unknown) => ThreeValued::Unknown,
             (ThreeValued::False, ThreeValued::False) => ThreeValued::False,
+        }
+    }
+}
+
+impl BitXor for ThreeValued {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (ThreeValued::True, ThreeValued::True) | (ThreeValued::False, ThreeValued::False) => {
+                ThreeValued::False
+            }
+            (ThreeValued::True, ThreeValued::False) | (ThreeValued::False, ThreeValued::True) => {
+                ThreeValued::True
+            }
+            _ => ThreeValued::Unknown,
+        }
+    }
+}
+
+impl Join for ThreeValued {
+    fn join(self, rhs: &Self) -> Self {
+        match (self, rhs) {
+            (ThreeValued::False, ThreeValued::False) => ThreeValued::False,
+            (ThreeValued::True, ThreeValued::True) => ThreeValued::True,
+            (ThreeValued::False, ThreeValued::True) | (ThreeValued::True, ThreeValued::False) => {
+                ThreeValued::Unknown
+            }
+            (ThreeValued::Unknown, _) | (_, ThreeValued::Unknown) => ThreeValued::Unknown,
         }
     }
 }

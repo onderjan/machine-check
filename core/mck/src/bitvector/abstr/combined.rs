@@ -1,4 +1,4 @@
-mod ops;
+/*mod ops;
 mod support;
 
 use std::hash::Hash;
@@ -138,3 +138,4 @@ impl<const W: u32> BitvectorDomain<W> for CombinedBitvector<W> {
         Some(Self::combine(three_valued, dual_interval))
     }
 }
+*/

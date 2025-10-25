@@ -1,7 +1,7 @@
 pub mod concr {
 
     pub struct PanicResult<T> {
-        pub panic: crate::concr::Bitvector<32>,
+        pub panic: crate::concr::PanicBitvector,
         pub result: T,
     }
 }
@@ -31,13 +31,6 @@ pub mod abstr {
             Self {
                 panic: self.panic.phi(other.panic),
                 result: self.result.phi(other.result),
-            }
-        }
-
-        fn uninit() -> Self {
-            Self {
-                panic: PanicBitvector::uninit(),
-                result: T::uninit(),
             }
         }
     }

@@ -2,11 +2,13 @@ use std::num::NonZeroU8;
 
 use crate::{
     bitvector::{
-        abstr::RThreeValuedBitvector,
+        abstr::three_valued::RThreeValuedBitvector,
         refin::three_valued::{RBitvectorMark, RMarkBitvector},
+        RBound,
     },
     concr::RConcreteBitvector,
     forward::{self, HwArith},
+    misc::BitvectorBound,
     traits::misc::MetaEq,
 };
 
@@ -14,7 +16,7 @@ impl RMarkBitvector {
     const LOWEST_IMPORTANCE: NonZeroU8 = NonZeroU8::new(1).unwrap();
 
     pub fn new(mark: RConcreteBitvector, importance: NonZeroU8, width: u32) -> Self {
-        assert_eq!(mark.width(), width);
+        assert_eq!(mark.bound().width(), width);
         let inner = if mark.is_nonzero() {
             Some(RBitvectorMark { mark, importance })
         } else {
@@ -30,8 +32,9 @@ impl RMarkBitvector {
         if width == 0 {
             return Self::new_unmarked(width);
         }
-        let zero = RConcreteBitvector::new(0, width);
-        let one = RConcreteBitvector::new(1, width);
+        let bound = RBound::new(width);
+        let zero = RConcreteBitvector::new(0, bound);
+        let one = RConcreteBitvector::new(1, bound);
         // definitely nonzero
         Self {
             inner: Some(RBitvectorMark {
@@ -47,14 +50,14 @@ impl RMarkBitvector {
     }
 
     pub fn new_from_flag(mark: RConcreteBitvector) -> Self {
-        Self::new(mark, Self::LOWEST_IMPORTANCE, mark.width())
+        Self::new(mark, Self::LOWEST_IMPORTANCE, mark.bound().width())
     }
 
     pub fn marked_bits(&self) -> RConcreteBitvector {
         if let Some(mark) = self.inner {
             mark.mark
         } else {
-            RConcreteBitvector::new(0, self.width)
+            RConcreteBitvector::new(0, RBound::new(self.width))
         }
     }
 

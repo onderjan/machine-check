@@ -1,8 +1,9 @@
 use crate::{
     bitvector::{
-        abstr::RThreeValuedBitvector,
+        abstr::three_valued::RThreeValuedBitvector,
         refin::three_valued::{RBitvectorMark, RMarkBitvector},
         util::compute_u64_sign_bit_mask,
+        RBound,
     },
     concr::RConcreteBitvector,
     forward,
@@ -54,8 +55,10 @@ impl RMarkBitvector {
         }
 
         let highest_applicant_pos = applicants.to_u64().ilog2();
-        let highest_applicant =
-            RConcreteBitvector::new(compute_u64_sign_bit_mask(highest_applicant_pos + 1), width);
+        let highest_applicant = RConcreteBitvector::new(
+            compute_u64_sign_bit_mask(highest_applicant_pos + 1),
+            RBound::new(width),
+        );
         assert!(highest_applicant.is_nonzero());
 
         // apply the mark

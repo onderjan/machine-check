@@ -4,94 +4,25 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     abstr::{self, Abstr, AbstractValue, BitvectorDomain, Phi},
-    concr::{self, RUnsignedBitvector, UnsignedBitvector},
+    bitvector::{BitvectorBound, CBound, RBound},
+    concr::{self, UnsignedBitvector},
     forward::ReadWrite,
-    misc::{CMax, Join, MetaWrap, RMax},
+    misc::{Join, MetaWrap},
     traits::misc::MetaEq,
 };
 
 use super::light::LightArray;
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct RArray {
-    pub(super) element_width: u32,
-    pub(super) inner: LightArray<u64, MetaWrap<abstr::RBitvector>, RMax>,
+#[derive(Clone, Hash, Serialize, Deserialize)]
+pub struct Array<I: BitvectorBound, E: BitvectorBound> {
+    pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<E>>>,
+    element_bound: E,
 }
 
-impl RArray {
-    pub fn index_width(&self) -> u32 {
-        self.inner.bound().width
-    }
+pub type RArray = Array<RBound, RBound>;
 
-    pub fn element_width(&self) -> u32 {
-        self.element_width
-    }
-
-    pub fn join(mut self, other: &Self) -> Self {
-        self.inner.subsume(other.inner.clone(), |lhs, rhs| {
-            *lhs = MetaWrap(lhs.0.join(&rhs.0))
-        });
-
-        self
-    }
-
-    pub fn inner(&self) -> &LightArray<u64, MetaWrap<abstr::RBitvector>, RMax> {
-        &self.inner
-    }
-}
-
-impl ReadWrite for &RArray {
-    type Index = abstr::RBitvector;
-    type Element = abstr::RBitvector;
-    type Deref = RArray;
-
-    fn read(self, index: Self::Index) -> Self::Element {
-        // ensure we always have the first element to join
-        let (min_index, max_index) = (index.umin().to_u64(), index.umax().to_u64());
-        self.inner
-            .reduce_indexed(min_index, Some(max_index), |reduced, value| {
-                MetaWrap(reduced.0.join(&value.0))
-            })
-            .0
-    }
-
-    fn write(self, index: Self::Index, element: Self::Element) -> Self::Deref {
-        let (min_index, max_index) = (index.umin().to_u64(), index.umax().to_u64());
-
-        let mut result = self.clone();
-
-        if min_index == max_index {
-            // just set the single element
-            result.inner.write(min_index, MetaWrap(element));
-        } else {
-            // unsure which element is being set, join the previous values
-            result
-                .inner
-                .map_inplace_indexed(min_index, Some(max_index), |value| {
-                    MetaWrap(value.0.join(&element))
-                });
-        }
-        result
-    }
-}
-
-impl MetaEq for RArray {
-    fn meta_eq(&self, other: &Self) -> bool {
-        self.inner
-            .bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
-                // we are comparing meta-wrapped elements, so we use normal equality
-                can_be_eq && (lhs == rhs)
-            })
-    }
-}
-
-#[derive(Clone, Hash)]
-pub struct Array<const I: u32, const W: u32> {
-    pub(super) inner: LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<W>>, CMax<I>>,
-}
-
-impl<const I: u32, const W: u32> Abstr<concr::Array<I, W>> for Array<I, W> {
-    fn from_concrete(value: concr::Array<I, W>) -> Self {
+/*impl<const I: u32, const E: u32> Abstr<concr::Array<I, E>> for Array<CBound<I>, CBound<E>> {
+    fn from_concrete(value: concr::Array<I, E>) -> Self {
         Self {
             inner: value
                 .inner
@@ -103,7 +34,7 @@ impl<const I: u32, const W: u32> Abstr<concr::Array<I, W>> for Array<I, W> {
         let value = value.expect_array();
 
         assert_eq!(value.index_width(), I);
-        assert_eq!(value.element_width(), W);
+        assert_eq!(value.element_width(), E);
 
         Self {
             inner: value.inner.create_converted(
@@ -122,29 +53,52 @@ impl<const I: u32, const W: u32> Abstr<concr::Array<I, W>> for Array<I, W> {
         );
 
         AbstractValue::Array(RArray {
-            element_width: W,
+            element_width: E,
             inner: runtime_array,
         })
     }
-}
+}*/
 
-impl<const I: u32, const W: u32> Array<I, W> {
-    pub fn new_filled(element: abstr::Bitvector<W>) -> Self {
-        assert!(I < isize::BITS);
-        Self {
-            inner: LightArray::new_filled(MetaWrap(element), CMax),
-        }
+impl<I: BitvectorBound, E: BitvectorBound> Join for Array<I, E> {
+    fn join(mut self, other: &Self) -> Self {
+        self.inner.subsume(other.inner.clone(), |lhs, rhs| {
+            *lhs = MetaWrap(lhs.0.join(&rhs.0))
+        });
+
+        self
     }
 }
 
-impl<const I: u32, const W: u32> ReadWrite for &Array<I, W> {
+impl<I: BitvectorBound, E: BitvectorBound> Array<I, E> {
+    pub fn new_filled(index_bound: I, element: abstr::Bitvector<E>) -> Self {
+        Self {
+            inner: LightArray::new_filled(index_bound, MetaWrap(element)),
+            element_bound: element.bound(),
+        }
+    }
+
+    pub fn index_bound(&self) -> I {
+        self.inner.index_bound()
+    }
+    pub fn element_bound(&self) -> E {
+        self.element_bound
+    }
+
+    pub fn inner(&self) -> &LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<E>>> {
+        &self.inner
+    }
+}
+
+impl<I: BitvectorBound, E: BitvectorBound> ReadWrite for &Array<I, E> {
     type Index = abstr::Bitvector<I>;
-    type Element = abstr::Bitvector<W>;
-    type Deref = Array<I, W>;
+    type Element = abstr::Bitvector<E>;
+    type Deref = Array<I, E>;
 
     fn read(self, index: Self::Index) -> Self::Element {
+        assert_eq!(index.bound(), self.index_bound());
+
         // ensure we always have the first element to join
-        let (min_index, max_index) = extract_bounds(index);
+        let (min_index, max_index) = (index.umin(), index.umax());
         self.inner
             .reduce_indexed(min_index, Some(max_index), |reduced, value| {
                 MetaWrap(reduced.0.phi(value.0))
@@ -153,7 +107,10 @@ impl<const I: u32, const W: u32> ReadWrite for &Array<I, W> {
     }
 
     fn write(self, index: Self::Index, element: Self::Element) -> Self::Deref {
-        let (min_index, max_index) = extract_bounds(index);
+        assert_eq!(index.bound(), self.index_bound());
+        assert_eq!(element.bound(), self.element_bound());
+
+        let (min_index, max_index) = (index.umin(), index.umax());
 
         let mut result = self.clone();
 
@@ -172,29 +129,7 @@ impl<const I: u32, const W: u32> ReadWrite for &Array<I, W> {
     }
 }
 
-pub(super) fn extract_runtime_bounds(
-    index: abstr::RBitvector,
-) -> (RUnsignedBitvector, RUnsignedBitvector) {
-    let umin = index.umin();
-    let umax = index.umax();
-    assert!(umin <= umax);
-
-    (umin, umax)
-}
-
-pub(super) fn extract_bounds<const I: u32>(
-    index: abstr::Bitvector<I>,
-) -> (UnsignedBitvector<I>, UnsignedBitvector<I>) {
-    let unsigned_bounds = index.unsigned_interval();
-
-    let umin = unsigned_bounds.min();
-    let umax = unsigned_bounds.max();
-    assert!(umin <= umax);
-
-    (umin, umax)
-}
-
-impl<const I: u32, const W: u32> MetaEq for Array<I, W> {
+impl<I: BitvectorBound, E: BitvectorBound> MetaEq for Array<I, E> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.inner
             .bi_fold(&other.inner, true, |can_be_eq, lhs, rhs| {
@@ -204,27 +139,25 @@ impl<const I: u32, const W: u32> MetaEq for Array<I, W> {
     }
 }
 
-impl<const I: u32, const W: u32> Default for Array<I, W> {
+/*impl<I: BitvectorBound, E: BitvectorBound> Default for Array<I, E> {
     fn default() -> Self {
-        Self::new_filled(abstr::Bitvector::<W>::default())
+        Self::new_filled(abstr::Bitvector::<E>::default())
     }
-}
+}*/
 
-impl<const I: u32, const W: u32> Phi for Array<I, W> {
+impl<I: BitvectorBound, E: BitvectorBound> Phi for Array<I, E> {
     fn phi(mut self, other: Self) -> Self {
+        assert_eq!(self.index_bound(), other.index_bound());
+        assert_eq!(self.element_bound(), other.element_bound());
+
         self.inner
             .subsume(other.inner, |lhs, rhs| *lhs = MetaWrap(lhs.0.phi(rhs.0)));
 
         self
     }
-
-    fn uninit() -> Self {
-        // present filled with uninit so there is no loss of soundness in case of bug
-        Self::new_filled(abstr::Bitvector::uninit())
-    }
 }
 
-impl<const I: u32, const W: u32> Debug for Array<I, W> {
+impl<I: BitvectorBound, E: BitvectorBound> Debug for Array<I, E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
     }

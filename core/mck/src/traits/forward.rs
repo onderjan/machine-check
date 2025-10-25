@@ -1,4 +1,4 @@
-use crate::{abstr::Phi, boolean::abstr};
+use crate::{abstr::Phi, bitvector::BitvectorBound, boolean::abstr};
 
 pub trait TypedEq {
     type Output;
@@ -84,11 +84,12 @@ pub trait Ext<const M: u32> {
     fn sext(self) -> Self::Output;
 }
 
-pub trait RExt {
+pub trait BExt<X: BitvectorBound> {
+    type Output;
     #[must_use]
-    fn uext(self, width: u32) -> Self;
+    fn uext(self, new_bound: X) -> Self::Output;
     #[must_use]
-    fn sext(self, width: u32) -> Self;
+    fn sext(self, new_bound: X) -> Self::Output;
 }
 
 pub enum PhiArg<T: Phi> {

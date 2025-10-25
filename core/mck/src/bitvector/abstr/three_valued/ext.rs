@@ -1,15 +1,17 @@
 use crate::{
-    bitvector::util,
-    concr::RConcreteBitvector,
-    forward::{Ext, RExt},
+    bitvector::{bound::CBound, BitvectorBound},
+    concr::ConcreteBitvector,
+    forward::{BExt, Ext},
 };
 
-use super::{RThreeValuedBitvector, ThreeValuedBitvector};
+use super::ThreeValuedBitvector;
 
-impl RExt for RThreeValuedBitvector {
-    fn uext(self, new_width: u32) -> RThreeValuedBitvector {
-        let old_mask = self.bit_mask_u64();
-        let new_mask = util::compute_u64_mask(new_width);
+impl<B: BitvectorBound, X: BitvectorBound> BExt<X> for ThreeValuedBitvector<B> {
+    type Output = ThreeValuedBitvector<X>;
+
+    fn uext(self, new_bound: X) -> Self::Output {
+        let old_mask = self.bound().mask();
+        let new_mask = new_bound.mask();
 
         // shorten if needed
         let shortened_zeros = self.zeros.to_u64() & new_mask;
@@ -24,20 +26,20 @@ impl RExt for RThreeValuedBitvector {
         let ones = shortened_ones;
 
         // shorten if needed, lengthening is fine
-        RThreeValuedBitvector::from_zeros_ones(
-            RConcreteBitvector::new(zeros, new_width),
-            RConcreteBitvector::new(ones, new_width),
+        ThreeValuedBitvector::from_zeros_ones(
+            ConcreteBitvector::new(zeros, new_bound),
+            ConcreteBitvector::new(ones, new_bound),
         )
     }
 
-    fn sext(self, new_width: u32) -> RThreeValuedBitvector {
-        if self.width() == 0 {
+    fn sext(self, new_bound: X) -> Self::Output {
+        if self.bound().width() == 0 {
             // no zeros nor ones, handle specially by returning zero
-            return RThreeValuedBitvector::new(0, new_width);
+            return ThreeValuedBitvector::new(0, new_bound);
         }
 
-        let old_mask = self.bit_mask_u64();
-        let new_mask = util::compute_u64_mask(new_width);
+        let old_mask = self.bound().mask();
+        let new_mask = new_bound.mask();
 
         // shorten if needed
         let shortened_zeros = self.zeros.to_u64() & new_mask;
@@ -60,21 +62,21 @@ impl RExt for RThreeValuedBitvector {
             shortened_ones
         };
 
-        RThreeValuedBitvector::from_zeros_ones(
-            RConcreteBitvector::new(zeros, new_width),
-            RConcreteBitvector::new(ones, new_width),
+        ThreeValuedBitvector::from_zeros_ones(
+            ConcreteBitvector::new(zeros, new_bound),
+            ConcreteBitvector::new(ones, new_bound),
         )
     }
 }
 
-impl<const W: u32, const X: u32> Ext<X> for ThreeValuedBitvector<W> {
-    type Output = ThreeValuedBitvector<X>;
+impl<const W: u32, const X: u32> Ext<X> for ThreeValuedBitvector<CBound<W>> {
+    type Output = ThreeValuedBitvector<CBound<X>>;
 
     fn uext(self) -> Self::Output {
-        self.as_runtime_bitvector().uext(X).unwrap_typed()
+        BExt::uext(self, CBound::<X>)
     }
 
     fn sext(self) -> Self::Output {
-        self.as_runtime_bitvector().sext(X).unwrap_typed()
+        BExt::sext(self, CBound::<X>)
     }
 }

@@ -70,5 +70,5 @@ where
     Self: std::marker::Sized,
 {
     fn phi(self, other: Self) -> Self;
-    fn uninit() -> Self;
+    //fn uninit() -> Self;
 }

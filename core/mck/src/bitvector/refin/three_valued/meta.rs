@@ -1,6 +1,8 @@
 use crate::{
-    bitvector::{abstr::RThreeValuedBitvector, refin::three_valued::RMarkBitvector},
-    concr::RConcreteBitvector,
+    bitvector::{
+        abstr::three_valued::RThreeValuedBitvector, refin::three_valued::RMarkBitvector, RBound,
+    },
+    concr::{ConcreteBitvector, RConcreteBitvector},
     traits::misc::Meta,
 };
 
@@ -8,15 +10,17 @@ impl Meta<RThreeValuedBitvector> for RMarkBitvector {
     fn proto_first(&self) -> RThreeValuedBitvector {
         // all known bits are 0
         let known_bits = self.marked_bits().to_u64();
+        let bound = RBound::new(self.width);
         RThreeValuedBitvector::new_value_known(
-            RConcreteBitvector::new(0, self.width),
-            RConcreteBitvector::new(known_bits, self.width),
+            RConcreteBitvector::new(0, bound),
+            RConcreteBitvector::new(known_bits, bound),
         )
     }
 
     fn proto_increment(&self, proto: &mut RThreeValuedBitvector) -> bool {
         // the marked bits should be split into possibilities
         let known_bits = self.marked_bits().to_u64();
+        let bound = RBound::new(self.width);
 
         if known_bits == 0 {
             // if full-unknown, stop immediately after first to avoid shl overflow
@@ -40,8 +44,8 @@ impl Meta<RThreeValuedBitvector> for RMarkBitvector {
                 // if considered bit is 0 within current, update it to 1 and end
                 current |= one_mask;
                 let result = RThreeValuedBitvector::new_value_known(
-                    RConcreteBitvector::new(current, self.width),
-                    RConcreteBitvector::new(known_bits, self.width),
+                    RConcreteBitvector::new(current, bound),
+                    RConcreteBitvector::new(known_bits, bound),
                 );
 
                 *proto = result;

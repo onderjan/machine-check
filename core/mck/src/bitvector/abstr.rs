@@ -1,35 +1,38 @@
 use super::interval::UnsignedInterval;
 use crate::abstr::{Abstr, AbstractValue, Phi};
+#[cfg(not(feature = "Zdual_interval"))]
+use crate::{
+    bitvector::bound::{CBound, RBound},
+    misc::BitvectorBound,
+};
 use std::hash::Hash;
 
 pub mod combined;
 mod dual_interval;
 pub mod three_valued;
 
-pub trait BitvectorDomain<const W: u32>: Clone + Copy + Hash + Phi {
-    fn unsigned_interval(&self) -> UnsignedInterval<W>;
+pub trait BitvectorDomain<B: BitvectorBound>: Clone + Copy + Hash + Phi {
+    fn unsigned_interval(&self) -> UnsignedInterval<B>;
 
     fn join(self, other: Self) -> Self;
     fn meet(self, other: Self) -> Option<Self>;
 }
 
-pub(super) use three_valued::{RThreeValuedBitvector, ThreeValuedBitvector};
-
 #[cfg(not(feature = "Zdual_interval"))]
-pub type Bitvector<const W: u32> = three_valued::ThreeValuedBitvector<W>;
-#[cfg(not(feature = "Zdual_interval"))]
-pub type RBitvector = three_valued::RThreeValuedBitvector;
+pub type Bitvector<W: BitvectorBound> = three_valued::ThreeValuedBitvector<W>;
 
 #[cfg(feature = "Zdual_interval")]
 pub type Bitvector<const W: u32> = combined::CombinedBitvector<W>;
-#[cfg(feature = "Zdual_interval")]
-pub type RBitvector = combined::RCombinedBitvector;
 
-pub type BooleanBitvector = Bitvector<1>;
-pub type PanicBitvector = Bitvector<32>;
+pub type RBitvector = Bitvector<RBound>;
 
-impl<const W: u32> Abstr<super::concr::Bitvector<W>> for Bitvector<W> {
-    fn from_concrete(value: super::concr::Bitvector<W>) -> Self {
+pub type PanicBitvector = Bitvector<CBound<32>>;
+
+//pub type BooleanBitvector = Bitvector<1>;
+//pub type PanicBitvector = Bitvector<32>;
+
+impl<const W: u32> Abstr<super::concr::Bitvector<CBound<W>>> for Bitvector<CBound<W>> {
+    fn from_concrete(value: super::concr::Bitvector<CBound<W>>) -> Self {
         Self::from_concrete_value(value)
     }
 

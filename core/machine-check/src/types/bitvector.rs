@@ -6,6 +6,7 @@ use std::{
 use mck::{
     concr::{self, IntoMck},
     forward::{Bitwise, HwArith, HwShift},
+    misc::CBound,
 };
 
 use crate::{Signed, Unsigned};
@@ -18,14 +19,14 @@ use crate::{Signed, Unsigned};
 /// For others, conversion into [`Unsigned`] or [`Signed`] is necessary.
 /// Bit-extension is not possible directly, as signed and unsigned bitvectors are extended differently.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Bitvector<const W: u32>(pub(super) concr::Bitvector<W>);
+pub struct Bitvector<const W: u32>(pub(super) concr::Bitvector<CBound<W>>);
 
 impl<const W: u32> Bitvector<W> {
     /// Creates a new bitvector with the given value.
     ///
     /// Panics if the value does not fit into the type.
     pub fn new(value: u64) -> Self {
-        Bitvector(concr::Bitvector::new(value))
+        Bitvector(concr::Bitvector::new(value, CBound::<W>))
     }
 }
 // --- BITWISE OPERATIONS ---
@@ -137,7 +138,7 @@ impl<const W: u32> Debug for Bitvector<W> {
 
 #[doc(hidden)]
 impl<const W: u32> IntoMck for Bitvector<W> {
-    type Type = mck::concr::Bitvector<W>;
+    type Type = mck::concr::Bitvector<CBound<W>>;
 
     fn into_mck(self) -> Self::Type {
         self.0

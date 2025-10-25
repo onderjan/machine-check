@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use mck::{abstr::AbstractValue, three_valued::ThreeValued};
+use mck::{abstr::AbstractValue, misc::BitvectorBound, three_valued::ThreeValued};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -192,8 +192,8 @@ fn ensure_abstract_type(context: &IContext, value: &AbstractValue, ty: &IType) {
                 panic!("Expected array type of value");
             };
 
-            assert_eq!(array_type.index_width, array.index_width());
-            assert_eq!(array_type.element_width, array.element_width());
+            assert_eq!(array_type.index_width, array.index_bound().width());
+            assert_eq!(array_type.element_width, array.element_bound().width());
         }
         IElementaryType::Boolean => {
             let AbstractValue::Boolean(_) = value else {

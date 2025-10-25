@@ -1,9 +1,10 @@
 use crate::{
     backward,
     bitvector::{
-        abstr::RThreeValuedBitvector,
+        abstr::three_valued::RThreeValuedBitvector,
         refin::three_valued::{RBitvectorMark, RMarkBitvector},
         util::compute_u64_sign_bit_mask,
+        RBound,
     },
     concr::RConcreteBitvector,
     forward,
@@ -77,7 +78,7 @@ impl backward::HwShift for RThreeValuedBitvector {
                 // mark the sign bit of result
                 result = forward::Bitwise::bit_or(
                     result,
-                    RConcreteBitvector::new(compute_u64_sign_bit_mask(width), width),
+                    RConcreteBitvector::new(compute_u64_sign_bit_mask(width), RBound::new(width)),
                 );
             }
             result
@@ -111,8 +112,8 @@ fn runtime_shift(
     // join the shifted marks iteratively
     let mut shifted_mark_earlier = RMarkBitvector::new_unmarked(width);
     for i in min_shift..=max_shift {
-        let machine_i = RConcreteBitvector::new(i, width);
-        if amount_input.contains_concr(&machine_i) {
+        let machine_i = RConcreteBitvector::new(i, RBound::new(width));
+        if amount_input.contains_concrete(&machine_i) {
             // shift the mark
             let shifted_mark = shift_fn(mark_later.mark, machine_i);
             shifted_mark_earlier.apply_join(&RMarkBitvector {

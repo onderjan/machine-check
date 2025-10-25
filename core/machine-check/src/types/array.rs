@@ -2,7 +2,7 @@ use std::ops::{Index, IndexMut};
 
 use mck::{
     concr::{IntoMck, UnsignedBitvector},
-    misc::{CMax, LightArray},
+    misc::{CBound, LightArray},
 };
 
 use crate::Bitvector;
@@ -17,14 +17,14 @@ use crate::Bitvector;
 ///
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct BitvectorArray<const I: u32, const W: u32> {
-    pub(super) inner: LightArray<UnsignedBitvector<I>, Bitvector<W>, CMax<I>>,
+    pub(super) inner: LightArray<UnsignedBitvector<CBound<I>>, Bitvector<W>>,
 }
 
 impl<const I: u32, const W: u32> BitvectorArray<I, W> {
     /// Creates a new array filled with the given element.
     pub fn new_filled(element: Bitvector<W>) -> Self {
         Self {
-            inner: LightArray::new_filled(element, CMax),
+            inner: LightArray::new_filled(CBound::<I>, element),
         }
     }
 
@@ -37,12 +37,12 @@ impl<const I: u32, const W: u32> BitvectorArray<I, W> {
         assert!(I < usize::BITS);
         assert_eq!(1 << I, slice.len());
         // make zeroed first
-        let mut inner = LightArray::new_filled(Bitvector::new(0), CMax);
+        let mut inner = LightArray::new_filled(CBound::<I>, Bitvector::new(0));
         // assign each element
-        let mut index = UnsignedBitvector::zero();
+        let mut index = UnsignedBitvector::zero(CBound::<I>);
         for element in slice.iter().cloned() {
             inner.write(index, element);
-            index = index + UnsignedBitvector::one();
+            index = index + UnsignedBitvector::one(CBound::<I>);
         }
 
         Self { inner }
@@ -53,13 +53,13 @@ impl<const I: u32, const W: u32> Index<Bitvector<I>> for BitvectorArray<I, W> {
     type Output = Bitvector<W>;
 
     fn index(&self, index: Bitvector<I>) -> &Self::Output {
-        &self.inner[index.into_mck().cast_unsigned()]
+        &self.inner[index.into_mck().as_unsigned()]
     }
 }
 
 impl<const I: u32, const W: u32> IndexMut<Bitvector<I>> for BitvectorArray<I, W> {
     fn index_mut(&mut self, index: Bitvector<I>) -> &mut Self::Output {
-        self.inner.mutable_index(index.into_mck().cast_unsigned())
+        self.inner.mutable_index(index.into_mck().as_unsigned())
     }
 }
 

@@ -6,65 +6,44 @@ use std::{
     ops::{ControlFlow, Index},
 };
 
-use num::{One, Zero};
-
-pub use max::{CMax, RMax};
 use serde::{Deserialize, Serialize};
+
+use crate::bitvector::BitvectorBound;
 
 #[cfg(test)]
 mod tests;
 
-mod max;
-
-pub trait LightMax<I>: Clone + Copy + PartialEq + Eq + Debug {
-    fn max(&self) -> I;
-    fn allowed(&self, value: I) -> bool;
-}
-
 pub trait LightIndex:
-    Clone
-    + Copy
-    + PartialEq
-    + Eq
-    + PartialOrd
-    + Ord
-    + Zero
-    + One
-    + Add<Output = Self>
-    + Sub<Output = Self>
+    Clone + Copy + PartialEq + Eq + PartialOrd + Ord + Add<Output = Self> + Sub<Output = Self> + Debug
 {
+    type Bound: BitvectorBound;
+
+    fn bound(&self) -> Self::Bound;
+    fn to_u64(self) -> u64;
+
+    fn zero(bound: Self::Bound) -> Self;
+    fn one(bound: Self::Bound) -> Self;
 }
 
-impl<
-        T: Clone
-            + Copy
-            + PartialEq
-            + Eq
-            + PartialOrd
-            + Ord
-            + Zero
-            + One
-            + Add<Output = Self>
-            + Sub<Output = Self>,
-    > LightIndex for T
-{
-}
+pub trait LightElement: Clone + PartialEq + Eq {}
+
+impl<T: Clone + PartialEq + Eq> LightElement for T {}
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct LightArray<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> {
+pub struct LightArray<I: LightIndex, E: LightElement> {
+    index_bound: I::Bound,
     inner: Arc<BTreeMap<I, E>>,
-    bound: M,
 }
 
-impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, M> {
-    pub fn new_filled(element: E, bound: M) -> Self {
-        let zero_index = <I as Zero>::zero();
+impl<I: LightIndex, E: LightElement> LightArray<I, E> {
+    pub fn new_filled(index_bound: I::Bound, element: E) -> Self {
+        let zero_index = <I as LightIndex>::zero(index_bound);
         let inner = Arc::new(BTreeMap::from_iter([(zero_index, element)]));
-        Self { inner, bound }
+        Self { index_bound, inner }
     }
 
     pub fn write(&mut self, index: I, value: E) {
-        assert!(self.bound.allowed(index));
+        assert!(self.index_bound.allowed(index.to_u64()));
         use std::ops::Bound::{Included, Unbounded};
 
         // first, we will get the previous value
@@ -90,8 +69,8 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
         // insert the previous value immediately after the written one
         // if it does not already exist
 
-        if index != self.bound.max() {
-            let next_index = index + <I as One>::one();
+        if index.to_u64() != self.index_bound.mask() {
+            let next_index = index + <I as LightIndex>::one(self.index_bound);
             inner.entry(next_index).or_insert(previous_value);
         }
 
@@ -100,9 +79,9 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
     }
 
     fn indexed_iter(&self, min_index: I, max_index: Option<I>) -> impl Iterator<Item = (&I, &E)> {
-        assert!(self.bound.allowed(min_index));
+        assert!(self.index_bound.allowed(min_index.to_u64()));
         if let Some(max_index) = max_index {
-            assert!(self.bound.allowed(max_index));
+            assert!(self.index_bound.allowed(max_index.to_u64()));
         }
         // the lower element may not be within the range, find it specifically
         use std::ops::Bound::{Excluded, Included, Unbounded};
@@ -137,34 +116,33 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
     }
 
     pub fn fold<B>(&self, init: B, func: fn(B, &E) -> B) -> B {
-        self.fold_indexed(<I as Zero>::zero(), None, init, func)
+        self.fold_indexed(<I as LightIndex>::zero(self.index_bound), None, init, func)
     }
 
-    pub fn create_converted<FI, FE, FM>(
+    pub fn create_converted<FI, FE>(
         &self,
+        index_bound: FI::Bound,
         index_folder: fn(I) -> FI,
         element_folder: fn(E) -> FE,
-        bound: FM,
-    ) -> LightArray<FI, FE, FM>
+    ) -> LightArray<FI, FE>
     where
         FI: LightIndex,
         FE: Clone + PartialEq + Eq,
-        FM: LightMax<FI>,
     {
         let mut inner = BTreeMap::new();
 
-        for (index, element) in self.indexed_iter(I::zero(), None) {
+        for (index, element) in self.indexed_iter(LightIndex::zero(self.index_bound), None) {
             let index = index_folder(*index);
             let value = element_folder(element.clone());
 
-            assert!(bound.allowed(index));
+            assert!(index_bound.allowed(index.to_u64()));
 
             inner.insert(index, value);
         }
 
         LightArray {
+            index_bound,
             inner: Arc::new(inner),
-            bound,
         }
     }
 
@@ -187,9 +165,9 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
         max_index: Option<I>,
         map_fn: impl Fn(E) -> E,
     ) {
-        assert!(self.bound.allowed(min_index));
+        assert!(self.index_bound.allowed(min_index.to_u64()));
         if let Some(max_index) = max_index {
-            assert!(self.bound.allowed(max_index));
+            assert!(self.index_bound.allowed(max_index.to_u64()));
         }
         // the lower element may not be within the range, find it specifically
         use std::ops::Bound::{Excluded, Included, Unbounded};
@@ -248,15 +226,15 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
         // if the old high value is not the same as the previous value,
         // insert it if necessary
         if let (Some(previous_value), Some(max_index)) = (previous_value, max_index) {
-            if old_high_value != previous_value && max_index != self.bound.max() {
-                let above_max_index = max_index + <I as One>::one();
+            if old_high_value != previous_value && max_index.to_u64() != self.index_bound.mask() {
+                let above_max_index = max_index + <I as LightIndex>::one(self.index_bound);
                 inner.entry(above_max_index).or_insert(old_high_value);
             }
         }
     }
 
     pub fn bi_fold<B: Copy>(&self, other: &Self, init: B, func: fn(B, &E, &E) -> B) -> B {
-        assert_eq!(self.bound, other.bound);
+        assert_eq!(self.index_bound, other.index_bound);
         Self::immutable_bi_func(
             self.inner.iter().map(|e| (*e.0, e.1)),
             other.inner.iter().map(|e| (*e.0, e.1)),
@@ -266,7 +244,7 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
     }
 
     pub fn subsume(&mut self, other: Self, func: fn(&mut E, E)) {
-        assert_eq!(self.bound, other.bound);
+        assert_eq!(self.index_bound, other.index_bound);
         // unwrap or clone other so it can be mutated
         let other_inner = Arc::try_unwrap(other.inner).unwrap_or_else(|rc| (*rc).clone());
 
@@ -281,21 +259,21 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
         );
     }
 
-    pub fn map<U: Debug + Clone + PartialEq + Eq>(&self, func: fn(&E) -> U) -> LightArray<I, U, M> {
+    pub fn map<U: Debug + Clone + PartialEq + Eq>(&self, func: fn(&E) -> U) -> LightArray<I, U> {
         let mut result_inner = BTreeMap::new();
 
         for entry in self.inner.iter() {
             result_inner.insert(*entry.0, (func)(entry.1));
         }
         LightArray {
+            index_bound: self.index_bound,
             inner: Arc::new(result_inner),
-            bound: self.bound,
         }
     }
 
     pub fn involve<V: Debug + Clone + PartialEq + Eq>(
         &mut self,
-        other: &LightArray<I, V, M>,
+        other: &LightArray<I, V>,
         func: fn(&mut E, &V),
     ) {
         self.involve_with_flow(
@@ -310,11 +288,11 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
 
     pub fn involve_with_flow<V: Debug + Clone + PartialEq + Eq, R>(
         &mut self,
-        other: &LightArray<I, V, M>,
+        other: &LightArray<I, V>,
         func: impl Fn(R, &mut E, &V) -> ControlFlow<R, R>,
         default_result: R,
     ) -> R {
-        assert_eq!(self.bound, other.bound);
+        assert_eq!(self.index_bound, other.index_bound);
         Self::mutable_bi_func(
             self,
             other.inner.iter().map(|e| (*e.0, e.1)),
@@ -324,18 +302,20 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
     }
 
     fn mutable_bi_func<U: Clone + PartialEq + Eq, V: Clone, R>(
-        lhs: &mut LightArray<I, U, M>,
+        lhs: &mut LightArray<I, U>,
         rhs_iter: impl Iterator<Item = (I, V)>,
         func: impl Fn(R, &mut U, V) -> ControlFlow<R, R>,
         default_result: R,
     ) -> R {
+        let index_bound = lhs.index_bound;
+
         let lhs_inner = Arc::make_mut(&mut lhs.inner);
 
         let mut rhs_iter = rhs_iter.peekable();
         let (mut index, mut rhs_current) = rhs_iter
             .next()
             .expect("Expected at least one light map entry");
-        assert!(index == <I as Zero>::zero());
+        assert_eq!(index, <I as LightIndex>::zero(index_bound));
 
         let mut lhs_previous = lhs_inner
             .get(&index)
@@ -421,11 +401,11 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
         let (lhs_index, mut lhs_current) = lhs_iter
             .next()
             .expect("Expected at least one light map entry");
-        assert!(lhs_index == <I as Zero>::zero());
+        assert_eq!(lhs_index, <I as LightIndex>::zero(lhs_index.bound()));
         let (rhs_index, mut rhs_current) = rhs_iter
             .next()
             .expect("Expected at least one light map entry");
-        assert!(rhs_index == <I as Zero>::zero());
+        assert_eq!(rhs_index, <I as LightIndex>::zero(lhs_index.bound()));
 
         let mut result = default_result;
         loop {
@@ -472,7 +452,8 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
     }
 
     pub fn mutable_index(&mut self, index: I) -> &mut E {
-        assert!(self.bound.allowed(index));
+        assert_eq!(self.index_bound(), index.bound());
+        let bound = self.index_bound();
 
         // currently retained but not available by IndexMut
         // TODO: remove as it does not keep representation compact
@@ -491,8 +472,8 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
             .1
             .clone();
 
-        let next_index = index + <I as One>::one();
-        if next_index != <I as Zero>::zero() {
+        let next_index = index + <I as LightIndex>::one(bound);
+        if next_index != <I as LightIndex>::zero(bound) {
             // needed to preserve the next elements
             inner.entry(next_index).or_insert(element.clone());
         }
@@ -504,75 +485,47 @@ impl<I: LightIndex, E: Clone + PartialEq + Eq, M: LightMax<I>> LightArray<I, E, 
         self.inner.iter()
     }
 
-    pub fn bound(&self) -> M {
-        self.bound
+    pub fn index_bound(&self) -> I::Bound {
+        self.index_bound
     }
 }
 
-impl<
-        I: Debug
-            + Clone
-            + Copy
-            + PartialEq
-            + Eq
-            + PartialOrd
-            + Ord
-            + Zero
-            + One
-            + Add<Output = I>
-            + Sub<Output = I>,
-        E: Debug + Clone + PartialEq + Eq,
-        B: LightMax<I>,
-    > Debug for LightArray<I, E, B>
-{
+impl<I: LightIndex, E: LightElement + Debug> Debug for LightArray<I, E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
         for ((current_index, current_element), next_index) in self.inner.iter().zip(
             self.inner
                 .iter()
                 .skip(1)
-                .map(|v| Some(v.0))
+                .map(|v| Some(v.0.to_u64()))
                 .chain(std::iter::once(None)),
         ) {
+            let current_index = current_index.to_u64();
             let next_index_minus_one = if let Some(next_index) = next_index {
-                *next_index - <I as One>::one()
+                next_index - 1
             } else {
                 // maximum bound
-                self.bound.max()
+                self.index_bound.mask()
             };
-            if next_index_minus_one != *current_index {
+            if next_index_minus_one != current_index {
                 write!(
                     f,
-                    "{:?}..={:?}: {:?}, ",
+                    "{}..={}: {:?}, ",
                     current_index, next_index_minus_one, current_element
                 )?;
             } else {
-                write!(f, "{:?}: {:?}, ", current_index, current_element)?;
+                write!(f, "{}: {:?}, ", current_index, current_element)?;
             }
         }
         write!(f, "}}")
     }
 }
 
-impl<
-        I: Clone
-            + Copy
-            + PartialEq
-            + Eq
-            + PartialOrd
-            + Ord
-            + Zero
-            + One
-            + Add<Output = I>
-            + Sub<Output = I>,
-        E: Clone + PartialEq + Eq,
-        M: LightMax<I>,
-    > Index<I> for LightArray<I, E, M>
-{
+impl<I: LightIndex, E: LightElement> Index<I> for LightArray<I, E> {
     type Output = E;
 
     fn index(&self, index: I) -> &Self::Output {
-        assert!(self.bound.allowed(index));
+        assert!(self.index_bound.allowed(index.to_u64()));
         use std::ops::Bound::{Included, Unbounded};
 
         // we can return the lower bound

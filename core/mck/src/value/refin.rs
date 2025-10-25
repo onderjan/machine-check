@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     abstr::AbstractValue,
     backward,
-    misc::{Join, Meta, MetaEq},
+    misc::{BitvectorBound, Join, Meta, MetaEq},
     refin::{self},
 };
 
@@ -54,8 +54,8 @@ impl RefinementValue {
     pub fn unmarked_for(abstr: &AbstractValue) -> RefinementValue {
         match abstr {
             AbstractValue::Array(abstr) => RefinementValue::Array(refin::RArray::new_unmarked(
-                abstr.index_width(),
-                abstr.element_width(),
+                abstr.index_bound().width(),
+                abstr.element_bound().width(),
             )),
             AbstractValue::Bitvector(abstr) => {
                 RefinementValue::Bitvector(refin::RBitvector::new_unmarked(abstr.width()))
@@ -495,7 +495,8 @@ impl MetaEq for RefinementValue {
 
 impl Meta<AbstractValue> for RefinementValue {
     fn proto_first(&self) -> AbstractValue {
-        match self {
+        todo!("proto first");
+        /*match self {
             RefinementValue::Array(array) => AbstractValue::Array(array.proto_first()),
             RefinementValue::Bitvector(bitvector) => {
                 AbstractValue::Bitvector(bitvector.proto_first())
@@ -504,11 +505,12 @@ impl Meta<AbstractValue> for RefinementValue {
             RefinementValue::Struct(fields) => {
                 AbstractValue::Struct(fields.iter().map(|field| field.proto_first()).collect())
             }
-        }
+        }*/
     }
 
     fn proto_increment(&self, proto: &mut AbstractValue) -> bool {
-        match self {
+        todo!("proto increment");
+        /*match self {
             RefinementValue::Array(array) => array.proto_increment(proto.expect_array_mut()),
             RefinementValue::Bitvector(bitvector) => {
                 bitvector.proto_increment(proto.expect_bitvector_mut())
@@ -525,6 +527,6 @@ impl Meta<AbstractValue> for RefinementValue {
                 }
                 false
             }
-        }
+        }*/
     }
 }

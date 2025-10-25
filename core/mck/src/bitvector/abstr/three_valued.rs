@@ -9,19 +9,18 @@ mod ext;
 mod shift;
 mod support;
 
-use crate::concr::{ConcreteBitvector, RConcreteBitvector};
+use crate::{
+    bitvector::{BitvectorBound, RBound},
+    concr::ConcreteBitvector,
+};
 
 #[derive(Clone, Copy, Hash, Serialize, Deserialize)]
-pub struct RThreeValuedBitvector {
-    zeros: RConcreteBitvector,
-    ones: RConcreteBitvector,
+pub struct ThreeValuedBitvector<B: BitvectorBound> {
+    zeros: ConcreteBitvector<B>,
+    ones: ConcreteBitvector<B>,
 }
 
-#[derive(Clone, Copy, Hash, Serialize, Deserialize)]
-pub struct ThreeValuedBitvector<const W: u32> {
-    zeros: ConcreteBitvector<W>,
-    ones: ConcreteBitvector<W>,
-}
+pub type RThreeValuedBitvector = ThreeValuedBitvector<RBound>;
 
 use serde::{Deserialize, Serialize};
 

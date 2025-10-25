@@ -1,15 +1,12 @@
-use crate::{
-    bitvector::abstr::three_valued::RThreeValuedBitvector, concr::ConcreteBitvector,
-    forward::TypedCmp,
-};
+use crate::{abstr::Boolean, bitvector::BitvectorBound, forward::TypedCmp};
 
 use super::ThreeValuedBitvector;
 
-impl TypedCmp for RThreeValuedBitvector {
+impl<B: BitvectorBound> TypedCmp for ThreeValuedBitvector<B> {
     type Output = crate::abstr::Boolean;
 
     fn ult(self, rhs: Self) -> Self::Output {
-        assert_eq!(self.width(), rhs.width());
+        assert_eq!(self.bound(), rhs.bound());
 
         // use unsigned versions
         let lhs_min = self.umin();
@@ -25,14 +22,11 @@ impl TypedCmp for RThreeValuedBitvector {
         // this is only possible if lhs min can be lesser than rhs max
         let result_can_be_one = lhs_min < rhs_max;
 
-        crate::abstr::Boolean::from_zeros_ones(
-            ConcreteBitvector::new(result_can_be_zero as u64),
-            ConcreteBitvector::new(result_can_be_one as u64),
-        )
+        Boolean::from_bools(result_can_be_zero, result_can_be_one)
     }
 
     fn ule(self, rhs: Self) -> Self::Output {
-        assert_eq!(self.width(), rhs.width());
+        assert_eq!(self.bound(), rhs.bound());
 
         // use unsigned versions
         let lhs_min = self.umin();
@@ -48,14 +42,11 @@ impl TypedCmp for RThreeValuedBitvector {
         // this is only possible if lhs min can be lesser or equal to rhs max
         let result_can_be_one = lhs_min <= rhs_max;
 
-        crate::abstr::Boolean::from_zeros_ones(
-            ConcreteBitvector::new(result_can_be_zero as u64),
-            ConcreteBitvector::new(result_can_be_one as u64),
-        )
+        Boolean::from_bools(result_can_be_zero, result_can_be_one)
     }
 
     fn slt(self, rhs: Self) -> Self::Output {
-        assert_eq!(self.width(), rhs.width());
+        assert_eq!(self.bound(), rhs.bound());
 
         // use signed versions
         let lhs_min = self.smin();
@@ -71,14 +62,11 @@ impl TypedCmp for RThreeValuedBitvector {
         // this is only possible if lhs min can be lesser than rhs max
         let result_can_be_one = lhs_min < rhs_max;
 
-        crate::abstr::Boolean::from_zeros_ones(
-            ConcreteBitvector::new(result_can_be_zero as u64),
-            ConcreteBitvector::new(result_can_be_one as u64),
-        )
+        Boolean::from_bools(result_can_be_zero, result_can_be_one)
     }
 
     fn sle(self, rhs: Self) -> Self::Output {
-        assert_eq!(self.width(), rhs.width());
+        assert_eq!(self.bound(), rhs.bound());
 
         // use signed versions
         let lhs_min = self.smin();
@@ -94,33 +82,6 @@ impl TypedCmp for RThreeValuedBitvector {
         // this is only possible if lhs min can be lesser or equal to rhs max
         let result_can_be_one = lhs_min <= rhs_max;
 
-        crate::abstr::Boolean::from_zeros_ones(
-            ConcreteBitvector::new(result_can_be_zero as u64),
-            ConcreteBitvector::new(result_can_be_one as u64),
-        )
-    }
-}
-
-impl<const W: u32> TypedCmp for ThreeValuedBitvector<W> {
-    type Output = crate::abstr::Boolean;
-
-    fn ult(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.ult(rhs)
-    }
-
-    fn ule(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.ule(rhs)
-    }
-
-    fn slt(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.slt(rhs)
-    }
-
-    fn sle(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.sle(rhs)
+        Boolean::from_bools(result_can_be_zero, result_can_be_one)
     }
 }

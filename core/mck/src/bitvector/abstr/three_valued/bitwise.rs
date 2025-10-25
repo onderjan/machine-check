@@ -1,8 +1,8 @@
-use crate::forward::Bitwise;
+use crate::{bitvector::BitvectorBound, forward::Bitwise};
 
 use super::ThreeValuedBitvector;
 
-impl Bitwise for super::RThreeValuedBitvector {
+impl<B: BitvectorBound> Bitwise for ThreeValuedBitvector<B> {
     fn bit_not(self) -> Self {
         // logical negation
         // swap zeros and ones
@@ -33,23 +33,5 @@ impl Bitwise for super::RThreeValuedBitvector {
         let zeros = (self.zeros.bit_and(rhs.zeros)).bit_or(self.ones.bit_and(rhs.ones));
         let ones = (self.zeros.bit_and(rhs.ones)).bit_or(self.ones.bit_and(rhs.zeros));
         Self::from_zeros_ones(zeros, ones)
-    }
-}
-
-impl<const W: u32> Bitwise for ThreeValuedBitvector<W> {
-    fn bit_not(self) -> Self {
-        self.as_runtime_bitvector().bit_not().unwrap_typed()
-    }
-    fn bit_and(self, rhs: Self) -> Self {
-        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.bit_and(rhs).unwrap_typed()
-    }
-    fn bit_or(self, rhs: Self) -> Self {
-        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.bit_or(rhs).unwrap_typed()
-    }
-    fn bit_xor(self, rhs: Self) -> Self {
-        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.bit_xor(rhs).unwrap_typed()
     }
 }

@@ -1,22 +1,25 @@
 use crate::{
+    bitvector::RBound,
     concr::{Bitvector, RConcreteBitvector, Test},
     forward::Bitwise,
+    misc::BitvectorBound,
 };
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Boolean(Bitvector<1>);
+pub struct Boolean(bool);
 
 impl Test for Boolean {
     fn into_bool(self) -> bool {
-        self.0.is_nonzero()
+        self.0
     }
 }
 
 impl Boolean {
-    pub(crate) fn new(value: u64) -> Self {
-        Boolean(Bitvector::new(value))
+    pub(crate) fn new(value: bool) -> Self {
+        Boolean(value)
     }
 }
 
+/*
 impl From<Boolean> for Bitvector<1> {
     fn from(value: Boolean) -> Self {
         value.0
@@ -39,7 +42,7 @@ impl Bitwise for Boolean {
     fn bit_xor(self, rhs: Self) -> Self {
         Self(self.0.bit_xor(rhs.0))
     }
-}
+}*/
 
 // this is used in tests
 #[allow(dead_code)]
@@ -60,12 +63,21 @@ impl<T> BoolConvert<T> for T {
 
 impl BoolConvert<RConcreteBitvector> for super::concr::Boolean {
     fn bool_from(value: RConcreteBitvector) -> Self {
-        assert_eq!(value.width(), 1);
+        assert_eq!(value.bound().width(), 1);
 
-        Self(crate::concr::ConcreteBitvector::from_runtime(value))
+        if value.is_nonzero() {
+            Self(true)
+        } else {
+            Self(false)
+        }
     }
 
     fn bool_into(value: Self) -> RConcreteBitvector {
-        value.0.to_runtime()
+        let bound = RBound::new(1);
+        if value.0 {
+            RConcreteBitvector::one(bound)
+        } else {
+            RConcreteBitvector::zero(bound)
+        }
     }
 }

@@ -4,8 +4,9 @@ use std::ops::ControlFlow;
 
 use serde::{Deserialize, Serialize};
 
-use crate::array::abstr::extract_runtime_bounds;
-use crate::misc::RMax;
+use crate::bitvector::RBound;
+use crate::concr::UnsignedBitvector;
+use crate::misc::BitvectorBound;
 use crate::refin::RBitvector;
 use crate::{
     abstr,
@@ -19,8 +20,8 @@ use super::light::LightArray;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RArray {
+    inner: LightArray<UnsignedBitvector<RBound>, MetaWrap<refin::RBitvector>>,
     element_width: u32,
-    inner: LightArray<u64, MetaWrap<refin::RBitvector>, RMax>,
 }
 
 impl RArray {
@@ -43,7 +44,7 @@ impl RArray {
     fn new_with_element(index_width: u32, element_width: u32, element: refin::RBitvector) -> Self {
         RArray {
             element_width,
-            inner: LightArray::new_filled(MetaWrap(element), RMax { width: index_width }),
+            inner: LightArray::new_filled(RBound::new(index_width), MetaWrap(element)),
         }
     }
 
@@ -62,7 +63,7 @@ impl RArray {
     }
 
     pub fn index_width(&self) -> u32 {
-        self.inner.bound().width
+        self.inner.index_bound().width()
     }
 
     pub fn element_width(&self) -> u32 {
@@ -125,11 +126,13 @@ impl ReadWrite for abstr::RArray {
         normal_input: (&Self, Self::Index),
         mark_later: Self::ElementMark,
     ) -> (Self::Mark, Self::IndexMark) {
-        let index_width = normal_input.0.index_width();
-        let element_width = normal_input.0.element_width();
+        let index_width = normal_input.0.index_bound().width();
+        let element_width = normal_input.0.element_bound().width();
 
-        assert_eq!(index_width, normal_input.1.width());
-        assert_eq!(element_width, mark_later.marked_bits().width());
+        let index = normal_input.1;
+
+        assert_eq!(index_width, index.bound().width());
+        assert_eq!(element_width, mark_later.marked_bits().bound().width());
 
         let importance = mark_later.importance();
         if importance == 0 {
@@ -141,11 +144,10 @@ impl ReadWrite for abstr::RArray {
         };
 
         // prefer marking index
-        let (min_index, max_index) = extract_runtime_bounds(normal_input.1);
-        let (min_index, max_index) = (min_index.to_u64(), max_index.to_u64());
+        let (min_index, max_index) = (index.umin(), index.umax());
         if min_index == max_index {
             // mark array element
-            let limited_mark = mark_later.limit(&normal_input.0.inner[min_index].0);
+            let limited_mark = mark_later.limit(&normal_input.0.inner()[min_index].0);
             let mut earlier_array_mark = Self::Mark::new_unmarked(index_width, element_width);
             earlier_array_mark
                 .inner
@@ -168,19 +170,25 @@ impl ReadWrite for abstr::RArray {
         normal_input: (&Self, Self::Index, Self::Element),
         mark_later: Self::Mark,
     ) -> (Self::Mark, Self::IndexMark, Self::ElementMark) {
-        let index_width = normal_input.0.index_width();
-        let element_width = normal_input.0.element_width();
+        let index_width = normal_input.0.index_bound().width();
+        let element_width = normal_input.0.element_bound().width();
+
+        let index = normal_input.1;
+        let element = normal_input.2;
+
+        assert_eq!(index_width, index.bound().width());
+        assert_eq!(element_width, element.bound().width());
 
         // mark if we could have written indices
-        let (min_index, max_index) = extract_runtime_bounds(normal_input.1);
+        let (min_index, max_index) = (index.umin(), index.umax());
         if min_index == max_index {
             // we definitely wrote to a single index
             // no index marking
             // propagate its marking
             let mut earlier_array_mark = mark_later.clone();
-            let earlier_element_mark = earlier_array_mark.inner[min_index.to_u64()].0;
+            let earlier_element_mark = earlier_array_mark.inner[min_index].0;
             earlier_array_mark.inner.write(
-                min_index.to_u64(),
+                min_index,
                 MetaWrap(Self::ElementMark::new_unmarked(element_width)),
             );
             (
@@ -191,8 +199,8 @@ impl ReadWrite for abstr::RArray {
         } else {
             // the index is the most important, mark it if we have some mark within the elements
             let max_importance = mark_later.inner.fold_indexed(
-                min_index.to_u64(),
-                Some(max_index.to_u64()),
+                min_index,
+                Some(max_index),
                 None,
                 |max_importance: Option<NonZeroU8>, value| {
                     if let Some(importance) = NonZeroU8::new(value.0.importance()) {
@@ -231,7 +239,7 @@ impl ReadWrite for abstr::RArray {
     }
 }
 
-impl Meta<abstr::RArray> for RArray {
+/*impl Meta<abstr::RArray> for RArray {
     fn proto_first(&self) -> abstr::RArray {
         abstr::RArray {
             element_width: self.element_width,
@@ -252,7 +260,7 @@ impl Meta<abstr::RArray> for RArray {
             false,
         )
     }
-}
+}*/
 
 impl MetaEq for RArray {
     fn meta_eq(&self, other: &Self) -> bool {

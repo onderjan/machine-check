@@ -1,5 +1,6 @@
 use machine_check_common::NodeId;
 use mck::abstr::{AbstractValue, RArray};
+use mck::misc::BitvectorBound;
 
 use wasm_bindgen::JsCast;
 use web_sys::{HtmlTableCellElement, HtmlTableElement, HtmlTableRowElement};
@@ -118,16 +119,16 @@ impl FieldDisplayer<'_> {
                 .map(|(index, bitvector)| (*index, *bitvector)),
         );*/
 
-        let index_width = array.index_width();
+        let index_width = array.index_bound().width();
 
         // we need to be able to look at the successive two elements, so we use peeking
         let mut iter = array.inner().light_iter().peekable();
         while let Some((start_index, element)) = iter.next() {
             let peek = iter.peek();
-            let start_index = *start_index;
+            let start_index = start_index.to_u64();
             let end_index = if let Some(peek) = peek {
                 // we have a next index, the end index of this run is just before it
-                peek.0 - 1
+                peek.0.to_u64() - 1
             } else if index_width == u64::BITS {
                 // there is no next index; since the array is the maximum amount of bits wide,
                 // we must explicitly use the maximum value since the right shift would overflow

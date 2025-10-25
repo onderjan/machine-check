@@ -12,19 +12,21 @@ mod support;
 mod signed;
 mod unsigned;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ConcreteBitvector<const W: u32>(u64);
+use serde::{Deserialize, Serialize};
+
+use crate::bitvector::{bound::BitvectorBound, CBound, RBound};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct RConcreteBitvector {
+pub struct ConcreteBitvector<B: BitvectorBound> {
+    bound: B,
     value: u64,
-    width: u32,
 }
 
-use serde::{Deserialize, Serialize};
-pub(crate) use signed::{RSignedBitvector, SignedBitvector};
+pub type RConcreteBitvector = ConcreteBitvector<RBound>;
 
-pub use unsigned::{RUnsignedBitvector, UnsignedBitvector};
+pub type PanicBitvector = ConcreteBitvector<CBound<32>>;
+
+pub use signed::SignedBitvector;
+pub use unsigned::UnsignedBitvector;
 
 pub use ConcreteBitvector as Bitvector;
-pub use RConcreteBitvector as RBitvector;

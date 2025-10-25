@@ -1,7 +1,7 @@
 use crate::{
     backward::TypedCmp,
     bitvector::{
-        abstr::RThreeValuedBitvector,
+        abstr::three_valued::RThreeValuedBitvector,
         refin::three_valued::{support::runtime_default_bi_mark, RMarkBitvector},
     },
     refin::Boolean,

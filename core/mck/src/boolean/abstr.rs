@@ -3,22 +3,24 @@ use std::fmt::{Debug, Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{BooleanBitvector, Phi, Test},
+    abstr::{Phi, RBitvector, Test},
+    bitvector::RBound,
+    concr::RConcreteBitvector,
     forward::Bitwise,
     misc::{Join, MetaEq},
     three_valued::ThreeValued,
 };
 
 #[derive(Clone, Copy, Hash, Serialize, Deserialize)]
-pub struct Boolean(pub(crate) BooleanBitvector);
+pub struct Boolean(ThreeValued);
 
 impl Test for Boolean {
     fn can_be_true(self) -> bool {
-        self.0.can_be_true()
+        matches!(self.0, ThreeValued::Unknown | ThreeValued::True)
     }
 
     fn can_be_false(self) -> bool {
-        self.0.can_be_false()
+        matches!(self.0, ThreeValued::Unknown | ThreeValued::False)
     }
 }
 
@@ -44,18 +46,33 @@ impl Boolean {
         }
     }
 
-    pub(crate) fn from_zeros_ones(
+    /*pub(crate) fn from_zeros_ones(
         zeros: crate::concr::Bitvector<1>,
         ones: crate::concr::Bitvector<1>,
     ) -> Self {
         Boolean(BooleanBitvector::from_zeros_ones(zeros, ones))
+    }*/
+
+    pub fn as_runtime_bitvector(self) -> RBitvector {
+        let bound = RBound::new(1);
+        let zeros = RConcreteBitvector::new(self.can_be_false() as u64, bound);
+        let ones = RConcreteBitvector::new(self.can_be_true() as u64, bound);
+
+        RBitvector::from_zeros_ones(zeros, ones)
     }
 
     pub(crate) fn from_bools(can_be_false: bool, can_be_true: bool) -> Self {
-        Self::from_zeros_ones(
-            crate::concr::Bitvector::new(can_be_false as u64),
-            crate::concr::Bitvector::new(can_be_true as u64),
-        )
+        let inner = match (can_be_false, can_be_true) {
+            (true, true) => ThreeValued::Unknown,
+            (true, false) => ThreeValued::False,
+            (false, true) => ThreeValued::True,
+            (false, false) => panic!("Three-valued must have some value"),
+        };
+        Self(inner)
+    }
+
+    pub fn is_unknown(&self) -> bool {
+        self.0.is_unknown()
     }
 }
 
@@ -92,34 +109,30 @@ impl Display for Boolean {
 
 impl Phi for Boolean {
     fn phi(self, other: Self) -> Self {
-        Boolean(self.0.phi(other.0))
-    }
-
-    fn uninit() -> Self {
-        Boolean(BooleanBitvector::uninit())
+        Boolean(self.0.join(&other.0))
     }
 }
 
 impl Bitwise for Boolean {
     fn bit_not(self) -> Self {
-        Self(self.0.bit_not())
+        Self(!self.0)
     }
 
     fn bit_and(self, rhs: Self) -> Self {
-        Self(self.0.bit_and(rhs.0))
+        Self(self.0 & rhs.0)
     }
 
     fn bit_or(self, rhs: Self) -> Self {
-        Self(self.0.bit_or(rhs.0))
+        Self(self.0 | rhs.0)
     }
 
     fn bit_xor(self, rhs: Self) -> Self {
-        Self(self.0.bit_xor(rhs.0))
+        Self(self.0 ^ rhs.0)
     }
 }
 
 impl MetaEq for Boolean {
     fn meta_eq(&self, other: &Self) -> bool {
-        self.0.meta_eq(&other.0)
+        self.0 == other.0
     }
 }

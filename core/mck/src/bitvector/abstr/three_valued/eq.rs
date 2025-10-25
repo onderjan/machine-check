@@ -1,44 +1,28 @@
 use crate::{
     abstr::Boolean,
-    concr::ConcreteBitvector,
+    bitvector::BitvectorBound,
     forward::{Bitwise, TypedEq},
 };
 
-use super::{RThreeValuedBitvector, ThreeValuedBitvector};
+use super::ThreeValuedBitvector;
 
-impl TypedEq for RThreeValuedBitvector {
+impl<B: BitvectorBound> TypedEq for ThreeValuedBitvector<B> {
     type Output = Boolean;
-    fn eq(self, rhs: Self) -> Self::Output {
-        // result can be true if all bits can be the same
+    fn eq(self, rhs: Self) -> Boolean {
         // result can be false if at least one bit can be different
+        // result can be true if all bits can be the same
 
-        let can_be_same_bits = (self.zeros.bit_and(rhs.zeros)).bit_or(self.ones.bit_and(rhs.ones));
         let can_be_different_bits =
             (self.zeros.bit_and(rhs.ones)).bit_or(self.ones.bit_and(rhs.zeros));
+        let can_be_same_bits = (self.zeros.bit_and(rhs.zeros)).bit_or(self.ones.bit_and(rhs.ones));
 
-        let can_be_same = can_be_same_bits.is_full_mask();
         let can_be_different = can_be_different_bits.is_nonzero();
+        let can_be_same = can_be_same_bits.is_full_mask();
 
-        Self::Output::from_zeros_ones(
-            ConcreteBitvector::new(can_be_different as u64),
-            ConcreteBitvector::new(can_be_same as u64),
-        )
+        Boolean::from_bools(can_be_different, can_be_same)
     }
 
     fn ne(self, rhs: Self) -> Self::Output {
         self.eq(rhs).bit_not()
-    }
-}
-
-impl<const W: u32> TypedEq for ThreeValuedBitvector<W> {
-    type Output = Boolean;
-    fn eq(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.eq(rhs)
-    }
-
-    fn ne(self, rhs: Self) -> Self::Output {
-        let (lhs, rhs) = (self.as_runtime_bitvector(), rhs.as_runtime_bitvector());
-        lhs.ne(rhs)
     }
 }

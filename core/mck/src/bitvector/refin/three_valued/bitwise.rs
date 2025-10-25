@@ -1,6 +1,6 @@
 use crate::{
     backward::Bitwise,
-    bitvector::{abstr::RThreeValuedBitvector, refin::three_valued::RMarkBitvector},
+    bitvector::{abstr::three_valued::RThreeValuedBitvector, refin::three_valued::RMarkBitvector},
 };
 
 impl Bitwise for RThreeValuedBitvector {

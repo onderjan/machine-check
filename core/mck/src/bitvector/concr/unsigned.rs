@@ -3,116 +3,41 @@ use std::{
     ops::{Add, Div, Mul, Rem, Shl, Shr, Sub},
 };
 
-use num::{One, Zero};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    concr::{PanicResult, RConcreteBitvector},
-    forward::{Ext, HwArith, HwShift},
+    bitvector::BitvectorBound,
+    concr::PanicResult,
+    forward::{BExt, Ext, HwArith, HwShift},
 };
 
 use super::ConcreteBitvector;
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct RUnsignedBitvector(RConcreteBitvector);
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnsignedBitvector<B: BitvectorBound>(ConcreteBitvector<B>);
 
-impl RUnsignedBitvector {
-    pub(super) const fn from_bitvector(bitvector: RConcreteBitvector) -> Self {
-        RUnsignedBitvector(bitvector)
+impl<B: BitvectorBound> UnsignedBitvector<B> {
+    pub fn new(value: u64, bound: B) -> Self {
+        UnsignedBitvector(ConcreteBitvector::new(value, bound))
     }
 
-    pub fn as_bitvector(self) -> RConcreteBitvector {
-        self.0
+    pub fn bound(&self) -> B {
+        self.0.bound
     }
 
-    pub fn to_u64(self) -> u64 {
-        self.0.to_u64()
-    }
-}
-
-impl PartialOrd for RUnsignedBitvector {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for RUnsignedBitvector {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // unsigned comparison
-        self.0.unsigned_cmp(&other.0)
-    }
-}
-
-impl Add<RUnsignedBitvector> for RUnsignedBitvector {
-    type Output = Self;
-
-    fn add(self, rhs: RUnsignedBitvector) -> Self::Output {
-        Self(self.0.add(rhs.0))
-    }
-}
-
-impl Sub<RUnsignedBitvector> for RUnsignedBitvector {
-    type Output = Self;
-
-    fn sub(self, rhs: RUnsignedBitvector) -> Self::Output {
-        Self(self.0.sub(rhs.0))
-    }
-}
-
-impl Mul<RUnsignedBitvector> for RUnsignedBitvector {
-    type Output = Self;
-
-    fn mul(self, rhs: RUnsignedBitvector) -> Self::Output {
-        Self(self.0.mul(rhs.0))
-    }
-}
-
-impl Div<RUnsignedBitvector> for RUnsignedBitvector {
-    type Output = PanicResult<Self>;
-
-    fn div(self, rhs: RUnsignedBitvector) -> PanicResult<Self> {
-        // unsigned division
-        let panic_result = self.0.udiv(rhs.0);
-        PanicResult {
-            panic: panic_result.panic,
-            result: Self(panic_result.result),
-        }
-    }
-}
-
-impl Rem<RUnsignedBitvector> for RUnsignedBitvector {
-    type Output = PanicResult<Self>;
-
-    fn rem(self, rhs: RUnsignedBitvector) -> PanicResult<Self> {
-        // unsigned remainder
-        let panic_result = self.0.urem(rhs.0);
-        PanicResult {
-            panic: panic_result.panic,
-            result: Self(panic_result.result),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UnsignedBitvector<const W: u32>(ConcreteBitvector<W>);
-
-impl<const W: u32> UnsignedBitvector<W> {
-    pub fn new(value: u64) -> Self {
-        UnsignedBitvector(ConcreteBitvector::new(value))
+    pub fn zero(bound: B) -> Self {
+        UnsignedBitvector(ConcreteBitvector::new(0, bound))
     }
 
-    pub fn zero() -> Self {
-        UnsignedBitvector(ConcreteBitvector::new(0))
+    pub fn one(bound: B) -> Self {
+        UnsignedBitvector(ConcreteBitvector::new(1, bound))
     }
 
-    pub fn one() -> Self {
-        UnsignedBitvector(ConcreteBitvector::new(1))
-    }
-
-    pub(super) const fn from_bitvector(bitvector: ConcreteBitvector<W>) -> Self {
+    pub(super) const fn from_bitvector(bitvector: ConcreteBitvector<B>) -> Self {
         UnsignedBitvector(bitvector)
     }
 
-    pub fn as_bitvector(self) -> ConcreteBitvector<W> {
+    pub fn as_bitvector(self) -> ConcreteBitvector<B> {
         self.0
     }
 
@@ -128,39 +53,39 @@ impl<const W: u32> UnsignedBitvector<W> {
         self.0.is_nonzero()
     }
 
-    pub fn ext<const X: u32>(self) -> UnsignedBitvector<X> {
-        UnsignedBitvector(self.0.uext())
+    pub fn ext<X: BitvectorBound>(self, new_bound: X) -> UnsignedBitvector<X> {
+        UnsignedBitvector(self.0.uext(new_bound))
     }
 }
 
-impl<const W: u32> Add<UnsignedBitvector<W>> for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Add<UnsignedBitvector<B>> for UnsignedBitvector<B> {
     type Output = Self;
 
-    fn add(self, rhs: UnsignedBitvector<W>) -> Self::Output {
+    fn add(self, rhs: UnsignedBitvector<B>) -> Self::Output {
         Self(self.0.add(rhs.0))
     }
 }
 
-impl<const W: u32> Sub<UnsignedBitvector<W>> for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Sub<UnsignedBitvector<B>> for UnsignedBitvector<B> {
     type Output = Self;
 
-    fn sub(self, rhs: UnsignedBitvector<W>) -> Self::Output {
+    fn sub(self, rhs: UnsignedBitvector<B>) -> Self::Output {
         Self(self.0.sub(rhs.0))
     }
 }
 
-impl<const W: u32> Mul<UnsignedBitvector<W>> for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Mul<UnsignedBitvector<B>> for UnsignedBitvector<B> {
     type Output = Self;
 
-    fn mul(self, rhs: UnsignedBitvector<W>) -> Self::Output {
+    fn mul(self, rhs: UnsignedBitvector<B>) -> Self::Output {
         Self(self.0.mul(rhs.0))
     }
 }
 
-impl<const W: u32> Div<UnsignedBitvector<W>> for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Div<UnsignedBitvector<B>> for UnsignedBitvector<B> {
     type Output = PanicResult<Self>;
 
-    fn div(self, rhs: UnsignedBitvector<W>) -> PanicResult<Self> {
+    fn div(self, rhs: UnsignedBitvector<B>) -> PanicResult<Self> {
         // unsigned division
         let panic_result = self.0.udiv(rhs.0);
         PanicResult {
@@ -170,10 +95,10 @@ impl<const W: u32> Div<UnsignedBitvector<W>> for UnsignedBitvector<W> {
     }
 }
 
-impl<const W: u32> Rem<UnsignedBitvector<W>> for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Rem<UnsignedBitvector<B>> for UnsignedBitvector<B> {
     type Output = PanicResult<Self>;
 
-    fn rem(self, rhs: UnsignedBitvector<W>) -> PanicResult<Self> {
+    fn rem(self, rhs: UnsignedBitvector<B>) -> PanicResult<Self> {
         // unsigned remainder
         let panic_result = self.0.urem(rhs.0);
         PanicResult {
@@ -183,60 +108,44 @@ impl<const W: u32> Rem<UnsignedBitvector<W>> for UnsignedBitvector<W> {
     }
 }
 
-impl<const W: u32> Shl<UnsignedBitvector<W>> for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Shl<UnsignedBitvector<B>> for UnsignedBitvector<B> {
     type Output = Self;
 
-    fn shl(self, rhs: UnsignedBitvector<W>) -> Self::Output {
+    fn shl(self, rhs: UnsignedBitvector<B>) -> Self::Output {
         // both signed and unsigned use logic shift left
         Self(self.0.logic_shl(rhs.0))
     }
 }
 
-impl<const W: u32> Shr<UnsignedBitvector<W>> for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Shr<UnsignedBitvector<B>> for UnsignedBitvector<B> {
     type Output = Self;
 
-    fn shr(self, rhs: UnsignedBitvector<W>) -> Self::Output {
+    fn shr(self, rhs: UnsignedBitvector<B>) -> Self::Output {
         // signed uses arithmetic shift right
         Self(self.0.logic_shr(rhs.0))
     }
 }
 
-impl<const W: u32> PartialOrd for UnsignedBitvector<W> {
+impl<B: BitvectorBound> PartialOrd for UnsignedBitvector<B> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<const W: u32> Ord for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Ord for UnsignedBitvector<B> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // unsigned comparison
         self.0.unsigned_cmp(&other.0)
     }
 }
 
-impl<const W: u32> Zero for UnsignedBitvector<W> {
-    fn zero() -> Self {
-        UnsignedBitvector(ConcreteBitvector::zero())
-    }
-
-    fn is_zero(&self) -> bool {
-        self.0.is_zero()
-    }
-}
-
-impl<const W: u32> One for UnsignedBitvector<W> {
-    fn one() -> Self {
-        UnsignedBitvector(ConcreteBitvector::one())
-    }
-}
-
-impl<const W: u32> Debug for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Debug for UnsignedBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.to_u64())
     }
 }
 
-impl<const W: u32> Display for UnsignedBitvector<W> {
+impl<B: BitvectorBound> Display for UnsignedBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_u64())
     }
