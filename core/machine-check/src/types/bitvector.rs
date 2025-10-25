@@ -19,7 +19,7 @@ use crate::{Signed, Unsigned};
 /// For others, conversion into [`Unsigned`] or [`Signed`] is necessary.
 /// Bit-extension is not possible directly, as signed and unsigned bitvectors are extended differently.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Bitvector<const W: u32>(pub(super) concr::Bitvector<CBound<W>>);
+pub struct Bitvector<const W: u32>(pub(super) concr::Bitvector<W>);
 
 impl<const W: u32> Bitvector<W> {
     /// Creates a new bitvector with the given value.
@@ -138,7 +138,7 @@ impl<const W: u32> Debug for Bitvector<W> {
 
 #[doc(hidden)]
 impl<const W: u32> IntoMck for Bitvector<W> {
-    type Type = mck::concr::Bitvector<CBound<W>>;
+    type Type = mck::concr::Bitvector<W>;
 
     fn into_mck(self) -> Self::Type {
         self.0

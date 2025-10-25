@@ -3,13 +3,13 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Bracket, Paren},
-    Attribute, FnArg, Generics, ImplItemFn, ImplItemType, ItemFn, Local, MetaNameValue, Pat,
+    Attribute, FnArg, Generics, Ident, ImplItemFn, ImplItemType, ItemFn, Local, MetaNameValue, Pat,
     PatIdent, PatType, Receiver, Signature, Stmt, Token, Type, TypePath, TypeReference,
 };
 use syn_path::path;
 
 use crate::{
-    util::{create_expr_path, create_path_from_ident},
+    util::{create_expr_path, create_let, create_path_from_ident},
     wir::{WItemFn, WVisibility},
 };
 

@@ -204,7 +204,6 @@ fn process_fn(
         errors: Vec::new(),
         temps: BTreeMap::new(),
         branch_counter: 0,
-        uninit_counter: 0,
     };
     let item_fn = local_visitor.process(item_fn)?;
     Ok((item_fn, local_visitor.nonlocal_idents))
@@ -218,7 +217,6 @@ struct LocalVisitor<'a> {
     pub nonlocal_idents: BTreeSet<WIdent>,
     pub temps: BTreeMap<WIdent, (WIdent, WPartialGeneralType)>,
     pub errors: Vec<Error>,
-    pub uninit_counter: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -331,31 +329,17 @@ impl LocalVisitor<'_> {
                 continue;
             }
 
-            if last_then.is_none() || last_else.is_none() {
+            let (Some(last_then), Some(last_else)) = (last_then, last_else) else {
                 // the ident was only assigned to in one branch and thus using it after the branch is an error
                 continue;
-            }
+            };
 
             // we cannot use the last_then and last_else temporaries, as they were only assigned to in one branch
             // create phi temps that will be taken in one branch and not taken in the other
             assert!(last_then != last_else);
 
-            let last_then_ident = create_existing_temporary(
-                &mut then_block,
-                &mut self.temps,
-                ident,
-                last_then,
-                ty.clone(),
-                &mut self.uninit_counter,
-            );
-            let last_else_ident = create_existing_temporary(
-                &mut else_block,
-                &mut self.temps,
-                ident,
-                last_else,
-                ty.clone(),
-                &mut self.uninit_counter,
-            );
+            let last_then_ident = construct_temp_ident(ident, last_then);
+            let last_else_ident = construct_temp_ident(ident, last_else);
 
             let phi_then_ident =
                 ident.mck_prefixed(&format!("phi_then_{}", current_branch_counter));
@@ -520,7 +504,6 @@ impl LocalVisitor<'_> {
                 self.process_ident(&mut taken.condition);
             }
             WExprHighCall::PhiNotTaken => {}
-            WExprHighCall::PhiUninit => {}
         }
     }
 
@@ -587,29 +570,6 @@ fn create_new_temporary(
         .checked_add(1)
         .expect("Mutable counter should not overflow");
     temp_ident
-}
-
-fn create_existing_temporary(
-    block: &mut WBlock<ZSsa>,
-    temps: &mut BTreeMap<WIdent, (WIdent, WPartialGeneralType)>,
-    orig_ident: &WIdent,
-    current: Option<u32>,
-    ty: WPartialGeneralType,
-    uninit_counter: &mut u32,
-) -> WIdent {
-    if let Some(current) = current {
-        construct_temp_ident(orig_ident, current)
-    } else {
-        let ident = orig_ident.mck_prefixed(&format!("uninit_{}", *uninit_counter));
-        *uninit_counter += 1;
-        let assign_stmt = WStmtAssign {
-            left: ident.clone(),
-            right: WExpr::Call(WExprHighCall::PhiUninit),
-        };
-        block.stmts.push(WStmt::Assign(assign_stmt));
-        temps.insert(ident.clone(), (orig_ident.clone(), ty));
-        ident
-    }
 }
 
 fn construct_temp_ident(orig_ident: &WIdent, counter: u32) -> WIdent {

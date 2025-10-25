@@ -16,6 +16,8 @@ pub mod concr {
     pub use super::boolean::concr::*;
     pub use super::panic::concr::*;
     pub use super::traits::concr::*;
+
+    pub type Bitvector<const W: u32> = super::bitvector::concr::CConcreteBitvector<W>;
 }
 
 #[doc(hidden)]
@@ -38,11 +40,13 @@ pub mod refin {
 
 #[doc(hidden)]
 pub mod forward {
+
     pub use super::traits::forward::*;
 
-    pub use super::array::abstr::*;
-    pub use super::bitvector::abstr::*;
-    pub use super::boolean::abstr::*;
+    pub type Bitvector<const W: u32> = super::abstr::CBitvector<W>;
+    pub type Array<const I: u32, const E: u32> = super::abstr::CArray<I, E>;
+    pub type Boolean = super::abstr::Boolean;
+
     pub use super::panic::abstr::*;
     pub use super::traits::abstr::*;
 }

@@ -13,12 +13,11 @@ use crate::{
 
 pub fn phi_impl(item_struct: &WItemStruct<WElementaryType>) -> ItemImpl {
     let phi_fn = phi_fn(item_struct);
-    let uninit_fn = uninit_fn(item_struct);
 
     create_item_impl(
         Some(path!(::mck::forward::Phi)),
         create_path_from_ident(item_struct.ident.to_syn_ident()),
-        vec![ImplItem::Fn(phi_fn), ImplItem::Fn(uninit_fn)],
+        vec![ImplItem::Fn(phi_fn)],
     )
 }
 
@@ -102,47 +101,6 @@ fn phi_fn(s: &WItemStruct<WElementaryType>) -> ImplItemFn {
     create_impl_item_fn(
         create_ident("phi"),
         vec![self_arg, other_arg],
-        Some(create_type_path(path!(Self))),
-        local_stmts,
-    )
-}
-
-fn uninit_fn(s: &WItemStruct<WElementaryType>) -> ImplItemFn {
-    // each field is uninitialized (using the Phi uninit function)
-    let mut local_stmts = Vec::new();
-    let mut assign_stmts = Vec::new();
-    let mut struct_field_values = Vec::new();
-
-    for (index, field) in s.fields.iter().enumerate() {
-        let uninit_expr =
-            create_expr_call(create_expr_path(path!(::mck::forward::Phi::uninit)), vec![]);
-        let temp_ident = create_ident(&format!("__mck_phi_{}", index));
-        local_stmts.push(create_let_bare(
-            temp_ident.clone(),
-            Some(field.ty.clone().into_syn()),
-        ));
-        assign_stmts.push(create_assign(temp_ident.clone(), uninit_expr, true));
-        struct_field_values.push(create_field_value_ident(
-            field.ident.to_syn_ident(),
-            create_expr_ident(temp_ident),
-        ));
-    }
-
-    let struct_expr = Expr::Struct(ExprStruct {
-        attrs: vec![],
-        qself: None,
-        path: path!(Self),
-        brace_token: Default::default(),
-        fields: Punctuated::from_iter(struct_field_values),
-        dot2_token: None,
-        rest: None,
-    });
-    local_stmts.extend(assign_stmts);
-    local_stmts.push(Stmt::Expr(struct_expr, None));
-
-    create_impl_item_fn(
-        create_ident("uninit"),
-        vec![],
         Some(create_type_path(path!(Self))),
         local_stmts,
     )

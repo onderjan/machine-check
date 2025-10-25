@@ -60,7 +60,7 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
         Ok(Self { zeros, ones })
     }
 
-    pub fn from_concrete_value(value: concr::Bitvector<B>) -> Self {
+    pub fn from_concrete_value(value: ConcreteBitvector<B>) -> Self {
         // bit-negate for zeros
         let zeros = Bitwise::bit_not(value);
         // leave as-is for ones

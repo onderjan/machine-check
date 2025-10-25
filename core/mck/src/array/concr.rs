@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     bitvector::{BitvectorBound, CBound},
-    concr::{self, UnsignedBitvector},
+    concr::{self, CConcreteBitvector, UnsignedBitvector},
     forward::ReadWrite,
     misc::LightIndex,
 };
@@ -11,26 +11,26 @@ use super::light::LightArray;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Array<const I: u32, const E: u32> {
-    pub(super) inner: LightArray<UnsignedBitvector<CBound<I>>, concr::Bitvector<CBound<E>>>,
+    pub(super) inner: LightArray<UnsignedBitvector<CBound<I>>, CConcreteBitvector<E>>,
 }
 
 impl<const I: u32, const E: u32> Array<I, E> {
-    pub fn new_filled(element: concr::Bitvector<CBound<E>>) -> Self {
+    pub fn new_filled(element: CConcreteBitvector<E>) -> Self {
         Self {
             inner: LightArray::new_filled(CBound, element),
         }
     }
 
     pub fn from_inner(
-        inner: LightArray<UnsignedBitvector<CBound<I>>, concr::Bitvector<CBound<E>>>,
+        inner: LightArray<UnsignedBitvector<CBound<I>>, CConcreteBitvector<E>>,
     ) -> Self {
         Self { inner }
     }
 }
 
 impl<const I: u32, const W: u32> ReadWrite for &Array<I, W> {
-    type Index = concr::Bitvector<CBound<I>>;
-    type Element = concr::Bitvector<CBound<W>>;
+    type Index = CConcreteBitvector<I>;
+    type Element = CConcreteBitvector<W>;
     type Deref = Array<I, W>;
 
     fn read(self, index: Self::Index) -> Self::Element {

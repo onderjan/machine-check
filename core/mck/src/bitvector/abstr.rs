@@ -25,6 +25,7 @@ pub type Bitvector<W: BitvectorBound> = three_valued::ThreeValuedBitvector<W>;
 pub type Bitvector<const W: u32> = combined::CombinedBitvector<W>;
 
 pub type RBitvector = Bitvector<RBound>;
+pub type CBitvector<const W: u32> = Bitvector<CBound<W>>;
 
 pub type PanicBitvector = Bitvector<CBound<32>>;
 

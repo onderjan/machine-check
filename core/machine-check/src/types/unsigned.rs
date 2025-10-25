@@ -19,7 +19,7 @@ use crate::{traits::Ext, Bitvector, Signed};
 /// Logical bit extension is also possible (any new bits are zero).
 /// Signed bitvectors be converted into [`Unsigned`] or [`Bitvector`].
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Unsigned<const W: u32>(pub(super) concr::Bitvector<CBound<W>>);
+pub struct Unsigned<const W: u32>(pub(super) concr::Bitvector<W>);
 
 impl<const W: u32> Unsigned<W> {
     ///
@@ -222,7 +222,7 @@ impl<const W: u32> Debug for Unsigned<W> {
 
 #[doc(hidden)]
 impl<const W: u32> IntoMck for Unsigned<W> {
-    type Type = mck::concr::Bitvector<CBound<W>>;
+    type Type = mck::concr::Bitvector<W>;
 
     fn into_mck(self) -> Self::Type {
         self.0

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     abstr::{self, Abstr, AbstractValue, BitvectorDomain, Phi},
     bitvector::{BitvectorBound, CBound, RBound},
-    concr::{self, UnsignedBitvector},
+    concr::{self, ConcreteBitvector, UnsignedBitvector},
     forward::ReadWrite,
     misc::{Join, MetaWrap},
     traits::misc::MetaEq,
@@ -20,44 +20,7 @@ pub struct Array<I: BitvectorBound, E: BitvectorBound> {
 }
 
 pub type RArray = Array<RBound, RBound>;
-
-/*impl<const I: u32, const E: u32> Abstr<concr::Array<I, E>> for Array<CBound<I>, CBound<E>> {
-    fn from_concrete(value: concr::Array<I, E>) -> Self {
-        Self {
-            inner: value
-                .inner
-                .map(|v| MetaWrap(abstr::Bitvector::from_concrete(*v))),
-        }
-    }
-
-    fn from_runtime(value: &AbstractValue) -> Self {
-        let value = value.expect_array();
-
-        assert_eq!(value.index_width(), I);
-        assert_eq!(value.element_width(), E);
-
-        Self {
-            inner: value.inner.create_converted(
-                UnsignedBitvector::new,
-                |element| MetaWrap(abstr::Bitvector::from_runtime_bitvector(element.0)),
-                CMax,
-            ),
-        }
-    }
-
-    fn to_runtime(&self) -> AbstractValue {
-        let runtime_array = self.inner.create_converted(
-            |index| index.to_u64(),
-            |element| MetaWrap(element.0.as_runtime_bitvector()),
-            RMax { width: I },
-        );
-
-        AbstractValue::Array(RArray {
-            element_width: E,
-            inner: runtime_array,
-        })
-    }
-}*/
+pub type CArray<const I: u32, const E: u32> = Array<CBound<I>, CBound<E>>;
 
 impl<I: BitvectorBound, E: BitvectorBound> Join for Array<I, E> {
     fn join(mut self, other: &Self) -> Self {
@@ -139,11 +102,47 @@ impl<I: BitvectorBound, E: BitvectorBound> MetaEq for Array<I, E> {
     }
 }
 
-/*impl<I: BitvectorBound, E: BitvectorBound> Default for Array<I, E> {
-    fn default() -> Self {
-        Self::new_filled(abstr::Bitvector::<E>::default())
+impl<const I: u32, const E: u32> Abstr<concr::Array<I, E>> for CArray<I, E> {
+    fn from_concrete(value: concr::Array<I, E>) -> Self {
+        Self {
+            element_bound: CBound,
+            inner: value
+                .inner
+                .map(|v| MetaWrap(abstr::Bitvector::from_concrete(*v))),
+        }
     }
-}*/
+
+    fn from_runtime(value: &AbstractValue) -> Self {
+        let value = value.expect_array();
+
+        assert_eq!(value.index_bound().width(), I);
+        assert_eq!(value.element_bound().width(), E);
+
+        Self {
+            element_bound: CBound,
+            inner: value.inner.create_converted(
+                CBound,
+                |index| {
+                    ConcreteBitvector::from_runtime_bitvector(index.as_bitvector()).as_unsigned()
+                },
+                |element| MetaWrap(abstr::Bitvector::from_runtime_bitvector(element.0)),
+            ),
+        }
+    }
+
+    fn to_runtime(&self) -> AbstractValue {
+        let runtime_array = self.inner.create_converted(
+            RBound::new(I),
+            |index| index.as_bitvector().as_runtime_bitvector().as_unsigned(),
+            |element| MetaWrap(element.0.as_runtime_bitvector()),
+        );
+
+        AbstractValue::Array(RArray {
+            element_bound: RBound::new(E),
+            inner: runtime_array,
+        })
+    }
+}
 
 impl<I: BitvectorBound, E: BitvectorBound> Phi for Array<I, E> {
     fn phi(mut self, other: Self) -> Self {

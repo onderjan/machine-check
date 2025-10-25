@@ -143,7 +143,6 @@ impl WExpr<WExprCall> {
                     // do not translate to IIR as it is not needed there
                     return None;
                 }
-                WExprCall::PhiUninit => panic!("Phi uninit should not be here"),
             }),
             WExpr::Field(expr_field) => IExpr::Field(expr_field.into_iir(fn_data)),
             WExpr::Struct(expr_struct) => IExpr::Struct(expr_struct.into_iir(fn_data)),

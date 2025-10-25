@@ -5,7 +5,10 @@ use syn::{
     punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, LitBool, LitInt,
 };
 
-use crate::{util::create_expr_ident, wir::WSpan};
+use crate::{
+    util::{create_expr_ident, create_expr_path, path_matches_global_names},
+    wir::WSpan,
+};
 
 use super::{IntoSyn, WIdent, WMckBinary, WMckUnary, WPath, WPathSegment, WStdBinary, WStdUnary};
 
@@ -24,7 +27,6 @@ pub enum WExprHighCall {
     Phi(WPhi),
     PhiTaken(WPhiTaken),
     PhiNotTaken,
-    PhiUninit,
 }
 
 #[derive(Clone, Hash)]
@@ -41,7 +43,6 @@ pub enum WExprCall {
     Phi(WPhi),
     PhiTaken(WPhiTaken),
     PhiNotTaken,
-    PhiUninit,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -132,7 +133,6 @@ pub const ARRAY_WRITE: &str = "::mck::forward::ReadWrite::write";
 pub const PHI: &str = "::mck::forward::PhiArg::phi";
 pub const PHI_TAKEN: &str = "::mck::forward::PhiArg::Taken";
 pub const PHI_NOT_TAKEN: &str = "::mck::forward::PhiArg::NotTaken";
-pub const PHI_UNINIT: &str = "::mck::forward::Phi::uninit";
 
 #[derive(Clone, Debug, Hash)]
 pub struct WCall {
@@ -221,7 +221,6 @@ impl WExprCall {
                 ],
             ),
             WExprCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
-            WExprCall::PhiUninit => (String::from(PHI_UNINIT), vec![]),
         };
         (construct_call_fn_path(fn_operand), args)
     }
@@ -298,7 +297,6 @@ impl IntoSyn<Expr> for WExprHighCall {
                 ],
             ),
             WExprHighCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
-            WExprHighCall::PhiUninit => (String::from(PHI_UNINIT), vec![]),
         };
         let fn_path = construct_call_fn_path(fn_operand);
         WCall { fn_path, args }.into_syn()
@@ -309,13 +307,18 @@ impl IntoSyn<Expr> for WCall {
     fn into_syn(self) -> Expr {
         let path = self.fn_path.into();
 
-        let args = Punctuated::from_iter(self.args.into_iter().map(|arg| match arg {
+        let mut args = Punctuated::from_iter(self.args.into_iter().map(|arg| match arg {
             WCallArg::Ident(ident) => create_expr_ident(ident.into()),
             WCallArg::Literal(lit) => Expr::Lit(ExprLit {
                 attrs: Vec::new(),
                 lit,
             }),
         }));
+
+        // kludge CBound
+        if path_matches_global_names(&path, &["mck", "forward", "Bitvector", "new"]) {
+            args.push(create_expr_path(syn_path::path!(::mck::misc::CBound)));
+        }
 
         Expr::Call(ExprCall {
             attrs: Vec::new(),

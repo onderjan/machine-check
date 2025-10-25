@@ -33,7 +33,6 @@ pub fn convert_call_fn_path(
         WExprHighCall::Phi(phi) => WExprCall::Phi(phi),
         WExprHighCall::PhiTaken(taken) => WExprCall::PhiTaken(taken),
         WExprHighCall::PhiNotTaken => WExprCall::PhiNotTaken,
-        WExprHighCall::PhiUninit => WExprCall::PhiUninit,
     }))
 }
 

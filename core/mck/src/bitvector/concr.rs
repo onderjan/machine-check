@@ -23,6 +23,7 @@ pub struct ConcreteBitvector<B: BitvectorBound> {
 }
 
 pub type RConcreteBitvector = ConcreteBitvector<RBound>;
+pub type CConcreteBitvector<const W: u32> = ConcreteBitvector<CBound<W>>;
 
 pub type PanicBitvector = ConcreteBitvector<CBound<32>>;
 
