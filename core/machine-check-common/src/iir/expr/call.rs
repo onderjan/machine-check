@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use mck::three_valued::ThreeValued;
 
 use mck::{
-    abstr::AbstractValue,
+    abstr::{AbstractValue, BitvectorDomain},
     forward::ReadWrite,
     misc::{Join, RBound},
     refin::{RefinementDomain, RefinementValue},
@@ -33,7 +33,10 @@ impl IMckNew {
                 let Ok(constant) = u64::try_from(*constant) else {
                     panic!("Constant outside u64");
                 };
-                AbstractValue::Bitvector(mck::abstr::RBitvector::new(constant, RBound::new(*width)))
+                AbstractValue::Bitvector(mck::abstr::RBitvector::single_value(
+                    constant,
+                    RBound::new(*width),
+                ))
             }
         }
     }

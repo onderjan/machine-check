@@ -3,9 +3,9 @@ use std::fmt::{Debug, Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{RBitvector, Test},
+    abstr::{BitvectorDomain, RBitvector, Test},
     bitvector::RBound,
-    concr::{self, RConcreteBitvector},
+    concr::{self},
     forward::Bitwise,
     misc::{Join, MetaEq},
     three_valued::ThreeValued,
@@ -52,10 +52,12 @@ impl Boolean {
 
     pub fn as_runtime_bitvector(self) -> RBitvector {
         let bound = RBound::new(1);
-        let zeros = RConcreteBitvector::new(self.can_be_false() as u64, bound);
-        let ones = RConcreteBitvector::new(self.can_be_true() as u64, bound);
 
-        RBitvector::from_zeros_ones(zeros, ones)
+        match self.0 {
+            ThreeValued::False => RBitvector::single_value(0, bound),
+            ThreeValued::True => RBitvector::single_value(1, bound),
+            ThreeValued::Unknown => RBitvector::top(bound),
+        }
     }
 
     pub(crate) fn from_bools(can_be_false: bool, can_be_true: bool) -> Self {

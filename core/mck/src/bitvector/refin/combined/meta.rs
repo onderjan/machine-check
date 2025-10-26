@@ -1,18 +1,22 @@
 use crate::{
-    abstr::combined::RCombinedBitvector, bitvector::refin::combined::RCombinedMark,
+    abstr::{combined::RCombinedBitvector, three_valued::RThreeValuedBitvector, BitvectorDomain},
+    bitvector::refin::combined::RCombinedMark,
+    misc::RBound,
     traits::misc::Meta,
 };
 
-impl Meta<RCombinedBitvector> for RCombinedMark {
-    fn proto_first(&self) -> RCombinedBitvector {
-        RCombinedBitvector::from_three_valued(self.0.proto_first())
+impl<R: BitvectorDomain<Bound = RBound>> Meta<RCombinedBitvector<RThreeValuedBitvector, R>>
+    for RCombinedMark<R>
+{
+    fn proto_first(&self) -> RCombinedBitvector<RThreeValuedBitvector, R> {
+        RCombinedBitvector::from_left(self.0.proto_first())
     }
 
-    fn proto_increment(&self, proto: &mut RCombinedBitvector) -> bool {
-        let mut three_valued = *proto.three_valued();
+    fn proto_increment(&self, proto: &mut RCombinedBitvector<RThreeValuedBitvector, R>) -> bool {
+        let mut three_valued = *proto.left();
 
         let result = self.0.proto_increment(&mut three_valued);
-        *proto = RCombinedBitvector::from_three_valued(three_valued);
+        *proto = RCombinedBitvector::from_left(three_valued);
         result
     }
 }

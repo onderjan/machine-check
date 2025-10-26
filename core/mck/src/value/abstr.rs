@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{Boolean, RArray, RBitvector},
+    abstr::{Boolean, CBitvectorDomain, RArray, RBitvector},
     bitvector::RBound,
     forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     misc::{Join, MetaEq},

@@ -259,7 +259,7 @@ pub(super) fn join_concr_iter<const W: u32>(
     mut iter: impl Iterator<Item = CConcreteBitvector<W>>,
 ) -> CDualInterval<W> {
     if W == 0 {
-        return CDualInterval::new_full(CBound);
+        return CDualInterval::top(CBound);
     }
 
     let first_concrete = iter

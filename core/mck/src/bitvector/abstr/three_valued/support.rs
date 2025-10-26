@@ -8,7 +8,7 @@ use crate::{
     bitvector::{compute_u64_mask, BitvectorBound},
     concr::{CConcreteBitvector, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     forward::Bitwise,
-    misc::Join,
+    misc::{Join, RBound},
     traits::misc::MetaEq,
 };
 
@@ -119,13 +119,6 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
         Bitwise::bit_and(self.zeros, self.ones)
     }
 
-    pub fn as_runtime_bitvector(&self) -> RThreeValuedBitvector {
-        RThreeValuedBitvector {
-            zeros: self.zeros.as_runtime_bitvector(),
-            ones: self.ones.as_runtime_bitvector(),
-        }
-    }
-
     #[must_use]
     pub fn contains(&self, rhs: &Self) -> bool {
         // rhs zeros must be within our zeros and rhs ones must be within our ones
@@ -165,6 +158,15 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
 
 impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
     type Bound = B;
+    type General<X: BitvectorBound> = ThreeValuedBitvector<X>;
+
+    fn single_value(value: u64, bound: Self::Bound) -> Self {
+        Self::new(value, bound)
+    }
+
+    fn top(bound: B) -> Self {
+        Self::new_unknown(bound)
+    }
 
     fn meet(self, rhs: &Self) -> Option<Self> {
         let zeros = self.zeros.bit_and(rhs.zeros);
@@ -234,8 +236,6 @@ impl<B: BitvectorBound> MetaEq for ThreeValuedBitvector<B> {
 impl<const W: u32> CBitvectorDomain for CThreeValuedBitvector<W> {
     type Concrete = CConcreteBitvector<W>;
 
-    type Runtime = RThreeValuedBitvector;
-
     fn from_concrete_bitvector(value: Self::Concrete) -> Self {
         // bit-negate for zeros
         let zeros = Bitwise::bit_not(value);
@@ -245,7 +245,7 @@ impl<const W: u32> CBitvectorDomain for CThreeValuedBitvector<W> {
         Self::from_zeros_ones(zeros, ones)
     }
 
-    fn from_runtime_bitvector(value: Self::Runtime) -> Self {
+    fn from_runtime_bitvector(value: Self::General<RBound>) -> Self {
         assert_eq!(value.bound().width(), W);
 
         let zeros = ConcreteBitvector::from_runtime_bitvector(value.zeros);
@@ -254,8 +254,11 @@ impl<const W: u32> CBitvectorDomain for CThreeValuedBitvector<W> {
         Self::from_zeros_ones(zeros, ones)
     }
 
-    fn as_runtime_bitvector(&self) -> Self::Runtime {
-        self.as_runtime_bitvector()
+    fn as_runtime_bitvector(&self) -> Self::General<RBound> {
+        RThreeValuedBitvector {
+            zeros: self.zeros.as_runtime_bitvector(),
+            ones: self.ones.as_runtime_bitvector(),
+        }
     }
 }
 

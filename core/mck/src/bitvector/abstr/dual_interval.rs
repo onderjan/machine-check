@@ -60,11 +60,8 @@ pub type RDualInterval = DualInterval<RBound>;
 use serde::{Deserialize, Serialize};
 
 impl<B: BitvectorBound> DualInterval<B> {
-    pub(crate) fn new_full(bound: B) -> Self {
-        Self {
-            near_half: SignlessInterval::new_full_near_halfplane(bound),
-            far_half: SignlessInterval::new_full_far_halfplane(bound),
-        }
+    pub fn new(value: u64, bound: B) -> Self {
+        Self::from_value(ConcreteBitvector::new(value, bound))
     }
 
     pub(crate) fn from_wrapping_intervals(intervals: &[WrappingInterval<B>]) -> Self {
@@ -132,6 +129,18 @@ impl<B: BitvectorBound> Join for DualInterval<B> {
 
 impl<B: BitvectorBound> BitvectorDomain for DualInterval<B> {
     type Bound = B;
+    type General<X: BitvectorBound> = DualInterval<X>;
+
+    fn single_value(value: u64, bound: Self::Bound) -> Self {
+        Self::from_value(ConcreteBitvector::new(value, bound))
+    }
+
+    fn top(bound: Self::Bound) -> Self {
+        Self {
+            near_half: SignlessInterval::new_full_near_halfplane(bound),
+            far_half: SignlessInterval::new_full_far_halfplane(bound),
+        }
+    }
 
     fn bound(&self) -> Self::Bound {
         // both bounds must be the same
@@ -182,7 +191,6 @@ impl<B: BitvectorBound> BitvectorDomain for DualInterval<B> {
 
 impl<const W: u32> CBitvectorDomain for CDualInterval<W> {
     type Concrete = CConcreteBitvector<W>;
-    type Runtime = RDualInterval;
 
     fn from_concrete_bitvector(value: Self::Concrete) -> Self {
         // just convert it to a signless interval and put to both halves
@@ -194,15 +202,15 @@ impl<const W: u32> CBitvectorDomain for CDualInterval<W> {
         }
     }
 
-    fn from_runtime_bitvector(value: Self::Runtime) -> Self {
+    fn from_runtime_bitvector(value: Self::General<RBound>) -> Self {
         Self {
             near_half: SignlessInterval::from_runtime(value.near_half),
             far_half: SignlessInterval::from_runtime(value.far_half),
         }
     }
 
-    fn as_runtime_bitvector(&self) -> Self::Runtime {
-        Self::Runtime {
+    fn as_runtime_bitvector(&self) -> Self::General<RBound> {
+        Self::General {
             near_half: self.near_half.to_runtime(),
             far_half: self.far_half.to_runtime(),
         }

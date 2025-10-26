@@ -6,42 +6,36 @@ use std::hash::Hash;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{
-        three_valued::CThreeValuedBitvector, BitvectorDomain, Boolean, CBitvectorDomain,
-        PanicResult, Test,
-    },
-    bitvector::{abstr::dual_interval::CDualInterval, interval::WrappingInterval},
+    abstr::{BitvectorDomain, Boolean, CBitvectorDomain, PanicResult, Test},
     concr::{CConcreteBitvector, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     misc::{BitvectorBound, CBound, Join, RBound},
 };
 
-use super::dual_interval::DualInterval;
-use super::three_valued::ThreeValuedBitvector;
-
 #[derive(Clone, Copy, Hash, Serialize, Deserialize)]
-pub struct CombinedBitvector<B: BitvectorBound> {
-    three_valued: ThreeValuedBitvector<B>,
-    dual_interval: DualInterval<B>,
+pub struct CombinedBitvector<
+    B: BitvectorBound,
+    L: BitvectorDomain<Bound = B>,
+    R: BitvectorDomain<Bound = B>,
+> {
+    left: L,
+    right: R,
 }
 
-pub type CCombinedBitvector<const W: u32> = CombinedBitvector<CBound<W>>;
-pub type RCombinedBitvector = CombinedBitvector<RBound>;
+pub type CCombinedBitvector<const W: u32, L, R> = CombinedBitvector<CBound<W>, L, R>;
+pub type RCombinedBitvector<L, R> = CombinedBitvector<RBound, L, R>;
 
 #[allow(dead_code)]
-impl<B: BitvectorBound> CombinedBitvector<B> {
+impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound = B>>
+    CombinedBitvector<B, L, R>
+{
     pub fn new(value: u64, bound: B) -> Self {
-        let three_valued = ThreeValuedBitvector::new(value, bound);
-        let dual_interval = DualInterval::from_value(ConcreteBitvector::new(value, bound));
-        Self {
-            three_valued,
-            dual_interval,
-        }
+        Self::single_value(value, bound)
     }
 
-    pub(crate) fn combine(
-        three_valued: ThreeValuedBitvector<B>,
-        dual_interval: DualInterval<B>,
-    ) -> Self {
+    pub(crate) fn combine(left: L, right: R) -> Self {
+        todo!("Combine")
+        // TODO combine
+        /*
         // restrict the dual interval
         let near_min = three_valued.umin().max(dual_interval.umin());
         let near_max = three_valued.smax().min(dual_interval.smax());
@@ -63,6 +57,7 @@ impl<B: BitvectorBound> CombinedBitvector<B> {
             three_valued,
             dual_interval,
         }
+        */
     }
 
     fn combine_boolean(three_valued: Boolean, dual_interval: Boolean) -> Boolean {
@@ -74,9 +69,9 @@ impl<B: BitvectorBound> CombinedBitvector<B> {
     }
 
     fn combine_panic_result(
-        three_valued: PanicResult<ThreeValuedBitvector<B>>,
-        dual_interval: PanicResult<DualInterval<B>>,
-    ) -> PanicResult<CombinedBitvector<B>> {
+        three_valued: PanicResult<L>,
+        dual_interval: PanicResult<R>,
+    ) -> PanicResult<CombinedBitvector<B, L, R>> {
         let panic = three_valued
             .panic
             .meet(&dual_interval.panic)
@@ -85,46 +80,59 @@ impl<B: BitvectorBound> CombinedBitvector<B> {
         PanicResult { panic, result }
     }
 
-    #[must_use]
-    pub fn from_zeros_ones(zeros: ConcreteBitvector<B>, ones: ConcreteBitvector<B>) -> Self {
-        Self::from_three_valued(ThreeValuedBitvector::from_zeros_ones(zeros, ones))
+    pub(crate) fn from_left(left: L) -> CombinedBitvector<B, L, R> {
+        let dual_interval = R::top(left.bound());
+        Self::combine(left, dual_interval)
     }
 
-    pub fn from_three_valued(three_valued: ThreeValuedBitvector<B>) -> CombinedBitvector<B> {
-        let dual_interval = DualInterval::new_full(three_valued.bound());
-        Self::combine(three_valued, dual_interval)
+    pub(crate) fn left(&self) -> &L {
+        &self.left
     }
 
-    pub(crate) fn three_valued(&self) -> &ThreeValuedBitvector<B> {
-        &self.three_valued
-    }
-
-    pub(crate) fn dual_interval(&self) -> &DualInterval<B> {
-        &self.dual_interval
+    pub(crate) fn right(&self) -> &R {
+        &self.right
     }
 }
 
-impl<B: BitvectorBound> Join for CombinedBitvector<B> {
+impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound = B>> Join
+    for CombinedBitvector<B, L, R>
+{
     fn join(self, other: &Self) -> Self {
-        let three_valued = self.three_valued.join(&other.three_valued);
-        let dual_interval = self.dual_interval.join(&other.dual_interval);
+        let three_valued = self.left.join(&other.left);
+        let dual_interval = self.right.join(&other.right);
         Self::combine(three_valued, dual_interval)
     }
 }
 
-impl<B: BitvectorBound> BitvectorDomain for CombinedBitvector<B> {
+impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound = B>>
+    BitvectorDomain for CombinedBitvector<B, L, R>
+{
     type Bound = B;
+    type General<X: BitvectorBound> = CombinedBitvector<X, L::General<X>, R::General<X>>;
+
+    fn single_value(value: u64, bound: Self::Bound) -> Self {
+        let left = L::single_value(value, bound);
+        let right = R::single_value(value, bound);
+        Self { left, right }
+    }
+
+    fn top(bound: Self::Bound) -> Self {
+        Self {
+            left: L::top(bound),
+            right: R::top(bound),
+        }
+    }
 
     fn bound(&self) -> Self::Bound {
         // both bounds must be the same
-        self.three_valued.bound()
+        self.left.bound()
     }
 
-    fn meet(self, rhs: &Self) -> Option<Self> {
-        let three_valued = self.three_valued.meet(&rhs.three_valued);
-        let dual_interval = self.dual_interval.meet(&rhs.dual_interval);
-        if let (Some(three_valued), Some(dual_interval)) = (three_valued, dual_interval) {
-            Some(Self::combine(three_valued, dual_interval))
+    fn meet(self, other: &Self) -> Option<Self> {
+        let left = self.left.meet(&other.left);
+        let right = self.right.meet(&other.right);
+        if let (Some(left), Some(right)) = (left, right) {
+            Some(Self::combine(left, right))
         } else {
             None
         }
@@ -132,29 +140,26 @@ impl<B: BitvectorBound> BitvectorDomain for CombinedBitvector<B> {
 
     fn umin(&self) -> crate::concr::UnsignedBitvector<Self::Bound> {
         // take maximum of both minimums as they meet each other
-        UnsignedBitvector::max(self.three_valued.umin(), self.dual_interval.umin())
+        UnsignedBitvector::max(self.left.umin(), self.right.umin())
     }
 
     fn umax(&self) -> crate::concr::UnsignedBitvector<Self::Bound> {
         // take the minimum of both maximums as they meet each other
-        UnsignedBitvector::min(self.three_valued.umax(), self.dual_interval.umax())
+        UnsignedBitvector::min(self.left.umax(), self.right.umax())
     }
 
     fn smin(&self) -> crate::concr::SignedBitvector<Self::Bound> {
         // take maximum of both minimums as they meet each other
-        SignedBitvector::max(self.three_valued.smin(), self.dual_interval.smin())
+        SignedBitvector::max(self.left.smin(), self.right.smin())
     }
 
     fn smax(&self) -> crate::concr::SignedBitvector<Self::Bound> {
         // take the minimum of both maximums as they meet each other
-        SignedBitvector::min(self.three_valued.smax(), self.dual_interval.smax())
+        SignedBitvector::min(self.left.smax(), self.right.smax())
     }
 
     fn concrete_value(&self) -> Option<ConcreteBitvector<Self::Bound>> {
-        match (
-            self.three_valued.concrete_value(),
-            self.dual_interval.concrete_value(),
-        ) {
+        match (self.left.concrete_value(), self.right.concrete_value()) {
             (None, None) => None,
             (None, Some(value)) => Some(value),
             (Some(value), None) => Some(value),
@@ -166,28 +171,32 @@ impl<B: BitvectorBound> BitvectorDomain for CombinedBitvector<B> {
     }
 }
 
-impl<const W: u32> CBitvectorDomain for CCombinedBitvector<W> {
+impl<
+        const W: u32,
+        L: CBitvectorDomain<Bound = CBound<W>, Concrete = CConcreteBitvector<W>>,
+        R: CBitvectorDomain<Bound = CBound<W>, Concrete = CConcreteBitvector<W>>,
+    > CBitvectorDomain for CCombinedBitvector<W, L, R>
+{
     type Concrete = CConcreteBitvector<W>;
-    type Runtime = RCombinedBitvector;
 
     fn from_concrete_bitvector(value: Self::Concrete) -> Self {
-        let three_valued = CThreeValuedBitvector::from_concrete_bitvector(value);
-        let dual_interval = CDualInterval::from_concrete_bitvector(value);
+        let left = L::from_concrete_bitvector(value);
+        let right = R::from_concrete_bitvector(value);
 
-        Self::combine(three_valued, dual_interval)
+        Self::combine(left, right)
     }
 
-    fn from_runtime_bitvector(value: Self::Runtime) -> Self {
+    fn from_runtime_bitvector(value: Self::General<RBound>) -> Self {
         Self {
-            three_valued: CThreeValuedBitvector::from_runtime_bitvector(value.three_valued),
-            dual_interval: CDualInterval::from_runtime_bitvector(value.dual_interval),
+            left: L::from_runtime_bitvector(value.left),
+            right: R::from_runtime_bitvector(value.right),
         }
     }
 
-    fn as_runtime_bitvector(&self) -> Self::Runtime {
-        Self::Runtime {
-            three_valued: self.three_valued.as_runtime_bitvector(),
-            dual_interval: self.dual_interval.as_runtime_bitvector(),
+    fn as_runtime_bitvector(&self) -> Self::General<RBound> {
+        Self::General {
+            left: self.left.as_runtime_bitvector(),
+            right: self.right.as_runtime_bitvector(),
         }
     }
 }

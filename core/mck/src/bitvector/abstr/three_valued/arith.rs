@@ -126,12 +126,12 @@ fn panic_result<B: BitvectorBound>(
     let can_panic = divisor.contains_concrete(&zero);
     let must_panic = divisor.concrete_value().map(|v| v == zero).unwrap_or(false);
     let panic = if must_panic {
-        PanicBitvector::new(panic_msg_num, CBound)
+        PanicBitvector::single_value(panic_msg_num, CBound)
     } else if can_panic {
-        PanicBitvector::new(PANIC_NUM_NO_PANIC, CBound)
-            .join(&PanicBitvector::new(panic_msg_num, CBound))
+        PanicBitvector::single_value(PANIC_NUM_NO_PANIC, CBound)
+            .join(&PanicBitvector::single_value(panic_msg_num, CBound))
     } else {
-        PanicBitvector::new(PANIC_NUM_NO_PANIC, CBound)
+        PanicBitvector::single_value(PANIC_NUM_NO_PANIC, CBound)
     };
     PanicResult { panic, result }
 }
