@@ -1,9 +1,8 @@
-/*use crate::{
-    abstr::Phi,
-    bitvector::interval::{
-        RSignlessInterval, SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval,
-    },
-    concr::ConcreteBitvector,
+use crate::{
+    abstr::{BitvectorDomain, CBitvectorDomain},
+    bitvector::interval::{SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval},
+    concr::{CConcreteBitvector, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
+    misc::{BitvectorBound, CBound, Join, RBound},
 };
 
 mod arith;
@@ -44,41 +43,31 @@ mod tests;
 /// a non-wrapping interval) by an increase in time and memory, which should not
 /// be problematic for our use.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DualInterval<const W: u32> {
+pub struct DualInterval<B: BitvectorBound> {
     // The interval usually located between (including) 0 and (2^N)/2-1.
     //
     // If it is not, it must be equal to the far half.
-    near_half: SignlessInterval<W>,
+    near_half: SignlessInterval<B>,
     // The interval usually located between (including) (2^N)/2 and (2^N)-1.
     //
     // If it is not, it must be equal to the near half.
-    far_half: SignlessInterval<W>,
+    far_half: SignlessInterval<B>,
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct RDualInterval {
-    width: u32,
-
-    // The interval usually located between (including) 0 and (2^N)/2-1.
-    //
-    // If it is not, it must be equal to the far half.
-    near_half: RSignlessInterval,
-    // The interval usually located between (including) (2^N)/2 and (2^N)-1.
-    //
-    // If it is not, it must be equal to the near half.
-    far_half: RSignlessInterval,
-}
+pub type CDualInterval<const W: u32> = DualInterval<CBound<W>>;
+pub type RDualInterval = DualInterval<RBound>;
 
 use serde::{Deserialize, Serialize};
 
-impl<const W: u32> DualInterval<W> {
-    #[allow(dead_code)]
-    pub const FULL: Self = Self {
-        near_half: SignlessInterval::FULL_NEAR_HALFPLANE,
-        far_half: SignlessInterval::FULL_FAR_HALFPLANE,
-    };
+impl<B: BitvectorBound> DualInterval<B> {
+    pub(crate) fn new_full(bound: B) -> Self {
+        Self {
+            near_half: SignlessInterval::new_full_near_halfplane(bound),
+            far_half: SignlessInterval::new_full_far_halfplane(bound),
+        }
+    }
 
-    pub(crate) fn from_wrapping_intervals(intervals: &[WrappingInterval<W>]) -> Self {
+    pub(crate) fn from_wrapping_intervals(intervals: &[WrappingInterval<B>]) -> Self {
         let mut near_half = None;
         let mut far_half = None;
 
@@ -91,7 +80,7 @@ impl<const W: u32> DualInterval<W> {
         Self::from_opt_halves(near_half, far_half)
     }
 
-    fn from_unsigned_intervals(intervals: impl IntoIterator<Item = UnsignedInterval<W>>) -> Self {
+    fn from_unsigned_intervals(intervals: impl IntoIterator<Item = UnsignedInterval<B>>) -> Self {
         let mut near_half = None;
         let mut far_half = None;
 
@@ -104,7 +93,7 @@ impl<const W: u32> DualInterval<W> {
         Self::from_opt_halves(near_half, far_half)
     }
 
-    fn from_signed_intervals(intervals: &[SignedInterval<W>]) -> Self {
+    fn from_signed_intervals(intervals: &[SignedInterval<B>]) -> Self {
         let mut near_half = None;
         let mut far_half = None;
 
@@ -118,17 +107,8 @@ impl<const W: u32> DualInterval<W> {
     }
 }
 
-impl<const W: u32> Default for DualInterval<W> {
-    fn default() -> Self {
-        Self {
-            near_half: SignlessInterval::from_value(ConcreteBitvector::zero()),
-            far_half: SignlessInterval::from_value(ConcreteBitvector::zero()),
-        }
-    }
-}
-
-impl<const W: u32> Phi for DualInterval<W> {
-    fn phi(self, other: Self) -> Self {
+impl<B: BitvectorBound> Join for DualInterval<B> {
+    fn join(self, other: &Self) -> Self {
         let (our_near_half, our_far_half) = self.opt_halves();
         let (other_near_half, other_far_half) = other.opt_halves();
 
@@ -148,9 +128,83 @@ impl<const W: u32> Phi for DualInterval<W> {
 
         Self::from_opt_halves(result_near_half, result_far_half)
     }
+}
 
-    fn uninit() -> Self {
-        Self::default()
+impl<B: BitvectorBound> BitvectorDomain for DualInterval<B> {
+    type Bound = B;
+
+    fn bound(&self) -> Self::Bound {
+        // both bounds must be the same
+        self.near_half.bound()
+    }
+
+    fn meet(self, rhs: &Self) -> Option<Self> {
+        let (our_near_half, our_far_half) = self.opt_halves();
+        let (other_near_half, other_far_half) = rhs.opt_halves();
+
+        let mut result_near_half = None;
+        let mut result_far_half = None;
+
+        if let (Some(our_near_half), Some(other_near_half)) = (our_near_half, other_near_half) {
+            result_near_half = our_near_half.intersection(other_near_half);
+        }
+
+        if let (Some(our_far_half), Some(other_far_half)) = (our_far_half, other_far_half) {
+            result_far_half = our_far_half.intersection(other_far_half);
+        }
+
+        Self::try_from_opt_halves(result_near_half, result_far_half)
+    }
+
+    fn umin(&self) -> UnsignedBitvector<B> {
+        self.near_half.min().as_unsigned()
+    }
+
+    fn umax(&self) -> UnsignedBitvector<B> {
+        self.far_half.max().as_unsigned()
+    }
+
+    fn smin(&self) -> SignedBitvector<B> {
+        self.far_half.min().as_signed()
+    }
+
+    fn smax(&self) -> SignedBitvector<B> {
+        self.near_half.max().as_signed()
+    }
+
+    fn concrete_value(&self) -> Option<ConcreteBitvector<Self::Bound>> {
+        if self.near_half == self.far_half {
+            return self.near_half.concrete_value();
+        }
+        None
     }
 }
-*/
+
+impl<const W: u32> CBitvectorDomain for CDualInterval<W> {
+    type Concrete = CConcreteBitvector<W>;
+    type Runtime = RDualInterval;
+
+    fn from_concrete_bitvector(value: Self::Concrete) -> Self {
+        // just convert it to a signless interval and put to both halves
+        let interval = SignlessInterval::from_value(value);
+
+        Self {
+            near_half: interval,
+            far_half: interval,
+        }
+    }
+
+    fn from_runtime_bitvector(value: Self::Runtime) -> Self {
+        Self {
+            near_half: SignlessInterval::from_runtime(value.near_half),
+            far_half: SignlessInterval::from_runtime(value.far_half),
+        }
+    }
+
+    fn as_runtime_bitvector(&self) -> Self::Runtime {
+        Self::Runtime {
+            near_half: self.near_half.to_runtime(),
+            far_half: self.far_half.to_runtime(),
+        }
+    }
+}

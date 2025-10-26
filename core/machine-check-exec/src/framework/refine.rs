@@ -9,7 +9,7 @@ use machine_check_common::NodeId;
 use machine_check_common::StateId;
 use mck::abstr::Abstr;
 use mck::concr::FullMachine;
-use mck::refin::RefinementValue;
+use mck::refin::{RefinementDomain, RefinementValue};
 
 impl<M: FullMachine> super::Framework<M> {
     /// Refines the precision and the state space given a culprit of unknown verification result.

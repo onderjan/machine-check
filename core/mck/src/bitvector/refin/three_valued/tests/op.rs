@@ -1,7 +1,9 @@
 use crate::{
     bitvector::{abstr::three_valued::RThreeValuedBitvector, refin::three_valued::RMarkBitvector},
+    boolean::concr,
     concr::RConcreteBitvector,
     misc::{MetaEq, RBound},
+    refin::RefinementDomain,
 };
 
 macro_rules! uni_op_test {
@@ -41,29 +43,38 @@ macro_rules! ext_op_test {
 }
 
 macro_rules! bi_op_test {
-    ($ty:tt, $op:tt, $exact:tt, $is_comparison:tt) => {
+    ($ty:tt, $op:tt, $exact:tt) => {
 
         seq_macro::seq!(L in 0..=3 {
 
         #[test]
         pub fn $op~L() {
-            let mark_func = |inputs: (RThreeValuedBitvector,
-                RThreeValuedBitvector),
-                                mark| {
-                                    use crate::concr::BoolConvert;
-                                    let mark = BoolConvert::bool_from(mark);
-                                    ::std::convert::Into::into(crate::backward::$ty::$op(inputs, mark))
-            };
+            let mark_func = |inputs: (RThreeValuedBitvector, RThreeValuedBitvector),
+                                mark| { crate::backward::$ty::$op(inputs, mark) };
             let concr_func = |a: RConcreteBitvector, b: RConcreteBitvector| -> RConcreteBitvector {
-                $crate::concr::BoolConvert::bool_into($crate::forward::$ty::$op(a,b))
-            };
-            let output_width = if $is_comparison {
-                1
-            } else {
-                L
+                $crate::forward::$ty::$op(a,b)
             };
 
-            $crate::bitvector::refin::three_valued::tests::op::exec_bi_check(&mark_func, &concr_func, L, output_width, $exact);
+            $crate::bitvector::refin::three_valued::tests::op::exec_bi_check(&mark_func, &concr_func, L, $exact);
+        }
+    });
+    };
+}
+
+macro_rules! cmp_op_test {
+    ($ty:tt, $op:tt, $exact:tt) => {
+
+        seq_macro::seq!(L in 0..=3 {
+
+        #[test]
+        pub fn $op~L() {
+            let mark_func = |inputs: (RThreeValuedBitvector, RThreeValuedBitvector),
+                                mark| { crate::backward::$ty::$op(inputs, mark) };
+            let concr_func = |a: RConcreteBitvector, b: RConcreteBitvector| {
+                $crate::forward::$ty::$op(a,b)
+            };
+
+            $crate::bitvector::refin::three_valued::tests::op::exec_cmp_check(&mark_func, &concr_func, L, $exact);
         }
     });
     };
@@ -278,28 +289,42 @@ pub(super) fn exec_bi_check(
         RMarkBitvector,
     ) -> (RMarkBitvector, RMarkBitvector),
     concr_func: &impl Fn(RConcreteBitvector, RConcreteBitvector) -> RConcreteBitvector,
-    input_width: u32,
-    output_width: u32,
+    width: u32,
     want_exact: bool,
 ) {
     // exec for left
     let left_mark_func = |abstr, earlier| mark_func(abstr, earlier).0;
     let left_concr_func = concr_func;
-    exec_left_check(
-        left_mark_func,
-        left_concr_func,
-        input_width,
-        output_width,
-        want_exact,
-    );
+    exec_left_check(left_mark_func, left_concr_func, width, width, want_exact);
     // flip for right
     let right_mark_func = |(a, b), earlier| mark_func((b, a), earlier).1;
     let right_concr_func = |a, b| concr_func(b, a);
+    exec_left_check(right_mark_func, right_concr_func, width, width, want_exact);
+}
+
+pub(super) fn exec_cmp_check(
+    mark_func: &impl Fn(
+        (RThreeValuedBitvector, RThreeValuedBitvector),
+        crate::refin::Boolean,
+    ) -> (RMarkBitvector, RMarkBitvector),
+    concr_func: &impl Fn(RConcreteBitvector, RConcreteBitvector) -> crate::concr::Boolean,
+    input_width: u32,
+    want_exact: bool,
+) {
+    // exec for left
+    let left_mark_func =
+        |abstr, earlier: RMarkBitvector| mark_func(abstr, earlier.to_condition()).0;
+    let left_concr_func = |a, b| concrete_boolean_to_bitvector(concr_func(a, b));
+    exec_left_check(left_mark_func, left_concr_func, input_width, 1, want_exact);
+    // flip for right
+    let right_mark_func =
+        |(a, b), earlier: RMarkBitvector| mark_func((b, a), earlier.to_condition()).1;
+    let right_concr_func = |a, b| concrete_boolean_to_bitvector(concr_func(b, a));
     exec_left_check(
         right_mark_func,
         right_concr_func,
         input_width,
-        output_width,
+        1,
         want_exact,
     );
 }
@@ -346,4 +371,8 @@ pub(super) fn exec_divrem_check(
             }
         }
     }
+}
+
+fn concrete_boolean_to_bitvector(boolean: concr::Boolean) -> RConcreteBitvector {
+    RConcreteBitvector::new(boolean.value() as u64, RBound::new(1))
 }

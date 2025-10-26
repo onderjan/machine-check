@@ -35,10 +35,6 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
         self.min.bound()
     }
 
-    pub fn contains_value(&self, value: UnsignedBitvector<B>) -> bool {
-        self.min <= value && value <= self.max
-    }
-
     pub fn min(&self) -> UnsignedBitvector<B> {
         self.min
     }
@@ -119,10 +115,12 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
     }
 
     pub fn try_into_signless(self) -> Option<SignlessInterval<B>> {
-        if self.min.as_bitvector().is_sign_bit_set() == self.max.as_bitvector().is_sign_bit_set() {
+        if self.min.cast_bitvector().is_sign_bit_set()
+            == self.max.cast_bitvector().is_sign_bit_set()
+        {
             Some(SignlessInterval::new(
-                self.min.as_bitvector(),
-                self.max.as_bitvector(),
+                self.min.cast_bitvector(),
+                self.max.cast_bitvector(),
             ))
         } else {
             None
@@ -223,6 +221,11 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
             ConcreteBitvector::from_masked_u64(min, bound).as_unsigned(),
             ConcreteBitvector::from_masked_u64(max, bound).as_unsigned(),
         )
+    }
+
+    #[allow(dead_code)]
+    pub fn contains_value(&self, value: UnsignedBitvector<B>) -> bool {
+        self.min <= value && value <= self.max
     }
 }
 

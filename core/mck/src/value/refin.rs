@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::AbstractValue,
+    abstr::{AbstractValue, BitvectorDomain},
     backward,
     misc::{BitvectorBound, Join, Meta, MetaEq},
-    refin::{self},
+    refin::{self, RefinementDomain},
 };
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
@@ -58,7 +58,7 @@ impl RefinementValue {
                 abstr.element_bound().width(),
             )),
             AbstractValue::Bitvector(abstr) => {
-                RefinementValue::Bitvector(refin::RBitvector::new_unmarked(abstr.width()))
+                RefinementValue::Bitvector(refin::RBitvector::new_unmarked(abstr.bound().width()))
             }
             AbstractValue::Boolean(_) => RefinementValue::Boolean(refin::Boolean::new_unmarked()),
             AbstractValue::Struct(abstr) => {
@@ -337,8 +337,8 @@ macro_rules! divrem_bi_op {
             panic!("Division/remainder should produce panic result struct");
         };
 
-        let result = *mark_later[0].expect_bitvector();
-        let panic = *mark_later[1].expect_bitvector();
+        let result: crate::refin::RBitvector = *mark_later[0].expect_bitvector();
+        let panic: crate::refin::RBitvector = *mark_later[1].expect_bitvector();
 
         let mark_later = (result, panic);
 

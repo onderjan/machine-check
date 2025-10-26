@@ -1,4 +1,8 @@
-use crate::{abstr::Boolean, bitvector::BitvectorBound, forward::TypedCmp};
+use crate::{
+    abstr::{BitvectorDomain, Boolean},
+    bitvector::BitvectorBound,
+    forward::TypedCmp,
+};
 
 use super::ThreeValuedBitvector;
 

@@ -1,8 +1,8 @@
-use crate::{abstr::Boolean, forward::TypedCmp};
+use crate::{abstr::Boolean, forward::TypedCmp, misc::BitvectorBound};
 
 use super::DualInterval;
 
-impl<const W: u32> TypedCmp for DualInterval<W> {
+impl<B: BitvectorBound> TypedCmp for DualInterval<B> {
     type Output = crate::abstr::Boolean;
 
     fn ult(self, rhs: Self) -> Self::Output {

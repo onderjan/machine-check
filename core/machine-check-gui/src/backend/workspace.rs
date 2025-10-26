@@ -51,11 +51,11 @@ impl<M: FullMachine> Workspace<M> {
             let panic_state = if let Ok(state_id) = node_id.try_into() {
                 let panic_state = space.state_data(state_id);
 
-                use mck::abstr::{Abstr, AbstractValue, Bitvector};
+                use mck::abstr::{Abstr, AbstractValue};
 
                 let panic_state = AbstractValue::Struct(vec![
                     panic_state.result.to_runtime(),
-                    AbstractValue::Bitvector(Bitvector::as_runtime_bitvector(&panic_state.panic)),
+                    panic_state.panic.to_runtime(),
                 ]);
 
                 Some(panic_state)

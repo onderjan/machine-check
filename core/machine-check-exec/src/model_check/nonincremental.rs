@@ -11,7 +11,7 @@ use machine_check_common::{
     ExecError, NodeId, ParamValuation, StateId, ThreeValued,
 };
 use mck::{
-    abstr::{Abstr, AbstractValue},
+    abstr::{Abstr, AbstractValue, BitvectorDomain},
     concr::FullMachine,
 };
 

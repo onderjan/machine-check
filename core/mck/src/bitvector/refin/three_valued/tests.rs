@@ -4,6 +4,7 @@ mod op;
 use crate::{
     abstr::three_valued::RThreeValuedBitvector,
     misc::RBound,
+    refin::RefinementDomain,
     traits::misc::{Meta, MetaEq},
 };
 
@@ -126,9 +127,9 @@ uni_op_test!(HwArith, arith_neg, false);
 // --- BINARY TESTS ---
 
 // arithmetic tests
-bi_op_test!(HwArith, add, false, false);
-bi_op_test!(HwArith, sub, false, false);
-bi_op_test!(HwArith, mul, false, false);
+bi_op_test!(HwArith, add, false);
+bi_op_test!(HwArith, sub, false);
+bi_op_test!(HwArith, mul, false);
 
 divrem_op_test!(HwArith, sdiv, false);
 divrem_op_test!(HwArith, udiv, false);
@@ -136,21 +137,21 @@ divrem_op_test!(HwArith, srem, false);
 divrem_op_test!(HwArith, urem, false);
 
 // bitwise tests
-bi_op_test!(Bitwise, bit_and, false, false);
-bi_op_test!(Bitwise, bit_or, false, false);
-bi_op_test!(Bitwise, bit_xor, false, false);
+bi_op_test!(Bitwise, bit_and, false);
+bi_op_test!(Bitwise, bit_or, false);
+bi_op_test!(Bitwise, bit_xor, false);
 
 // equality and comparison tests
-bi_op_test!(TypedEq, eq, false, true);
-bi_op_test!(TypedCmp, slt, false, true);
-bi_op_test!(TypedCmp, sle, false, true);
-bi_op_test!(TypedCmp, ult, false, true);
-bi_op_test!(TypedCmp, ule, false, true);
+cmp_op_test!(TypedEq, eq, false);
+cmp_op_test!(TypedCmp, slt, false);
+cmp_op_test!(TypedCmp, sle, false);
+cmp_op_test!(TypedCmp, ult, false);
+cmp_op_test!(TypedCmp, ule, false);
 
 // shift tests
-bi_op_test!(HwShift, logic_shl, false, false);
-bi_op_test!(HwShift, logic_shr, false, false);
-bi_op_test!(HwShift, arith_shr, false, false);
+bi_op_test!(HwShift, logic_shl, false);
+bi_op_test!(HwShift, logic_shr, false);
+bi_op_test!(HwShift, arith_shr, false);
 
 // --- EXTENSION TESTS ---
 

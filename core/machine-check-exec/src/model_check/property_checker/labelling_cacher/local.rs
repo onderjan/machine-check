@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use machine_check_common::iir::context::IContext;
 use machine_check_common::iir::path::{IIdent, ISpan};
-use mck::abstr::{Abstr, AbstractValue};
+use mck::abstr::{Abstr, AbstractValue, BitvectorDomain};
 
 use machine_check_common::iir::property::{ISubproperty, ISubpropertyFunc};
 use machine_check_common::{ExecError, ParamValuation, StateId, ThreeValued};

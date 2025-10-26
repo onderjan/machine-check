@@ -42,10 +42,6 @@ impl<B: BitvectorBound> SignedInterval<B> {
         }
     }
 
-    pub fn contains_value(&self, value: SignedBitvector<B>) -> bool {
-        self.min <= value && value <= self.max
-    }
-
     pub fn try_into_signless(self) -> Option<SignlessInterval<B>> {
         if self.min.cast_bitvector().is_sign_bit_set()
             == self.max.cast_bitvector().is_sign_bit_set()
@@ -85,6 +81,11 @@ impl<B: BitvectorBound> SignedInterval<B> {
             min: ext_min,
             max: ext_max,
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn contains_value(&self, value: SignedBitvector<B>) -> bool {
+        self.min <= value && value <= self.max
     }
 }
 

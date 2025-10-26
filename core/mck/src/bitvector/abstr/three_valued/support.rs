@@ -2,13 +2,13 @@ use std::fmt::{Debug, Display};
 
 use crate::{
     abstr::{
-        three_valued::{InvalidZerosOnes, RThreeValuedBitvector},
-        Phi,
+        three_valued::{CThreeValuedBitvector, InvalidZerosOnes, RThreeValuedBitvector},
+        BitvectorDomain, CBitvectorDomain,
     },
-    bitvector::BitvectorBound,
-    concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
+    bitvector::{compute_u64_mask, BitvectorBound},
+    concr::{CConcreteBitvector, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     forward::Bitwise,
-    misc::{CBound, Join},
+    misc::Join,
     traits::misc::MetaEq,
 };
 
@@ -65,55 +65,6 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
         Self::from_zeros_ones(zeros, ones)
     }
 
-    pub fn bound(&self) -> B {
-        // zeros and ones must have the same bound
-        self.zeros.bound()
-    }
-
-    pub fn width(&self) -> u32 {
-        self.bound().width()
-    }
-
-    #[must_use]
-    pub fn umin(&self) -> UnsignedBitvector<B> {
-        // unsigned min value is value of bit-negated zeros (one only where it must be)
-        Bitwise::bit_not(self.zeros).as_unsigned()
-    }
-
-    #[must_use]
-    pub fn umax(&self) -> UnsignedBitvector<B> {
-        // unsigned max value is value of ones (one everywhere it can be)
-        self.ones.as_unsigned()
-    }
-
-    #[must_use]
-    pub fn smin(&self) -> SignedBitvector<B> {
-        let bound = self.bound();
-        let sign_bit_mask = ConcreteBitvector::<B>::sign_bit_mask(bound);
-        // take the unsigned minimum
-        let mut result = self.umin().as_bitvector();
-        // but the signed value is smaller when the sign bit is one
-        // if it is possible to set it to one, set it
-        if self.is_ones_sign_bit_set() {
-            result = result.bit_or(sign_bit_mask)
-        }
-        result.as_signed()
-    }
-
-    #[must_use]
-    pub fn smax(&self) -> SignedBitvector<B> {
-        let bound = self.bound();
-        let sign_bit_mask = ConcreteBitvector::<B>::sign_bit_mask(bound);
-        // take the unsigned maximum
-        let mut result = self.umax().as_bitvector();
-        // but the signed value is bigger when the sign bit is zero
-        // if it is possible to set it to zero, set it
-        if self.is_zeros_sign_bit_set() {
-            result = result.bit_and(sign_bit_mask.bit_not());
-        }
-        result.as_signed()
-    }
-
     #[must_use]
     pub fn is_zeros_sign_bit_set(&self) -> bool {
         self.zeros.is_sign_bit_set()
@@ -168,69 +119,12 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
         Bitwise::bit_and(self.zeros, self.ones)
     }
 
-    #[must_use]
-    pub fn concrete_value(&self) -> Option<ConcreteBitvector<B>> {
-        // all bits must be equal
-        let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones, self.zeros));
-        if !nxor.is_zero() {
-            return None;
-        }
-        // ones then contain the value
-        Some(self.ones)
-    }
-
     pub fn as_runtime_bitvector(&self) -> RThreeValuedBitvector {
         RThreeValuedBitvector {
             zeros: self.zeros.as_runtime_bitvector(),
             ones: self.ones.as_runtime_bitvector(),
         }
     }
-
-    /*
-
-
-
-    #[must_use]
-    pub fn from_interval(min: ConcreteBitvector<B>, max: ConcreteBitvector<B>) -> Self {
-        assert!(min.to_u64() <= max.to_u64());
-        // make positions where min and max agree known
-        let xor = min.bit_xor(max);
-        let Some(unknown_positions) = xor.to_u64().checked_ilog2() else {
-            // min is equal to max
-            return Self::from_concrete_value(min);
-        };
-
-        let unknown_mask = ConcreteBitvector::new(compute_u64_mask(unknown_positions + 1));
-        Self::new_value_unknown(min, unknown_mask)
-    }
-
-    pub fn intersection(&self, other: &Self) -> Self {
-        let zeros = self.zeros.bit_and(other.zeros);
-        let ones = self.ones.bit_and(other.ones);
-
-        Self::from_zeros_ones(zeros, ones)
-    }
-
-
-
-
-    #[must_use]
-    pub fn get_mask() -> ConcreteBitvector<B> {
-        ConcreteBitvector::new(util::compute_u64_mask(W))
-    }
-
-
-
-
-    #[must_use]
-    pub fn concrete_join(&self, concrete: ConcreteBitvector<B>) -> Self {
-        let zeros = self.zeros.bit_or(concrete.bit_not());
-        let ones = self.ones.bit_or(concrete);
-        Self::from_zeros_ones(zeros, ones)
-    }
-
-
-    */
 
     #[must_use]
     pub fn contains(&self, rhs: &Self) -> bool {
@@ -248,16 +142,86 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
             ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
         })
     }
+
+    #[must_use]
+    pub fn from_unsigned_interval(min: UnsignedBitvector<B>, max: UnsignedBitvector<B>) -> Self {
+        assert_eq!(min.bound(), max.bound());
+        let bound = min.bound();
+
+        assert!(min <= max);
+        let min = min.cast_bitvector();
+        let max = max.cast_bitvector();
+        // make positions where min and max agree known
+        let xor = min.bit_xor(max);
+        let Some(unknown_positions) = xor.to_u64().checked_ilog2() else {
+            // min is equal to max
+            return Self::from_concrete_value(min);
+        };
+
+        let unknown_mask = ConcreteBitvector::new(compute_u64_mask(unknown_positions + 1), bound);
+        Self::new_value_unknown(min, unknown_mask)
+    }
 }
 
-impl<const W: u32> ThreeValuedBitvector<CBound<W>> {
-    pub fn from_runtime_bitvector(bitvector: RThreeValuedBitvector) -> Self {
-        assert_eq!(bitvector.width(), W);
+impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
+    type Bound = B;
 
-        let zeros = ConcreteBitvector::from_runtime_bitvector(bitvector.zeros);
-        let ones = ConcreteBitvector::from_runtime_bitvector(bitvector.ones);
+    fn meet(self, rhs: &Self) -> Option<Self> {
+        let zeros = self.zeros.bit_and(rhs.zeros);
+        let ones = self.ones.bit_and(rhs.ones);
 
-        Self::from_zeros_ones(zeros, ones)
+        Self::try_from_zeros_ones(zeros, ones).ok()
+    }
+
+    fn bound(&self) -> Self::Bound {
+        // zeros and ones must have the same bound
+        self.zeros.bound()
+    }
+
+    fn umin(&self) -> UnsignedBitvector<Self::Bound> {
+        // unsigned min value is value of bit-negated zeros (one only where it must be)
+        Bitwise::bit_not(self.zeros).as_unsigned()
+    }
+
+    fn umax(&self) -> UnsignedBitvector<Self::Bound> {
+        // unsigned max value is value of ones (one everywhere it can be)
+        self.ones.as_unsigned()
+    }
+
+    fn smin(&self) -> SignedBitvector<B> {
+        let bound = self.bound();
+        let sign_bit_mask = ConcreteBitvector::<B>::sign_bit_mask(bound);
+        // take the unsigned minimum
+        let mut result = self.umin().cast_bitvector();
+        // but the signed value is smaller when the sign bit is one
+        // if it is possible to set it to one, set it
+        if self.is_ones_sign_bit_set() {
+            result = result.bit_or(sign_bit_mask)
+        }
+        result.as_signed()
+    }
+
+    fn smax(&self) -> SignedBitvector<B> {
+        let bound = self.bound();
+        let sign_bit_mask = ConcreteBitvector::<B>::sign_bit_mask(bound);
+        // take the unsigned maximum
+        let mut result = self.umax().cast_bitvector();
+        // but the signed value is bigger when the sign bit is zero
+        // if it is possible to set it to zero, set it
+        if self.is_zeros_sign_bit_set() {
+            result = result.bit_and(sign_bit_mask.bit_not());
+        }
+        result.as_signed()
+    }
+
+    fn concrete_value(&self) -> Option<ConcreteBitvector<B>> {
+        // all bits must be equal
+        let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones, self.zeros));
+        if !nxor.is_zero() {
+            return None;
+        }
+        // ones then contain the value
+        Some(self.ones)
     }
 }
 
@@ -267,61 +231,31 @@ impl<B: BitvectorBound> MetaEq for ThreeValuedBitvector<B> {
     }
 }
 
-/*impl MetaEq for RThreeValuedBitvector {
-    fn meta_eq(&self, other: &Self) -> bool {
-        assert_eq!(self.zeros.width(), other.zeros.width());
-        self.ones == other.ones && self.zeros == other.zeros
-    }
-}
+impl<const W: u32> CBitvectorDomain for CThreeValuedBitvector<W> {
+    type Concrete = CConcreteBitvector<W>;
 
-impl ThreeValuedBitvector<1> {
-    fn from_bools(can_be_zero: bool, can_be_one: bool) -> Self {
-        Self::from_zeros_ones(
-            ConcreteBitvector::new(can_be_zero as u64),
-            ConcreteBitvector::new(can_be_one as u64),
-        )
-    }
-}
+    type Runtime = RThreeValuedBitvector;
 
-impl From<Boolean> for ThreeValuedBitvector<1> {
-    fn from(value: Boolean) -> Self {
-        Self::from_bools(value.can_be_false(), value.can_be_true())
-    }
-}
-
-impl ThreeValuedBitvector<1> {
-    pub fn can_be_true(self) -> bool {
-        self.ones.is_nonzero()
-    }
-
-    pub fn can_be_false(self) -> bool {
-        self.zeros.is_nonzero()
-    }
-}
-
-impl<B: BitvectorBound> BitvectorDomain<B> for ThreeValuedBitvector<B> {
-    fn unsigned_interval(&self) -> UnsignedInterval<B> {
-        UnsignedInterval::new(self.umin(), self.umax())
-    }
-
-    fn join(self, other: Self) -> Self {
-        self.phi(other)
-    }
-
-    fn meet(self, other: Self) -> Option<Self> {
-        let zeros = self.zeros.bit_and(other.zeros);
-        let ones = self.ones.bit_and(other.ones);
-
-        Self::try_from_zeros_ones(zeros, ones).ok()
-    }
-}*/
-
-impl<B: BitvectorBound> Phi for ThreeValuedBitvector<B> {
-    fn phi(self, other: Self) -> Self {
-        let zeros = self.zeros.bit_or(other.zeros);
-        let ones = self.ones.bit_or(other.ones);
+    fn from_concrete_bitvector(value: Self::Concrete) -> Self {
+        // bit-negate for zeros
+        let zeros = Bitwise::bit_not(value);
+        // leave as-is for ones
+        let ones = value;
 
         Self::from_zeros_ones(zeros, ones)
+    }
+
+    fn from_runtime_bitvector(value: Self::Runtime) -> Self {
+        assert_eq!(value.bound().width(), W);
+
+        let zeros = ConcreteBitvector::from_runtime_bitvector(value.zeros);
+        let ones = ConcreteBitvector::from_runtime_bitvector(value.ones);
+
+        Self::from_zeros_ones(zeros, ones)
+    }
+
+    fn as_runtime_bitvector(&self) -> Self::Runtime {
+        self.as_runtime_bitvector()
     }
 }
 

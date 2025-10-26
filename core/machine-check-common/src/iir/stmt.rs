@@ -1,6 +1,10 @@
 use std::fmt::Debug;
 
-use mck::{abstr::AbstractValue, misc::BitvectorBound, three_valued::ThreeValued};
+use mck::{
+    abstr::{AbstractValue, BitvectorDomain},
+    misc::BitvectorBound,
+    three_valued::ThreeValued,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -185,7 +189,7 @@ fn ensure_abstract_type(context: &IContext, value: &AbstractValue, ty: &IType) {
                 panic!("Expected bitvector type of value");
             };
 
-            assert_eq!(*width, bitvector.width());
+            assert_eq!(*width, bitvector.bound().width());
         }
         IElementaryType::Array(array_type) => {
             let AbstractValue::Array(array) = value else {

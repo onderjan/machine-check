@@ -3,7 +3,7 @@ use std::ops::ControlFlow;
 
 use machine_check_common::check::Culprit;
 use machine_check_common::ExecStats;
-use mck::concr::FullMachine;
+use mck::{abstr::BitvectorDomain, concr::FullMachine};
 
 use crate::model_check::ThreeValuedChecker;
 use crate::precision::Precision;

@@ -1,18 +1,17 @@
 use crate::{
-    abstr::Boolean,
-    concr::ConcreteBitvector,
+    abstr::{BitvectorDomain, Boolean},
     forward::{Bitwise, TypedEq},
+    misc::BitvectorBound,
 };
 
 use super::DualInterval;
 
-impl<const W: u32> TypedEq for DualInterval<W> {
+impl<B: BitvectorBound> TypedEq for DualInterval<B> {
     type Output = Boolean;
     fn eq(self, rhs: Self) -> Self::Output {
         // result can be true if the intervals have an intersection
         // result can be false if both are not the same concrete value
 
-        let can_be_same = self.meet(rhs).is_some();
         let can_be_different = if let (Some(lhs_value), Some(rhs_value)) =
             (self.concrete_value(), rhs.concrete_value())
         {
@@ -21,10 +20,9 @@ impl<const W: u32> TypedEq for DualInterval<W> {
             true
         };
 
-        Self::Output::from_zeros_ones(
-            ConcreteBitvector::new(can_be_different as u64),
-            ConcreteBitvector::new(can_be_same as u64),
-        )
+        let can_be_same = self.meet(&rhs).is_some();
+
+        Self::Output::from_bools(can_be_different, can_be_same)
     }
 
     fn ne(self, rhs: Self) -> Self::Output {

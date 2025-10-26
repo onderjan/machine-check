@@ -5,9 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     abstr,
     backward::Bitwise,
-    concr::BoolConvert,
     misc::{Meta, MetaEq},
-    refin::RBitvector,
     three_valued::ThreeValued,
 };
 
@@ -53,14 +51,6 @@ impl Boolean {
         // unmarked becomes unknown
         if self.0 == 0 {
             *target = super::abstr::Boolean::from_three_valued(ThreeValued::Unknown);
-        }
-    }
-
-    pub fn to_runtime_bitvector(self) -> RBitvector {
-        if let Some(importance) = NonZeroU8::new(self.0) {
-            RBitvector::new_marked(importance, 1)
-        } else {
-            RBitvector::new_unmarked(1)
         }
     }
 
@@ -134,7 +124,7 @@ impl MetaEq for Boolean {
     }
 }
 
-impl BoolConvert<RBitvector> for Boolean {
+/*impl BoolConvert<RBitvector> for Boolean {
     fn bool_from(value: RBitvector) -> Self {
         assert_eq!(value.width(), 1);
 
@@ -144,4 +134,4 @@ impl BoolConvert<RBitvector> for Boolean {
     fn bool_into(value: Self) -> RBitvector {
         value.to_runtime_bitvector()
     }
-}
+}*/

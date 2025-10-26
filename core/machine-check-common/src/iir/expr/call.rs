@@ -6,7 +6,7 @@ use mck::{
     abstr::AbstractValue,
     forward::ReadWrite,
     misc::{Join, RBound},
-    refin::RefinementValue,
+    refin::{RefinementDomain, RefinementValue},
 };
 use serde::{Deserialize, Serialize};
 

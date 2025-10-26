@@ -1,8 +1,8 @@
 #[macro_use]
 mod op;
 
-use crate::bitvector::abstr::dual_interval::DualInterval;
-use crate::bitvector::concr::ConcreteBitvector;
+use crate::bitvector::abstr::dual_interval::CDualInterval;
+use crate::bitvector::concr::CConcreteBitvector;
 use crate::traits::forward::*;
 
 // === SMALL-LENGTH-EXHAUSTIVE TESTS ===

@@ -1,4 +1,5 @@
 use crate::{
+    abstr::BitvectorDomain,
     bitvector::BitvectorBound,
     concr::ConcreteBitvector,
     forward::{Bitwise, HwShift},

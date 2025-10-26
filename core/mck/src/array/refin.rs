@@ -4,10 +4,11 @@ use std::ops::ControlFlow;
 
 use serde::{Deserialize, Serialize};
 
+use crate::abstr::BitvectorDomain;
 use crate::bitvector::RBound;
 use crate::concr::UnsignedBitvector;
 use crate::misc::BitvectorBound;
-use crate::refin::RBitvector;
+use crate::refin::{RBitvector, RefinementDomain};
 use crate::{
     abstr,
     backward::ReadWrite,
@@ -132,7 +133,7 @@ impl ReadWrite for abstr::RArray {
         let index = normal_input.1;
 
         assert_eq!(index_width, index.bound().width());
-        assert_eq!(element_width, mark_later.marked_bits().bound().width());
+        assert_eq!(element_width, mark_later.bound().width());
 
         let importance = mark_later.importance();
         if importance == 0 {

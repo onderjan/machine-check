@@ -1,5 +1,8 @@
 use super::CombinedBitvector;
-use crate::forward::*;
+use crate::{
+    forward::*,
+    misc::{BitvectorBound, CBound},
+};
 
 macro_rules! generate_uni_op {
     ($op_name:ident) => {
@@ -42,14 +45,14 @@ macro_rules! generate_cmp_op {
     };
 }
 
-impl<const W: u32> Bitwise for CombinedBitvector<W> {
+impl<B: BitvectorBound> Bitwise for CombinedBitvector<B> {
     generate_uni_op!(bit_not);
     generate_bi_op!(bit_and, Self);
     generate_bi_op!(bit_or, Self);
     generate_bi_op!(bit_xor, Self);
 }
 
-impl<const W: u32> HwArith for CombinedBitvector<W> {
+impl<B: BitvectorBound> HwArith for CombinedBitvector<B> {
     type DivRemResult = PanicResult<Self>;
 
     generate_uni_op!(arith_neg);
@@ -63,7 +66,7 @@ impl<const W: u32> HwArith for CombinedBitvector<W> {
     generate_divrem_op!(srem, PanicResult<Self>);
 }
 
-impl<const W: u32> TypedCmp for CombinedBitvector<W> {
+impl<B: BitvectorBound> TypedCmp for CombinedBitvector<B> {
     type Output = Boolean;
 
     generate_cmp_op!(ult, Self::Output);
@@ -72,23 +75,41 @@ impl<const W: u32> TypedCmp for CombinedBitvector<W> {
     generate_cmp_op!(sle, Self::Output);
 }
 
-impl<const W: u32> TypedEq for CombinedBitvector<W> {
+impl<B: BitvectorBound> TypedEq for CombinedBitvector<B> {
     type Output = Boolean;
     generate_cmp_op!(eq, Self::Output);
     generate_cmp_op!(ne, Self::Output);
 }
 
-impl<const W: u32, const X: u32> Ext<X> for CombinedBitvector<W> {
+impl<B: BitvectorBound, X: BitvectorBound> BExt<X> for CombinedBitvector<B> {
     type Output = CombinedBitvector<X>;
-    fn uext(self) -> Self::Output {
-        Self::Output::combine(self.three_valued.uext(), self.dual_interval.uext())
+    fn uext(self, new_bound: X) -> Self::Output {
+        Self::Output::combine(
+            self.three_valued.uext(new_bound),
+            self.dual_interval.uext(new_bound),
+        )
     }
-    fn sext(self) -> Self::Output {
-        Self::Output::combine(self.three_valued.sext(), self.dual_interval.sext())
+    fn sext(self, new_bound: X) -> Self::Output {
+        Self::Output::combine(
+            self.three_valued.sext(new_bound),
+            self.dual_interval.sext(new_bound),
+        )
     }
 }
 
-impl<const W: u32> HwShift for CombinedBitvector<W> {
+impl<const W: u32, const X: u32> Ext<X> for CombinedBitvector<CBound<W>> {
+    type Output = CombinedBitvector<CBound<X>>;
+
+    fn uext(self) -> Self::Output {
+        BExt::uext(self, CBound::<X>)
+    }
+
+    fn sext(self) -> Self::Output {
+        BExt::sext(self, CBound::<X>)
+    }
+}
+
+impl<B: BitvectorBound> HwShift for CombinedBitvector<B> {
     type Output = Self;
 
     generate_bi_op!(logic_shl, Self::Output);

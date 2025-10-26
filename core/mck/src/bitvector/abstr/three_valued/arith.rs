@@ -1,9 +1,9 @@
 use super::ThreeValuedBitvector;
-use crate::abstr::{PanicBitvector, PanicResult, Phi};
+use crate::abstr::{BitvectorDomain, PanicBitvector, PanicResult};
 use crate::bitvector::{util, BitvectorBound};
 use crate::concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
 use crate::forward::HwArith;
-use crate::misc::CBound;
+use crate::misc::{CBound, Join};
 use crate::panic::message::{PANIC_NUM_DIV_BY_ZERO, PANIC_NUM_NO_PANIC, PANIC_NUM_REM_BY_ZERO};
 
 impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
@@ -129,7 +129,7 @@ fn panic_result<B: BitvectorBound>(
         PanicBitvector::new(panic_msg_num, CBound)
     } else if can_panic {
         PanicBitvector::new(PANIC_NUM_NO_PANIC, CBound)
-            .phi(PanicBitvector::new(panic_msg_num, CBound))
+            .join(&PanicBitvector::new(panic_msg_num, CBound))
     } else {
         PanicBitvector::new(PANIC_NUM_NO_PANIC, CBound)
     };

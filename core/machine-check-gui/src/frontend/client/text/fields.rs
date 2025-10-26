@@ -1,5 +1,5 @@
 use machine_check_common::NodeId;
-use mck::abstr::{AbstractValue, RArray};
+use mck::abstr::{AbstractValue, BitvectorDomain, RArray};
 use mck::misc::BitvectorBound;
 
 use wasm_bindgen::JsCast;

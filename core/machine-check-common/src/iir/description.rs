@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use mck::refin::{RArray, RBitvector, RefinementValue};
+use mck::refin::{RArray, RBitvector, RefinementDomain, RefinementValue};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};

@@ -1,4 +1,5 @@
 use crate::{
+    abstr::BitvectorDomain,
     bitvector::{
         abstr::three_valued::RThreeValuedBitvector, refin::three_valued::RMarkBitvector, RBound,
     },

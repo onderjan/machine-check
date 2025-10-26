@@ -2,14 +2,19 @@ use crate::{
     bitvector::interval::{SignlessInterval, UnsignedInterval},
     concr::ConcreteBitvector,
     forward::{HwArith, HwShift},
+    misc::BitvectorBound,
 };
 
 use super::DualInterval;
 
-impl<const W: u32> HwShift for DualInterval<W> {
+impl<B: BitvectorBound> HwShift for DualInterval<B> {
     type Output = Self;
 
     fn logic_shl(self, amount: Self) -> Self {
+        assert_eq!(self.bound(), amount.bound());
+        let bound = self.bound();
+        let width = bound.width();
+
         // shift left is problematic, as it can wrap
         // resolve it using multiplication by (1 << i)
 
@@ -17,16 +22,16 @@ impl<const W: u32> HwShift for DualInterval<W> {
         let mut intervals = Vec::new();
 
         for i in amount.min().to_u64()..=amount.max().to_u64() {
-            if i >= W as u64 {
+            if i >= width as u64 {
                 // zero if the shift is too big
-                intervals.push(UnsignedInterval::<W>::new(
-                    ConcreteBitvector::zero().cast_unsigned(),
-                    ConcreteBitvector::zero().cast_unsigned(),
+                intervals.push(UnsignedInterval::<B>::new(
+                    ConcreteBitvector::zero(bound).as_unsigned(),
+                    ConcreteBitvector::zero(bound).as_unsigned(),
                 ));
                 break;
             }
 
-            let value = ConcreteBitvector::one().logic_shl(ConcreteBitvector::new(i));
+            let value = ConcreteBitvector::one(bound).logic_shl(ConcreteBitvector::new(i, bound));
 
             let shifted = self.mul(DualInterval::from_value(value));
             intervals.push(shifted.near_half.into_unsigned());
@@ -41,16 +46,16 @@ impl<const W: u32> HwShift for DualInterval<W> {
         let mut near_result = None;
         let mut far_result = None;
 
-        let min_shr_value = amount.to_unsigned_interval().min().as_bitvector();
-        let max_shr_value = amount.to_unsigned_interval().max().as_bitvector();
+        let min_shr_value = amount.to_unsigned_interval().min().cast_bitvector();
+        let max_shr_value = amount.to_unsigned_interval().max().cast_bitvector();
 
         if !self.near_half.is_sign_bit_set() {
             let near_min = self.near_half.min().logic_shr(max_shr_value);
             let near_max = self.near_half.max().logic_shr(min_shr_value);
 
             near_result = Some(UnsignedInterval::new(
-                near_min.cast_unsigned(),
-                near_max.cast_unsigned(),
+                near_min.as_unsigned(),
+                near_max.as_unsigned(),
             ));
         }
 
@@ -58,8 +63,8 @@ impl<const W: u32> HwShift for DualInterval<W> {
             let far_min = self.far_half.min().logic_shr(max_shr_value);
             let far_max = self.far_half.max().logic_shr(min_shr_value);
             far_result = Some(UnsignedInterval::new(
-                far_min.cast_unsigned(),
-                far_max.cast_unsigned(),
+                far_min.as_unsigned(),
+                far_max.as_unsigned(),
             ));
         }
 
@@ -71,8 +76,8 @@ impl<const W: u32> HwShift for DualInterval<W> {
         let mut near_half = None;
         let mut far_half = None;
 
-        let min_shr_value = amount.to_unsigned_interval().min().as_bitvector();
-        let max_shr_value = amount.to_unsigned_interval().max().as_bitvector();
+        let min_shr_value = amount.to_unsigned_interval().min().cast_bitvector();
+        let max_shr_value = amount.to_unsigned_interval().max().cast_bitvector();
 
         if !self.near_half.is_sign_bit_set() {
             let near_max = self.near_half.max().arith_shr(min_shr_value);

@@ -1,8 +1,8 @@
-use crate::{bitvector::interval::SignlessInterval, forward::Bitwise};
+use crate::{bitvector::interval::SignlessInterval, forward::Bitwise, misc::BitvectorBound};
 
 use super::DualInterval;
 
-impl<const W: u32> Bitwise for DualInterval<W> {
+impl<B: BitvectorBound> Bitwise for DualInterval<B> {
     fn bit_not(self) -> Self {
         // just bit-not and swap intervals
         let near_min = self.far_half.max().bit_not();

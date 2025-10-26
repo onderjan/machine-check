@@ -1,9 +1,10 @@
 use crate::{
+    abstr::BitvectorDomain,
     backward::TypedEq,
     bitvector::{abstr::three_valued::RThreeValuedBitvector, refin::three_valued::RMarkBitvector},
     forward,
     misc::BitvectorBound,
-    refin::Boolean,
+    refin::{Boolean, RefinementDomain},
 };
 
 impl TypedEq for RThreeValuedBitvector {
@@ -14,11 +15,11 @@ impl TypedEq for RThreeValuedBitvector {
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        assert_eq!(normal_input.0.width(), normal_input.1.width());
         let bound = normal_input.0.bound();
+        assert_eq!(bound, normal_input.1.bound());
         let width = bound.width();
 
-        let bv_later = mark_later.to_runtime_bitvector();
+        let bv_later = Self::MarkEarlier::from_boolean(mark_later);
 
         let Some(mark_later) = bv_later.inner else {
             return (
@@ -41,11 +42,11 @@ impl TypedEq for RThreeValuedBitvector {
         normal_input: (Self, Self),
         mark_later: Self::MarkLater,
     ) -> (Self::MarkEarlier, Self::MarkEarlier) {
-        assert_eq!(normal_input.0.width(), normal_input.1.width());
         let bound = normal_input.0.bound();
+        assert_eq!(bound, normal_input.1.bound());
         let width = bound.width();
 
-        let bv_later = mark_later.to_runtime_bitvector();
+        let bv_later = Self::MarkEarlier::from_boolean(mark_later);
 
         let Some(mark_later) = bv_later.inner else {
             return (

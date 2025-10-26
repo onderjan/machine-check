@@ -1,5 +1,6 @@
 use crate::abstr::{AbstractValue, PanicResult};
 use crate::concr::FullMachine;
+use crate::misc::Join;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -70,5 +71,10 @@ where
     Self: std::marker::Sized,
 {
     fn phi(self, other: Self) -> Self;
-    //fn uninit() -> Self;
+}
+
+impl<T: Join> Phi for T {
+    fn phi(self, other: Self) -> Self {
+        self.join(&other)
+    }
 }

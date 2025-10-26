@@ -1,4 +1,4 @@
-/*use crate::{
+use crate::{
     abstr::combined::RCombinedBitvector, bitvector::refin::combined::RCombinedMark,
     traits::misc::Meta,
 };
@@ -15,4 +15,4 @@ impl Meta<RCombinedBitvector> for RCombinedMark {
         *proto = RCombinedBitvector::from_three_valued(three_valued);
         result
     }
-}*/
+}

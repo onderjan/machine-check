@@ -38,6 +38,7 @@ impl<B: BitvectorBound> WrappingInterval<B> {
         self.start.bound()
     }
 
+    #[allow(dead_code)]
     pub fn contains_value(&self, value: &ConcreteBitvector<B>) -> bool {
         // interpreted as unsigned interval
         if self.start.as_unsigned() <= self.end.as_unsigned() {
@@ -75,14 +76,6 @@ impl<B: BitvectorBound> WrappingInterval<B> {
             // we must degrade this to a full interval
             WrappingInterpretation::Unsigned(UnsignedInterval::new_full(self.bound()))
         }
-    }
-
-    pub fn start(&self) -> ConcreteBitvector<B> {
-        self.start
-    }
-
-    pub fn end(&self) -> ConcreteBitvector<B> {
-        self.end
     }
 }
 
@@ -139,8 +132,8 @@ impl<B: BitvectorBound> WrappingInterval<B> {
         let lhs_start = self.start;
         let rhs_start = rhs.start;
         let start = lhs_start.mul(rhs_start);
-        let lhs_diff = self.bound_diff().as_bitvector();
-        let rhs_diff = rhs.bound_diff().as_bitvector();
+        let lhs_diff = self.bound_diff().cast_bitvector();
+        let rhs_diff = rhs.bound_diff().cast_bitvector();
 
         let Some(diff_product) = lhs_diff.checked_mul(rhs_diff) else {
             return Self::new_full(bound);

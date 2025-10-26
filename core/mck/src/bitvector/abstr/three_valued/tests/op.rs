@@ -1,5 +1,5 @@
 use crate::{
-    abstr::{Abstr, CBitvector, PanicBitvector, PanicResult},
+    abstr::{self, Abstr, BitvectorDomain, PanicBitvector, PanicResult},
     bitvector::abstr::three_valued::CThreeValuedBitvector,
     concr::{self, CConcreteBitvector},
     misc::{CBound, Join},
@@ -49,10 +49,26 @@ macro_rules! bi_op_test {
         pub fn $op~L() {
             use $crate::abstr::three_valued::CThreeValuedBitvector;
             use $crate::concr::CConcreteBitvector;
-            use $crate::concr::BoolConvert;
-            let abstr_func = |a: CThreeValuedBitvector<L>, b: CThreeValuedBitvector<L>| BoolConvert::bool_into(a.$op(b));
-            let concr_func = |a: CConcreteBitvector<L>, b: CConcreteBitvector<L>| BoolConvert::bool_into(a.$op(b));
+            let abstr_func = |a: CThreeValuedBitvector<L>, b: CThreeValuedBitvector<L>| a.$op(b);
+            let concr_func = |a: CConcreteBitvector<L>, b: CConcreteBitvector<L>| a.$op(b);
             $crate::bitvector::abstr::three_valued::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
+        }
+    });
+    };
+}
+
+macro_rules! cmp_op_test {
+    ($op:tt,$exact:tt) => {
+
+        seq_macro::seq!(L in 0..=6 {
+
+        #[test]
+        pub fn $op~L() {
+            use $crate::abstr::three_valued::CThreeValuedBitvector;
+            use $crate::concr::CConcreteBitvector;
+            let abstr_func = |a: CThreeValuedBitvector<L>, b: CThreeValuedBitvector<L>| a.$op(b);
+            let concr_func = |a: CConcreteBitvector<L>, b: CConcreteBitvector<L>| a.$op(b);
+            $crate::bitvector::abstr::three_valued::tests::op::exec_comparison_check(abstr_func, concr_func, $exact);
         }
     });
     };
@@ -138,6 +154,49 @@ pub(super) fn exec_bi_check<const W: u32, const X: u32>(
     }
 }
 
+pub(super) fn exec_comparison_check<const W: u32>(
+    abstr_func: fn(CThreeValuedBitvector<W>, CThreeValuedBitvector<W>) -> crate::abstr::Boolean,
+    concr_func: fn(CConcreteBitvector<W>, CConcreteBitvector<W>) -> crate::concr::Boolean,
+    exact: bool,
+) {
+    for a in CThreeValuedBitvector::<W>::all_with_bound_iter(CBound) {
+        for b in CThreeValuedBitvector::<W>::all_with_bound_iter(CBound) {
+            let abstr_result = abstr_func(a, b);
+
+            let a_concr_iter = CConcreteBitvector::<W>::all_with_bound_iter(CBound)
+                .filter(|c| a.contains_concrete(c));
+            let equiv_result = join_boolean_iter(a_concr_iter.flat_map(|a_concr| {
+                CConcreteBitvector::<W>::all_with_bound_iter(CBound)
+                    .filter(|c| b.contains_concrete(c))
+                    .map(move |b_concr| concr_func(a_concr, b_concr))
+            }));
+
+            if exact {
+                if !abstr_result.meta_eq(&equiv_result) {
+                    panic!(
+                        "Non-exact result with parameters {}, {}, expected {}, got {}",
+                        a, b, equiv_result, abstr_result
+                    );
+                }
+            } else if !abstr_result.contains(&equiv_result) {
+                panic!(
+                    "Unsound result with parameters {}, {}, expected {}, got {}",
+                    a, b, equiv_result, abstr_result
+                );
+            }
+            if a.concrete_value().is_some()
+                && b.concrete_value().is_some()
+                && abstr_result.is_unknown()
+            {
+                panic!(
+                            "Non-concrete-value result with concrete-value parameters {}, {}, expected {}, got {}",
+                            a, b, equiv_result, abstr_result
+                        );
+            }
+        }
+    }
+}
+
 pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
     abstr_func: fn(
         CThreeValuedBitvector<W>,
@@ -196,6 +255,21 @@ pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
     }
 }
 
+pub(super) fn join_boolean_iter(mut iter: impl Iterator<Item = concr::Boolean>) -> abstr::Boolean {
+    let first_concrete = iter
+        .next()
+        .expect("Expected at least one concrete bitvector in iterator");
+
+    let mut result = abstr::Boolean::from_concrete(first_concrete);
+
+    for c in iter {
+        let abstr = abstr::Boolean::from_concrete(c);
+
+        result = result.join(&abstr);
+    }
+    result
+}
+
 pub(super) fn join_concr_iter<const W: u32>(
     mut iter: impl Iterator<Item = CConcreteBitvector<W>>,
 ) -> CThreeValuedBitvector<W> {
@@ -210,7 +284,7 @@ pub(super) fn join_concr_iter<const W: u32>(
     let mut result = CThreeValuedBitvector::from_concrete_value(first_concrete);
 
     for c in iter {
-        let abstr = CBitvector::from_concrete_value(c);
+        let abstr = CThreeValuedBitvector::from_concrete_value(c);
 
         result = result.join(&abstr);
     }

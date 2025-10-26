@@ -11,6 +11,7 @@ pub mod abstr {
 
     use crate::{
         abstr::{PanicBitvector, Phi},
+        misc::Join,
         traits::misc::MetaEq,
     };
 
@@ -29,7 +30,7 @@ pub mod abstr {
     impl<T: Phi> Phi for PanicResult<T> {
         fn phi(self, other: Self) -> Self {
             Self {
-                panic: self.panic.phi(other.panic),
+                panic: self.panic.join(&other.panic),
                 result: self.result.phi(other.result),
             }
         }

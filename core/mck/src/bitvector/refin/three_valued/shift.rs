@@ -1,4 +1,5 @@
 use crate::{
+    abstr::BitvectorDomain,
     backward,
     bitvector::{
         abstr::three_valued::RThreeValuedBitvector,
@@ -8,14 +9,16 @@ use crate::{
     },
     concr::RConcreteBitvector,
     forward,
+    misc::BitvectorBound,
+    refin::RefinementDomain,
 };
 
 impl backward::HwShift for RThreeValuedBitvector {
     type Mark = RMarkBitvector;
 
     fn logic_shl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        assert_eq!(normal_input.0.width(), normal_input.1.width());
-        let width = normal_input.0.width();
+        assert_eq!(normal_input.0.bound(), normal_input.1.bound());
+        let width = normal_input.0.bound().width();
 
         let Some(mark_later) = mark_later.inner else {
             return (
@@ -32,8 +35,8 @@ impl backward::HwShift for RThreeValuedBitvector {
     }
 
     fn logic_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        assert_eq!(normal_input.0.width(), normal_input.1.width());
-        let width = normal_input.0.width();
+        assert_eq!(normal_input.0.bound(), normal_input.1.bound());
+        let width = normal_input.0.bound().width();
 
         let Some(mark_later) = mark_later.inner else {
             return (
@@ -50,8 +53,11 @@ impl backward::HwShift for RThreeValuedBitvector {
     }
 
     fn arith_shr(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
-        assert_eq!(normal_input.0.width(), normal_input.1.width());
-        let width = normal_input.0.width();
+        assert_eq!(
+            normal_input.0.bound().width(),
+            normal_input.1.bound().width()
+        );
+        let width = normal_input.0.bound().width();
 
         let Some(mark_later) = mark_later.inner else {
             return (
@@ -91,7 +97,7 @@ fn runtime_shift(
     mark_later: RBitvectorMark,
     shift_fn: impl Fn(RConcreteBitvector, RConcreteBitvector) -> RConcreteBitvector,
 ) -> (RMarkBitvector, RMarkBitvector) {
-    let width = normal_input.0.width();
+    let width = normal_input.0.bound().width();
     if width == 0 {
         // avoid problems with zero-width bitvectors
         return (

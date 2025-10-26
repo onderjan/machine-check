@@ -13,7 +13,6 @@ mod cmp;
 mod eq;
 mod ext;
 mod meta;
-mod refine;
 mod shift;
 mod support;
 

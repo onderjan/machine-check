@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{self, Abstr, AbstractValue, Phi},
+    abstr::{self, Abstr, AbstractValue, BitvectorDomain, CBitvectorDomain},
     bitvector::{BitvectorBound, CBound, RBound},
     concr::{self, ConcreteBitvector, UnsignedBitvector},
     forward::ReadWrite,
@@ -24,6 +24,9 @@ pub type CArray<const I: u32, const E: u32> = Array<CBound<I>, CBound<E>>;
 
 impl<I: BitvectorBound, E: BitvectorBound> Join for Array<I, E> {
     fn join(mut self, other: &Self) -> Self {
+        assert_eq!(self.index_bound(), other.index_bound());
+        assert_eq!(self.element_bound(), other.element_bound());
+
         self.inner.subsume(other.inner.clone(), |lhs, rhs| {
             *lhs = MetaWrap(lhs.0.join(&rhs.0))
         });
@@ -64,7 +67,7 @@ impl<I: BitvectorBound, E: BitvectorBound> ReadWrite for &Array<I, E> {
         let (min_index, max_index) = (index.umin(), index.umax());
         self.inner
             .reduce_indexed(min_index, Some(max_index), |reduced, value| {
-                MetaWrap(reduced.0.phi(value.0))
+                MetaWrap(reduced.0.join(&value.0))
             })
             .0
     }
@@ -85,7 +88,7 @@ impl<I: BitvectorBound, E: BitvectorBound> ReadWrite for &Array<I, E> {
             result
                 .inner
                 .map_inplace_indexed(min_index, Some(max_index), |value| {
-                    MetaWrap(value.0.phi(element))
+                    MetaWrap(value.0.join(&element))
                 });
         }
         result
@@ -123,7 +126,7 @@ impl<const I: u32, const E: u32> Abstr<concr::Array<I, E>> for CArray<I, E> {
             inner: value.inner.create_converted(
                 CBound,
                 |index| {
-                    ConcreteBitvector::from_runtime_bitvector(index.as_bitvector()).as_unsigned()
+                    ConcreteBitvector::from_runtime_bitvector(index.cast_bitvector()).as_unsigned()
                 },
                 |element| MetaWrap(abstr::Bitvector::from_runtime_bitvector(element.0)),
             ),
@@ -133,7 +136,7 @@ impl<const I: u32, const E: u32> Abstr<concr::Array<I, E>> for CArray<I, E> {
     fn to_runtime(&self) -> AbstractValue {
         let runtime_array = self.inner.create_converted(
             RBound::new(I),
-            |index| index.as_bitvector().as_runtime_bitvector().as_unsigned(),
+            |index| index.cast_bitvector().as_runtime_bitvector().as_unsigned(),
             |element| MetaWrap(element.0.as_runtime_bitvector()),
         );
 
@@ -141,18 +144,6 @@ impl<const I: u32, const E: u32> Abstr<concr::Array<I, E>> for CArray<I, E> {
             element_bound: RBound::new(E),
             inner: runtime_array,
         })
-    }
-}
-
-impl<I: BitvectorBound, E: BitvectorBound> Phi for Array<I, E> {
-    fn phi(mut self, other: Self) -> Self {
-        assert_eq!(self.index_bound(), other.index_bound());
-        assert_eq!(self.element_bound(), other.element_bound());
-
-        self.inner
-            .subsume(other.inner, |lhs, rhs| *lhs = MetaWrap(lhs.0.phi(rhs.0)));
-
-        self
     }
 }
 

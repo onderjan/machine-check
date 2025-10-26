@@ -3,6 +3,7 @@ mod op;
 
 use super::*;
 use crate::{
+    abstr::BitvectorDomain,
     concr::CConcreteBitvector,
     forward::*,
     misc::{Join, MetaEq},
@@ -142,11 +143,11 @@ bi_op_test!(bit_or, true);
 bi_op_test!(bit_xor, true);
 
 // equality and comparison tests
-bi_op_test!(eq, true);
-bi_op_test!(slt, true);
-bi_op_test!(sle, true);
-bi_op_test!(ult, true);
-bi_op_test!(ule, true);
+cmp_op_test!(eq, true);
+cmp_op_test!(slt, true);
+cmp_op_test!(sle, true);
+cmp_op_test!(ult, true);
+cmp_op_test!(ule, true);
 
 // shift tests
 bi_op_test!(logic_shl, true);

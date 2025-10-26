@@ -1,12 +1,14 @@
 use std::num::NonZero;
 
 use crate::{
-    abstr::three_valued::RThreeValuedBitvector,
+    abstr::{three_valued::RThreeValuedBitvector, BitvectorDomain},
     backward::HwArith,
     bitvector::refin::three_valued::{
         support::{runtime_default_bi_mark, runtime_default_uni_mark},
         RMarkBitvector,
     },
+    misc::BitvectorBound,
+    refin::RefinementDomain,
 };
 
 impl HwArith for RThreeValuedBitvector {
@@ -62,8 +64,8 @@ fn runtime_divrem_mark(
     normal_input: (RThreeValuedBitvector, RThreeValuedBitvector),
     mark_later: (RMarkBitvector, RMarkBitvector),
 ) -> (RMarkBitvector, RMarkBitvector) {
-    assert_eq!(normal_input.0.width(), normal_input.1.width());
-    let width = normal_input.0.width();
+    assert_eq!(normal_input.0.bound(), normal_input.1.bound());
+    let width = normal_input.0.bound().width();
 
     // first is result, second is panic
     let mark_later_result = mark_later.0;

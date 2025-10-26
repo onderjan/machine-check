@@ -1,84 +1,50 @@
 use super::DualInterval;
 use crate::{
+    abstr::BitvectorDomain,
     bitvector::interval::{SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval},
-    concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
-    misc::MetaEq,
+    concr::ConcreteBitvector,
+    misc::{BitvectorBound, MetaEq},
 };
 
 use std::fmt::{Debug, Display};
 
-impl<const W: u32> MetaEq for DualInterval<W> {
+impl<B: BitvectorBound> MetaEq for DualInterval<B> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.near_half == other.near_half && self.far_half == other.far_half
     }
 }
 
-impl<const W: u32> DualInterval<W> {
-    pub fn from_value(value: ConcreteBitvector<W>) -> Self {
+impl<B: BitvectorBound> DualInterval<B> {
+    pub fn bound(&self) -> B {
+        // bound must be the same for near half and far half
+        self.near_half.bound()
+    }
+
+    pub fn from_value(value: ConcreteBitvector<B>) -> Self {
         Self {
             near_half: SignlessInterval::from_value(value),
             far_half: SignlessInterval::from_value(value),
         }
     }
 
-    pub fn contains_value(&self, value: &ConcreteBitvector<W>) -> bool {
+    pub fn contains_value(&self, value: &ConcreteBitvector<B>) -> bool {
         self.near_half.contains_value(value) || self.far_half.contains_value(value)
     }
 
-    pub fn concrete_value(&self) -> Option<ConcreteBitvector<W>> {
-        if self.near_half == self.far_half {
-            return self.near_half.concrete_value();
-        }
-        None
+    pub fn to_unsigned_interval(self) -> UnsignedInterval<B> {
+        UnsignedInterval::new(self.umin(), self.umax())
     }
 
-    pub fn meet(self, rhs: Self) -> Option<Self> {
-        let (our_near_half, our_far_half) = self.opt_halves();
-        let (other_near_half, other_far_half) = rhs.opt_halves();
-
-        let mut result_near_half = None;
-        let mut result_far_half = None;
-
-        if let (Some(our_near_half), Some(other_near_half)) = (our_near_half, other_near_half) {
-            result_near_half = our_near_half.intersection(other_near_half);
-        }
-
-        if let (Some(our_far_half), Some(other_far_half)) = (our_far_half, other_far_half) {
-            result_far_half = our_far_half.intersection(other_far_half);
-        }
-
-        Self::try_from_opt_halves(result_near_half, result_far_half)
-    }
-
-    pub fn unsigned_min(&self) -> UnsignedBitvector<W> {
-        self.near_half.min().cast_unsigned()
-    }
-
-    pub fn unsigned_max(&self) -> UnsignedBitvector<W> {
-        self.far_half.max().cast_unsigned()
-    }
-
-    pub fn to_unsigned_interval(self) -> UnsignedInterval<W> {
-        UnsignedInterval::new(self.unsigned_min(), self.unsigned_max())
-    }
-
-    pub fn signed_min(&self) -> SignedBitvector<W> {
-        self.far_half.min().cast_signed()
-    }
-
-    pub fn signed_max(&self) -> SignedBitvector<W> {
-        self.near_half.max().cast_signed()
-    }
-
-    pub fn to_signed_interval(self) -> SignedInterval<W> {
-        SignedInterval::new(self.signed_min(), self.signed_max())
+    pub fn to_signed_interval(self) -> SignedInterval<B> {
+        SignedInterval::new(self.smin(), self.smax())
     }
 
     pub(super) fn resolve_by_wrapping(
-        a: DualInterval<W>,
-        b: DualInterval<W>,
-        op_fn: fn(WrappingInterval<W>, WrappingInterval<W>) -> WrappingInterval<W>,
-    ) -> DualInterval<W> {
+        a: DualInterval<B>,
+        b: DualInterval<B>,
+        op_fn: fn(WrappingInterval<B>, WrappingInterval<B>) -> WrappingInterval<B>,
+    ) -> DualInterval<B> {
+        assert_eq!(a.bound(), b.bound());
         // TODO: optimise cases where the a, b, or both can be represented by one wrapping interval
 
         // resolve all combinations of halves separately
@@ -91,10 +57,11 @@ impl<const W: u32> DualInterval<W> {
     }
 
     pub(super) fn resolve_by_unsigned(
-        a: DualInterval<W>,
-        b: DualInterval<W>,
-        op_fn: fn(UnsignedInterval<W>, UnsignedInterval<W>) -> UnsignedInterval<W>,
-    ) -> DualInterval<W> {
+        a: DualInterval<B>,
+        b: DualInterval<B>,
+        op_fn: fn(UnsignedInterval<B>, UnsignedInterval<B>) -> UnsignedInterval<B>,
+    ) -> DualInterval<B> {
+        assert_eq!(a.bound(), b.bound());
         // TODO: optimise cases where the a, b, or both can be represented by one wrapping interval
 
         // resolve all combinations of halves separately
@@ -107,12 +74,12 @@ impl<const W: u32> DualInterval<W> {
     }
 }
 
-impl<const W: u32> Debug for DualInterval<W> {
+impl<B: BitvectorBound> Debug for DualInterval<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn write_interval<const W: u32>(
+        fn write_interval<B: BitvectorBound>(
             f: &mut std::fmt::Formatter<'_>,
-            min: ConcreteBitvector<W>,
-            max: ConcreteBitvector<W>,
+            min: ConcreteBitvector<B>,
+            max: ConcreteBitvector<B>,
         ) -> std::fmt::Result {
             if min == max {
                 write!(f, "{}", min)
@@ -130,7 +97,7 @@ impl<const W: u32> Debug for DualInterval<W> {
             // write just one interval
             write_interval(f, near_min, near_max)?;
         } else if near_max
-            .checked_add(ConcreteBitvector::new(1))
+            .checked_add(ConcreteBitvector::new(1, self.bound()))
             .map(|above_near_max| above_near_max == far_min)
             .unwrap_or(false)
         {
@@ -149,7 +116,7 @@ impl<const W: u32> Debug for DualInterval<W> {
     }
 }
 
-impl<const W: u32> Display for DualInterval<W> {
+impl<B: BitvectorBound> Display for DualInterval<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self, f)
     }

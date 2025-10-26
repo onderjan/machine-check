@@ -1,10 +1,12 @@
 use crate::{
+    abstr::BitvectorDomain,
     backward::RExt,
     bitvector::{
         abstr::three_valued::RThreeValuedBitvector, refin::three_valued::RMarkBitvector, RBound,
     },
     concr::ConcreteBitvector,
     misc::BitvectorBound,
+    refin::RefinementDomain,
     traits::forward,
 };
 

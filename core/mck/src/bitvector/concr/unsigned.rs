@@ -37,7 +37,7 @@ impl<B: BitvectorBound> UnsignedBitvector<B> {
         UnsignedBitvector(bitvector)
     }
 
-    pub fn as_bitvector(self) -> ConcreteBitvector<B> {
+    pub fn cast_bitvector(self) -> ConcreteBitvector<B> {
         self.0
     }
 

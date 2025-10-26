@@ -3,11 +3,11 @@ use std::fmt::{Debug, Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{CBitvector, Phi, RBitvector, Test},
+    abstr::{RBitvector, Test},
     bitvector::RBound,
-    concr::{BoolConvert, CConcreteBitvector, RConcreteBitvector},
+    concr::{self, RConcreteBitvector},
     forward::Bitwise,
-    misc::{BitvectorBound, CBound, Join, MetaEq},
+    misc::{Join, MetaEq},
     three_valued::ThreeValued,
 };
 
@@ -27,6 +27,10 @@ impl Test for Boolean {
 impl Boolean {
     pub fn new(value: bool) -> Self {
         Self::from_bools(!value, value)
+    }
+
+    pub fn from_concrete(value: concr::Boolean) -> Self {
+        Self::new(concr::Test::into_bool(value))
     }
 
     pub fn from_three_valued(value: ThreeValued) -> Self {
@@ -67,6 +71,14 @@ impl Boolean {
     pub fn is_unknown(&self) -> bool {
         self.0.is_unknown()
     }
+
+    pub fn contains(&self, value: &Boolean) -> bool {
+        match self.0 {
+            ThreeValued::False => value.0.is_false(),
+            ThreeValued::True => value.0.is_true(),
+            ThreeValued::Unknown => true,
+        }
+    }
 }
 
 impl Join for Boolean {
@@ -100,12 +112,6 @@ impl Display for Boolean {
     }
 }
 
-impl Phi for Boolean {
-    fn phi(self, other: Self) -> Self {
-        Boolean(self.0.join(&other.0))
-    }
-}
-
 impl Bitwise for Boolean {
     fn bit_not(self) -> Self {
         Self(!self.0)
@@ -127,34 +133,5 @@ impl Bitwise for Boolean {
 impl MetaEq for Boolean {
     fn meta_eq(&self, other: &Self) -> bool {
         self.0 == other.0
-    }
-}
-
-impl BoolConvert<CBitvector<1>> for Boolean {
-    fn bool_from(value: CBitvector<1>) -> Self {
-        assert_eq!(value.bound().width(), 1);
-
-        let can_be_false = value.is_zeros_sign_bit_set();
-        let can_be_true = value.is_ones_sign_bit_set();
-
-        Self::from_bools(can_be_false, can_be_true)
-    }
-
-    fn bool_into(value: Self) -> CBitvector<1> {
-        let bound = CBound;
-
-        let zeros = if value.can_be_false() {
-            CConcreteBitvector::one(bound)
-        } else {
-            CConcreteBitvector::zero(bound)
-        };
-
-        let ones = if value.can_be_true() {
-            CConcreteBitvector::one(bound)
-        } else {
-            CConcreteBitvector::zero(bound)
-        };
-
-        CBitvector::from_zeros_ones(zeros, ones)
     }
 }

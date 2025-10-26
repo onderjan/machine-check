@@ -1,8 +1,9 @@
 use crate::{
     abstr::{Abstr, BitvectorDomain, PanicBitvector, PanicResult},
-    bitvector::{abstr::dual_interval::DualInterval, interval::SignlessInterval},
+    bitvector::{abstr::dual_interval::CDualInterval, interval::SignlessInterval},
     boolean::abstr,
-    concr::{self, ConcreteBitvector, Test},
+    concr::{self, CConcreteBitvector, Test},
+    misc::{CBound, Join},
     traits::misc::MetaEq,
 };
 
@@ -12,8 +13,8 @@ macro_rules! uni_op_test {
 
         #[test]
         pub fn $op~L() {
-            let abstr_func = |a: DualInterval<L>| a.$op();
-            let concr_func = |a: ConcreteBitvector<L>| a.$op();
+            let abstr_func = |a: CDualInterval<L>| a.$op();
+            let concr_func = |a: CConcreteBitvector<L>| a.$op();
             $crate::bitvector::abstr::dual_interval::tests::op::exec_uni_check(abstr_func, concr_func, true);
         }
     });
@@ -27,8 +28,8 @@ macro_rules! ext_op_test {
                 #[test]
                 pub fn $op~L~X() {
                     let abstr_func =
-                        |a: DualInterval<L>| -> DualInterval<X> { a.$op() };
-                    let concr_func = |a: ConcreteBitvector<L>| -> ConcreteBitvector<X> { a.$op() };
+                        |a: CDualInterval<L>| -> CDualInterval<X> { Ext::$op(a) };
+                    let concr_func = |a: CConcreteBitvector<L>| -> CConcreteBitvector<X> { Ext::$op(a) };
                     $crate::bitvector::abstr::dual_interval::tests::op::exec_uni_check(abstr_func, concr_func, $exact);
                 }
             });
@@ -43,8 +44,8 @@ macro_rules! bi_op_test {
 
         #[test]
         pub fn $op~L() {
-            let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| ::std::convert::Into::into(a.$op(b));
-            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
+            let abstr_func = |a: CDualInterval<L>, b: CDualInterval<L>| ::std::convert::Into::into(a.$op(b));
+            let concr_func = |a: CConcreteBitvector<L>, b: CConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
             $crate::bitvector::abstr::dual_interval::tests::op::exec_bi_check(abstr_func, concr_func, $exact);
         }
     });
@@ -58,8 +59,8 @@ macro_rules! comparison_op_test {
 
         #[test]
         pub fn $op~L() {
-            let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| ::std::convert::Into::into(a.$op(b));
-            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
+            let abstr_func = |a: CDualInterval<L>, b: CDualInterval<L>| ::std::convert::Into::into(a.$op(b));
+            let concr_func = |a: CConcreteBitvector<L>, b: CConcreteBitvector<L>|  ::std::convert::Into::into(a.$op(b));
             $crate::bitvector::abstr::dual_interval::tests::op::exec_comparison_check(abstr_func, concr_func, $exact);
         }
     });
@@ -73,8 +74,8 @@ macro_rules! divrem_op_test {
 
         #[test]
         pub fn $op~L() {
-            let abstr_func = |a: DualInterval<L>, b: DualInterval<L>| a.$op(b).into();
-            let concr_func = |a: ConcreteBitvector<L>, b: ConcreteBitvector<L>| a.$op(b).into();
+            let abstr_func = |a: CDualInterval<L>, b: CDualInterval<L>| a.$op(b).into();
+            let concr_func = |a: CConcreteBitvector<L>, b: CConcreteBitvector<L>| a.$op(b).into();
             $crate::bitvector::abstr::dual_interval::tests::op::exec_divrem_check(abstr_func, concr_func);
         }
     });
@@ -82,14 +83,14 @@ macro_rules! divrem_op_test {
 }
 
 pub(super) fn exec_uni_check<const W: u32, const X: u32>(
-    abstr_func: fn(DualInterval<W>) -> DualInterval<X>,
-    concr_func: fn(ConcreteBitvector<W>) -> ConcreteBitvector<X>,
+    abstr_func: fn(CDualInterval<W>) -> CDualInterval<X>,
+    concr_func: fn(CConcreteBitvector<W>) -> CConcreteBitvector<X>,
     exact: bool,
 ) {
-    for a in DualInterval::<W>::all_with_width_iter() {
+    for a in CDualInterval::<W>::all_with_bound_iter() {
         let abstr_result = abstr_func(a);
         let equiv_result = join_concr_iter(
-            ConcreteBitvector::<W>::all_with_width_iter()
+            CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                 .filter(|c| a.contains_value(c))
                 .map(concr_func),
         );
@@ -110,18 +111,18 @@ pub(super) fn exec_uni_check<const W: u32, const X: u32>(
 }
 
 pub(super) fn exec_bi_check<const W: u32, const X: u32>(
-    abstr_func: fn(DualInterval<W>, DualInterval<W>) -> DualInterval<X>,
-    concr_func: fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> ConcreteBitvector<X>,
+    abstr_func: fn(CDualInterval<W>, CDualInterval<W>) -> CDualInterval<X>,
+    concr_func: fn(CConcreteBitvector<W>, CConcreteBitvector<W>) -> CConcreteBitvector<X>,
     exact: bool,
 ) {
-    for a in DualInterval::<W>::all_with_width_iter() {
-        for b in DualInterval::<W>::all_with_width_iter() {
+    for a in CDualInterval::<W>::all_with_bound_iter() {
+        for b in CDualInterval::<W>::all_with_bound_iter() {
             let abstr_result = abstr_func(a, b);
 
-            let a_concr_iter =
-                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_value(c));
+            let a_concr_iter = CConcreteBitvector::<W>::all_with_bound_iter(CBound)
+                .filter(|c| a.contains_value(c));
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                ConcreteBitvector::<W>::all_with_width_iter()
+                CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                     .filter(|c| b.contains_value(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr))
             }));
@@ -153,33 +154,33 @@ pub(super) fn exec_bi_check<const W: u32, const X: u32>(
 }
 
 pub(super) fn exec_comparison_check<const W: u32>(
-    abstr_func: fn(DualInterval<W>, DualInterval<W>) -> abstr::Boolean,
-    concr_func: fn(ConcreteBitvector<W>, ConcreteBitvector<W>) -> concr::Boolean,
+    abstr_func: fn(CDualInterval<W>, CDualInterval<W>) -> abstr::Boolean,
+    concr_func: fn(CConcreteBitvector<W>, CConcreteBitvector<W>) -> concr::Boolean,
     exact: bool,
 ) {
-    for a in DualInterval::<W>::all_with_width_iter() {
-        for b in DualInterval::<W>::all_with_width_iter() {
+    for a in CDualInterval::<W>::all_with_bound_iter() {
+        for b in CDualInterval::<W>::all_with_bound_iter() {
             let abstr_result: abstr::Boolean = abstr_func(a, b);
 
-            let a_concr_iter =
-                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_value(c));
+            let a_concr_iter = CConcreteBitvector::<W>::all_with_bound_iter(CBound)
+                .filter(|c| a.contains_value(c));
             let equiv_result: abstr::Boolean =
                 join_bool_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                    ConcreteBitvector::<W>::all_with_width_iter()
+                    CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                         .filter(|c| b.contains_value(c))
                         .map(move |b_concr| concr_func(a_concr, b_concr))
                 }));
 
             if exact {
-                if !abstr_result.0.meta_eq(&equiv_result.0) {
+                if !abstr_result.meta_eq(&equiv_result) {
                     panic!(
                         "Non-exact result with parameters {}, {}, expected {}, got {}",
                         a, b, equiv_result, abstr_result
                     );
                 }
             } else {
-                let joined = abstr_result.0.join(equiv_result.0);
-                if !abstr_result.0.meta_eq(&joined) {
+                let joined = abstr_result.join(&equiv_result);
+                if !abstr_result.meta_eq(&joined) {
                     panic!(
                         "Unsound result with parameters {}, {}, expected {}, got {}",
                         a, b, equiv_result, abstr_result
@@ -188,7 +189,7 @@ pub(super) fn exec_comparison_check<const W: u32>(
             }
             if a.concrete_value().is_some()
                 && b.concrete_value().is_some()
-                && abstr_result.0.concrete_value().is_none()
+                && abstr_result.is_unknown()
             {
                 panic!(
                             "Non-concrete-value result with concrete-value parameters {}, {}, expected {}, got {}",
@@ -200,31 +201,31 @@ pub(super) fn exec_comparison_check<const W: u32>(
 }
 
 pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
-    abstr_func: fn(DualInterval<W>, DualInterval<W>) -> PanicResult<DualInterval<X>>,
+    abstr_func: fn(CDualInterval<W>, CDualInterval<W>) -> PanicResult<CDualInterval<X>>,
     concr_func: fn(
-        ConcreteBitvector<W>,
-        ConcreteBitvector<W>,
-    ) -> concr::PanicResult<ConcreteBitvector<X>>,
+        CConcreteBitvector<W>,
+        CConcreteBitvector<W>,
+    ) -> concr::PanicResult<CConcreteBitvector<X>>,
 ) {
-    for a in DualInterval::<W>::all_with_width_iter() {
-        for b in DualInterval::<W>::all_with_width_iter() {
+    for a in CDualInterval::<W>::all_with_bound_iter() {
+        for b in CDualInterval::<W>::all_with_bound_iter() {
             let abstr_panic_result = abstr_func(a, b);
             let abstr_result = abstr_panic_result.result;
             let abstr_panic = abstr_panic_result.panic;
 
-            let a_concr_iter =
-                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_value(c));
+            let a_concr_iter = CConcreteBitvector::<W>::all_with_bound_iter(CBound)
+                .filter(|c| a.contains_value(c));
 
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                ConcreteBitvector::<W>::all_with_width_iter()
+                CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                     .filter(|c| b.contains_value(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr).result)
             }));
 
-            let a_concr_iter =
-                ConcreteBitvector::<W>::all_with_width_iter().filter(|c| a.contains_value(c));
+            let a_concr_iter = CConcreteBitvector::<W>::all_with_bound_iter(CBound)
+                .filter(|c| a.contains_value(c));
             let equiv_panic = join_panic_concr_iter(a_concr_iter.flat_map(|a_concr| {
-                ConcreteBitvector::<W>::all_with_width_iter()
+                CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                     .filter(|c| b.contains_value(c))
                     .map(move |b_concr| concr_func(a_concr, b_concr).panic)
             }));
@@ -255,17 +256,17 @@ pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
 }
 
 pub(super) fn join_concr_iter<const W: u32>(
-    mut iter: impl Iterator<Item = ConcreteBitvector<W>>,
-) -> DualInterval<W> {
+    mut iter: impl Iterator<Item = CConcreteBitvector<W>>,
+) -> CDualInterval<W> {
     if W == 0 {
-        return DualInterval::FULL;
+        return CDualInterval::new_full(CBound);
     }
 
     let first_concrete = iter
         .next()
         .expect("Expected at least one concrete bitvector in iterator");
 
-    let mut result = DualInterval::from_value(first_concrete);
+    let mut result = CDualInterval::from_value(first_concrete);
 
     for c in iter {
         result = result.concrete_join(c)
@@ -274,7 +275,7 @@ pub(super) fn join_concr_iter<const W: u32>(
 }
 
 pub(super) fn join_panic_concr_iter(
-    mut iter: impl Iterator<Item = ConcreteBitvector<32>>,
+    mut iter: impl Iterator<Item = CConcreteBitvector<32>>,
 ) -> PanicBitvector {
     let first_concrete = iter
         .next()
@@ -283,7 +284,7 @@ pub(super) fn join_panic_concr_iter(
     let mut result = PanicBitvector::from_concrete(first_concrete);
 
     for c in iter {
-        result = result.join(PanicBitvector::from_concrete(c))
+        result = result.join(&PanicBitvector::from_concrete(c))
     }
     result
 }
@@ -303,7 +304,7 @@ pub(super) fn join_bool_concr_iter(iter: impl Iterator<Item = concr::Boolean>) -
     abstr::Boolean::from_bools(can_be_false, can_be_true)
 }
 
-impl<const W: u32> DualInterval<W> {
+impl<const W: u32> CDualInterval<W> {
     pub fn contains(&self, other: &Self) -> bool {
         if other.near_half == other.far_half {
             let tested_half = other.near_half;
@@ -317,7 +318,7 @@ impl<const W: u32> DualInterval<W> {
         }
     }
 
-    pub fn concrete_join(self, value: ConcreteBitvector<W>) -> Self {
+    pub fn concrete_join(self, value: CConcreteBitvector<W>) -> Self {
         let value_sign_bit_set = value.is_sign_bit_set();
         let value = SignlessInterval::from_value(value);
 
@@ -357,15 +358,15 @@ impl<const W: u32> DualInterval<W> {
         }
     }
 
-    pub fn all_with_width_iter() -> impl Iterator<Item = Self> {
-        let only_near_half_result = SignlessInterval::all_with_width_iter(false)
+    pub fn all_with_bound_iter() -> impl Iterator<Item = Self> {
+        let only_near_half_result = SignlessInterval::all_with_bound_iter(CBound, false)
             .map(|near_half| Self::from_opt_halves(Some(near_half), None));
-        let only_far_half_result = SignlessInterval::all_with_width_iter(true)
+        let only_far_half_result = SignlessInterval::all_with_bound_iter(CBound, true)
             .map(|far_half| Self::from_opt_halves(None, Some(far_half)));
 
-        let near_half_iter = SignlessInterval::<W>::all_with_width_iter(false);
+        let near_half_iter = SignlessInterval::all_with_bound_iter(CBound, false);
         let both_halves_result = near_half_iter.flat_map(|near_half| {
-            let far_half_iter = SignlessInterval::<W>::all_with_width_iter(true);
+            let far_half_iter = SignlessInterval::all_with_bound_iter(CBound, true);
             far_half_iter
                 .map(move |far_half| Self::from_opt_halves(Some(near_half), Some(far_half)))
         });

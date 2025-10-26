@@ -1,6 +1,7 @@
 use crate::{
     backward::Bitwise,
     bitvector::{abstr::three_valued::RThreeValuedBitvector, refin::three_valued::RMarkBitvector},
+    refin::RefinementDomain,
 };
 
 impl Bitwise for RThreeValuedBitvector {

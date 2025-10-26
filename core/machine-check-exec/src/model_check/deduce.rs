@@ -12,7 +12,10 @@ use machine_check_common::{
     },
     ExecError, StateId,
 };
-use mck::{concr::FullMachine, refin::RefinementValue};
+use mck::{
+    concr::FullMachine,
+    refin::{RefinementDomain, RefinementValue},
+};
 
 use crate::{
     model_check::{
