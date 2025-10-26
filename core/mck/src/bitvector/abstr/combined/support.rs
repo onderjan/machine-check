@@ -1,25 +1,22 @@
 use std::fmt::{Debug, Display};
 
 use crate::{
-    abstr::BitvectorDomain,
+    abstr::combined::DomainCombination,
     misc::{BitvectorBound, MetaEq},
 };
 
 use super::CombinedBitvector;
 
-impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound = B>> MetaEq
-    for CombinedBitvector<B, L, R>
-{
+impl<B: BitvectorBound, D: DomainCombination<B>> MetaEq for CombinedBitvector<B, D> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.left.meta_eq(&other.left) && self.right.meta_eq(&other.right)
     }
 }
 
-impl<
-        B: BitvectorBound,
-        L: BitvectorDomain<Bound = B> + Debug,
-        R: BitvectorDomain<Bound = B> + Debug,
-    > Debug for CombinedBitvector<B, L, R>
+impl<B: BitvectorBound, D: DomainCombination<B>> Debug for CombinedBitvector<B, D>
+where
+    D::Left: Debug,
+    D::Right: Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.left, f)?;
@@ -29,11 +26,10 @@ impl<
     }
 }
 
-impl<
-        B: BitvectorBound,
-        L: BitvectorDomain<Bound = B> + Display,
-        R: BitvectorDomain<Bound = B> + Display,
-    > Display for CombinedBitvector<B, L, R>
+impl<B: BitvectorBound, D: DomainCombination<B>> Display for CombinedBitvector<B, D>
+where
+    D::Left: Display,
+    D::Right: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.left, f)?;

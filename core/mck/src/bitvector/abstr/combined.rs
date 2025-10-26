@@ -1,41 +1,42 @@
 mod ops;
 mod support;
 
-use std::hash::Hash;
+use std::{hash::Hash, marker::PhantomData};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{BitvectorDomain, Boolean, CBitvectorDomain, PanicResult, Test},
+    abstr::{
+        dual_interval::DualInterval, three_valued::ThreeValuedBitvector, BitvectorDomain, Boolean,
+        CBitvectorDomain, PanicResult, Test,
+    },
+    bitvector::interval::WrappingInterval,
     concr::{CConcreteBitvector, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     misc::{BitvectorBound, CBound, Join, RBound},
 };
 
-#[derive(Clone, Copy, Hash, Serialize, Deserialize)]
-pub struct CombinedBitvector<
-    B: BitvectorBound,
-    L: BitvectorDomain<Bound = B>,
-    R: BitvectorDomain<Bound = B>,
-> {
-    left: L,
-    right: R,
+pub trait DomainCombination<B: BitvectorBound>: Clone + Copy + Hash {
+    type Left: BitvectorDomain<Bound = B>;
+    type Right: BitvectorDomain<Bound = B>;
+    type General<X: BitvectorBound>: DomainCombination<
+        X,
+        Left = <Self::Left as BitvectorDomain>::General<X>,
+        Right = <Self::Right as BitvectorDomain>::General<X>,
+    >;
+
+    fn combine(left: &mut Self::Left, right: &mut Self::Right);
 }
 
-pub type CCombinedBitvector<const W: u32, L, R> = CombinedBitvector<CBound<W>, L, R>;
-pub type RCombinedBitvector<L, R> = CombinedBitvector<RBound, L, R>;
+#[derive(Clone, Copy, Hash, Debug)]
+pub struct TVDICombination<B: BitvectorBound>(PhantomData<B>);
 
-#[allow(dead_code)]
-impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound = B>>
-    CombinedBitvector<B, L, R>
-{
-    pub fn new(value: u64, bound: B) -> Self {
-        Self::single_value(value, bound)
-    }
+impl<B: BitvectorBound> DomainCombination<B> for TVDICombination<B> {
+    type Left = ThreeValuedBitvector<B>;
+    type Right = DualInterval<B>;
 
-    pub(crate) fn combine(left: L, right: R) -> Self {
-        todo!("Combine")
-        // TODO combine
-        /*
+    type General<X: BitvectorBound> = TVDICombination<X>;
+
+    fn combine(three_valued: &mut Self::Left, dual_interval: &mut Self::Right) {
         // restrict the dual interval
         let near_min = three_valued.umin().max(dual_interval.umin());
         let near_max = three_valued.smax().min(dual_interval.smax());
@@ -45,19 +46,36 @@ impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound 
         let near = WrappingInterval::new(near_min.cast_bitvector(), near_max.cast_bitvector());
         let far = WrappingInterval::new(far_min.cast_bitvector(), far_max.cast_bitvector());
 
-        let dual_interval = DualInterval::from_wrapping_intervals(&[near, far]);
+        *dual_interval = DualInterval::from_wrapping_intervals(&[near, far]);
 
         // restrict the three-valued bit-vector
         let interval_bitvec = ThreeValuedBitvector::from_unsigned_interval(near_min, far_max);
-        let Some(three_valued) = three_valued.meet(&interval_bitvec) else {
+        let Some(three_valued_result) = three_valued.meet(&interval_bitvec) else {
             panic!("Three-valued bit-vector combined with dual-interval should not be empty");
         };
 
-        Self {
-            three_valued,
-            dual_interval,
-        }
-        */
+        *three_valued = three_valued_result;
+    }
+}
+
+#[derive(Clone, Copy, Hash, Serialize, Deserialize)]
+pub struct CombinedBitvector<B: BitvectorBound, D: DomainCombination<B>> {
+    left: D::Left,
+    right: D::Right,
+}
+
+pub type CCombinedBitvector<const W: u32, D> = CombinedBitvector<CBound<W>, D>;
+pub type RCombinedBitvector<D> = CombinedBitvector<RBound, D>;
+
+#[allow(dead_code)]
+impl<B: BitvectorBound, D: DomainCombination<B>> CombinedBitvector<B, D> {
+    pub fn new(value: u64, bound: B) -> Self {
+        Self::single_value(value, bound)
+    }
+
+    pub(crate) fn combine(mut left: D::Left, mut right: D::Right) -> Self {
+        D::combine(&mut left, &mut right);
+        Self { left, right }
     }
 
     fn combine_boolean(three_valued: Boolean, dual_interval: Boolean) -> Boolean {
@@ -69,9 +87,9 @@ impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound 
     }
 
     fn combine_panic_result(
-        three_valued: PanicResult<L>,
-        dual_interval: PanicResult<R>,
-    ) -> PanicResult<CombinedBitvector<B, L, R>> {
+        three_valued: PanicResult<D::Left>,
+        dual_interval: PanicResult<D::Right>,
+    ) -> PanicResult<CombinedBitvector<B, D>> {
         let panic = three_valued
             .panic
             .meet(&dual_interval.panic)
@@ -80,23 +98,21 @@ impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound 
         PanicResult { panic, result }
     }
 
-    pub(crate) fn from_left(left: L) -> CombinedBitvector<B, L, R> {
-        let dual_interval = R::top(left.bound());
+    pub(crate) fn from_left(left: D::Left) -> CombinedBitvector<B, D> {
+        let dual_interval = D::Right::top(left.bound());
         Self::combine(left, dual_interval)
     }
 
-    pub(crate) fn left(&self) -> &L {
+    pub(crate) fn left(&self) -> &D::Left {
         &self.left
     }
 
-    pub(crate) fn right(&self) -> &R {
+    pub(crate) fn right(&self) -> &D::Right {
         &self.right
     }
 }
 
-impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound = B>> Join
-    for CombinedBitvector<B, L, R>
-{
+impl<B: BitvectorBound, D: DomainCombination<B>> Join for CombinedBitvector<B, D> {
     fn join(self, other: &Self) -> Self {
         let three_valued = self.left.join(&other.left);
         let dual_interval = self.right.join(&other.right);
@@ -104,22 +120,20 @@ impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound 
     }
 }
 
-impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound = B>>
-    BitvectorDomain for CombinedBitvector<B, L, R>
-{
+impl<B: BitvectorBound, D: DomainCombination<B>> BitvectorDomain for CombinedBitvector<B, D> {
     type Bound = B;
-    type General<X: BitvectorBound> = CombinedBitvector<X, L::General<X>, R::General<X>>;
+    type General<X: BitvectorBound> = CombinedBitvector<X, D::General<X>>;
 
     fn single_value(value: u64, bound: Self::Bound) -> Self {
-        let left = L::single_value(value, bound);
-        let right = R::single_value(value, bound);
+        let left = D::Left::single_value(value, bound);
+        let right = D::Right::single_value(value, bound);
         Self { left, right }
     }
 
     fn top(bound: Self::Bound) -> Self {
         Self {
-            left: L::top(bound),
-            right: R::top(bound),
+            left: D::Left::top(bound),
+            right: D::Right::top(bound),
         }
     }
 
@@ -171,25 +185,24 @@ impl<B: BitvectorBound, L: BitvectorDomain<Bound = B>, R: BitvectorDomain<Bound 
     }
 }
 
-impl<
-        const W: u32,
-        L: CBitvectorDomain<Bound = CBound<W>, Concrete = CConcreteBitvector<W>>,
-        R: CBitvectorDomain<Bound = CBound<W>, Concrete = CConcreteBitvector<W>>,
-    > CBitvectorDomain for CCombinedBitvector<W, L, R>
+impl<const W: u32, D: DomainCombination<CBound<W>>> CBitvectorDomain for CCombinedBitvector<W, D>
+where
+    D::Left: CBitvectorDomain<Concrete = CConcreteBitvector<W>>,
+    D::Right: CBitvectorDomain<Concrete = CConcreteBitvector<W>>,
 {
     type Concrete = CConcreteBitvector<W>;
 
     fn from_concrete_bitvector(value: Self::Concrete) -> Self {
-        let left = L::from_concrete_bitvector(value);
-        let right = R::from_concrete_bitvector(value);
+        let left = D::Left::from_concrete_bitvector(value);
+        let right = D::Right::from_concrete_bitvector(value);
 
         Self::combine(left, right)
     }
 
     fn from_runtime_bitvector(value: Self::General<RBound>) -> Self {
         Self {
-            left: L::from_runtime_bitvector(value.left),
-            right: R::from_runtime_bitvector(value.right),
+            left: D::Left::from_runtime_bitvector(value.left),
+            right: D::Right::from_runtime_bitvector(value.right),
         }
     }
 

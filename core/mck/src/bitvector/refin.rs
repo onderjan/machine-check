@@ -1,7 +1,7 @@
 use std::{hash::Hash, num::NonZeroU8};
 
 #[cfg(feature = "Zdual_interval")]
-use crate::abstr::dual_interval::RDualInterval;
+use crate::{abstr::combined::TVDICombination, misc::RBound};
 use crate::{misc::BitvectorBound, refin};
 
 mod combined;
@@ -34,4 +34,4 @@ pub trait RefinementDomain: Clone + Copy + Hash {
 pub type RBitvector = three_valued::RMarkBitvector;
 
 #[cfg(feature = "Zdual_interval")]
-pub type RBitvector = combined::RCombinedMark<RDualInterval>;
+pub type RBitvector = combined::RCombinedMark<TVDICombination<RBound>>;

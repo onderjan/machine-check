@@ -1,7 +1,3 @@
-#[cfg(feature = "Zdual_interval")]
-use crate::abstr::dual_interval::DualInterval;
-#[cfg(feature = "Zdual_interval")]
-use crate::abstr::three_valued::ThreeValuedBitvector;
 use crate::abstr::{Abstr, AbstractValue};
 use crate::bitvector::bound::{CBound, RBound};
 use crate::concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
@@ -39,10 +35,10 @@ pub trait CBitvectorDomain: BitvectorDomain {
 }
 
 #[cfg(not(feature = "Zdual_interval"))]
-pub type Bitvector<W> = three_valued::ThreeValuedBitvector<W>;
+pub type Bitvector<B> = three_valued::ThreeValuedBitvector<B>;
 
 #[cfg(feature = "Zdual_interval")]
-pub type Bitvector<W> = combined::CombinedBitvector<W, ThreeValuedBitvector<W>, DualInterval<W>>;
+pub type Bitvector<B> = combined::CombinedBitvector<B, combined::TVDICombination<B>>;
 
 pub type RBitvector = Bitvector<RBound>;
 pub type CBitvector<const W: u32> = Bitvector<CBound<W>>;

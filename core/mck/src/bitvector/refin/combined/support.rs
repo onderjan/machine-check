@@ -2,17 +2,19 @@ use std::{marker::PhantomData, num::NonZeroU8};
 
 use crate::{
     abstr::{
-        combined::RCombinedBitvector, dual_interval::RDualInterval,
-        three_valued::RThreeValuedBitvector, BitvectorDomain,
+        combined::{DomainCombination, RCombinedBitvector, TVDICombination},
+        three_valued::RThreeValuedBitvector,
     },
     bitvector::refin::{combined::RCombinedMark, three_valued::RMarkBitvector},
     misc::{MetaEq, RBound},
     refin::{Boolean, RefinementDomain},
 };
 
-impl<R: BitvectorDomain> RefinementDomain for RCombinedMark<R> {
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> RefinementDomain
+    for RCombinedMark<D>
+{
     type Bound = RBound;
-    type Abstr = RCombinedBitvector<RThreeValuedBitvector, RDualInterval>;
+    type Abstr = RCombinedBitvector<TVDICombination<RBound>>;
 
     fn bound(&self) -> Self::Bound {
         self.0.bound()
@@ -58,13 +60,13 @@ impl<R: BitvectorDomain> RefinementDomain for RCombinedMark<R> {
     }
 }
 
-impl<R: BitvectorDomain> RCombinedMark<R> {
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> RCombinedMark<D> {
     pub(super) fn new(inner: RMarkBitvector) -> Self {
         Self(inner, PhantomData)
     }
 }
 
-impl<R: BitvectorDomain> MetaEq for RCombinedMark<R> {
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> MetaEq for RCombinedMark<D> {
     fn meta_eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }

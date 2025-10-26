@@ -1,6 +1,6 @@
 use super::CombinedBitvector;
 use crate::{
-    abstr::{BitvectorDomain, CBitvectorDomain},
+    abstr::{combined::DomainCombination, BitvectorDomain},
     forward::*,
     misc::{BitvectorBound, CBound},
 };
@@ -37,11 +37,10 @@ macro_rules! generate_cmp_op {
     };
 }
 
-impl<
-        B: BitvectorBound,
-        L: BitvectorDomain<Bound = B> + Bitwise,
-        R: BitvectorDomain<Bound = B> + Bitwise,
-    > Bitwise for CombinedBitvector<B, L, R>
+impl<B: BitvectorBound, D: DomainCombination<B>> Bitwise for CombinedBitvector<B, D>
+where
+    D::Left: Bitwise,
+    D::Right: Bitwise,
 {
     generate_uni_op!(bit_not);
     generate_bi_op!(bit_and, Self);
@@ -49,11 +48,10 @@ impl<
     generate_bi_op!(bit_xor, Self);
 }
 
-impl<
-        B: BitvectorBound,
-        L: BitvectorDomain<Bound = B> + HwArith<DivRemResult = PanicResult<L>>,
-        R: BitvectorDomain<Bound = B> + HwArith<DivRemResult = PanicResult<R>>,
-    > HwArith for CombinedBitvector<B, L, R>
+impl<B: BitvectorBound, D: DomainCombination<B>> HwArith for CombinedBitvector<B, D>
+where
+    D::Left: HwArith<DivRemResult = PanicResult<D::Left>>,
+    D::Right: HwArith<DivRemResult = PanicResult<D::Right>>,
 {
     type DivRemResult = PanicResult<Self>;
 
@@ -68,11 +66,10 @@ impl<
     generate_divrem_op!(srem, PanicResult<Self>);
 }
 
-impl<
-        B: BitvectorBound,
-        L: BitvectorDomain<Bound = B> + TypedCmp<Output = Boolean>,
-        R: BitvectorDomain<Bound = B> + TypedCmp<Output = Boolean>,
-    > TypedCmp for CombinedBitvector<B, L, R>
+impl<B: BitvectorBound, D: DomainCombination<B>> TypedCmp for CombinedBitvector<B, D>
+where
+    D::Left: TypedCmp<Output = Boolean>,
+    D::Right: TypedCmp<Output = Boolean>,
 {
     type Output = Boolean;
 
@@ -82,22 +79,20 @@ impl<
     generate_cmp_op!(sle, Self::Output);
 }
 
-impl<
-        B: BitvectorBound,
-        L: BitvectorDomain<Bound = B> + TypedEq<Output = Boolean>,
-        R: BitvectorDomain<Bound = B> + TypedEq<Output = Boolean>,
-    > TypedEq for CombinedBitvector<B, L, R>
+impl<B: BitvectorBound, D: DomainCombination<B>> TypedEq for CombinedBitvector<B, D>
+where
+    D::Left: TypedEq<Output = Boolean>,
+    D::Right: TypedEq<Output = Boolean>,
 {
     type Output = Boolean;
     generate_cmp_op!(eq, Self::Output);
     generate_cmp_op!(ne, Self::Output);
 }
 
-impl<
-        B: BitvectorBound,
-        L: BitvectorDomain<Bound = B> + HwShift<Output = L>,
-        R: BitvectorDomain<Bound = B> + HwShift<Output = R>,
-    > HwShift for CombinedBitvector<B, L, R>
+impl<B: BitvectorBound, D: DomainCombination<B>> HwShift for CombinedBitvector<B, D>
+where
+    D::Left: HwShift<Output = D::Left>,
+    D::Right: HwShift<Output = D::Right>,
 {
     type Output = Self;
 
@@ -106,14 +101,13 @@ impl<
     generate_bi_op!(arith_shr, Self::Output);
 }
 
-impl<
-        B: BitvectorBound,
-        L: BitvectorDomain<Bound = B> + BExt<X, Output = L::General<X>>,
-        R: BitvectorDomain<Bound = B> + BExt<X, Output = R::General<X>>,
-        X: BitvectorBound,
-    > BExt<X> for CombinedBitvector<B, L, R>
+impl<B: BitvectorBound, D: DomainCombination<B>, X: BitvectorBound> BExt<X>
+    for CombinedBitvector<B, D>
+where
+    D::Left: BExt<X, Output = <D::Left as BitvectorDomain>::General<X>>,
+    D::Right: BExt<X, Output = <D::Right as BitvectorDomain>::General<X>>,
 {
-    type Output = CombinedBitvector<X, L::General<X>, R::General<X>>;
+    type Output = CombinedBitvector<X, D::General<X>>;
     fn uext(self, new_bound: X) -> Self::Output {
         Self::Output::combine(self.left.uext(new_bound), self.right.uext(new_bound))
     }
@@ -122,14 +116,13 @@ impl<
     }
 }
 
-impl<
-        const W: u32,
-        const X: u32,
-        L: CBitvectorDomain<Bound = CBound<{ W }>> + BExt<CBound<X>, Output = L::General<CBound<X>>>,
-        R: CBitvectorDomain<Bound = CBound<{ W }>> + BExt<CBound<X>, Output = R::General<CBound<X>>>,
-    > Ext<X> for CombinedBitvector<CBound<W>, L, R>
+impl<const W: u32, const X: u32, D: DomainCombination<CBound<W>>> Ext<X>
+    for CombinedBitvector<CBound<W>, D>
+where
+    D::Left: BExt<CBound<X>, Output = <D::Left as BitvectorDomain>::General<CBound<X>>>,
+    D::Right: BExt<CBound<X>, Output = <D::Right as BitvectorDomain>::General<CBound<X>>>,
 {
-    type Output = CombinedBitvector<CBound<X>, L::General<CBound<X>>, R::General<CBound<X>>>;
+    type Output = CombinedBitvector<CBound<X>, D::General<CBound<X>>>;
 
     fn uext(self) -> Self::Output {
         BExt::uext(self, CBound::<X>)

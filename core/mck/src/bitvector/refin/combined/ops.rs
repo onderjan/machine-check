@@ -1,14 +1,17 @@
 use crate::{
-    abstr::{combined::RCombinedBitvector, three_valued::RThreeValuedBitvector, BitvectorDomain},
+    abstr::{
+        combined::{DomainCombination, RCombinedBitvector},
+        three_valued::RThreeValuedBitvector,
+    },
     backward::{Bitwise, HwArith, HwShift, RExt, TypedCmp, TypedEq},
     bitvector::refin::{combined::RCombinedMark, three_valued::RMarkBitvector},
     misc::RBound,
     refin::Boolean,
 };
 
-impl<R: BitvectorDomain<Bound = RBound>> HwArith for RCombinedBitvector<RThreeValuedBitvector, R> {
-    type Mark = RCombinedMark<R>;
-    type DivRemResult = (RCombinedMark<R>, RCombinedMark<R>);
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> HwArith for RCombinedBitvector<D> {
+    type Mark = RCombinedMark<D>;
+    type DivRemResult = (RCombinedMark<D>, RCombinedMark<D>);
 
     fn arith_neg(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         Self::uni_op(
@@ -44,7 +47,7 @@ impl<R: BitvectorDomain<Bound = RBound>> HwArith for RCombinedBitvector<RThreeVa
 
     fn udiv(
         normal_input: (Self, Self),
-        mark_later: (RCombinedMark<R>, RCombinedMark<R>),
+        mark_later: (RCombinedMark<D>, RCombinedMark<D>),
     ) -> (Self::Mark, Self::Mark) {
         Self::divrem_op(
             normal_input,
@@ -55,7 +58,7 @@ impl<R: BitvectorDomain<Bound = RBound>> HwArith for RCombinedBitvector<RThreeVa
 
     fn sdiv(
         normal_input: (Self, Self),
-        mark_later: (RCombinedMark<R>, RCombinedMark<R>),
+        mark_later: (RCombinedMark<D>, RCombinedMark<D>),
     ) -> (Self::Mark, Self::Mark) {
         Self::divrem_op(
             normal_input,
@@ -66,7 +69,7 @@ impl<R: BitvectorDomain<Bound = RBound>> HwArith for RCombinedBitvector<RThreeVa
 
     fn urem(
         normal_input: (Self, Self),
-        mark_later: (RCombinedMark<R>, RCombinedMark<R>),
+        mark_later: (RCombinedMark<D>, RCombinedMark<D>),
     ) -> (Self::Mark, Self::Mark) {
         Self::divrem_op(
             normal_input,
@@ -77,7 +80,7 @@ impl<R: BitvectorDomain<Bound = RBound>> HwArith for RCombinedBitvector<RThreeVa
 
     fn srem(
         normal_input: (Self, Self),
-        mark_later: (RCombinedMark<R>, RCombinedMark<R>),
+        mark_later: (RCombinedMark<D>, RCombinedMark<D>),
     ) -> (Self::Mark, Self::Mark) {
         Self::divrem_op(
             normal_input,
@@ -87,12 +90,12 @@ impl<R: BitvectorDomain<Bound = RBound>> HwArith for RCombinedBitvector<RThreeVa
     }
 }
 
-impl<R: BitvectorDomain<Bound = RBound>> RCombinedBitvector<RThreeValuedBitvector, R> {
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> RCombinedBitvector<D> {
     fn uni_op(
         normal_input: (Self,),
-        mark_later: RCombinedMark<R>,
+        mark_later: RCombinedMark<D>,
         op: fn((RThreeValuedBitvector,), RMarkBitvector) -> (RMarkBitvector,),
-    ) -> (RCombinedMark<R>,) {
+    ) -> (RCombinedMark<D>,) {
         let normal_input = (*normal_input.0.left(),);
         let mark_earlier = op(normal_input, mark_later.0);
         (RCombinedMark::new(mark_earlier.0),)
@@ -100,12 +103,12 @@ impl<R: BitvectorDomain<Bound = RBound>> RCombinedBitvector<RThreeValuedBitvecto
 
     fn bi_op(
         normal_input: (Self, Self),
-        mark_later: RCombinedMark<R>,
+        mark_later: RCombinedMark<D>,
         op: fn(
             (RThreeValuedBitvector, RThreeValuedBitvector),
             RMarkBitvector,
         ) -> (RMarkBitvector, RMarkBitvector),
-    ) -> (RCombinedMark<R>, RCombinedMark<R>) {
+    ) -> (RCombinedMark<D>, RCombinedMark<D>) {
         let normal_input = (*normal_input.0.left(), *normal_input.1.left());
         let mark_earlier = op(normal_input, mark_later.0);
         (
@@ -117,12 +120,12 @@ impl<R: BitvectorDomain<Bound = RBound>> RCombinedBitvector<RThreeValuedBitvecto
     #[allow(clippy::type_complexity)]
     fn divrem_op(
         normal_input: (Self, Self),
-        mark_later: (RCombinedMark<R>, RCombinedMark<R>),
+        mark_later: (RCombinedMark<D>, RCombinedMark<D>),
         op: fn(
             (RThreeValuedBitvector, RThreeValuedBitvector),
             (RMarkBitvector, RMarkBitvector),
         ) -> (RMarkBitvector, RMarkBitvector),
-    ) -> (RCombinedMark<R>, RCombinedMark<R>) {
+    ) -> (RCombinedMark<D>, RCombinedMark<D>) {
         let normal_input = (*normal_input.0.left(), *normal_input.1.left());
 
         let mark_later = (mark_later.0 .0, mark_later.1 .0);
@@ -140,7 +143,7 @@ impl<R: BitvectorDomain<Bound = RBound>> RCombinedBitvector<RThreeValuedBitvecto
             (RThreeValuedBitvector, RThreeValuedBitvector),
             Boolean,
         ) -> (RMarkBitvector, RMarkBitvector),
-    ) -> (RCombinedMark<R>, RCombinedMark<R>) {
+    ) -> (RCombinedMark<D>, RCombinedMark<D>) {
         let normal_input = (*normal_input.0.left(), *normal_input.1.left());
         let mark_earlier = op(normal_input, mark_later);
         (
@@ -151,17 +154,17 @@ impl<R: BitvectorDomain<Bound = RBound>> RCombinedBitvector<RThreeValuedBitvecto
 
     fn ext_op(
         normal_input: (Self,),
-        mark_later: RCombinedMark<R>,
+        mark_later: RCombinedMark<D>,
         op: fn((RThreeValuedBitvector,), RMarkBitvector) -> (RMarkBitvector,),
-    ) -> (RCombinedMark<R>,) {
+    ) -> (RCombinedMark<D>,) {
         let normal_input = (*normal_input.0.left(),);
         let mark_earlier = op(normal_input, mark_later.0);
         (RCombinedMark::new(mark_earlier.0),)
     }
 }
 
-impl<R: BitvectorDomain<Bound = RBound>> Bitwise for RCombinedBitvector<RThreeValuedBitvector, R> {
-    type Mark = RCombinedMark<R>;
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> Bitwise for RCombinedBitvector<D> {
+    type Mark = RCombinedMark<D>;
 
     fn bit_not(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         Self::uni_op(
@@ -196,8 +199,10 @@ impl<R: BitvectorDomain<Bound = RBound>> Bitwise for RCombinedBitvector<RThreeVa
     }
 }
 
-impl<R: BitvectorDomain<Bound = RBound>> TypedCmp for RCombinedBitvector<RThreeValuedBitvector, R> {
-    type MarkEarlier = RCombinedMark<R>;
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> TypedCmp
+    for RCombinedBitvector<D>
+{
+    type MarkEarlier = RCombinedMark<D>;
     type MarkLater = Boolean;
 
     fn slt(
@@ -245,8 +250,8 @@ impl<R: BitvectorDomain<Bound = RBound>> TypedCmp for RCombinedBitvector<RThreeV
     }
 }
 
-impl<R: BitvectorDomain<Bound = RBound>> TypedEq for RCombinedBitvector<RThreeValuedBitvector, R> {
-    type MarkEarlier = RCombinedMark<R>;
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> TypedEq for RCombinedBitvector<D> {
+    type MarkEarlier = RCombinedMark<D>;
     type MarkLater = Boolean;
 
     fn eq(
@@ -272,8 +277,8 @@ impl<R: BitvectorDomain<Bound = RBound>> TypedEq for RCombinedBitvector<RThreeVa
     }
 }
 
-impl<R: BitvectorDomain<Bound = RBound>> RExt for RCombinedBitvector<RThreeValuedBitvector, R> {
-    type Mark = RCombinedMark<R>;
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> RExt for RCombinedBitvector<D> {
+    type Mark = RCombinedMark<D>;
 
     fn uext(normal_input: (Self,), mark_later: Self::Mark) -> (Self::Mark,) {
         Self::ext_op(
@@ -292,8 +297,8 @@ impl<R: BitvectorDomain<Bound = RBound>> RExt for RCombinedBitvector<RThreeValue
     }
 }
 
-impl<R: BitvectorDomain<Bound = RBound>> HwShift for RCombinedBitvector<RThreeValuedBitvector, R> {
-    type Mark = RCombinedMark<R>;
+impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> HwShift for RCombinedBitvector<D> {
+    type Mark = RCombinedMark<D>;
 
     fn logic_shl(normal_input: (Self, Self), mark_later: Self::Mark) -> (Self::Mark, Self::Mark) {
         Self::bi_op(
