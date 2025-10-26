@@ -1,6 +1,6 @@
 use crate::{
     abstr::{
-        combined::{DomainCombination, RCombinedBitvector},
+        combination::DomainCombination, combined::RCombinedBitvector,
         three_valued::RThreeValuedBitvector,
     },
     backward::{Bitwise, HwArith, HwShift, RExt, TypedCmp, TypedEq},

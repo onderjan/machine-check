@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{combined::DomainCombination, three_valued::RThreeValuedBitvector},
+    abstr::{combination::DomainCombination, three_valued::RThreeValuedBitvector},
     misc::RBound,
 };
 

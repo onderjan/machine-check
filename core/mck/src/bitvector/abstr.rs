@@ -4,8 +4,10 @@ use crate::concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
 use crate::misc::{BitvectorBound, Join, MetaEq};
 use std::hash::Hash;
 
+pub mod combination;
 pub mod combined;
 pub mod dual_interval;
+pub mod eq_domain;
 pub mod three_valued;
 
 pub trait BitvectorDomain: Clone + Copy + Hash + Join + MetaEq {
@@ -14,7 +16,7 @@ pub trait BitvectorDomain: Clone + Copy + Hash + Join + MetaEq {
 
     fn bound(&self) -> Self::Bound;
 
-    fn single_value(value: u64, bound: Self::Bound) -> Self;
+    fn single_value(value: ConcreteBitvector<Self::Bound>) -> Self;
     fn top(bound: Self::Bound) -> Self;
     fn meet(self, other: &Self) -> Option<Self>;
 
@@ -34,11 +36,14 @@ pub trait CBitvectorDomain: BitvectorDomain {
     fn as_runtime_bitvector(&self) -> Self::General<RBound>;
 }
 
-#[cfg(not(feature = "Zdual_interval"))]
+#[cfg(all(not(feature = "Zdual_interval"), not(feature = "Zeq_domain")))]
 pub type Bitvector<B> = three_valued::ThreeValuedBitvector<B>;
 
-#[cfg(feature = "Zdual_interval")]
-pub type Bitvector<B> = combined::CombinedBitvector<B, combined::TVDICombination<B>>;
+#[cfg(all(feature = "Zdual_interval", not(feature = "Zeq_domain")))]
+pub type Bitvector<B> = combined::CombinedBitvector<B, combination::TVDICombination<B>>;
+
+#[cfg(all(not(feature = "Zdual_interval"), feature = "Zeq_domain"))]
+pub type Bitvector<B> = combined::CombinedBitvector<B, combination::TVEQCombination<B>>;
 
 pub type RBitvector = Bitvector<RBound>;
 pub type CBitvector<const W: u32> = Bitvector<CBound<W>>;

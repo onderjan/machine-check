@@ -160,8 +160,8 @@ impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
     type Bound = B;
     type General<X: BitvectorBound> = ThreeValuedBitvector<X>;
 
-    fn single_value(value: u64, bound: Self::Bound) -> Self {
-        Self::new(value, bound)
+    fn single_value(value: ConcreteBitvector<Self::Bound>) -> Self {
+        Self::from_concrete_value(value)
     }
 
     fn top(bound: B) -> Self {

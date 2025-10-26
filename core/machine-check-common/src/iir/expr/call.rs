@@ -4,6 +4,7 @@ use mck::three_valued::ThreeValued;
 
 use mck::{
     abstr::{AbstractValue, BitvectorDomain},
+    concr::RConcreteBitvector,
     forward::ReadWrite,
     misc::{Join, RBound},
     refin::{RefinementDomain, RefinementValue},
@@ -34,8 +35,7 @@ impl IMckNew {
                     panic!("Constant outside u64");
                 };
                 AbstractValue::Bitvector(mck::abstr::RBitvector::single_value(
-                    constant,
-                    RBound::new(*width),
+                    RConcreteBitvector::new(constant, RBound::new(*width)),
                 ))
             }
         }

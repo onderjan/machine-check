@@ -2,7 +2,7 @@ use std::{marker::PhantomData, num::NonZeroU8};
 
 use crate::{
     abstr::{
-        combined::{DomainCombination, RCombinedBitvector, TVDICombination},
+        combination::DomainCombination, combined::RCombinedBitvector,
         three_valued::RThreeValuedBitvector,
     },
     bitvector::refin::{combined::RCombinedMark, three_valued::RMarkBitvector},
@@ -14,7 +14,7 @@ impl<D: DomainCombination<RBound, Left = RThreeValuedBitvector>> RefinementDomai
     for RCombinedMark<D>
 {
     type Bound = RBound;
-    type Abstr = RCombinedBitvector<TVDICombination<RBound>>;
+    type Abstr = RCombinedBitvector<D>;
 
     fn bound(&self) -> Self::Bound {
         self.0.bound()

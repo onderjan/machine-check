@@ -244,12 +244,13 @@ fn construct_panic_result<T>(
     panic_msg_num: u64,
 ) -> PanicResult<T> {
     let panic = if must_panic {
-        PanicBitvector::single_value(panic_msg_num, CBound)
+        PanicBitvector::single_value(ConcreteBitvector::new(panic_msg_num, CBound))
     } else if may_panic {
-        PanicBitvector::single_value(PANIC_NUM_NO_PANIC, CBound)
-            .join(&PanicBitvector::single_value(panic_msg_num, CBound))
+        PanicBitvector::single_value(ConcreteBitvector::new(PANIC_NUM_NO_PANIC, CBound)).join(
+            &PanicBitvector::single_value(ConcreteBitvector::new(panic_msg_num, CBound)),
+        )
     } else {
-        PanicBitvector::single_value(PANIC_NUM_NO_PANIC, CBound)
+        PanicBitvector::single_value(ConcreteBitvector::new(PANIC_NUM_NO_PANIC, CBound))
     };
     PanicResult { panic, result }
 }

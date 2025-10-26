@@ -1,8 +1,5 @@
-use std::{hash::Hash, num::NonZeroU8};
-
-#[cfg(feature = "Zdual_interval")]
-use crate::{abstr::combined::TVDICombination, misc::RBound};
 use crate::{misc::BitvectorBound, refin};
+use std::{hash::Hash, num::NonZeroU8};
 
 mod combined;
 mod three_valued;
@@ -30,8 +27,13 @@ pub trait RefinementDomain: Clone + Copy + Hash {
     fn importance(&self) -> u8;
 }
 
-#[cfg(not(feature = "Zdual_interval"))]
+#[cfg(all(not(feature = "Zdual_interval"), not(feature = "Zeq_domain")))]
 pub type RBitvector = three_valued::RMarkBitvector;
 
-#[cfg(feature = "Zdual_interval")]
-pub type RBitvector = combined::RCombinedMark<TVDICombination<RBound>>;
+#[cfg(all(feature = "Zdual_interval", not(feature = "Zeq_domain")))]
+pub type RBitvector =
+    combined::RCombinedMark<crate::abstr::combination::TVDICombination<crate::misc::RBound>>;
+
+#[cfg(all(not(feature = "Zdual_interval"), feature = "Zeq_domain"))]
+pub type RBitvector =
+    combined::RCombinedMark<crate::abstr::combination::TVEQCombination<crate::misc::RBound>>;

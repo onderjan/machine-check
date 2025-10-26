@@ -238,7 +238,7 @@ pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
             }
             if !abstr_panic.meta_eq(&equiv_panic) {
                 panic!(
-                    "Non-exact panic with parameters {}, {}, expected {}, got {}",
+                    "Non-exact panic with parameters {}, {}, expected {:?}, got {:?}",
                     a, b, equiv_panic, abstr_panic
                 );
             }

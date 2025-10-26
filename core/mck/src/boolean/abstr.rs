@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     abstr::{BitvectorDomain, RBitvector, Test},
     bitvector::RBound,
-    concr::{self},
+    concr::{self, RConcreteBitvector},
     forward::Bitwise,
     misc::{Join, MetaEq},
     three_valued::ThreeValued,
@@ -54,8 +54,8 @@ impl Boolean {
         let bound = RBound::new(1);
 
         match self.0 {
-            ThreeValued::False => RBitvector::single_value(0, bound),
-            ThreeValued::True => RBitvector::single_value(1, bound),
+            ThreeValued::False => RBitvector::single_value(RConcreteBitvector::new(0, bound)),
+            ThreeValued::True => RBitvector::single_value(RConcreteBitvector::new(1, bound)),
             ThreeValued::Unknown => RBitvector::top(bound),
         }
     }

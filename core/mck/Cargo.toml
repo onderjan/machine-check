@@ -8,7 +8,9 @@ rust-version = "1.88"
 
 [features]
 #default = ["Zdual_interval"]
+#default = ["Zeq_domain"]
 Zdual_interval = []
+Zeq_domain = []
 
 [dependencies]
 seq-macro = "0.3.5"

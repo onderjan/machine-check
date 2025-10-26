@@ -131,8 +131,8 @@ impl<B: BitvectorBound> BitvectorDomain for DualInterval<B> {
     type Bound = B;
     type General<X: BitvectorBound> = DualInterval<X>;
 
-    fn single_value(value: u64, bound: Self::Bound) -> Self {
-        Self::from_value(ConcreteBitvector::new(value, bound))
+    fn single_value(value: ConcreteBitvector<B>) -> Self {
+        Self::from_value(value)
     }
 
     fn top(bound: Self::Bound) -> Self {
