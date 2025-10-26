@@ -37,3 +37,7 @@ pub type RBitvector =
 #[cfg(all(not(feature = "Zdual_interval"), feature = "Zeq_domain"))]
 pub type RBitvector =
     combined::RCombinedMark<crate::abstr::combination::TVEQCombination<crate::misc::RBound>>;
+
+#[cfg(all(feature = "Zdual_interval", feature = "Zeq_domain"))]
+pub type RBitvector =
+    combined::RCombinedMark<crate::abstr::combination::TVDIEQCombination<crate::misc::RBound>>;

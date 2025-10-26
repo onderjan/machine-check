@@ -66,6 +66,14 @@ impl<B: BitvectorBound, D: DomainCombination<B>> CombinedBitvector<B, D> {
     pub(crate) fn right(&self) -> &D::Right {
         &self.right
     }
+
+    pub(super) fn left_mut(&mut self) -> &mut D::Left {
+        &mut self.left
+    }
+
+    pub(super) fn right_mut(&mut self) -> &mut D::Right {
+        &mut self.right
+    }
 }
 
 impl<B: BitvectorBound, D: DomainCombination<B>> Join for CombinedBitvector<B, D> {

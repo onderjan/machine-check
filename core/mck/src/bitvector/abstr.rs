@@ -66,6 +66,9 @@ pub type Bitvector<B> = combined::CombinedBitvector<B, combination::TVDICombinat
 #[cfg(all(not(feature = "Zdual_interval"), feature = "Zeq_domain"))]
 pub type Bitvector<B> = combined::CombinedBitvector<B, combination::TVEQCombination<B>>;
 
+#[cfg(all(feature = "Zdual_interval", feature = "Zeq_domain"))]
+pub type Bitvector<B> = combined::CombinedBitvector<B, combination::TVDIEQCombination<B>>;
+
 pub type RBitvector = Bitvector<RBound>;
 pub type CBitvector<const W: u32> = Bitvector<CBound<W>>;
 

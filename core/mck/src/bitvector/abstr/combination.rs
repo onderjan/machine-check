@@ -2,8 +2,8 @@ use std::{hash::Hash, marker::PhantomData};
 
 use crate::{
     abstr::{
-        dual_interval::DualInterval, eq_domain::EqualityDomain, three_valued::ThreeValuedBitvector,
-        BitvectorDisplay, BitvectorDomain,
+        combined::CombinedBitvector, dual_interval::DualInterval, eq_domain::EqualityDomain,
+        three_valued::ThreeValuedBitvector, BitvectorDisplay, BitvectorDomain,
     },
     bitvector::interval::WrappingInterval,
     misc::BitvectorBound,
@@ -94,8 +94,61 @@ impl<B: BitvectorBound> DomainCombination<B> for TVEQCombination<B> {
 
     fn display(left: &Self::Left, right: &Self::Right) -> BitvectorDisplay {
         let mut display = left.display();
-        // only display equality domain tracked
+        // only display equality domain if tracking
         if let Some(tracker) = right.get_tracker() {
+            display.domains.push(super::DomainDisplay::Tracker(tracker));
+        }
+        display
+    }
+}
+
+#[derive(Clone, Copy, Hash, Debug)]
+struct Private;
+
+#[derive(Clone, Copy, Hash, Debug)]
+pub struct DIEQCombination<B: BitvectorBound>(PhantomData<B>, Private);
+
+impl<B: BitvectorBound> DomainCombination<B> for DIEQCombination<B> {
+    type Left = DualInterval<B>;
+    type Right = EqualityDomain<B>;
+
+    type General<X: BitvectorBound> = DIEQCombination<X>;
+
+    fn combine(_: &mut Self::Left, _: &mut Self::Right) {
+        // do not combine here, only used for TVDIEQ
+    }
+
+    fn display(_: &Self::Left, _: &Self::Right) -> BitvectorDisplay {
+        unimplemented!()
+    }
+}
+
+#[derive(Clone, Copy, Hash, Debug)]
+pub struct TVDIEQCombination<B: BitvectorBound>(PhantomData<B>);
+
+impl<B: BitvectorBound> DomainCombination<B> for TVDIEQCombination<B> {
+    type Left = ThreeValuedBitvector<B>;
+    type Right = CombinedBitvector<B, DIEQCombination<B>>;
+
+    type General<X: BitvectorBound> = TVDIEQCombination<X>;
+
+    fn combine(three_valued: &mut Self::Left, di_eq: &mut Self::Right) {
+        // combine with equality domain first
+        TVEQCombination::combine(three_valued, di_eq.right_mut());
+
+        // then, combine with dual-interval domain
+        TVDICombination::combine(three_valued, di_eq.left_mut());
+
+        // to ensure dual-interval domain combination is propagated into
+        // equality domain, combine three-valued with equality domain again
+        TVDICombination::combine(three_valued, di_eq.left_mut());
+    }
+
+    fn display(left: &Self::Left, right: &Self::Right) -> BitvectorDisplay {
+        let mut display = left.display();
+        display.domains.extend(right.left().display().domains);
+        // only display equality domain if tracking
+        if let Some(tracker) = right.right().get_tracker() {
             display.domains.push(super::DomainDisplay::Tracker(tracker));
         }
         display

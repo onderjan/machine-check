@@ -12,6 +12,7 @@ Zeq_domain = []
 
 #default = ["Zdual_interval"]
 #default = ["Zeq_domain"]
+#default = ["Zdual_interval", "Zeq_domain"]
 
 [dependencies]
 seq-macro = "0.3.5"
