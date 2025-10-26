@@ -10,6 +10,7 @@ rust-version = "1.88"
 [features]
 gui = ["machine-check-gui"]
 Zdual_interval = ["mck/Zdual_interval"]
+Zeq_domain = ["mck/Zeq_domain"]
 
 [dependencies]
 machine-check-common = "=0.6.1"

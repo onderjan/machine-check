@@ -1,7 +1,9 @@
+use std::collections::{btree_map, BTreeMap, BTreeSet};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{Boolean, CBitvectorDomain, RArray, RBitvector},
+    abstr::{BitvectorDomain, Boolean, CBitvectorDomain, RArray, RBitvector},
     bitvector::RBound,
     forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     misc::{Join, MetaEq},
@@ -82,6 +84,54 @@ impl AbstractValue {
         let bitvector = *self.expect_bitvector();
         let extended = BExt::sext(bitvector, RBound::new(new_width));
         AbstractValue::Bitvector(extended)
+    }
+
+    pub fn assign_trackers(&mut self, start_tracker: u32) -> u32 {
+        let mut tracker = start_tracker;
+        for field in self.expect_struct_mut() {
+            if let AbstractValue::Bitvector(bitvector) = field {
+                bitvector.assign_tracker(Some(start_tracker));
+            };
+            tracker += 1;
+        }
+        tracker
+    }
+
+    pub fn canonicise_trackers(&mut self) {
+        let mut once = BTreeMap::new();
+        let mut multiple = BTreeSet::new();
+
+        for (field_index, field) in self.expect_struct_mut().iter_mut().enumerate() {
+            let AbstractValue::Bitvector(bitvector) = field else {
+                continue;
+            };
+            let Some(field_tracker) = bitvector.get_tracker() else {
+                continue;
+            };
+            if let btree_map::Entry::Vacant(e) = once.entry(field_tracker) {
+                e.insert(field_index as u32);
+            } else {
+                multiple.insert(field_tracker);
+            }
+        }
+
+        for field in self.expect_struct_mut() {
+            let AbstractValue::Bitvector(bitvector) = field else {
+                continue;
+            };
+            let Some(field_tracker) = bitvector.get_tracker() else {
+                continue;
+            };
+
+            let canonical_tracker = if multiple.contains(&field_tracker) {
+                // retain the field tracker with canonical index
+                Some(*once.get(&field_tracker).unwrap())
+            } else {
+                // lose the field tracker
+                None
+            };
+            bitvector.assign_tracker(canonical_tracker);
+        }
     }
 }
 

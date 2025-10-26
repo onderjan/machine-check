@@ -24,6 +24,8 @@ impl<M: FullMachine> super::Framework<M> {
         let mut new_states = BTreeSet::new();
         let mut changed_successors = BTreeSet::new();
 
+        let param_start_tracker = self.machine.state().fields.len() as u32;
+
         // construct state space by breadth-first search
         while let Some(node_id) = queue.pop_front() {
             // if it has already been processed, continue
@@ -68,12 +70,16 @@ impl<M: FullMachine> super::Framework<M> {
 
             // generate direct successors
 
-            for param in param_precision.into_proto_iter() {
+            for mut param in param_precision.into_proto_iter() {
                 let mut param_id = None;
+
+                let input_start_tracker = param.assign_trackers(param_start_tracker);
 
                 let param = <M::Abstr as AbstrMachine<M>>::Param::from_runtime(&param);
 
-                for input in input_precision.clone().into_proto_iter() {
+                for mut input in input_precision.clone().into_proto_iter() {
+                    input.assign_trackers(input_start_tracker);
+
                     let input = <M::Abstr as AbstrMachine<M>>::Input::from_runtime(&input);
 
                     // compute the next state
@@ -89,20 +95,23 @@ impl<M: FullMachine> super::Framework<M> {
                             M::Abstr::init(&self.abstract_system, &input, &param)
                         }
                     };
-                    log::trace!(
+                    /*log::trace!(
                         "Next state from {:?} with param {:?} and input {:?} is {:?}",
                         current_state,
                         param,
                         input,
                         next_state
-                    );
+                    );*/
 
-                    // TODO: apply decay without conversion to/from runtime and to panic as well
+                    // TODO: apply decay and trackers canonisation without conversion to/from runtime
 
                     let mut next_result = next_state.result.to_runtime();
 
                     // apply decay
                     step_precision.force_decay(&mut next_result);
+
+                    // make trackers canonical
+                    next_result.canonicise_trackers();
 
                     next_state.result = AbstrState::<M>::from_runtime(&next_result);
 

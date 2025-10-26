@@ -175,6 +175,8 @@ impl<M: FullMachine> super::Framework<M> {
         current_state_mark: RefinementValue,
         current_panic_mark: RefinementValue,
     ) -> (RefinementValue, RefinementValue, Option<RefinementValue>) {
+        let param_start_tracker = self.machine.state().fields.len() as u32;
+
         let runtime_machine = self.abstract_system.to_runtime();
 
         let input = self
@@ -207,8 +209,13 @@ impl<M: FullMachine> super::Framework<M> {
             let previous_state = &previous_state.result;
 
             let previous_state = previous_state.to_runtime();
-            let input = input.to_runtime();
-            let param = param.to_runtime();
+            let mut input = input.to_runtime();
+            let mut param = param.to_runtime();
+
+            // assign trackers
+            let param_start_tracker = previous_state.expect_struct().len() as u32;
+            let input_start_tracker = param.assign_trackers(param_start_tracker);
+            input.assign_trackers(input_start_tracker);
 
             let next_fn = self.machine.next();
 
@@ -247,8 +254,12 @@ impl<M: FullMachine> super::Framework<M> {
             trace!("Later mark: {:?}", current_state_mark);
         }
 
-        let input = input.to_runtime();
-        let param = param.to_runtime();
+        let mut input = input.to_runtime();
+        let mut param = param.to_runtime();
+
+        // assign trackers
+        let input_start_tracker = param.assign_trackers(param_start_tracker);
+        input.assign_trackers(input_start_tracker);
 
         let init_fn = self.machine.init();
 

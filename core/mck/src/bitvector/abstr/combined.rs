@@ -139,6 +139,25 @@ impl<B: BitvectorBound, D: DomainCombination<B>> BitvectorDomain for CombinedBit
             }
         }
     }
+
+    fn get_tracker(&self) -> Option<u32> {
+        let left_tracker = self.left.get_tracker();
+        let right_tracker = self.right.get_tracker();
+
+        match (left_tracker, right_tracker) {
+            (None, None) => None,
+            (None, Some(tracker)) | (Some(tracker), None) => Some(tracker),
+            (Some(left), Some(right)) => {
+                assert_eq!(left, right);
+                Some(left)
+            }
+        }
+    }
+
+    fn assign_tracker(&mut self, tracker: Option<u32>) {
+        self.left.assign_tracker(tracker);
+        self.right.assign_tracker(tracker);
+    }
 }
 
 impl<const W: u32, D: DomainCombination<CBound<W>>> CBitvectorDomain for CCombinedBitvector<W, D>

@@ -26,6 +26,11 @@ pub trait BitvectorDomain: Clone + Copy + Hash + Join + MetaEq {
     fn smax(&self) -> SignedBitvector<Self::Bound>;
 
     fn concrete_value(&self) -> Option<ConcreteBitvector<Self::Bound>>;
+
+    fn get_tracker(&self) -> Option<u32> {
+        None
+    }
+    fn assign_tracker(&mut self, _tracker: Option<u32>) {}
 }
 
 pub trait CBitvectorDomain: BitvectorDomain {

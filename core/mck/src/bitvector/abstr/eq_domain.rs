@@ -169,6 +169,27 @@ impl<B: BitvectorBound> BitvectorDomain for EqualityDomain<B> {
             None
         }
     }
+
+    fn get_tracker(&self) -> Option<u32> {
+        if let EqualityTracker::Tracked(tracker) = self.tracker {
+            Some(tracker)
+        } else {
+            None
+        }
+    }
+
+    fn assign_tracker(&mut self, tracker: Option<u32>) {
+        // only (re)assign if not a constant
+        if matches!(self.tracker, EqualityTracker::Constant(_)) {
+            return;
+        }
+
+        self.tracker = if let Some(tracker) = tracker {
+            EqualityTracker::Tracked(tracker)
+        } else {
+            EqualityTracker::Top
+        }
+    }
 }
 
 impl<const W: u32> CBitvectorDomain for EqualityDomain<CBound<W>> {
