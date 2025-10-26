@@ -1,7 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use crate::abstr::{Abstr, AbstractValue};
 use crate::bitvector::bound::{CBound, RBound};
 use crate::concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
 use crate::misc::{BitvectorBound, Join, MetaEq};
+use std::fmt::Display;
 use std::hash::Hash;
 
 pub mod combination;
@@ -27,10 +30,23 @@ pub trait BitvectorDomain: Clone + Copy + Hash + Join + MetaEq {
 
     fn concrete_value(&self) -> Option<ConcreteBitvector<Self::Bound>>;
 
+    fn display(&self) -> BitvectorDisplay;
+
     fn get_tracker(&self) -> Option<u32> {
         None
     }
     fn assign_tracker(&mut self, _tracker: Option<u32>) {}
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum DomainDisplay {
+    Value(String),
+    Tracker(u32),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BitvectorDisplay {
+    domains: Vec<DomainDisplay>,
 }
 
 pub trait CBitvectorDomain: BitvectorDomain {
@@ -66,5 +82,30 @@ impl<const W: u32> Abstr<super::concr::Bitvector<CBound<W>>> for Bitvector<CBoun
 
     fn to_runtime(&self) -> AbstractValue {
         AbstractValue::Bitvector(self.as_runtime_bitvector())
+    }
+}
+
+impl Display for BitvectorDisplay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.domains.is_empty() {
+            return write!(f, "⊤");
+        }
+
+        let mut first = true;
+
+        for domain in &self.domains {
+            if first {
+                first = false;
+            } else {
+                write!(f, " ∩ ")?;
+            }
+
+            match domain {
+                DomainDisplay::Value(value) => write!(f, "{}", value),
+                DomainDisplay::Tracker(tracker) => write!(f, "Eq(#{})", tracker),
+            }?;
+        }
+
+        Ok(())
     }
 }

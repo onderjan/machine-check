@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{self, Abstr, AbstractValue, BitvectorDomain, CBitvectorDomain},
+    abstr::{self, Abstr, AbstractValue, BitvectorDisplay, BitvectorDomain, CBitvectorDomain},
     bitvector::{BitvectorBound, CBound, RBound},
     concr::{self, ConcreteBitvector, UnsignedBitvector},
     forward::ReadWrite,
@@ -21,6 +21,9 @@ pub struct Array<I: BitvectorBound, E: BitvectorBound> {
 
 pub type RArray = Array<RBound, RBound>;
 pub type CArray<const I: u32, const E: u32> = Array<CBound<I>, CBound<E>>;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ArrayDisplay(pub Vec<((u64, u64), BitvectorDisplay)>);
 
 impl<I: BitvectorBound, E: BitvectorBound> Join for Array<I, E> {
     fn join(mut self, other: &Self) -> Self {
@@ -52,6 +55,42 @@ impl<I: BitvectorBound, E: BitvectorBound> Array<I, E> {
 
     pub fn inner(&self) -> &LightArray<UnsignedBitvector<I>, MetaWrap<abstr::Bitvector<E>>> {
         &self.inner
+    }
+
+    pub fn display(&self) -> ArrayDisplay {
+        // the light array contains the values only for the leftmost indices in the runs of same elements
+        // we want to create the names of slices where all elements correspond to the same value
+        // i.e. field_name[i..=j] where there is a multi-element run and field_name[i] where there is
+        // a single-element run, i.e. i == j
+
+        let index_width = self.index_bound().width();
+
+        let mut runs = Vec::new();
+
+        // we need to be able to look at the successive two elements, so we use peeking
+        let mut iter = self.inner().light_iter().peekable();
+        while let Some((start_index, element)) = iter.next() {
+            let peek = iter.peek();
+            let start_index = start_index.to_u64();
+            let end_index = if let Some(peek) = peek {
+                // we have a next index, the end index of this run is just before it
+                peek.0.to_u64() - 1
+            } else if index_width == u64::BITS {
+                // there is no next index; since the array is the maximum amount of bits wide,
+                // we must explicitly use the maximum value since the right shift would overflow
+                u64::MAX
+            } else {
+                // there is no next index; we can compute the end index here by (2^N)-1
+                // without overflow
+                (1u64 << index_width) - 1
+            };
+
+            let element_display = element.0.display();
+
+            runs.push(((start_index, end_index), element_display));
+        }
+
+        ArrayDisplay(runs)
     }
 }
 

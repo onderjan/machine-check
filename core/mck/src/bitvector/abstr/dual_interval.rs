@@ -1,5 +1,5 @@
 use crate::{
-    abstr::{BitvectorDomain, CBitvectorDomain},
+    abstr::{BitvectorDomain, CBitvectorDomain, DomainDisplay},
     bitvector::interval::{SignedInterval, SignlessInterval, UnsignedInterval, WrappingInterval},
     concr::{CConcreteBitvector, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     misc::{BitvectorBound, CBound, Join, RBound},
@@ -186,6 +186,12 @@ impl<B: BitvectorBound> BitvectorDomain for DualInterval<B> {
             return self.near_half.concrete_value();
         }
         None
+    }
+
+    fn display(&self) -> super::BitvectorDisplay {
+        super::BitvectorDisplay {
+            domains: vec![DomainDisplay::Value(format!("{}", self))],
+        }
     }
 }
 

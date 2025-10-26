@@ -3,7 +3,7 @@ use std::{hash::Hash, marker::PhantomData};
 use crate::{
     abstr::{
         dual_interval::DualInterval, eq_domain::EqualityDomain, three_valued::ThreeValuedBitvector,
-        BitvectorDomain,
+        BitvectorDisplay, BitvectorDomain,
     },
     bitvector::interval::WrappingInterval,
     misc::BitvectorBound,
@@ -19,6 +19,7 @@ pub trait DomainCombination<B: BitvectorBound>: Clone + Copy + Hash {
     >;
 
     fn combine(left: &mut Self::Left, right: &mut Self::Right);
+    fn display(left: &Self::Left, right: &Self::Right) -> BitvectorDisplay;
 }
 
 #[derive(Clone, Copy, Hash, Debug)]
@@ -49,6 +50,13 @@ impl<B: BitvectorBound> DomainCombination<B> for TVDICombination<B> {
         };
 
         *three_valued = three_valued_result;
+    }
+
+    fn display(left: &Self::Left, right: &Self::Right) -> BitvectorDisplay {
+        let mut display = left.display();
+        display.domains.extend(right.display().domains);
+
+        display
     }
 }
 
@@ -82,5 +90,14 @@ impl<B: BitvectorBound> DomainCombination<B> for TVEQCombination<B> {
                 assert_eq!(three_valued_concrete, eq_domain_concrete);
             }
         }
+    }
+
+    fn display(left: &Self::Left, right: &Self::Right) -> BitvectorDisplay {
+        let mut display = left.display();
+        // only display equality domain tracked
+        if let Some(tracker) = right.get_tracker() {
+            display.domains.push(super::DomainDisplay::Tracker(tracker));
+        }
+        display
     }
 }

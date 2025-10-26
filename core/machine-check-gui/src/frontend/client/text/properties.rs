@@ -1,7 +1,4 @@
-use machine_check_common::{
-    check::{Conclusion, KnownConclusion},
-    ParamValuation,
-};
+use machine_check_common::ParamValuation;
 use wasm_bindgen::JsCast;
 use web_sys::{Element, Event, HtmlElement};
 
@@ -49,13 +46,7 @@ impl PropertiesDisplayer<'_> {
 
         let inherent_result: ParamValuation = inherent_property
             .conclusion
-            .as_ref()
-            .map(|conclusion| match conclusion {
-                Conclusion::Known(KnownConclusion::False) => ParamValuation::False,
-                Conclusion::Known(KnownConclusion::True) => ParamValuation::True,
-                Conclusion::Known(KnownConclusion::Dependent) => ParamValuation::Dependent,
-                _ => ParamValuation::Unknown,
-            })
+            .clone()
             .unwrap_or(ParamValuation::Unknown);
 
         let mut is_inherent = true;
@@ -164,15 +155,13 @@ impl PropertiesDisplayer<'_> {
                 }
 
                 let conclusion_span = create_element("span");
-                let (conclusion_class, conclusion_str, title_text) = match &property_snapshot
-                    .conclusion
-                {
-                    Ok(conclusion) => match conclusion {
-                        Conclusion::Known(KnownConclusion::True) => {
-                            ("conclusion-true", "\u{2714}\u{FE0F}", String::from("Holds"))
-                        }
-                        Conclusion::Known(KnownConclusion::False) => {
-                            ("conclusion-false", "\u{274C}\u{FE0F}", {
+                let (conclusion_class, conclusion_str, title_text) =
+                    match &property_snapshot.conclusion {
+                        Ok(conclusion) => match conclusion {
+                            ParamValuation::True => {
+                                ("conclusion-true", "\u{2714}\u{FE0F}", String::from("Holds"))
+                            }
+                            ParamValuation::False => ("conclusion-false", "\u{274C}\u{FE0F}", {
                                 let mut conclusion_string = String::from("Does not hold");
                                 if is_inherent {
                                     if let Some(panic_message) = panic_message {
@@ -183,30 +172,24 @@ impl PropertiesDisplayer<'_> {
                                     }
                                 }
                                 conclusion_string
-                            })
-                        }
-                        Conclusion::Known(KnownConclusion::Dependent) => (
-                            "conclusion-dependent",
-                            "\u{2755}\u{FE0F}",
-                            String::from("Dependent on parameters"),
+                            }),
+                            ParamValuation::Dependent => (
+                                "conclusion-dependent",
+                                "\u{2755}\u{FE0F}",
+                                String::from("Dependent on parameters"),
+                            ),
+                            ParamValuation::Unknown => (
+                                "conclusion-unknown",
+                                "\u{2754}\u{FE0F}",
+                                String::from("Unknown"),
+                            ),
+                        },
+                        Err(err) => (
+                            "conclusion-error",
+                            "\u{1F6D1}\u{FE0F}",
+                            format!("Error: {}", err),
                         ),
-                        Conclusion::Unknown(_culprit) => (
-                            "conclusion-unknown",
-                            "\u{2754}\u{FE0F}",
-                            String::from("Unknown"),
-                        ),
-                        Conclusion::NotCheckable => (
-                            "conclusion-not-checkable",
-                            "\u{2754}\u{FE0F}",
-                            String::from("Unknown (the state space is currently not checkable)"),
-                        ),
-                    },
-                    Err(err) => (
-                        "conclusion-error",
-                        "\u{1F6D1}\u{FE0F}",
-                        format!("Error: {}", err),
-                    ),
-                };
+                    };
                 conclusion_span
                     .class_list()
                     .add_2("conclusion", conclusion_class)

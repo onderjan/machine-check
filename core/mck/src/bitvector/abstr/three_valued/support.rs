@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use crate::{
     abstr::{
         three_valued::{CThreeValuedBitvector, InvalidZerosOnes, RThreeValuedBitvector},
-        BitvectorDomain, CBitvectorDomain,
+        BitvectorDisplay, BitvectorDomain, CBitvectorDomain, DomainDisplay,
     },
     bitvector::{compute_u64_mask, BitvectorBound},
     concr::{CConcreteBitvector, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
@@ -224,6 +224,11 @@ impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
         }
         // ones then contain the value
         Some(self.ones)
+    }
+
+    fn display(&self) -> BitvectorDisplay {
+        let domains = vec![DomainDisplay::Value(format!("{}", self))];
+        BitvectorDisplay { domains }
     }
 }
 

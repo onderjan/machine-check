@@ -158,6 +158,10 @@ impl<B: BitvectorBound, D: DomainCombination<B>> BitvectorDomain for CombinedBit
         self.left.assign_tracker(tracker);
         self.right.assign_tracker(tracker);
     }
+
+    fn display(&self) -> super::BitvectorDisplay {
+        D::display(&self.left, &self.right)
+    }
 }
 
 impl<const W: u32, D: DomainCombination<CBound<W>>> CBitvectorDomain for CCombinedBitvector<W, D>

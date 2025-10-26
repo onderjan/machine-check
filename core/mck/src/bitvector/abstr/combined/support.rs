@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 use crate::{
     abstr::combined::DomainCombination,
@@ -20,21 +20,8 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self.left, f)?;
-        write!(f, " ⊓ ")?;
+        write!(f, " ∩ ")?;
         std::fmt::Debug::fmt(&self.right, f)?;
-        Ok(())
-    }
-}
-
-impl<B: BitvectorBound, D: DomainCombination<B>> Display for CombinedBitvector<B, D>
-where
-    D::Left: Display,
-    D::Right: Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.left, f)?;
-        write!(f, " ⊓ ")?;
-        std::fmt::Display::fmt(&self.right, f)?;
         Ok(())
     }
 }

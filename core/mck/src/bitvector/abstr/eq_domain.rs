@@ -3,7 +3,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{BitvectorDomain, CBitvectorDomain},
+    abstr::{BitvectorDisplay, BitvectorDomain, CBitvectorDomain, DomainDisplay},
     concr::{CConcreteBitvector, ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     misc::{BitvectorBound, CBound, Join, MetaEq, RBound},
 };
@@ -189,6 +189,22 @@ impl<B: BitvectorBound> BitvectorDomain for EqualityDomain<B> {
         } else {
             EqualityTracker::Top
         }
+    }
+
+    fn display(&self) -> BitvectorDisplay {
+        let mut domains = Vec::new();
+
+        match self.tracker {
+            EqualityTracker::Top => {
+                // fully unknown
+            }
+            EqualityTracker::Tracked(tracker) => domains.push(DomainDisplay::Tracker(tracker)),
+            EqualityTracker::Constant(concrete) => {
+                domains.push(DomainDisplay::Value(format!("{}", concrete)))
+            }
+        }
+
+        BitvectorDisplay { domains }
     }
 }
 

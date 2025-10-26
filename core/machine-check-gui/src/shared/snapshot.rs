@@ -4,11 +4,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::shared::snapshot::log::Log;
 use machine_check_common::{
-    check::Conclusion,
     iir::{path::IIdent, property::IProperty, ty::IElementaryType},
     ExecError, NodeId, ParamValuation, StateId,
 };
-use mck::abstr::AbstractValue;
+use mck::abstr::AbstractDisplay;
 
 pub mod log;
 
@@ -39,13 +38,13 @@ pub struct StateSpace {
 pub struct Node {
     pub incoming: BTreeSet<NodeId>,
     pub outgoing: BTreeSet<NodeId>,
-    pub panic_state: Option<AbstractValue>,
+    pub panic_state: Option<AbstractDisplay>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PropertySnapshot {
     pub property: IProperty,
-    pub conclusion: Result<Conclusion, ExecError>,
+    pub conclusion: Result<ParamValuation, ExecError>,
     pub labellings: BTreeMap<usize, BTreeMap<StateId, ParamValuation>>,
 }
 

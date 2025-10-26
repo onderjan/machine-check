@@ -14,6 +14,20 @@ use crate::{
 #[derive(Clone, Copy, Hash, Serialize, Deserialize)]
 pub struct Boolean(ThreeValued);
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BooleanDisplay(ThreeValued);
+
+impl Display for BooleanDisplay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self.0 {
+            ThreeValued::False => "false",
+            ThreeValued::True => "true",
+            ThreeValued::Unknown => "unknown",
+        };
+        write!(f, "{}", str)
+    }
+}
+
 impl Test for Boolean {
     fn can_be_true(self) -> bool {
         matches!(self.0, ThreeValued::Unknown | ThreeValued::True)
@@ -80,6 +94,10 @@ impl Boolean {
             ThreeValued::True => value.0.is_true(),
             ThreeValued::Unknown => true,
         }
+    }
+
+    pub fn display(&self) -> BooleanDisplay {
+        BooleanDisplay(self.0)
     }
 }
 

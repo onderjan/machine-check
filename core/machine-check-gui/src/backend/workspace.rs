@@ -1,9 +1,11 @@
 use crate::backend::BackendSettings;
 use crate::shared::snapshot::log::Log;
 use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
+use machine_check_common::check::KnownConclusion;
 use machine_check_common::iir::property::IProperty;
+use machine_check_common::{ParamValuation, ThreeValued};
 use machine_check_exec::Framework;
-use mck::concr::FullMachine;
+use mck::{abstr::BitvectorDomain, concr::FullMachine};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Backend workspace.
@@ -53,9 +55,17 @@ impl<M: FullMachine> Workspace<M> {
 
                 use mck::abstr::{Abstr, AbstractValue};
 
+                // convert panic to boolean
+                let panic = mck::abstr::Boolean::from_three_valued(
+                    match panic_state.panic.concrete_value() {
+                        Some(value) => ThreeValued::from_bool(value.is_nonzero()),
+                        None => ThreeValued::Unknown,
+                    },
+                );
+
                 let panic_state = AbstractValue::Struct(vec![
                     panic_state.result.to_runtime(),
-                    panic_state.panic.to_runtime(),
+                    AbstractValue::Boolean(panic),
                 ]);
 
                 Some(panic_state)
@@ -66,7 +76,7 @@ impl<M: FullMachine> Workspace<M> {
             let node_info = Node {
                 incoming,
                 outgoing,
-                panic_state,
+                panic_state: panic_state.map(|panic_state| panic_state.display()),
             };
             nodes.insert(node_id, node_info);
         }
@@ -99,7 +109,24 @@ impl<M: FullMachine> Workspace<M> {
     ) -> PropertySnapshot {
         let (conclusion, labellings) = match framework.current_conclusion(property) {
             Ok(conclusion) => match framework.current_labellings(property) {
-                Ok(labellings) => (Ok(conclusion), labellings),
+                Ok(labellings) => {
+                    let conclusion = match conclusion {
+                        machine_check_common::check::Conclusion::Known(known_conclusion) => {
+                            match known_conclusion {
+                                KnownConclusion::False => ParamValuation::False,
+                                KnownConclusion::True => ParamValuation::True,
+                                KnownConclusion::Dependent => ParamValuation::Dependent,
+                            }
+                        }
+                        machine_check_common::check::Conclusion::Unknown(_) => {
+                            ParamValuation::Unknown
+                        }
+                        machine_check_common::check::Conclusion::NotCheckable => {
+                            ParamValuation::Unknown
+                        }
+                    };
+                    (Ok(conclusion), labellings)
+                }
                 Err(error) => (Err(error), BTreeMap::new()),
             },
             Err(error) => (Err(error), BTreeMap::new()),

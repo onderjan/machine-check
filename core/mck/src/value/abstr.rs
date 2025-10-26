@@ -1,9 +1,15 @@
-use std::collections::{btree_map, BTreeMap, BTreeSet};
+use std::{
+    collections::{btree_map, BTreeMap, BTreeSet},
+    fmt::{Debug, Display},
+};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{BitvectorDomain, Boolean, CBitvectorDomain, RArray, RBitvector},
+    abstr::{
+        ArrayDisplay, BitvectorDisplay, BitvectorDomain, Boolean, BooleanDisplay, CBitvectorDomain,
+        RArray, RBitvector,
+    },
     bitvector::RBound,
     forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     misc::{Join, MetaEq},
@@ -15,6 +21,14 @@ pub enum AbstractValue {
     Bitvector(RBitvector),
     Boolean(Boolean),
     Struct(Vec<AbstractValue>),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AbstractDisplay {
+    Array(ArrayDisplay),
+    Bitvector(BitvectorDisplay),
+    Boolean(BooleanDisplay),
+    Struct(Vec<AbstractDisplay>),
 }
 
 impl AbstractValue {
@@ -131,6 +145,46 @@ impl AbstractValue {
                 None
             };
             bitvector.assign_tracker(canonical_tracker);
+        }
+    }
+
+    pub fn display(&self) -> AbstractDisplay {
+        match self {
+            AbstractValue::Array(array) => AbstractDisplay::Array(array.display()),
+            AbstractValue::Bitvector(bitvector) => AbstractDisplay::Bitvector(bitvector.display()),
+            AbstractValue::Boolean(boolean) => AbstractDisplay::Boolean(boolean.display()),
+            AbstractValue::Struct(abstract_values) => AbstractDisplay::Struct(
+                abstract_values
+                    .iter()
+                    .map(|value| value.display())
+                    .collect(),
+            ),
+        }
+    }
+}
+
+impl AbstractDisplay {
+    pub fn expect_struct(&self) -> &Vec<AbstractDisplay> {
+        let AbstractDisplay::Struct(fields) = self else {
+            panic!("Display value should be a struct");
+        };
+        fields
+    }
+}
+
+impl Display for AbstractDisplay {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AbstractDisplay::Array(array_display) => Debug::fmt(array_display, f),
+            AbstractDisplay::Bitvector(bitvector_display) => Display::fmt(bitvector_display, f),
+            AbstractDisplay::Boolean(boolean_display) => Display::fmt(boolean_display, f),
+            AbstractDisplay::Struct(items) => {
+                write!(f, "{{")?;
+                for item in items {
+                    write!(f, "{}, ", item)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
