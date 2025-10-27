@@ -25,3 +25,20 @@ fn misc_freerun() {
         r#"{"result":{"Ok":"False"},"stats":{"num_refinements":12,"num_generated_states":22,"num_final_states":4,"num_generated_transitions":22,"num_final_transitions":5,"inherent_panic_message":null}}"#,
     );
 }
+
+#[test]
+fn misc_array() {
+    // Example of some supported array manipulations.
+    // Ensure that it does not panic.
+    test_example(
+        "misc_array",
+        TestConfig::new_inherent(),
+        r#"{"result":{"Ok":"True"},"stats":{"num_refinements":0,"num_generated_states":3,"num_final_states":2,"num_generated_transitions":3,"num_final_transitions":3,"inherent_panic_message":null}}"#,
+    );
+    // Ensure that markings are correctly propagated back through new_filled.
+    test_example(
+        "misc_array",
+        TestConfig::new_property("AG![array[0] == 0xCAFE]"),
+        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":1,"num_generated_states":6,"num_final_states":4,"num_generated_transitions":7,"num_final_transitions":6,"inherent_panic_message":null}}"#,
+    );
+}

@@ -1,3 +1,7 @@
+//! An example that can uncover reoccurence of a previous bug.
+//!
+//! See more in the corresponding test.
+
 #[machine_check::machine_description]
 mod machine_module {
     use ::machine_check::Unsigned;

@@ -55,5 +55,9 @@ path = "examples/book/book_instances_todo.rs"
 name = "misc_freerun"
 path = "examples/misc/freerun.rs"
 
+[[example]]
+name = "misc_array"
+path = "examples/misc/array.rs"
+
 [lints.clippy]
 uninlined_format_args = "allow"

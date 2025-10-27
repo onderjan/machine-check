@@ -107,7 +107,10 @@ impl WExpr<WExprCall> {
                 }
                 WExprCall::MckNew(mck_new) => IExprCall::MckNew(match mck_new {
                     WMckNew::Bitvector(width, constant) => IMckNew::Bitvector(width, constant),
-                    WMckNew::BitvectorArray(_wtype_array, _wident) => todo!(),
+                    WMckNew::BitvectorArray(type_array, element_ident) => {
+                        let element = from_variable_map(element_ident, fn_data);
+                        IMckNew::BitvectorArray(type_array, element)
+                    }
                 }),
                 WExprCall::BooleanNew(value) => IExprCall::BooleanNew(value),
                 WExprCall::StdClone(ident) => {

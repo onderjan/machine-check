@@ -113,6 +113,16 @@ impl RArray {
             });
         self
     }
+
+    pub fn earlier_element(&self) -> RBitvector {
+        self.inner.fold(
+            RBitvector::new_unmarked(self.element_width),
+            |mut mark, element| {
+                mark.apply_join(&element.0);
+                mark
+            },
+        )
+    }
 }
 
 impl ReadWrite for abstr::RArray {

@@ -19,16 +19,16 @@ use crate::iir::{
     variable::IVarId,
 };
 use crate::iir::{join_limited, IAbstr, IRefin};
+use crate::ir_common::IrTypeArray;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IMckNew {
     Bitvector(u32, i128),
-    // TODO: bitvector array
-    //BitvectorArray(WTypeArray, WIdent),
+    BitvectorArray(IrTypeArray, IVarId),
 }
 
 impl IMckNew {
-    fn forward_interpret(&self) -> AbstractValue {
+    fn forward_interpret(&self, abstr: &IAbstr) -> AbstractValue {
         match self {
             IMckNew::Bitvector(width, constant) => {
                 let Ok(constant) = u64::try_from(*constant) else {
@@ -37,6 +37,28 @@ impl IMckNew {
                 AbstractValue::Bitvector(mck::abstr::RBitvector::single_value(
                     RConcreteBitvector::new(constant, RBound::new(*width)),
                 ))
+            }
+            IMckNew::BitvectorArray(ty, element) => {
+                let element = *abstr.value(*element).expect_bitvector();
+                mck::abstr::AbstractValue::Array(mck::abstr::RArray::new_filled(
+                    RBound::new(ty.index_width),
+                    element,
+                ))
+            }
+        }
+    }
+
+    fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin, later: RefinementValue) {
+        match self {
+            IMckNew::Bitvector(_, _) => {
+                // nothing to propagate to
+            }
+            IMckNew::BitvectorArray(_ty, var_id) => {
+                // overlay the markings and propagate back
+                let later = later.expect_array();
+                let earlier = later.earlier_element();
+
+                join_limited(abstr, refin, *var_id, RefinementValue::Bitvector(earlier))
             }
         }
     }
@@ -47,6 +69,13 @@ impl Debug for IMckNew {
         match self {
             Self::Bitvector(width, constant) => {
                 write!(f, "::mck::Bitvector::<{}>::new({})", width, constant)
+            }
+            IMckNew::BitvectorArray(ty, element) => {
+                write!(
+                    f,
+                    "::mck::Bitvector::<{},{}>::new({:?})",
+                    ty.index_width, ty.element_width, element
+                )
             }
         }
     }
@@ -93,7 +122,7 @@ impl IExprCall {
             IExprCall::MckUnary(unary) => unary.forward_interpret(abstr),
             IExprCall::MckBinary(binary) => binary.forward_interpret(abstr),
             IExprCall::MckExt(ext) => ext.forward_interpret(abstr),
-            IExprCall::MckNew(mck_new) => mck_new.forward_interpret(),
+            IExprCall::MckNew(mck_new) => mck_new.forward_interpret(abstr),
             IExprCall::BooleanNew(value) => AbstractValue::Boolean(
                 mck::abstr::Boolean::from_three_valued(ThreeValued::from_bool(*value)),
             ),
@@ -141,7 +170,8 @@ impl IExprCall {
             IExprCall::MckUnary(unary) => unary.backward_interpret(abstr, refin, refin_later),
             IExprCall::MckBinary(binary) => binary.backward_interpret(abstr, refin, refin_later),
             IExprCall::MckExt(ext) => ext.backward_interpret(abstr, refin, refin_later),
-            IExprCall::MckNew(_) | IExprCall::BooleanNew(_) => {
+            IExprCall::MckNew(new) => new.backward_interpret(abstr, refin, refin_later),
+            IExprCall::BooleanNew(_) => {
                 // there is no variable to propagate to, do nothing
             }
             IExprCall::StdClone(var_id) => {

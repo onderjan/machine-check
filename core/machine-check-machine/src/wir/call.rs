@@ -320,6 +320,10 @@ impl IntoSyn<Expr> for WCall {
             args.push(create_expr_path(syn_path::path!(::mck::misc::CBound)));
         }
 
+        if path_matches_global_names(&path, &["mck", "forward", "Array", "new_filled"]) {
+            args.insert(0, create_expr_path(syn_path::path!(::mck::misc::CBound)));
+        }
+
         Expr::Call(ExprCall {
             attrs: Vec::new(),
             func: Box::new(Expr::Path(ExprPath {
