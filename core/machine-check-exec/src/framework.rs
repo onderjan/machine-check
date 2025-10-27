@@ -50,18 +50,26 @@ impl<M: FullMachine> Framework<M> {
         let param = machine.param();
         let state = machine.state();
 
+        let description = &machine.description;
+
         // default the input and param precision to clean (inputs will be refined)
         let (default_input_precision, default_param_precision) = if strategy.naive_inputs {
-            (input.dirty_refin(), param.dirty_refin())
+            (
+                input.dirty_refin(description),
+                param.dirty_refin(description),
+            )
         } else {
-            (input.clean_refin(), param.clean_refin())
+            (
+                input.clean_refin(description),
+                param.clean_refin(description),
+            )
         };
 
         // default the step precision to dirty (steps will remain non-decayed)
         let default_step_precision = if strategy.use_decay {
-            state.clean_refin()
+            state.clean_refin(description)
         } else {
-            state.dirty_refin()
+            state.dirty_refin(description)
         };
 
         // return the framework with empty state space, before any construction

@@ -219,7 +219,8 @@ impl<M: FullMachine> Deducer<'_, M> {
             } else {
                 // prefer a marked atomic property to subproperties
 
-                let mut earlier_normal = self.machine.state().clean_refin();
+                let mut earlier_normal =
+                    self.machine.state().clean_refin(&self.machine.description);
                 let mut earlier_panic =
                     RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
 

@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use mck::refin::{RArray, RBitvector, RefinementDomain, RefinementValue};
+use mck::refin::{Boolean, RArray, RBitvector, RefinementDomain, RefinementValue};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -105,7 +105,7 @@ impl IDescription {
 }
 
 impl IStruct {
-    pub fn clean_refin(&self) -> RefinementValue {
+    pub fn clean_refin(&self, description: &IDescription) -> RefinementValue {
         let mut result = Vec::new();
         for field_ty in self.fields.values() {
             let field_result = match field_ty {
@@ -116,8 +116,11 @@ impl IStruct {
                     array.index_width,
                     array.element_width,
                 )),
-                IElementaryType::Boolean => todo!(),
-                IElementaryType::Struct(_) => todo!(),
+                IElementaryType::Boolean => RefinementValue::Boolean(Boolean::new_unmarked()),
+                IElementaryType::Struct(struct_id) => {
+                    let iir_struct = description.struct_with_id(*struct_id);
+                    iir_struct.clean_refin(description)
+                }
             };
             result.push(field_result)
         }
@@ -125,7 +128,7 @@ impl IStruct {
         RefinementValue::Struct(result)
     }
 
-    pub fn dirty_refin(&self) -> RefinementValue {
+    pub fn dirty_refin(&self, description: &IDescription) -> RefinementValue {
         let mut result = Vec::new();
         for field_ty in self.fields.values() {
             let field_result = match field_ty {
@@ -135,8 +138,13 @@ impl IStruct {
                 IElementaryType::Array(array) => RefinementValue::Array(
                     RArray::new_marked_unimportant(array.index_width, array.element_width),
                 ),
-                IElementaryType::Boolean => todo!(),
-                IElementaryType::Struct(_) => todo!(),
+                IElementaryType::Boolean => {
+                    RefinementValue::Boolean(Boolean::new_marked_unimportant())
+                }
+                IElementaryType::Struct(struct_id) => {
+                    let iir_struct = description.struct_with_id(*struct_id);
+                    iir_struct.dirty_refin(description)
+                }
             };
             result.push(field_result)
         }
