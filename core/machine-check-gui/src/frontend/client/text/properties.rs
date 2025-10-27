@@ -80,11 +80,7 @@ impl PropertiesDisplayer<'_> {
         let is_subproperty = subproperty_index != 0;
         let subproperty = &property_snapshot.property.subproperties[subproperty_index];
 
-        // TODO: invisible subproperties
-        let is_visible = true;
-        //is_visible &= property_snapshot.subproperty.is_visible();
-
-        let parent_element = if let (property_str, true) = (subproperty.display_str(), is_visible) {
+        let parent_element = if let Some(display_str) = subproperty.display_str() {
             let outer_div = create_element("div");
             outer_div.class_list().add_1("property-outer").unwrap();
 
@@ -114,7 +110,7 @@ impl PropertiesDisplayer<'_> {
                     String::from("Inherent property")
                 }
             } else {
-                property_str.to_string()
+                display_str.to_string()
             };
 
             radio_label.set_text_content(Some(&property_text));

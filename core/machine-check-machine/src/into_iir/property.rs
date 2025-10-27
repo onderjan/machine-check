@@ -54,7 +54,7 @@ impl WProperty<YConverted> {
 
                     ISubproperty::FixedPoint(ISubpropertyFixedPoint {
                         parent: subproperty.parent,
-                        universal: subproperty.universal,
+                        universal: subproperty.greatest,
                         inner: subproperty.inner,
                         dependents,
                         display: subproperty.display,

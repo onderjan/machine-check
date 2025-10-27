@@ -33,7 +33,7 @@ pub struct ExprSubpropertyFunc {
     pub parent: Option<usize>,
     pub expr: Expr,
     pub dependencies: Vec<usize>,
-    pub display: String,
+    pub display: Option<String>,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -84,13 +84,13 @@ pub fn create_from_syn(
     let use_map = property_use_map(span);
 
     // expand macros
-    let display = make_display_string(&expr);
+    let display = expr.to_token_stream().to_string();
     let mut property = ExprProperty {
         subproperties: vec![ExprSubproperty::Expr(ExprSubpropertyFunc {
             parent: None,
             expr,
             dependencies: Vec::new(),
-            display,
+            display: Some(display),
         })],
     };
 
@@ -248,7 +248,3 @@ const PROPERTY_USE_MACHINE_CHECK: [&str; 17] = [
     "as_signed",
     "as_unsigned",
 ];
-
-fn make_display_string(to_tokens: impl ToTokens) -> String {
-    to_tokens.to_token_stream().to_string()
-}
