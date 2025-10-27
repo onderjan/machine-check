@@ -3,38 +3,32 @@ use std::fmt::{Debug, Display};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr::{BitvectorDomain, RBitvector, Test},
-    bitvector::RBound,
-    concr::{self, RConcreteBitvector},
+    abstr::Test,
+    concr::{self},
     forward::Bitwise,
     misc::{Join, MetaEq},
-    ThreeValued,
+    ParamValuation, ThreeValued,
 };
 
 #[derive(Clone, Copy, Hash, Serialize, Deserialize)]
-pub struct Boolean(ThreeValued);
+pub struct Boolean(ParamValuation);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BooleanDisplay(ThreeValued);
+pub struct BooleanDisplay(ParamValuation);
 
 impl Display for BooleanDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self.0 {
-            ThreeValued::False => "false",
-            ThreeValued::True => "true",
-            ThreeValued::Unknown => "unknown",
-        };
-        write!(f, "{}", str)
+        Display::fmt(&self.0, f)
     }
 }
 
 impl Test for Boolean {
     fn can_be_true(self) -> bool {
-        matches!(self.0, ThreeValued::Unknown | ThreeValued::True)
+        self.0.can_be_true()
     }
 
     fn can_be_false(self) -> bool {
-        matches!(self.0, ThreeValued::Unknown | ThreeValued::False)
+        matches!(self.0, ParamValuation::Unknown | ParamValuation::False)
     }
 }
 
@@ -47,39 +41,45 @@ impl Boolean {
         Self::new(concr::Test::into_bool(value))
     }
 
+    pub fn from_param_valuation(value: ParamValuation) -> Self {
+        Self(value)
+    }
+
     pub fn from_three_valued(value: ThreeValued) -> Self {
-        match value {
-            ThreeValued::False => Self::from_bools(true, false),
-            ThreeValued::True => Self::from_bools(false, true),
-            ThreeValued::Unknown => Self::from_bools(true, true),
+        Self(ParamValuation::from_three_valued(value))
+    }
+
+    pub fn value(&self) -> ParamValuation {
+        self.0
+    }
+
+    /*pub fn into_three_valued(self) -> Option<ThreeValued> {
+        match self.0 {
+            ParamValuation::False => Some(ThreeValued::False),
+            ParamValuation::True => Some(ThreeValued::True),
+            ParamValuation::Unknown => Some(ThreeValued::Unknown),
+            ParamValuation::Dependent => None,
         }
     }
 
-    pub fn into_three_valued(self) -> ThreeValued {
-        match (self.can_be_false(), self.can_be_true()) {
-            (true, true) => ThreeValued::Unknown,
-            (true, false) => ThreeValued::False,
-            (false, true) => ThreeValued::True,
-            (false, false) => unreachable!(),
-        }
-    }
+    pub fn as_runtime_bitvector(self) -> Option<RBitvector> {
+        let three_valued = self.into_three_valued()?;
 
-    pub fn as_runtime_bitvector(self) -> RBitvector {
         let bound = RBound::new(1);
 
-        match self.0 {
+        Some(match three_valued {
             ThreeValued::False => RBitvector::single_value(RConcreteBitvector::new(0, bound)),
             ThreeValued::True => RBitvector::single_value(RConcreteBitvector::new(1, bound)),
             ThreeValued::Unknown => RBitvector::top(bound),
-        }
-    }
+        })
+    }*/
 
     pub(crate) fn from_bools(can_be_false: bool, can_be_true: bool) -> Self {
         let inner = match (can_be_false, can_be_true) {
-            (true, true) => ThreeValued::Unknown,
-            (true, false) => ThreeValued::False,
-            (false, true) => ThreeValued::True,
-            (false, false) => panic!("Three-valued must have some value"),
+            (true, true) => ParamValuation::Unknown,
+            (true, false) => ParamValuation::False,
+            (false, true) => ParamValuation::True,
+            (false, false) => panic!("Abstract Boolean must have some possible value"),
         };
         Self(inner)
     }
@@ -88,11 +88,12 @@ impl Boolean {
         self.0.is_unknown()
     }
 
-    pub fn contains(&self, value: &Boolean) -> bool {
+    pub fn can_contain(&self, value: &Boolean) -> bool {
         match self.0 {
-            ThreeValued::False => value.0.is_false(),
-            ThreeValued::True => value.0.is_true(),
-            ThreeValued::Unknown => true,
+            ParamValuation::False => matches!(value.0, ParamValuation::False),
+            ParamValuation::True => matches!(value.0, ParamValuation::True),
+            ParamValuation::Unknown => true,
+            ParamValuation::Dependent => true,
         }
     }
 
@@ -103,32 +104,19 @@ impl Boolean {
 
 impl Join for Boolean {
     fn join(self, other: &Self) -> Self {
-        Self::from_three_valued(
-            match (self.into_three_valued(), other.into_three_valued()) {
-                (ThreeValued::Unknown, _) | (_, ThreeValued::Unknown) => ThreeValued::Unknown,
-                (ThreeValued::False, ThreeValued::True)
-                | (ThreeValued::True, ThreeValued::False) => ThreeValued::Unknown,
-                (ThreeValued::False, ThreeValued::False) => ThreeValued::False,
-                (ThreeValued::True, ThreeValued::True) => ThreeValued::True,
-            },
-        )
+        Self(self.0.join(&other.0))
     }
 }
 
 impl Debug for Boolean {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match (self.can_be_false(), self.can_be_true()) {
-            (true, true) => write!(f, "unknown"),
-            (true, false) => write!(f, "false"),
-            (false, true) => write!(f, "true"),
-            (false, false) => panic!("Three-valued Boolean should be true or false"),
-        }
+        Debug::fmt(&self.0, f)
     }
 }
 
 impl Display for Boolean {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self, f)
+        Display::fmt(&self.0, f)
     }
 }
 

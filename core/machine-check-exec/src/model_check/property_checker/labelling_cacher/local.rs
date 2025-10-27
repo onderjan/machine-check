@@ -81,9 +81,15 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
                 let mut choice = None;
 
                 let boolean = match timed.value {
-                    CheckValue::False => mck::abstr::Boolean::from_three_valued(ThreeValued::False),
-                    CheckValue::True => mck::abstr::Boolean::from_three_valued(ThreeValued::True),
-                    CheckValue::Dependent => todo!(),
+                    CheckValue::False => {
+                        mck::abstr::Boolean::from_param_valuation(ParamValuation::False)
+                    }
+                    CheckValue::True => {
+                        mck::abstr::Boolean::from_param_valuation(ParamValuation::True)
+                    }
+                    CheckValue::Dependent => {
+                        mck::abstr::Boolean::from_param_valuation(ParamValuation::Dependent)
+                    }
                     CheckValue::Unknown(timed_choice) => {
                         max_unknown_time = max_unknown_time.max(timed.time);
                         choice = Some(*timed_choice);
@@ -137,7 +143,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             panic!("Result should be abstract Boolean");
         };
 
-        let valuation = ParamValuation::from_three_valued(result.into_three_valued());
+        let valuation = result.value();
 
         let value = match valuation {
             ParamValuation::False => CheckValue::False,

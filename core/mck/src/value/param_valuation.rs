@@ -1,12 +1,12 @@
 use std::{
     cmp::Ordering,
     fmt::Display,
-    ops::{BitAnd, BitOr, Not},
+    ops::{BitAnd, BitOr, BitXor, Not},
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::value::ThreeValued;
+use crate::{misc::Join, value::ThreeValued};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum KnownParamValuation {
@@ -60,6 +60,23 @@ impl BitOr for ParamValuation {
     }
 }
 
+impl BitXor for ParamValuation {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (ParamValuation::Dependent, _) | (_, ParamValuation::Dependent) => {
+                ParamValuation::Dependent
+            }
+            (ParamValuation::Unknown, _) | (_, ParamValuation::Unknown) => ParamValuation::Unknown,
+            (ParamValuation::False, ParamValuation::False)
+            | (ParamValuation::True, ParamValuation::True) => ParamValuation::True,
+            (ParamValuation::False, ParamValuation::True)
+            | (ParamValuation::True, ParamValuation::False) => ParamValuation::False,
+        }
+    }
+}
+
 impl ParamValuation {
     pub fn from_bool(value: bool) -> Self {
         if value {
@@ -91,6 +108,20 @@ impl ParamValuation {
 
     pub fn is_known(&self) -> bool {
         !self.is_unknown()
+    }
+
+    pub fn can_be_true(&self) -> bool {
+        matches!(
+            self,
+            ParamValuation::True | ParamValuation::Dependent | ParamValuation::Unknown
+        )
+    }
+
+    pub fn can_be_false(&self) -> bool {
+        matches!(
+            self,
+            ParamValuation::False | ParamValuation::Dependent | ParamValuation::Unknown
+        )
     }
 
     pub fn upward_bitand_ordering(self, rhs: &Self) -> Ordering {
@@ -126,6 +157,21 @@ impl ParamValuation {
             (ParamValuation::Dependent, ParamValuation::False) => Ordering::Greater,
             (ParamValuation::False, ParamValuation::Dependent) => Ordering::Less,
             (ParamValuation::False, ParamValuation::False) => Ordering::Equal,
+        }
+    }
+}
+
+impl Join for ParamValuation {
+    fn join(self, other: &Self) -> Self {
+        match (self, other) {
+            (ParamValuation::Dependent, _) | (_, ParamValuation::Dependent) => {
+                ParamValuation::Dependent
+            }
+            (ParamValuation::Unknown, _) | (_, ParamValuation::Unknown) => ParamValuation::Unknown,
+            (ParamValuation::False, ParamValuation::True)
+            | (ParamValuation::True, ParamValuation::False) => ParamValuation::Unknown,
+            (ParamValuation::False, ParamValuation::False) => ParamValuation::False,
+            (ParamValuation::True, ParamValuation::True) => ParamValuation::True,
         }
     }
 }

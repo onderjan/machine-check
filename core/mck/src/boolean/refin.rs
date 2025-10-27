@@ -3,10 +3,10 @@ use std::num::NonZeroU8;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstr,
+    abstr::{self},
     backward::Bitwise,
     misc::{Meta, MetaEq},
-    ThreeValued,
+    ParamValuation, ThreeValued,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -78,14 +78,26 @@ impl Meta<super::abstr::Boolean> for Boolean {
     }
 
     fn proto_increment(&self, proto: &mut super::abstr::Boolean) -> bool {
-        if proto.into_three_valued().is_false() {
+        match proto.value() {
+            ParamValuation::False => {
+                // move to true
+                *proto = super::abstr::Boolean::from_param_valuation(ParamValuation::True);
+                true
+            }
+            ParamValuation::True | ParamValuation::Dependent | ParamValuation::Unknown => {
+                // end
+                false
+            }
+        }
+
+        /*if proto.into_three_valued().is_false() {
             // move to true
             *proto = super::abstr::Boolean::from_three_valued(ThreeValued::True);
             true
         } else {
             // end
             false
-        }
+        }*/
     }
 }
 

@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use mck::{
     abstr::{AbstractValue, BitvectorDomain},
     misc::BitvectorBound,
-    ThreeValued,
+    ParamValuation,
 };
 use serde::{Deserialize, Serialize};
 
@@ -114,10 +114,16 @@ impl IIfStmt {
             panic!("Condition value should be bool");
         };
 
-        let condition_value = condition_value.into_three_valued();
+        let condition_value = condition_value.value();
 
-        let can_take_then = matches!(condition_value, ThreeValued::True | ThreeValued::Unknown);
-        let can_take_else = matches!(condition_value, ThreeValued::False | ThreeValued::Unknown);
+        let can_take_then = matches!(
+            condition_value,
+            ParamValuation::True | ParamValuation::Unknown | ParamValuation::Dependent
+        );
+        let can_take_else = matches!(
+            condition_value,
+            ParamValuation::False | ParamValuation::Unknown | ParamValuation::Dependent
+        );
 
         (can_take_then, can_take_else)
     }

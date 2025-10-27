@@ -8,7 +8,7 @@ use machine_check_common::{
         path::{IIdent, ISpan},
         property::{IProperty, ISubproperty},
     },
-    ExecError, NodeId, ParamValuation, StateId, ThreeValued,
+    ExecError, NodeId, ParamValuation, StateId,
 };
 use mck::{
     abstr::{Abstr, AbstractValue, BitvectorDomain},
@@ -175,18 +175,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
                     .get(&(input_subproperty_index, state_id))
                     .expect("Input valuation should be present");
 
-                let boolean = match valuation {
-                    ParamValuation::False => {
-                        mck::abstr::Boolean::from_three_valued(ThreeValued::False)
-                    }
-                    ParamValuation::True => {
-                        mck::abstr::Boolean::from_three_valued(ThreeValued::True)
-                    }
-                    ParamValuation::Dependent => todo!(),
-                    ParamValuation::Unknown => {
-                        mck::abstr::Boolean::from_three_valued(ThreeValued::Unknown)
-                    }
-                };
+                let boolean = mck::abstr::Boolean::from_param_valuation(valuation);
 
                 AbstractValue::Boolean(boolean)
             } else if input_var_name == "__panic" {
@@ -225,7 +214,7 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
             panic!("Result should be abstract Boolean");
         };
 
-        ParamValuation::from_three_valued(result.into_three_valued())
+        result.value()
     }
 
     fn compute_next_value(

@@ -178,7 +178,7 @@ pub(super) fn exec_comparison_check<const W: u32>(
                         a, b, equiv_result, abstr_result
                     );
                 }
-            } else if !abstr_result.contains(&equiv_result) {
+            } else if !abstr_result.can_contain(&equiv_result) {
                 panic!(
                     "Unsound result with parameters {}, {}, expected {}, got {}",
                     a, b, equiv_result, abstr_result
