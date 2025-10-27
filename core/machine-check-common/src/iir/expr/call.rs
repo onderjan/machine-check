@@ -1,13 +1,12 @@
 use std::fmt::Debug;
 
-use mck::three_valued::ThreeValued;
-
 use mck::{
     abstr::{AbstractValue, BitvectorDomain},
     concr::RConcreteBitvector,
     forward::ReadWrite,
     misc::{Join, RBound},
     refin::{RefinementDomain, RefinementValue},
+    ThreeValued,
 };
 use serde::{Deserialize, Serialize};
 

@@ -8,11 +8,8 @@ pub mod iir;
 pub mod ir_common;
 
 mod node_id;
-mod value;
 
-pub use value::{KnownParamValuation, ParamValuation};
-
-pub use mck::three_valued::ThreeValued;
+pub use mck::{KnownParamValuation, ParamValuation, ThreeValued};
 
 pub use node_id::{NodeId, StateId};
 

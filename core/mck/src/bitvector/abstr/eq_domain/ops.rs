@@ -3,7 +3,7 @@ use crate::{
     concr::ConcreteBitvector,
     forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     misc::{BitvectorBound, CBound},
-    three_valued::ThreeValued,
+    ThreeValued,
 };
 
 use super::EqualityTracker;

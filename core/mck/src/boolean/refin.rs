@@ -6,7 +6,7 @@ use crate::{
     abstr,
     backward::Bitwise,
     misc::{Meta, MetaEq},
-    three_valued::ThreeValued,
+    ThreeValued,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]

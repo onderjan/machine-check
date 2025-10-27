@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use mck::{
     abstr::{AbstractValue, BitvectorDomain},
     misc::BitvectorBound,
-    three_valued::ThreeValued,
+    ThreeValued,
 };
 use serde::{Deserialize, Serialize};
 

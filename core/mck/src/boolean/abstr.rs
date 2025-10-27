@@ -8,7 +8,7 @@ use crate::{
     concr::{self, RConcreteBitvector},
     forward::Bitwise,
     misc::{Join, MetaEq},
-    three_valued::ThreeValued,
+    ThreeValued,
 };
 
 #[derive(Clone, Copy, Hash, Serialize, Deserialize)]

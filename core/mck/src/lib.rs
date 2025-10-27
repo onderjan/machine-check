@@ -1,13 +1,13 @@
 #![doc = include_str!("../README.md")]
 
-pub mod three_valued;
-
 mod array;
 mod bitvector;
 mod boolean;
 mod panic;
 mod traits;
 mod value;
+
+pub use value::{KnownParamValuation, ParamValuation, ThreeValued};
 
 #[doc(hidden)]
 pub mod concr {
