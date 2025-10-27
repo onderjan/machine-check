@@ -43,7 +43,6 @@ impl WDescription<YConverted> {
             let trait_ = match item_impl.trait_ {
                 None => ITrait::Inherent,
                 Some(WItemImplTrait::Machine(_)) => ITrait::Machine,
-                Some(_) => todo!("Non-machine impl"),
             };
 
             let mut fn_declarations = IndexMap::new();
@@ -83,7 +82,6 @@ impl WDescription<YConverted> {
             let trait_ = match item_impl.trait_ {
                 None => ITrait::Inherent,
                 Some(WItemImplTrait::Machine(_)) => ITrait::Machine,
-                Some(_) => todo!("Non-machine impl"),
             };
 
             let mut iir_fns = IndexMap::new();

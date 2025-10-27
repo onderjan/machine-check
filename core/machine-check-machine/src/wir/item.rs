@@ -61,17 +61,11 @@ pub struct WItemImpl<Y: YStage> {
 #[derive(Clone, Debug)]
 pub enum WItemImplTrait {
     Machine(WSpan),
-    Input(WSpan),
-    State(WSpan),
-    Path(WPath),
 }
 
 impl Hash for WItemImplTrait {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         core::mem::discriminant(self).hash(state);
-        if let WItemImplTrait::Path(path) = self {
-            path.hash(state);
-        }
     }
 }
 
@@ -81,9 +75,6 @@ impl IntoSyn<Path> for WItemImplTrait {
             WItemImplTrait::Machine(_span) => {
                 path!(::mck::forward::Machine)
             }
-            WItemImplTrait::Input(_span) => path!(::mck::forward::Input),
-            WItemImplTrait::State(_span) => path!(::mck::forward::State),
-            WItemImplTrait::Path(path) => path.into(),
         }
     }
 }
@@ -92,9 +83,6 @@ impl WSpanned for WItemImplTrait {
     fn wir_span(&self) -> WSpan {
         match self {
             WItemImplTrait::Machine(span) => *span,
-            WItemImplTrait::Input(span) => *span,
-            WItemImplTrait::State(span) => *span,
-            WItemImplTrait::Path(path) => path.wir_span(),
         }
     }
 }

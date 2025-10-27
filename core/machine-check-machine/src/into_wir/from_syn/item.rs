@@ -195,16 +195,13 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
                     &not,
                 )));
             }
-            let item_impl_trait = if path_matches_global_names(&path, &["machine_check", "Machine"])
-            {
-                WItemImplTrait::Machine(WSpan::from_syn(&path))
-            } else if path_matches_global_names(&path, &["machine_check", "State"]) {
-                WItemImplTrait::State(WSpan::from_syn(&path))
-            } else if path_matches_global_names(&path, &["machine_check", "Input"]) {
-                WItemImplTrait::Input(WSpan::from_syn(&path))
-            } else {
-                WItemImplTrait::Path(fold_path(path, None)?)
-            };
+            if !path_matches_global_names(&path, &["machine_check", "Machine"]) {
+                return Err(Errors::single(Error::unsupported_syn_construct(
+                    "Impl trait other than ::machine_check::Machine",
+                    &not,
+                )));
+            }
+            let item_impl_trait = WItemImplTrait::Machine(WSpan::from_syn(&path));
             Some(item_impl_trait)
         }
         None => None,

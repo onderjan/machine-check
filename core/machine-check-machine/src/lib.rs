@@ -98,8 +98,10 @@ pub fn process_property<M: FullMachine>(
         let ty = match elementary_type {
             IElementaryType::Bitvector(width) => WBasicType::Bitvector(Signedness::None, *width),
             IElementaryType::Array(type_array) => WBasicType::BitvectorArray(type_array.clone()),
-            IElementaryType::Boolean => todo!(),
-            IElementaryType::Struct(_struct_id) => todo!(),
+            IElementaryType::Boolean => WBasicType::Boolean,
+            IElementaryType::Struct(_struct_id) => {
+                todo!("Support nested structs")
+            }
         };
         global_basic_types.insert(
             WIdent::new(global_ident.name().to_string(), Span::call_site()),
