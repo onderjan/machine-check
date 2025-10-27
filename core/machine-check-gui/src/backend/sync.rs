@@ -182,7 +182,6 @@ impl<M: FullMachine> BackendWorker<M> {
             }
 
             // stop stepping when we are done
-            // TODO: implement inherent assumption for the GUI
             if let ControlFlow::Break(_) = self
                 .workspace
                 .framework

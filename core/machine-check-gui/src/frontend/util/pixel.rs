@@ -134,8 +134,7 @@ impl PixelRect {
     }
 
     pub fn middle_x(self) -> i64 {
-        // TODO: use midpoint once it is stabilised
-        self.left_x() + self.width() as i64 / 2
+        self.left_x().midpoint(self.right_x())
     }
 
     pub fn top_y(self) -> i64 {
