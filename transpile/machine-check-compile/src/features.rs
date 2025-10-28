@@ -9,6 +9,9 @@ fn features() -> Vec<&'static str> {
     if cfg!(feature = "Zdual_interval") {
         features.push("Zdual_interval");
     }
+    if cfg!(feature = "Zeq_domain") {
+        features.push("Zeq_domain");
+    }
     features
 }
 

@@ -15,6 +15,7 @@ version = "0.7.0-alpha.2"
 [features]
 gui = ["machine-check-compile/gui"]
 Zdual_interval = ["machine-check-compile/Zdual_interval"]
+Zeq_domain = ["machine-check-compile/Zeq_domain"]
 
 [dependencies]
 machine-check-common = "=0.7.0-alpha.2"
