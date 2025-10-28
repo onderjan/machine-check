@@ -110,15 +110,18 @@ impl<M: FullMachine> BackendWorker<M> {
             }
             Request::Step(step_settings) => Some(AsynchronousRequest::Step(step_settings)),
             Request::AddProperty(property) => {
-                let property = match machine_check_machine::process_property::<M>(
+                match machine_check_machine::process_property::<M>(
                     self.workspace.framework.machine(),
                     &property,
                 ) {
-                    Ok(ok) => ok,
-                    Err(err) => todo!("Nice message with add property error: {:?}", err),
+                    Ok(property) => {
+                        self.workspace.properties.push(property);
+                    }
+                    Err(err) => {
+                        self.workspace.log.error(err.to_string());
+                    }
                 };
 
-                self.workspace.properties.push(property);
                 None
             }
             Request::RemoveProperty(root_property_index) => {
