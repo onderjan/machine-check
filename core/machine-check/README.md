@@ -55,15 +55,15 @@ $ cargo run --release -- --property 'AG![as_unsigned(value) < 157]'
    (...)
    Compiling machine-check v0.7.0
    Compiling my-example v0.1.0
-    Finished `release` profile [optimized] target(s) in 17.04s
+    Finished `release` profile [optimized] target(s) in 26.97s
 warning: the following packages contain code that will be rejected by a future version of Rust: partitions v0.2.4
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
      Running `target\release\my-example.exe --property "AG![as_unsigned(value) < 157]"`
-[2025-08-25T23:11:42Z INFO  machine_check] Starting verification.
-[2025-08-25T23:11:42Z INFO  machine_check::verify] Verifying the inherent property first.
-[2025-08-25T23:11:42Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
-[2025-08-25T23:11:42Z INFO  machine_check::verify] Verifying the given property.
-[2025-08-25T23:11:43Z INFO  machine_check] Verification ended.
+[2025-10-28T21:59:29Z INFO  machine_check] Starting verification.
+[2025-10-28T21:59:29Z INFO  machine_check::verify] Verifying the inherent property first.
+[2025-10-28T21:59:29Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
+[2025-10-28T21:59:29Z INFO  machine_check::verify] Verifying the given property.
+[2025-10-28T21:59:30Z INFO  machine_check] Verification ended.
 +--------------------------------+
 |         Result: HOLDS          |
 +--------------------------------+
@@ -79,15 +79,13 @@ We can also be informed that the value is **NOT** lesser than 156 in every reach
 
 ```console
 $ cargo run --release -- --property 'AG![as_unsigned(value) < 156]'
-    Finished `release` profile [optimized] target(s) in 0.11s
-warning: the following packages contain code that will be rejected by a future version of Rust: partitions v0.2.4
-note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
-     Running `target\release\my-example.exe --property "AG![as_unsigned(value) < 156]"`
-[2025-08-25T23:12:37Z INFO  machine_check] Starting verification.
-[2025-08-25T23:12:37Z INFO  machine_check::verify] Verifying the inherent property first.
-[2025-08-25T23:12:37Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
-[2025-08-25T23:12:37Z INFO  machine_check::verify] Verifying the given property.
-[2025-08-25T23:12:38Z INFO  machine_check] Verification ended.
+   (...)
+     Running `target\release\hello-machine-check.exe --property "AG![as_unsigned(value) < 156]"`
+[2025-10-28T22:00:59Z INFO  machine_check] Starting verification.
+[2025-10-28T22:00:59Z INFO  machine_check::verify] Verifying the inherent property first.
+[2025-10-28T22:00:59Z INFO  machine_check::verify] The inherent property holds, proceeding to the given property.
+[2025-10-28T22:00:59Z INFO  machine_check::verify] Verifying the given property.
+[2025-10-28T22:01:00Z INFO  machine_check] Verification ended.
 +--------------------------------+
 |     Result: DOES NOT HOLD      |
 +--------------------------------+
@@ -120,6 +118,7 @@ This can be raised to any stable Rust version in a minor release.
 The MSRV will not be raised in a patch release.
 
 ## Changelog
+ - `0.7.0`: Improved properties and experimental equality domain.
  - `0.6.1`: Bugfixes for propositional μ-calculus.
  - `0.6.0`: Support for parametric systems, properties extended to support 
   propositional μ-calculus.
