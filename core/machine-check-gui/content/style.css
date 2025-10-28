@@ -212,12 +212,18 @@ body {
 
 .property-icons {
     float: right;
-    background-color: #222;
     margin: 0.1em;
-    font-size: large;
-    border: 1px solid black;
+    width: 52px;
+    height: 26px;
+    display: flex;
 }
 
+.conclusion {
+    overflow: visible;
+    width: 24px;
+    height: 24px;
+    margin: 1px;
+}
 
 #top_bar,
 #bottom_bar {

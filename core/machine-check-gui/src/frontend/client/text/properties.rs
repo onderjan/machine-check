@@ -1,11 +1,15 @@
-use machine_check_common::ParamValuation;
+use icondata::Icon;
+use machine_check_common::{ExecError, ParamValuation};
 use wasm_bindgen::JsCast;
 use web_sys::{Element, Event, HtmlElement};
 
 use crate::{
     frontend::{
         client::{lock_view, render},
-        util::web_idl::{create_element, document, get_element_by_id, setup_element_listener},
+        util::{
+            constants,
+            web_idl::{create_element, document, get_element_by_id, setup_element_listener},
+        },
         view::View,
     },
     shared::snapshot::PropertyIndex,
@@ -51,14 +55,22 @@ impl PropertiesDisplayer<'_> {
 
         let mut is_inherent = true;
         for property_index in 0..self.view.snapshot().properties.len() {
+            let property_wrap = create_element("div");
+            property_wrap.class_list().add_1("property-wrap").unwrap();
+
             self.display_subproperty(
                 PropertyIndex(property_index),
                 0,
-                &self.properties_element,
+                &property_wrap,
+                &property_wrap,
                 was_focused,
                 is_inherent,
                 inherent_result,
             );
+
+            self.properties_element
+                .append_child(&property_wrap)
+                .unwrap();
             is_inherent = false;
         }
     }
@@ -68,6 +80,7 @@ impl PropertiesDisplayer<'_> {
         &self,
         property_index: PropertyIndex,
         subproperty_index: usize,
+        property_wrap: &Element,
         parent_element: &Element,
         was_focused: bool,
         is_inherent: bool,
@@ -115,9 +128,27 @@ impl PropertiesDisplayer<'_> {
 
             radio_label.set_text_content(Some(&property_text));
 
+            outer_div.append_child(&radio_input).unwrap();
+            outer_div.append_child(&radio_label).unwrap();
+
             if !is_subproperty {
-                let property_icons = create_element("span");
+                let property_icons = create_element("div");
                 property_icons.class_list().add_1("property-icons").unwrap();
+                property_wrap.append_child(&property_icons).unwrap();
+
+                let conclusion_span = create_element("div");
+                property_icons.append_child(&conclusion_span).unwrap();
+                let (conclusion_class, conclusion_string, title_text) = conclusion_icon(
+                    property_snapshot.conclusion.as_ref(),
+                    is_inherent,
+                    panic_message.map(|m| m.as_str()),
+                );
+                conclusion_span
+                    .class_list()
+                    .add_2("conclusion", conclusion_class)
+                    .unwrap();
+                conclusion_span.set_attribute("title", &title_text).unwrap();
+                conclusion_span.set_inner_html(&conclusion_string);
 
                 if !is_inherent {
                     // display a warning that the property value may be / is meaningless
@@ -139,66 +170,19 @@ impl PropertiesDisplayer<'_> {
                     };
 
                     if let Some(inherent_warning_text) = inherent_warning_text {
-                        let inherent_warning = create_element("span");
+                        let inherent_warning = create_element("div");
 
+                        inherent_warning.class_list().add_1("conclusion").unwrap();
                         inherent_warning
                             .set_attribute("title", inherent_warning_text)
                             .unwrap();
-                        inherent_warning.set_text_content(Some("\u{26A0}\u{FE0F}"));
+                        inherent_warning
+                            .set_inner_html(&icon_data(icondata::BsExclamationTriangle, "#000"));
 
                         property_icons.append_child(&inherent_warning).unwrap();
                     }
                 }
-
-                let conclusion_span = create_element("span");
-                let (conclusion_class, conclusion_str, title_text) =
-                    match &property_snapshot.conclusion {
-                        Ok(conclusion) => match conclusion {
-                            ParamValuation::True => {
-                                ("conclusion-true", "\u{2714}\u{FE0F}", String::from("Holds"))
-                            }
-                            ParamValuation::False => ("conclusion-false", "\u{274C}\u{FE0F}", {
-                                let mut conclusion_string = String::from("Does not hold");
-                                if is_inherent {
-                                    if let Some(panic_message) = panic_message {
-                                        conclusion_string = format!(
-                                            "Does not hold, panic message: '{}'",
-                                            panic_message
-                                        );
-                                    }
-                                }
-                                conclusion_string
-                            }),
-                            ParamValuation::Dependent => (
-                                "conclusion-dependent",
-                                "\u{2755}\u{FE0F}",
-                                String::from("Dependent on parameters"),
-                            ),
-                            ParamValuation::Unknown => (
-                                "conclusion-unknown",
-                                "\u{2754}\u{FE0F}",
-                                String::from("Unknown"),
-                            ),
-                        },
-                        Err(err) => (
-                            "conclusion-error",
-                            "\u{1F6D1}\u{FE0F}",
-                            format!("Error: {}", err),
-                        ),
-                    };
-                conclusion_span
-                    .class_list()
-                    .add_2("conclusion", conclusion_class)
-                    .unwrap();
-                conclusion_span.set_attribute("title", &title_text).unwrap();
-                conclusion_span.set_text_content(Some(conclusion_str));
-                property_icons.append_child(&conclusion_span).unwrap();
-
-                radio_label.append_child(&property_icons).unwrap();
             }
-
-            outer_div.append_child(&radio_input).unwrap();
-            outer_div.append_child(&radio_label).unwrap();
 
             let property_ul = create_element("div");
 
@@ -234,6 +218,7 @@ impl PropertiesDisplayer<'_> {
             self.display_subproperty(
                 property_index,
                 *child_index,
+                property_wrap,
                 &parent_element,
                 was_focused,
                 is_inherent,
@@ -241,6 +226,64 @@ impl PropertiesDisplayer<'_> {
             );
         }
     }
+}
+
+fn conclusion_icon(
+    valuation: Result<&ParamValuation, &ExecError>,
+    is_inherent: bool,
+    panic_message: Option<&str>,
+) -> (&'static str, String, String) {
+    match valuation {
+        Ok(valuation) => match valuation {
+            ParamValuation::True => (
+                "conclusion-true",
+                icon_data(icondata::TbSquareCheckFilled, constants::colors::TRUE),
+                String::from("Holds"),
+            ),
+            ParamValuation::False => (
+                "conclusion-false",
+                icon_data(icondata::TbSquareXFilled, constants::colors::FALSE),
+                {
+                    let mut conclusion_string = String::from("Does not hold");
+                    if is_inherent {
+                        if let Some(panic_message) = panic_message {
+                            conclusion_string =
+                                format!("Does not hold, panic message: '{}'", panic_message);
+                        }
+                    }
+                    conclusion_string
+                },
+            ),
+            ParamValuation::Dependent => (
+                "conclusion-dependent",
+                icon_data(
+                    icondata::TbSquareAsteriskFilled,
+                    constants::colors::DEPENDENT,
+                ),
+                String::from("Dependent on parameters"),
+            ),
+            ParamValuation::Unknown => (
+                "conclusion-unknown",
+                icon_data(icondata::BsQuestionSquareFill, "#555"),
+                String::from("Unknown"),
+            ),
+        },
+        Err(err) => (
+            "conclusion-error",
+            icon_data(icondata::BsExclamationSquareFill, "#00c"),
+            format!("Error: {}", err),
+        ),
+    }
+}
+
+fn icon_data(icon: Icon, color: &'static str) -> String {
+    let view_box = if let Some(view_box) = icon.view_box {
+        format!("viewBox=\"{}\"", view_box)
+    } else {
+        String::new()
+    };
+
+    format!("<svg {} fill={}>{}</svg>", view_box, color, icon.data)
 }
 
 async fn on_radio_change(event: Event) {
