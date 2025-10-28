@@ -1,6 +1,6 @@
 [package]
 name = "machine-check-exec-target"
-version = "0.7.0-alpha.3"
+version = "0.7.0-alpha.4"
 edition = "2021"
 rust-version = "1.88"
 # internal artifact, do not publish
@@ -12,9 +12,9 @@ Zdual_interval = ["machine-check/Zdual_interval"]
 Zeq_domain = ["machine-check/Zeq_domain"]
 
 [dependencies]
-mck = "=0.7.0-alpha.3"
-machine-check = "=0.7.0-alpha.3"
-machine-check-exec = "=0.7.0-alpha.3"
+mck = "=0.7.0-alpha.4"
+machine-check = "=0.7.0-alpha.4"
+machine-check-exec = "=0.7.0-alpha.4"
 
 [workspace]
 # disallow workspace hijinks
