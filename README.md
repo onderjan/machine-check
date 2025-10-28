@@ -23,7 +23,7 @@ analogues to the code it is applied to. You can then run **machine-check** from 
 constructing the system and providing it to the function [`run`].
 
 A very simple example of a system verifiable by **machine-check** is 
-[counter](https://docs.rs/crate/machine-check/0.6.1/source/examples/counter.rs), 
+[counter](https://docs.rs/crate/machine-check/0.7.0/source/examples/counter.rs), 
 a simple [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine) which contains 
 an eight-bit state field `value`, which is initialized to zero and then is incremented in each step exactly
 if the single-bit input `increment` is set (1). If the value reaches 157, it is immediately zeroed. 
@@ -38,12 +38,12 @@ $ cargo new my-example --bin
     (...)
 $ cd my-example
 ```
-Copy the source code of [counter](https://docs.rs/crate/machine-check/0.6.1/source/examples/counter.rs) 
+Copy the source code of [counter](https://docs.rs/crate/machine-check/0.7.0/source/examples/counter.rs) 
 to `src/main.rs` and add **machine-check** as a dependency to `Cargo.toml`:
 
 ```toml
 [dependencies]
-machine-check = "0.6.1"
+machine-check = "0.7.0"
 ```
 
 We can then verify that the counter is lesser than 157 in every reachable system state, 
@@ -53,7 +53,7 @@ using a specification property based on
 $ cargo run --release -- --property 'AG![as_unsigned(value) < 157]'
     Updating crates.io index
    (...)
-   Compiling machine-check v0.6.1
+   Compiling machine-check v0.7.0
    Compiling my-example v0.1.0
     Finished `release` profile [optimized] target(s) in 17.04s
 warning: the following packages contain code that will be rejected by a future version of Rust: partitions v0.2.4
@@ -115,11 +115,9 @@ and verification power. There may (and probably will be) some bugs or design ove
 Bug reports to the [repository](https://github.com/onderjan/machine-check) are very welcome.
 
 ## Minimum Supported Rust Version
-The Minimum Supported Rust Version for **machine-check** `0.6.1` is `1.83`.
+The Minimum Supported Rust Version for **machine-check** `0.7.0` is `1.88`.
 This can be raised to any stable Rust version in a minor release.
 The MSRV will not be raised in a patch release.
-
-It is planned to raise the MSRV to `1.88.0` in **machine-check** `0.7.0`.
 
 ## Changelog
  - `0.6.1`: Bugfixes for propositional μ-calculus.
