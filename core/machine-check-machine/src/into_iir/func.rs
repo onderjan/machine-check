@@ -9,7 +9,10 @@ use machine_check_common::iir::{
     variable::{IVarId, IVarInfo},
 };
 
-use crate::wir::{WBlock, WItemFn, YConverted, ZConverted};
+use crate::{
+    wir::{WBlock, WItemFn, YConverted, ZConverted},
+    Error,
+};
 
 pub(super) struct WFnData<'a> {
     ident_var_map: BTreeMap<IIdent, IVarId>,
@@ -22,8 +25,10 @@ impl WFnData<'_> {
         self.ident_var_map.get(ident).copied()
     }
 
-    pub fn var_data(&self, var_id: IVarId) -> Option<&IVarInfo> {
-        self.variables.get(&var_id)
+    pub fn var_data(&self, var_id: IVarId) -> &IVarInfo {
+        self.variables
+            .get(&var_id)
+            .expect("Variable should have data")
     }
 
     pub fn struct_data(&self, ident: &IIdent) -> Option<&IStructDeclaration> {
@@ -47,8 +52,7 @@ impl WItemFn<YConverted> {
     pub(super) fn into_declaration(
         self,
         struct_declarations: &IndexMap<IIdent, IStructDeclaration>,
-    ) -> IFnDeclaration {
-        //eprintln!("WIR: {:#?}", self);
+    ) -> Result<IFnDeclaration, Error> {
         let mut next_var_id = 0;
 
         let fn_ident = self.signature.ident;
@@ -59,7 +63,7 @@ impl WItemFn<YConverted> {
         for input in self.signature.inputs {
             let info = IVarInfo {
                 ident: input.ident.into_iir(),
-                ty: IGeneralType::Normal(input.ty.into_iir(struct_declarations)),
+                ty: IGeneralType::Normal(input.ty.into_iir(struct_declarations)?),
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
@@ -71,7 +75,7 @@ impl WItemFn<YConverted> {
         for local in self.locals {
             let info = IVarInfo {
                 ident: local.ident.into_iir(),
-                ty: local.ty.into_iir(struct_declarations),
+                ty: local.ty.into_iir(struct_declarations)?,
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
@@ -79,8 +83,6 @@ impl WItemFn<YConverted> {
             variables.insert(var_id, info);
         }
 
-        //eprintln!("Variables: {:?}", variables);
-        //eprintln!("Result normal ident: {:?}", self.result.result_ident);
         let result_ident = self.result.result_ident.into_iir();
         let panic_ident = self.result.panic_ident.into_iir();
 
@@ -105,14 +107,17 @@ impl WItemFn<YConverted> {
             },
         };
 
-        IFnDeclaration {
+        Ok(IFnDeclaration {
             signature,
             variables,
-        }
+        })
     }
 
-    pub(super) fn into_iir(self, structs: &IndexMap<IIdent, IStructDeclaration>) -> IFn {
-        let declaration = self.clone().into_declaration(structs);
+    pub(super) fn into_iir(
+        self,
+        structs: &IndexMap<IIdent, IStructDeclaration>,
+    ) -> Result<IFn, Error> {
+        let declaration = self.clone().into_declaration(structs)?;
 
         let mut ident_var_map = BTreeMap::new();
         for (var_id, var_data) in declaration.variables.iter() {
@@ -123,26 +128,26 @@ impl WItemFn<YConverted> {
             ident_var_map,
             variables: &declaration.variables,
             structs,
-        });
+        })?;
 
-        IFn {
+        Ok(IFn {
             signature: declaration.signature,
             variables: declaration.variables,
             block,
-        }
+        })
     }
 }
 
 impl WBlock<ZConverted> {
-    pub(super) fn into_iir(self, fn_data: &WFnData) -> IBlock {
+    pub(super) fn into_iir(self, fn_data: &WFnData) -> Result<IBlock, Error> {
         let mut stmts = Vec::new();
 
         for stmt in self.stmts {
-            if let Some(stmt) = stmt.into_iir(fn_data) {
+            if let Some(stmt) = stmt.into_iir(fn_data)? {
                 stmts.push(stmt);
             }
         }
 
-        IBlock { stmts }
+        Ok(IBlock { stmts })
     }
 }

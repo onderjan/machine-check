@@ -1,10 +1,13 @@
 use indexmap::IndexMap;
 use machine_check_common::iir::description::{IDescription, IStruct, IStructDeclaration, ITrait};
 
-use crate::wir::{WDescription, WItemImplTrait, YConverted};
+use crate::{
+    wir::{WDescription, WItemImplTrait, YConverted},
+    Error,
+};
 
 impl WDescription<YConverted> {
-    pub fn into_iir(self) -> IDescription {
+    pub fn into_iir(self) -> Result<IDescription, Error> {
         let mut struct_declarations = IndexMap::new();
 
         // first pass: create struct declarations
@@ -25,7 +28,7 @@ impl WDescription<YConverted> {
             for field in item_struct.fields {
                 fields.insert(
                     field.ident.into_iir(),
-                    field.ty.into_iir(&struct_declarations),
+                    field.ty.into_iir(&struct_declarations)?,
                 );
             }
 
@@ -48,7 +51,7 @@ impl WDescription<YConverted> {
             let mut fn_declarations = IndexMap::new();
 
             for wir_fn in &item_impl.impl_item_fns {
-                let declaration = wir_fn.clone().into_declaration(&struct_declarations);
+                let declaration = wir_fn.clone().into_declaration(&struct_declarations)?;
                 fn_declarations.insert((trait_, declaration.signature.ident.clone()), declaration);
             }
 
@@ -86,7 +89,7 @@ impl WDescription<YConverted> {
 
             let mut iir_fns = IndexMap::new();
             for wir_fn in item_impl.impl_item_fns {
-                let iir_fn = wir_fn.into_iir(&struct_declarations);
+                let iir_fn = wir_fn.into_iir(&struct_declarations)?;
                 iir_fns.insert((trait_, iir_fn.signature.ident.clone()), iir_fn);
             }
 
@@ -97,6 +100,6 @@ impl WDescription<YConverted> {
             iir_struct.fns.extend(iir_fns);
         }
 
-        IDescription { structs }
+        Ok(IDescription { structs })
     }
 }

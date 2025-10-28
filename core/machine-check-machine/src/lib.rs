@@ -70,7 +70,9 @@ pub fn inherent_property() -> IProperty {
 
     //println!("Abstract description: {:?}", description);
 
-    property.into_iir()
+    property
+        .into_iir()
+        .expect("Inherent property should not produce an error")
 }
 
 pub fn process_property<M: FullMachine>(
@@ -115,7 +117,7 @@ pub fn process_property<M: FullMachine>(
 
     let property = property.into_iir();
 
-    Ok(property)
+    Ok(property?)
 }
 
 pub fn default_main() -> Item {
@@ -174,12 +176,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("SSA machine file should be writable");
     }
 
-    /*fn panic_hook(panic_info: &std::panic::PanicHookInfo<'_>) {
-        eprintln!("Machine-check compile: {}", panic_info);
-    }
-    std::panic::set_hook(Box::new(panic_hook));*/
-
-    let iir = description.clone().into_iir();
+    let iir = description.clone().into_iir()?;
 
     let (abstract_description, misc_abstract_items) =
         abstr::create_abstract_description(description);

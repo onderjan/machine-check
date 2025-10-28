@@ -23,8 +23,8 @@ pub enum ErrorType {
     ConcreteConversionError(String),
     #[error("machine-check (forward conversion): {0}")]
     ForwardConversionError(String),
-    #[error("machine-check (backward conversion): {0}")]
-    BackwardConversionError(String),
+    #[error("machine-check: {0}")]
+    IIRConversionError(String),
 
     #[error("machine-check: {0}")]
     DescriptionError(String),
