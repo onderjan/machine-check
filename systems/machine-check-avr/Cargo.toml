@@ -9,14 +9,14 @@ readme = "README.md"
 
 edition = "2021"
 rust-version = "1.88"
-version = "0.7.0-alpha.1"
+version = "0.7.0-alpha.2"
 
 [features]
 gui = ["machine-check/gui"]
 Zdual_interval = ["machine-check/Zdual_interval"]
 
 [dependencies]
-machine-check = "=0.7.0-alpha.1"
+machine-check = "=0.7.0-alpha.2"
 
 ihex = "3.0.0"
 clap = { version = "4.4.6", features = ["derive"] }

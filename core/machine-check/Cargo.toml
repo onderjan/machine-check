@@ -9,7 +9,7 @@ readme = "README.md"
 
 edition = "2021"
 rust-version = "1.88"
-version = "0.7.0-alpha.1"
+version = "0.7.0-alpha.2"
 
 [features]
 gui = ["machine-check-gui"]
@@ -17,12 +17,12 @@ Zdual_interval = ["mck/Zdual_interval"]
 Zeq_domain = ["mck/Zeq_domain"]
 
 [dependencies]
-machine-check-common = "=0.7.0-alpha.1"
-mck = "=0.7.0-alpha.1"
-machine-check-macros = "=0.7.0-alpha.1"
-machine-check-machine = "=0.7.0-alpha.1"
-machine-check-exec = "=0.7.0-alpha.1"
-machine-check-gui = { version = "=0.7.0-alpha.1", optional = true }
+machine-check-common = "=0.7.0-alpha.2"
+mck = "=0.7.0-alpha.2"
+machine-check-macros = "=0.7.0-alpha.2"
+machine-check-machine = "=0.7.0-alpha.2"
+machine-check-exec = "=0.7.0-alpha.2"
+machine-check-gui = { version = "=0.7.0-alpha.2", optional = true }
 
 log = "0.4.20"
 env_logger = "0.10.0"
