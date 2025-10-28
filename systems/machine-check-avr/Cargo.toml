@@ -1,10 +1,15 @@
 [package]
 name = "machine-check-avr"
-version = "0.7.0-alpha.1"
-edition = "2021"
+
+description = "System crate for machine-check for verification of AVR microcontrollers"
+homepage = "https://machine-check.org/"
+repository = "https://github.com/onderjan/machine-check"
 license = "MIT OR Apache-2.0"
-description = "Crate for the formal verification of AVR microcontrollers by machine-check"
+readme = "README.md"
+
+edition = "2021"
 rust-version = "1.88"
+version = "0.7.0-alpha.1"
 
 [features]
 gui = ["machine-check/gui"]

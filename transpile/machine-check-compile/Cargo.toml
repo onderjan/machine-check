@@ -1,11 +1,15 @@
 [package]
 name = "machine-check-compile"
-version = "0.7.0-alpha.1"
-edition = "2021"
+
+description = "Utility crate for the formal verification tool machine-check"
+homepage = "https://machine-check.org/"
+repository = "https://github.com/onderjan/machine-check"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-description = "Utility crate for formal verification tool for digital systems"
+
+edition = "2021"
 rust-version = "1.88"
+version = "0.7.0-alpha.1"
 
 [features]
 gui = []
