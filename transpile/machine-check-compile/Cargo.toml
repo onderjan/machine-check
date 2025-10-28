@@ -9,7 +9,7 @@ readme = "README.md"
 
 edition = "2021"
 rust-version = "1.88"
-version = "0.7.0-alpha.2"
+version = "0.7.0-alpha.3"
 
 [features]
 gui = []
@@ -17,7 +17,7 @@ Zdual_interval = []
 Zeq_domain = []
 
 [dependencies]
-machine-check-common = "=0.7.0-alpha.2"
+machine-check-common = "=0.7.0-alpha.3"
 
 syn = { version = "2.0.37", features = ["visit-mut", "extra-traits"] }
 serde = "1.0.228"
