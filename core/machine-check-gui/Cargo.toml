@@ -85,8 +85,8 @@ machine-check-exec = "=0.7.0-alpha.4"
 petgraph = "0.6.4"
 log = "0.4.20"
 env_logger = "0.10.0"
-wry = { version = "0.50.4", features = ["devtools"] }
-tao = "0.32.8"
+wry = { version = "0.53.5", features = ["devtools"] }
+tao = "0.34.5"
 http = "1.1.0"
 mime_guess = "2.0.5"
 include_dir = "0.6.2"
