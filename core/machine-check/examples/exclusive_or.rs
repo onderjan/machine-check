@@ -1,3 +1,13 @@
+//! An exclusive-or example that demonstrates the usage of equality domain.
+//!
+//! In this example, the system remembers the value of an input in two distinct
+//! state variables, performing an exclusive or between them. We wish to know
+//! if the exclusive-or result is always zero, i.e. 'AG![xor_value == 0]'.
+//!
+//! This should trivially hold, but results in a terrible exponential explosion
+//! when no relational domains are used. However, using the equality domain,
+//! the property is immediately successfully verified.
+
 #[machine_check::machine_description]
 mod machine_module {
     use ::machine_check::Unsigned;
