@@ -59,5 +59,9 @@ path = "examples/misc/freerun.rs"
 name = "misc_array"
 path = "examples/misc/array.rs"
 
+[[example]]
+name = "misc_signed"
+path = "examples/misc/signed.rs"
+
 [lints.clippy]
 uninlined_format_args = "allow"

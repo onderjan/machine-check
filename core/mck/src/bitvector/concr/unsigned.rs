@@ -1,14 +1,14 @@
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, Div, Mul, Rem, Shl, Shr, Sub},
+    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub},
 };
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     bitvector::BitvectorBound,
-    concr::PanicResult,
-    forward::{BExt, HwArith, HwShift},
+    concr::{OutsideBound, PanicResult},
+    forward::{BExt, Bitwise, HwArith, HwShift},
 };
 
 use super::ConcreteBitvector;
@@ -19,6 +19,10 @@ pub struct UnsignedBitvector<B: BitvectorBound>(ConcreteBitvector<B>);
 impl<B: BitvectorBound> UnsignedBitvector<B> {
     pub fn new(value: u64, bound: B) -> Self {
         UnsignedBitvector(ConcreteBitvector::new(value, bound))
+    }
+
+    pub fn try_new(value: u64, bound: B) -> Result<Self, OutsideBound<u64>> {
+        ConcreteBitvector::try_new(value, bound).map(UnsignedBitvector)
     }
 
     pub fn bound(&self) -> B {
@@ -105,6 +109,38 @@ impl<B: BitvectorBound> Rem<UnsignedBitvector<B>> for UnsignedBitvector<B> {
             panic: panic_result.panic,
             result: Self(panic_result.result),
         }
+    }
+}
+
+impl<B: BitvectorBound> Not for UnsignedBitvector<B> {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        Self(self.0.bit_not())
+    }
+}
+
+impl<B: BitvectorBound> BitAnd for UnsignedBitvector<B> {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self(self.0.bit_and(rhs.0))
+    }
+}
+
+impl<B: BitvectorBound> BitOr for UnsignedBitvector<B> {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0.bit_or(rhs.0))
+    }
+}
+
+impl<B: BitvectorBound> BitXor for UnsignedBitvector<B> {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        Self(self.0.bit_xor(rhs.0))
     }
 }
 

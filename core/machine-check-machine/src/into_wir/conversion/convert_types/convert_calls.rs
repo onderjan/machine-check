@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Display};
 
 use machine_check_common::{
     ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrStdBinaryOp, IrStdUnaryOp},
@@ -9,7 +9,7 @@ use crate::{
     into_wir::{Error, ErrorType},
     wir::{
         WBasicType, WCall, WExpr, WExprCall, WExprHighCall, WGeneralType, WHighMckExt, WHighMckNew,
-        WIdent, WMckBinary, WMckExt, WMckNew, WMckUnary, WSpanned, WStdBinary, WStdUnary,
+        WIdent, WMckBinary, WMckExt, WMckNew, WMckUnary, WSpan, WSpanned, WStdBinary, WStdUnary,
     },
 };
 
@@ -24,7 +24,7 @@ pub fn convert_call_fn_path(
         WExprHighCall::StdUnary(call) => WExprCall::MckUnary(convert_unary(call)),
         WExprHighCall::StdBinary(call) => WExprCall::MckBinary(convert_binary(call, local_types)?),
         WExprHighCall::MckExt(call) => WExprCall::MckExt(convert_ext(call, local_types)?),
-        WExprHighCall::MckNew(call) => WExprCall::MckNew(convert_mck_new(call)),
+        WExprHighCall::MckNew(call) => WExprCall::MckNew(convert_mck_new(call)?),
         WExprHighCall::BooleanNew(value) => WExprCall::BooleanNew(value),
         WExprHighCall::StdInto(call) => return Ok(WExpr::Move(call.from)),
         WExprHighCall::StdClone(ident) => WExprCall::StdClone(ident),
@@ -182,15 +182,61 @@ fn convert_ext(
     })
 }
 
-fn convert_mck_new(call: WHighMckNew) -> WMckNew {
-    match call {
-        WHighMckNew::Bitvector(_signedness, width, constant) => {
-            WMckNew::Bitvector(width.expect("Created width should be known"), constant)
+fn convert_mck_new(call: WHighMckNew) -> Result<WMckNew, Error> {
+    Ok(match call {
+        WHighMckNew::Bitvector(signedness, width, constant) => {
+            let width = width.expect("Created width should be known");
+
+            fn outside_bounds_fn<T: Display>(err: mck::concr::OutsideBound<T>) -> Error {
+                Error::new(
+                    ErrorType::IllegalConstruct(err.to_string()),
+                    WSpan::call_site(),
+                )
+            }
+
+            WMckNew::Bitvector(match signedness {
+                Signedness::None | Signedness::Unsigned => {
+                    let Ok(constant) = constant.try_into() else {
+                        return Err(Error {
+                            ty: ErrorType::IllegalConstruct(String::from(
+                                "Constant does not fit into u64",
+                            )),
+                            span: WSpan::call_site(),
+                        });
+                    };
+
+                    match mck::concr::ConcreteBitvector::try_new(
+                        constant,
+                        mck::misc::RBound::new(width),
+                    ) {
+                        Ok(ok) => ok,
+                        Err(err) => return Err(outside_bounds_fn(err)),
+                    }
+                }
+                Signedness::Signed => {
+                    let Ok(constant) = constant.try_into() else {
+                        return Err(Error {
+                            ty: ErrorType::IllegalConstruct(String::from(
+                                "Constant does not fit into i64",
+                            )),
+                            span: WSpan::call_site(),
+                        });
+                    };
+
+                    match mck::concr::SignedBitvector::try_new(
+                        constant,
+                        mck::misc::RBound::new(width),
+                    ) {
+                        Ok(signed) => signed.cast_bitvector(),
+                        Err(err) => return Err(outside_bounds_fn(err)),
+                    }
+                }
+            })
         }
         WHighMckNew::BitvectorArray(type_array, fill_element) => {
             WMckNew::BitvectorArray(type_array, fill_element)
         }
-    }
+    })
 }
 
 fn signedness(

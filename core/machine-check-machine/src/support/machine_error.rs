@@ -2,7 +2,7 @@ use crate::wir::WSpan;
 
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum ErrorType {
-    #[error("Error parsing as Rust expression: {0}")]
+    #[error("machine-check: {0}")]
     ExpressionParseError(String),
     #[error("machine-check: Cannot parse module without content")]
     ModuleWithoutContent,
@@ -19,24 +19,11 @@ pub enum ErrorType {
     IllegalConstruct(String),
     #[error("machine-check: Could not infer variable type")]
     InferenceFailure,
-    #[error("machine-check (concrete conversion): {0}")]
-    ConcreteConversionError(String),
-    #[error("machine-check (forward conversion): {0}")]
-    ForwardConversionError(String),
     #[error("machine-check: {0}")]
     IIRConversionError(String),
 
     #[error("machine-check: {0}")]
     DescriptionError(String),
-
-    #[error("machine-check internal error (SSA translation): {0}")]
-    SsaInternal(String),
-    #[error("machine-check internal error (forward translation): {0}")]
-    ForwardInternal(String),
-    #[error("machine-check internal error (backward translation): {0}")]
-    BackwardInternal(String),
-    #[error("machine-check internal error (rules): {0}")]
-    RulesInternal(String),
 }
 
 #[derive(thiserror::Error, Debug, Clone)]

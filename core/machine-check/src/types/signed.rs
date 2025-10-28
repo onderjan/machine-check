@@ -5,8 +5,7 @@ use std::{
 
 use mck::{
     concr::{self, IntoMck},
-    forward::{Bitwise, HwArith, HwShift},
-    misc::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO},
+    misc::{CBound, PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO},
 };
 
 use crate::{traits::Ext, Bitvector, Unsigned};
@@ -16,11 +15,16 @@ use crate::{traits::Ext, Bitvector, Unsigned};
 /// The width (number of bits) is specified in the generic parameter W.
 /// Signed bitvectors support bitwise operations and wrapping-arithmetic operations.
 /// Arithmetic bit extension is also possible (the sign bit is copied into any bits above it).
-/// Signed bitvectors be converted into [`Unsigned`] or [`Bitvector`].
+/// Signed bitvectors can be converted into [`Unsigned`] or [`Bitvector`].
 ///
-/// Currently, it is not possible to create signed bitvectors directly, only convert into them.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Signed<const W: u32>(pub(super) concr::Bitvector<W>);
+pub struct Signed<const W: u32>(pub(super) concr::SignedBitvector<CBound<W>>);
+
+impl<const W: u32> Signed<W> {
+    pub fn new(value: i64) -> Self {
+        Self(concr::SignedBitvector::new(value, CBound))
+    }
+}
 
 // --- BITWISE OPERATIONS ---
 
@@ -29,7 +33,7 @@ impl<const W: u32> Not for Signed<W> {
 
     /// Performs bitwise NOT.
     fn not(self) -> Self::Output {
-        Self(self.0.bit_not())
+        Self(!self.0)
     }
 }
 
@@ -38,7 +42,7 @@ impl<const W: u32> BitAnd<Signed<W>> for Signed<W> {
 
     /// Performs bitwise AND.
     fn bitand(self, rhs: Signed<W>) -> Self::Output {
-        Self(self.0.bit_and(rhs.0))
+        Self(self.0 & rhs.0)
     }
 }
 impl<const W: u32> BitOr<Signed<W>> for Signed<W> {
@@ -46,7 +50,7 @@ impl<const W: u32> BitOr<Signed<W>> for Signed<W> {
 
     /// Performs bitwise OR.
     fn bitor(self, rhs: Signed<W>) -> Self::Output {
-        Self(self.0.bit_or(rhs.0))
+        Self(self.0 | rhs.0)
     }
 }
 impl<const W: u32> BitXor<Signed<W>> for Signed<W> {
@@ -54,7 +58,7 @@ impl<const W: u32> BitXor<Signed<W>> for Signed<W> {
 
     /// Performs bitwise XOR.
     fn bitxor(self, rhs: Signed<W>) -> Self::Output {
-        Self(self.0.bit_xor(rhs.0))
+        Self(self.0 ^ rhs.0)
     }
 }
 
@@ -99,7 +103,7 @@ impl<const W: u32> Div<Signed<W>> for Signed<W> {
     ///
     /// Panics if `rhs` is zero.
     fn div(self, rhs: Signed<W>) -> Self::Output {
-        let panic_result = self.0.sdiv(rhs.0);
+        let panic_result = self.0.div(rhs.0);
         if panic_result.panic.is_nonzero() {
             panic!("{}", PANIC_MSG_DIV_BY_ZERO)
         }
@@ -119,7 +123,7 @@ impl<const W: u32> Rem<Signed<W>> for Signed<W> {
     ///
     /// Panics if `rhs` is zero.
     fn rem(self, rhs: Signed<W>) -> Self::Output {
-        let panic_result = self.0.srem(rhs.0);
+        let panic_result = self.0.rem(rhs.0);
         if panic_result.panic.is_nonzero() {
             panic!("{}", PANIC_MSG_REM_BY_ZERO)
         }
@@ -144,7 +148,7 @@ impl<const W: u32> Shl<Signed<W>> for Signed<W> {
     /// Note that this means that shifting left with a negative right operand
     /// produces an all-zeros value.
     fn shl(self, rhs: Signed<W>) -> Self::Output {
-        Self(self.0.logic_shl(rhs.0))
+        Self(self.0.shl(rhs.0))
     }
 }
 
@@ -163,7 +167,7 @@ impl<const W: u32> Shr<Signed<W>> for Signed<W> {
     /// Note that this means that shifting right with a negative right operand
     /// produces an all-zeros or all-ones value, depending on the original sign bit.
     fn shr(self, rhs: Signed<W>) -> Self::Output {
-        Self(self.0.arith_shr(rhs.0))
+        Self(self.0.shr(rhs.0))
     }
 }
 
@@ -176,7 +180,7 @@ impl<const W: u32, const X: u32> Ext<X> for Signed<W> {
     /// If an extension is performed, the upper bits
     /// are the copy of the original sign bit.
     fn ext(self) -> Self::Output {
-        Signed::<X>(mck::forward::Ext::sext(self.0))
+        Signed(self.0.ext(CBound::<X>))
     }
 }
 
@@ -190,7 +194,7 @@ impl<const W: u32> PartialOrd for Signed<W> {
 
 impl<const W: u32> Ord for Signed<W> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.signed_cmp(&other.0)
+        self.0.cmp(&other.0)
     }
 }
 
@@ -198,14 +202,14 @@ impl<const W: u32> Ord for Signed<W> {
 impl<const W: u32> From<Unsigned<W>> for Signed<W> {
     /// Converts the signedness information from `Unsigned` to `Signed`.
     fn from(value: Unsigned<W>) -> Self {
-        Self(value.0)
+        Self(value.0.cast_bitvector().as_signed())
     }
 }
 
 impl<const W: u32> From<Bitvector<W>> for Signed<W> {
     /// Adds signedness information to `Bitvector`.
     fn from(value: Bitvector<W>) -> Self {
-        Self(value.0)
+        Self(value.0.as_signed())
     }
 }
 
@@ -224,6 +228,6 @@ impl<const W: u32> IntoMck for Signed<W> {
     type Type = mck::concr::Bitvector<W>;
 
     fn into_mck(self) -> Self::Type {
-        self.0
+        self.0.cast_bitvector()
     }
 }

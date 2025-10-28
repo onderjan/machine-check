@@ -117,14 +117,14 @@ impl<const W: u32> Shl<Bitvector<W>> for Bitvector<W> {
 impl<const W: u32> From<Unsigned<W>> for Bitvector<W> {
     /// Drops the signedness information from `Unsigned`.
     fn from(value: Unsigned<W>) -> Self {
-        Self(value.0)
+        Self(value.0.cast_bitvector())
     }
 }
 
 impl<const W: u32> From<Signed<W>> for Bitvector<W> {
     /// Drops the signedness information from `Signed`.
     fn from(value: Signed<W>) -> Self {
-        Self(value.0)
+        Self(value.0.cast_bitvector())
     }
 }
 

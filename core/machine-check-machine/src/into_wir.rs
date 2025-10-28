@@ -38,7 +38,7 @@ pub(super) enum ErrorType {
     IllegalConstruct(String),
     #[error("Undefined variable '{0}'")]
     UndefinedVariable(String),
-    #[error("machine-check: Could not infer variable type")]
+    #[error("Could not infer variable type")]
     InferenceFailure,
     #[error("{0}")]
     CallConversionError(&'static str),

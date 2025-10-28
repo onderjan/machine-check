@@ -1,12 +1,12 @@
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, Div, Mul, Neg, Rem, Shl, Shr, Sub},
+    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub},
 };
 
 use crate::{
     bitvector::BitvectorBound,
-    concr::PanicResult,
-    forward::{BExt, HwArith, HwShift},
+    concr::{OutsideBound, PanicResult},
+    forward::{BExt, Bitwise, HwArith, HwShift},
 };
 
 use super::ConcreteBitvector;
@@ -15,17 +15,33 @@ use super::ConcreteBitvector;
 pub struct SignedBitvector<B: BitvectorBound>(ConcreteBitvector<B>);
 
 impl<B: BitvectorBound> SignedBitvector<B> {
-    pub fn new(value: u64, bound: B) -> Self {
-        SignedBitvector(ConcreteBitvector::new(value, bound))
+    pub fn new(value: i64, bound: B) -> Self {
+        match Self::try_new(value, bound) {
+            Ok(ok) => ok,
+            Err(err) => panic!("{}", err),
+        }
     }
 
-    /*fn zero(bound: B) -> Self {
-        SignedBitvector(ConcreteBitvector::zero(bound))
-    }
+    pub fn try_new(value: i64, bound: B) -> Result<Self, OutsideBound<i64>> {
+        // test that the value is within bounds
+        let max_value = (bound.mask() ^ bound.sign_bit_mask()) as i64;
+        let min_value = (!bound.mask() ^ bound.sign_bit_mask()) as i64;
 
-    fn one(bound: B) -> Self {
-        SignedBitvector(ConcreteBitvector::one(bound))
-    }*/
+        if value < min_value || value > max_value {
+            return Err(OutsideBound {
+                width: bound.width(),
+                value,
+                min_value,
+                max_value,
+            });
+        }
+
+        let bounded_value = (value as u64) & bound.mask();
+        Ok(SignedBitvector(ConcreteBitvector::new(
+            bounded_value,
+            bound,
+        )))
+    }
 
     pub(super) const fn from_bitvector(bitvector: ConcreteBitvector<B>) -> Self {
         SignedBitvector(bitvector)
@@ -42,14 +58,6 @@ impl<B: BitvectorBound> SignedBitvector<B> {
     pub fn to_i64(self) -> i64 {
         self.0.to_i64()
     }
-
-    /*fn is_zero(&self) -> bool {
-        self.0.is_zero()
-    }
-
-    fn is_nonzero(&self) -> bool {
-        self.0.is_nonzero()
-    }*/
 
     pub fn ext<X: BitvectorBound>(self, new_bound: X) -> SignedBitvector<X> {
         SignedBitvector(self.0.sext(new_bound))
@@ -111,6 +119,38 @@ impl<B: BitvectorBound> Rem<SignedBitvector<B>> for SignedBitvector<B> {
             panic: panic_result.panic,
             result: Self(panic_result.result),
         }
+    }
+}
+
+impl<B: BitvectorBound> Not for SignedBitvector<B> {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        Self(self.0.bit_not())
+    }
+}
+
+impl<B: BitvectorBound> BitAnd for SignedBitvector<B> {
+    type Output = Self;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self(self.0.bit_and(rhs.0))
+    }
+}
+
+impl<B: BitvectorBound> BitOr for SignedBitvector<B> {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0.bit_or(rhs.0))
+    }
+}
+
+impl<B: BitvectorBound> BitXor for SignedBitvector<B> {
+    type Output = Self;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        Self(self.0.bit_xor(rhs.0))
     }
 }
 

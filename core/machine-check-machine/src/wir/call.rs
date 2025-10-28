@@ -66,7 +66,7 @@ pub enum WHighMckNew {
 
 #[derive(Clone, Debug, Hash)]
 pub enum WMckNew {
-    Bitvector(u32, i128),
+    Bitvector(mck::concr::ConcreteBitvector<mck::misc::RBound>),
     BitvectorArray(IrTypeArray, WIdent),
 }
 
@@ -181,10 +181,10 @@ impl WExprCall {
                     String::from(MCK_BITVECTOR_ARRAY_NEW),
                     vec![WCallArg::Ident(ident)],
                 ),
-                WMckNew::Bitvector(_width, constant) => (
+                WMckNew::Bitvector(bitvector) => (
                     String::from(MCK_BITVECTOR_NEW),
                     vec![WCallArg::Literal(Lit::Int(LitInt::new(
-                        constant.to_string().as_str(),
+                        bitvector.to_u64().to_string().as_str(),
                         span,
                     )))],
                 ),

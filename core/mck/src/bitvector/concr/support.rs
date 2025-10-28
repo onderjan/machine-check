@@ -3,6 +3,7 @@ use std::fmt::Display;
 
 use crate::bitvector::bound::BitvectorBound;
 use crate::bitvector::RBound;
+use crate::concr::OutsideBound;
 use crate::concr::RConcreteBitvector;
 use crate::misc::CBound;
 
@@ -12,14 +13,27 @@ use super::UnsignedBitvector;
 
 impl<B: BitvectorBound> ConcreteBitvector<B> {
     pub fn new(value: u64, bound: B) -> Self {
-        let mask: u64 = bound.mask();
-        if (value & !mask) != 0 {
-            panic!(
-                "Machine bitvector value {} does not fit into bound {:?}",
-                value, bound
-            );
+        match Self::try_new(value, bound) {
+            Ok(ok) => ok,
+            Err(err) => panic!("{}", err),
         }
-        Self { value, bound }
+    }
+
+    pub fn try_new(value: u64, bound: B) -> Result<Self, OutsideBound<u64>> {
+        // test that the value is within bounds
+        let min_value = 0;
+        let max_value = bound.mask();
+
+        if value < min_value || value > max_value {
+            return Err(OutsideBound {
+                width: bound.width(),
+                value,
+                min_value,
+                max_value,
+            });
+        }
+
+        Ok(Self { value, bound })
     }
 
     pub fn bound(self) -> B {
@@ -145,5 +159,15 @@ impl<B: BitvectorBound> Debug for ConcreteBitvector<B> {
 impl<B: BitvectorBound> Display for ConcreteBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         <Self as Debug>::fmt(self, f)
+    }
+}
+
+impl<T: Display> Display for OutsideBound<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Bitvector (width {}) value {} is outside bounds [{},{}]",
+            self.width, self.value, self.min_value, self.max_value
+        )
     }
 }

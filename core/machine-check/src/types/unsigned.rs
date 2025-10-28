@@ -5,7 +5,6 @@ use std::{
 
 use mck::{
     concr::{self, IntoMck},
-    forward::{Bitwise, HwArith, HwShift},
     misc::CBound,
 };
 
@@ -17,9 +16,9 @@ use crate::{traits::Ext, Bitvector, Signed};
 /// The width (number of bits) is specified in the generic parameter W.
 /// Unsigned bitvectors support bitwise operations and wrapping-arithmetic operations.
 /// Logical bit extension is also possible (any new bits are zero).
-/// Signed bitvectors be converted into [`Unsigned`] or [`Bitvector`].
+/// Unsigned bitvectors can be converted into [`Signed`] or [`Bitvector`].
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Unsigned<const W: u32>(pub(super) concr::Bitvector<W>);
+pub struct Unsigned<const W: u32>(pub(super) concr::UnsignedBitvector<CBound<W>>);
 
 impl<const W: u32> Unsigned<W> {
     ///
@@ -27,7 +26,7 @@ impl<const W: u32> Unsigned<W> {
     /// Panics if the value does not fit into the type.
     ///
     pub fn new(value: u64) -> Self {
-        Unsigned(concr::Bitvector::new(value, CBound::<W>))
+        Unsigned(concr::UnsignedBitvector::new(value, CBound::<W>))
     }
 }
 // --- BITWISE OPERATIONS ---
@@ -37,7 +36,7 @@ impl<const W: u32> Not for Unsigned<W> {
 
     /// Performs bitwise NOT.
     fn not(self) -> Self::Output {
-        Self(self.0.bit_not())
+        Self(!self.0)
     }
 }
 
@@ -46,7 +45,7 @@ impl<const W: u32> BitAnd<Unsigned<W>> for Unsigned<W> {
 
     /// Performs bitwise AND.
     fn bitand(self, rhs: Unsigned<W>) -> Self::Output {
-        Self(self.0.bit_and(rhs.0))
+        Self(self.0 & rhs.0)
     }
 }
 impl<const W: u32> BitOr<Unsigned<W>> for Unsigned<W> {
@@ -54,7 +53,7 @@ impl<const W: u32> BitOr<Unsigned<W>> for Unsigned<W> {
 
     /// Performs bitwise OR.
     fn bitor(self, rhs: Unsigned<W>) -> Self::Output {
-        Self(self.0.bit_or(rhs.0))
+        Self(self.0 | rhs.0)
     }
 }
 impl<const W: u32> BitXor<Unsigned<W>> for Unsigned<W> {
@@ -62,7 +61,7 @@ impl<const W: u32> BitXor<Unsigned<W>> for Unsigned<W> {
 
     /// Performs bitwise XOR.
     fn bitxor(self, rhs: Unsigned<W>) -> Self::Output {
-        Self(self.0.bit_xor(rhs.0))
+        Self(self.0 ^ rhs.0)
     }
 }
 
@@ -107,7 +106,7 @@ impl<const W: u32> Div<Unsigned<W>> for Unsigned<W> {
     ///
     /// Panics if `rhs` is zero.
     fn div(self, rhs: Unsigned<W>) -> Self::Output {
-        let panic_result = self.0.udiv(rhs.0);
+        let panic_result = self.0.div(rhs.0);
         if panic_result.panic.is_nonzero() {
             panic!("attempt to divide by zero")
         }
@@ -127,7 +126,7 @@ impl<const W: u32> Rem<Unsigned<W>> for Unsigned<W> {
     ///
     /// Panics if `rhs` is zero.
     fn rem(self, rhs: Unsigned<W>) -> Self::Output {
-        let panic_result = self.0.urem(rhs.0);
+        let panic_result = self.0.rem(rhs.0);
         if panic_result.panic.is_nonzero() {
             panic!("attempt to calculate the remainder with a divisor of zero")
         }
@@ -149,7 +148,7 @@ impl<const W: u32> Shl<Unsigned<W>> for Unsigned<W> {
     /// as in Rust `unbounded_shl`. It is planned to restrict the bit-width
     /// in the future so that this edge case can never occur.
     fn shl(self, rhs: Unsigned<W>) -> Self::Output {
-        Self(self.0.logic_shl(rhs.0))
+        Self(self.0.shl(rhs.0))
     }
 }
 
@@ -164,7 +163,7 @@ impl<const W: u32> Shr<Unsigned<W>> for Unsigned<W> {
     /// It is planned to restrict the bit-width in the future so that this edge
     /// case can never occur.
     fn shr(self, rhs: Unsigned<W>) -> Self::Output {
-        Self(self.0.logic_shr(rhs.0))
+        Self(self.0.shr(rhs.0))
     }
 }
 
@@ -176,7 +175,7 @@ impl<const W: u32, const X: u32> Ext<X> for Unsigned<W> {
     ///
     /// If an extension is performed, the upper bits will be zero.
     fn ext(self) -> Self::Output {
-        Unsigned::<X>(mck::forward::Ext::uext(self.0))
+        Unsigned(self.0.ext(CBound::<X>))
     }
 }
 
@@ -190,7 +189,7 @@ impl<const W: u32> PartialOrd for Unsigned<W> {
 
 impl<const W: u32> Ord for Unsigned<W> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.unsigned_cmp(&other.0)
+        self.0.cmp(&other.0)
     }
 }
 
@@ -199,14 +198,14 @@ impl<const W: u32> Ord for Unsigned<W> {
 impl<const W: u32> From<Bitvector<W>> for Unsigned<W> {
     /// Adds signedness information to `Bitvector`.
     fn from(value: Bitvector<W>) -> Self {
-        Self(value.0)
+        Self(value.0.as_unsigned())
     }
 }
 
 impl<const W: u32> From<Signed<W>> for Unsigned<W> {
     /// Converts the signedness information from `Signed` to `Unsigned`.
     fn from(value: Signed<W>) -> Self {
-        Self(value.0)
+        Self(value.0.cast_bitvector().as_unsigned())
     }
 }
 
@@ -225,6 +224,6 @@ impl<const W: u32> IntoMck for Unsigned<W> {
     type Type = mck::concr::Bitvector<W>;
 
     fn into_mck(self) -> Self::Type {
-        self.0
+        self.0.cast_bitvector()
     }
 }

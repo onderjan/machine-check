@@ -22,20 +22,15 @@ use crate::ir_common::IrTypeArray;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum IMckNew {
-    Bitvector(u32, i128),
+    Bitvector(RConcreteBitvector),
     BitvectorArray(IrTypeArray, IVarId),
 }
 
 impl IMckNew {
     fn forward_interpret(&self, abstr: &IAbstr) -> AbstractValue {
         match self {
-            IMckNew::Bitvector(width, constant) => {
-                let Ok(constant) = u64::try_from(*constant) else {
-                    panic!("Constant outside u64");
-                };
-                AbstractValue::Bitvector(mck::abstr::RBitvector::single_value(
-                    RConcreteBitvector::new(constant, RBound::new(*width)),
-                ))
+            IMckNew::Bitvector(bitvector) => {
+                AbstractValue::Bitvector(mck::abstr::RBitvector::single_value(*bitvector))
             }
             IMckNew::BitvectorArray(ty, element) => {
                 let element = *abstr.value(*element).expect_bitvector();
@@ -49,7 +44,7 @@ impl IMckNew {
 
     fn backward_interpret(&self, abstr: &IAbstr, refin: &mut IRefin, later: RefinementValue) {
         match self {
-            IMckNew::Bitvector(_, _) => {
+            IMckNew::Bitvector(_) => {
                 // nothing to propagate to
             }
             IMckNew::BitvectorArray(_ty, var_id) => {
@@ -66,13 +61,13 @@ impl IMckNew {
 impl Debug for IMckNew {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Bitvector(width, constant) => {
-                write!(f, "::mck::Bitvector::<{}>::new({})", width, constant)
+            Self::Bitvector(bitvector) => {
+                write!(f, "Bitvector::new({})", bitvector)
             }
             IMckNew::BitvectorArray(ty, element) => {
                 write!(
                     f,
-                    "::mck::Bitvector::<{},{}>::new({:?})",
+                    "Bitvector::<{},{}>::new({:?})",
                     ty.index_width, ty.element_width, element
                 )
             }

@@ -440,7 +440,7 @@ impl LocalVisitor<'_> {
                     }
                 }
             }
-            WExpr::Lit(_) => {
+            WExpr::Lit(_, _) => {
                 // no idents, do nothing
             }
         }

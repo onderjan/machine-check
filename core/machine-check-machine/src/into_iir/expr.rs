@@ -115,7 +115,7 @@ impl WExpr<WExprCall> {
                     })
                 }
                 WExprCall::MckNew(mck_new) => IExprCall::MckNew(match mck_new {
-                    WMckNew::Bitvector(width, constant) => IMckNew::Bitvector(width, constant),
+                    WMckNew::Bitvector(bitvector) => IMckNew::Bitvector(bitvector),
                     WMckNew::BitvectorArray(type_array, element_ident) => {
                         let element = from_variable_map(element_ident, fn_data)?;
                         IMckNew::BitvectorArray(type_array, element)
@@ -166,7 +166,7 @@ impl WExpr<WExprCall> {
                     IExprReference::Field(expr_field.into_iir(fn_data)?)
                 }
             }),
-            WExpr::Lit(lit) => {
+            WExpr::Lit(lit, _neg) => {
                 return Err(error(
                     String::from("Unexpected literal"),
                     WSpan::from_syn(&lit),

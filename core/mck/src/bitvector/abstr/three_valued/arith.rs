@@ -226,11 +226,18 @@ fn compute_sdivrem<B: BitvectorBound>(
     op_fn: fn(SignedBitvector<B>, SignedBitvector<B>) -> SignedBitvector<B>,
 ) -> ThreeValuedBitvector<B> {
     let bound = dividend.bound();
+    let width = bound.width();
 
-    if bound.width() == 0 {
+    if width == 0 {
         // prevent problems
         return dividend;
     }
+
+    let const_one = if width > 1 {
+        SignedBitvector::new(1, bound)
+    } else {
+        SignedBitvector::new(-1, bound)
+    };
 
     let mut zeros = 0u64;
     let mut ones = 0u64;
@@ -243,7 +250,7 @@ fn compute_sdivrem<B: BitvectorBound>(
         let divisor_min = if divisor_min.to_i64() > 1 {
             divisor_min
         } else {
-            SignedBitvector::new(1, bound)
+            const_one
         };
 
         apply_signed_op(
@@ -292,7 +299,7 @@ fn compute_sdivrem<B: BitvectorBound>(
                 op_fn,
             );
             if dividend_min != dividend_max {
-                dividend_min = dividend_min + SignedBitvector::new(1, bound);
+                dividend_min = dividend_min + const_one;
             }
         }
 
@@ -312,7 +319,7 @@ fn compute_sdivrem<B: BitvectorBound>(
         let divisor_max = if divisor_max.to_i64() < -1 {
             divisor_max
         } else {
-            -SignedBitvector::new(2, bound)
+            SignedBitvector::new(-2, bound)
         };
 
         apply_signed_op(

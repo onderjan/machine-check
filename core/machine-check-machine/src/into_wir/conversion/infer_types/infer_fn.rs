@@ -75,7 +75,7 @@ impl super::FnInferrer<'_> {
                 reference: IrReference::None,
                 inner: WPartialBasicType::Path(right_struct.type_path.clone()),
             }),
-            WExpr::Lit(lit) => match lit {
+            WExpr::Lit(lit, _) => match lit {
                 // infer Boolean
                 syn::Lit::Bool(_) => WPartialGeneralType::Normal(WType {
                     reference: IrReference::None,

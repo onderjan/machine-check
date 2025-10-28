@@ -279,38 +279,7 @@ impl FnInferrer<'_> {
         let mut stmts = Vec::new();
         for stmt in block.stmts {
             stmts.push(match stmt {
-                WStmt::Assign(stmt_assign) => {
-                    let mut right_replacement = None;
-                    if let WExpr::Lit(syn::Lit::Int(lit_int)) = &stmt_assign.right {
-                        if let Ok(lit_int) = lit_int.base10_parse() {
-                            let left_type = self
-                                .local_ident_types
-                                .get(&stmt_assign.left)
-                                .expect("Local ident type should be inferred");
-                            if let WPartialGeneralType::Normal(WType {
-                                reference: IrReference::None,
-                                inner,
-                            }) = left_type
-                            {
-                                right_replacement = match inner {
-                                    WPartialBasicType::Bitvector(signedness, width) => {
-                                        Some(WHighMckNew::Bitvector(*signedness, *width, lit_int))
-                                    }
-                                    _ => None,
-                                };
-                            }
-                        }
-                    }
-
-                    if let Some(right_replacement) = right_replacement {
-                        WStmt::Assign(WStmtAssign {
-                            left: stmt_assign.left,
-                            right: WExpr::Call(WExprHighCall::MckNew(right_replacement)),
-                        })
-                    } else {
-                        WStmt::Assign(stmt_assign)
-                    }
-                }
+                WStmt::Assign(stmt_assign) => WStmt::Assign(self.kludge_assign(stmt_assign)),
                 WStmt::If(stmt_if) => WStmt::If(WStmtIf {
                     condition: stmt_if.condition,
                     then_block: self.kludge_block(stmt_if.then_block),
@@ -319,5 +288,47 @@ impl FnInferrer<'_> {
             })
         }
         WBlock { stmts }
+    }
+
+    fn kludge_assign(&self, stmt_assign: WStmtAssign<ZSsa>) -> WStmtAssign<ZSsa> {
+        let right = &stmt_assign.right;
+
+        let WExpr::Lit(syn::Lit::Int(lit_int), neg) = right else {
+            return stmt_assign;
+        };
+
+        let Ok(lit_int) = lit_int.base10_parse::<u128>() else {
+            return stmt_assign;
+        };
+
+        let lit_int = if *neg {
+            (lit_int as i128).wrapping_neg()
+        } else {
+            lit_int as i128
+        };
+
+        let left_type = self
+            .local_ident_types
+            .get(&stmt_assign.left)
+            .expect("Local ident type should be inferred");
+
+        let WPartialGeneralType::Normal(WType {
+            reference: IrReference::None,
+            inner,
+        }) = left_type
+        else {
+            return stmt_assign;
+        };
+
+        let WPartialBasicType::Bitvector(signedness, width) = inner else {
+            return stmt_assign;
+        };
+
+        let right_replacement = WHighMckNew::Bitvector(*signedness, *width, lit_int);
+
+        WStmtAssign {
+            left: stmt_assign.left,
+            right: WExpr::Call(WExprHighCall::MckNew(right_replacement)),
+        }
     }
 }

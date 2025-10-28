@@ -2,7 +2,8 @@ use proc_macro2::Span;
 use std::fmt::Debug;
 use syn::{
     token::{Brace, Bracket},
-    Expr, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, FieldValue, Index, Lit, Token,
+    Expr, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, ExprUnary, FieldValue, Index,
+    Lit, Token,
 };
 
 use crate::util::create_expr_ident;
@@ -16,7 +17,7 @@ pub enum WExpr<CF: IntoSyn<Expr>> {
     Field(WExprField),
     Struct(WExprStruct),
     Reference(WExprReference),
-    Lit(Lit),
+    Lit(Lit, bool),
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -106,10 +107,22 @@ impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<CF> {
                     expr: Box::new(inner),
                 })
             }
-            WExpr::Lit(lit) => Expr::Lit(ExprLit {
-                attrs: Vec::new(),
-                lit,
-            }),
+            WExpr::Lit(lit, neg) => {
+                let lit_expr = Expr::Lit(ExprLit {
+                    attrs: Vec::new(),
+                    lit,
+                });
+
+                if neg {
+                    Expr::Unary(ExprUnary {
+                        attrs: Vec::new(),
+                        op: syn::UnOp::Neg(Token![-](span)),
+                        expr: Box::new(lit_expr),
+                    })
+                } else {
+                    lit_expr
+                }
+            }
         }
     }
 }
@@ -179,7 +192,13 @@ impl<CF: IntoSyn<Expr> + Debug> Debug for WExpr<CF> {
                 franz.finish()
             }
             Self::Reference(inner) => write!(f, "&{:?}", inner),
-            Self::Lit(lit) => lit.fmt(f),
+            Self::Lit(lit, neg) => {
+                if *neg {
+                    write!(f, "-")?;
+                }
+
+                lit.fmt(f)
+            }
         }
     }
 }

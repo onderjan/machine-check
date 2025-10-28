@@ -208,6 +208,8 @@ fn convert_block(
         };
     }
 
+    Errors::errors_vec_to_result(errors)?;
+
     Ok(WBlock { stmts })
 }
 
@@ -224,7 +226,7 @@ fn convert_expr(
             fields: expr_struct.fields,
         })),
         WExpr::Reference(expr_reference) => Ok(WExpr::Reference(expr_reference)),
-        WExpr::Lit(lit) => Ok(WExpr::Lit(lit)),
+        WExpr::Lit(lit, neg) => Ok(WExpr::Lit(lit, neg)),
     }
 }
 

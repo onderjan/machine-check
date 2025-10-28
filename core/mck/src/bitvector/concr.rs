@@ -31,3 +31,11 @@ pub use signed::SignedBitvector;
 pub use unsigned::UnsignedBitvector;
 
 pub use ConcreteBitvector as Bitvector;
+
+#[derive(Clone, Copy)]
+pub struct OutsideBound<T> {
+    width: u32,
+    value: T,
+    min_value: T,
+    max_value: T,
+}

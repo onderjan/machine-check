@@ -243,7 +243,7 @@ impl FnConverter<'_> {
             WExpr::Field(expr) => WExpr::Field(expr),
             WExpr::Struct(expr) => WExpr::Struct(expr),
             WExpr::Reference(expr) => WExpr::Reference(expr),
-            WExpr::Lit(lit) => WExpr::Lit(lit),
+            WExpr::Lit(lit, neg) => WExpr::Lit(lit, neg),
         };
 
         vec![WStmt::Assign(WStmtAssign {

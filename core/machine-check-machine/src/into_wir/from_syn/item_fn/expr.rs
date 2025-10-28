@@ -7,7 +7,7 @@ use machine_check_common::{
 use syn::{
     punctuated::Punctuated, spanned::Spanned, token::Comma, Expr, ExprBinary, ExprCall, ExprField,
     ExprIndex, ExprLit, ExprReference, ExprStruct, ExprUnary, GenericArgument, Lit, Member, Path,
-    PathArguments, PathSegment,
+    PathArguments, PathSegment, UnOp,
 };
 use syn_path::path;
 
@@ -80,10 +80,19 @@ impl RightExprFolder<'_> {
             Expr::Reference(expr_reference) => WIndexedExpr::NonIndexed(WExpr::Reference(
                 self.fold_right_expr_reference(expr_reference)?,
             )),
-            Expr::Lit(expr_lit) => WIndexedExpr::NonIndexed(WExpr::Lit(expr_lit.lit)),
+            Expr::Lit(expr_lit) => WIndexedExpr::NonIndexed(WExpr::Lit(expr_lit.lit, false)),
             Expr::Index(expr_index) => self.fold_right_expr_index(expr_index)?,
             Expr::Binary(expr_binary) => self.fold_binary(expr_binary)?,
-            Expr::Unary(expr_unary) => self.fold_unary(expr_unary)?,
+            Expr::Unary(expr_unary) => {
+                // handle negation of literal specially
+                if let UnOp::Neg(_) = expr_unary.op {
+                    if let Expr::Lit(expr_lit) = *expr_unary.expr {
+                        return Ok(WIndexedExpr::NonIndexed(WExpr::Lit(expr_lit.lit, true)));
+                    }
+                }
+
+                self.fold_unary(expr_unary)?
+            }
             Expr::Paren(expr_paren) => {
                 // just fold the inside
                 self.fold_right_expr(*expr_paren.expr)?
@@ -414,21 +423,43 @@ impl RightExprFolder<'_> {
                 WSpan::from_syn(&args),
             ));
         };
+
+        let mut arg = args.iter().next().unwrap();
+
+        let mut neg = false;
+
+        if let Expr::Unary(ExprUnary {
+            attrs: _,
+            op: UnOp::Neg(_),
+            expr,
+        }) = arg
+        {
+            neg = true;
+            arg = expr;
+        }
+
         let Expr::Lit(ExprLit {
             lit: Lit::Int(lit_int),
             attrs: _attrs,
-        }) = args.iter().next().unwrap()
+        }) = arg
         else {
             return Err(Error::unsupported_construct(
                 "Non-integer-literal argument here",
                 WSpan::from_syn(&args),
             ));
         };
-        lit_int.base10_parse().map_err(|_| {
-            Error::new(
-                ErrorType::IllegalConstruct(String::from("Argument not parseable as i128")),
+
+        let Ok(parsed) = lit_int.base10_parse::<u128>() else {
+            return Err(Error::new(
+                ErrorType::IllegalConstruct(String::from("Argument not parseable as constant")),
                 WSpan::from_syn(&lit_int),
-            )
+            ));
+        };
+
+        Ok(if neg {
+            -(parsed as i128)
+        } else {
+            parsed as i128
         })
     }
 
