@@ -36,6 +36,33 @@ fn division() {
 }
 
 #[test]
+fn exclusive_or() {
+    // the property should hold, but it takes a long time without the equality domain
+    test_example(
+        "exclusive_or",
+        TestConfig::new_property("AG![xor_value == 0]").with_release(),
+        r#"{"result":{"Ok":"True"},"stats":{"num_refinements":384,"num_generated_states":687,"num_final_states":64,"num_generated_transitions":8367,"num_final_transitions":4097,"inherent_panic_message":null}}"#,
+    );
+}
+
+#[test]
+fn hierarchy() {
+    // the property should be dependent if the wrong div is not enabled
+    test_example(
+        "hierarchy",
+        TestConfig::new_property("AG![specified_value == impl_value]"),
+        r#"{"result":{"Ok":"Dependent"},"stats":{"num_refinements":9,"num_generated_states":44,"num_final_states":17,"num_generated_transitions":1057,"num_final_transitions":34,"inherent_panic_message":null}}"#,
+    );
+    // the property should not hold if the wrong div is enabled
+    test_example(
+        "hierarchy",
+        TestConfig::new_property("AG![specified_value == impl_value]")
+            .with_arg("--system-wrong-div-by-zero"),
+        r#"{"result":{"Ok":"False"},"stats":{"num_refinements":5,"num_generated_states":14,"num_final_states":6,"num_generated_transitions":71,"num_final_transitions":12,"inherent_panic_message":null}}"#,
+    );
+}
+
+#[test]
 fn mu_even() {
     // inherent property should hold
     test_example(
