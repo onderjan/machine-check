@@ -10,7 +10,7 @@ readme = "README.md"
 
 edition = "2021"
 rust-version = "1.88"
-version = "0.7.0-alpha.5"
+version = "0.7.0"
 
 [features]
 gui = ["machine-check-compile/gui"]
@@ -18,8 +18,8 @@ Zdual_interval = ["machine-check-compile/Zdual_interval"]
 Zeq_domain = ["machine-check-compile/Zeq_domain"]
 
 [dependencies]
-machine-check-common = "=0.7.0-alpha.5"
-machine-check-compile = "=0.7.0-alpha.5"
+machine-check-common = "=0.7.0"
+machine-check-compile = "=0.7.0"
 
 btor2rs = "=0.1.0"
 proc-macro2 = "1.0.67"

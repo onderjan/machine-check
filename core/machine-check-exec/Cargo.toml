@@ -9,12 +9,12 @@ readme = "README.md"
 
 edition = "2021"
 rust-version = "1.88"
-version = "0.7.0-alpha.5"
+version = "0.7.0"
 
 [dependencies]
-mck = "=0.7.0-alpha.5"
-machine-check-common = "=0.7.0-alpha.5"
-machine-check-machine = "=0.7.0-alpha.5"
+mck = "=0.7.0"
+machine-check-common = "=0.7.0"
+machine-check-machine = "=0.7.0"
 
 log = "0.4.20"
 
