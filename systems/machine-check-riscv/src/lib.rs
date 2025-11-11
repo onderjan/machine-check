@@ -3,7 +3,7 @@ use clap::Args;
 use machine_check::{Bitvector, BitvectorArray, ExecArgs, ExecError, ExecResult, ExecStats};
 use object::{read::elf::ElfFile32, LittleEndian, Object, ObjectSection, SectionKind};
 
-use crate::system::R9A02G021;
+use crate::system::{machine_module, R9A02G021};
 
 mod system;
 
@@ -28,7 +28,16 @@ pub fn execute_with_args(
 ) -> anyhow::Result<ExecResult> {
     let system = parse_elf(&system_args.elf_file)?;
 
-    eprintln!("System: {:#?}", system);
+    //eprintln!("System: {:#?}", system);
+
+    let input = machine_module::Input {};
+    let param = machine_module::Param {};
+
+    let state = machine_check::Machine::init(&system, &input, &param);
+
+    let state = machine_check::Machine::next(&system, &state, &input, &param);
+
+    eprintln!("State after first next: {:?}", state);
 
     Ok(machine_check::execute(system, exec_args))
 }
@@ -47,11 +56,13 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
         );
     }
 
-    // 0x0000_0000..0x0002_0000 (17 bits)
-    // store in 8-bit elements
     // zero is guaranteed-illegal instruction
     let zero = Bitvector::new(0);
-    let mut mcu_program_flash = BitvectorArray::<17, 8>::new_filled(zero);
+
+    // program flash
+    // 0x0000_0000..0x0002_0000 (17 bits,
+    // store in 16-bit elements to account for compressed instructions (16-bit index)
+    let mut mcu_program_flash = BitvectorArray::<16, 16>::new_filled(zero);
 
     for section in elf_file.sections() {
         println!(
@@ -74,10 +85,12 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
                 match address {
                     0x0000_0000..0x0002_0000 => {
                         let data = section.uncompressed_data()?;
+                        //eprintln!("Data: {:x?}", data);
 
-                        for value in data.iter() {
+                        for value in data.chunks(2) {
+                            let halfword = u16::from_le_bytes(value.try_into()?);
                             mcu_program_flash[Bitvector::new(address)] =
-                                Bitvector::new(*value as u64);
+                                Bitvector::new(halfword as u64);
                             address += 1;
                         }
                     }
