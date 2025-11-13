@@ -33,11 +33,13 @@ pub fn execute_with_args(
     let input = machine_module::Input {};
     let param = machine_module::Param {};
 
-    let state = machine_check::Machine::init(&system, &input, &param);
+    let mut state = machine_check::Machine::init(&system, &input, &param);
 
-    let state = machine_check::Machine::next(&system, &state, &input, &param);
+    for i in 1..32 {
+        state = machine_check::Machine::next(&system, &state, &input, &param);
 
-    eprintln!("State after first next: {:?}", state);
+        eprintln!("State #{}: {:?}", i, state);
+    }
 
     Ok(machine_check::execute(system, exec_args))
 }
