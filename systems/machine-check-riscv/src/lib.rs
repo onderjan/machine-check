@@ -28,17 +28,17 @@ pub fn execute_with_args(
 ) -> anyhow::Result<ExecResult> {
     let system = parse_elf(&system_args.elf_file)?;
 
-    //eprintln!("System: {:#?}", system);
+    eprintln!("System: {:#?}", system);
 
     let input = machine_module::Input {};
     let param = machine_module::Param {};
 
     let mut state = machine_check::Machine::init(&system, &input, &param);
 
-    for i in 1..32 {
+    for i in 0..64 {
         state = machine_check::Machine::next(&system, &state, &input, &param);
 
-        eprintln!("State #{}: {:?}", i, state);
+        eprintln!("Step {}: {:?}", i, state);
     }
 
     Ok(machine_check::execute(system, exec_args))
@@ -81,7 +81,7 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
             SectionKind::Text | SectionKind::Data | SectionKind::ReadOnlyData => {
                 // just disregard the behaviour for now and load
 
-                let mut address: u64 = section.address();
+                let address: u64 = section.address();
                 eprintln!("Data {:x}, {:x}", address, section.size());
 
                 match address {
@@ -89,11 +89,14 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
                         let data = section.uncompressed_data()?;
                         //eprintln!("Data: {:x?}", data);
 
+                        assert_eq!(address % 2, 0);
+                        let mut halfword_address = address / 2;
+
                         for value in data.chunks(2) {
                             let halfword = u16::from_le_bytes(value.try_into()?);
-                            mcu_program_flash[Bitvector::new(address)] =
+                            mcu_program_flash[Bitvector::new(halfword_address)] =
                                 Bitvector::new(halfword as u64);
-                            address += 1;
+                            halfword_address += 1;
                         }
                     }
                     0x0101_0008..0x0101_0034 => {
