@@ -47,6 +47,8 @@ pub mod machine_module {
             let first_half_1 = first_half >> Unsigned::<16>::new(2);
             let first_half_2 = Ext::<14>::ext(first_half_1);
 
+            //eprintln!("PC {:?}, first halfword: {:?}", state.pc, first_half);
+
             let pc = state.pc + Bitvector::<17>::new(2);
 
             let mut next_state = State {
@@ -68,14 +70,6 @@ pub mod machine_module {
                     next_state = Self::instruction_full(self, &next_state, input, param, first_half_2);
                 },
             });
-
-            // TODO: remove test cycling
-            if Into::<Unsigned<17>>::into(pc) >= Unsigned::<17>::new(128) {
-                next_state = State {
-                    pc: Bitvector::<17>::new(0),
-                    reg: Clone::clone(&next_state.reg),
-                };
-            }
 
             next_state
         }
@@ -121,6 +115,8 @@ pub mod machine_module {
             let mut reg = Clone::clone(&state.reg);
             let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
 
+            let mut pc = state.pc;
+
             bitmask_switch!(opcode_instr {
                 "010_i_ddddd_iiiii" => {
                     // load immediate
@@ -144,15 +140,34 @@ pub mod machine_module {
                     let result = reg[rd] - reg[rs2];
                     reg[rd] = result;
                 }
-                "001_m_mmmmm_mmmmm" => {
+                "001_a_dccfe_hbggg" => {
                     // Jump and Link
-                    // the immediate is bizzarely strided
-                    todo!("compressed Jump and Link");
+
+                    // according to the spec, indexing imm (opcode_instr) from 1,
+                    // the offset is specified by 11|4|9:8|10|6|7|3:1|5
+
+                    let a_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(a));
+                    let b_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(b)) << Unsigned::<11>::new(1);
+                    let c_part = Ext::<11>::ext(Into::<Unsigned::<2>>::into(c)) << Unsigned::<11>::new(2);
+                    let d_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(d)) << Unsigned::<11>::new(4);
+                    let e_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(e)) << Unsigned::<11>::new(5);
+                    let f_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(f)) << Unsigned::<11>::new(6);
+                    let g_part = Ext::<11>::ext(Into::<Unsigned::<3>>::into(g)) << Unsigned::<11>::new(7);
+                    let h_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(h)) << Unsigned::<11>::new(10);
+
+                    let offset = a_part | b_part | c_part | d_part | e_part | f_part | g_part | h_part;
+
+                    // store PC pre-incremented by 2 to link register x1
+                    reg[Bitvector::<5>::new(1)] = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned<17>>::into(pc)));
+
+                    // undo pre-increment and add offset to PC
+                    pc = pc - Bitvector::<17>::new(2) + Into::<Bitvector<17>>::into(Ext::<17>::ext(offset));
+
                 }
                 _ => todo!("compressed 01")
             });
 
-            State { pc: state.pc, reg }
+            State { pc, reg }
         }
 
         fn instruction_10(
@@ -199,17 +214,18 @@ pub mod machine_module {
             state: &State,
             input: &Input,
             param: &Param,
-            first_half: Unsigned<14>,
+            first_half_noncomp: Unsigned<14>,
         ) -> State {
             // 32-bit instruction
             // fetch the upper half of instruction word
             let second_half: Unsigned<16> = Self::halfword_fetch(self, state.pc);
-            let pc = state.pc + Bitvector::<17>::new(2);
+            let mut pc = state.pc + Bitvector::<17>::new(2);
 
-            let opcode = Ext::<5>::ext(first_half);
-            let rd =
-                Into::<Bitvector<5>>::into(Ext::<5>::ext(first_half >> Unsigned::<14>::new(5)));
-            let first_half_rest = Ext::<4>::ext(first_half >> Unsigned::<14>::new(10));
+            let opcode = Ext::<5>::ext(first_half_noncomp);
+            let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(
+                first_half_noncomp >> Unsigned::<14>::new(5),
+            ));
+            let first_half_rest = Ext::<4>::ext(first_half_noncomp >> Unsigned::<14>::new(10));
 
             let mut reg = Clone::clone(&state.reg);
 
@@ -285,7 +301,84 @@ pub mod machine_module {
                 }
                 "11000" => {
                     // B-type branch
-                    todo!("Branch");
+                    let funct3 = Ext::<3>::ext(first_half_rest);
+                    let rs1: Bitvector<5> = Self::extract_rs1(first_half_rest, second_half);
+                    let rs2: Bitvector<5> = Self::extract_rs2(second_half);
+
+                    // branches have the immediate organised similarly to S-type instructions
+                    // but instead of the bit 0 in S-type immediate, there is 0
+                    // the bit 0 of S-type imm is instead used as bit 11 in B-type imm
+                    // and the bit 11 of S-type imm is instead used as bit 12 in B-type imm
+
+                    let s_imm: Unsigned<12> = Self::extract_s_type_imm(first_half_noncomp, second_half);
+
+                    let imm_11 = Ext::<1>::ext(s_imm);
+                    let imm_10_1 = Ext::<10>::ext(s_imm >> Unsigned::<12>::new(1));
+                    let imm_12 = Ext::<1>::ext(s_imm >> Unsigned::<12>::new(11));
+
+                    let imm_11_placed = Ext::<13>::ext(imm_11) << Unsigned::<13>::new(11);
+                    let imm_10_1_placed = Ext::<13>::ext(imm_10_1) << Unsigned::<13>::new(1);
+                    let imm_12_placed = Ext::<13>::ext(imm_12) << Unsigned::<13>::new(12);
+
+                    let short_imm = imm_11_placed | imm_10_1_placed | imm_12_placed;
+
+                    // extend immediate as signed integer
+                    let extended_imm = Ext::<17>::ext(Into::<Signed<13>>::into(short_imm));
+                    let final_imm = Into::<Unsigned<17>>::into(extended_imm);
+
+                    // determine if we should branch
+                    let value1 = reg[rs1];
+                    let value2 = reg[rs2];
+
+                    let mut should_branch = Bitvector::<1>::new(0);
+
+                    bitmask_switch!(funct3 {
+                        "000" => {
+                            // branch if equal
+                            if value1 == value2 {
+                                should_branch = Bitvector::<1>::new(1);
+                            };
+                        }
+                        "001" => {
+                            // branch if not equal
+                            if value1 != value2 {
+                                should_branch = Bitvector::<1>::new(1);
+                            };
+                        }
+                        "01-" => {
+                            unimplemented!("Non-standard branch");
+                        }
+                        "100" => {
+                            // branch if less than (signed)
+                            if Into::<Signed::<32>>::into(value1) < Into::<Signed::<32>>::into(value2) {
+                                should_branch = Bitvector::<1>::new(1);
+                            };
+                        }
+                        "101" => {
+                            // branch if greater or equal (signed)
+                            if Into::<Signed::<32>>::into(value1) >= Into::<Signed::<32>>::into(value2) {
+                                should_branch = Bitvector::<1>::new(1);
+                            };
+                        }
+                        "110" => {
+                            // branch if less than, unsigned
+                            if Into::<Unsigned::<32>>::into(value1) < Into::<Unsigned::<32>>::into(value2) {
+                                should_branch = Bitvector::<1>::new(1);
+                            };
+                        }
+                        "111" => {
+                            // branch if greater or equal, unsigned
+                            if Into::<Unsigned::<32>>::into(value1) >= Into::<Unsigned::<32>>::into(value2) {
+                                should_branch = Bitvector::<1>::new(1);
+                            };
+                        }
+                    });
+
+                    if should_branch == Bitvector::<1>::new(1) {
+                        // undo pre-increment (non-compressed instruction, 4 bytes) and add immediate to PC
+                        pc = pc - Bitvector::<17>::new(4) + Into::<Bitvector<17>>::into(Ext::<17>::ext(final_imm));
+                    };
+
                 }
                 "11011" => {
                     // J-type Jump and Link
@@ -318,7 +411,7 @@ pub mod machine_module {
                 "11100" => {
                     unimplemented!("Environment Call / Break");
                 }
-                _ => todo!("instruction full")
+                _ => todo!("non-compressed instruction")
             });
 
             // TODO: do something
@@ -326,11 +419,35 @@ pub mod machine_module {
         }
 
         fn extract_rs1(first_half_rest: Unsigned<4>, second_half: Unsigned<16>) -> Bitvector<5> {
+            // rs1 is in positions 15 to 19
             let lower_from_first_half = Ext::<5>::ext(first_half_rest >> Unsigned::<4>::new(3));
             let upper_from_second_half =
                 Ext::<5>::ext(Ext::<4>::ext(second_half)) << Unsigned::<5>::new(1);
 
             Into::<Bitvector<5>>::into(lower_from_first_half + upper_from_second_half)
+        }
+
+        fn extract_rs2(second_half: Unsigned<16>) -> Bitvector<5> {
+            // rs2 is in positions 20 to 24, i.e. 4 to 8 in second half
+            Into::<Bitvector<5>>::into(Ext::<5>::ext(second_half >> Unsigned::<16>::new(4)))
+        }
+
+        fn extract_s_type_imm(
+            first_half_noncomp: Unsigned<14>,
+            second_half: Unsigned<16>,
+        ) -> Unsigned<12> {
+            // s-type instructions have the immediate organised as follows
+            // bits 11:7 of opcode contain 4:0 of immediate
+            // bits 31:25 of opcode (i.e. 15:9 of second half) contain 12|10:5 of immediate
+            let imm_4_0 = Ext::<5>::ext(first_half_noncomp >> Unsigned::<14>::new(5));
+            let imm_11_5 = Ext::<7>::ext(second_half >> Unsigned::<16>::new(9));
+
+            let imm_4_0_placed = Ext::<12>::ext(imm_4_0);
+            let imm_11_5_placed = Ext::<12>::ext(imm_11_5) << Unsigned::<12>::new(5);
+
+            let imm = imm_4_0_placed | imm_11_5_placed;
+
+            imm
         }
     }
 }
