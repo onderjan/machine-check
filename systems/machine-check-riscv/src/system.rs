@@ -508,7 +508,38 @@ pub mod machine_module {
                 }
                 "11001" => {
                     // I-type Jump and Link Register
-                    todo!("Jump and Link Register");
+                    let funct3 = Ext::<3>::ext(first_half_rest);
+                    if funct3 != Unsigned::<3>::new(0) {
+                        unimplemented!("JALR-like with unrecognised funct3");
+                    }
+
+                    let rs1: Bitvector<5> = Self::extract_rs1(first_half_rest, second_half);
+
+                    // in JALR, the immediate is stored in bits 20:31
+                    // i.e. bits 4:15 of second half-word
+                    let imm_low = Ext::<12>::ext(second_half >> Unsigned::<16>::new(4));
+                    // signed-extend the immediate
+                    let imm = Into::<Bitvector::<17>>::into(Ext::<17>::ext(Into::<Signed<12>>::into(imm_low)));
+
+                    // if the destination (link) register is not zero, write to it
+                    // the address of the next instructions (currently in PC)
+
+
+                    let link_value;
+                    if rd != Bitvector::<5>::new(0) {
+                        link_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<17>>::into(pc)));
+                    } else {
+                        link_value = Bitvector::<32>::new(0);
+                    };
+                    reg[rd] = link_value;
+
+                    let value1 = Into::<Bitvector<17>>::into(Ext::<17>::ext(Into::<Unsigned<32>>::into(reg[rs1])));
+
+                    // absolute jump to the sum of the rs1 value and immediate
+                    // to obtain the new PC value
+                    // the least significant bit must be set to zero afterward
+                    let new_pc = value1 + imm;
+                    pc = new_pc & !Bitvector::<17>::new(1);
                 }
                 "01101" => {
                     // U-type Load Upper Immediate
@@ -536,7 +567,6 @@ pub mod machine_module {
                 _ => todo!("non-compressed instruction")
             });
 
-            // TODO: do something
             State { pc, reg }
         }
 
@@ -567,9 +597,7 @@ pub mod machine_module {
             let imm_4_0_placed = Ext::<12>::ext(imm_4_0);
             let imm_11_5_placed = Ext::<12>::ext(imm_11_5) << Unsigned::<12>::new(5);
 
-            let imm = imm_4_0_placed | imm_11_5_placed;
-
-            imm
+            imm_4_0_placed | imm_11_5_placed
         }
     }
 }
