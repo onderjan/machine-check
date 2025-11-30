@@ -18,6 +18,10 @@ pub mod machine_module {
     pub struct State {
         pc: Bitvector<17>,
         reg: BitvectorArray<5, 32>,
+        // Onboard SRAM (Parity), 0x2000_4000..0x2000_7000
+        // this means there are 12288 bytes
+        // use a 14-bit array (16384) with further bounds checking
+        sram_parity: BitvectorArray<14, 8>,
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -34,10 +38,11 @@ pub mod machine_module {
         type Param = Param;
 
         fn init(&self, _input: &Input, _param: &Param) -> State {
-            // TODO: correctly init registers
+            // TODO: correctly init registers and memory
             State {
                 pc: Bitvector::<17>::new(0),
                 reg: BitvectorArray::<5, 32>::new_filled(Bitvector::<32>::new(0)),
+                sram_parity: BitvectorArray::<14, 8>::new_filled(Bitvector::<8>::new(0xFF)),
             }
         }
 
@@ -54,6 +59,7 @@ pub mod machine_module {
             let mut next_state = State {
                 pc,
                 reg: Clone::clone(&state.reg),
+                sram_parity: Clone::clone(&state.sram_parity),
             };
 
             bitmask_switch!(opcode_low {
@@ -102,6 +108,7 @@ pub mod machine_module {
             State {
                 pc: state.pc,
                 reg: Clone::clone(&state.reg),
+                sram_parity: Clone::clone(&state.sram_parity),
             }
         }
 
@@ -116,6 +123,7 @@ pub mod machine_module {
             let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
 
             let mut pc = state.pc;
+            let sram_parity = Clone::clone(&state.sram_parity);
 
             bitmask_switch!(opcode_instr {
                 "010_i_ddddd_iiiii" => {
@@ -167,7 +175,11 @@ pub mod machine_module {
                 _ => todo!("compressed 01")
             });
 
-            State { pc, reg }
+            State {
+                pc,
+                reg,
+                sram_parity,
+            }
         }
 
         fn instruction_10(
@@ -177,8 +189,10 @@ pub mod machine_module {
             param: &Param,
             opcode_instr: Unsigned<14>,
         ) -> State {
-            let mut reg = Clone::clone(&state.reg);
             let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
+
+            let mut reg = Clone::clone(&state.reg);
+            let sram_parity = Clone::clone(&state.sram_parity);
 
             bitmask_switch!(funct3 {
                 "100" => {
@@ -206,7 +220,11 @@ pub mod machine_module {
                 _ => todo!("compressed 10")
             });
 
-            State { pc: state.pc, reg }
+            State {
+                pc: state.pc,
+                reg,
+                sram_parity,
+            }
         }
 
         fn instruction_full(
@@ -228,6 +246,7 @@ pub mod machine_module {
             let first_half_rest = Ext::<4>::ext(first_half_noncomp >> Unsigned::<14>::new(10));
 
             let mut reg = Clone::clone(&state.reg);
+            let mut sram_parity = Clone::clone(&state.sram_parity);
 
             bitmask_switch!(opcode {
                 "01100" => {
@@ -419,7 +438,28 @@ pub mod machine_module {
                 }
                 "01000" => {
                     // S-type store
-                    todo!("Store");
+                    let funct3 = Ext::<3>::ext(first_half_rest);
+                    let rs1: Bitvector<5> = Self::extract_rs1(first_half_rest, second_half);
+                    let rs2: Bitvector<5> = Self::extract_rs2(second_half);
+
+                    let imm_low: Bitvector<12> = Self::extract_s_type_imm(first_half_noncomp, second_half);
+                    let imm: Unsigned<32> =Into::<Unsigned<32>>::into(Ext::<32>::ext(Into::<Signed<12>>::into(imm_low)));
+
+                    let value1 = Into::<Unsigned<32>>::into(reg[rs1]);
+
+                    let address = value1 + imm;
+                    let store_value = Into::<Unsigned<32>>::into(reg[rs2]);
+
+                    if funct3 != Unsigned::<3>::new(0) {
+                        todo!("Non-byte store");
+                    }
+
+                    if address < Unsigned::<32>::new(0x2000_4000) || address >= Unsigned::<32>::new(0x2000_7000) {
+                        unimplemented!("Store at given address");
+                    }
+
+                    let relative_address = Into::<Bitvector<14>>::into(Ext::<14>::ext(address - Unsigned::<32>::new(0x2000_4000)));
+                    sram_parity[relative_address] = Into::<Bitvector<8>>::into(Ext::<8>::ext(store_value));
                 }
                 "11000" => {
                     // B-type branch
@@ -432,11 +472,12 @@ pub mod machine_module {
                     // the bit 0 of S-type imm is instead used as bit 11 in B-type imm
                     // and the bit 11 of S-type imm is instead used as bit 12 in B-type imm
 
-                    let s_imm: Unsigned<12> = Self::extract_s_type_imm(first_half_noncomp, second_half);
+                    let s_imm: Bitvector<12> = Self::extract_s_type_imm(first_half_noncomp, second_half);
+                    let s_imm_unsigned: Unsigned<12> = Into::<Unsigned<12>>::into(s_imm);
 
-                    let imm_11 = Ext::<1>::ext(s_imm);
-                    let imm_10_1 = Ext::<10>::ext(s_imm >> Unsigned::<12>::new(1));
-                    let imm_12 = Ext::<1>::ext(s_imm >> Unsigned::<12>::new(11));
+                    let imm_11 = Ext::<1>::ext(s_imm_unsigned);
+                    let imm_10_1 = Ext::<10>::ext(s_imm_unsigned >> Unsigned::<12>::new(1));
+                    let imm_12 = Ext::<1>::ext(s_imm_unsigned >> Unsigned::<12>::new(11));
 
                     let imm_11_placed = Ext::<13>::ext(imm_11) << Unsigned::<13>::new(11);
                     let imm_10_1_placed = Ext::<13>::ext(imm_10_1) << Unsigned::<13>::new(1);
@@ -567,7 +608,11 @@ pub mod machine_module {
                 _ => todo!("non-compressed instruction")
             });
 
-            State { pc, reg }
+            State {
+                pc,
+                reg,
+                sram_parity,
+            }
         }
 
         fn extract_rs1(first_half_rest: Unsigned<4>, second_half: Unsigned<16>) -> Bitvector<5> {
@@ -587,7 +632,7 @@ pub mod machine_module {
         fn extract_s_type_imm(
             first_half_noncomp: Unsigned<14>,
             second_half: Unsigned<16>,
-        ) -> Unsigned<12> {
+        ) -> Bitvector<12> {
             // s-type instructions have the immediate organised as follows
             // bits 11:7 of opcode contain 4:0 of immediate
             // bits 31:25 of opcode (i.e. 15:9 of second half) contain 12|10:5 of immediate
@@ -597,7 +642,7 @@ pub mod machine_module {
             let imm_4_0_placed = Ext::<12>::ext(imm_4_0);
             let imm_11_5_placed = Ext::<12>::ext(imm_11_5) << Unsigned::<12>::new(5);
 
-            imm_4_0_placed | imm_11_5_placed
+            Into::<Bitvector<12>>::into(imm_4_0_placed | imm_11_5_placed)
         }
     }
 }
