@@ -232,54 +232,176 @@ pub mod machine_module {
             bitmask_switch!(opcode {
                 "01100" => {
                     // R-type bitwise/arith/slt(u)
-                    todo!("R");
+                    let funct3 = Ext::<3>::ext(first_half_rest);
+                    let rs1: Bitvector<5> = Self::extract_rs1(first_half_rest, second_half);
+                    let rs2: Bitvector<5> = Self::extract_rs2(second_half);
+
+                    // funct7 is in 25:31, i.e. 9:15 in the second half
+                    let funct7 = Ext::<7>::ext(second_half >> Unsigned::<16>::new(9));
+
+                    let value1 = reg[rs1];
+                    let value2 = reg[rs2];
+
+                    let mut result = Bitvector::<32>::new(0);
+
+
+                    bitmask_switch!(funct3 {
+                        "000" => {
+                            // ADD/SUB
+                            if funct7 == Unsigned::<7>::new(0) {
+                                // ADD
+                                result = value1 + value2;
+                            } else if funct7 == Unsigned::<7>::new(0x20) {
+                                // SUB
+                                result = value1 - value2;
+                            } else {
+                                unimplemented!("ADD/SUB-like with other funct7");
+                            };
+                        },
+                        "100" => {
+                            if funct7 == Unsigned::<7>::new(0) {
+                                // XOR
+                                result = value1 ^ value2;
+                            } else {
+                                unimplemented!("XOR-like with other funct7");
+                            };
+                        }
+                        "110" => {
+                            if funct7 == Unsigned::<7>::new(0) {
+                                // OR
+                                result = value1 | value2;
+                            } else {
+                                unimplemented!("OR-like with other funct7");
+                            };
+                        }
+                        "111" => {
+                            if funct7 == Unsigned::<7>::new(0) {
+                                // AND
+                                result = value1 & value2;
+                            } else {
+                                unimplemented!("AND-like with other funct7");
+                            };
+                        }
+                        "001" => {
+                            if funct7 == Unsigned::<7>::new(0) {
+                                // shift left logical
+                                // note that RISC-V only uses the lower 5 bits of rs2
+                                // mask out the others first
+                                let shift_amount = value2 & Bitvector::<32>::new(0x11111);
+                                result = value1 << shift_amount;
+                            } else {
+                                unimplemented!("SLL-like with other funct7");
+                            };
+                        }
+                        "101" => {
+                            // SRL/SRA
+                            // note that RISC-V only uses the lower 5 bits of rs2 for shifting
+                            // mask out the others first
+                            let shift_amount = value2 & Bitvector::<32>::new(0x11111);
+
+                            if funct7 == Unsigned::<7>::new(0) {
+                                // SRL
+                                // i.e. shift as unsigned
+                                result = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(value1) >> Into::<Unsigned<32>>::into(shift_amount));
+                            } else if funct7 == Unsigned::<7>::new(0x20) {
+                                // SRA
+                                // i.e. shift as signed
+                                result = Into::<Bitvector<32>>::into(Into::<Signed<32>>::into(value1) >> Into::<Signed<32>>::into(shift_amount));
+                            } else {
+                                unimplemented!("SRL/SRA-like with other funct7");
+                            };
+                        }
+                        _ => unimplemented!("Unrecognised R-type instruction"),
+                    });
+
+                    let store;
+                    if rd != Bitvector::<5>::new(0) {
+                        store = result;
+                    } else {
+                        store = Bitvector::<32>::new(0);
+                    }
+                    reg[rd] = store;
                 }
                 "00100" => {
                     // I-type normal immediate
                     let funct3 = Ext::<3>::ext(first_half_rest);
 
+                    // add immediate
+                    let rs1: Bitvector<5> = Self::extract_rs1(first_half_rest, second_half);
+                    let value1 = reg[rs1];
+
+                    // the immediate is taken as signed
+                    let imm_low = Ext::<12>::ext(second_half >> Unsigned::<16>::new(4));
+                    let imm = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Signed<12>>::into(imm_low)));
+
                     let mut result = Bitvector::<32>::new(0);
 
                     bitmask_switch!(funct3 {
                         "000" => {
-                            // add immediate
-                            let rs1: Bitvector<5> = Self::extract_rs1(first_half_rest, second_half);
-                            // the immediate is taken as signed
-                            let imm = Into::<Signed<12>>::into(Ext::<12>::ext(second_half >> Unsigned::<16>::new(4)));
-
-                            let imm_a = Into::<Bitvector<32>>::into(Ext::<32>::ext(imm));
-                            result = reg[rs1] + imm_a;
+                            // ADD immediate
+                            result = value1 + imm;
                         }
                         "100" => {
                             // XOR immediate
-                            todo!("XOR imm");
+                            result = value1 ^ imm;
                         }
                         "110" => {
                             // OR immediate
-                            todo!("OR imm");
+                            result = value1 | imm;
                         }
                         "111" => {
                             // AND immediate
-                            todo!("AND imm");
+                            result = value1 & imm;
                         }
                         "001" => {
                             // shift left logical immediate
-                            // when imm[5:11] = 0x00
-                            todo!("slli");
+                            let imm_lo = Ext::<5>::ext(Into::<Unsigned::<32>>::into(imm));
+                            let imm_hi = Ext::<7>::ext(Into::<Unsigned::<32>>::into(imm) >> Unsigned::<32>::new(5));
+                            // imm[5:11] must be 0x00
+                            if imm_hi == Unsigned::<7>::new(0) {
+                                result = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(value1) << Ext::<32>::ext(imm_lo));
+                            } else {
+                                unimplemented!("SLLI-like with non-zero high immediate");
+                            };
                         }
                         "101" => {
                             // shift right logical/arithmetical immediate
+                            let imm_lo = Ext::<5>::ext(Into::<Unsigned::<32>>::into(imm));
+                            let imm_hi = Ext::<7>::ext(Into::<Unsigned::<32>>::into(imm) >> Unsigned::<32>::new(5));
                             // logical when imm[5:11] = 0x00
                             // arithmetical when imm[5:11] = 0x20
-                            todo!("srli/srai");
+
+                            if imm_hi == Unsigned::<7>::new(0) {
+                                result = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(value1) << Ext::<32>::ext(imm_lo));
+                            } else if imm_hi == Unsigned::<7>::new(0x20) {
+                                result = Into::<Bitvector<32>>::into(Into::<Signed<32>>::into(value1) << Into::<Signed<32>>::into(Ext::<32>::ext(imm_lo)));
+                            } else {
+                                unimplemented!("SRLI/SRAI-like with unrecognised high immediate");
+                            };
                         }
                         "010" => {
                             // set less than immediate (signed)
-                            todo!("slti");
+
+                            // compare rs1 value with sign-extended immediate, using signed comparison
+                            // write 1 to result if rs1 is lesser, 0 otherwise
+
+                            if Into::<Signed::<32>>::into(value1) < Into::<Signed::<32>>::into(imm) {
+                                result = Bitvector::<32>::new(1);
+                            } else {
+                                result = Bitvector::<32>::new(0);
+                            };
                         }
                         "011" => {
-                            // set less than immediate (unsigned)
-                            todo!("sltiu");
+                            // set less than immediate, unsigned
+
+                            // the immediate is sign extended as normal, but unsigned comparison is used
+                            // write 1 to result if rs1 is lesser, 0 otherwise
+
+                            if Into::<Unsigned::<32>>::into(value1) < Into::<Unsigned::<32>>::into(imm) {
+                                result = Bitvector::<32>::new(1);
+                            } else {
+                                result = Bitvector::<32>::new(0);
+                            };
                         }
                     });
 
