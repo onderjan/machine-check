@@ -793,6 +793,27 @@ pub mod machine_module {
                         pc = pc - Bitvector::<17>::new(2) + extended_offset;
                     };
                 }
+                "000_n_ddddd_nnnnn" => {
+                    // C.ADDI
+
+                    if n == Bitvector::<6>::new(0) {
+                        unimplemented!("Reserved C.ANDI-like");
+                    };
+
+                    // sign-extend immediate
+                    let extended_imm = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Signed<6>>::into(n)));
+
+                    let result;
+
+                    if d != Bitvector::<5>::new(0) {
+                        // hint
+                        result = Bitvector::<32>::new(0);
+                    } else {
+                        result = reg[d] + extended_imm;
+                    }
+
+                    reg[d] = result;
+                }
                 _ => todo!("compressed 01")
             });
 
