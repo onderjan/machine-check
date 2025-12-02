@@ -52,7 +52,7 @@ pub mod machine_module {
             let first_half_1 = first_half >> Unsigned::<16>::new(2);
             let first_half_2 = Ext::<14>::ext(first_half_1);
 
-            // eprintln!("PC {:?}, first halfword: {:?}", state.pc, first_half);
+            //eprintln!("PC {:?}, first halfword: {:?}", state.pc, first_half);
 
             let pc = state.pc + Bitvector::<17>::new(2);
 
@@ -93,6 +93,8 @@ pub mod machine_module {
             // fetch the upper half of instruction word
             let second_half: Unsigned<16> = Self::halfword_fetch(self, state.pc);
             let mut pc = state.pc + Bitvector::<17>::new(2);
+
+            //eprintln!("Second half: {:?}", second_half);
 
             let opcode = Ext::<5>::ext(first_half_noncomp);
             let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(
@@ -616,7 +618,43 @@ pub mod machine_module {
 
                 }
                 "11100" => {
-                    unimplemented!("Environment Call / Break");
+                    let funct3 = Ext::<3>::ext(first_half_rest);
+
+                    // TODO: make CSR manipulation do something, currently UNSOUND
+
+                    bitmask_switch!(funct3 {
+                        "000" => {
+
+                            if rd == Bitvector::<5>::new(0) && first_half_rest == Unsigned::<4>::new(0) && second_half == Unsigned::<16>::new(0) {
+                                unimplemented!("Environment Call");
+                            }
+                            else if rd == Bitvector::<5>::new(0) && first_half_rest == Unsigned::<4>::new(0) && second_half == Unsigned::<16>::new(0x10) {
+                                unimplemented!("Environment Break");
+                            }
+                            unimplemented!("ECall/EBreak-like (funct3 = 0)");
+                        }
+                        "001" => {
+                            // CSRRW
+                        }
+                        "010" => {
+                            // CSRRS
+                        }
+                        "011" => {
+                            // CSRRC
+                        }
+                        "100" => {
+                            unimplemented!("ECall/EBreak-like (funct3 = 4)");
+                        }
+                        "101" => {
+                            // CSRRWI
+                        }
+                        "110" => {
+                            // CSRRSI
+                        }
+                        "111" => {
+                            // CSRRCI
+                        }
+                    });
                 }
                 _ => todo!("non-compressed instruction")
             });
