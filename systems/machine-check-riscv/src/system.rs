@@ -673,36 +673,82 @@ pub mod machine_module {
                 "100_0_11ddd_00sss" => {
                     // subtract
                     // three-bit register operands map to registers 8:15
-                    let rd = Into::<Bitvector::<5>>::into( Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
+                    let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
                     let rs2 = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(s)) + Unsigned::<5>::new(8));
 
                     // rd is never zero
                     let result = reg[rd] - reg[rs2];
                     reg[rd] = result;
                 }
-                "001_a_dccfe_hbggg" => {
-                    // Jump and Link
+                "q01_h_bffgd_eaaac" => {
+                    // Jump and Link (q = 0)
+                    // or Jump (q = 1)
 
                     // according to the spec, indexing imm (opcode_instr) from 1,
                     // the offset is specified by 11|4|9:8|10|6|7|3:1|5
 
-                    let a_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(a));
-                    let b_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(b)) << Unsigned::<11>::new(1);
-                    let c_part = Ext::<11>::ext(Into::<Unsigned::<2>>::into(c)) << Unsigned::<11>::new(2);
-                    let d_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(d)) << Unsigned::<11>::new(4);
-                    let e_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(e)) << Unsigned::<11>::new(5);
-                    let f_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(f)) << Unsigned::<11>::new(6);
-                    let g_part = Ext::<11>::ext(Into::<Unsigned::<3>>::into(g)) << Unsigned::<11>::new(7);
-                    let h_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(h)) << Unsigned::<11>::new(10);
+                    let a_part = Ext::<12>::ext(Into::<Unsigned::<3>>::into(a)) << Unsigned::<12>::new(1);
+                    let b_part = Ext::<12>::ext(Into::<Unsigned::<1>>::into(b)) << Unsigned::<12>::new(4);
+                    let c_part = Ext::<12>::ext(Into::<Unsigned::<1>>::into(c)) << Unsigned::<12>::new(5);
+                    let d_part = Ext::<12>::ext(Into::<Unsigned::<1>>::into(d)) << Unsigned::<12>::new(6);
+                    let e_part = Ext::<12>::ext(Into::<Unsigned::<1>>::into(e)) << Unsigned::<12>::new(7);
+                    let f_part = Ext::<12>::ext(Into::<Unsigned::<2>>::into(f)) << Unsigned::<12>::new(8);
+                    let g_part = Ext::<12>::ext(Into::<Unsigned::<1>>::into(g)) << Unsigned::<12>::new(10);
+                    let h_part = Ext::<12>::ext(Into::<Unsigned::<1>>::into(h)) << Unsigned::<12>::new(11);
 
-                    let offset = a_part | b_part | c_part | d_part | e_part | f_part | g_part | h_part;
+                    let offset = Into::<Bitvector<12>>::into(a_part | b_part | c_part | d_part | e_part | f_part | g_part | h_part);
 
-                    // store PC pre-incremented by 2 to link register x1
-                    reg[Bitvector::<5>::new(1)] = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned<17>>::into(pc)));
+                    let extended_offset = Into::<Bitvector<17>>::into(Ext::<17>::ext(Into::<Signed<12>>::into(offset)));
+
+                    let mut link_value = reg[Bitvector::<5>::new(1)];
+
+                    if q == Bitvector::<1>::new(0) {
+                        // store PC pre-incremented by 2 to link register x1
+                       link_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned<17>>::into(pc)));
+                    }
+                    reg[Bitvector::<5>::new(1)] = link_value;
 
                     // undo pre-increment and add offset to PC
-                    pc = pc - Bitvector::<17>::new(2) + Into::<Bitvector<17>>::into(Ext::<17>::ext(offset));
+                    pc = pc - Bitvector::<17>::new(2) + extended_offset;
 
+                }
+                "11q_ebb_sss_ddaac" => {
+                    // Branch if Equal to Zero (q = 0)
+                    // or Branch if Not Equal to Zero (q = 1)
+
+                    let a_part = Ext::<9>::ext(Into::<Unsigned::<2>>::into(a)) << Unsigned::<9>::new(1);
+                    let b_part = Ext::<9>::ext(Into::<Unsigned::<2>>::into(b)) << Unsigned::<9>::new(3);
+                    let c_part = Ext::<9>::ext(Into::<Unsigned::<1>>::into(c)) << Unsigned::<9>::new(5);
+                    let d_part = Ext::<9>::ext(Into::<Unsigned::<2>>::into(d)) << Unsigned::<9>::new(6);
+                    let e_part = Ext::<9>::ext(Into::<Unsigned::<1>>::into(e)) << Unsigned::<9>::new(8);
+
+                    let offset = Into::<Bitvector<9>>::into(a_part | b_part | c_part | d_part | e_part);
+
+                    let extended_offset = Into::<Bitvector<17>>::into(Ext::<17>::ext(Into::<Signed<9>>::into(offset)));
+
+                    // three-bit register operands map to registers 8:15
+                    let rs1 = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(s)) + Unsigned::<5>::new(8));
+
+                    let value1 = reg[rs1];
+
+                    let mut should_branch = Bitvector::<1>::new(0);
+
+                    if q == Bitvector::<1>::new(0) {
+                        // branch if equal to zero
+                        if value1 == Bitvector::<32>::new(0) {
+                            should_branch = Bitvector::<1>::new(1);
+                        };
+                    } else {
+                        // branch if not equal to zero
+                        if value1 != Bitvector::<32>::new(0) {
+                            should_branch = Bitvector::<1>::new(1);
+                        };
+                    };
+
+                    if should_branch == Bitvector::<1>::new(1) {
+                        // undo pre-increment and add offset to PC
+                        pc = pc - Bitvector::<17>::new(2) + extended_offset;
+                    };
                 }
                 _ => todo!("compressed 01")
             });
@@ -728,10 +774,11 @@ pub mod machine_module {
 
             bitmask_switch!(funct3 {
                 "100" => {
+                    // Move or Add
+
                     let rs2 = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr));
                     let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
 
-                    // move or add
                     let result;
                     if Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10)) == Unsigned::<1>::new(1) {
                         // add

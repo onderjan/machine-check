@@ -35,7 +35,7 @@ pub fn execute_with_args(
 
     let mut state = machine_check::Machine::init(&system, &input, &param);
 
-    for i in 0..128 {
+    for i in 0..256 {
         state = machine_check::Machine::next(&system, &state, &input, &param);
 
         eprintln!("Step {}: {:?}", i, state);
