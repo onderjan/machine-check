@@ -545,7 +545,46 @@ pub mod machine_module {
                 }
                 "11011" => {
                     // J-type Jump and Link
-                    todo!("Jump and Link");
+
+                    // bits 12:19 in opcode encode 12:19 in immediate
+                    // handle 12:15 and 16:19 separately
+                    let imm_15_12 = Ext::<4>::ext(first_half_noncomp >> Unsigned::<14>::new(10));
+                    let imm_19_16 = Ext::<4>::ext(second_half);
+
+                    // bit 20 in opcode (i.e. 4 in second half) encodes 11 in immediate
+                    let imm_11 = Ext::<1>::ext(second_half >> Unsigned::<16>::new(4));
+
+                    // bits 21:30 in opcode (i.e. 5:14 in second half) encode 1:10 in immediate
+                    let imm_10_1 = Ext::<10>::ext(second_half >> Unsigned::<16>::new(5));
+
+                    // bit 31 in opcode (i.e. 15 in second half) encodes 20 in immediate
+                    let imm_20 = Ext::<1>::ext(second_half >> Unsigned::<16>::new(15));
+
+                    // construct 21-bit immediate (bit 0 is zero)
+                    let imm_15_12_placed = Ext::<20>::ext(imm_15_12) << Unsigned::<20>::new(12);
+                    let imm_19_16_placed = Ext::<20>::ext(imm_19_16) << Unsigned::<20>::new(16);
+                    let imm_11_placed = Ext::<20>::ext(imm_11) << Unsigned::<20>::new(11);
+                    let imm_10_1_placed = Ext::<20>::ext(imm_10_1) << Unsigned::<20>::new(1);
+                    let imm_20_placed = Ext::<20>::ext(imm_20) << Unsigned::<20>::new(20);
+
+                    let imm = imm_15_12_placed | imm_19_16_placed | imm_11_placed | imm_10_1_placed | imm_20_placed;
+
+                    // sign-extend the immediate to obtain the actual offset
+                    let offset = Ext::<32>::ext(Into::<Signed<20>>::into(imm));
+
+                    // if the destination (link) register is not zero, write to it
+                    // the address of the next instructions (currently in PC)
+                    let link_value;
+                    if rd != Bitvector::<5>::new(0) {
+                        link_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<17>>::into(pc)));
+                    } else {
+                        link_value = Bitvector::<32>::new(0);
+                    };
+                    reg[rd] = link_value;
+
+                    // relative jump to the sum of pre-increment PC and offset
+                    // undo pre-increment (non-compressed instruction, 4 bytes) and add offset to PC
+                    pc = pc - Bitvector::<17>::new(4) + Into::<Bitvector<17>>::into(Ext::<17>::ext(offset));
                 }
                 "11001" => {
                     // I-type Jump and Link Register
@@ -564,8 +603,6 @@ pub mod machine_module {
 
                     // if the destination (link) register is not zero, write to it
                     // the address of the next instructions (currently in PC)
-
-
                     let link_value;
                     if rd != Bitvector::<5>::new(0) {
                         link_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<17>>::into(pc)));
