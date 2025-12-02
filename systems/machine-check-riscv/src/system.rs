@@ -52,7 +52,7 @@ pub mod machine_module {
             let first_half_1 = first_half >> Unsigned::<16>::new(2);
             let first_half_2 = Ext::<14>::ext(first_half_1);
 
-            //eprintln!("PC {:?}, first halfword: {:?}", state.pc, first_half);
+            // eprintln!("PC {:?}, first halfword: {:?}", state.pc, first_half);
 
             let pc = state.pc + Bitvector::<17>::new(2);
 
@@ -590,21 +590,26 @@ pub mod machine_module {
                     let new_pc = value1 + imm;
                     pc = new_pc & !Bitvector::<17>::new(1);
                 }
-                "01101" => {
-                    // U-type Load Upper Immediate
-                    todo!("Load Upper Immediate");
-                }
-                "00101" => {
-                    // U-type Add Upper Immediate to PC
+                "0q101" => {
+                    // U-type
+                    // Add Upper Immediate to PC (if q = 0)
+                    // or Load Upper Immediate (if q = 1)
                     let imm_second_half = Ext::<20>::ext(second_half) << Unsigned::<20>::new(4);
                     let imm = imm_second_half + Ext::<20>::ext(first_half_rest);
+                    let extended_imm = Ext::<32>::ext(imm) << Unsigned::<32>::new(12);
 
                     let instruction_start_pc = Into::<Unsigned<17>>::into(pc - Bitvector::<17>::new(4));
 
-                    let result;
-                    if rd != Bitvector::<5>::new(0) {
-                        result = (Ext::<32>::ext(imm) << Unsigned::<32>::new(12)) + Ext::<32>::ext(instruction_start_pc);
+                    let mut result;
+
+                    if q == Bitvector::<1>::new(0) {
+                        // add the PC to the extended immediate
+                        result = extended_imm + Ext::<32>::ext(instruction_start_pc);
                     } else {
+                        // just load the extended immediate
+                        result = extended_imm;
+                    };
+                    if rd == Bitvector::<5>::new(0) {
                         result = Unsigned::<32>::new(0);
                     }
                     reg[rd] = Into::<Bitvector<32>>::into(result);
