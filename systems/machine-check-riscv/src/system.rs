@@ -82,151 +82,6 @@ pub mod machine_module {
     }
 
     impl System {
-        fn halfword_fetch(&self, pc: Bitvector<17>) -> Unsigned<16> {
-            // for halwords, drop the lowest bit
-
-            let halfword_pc =
-                Ext::<16>::ext(Into::<Unsigned<17>>::into(pc) >> Unsigned::<17>::new(1));
-
-            Into::<Unsigned<16>>::into(self.program_flash[Into::<Bitvector<16>>::into(halfword_pc)])
-        }
-
-        fn instruction_00(
-            &self,
-            state: &State,
-            input: &Input,
-            param: &Param,
-            opcode_instr: Unsigned<14>,
-        ) -> State {
-            if opcode_instr == Unsigned::<14>::new(0) {
-                panic!("Illegal zero instruction");
-            }
-
-            // TODO: do something
-            todo!("Compressed 00");
-
-            State {
-                pc: state.pc,
-                reg: Clone::clone(&state.reg),
-                sram_parity: Clone::clone(&state.sram_parity),
-            }
-        }
-
-        fn instruction_01(
-            &self,
-            state: &State,
-            input: &Input,
-            param: &Param,
-            opcode_instr: Unsigned<14>,
-        ) -> State {
-            let mut reg = Clone::clone(&state.reg);
-            let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
-
-            let mut pc = state.pc;
-            let sram_parity = Clone::clone(&state.sram_parity);
-
-            bitmask_switch!(opcode_instr {
-                "010_i_ddddd_iiiii" => {
-                    // load immediate
-                    // sign-extended
-                    let imm = Into::<Signed<6>>::into(i);
-                    let store;
-                    if d != Bitvector::<5>::new(0) {
-                        store = Into::<Bitvector<32>>::into(Ext::<32>::ext(imm));
-                    } else {
-                        store = Bitvector::<32>::new(0);
-                    }
-                    reg[d] = store;
-                }
-                "100_0_11ddd_00sss" => {
-                    // subtract
-                    // three-bit register operands map to registers 8:15
-                    let rd = Into::<Bitvector::<5>>::into( Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
-                    let rs2 = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(s)) + Unsigned::<5>::new(8));
-
-                    // rd is never zero
-                    let result = reg[rd] - reg[rs2];
-                    reg[rd] = result;
-                }
-                "001_a_dccfe_hbggg" => {
-                    // Jump and Link
-
-                    // according to the spec, indexing imm (opcode_instr) from 1,
-                    // the offset is specified by 11|4|9:8|10|6|7|3:1|5
-
-                    let a_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(a));
-                    let b_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(b)) << Unsigned::<11>::new(1);
-                    let c_part = Ext::<11>::ext(Into::<Unsigned::<2>>::into(c)) << Unsigned::<11>::new(2);
-                    let d_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(d)) << Unsigned::<11>::new(4);
-                    let e_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(e)) << Unsigned::<11>::new(5);
-                    let f_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(f)) << Unsigned::<11>::new(6);
-                    let g_part = Ext::<11>::ext(Into::<Unsigned::<3>>::into(g)) << Unsigned::<11>::new(7);
-                    let h_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(h)) << Unsigned::<11>::new(10);
-
-                    let offset = a_part | b_part | c_part | d_part | e_part | f_part | g_part | h_part;
-
-                    // store PC pre-incremented by 2 to link register x1
-                    reg[Bitvector::<5>::new(1)] = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned<17>>::into(pc)));
-
-                    // undo pre-increment and add offset to PC
-                    pc = pc - Bitvector::<17>::new(2) + Into::<Bitvector<17>>::into(Ext::<17>::ext(offset));
-
-                }
-                _ => todo!("compressed 01")
-            });
-
-            State {
-                pc,
-                reg,
-                sram_parity,
-            }
-        }
-
-        fn instruction_10(
-            &self,
-            state: &State,
-            input: &Input,
-            param: &Param,
-            opcode_instr: Unsigned<14>,
-        ) -> State {
-            let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
-
-            let mut reg = Clone::clone(&state.reg);
-            let sram_parity = Clone::clone(&state.sram_parity);
-
-            bitmask_switch!(funct3 {
-                "100" => {
-                    let rs2 = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr));
-                    let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
-
-                    // move or add
-                    let result;
-                    if Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10)) == Unsigned::<1>::new(1) {
-                        // add
-                        result = reg[rd] + reg[rs2];
-                    } else {
-                        // move
-                        result = reg[rs2];
-                    }
-
-                    let store;
-                    if rd != Bitvector::<5>::new(0) {
-                        store = result;
-                    } else {
-                        store = Bitvector::<32>::new(0);
-                    }
-                    reg[rd] = store;
-                }
-                _ => todo!("compressed 10")
-            });
-
-            State {
-                pc: state.pc,
-                reg,
-                sram_parity,
-            }
-        }
-
         fn instruction_full(
             &self,
             state: &State,
@@ -766,6 +621,151 @@ pub mod machine_module {
                 reg,
                 sram_parity,
             }
+        }
+
+        fn instruction_00(
+            &self,
+            state: &State,
+            input: &Input,
+            param: &Param,
+            opcode_instr: Unsigned<14>,
+        ) -> State {
+            if opcode_instr == Unsigned::<14>::new(0) {
+                panic!("Illegal zero instruction");
+            }
+
+            // TODO: do something
+            todo!("Compressed 00");
+
+            State {
+                pc: state.pc,
+                reg: Clone::clone(&state.reg),
+                sram_parity: Clone::clone(&state.sram_parity),
+            }
+        }
+
+        fn instruction_01(
+            &self,
+            state: &State,
+            input: &Input,
+            param: &Param,
+            opcode_instr: Unsigned<14>,
+        ) -> State {
+            let mut reg = Clone::clone(&state.reg);
+            let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
+
+            let mut pc = state.pc;
+            let sram_parity = Clone::clone(&state.sram_parity);
+
+            bitmask_switch!(opcode_instr {
+                "010_i_ddddd_iiiii" => {
+                    // load immediate
+                    // sign-extended
+                    let imm = Into::<Signed<6>>::into(i);
+                    let store;
+                    if d != Bitvector::<5>::new(0) {
+                        store = Into::<Bitvector<32>>::into(Ext::<32>::ext(imm));
+                    } else {
+                        store = Bitvector::<32>::new(0);
+                    }
+                    reg[d] = store;
+                }
+                "100_0_11ddd_00sss" => {
+                    // subtract
+                    // three-bit register operands map to registers 8:15
+                    let rd = Into::<Bitvector::<5>>::into( Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
+                    let rs2 = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(s)) + Unsigned::<5>::new(8));
+
+                    // rd is never zero
+                    let result = reg[rd] - reg[rs2];
+                    reg[rd] = result;
+                }
+                "001_a_dccfe_hbggg" => {
+                    // Jump and Link
+
+                    // according to the spec, indexing imm (opcode_instr) from 1,
+                    // the offset is specified by 11|4|9:8|10|6|7|3:1|5
+
+                    let a_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(a));
+                    let b_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(b)) << Unsigned::<11>::new(1);
+                    let c_part = Ext::<11>::ext(Into::<Unsigned::<2>>::into(c)) << Unsigned::<11>::new(2);
+                    let d_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(d)) << Unsigned::<11>::new(4);
+                    let e_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(e)) << Unsigned::<11>::new(5);
+                    let f_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(f)) << Unsigned::<11>::new(6);
+                    let g_part = Ext::<11>::ext(Into::<Unsigned::<3>>::into(g)) << Unsigned::<11>::new(7);
+                    let h_part = Ext::<11>::ext(Into::<Unsigned::<1>>::into(h)) << Unsigned::<11>::new(10);
+
+                    let offset = a_part | b_part | c_part | d_part | e_part | f_part | g_part | h_part;
+
+                    // store PC pre-incremented by 2 to link register x1
+                    reg[Bitvector::<5>::new(1)] = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned<17>>::into(pc)));
+
+                    // undo pre-increment and add offset to PC
+                    pc = pc - Bitvector::<17>::new(2) + Into::<Bitvector<17>>::into(Ext::<17>::ext(offset));
+
+                }
+                _ => todo!("compressed 01")
+            });
+
+            State {
+                pc,
+                reg,
+                sram_parity,
+            }
+        }
+
+        fn instruction_10(
+            &self,
+            state: &State,
+            input: &Input,
+            param: &Param,
+            opcode_instr: Unsigned<14>,
+        ) -> State {
+            let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
+
+            let mut reg = Clone::clone(&state.reg);
+            let sram_parity = Clone::clone(&state.sram_parity);
+
+            bitmask_switch!(funct3 {
+                "100" => {
+                    let rs2 = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr));
+                    let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
+
+                    // move or add
+                    let result;
+                    if Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10)) == Unsigned::<1>::new(1) {
+                        // add
+                        result = reg[rd] + reg[rs2];
+                    } else {
+                        // move
+                        result = reg[rs2];
+                    }
+
+                    let store;
+                    if rd != Bitvector::<5>::new(0) {
+                        store = result;
+                    } else {
+                        store = Bitvector::<32>::new(0);
+                    }
+                    reg[rd] = store;
+                }
+                _ => todo!("compressed 10")
+            });
+
+            State {
+                pc: state.pc,
+                reg,
+                sram_parity,
+            }
+        }
+
+        fn halfword_fetch(&self, pc: Bitvector<17>) -> Unsigned<16> {
+            // for halwords, drop the lowest bit
+
+            let halfword_pc =
+                Ext::<16>::ext(Into::<Unsigned<17>>::into(pc) >> Unsigned::<17>::new(1));
+
+            Into::<Unsigned<16>>::into(self.program_flash[Into::<Bitvector<16>>::into(halfword_pc)])
         }
 
         fn extract_rs1(first_half_rest: Unsigned<4>, second_half: Unsigned<16>) -> Bitvector<5> {
