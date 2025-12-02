@@ -450,16 +450,44 @@ pub mod machine_module {
                     let address = value1 + imm;
                     let store_value = Into::<Unsigned<32>>::into(reg[rs2]);
 
-                    if funct3 != Unsigned::<3>::new(0) {
-                        todo!("Non-byte store");
-                    }
-
                     if address < Unsigned::<32>::new(0x2000_4000) || address >= Unsigned::<32>::new(0x2000_7000) {
                         unimplemented!("Store at given address");
                     }
 
                     let relative_address = Into::<Bitvector<14>>::into(Ext::<14>::ext(address - Unsigned::<32>::new(0x2000_4000)));
-                    sram_parity[relative_address] = Into::<Bitvector<8>>::into(Ext::<8>::ext(store_value));
+
+                    let mut sram_relative0 = sram_parity[relative_address];
+                    let mut sram_relative1 = sram_parity[relative_address + Bitvector::<14>::new(1)];
+                    let mut sram_relative2 = sram_parity[relative_address + Bitvector::<14>::new(2)];
+                    let mut sram_relative3 = sram_parity[relative_address + Bitvector::<14>::new(3)];
+
+                    if funct3 == Unsigned::<3>::new(0) {
+                        // byte store
+                        sram_relative0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(store_value));
+                    } else if funct3 == Unsigned::<3>::new(1) {
+                        // halfword store, ensure alignment
+                        if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
+                            panic!("Non-aligned halfword store");
+                        };
+
+                        sram_relative0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(store_value));
+                        sram_relative1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(store_value >> Unsigned::<32>::new(8)));
+                    } else if funct3 == Unsigned::<3>::new(2) {
+                        // word store, ensure alignment
+                        if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
+                            panic!("Non-aligned word store");
+                        };
+
+                        sram_relative0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(store_value));
+                        sram_relative1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(store_value >> Unsigned::<32>::new(8)));
+                        sram_relative2 = Into::<Bitvector<8>>::into(Ext::<8>::ext(store_value >> Unsigned::<32>::new(16)));
+                        sram_relative3 = Into::<Bitvector<8>>::into(Ext::<8>::ext(store_value >> Unsigned::<32>::new(24)));
+                    }
+
+                    sram_parity[relative_address] = sram_relative0;
+                    sram_parity[relative_address + Bitvector::<14>::new(1)] = sram_relative1;
+                    sram_parity[relative_address + Bitvector::<14>::new(2)] = sram_relative2;
+                    sram_parity[relative_address + Bitvector::<14>::new(3)] = sram_relative3;
                 }
                 "11000" => {
                     // B-type branch
