@@ -224,6 +224,78 @@ impl WExprCall {
         };
         (construct_call_fn_path(fn_operand), args)
     }
+
+    pub fn right_idents(&self) -> Vec<WIdent> {
+        let mut result = Vec::new();
+        let (_call_fn, args) = self.clone().call_fn_and_args();
+        for arg in args {
+            match arg {
+                WCallArg::Ident(ident) => result.push(ident),
+                WCallArg::Literal(_) => {}
+            }
+        }
+        result
+    }
+
+    pub fn replace_ident(&mut self, original: &WIdent, replacement: &WIdent) {
+        match self {
+            WExprCall::Call(call) => {
+                for arg in &mut call.args {
+                    match arg {
+                        WCallArg::Ident(ident) => {
+                            replace_ident(ident, original, replacement);
+                        }
+                        WCallArg::Literal(_) => {}
+                    }
+                }
+            }
+            WExprCall::MckUnary(mck_unary) => {
+                replace_ident(&mut mck_unary.operand, original, replacement);
+            }
+            WExprCall::MckBinary(mck_binary) => {
+                replace_ident(&mut mck_binary.a, original, replacement);
+                replace_ident(&mut mck_binary.b, original, replacement);
+            }
+            WExprCall::MckExt(mck_ext) => {
+                replace_ident(&mut mck_ext.from, original, replacement);
+            }
+            WExprCall::MckNew(mck_new) => match mck_new {
+                WMckNew::Bitvector(_) => {}
+                WMckNew::BitvectorArray(_arr, ident) => {
+                    replace_ident(ident, original, replacement);
+                }
+            },
+            WExprCall::BooleanNew(_) => {}
+            WExprCall::StdClone(ident) => {
+                replace_ident(ident, original, replacement);
+            }
+            WExprCall::ArrayRead(array_read) => {
+                replace_ident(&mut array_read.base, original, replacement);
+                replace_ident(&mut array_read.index, original, replacement);
+            }
+            WExprCall::ArrayWrite(array_write) => {
+                replace_ident(&mut array_write.base, original, replacement);
+                replace_ident(&mut array_write.element, original, replacement);
+                replace_ident(&mut array_write.index, original, replacement);
+            }
+            WExprCall::Phi(phi) => {
+                replace_ident(&mut phi.condition, original, replacement);
+                replace_ident(&mut phi.then_ident, original, replacement);
+                replace_ident(&mut phi.else_ident, original, replacement);
+            }
+            WExprCall::PhiTaken(phi_taken) => {
+                replace_ident(&mut phi_taken.ident, original, replacement);
+                replace_ident(&mut phi_taken.condition, original, replacement);
+            }
+            WExprCall::PhiNotTaken => {}
+        }
+    }
+}
+
+fn replace_ident(ident: &mut WIdent, original: &WIdent, replacement: &WIdent) {
+    if ident == original {
+        *ident = replacement.clone();
+    }
 }
 
 impl IntoSyn<Expr> for WExprHighCall {

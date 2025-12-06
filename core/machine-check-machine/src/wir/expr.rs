@@ -6,7 +6,7 @@ use syn::{
     Lit, Token,
 };
 
-use crate::util::create_expr_ident;
+use crate::{util::create_expr_ident, wir::WExprCall};
 
 use super::{IntoSyn, WIdent, WPath};
 
@@ -123,6 +123,26 @@ impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<CF> {
                     lit_expr
                 }
             }
+        }
+    }
+}
+
+impl WExpr<WExprCall> {
+    pub fn idents(&self) -> Vec<WIdent> {
+        match self {
+            WExpr::Move(ident) => vec![ident.clone()],
+            WExpr::Call(call) => call.right_idents(),
+            WExpr::Field(expr_field) => vec![expr_field.base.clone()],
+            WExpr::Reference(expr_reference) => match expr_reference {
+                WExprReference::Ident(ident) => vec![ident.clone()],
+                WExprReference::Field(expr_field) => vec![expr_field.base.clone()],
+            },
+            WExpr::Struct(expr_struct) => expr_struct
+                .fields
+                .iter()
+                .map(|(_member_name, value)| value.clone())
+                .collect(),
+            WExpr::Lit(_, _) => Vec::new(),
         }
     }
 }

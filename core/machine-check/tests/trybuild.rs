@@ -19,4 +19,5 @@ fn machine_description() {
     t.compile_fail("tests/cases/10-expr-unsupported.rs");
     t.compile_fail("tests/cases/11-type-unsupported.rs");
     t.compile_fail("tests/cases/12-use-unsupported.rs");
+    t.pass("tests/cases/13-nested-if-with-array.rs");
 }
