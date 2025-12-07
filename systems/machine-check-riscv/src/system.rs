@@ -22,6 +22,8 @@ pub mod machine_module {
         // this means there are 12288 bytes
         // use a 14-bit array (16384) with further bounds checking
         sram_parity: BitvectorArray<14, 8>,
+        // CLIC Interrupt Attribute register, 0xE200_0000, words 0..50
+        //clicintattr: BitvectorArray<6, 32>,
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -302,9 +304,6 @@ pub mod machine_module {
 
                     let address = Into::<Unsigned<32>>::into(value1 + imm);
 
-                    if address < Unsigned::<32>::new(0x2000_4000) || address >= Unsigned::<32>::new(0x2000_7000) {
-                        unimplemented!("Load at given address");
-                    }
 
                     reg = Self::load(state, rd, address, funct3);
                 }
@@ -809,60 +808,14 @@ pub mod machine_module {
             address: Unsigned<32>,
             funct3: Unsigned<3>,
         ) -> BitvectorArray<5, 32> {
-            let relative_address = Into::<Bitvector<14>>::into(Ext::<14>::ext(
-                address - Unsigned::<32>::new(0x2000_4000),
-            ));
+            let word_load_value;
 
-            let extend_unsigned = funct3 & Unsigned::<3>::new(0x4);
-
-            let load_value;
-
-            if funct3 & Unsigned::<3>::new(0x3) == Unsigned::<3>::new(0) {
-                // byte load
-                let load_value_byte = state.sram_parity[relative_address];
-
-                if extend_unsigned != Unsigned::<3>::new(0) {
-                    // zero-extend
-                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
-                        Into::<Signed<8>>::into(load_value_byte),
-                    ));
-                } else {
-                    // msb-extend
-                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
-                        Into::<Unsigned<8>>::into(load_value_byte),
-                    ));
-                };
-            } else if funct3 == Unsigned::<3>::new(1) {
-                // halfword store, ensure alignment
-                if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
-                    panic!("Non-aligned halfword load");
-                };
-
-                let load_value0 = state.sram_parity[relative_address];
-                let load_value1 = state.sram_parity[relative_address + Bitvector::<14>::new(1)];
-
-                let load_value0_placed = Ext::<16>::ext(Into::<Unsigned<8>>::into(load_value0));
-                let load_value1_placed = Ext::<16>::ext(Into::<Unsigned<8>>::into(load_value1))
-                    << Unsigned::<16>::new(8);
-
-                let load_value_halfword = load_value0_placed | load_value1_placed;
-
-                if extend_unsigned != Unsigned::<3>::new(0) {
-                    // zero-extend
-                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
-                        Into::<Signed<16>>::into(load_value_halfword),
-                    ));
-                } else {
-                    // msb-extend
-                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
-                        Into::<Unsigned<16>>::into(load_value_halfword),
-                    ));
-                };
-            } else if funct3 == Unsigned::<3>::new(2) {
-                // word store, ensure alignment
-                if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
-                    panic!("Non-aligned word load");
-                };
+            if address >= Unsigned::<32>::new(0x2000_4000)
+                && address < Unsigned::<32>::new(0x2000_7000)
+            {
+                let relative_address = Into::<Bitvector<14>>::into(Ext::<14>::ext(
+                    address - Unsigned::<32>::new(0x2000_4000),
+                ));
 
                 let load_value0 = state.sram_parity[relative_address];
                 let load_value1 = state.sram_parity[relative_address + Bitvector::<14>::new(1)];
@@ -877,32 +830,75 @@ pub mod machine_module {
                 let load_value3_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value3))
                     << Unsigned::<32>::new(24);
 
-                if extend_unsigned != Unsigned::<3>::new(0) {
-                    panic!("Word load with unsigned extension requested");
-                }
-
-                load_value = Into::<Bitvector<32>>::into(
+                word_load_value = Into::<Bitvector<32>>::into(
                     load_value0_placed
                         | load_value1_placed
                         | load_value2_placed
                         | load_value3_placed,
                 );
             } else {
+                word_load_value = Bitvector::<32>::new(0);
+                unimplemented!("Load at given address");
+            }
+
+            let load_value;
+
+            // handle byte and halfword loads and proper alignment
+
+            let extend_unsigned = funct3 & Unsigned::<3>::new(0x4);
+
+            if funct3 & Unsigned::<3>::new(0x3) == Unsigned::<3>::new(0) {
+                // byte load
+                let byte_load_value = Ext::<8>::ext(Into::<Unsigned<32>>::into(word_load_value));
+
+                if extend_unsigned != Unsigned::<3>::new(0) {
+                    // unsigned, zero-extend low byte
+                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(byte_load_value));
+                } else {
+                    // signed, msb-extend low byte
+                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
+                        Into::<Signed<8>>::into(byte_load_value),
+                    ));
+                };
+            } else if funct3 == Unsigned::<3>::new(1) {
+                // halfword load, ensure alignment
+                if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
+                    panic!("Non-aligned halfword load");
+                };
+
+                let halfword_load_value =
+                    Ext::<16>::ext(Into::<Unsigned<32>>::into(word_load_value));
+
+                if extend_unsigned != Unsigned::<3>::new(0) {
+                    // unsigned, zero-extend low halfword
+                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(halfword_load_value));
+                } else {
+                    // signed, msb-extend low halfword
+                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
+                        Into::<Signed<16>>::into(halfword_load_value),
+                    ));
+                };
+            } else if funct3 == Unsigned::<3>::new(2) {
+                // word load, ensure alignment
+                if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
+                    panic!("Non-aligned word load");
+                };
+                // not permitted to use "unsigned extension" here
+                if extend_unsigned != Unsigned::<3>::new(0) {
+                    panic!("Word load with unsigned extension requested");
+                };
+
+                load_value = word_load_value;
+            } else {
                 load_value = Bitvector::<32>::new(0);
                 panic!("Unsupported load funct3");
             }
 
             // load the value into the register if it is nonzero
-
-            let result;
-            if rd != Bitvector::<5>::new(0) {
-                result = load_value;
-            } else {
-                result = Bitvector::<32>::new(0);
-            };
-
             let mut reg = Clone::clone(&state.reg);
-            reg[rd] = result;
+            if rd != Bitvector::<5>::new(0) {
+                reg[rd] = load_value;
+            };
 
             reg
         }
@@ -915,58 +911,62 @@ pub mod machine_module {
         ) -> State {
             let mut sram_parity = Clone::clone(&state.sram_parity);
 
-            if address < Unsigned::<32>::new(0x2000_4000)
-                || address >= Unsigned::<32>::new(0x2000_7000)
+            if address >= Unsigned::<32>::new(0x2000_4000)
+                && address < Unsigned::<32>::new(0x2000_7000)
             {
-                unimplemented!("Store at given address");
+                let relative_address = Into::<Bitvector<14>>::into(Ext::<14>::ext(
+                    address - Unsigned::<32>::new(0x2000_4000),
+                ));
+
+                let mut sram_relative0 = state.sram_parity[relative_address];
+                let mut sram_relative1 =
+                    state.sram_parity[relative_address + Bitvector::<14>::new(1)];
+                let mut sram_relative2 =
+                    state.sram_parity[relative_address + Bitvector::<14>::new(2)];
+                let mut sram_relative3 =
+                    state.sram_parity[relative_address + Bitvector::<14>::new(3)];
+
+                let unsigned_store_value = Into::<Unsigned<32>>::into(store_value);
+
+                if funct3 == Unsigned::<3>::new(0) {
+                    // byte store
+                    sram_relative0 =
+                        Into::<Bitvector<8>>::into(Ext::<8>::ext(unsigned_store_value));
+                } else if funct3 == Unsigned::<3>::new(1) {
+                    // halfword store, ensure alignment
+                    if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
+                        panic!("Non-aligned halfword store");
+                    };
+
+                    sram_relative0 =
+                        Into::<Bitvector<8>>::into(Ext::<8>::ext(unsigned_store_value));
+                    sram_relative1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                        unsigned_store_value >> Unsigned::<32>::new(8),
+                    ));
+                } else if funct3 == Unsigned::<3>::new(2) {
+                    // word store, ensure alignment
+                    if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
+                        panic!("Non-aligned word store");
+                    };
+
+                    sram_relative0 =
+                        Into::<Bitvector<8>>::into(Ext::<8>::ext(unsigned_store_value));
+                    sram_relative1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                        unsigned_store_value >> Unsigned::<32>::new(8),
+                    ));
+                    sram_relative2 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                        unsigned_store_value >> Unsigned::<32>::new(16),
+                    ));
+                    sram_relative3 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                        unsigned_store_value >> Unsigned::<32>::new(24),
+                    ));
+                }
+
+                sram_parity[relative_address] = sram_relative0;
+                sram_parity[relative_address + Bitvector::<14>::new(1)] = sram_relative1;
+                sram_parity[relative_address + Bitvector::<14>::new(2)] = sram_relative2;
+                sram_parity[relative_address + Bitvector::<14>::new(3)] = sram_relative3;
             }
-
-            let relative_address = Into::<Bitvector<14>>::into(Ext::<14>::ext(
-                address - Unsigned::<32>::new(0x2000_4000),
-            ));
-
-            let mut sram_relative0 = state.sram_parity[relative_address];
-            let mut sram_relative1 = state.sram_parity[relative_address + Bitvector::<14>::new(1)];
-            let mut sram_relative2 = state.sram_parity[relative_address + Bitvector::<14>::new(2)];
-            let mut sram_relative3 = state.sram_parity[relative_address + Bitvector::<14>::new(3)];
-
-            let unsigned_store_value = Into::<Unsigned<32>>::into(store_value);
-
-            if funct3 == Unsigned::<3>::new(0) {
-                // byte store
-                sram_relative0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(unsigned_store_value));
-            } else if funct3 == Unsigned::<3>::new(1) {
-                // halfword store, ensure alignment
-                if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
-                    panic!("Non-aligned halfword store");
-                };
-
-                sram_relative0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(unsigned_store_value));
-                sram_relative1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
-                    unsigned_store_value >> Unsigned::<32>::new(8),
-                ));
-            } else if funct3 == Unsigned::<3>::new(2) {
-                // word store, ensure alignment
-                if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
-                    panic!("Non-aligned word store");
-                };
-
-                sram_relative0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(unsigned_store_value));
-                sram_relative1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
-                    unsigned_store_value >> Unsigned::<32>::new(8),
-                ));
-                sram_relative2 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
-                    unsigned_store_value >> Unsigned::<32>::new(16),
-                ));
-                sram_relative3 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
-                    unsigned_store_value >> Unsigned::<32>::new(24),
-                ));
-            }
-
-            sram_parity[relative_address] = sram_relative0;
-            sram_parity[relative_address + Bitvector::<14>::new(1)] = sram_relative1;
-            sram_parity[relative_address + Bitvector::<14>::new(2)] = sram_relative2;
-            sram_parity[relative_address + Bitvector::<14>::new(3)] = sram_relative3;
 
             State {
                 pc: state.pc,
