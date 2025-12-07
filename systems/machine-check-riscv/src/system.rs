@@ -808,7 +808,10 @@ pub mod machine_module {
             address: Unsigned<32>,
             funct3: Unsigned<3>,
         ) -> BitvectorArray<5, 32> {
-            let word_load_value;
+            let load_value0;
+            let load_value1;
+            let load_value2;
+            let load_value3;
 
             if address >= Unsigned::<32>::new(0x2000_4000)
                 && address < Unsigned::<32>::new(0x2000_7000)
@@ -817,27 +820,15 @@ pub mod machine_module {
                     address - Unsigned::<32>::new(0x2000_4000),
                 ));
 
-                let load_value0 = state.sram_parity[relative_address];
-                let load_value1 = state.sram_parity[relative_address + Bitvector::<14>::new(1)];
-                let load_value2 = state.sram_parity[relative_address + Bitvector::<14>::new(2)];
-                let load_value3 = state.sram_parity[relative_address + Bitvector::<14>::new(3)];
-
-                let load_value0_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value0));
-                let load_value1_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value1))
-                    << Unsigned::<32>::new(8);
-                let load_value2_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value2))
-                    << Unsigned::<32>::new(16);
-                let load_value3_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value3))
-                    << Unsigned::<32>::new(24);
-
-                word_load_value = Into::<Bitvector<32>>::into(
-                    load_value0_placed
-                        | load_value1_placed
-                        | load_value2_placed
-                        | load_value3_placed,
-                );
+                load_value0 = state.sram_parity[relative_address];
+                load_value1 = state.sram_parity[relative_address + Bitvector::<14>::new(1)];
+                load_value2 = state.sram_parity[relative_address + Bitvector::<14>::new(2)];
+                load_value3 = state.sram_parity[relative_address + Bitvector::<14>::new(3)];
             } else {
-                word_load_value = Bitvector::<32>::new(0);
+                load_value0 = Bitvector::<8>::new(0);
+                load_value1 = Bitvector::<8>::new(0);
+                load_value2 = Bitvector::<8>::new(0);
+                load_value3 = Bitvector::<8>::new(0);
                 unimplemented!("Load at given address");
             }
 
@@ -849,7 +840,7 @@ pub mod machine_module {
 
             if funct3 & Unsigned::<3>::new(0x3) == Unsigned::<3>::new(0) {
                 // byte load
-                let byte_load_value = Ext::<8>::ext(Into::<Unsigned<32>>::into(word_load_value));
+                let byte_load_value = Into::<Unsigned<8>>::into(load_value0);
 
                 if extend_unsigned != Unsigned::<3>::new(0) {
                     // unsigned, zero-extend low byte
@@ -866,8 +857,11 @@ pub mod machine_module {
                     panic!("Non-aligned halfword load");
                 };
 
-                let halfword_load_value =
-                    Ext::<16>::ext(Into::<Unsigned<32>>::into(word_load_value));
+                let load_value0_halfword = Ext::<16>::ext(Into::<Unsigned<8>>::into(load_value0));
+                let load_value1_halfword = Ext::<16>::ext(Into::<Unsigned<8>>::into(load_value1))
+                    << Unsigned::<16>::new(8);
+
+                let halfword_load_value = load_value0_halfword | load_value1_halfword;
 
                 if extend_unsigned != Unsigned::<3>::new(0) {
                     // unsigned, zero-extend low halfword
@@ -888,7 +882,20 @@ pub mod machine_module {
                     panic!("Word load with unsigned extension requested");
                 };
 
-                load_value = word_load_value;
+                let load_value0_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value0));
+                let load_value1_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value1))
+                    << Unsigned::<32>::new(8);
+                let load_value2_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value2))
+                    << Unsigned::<32>::new(16);
+                let load_value3_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value3))
+                    << Unsigned::<32>::new(24);
+
+                load_value = Into::<Bitvector<32>>::into(
+                    load_value0_placed
+                        | load_value1_placed
+                        | load_value2_placed
+                        | load_value3_placed,
+                );
             } else {
                 load_value = Bitvector::<32>::new(0);
                 panic!("Unsupported load funct3");
