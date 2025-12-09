@@ -1,13 +1,11 @@
 #[machine_check::machine_description]
 pub mod machine_module {
-    use ::machine_check::{bitmask_switch, Bitvector, BitvectorArray, Ext, Signed, Unsigned};
+    use ::machine_check::{Bitvector, BitvectorArray};
     use ::std::{
         clone::Clone,
         cmp::{Eq, PartialEq},
-        convert::Into,
         fmt::Debug,
         hash::Hash,
-        panic, todo, unimplemented,
     };
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -35,7 +33,7 @@ pub mod machine_module {
             }
         }
 
-        fn next(&self, state: &State, input: &Input, param: &Param) -> State {
+        fn next(&self, state: &State, _input: &Input, _param: &Param) -> State {
             let mut arr = Clone::clone(&state.arr);
 
             if Bitvector::<2>::new(0) == Bitvector::<2>::new(1) {
@@ -48,3 +46,5 @@ pub mod machine_module {
         }
     }
 }
+
+fn main() {}
