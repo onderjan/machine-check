@@ -738,39 +738,68 @@ pub mod machine_module {
         ) -> State {
             let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
 
+            let mut pc = state.pc;
             let mut reg = Clone::clone(&state.reg);
             let sram_parity = Clone::clone(&state.sram_parity);
             let mut clicint = Clone::clone(&state.clicint);
 
             bitmask_switch!(funct3 {
                 "100" => {
-                    // Move or Add
+                    let q = Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10));
 
-                    let rs2 = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr));
                     let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
+                    let rs2 = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr));
+                    // if rd != 0 and rs2 != 0: Move (q = 0) or Add (q = 1)
+                    // if rd != 0 and rs2 == 0: Jump Relative (q = 0) or Jump and Link Relative (q = 1)
+                    // if rd == 0 and rs2 != 0: not in compressed extension
+                    // if rd == 0 and rs2 == 0: not in compressed extension (q = 0) or EBreak (q = 1)
 
-                    let result;
-                    if Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10)) == Unsigned::<1>::new(1) {
-                        // add
-                        result = reg[rd] + reg[rs2];
-                    } else {
-                        // move
-                        result = reg[rs2];
-                    }
+                    if rs2 != Bitvector::<5>::new(0) {
+                        // only a hint if rd is zero
+                        if rd != Bitvector::<5>::new(0) {
+                            // Move (q = 0) or Add (q = 1)
+                            if q == Unsigned::<1>::new(1) {
+                                // Add
+                                reg[rd] = reg[rd] + reg[rs2];
+                            } else {
+                                // Move
+                                reg[rd] = reg[rs2];
+                            };
+                        };
+                    } else if rd != Bitvector::<5>::new(0) {
+                            // rs2 == 0, rd != 0
+                            // Jump Relative (q = 0) or Jump and Link Relative (q = 1)
 
-                    let store;
-                    if rd != Bitvector::<5>::new(0) {
-                        store = result;
-                    } else {
-                        store = Bitvector::<32>::new(0);
-                    }
-                    reg[rd] = store;
+                            if q == Unsigned::<1>::new(1) {
+                                // link register is hard-wired to x1
+                                // write the address of the next instruction (currently in PC) to it
+                                reg[Bitvector::<5>::new(1)] = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<17>>::into(pc)));
+                            }
+
+                            // there is no immediate, jump to the rd value
+                            // the least significant bit must be set to zero afterward
+
+                            let jump_address = reg[rd];
+
+                            let new_pc = Into::<Bitvector<17>>::into(Ext::<17>::ext(Into::<Unsigned<32>>::into(jump_address)));
+                            pc = new_pc & !Bitvector::<17>::new(1);
+
+                        } else if q == Unsigned::<1>::new(1) {
+                                // rs2 == 0, rd2 == 0, q == 1
+                                panic!("Environment break");
+                            } else {
+                                // rs2 == 0, rd2 == 0, q == 0
+                                // reserved in compressed extension
+                                unimplemented!("Compressed JR/JALR-like");
+                            };
+
+
                 }
                 _ => todo!("compressed 10")
             });
 
             State {
-                pc: state.pc,
+                pc,
                 reg,
                 sram_parity,
                 clicint,
