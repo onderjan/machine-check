@@ -23,7 +23,7 @@ pub mod machine_module {
         // use a 14-bit array (16384) with further bounds checking
         sram_parity: BitvectorArray<14, 8>,
         // CLIC Interrupt Attribute register, 0xE200_0000, words 0..50
-        //clicintattr: BitvectorArray<6, 32>,
+        clicintattr: BitvectorArray<8, 8>,
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -45,6 +45,7 @@ pub mod machine_module {
                 pc: Bitvector::<17>::new(0),
                 reg: BitvectorArray::<5, 32>::new_filled(Bitvector::<32>::new(0)),
                 sram_parity: BitvectorArray::<14, 8>::new_filled(Bitvector::<8>::new(0xFF)),
+                clicintattr: BitvectorArray::<8, 8>::new_filled(Bitvector::<8>::new(0)),
             }
         }
 
@@ -62,6 +63,7 @@ pub mod machine_module {
                 pc,
                 reg: Clone::clone(&state.reg),
                 sram_parity: Clone::clone(&state.sram_parity),
+                clicintattr: Clone::clone(&state.clicintattr),
             };
 
             bitmask_switch!(opcode_low {
@@ -106,6 +108,7 @@ pub mod machine_module {
 
             let mut reg = Clone::clone(&state.reg);
             let mut sram_parity = Clone::clone(&state.sram_parity);
+            let mut clicintattr = Clone::clone(&state.clicintattr);
 
             bitmask_switch!(opcode {
                 "01100" => {
@@ -556,6 +559,7 @@ pub mod machine_module {
                 pc,
                 reg,
                 sram_parity,
+                clicintattr,
             }
         }
 
@@ -577,6 +581,7 @@ pub mod machine_module {
                 pc: state.pc,
                 reg: Clone::clone(&state.reg),
                 sram_parity: Clone::clone(&state.sram_parity),
+                clicintattr: Clone::clone(&state.clicintattr),
             }
         }
 
@@ -592,6 +597,7 @@ pub mod machine_module {
 
             let mut pc = state.pc;
             let sram_parity = Clone::clone(&state.sram_parity);
+            let clicintattr = Clone::clone(&state.clicintattr);
 
             bitmask_switch!(opcode_instr {
                 "010_i_ddddd_iiiii" => {
@@ -714,6 +720,7 @@ pub mod machine_module {
                 pc,
                 reg,
                 sram_parity,
+                clicintattr,
             }
         }
 
@@ -728,6 +735,7 @@ pub mod machine_module {
 
             let mut reg = Clone::clone(&state.reg);
             let sram_parity = Clone::clone(&state.sram_parity);
+            let mut clicintattr = Clone::clone(&state.clicintattr);
 
             bitmask_switch!(funct3 {
                 "100" => {
@@ -760,6 +768,7 @@ pub mod machine_module {
                 pc: state.pc,
                 reg,
                 sram_parity,
+                clicintattr,
             }
         }
 
@@ -824,6 +833,17 @@ pub mod machine_module {
                 load_value1 = state.sram_parity[relative_address + Bitvector::<14>::new(1)];
                 load_value2 = state.sram_parity[relative_address + Bitvector::<14>::new(2)];
                 load_value3 = state.sram_parity[relative_address + Bitvector::<14>::new(3)];
+            } else if address >= Unsigned::<32>::new(0xE200_1002)
+                && address <= Unsigned::<32>::new(0xE200_10CE)
+            {
+                // clicintattr
+                let relative_address = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                    address - Unsigned::<32>::new(0xE200_1002),
+                ));
+                load_value0 = state.clicintattr[relative_address];
+                load_value1 = state.clicintattr[relative_address + Bitvector::<8>::new(1)];
+                load_value2 = state.clicintattr[relative_address + Bitvector::<8>::new(2)];
+                load_value3 = state.clicintattr[relative_address + Bitvector::<8>::new(3)];
             } else {
                 load_value0 = Bitvector::<8>::new(0);
                 load_value1 = Bitvector::<8>::new(0);
@@ -950,6 +970,7 @@ pub mod machine_module {
             }
 
             let mut sram_parity = Clone::clone(&state.sram_parity);
+            let mut clicintattr = Clone::clone(&state.clicintattr);
 
             if address >= Unsigned::<32>::new(0x2000_4000)
                 && address < Unsigned::<32>::new(0x2000_7000)
@@ -973,6 +994,7 @@ pub mod machine_module {
                 pc: state.pc,
                 reg: Clone::clone(&state.reg),
                 sram_parity,
+                clicintattr,
             }
         }
     }
