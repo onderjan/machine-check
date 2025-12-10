@@ -699,10 +699,10 @@ pub mod machine_module {
                     let result;
 
                     if d != Bitvector::<5>::new(0) {
+                        result = reg[d] + extended_imm;
+                    } else {
                         // hint
                         result = Bitvector::<32>::new(0);
-                    } else {
-                        result = reg[d] + extended_imm;
                     }
 
                     reg[d] = result;
