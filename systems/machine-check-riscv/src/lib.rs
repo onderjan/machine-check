@@ -28,8 +28,6 @@ pub fn execute_with_args(
 ) -> anyhow::Result<ExecResult> {
     let system = parse_elf(&system_args.elf_file)?;
 
-    eprintln!("System: {:#?}", system);
-
     let input = machine_module::Input {
         PIDR: BitvectorArray::new_filled(Bitvector::new(0)),
     };
@@ -37,7 +35,7 @@ pub fn execute_with_args(
 
     let mut state = machine_check::Machine::init(&system, &input, &param);
 
-    for i in 0..8096 {
+    for i in 0..1024 {
         state = machine_check::Machine::next(&system, &state, &input, &param);
 
         eprintln!("Step {}: {:?}", i, state);
@@ -50,15 +48,15 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
     let elf_bytes = std::fs::read(path)?;
     let elf_file = ElfFile32::<LittleEndian>::parse(&*elf_bytes)?;
 
-    for program_header in elf_file.elf_program_headers() {
-        println!("{:?}", program_header);
-        println!(
+    /*for program_header in elf_file.elf_program_headers() {
+        eprintln!("{:?}", program_header);
+        eprintln!(
             "Offset: 0x{:x}, size: {:x}, flags: {:x}",
             program_header.p_offset.get(LittleEndian),
             program_header.p_memsz.get(LittleEndian),
             program_header.p_flags.get(LittleEndian),
         );
-    }
+    }*/
 
     // zero is guaranteed-illegal instruction
     let zero = Bitvector::new(0);
@@ -69,13 +67,13 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
     let mut mcu_program_flash = BitvectorArray::<16, 16>::new_filled(zero);
 
     for section in elf_file.sections() {
-        println!(
+        /*eprintln!(
             "{}: {:x}, {:x}, {:?}",
             section.name()?,
             section.address(),
             section.uncompressed_data()?.len(),
             section.kind()
-        );
+        );*/
 
         let kind = section.kind();
 
@@ -84,12 +82,10 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
                 // just disregard the behaviour for now and load
 
                 let address: u64 = section.address();
-                eprintln!("Data {:x}, {:x}", address, section.size());
 
                 match address {
                     0x0000_0000..0x0002_0000 => {
                         let data = section.uncompressed_data()?;
-                        //eprintln!("Data: {:x?}", data);
 
                         assert_eq!(address % 2, 0);
                         let mut halfword_address = address / 2;
@@ -125,12 +121,11 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
             }
             SectionKind::UninitializedData => {
                 // this will not be loaded, but initialised by the program itself
-                eprintln!("Uninitialized data")
             }
 
             SectionKind::Elf(number) => {
                 if number == 0x70000003 {
-                    eprintln!("RISC-V attribute section");
+                    // RISC-V attribute section
                 } else {
                     return Err(anyhow!("Unsupported Elf section"));
                 }
@@ -141,12 +136,10 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
             | SectionKind::Debug
             | SectionKind::DebugString
             | SectionKind::Note => {
-                eprintln!("Misc other {:?}", kind);
                 // do nothing
             }
             SectionKind::Metadata => {
                 // metadata
-                eprintln!("Metadata")
             }
             _ => return Err(anyhow!("Unsupported section kind {:?}", kind)),
         }

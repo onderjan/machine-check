@@ -1,4 +1,9 @@
-#[allow(clippy::needless_late_init)]
+#[allow(
+    clippy::needless_late_init,
+    non_snake_case,
+    unreachable_code,
+    unused_assignments
+)]
 #[machine_check::machine_description]
 pub mod machine_module {
     use ::machine_check::{bitmask_switch, Bitvector, BitvectorArray, Ext, Signed, Unsigned};
@@ -64,7 +69,7 @@ pub mod machine_module {
         type State = State;
         type Param = Param;
 
-        fn init(&self, input: &Input, _param: &Param) -> State {
+        fn init(&self, _input: &Input, _param: &Param) -> State {
             // TODO: correctly init registers and memory
             State {
                 pc: Bitvector::<17>::new(0),
@@ -120,7 +125,7 @@ pub mod machine_module {
             &self,
             state: &State,
             input: &Input,
-            param: &Param,
+            _param: &Param,
             first_half_noncomp: Unsigned<14>,
         ) -> State {
             // 32-bit instruction
@@ -601,9 +606,9 @@ pub mod machine_module {
 
         fn instruction_00(
             &self,
-            state: &State,
-            input: &Input,
-            param: &Param,
+            __state: &State,
+            _input: &Input,
+            _param: &Param,
             opcode_instr: Unsigned<14>,
         ) -> State {
             if opcode_instr == Unsigned::<14>::new(0) {
@@ -614,20 +619,20 @@ pub mod machine_module {
             todo!("Compressed 00");
 
             State {
-                pc: state.pc,
-                reg: Clone::clone(&state.reg),
-                sram_parity: Clone::clone(&state.sram_parity),
-                clicint: Clone::clone(&state.clicint),
-                PODR: Clone::clone(&state.PODR),
-                PDR: Clone::clone(&state.PDR),
+                pc: __state.pc,
+                reg: Clone::clone(&__state.reg),
+                sram_parity: Clone::clone(&__state.sram_parity),
+                clicint: Clone::clone(&__state.clicint),
+                PODR: Clone::clone(&__state.PODR),
+                PDR: Clone::clone(&__state.PDR),
             }
         }
 
         fn instruction_01(
             &self,
             state: &State,
-            input: &Input,
-            param: &Param,
+            _input: &Input,
+            _param: &Param,
             opcode_instr: Unsigned<14>,
         ) -> State {
             let mut reg = Clone::clone(&state.reg);
@@ -809,8 +814,8 @@ pub mod machine_module {
         fn instruction_10(
             &self,
             state: &State,
-            input: &Input,
-            param: &Param,
+            _input: &Input,
+            _param: &Param,
             opcode_instr: Unsigned<14>,
         ) -> State {
             let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
@@ -1013,6 +1018,8 @@ pub mod machine_module {
 
                     let pidr_value = input.PIDR[port];
                     let pidr_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(pidr_value));
+
+                    port_load_value = pidr_placed;
                 } else {
                     unimplemented!("Load of given I/O register");
                 };
@@ -1033,7 +1040,7 @@ pub mod machine_module {
                 unimplemented!("Load at given address");
             }
 
-            let load_value;
+            let mut load_value = Bitvector::<32>::new(0);
 
             // handle byte and halfword loads and proper alignment
 
@@ -1098,7 +1105,6 @@ pub mod machine_module {
                         | load_value3_placed,
                 );
             } else {
-                load_value = Bitvector::<32>::new(0);
                 panic!("Unsupported load funct3");
             }
 
