@@ -753,6 +753,23 @@ pub mod machine_module {
 
                     reg[d] = result;
                 }
+                "100_0_0a_ddd_uuuuu" => {
+                    // C.SRLI (a = 0) or C.SRAI (a = 1)
+                    // HINT if uimm is zero
+
+                    let shift_amount = Ext::<32>::ext(Into::<Unsigned::<5>>::into(u));
+
+                    let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
+                    if a == Bitvector::<1>::new(1) {
+                        // C.SRAI
+                        let shift_amount_signed = Into::<Signed::<32>>::into(shift_amount);
+                        reg[rd] = Into::<Bitvector<32>>::into(Into::<Signed<32>>::into(reg[rd]) << shift_amount_signed);
+                    } else {
+                        // C.SRLI
+                        reg[rd] = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(reg[rd]) >> shift_amount);
+                    };
+
+                }
                 _ => todo!("compressed 01")
             });
 
@@ -783,6 +800,22 @@ pub mod machine_module {
             let PDR = Clone::clone(&state.PDR);
 
             bitmask_switch!(funct3 {
+                "000" => {
+                    // C.SLLI (if rd = 0 or imm = 0, HINT)
+                    // shamt5 must be zero
+                    if Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10)) == Unsigned::<1>::new(1) {
+                        unimplemented!("C.SLLI-like with non-zero shamt5");
+                    };
+
+                    let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
+
+                    let shamt = Ext::<5>::ext(opcode_instr);
+
+                    if rd != Bitvector::<5>::new(0) {
+                        reg[rd] = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(reg[rd]) << Ext::<32>::ext(shamt));
+                    };
+                }
+
                 "100" => {
                     let q = Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10));
 
