@@ -631,7 +631,6 @@ pub mod machine_module {
             opcode_instr: Unsigned<14>,
         ) -> State {
             let mut reg = Clone::clone(&state.reg);
-            let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
 
             let mut pc = state.pc;
             let sram_parity = Clone::clone(&state.sram_parity);
@@ -651,16 +650,6 @@ pub mod machine_module {
                         store = Bitvector::<32>::new(0);
                     }
                     reg[d] = store;
-                }
-                "100_0_11ddd_00sss" => {
-                    // subtract
-                    // three-bit register operands map to registers 8:15
-                    let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
-                    let rs2 = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(s)) + Unsigned::<5>::new(8));
-
-                    // rd is never zero
-                    let result = reg[rd] - reg[rs2];
-                    reg[rd] = result;
                 }
                 "q01_h_bffgd_eaaac" => {
                     // Jump and Link (q = 0)
@@ -757,9 +746,9 @@ pub mod machine_module {
                     // C.SRLI (a = 0) or C.SRAI (a = 1)
                     // HINT if uimm is zero
 
+                    let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
                     let shift_amount = Ext::<32>::ext(Into::<Unsigned::<5>>::into(u));
 
-                    let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
                     if a == Bitvector::<1>::new(1) {
                         // C.SRAI
                         let shift_amount_signed = Into::<Signed::<32>>::into(shift_amount);
@@ -768,7 +757,41 @@ pub mod machine_module {
                         // C.SRLI
                         reg[rd] = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(reg[rd]) >> shift_amount);
                     };
+                }
+                "100_i_10_ddd_iiiii" => {
+                    // C.ANDI
 
+                    let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
+                    let immediate = Into::<Bitvector::<32>>::into(Ext::<32>::ext(Into::<Signed::<6>>::into(i)));
+
+                    reg[rd] = reg[rd] & immediate;
+                }
+                "100_0_11_ddd_pp_sss" => {
+                    // C.SUB / C.XOR / C.OR / C.AND
+
+                    // three-bit register operands map to registers 8:15
+                    let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
+                    let rs2 = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(s)) + Unsigned::<5>::new(8));
+
+                    bitmask_switch!(p {
+                        "00" => {
+                            // C.SUB
+                            reg[rd] = reg[rd] - reg[rs2];
+                        }
+                        "01" => {
+                            // C.XOR
+                            reg[rd] = reg[rd] ^ reg[rs2];
+                        }
+                        "10" => {
+                            // C.OR
+                            reg[rd] = reg[rd] | reg[rs2];
+                        }
+                        "11" => {
+                            // C.AND
+                            reg[rd] = reg[rd] & reg[rs2];
+
+                        }
+                    });
                 }
                 _ => todo!("compressed 01")
             });
