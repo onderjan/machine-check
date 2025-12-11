@@ -1129,9 +1129,6 @@ pub mod machine_module {
             let unsigned_store_value = Into::<Unsigned<32>>::into(store_value);
 
             let halfword_low = Into::<Bitvector<16>>::into(Ext::<16>::ext(unsigned_store_value));
-            let halfword_high = Into::<Bitvector<16>>::into(Ext::<16>::ext(
-                unsigned_store_value >> Unsigned::<32>::new(16),
-            ));
 
             let byte0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(unsigned_store_value));
             let byte1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
@@ -1223,13 +1220,16 @@ pub mod machine_module {
                     if store_word == Bitvector::<1>::new(1) {
                         todo!("Store of PNCTR1 word");
                     } else if store_halfword == Bitvector::<1>::new(1) {
+                        // store the low halfword from the register
+                        let store_value = halfword_low;
+
                         // must be aligned to word
                         if port_reg_offset == Unsigned::<2>::new(0) {
                             // PODR
-                            PODR[port] = halfword_low;
+                            PODR[port] = store_value;
                         } else {
                             // PDR
-                            PDR[port] = halfword_high;
+                            PDR[port] = store_value;
                         };
                     } else {
                         todo!("Store of PNCTR1 byte");
