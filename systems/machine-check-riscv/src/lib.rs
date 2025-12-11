@@ -30,7 +30,9 @@ pub fn execute_with_args(
 
     eprintln!("System: {:#?}", system);
 
-    let input = machine_module::Input {};
+    let input = machine_module::Input {
+        PIDR: BitvectorArray::new_filled(Bitvector::new(0)),
+    };
     let param = machine_module::Param {};
 
     let mut state = machine_check::Machine::init(&system, &input, &param);

@@ -12,22 +12,43 @@ pub mod machine_module {
     };
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-    pub struct Input {}
+    pub struct Input {
+        /// Pmn Input Data
+        ///
+        /// 5 ports, each with a maximum of 16 pins, halfwords 0x4004_0006 + 0x0020 * m
+        /// only some pins are connected, but that will be resolved by bit-masking
+        pub PIDR: BitvectorArray<3, 16>,
+    }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
+        /// Program Counter.
         pc: Bitvector<17>,
+
         reg: BitvectorArray<5, 32>,
         /// Onboard SRAM (Parity), 0x2000_4000..0x2000_7000
         ///
         /// this means there are 12288 bytes
         /// use a 14-bit array (16384) with further bounds checking
         sram_parity: BitvectorArray<14, 8>,
+
         /// CLIC Interrupt (Pending, Enable, Attribute, Input Control) registers
         ///
         /// 51 words in 0xE200_1000..0xE200_10CC
         /// represent as 204 bytes
         clicint: BitvectorArray<8, 8>,
+
+        /// Port Output Data
+        ///
+        /// 5 ports, each with a maximum of 16 pins, halfwords 0x4004_0000 + 0x0020 * m
+        /// 0 = low (default), 1 = high
+        PODR: BitvectorArray<3, 16>,
+
+        /// Port Direction Register
+        ///
+        /// 5 ports, each with a maximum of 16 pins, halfwords 0x4004_0002 + 0x0020 * m
+        /// 0 = input (default), 1 = output
+        PDR: BitvectorArray<3, 16>,
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -43,13 +64,16 @@ pub mod machine_module {
         type State = State;
         type Param = Param;
 
-        fn init(&self, _input: &Input, _param: &Param) -> State {
+        fn init(&self, input: &Input, _param: &Param) -> State {
             // TODO: correctly init registers and memory
             State {
                 pc: Bitvector::<17>::new(0),
                 reg: BitvectorArray::<5, 32>::new_filled(Bitvector::<32>::new(0)),
                 sram_parity: BitvectorArray::<14, 8>::new_filled(Bitvector::<8>::new(0xFF)),
                 clicint: BitvectorArray::<8, 8>::new_filled(Bitvector::<8>::new(0)),
+                // I/O ports
+                PODR: BitvectorArray::<3, 16>::new_filled(Bitvector::<16>::new(0)),
+                PDR: BitvectorArray::<3, 16>::new_filled(Bitvector::<16>::new(0)),
             }
         }
 
@@ -68,6 +92,8 @@ pub mod machine_module {
                 reg: Clone::clone(&state.reg),
                 sram_parity: Clone::clone(&state.sram_parity),
                 clicint: Clone::clone(&state.clicint),
+                PODR: Clone::clone(&state.PODR),
+                PDR: Clone::clone(&state.PDR),
             };
 
             bitmask_switch!(opcode_low {
@@ -113,6 +139,8 @@ pub mod machine_module {
             let mut reg = Clone::clone(&state.reg);
             let mut sram_parity = Clone::clone(&state.sram_parity);
             let mut clicint = Clone::clone(&state.clicint);
+            let mut PODR = Clone::clone(&state.PODR);
+            let mut PDR = Clone::clone(&state.PDR);
 
             bitmask_switch!(opcode {
                 "01100" => {
@@ -312,7 +340,7 @@ pub mod machine_module {
                     let address = Into::<Unsigned<32>>::into(value1 + imm);
 
 
-                    reg = Self::load(state, rd, address, funct3);
+                    reg = Self::load(state, input, rd, address, funct3);
                 }
                 "01000" => {
                     // S-type store
@@ -333,7 +361,8 @@ pub mod machine_module {
                     reg = Clone::clone(&store_result.reg);
                     sram_parity = Clone::clone(&store_result.sram_parity);
                     clicint = Clone::clone(&store_result.clicint);
-
+                    PODR = Clone::clone(&store_result.PODR);
+                    PDR = Clone::clone(&store_result.PDR);
                 }
                 "11000" => {
                     // B-type branch
@@ -565,6 +594,8 @@ pub mod machine_module {
                 reg,
                 sram_parity,
                 clicint,
+                PODR,
+                PDR,
             }
         }
 
@@ -587,6 +618,8 @@ pub mod machine_module {
                 reg: Clone::clone(&state.reg),
                 sram_parity: Clone::clone(&state.sram_parity),
                 clicint: Clone::clone(&state.clicint),
+                PODR: Clone::clone(&state.PODR),
+                PDR: Clone::clone(&state.PDR),
             }
         }
 
@@ -603,6 +636,8 @@ pub mod machine_module {
             let mut pc = state.pc;
             let sram_parity = Clone::clone(&state.sram_parity);
             let clicint = Clone::clone(&state.clicint);
+            let PODR = Clone::clone(&state.PODR);
+            let PDR = Clone::clone(&state.PDR);
 
             bitmask_switch!(opcode_instr {
                 "010_i_ddddd_iiiii" => {
@@ -726,6 +761,8 @@ pub mod machine_module {
                 reg,
                 sram_parity,
                 clicint,
+                PODR,
+                PDR,
             }
         }
 
@@ -741,7 +778,9 @@ pub mod machine_module {
             let mut pc = state.pc;
             let mut reg = Clone::clone(&state.reg);
             let sram_parity = Clone::clone(&state.sram_parity);
-            let mut clicint = Clone::clone(&state.clicint);
+            let clicint = Clone::clone(&state.clicint);
+            let PODR = Clone::clone(&state.PODR);
+            let PDR = Clone::clone(&state.PDR);
 
             bitmask_switch!(funct3 {
                 "100" => {
@@ -803,6 +842,8 @@ pub mod machine_module {
                 reg,
                 sram_parity,
                 clicint,
+                PODR,
+                PDR,
             }
         }
 
@@ -847,14 +888,17 @@ pub mod machine_module {
 
         fn load(
             state: &State,
+            input: &Input,
             rd: Bitvector<5>,
             address: Unsigned<32>,
             funct3: Unsigned<3>,
         ) -> BitvectorArray<5, 32> {
-            let load_value0;
-            let load_value1;
-            let load_value2;
-            let load_value3;
+            let mut load_value0 = Bitvector::<8>::new(0);
+            let mut load_value1 = Bitvector::<8>::new(0);
+            let mut load_value2 = Bitvector::<8>::new(0);
+            let mut load_value3 = Bitvector::<8>::new(0);
+
+            let load_bits = funct3 & Unsigned::<3>::new(0x3);
 
             if address >= Unsigned::<32>::new(0x2000_4000)
                 && address < Unsigned::<32>::new(0x2000_7000)
@@ -878,11 +922,58 @@ pub mod machine_module {
                 load_value1 = state.clicint[relative_address + Bitvector::<8>::new(1)];
                 load_value2 = state.clicint[relative_address + Bitvector::<8>::new(2)];
                 load_value3 = state.clicint[relative_address + Bitvector::<8>::new(3)];
+            } else if address >= Unsigned::<32>::new(0x4004_0000)
+                && address < Unsigned::<32>::new(0x4004_00A0)
+            {
+                // I/O port registers
+                let relative_address = address - Unsigned::<32>::new(0x4004_0000);
+
+                let port = Into::<Bitvector<3>>::into(Ext::<3>::ext(
+                    relative_address >> Unsigned::<32>::new(5),
+                ));
+                let port_reg_word =
+                    (relative_address & Unsigned::<32>::new(0x1F)) >> Unsigned::<32>::new(2);
+
+                // for some reason, the I/O port registers are organised as if big-endian
+                // construct a word first and then split it as big endian
+                let mut port_load_value = Unsigned::<32>::new(0);
+
+                if port_reg_word == Unsigned::<32>::new(0) {
+                    // PCNTR1
+                    // high halfword is PODR, low halfword is PDR
+
+                    let podr_value = state.PODR[port];
+                    let podr_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(podr_value))
+                        << Unsigned::<32>::new(16);
+
+                    let pdr_value = state.PDR[port];
+                    let pdr_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(pdr_value));
+
+                    port_load_value = podr_placed | pdr_placed;
+                } else if port_reg_word == Unsigned::<32>::new(1) {
+                    // PCNTR2
+                    // high halfword is EIDR (but no events can be enabled in this description, so is all zeros)
+                    // low halfword is PIDR
+
+                    let pidr_value = input.PIDR[port];
+                    let pidr_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(pidr_value));
+                } else {
+                    unimplemented!("Load of given I/O register");
+                };
+
+                load_value0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                    port_load_value >> Unsigned::<32>::new(24),
+                ));
+                load_value1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                    port_load_value >> Unsigned::<32>::new(16),
+                ));
+                load_value2 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                    port_load_value >> Unsigned::<32>::new(8),
+                ));
+                load_value3 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                    port_load_value >> Unsigned::<32>::new(0),
+                ));
             } else {
-                load_value0 = Bitvector::<8>::new(0);
-                load_value1 = Bitvector::<8>::new(0);
-                load_value2 = Bitvector::<8>::new(0);
-                load_value3 = Bitvector::<8>::new(0);
                 unimplemented!("Load at given address");
             }
 
@@ -892,7 +983,7 @@ pub mod machine_module {
 
             let extend_unsigned = funct3 & Unsigned::<3>::new(0x4);
 
-            if funct3 & Unsigned::<3>::new(0x3) == Unsigned::<3>::new(0) {
+            if load_bits == Unsigned::<3>::new(0) {
                 // byte load
                 let byte_load_value = Into::<Unsigned<8>>::into(load_value0);
 
@@ -905,7 +996,7 @@ pub mod machine_module {
                         Into::<Signed<8>>::into(byte_load_value),
                     ));
                 };
-            } else if funct3 == Unsigned::<3>::new(1) {
+            } else if load_bits == Unsigned::<3>::new(1) {
                 // halfword load, ensure alignment
                 if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
                     panic!("Non-aligned halfword load");
@@ -975,6 +1066,11 @@ pub mod machine_module {
 
             let unsigned_store_value = Into::<Unsigned<32>>::into(store_value);
 
+            let halfword_low = Into::<Bitvector<16>>::into(Ext::<16>::ext(unsigned_store_value));
+            let halfword_high = Into::<Bitvector<16>>::into(Ext::<16>::ext(
+                unsigned_store_value >> Unsigned::<32>::new(16),
+            ));
+
             let byte0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(unsigned_store_value));
             let byte1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
                 unsigned_store_value >> Unsigned::<32>::new(8),
@@ -993,6 +1089,8 @@ pub mod machine_module {
                 if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
                     panic!("Non-aligned halfword store");
                 };
+
+                store_halfword = Bitvector::<1>::new(1);
             } else if funct3 == Unsigned::<3>::new(2) {
                 // word store, ensure alignment
                 if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
@@ -1005,6 +1103,8 @@ pub mod machine_module {
 
             let mut sram_parity = Clone::clone(&state.sram_parity);
             let mut clicint = Clone::clone(&state.clicint);
+            let mut PODR = Clone::clone(&state.PODR);
+            let mut PDR = Clone::clone(&state.PDR);
 
             if address >= Unsigned::<32>::new(0x2000_4000)
                 && address < Unsigned::<32>::new(0x2000_7000)
@@ -1022,6 +1122,61 @@ pub mod machine_module {
                     sram_parity[relative_address + Bitvector::<14>::new(2)] = byte2;
                     sram_parity[relative_address + Bitvector::<14>::new(3)] = byte3;
                 };
+            } else if address >= Unsigned::<32>::new(0xE200_1000)
+                && address < Unsigned::<32>::new(0xE200_10CC)
+            {
+                // CLIC
+                let relative_address = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                    address - Unsigned::<32>::new(0xE200_1000),
+                ));
+
+                clicint[relative_address] = byte0;
+
+                if store_halfword == Bitvector::<1>::new(1) {
+                    clicint[relative_address + Bitvector::<8>::new(1)] = byte1;
+                }
+                if store_word == Bitvector::<1>::new(1) {
+                    clicint[relative_address + Bitvector::<8>::new(2)] = byte2;
+                    clicint[relative_address + Bitvector::<8>::new(3)] = byte3;
+                };
+            } else if address >= Unsigned::<32>::new(0x4004_0000)
+                && address < Unsigned::<32>::new(0x4004_00A0)
+            {
+                // I/O port registers
+                let relative_address = address - Unsigned::<32>::new(0x4004_0000);
+
+                let port = Into::<Bitvector<3>>::into(Ext::<3>::ext(
+                    relative_address >> Unsigned::<32>::new(5),
+                ));
+                let port_reg_word =
+                    (relative_address & Unsigned::<32>::new(0x1F)) >> Unsigned::<32>::new(2);
+                let port_reg_offset = Ext::<2>::ext(relative_address);
+
+                // for some reason, the I/O port registers are organised as if big-endian
+                // construct a word first and then split it as big endian
+
+                if port_reg_word == Unsigned::<32>::new(0) {
+                    // PCNTR1
+
+                    if store_word == Bitvector::<1>::new(1) {
+                        todo!("Store of PNCTR1 word");
+                    } else if store_halfword == Bitvector::<1>::new(1) {
+                        // must be aligned to word
+                        if port_reg_offset == Unsigned::<2>::new(0) {
+                            // PODR
+                            PODR[port] = halfword_low;
+                        } else {
+                            // PDR
+                            PDR[port] = halfword_high;
+                        };
+                    } else {
+                        todo!("Store of PNCTR1 byte");
+                    };
+                } else {
+                    unimplemented!("Store of given I/O register");
+                };
+            } else {
+                todo!("Store at given address");
             }
 
             State {
@@ -1029,6 +1184,8 @@ pub mod machine_module {
                 reg: Clone::clone(&state.reg),
                 sram_parity,
                 clicint,
+                PODR,
+                PDR,
             }
         }
     }
