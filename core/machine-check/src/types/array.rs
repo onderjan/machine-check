@@ -1,4 +1,7 @@
-use std::ops::{Index, IndexMut};
+use std::{
+    fmt::Debug,
+    ops::{Index, IndexMut},
+};
 
 use mck::{
     concr::{IntoMck, UnsignedBitvector},
@@ -15,7 +18,7 @@ use crate::Bitvector;
 ///
 /// The array is indexed by bitvectors of width I, so no out-of-bound access can occur.
 ///
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct BitvectorArray<const I: u32, const W: u32> {
     pub(super) inner: LightArray<UnsignedBitvector<CBound<I>>, Bitvector<W>>,
 }
@@ -68,5 +71,12 @@ impl<const I: u32, const W: u32> IntoMck for BitvectorArray<I, W> {
 
     fn into_mck(self) -> Self::Type {
         Self::Type::from_inner(self.inner.map(|v| v.into_mck()))
+    }
+}
+
+impl<const I: u32, const W: u32> Debug for BitvectorArray<I, W> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BitvectorArray<{},{}> ", I, W)?;
+        Debug::fmt(&self.inner, f)
     }
 }
