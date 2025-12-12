@@ -1,5 +1,8 @@
+use std::{borrow::Cow, error::Error};
+
 use anyhow::anyhow;
 use clap::Args;
+use gimli::Reader;
 use machine_check::{Bitvector, BitvectorArray, ExecArgs, ExecError, ExecResult, ExecStats};
 use object::{read::elf::ElfFile32, LittleEndian, Object, ObjectSection, SectionKind};
 
@@ -58,6 +61,8 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
         );
     }*/
 
+    load_symbols(&elf_file);
+
     // zero is guaranteed-illegal instruction
     let zero = Bitvector::new(0);
 
@@ -74,6 +79,14 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
             section.uncompressed_data()?.len(),
             section.kind()
         );*/
+
+        if section
+            .elf_relocation_section_index()
+            .expect("Relocation section index should be gettable")
+            .is_some()
+        {
+            return Err(anyhow!("ELF file relocations not supported"));
+        }
 
         let kind = section.kind();
 
@@ -150,6 +163,88 @@ fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
     };
 
     Ok(system)
+}
+
+#[derive(Debug, Default)]
+struct Section<'data> {
+    pub data: Cow<'data, [u8]>,
+    pub relocations: RelocationMap,
+}
+
+#[derive(Debug, Default)]
+struct RelocationMap(object::read::RelocationMap);
+
+impl<'a> gimli::read::Relocate for &'a RelocationMap {
+    fn relocate_address(&self, offset: usize, value: u64) -> gimli::Result<u64> {
+        Ok(self.0.relocate(offset as u64, value))
+    }
+
+    fn relocate_offset(&self, offset: usize, value: usize) -> gimli::Result<usize> {
+        <usize as gimli::ReaderOffset>::from_u64(self.0.relocate(offset as u64, value as u64))
+    }
+}
+
+fn load_symbols(elf_file: &ElfFile32<LittleEndian>) -> anyhow::Result<()> {
+    fn load_section<'data>(
+        object: &ElfFile32<'data, LittleEndian>,
+        name: &str,
+    ) -> Result<Section<'data>, Box<dyn Error>> {
+        Ok(match object.section_by_name(name) {
+            Some(section) => Section {
+                data: section.uncompressed_data()?,
+                relocations: RelocationMap(section.relocation_map()?),
+            },
+            None => Default::default(),
+        })
+    }
+
+    fn borrow_section<'data>(section: &'data Section<'data>) -> impl Reader + use<'data> {
+        let slice =
+            gimli::EndianSlice::new(std::borrow::Cow::as_ref(&section.data), gimli::LittleEndian);
+        gimli::RelocateReader::new(slice, &section.relocations)
+    }
+
+    let dwarf_sections = gimli::DwarfSections::load(|id| load_section(elf_file, id.name()))
+        .expect("Should read DWARF sections");
+
+    let dwarf = dwarf_sections.borrow(|section| borrow_section(section));
+
+    let mut iter = dwarf.units();
+
+    while let Some(header) = iter.next()? {
+        eprintln!("Header: {:?}", header.offset());
+        dump(dwarf.unit(header)?.unit_ref(&dwarf))?;
+    }
+
+    Ok(())
+}
+
+fn dump(unit: gimli::UnitRef<impl Reader>) -> Result<(), gimli::Error> {
+    // Iterate over the Debugging Information Entries (DIEs) in the unit.
+    let mut entries = unit.entries();
+    while let Some((index, entry)) = entries.next_dfs()? {
+        eprintln!("<{:?}> {}", entry.offset().0, entry.tag());
+
+        let mut iter = entry.attrs();
+
+        // Iterate over the attributes in the DIE.
+
+        loop {
+            let Some(attr) = (match iter.next() {
+                Ok(ok) => ok,
+                Err(err) => return Err(err),
+            }) else {
+                break;
+            };
+
+            eprint!("   {}: {:?}", attr.name(), attr.value());
+            if let Ok(s) = unit.attr_string(attr.value()) {
+                eprint!(" '{}'", s.to_string_lossy()?);
+            }
+            eprintln!();
+        }
+    }
+    Ok(())
 }
 
 #[derive(Args)]

@@ -21,9 +21,14 @@ machine-check = "=0.7.0"
 
 #ihex = "3.0.0"
 clap = { version = "4.4.6", features = ["derive"] }
-object = "0.37.3"
 #pastey = "0.1.0"
 anyhow = "1.0.100"
+
+object = "0.37.3"
+gimli = { version = "0.32.3", default-features = false, features = [
+    "std",
+    "read",
+] }
 
 [lints.clippy]
 uninlined_format_args = "allow"
