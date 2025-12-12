@@ -187,12 +187,12 @@ impl<B: BitvectorBound> Ord for SignedBitvector<B> {
 
 impl<B: BitvectorBound> Debug for SignedBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.to_i64())
+        std::fmt::Debug::fmt(&self.to_i64(), f)
     }
 }
 
 impl<B: BitvectorBound> Display for SignedBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_i64())
+        std::fmt::Display::fmt(&self.to_i64(), f)
     }
 }
