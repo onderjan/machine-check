@@ -508,13 +508,13 @@ impl<I: LightIndex, E: LightElement + Debug> Debug for LightArray<I, E> {
                 self.index_bound.mask()
             };
             if next_index_minus_one != current_index {
-                write!(
-                    f,
-                    "{}..={}: {:?}, ",
-                    current_index, next_index_minus_one, current_element
-                )?;
+                write!(f, "{}..={}: ", current_index, next_index_minus_one)?;
+                Debug::fmt(&current_element, f)?;
+                write!(f, ", ",)?;
             } else {
-                write!(f, "{}: {:?}, ", current_index, current_element)?;
+                write!(f, "{}: ", current_index)?;
+                Debug::fmt(&current_element, f)?;
+                write!(f, ", ")?;
             }
         }
         write!(f, "}}")
