@@ -3,7 +3,7 @@ use clap::Args;
 use machine_check::{Bitvector, BitvectorArray, ExecArgs, ExecError, ExecResult, ExecStats};
 use object::{read::elf::ElfFile32, LittleEndian, Object, ObjectSection, SectionKind};
 
-use crate::system::{machine_module, R9A02G021};
+use crate::system::R9A02G021;
 
 mod system;
 
@@ -28,7 +28,7 @@ pub fn execute_with_args(
 ) -> anyhow::Result<ExecResult> {
     let system = parse_elf(&system_args.elf_file)?;
 
-    let input = machine_module::Input {
+    /*let input = machine_module::Input {
         PIDR: BitvectorArray::new_filled(Bitvector::new(0)),
     };
     let param = machine_module::Param {};
@@ -38,8 +38,8 @@ pub fn execute_with_args(
     for i in 0..1024 {
         state = machine_check::Machine::next(&system, &state, &input, &param);
 
-        eprintln!("Step {}: {:?}", i, state);
-    }
+        //eprintln!("Step {}: {:?}", i, state);
+    }*/
 
     Ok(machine_check::execute(system, exec_args))
 }

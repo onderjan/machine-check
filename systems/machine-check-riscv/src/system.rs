@@ -954,133 +954,25 @@ pub mod machine_module {
             address: Unsigned<32>,
             funct3: Unsigned<3>,
         ) -> BitvectorArray<5, 32> {
-            let mut load_value0 = Bitvector::<8>::new(0);
-            let mut load_value1 = Bitvector::<8>::new(0);
-            let mut load_value2 = Bitvector::<8>::new(0);
-            let mut load_value3 = Bitvector::<8>::new(0);
-
-            let load_bits = funct3 & Unsigned::<3>::new(0x3);
-
-            if address >= Unsigned::<32>::new(0x2000_4000)
-                && address < Unsigned::<32>::new(0x2000_7000)
-            {
-                let relative_address = Into::<Bitvector<14>>::into(Ext::<14>::ext(
-                    address - Unsigned::<32>::new(0x2000_4000),
-                ));
-
-                load_value0 = state.sram_parity[relative_address];
-                load_value1 = state.sram_parity[relative_address + Bitvector::<14>::new(1)];
-                load_value2 = state.sram_parity[relative_address + Bitvector::<14>::new(2)];
-                load_value3 = state.sram_parity[relative_address + Bitvector::<14>::new(3)];
-            } else if address >= Unsigned::<32>::new(0xE200_1000)
-                && address < Unsigned::<32>::new(0xE200_10CC)
-            {
-                // CLIC
-                let relative_address = Into::<Bitvector<8>>::into(Ext::<8>::ext(
-                    address - Unsigned::<32>::new(0xE200_1000),
-                ));
-                load_value0 = state.clicint[relative_address];
-                load_value1 = state.clicint[relative_address + Bitvector::<8>::new(1)];
-                load_value2 = state.clicint[relative_address + Bitvector::<8>::new(2)];
-                load_value3 = state.clicint[relative_address + Bitvector::<8>::new(3)];
-            } else if address >= Unsigned::<32>::new(0x4004_0000)
-                && address < Unsigned::<32>::new(0x4004_00A0)
-            {
-                // I/O port registers
-                let relative_address = address - Unsigned::<32>::new(0x4004_0000);
-
-                let port = Into::<Bitvector<3>>::into(Ext::<3>::ext(
-                    relative_address >> Unsigned::<32>::new(5),
-                ));
-                let port_reg_word =
-                    (relative_address & Unsigned::<32>::new(0x1F)) >> Unsigned::<32>::new(2);
-
-                // for some reason, the I/O port registers are organised as if big-endian
-                // construct a word first and then split it as big endian
-                let mut port_load_value = Unsigned::<32>::new(0);
-
-                if port_reg_word == Unsigned::<32>::new(0) {
-                    // PCNTR1
-                    // high halfword is PODR, low halfword is PDR
-
-                    let podr_value = state.PODR[port];
-                    let podr_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(podr_value))
-                        << Unsigned::<32>::new(16);
-
-                    let pdr_value = state.PDR[port];
-                    let pdr_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(pdr_value));
-
-                    port_load_value = podr_placed | pdr_placed;
-                } else if port_reg_word == Unsigned::<32>::new(1) {
-                    // PCNTR2
-                    // high halfword is EIDR (but no events can be enabled in this description, so is all zeros)
-                    // low halfword is PIDR
-
-                    let pidr_value = input.PIDR[port];
-                    let pidr_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(pidr_value));
-
-                    port_load_value = pidr_placed;
-                } else {
-                    unimplemented!("Load of given I/O register");
-                };
-
-                load_value0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
-                    port_load_value >> Unsigned::<32>::new(24),
-                ));
-                load_value1 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
-                    port_load_value >> Unsigned::<32>::new(16),
-                ));
-                load_value2 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
-                    port_load_value >> Unsigned::<32>::new(8),
-                ));
-                load_value3 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
-                    port_load_value >> Unsigned::<32>::new(0),
-                ));
-            } else {
-                unimplemented!("Load at given address");
-            }
-
-            let mut load_value = Bitvector::<32>::new(0);
+            let mut is_halfword_or_word_load = Bitvector::<1>::new(0);
+            let mut is_word_load = Bitvector::<1>::new(0);
 
             // handle byte and halfword loads and proper alignment
 
             let extend_unsigned = funct3 & Unsigned::<3>::new(0x4);
 
+            let load_bits = funct3 & Unsigned::<3>::new(0x3);
+
             if load_bits == Unsigned::<3>::new(0) {
                 // byte load
-                let byte_load_value = Into::<Unsigned<8>>::into(load_value0);
-
-                if extend_unsigned != Unsigned::<3>::new(0) {
-                    // unsigned, zero-extend low byte
-                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(byte_load_value));
-                } else {
-                    // signed, msb-extend low byte
-                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
-                        Into::<Signed<8>>::into(byte_load_value),
-                    ));
-                };
             } else if load_bits == Unsigned::<3>::new(1) {
                 // halfword load, ensure alignment
                 if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
                     panic!("Non-aligned halfword load");
                 };
 
-                let load_value0_halfword = Ext::<16>::ext(Into::<Unsigned<8>>::into(load_value0));
-                let load_value1_halfword = Ext::<16>::ext(Into::<Unsigned<8>>::into(load_value1))
-                    << Unsigned::<16>::new(8);
-
-                let halfword_load_value = load_value0_halfword | load_value1_halfword;
-
-                if extend_unsigned != Unsigned::<3>::new(0) {
-                    // unsigned, zero-extend low halfword
-                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(halfword_load_value));
-                } else {
-                    // signed, msb-extend low halfword
-                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
-                        Into::<Signed<16>>::into(halfword_load_value),
-                    ));
-                };
-            } else if funct3 == Unsigned::<3>::new(2) {
+                is_halfword_or_word_load = Bitvector::<1>::new(1);
+            } else if load_bits == Unsigned::<3>::new(2) {
                 // word load, ensure alignment
                 if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
                     panic!("Non-aligned word load");
@@ -1090,23 +982,143 @@ pub mod machine_module {
                     panic!("Word load with unsigned extension requested");
                 };
 
-                let load_value0_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value0));
-                let load_value1_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value1))
-                    << Unsigned::<32>::new(8);
-                let load_value2_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value2))
-                    << Unsigned::<32>::new(16);
-                let load_value3_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value3))
-                    << Unsigned::<32>::new(24);
-
-                load_value = Into::<Bitvector<32>>::into(
-                    load_value0_placed
-                        | load_value1_placed
-                        | load_value2_placed
-                        | load_value3_placed,
-                );
+                is_halfword_or_word_load = Bitvector::<1>::new(1);
+                is_word_load = Bitvector::<1>::new(1);
             } else {
                 panic!("Unsupported load funct3");
             }
+
+            let mut load_value = Bitvector::<32>::new(0);
+
+            if address >= Unsigned::<32>::new(0x2000_4000)
+                && address < Unsigned::<32>::new(0x2000_7000)
+            {
+                let relative_address = Into::<Bitvector<14>>::into(Ext::<14>::ext(
+                    address - Unsigned::<32>::new(0x2000_4000),
+                ));
+
+                let load_value0 = state.sram_parity[relative_address];
+                let load_value1 = state.sram_parity[relative_address + Bitvector::<14>::new(1)];
+                let load_value2 = state.sram_parity[relative_address + Bitvector::<14>::new(2)];
+                let load_value3 = state.sram_parity[relative_address + Bitvector::<14>::new(3)];
+
+                load_value =
+                    Self::combine_bytes_le(load_value0, load_value1, load_value2, load_value3);
+            } else if address >= Unsigned::<32>::new(0xE200_1000)
+                && address < Unsigned::<32>::new(0xE200_10CC)
+            {
+                // CLIC
+                let relative_address = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                    address - Unsigned::<32>::new(0xE200_1000),
+                ));
+                let load_value0 = state.clicint[relative_address];
+                let load_value1 = state.clicint[relative_address + Bitvector::<8>::new(1)];
+                let load_value2 = state.clicint[relative_address + Bitvector::<8>::new(2)];
+                let load_value3 = state.clicint[relative_address + Bitvector::<8>::new(3)];
+
+                load_value =
+                    Self::combine_bytes_le(load_value0, load_value1, load_value2, load_value3);
+            } else if address >= Unsigned::<32>::new(0x4004_0000)
+                && address < Unsigned::<32>::new(0x4004_00A0)
+            {
+                // I/O port registers
+                let relative_address = address - Unsigned::<32>::new(0x4004_0000);
+
+                let port_number = Into::<Bitvector<3>>::into(Ext::<3>::ext(
+                    relative_address >> Unsigned::<32>::new(5),
+                ));
+                let port_register_word =
+                    (relative_address & Unsigned::<32>::new(0x1F)) >> Unsigned::<32>::new(2);
+
+                let port_register_halfword =
+                    Ext::<1>::ext((relative_address) >> Unsigned::<32>::new(1));
+
+                // for some reason, the I/O port registers are organised as if big-endian
+
+                if port_register_word == Unsigned::<32>::new(0) {
+                    // PCNTR1
+                    // PDR is low, PODR is high
+
+                    if is_word_load == Bitvector::<1>::new(1) {
+                        load_value = Self::combine_halfwords_le(
+                            state.PDR[port_number],
+                            state.PODR[port_number],
+                        );
+                    } else if is_halfword_or_word_load == Bitvector::<1>::new(1) {
+                        if port_register_halfword == Unsigned::<1>::new(0) {
+                            // PODR has halfword offset 0
+                            load_value = Self::halfword_uext(state.PODR[port_number]);
+                        } else {
+                            // PDR has halfword offset 1
+                            load_value = Self::halfword_uext(state.PDR[port_number]);
+                        };
+                    } else {
+                        todo!("PCNTR1 byte load");
+                    };
+                } else if port_register_word == Unsigned::<32>::new(1) {
+                    // PCNTR2
+                    // low halfword is PIDR
+                    // high halfword is EIDR (but no events can be enabled in this description, so is all zeros)
+
+                    if is_word_load == Bitvector::<1>::new(1) {
+                        load_value = Self::halfword_uext(input.PIDR[port_number]);
+                    } else if is_halfword_or_word_load == Bitvector::<1>::new(1) {
+                        if port_register_halfword == Unsigned::<1>::new(0) {
+                            // EIDR has halfword offset 0
+                            load_value = Bitvector::<32>::new(0);
+                        } else {
+                            // PIDR has halfword offset 1
+                            load_value = Self::halfword_uext(input.PIDR[port_number]);
+                        };
+                    } else {
+                        todo!("PCNTR2 byte load");
+                    };
+                } else {
+                    unimplemented!("Load of given I/O register");
+                };
+            } else {
+                unimplemented!("Load at given address");
+            }
+
+            // appropriately narrow and extend
+
+            if is_word_load == Bitvector::<1>::new(1) {
+                // word load
+                // do nothing here
+            } else if is_halfword_or_word_load == Bitvector::<1>::new(1) {
+                // halfword load
+                // narrow to 16 bits and extend appropriately
+                let load_halfword = Ext::<16>::ext(Into::<Unsigned<32>>::into(load_value));
+
+                if extend_unsigned != Unsigned::<3>::new(0) {
+                    // unsigned, zero-extend low halfword
+                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(load_halfword));
+                } else {
+                    // signed, msb-extend low halfword
+                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
+                        Into::<Signed<16>>::into(load_halfword),
+                    ));
+                };
+            } else {
+                // byte load
+                let load_byte = Ext::<8>::ext(Into::<Unsigned<32>>::into(load_value));
+
+                if extend_unsigned != Unsigned::<3>::new(0) {
+                    // unsigned, zero-extend low byte
+                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(load_byte));
+                } else {
+                    // signed, msb-extend low byte
+                    load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
+                        Into::<Signed<8>>::into(load_byte),
+                    ));
+                };
+            }
+
+            /*eprintln!("State before loading: {:#X?}", state);
+            eprintln!(
+                "Loaded from address {:#X?}: {:#X?} (new PC: {:#X?})",
+                address, load_value, state.pc
+            );*/
 
             // load the value into the register if it is nonzero
             let mut reg = Clone::clone(&state.reg);
@@ -1123,7 +1135,7 @@ pub mod machine_module {
             store_value: Bitvector<32>,
             funct3: Unsigned<3>,
         ) -> State {
-            let mut store_halfword = Bitvector::<1>::new(0);
+            let mut store_halfword_or_word = Bitvector::<1>::new(0);
             let mut store_word = Bitvector::<1>::new(0);
 
             let unsigned_store_value = Into::<Unsigned<32>>::into(store_value);
@@ -1149,16 +1161,21 @@ pub mod machine_module {
                     panic!("Non-aligned halfword store");
                 };
 
-                store_halfword = Bitvector::<1>::new(1);
+                store_halfword_or_word = Bitvector::<1>::new(1);
             } else if funct3 == Unsigned::<3>::new(2) {
                 // word store, ensure alignment
                 if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
                     panic!("Non-aligned word store");
                 };
 
-                store_halfword = Bitvector::<1>::new(1);
+                store_halfword_or_word = Bitvector::<1>::new(1);
                 store_word = Bitvector::<1>::new(1);
             }
+
+            /*eprintln!(
+                "Storing to address {:#X?}: {:#X?} (halfword: {:?}, word: {:?}, new PC: {:#X?})",
+                address, store_value, store_halfword_or_word, store_word, state.pc
+            );*/
 
             let mut sram_parity = Clone::clone(&state.sram_parity);
             let mut clicint = Clone::clone(&state.clicint);
@@ -1174,7 +1191,7 @@ pub mod machine_module {
 
                 sram_parity[relative_address] = byte0;
 
-                if store_halfword == Bitvector::<1>::new(1) {
+                if store_halfword_or_word == Bitvector::<1>::new(1) {
                     sram_parity[relative_address + Bitvector::<14>::new(1)] = byte1;
                 }
                 if store_word == Bitvector::<1>::new(1) {
@@ -1191,7 +1208,7 @@ pub mod machine_module {
 
                 clicint[relative_address] = byte0;
 
-                if store_halfword == Bitvector::<1>::new(1) {
+                if store_halfword_or_word == Bitvector::<1>::new(1) {
                     clicint[relative_address + Bitvector::<8>::new(1)] = byte1;
                 }
                 if store_word == Bitvector::<1>::new(1) {
@@ -1219,7 +1236,7 @@ pub mod machine_module {
 
                     if store_word == Bitvector::<1>::new(1) {
                         todo!("Store of PNCTR1 word");
-                    } else if store_halfword == Bitvector::<1>::new(1) {
+                    } else if store_halfword_or_word == Bitvector::<1>::new(1) {
                         // store the low halfword from the register
                         let store_value = halfword_low;
 
@@ -1249,6 +1266,41 @@ pub mod machine_module {
                 PODR,
                 PDR,
             }
+        }
+
+        fn combine_bytes_le(
+            load_value0: Bitvector<8>,
+            load_value1: Bitvector<8>,
+            load_value2: Bitvector<8>,
+            load_value3: Bitvector<8>,
+        ) -> Bitvector<32> {
+            let load_value0_placed = Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value0));
+            let load_value1_placed =
+                Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value1)) << Unsigned::<32>::new(8);
+            let load_value2_placed =
+                Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value2)) << Unsigned::<32>::new(16);
+            let load_value3_placed =
+                Ext::<32>::ext(Into::<Unsigned<8>>::into(load_value3)) << Unsigned::<32>::new(24);
+
+            Into::<Bitvector<32>>::into(
+                load_value0_placed | load_value1_placed | load_value2_placed | load_value3_placed,
+            )
+        }
+
+        fn combine_halfwords_le(
+            load_halfword0: Bitvector<16>,
+            load_halfword1: Bitvector<16>,
+        ) -> Bitvector<32> {
+            let load_halfword0_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(load_halfword0));
+            let load_halfword1_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(load_halfword1))
+                << Unsigned::<32>::new(16);
+
+            Into::<Bitvector<32>>::into(load_halfword0_placed | load_halfword1_placed)
+        }
+
+        fn halfword_uext(halfword: Bitvector<16>) -> Bitvector<32> {
+            let halfword_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(halfword));
+            Into::<Bitvector<32>>::into(halfword_placed)
         }
     }
 }
