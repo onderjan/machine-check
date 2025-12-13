@@ -1,7 +1,7 @@
-use std::{borrow::Cow, error::Error};
+use std::{borrow::Cow, collections::HashMap, error::Error};
 
 use clap::Args;
-use gimli::Reader;
+use gimli::{DwAt, EvaluationResult, Reader};
 use machine_check::{Bitvector, BitvectorArray, ExecArgs, ExecError, ExecResult, ExecStats};
 use object::{
     read::elf::{ElfFile32, ProgramHeader},
@@ -181,6 +181,11 @@ impl gimli::read::Relocate for &'_ RelocationMap {
     }
 }
 
+enum Symbol {
+    Address(u32),
+    Multiple,
+}
+
 fn load_symbols(elf_file: &ElfFile32<LittleEndian>) -> anyhow::Result<()> {
     fn load_section<'data>(
         object: &ElfFile32<'data, LittleEndian>,
@@ -208,36 +213,71 @@ fn load_symbols(elf_file: &ElfFile32<LittleEndian>) -> anyhow::Result<()> {
 
     let mut iter = dwarf.units();
 
+    let mut symbols = HashMap::new();
+
     while let Some(header) = iter.next()? {
-        eprintln!("Header: {:?}", header.offset());
-        dump(dwarf.unit(header)?.unit_ref(&dwarf))?;
-    }
+        //eprintln!("Header: {:?}", header.offset());
+        let unit = dwarf.unit(header)?;
+        let unit_ref = unit.unit_ref(&dwarf);
 
-    Ok(())
-}
-
-fn dump(unit: gimli::UnitRef<impl Reader>) -> Result<(), gimli::Error> {
-    // Iterate over the Debugging Information Entries (DIEs) in the unit.
-    let mut entries = unit.entries();
-    while let Some((_index, entry)) = entries.next_dfs()? {
-        eprintln!("<{:?}> {}", entry.offset().0, entry.tag());
-
-        let mut iter = entry.attrs();
-
-        // Iterate over the attributes in the DIE.
-
-        loop {
-            let Some(attr) = iter.next()? else {
-                break;
+        let mut entries = unit.entries();
+        while let Some((_index, entry)) = entries.next_dfs()? {
+            let Some(name_attr) = entry.attr(DwAt(0x03))? else {
+                continue;
+            };
+            let Ok(s) = unit_ref.attr_string(name_attr.value()) else {
+                continue;
+            };
+            let Ok(name) = s.to_string() else {
+                continue;
             };
 
-            eprint!("   {}: {:?}", attr.name(), attr.value());
-            if let Ok(s) = unit.attr_string(attr.value()) {
-                eprint!(" '{}'", s.to_string_lossy()?);
+            eprintln!("Name: {:?}", name);
+
+            if let Some(location) = entry
+                .attr(DwAt(0x02))?
+                .and_then(|attr| attr.exprloc_value())
+            {
+                let mut evaluation = location.evaluation(unit.encoding());
+                let index = 0;
+                let EvaluationResult::RequiresIndexedAddress { index, relocate } =
+                    evaluation.evaluate()?
+                else {
+                    panic!("Evaluation result not RequiresIndexedAddress");
+                };
+                let index = dwarf.address(&unit_ref, index)?;
+                evaluation.resume_with_indexed_address(index)?;
+                let eval = evaluation.evaluate();
+                eprintln!("Eval: {:?}", eval);
+                let eval_result = evaluation.result();
+                eprintln!("Eval result: {:?}", eval_result);
+
+                if eval_result.len() != 1 {
+                    continue;
+                }
+
+                let first_piece = &eval_result[0];
+                let first_piece_location = &first_piece.location;
+                if let gimli::Location::Address { address } = first_piece_location {
+                    symbols.insert(name.to_string(), *address);
+                }
             }
-            eprintln!();
+
+            eprintln!("<{:?}> {}", entry.offset().0, entry.tag());
+
+            let mut iter = entry.attrs();
+            while let Some(attr) = iter.next()? {
+                eprint!("   {}: {:?}", attr.name(), attr.value());
+                if let Ok(s) = unit_ref.attr_string(attr.value()) {
+                    eprint!(" '{}'", s.to_string_lossy()?);
+                }
+                eprintln!();
+            }
         }
+
+        eprintln!("Symbols: {:#x?}", symbols);
     }
+
     Ok(())
 }
 
