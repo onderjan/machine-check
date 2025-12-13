@@ -1,10 +1,12 @@
 use std::{borrow::Cow, error::Error};
 
-use anyhow::anyhow;
 use clap::Args;
 use gimli::Reader;
 use machine_check::{Bitvector, BitvectorArray, ExecArgs, ExecError, ExecResult, ExecStats};
-use object::{read::elf::ElfFile32, LittleEndian, Object, ObjectSection, SectionKind};
+use object::{
+    read::elf::{ElfFile32, ProgramHeader},
+    LittleEndian, Object, ObjectSection,
+};
 
 use crate::system::R9A02G021;
 
@@ -31,135 +33,130 @@ pub fn execute_with_args(
 ) -> anyhow::Result<ExecResult> {
     let system = parse_elf(&system_args.elf_file)?;
 
-    /*let input = machine_module::Input {
+    /*let input = system::machine_module::Input {
         PIDR: BitvectorArray::new_filled(Bitvector::new(0)),
     };
-    let param = machine_module::Param {};
+    let param = system::machine_module::Param {};
 
     let mut state = machine_check::Machine::init(&system, &input, &param);
 
     for i in 0..1024 {
         state = machine_check::Machine::next(&system, &state, &input, &param);
 
-        //eprintln!("Step {}: {:?}", i, state);
+        eprintln!("Step {}: {:#X?}", i, state);
     }*/
 
     Ok(machine_check::execute(system, exec_args))
 }
 
 fn parse_elf(path: &str) -> anyhow::Result<system::R9A02G021> {
-    let elf_bytes = std::fs::read(path)?;
-    let elf_file = ElfFile32::<LittleEndian>::parse(&*elf_bytes)?;
-
-    /*for program_header in elf_file.elf_program_headers() {
-        eprintln!("{:?}", program_header);
-        eprintln!(
-            "Offset: 0x{:x}, size: {:x}, flags: {:x}",
-            program_header.p_offset.get(LittleEndian),
-            program_header.p_memsz.get(LittleEndian),
-            program_header.p_flags.get(LittleEndian),
-        );
-    }*/
-
-    load_symbols(&elf_file);
-
     // zero is guaranteed-illegal instruction
-    let zero = Bitvector::new(0);
+    let halfword_zero = Bitvector::<16>::new(0);
+    let byte_zero = Bitvector::<8>::new(0);
 
     // program flash
     // 0x0000_0000..0x0002_0000 (17 bits,
     // store in 16-bit elements to account for compressed instructions (16-bit index)
-    let mut mcu_program_flash = BitvectorArray::<16, 16>::new_filled(zero);
+    let mut program_flash = BitvectorArray::<16, 16>::new_filled(halfword_zero);
 
-    for section in elf_file.sections() {
-        /*eprintln!(
-            "{}: {:x}, {:x}, {:?}",
-            section.name()?,
-            section.address(),
-            section.uncompressed_data()?.len(),
-            section.kind()
-        );*/
+    // SRAM (parity)
+    let mut initial_sram_parity = BitvectorArray::<14, 8>::new_filled(byte_zero);
 
-        if section
-            .elf_relocation_section_index()
-            .expect("Relocation section index should be gettable")
-            .is_some()
-        {
-            return Err(anyhow!("ELF file relocations not supported"));
+    // get from program headers
+
+    let elf_bytes = std::fs::read(path)?;
+    let elf_file = ElfFile32::<LittleEndian>::parse(&*elf_bytes)?;
+
+    for program_header in elf_file.elf_program_headers() {
+        eprintln!("{:?}", program_header);
+
+        let header_type = program_header.p_type.get(LittleEndian);
+
+        if header_type != 0x01 {
+            // not LOAD
+            continue;
         }
 
-        let kind = section.kind();
+        let address = program_header.p_paddr.get(LittleEndian);
+        let size = program_header.p_memsz.get(LittleEndian);
 
-        match kind {
-            SectionKind::Text | SectionKind::Data | SectionKind::ReadOnlyData => {
-                // just disregard the behaviour for now and load
+        let data = program_header
+            .data(LittleEndian, &*elf_bytes)
+            .expect("Program header data should be present");
 
-                let address: u64 = section.address();
+        match address {
+            0x0000_0000..0x0002_0000 => {
+                eprintln!(
+                    "Loading program flash {:#X?}..{:#X?}",
+                    address,
+                    address + size
+                );
 
-                match address {
-                    0x0000_0000..0x0002_0000 => {
-                        let data = section.uncompressed_data()?;
+                let mut data_iter = data.iter().copied();
 
-                        assert_eq!(address % 2, 0);
-                        let mut halfword_address = address / 2;
+                let mut address = address;
 
-                        for value in data.chunks(2) {
-                            let halfword = u16::from_le_bytes(value.try_into()?);
-                            mcu_program_flash[Bitvector::new(halfword_address)] =
-                                Bitvector::new(halfword as u64);
-                            halfword_address += 1;
-                        }
-                    }
-                    0x0101_0008..0x0101_0034 => {
-                        // TODO: handle option-setting memory
-                    }
-                    0x2000_0000..0x2000_1000 => {
-                        if section.size() > 0 {
-                            panic!("Cannot copy into ECC SRAM")
-                        }
-                    }
-                    0x2000_4000..0x2000_7000 => {
-                        if section.size() > 0 {
-                            panic!("Cannot copy into parity SRAM")
-                        }
-                    }
-                    _ => {
-                        unimplemented!(
-                            "ELF section with address {:x}, size {:x}",
-                            section.address(),
-                            section.size()
-                        )
+                if address % 2 == 1 {
+                    if let Some(byte) = data_iter.next() {
+                        // first byte, it will be high byte
+                        program_flash[Bitvector::new((address / 2) as u64)] = program_flash
+                            [Bitvector::new((address / 2) as u64)]
+                            & Bitvector::<16>::new(0x00FF)
+                            | (Bitvector::<16>::new(byte as u64) << Bitvector::<16>::new(8));
+                        address += 1;
                     }
                 }
-            }
-            SectionKind::UninitializedData => {
-                // this will not be loaded, but initialised by the program itself
-            }
 
-            SectionKind::Elf(number) => {
-                if number == 0x70000003 {
-                    // RISC-V attribute section
-                } else {
-                    return Err(anyhow!("Unsupported Elf section"));
+                for value in data.chunks(2) {
+                    if value.len() == 2 {
+                        let halfword = u16::from_le_bytes(value.try_into()?);
+                        program_flash[Bitvector::new((address / 2) as u64)] =
+                            Bitvector::new(halfword as u64);
+                    } else {
+                        // last byte, it will be low byte
+                        let byte = value[0];
+                        program_flash[Bitvector::new((address / 2) as u64)] = program_flash
+                            [Bitvector::new((address / 2) as u64)]
+                            & Bitvector::<16>::new(0xFF00)
+                            | (Bitvector::<16>::new(byte as u64));
+                    }
+
+                    address += value.len() as u32;
                 }
             }
+            0x0101_0008..0x0101_0034 => {
+                // TODO: handle option-setting memory
+            }
+            0x2000_0000..0x2000_1000 => {
+                panic!("Cannot copy into ECC SRAM")
+            }
+            0x2000_4000..0x2000_7000 => {
+                let mut relative_address = (address - 0x2000_4000) as u64;
 
-            SectionKind::OtherString
-            | SectionKind::Other
-            | SectionKind::Debug
-            | SectionKind::DebugString
-            | SectionKind::Note => {
-                // do nothing
+                for value in data.iter().cloned() {
+                    initial_sram_parity[Bitvector::new(relative_address)] =
+                        Bitvector::new(value as u64);
+                    relative_address += 1;
+                }
             }
-            SectionKind::Metadata => {
-                // metadata
+            _ => {
+                unimplemented!(
+                    "ELF program header with offset {:x}, size {:x}",
+                    address,
+                    size
+                )
             }
-            _ => return Err(anyhow!("Unsupported section kind {:?}", kind)),
         }
     }
 
+    load_symbols(&elf_file)?;
+
+    eprintln!("Program flash: {:#X?}", program_flash);
+    eprintln!("Initial SRAM: {:#X?}", initial_sram_parity);
+
     let system = R9A02G021 {
-        program_flash: mcu_program_flash,
+        program_flash,
+        initial_sram_parity,
     };
 
     Ok(system)
@@ -174,7 +171,7 @@ struct Section<'data> {
 #[derive(Debug, Default)]
 struct RelocationMap(object::read::RelocationMap);
 
-impl<'a> gimli::read::Relocate for &'a RelocationMap {
+impl gimli::read::Relocate for &'_ RelocationMap {
     fn relocate_address(&self, offset: usize, value: u64) -> gimli::Result<u64> {
         Ok(self.0.relocate(offset as u64, value))
     }
@@ -222,7 +219,7 @@ fn load_symbols(elf_file: &ElfFile32<LittleEndian>) -> anyhow::Result<()> {
 fn dump(unit: gimli::UnitRef<impl Reader>) -> Result<(), gimli::Error> {
     // Iterate over the Debugging Information Entries (DIEs) in the unit.
     let mut entries = unit.entries();
-    while let Some((index, entry)) = entries.next_dfs()? {
+    while let Some((_index, entry)) = entries.next_dfs()? {
         eprintln!("<{:?}> {}", entry.offset().0, entry.tag());
 
         let mut iter = entry.attrs();
@@ -230,10 +227,7 @@ fn dump(unit: gimli::UnitRef<impl Reader>) -> Result<(), gimli::Error> {
         // Iterate over the attributes in the DIE.
 
         loop {
-            let Some(attr) = (match iter.next() {
-                Ok(ok) => ok,
-                Err(err) => return Err(err),
-            }) else {
+            let Some(attr) = iter.next()? else {
                 break;
             };
 

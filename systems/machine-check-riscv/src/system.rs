@@ -59,6 +59,7 @@ pub mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {
         pub program_flash: BitvectorArray<16, 16>,
+        pub initial_sram_parity: BitvectorArray<14, 8>,
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -345,7 +346,7 @@ pub mod machine_module {
                     let address = Into::<Unsigned<32>>::into(value1 + imm);
 
 
-                    reg = Self::load(state, input, rd, address, funct3);
+                    reg = Self::load(self, state, input, rd, address, funct3);
                 }
                 "01000" => {
                     // S-type store
@@ -948,6 +949,7 @@ pub mod machine_module {
         }
 
         fn load(
+            &self,
             state: &State,
             input: &Input,
             rd: Bitvector<5>,
@@ -990,9 +992,44 @@ pub mod machine_module {
 
             let mut load_value = Bitvector::<32>::new(0);
 
-            if address >= Unsigned::<32>::new(0x2000_4000)
+            if address < Unsigned::<32>::new(0x0002_0000) {
+                // program flash
+
+                let halfword_address =
+                    Into::<Bitvector<16>>::into(Ext::<16>::ext(address >> Unsigned::<32>::new(1)));
+
+                if address & Unsigned::<32>::new(1) == Unsigned::<32>::new(0) {
+                    let load_value0 = self.program_flash[halfword_address];
+                    let load_value1 =
+                        self.program_flash[halfword_address + Bitvector::<16>::new(1)];
+
+                    load_value = Self::combine_halfwords_le(load_value0, load_value1);
+                } else {
+                    // take the high byte of this, both bytes of next, and low byte of next-next
+                    let load_value0 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                        Into::<Unsigned<16>>::into(self.program_flash[halfword_address])
+                            >> Unsigned::<16>::new(8),
+                    ));
+                    let load_value1 =
+                        Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(
+                            self.program_flash[halfword_address + Bitvector::<16>::new(1)],
+                        )));
+                    let load_value2 = Into::<Bitvector<8>>::into(Ext::<8>::ext(
+                        Into::<Unsigned<16>>::into(
+                            self.program_flash[halfword_address + Bitvector::<16>::new(1)],
+                        ) >> Unsigned::<16>::new(8),
+                    ));
+                    let load_value3 =
+                        Into::<Bitvector<8>>::into(Ext::<8>::ext(Into::<Unsigned<16>>::into(
+                            self.program_flash[halfword_address + Bitvector::<16>::new(2)],
+                        )));
+                    load_value =
+                        Self::combine_bytes_le(load_value0, load_value1, load_value2, load_value3);
+                };
+            } else if address >= Unsigned::<32>::new(0x2000_4000)
                 && address < Unsigned::<32>::new(0x2000_7000)
             {
+                // SRAM parity
                 let relative_address = Into::<Bitvector<14>>::into(Ext::<14>::ext(
                     address - Unsigned::<32>::new(0x2000_4000),
                 ));
