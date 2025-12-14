@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::HashMap, error::Error};
 
-use gimli::{DwAt, EvaluationResult, Reader};
+use gimli::{DebuggingInformationEntry, DwAt, Dwarf, EvaluationResult, Reader, UnitRef};
 use object::{read::elf::ElfFile32, LittleEndian, Object, ObjectSection};
 
 #[derive(Debug)]
@@ -36,7 +36,7 @@ pub fn load_symbols(elf_file: &ElfFile32<LittleEndian>) -> anyhow::Result<HashMa
 
     let mut iter = dwarf.units();
 
-    let mut symbols = HashMap::new();
+    let mut symbol_map = HashMap::new();
 
     while let Some(header) = iter.next()? {
         //eprintln!("Header: {:?}", header.offset());
@@ -45,62 +45,72 @@ pub fn load_symbols(elf_file: &ElfFile32<LittleEndian>) -> anyhow::Result<HashMa
 
         let mut entries = unit.entries();
         while let Some((_index, entry)) = entries.next_dfs()? {
-            let Some(name_attr) = entry.attr(DwAt(0x03))? else {
-                continue;
-            };
-            let Ok(s) = unit_ref.attr_string(name_attr.value()) else {
-                continue;
-            };
-            let Ok(name) = s.to_string() else {
-                continue;
-            };
-
-            eprintln!("Name: {:?}", name);
-
-            if let Some(location) = entry
-                .attr(DwAt(0x02))?
-                .and_then(|attr| attr.exprloc_value())
-            {
-                let mut evaluation = location.evaluation(unit.encoding());
-                let EvaluationResult::RequiresIndexedAddress { index, relocate: _ } =
-                    evaluation.evaluate()?
-                else {
-                    panic!("Evaluation result not RequiresIndexedAddress");
-                };
-                let index = dwarf.address(&unit_ref, index)?;
-                evaluation.resume_with_indexed_address(index)?;
-                let eval = evaluation.evaluate();
-                eprintln!("Eval: {:?}", eval);
-                let eval_result = evaluation.result();
-                eprintln!("Eval result: {:?}", eval_result);
-
-                if eval_result.len() != 1 {
-                    continue;
-                }
-
-                let first_piece = &eval_result[0];
-                let first_piece_location = &first_piece.location;
-                if let gimli::Location::Address { address } = first_piece_location {
-                    add_symbol(&mut symbols, name, Symbol::Address(*address as u32));
-                }
-            }
-
-            eprintln!("<{:?}> {}", entry.offset().0, entry.tag());
-
-            let mut iter = entry.attrs();
-            while let Some(attr) = iter.next()? {
-                eprint!("   {}: {:?}", attr.name(), attr.value());
-                if let Ok(s) = unit_ref.attr_string(attr.value()) {
-                    eprint!(" '{}'", s.to_string_lossy()?);
-                }
-                eprintln!();
-            }
+            load_entry_symbol(&mut symbol_map, &dwarf, &unit_ref, entry)?;
         }
     }
 
-    eprintln!("Symbols: {:#x?}", symbols);
+    eprintln!("Symbols: {:#x?}", symbol_map);
 
-    Ok(symbols)
+    Ok(symbol_map)
+}
+
+fn load_entry_symbol<'a, R: Reader>(
+    symbol_map: &mut HashMap<String, Symbol>,
+    dwarf: &'a Dwarf<R>,
+    unit_ref: &UnitRef<'a, R>,
+    entry: &DebuggingInformationEntry<'a, 'a, R>,
+) -> anyhow::Result<()> {
+    let Some(name_attr) = entry.attr(DwAt(0x03))? else {
+        return Ok(());
+    };
+    let Ok(s) = unit_ref.attr_string(name_attr.value()) else {
+        return Ok(());
+    };
+    let Ok(name) = s.to_string() else {
+        return Ok(());
+    };
+
+    eprintln!("Name: {:?}", name);
+
+    if let Some(location) = entry
+        .attr(DwAt(0x02))?
+        .and_then(|attr| attr.exprloc_value())
+    {
+        let mut evaluation = location.evaluation(unit_ref.encoding());
+        let EvaluationResult::RequiresIndexedAddress { index, relocate: _ } =
+            evaluation.evaluate()?
+        else {
+            panic!("Evaluation result not RequiresIndexedAddress");
+        };
+        let index = dwarf.address(unit_ref, index)?;
+        evaluation.resume_with_indexed_address(index)?;
+        let eval = evaluation.evaluate();
+        eprintln!("Eval: {:?}", eval);
+        let eval_result = evaluation.result();
+        eprintln!("Eval result: {:?}", eval_result);
+
+        if eval_result.len() != 1 {
+            return Ok(());
+        }
+
+        let first_piece = &eval_result[0];
+        let first_piece_location = &first_piece.location;
+        if let gimli::Location::Address { address } = first_piece_location {
+            add_symbol(symbol_map, name, Symbol::Address(*address as u32));
+        }
+    }
+
+    eprintln!("<{:?}> {}", entry.offset().0, entry.tag());
+
+    let mut iter = entry.attrs();
+    while let Some(attr) = iter.next()? {
+        eprint!("   {}: {:?}", attr.name(), attr.value());
+        if let Ok(s) = unit_ref.attr_string(attr.value()) {
+            eprint!(" '{}'", s.to_string_lossy()?);
+        }
+        eprintln!();
+    }
+    Ok(())
 }
 
 fn add_symbol(symbols: &mut HashMap<String, Symbol>, name: Cow<'_, str>, symbol: Symbol) {
