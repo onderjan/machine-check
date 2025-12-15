@@ -6,8 +6,6 @@ mod traits;
 mod types;
 mod verify;
 
-use std::collections::HashMap;
-
 use log::error;
 use log::info;
 use log::log_enabled;
@@ -16,7 +14,6 @@ use log::warn;
 use machine_check_common::check::KnownConclusion;
 use machine_check_common::iir::description::IMachine;
 use machine_check_common::iir::property::IProperty;
-use machine_check_common::PropertyMacroFn;
 use machine_check_common::PropertyMacros;
 use machine_check_exec::Strategy;
 

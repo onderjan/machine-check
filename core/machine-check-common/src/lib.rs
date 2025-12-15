@@ -116,8 +116,7 @@ pub enum Signedness {
 }
 
 /// Type of function that computes a property macro result.
-pub type PropertyMacroFn<D> =
-    Box<dyn Fn(&D, TokenStream) -> Result<TokenStream, anyhow::Error> + Send + Sync>;
+pub type PropertyMacroFn<D> = fn(&D, TokenStream) -> Result<TokenStream, anyhow::Error>;
 
 pub struct PropertyMacros<D> {
     pub macros: HashMap<String, PropertyMacroFn<D>>,
