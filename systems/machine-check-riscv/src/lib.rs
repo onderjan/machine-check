@@ -6,22 +6,26 @@ mod elf;
 mod system;
 
 pub fn execute(args: impl Iterator<Item = String>) -> ExecResult {
+    /*let (_, system_args) = machine_check::parse_args::<SystemArgs>(args);
+    let system = elf::parse_elf(&system_args.elf_file).expect("ELF file should be parseable");
+    let input = system::machine_module::Input {
+        PIDR: machine_check::BitvectorArray::new_filled(machine_check::Bitvector::new(0)),
+    };
+    let param = system::machine_module::Param {};
+
+    let mut state = machine_check::Machine::init(&system, &input, &param);
+
+    for i in 0..1024 {
+        state = machine_check::Machine::next(&system, &state, &input, &param);
+
+        eprintln!("Step {}: {:#X?}", i, state);
+    }
+
+    todo!()*/
+
     let builder = machine_check::ExecBuilder::new_with_clap_args(
         |system_args: SystemArgs| -> Result<system::R9A02G021, anyhow::Error> {
             let system = elf::parse_elf(&system_args.elf_file)?;
-
-            /*let input = system::machine_module::Input {
-                PIDR: BitvectorArray::new_filled(Bitvector::new(0)),
-            };
-            let param = system::machine_module::Param {};
-
-            let mut state = machine_check::Machine::init(&system, &input, &param);
-
-            for i in 0..1024 {
-                state = machine_check::Machine::next(&system, &state, &input, &param);
-
-                eprintln!("Step {}: {:#X?}", i, state);
-            }*/
 
             Ok(system)
         },

@@ -28,7 +28,7 @@ pub mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         /// Program Counter.
-        pc: Bitvector<17>,
+        pc: Bitvector<32>,
 
         reg: BitvectorArray<5, 32>,
         /// Onboard SRAM (Parity), 0x2000_4000..0x2000_7000
@@ -73,7 +73,7 @@ pub mod machine_module {
         fn init(&self, _input: &Input, _param: &Param) -> State {
             // TODO: correctly init registers and memory
             State {
-                pc: Bitvector::<17>::new(0),
+                pc: Bitvector::<32>::new(0),
                 reg: BitvectorArray::<5, 32>::new_filled(Bitvector::<32>::new(0)),
                 sram_parity: BitvectorArray::<14, 8>::new_filled(Bitvector::<8>::new(0xFF)),
                 clicint: BitvectorArray::<8, 8>::new_filled(Bitvector::<8>::new(0)),
@@ -84,14 +84,14 @@ pub mod machine_module {
         }
 
         fn next(&self, state: &State, input: &Input, param: &Param) -> State {
-            let first_half: Unsigned<16> = Self::halfword_fetch(self, state.pc);
+            let first_half: Unsigned<16> = Self::pc_halfword(self, state.pc);
             let opcode_low = Ext::<2>::ext(first_half);
             let first_half_1 = first_half >> Unsigned::<16>::new(2);
             let first_half_2 = Ext::<14>::ext(first_half_1);
 
             //eprintln!("PC {:?}, first halfword: {:?}", state.pc, first_half);
 
-            let pc = state.pc + Bitvector::<17>::new(2);
+            let pc = state.pc + Bitvector::<32>::new(2);
 
             let mut next_state = State {
                 pc,
@@ -131,8 +131,8 @@ pub mod machine_module {
         ) -> State {
             // 32-bit instruction
             // fetch the upper half of instruction word
-            let second_half: Unsigned<16> = Self::halfword_fetch(self, state.pc);
-            let mut pc = state.pc + Bitvector::<17>::new(2);
+            let second_half: Unsigned<16> = Self::pc_halfword(self, state.pc);
+            let mut pc = state.pc + Bitvector::<32>::new(2);
 
             //eprintln!("Second half: {:?}", second_half);
 
@@ -395,8 +395,7 @@ pub mod machine_module {
                     let short_imm = imm_11_placed | imm_10_1_placed | imm_12_placed;
 
                     // extend immediate as signed integer
-                    let extended_imm = Ext::<17>::ext(Into::<Signed<13>>::into(short_imm));
-                    let final_imm = Into::<Unsigned<17>>::into(extended_imm);
+                    let extended_imm = Ext::<32>::ext(Into::<Signed<13>>::into(short_imm));
 
                     // determine if we should branch
                     let value1 = reg[rs1];
@@ -448,7 +447,7 @@ pub mod machine_module {
 
                     if should_branch == Bitvector::<1>::new(1) {
                         // undo pre-increment (non-compressed instruction, 4 bytes) and add immediate to PC
-                        pc = pc - Bitvector::<17>::new(4) + Into::<Bitvector<17>>::into(Ext::<17>::ext(final_imm));
+                       pc = pc - Bitvector::<32>::new(4) + Into::<Bitvector<32>>::into(Ext::<32>::ext(extended_imm));
                     };
 
                 }
@@ -485,7 +484,7 @@ pub mod machine_module {
                     // the address of the next instructions (currently in PC)
                     let link_value;
                     if rd != Bitvector::<5>::new(0) {
-                        link_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<17>>::into(pc)));
+                        link_value = pc;
                     } else {
                         link_value = Bitvector::<32>::new(0);
                     };
@@ -493,7 +492,7 @@ pub mod machine_module {
 
                     // relative jump to the sum of pre-increment PC and offset
                     // undo pre-increment (non-compressed instruction, 4 bytes) and add offset to PC
-                    pc = pc - Bitvector::<17>::new(4) + Into::<Bitvector<17>>::into(Ext::<17>::ext(offset));
+                    pc = pc - Bitvector::<32>::new(4) + Into::<Bitvector<32>>::into(Ext::<32>::ext(offset));
                 }
                 "11001" => {
                     // I-type Jump and Link Register
@@ -508,25 +507,25 @@ pub mod machine_module {
                     // i.e. bits 4:15 of second half-word
                     let imm_low = Ext::<12>::ext(second_half >> Unsigned::<16>::new(4));
                     // signed-extend the immediate
-                    let imm = Into::<Bitvector::<17>>::into(Ext::<17>::ext(Into::<Signed<12>>::into(imm_low)));
+                    let imm = Into::<Bitvector::<32>>::into(Ext::<32>::ext(Into::<Signed<12>>::into(imm_low)));
 
                     // if the destination (link) register is not zero, write to it
                     // the address of the next instructions (currently in PC)
                     let link_value;
                     if rd != Bitvector::<5>::new(0) {
-                        link_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<17>>::into(pc)));
+                        link_value = pc;
                     } else {
                         link_value = Bitvector::<32>::new(0);
                     };
                     reg[rd] = link_value;
 
-                    let value1 = Into::<Bitvector<17>>::into(Ext::<17>::ext(Into::<Unsigned<32>>::into(reg[rs1])));
+                    let value1 = reg[rs1];
 
                     // absolute jump to the sum of the rs1 value and immediate
                     // to obtain the new PC value
                     // the least significant bit must be set to zero afterward
                     let new_pc = value1 + imm;
-                    pc = new_pc & !Bitvector::<17>::new(1);
+                    pc = new_pc & !Bitvector::<32>::new(1);
                 }
                 "0q101" => {
                     // U-type
@@ -536,13 +535,13 @@ pub mod machine_module {
                     let imm = imm_second_half + Ext::<20>::ext(first_half_rest);
                     let extended_imm = Ext::<32>::ext(imm) << Unsigned::<32>::new(12);
 
-                    let instruction_start_pc = Into::<Unsigned<17>>::into(pc - Bitvector::<17>::new(4));
+                    let instruction_start_pc = Into::<Unsigned<32>>::into(pc - Bitvector::<32>::new(4));
 
                     let mut result;
 
                     if q == Bitvector::<1>::new(0) {
                         // add the PC to the extended immediate
-                        result = extended_imm + Ext::<32>::ext(instruction_start_pc);
+                        result = extended_imm + instruction_start_pc;
                     } else {
                         // just load the extended immediate
                         result = extended_imm;
@@ -675,18 +674,18 @@ pub mod machine_module {
 
                     let offset = Into::<Bitvector<12>>::into(a_part | b_part | c_part | d_part | e_part | f_part | g_part | h_part);
 
-                    let extended_offset = Into::<Bitvector<17>>::into(Ext::<17>::ext(Into::<Signed<12>>::into(offset)));
+                    let extended_offset = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Signed<12>>::into(offset)));
 
                     let mut link_value = reg[Bitvector::<5>::new(1)];
 
                     if q == Bitvector::<1>::new(0) {
                         // store PC pre-incremented by 2 to link register x1
-                       link_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned<17>>::into(pc)));
+                       link_value = pc;
                     }
                     reg[Bitvector::<5>::new(1)] = link_value;
 
                     // undo pre-increment and add offset to PC
-                    pc = pc - Bitvector::<17>::new(2) + extended_offset;
+                    pc = pc - Bitvector::<32>::new(2) + extended_offset;
 
                 }
                 "11q_ebb_sss_ddaac" => {
@@ -701,7 +700,7 @@ pub mod machine_module {
 
                     let offset = Into::<Bitvector<9>>::into(a_part | b_part | c_part | d_part | e_part);
 
-                    let extended_offset = Into::<Bitvector<17>>::into(Ext::<17>::ext(Into::<Signed<9>>::into(offset)));
+                    let extended_offset = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Signed<9>>::into(offset)));
 
                     // three-bit register operands map to registers 8:15
                     let rs1 = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(s)) + Unsigned::<5>::new(8));
@@ -724,7 +723,7 @@ pub mod machine_module {
 
                     if should_branch == Bitvector::<1>::new(1) {
                         // undo pre-increment and add offset to PC
-                        pc = pc - Bitvector::<17>::new(2) + extended_offset;
+                        pc = pc - Bitvector::<32>::new(2) + extended_offset;
                     };
                 }
                 "000_n_ddddd_nnnnn" => {
@@ -874,16 +873,14 @@ pub mod machine_module {
                             if q == Unsigned::<1>::new(1) {
                                 // link register is hard-wired to x1
                                 // write the address of the next instruction (currently in PC) to it
-                                reg[Bitvector::<5>::new(1)] = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<17>>::into(pc)));
+                                reg[Bitvector::<5>::new(1)] = pc;
                             }
 
                             // there is no immediate, jump to the rd value
                             // the least significant bit must be set to zero afterward
 
                             let jump_address = reg[rd];
-
-                            let new_pc = Into::<Bitvector<17>>::into(Ext::<17>::ext(Into::<Unsigned<32>>::into(jump_address)));
-                            pc = new_pc & !Bitvector::<17>::new(1);
+                            pc = jump_address & !Bitvector::<32>::new(1);
 
                         } else if q == Unsigned::<1>::new(1) {
                                 // rs2 == 0, rd2 == 0, q == 1
@@ -909,11 +906,22 @@ pub mod machine_module {
             }
         }
 
-        fn halfword_fetch(&self, pc: Bitvector<17>) -> Unsigned<16> {
-            // for halwords, drop the lowest bit
+        fn pc_halfword(&self, pc: Bitvector<32>) -> Unsigned<16> {
+            let unsigned_pc = Into::<Unsigned<32>>::into(pc);
+            // ensure the lowest bit of PC is zero
+            if Ext::<1>::ext(unsigned_pc) != Unsigned::<1>::new(0) {
+                panic!("Nonzero lowest bit of Program Counter");
+            }
+
+            // only fetching from flash is supported
+            if unsigned_pc >> Unsigned::<32>::new(17) != Unsigned::<32>::new(0) {
+                unimplemented!("Program Counter not within program flash");
+            }
+
+            // for halfwords, drop the lowest bit
 
             let halfword_pc =
-                Ext::<16>::ext(Into::<Unsigned<17>>::into(pc) >> Unsigned::<17>::new(1));
+                Ext::<16>::ext(Into::<Unsigned<32>>::into(pc) >> Unsigned::<32>::new(1));
 
             Into::<Unsigned<16>>::into(self.program_flash[Into::<Bitvector<16>>::into(halfword_pc)])
         }
