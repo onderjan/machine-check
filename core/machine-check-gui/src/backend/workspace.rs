@@ -3,26 +3,26 @@ use crate::shared::snapshot::log::Log;
 use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
 use machine_check_common::check::KnownConclusion;
 use machine_check_common::iir::property::IProperty;
-use machine_check_common::{ParamValuation, PropertyMacroFn, ThreeValued};
+use machine_check_common::{ParamValuation, PropertyMacros, ThreeValued};
 use machine_check_exec::Framework;
 use mck::{abstr::BitvectorDomain, concr::FullMachine};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Backend workspace.
 ///
 /// Contains the verification framework among others.
-pub struct Workspace<M: FullMachine> {
+pub struct Workspace<M: FullMachine, D> {
     pub framework: Framework<M>,
     pub properties: Vec<IProperty>,
-    property_macros: HashMap<String, PropertyMacroFn>,
+    property_macros: PropertyMacros<D>,
     pub log: Log,
 }
 
-impl<M: FullMachine> Workspace<M> {
+impl<M: FullMachine, D> Workspace<M, D> {
     pub fn new(
         framework: Framework<M>,
         property: Option<IProperty>,
-        property_macros: HashMap<String, PropertyMacroFn>,
+        property_macros: PropertyMacros<D>,
     ) -> Self {
         // always put the inherent property first, add the other property afterwards if there is one
         let mut properties = vec![machine_check_machine::inherent_property()];
@@ -145,7 +145,7 @@ impl<M: FullMachine> Workspace<M> {
         }
     }
 
-    pub fn property_macros(&self) -> &HashMap<String, PropertyMacroFn> {
+    pub fn property_macros(&self) -> &PropertyMacros<D> {
         &self.property_macros
     }
 }

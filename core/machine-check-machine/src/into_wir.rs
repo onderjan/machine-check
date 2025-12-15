@@ -5,7 +5,7 @@ mod property;
 
 use std::collections::HashMap;
 
-use machine_check_common::PropertyMacroFn;
+use machine_check_common::PropertyMacros;
 use quote::ToTokens;
 use syn::Item;
 
@@ -20,10 +20,10 @@ pub fn create_description(
     description::description_from_syn(items).map_err(Errors::convert_inner)
 }
 
-pub fn create_property_description(
+pub fn create_property_description<D>(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WBasicType>,
-    property_macros: &HashMap<String, PropertyMacroFn>,
+    property_macros: &PropertyMacros<D>,
 ) -> Result<(WProperty<YConverted>, Vec<String>), crate::Errors> {
     property::create_from_syn(expr, global_ident_types, property_macros)
         .map_err(Errors::convert_inner)

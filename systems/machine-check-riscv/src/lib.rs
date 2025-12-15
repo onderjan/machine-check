@@ -1,5 +1,9 @@
 use clap::Args;
 use machine_check::{ExecError, ExecResult, ExecStats};
+use quote::ToTokens;
+use syn::{spanned::Spanned, LitStr};
+
+use crate::dwarf::{Symbol, Symbols};
 
 mod dwarf;
 mod elf;
@@ -24,16 +28,41 @@ pub fn execute(args: impl Iterator<Item = String>) -> ExecResult {
     todo!()*/
 
     let builder = machine_check::ExecBuilder::new_with_clap_args(
-        |system_args: SystemArgs| -> Result<system::R9A02G021, anyhow::Error> {
-            let system = elf::parse_elf(&system_args.elf_file)?;
+        |system_args: SystemArgs| -> Result<(system::R9A02G021, Symbols), anyhow::Error> {
+            let (system, symbols) = elf::parse_elf(&system_args.elf_file)?;
 
-            Ok(system)
+            Ok((system, symbols))
         },
     );
 
-    let builder = builder.property_macro(String::from("pc_at_symbol"), |token_stream| {
-        todo!("PC at symbol")
-    });
+    let builder = builder.property_macro(
+        String::from("pc_at_symbol"),
+        Box::new(|symbols, token_stream| {
+            let span = token_stream.span();
+            let lit_str: LitStr = syn::parse2(token_stream)
+                .map_err(|err| anyhow::anyhow!("Expected one literal string: {:?}", err))?;
+
+            let symbol_name = lit_str.value();
+
+            let Some(symbol) = symbols.get(&symbol_name) else {
+                return Err(anyhow::anyhow!("Symbol '{}' not found", symbol_name));
+            };
+
+            let Symbol::ProgramCounterAddress(address) = symbol else {
+                return Err(anyhow::anyhow!(
+                    "Symbol '{}' does not have a single address",
+                    symbol_name
+                ));
+            };
+            let address = *address as u64;
+
+            let quoted = quote::quote_spanned! {span=>
+                PC == Bitvector::<32>::new(#address)
+            };
+
+            Ok(quoted.into_token_stream())
+        }),
+    );
 
     match builder.execute(args) {
         Ok(ok) => ok,

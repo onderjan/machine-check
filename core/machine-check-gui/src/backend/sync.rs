@@ -32,9 +32,9 @@ struct WorkCommand {
 /// This is a structure for a separate thread that owns the workspace
 /// for verification and performs tasks on it. It is commanded by the
 /// main backend thread.
-struct BackendWorker<M: FullMachine> {
+struct BackendWorker<M: FullMachine, D> {
     /// Verification workspace.
-    workspace: Workspace<M>,
+    workspace: Workspace<M, D>,
     /// Simple stats that are updated during the work, providing responsiveness
     /// to the frontend about the current situation.
     stats: Arc<RwLock<BackendStats>>,
@@ -44,9 +44,9 @@ struct BackendWorker<M: FullMachine> {
     recv_from_server: Receiver<WorkCommand>,
 }
 
-impl<M: FullMachine> BackendWorker<M> {
+impl<M: FullMachine, D> BackendWorker<M, D> {
     fn new(
-        workspace: Workspace<M>,
+        workspace: Workspace<M, D>,
         stats: Arc<RwLock<BackendStats>>,
         settings: BackendSettings,
         recv_from_server: Receiver<WorkCommand>,
@@ -110,7 +110,7 @@ impl<M: FullMachine> BackendWorker<M> {
             }
             Request::Step(step_settings) => Some(AsynchronousRequest::Step(step_settings)),
             Request::AddProperty(property) => {
-                match machine_check_machine::process_property::<M>(
+                match machine_check_machine::process_property::<M, _>(
                     self.workspace.framework.machine(),
                     &property,
                     self.workspace.property_macros(),
@@ -240,11 +240,9 @@ pub struct BackendSync {
     send_to_worker: SyncSender<WorkCommand>,
 }
 
-impl BackendSync {}
-
 impl BackendSync {
-    pub fn new<M: FullMachine>(
-        workspace: Workspace<M>,
+    pub fn new<M: FullMachine, D: Send + 'static>(
+        workspace: Workspace<M, D>,
         stats: BackendStats,
         settings: BackendSettings,
     ) -> BackendSync {

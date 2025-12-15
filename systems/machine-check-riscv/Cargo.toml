@@ -19,9 +19,9 @@ Zeq_domain = ["machine-check/Zeq_domain"]
 [dependencies]
 machine-check = "=0.7.0"
 
-#ihex = "3.0.0"
-clap = { version = "4.4.6", features = ["derive"] }
-#pastey = "0.1.0"
+proc-macro2 = "1.0.67"
+quote = "1.0.28"
+syn = "2.0.37"
 anyhow = "1.0.100"
 
 object = "0.37.3"
@@ -29,6 +29,9 @@ gimli = { version = "0.32.3", default-features = false, features = [
     "std",
     "read",
 ] }
+
+clap = { version = "4.4.6", features = ["derive"] }
+
 
 [lints.clippy]
 uninlined_format_args = "allow"

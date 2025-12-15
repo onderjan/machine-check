@@ -1,11 +1,11 @@
-use std::{borrow::Cow, collections::HashMap, ffi::OsStr, path::Path};
+use std::{borrow::Cow, ffi::OsStr, path::Path};
 
 use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
 use machine_check_common::{
     iir::{description::IMachine, property::IProperty},
-    ExecError, PropertyMacroFn,
+    ExecError, PropertyMacros,
 };
 use machine_check_exec::{Framework, Strategy};
 use mck::concr::FullMachine;
@@ -23,11 +23,11 @@ mod workspace;
 const FAVICON_ICO: &[u8] = include_bytes!("../content/favicon.ico");
 
 /// Runs the Graphical User Interface backend.
-pub fn run<M: FullMachine>(
+pub fn run<M: FullMachine, D: Send + 'static>(
     abstract_system: M::Abstr,
     machine: IMachine,
     property: Option<IProperty>,
-    property_macros: HashMap<String, PropertyMacroFn>,
+    property_macros: PropertyMacros<D>,
     strategy: Strategy,
 ) -> Result<(), ExecError> {
     // TODO: allow setting custom titles instead of relying on the binary name
@@ -42,7 +42,7 @@ pub fn run<M: FullMachine>(
 
     // create the backend
     let backend = Backend::new(
-        Workspace::<M>::new(
+        Workspace::<M, D>::new(
             Framework::new(abstract_system, machine, strategy),
             property,
             property_macros,
@@ -107,7 +107,10 @@ const CONTENT_DIR: Dir = include_dir!("content");
 
 impl Backend {
     /// Constructs the backend.
-    pub fn new<M: FullMachine>(mut workspace: Workspace<M>, exec_name: String) -> Self {
+    pub fn new<M: FullMachine, D: Send + 'static>(
+        mut workspace: Workspace<M, D>,
+        exec_name: String,
+    ) -> Self {
         let stats = BackendStats::new(&mut workspace.framework);
         let settings = BackendSettings { exec_name };
         let sync = BackendSync::new(workspace, stats, settings);

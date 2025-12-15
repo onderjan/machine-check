@@ -28,7 +28,7 @@ pub mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         /// Program Counter.
-        pc: Bitvector<32>,
+        PC: Bitvector<32>,
 
         reg: BitvectorArray<5, 32>,
         /// Onboard SRAM (Parity), 0x2000_4000..0x2000_7000
@@ -73,7 +73,7 @@ pub mod machine_module {
         fn init(&self, _input: &Input, _param: &Param) -> State {
             // TODO: correctly init registers and memory
             State {
-                pc: Bitvector::<32>::new(0),
+                PC: Bitvector::<32>::new(0),
                 reg: BitvectorArray::<5, 32>::new_filled(Bitvector::<32>::new(0)),
                 sram_parity: BitvectorArray::<14, 8>::new_filled(Bitvector::<8>::new(0xFF)),
                 clicint: BitvectorArray::<8, 8>::new_filled(Bitvector::<8>::new(0)),
@@ -84,17 +84,17 @@ pub mod machine_module {
         }
 
         fn next(&self, state: &State, input: &Input, param: &Param) -> State {
-            let first_half: Unsigned<16> = Self::pc_halfword(self, state.pc);
+            let first_half: Unsigned<16> = Self::pc_halfword(self, state.PC);
             let opcode_low = Ext::<2>::ext(first_half);
             let first_half_1 = first_half >> Unsigned::<16>::new(2);
             let first_half_2 = Ext::<14>::ext(first_half_1);
 
-            //eprintln!("PC {:?}, first halfword: {:?}", state.pc, first_half);
+            //eprintln!("PC {:?}, first halfword: {:?}", state.PC, first_half);
 
-            let pc = state.pc + Bitvector::<32>::new(2);
+            let PC = state.PC + Bitvector::<32>::new(2);
 
             let mut next_state = State {
-                pc,
+                PC,
                 reg: Clone::clone(&state.reg),
                 sram_parity: Clone::clone(&state.sram_parity),
                 clicint: Clone::clone(&state.clicint),
@@ -131,8 +131,8 @@ pub mod machine_module {
         ) -> State {
             // 32-bit instruction
             // fetch the upper half of instruction word
-            let second_half: Unsigned<16> = Self::pc_halfword(self, state.pc);
-            let mut pc = state.pc + Bitvector::<32>::new(2);
+            let second_half: Unsigned<16> = Self::pc_halfword(self, state.PC);
+            let mut PC = state.PC + Bitvector::<32>::new(2);
 
             //eprintln!("Second half: {:?}", second_half);
 
@@ -447,7 +447,7 @@ pub mod machine_module {
 
                     if should_branch == Bitvector::<1>::new(1) {
                         // undo pre-increment (non-compressed instruction, 4 bytes) and add immediate to PC
-                       pc = pc - Bitvector::<32>::new(4) + Into::<Bitvector<32>>::into(Ext::<32>::ext(extended_imm));
+                       PC = PC - Bitvector::<32>::new(4) + Into::<Bitvector<32>>::into(Ext::<32>::ext(extended_imm));
                     };
 
                 }
@@ -484,7 +484,7 @@ pub mod machine_module {
                     // the address of the next instructions (currently in PC)
                     let link_value;
                     if rd != Bitvector::<5>::new(0) {
-                        link_value = pc;
+                        link_value = PC;
                     } else {
                         link_value = Bitvector::<32>::new(0);
                     };
@@ -492,7 +492,7 @@ pub mod machine_module {
 
                     // relative jump to the sum of pre-increment PC and offset
                     // undo pre-increment (non-compressed instruction, 4 bytes) and add offset to PC
-                    pc = pc - Bitvector::<32>::new(4) + Into::<Bitvector<32>>::into(Ext::<32>::ext(offset));
+                    PC = PC - Bitvector::<32>::new(4) + Into::<Bitvector<32>>::into(Ext::<32>::ext(offset));
                 }
                 "11001" => {
                     // I-type Jump and Link Register
@@ -513,7 +513,7 @@ pub mod machine_module {
                     // the address of the next instructions (currently in PC)
                     let link_value;
                     if rd != Bitvector::<5>::new(0) {
-                        link_value = pc;
+                        link_value = PC;
                     } else {
                         link_value = Bitvector::<32>::new(0);
                     };
@@ -525,7 +525,7 @@ pub mod machine_module {
                     // to obtain the new PC value
                     // the least significant bit must be set to zero afterward
                     let new_pc = value1 + imm;
-                    pc = new_pc & !Bitvector::<32>::new(1);
+                    PC = new_pc & !Bitvector::<32>::new(1);
                 }
                 "0q101" => {
                     // U-type
@@ -535,7 +535,7 @@ pub mod machine_module {
                     let imm = imm_second_half + Ext::<20>::ext(first_half_rest);
                     let extended_imm = Ext::<32>::ext(imm) << Unsigned::<32>::new(12);
 
-                    let instruction_start_pc = Into::<Unsigned<32>>::into(pc - Bitvector::<32>::new(4));
+                    let instruction_start_pc = Into::<Unsigned<32>>::into(PC - Bitvector::<32>::new(4));
 
                     let mut result;
 
@@ -595,7 +595,7 @@ pub mod machine_module {
             });
 
             State {
-                pc,
+                PC,
                 reg,
                 sram_parity,
                 clicint,
@@ -619,7 +619,7 @@ pub mod machine_module {
             todo!("Compressed 00");
 
             State {
-                pc: __state.pc,
+                PC: __state.PC,
                 reg: Clone::clone(&__state.reg),
                 sram_parity: Clone::clone(&__state.sram_parity),
                 clicint: Clone::clone(&__state.clicint),
@@ -637,7 +637,7 @@ pub mod machine_module {
         ) -> State {
             let mut reg = Clone::clone(&state.reg);
 
-            let mut pc = state.pc;
+            let mut PC = state.PC;
             let sram_parity = Clone::clone(&state.sram_parity);
             let clicint = Clone::clone(&state.clicint);
             let PODR = Clone::clone(&state.PODR);
@@ -680,12 +680,12 @@ pub mod machine_module {
 
                     if q == Bitvector::<1>::new(0) {
                         // store PC pre-incremented by 2 to link register x1
-                       link_value = pc;
+                       link_value = PC;
                     }
                     reg[Bitvector::<5>::new(1)] = link_value;
 
                     // undo pre-increment and add offset to PC
-                    pc = pc - Bitvector::<32>::new(2) + extended_offset;
+                    PC = PC - Bitvector::<32>::new(2) + extended_offset;
 
                 }
                 "11q_ebb_sss_ddaac" => {
@@ -723,7 +723,7 @@ pub mod machine_module {
 
                     if should_branch == Bitvector::<1>::new(1) {
                         // undo pre-increment and add offset to PC
-                        pc = pc - Bitvector::<32>::new(2) + extended_offset;
+                        PC = PC - Bitvector::<32>::new(2) + extended_offset;
                     };
                 }
                 "000_n_ddddd_nnnnn" => {
@@ -802,7 +802,7 @@ pub mod machine_module {
             });
 
             State {
-                pc,
+                PC,
                 reg,
                 sram_parity,
                 clicint,
@@ -820,7 +820,7 @@ pub mod machine_module {
         ) -> State {
             let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
 
-            let mut pc = state.pc;
+            let mut PC = state.PC;
             let mut reg = Clone::clone(&state.reg);
             let sram_parity = Clone::clone(&state.sram_parity);
             let clicint = Clone::clone(&state.clicint);
@@ -873,14 +873,14 @@ pub mod machine_module {
                             if q == Unsigned::<1>::new(1) {
                                 // link register is hard-wired to x1
                                 // write the address of the next instruction (currently in PC) to it
-                                reg[Bitvector::<5>::new(1)] = pc;
+                                reg[Bitvector::<5>::new(1)] = PC;
                             }
 
                             // there is no immediate, jump to the rd value
                             // the least significant bit must be set to zero afterward
 
                             let jump_address = reg[rd];
-                            pc = jump_address & !Bitvector::<32>::new(1);
+                            PC = jump_address & !Bitvector::<32>::new(1);
 
                         } else if q == Unsigned::<1>::new(1) {
                                 // rs2 == 0, rd2 == 0, q == 1
@@ -897,7 +897,7 @@ pub mod machine_module {
             });
 
             State {
-                pc,
+                PC,
                 reg,
                 sram_parity,
                 clicint,
@@ -906,8 +906,8 @@ pub mod machine_module {
             }
         }
 
-        fn pc_halfword(&self, pc: Bitvector<32>) -> Unsigned<16> {
-            let unsigned_pc = Into::<Unsigned<32>>::into(pc);
+        fn pc_halfword(&self, PC: Bitvector<32>) -> Unsigned<16> {
+            let unsigned_pc = Into::<Unsigned<32>>::into(PC);
             // ensure the lowest bit of PC is zero
             if Ext::<1>::ext(unsigned_pc) != Unsigned::<1>::new(0) {
                 panic!("Nonzero lowest bit of Program Counter");
@@ -921,7 +921,7 @@ pub mod machine_module {
             // for halfwords, drop the lowest bit
 
             let halfword_pc =
-                Ext::<16>::ext(Into::<Unsigned<32>>::into(pc) >> Unsigned::<32>::new(1));
+                Ext::<16>::ext(Into::<Unsigned<32>>::into(PC) >> Unsigned::<32>::new(1));
 
             Into::<Unsigned<16>>::into(self.program_flash[Into::<Bitvector<16>>::into(halfword_pc)])
         }
@@ -1162,7 +1162,7 @@ pub mod machine_module {
             /*eprintln!("State before loading: {:#X?}", state);
             eprintln!(
                 "Loaded from address {:#X?}: {:#X?} (new PC: {:#X?})",
-                address, load_value, state.pc
+                address, load_value, state.PC
             );*/
 
             // load the value into the register if it is nonzero
@@ -1219,7 +1219,7 @@ pub mod machine_module {
 
             /*eprintln!(
                 "Storing to address {:#X?}: {:#X?} (halfword: {:?}, word: {:?}, new PC: {:#X?})",
-                address, store_value, store_halfword_or_word, store_word, state.pc
+                address, store_value, store_halfword_or_word, store_word, state.PC
             );*/
 
             let mut sram_parity = Clone::clone(&state.sram_parity);
@@ -1304,7 +1304,7 @@ pub mod machine_module {
             }
 
             State {
-                pc: state.pc,
+                PC: state.PC,
                 reg: Clone::clone(&state.reg),
                 sram_parity,
                 clicint,

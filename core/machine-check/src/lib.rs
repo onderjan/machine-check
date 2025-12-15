@@ -17,6 +17,7 @@ use machine_check_common::check::KnownConclusion;
 use machine_check_common::iir::description::IMachine;
 use machine_check_common::iir::property::IProperty;
 use machine_check_common::PropertyMacroFn;
+use machine_check_common::PropertyMacros;
 use machine_check_exec::Strategy;
 
 use args::ProgramArgs;
@@ -128,7 +129,7 @@ pub use builder::ExecBuilder;
 /// Parsed arguments are used to run **machine-check**. Otherwise, this method behaves the same as [`run`].
 pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     setup_logging(&exec_args);
-    execute_inner(system, exec_args, HashMap::new())
+    execute_inner(system, exec_args, PropertyMacros::empty())
 }
 
 fn setup_logging(exec_args: &ExecArgs) {
@@ -166,10 +167,10 @@ fn setup_logging(exec_args: &ExecArgs) {
     }
 }
 
-fn execute_inner<M: FullMachine>(
+fn execute_inner<M: FullMachine, D: Send + 'static>(
     system: M,
     exec_args: ExecArgs,
-    property_macros: HashMap<String, PropertyMacroFn>,
+    property_macros: PropertyMacros<D>,
 ) -> ExecResult {
     let silent = exec_args.silent;
     let batch = exec_args.batch;
@@ -190,7 +191,7 @@ fn execute_inner<M: FullMachine>(
     let result = 'result: {
         // determine the property to verify
         let prop = if let Some(property_str) = exec_args.property {
-            match machine_check_machine::process_property::<M>(
+            match machine_check_machine::process_property::<M, D>(
                 &machine,
                 &property_str,
                 &property_macros,
@@ -217,7 +218,13 @@ fn execute_inner<M: FullMachine>(
         if exec_args.gui {
             // start the GUI instead of verifying
             ExecResult {
-                result: Err(start_gui::<M>(abstract_system, machine, prop, strategy)),
+                result: Err(start_gui::<M, D>(
+                    abstract_system,
+                    machine,
+                    prop,
+                    property_macros,
+                    strategy,
+                )),
                 stats: ExecStats::default(),
             }
         } else {
@@ -314,22 +321,35 @@ fn execute_inner<M: FullMachine>(
     result
 }
 
-fn start_gui<M: FullMachine>(
+fn start_gui<M: FullMachine, D: Send + 'static>(
     abstract_system: M::Abstr,
     machine: IMachine,
     property: Option<IProperty>,
+    property_macros: PropertyMacros<D>,
     strategy: Strategy,
 ) -> ExecError {
     // the GUI will, at best, return no result
     #[cfg(feature = "gui")]
-    match machine_check_gui::run::<M>(abstract_system, machine, property, strategy) {
+    match machine_check_gui::run::<M, D>(
+        abstract_system,
+        machine,
+        property,
+        property_macros,
+        strategy,
+    ) {
         Ok(()) => ExecError::NoResult,
         Err(err) => err,
     }
     #[cfg(not(feature = "gui"))]
     {
         // make sure there is no warning about unused variables
-        let _ = (abstract_system, machine, property, strategy);
+        let _ = (
+            abstract_system,
+            machine,
+            property,
+            property_macros,
+            strategy,
+        );
         ExecError::GuiError(String::from("The GUI feature was not enabled during build"))
     }
 }

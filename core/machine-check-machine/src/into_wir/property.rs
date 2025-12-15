@@ -2,7 +2,7 @@ mod macros;
 
 use std::{collections::HashMap, hash::Hash};
 
-use machine_check_common::PropertyMacroFn;
+use machine_check_common::PropertyMacros;
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
@@ -70,10 +70,10 @@ impl ExprProperty {
     }
 }
 
-pub fn create_from_syn(
+pub fn create_from_syn<D>(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WBasicType>,
-    property_macros: &HashMap<String, PropertyMacroFn>,
+    property_macros: &PropertyMacros<D>,
 ) -> Result<(WProperty<YConverted>, Vec<String>), Errors> {
     let span = expr.span();
     /*println!(

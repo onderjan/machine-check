@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use std::collections::HashMap;
+
 use proc_macro2::TokenStream;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -114,4 +116,19 @@ pub enum Signedness {
 }
 
 /// Type of function that computes a property macro result.
-pub type PropertyMacroFn = fn(TokenStream) -> Result<TokenStream, anyhow::Error>;
+pub type PropertyMacroFn<D> =
+    Box<dyn Fn(&D, TokenStream) -> Result<TokenStream, anyhow::Error> + Send + Sync>;
+
+pub struct PropertyMacros<D> {
+    pub macros: HashMap<String, PropertyMacroFn<D>>,
+    pub data: D,
+}
+
+impl PropertyMacros<()> {
+    pub fn empty() -> Self {
+        Self {
+            macros: HashMap::new(),
+            data: (),
+        }
+    }
+}

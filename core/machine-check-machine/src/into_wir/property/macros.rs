@@ -1,6 +1,4 @@
-use std::collections::HashMap;
-
-use machine_check_common::PropertyMacroFn;
+use machine_check_common::PropertyMacros;
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
@@ -19,9 +17,9 @@ use crate::{
     wir::{WIdent, WSpan, WSubpropertyFixedPoint, WSubpropertyNext},
 };
 
-pub fn expand_property_macros(
+pub fn expand_property_macros<D>(
     property: &mut ExprProperty,
-    property_macros: &HashMap<String, PropertyMacroFn>,
+    property_macros: &PropertyMacros<D>,
 ) -> Result<bool, Error> {
     let mut visitor = Visitor {
         property_macros,
@@ -75,8 +73,8 @@ fn is_trivial_parent(expr: &Expr) -> bool {
     ident.to_string().starts_with("__mck_subproperty_")
 }
 
-struct Visitor<'a> {
-    property_macros: &'a HashMap<String, PropertyMacroFn>,
+struct Visitor<'a, D> {
+    property_macros: &'a PropertyMacros<D>,
     num_subproperties: usize,
     current_subproperty: usize,
     result: Result<(), Error>,
@@ -84,7 +82,7 @@ struct Visitor<'a> {
     new_subproperties: Vec<ExprSubproperty>,
 }
 
-impl VisitMut for Visitor<'_> {
+impl<D> VisitMut for Visitor<'_, D> {
     fn visit_stmt_mut(&mut self, stmt: &mut Stmt) {
         if let Stmt::Macro(stmt_macro) = stmt {
             // process macro
@@ -112,18 +110,20 @@ impl VisitMut for Visitor<'_> {
     }
 }
 
-impl Visitor<'_> {
+impl<D> Visitor<'_, D> {
     fn process_macro(&mut self, mac: Macro, attrs: Vec<Attribute>) -> Result<Expr, Error> {
         if let Some(macro_ident) = mac.path.get_ident() {
-            if let Some(property_macro) = self.property_macros.get(&macro_ident.to_string()) {
+            if let Some(property_macro) = self.property_macros.macros.get(&macro_ident.to_string())
+            {
                 // expand property macro
                 let tokens_span = mac.tokens.span();
-                let expanded = (property_macro)(mac.tokens).map_err(|err| {
-                    Error::new(
-                        ErrorType::MacroParseError(syn::Error::new(tokens_span, err)),
-                        WSpan::from_span(tokens_span),
-                    )
-                })?;
+                let expanded =
+                    (property_macro)(&self.property_macros.data, mac.tokens).map_err(|err| {
+                        Error::new(
+                            ErrorType::MacroParseError(syn::Error::new(tokens_span, err)),
+                            WSpan::from_span(tokens_span),
+                        )
+                    })?;
 
                 let parsed_expr = syn::parse2(expanded).map_err(|err| {
                     let span = err.span();

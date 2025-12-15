@@ -6,6 +6,16 @@ use gimli::{
 };
 use object::{read::elf::ElfFile32, LittleEndian, Object, ObjectSection};
 
+pub struct Symbols {
+    inner: HashMap<String, Symbol>,
+}
+
+impl Symbols {
+    pub fn get(&self, name: &str) -> Option<&Symbol> {
+        self.inner.get(name)
+    }
+}
+
 #[derive(Debug)]
 pub enum Symbol {
     Unresolved,
@@ -15,7 +25,7 @@ pub enum Symbol {
     Multiple,
 }
 
-pub fn load_symbols(elf_file: &ElfFile32<LittleEndian>) -> anyhow::Result<HashMap<String, Symbol>> {
+pub fn load_symbols(elf_file: &ElfFile32<LittleEndian>) -> anyhow::Result<Symbols> {
     let dwarf_sections = gimli::DwarfSections::load(|id| {
         elf_file
             .section_by_name(id.name())
@@ -56,7 +66,7 @@ pub fn load_symbols(elf_file: &ElfFile32<LittleEndian>) -> anyhow::Result<HashMa
 
     eprintln!("Symbols: {:#x?}", symbol_map);
 
-    Ok(symbol_map)
+    Ok(Symbols { inner: symbol_map })
 }
 
 fn load_entry_symbol<'a, R: Reader>(

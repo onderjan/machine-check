@@ -8,7 +8,7 @@ use super::dwarf;
 
 use crate::system::R9A02G021;
 
-pub fn parse_elf(path: &str) -> anyhow::Result<R9A02G021> {
+pub fn parse_elf(path: &str) -> anyhow::Result<(R9A02G021, dwarf::Symbols)> {
     // zero is guaranteed-illegal instruction
     let halfword_zero = Bitvector::<16>::new(0);
     let byte_zero = Bitvector::<8>::new(0);
@@ -108,7 +108,7 @@ pub fn parse_elf(path: &str) -> anyhow::Result<R9A02G021> {
         }
     }
 
-    dwarf::load_symbols(&elf_file)?;
+    let symbols = dwarf::load_symbols(&elf_file)?;
 
     eprintln!("Program flash: {:#X?}", program_flash);
     eprintln!("Initial SRAM: {:#X?}", initial_sram_parity);
@@ -118,5 +118,5 @@ pub fn parse_elf(path: &str) -> anyhow::Result<R9A02G021> {
         initial_sram_parity,
     };
 
-    Ok(system)
+    Ok((system, symbols))
 }
