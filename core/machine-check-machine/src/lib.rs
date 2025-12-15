@@ -7,7 +7,7 @@ use machine_check_common::iir::description::IMachine;
 use machine_check_common::iir::path::{IIdent, ISpan};
 use machine_check_common::iir::property::IProperty;
 use machine_check_common::iir::ty::IElementaryType;
-use machine_check_common::Signedness;
+use machine_check_common::{PropertyMacroFn, Signedness};
 use mck::concr::FullMachine;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
@@ -65,7 +65,7 @@ pub fn inherent_property() -> IProperty {
     let expr = parse_quote!(AG![__panic == 0]);
 
     let (property, _panic_messages) =
-        into_wir::create_property_description(expr, &global_basic_types)
+        into_wir::create_property_description(expr, &global_basic_types, &HashMap::new())
             .expect("Inherent property should be created");
 
     //println!("Abstract description: {:?}", description);
@@ -78,6 +78,7 @@ pub fn inherent_property() -> IProperty {
 pub fn process_property<M: FullMachine>(
     machine: &IMachine,
     property: &str,
+    property_macros: &HashMap<String, PropertyMacroFn>,
 ) -> Result<IProperty, Errors> {
     let expr: Expr = syn::parse_str(property).map_err(|err| {
         Errors::single(Error::new(
@@ -113,7 +114,7 @@ pub fn process_property<M: FullMachine>(
 
     // TODO: do something with the panic messages
     let (property, _panic_messages) =
-        into_wir::create_property_description(expr, &global_basic_types)?;
+        into_wir::create_property_description(expr, &global_basic_types, property_macros)?;
 
     let property = property.into_iir();
 

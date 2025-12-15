@@ -1,11 +1,11 @@
-use std::{borrow::Cow, ffi::OsStr, path::Path};
+use std::{borrow::Cow, collections::HashMap, ffi::OsStr, path::Path};
 
 use http::{header::CONTENT_TYPE, Method};
 use include_dir::{include_dir, Dir};
 use log::{debug, error};
 use machine_check_common::{
     iir::{description::IMachine, property::IProperty},
-    ExecError,
+    ExecError, PropertyMacroFn,
 };
 use machine_check_exec::{Framework, Strategy};
 use mck::concr::FullMachine;
@@ -27,6 +27,7 @@ pub fn run<M: FullMachine>(
     abstract_system: M::Abstr,
     machine: IMachine,
     property: Option<IProperty>,
+    property_macros: HashMap<String, PropertyMacroFn>,
     strategy: Strategy,
 ) -> Result<(), ExecError> {
     // TODO: allow setting custom titles instead of relying on the binary name
@@ -41,7 +42,11 @@ pub fn run<M: FullMachine>(
 
     // create the backend
     let backend = Backend::new(
-        Workspace::<M>::new(Framework::new(abstract_system, machine, strategy), property),
+        Workspace::<M>::new(
+            Framework::new(abstract_system, machine, strategy),
+            property,
+            property_macros,
+        ),
         exec_name.clone(),
     );
     let response_fn = move |_web_view_id: WebViewId, request: http::Request<Vec<u8>>| {

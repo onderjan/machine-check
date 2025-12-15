@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+use proc_macro2::TokenStream;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -111,3 +112,6 @@ pub enum Signedness {
     Unsigned,
     Signed,
 }
+
+/// Type of function that computes a property macro result.
+pub type PropertyMacroFn = fn(TokenStream) -> Result<TokenStream, anyhow::Error>;

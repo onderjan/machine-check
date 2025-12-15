@@ -82,6 +82,7 @@ icondata = { version = "0.6.0", default-features = false, features = [
 machine-check-machine = "=0.7.0"
 machine-check-exec = "=0.7.0"
 
+proc-macro2 = { version = "1.0.67" }
 petgraph = "0.6.4"
 log = "0.4.20"
 env_logger = "0.10.0"

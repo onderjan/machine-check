@@ -6,6 +6,8 @@ mod traits;
 mod types;
 mod verify;
 
+use std::collections::HashMap;
+
 use log::error;
 use log::info;
 use log::log_enabled;
@@ -14,6 +16,7 @@ use log::warn;
 use machine_check_common::check::KnownConclusion;
 use machine_check_common::iir::description::IMachine;
 use machine_check_common::iir::property::IProperty;
+use machine_check_common::PropertyMacroFn;
 use machine_check_exec::Strategy;
 
 use args::ProgramArgs;
@@ -125,7 +128,7 @@ pub use builder::ExecBuilder;
 /// Parsed arguments are used to run **machine-check**. Otherwise, this method behaves the same as [`run`].
 pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     setup_logging(&exec_args);
-    execute_inner(system, exec_args)
+    execute_inner(system, exec_args, HashMap::new())
 }
 
 fn setup_logging(exec_args: &ExecArgs) {
@@ -163,7 +166,11 @@ fn setup_logging(exec_args: &ExecArgs) {
     }
 }
 
-fn execute_inner<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
+fn execute_inner<M: FullMachine>(
+    system: M,
+    exec_args: ExecArgs,
+    property_macros: HashMap<String, PropertyMacroFn>,
+) -> ExecResult {
     let silent = exec_args.silent;
     let batch = exec_args.batch;
 
@@ -183,7 +190,11 @@ fn execute_inner<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
     let result = 'result: {
         // determine the property to verify
         let prop = if let Some(property_str) = exec_args.property {
-            match machine_check_machine::process_property::<M>(&machine, &property_str) {
+            match machine_check_machine::process_property::<M>(
+                &machine,
+                &property_str,
+                &property_macros,
+            ) {
                 Ok(ok) => Some(ok),
                 Err(err) => {
                     break 'result ExecResult {

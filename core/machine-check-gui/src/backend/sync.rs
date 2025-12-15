@@ -113,6 +113,7 @@ impl<M: FullMachine> BackendWorker<M> {
                 match machine_check_machine::process_property::<M>(
                     self.workspace.framework.machine(),
                     &property,
+                    self.workspace.property_macros(),
                 ) {
                     Ok(property) => {
                         self.workspace.properties.push(property);

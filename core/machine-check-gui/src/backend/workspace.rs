@@ -3,10 +3,10 @@ use crate::shared::snapshot::log::Log;
 use crate::shared::snapshot::{Node, PropertySnapshot, Snapshot, StateInfo, StateSpace};
 use machine_check_common::check::KnownConclusion;
 use machine_check_common::iir::property::IProperty;
-use machine_check_common::{ParamValuation, ThreeValued};
+use machine_check_common::{ParamValuation, PropertyMacroFn, ThreeValued};
 use machine_check_exec::Framework;
 use mck::{abstr::BitvectorDomain, concr::FullMachine};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// Backend workspace.
 ///
@@ -14,11 +14,16 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct Workspace<M: FullMachine> {
     pub framework: Framework<M>,
     pub properties: Vec<IProperty>,
+    property_macros: HashMap<String, PropertyMacroFn>,
     pub log: Log,
 }
 
 impl<M: FullMachine> Workspace<M> {
-    pub fn new(framework: Framework<M>, property: Option<IProperty>) -> Self {
+    pub fn new(
+        framework: Framework<M>,
+        property: Option<IProperty>,
+        property_macros: HashMap<String, PropertyMacroFn>,
+    ) -> Self {
         // always put the inherent property first, add the other property afterwards if there is one
         let mut properties = vec![machine_check_machine::inherent_property()];
 
@@ -29,6 +34,7 @@ impl<M: FullMachine> Workspace<M> {
         Workspace {
             framework,
             properties,
+            property_macros,
             log: Log::new(),
         }
     }
@@ -137,5 +143,9 @@ impl<M: FullMachine> Workspace<M> {
             conclusion,
             labellings,
         }
+    }
+
+    pub fn property_macros(&self) -> &HashMap<String, PropertyMacroFn> {
+        &self.property_macros
     }
 }

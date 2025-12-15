@@ -1,13 +1,12 @@
 use crate::{args::ProgramArgs, ExecArgs, FullMachine};
 use clap::Parser;
-use machine_check_common::ExecResult;
-use proc_macro2::TokenStream;
+use machine_check_common::{ExecResult, PropertyMacroFn};
 use std::{collections::HashMap, marker::PhantomData};
 
 pub struct ExecBuilder<M: FullMachine, E: 'static, A> {
     creator_fn: Box<dyn Fn(A) -> Result<M, E>>,
     args_parser: Box<dyn ArgsParser<A>>,
-    property_macros: HashMap<String, fn(TokenStream) -> TokenStream>,
+    property_macros: HashMap<String, PropertyMacroFn>,
 }
 
 impl<M: FullMachine, E: 'static> ExecBuilder<M, E, ()> {
@@ -33,11 +32,7 @@ impl<M: FullMachine, E: 'static, A: clap::Args + 'static> ExecBuilder<M, E, A> {
 }
 
 impl<M: FullMachine, E: 'static, A> ExecBuilder<M, E, A> {
-    pub fn property_macro(
-        mut self,
-        name: String,
-        macro_fn: fn(TokenStream) -> TokenStream,
-    ) -> Self {
+    pub fn property_macro(mut self, name: String, macro_fn: PropertyMacroFn) -> Self {
         if self
             .property_macros
             .insert(name.clone(), macro_fn)
@@ -54,7 +49,11 @@ impl<M: FullMachine, E: 'static, A> ExecBuilder<M, E, A> {
         let (exec_args, system_args) = self.args_parser.parse_args(&mut args);
         super::setup_logging(&exec_args);
         match (self.creator_fn)(system_args) {
-            Ok(system) => Ok(super::execute_inner(system, exec_args)),
+            Ok(system) => Ok(super::execute_inner(
+                system,
+                exec_args,
+                self.property_macros,
+            )),
             Err(err) => Err(err),
         }
     }

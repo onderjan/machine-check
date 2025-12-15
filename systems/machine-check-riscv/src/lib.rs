@@ -27,6 +27,10 @@ pub fn execute(args: impl Iterator<Item = String>) -> ExecResult {
         },
     );
 
+    let builder = builder.property_macro(String::from("pc_at_symbol"), |token_stream| {
+        todo!("PC at symbol")
+    });
+
     match builder.execute(args) {
         Ok(ok) => ok,
         Err(err) => {

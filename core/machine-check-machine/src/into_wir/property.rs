@@ -2,6 +2,7 @@ mod macros;
 
 use std::{collections::HashMap, hash::Hash};
 
+use machine_check_common::PropertyMacroFn;
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
@@ -72,6 +73,7 @@ impl ExprProperty {
 pub fn create_from_syn(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WBasicType>,
+    property_macros: &HashMap<String, PropertyMacroFn>,
 ) -> Result<(WProperty<YConverted>, Vec<String>), Errors> {
     let span = expr.span();
     /*println!(
@@ -98,7 +100,7 @@ pub fn create_from_syn(
         let mut expanded_some_macro = false;
 
         property.resolve_use(&use_map)?;
-        expanded_some_macro |= macros::expand_property_macros(&mut property)?;
+        expanded_some_macro |= macros::expand_property_macros(&mut property, property_macros)?;
         property.resolve_use(&use_map)?;
         for subproperty in &mut property.subproperties {
             if let ExprSubproperty::Expr(subproperty_func) = subproperty {

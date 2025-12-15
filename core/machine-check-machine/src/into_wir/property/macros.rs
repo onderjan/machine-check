@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use machine_check_common::PropertyMacroFn;
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
@@ -16,8 +19,12 @@ use crate::{
     wir::{WIdent, WSpan, WSubpropertyFixedPoint, WSubpropertyNext},
 };
 
-pub fn expand_property_macros(property: &mut ExprProperty) -> Result<bool, Error> {
+pub fn expand_property_macros(
+    property: &mut ExprProperty,
+    property_macros: &HashMap<String, PropertyMacroFn>,
+) -> Result<bool, Error> {
     let mut visitor = Visitor {
+        property_macros,
         num_subproperties: property.subproperties.len(),
         current_subproperty: 0,
         result: Ok(()),
@@ -68,7 +75,8 @@ fn is_trivial_parent(expr: &Expr) -> bool {
     ident.to_string().starts_with("__mck_subproperty_")
 }
 
-struct Visitor {
+struct Visitor<'a> {
+    property_macros: &'a HashMap<String, PropertyMacroFn>,
     num_subproperties: usize,
     current_subproperty: usize,
     result: Result<(), Error>,
@@ -76,7 +84,7 @@ struct Visitor {
     new_subproperties: Vec<ExprSubproperty>,
 }
 
-impl VisitMut for Visitor {
+impl VisitMut for Visitor<'_> {
     fn visit_stmt_mut(&mut self, stmt: &mut Stmt) {
         if let Stmt::Macro(stmt_macro) = stmt {
             // process macro
@@ -104,8 +112,27 @@ impl VisitMut for Visitor {
     }
 }
 
-impl Visitor {
+impl Visitor<'_> {
     fn process_macro(&mut self, mac: Macro, attrs: Vec<Attribute>) -> Result<Expr, Error> {
+        if let Some(macro_ident) = mac.path.get_ident() {
+            if let Some(property_macro) = self.property_macros.get(&macro_ident.to_string()) {
+                // expand property macro
+                let tokens_span = mac.tokens.span();
+                let expanded = (property_macro)(mac.tokens).map_err(|err| {
+                    Error::new(
+                        ErrorType::MacroParseError(syn::Error::new(tokens_span, err)),
+                        WSpan::from_span(tokens_span),
+                    )
+                })?;
+
+                let parsed_expr = syn::parse2(expanded).map_err(|err| {
+                    let span = err.span();
+                    Error::new(ErrorType::MacroParseError(err), WSpan::from_span(span))
+                })?;
+                return Ok(parsed_expr);
+            }
+        }
+
         let ef = path_matches_global_names(&mac.path, &["machine_check", "EF"]);
         let af = path_matches_global_names(&mac.path, &["machine_check", "AF"]);
         let eg = path_matches_global_names(&mac.path, &["machine_check", "EG"]);
