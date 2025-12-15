@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod args;
+mod builder;
 mod traits;
 mod types;
 mod verify;
@@ -117,13 +118,19 @@ pub use ::machine_check_common::ExecError;
 pub use ::machine_check_common::ExecResult;
 pub use ::machine_check_common::ExecStats;
 
+pub use builder::ExecBuilder;
+
 /// Runs **machine-check** with the given constructed system and parsed arguments.
 ///
 /// Parsed arguments are used to run **machine-check**. Otherwise, this method behaves the same as [`run`].
 pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
+    setup_logging(&exec_args);
+    execute_inner(system, exec_args)
+}
+
+fn setup_logging(exec_args: &ExecArgs) {
     // logging to stderr, stdout will contain the result in batch mode
     let silent = exec_args.silent;
-    let batch = exec_args.batch;
 
     let mut filter_level_num = exec_args.verbose;
 
@@ -154,6 +161,11 @@ pub fn execute<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
             filter_level, filter_level_num
         );
     }
+}
+
+fn execute_inner<M: FullMachine>(system: M, exec_args: ExecArgs) -> ExecResult {
+    let silent = exec_args.silent;
+    let batch = exec_args.batch;
 
     let strategy = Strategy {
         naive_inputs: matches!(exec_args.strategy, ExecStrategy::Naive),

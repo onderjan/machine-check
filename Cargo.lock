@@ -1629,6 +1629,7 @@ dependencies = [
  "machine-check-machine",
  "machine-check-macros",
  "mck",
+ "proc-macro2",
  "rmp-serde",
  "serde",
  "serde_json",

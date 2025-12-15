@@ -31,6 +31,8 @@ serde = { version = "1.0.228", features = ["derive"] }
 rmp-serde = "1.3.0"
 serde_json = "1.0.145"
 
+proc-macro2 = { version = "1.0.67" }
+
 [dev-dependencies]
 trybuild = "1.0.105"
 escargot = "0.5.15"
