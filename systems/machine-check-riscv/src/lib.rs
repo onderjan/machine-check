@@ -43,8 +43,8 @@ pub fn execute(args: impl Iterator<Item = String>) -> ExecResult {
 
     let builder = builder
         .property_macro(String::from("pc_at_symbol"), macros::pc_at_symbol)
-        .property_macro(String::from("pc_within_symbol"), macros::pc_within_symbol);
-
+        .property_macro(String::from("pc_within_symbol"), macros::pc_within_symbol)
+        .property_macro(String::from("typed_symbol"), macros::typed_symbol);
     match builder.execute(args) {
         Ok(ok) => ok,
         Err(err) => {
