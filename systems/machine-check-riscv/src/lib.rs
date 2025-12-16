@@ -33,7 +33,7 @@ pub fn execute(args: impl Iterator<Item = String>) -> ExecResult {
 
     todo!()*/
 
-    let builder = machine_check::ExecBuilder::new_with_clap_args(
+    let builder = machine_check::ExecBuilder::new(
         |system_args: SystemArgs| -> Result<(system::R9A02G021, Symbols), anyhow::Error> {
             let (system, symbols) = elf::parse_elf(&system_args.elf_file)?;
 
@@ -45,7 +45,9 @@ pub fn execute(args: impl Iterator<Item = String>) -> ExecResult {
         .property_macro(String::from("pc_at_symbol"), macros::pc_at_symbol)
         .property_macro(String::from("pc_within_symbol"), macros::pc_within_symbol)
         .property_macro(String::from("typed_symbol"), macros::typed_symbol);
-    match builder.execute(args) {
+
+    let (exec_args, system_args) = machine_check::parse_args(args);
+    match builder.execute(exec_args, system_args) {
         Ok(ok) => ok,
         Err(err) => {
             let err = err.to_string();
