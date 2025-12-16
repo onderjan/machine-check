@@ -1141,7 +1141,7 @@ pub mod machine_module {
                             load_value = Self::halfword_uext(state.PDR[port_number]);
                         }
                     } else {
-                        todo!("PCNTR1 byte load");
+                        unimplemented!("PCNTR1 byte load");
                     }
                 } else if port_register_word == Unsigned::<32>::new(1) {
                     // PCNTR2
@@ -1159,7 +1159,7 @@ pub mod machine_module {
                             load_value = Self::halfword_uext(input.PIDR[port_number]);
                         }
                     } else {
-                        todo!("PCNTR2 byte load");
+                        unimplemented!("PCNTR2 byte load");
                     }
                 } else {
                     unimplemented!("Load of given I/O register");
@@ -1323,7 +1323,7 @@ pub mod machine_module {
                     // PCNTR1
 
                     if store_word == Bitvector::<1>::new(1) {
-                        todo!("Store of PNCTR1 word");
+                        unimplemented!("Store of PNCTR1 word");
                     } else if store_halfword_or_word == Bitvector::<1>::new(1) {
                         // store the low halfword from the register
                         let store_value = halfword_low;
@@ -1337,13 +1337,13 @@ pub mod machine_module {
                             PDR[port] = store_value;
                         }
                     } else {
-                        todo!("Store of PNCTR1 byte");
+                        unimplemented!("Store of PNCTR1 byte");
                     }
                 } else {
                     unimplemented!("Store of given I/O register");
                 }
             } else {
-                todo!("Store at given address");
+                unimplemented!("Store at given address");
             }
 
             State {
