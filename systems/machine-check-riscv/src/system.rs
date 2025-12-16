@@ -197,6 +197,8 @@ pub mod machine_module {
             let mut CSR_mtvec = Clone::clone(&state.CSR_mtvec);
             let mut CSR_mtvt = Clone::clone(&state.CSR_mtvt);
 
+            // not implemented yet: SLT, SLTU, FENCE, FENCE.TSO, PAUSE
+
             bitmask_switch!(opcode {
                 "01100" => {
                     // R-type bitwise/arith/slt(u)
@@ -252,7 +254,7 @@ pub mod machine_module {
                         }
                         "001" => {
                             if funct7 == Unsigned::<7>::new(0) {
-                                // shift left logical
+                                // SLL
                                 // note that RISC-V only uses the lower 5 bits of rs2
                                 // mask out the others first
                                 let shift_amount = value2 & Bitvector::<32>::new(0x11111);
@@ -305,23 +307,23 @@ pub mod machine_module {
 
                     bitmask_switch!(funct3 {
                         "000" => {
-                            // ADD immediate
+                            // ADDI
                             result = value1 + imm;
                         }
                         "100" => {
-                            // XOR immediate
+                            // XORI
                             result = value1 ^ imm;
                         }
                         "110" => {
-                            // OR immediate
+                            // ORI
                             result = value1 | imm;
                         }
                         "111" => {
-                            // AND immediate
+                            // ANDI
                             result = value1 & imm;
                         }
                         "001" => {
-                            // shift left logical immediate
+                            // SLLI
                             let imm_lo = Ext::<5>::ext(Into::<Unsigned::<32>>::into(imm));
                             let imm_hi = Ext::<7>::ext(Into::<Unsigned::<32>>::into(imm) >> Unsigned::<32>::new(5));
                             // imm[5:11] must be 0x00
@@ -332,11 +334,11 @@ pub mod machine_module {
                             }
                         }
                         "101" => {
-                            // shift right logical/arithmetical immediate
+                            // SRLI / SRAI
                             let imm_lo = Ext::<5>::ext(Into::<Unsigned::<32>>::into(imm));
                             let imm_hi = Ext::<7>::ext(Into::<Unsigned::<32>>::into(imm) >> Unsigned::<32>::new(5));
-                            // logical when imm[5:11] = 0x00
-                            // arithmetical when imm[5:11] = 0x20
+                            // logical (SRLI) when imm[5:11] = 0x00
+                            // arithmetical (SRAI) when imm[5:11] = 0x20
 
                             if imm_hi == Unsigned::<7>::new(0) {
                                 result = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(value1) << Ext::<32>::ext(imm_lo));
@@ -347,7 +349,7 @@ pub mod machine_module {
                             }
                         }
                         "010" => {
-                            // set less than immediate (signed)
+                            // SLTI (set less than immediate, signed)
 
                             // compare rs1 value with sign-extended immediate, using signed comparison
                             // write 1 to result if rs1 is lesser, 0 otherwise
@@ -359,7 +361,7 @@ pub mod machine_module {
                             }
                         }
                         "011" => {
-                            // set less than immediate, unsigned
+                            // SLTIU (set less than immediate, unsigned)
 
                             // the immediate is sign extended as normal, but unsigned comparison is used
                             // write 1 to result if rs1 is lesser, 0 otherwise
@@ -382,6 +384,7 @@ pub mod machine_module {
                 }
                 "00000" => {
                     // I-type load
+                    // LB / LH / LW / LBU / LHU
 
                     let funct3 = Ext::<3>::ext(first_half_rest);
 
@@ -399,6 +402,8 @@ pub mod machine_module {
                 }
                 "01000" => {
                     // S-type store
+                    // SB / SH / SW
+
                     let funct3 = Ext::<3>::ext(first_half_rest);
                     let rs1: Bitvector<5> = Self::extract_rs1(first_half_rest, second_half);
                     let rs2: Bitvector<5> = Self::extract_rs2(second_half);
@@ -454,13 +459,13 @@ pub mod machine_module {
 
                     bitmask_switch!(funct3 {
                         "000" => {
-                            // branch if equal
+                            // BEQ (branch if equal)
                             if value1 == value2 {
                                 should_branch = Bitvector::<1>::new(1);
                             }
                         }
                         "001" => {
-                            // branch if not equal
+                            // BNE (branch if not equal)
                             if value1 != value2 {
                                 should_branch = Bitvector::<1>::new(1);
                             }
@@ -469,25 +474,25 @@ pub mod machine_module {
                             unimplemented!("Non-standard branch");
                         }
                         "100" => {
-                            // branch if less than (signed)
+                            // BLT (branch if less than, signed)
                             if Into::<Signed::<32>>::into(value1) < Into::<Signed::<32>>::into(value2) {
                                 should_branch = Bitvector::<1>::new(1);
                             }
                         }
                         "101" => {
-                            // branch if greater or equal (signed)
+                            // BGE (branch if greater or equal, signed)
                             if Into::<Signed::<32>>::into(value1) >= Into::<Signed::<32>>::into(value2) {
                                 should_branch = Bitvector::<1>::new(1);
                             }
                         }
                         "110" => {
-                            // branch if less than, unsigned
+                            // BLTU (branch if less than, unsigned)
                             if Into::<Unsigned::<32>>::into(value1) < Into::<Unsigned::<32>>::into(value2) {
                                 should_branch = Bitvector::<1>::new(1);
                             }
                         }
                         "111" => {
-                            // branch if greater or equal, unsigned
+                            // BGEU (branch if greater or equal, unsigned)
                             if Into::<Unsigned::<32>>::into(value1) >= Into::<Unsigned::<32>>::into(value2) {
                                 should_branch = Bitvector::<1>::new(1);
                             }
@@ -501,7 +506,8 @@ pub mod machine_module {
 
                 }
                 "11011" => {
-                    // J-type Jump and Link
+                    // J-type
+                    // JAL (Jump and Link)
 
                     // bits 12:19 in opcode encode 12:19 in immediate
                     // handle 12:15 and 16:19 separately
@@ -544,7 +550,8 @@ pub mod machine_module {
                     PC = PC - Bitvector::<32>::new(4) + Into::<Bitvector<32>>::into(Ext::<32>::ext(offset));
                 }
                 "11001" => {
-                    // I-type Jump and Link Register
+                    // I-type
+                    // JALR (Jump and Link Register)
                     let funct3 = Ext::<3>::ext(first_half_rest);
                     if funct3 != Unsigned::<3>::new(0) {
                         unimplemented!("JALR-like with unrecognised funct3");
@@ -578,8 +585,8 @@ pub mod machine_module {
                 }
                 "0q101" => {
                     // U-type
-                    // Add Upper Immediate to PC (if q = 0)
-                    // or Load Upper Immediate (if q = 1)
+                    // if q = 0, AUIPC (Add Upper Immediate to PC)
+                    // if q = 1, LUI (Load Upper Immediate)
                     let imm_second_half = Ext::<20>::ext(second_half) << Unsigned::<20>::new(4);
                     let imm = imm_second_half + Ext::<20>::ext(first_half_rest);
                     let extended_imm = Ext::<32>::ext(imm) << Unsigned::<32>::new(12);
@@ -615,9 +622,11 @@ pub mod machine_module {
                         "000" => {
 
                             if rd == Bitvector::<5>::new(0) && first_half_rest == Unsigned::<4>::new(0) && second_half == Unsigned::<16>::new(0) {
+                                // ECALL
                                 unimplemented!("Environment Call");
                             }
                             else if rd == Bitvector::<5>::new(0) && first_half_rest == Unsigned::<4>::new(0) && second_half == Unsigned::<16>::new(0x10) {
+                                // EBREAK
                                 unimplemented!("Environment Break");
                             }
                             unimplemented!("ECall/EBreak-like (funct3 = 0)");
@@ -689,7 +698,7 @@ pub mod machine_module {
 
                     }
                 }
-                _ => todo!("non-compressed instruction")
+                _ => todo!("Given non-compressed instruction")
             });
 
             State {
@@ -715,8 +724,9 @@ pub mod machine_module {
                 panic!("Illegal zero instruction");
             }
 
-            // TODO: do something
-            todo!("Compressed 00");
+            // not implemented yet: C.ADDI4SPN, C.LW, C.SW
+
+            todo!("Given instruction in compressed quadrant 0");
 
             State {
                 PC: __state.PC,
@@ -744,6 +754,8 @@ pub mod machine_module {
             let clicint = Clone::clone(&state.clicint);
             let PODR = Clone::clone(&state.PODR);
             let PDR = Clone::clone(&state.PDR);
+
+            // all C extension instructions in this quadrant (1) implemented
 
             bitmask_switch!(opcode_instr {
                 "010_i_ddddd_iiiii" => {
@@ -813,8 +825,8 @@ pub mod machine_module {
 
                 }
                 "11q_ebb_sss_ddaac" => {
-                    // Branch if Equal to Zero (q = 0)
-                    // or Branch if Not Equal to Zero (q = 1)
+                    // C.BEQZ (q = 0)
+                    // or C.BNEZ (q = 1)
 
                     let a_part = Ext::<9>::ext(Into::<Unsigned::<2>>::into(a)) << Unsigned::<9>::new(1);
                     let b_part = Ext::<9>::ext(Into::<Unsigned::<2>>::into(b)) << Unsigned::<9>::new(3);
@@ -920,7 +932,7 @@ pub mod machine_module {
                         }
                     });
                 }
-                _ => todo!("compressed 01")
+                _ => unimplemented!("Given instruction in compressed quadrant 1")
             });
 
             State {
@@ -951,12 +963,14 @@ pub mod machine_module {
             let PODR = Clone::clone(&state.PODR);
             let PDR = Clone::clone(&state.PDR);
 
+            // not implemented yet: C.LWSP, C.SWSP
+
             bitmask_switch!(funct3 {
                 "000" => {
                     // C.SLLI (if rd = 0 or imm = 0, HINT)
                     // shamt5 must be zero
                     if Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10)) == Unsigned::<1>::new(1) {
-                        unimplemented!("C.SLLI-like with non-zero shamt5");
+                        panic!("C.SLLI-like with nonzero highest shift bit not permitted in RV32C");
                     }
 
                     let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
@@ -969,14 +983,15 @@ pub mod machine_module {
                 }
 
                 "100" => {
+
                     let q = Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10));
 
                     let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
                     let rs2 = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr));
-                    // if rd != 0 and rs2 != 0: Move (q = 0) or Add (q = 1)
-                    // if rd != 0 and rs2 == 0: Jump Relative (q = 0) or Jump and Link Relative (q = 1)
+                    // if rd != 0 and rs2 != 0: C.MV (q = 0) or C.ADD (q = 1)
+                    // if rd != 0 and rs2 == 0: C.JR (q = 0) or C.JALR (q = 1)
                     // if rd == 0 and rs2 != 0: not in compressed extension
-                    // if rd == 0 and rs2 == 0: not in compressed extension (q = 0) or EBreak (q = 1)
+                    // if rd == 0 and rs2 == 0: not in compressed extension (q = 0) or C.EBREAK (q = 1)
 
                     if rs2 != Bitvector::<5>::new(0) {
                         // only a hint if rd is zero
@@ -1017,7 +1032,7 @@ pub mod machine_module {
 
 
                 }
-                _ => todo!("compressed 10")
+                _ => todo!("Given instruction in compressed quadrant 2")
             });
 
             State {
