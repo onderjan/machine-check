@@ -16,8 +16,8 @@ pub struct SystemArgs {
 }
 
 pub fn execute(exec_args: ExecArgs, system_args: SystemArgs) -> ExecResult {
-    /*let (_, system_args) = machine_check::parse_args::<SystemArgs>(args);
-    let system = elf::parse_elf(&system_args.elf_file).expect("ELF file should be parseable");
+    /*let (system, _symbols) =
+        elf::parse_elf(&system_args.elf_file).expect("ELF file should be parseable");
     let input = system::machine_module::Input {
         PIDR: machine_check::BitvectorArray::new_filled(machine_check::Bitvector::new(0)),
     };
@@ -25,13 +25,11 @@ pub fn execute(exec_args: ExecArgs, system_args: SystemArgs) -> ExecResult {
 
     let mut state = machine_check::Machine::init(&system, &input, &param);
 
-    for i in 0..1024 {
+    for i in 0..2048 {
         state = machine_check::Machine::next(&system, &state, &input, &param);
 
         eprintln!("Step {}: {:#X?}", i, state);
-    }
-
-    todo!()*/
+    }*/
 
     let builder = machine_check::ExecBuilder::new(
         |system_args: SystemArgs| -> Result<(system::R9A02G021, Symbols), anyhow::Error> {
