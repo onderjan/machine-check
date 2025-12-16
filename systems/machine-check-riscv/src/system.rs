@@ -982,8 +982,6 @@ pub mod machine_module {
             _param: &Param,
             opcode_instr: Unsigned<14>,
         ) -> State {
-            let funct3 = Ext::<3>::ext(opcode_instr >> Unsigned::<14>::new(11));
-
             let mut PC = state.PC;
             let mut reg = Clone::clone(&state.reg);
             let sram_parity = Clone::clone(&state.sram_parity);
@@ -993,29 +991,27 @@ pub mod machine_module {
 
             // not implemented yet: C.LWSP, C.SWSP
 
-            bitmask_switch!(funct3 {
-                "000" => {
-                    // C.SLLI (if rd = 0 or imm = 0, HINT)
+            bitmask_switch!(opcode_instr {
+                "000_u_ddddd_uuuuu" => {
+                    // C.SLLI (if rd = 0 or imm = 0, hint)
+
+                    let shamt: Unsigned<6> = Into::<Unsigned<6>>::into(u);
+
                     // shamt5 must be zero
-                    if Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10)) == Unsigned::<1>::new(1) {
+                    if Ext::<1>::ext(shamt >> Unsigned::<6>::new(5)) == Unsigned::<1>::new(1) {
                         panic!("C.SLLI-like with nonzero highest shift bit not permitted in RV32C");
                     }
 
-                    let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
-
-                    let shamt = Ext::<5>::ext(opcode_instr);
-
-                    if rd != Bitvector::<5>::new(0) {
-                        reg[rd] = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(reg[rd]) << Ext::<32>::ext(shamt));
+                    if d != Bitvector::<5>::new(0) {
+                        reg[d] = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(reg[d]) << Ext::<32>::ext(shamt));
                     }
                 }
 
-                "100" => {
+                "100_q_ddddd_sssss" => {
+                    // C.MV / C.ADD / C.JR / C.JALR
 
-                    let q = Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10));
-
-                    let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
-                    let rs2 = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr));
+                    let rd = d;
+                    let rs2 = s;
                     // if rd != 0 and rs2 != 0: C.MV (q = 0) or C.ADD (q = 1)
                     // if rd != 0 and rs2 == 0: C.JR (q = 0) or C.JALR (q = 1)
                     // if rd == 0 and rs2 != 0: not in compressed extension
@@ -1025,7 +1021,7 @@ pub mod machine_module {
                         // only a hint if rd is zero
                         if rd != Bitvector::<5>::new(0) {
                             // Move (q = 0) or Add (q = 1)
-                            if q == Unsigned::<1>::new(1) {
+                            if q == Bitvector::<1>::new(1) {
                                 // Add
                                 reg[rd] = reg[rd] + reg[rs2];
                             } else {
@@ -1037,7 +1033,7 @@ pub mod machine_module {
                             // rs2 == 0, rd != 0
                             // Jump Relative (q = 0) or Jump and Link Relative (q = 1)
 
-                            if q == Unsigned::<1>::new(1) {
+                            if q == Bitvector::<1>::new(1) {
                                 // link register is hard-wired to x1
                                 // write the address of the next instruction (currently in PC) to it
                                 reg[Bitvector::<5>::new(1)] = PC;
@@ -1049,7 +1045,7 @@ pub mod machine_module {
                             let jump_address = reg[rd];
                             PC = jump_address & !Bitvector::<32>::new(1);
 
-                        } else if q == Unsigned::<1>::new(1) {
+                        } else if q == Bitvector::<1>::new(1) {
                                 // rs2 == 0, rd2 == 0, q == 1
                                 panic!("Environment break");
                             } else {
@@ -1057,10 +1053,13 @@ pub mod machine_module {
                                 // reserved in compressed extension
                                 unimplemented!("Compressed JR/JALR-like");
                             }
-
-
                 }
-                _ => todo!("Given instruction in compressed quadrant 2")
+                "q10_u_ddddd_uuuuu" => {
+                    // if q = 0: C.LWSP
+                    // if q = 1: C.SWSP
+                    todo!();
+                }
+                _ => unimplemented!("Given instruction in compressed quadrant 2")
             });
 
             State {
