@@ -233,7 +233,7 @@ pub mod machine_module {
                 let bit_8_masked = value & bit_8_mask;
                 if bit_8_masked != Bitvector::<8>::new(0) {
                     panic!("Port C bit 8 should not have 1 written to it");
-                };
+                }
                 //  drop bit 8
                 let value_ext =
                     Into::<Bitvector<7>>::into(Ext::<7>::ext(Into::<Unsigned<8>>::into(value)));
@@ -244,7 +244,7 @@ pub mod machine_module {
                     DDRC = value_ext;
                 } else if io_index == Bitvector::<6>::new(0x08) {
                     PORTC = value_ext;
-                };
+                }
             } else if io_index == Bitvector::<6>::new(0x09) {
                 // instead of writing to PIND, exclusive-or PORTD
                 PORTD = PORTD ^ value;
@@ -317,7 +317,7 @@ pub mod machine_module {
                     panic!("Illegal read after data memory end");
                     // TODO: discover that panic diverges and no assignment is necessary
                     result = Bitvector::<8>::new(0);
-                };
+                }
             }
             result
         }
@@ -422,7 +422,7 @@ pub mod machine_module {
             // Z - zero flag, bit 1
             if Ru == Bitvector::<8>::new(0) {
                 result = result | Unsigned::<8>::new(0b0000_0010);
-            };
+            }
 
             // N - negative flag, bit 2
             // the sign is in bit 7 of scrutinee
@@ -469,7 +469,7 @@ pub mod machine_module {
             // Z - zero flag, bit 1
             if Ru == Bitvector::<8>::new(0) {
                 result = result | Unsigned::<8>::new(0b0000_0010);
-            };
+            }
 
             // N - negative flag, bit 2
             let flag_N = Ru7;
@@ -569,7 +569,7 @@ pub mod machine_module {
             // Z - zero flag, bit 1
             if Ru == Bitvector::<8>::new(0) {
                 result = result | Unsigned::<8>::new(0b0000_0010);
-            };
+            }
 
             // N - negative flag, bit 2
             let flag_N = Ru7;
@@ -638,7 +638,7 @@ pub mod machine_module {
             // Z - zero flag, bit 1
             if Ru == Bitvector::<8>::new(0) {
                 result = result | Unsigned::<8>::new(0b0000_0010);
-            };
+            }
 
             // N - negative flag, bit 2
             let flag_N = Ru7;
@@ -736,7 +736,7 @@ pub mod machine_module {
             // Z - zero flag, bit 1
             if Ru == Bitvector::<16>::new(0) {
                 result = result | Unsigned::<8>::new(0b0000_0010);
-            };
+            }
 
             // N - negative flag, bit 2
             let flag_N = Ru15;
@@ -777,7 +777,7 @@ pub mod machine_module {
             // Z - zero flag, bit 1
             if Ru == Bitvector::<16>::new(0) {
                 result = result | Unsigned::<8>::new(0b0000_0010);
-            };
+            }
 
             // N - negative flag, bit 2
             let flag_N = Ru15;
@@ -817,7 +817,7 @@ pub mod machine_module {
             // whether the final result is zero
             if Ru == Bitvector::<16>::new(0) {
                 result = result | Unsigned::<8>::new(0b0000_0010);
-            };
+            }
 
             Into::<Bitvector<8>>::into(result)
         }
@@ -1083,7 +1083,7 @@ pub mod machine_module {
                         PC = Self::instruction_skip(self, PC);
                     } else {
                         // they are not equal, do nothing
-                    };
+                    }
                 }
 
                 // CP
@@ -1170,7 +1170,7 @@ pub mod machine_module {
                         R[d] = Bitvector::<8>::new(0);
                     } else {
                         R[d] = R[d] ^ R[r];
-                    };
+                    }
 
                     SREG = Self::compute_status_logical(SREG, R[d]);
 
@@ -1713,14 +1713,14 @@ pub mod machine_module {
                     // stack value should be in data memory
                     if stack < Unsigned::<16>::new(0x0100) {
                         panic!("Pop with overflowed stack");
-                    };
+                    }
                     let sram_address_full = stack - Unsigned::<16>::new(0x0100);
 
                     let sram_address = Ext::<11>::ext(sram_address_full);
 
                     if Ext::<16>::ext(sram_address) != sram_address_full {
                         panic!("Pop underflows stack from data memory");
-                    };
+                    }
 
                     // load byte
                     R[d] = SRAM[Into::<Bitvector<11>>::into(sram_address)];
@@ -2011,7 +2011,7 @@ pub mod machine_module {
                     // pointing to last extended I/O is not an overflow, as the data is not written there
                     if (stack < Unsigned::<16>::new(0x0099)) | (stack_post < Unsigned::<16>::new(0x0099)) {
                         panic!("Push overflows stack from data memory to extended I/O");
-                    };
+                    }
 
                     let stack_sram_address_full = stack - Unsigned::<16>::new(0x0100);
 
@@ -2020,7 +2020,7 @@ pub mod machine_module {
 
                     if Ext::<16>::ext(stack_sram_address) != stack_sram_address_full {
                         panic!("Stack address higher than data memory on push");
-                    };
+                    }
 
                     let PC = state.PC;
                     let R = Clone::clone(&state.R);
@@ -2276,7 +2276,7 @@ pub mod machine_module {
                     // pointing to last extended I/O is not an overflow, as the data is not written there
                     if (stack < Unsigned::<16>::new(0x0099)) | (stack_post < Unsigned::<16>::new(0x0099)) {
                         panic!("Call overflows stack from data memory to extended I/O");
-                    };
+                    }
 
                     let stack_sram_address_full = stack - Unsigned::<16>::new(0x0100);
 
@@ -2286,7 +2286,7 @@ pub mod machine_module {
 
                     if Ext::<16>::ext(stack_sram_address) != stack_sram_address_full {
                         panic!("Stack address higher than data memory on call");
-                    };
+                    }
 
                     // the address after the 2-byte call instruction is loaded
                     // PC was already incremented once, increment a second time to get the return address
@@ -2330,7 +2330,7 @@ pub mod machine_module {
                     // stack should be in data memory
                     if address_pc_hi < Unsigned::<16>::new(0x0100) {
                         panic!("Return with overflowed stack");
-                    };
+                    }
                     let sram_address_pc_hi_full = address_pc_hi - Unsigned::<16>::new(0x0100);
                     let sram_address_pc_lo_full = address_pc_lo - Unsigned::<16>::new(0x0100);
 
@@ -2340,7 +2340,7 @@ pub mod machine_module {
                     if (Ext::<16>::ext(sram_address_pc_hi) != sram_address_pc_hi_full)
                     | (Ext::<16>::ext(sram_address_pc_lo) != sram_address_pc_lo_full) {
                         panic!("Return underflows stack from data memory");
-                    };
+                    }
 
                     let pc_lo = SRAM[Into::<Bitvector<11>>::into(sram_address_pc_lo)];
                     let pc_hi = SRAM[Into::<Bitvector<11>>::into(sram_address_pc_hi)];
@@ -2876,7 +2876,7 @@ pub mod machine_module {
                         // since we branched, one more cycle is taken by this instruction
                     } else {
                         // it is cleared, do nothing
-                    };
+                    }
                 }
 
                 // BRBC
@@ -2900,7 +2900,7 @@ pub mod machine_module {
                         // jump
                         PC = PC + k_ext;
                         // since we branched, one more cycle is taken by this instruction
-                    };
+                    }
                 }
 
                 // BLD
@@ -2954,7 +2954,7 @@ pub mod machine_module {
                     } else {
                         // it is cleared, skip next instruction
                         PC = Self::instruction_skip(self, PC);
-                    };
+                    }
                 }
 
                 // 1xxx part reserved
@@ -2975,7 +2975,7 @@ pub mod machine_module {
                         PC = Self::instruction_skip(self, PC);
                     } else {
                         // it is cleared, do nothing
-                    };
+                    }
                 }
 
                 // 1xxx part reserved

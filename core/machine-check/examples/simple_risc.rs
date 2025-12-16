@@ -94,7 +94,7 @@ mod machine_module {
                     if reg[r] & Bitvector::<8>::new(1)
                         == Bitvector::<8>::new(1) {
                         pc = k;
-                    };
+                    }
                 }
                 "01dd_kkkk_kkkk" => { // load immediate
                     reg[d] = k;

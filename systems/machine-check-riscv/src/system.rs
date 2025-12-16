@@ -175,7 +175,7 @@ pub mod machine_module {
                                 result = value1 - value2;
                             } else {
                                 unimplemented!("ADD/SUB-like with other funct7");
-                            };
+                            }
                         },
                         "100" => {
                             if funct7 == Unsigned::<7>::new(0) {
@@ -183,7 +183,7 @@ pub mod machine_module {
                                 result = value1 ^ value2;
                             } else {
                                 unimplemented!("XOR-like with other funct7");
-                            };
+                            }
                         }
                         "110" => {
                             if funct7 == Unsigned::<7>::new(0) {
@@ -191,7 +191,7 @@ pub mod machine_module {
                                 result = value1 | value2;
                             } else {
                                 unimplemented!("OR-like with other funct7");
-                            };
+                            }
                         }
                         "111" => {
                             if funct7 == Unsigned::<7>::new(0) {
@@ -199,7 +199,7 @@ pub mod machine_module {
                                 result = value1 & value2;
                             } else {
                                 unimplemented!("AND-like with other funct7");
-                            };
+                            }
                         }
                         "001" => {
                             if funct7 == Unsigned::<7>::new(0) {
@@ -210,7 +210,7 @@ pub mod machine_module {
                                 result = value1 << shift_amount;
                             } else {
                                 unimplemented!("SLL-like with other funct7");
-                            };
+                            }
                         }
                         "101" => {
                             // SRL/SRA
@@ -228,7 +228,7 @@ pub mod machine_module {
                                 result = Into::<Bitvector<32>>::into(Into::<Signed<32>>::into(value1) >> Into::<Signed<32>>::into(shift_amount));
                             } else {
                                 unimplemented!("SRL/SRA-like with other funct7");
-                            };
+                            }
                         }
                         _ => unimplemented!("Unrecognised R-type instruction"),
                     });
@@ -280,7 +280,7 @@ pub mod machine_module {
                                 result = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(value1) << Ext::<32>::ext(imm_lo));
                             } else {
                                 unimplemented!("SLLI-like with non-zero high immediate");
-                            };
+                            }
                         }
                         "101" => {
                             // shift right logical/arithmetical immediate
@@ -295,7 +295,7 @@ pub mod machine_module {
                                 result = Into::<Bitvector<32>>::into(Into::<Signed<32>>::into(value1) << Into::<Signed<32>>::into(Ext::<32>::ext(imm_lo)));
                             } else {
                                 unimplemented!("SRLI/SRAI-like with unrecognised high immediate");
-                            };
+                            }
                         }
                         "010" => {
                             // set less than immediate (signed)
@@ -307,7 +307,7 @@ pub mod machine_module {
                                 result = Bitvector::<32>::new(1);
                             } else {
                                 result = Bitvector::<32>::new(0);
-                            };
+                            }
                         }
                         "011" => {
                             // set less than immediate, unsigned
@@ -319,7 +319,7 @@ pub mod machine_module {
                                 result = Bitvector::<32>::new(1);
                             } else {
                                 result = Bitvector::<32>::new(0);
-                            };
+                            }
                         }
                     });
 
@@ -408,13 +408,13 @@ pub mod machine_module {
                             // branch if equal
                             if value1 == value2 {
                                 should_branch = Bitvector::<1>::new(1);
-                            };
+                            }
                         }
                         "001" => {
                             // branch if not equal
                             if value1 != value2 {
                                 should_branch = Bitvector::<1>::new(1);
-                            };
+                            }
                         }
                         "01-" => {
                             unimplemented!("Non-standard branch");
@@ -423,32 +423,32 @@ pub mod machine_module {
                             // branch if less than (signed)
                             if Into::<Signed::<32>>::into(value1) < Into::<Signed::<32>>::into(value2) {
                                 should_branch = Bitvector::<1>::new(1);
-                            };
+                            }
                         }
                         "101" => {
                             // branch if greater or equal (signed)
                             if Into::<Signed::<32>>::into(value1) >= Into::<Signed::<32>>::into(value2) {
                                 should_branch = Bitvector::<1>::new(1);
-                            };
+                            }
                         }
                         "110" => {
                             // branch if less than, unsigned
                             if Into::<Unsigned::<32>>::into(value1) < Into::<Unsigned::<32>>::into(value2) {
                                 should_branch = Bitvector::<1>::new(1);
-                            };
+                            }
                         }
                         "111" => {
                             // branch if greater or equal, unsigned
                             if Into::<Unsigned::<32>>::into(value1) >= Into::<Unsigned::<32>>::into(value2) {
                                 should_branch = Bitvector::<1>::new(1);
-                            };
+                            }
                         }
                     });
 
                     if should_branch == Bitvector::<1>::new(1) {
                         // undo pre-increment (non-compressed instruction, 4 bytes) and add immediate to PC
                        PC = PC - Bitvector::<32>::new(4) + Into::<Bitvector<32>>::into(Ext::<32>::ext(extended_imm));
-                    };
+                    }
 
                 }
                 "11011" => {
@@ -487,7 +487,7 @@ pub mod machine_module {
                         link_value = PC;
                     } else {
                         link_value = Bitvector::<32>::new(0);
-                    };
+                    }
                     reg[rd] = link_value;
 
                     // relative jump to the sum of pre-increment PC and offset
@@ -516,7 +516,7 @@ pub mod machine_module {
                         link_value = PC;
                     } else {
                         link_value = Bitvector::<32>::new(0);
-                    };
+                    }
                     reg[rd] = link_value;
 
                     let value1 = reg[rs1];
@@ -545,7 +545,7 @@ pub mod machine_module {
                     } else {
                         // just load the extended immediate
                         result = extended_imm;
-                    };
+                    }
                     if rd == Bitvector::<5>::new(0) {
                         result = Unsigned::<32>::new(0);
                     }
@@ -713,25 +713,25 @@ pub mod machine_module {
                         // branch if equal to zero
                         if value1 == Bitvector::<32>::new(0) {
                             should_branch = Bitvector::<1>::new(1);
-                        };
+                        }
                     } else {
                         // branch if not equal to zero
                         if value1 != Bitvector::<32>::new(0) {
                             should_branch = Bitvector::<1>::new(1);
-                        };
-                    };
+                        }
+                    }
 
                     if should_branch == Bitvector::<1>::new(1) {
                         // undo pre-increment and add offset to PC
                         PC = PC - Bitvector::<32>::new(2) + extended_offset;
-                    };
+                    }
                 }
                 "000_n_ddddd_nnnnn" => {
                     // C.ADDI
 
                     if n == Bitvector::<6>::new(0) {
                         unimplemented!("Reserved C.ANDI-like");
-                    };
+                    }
 
                     // sign-extend immediate
                     let extended_imm = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Signed<6>>::into(n)));
@@ -761,7 +761,7 @@ pub mod machine_module {
                     } else {
                         // C.SRLI
                         reg[rd] = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(reg[rd]) >> shift_amount);
-                    };
+                    }
                 }
                 "100_i_10_ddd_iiiii" => {
                     // C.ANDI
@@ -833,7 +833,7 @@ pub mod machine_module {
                     // shamt5 must be zero
                     if Ext::<1>::ext(opcode_instr >> Unsigned::<14>::new(10)) == Unsigned::<1>::new(1) {
                         unimplemented!("C.SLLI-like with non-zero shamt5");
-                    };
+                    }
 
                     let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(opcode_instr >> Unsigned::<14>::new(5)));
 
@@ -841,7 +841,7 @@ pub mod machine_module {
 
                     if rd != Bitvector::<5>::new(0) {
                         reg[rd] = Into::<Bitvector<32>>::into(Into::<Unsigned<32>>::into(reg[rd]) << Ext::<32>::ext(shamt));
-                    };
+                    }
                 }
 
                 "100" => {
@@ -864,8 +864,8 @@ pub mod machine_module {
                             } else {
                                 // Move
                                 reg[rd] = reg[rs2];
-                            };
-                        };
+                            }
+                        }
                     } else if rd != Bitvector::<5>::new(0) {
                             // rs2 == 0, rd != 0
                             // Jump Relative (q = 0) or Jump and Link Relative (q = 1)
@@ -889,7 +889,7 @@ pub mod machine_module {
                                 // rs2 == 0, rd2 == 0, q == 0
                                 // reserved in compressed extension
                                 unimplemented!("Compressed JR/JALR-like");
-                            };
+                            }
 
 
                 }
@@ -979,18 +979,18 @@ pub mod machine_module {
                 // halfword load, ensure alignment
                 if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
                     panic!("Non-aligned halfword load");
-                };
+                }
 
                 is_halfword_or_word_load = Bitvector::<1>::new(1);
             } else if load_bits == Unsigned::<3>::new(2) {
                 // word load, ensure alignment
                 if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
                     panic!("Non-aligned word load");
-                };
+                }
                 // not permitted to use "unsigned extension" here
                 if extend_unsigned != Unsigned::<3>::new(0) {
                     panic!("Word load with unsigned extension requested");
-                };
+                }
 
                 is_halfword_or_word_load = Bitvector::<1>::new(1);
                 is_word_load = Bitvector::<1>::new(1);
@@ -1033,7 +1033,7 @@ pub mod machine_module {
                         )));
                     load_value =
                         Self::combine_bytes_le(load_value0, load_value1, load_value2, load_value3);
-                };
+                }
             } else if address >= Unsigned::<32>::new(0x2000_4000)
                 && address < Unsigned::<32>::new(0x2000_7000)
             {
@@ -1096,10 +1096,10 @@ pub mod machine_module {
                         } else {
                             // PDR has halfword offset 1
                             load_value = Self::halfword_uext(state.PDR[port_number]);
-                        };
+                        }
                     } else {
                         todo!("PCNTR1 byte load");
-                    };
+                    }
                 } else if port_register_word == Unsigned::<32>::new(1) {
                     // PCNTR2
                     // low halfword is PIDR
@@ -1114,13 +1114,13 @@ pub mod machine_module {
                         } else {
                             // PIDR has halfword offset 1
                             load_value = Self::halfword_uext(input.PIDR[port_number]);
-                        };
+                        }
                     } else {
                         todo!("PCNTR2 byte load");
-                    };
+                    }
                 } else {
                     unimplemented!("Load of given I/O register");
-                };
+                }
             } else {
                 unimplemented!("Load at given address");
             }
@@ -1143,7 +1143,7 @@ pub mod machine_module {
                     load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
                         Into::<Signed<16>>::into(load_halfword),
                     ));
-                };
+                }
             } else {
                 // byte load
                 let load_byte = Ext::<8>::ext(Into::<Unsigned<32>>::into(load_value));
@@ -1156,7 +1156,7 @@ pub mod machine_module {
                     load_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(
                         Into::<Signed<8>>::into(load_byte),
                     ));
-                };
+                }
             }
 
             /*eprintln!("State before loading: {:#X?}", state);
@@ -1169,7 +1169,7 @@ pub mod machine_module {
             let mut reg = Clone::clone(&state.reg);
             if rd != Bitvector::<5>::new(0) {
                 reg[rd] = load_value;
-            };
+            }
 
             reg
         }
@@ -1204,14 +1204,14 @@ pub mod machine_module {
                 // halfword store, ensure alignment
                 if Ext::<1>::ext(address) != Unsigned::<1>::new(0) {
                     panic!("Non-aligned halfword store");
-                };
+                }
 
                 store_halfword_or_word = Bitvector::<1>::new(1);
             } else if funct3 == Unsigned::<3>::new(2) {
                 // word store, ensure alignment
                 if Ext::<2>::ext(address) != Unsigned::<2>::new(0) {
                     panic!("Non-aligned word store");
-                };
+                }
 
                 store_halfword_or_word = Bitvector::<1>::new(1);
                 store_word = Bitvector::<1>::new(1);
@@ -1242,7 +1242,7 @@ pub mod machine_module {
                 if store_word == Bitvector::<1>::new(1) {
                     sram_parity[relative_address + Bitvector::<14>::new(2)] = byte2;
                     sram_parity[relative_address + Bitvector::<14>::new(3)] = byte3;
-                };
+                }
             } else if address >= Unsigned::<32>::new(0xE200_1000)
                 && address < Unsigned::<32>::new(0xE200_10CC)
             {
@@ -1259,7 +1259,7 @@ pub mod machine_module {
                 if store_word == Bitvector::<1>::new(1) {
                     clicint[relative_address + Bitvector::<8>::new(2)] = byte2;
                     clicint[relative_address + Bitvector::<8>::new(3)] = byte3;
-                };
+                }
             } else if address >= Unsigned::<32>::new(0x4004_0000)
                 && address < Unsigned::<32>::new(0x4004_00A0)
             {
@@ -1292,13 +1292,13 @@ pub mod machine_module {
                         } else {
                             // PDR
                             PDR[port] = store_value;
-                        };
+                        }
                     } else {
                         todo!("Store of PNCTR1 byte");
-                    };
+                    }
                 } else {
                     unimplemented!("Store of given I/O register");
-                };
+                }
             } else {
                 todo!("Store at given address");
             }

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use syn::{
-    punctuated::Punctuated, Block, Expr, ExprAssign, ExprIf, ExprLit, ExprMacro, Lit, Pat, Stmt,
-    Token,
+    punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, ExprIf, ExprLit, ExprMacro,
+    Lit, Pat, Stmt, Token,
 };
 
 use crate::{
@@ -32,13 +32,24 @@ impl super::FunctionFolder {
 
         let mut orig_stmts = block.stmts;
 
-        let result_expr = if let Some(Stmt::Expr(_, None)) = orig_stmts.last() {
-            let result_stmt = orig_stmts.pop();
-            let Some(Stmt::Expr(result_expr, None)) = result_stmt else {
-                // this has been confirmed previously
-                panic!("Last statement should be result expression");
-            };
-            Some(result_expr)
+        let result_expr = if let Some(last_stmt) = orig_stmts.pop() {
+            if let Stmt::Expr(last_expr, None) = last_stmt {
+                if matches!(last_expr, Expr::Block(_) | Expr::If(_)) {
+                    // blocks and if conditions do not support returns now
+                    // so we can re-push it converted to statement
+                    // this avoids needing to add a semicolon if it is the last in the block
+                    let span = last_expr.span();
+                    orig_stmts.push(Stmt::Expr(last_expr, Some(Token![;](span))));
+                    None
+                } else {
+                    // is a result expression
+                    Some(last_expr)
+                }
+            } else {
+                // is not an expression, push back
+                orig_stmts.push(last_stmt);
+                None
+            }
         } else {
             None
         };
