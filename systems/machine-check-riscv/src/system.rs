@@ -197,7 +197,7 @@ pub mod machine_module {
             let mut CSR_mtvec = Clone::clone(&state.CSR_mtvec);
             let mut CSR_mtvt = Clone::clone(&state.CSR_mtvt);
 
-            // not implemented yet: SLT, SLTU
+            // R32I_Zicsr implemented
 
             bitmask_switch!(opcode {
                 "01100" => {
@@ -281,7 +281,30 @@ pub mod machine_module {
                                 unimplemented!("SRL/SRA-like with other funct7");
                             }
                         }
-                        _ => unimplemented!("Unrecognised R-type instruction"),
+                        "010" => {
+                            if funct7 == Unsigned::<7>::new(0) {
+                                // SLT (set less than)
+                                if Into::<Signed<32>>::into(value1) < Into::<Signed<32>>::into(value2) {
+                                    result = Bitvector::<32>::new(1);
+                                } else {
+                                    result = Bitvector::<32>::new(0);
+                                }
+                            } else {
+                                unimplemented!("SLT-like with other funct7");
+                            }
+                        }
+                        "011" => {
+                            if funct7 == Unsigned::<7>::new(0) {
+                                // SLTU (set less than unsigned)
+                                if Into::<Unsigned<32>>::into(value1) < Into::<Unsigned<32>>::into(value2) {
+                                    result = Bitvector::<32>::new(1);
+                                } else {
+                                    result = Bitvector::<32>::new(0);
+                                }
+                            } else {
+                                unimplemented!("SLT-like with other funct7");
+                            }
+                        }
                     });
 
                     let store;
@@ -703,7 +726,7 @@ pub mod machine_module {
                     // do nothing as we only have one hart
                     // and are not currently concerned with external devices
                 }
-                _ => todo!("Given non-compressed instruction")
+                _ => unimplemented!("Given non-compressed instruction")
             });
 
             State {
