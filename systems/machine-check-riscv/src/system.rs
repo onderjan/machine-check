@@ -1,5 +1,6 @@
 #[allow(
     clippy::needless_late_init,
+    clippy::let_and_return,
     non_snake_case,
     unreachable_code,
     unused_assignments
@@ -30,7 +31,11 @@ pub mod machine_module {
         /// Program Counter.
         PC: Bitvector<32>,
 
+        /// 32 general-purpose registers.
+        ///
+        /// Register 0 is always zero.
         reg: BitvectorArray<5, 32>,
+
         /// Onboard SRAM (Parity), 0x2000_4000..0x2000_7000
         ///
         /// this means there are 12288 bytes
@@ -63,21 +68,34 @@ pub mod machine_module {
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-    pub struct Param {}
+    pub struct Param {
+        reg: BitvectorArray<5, 32>,
+        sram_parity: BitvectorArray<14, 8>,
+    }
 
     impl ::machine_check::Machine for System {
         type Input = Input;
         type State = State;
         type Param = Param;
 
-        fn init(&self, _input: &Input, _param: &Param) -> State {
-            // TODO: correctly init registers and memory
+        fn init(&self, _input: &Input, param: &Param) -> State {
+            // the value of general-purpose registers after reset is undefined (except R0)
+            let mut reg = Clone::clone(&param.reg);
+            reg[Bitvector::<5>::new(0)] = Bitvector::<32>::new(0);
+
+            // SRAM data is undefined after power-on
+            let sram_parity = Clone::clone(&param.sram_parity);
+
+            // init CLIC interrupt registers
+            let clicint: BitvectorArray<8, 8> = Self::init_clicint();
+
             State {
+                // Program Counter starts at zero
                 PC: Bitvector::<32>::new(0),
-                reg: BitvectorArray::<5, 32>::new_filled(Bitvector::<32>::new(0)),
-                sram_parity: BitvectorArray::<14, 8>::new_filled(Bitvector::<8>::new(0xFF)),
-                clicint: BitvectorArray::<8, 8>::new_filled(Bitvector::<8>::new(0)),
-                // I/O ports
+                reg,
+                sram_parity,
+                clicint,
+                // I/O port registers PODR and PDR are zero by default
                 PODR: BitvectorArray::<3, 16>::new_filled(Bitvector::<16>::new(0)),
                 PDR: BitvectorArray::<3, 16>::new_filled(Bitvector::<16>::new(0)),
             }
@@ -89,7 +107,7 @@ pub mod machine_module {
             let first_half_1 = first_half >> Unsigned::<16>::new(2);
             let first_half_2 = Ext::<14>::ext(first_half_1);
 
-            //eprintln!("PC {:?}, first halfword: {:?}", state.PC, first_half);
+            /* eprintln!("PC {:?}, first halfword: {:?}", state.PC, first_half); */
 
             let PC = state.PC + Bitvector::<32>::new(2);
 
@@ -116,6 +134,11 @@ pub mod machine_module {
                     next_state = Self::instruction_full(self, &next_state, input, param, first_half_2);
                 },
             });
+
+            // sanity-check that reg[0] is still zero
+            if next_state.reg[Bitvector::<5>::new(0)] != Bitvector::<32>::new(0) {
+                panic!("Register 0 has been set to non-zero");
+            }
 
             next_state
         }
@@ -1366,6 +1389,75 @@ pub mod machine_module {
         fn halfword_uext(halfword: Bitvector<16>) -> Bitvector<32> {
             let halfword_placed = Ext::<32>::ext(Into::<Unsigned<16>>::into(halfword));
             Into::<Bitvector<32>>::into(halfword_placed)
+        }
+
+        fn init_clicint() -> BitvectorArray<8, 8> {
+            // CLIC registers are usually zero
+            // except for clicintattr (byte 2 of each), which is 0xC2
+            // and clicintctl (byte 3 of each), which is 0x0F
+
+            let clicint = BitvectorArray::<8, 8>::new_filled(Bitvector::<8>::new(0));
+
+            // there are 51 used CLIC registers on the chip
+            // but since we have a 64-element array, we will just init all
+            // the last ones will not be interacted with
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(0));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(1));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(2));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(3));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(4));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(5));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(6));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(7));
+
+            clicint
+        }
+
+        fn init_clicint_8(
+            clicint: BitvectorArray<8, 8>,
+            start_index: Bitvector<8>,
+        ) -> BitvectorArray<8, 8> {
+            let four: Bitvector<8> = Bitvector::<8>::new(4);
+
+            let mut clicint_a = clicint;
+
+            // CLIC registers are usually zero
+            // except for clicintattr (byte 2 of each), which is 0xC2
+            // and clicintctl (byte 3 of each), which is 0x0F
+
+            clicint_a[(start_index + Bitvector::<8>::new(0)) * four + Bitvector::<8>::new(2)] =
+                Bitvector::<8>::new(0xC2);
+            clicint_a[(start_index + Bitvector::<8>::new(1)) * four + Bitvector::<8>::new(2)] =
+                Bitvector::<8>::new(0xC2);
+            clicint_a[(start_index + Bitvector::<8>::new(2)) * four + Bitvector::<8>::new(2)] =
+                Bitvector::<8>::new(0xC2);
+            clicint_a[(start_index + Bitvector::<8>::new(3)) * four + Bitvector::<8>::new(2)] =
+                Bitvector::<8>::new(0xC2);
+            clicint_a[(start_index + Bitvector::<8>::new(4)) * four + Bitvector::<8>::new(2)] =
+                Bitvector::<8>::new(0xC2);
+            clicint_a[(start_index + Bitvector::<8>::new(5)) * four + Bitvector::<8>::new(2)] =
+                Bitvector::<8>::new(0xC2);
+            clicint_a[(start_index + Bitvector::<8>::new(6)) * four + Bitvector::<8>::new(2)] =
+                Bitvector::<8>::new(0xC2);
+            clicint_a[(start_index + Bitvector::<8>::new(7)) * four + Bitvector::<8>::new(2)] =
+                Bitvector::<8>::new(0xC2);
+
+            clicint_a[(start_index + Bitvector::<8>::new(0)) * four + Bitvector::<8>::new(3)] =
+                Bitvector::<8>::new(0x0F);
+            clicint_a[(start_index + Bitvector::<8>::new(1)) * four + Bitvector::<8>::new(3)] =
+                Bitvector::<8>::new(0x0F);
+            clicint_a[(start_index + Bitvector::<8>::new(2)) * four + Bitvector::<8>::new(3)] =
+                Bitvector::<8>::new(0x0F);
+            clicint_a[(start_index + Bitvector::<8>::new(3)) * four + Bitvector::<8>::new(3)] =
+                Bitvector::<8>::new(0x0F);
+            clicint_a[(start_index + Bitvector::<8>::new(4)) * four + Bitvector::<8>::new(3)] =
+                Bitvector::<8>::new(0x0F);
+            clicint_a[(start_index + Bitvector::<8>::new(5)) * four + Bitvector::<8>::new(3)] =
+                Bitvector::<8>::new(0x0F);
+            clicint_a[(start_index + Bitvector::<8>::new(6)) * four + Bitvector::<8>::new(3)] =
+                Bitvector::<8>::new(0x0F);
+
+            clicint_a
         }
     }
 }

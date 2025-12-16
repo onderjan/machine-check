@@ -10,13 +10,18 @@ pub fn pc_at_symbol(
 ) -> Result<TokenStream, anyhow::Error> {
     let (symbol_name, symbol, span) = extract_symbol(symbols, token_stream)?;
 
-    let Symbol::ProgramCounterAddress(address) = symbol else {
-        return Err(anyhow::anyhow!(
-            "Symbol '{}' does not have a single Program Counter address",
-            symbol_name
-        ));
+    let address = match symbol {
+        Symbol::ProgramCounterAddress(address) => *address,
+        Symbol::ProgramCounterRange(range) => range.start,
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Symbol '{}' does not have a Program Counter address",
+                symbol_name
+            ))
+        }
     };
-    let address = *address as u64;
+
+    let address = address as u64;
 
     let quoted = quote::quote_spanned! {span=>
         (PC == ::machine_check::Bitvector::<32>::new(#address))

@@ -60,13 +60,13 @@ test_property!(
     false
 );
 
-// The variable 'button_pressed' value 0 can be reached independently of inputs.
+// The variable 'button_pressed' has value 0 after init.
 //
 // Verification result should be true as the value will be set to zero during init.
 test_property!(
     basic,
-    button_pressed_always_reach_0,
-    "AF![typed_symbol!(\"button_pressed\") == 0]",
+    button_pressed_0_after_init,
+    "AG![!(pc_at_symbol!(\"main\")) || typed_symbol!(\"button_pressed\") == 0]",
     true
 );
 
@@ -84,13 +84,13 @@ test_property!(
     true
 );
 
-// The variable 'button_pressed' value 1 can be reached independently of inputs.
+// The variable 'button_pressed' value 1 can be reached independently of inputs within the main function.
 //
 // Verification result should be false as it might not ever be set to 1.
 test_property!(
     basic,
-    button_pressed_always_reach_1,
-    "AF![typed_symbol!(\"button_pressed\") == 1]",
+    button_pressed_always_reach_1_after_init,
+    "AG![!(pc_at_symbol!(\"main\")) || AF![typed_symbol!(\"button_pressed\") == 1]]",
     false
 );
 
@@ -100,29 +100,29 @@ test_property!(
 // as a consequence of an input.
 test_property!(
     basic,
-    button_pressed_exists_reach_1,
-    "EF![typed_symbol!(\"button_pressed\") == 1]",
+    button_pressed_exists_reach_1_after_init,
+    "AG![!(pc_at_symbol!(\"main\")) || EF![typed_symbol!(\"button_pressed\") == 1]]",
     true
 );
 
 // The variable 'button_pressed' should be always able to recover to value 0
-// with some sequence of inputs.
+// with some sequence of inputs while in main.
 //
 // Verification result should be true.
 test_property!(
     basic,
-    button_pressed_recovery_0,
-    "AG![EF![typed_symbol!(\"button_pressed\") == 0]]",
+    button_pressed_recovery_0_within_main,
+    "AG![!(pc_within_symbol!(\"main\")) || EF![typed_symbol!(\"button_pressed\") == 0]]",
     true
 );
 
 // The variable 'button_pressed' should be always able to recover to value 1
-// with some sequence of inputs.
+// with some sequence of inputs while in main.
 //
 // Verification result should be true.
 test_property!(
     basic,
-    button_pressed_recovery_1,
-    "AG![EF![typed_symbol!(\"button_pressed\") == 1]]",
+    button_pressed_recovery_1_within_main,
+    "AG![!(pc_within_symbol!(\"main\")) || EF![typed_symbol!(\"button_pressed\") == 1]]",
     true
 );

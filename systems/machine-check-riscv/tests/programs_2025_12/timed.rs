@@ -1,6 +1,6 @@
 // Tests of the timed example.
 //
-// The timed example is like the basic example, but with additional delay spin loop.
+// The timed example is like the timed example, but with additional delay spin loop.
 // This means verifying it is much harder as it has many more states.
 //
 // Only the properties that can be verified in reasonable time for tests
@@ -33,13 +33,13 @@ test_property!(
     false
 );
 
-// The variable 'button_pressed' value 0 can be reached independently of inputs.
+// The variable 'button_pressed' has value 0 after init.
 //
 // Verification result should be true as the value will be set to zero during init.
 test_property!(
     timed,
-    button_pressed_always_reach_0,
-    "AF![typed_symbol!(\"button_pressed\") == 0]",
+    button_pressed_0_after_init,
+    "AG![!(pc_at_symbol!(\"main\")) || typed_symbol!(\"button_pressed\") == 0]",
     true
 );
 
