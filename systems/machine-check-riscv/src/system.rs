@@ -439,13 +439,13 @@ pub mod machine_module {
                     let address = value1 + imm;
                     let store_value = reg[rs2];
 
-
                     let store_result: State = Self::store(state, address, store_value, funct3);
                     reg = Clone::clone(&store_result.reg);
                     sram_parity = Clone::clone(&store_result.sram_parity);
                     clicint = Clone::clone(&store_result.clicint);
                     PODR = Clone::clone(&store_result.PODR);
                     PDR = Clone::clone(&store_result.PDR);
+                    // store does not modify CSRs
                 }
                 "11000" => {
                     // B-type branch
@@ -978,18 +978,16 @@ pub mod machine_module {
         fn instruction_10(
             &self,
             state: &State,
-            _input: &Input,
+            input: &Input,
             _param: &Param,
             opcode_instr: Unsigned<14>,
         ) -> State {
             let mut PC = state.PC;
             let mut reg = Clone::clone(&state.reg);
-            let sram_parity = Clone::clone(&state.sram_parity);
-            let clicint = Clone::clone(&state.clicint);
-            let PODR = Clone::clone(&state.PODR);
-            let PDR = Clone::clone(&state.PDR);
-
-            // not implemented yet: C.LWSP, C.SWSP
+            let mut sram_parity = Clone::clone(&state.sram_parity);
+            let mut clicint = Clone::clone(&state.clicint);
+            let mut PODR = Clone::clone(&state.PODR);
+            let mut PDR = Clone::clone(&state.PDR);
 
             bitmask_switch!(opcode_instr {
                 "000_u_ddddd_uuuuu" => {
@@ -1051,13 +1049,69 @@ pub mod machine_module {
                             } else {
                                 // rs2 == 0, rd2 == 0, q == 0
                                 // reserved in compressed extension
-                                unimplemented!("Compressed JR/JALR-like");
+                                unimplemented!("Compressed C.JR/C.JALR-like");
                             }
                 }
-                "q10_u_ddddd_uuuuu" => {
-                    // if q = 0: C.LWSP
-                    // if q = 1: C.SWSP
-                    todo!();
+                "010_u_ddddd_uuuuu" => {
+
+                    if d != Bitvector::<5>::new(0) {
+                        // C.LWSP
+
+                        let uimm = Into::<Unsigned<6>>::into(u);
+                        // the 6 bits of immediate u correspond to 5 | 4:2 | 7:6
+                        let uimm_7_6 = Ext::<2>::ext(uimm);
+                        let uimm_4_2 = Ext::<3>::ext(uimm >> Unsigned::<6>::new(2));
+                        let uimm_5 = Ext::<3>::ext(uimm >> Unsigned::<6>::new(5));
+
+                        let uimm_7_6_placed = Ext::<32>::ext(uimm_7_6) << Unsigned::<32>::new(6);
+                        let uimm_4_2_placed = Ext::<32>::ext(uimm_4_2) << Unsigned::<32>::new(2);
+                        let uimm_5_placed = Ext::<32>::ext(uimm_5) << Unsigned::<32>::new(5);
+
+                        let offset = Into::<Bitvector::<32>>::into(uimm_7_6_placed | uimm_4_2_placed | uimm_5_placed);
+
+                        // the effective address adds the offset to the stack pointer x2
+                        let address = Into::<Unsigned::<32>>::into(reg[Bitvector::<5>::new(2)] + offset);
+
+                        // we need to load a 32-bit value (word), i.e. funct3 value 2
+                        let funct3 = Unsigned::<3>::new(2);
+
+                        reg = Self::load(self, state, input, d, address, funct3);
+                    } else {
+                        unimplemented!("Reserved C.LWSP-like");
+                    }
+                }
+                "110_u_uuuuu_sssss" => {
+                    // C.SWSP
+
+                    // the 6 bits of immediate u correspond to 5:2 | 7:6
+
+                    let uimm = Into::<Unsigned<6>>::into(u);
+                    // the 6 bits of immediate u correspond to 5 | 4:2 | 7:6
+                    let uimm_7_6 = Ext::<2>::ext(uimm);
+                    let uimm_5_2 = Ext::<4>::ext(uimm >> Unsigned::<6>::new(2));
+
+                    let uimm_7_6_placed = Ext::<32>::ext(uimm_7_6) << Unsigned::<32>::new(6);
+                    let uimm_5_2_placed = Ext::<32>::ext(uimm_5_2) << Unsigned::<32>::new(2);
+
+                    let offset = Into::<Bitvector::<32>>::into(uimm_7_6_placed | uimm_5_2_placed);
+
+                    // the effective address adds the offset to the stack pointer x2
+                        let address = Into::<Unsigned::<32>>::into(reg[Bitvector::<5>::new(2)] + offset);
+
+                    // we need to store a 32-bit value (word), i.e. funct3 value 2
+                    let funct3 = Unsigned::<3>::new(2);
+
+                    let store_value = reg[s];
+
+                    let store_result: State = Self::store(state, address, store_value, funct3);
+                    reg = Clone::clone(&store_result.reg);
+                    sram_parity = Clone::clone(&store_result.sram_parity);
+                    clicint = Clone::clone(&store_result.clicint);
+                    PODR = Clone::clone(&store_result.PODR);
+                    PDR = Clone::clone(&store_result.PDR);
+                    // store does not modify CSRs
+
+
                 }
                 _ => unimplemented!("Given instruction in compressed quadrant 2")
             });
