@@ -14,7 +14,7 @@ pub mod machine_module {
         convert::Into,
         fmt::Debug,
         hash::Hash,
-        panic, todo, unimplemented,
+        panic, unimplemented,
     };
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -197,7 +197,7 @@ pub mod machine_module {
             let mut CSR_mtvec = Clone::clone(&state.CSR_mtvec);
             let mut CSR_mtvt = Clone::clone(&state.CSR_mtvt);
 
-            // R32I_Zicsr implemented
+            // R32I_Zicsr implemented here
 
             bitmask_switch!(opcode {
                 "01100" => {
@@ -744,16 +744,17 @@ pub mod machine_module {
         fn instruction_00(
             &self,
             state: &State,
-            _input: &Input,
+            input: &Input,
             _param: &Param,
             opcode_instr: Unsigned<14>,
         ) -> State {
-            let mut PC = state.PC;
             let mut reg = Clone::clone(&state.reg);
             let mut sram_parity = Clone::clone(&state.sram_parity);
             let mut clicint = Clone::clone(&state.clicint);
             let mut PODR = Clone::clone(&state.PODR);
             let mut PDR = Clone::clone(&state.PDR);
+
+            // all C extension instructions in this quadrant (0) implemented
 
             bitmask_switch!(opcode_instr {
                 "000_u_uuuuu_uu_ddd" => {
@@ -772,7 +773,7 @@ pub mod machine_module {
                     } else {
                         // C.ADDI4SPN
 
-                        // convert the three-bit destination register to register index
+                        // convert the three-bit destination register code to register index
                         let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
 
                         // the 8 bits of immediate u correspond to 5:4 | 9:6 | 2 | 3
@@ -799,14 +800,52 @@ pub mod machine_module {
                 "q10_uuu_sss_uu_ddd" => {
                     // if q = 0: C.LW
                     // if q = 1: C.SW
-                    todo!();
+
+                    // convert the three-bit register codes to register indices
+                    let rs1 = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(s)) + Unsigned::<5>::new(8));
+                    let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
+
+                    // the 5 bits of immediate u correspond to 5:3 | 2 | 6
+                    let uimm = Into::<Unsigned<5>>::into(u);
+                    let uimm_6 = Ext::<1>::ext(uimm);
+                    let uimm_2 = Ext::<1>::ext(uimm >> Unsigned::<5>::new(1));
+                    let uimm_5_3 = Ext::<3>::ext(uimm >> Unsigned::<5>::new(2));
+
+                    let uimm_6_placed = Ext::<32>::ext(uimm_6) << Unsigned::<32>::new(6);
+                    let uimm_2_placed = Ext::<32>::ext(uimm_2) << Unsigned::<32>::new(2);
+                    let uimm_5_3_placed = Ext::<32>::ext(uimm_5_3) << Unsigned::<32>::new(3);
+
+                    let offset = Into::<Bitvector::<32>>::into(uimm_6_placed | uimm_5_3_placed | uimm_2_placed);
+
+                    // we add the offset to the base register in rs1
+                    let address = Into::<Unsigned<32>>::into(reg[rs1] + offset);
+
+                    // we need to load/store a 32-bit value (word), i.e. funct3 value 2
+                    let funct3 = Unsigned::<3>::new(2);
+
+                    if q == Bitvector::<1>::new(0) {
+                        // C.LW
+                        reg = Self::load(self, state, input, rd, address, funct3);
+                    } else {
+                        // C.SW
+                        // store the value in rd to memory
+                        let store_value = reg[rd];
+
+                        let store_result: State = Self::store(state, address, store_value, funct3);
+                        reg = Clone::clone(&store_result.reg);
+                        sram_parity = Clone::clone(&store_result.sram_parity);
+                        clicint = Clone::clone(&store_result.clicint);
+                        PODR = Clone::clone(&store_result.PODR);
+                        PDR = Clone::clone(&store_result.PDR);
+                        // store does not modify CSRs
+                    }
                 }
 
                 _ => unimplemented!("Given instruction in compressed quadrant 0")
             });
 
             State {
-                PC,
+                PC: state.PC,
                 reg,
                 sram_parity,
                 clicint,
@@ -1037,6 +1076,8 @@ pub mod machine_module {
             let mut clicint = Clone::clone(&state.clicint);
             let mut PODR = Clone::clone(&state.PODR);
             let mut PDR = Clone::clone(&state.PDR);
+
+            // all C extension instructions in this quadrant (2) implemented
 
             bitmask_switch!(opcode_instr {
                 "000_u_ddddd_uuuuu" => {
