@@ -1643,7 +1643,7 @@ dependencies = [
  "clap",
  "ihex",
  "machine-check",
- "pastey",
+ "pastey 0.1.1",
 ]
 
 [[package]]
@@ -1806,6 +1806,7 @@ dependencies = [
  "log",
  "machine-check",
  "object",
+ "pastey 0.2.1",
  "proc-macro2",
  "quote",
  "syn 2.0.108",
@@ -2231,6 +2232,12 @@ name = "pastey"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35fb2e5f958ec131621fdd531e9fc186ed768cbe395337403ae56c17a74c68ec"
+
+[[package]]
+name = "pastey"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b867cad97c0791bbd3aaa6472142568c6c9e8f71937e98379f584cfb0cf35bec"
 
 [[package]]
 name = "percent-encoding"

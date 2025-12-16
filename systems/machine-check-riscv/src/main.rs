@@ -1,3 +1,4 @@
 fn main() {
-    machine_check_riscv::execute(std::env::args());
+    let (exec_args, system_args) = machine_check::parse_args(std::env::args());
+    machine_check_riscv::execute(exec_args, system_args);
 }

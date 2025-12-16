@@ -1,5 +1,5 @@
 use clap::Args;
-use machine_check::{ExecError, ExecResult, ExecStats};
+use machine_check::{ExecArgs, ExecError, ExecResult, ExecStats};
 
 use crate::dwarf::Symbols;
 
@@ -15,7 +15,7 @@ pub struct SystemArgs {
     pub elf_file: String,
 }
 
-pub fn execute(args: impl Iterator<Item = String>) -> ExecResult {
+pub fn execute(exec_args: ExecArgs, system_args: SystemArgs) -> ExecResult {
     /*let (_, system_args) = machine_check::parse_args::<SystemArgs>(args);
     let system = elf::parse_elf(&system_args.elf_file).expect("ELF file should be parseable");
     let input = system::machine_module::Input {
@@ -46,7 +46,6 @@ pub fn execute(args: impl Iterator<Item = String>) -> ExecResult {
         .property_macro(String::from("pc_within_symbol"), macros::pc_within_symbol)
         .property_macro(String::from("typed_symbol"), macros::typed_symbol);
 
-    let (exec_args, system_args) = machine_check::parse_args(args);
     match builder.execute(exec_args, system_args) {
         Ok(ok) => ok,
         Err(err) => {
