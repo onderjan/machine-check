@@ -645,20 +645,42 @@ pub mod machine_module {
 
             bitmask_switch!(opcode_instr {
                 "010_i_ddddd_iiiii" => {
-                    // load immediate
+                    // C.LI
                     // sign-extended
                     let imm = Into::<Signed<6>>::into(i);
-                    let store;
                     if d != Bitvector::<5>::new(0) {
-                        store = Into::<Bitvector<32>>::into(Ext::<32>::ext(imm));
-                    } else {
-                        store = Bitvector::<32>::new(0);
+                        reg[d] = Into::<Bitvector<32>>::into(Ext::<32>::ext(imm));
                     }
-                    reg[d] = store;
+                }
+                "011_i_ddddd_iiiii" => {
+                    if i == Bitvector::<6>::new(0) {
+                        // this part is reserved
+                        unimplemented!("Reserved C.LUI-like");
+                    }
+
+                    if d == Bitvector::<5>::new(2) {
+                        // C.ADDI16SP
+                        // add sign-extended immediate scaled to represent multiples of 16 (2 to the power of 4)
+                        let lower_imm = Ext::<10>::ext(Into::<Unsigned<6>>::into(i)) << Unsigned::<10>::new(4);
+                        let imm = Ext::<32>::ext(Into::<Signed<10>>::into(lower_imm));
+
+                        reg[d] = Into::<Bitvector<32>>::into(imm);
+                    } else if d != Bitvector::<5>::new(0) {
+                        // C.LUI
+                        // the immediate corresponds to bits 17:12
+                        // lower bits are cleared and the upper sign-extended
+
+                        let lower_imm = Ext::<17>::ext(Into::<Unsigned<6>>::into(i)) << Unsigned::<17>::new(12);
+                        let imm = Ext::<32>::ext(Into::<Signed<17>>::into(lower_imm));
+
+                        reg[d] = Into::<Bitvector<32>>::into(imm);
+                    } else {
+                        // hint, do nothing
+                    }
                 }
                 "q01_h_bffgd_eaaac" => {
-                    // Jump and Link (q = 0)
-                    // or Jump (q = 1)
+                    // C.JAL (q = 0)
+                    // or C.J (q = 1)
 
                     // according to the spec, indexing imm (opcode_instr) from 1,
                     // the offset is specified by 11|4|9:8|10|6|7|3:1|5
@@ -727,25 +749,23 @@ pub mod machine_module {
                     }
                 }
                 "000_n_ddddd_nnnnn" => {
-                    // C.ADDI
+                    // C.NOP (n == 0) or C.ADDI (n != 0)
 
-                    if n == Bitvector::<6>::new(0) {
-                        unimplemented!("Reserved C.ANDI-like");
+                    if n != Bitvector::<6>::new(0) {
+                        // sign-extend immediate
+                        let extended_imm = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Signed<6>>::into(n)));
+
+                        let result;
+
+                        if d != Bitvector::<5>::new(0) {
+                            result = reg[d] + extended_imm;
+                        } else {
+                            // hint
+                            result = Bitvector::<32>::new(0);
+                        }
+
+                        reg[d] = result;
                     }
-
-                    // sign-extend immediate
-                    let extended_imm = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Signed<6>>::into(n)));
-
-                    let result;
-
-                    if d != Bitvector::<5>::new(0) {
-                        result = reg[d] + extended_imm;
-                    } else {
-                        // hint
-                        result = Bitvector::<32>::new(0);
-                    }
-
-                    reg[d] = result;
                 }
                 "100_0_0a_ddd_uuuuu" => {
                     // C.SRLI (a = 0) or C.SRAI (a = 1)
