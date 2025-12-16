@@ -197,7 +197,7 @@ pub mod machine_module {
             let mut CSR_mtvec = Clone::clone(&state.CSR_mtvec);
             let mut CSR_mtvt = Clone::clone(&state.CSR_mtvt);
 
-            // not implemented yet: SLT, SLTU, FENCE, FENCE.TSO, PAUSE
+            // not implemented yet: SLT, SLTU
 
             bitmask_switch!(opcode {
                 "01100" => {
@@ -697,6 +697,11 @@ pub mod machine_module {
                         }
 
                     }
+                }
+                "00011" => {
+                    // FENCE / FENCE.TSO / PAUSE
+                    // do nothing as we only have one hart
+                    // and are not currently concerned with external devices
                 }
                 _ => todo!("Given non-compressed instruction")
             });
