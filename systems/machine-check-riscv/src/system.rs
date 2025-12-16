@@ -59,6 +59,16 @@ pub mod machine_module {
         /// 5 ports, each with a maximum of 16 pins, halfwords 0x4004_0002 + 0x0020 * m
         /// 0 = input (default), 1 = output
         PDR: BitvectorArray<3, 16>,
+
+        // Control and Status Register: Machine trap-handler base address.
+        //
+        // Traps are not supported, only implemented to pass initialisation.
+        CSR_mtvec: Bitvector<32>,
+
+        // Control and Status Register: Machine trap-handler vector table base address.
+        //
+        // Traps are not supported, only implemented to pass initialisation.
+        CSR_mtvt: Bitvector<32>,
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -69,8 +79,9 @@ pub mod machine_module {
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Param {
-        reg: BitvectorArray<5, 32>,
-        sram_parity: BitvectorArray<14, 8>,
+        pub reg: BitvectorArray<5, 32>,
+        pub sram_parity: BitvectorArray<14, 8>,
+        pub CSR_mtvec_base: Bitvector<26>,
     }
 
     impl ::machine_check::Machine for System {
@@ -89,6 +100,15 @@ pub mod machine_module {
             // init CLIC interrupt registers
             let clicint: BitvectorArray<8, 8> = Self::init_clicint();
 
+            // mtvec has initially base address (31:6) undefined and mode (5:0) set to 2
+            let CSR_mtvec = Into::<Bitvector<32>>::into(
+                Ext::<32>::ext(Into::<Unsigned<26>>::into(param.CSR_mtvec_base))
+                    << Unsigned::<32>::new(6),
+            ) | Bitvector::<32>::new(0x02);
+
+            // mtvt is initially zero
+            let CSR_mtvt = Bitvector::<32>::new(0);
+
             State {
                 // Program Counter starts at zero
                 PC: Bitvector::<32>::new(0),
@@ -98,6 +118,8 @@ pub mod machine_module {
                 // I/O port registers PODR and PDR are zero by default
                 PODR: BitvectorArray::<3, 16>::new_filled(Bitvector::<16>::new(0)),
                 PDR: BitvectorArray::<3, 16>::new_filled(Bitvector::<16>::new(0)),
+                CSR_mtvec,
+                CSR_mtvt,
             }
         }
 
@@ -118,6 +140,8 @@ pub mod machine_module {
                 clicint: Clone::clone(&state.clicint),
                 PODR: Clone::clone(&state.PODR),
                 PDR: Clone::clone(&state.PDR),
+                CSR_mtvec: Clone::clone(&state.CSR_mtvec),
+                CSR_mtvt: Clone::clone(&state.CSR_mtvt),
             };
 
             bitmask_switch!(opcode_low {
@@ -170,6 +194,8 @@ pub mod machine_module {
             let mut clicint = Clone::clone(&state.clicint);
             let mut PODR = Clone::clone(&state.PODR);
             let mut PDR = Clone::clone(&state.PDR);
+            let mut CSR_mtvec = Clone::clone(&state.CSR_mtvec);
+            let mut CSR_mtvt = Clone::clone(&state.CSR_mtvt);
 
             bitmask_switch!(opcode {
                 "01100" => {
@@ -578,7 +604,12 @@ pub mod machine_module {
                 "11100" => {
                     let funct3 = Ext::<3>::ext(first_half_rest);
 
-                    // TODO: make CSR manipulation do something, currently UNSOUND
+                    let mut csr_rw = Bitvector::<1>::new(0);
+                    let mut csr_rs = Bitvector::<1>::new(0);
+                    let mut csr_rc = Bitvector::<1>::new(0);
+                    let mut csr_write_value = Bitvector::<32>::new(0);
+
+                    let rs1: Bitvector<5> = Self::extract_rs1(first_half_rest, second_half);
 
                     bitmask_switch!(funct3 {
                         "000" => {
@@ -593,26 +624,70 @@ pub mod machine_module {
                         }
                         "001" => {
                             // CSRRW
+                            csr_rw = Bitvector::<1>::new(1);
+                            csr_write_value = reg[rs1];
                         }
                         "010" => {
                             // CSRRS
+                            csr_rs = Bitvector::<1>::new(1);
+                            csr_write_value = reg[rs1];
                         }
                         "011" => {
                             // CSRRC
+                            csr_rc = Bitvector::<1>::new(1);
+                            csr_write_value = reg[rs1];
                         }
                         "100" => {
                             unimplemented!("ECall/EBreak-like (funct3 = 4)");
                         }
                         "101" => {
                             // CSRRWI
+                            csr_rw = Bitvector::<1>::new(1);
+                            // the value is zero-extended content of 19:15
+                            csr_write_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<5>>::into(rs1)));
                         }
                         "110" => {
                             // CSRRSI
+                            csr_rs = Bitvector::<1>::new(1);
+                            // the value is zero-extended content of 19:15
+                            csr_write_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<5>>::into(rs1)));
                         }
                         "111" => {
                             // CSRRCI
+                            csr_rc = Bitvector::<1>::new(1);
+                            // the value is zero-extended content of 19:15
+                            csr_write_value = Into::<Bitvector<32>>::into(Ext::<32>::ext(Into::<Unsigned::<5>>::into(rs1)));
                         }
                     });
+
+                    if csr_rw == Bitvector::<1>::new(1) || csr_rs == Bitvector::<1>::new(1) || csr_rc == Bitvector::<1>::new(1) {
+                        // we should read the CSR and store it into rd
+                        // then write / set / reset bits in the CSR value
+
+                        // the CSR specifier is located at 31:20
+                        let csr_specifier = Ext::<12>::ext(second_half >> Unsigned::<16>::new(4));
+
+                        if csr_specifier == Unsigned::<12>::new(0x305) {
+                            // mtvec
+                            if rd != Bitvector::<5>::new(0) {
+                                reg[rd] = CSR_mtvec;
+                            }
+                            CSR_mtvec = Self::csr_write_value(csr_rs, csr_rc, CSR_mtvec, csr_write_value);
+
+                        } else if csr_specifier == Unsigned::<12>::new(0x307) {
+                            // mtvt
+
+                            if rd != Bitvector::<5>::new(0) {
+                                reg[rd] = CSR_mtvt;
+                            }
+                            // bits 5:0 are not writable
+                            let write_value = Self::csr_write_value( csr_rs, csr_rc, CSR_mtvt, csr_write_value);
+                            CSR_mtvt = write_value & Bitvector::<32>::new(0xFFFFFC0);
+                        } else {
+                            unimplemented!("Control Status Register given");
+                        }
+
+                    }
                 }
                 _ => todo!("non-compressed instruction")
             });
@@ -624,6 +699,8 @@ pub mod machine_module {
                 clicint,
                 PODR,
                 PDR,
+                CSR_mtvec,
+                CSR_mtvt,
             }
         }
 
@@ -648,6 +725,8 @@ pub mod machine_module {
                 clicint: Clone::clone(&__state.clicint),
                 PODR: Clone::clone(&__state.PODR),
                 PDR: Clone::clone(&__state.PDR),
+                CSR_mtvec: Clone::clone(&__state.CSR_mtvec),
+                CSR_mtvt: Clone::clone(&__state.CSR_mtvt),
             }
         }
 
@@ -851,6 +930,8 @@ pub mod machine_module {
                 clicint,
                 PODR,
                 PDR,
+                CSR_mtvec: Clone::clone(&state.CSR_mtvec),
+                CSR_mtvt: Clone::clone(&state.CSR_mtvt),
             }
         }
 
@@ -946,6 +1027,8 @@ pub mod machine_module {
                 clicint,
                 PODR,
                 PDR,
+                CSR_mtvec: Clone::clone(&state.CSR_mtvec),
+                CSR_mtvt: Clone::clone(&state.CSR_mtvt),
             }
         }
 
@@ -1353,6 +1436,8 @@ pub mod machine_module {
                 clicint,
                 PODR,
                 PDR,
+                CSR_mtvec: Clone::clone(&state.CSR_mtvec),
+                CSR_mtvt: Clone::clone(&state.CSR_mtvt),
             }
         }
 
@@ -1402,13 +1487,13 @@ pub mod machine_module {
             // but since we have a 64-element array, we will just init all
             // the last ones will not be interacted with
             let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(0));
-            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(1));
-            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(2));
-            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(3));
-            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(4));
-            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(5));
-            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(6));
-            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(7));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(8));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(16));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(24));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(32));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(40));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(48));
+            let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(56));
 
             clicint
         }
@@ -1456,8 +1541,30 @@ pub mod machine_module {
                 Bitvector::<8>::new(0x0F);
             clicint_a[(start_index + Bitvector::<8>::new(6)) * four + Bitvector::<8>::new(3)] =
                 Bitvector::<8>::new(0x0F);
+            clicint_a[(start_index + Bitvector::<8>::new(7)) * four + Bitvector::<8>::new(3)] =
+                Bitvector::<8>::new(0x0F);
 
             clicint_a
+        }
+
+        fn csr_write_value(
+            csr_rs: Bitvector<1>,
+            csr_rc: Bitvector<1>,
+            read_value: Bitvector<32>,
+            write_value: Bitvector<32>,
+        ) -> Bitvector<32> {
+            let result;
+            if csr_rs == Bitvector::<1>::new(1) {
+                // take the read_value and set the bits that are set in write_value
+                result = read_value | write_value;
+            } else if csr_rc == Bitvector::<1>::new(1) {
+                // take the read_value and clear the bits that are set in write_value
+                result = read_value & !write_value;
+            } else {
+                // normal write
+                result = write_value;
+            }
+            result
         }
     }
 }
