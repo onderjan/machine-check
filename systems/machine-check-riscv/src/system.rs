@@ -743,28 +743,77 @@ pub mod machine_module {
 
         fn instruction_00(
             &self,
-            __state: &State,
+            state: &State,
             _input: &Input,
             _param: &Param,
             opcode_instr: Unsigned<14>,
         ) -> State {
-            if opcode_instr == Unsigned::<14>::new(0) {
-                panic!("Illegal zero instruction");
-            }
+            let mut PC = state.PC;
+            let mut reg = Clone::clone(&state.reg);
+            let mut sram_parity = Clone::clone(&state.sram_parity);
+            let mut clicint = Clone::clone(&state.clicint);
+            let mut PODR = Clone::clone(&state.PODR);
+            let mut PDR = Clone::clone(&state.PDR);
 
-            // not implemented yet: C.ADDI4SPN, C.LW, C.SW
+            bitmask_switch!(opcode_instr {
+                "000_u_uuuuu_uu_ddd" => {
+                    if d == Bitvector::<3>::new(0) {
+                        if u != Bitvector::<8>::new(0) {
+                        // reserved in RV32C
+                        unimplemented!("Given instruction");
+                    } else {
+                        // all zeroes
+                        panic!("Illegal zero instruction");
+                    }
 
-            todo!("Given instruction in compressed quadrant 0");
+                    } else if u == Bitvector::<8>::new(0) {
+                            // reserved in RV32C
+                            unimplemented!("Given instruction");
+                    } else {
+                        // C.ADDI4SPN
+
+                        // convert the three-bit destination register to register index
+                        let rd = Into::<Bitvector::<5>>::into(Ext::<5>::ext(Into::<Unsigned<3>>::into(d)) + Unsigned::<5>::new(8));
+
+                        // the 8 bits of immediate u correspond to 5:4 | 9:6 | 2 | 3
+                        let uimm = Into::<Unsigned<8>>::into(u);
+                        let uimm_3 = Ext::<1>::ext(uimm);
+                        let uimm_2 = Ext::<1>::ext(uimm >> Unsigned::<8>::new(1));
+                        let uimm_9_6 = Ext::<4>::ext(uimm >> Unsigned::<8>::new(2));
+                        let uimm_5_4 = Ext::<2>::ext(uimm >> Unsigned::<8>::new(6));
+
+                        let uimm_3_placed = Ext::<32>::ext(uimm_3) << Unsigned::<32>::new(3);
+                        let uimm_2_placed = Ext::<32>::ext(uimm_2) << Unsigned::<32>::new(2);
+                        let uimm_9_6_placed = Ext::<32>::ext(uimm_9_6) << Unsigned::<32>::new(6);
+                        let uimm_5_4_placed = Ext::<32>::ext(uimm_5_4) << Unsigned::<32>::new(4);
+
+                        let offset = Into::<Bitvector::<32>>::into(uimm_9_6_placed | uimm_5_4_placed | uimm_3_placed | uimm_2_placed);
+
+                        // we add the offset to the stack pointer x2
+                        let result = reg[Bitvector::<5>::new(2)] + offset;
+
+                        // and write the result to the destination register
+                        reg[rd] = result;
+                    }
+                }
+                "q10_uuu_sss_uu_ddd" => {
+                    // if q = 0: C.LW
+                    // if q = 1: C.SW
+                    todo!();
+                }
+
+                _ => unimplemented!("Given instruction in compressed quadrant 0")
+            });
 
             State {
-                PC: __state.PC,
-                reg: Clone::clone(&__state.reg),
-                sram_parity: Clone::clone(&__state.sram_parity),
-                clicint: Clone::clone(&__state.clicint),
-                PODR: Clone::clone(&__state.PODR),
-                PDR: Clone::clone(&__state.PDR),
-                CSR_mtvec: Clone::clone(&__state.CSR_mtvec),
-                CSR_mtvt: Clone::clone(&__state.CSR_mtvt),
+                PC,
+                reg,
+                sram_parity,
+                clicint,
+                PODR,
+                PDR,
+                CSR_mtvec: Clone::clone(&state.CSR_mtvec),
+                CSR_mtvt: Clone::clone(&state.CSR_mtvt),
             }
         }
 
@@ -1084,9 +1133,7 @@ pub mod machine_module {
                     // C.SWSP
 
                     // the 6 bits of immediate u correspond to 5:2 | 7:6
-
                     let uimm = Into::<Unsigned<6>>::into(u);
-                    // the 6 bits of immediate u correspond to 5 | 4:2 | 7:6
                     let uimm_7_6 = Ext::<2>::ext(uimm);
                     let uimm_5_2 = Ext::<4>::ext(uimm >> Unsigned::<6>::new(2));
 
