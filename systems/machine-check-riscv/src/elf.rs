@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use machine_check::{Bitvector, BitvectorArray};
 use object::{
     read::elf::{ElfFile32, ProgramHeader},
@@ -6,7 +8,10 @@ use object::{
 
 use super::dwarf;
 
-use crate::system::R9A02G021;
+use crate::{
+    dwarf::{Symbol, Symbols},
+    system::R9A02G021,
+};
 
 pub fn parse_elf(path: &str) -> anyhow::Result<(R9A02G021, dwarf::Symbols)> {
     // zero is guaranteed-illegal instruction
@@ -27,8 +32,6 @@ pub fn parse_elf(path: &str) -> anyhow::Result<(R9A02G021, dwarf::Symbols)> {
     let elf_file = ElfFile32::<LittleEndian>::parse(&*elf_bytes)?;
 
     for program_header in elf_file.elf_program_headers() {
-        eprintln!("{:?}", program_header);
-
         let header_type = program_header.p_type.get(LittleEndian);
 
         if header_type != 0x01 {
@@ -45,11 +48,7 @@ pub fn parse_elf(path: &str) -> anyhow::Result<(R9A02G021, dwarf::Symbols)> {
 
         match address {
             0x0000_0000..0x0002_0000 => {
-                eprintln!(
-                    "Loading program flash {:#X?}..{:#X?}",
-                    address,
-                    address + size
-                );
+                // load into program flash
 
                 let mut data_iter = data.iter().copied();
 
@@ -108,10 +107,20 @@ pub fn parse_elf(path: &str) -> anyhow::Result<(R9A02G021, dwarf::Symbols)> {
         }
     }
 
-    let symbols = dwarf::load_symbols(&elf_file)?;
+    let symbols = Symbols::from_elf_file(&elf_file)?;
 
-    eprintln!("Program flash: {:#X?}", program_flash);
-    eprintln!("Initial SRAM: {:#X?}", initial_sram_parity);
+    if log::log_enabled!(log::Level::Debug) {
+        // sort alphabetically and filter out unusable symbols
+        let mut usable = BTreeMap::new();
+
+        for (name, symbol) in symbols.inner().iter() {
+            if !matches!(symbol, Symbol::Unresolved | Symbol::Multiple) {
+                usable.insert(name, symbol);
+            }
+        }
+
+        log::debug!("Usable symbols: {:#X?}", usable);
+    }
 
     let system = R9A02G021 {
         program_flash,

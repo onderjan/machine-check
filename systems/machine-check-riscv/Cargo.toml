@@ -32,6 +32,8 @@ gimli = { version = "0.32.3", default-features = false, features = [
 
 clap = { version = "4.4.6", features = ["derive"] }
 
+log = "0.4.20"
+
 
 [lints.clippy]
 uninlined_format_args = "allow"

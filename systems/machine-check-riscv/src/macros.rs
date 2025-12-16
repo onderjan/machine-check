@@ -2,7 +2,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote_spanned, ToTokens};
 use syn::{spanned::Spanned, Expr, ExprBinary, LitStr, Token};
 
-use crate::dwarf::{Symbol, Symbols};
+use crate::dwarf::{Symbol, Symbols, TypedSymbol};
 
 pub fn pc_at_symbol(
     symbols: &Symbols,
@@ -31,18 +31,18 @@ pub fn pc_within_symbol(
 ) -> Result<TokenStream, anyhow::Error> {
     let (symbol_name, symbol, span) = extract_symbol(symbols, token_stream)?;
 
-    let Symbol::ProgramCounterRange(lo, above_hi) = symbol else {
+    let Symbol::ProgramCounterRange(range) = symbol else {
         return Err(anyhow::anyhow!(
             "Symbol '{}' does not have a single Program Counter address range",
             symbol_name
         ));
     };
-    let lo = *lo as u64;
-    let above_hi = *above_hi as u64;
+    let start = range.start as u64;
+    let end = range.end as u64;
 
     let quoted = quote::quote_spanned! {span=>
-            ::std::convert::Into::<::machine_check::Unsigned<32>>::into(PC) >= ::machine_check::Unsigned::<32>::new(#lo)
-            && ::std::convert::Into::<::machine_check::Unsigned<32>>::into(PC) < ::machine_check::Unsigned::<32>::new(#above_hi)
+            ::std::convert::Into::<::machine_check::Unsigned<32>>::into(PC) >= ::machine_check::Unsigned::<32>::new(#start)
+            && ::std::convert::Into::<::machine_check::Unsigned<32>>::into(PC) < ::machine_check::Unsigned::<32>::new(#end)
     };
 
     Ok(quoted.into_token_stream())
@@ -54,7 +54,7 @@ pub fn typed_symbol(
 ) -> Result<TokenStream, anyhow::Error> {
     let (symbol_name, symbol, span) = extract_symbol(symbols, token_stream)?;
 
-    let Symbol::Typed(address, byte_size) = symbol else {
+    let Symbol::Typed(TypedSymbol { address, byte_size }) = symbol else {
         return Err(anyhow::anyhow!("Symbol '{}' is not typed", symbol_name));
     };
 
@@ -122,8 +122,6 @@ pub fn typed_symbol(
         ::std::convert::Into::<::machine_check::Bitvector<#bit_size>>::into(#result_expr)
     };
 
-    //eprintln!("Typed symbol expression: {}", result);
-
     Ok(result)
 }
 
@@ -150,8 +148,8 @@ pub fn extract_symbol(
             "Symbol '{}' found multiple times",
             symbol_name
         )),
-        Symbol::Typed(_, _)
-        | Symbol::ProgramCounterAddress(_)
-        | Symbol::ProgramCounterRange(_, _) => Ok((symbol_name, symbol, span)),
+        Symbol::Typed(_) | Symbol::ProgramCounterAddress(_) | Symbol::ProgramCounterRange(_) => {
+            Ok((symbol_name, symbol, span))
+        }
     }
 }

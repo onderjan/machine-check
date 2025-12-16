@@ -1803,6 +1803,7 @@ dependencies = [
  "anyhow",
  "clap",
  "gimli",
+ "log",
  "machine-check",
  "object",
  "proc-macro2",
