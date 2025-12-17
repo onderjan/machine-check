@@ -94,21 +94,21 @@ pub use ::machine_check_macros::bitmask_switch;
 ///
 pub use ::machine_check_macros::machine_description;
 
-/// Executes machine-check with system environment arguments.
+/// Executes **machine-check** with system environment arguments.
 ///
 /// Is supposed to be used for simple systems that do not take arguments.
 ///
-/// The system must implement [`Machine`]. The system structures and [`Input`], [`State`], and [`Machine`]
-/// implementations must be enclosed within the [`machine_description`] macro, which processes them to enable
-/// fast and efficient formal verification.
+/// The system must implement [`Machine`]. The system structures and [`Machine`]
+/// implementation must be enclosed within the [`machine_description`] macro,
+/// which processes them to enable fast and efficient formal verification.
 pub fn run<M: FullMachine>(system: M) -> ExecResult {
     let parsed_args = <ExecArgs as clap::Parser>::parse_from(std::env::args());
     execute(system, parsed_args)
 }
 
-/// Parses machine-check and user-defined arguments.
+/// Parses both **machine-check** and user-defined arguments.
 ///
-/// Returns arguments parsed to `machine-check` and system-specific argument definitions.
+/// Returns arguments parsed to **machine-check** and system-specific argument definitions.
 /// The arguments can be later used in [`execute`].
 pub fn parse_args<A: clap::Args>(args: impl Iterator<Item = String>) -> (ExecArgs, A) {
     let parsed_args = <ProgramArgs<A> as clap::Parser>::parse_from(args);
