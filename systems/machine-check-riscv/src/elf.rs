@@ -10,10 +10,10 @@ use super::dwarf;
 
 use crate::{
     dwarf::{Symbol, Symbols},
-    system::R9A02G021,
+    system::System,
 };
 
-pub fn parse_elf(path: &str) -> anyhow::Result<(R9A02G021, dwarf::Symbols)> {
+pub fn parse_elf(path: &str) -> anyhow::Result<(System, dwarf::Symbols)> {
     // zero is guaranteed-illegal instruction
     let halfword_zero = Bitvector::<16>::new(0);
     let byte_zero = Bitvector::<8>::new(0);
@@ -122,7 +122,7 @@ pub fn parse_elf(path: &str) -> anyhow::Result<(R9A02G021, dwarf::Symbols)> {
         log::debug!("Usable symbols: {:#X?}", usable);
     }
 
-    let system = R9A02G021 {
+    let system = System {
         program_flash,
         initial_sram_parity,
     };

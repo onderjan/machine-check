@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use clap::Args;
 use machine_check::{ExecArgs, ExecError, ExecResult, ExecStats};
 
@@ -8,6 +10,7 @@ mod elf;
 mod macros;
 mod system;
 
+/// Arguments used to instantiate the system.
 #[derive(Args)]
 pub struct SystemArgs {
     /// The machine-code program in an ELF file.
@@ -15,6 +18,7 @@ pub struct SystemArgs {
     pub elf_file: String,
 }
 
+/// Instantiates the system and executes **machine-check**.
 pub fn execute(exec_args: ExecArgs, system_args: SystemArgs) -> ExecResult {
     /*let (system, _symbols) =
         elf::parse_elf(&system_args.elf_file).expect("ELF file should be parseable");
@@ -36,7 +40,7 @@ pub fn execute(exec_args: ExecArgs, system_args: SystemArgs) -> ExecResult {
     }*/
 
     let builder = machine_check::ExecBuilder::new(
-        |system_args: SystemArgs| -> Result<(system::R9A02G021, Symbols), anyhow::Error> {
+        |system_args: SystemArgs| -> Result<(system::System, Symbols), anyhow::Error> {
             let (system, symbols) = elf::parse_elf(&system_args.elf_file)?;
 
             Ok((system, symbols))

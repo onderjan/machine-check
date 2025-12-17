@@ -1753,4 +1753,4 @@ pub mod machine_module {
     }
 }
 
-pub use machine_module::System as R9A02G021;
+pub use machine_module::System;
