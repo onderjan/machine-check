@@ -116,13 +116,25 @@ pub enum Signedness {
 }
 
 /// Type of function that computes a property macro result.
+///
+/// The function is called with a reference to custom input data
+/// and the token stream it is called with. It should return a token stream
+/// it will be replaced with or alternatively an error.
+///
+/// For example, a macro with name `example` can be called within properties
+/// as `example!(example_data)`. The input token stream will then contain `example_data`.
+/// The macro can then return `example_result` and will be replaced by this result
+/// before further processing. Alternatively, it can return an error, which will result
+/// in property verification failure.
 pub type PropertyMacroFn<D> = fn(&D, TokenStream) -> Result<TokenStream, anyhow::Error>;
 
+#[doc(hidden)]
 pub struct PropertyMacros<D> {
     pub macros: HashMap<String, PropertyMacroFn<D>>,
     pub data: D,
 }
 
+#[doc(hidden)]
 impl PropertyMacros<()> {
     pub fn empty() -> Self {
         Self {
