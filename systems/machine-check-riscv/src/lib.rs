@@ -3,8 +3,6 @@
 use clap::Args;
 use machine_check::{ExecArgs, ExecError, ExecResult, ExecStats};
 
-use crate::dwarf::Symbols;
-
 mod dwarf;
 mod elf;
 mod macros;
@@ -20,8 +18,37 @@ pub struct SystemArgs {
 
 /// Instantiates the system and executes **machine-check**.
 pub fn execute(exec_args: ExecArgs, system_args: SystemArgs) -> ExecResult {
-    /*let (system, _symbols) =
-        elf::parse_elf(&system_args.elf_file).expect("ELF file should be parseable");
+    // create the builder
+    let builder = machine_check::ExecBuilder::new(|system_args: SystemArgs| {
+        // just parse the elf file
+        elf::parse_elf(&system_args.elf_file)
+    });
+
+    // add property macros
+    let builder = builder
+        .property_macro(String::from("pc_at_symbol"), macros::pc_at_symbol)
+        .property_macro(String::from("pc_within_symbol"), macros::pc_within_symbol)
+        .property_macro(String::from("typed_symbol"), macros::typed_symbol);
+
+    // execute machine-check
+    match builder.execute(exec_args, system_args) {
+        Ok(ok) => ok,
+        Err(err) => {
+            let err = err.to_string();
+            eprintln!("{}", err);
+            ExecResult {
+                result: Err(ExecError::OtherError(err)),
+                stats: ExecStats::default(),
+            }
+        }
+    }
+}
+
+/// Simulates the system with parameters and inputs set to zero.
+/// Useful for debugging the system during implementation.
+#[allow(dead_code)]
+fn simulate(elf_file: &str, num_steps: usize) {
+    let (system, _symbols) = elf::parse_elf(elf_file).expect("ELF file should be parseable");
     let input = system::machine_module::Input {
         PIDR: machine_check::BitvectorArray::new_filled(machine_check::Bitvector::new(0)),
     };
@@ -33,34 +60,9 @@ pub fn execute(exec_args: ExecArgs, system_args: SystemArgs) -> ExecResult {
 
     let mut state = machine_check::Machine::init(&system, &input, &param);
 
-    for i in 0..2048 {
+    for i in 0..num_steps {
         state = machine_check::Machine::next(&system, &state, &input, &param);
 
         eprintln!("Step {}: {:#X?}", i, state);
-    }*/
-
-    let builder = machine_check::ExecBuilder::new(
-        |system_args: SystemArgs| -> Result<(system::System, Symbols), anyhow::Error> {
-            let (system, symbols) = elf::parse_elf(&system_args.elf_file)?;
-
-            Ok((system, symbols))
-        },
-    );
-
-    let builder = builder
-        .property_macro(String::from("pc_at_symbol"), macros::pc_at_symbol)
-        .property_macro(String::from("pc_within_symbol"), macros::pc_within_symbol)
-        .property_macro(String::from("typed_symbol"), macros::typed_symbol);
-
-    match builder.execute(exec_args, system_args) {
-        Ok(ok) => ok,
-        Err(err) => {
-            let err = err.to_string();
-            eprintln!("{}", err);
-            ExecResult {
-                result: Err(ExecError::OtherError(err)),
-                stats: ExecStats::default(),
-            }
-        }
     }
 }
