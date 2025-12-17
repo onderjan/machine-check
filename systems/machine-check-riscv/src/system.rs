@@ -74,7 +74,6 @@ pub mod machine_module {
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {
         pub program_flash: BitvectorArray<16, 16>,
-        pub initial_sram_parity: BitvectorArray<14, 8>,
     }
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]

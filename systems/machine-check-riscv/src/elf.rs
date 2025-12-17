@@ -13,21 +13,17 @@ use crate::{
     system::System,
 };
 
+/// Parses an ELF file and returns the system and usable symbols.
 pub fn parse_elf(path: &str) -> anyhow::Result<(System, dwarf::Symbols)> {
     // zero is guaranteed-illegal instruction
     let halfword_zero = Bitvector::<16>::new(0);
-    let byte_zero = Bitvector::<8>::new(0);
 
     // program flash
-    // 0x0000_0000..0x0002_0000 (17 bits,
+    // 0x0000_0000..0x0002_0000 (17 bits)
     // store in 16-bit elements to account for compressed instructions (16-bit index)
     let mut program_flash = BitvectorArray::<16, 16>::new_filled(halfword_zero);
 
-    // SRAM (parity)
-    let mut initial_sram_parity = BitvectorArray::<14, 8>::new_filled(byte_zero);
-
-    // get from program headers
-
+    // load the program flash from program headers
     let elf_bytes = std::fs::read(path)?;
     let elf_file = ElfFile32::<LittleEndian>::parse(&*elf_bytes)?;
 
@@ -54,6 +50,7 @@ pub fn parse_elf(path: &str) -> anyhow::Result<(System, dwarf::Symbols)> {
 
                 let mut address = address;
 
+                // handle non-aligned first byte
                 if address % 2 == 1 {
                     if let Some(byte) = data_iter.next() {
                         // first byte, it will be high byte
@@ -65,8 +62,10 @@ pub fn parse_elf(path: &str) -> anyhow::Result<(System, dwarf::Symbols)> {
                     }
                 }
 
+                // handle the rest
                 for value in data.chunks(2) {
                     if value.len() == 2 {
+                        // full halfword, replace it
                         let halfword = u16::from_le_bytes(value.try_into()?);
                         program_flash[Bitvector::new((address / 2) as u64)] =
                             Bitvector::new(halfword as u64);
@@ -83,19 +82,14 @@ pub fn parse_elf(path: &str) -> anyhow::Result<(System, dwarf::Symbols)> {
                 }
             }
             0x0101_0008..0x0101_0034 => {
-                // TODO: handle option-setting memory
+                // the option-setting memory cannot be read or written to
+                // within the system, do not load
             }
             0x2000_0000..0x2000_1000 => {
-                panic!("Cannot copy into ECC SRAM")
+                // ECC SRAM, not persistent, do not load
             }
             0x2000_4000..0x2000_7000 => {
-                let mut relative_address = (address - 0x2000_4000) as u64;
-
-                for value in data.iter().cloned() {
-                    initial_sram_parity[Bitvector::new(relative_address)] =
-                        Bitvector::new(value as u64);
-                    relative_address += 1;
-                }
+                // parity SRAM, not persistent, do not load
             }
             _ => {
                 unimplemented!(
@@ -107,9 +101,11 @@ pub fn parse_elf(path: &str) -> anyhow::Result<(System, dwarf::Symbols)> {
         }
     }
 
+    // load the symbols
     let symbols = Symbols::from_elf_file(&elf_file)?;
 
     if log::log_enabled!(log::Level::Debug) {
+        // debug-log the symbols
         // sort alphabetically and filter out unusable symbols
         let mut usable = BTreeMap::new();
 
@@ -122,10 +118,7 @@ pub fn parse_elf(path: &str) -> anyhow::Result<(System, dwarf::Symbols)> {
         log::debug!("Usable symbols: {:#X?}", usable);
     }
 
-    let system = System {
-        program_flash,
-        initial_sram_parity,
-    };
+    let system = System { program_flash };
 
     Ok((system, symbols))
 }

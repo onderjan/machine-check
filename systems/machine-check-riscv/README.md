@@ -36,6 +36,8 @@ variable `example_variable` of `uint32_t` type, the macro
 
 A verification error will be produced if the symbol was not parsed as the correct kind.
 
+Usable symbols will be printed when debug prints are enabled (`-v` flag).
+
 ## Known system inaccuracies
 
 - Currently, the system is proof-of-concept, with many possibilities for bugs.
