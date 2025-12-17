@@ -36,5 +36,5 @@ $ machine-check-hw verify ./beads.btor2 --property 'AG![safe == 1]'
 [2025-06-15T17:12:54Z INFO  machine_check_hw::verify] Reached conclusion: true
 ```
 
-For more examples, [read the **machine-check** book](https://book.machine-check.org/0.7.0/) and the [chapter on **machine-check-hw**](https://book.machine-check.org/0.7.0/systems/machine-check-hw.html).
+For more examples, [read the **machine-check** book](https://book.machine-check.org/0.7.1-alpha.1/) and the [chapter on **machine-check-hw**](https://book.machine-check.org/0.7.1-alpha.1/systems/machine-check-hw.html).
 
