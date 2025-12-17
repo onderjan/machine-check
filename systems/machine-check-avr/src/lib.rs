@@ -4,15 +4,8 @@ mod system;
 mod util;
 
 use clap::Args;
-use machine_check::Bitvector;
-use machine_check::BitvectorArray;
-use machine_check::ExecArgs;
-use machine_check::ExecError;
-use machine_check::ExecResult;
-use machine_check::ExecStats;
-pub use system::machine_module::ATmega328P;
-pub use system::machine_module::Input;
-pub use system::machine_module::State;
+use machine_check::{Bitvector, BitvectorArray, ExecArgs, ExecError, ExecResult, ExecStats};
+pub use system::machine_module::{ATmega328P, Input, Param, State};
 
 pub use util::read_hex_into_progmem;
 
@@ -50,6 +43,7 @@ pub fn execute_with_args(exec_args: ExecArgs, system_args: SystemArgs) -> ExecRe
     machine_check::execute(system, exec_args)
 }
 
+// Arguments for system construction.
 #[derive(Args)]
 pub struct SystemArgs {
     /// The machine-code program in an Intel Hex file.

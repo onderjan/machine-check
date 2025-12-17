@@ -34,6 +34,7 @@ pub mod machine_module {
         pub PIND: Bitvector<8>,
     }
 
+    /// ATmega328P system parameters.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Param {}
 
