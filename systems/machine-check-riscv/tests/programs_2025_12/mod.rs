@@ -58,4 +58,4 @@ macro_rules! test_property {
 
 mod basic;
 mod choice;
-mod timed;
+mod wait;

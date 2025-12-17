@@ -1,3 +1,12 @@
+// A basic RISC-V program example for use with Renesas FPB-R9A02G021.
+//
+// We manipulate the port 1 in the following fashion. 
+// Pin 0 and 7 (which control LEDs on the board) are set to output. 
+// Then, in a loop, the outputs for LEDs are manipulated so that 
+// the pin 0 LED is lit (logic high) whether the button is pressed 
+// (pin 8 logic low) and pin 7 LED toggles on each iteration.
+
+
 // Whether the button has been pressed.
 volatile unsigned short button_pressed;
 

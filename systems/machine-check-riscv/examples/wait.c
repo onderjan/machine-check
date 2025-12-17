@@ -1,3 +1,10 @@
+// A busy-wating example for use with Renesas FPB-R9A02G021.
+//
+// Unlike the basic example, a busy-waiting (spinning) loop is 
+// added so that the pin 7 toggling is perceivable as blinking
+// and not dimming through phase-width modulation. This increases
+// the amount of states dramatically.
+
 // Whether the button has been pressed.
 volatile unsigned short button_pressed;
 

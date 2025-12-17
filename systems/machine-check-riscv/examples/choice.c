@@ -1,3 +1,13 @@
+// A branching-choice example for use with Renesas FPB-R9A02G021.
+//
+// Unlike the basic example, the button chooses exactly one
+// of the user LEDs to be lit within the loop. The choice is
+// stored in the new 'output' volatile variable for further
+// inspection.
+//
+// The condition tends to produce a branch without optimisation.
+
+
 // Whether the button has been pressed.
 volatile unsigned short button_pressed;
 
