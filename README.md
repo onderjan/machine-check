@@ -23,7 +23,7 @@ analogues to the code it is applied to. You can then run **machine-check** from 
 constructing the system and providing it to the function [`run`].
 
 A very simple example of a system verifiable by **machine-check** is 
-[counter](https://docs.rs/crate/machine-check/0.7.1-alpha.1/source/examples/counter.rs), 
+[counter](https://docs.rs/crate/machine-check/0.7.1/source/examples/counter.rs), 
 a simple [finite-state machine](https://en.wikipedia.org/wiki/Finite-state_machine) which contains 
 an eight-bit state field `value`, which is initialized to zero and then is incremented in each step exactly
 if the single-bit input `increment` is set (1). If the value reaches 157, it is immediately zeroed. 
@@ -38,12 +38,12 @@ $ cargo new my-example --bin
     (...)
 $ cd my-example
 ```
-Copy the source code of [counter](https://docs.rs/crate/machine-check/0.7.1-alpha.1/source/examples/counter.rs) 
+Copy the source code of [counter](https://docs.rs/crate/machine-check/0.7.1/source/examples/counter.rs) 
 to `src/main.rs` and add **machine-check** as a dependency to `Cargo.toml`:
 
 ```toml
 [dependencies]
-machine-check = "0.7.1-alpha.1"
+machine-check = "0.7.1"
 ```
 
 We can then verify that the counter is lesser than 157 in every reachable system state, 
@@ -115,11 +115,12 @@ and verification power. There may (and probably will be) some bugs or design ove
 Bug reports to the [repository](https://github.com/onderjan/machine-check) are very welcome.
 
 ## Minimum Supported Rust Version
-The Minimum Supported Rust Version for **machine-check** `0.7.1-alpha.1` is `1.88`.
+The Minimum Supported Rust Version for **machine-check** `0.7.1` is `1.88`.
 This can be raised to any stable Rust version in a minor release.
 The MSRV will not be raised in a patch release.
 
 ## Changelog
+ - '0.7.1': Minor improvements, new RISC-V system crate.
  - `0.7.0`: Improved properties and experimental equality domain.
  - `0.6.1`: Bugfixes for propositional μ-calculus.
  - `0.6.0`: Support for parametric systems, properties extended to support 
