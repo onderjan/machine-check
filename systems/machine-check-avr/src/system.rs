@@ -15,12 +15,6 @@ pub mod machine_module {
     /// ATmega328P system input.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
-        // --- Uninitialized Registers and Memory ---
-        /// Uninitialized general-purpose working registers.
-        pub uninit_R: BitvectorArray<5, 8>,
-        /// Uninitialized SRAM.
-        pub uninit_SRAM: BitvectorArray<11, 8>,
-
         // --- General Purpose I/O ---
         /// I/O address 0x3: pin read.
         pub PINB: Bitvector<8>,
@@ -36,7 +30,13 @@ pub mod machine_module {
 
     /// ATmega328P system parameters.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-    pub struct Param {}
+    pub struct Param {
+        // --- Uninitialized Registers and Memory ---
+        /// Uninitialized general-purpose working registers.
+        pub uninit_R: BitvectorArray<5, 8>,
+        /// Uninitialized SRAM.
+        pub uninit_SRAM: BitvectorArray<11, 8>,
+    }
 
     /// ATmega328P system state.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -3010,14 +3010,14 @@ pub mod machine_module {
         type Param = Param;
         type State = State;
 
-        fn init(&self, input: &Input, _param: &Param) -> State {
+        fn init(&self, _input: &Input, param: &Param) -> State {
             // --- Program Counter ---
             // initialized to 0 after reset
             let PC = Bitvector::<14>::new(0);
 
             // --- General Purpose Registers ---
             // uninitialized after reset
-            let R = Clone::clone(&input.uninit_R);
+            let R = Clone::clone(&param.uninit_R);
 
             // --- I/O Registers ---
 
@@ -3051,7 +3051,7 @@ pub mod machine_module {
             let SREG = Bitvector::<8>::new(0x00);
 
             // --- SRAM ---
-            let SRAM = Clone::clone(&input.uninit_SRAM);
+            let SRAM = Clone::clone(&param.uninit_SRAM);
 
             // --- EEPROM ---
             // EEPROM is unchangeable as SPM is not supported
