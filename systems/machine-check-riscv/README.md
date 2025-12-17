@@ -12,8 +12,8 @@ Note that both **machine-check** and this crate are currently in developmental p
 ## Usage
 
 In addition to common **machine-check** executable arguments,
-the executable takes a flag specifying path to an ELF format file 
-containing the program code: `--system-elf-file abc.elf` (or just `-E abc.hex`).
+the executable takes a flag specifying path to a file in a little-endian ELF format  
+that contains the program code: `--system-elf-file abc.elf` (or just `-E abc.hex`).
 
 ## Custom macros
 
