@@ -41,7 +41,7 @@ Usable symbols will be printed when debug prints are enabled (`-v` flag).
 ## Known system inaccuracies
 
 - Currently, the system is proof-of-concept, with many possibilities for bugs.
-- RV32IC is implemented but other extensions supported by R9A02G021 are not.
+- RV32IC_Zicsr is implemented but other extensions supported by R9A02G021 are not.
 - Only a very small subset of general-purpose I/O, Control Status Registers
     and other registers is supported.
 

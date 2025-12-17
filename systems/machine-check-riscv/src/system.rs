@@ -17,6 +17,7 @@ pub mod machine_module {
         panic, unimplemented,
     };
 
+    /// System input.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct Input {
         /// Pmn Input Data
@@ -26,6 +27,7 @@ pub mod machine_module {
         pub PIDR: BitvectorArray<3, 16>,
     }
 
+    /// System state.
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct State {
         /// Program Counter.
@@ -73,6 +75,9 @@ pub mod machine_module {
 
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     pub struct System {
+        /// Program flash, 0x0000_0000..0x0002_0000
+        ///
+        /// here stored as little-endian halfwords
         pub program_flash: BitvectorArray<16, 16>,
     }
 
@@ -97,7 +102,7 @@ pub mod machine_module {
             let sram_parity = Clone::clone(&param.sram_parity);
 
             // init CLIC interrupt registers
-            let clicint: BitvectorArray<8, 8> = Self::init_clicint();
+            let clicint: BitvectorArray<8, 8> = Self::initial_clicint();
 
             // mtvec has initially base address (31:6) undefined and mode (5:0) set to 2
             let CSR_mtvec = Into::<Bitvector<32>>::into(
@@ -123,13 +128,13 @@ pub mod machine_module {
         }
 
         fn next(&self, state: &State, input: &Input, param: &Param) -> State {
+            // fetch first instruction halfword
             let first_half: Unsigned<16> = Self::pc_halfword(self, state.PC);
             let opcode_low = Ext::<2>::ext(first_half);
             let first_half_1 = first_half >> Unsigned::<16>::new(2);
             let first_half_2 = Ext::<14>::ext(first_half_1);
 
-            /* eprintln!("PC {:?}, first halfword: {:?}", state.PC, first_half); */
-
+            // move PC past the first halfword
             let PC = state.PC + Bitvector::<32>::new(2);
 
             let mut next_state = State {
@@ -143,17 +148,22 @@ pub mod machine_module {
                 CSR_mtvt: Clone::clone(&state.CSR_mtvt),
             };
 
+            // perform instruction according to quadrant
             bitmask_switch!(opcode_low {
                 "00" => {
+                    // compressed quadrant 0
                     next_state = Self::instruction_00(self, &next_state, input, param, first_half_2);
                 }
                 "01" =>  {
+                    // compressed quadrant 1
                     next_state = Self::instruction_01(self, &next_state, input, param, first_half_2);
                 }
                 "10" => {
+                    // compressed quadrant 2
                     next_state = Self::instruction_10(self, &next_state, input, param, first_half_2);
                 }
                 "11" => {
+                    // non-compressed 32-bit instruction
                     next_state = Self::instruction_full(self, &next_state, input, param, first_half_2);
                 },
             });
@@ -179,8 +189,6 @@ pub mod machine_module {
             // fetch the upper half of instruction word
             let second_half: Unsigned<16> = Self::pc_halfword(self, state.PC);
             let mut PC = state.PC + Bitvector::<32>::new(2);
-
-            //eprintln!("Second half: {:?}", second_half);
 
             let opcode = Ext::<5>::ext(first_half_noncomp);
             let rd = Into::<Bitvector<5>>::into(Ext::<5>::ext(
@@ -1228,7 +1236,6 @@ pub mod machine_module {
             }
 
             // for halfwords, drop the lowest bit
-
             let halfword_pc =
                 Ext::<16>::ext(Into::<Unsigned<32>>::into(PC) >> Unsigned::<32>::new(1));
 
@@ -1468,12 +1475,6 @@ pub mod machine_module {
                 }
             }
 
-            /*eprintln!("State before loading: {:#X?}", state);
-            eprintln!(
-                "Loaded from address {:#X?}: {:#X?} (new PC: {:#X?})",
-                address, load_value, state.PC
-            );*/
-
             // load the value into the register if it is nonzero
             let mut reg = Clone::clone(&state.reg);
             if rd != Bitvector::<5>::new(0) {
@@ -1525,11 +1526,6 @@ pub mod machine_module {
                 store_halfword_or_word = Bitvector::<1>::new(1);
                 store_word = Bitvector::<1>::new(1);
             }
-
-            /*eprintln!(
-                "Storing to address {:#X?}: {:#X?} (halfword: {:?}, word: {:?}, new PC: {:#X?})",
-                address, store_value, store_halfword_or_word, store_word, state.PC
-            );*/
 
             let mut sram_parity = Clone::clone(&state.sram_parity);
             let mut clicint = Clone::clone(&state.clicint);
@@ -1659,7 +1655,7 @@ pub mod machine_module {
             Into::<Bitvector<32>>::into(halfword_placed)
         }
 
-        fn init_clicint() -> BitvectorArray<8, 8> {
+        fn initial_clicint() -> BitvectorArray<8, 8> {
             // CLIC registers are usually zero
             // except for clicintattr (byte 2 of each), which is 0xC2
             // and clicintctl (byte 3 of each), which is 0x0F
@@ -1669,6 +1665,9 @@ pub mod machine_module {
             // there are 51 used CLIC registers on the chip
             // but since we have a 64-element array, we will just init all
             // the last ones will not be interacted with
+
+            // since machine-check does not support loops currently,
+            // just call an 8-element init function 8 times
             let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(0));
             let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(8));
             let clicint = Self::init_clicint_8(clicint, Bitvector::<8>::new(16));
