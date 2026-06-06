@@ -1,4 +1,5 @@
 use proc_macro2::Span;
+use std::fmt::Debug;
 use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
@@ -22,17 +23,39 @@ pub struct WImplItemType {
     pub right_path: WPath,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct WSignature<Y: YStage> {
     pub ident: WIdent,
     pub inputs: Vec<WFnArg<Y::InputType>>,
     pub output: Y::OutputType,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct WFnArg<IT: IntoSyn<Type>> {
     pub ident: WIdent,
     pub ty: IT,
+}
+
+impl<Y: YStage> Debug for WSignature<Y> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}(", self.ident)?;
+        let mut first = true;
+        for input in &self.inputs {
+            if first {
+                first = false
+            } else {
+                write!(f, ", ")?;
+            }
+            Debug::fmt(&input, f)?;
+        }
+        write!(f, ") -> {:?}", self.output)
+    }
+}
+
+impl<IT: IntoSyn<Type> + Debug> Debug for WFnArg<IT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}: {:?}", self.ident, self.ty)
+    }
 }
 
 #[derive(Clone, Debug, Hash)]

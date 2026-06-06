@@ -53,7 +53,7 @@ impl YStage for YTotal {
     type ItemImplTrait = WItemImplTrait;
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct YSsa;
 
 impl YStage for YSsa {
