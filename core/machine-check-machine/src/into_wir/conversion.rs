@@ -6,3 +6,4 @@ pub mod convert_types;
 pub mod expand_macros;
 pub mod infer_types;
 pub mod resolve_use;
+pub mod typecheck;

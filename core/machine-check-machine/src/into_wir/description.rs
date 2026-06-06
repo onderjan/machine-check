@@ -6,7 +6,7 @@ use crate::{
     into_wir::{
         conversion::{
             convert_indexing, convert_to_ssa, convert_total, convert_types, expand_macros,
-            infer_types, resolve_use,
+            infer_types, resolve_use, typecheck,
         },
         from_syn, Error, Errors,
     },
@@ -31,6 +31,9 @@ pub fn description_from_syn(
     let w_description = convert_indexing::convert_description(w_description);
     let (w_description, panic_messages) = convert_total::convert_description(w_description);
     let w_description = convert_to_ssa::convert_description(w_description)?;
+
+    // TODO: integrate new typechecking
+    typecheck::typecheck(w_description.clone());
     let w_description = infer_types::infer_description(w_description)?;
     let w_description = convert_types::convert_description(w_description)?;
 
