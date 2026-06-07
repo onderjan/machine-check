@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use indexmap::IndexMap;
-use proc_macro2::Span;
 
 use crate::wir::{WBasicType, WDescription, WIdent, WItemStruct, WSignature, YSsa};
 

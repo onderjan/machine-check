@@ -1,3 +1,4 @@
+mod attribute_disallower;
 mod item;
 mod item_fn;
 mod path;

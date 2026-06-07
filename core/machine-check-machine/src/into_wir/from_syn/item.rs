@@ -5,7 +5,7 @@ use syn::{
 };
 
 use crate::{
-    into_wir::{conversion::attribute_disallower::AttributeDisallower, Error, ErrorType, Errors},
+    into_wir::{from_syn::attribute_disallower::AttributeDisallower, Error, ErrorType, Errors},
     util::path_matches_global_names,
     wir::{
         WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPath,

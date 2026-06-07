@@ -1,4 +1,3 @@
-pub mod attribute_disallower;
 pub mod convert_indexing;
 pub mod convert_to_ssa;
 pub mod convert_total;
