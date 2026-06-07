@@ -28,7 +28,7 @@ use crate::{
 
 use super::FunctionFolder;
 
-impl super::FunctionFolder {
+impl super::FunctionFolder<'_> {
     pub fn fold_right_expr(
         &mut self,
         expr: Expr,
@@ -41,10 +41,10 @@ impl super::FunctionFolder {
         .fold_right_expr(expr)
     }
 
-    pub fn force_right_expr_to_ident<'a>(
-        &'a mut self,
+    pub fn force_right_expr_to_ident(
+        &mut self,
         expr: Expr,
-        stmts: &'a mut Vec<WMacroableStmt<ZTac>>,
+        stmts: &mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<WIdent, Error> {
         {
             RightExprFolder {
@@ -56,12 +56,12 @@ impl super::FunctionFolder {
     }
 }
 
-struct RightExprFolder<'a> {
-    fn_folder: &'a mut FunctionFolder,
-    stmts: &'a mut Vec<WMacroableStmt<ZTac>>,
+struct RightExprFolder<'a, 'b, 'c> {
+    fn_folder: &'a mut FunctionFolder<'b>,
+    stmts: &'c mut Vec<WMacroableStmt<ZTac>>,
 }
 
-impl RightExprFolder<'_> {
+impl RightExprFolder<'_, '_, '_> {
     pub fn fold_right_expr(&mut self, expr: Expr) -> Result<WIndexedExpr<WExprHighCall>, Error> {
         Ok(match expr {
             Expr::Call(expr_call) => {

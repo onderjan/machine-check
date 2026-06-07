@@ -15,7 +15,7 @@ use crate::{
         Error, ErrorType, Errors,
     },
     support::ident_creator::IdentCreator,
-    wir::{WFnArg, WIdent, WItemFn, WPath, WSignature, WSpan, WTacLocal, WTypeId, YTac},
+    wir::{WContext, WFnArg, WIdent, WItemFn, WPath, WSignature, WSpan, WTacLocal, WTypeId, YTac},
 };
 
 use super::path::fold_path;
@@ -23,8 +23,9 @@ use super::path::fold_path;
 mod expr;
 mod stmt;
 
-pub fn fold_item_fn(item_fn: ItemFn) -> Result<WItemFn<YTac>, Errors> {
+pub fn fold_item_fn(ctx: &mut WContext, item_fn: ItemFn) -> Result<WItemFn<YTac>, Errors> {
     FunctionFolder {
+        ctx,
         self_ty: None,
         ident_creator: IdentCreator::new(String::from("")),
         scopes: Vec::new(),
@@ -35,6 +36,7 @@ pub fn fold_item_fn(item_fn: ItemFn) -> Result<WItemFn<YTac>, Errors> {
 }
 
 pub fn fold_impl_item_fn(
+    ctx: &mut WContext,
     impl_item_fn: ImplItemFn,
     self_ty: &WPath,
 ) -> Result<WItemFn<YTac>, Errors> {
@@ -53,6 +55,7 @@ pub fn fold_impl_item_fn(
     };
 
     let item_fn = FunctionFolder {
+        ctx,
         self_ty: Some(self_ty.clone()),
         ident_creator: IdentCreator::new(String::from("")),
         scopes: Vec::new(),
@@ -68,7 +71,8 @@ struct FunctionScope {
     local_map: HashMap<WIdent, WIdent>,
 }
 
-struct FunctionFolder {
+struct FunctionFolder<'a> {
+    ctx: &'a mut WContext,
     self_ty: Option<WPath>,
     ident_creator: IdentCreator,
     local_types: BTreeMap<WIdent, WTypeId>,
@@ -76,7 +80,7 @@ struct FunctionFolder {
     next_scope_id: u32,
 }
 
-impl FunctionFolder {
+impl FunctionFolder<'_> {
     pub fn fold(mut self, mut impl_item: ItemFn) -> Result<WItemFn<YTac>, Errors> {
         let impl_item_span = WSpan::from_syn(&impl_item);
 
@@ -199,7 +203,9 @@ impl FunctionFolder {
                     signature_span,
                 )))
             }
-            syn::ReturnType::Type(_rarrow, ty) => fold_type(*ty, self.self_ty.as_ref()),
+            syn::ReturnType::Type(_rarrow, ty) => {
+                fold_type(&mut self.ctx, *ty, self.self_ty.as_ref())
+            }
         }
         .map_err(Errors::single);
 
@@ -278,7 +284,7 @@ impl FunctionFolder {
 
                 let original_ident = WIdent::from_syn_ident(pat_ident.ident);
                 let pat_ty = pat_type.ty.clone();
-                let ty = fold_type(*pat_type.ty, self.self_ty.as_ref())?;
+                let ty = fold_type(&mut self.ctx, *pat_type.ty, self.self_ty.as_ref())?;
 
                 let ty = todo!("Typed function arg");
                 /*let ty = if let Some(basic_type) = ty.inner.try_total() {

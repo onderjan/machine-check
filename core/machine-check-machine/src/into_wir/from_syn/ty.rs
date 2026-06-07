@@ -6,10 +6,14 @@ use syn::{Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
     into_wir::{from_syn::path::fold_path, Error, ErrorType},
-    wir::{WPath, WSpan, WTypeId},
+    wir::{WContext, WPath, WSpan, WTypeId},
 };
 
-pub fn fold_type(mut ty: Type, self_ty: Option<&WPath>) -> Result<WTypeId, Error> {
+pub fn fold_type(
+    ctx: &mut WContext,
+    mut ty: Type,
+    self_ty: Option<&WPath>,
+) -> Result<WTypeId, Error> {
     todo!("Fold type")
     /*let reference = match ty {
         Type::Reference(type_reference) => {

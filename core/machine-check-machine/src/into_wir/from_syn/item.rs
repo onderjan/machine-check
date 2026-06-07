@@ -8,14 +8,17 @@ use crate::{
     into_wir::{from_syn::attribute_disallower::AttributeDisallower, Error, ErrorType, Errors},
     util::path_matches_global_names,
     wir::{
-        WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPath, WSpan,
-        WTypeId, WVisibility, YTac,
+        WContext, WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPath,
+        WSpan, WTypeId, WVisibility, YTac,
     },
 };
 
 use super::{item_fn::fold_impl_item_fn, path::fold_path};
 
-pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WTypeId>, Errors> {
+pub fn fold_item_struct(
+    ctx: &mut WContext,
+    mut item: ItemStruct,
+) -> Result<WItemStruct<WTypeId>, Errors> {
     let item_span = WSpan::from_syn(&item);
     if item.generics != Generics::default() {
         return Err(Errors::single(Error::unsupported_syn_construct(
@@ -118,29 +121,17 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WTypeId>, Er
 
         let visibility = fold_visibility(field.vis)?;
         let ident = WIdent::from_syn_ident(field_ident);
-        let field_ty = field.ty.clone();
-        let field = todo!("Fold struct field");
-        /*
-        let field = match fold_basic_type(field.ty, Some(&self_path)) {
-            Ok(ty) => {
-                if let Some(ty) = ty.try_total() {
-                    Ok(WField {
-                        visibility,
-                        ident,
-                        ty,
-                    })
-                } else {
-                    Err(Error::new(
-                        ErrorType::IllegalConstruct(String::from(
-                            "Field with partially specified type",
-                        )),
-                        WSpan::from_syn(&field_ty),
-                    ))
-                }
-            }
-            Err(err) => Err(err),
+        let field = match ctx.get_noninferred_type(&field.ty) {
+            Ok(type_id) => Ok(WField {
+                visibility,
+                ident,
+                ty: type_id,
+            }),
+            Err(_) => Err(Error::new(
+                ErrorType::IllegalConstruct(String::from("Field with partially specified type")),
+                WSpan::from_syn(&field.ty),
+            )),
         };
-        */
 
         fields.push(field);
     }
@@ -155,7 +146,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WTypeId>, Er
     })
 }
 
-pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
+pub fn fold_item_impl(ctx: &mut WContext, item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
     if item.defaultness.is_some() {
         return Err(Errors::single(Error::unsupported_syn_construct(
             "Defaultness",
@@ -223,7 +214,7 @@ pub fn fold_item_impl(item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
                 None
             }
             ImplItem::Fn(impl_item) => {
-                impl_item_fns.push(fold_impl_item_fn(impl_item, &self_ty));
+                impl_item_fns.push(fold_impl_item_fn(ctx, impl_item, &self_ty));
                 None
             }
             ImplItem::Const(_) => Some("Associated consts"),

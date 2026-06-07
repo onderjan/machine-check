@@ -17,7 +17,7 @@ use crate::{
     },
 };
 
-impl super::FunctionFolder {
+impl<'a> super::FunctionFolder<'a> {
     pub fn fold_block(&mut self, block: Block) -> Result<(WBlock<ZTac>, Option<WIdent>), Errors> {
         // push a local scope
         let scope_id = self.next_scope_id;
@@ -224,10 +224,10 @@ impl super::FunctionFolder {
         Ok(())
     }
 
-    fn fold_if(
+    fn fold_if<'b>(
         &mut self,
         expr: ExprIf,
-        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
+        result_stmts: &'b mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<(), Errors> {
         let condition = self.force_right_expr_to_ident(*expr.cond, result_stmts)?;
 

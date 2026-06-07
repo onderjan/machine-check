@@ -4,14 +4,15 @@ use syn::Item;
 
 use crate::{
     into_wir::{
+        conversion::{expand_macros, resolve_use},
+        from_syn,
         /*conversion::{
             convert_indexing, convert_to_ssa, convert_total, convert_types, ,
             infer_types, resolve_use, typecheck,
         },*/
-        conversion::{expand_macros, resolve_use},
-        from_syn, Error, Errors,
+        Error, Errors,
     },
-    wir::{WDescription, YConverted, YTac},
+    wir::{WContext, WDescription, YConverted, YTac},
 };
 
 pub fn description_from_syn(
@@ -43,13 +44,14 @@ pub fn description_from_syn(
 }
 
 fn tac_from_items(item_iter: impl Iterator<Item = Item>) -> Result<WDescription<YTac>, Errors> {
+    let mut ctx = WContext::new();
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     let mut errors = Vec::new();
     for item in item_iter {
         match item {
-            Item::Struct(item) => structs.push(from_syn::fold_item_struct(item)),
-            Item::Impl(item) => impls.push(from_syn::fold_item_impl(item)),
+            Item::Struct(item) => structs.push(from_syn::fold_item_struct(&mut ctx, item)),
+            Item::Impl(item) => impls.push(from_syn::fold_item_impl(&mut ctx, item)),
             _ => errors.push(Error::unsupported_syn_construct("Item kind", &item)),
         }
     }
