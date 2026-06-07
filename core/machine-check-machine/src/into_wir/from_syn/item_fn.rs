@@ -10,17 +10,12 @@ use syn::{
 use crate::{
     into_wir::{
         from_syn::{
-            attribute_disallower::AttributeDisallower,
-            item::fold_visibility,
-            ty::{fold_basic_type, fold_type},
+            attribute_disallower::AttributeDisallower, item::fold_visibility, ty::fold_type,
         },
         Error, ErrorType, Errors,
     },
     support::ident_creator::IdentCreator,
-    wir::{
-        WBasicType, WFnArg, WIdent, WItemFn, WPartialGeneralType, WPath, WSignature, WSpan,
-        WTacLocal, WType, YTac,
-    },
+    wir::{WFnArg, WIdent, WItemFn, WPath, WSignature, WSpan, WTacLocal, WTypeId, YTac},
 };
 
 use super::path::fold_path;
@@ -76,7 +71,7 @@ struct FunctionScope {
 struct FunctionFolder {
     self_ty: Option<WPath>,
     ident_creator: IdentCreator,
-    local_types: BTreeMap<WIdent, WPartialGeneralType>,
+    local_types: BTreeMap<WIdent, WTypeId>,
     scopes: Vec<FunctionScope>,
     next_scope_id: u32,
 }
@@ -124,7 +119,7 @@ impl FunctionFolder {
 
         for temporary_ident in self.ident_creator.drain_created_temporaries() {
             self.local_types
-                .insert(temporary_ident, WPartialGeneralType::Unknown);
+                .insert(temporary_ident, todo!("Unknown type"));
         }
 
         let mut locals = Vec::new();
@@ -204,18 +199,20 @@ impl FunctionFolder {
                     signature_span,
                 )))
             }
-            syn::ReturnType::Type(_rarrow, ty) => fold_basic_type(*ty, self.self_ty.as_ref()),
+            syn::ReturnType::Type(_rarrow, ty) => fold_type(*ty, self.self_ty.as_ref()),
         }
         .map_err(Errors::single);
 
         let (inputs, output) = Errors::combine(inputs, output)?;
 
+        let output = todo!("Make sure output is total");
+        /*
         let Some(output) = output.try_total() else {
             return Err(Errors::single(Error::new(
                 ErrorType::IllegalConstruct(String::from("Result with partially specified type")),
                 signature_span,
             )));
-        };
+        };*/
 
         Ok(WSignature {
             ident: WIdent::from_syn_ident(signature.ident),
@@ -224,11 +221,7 @@ impl FunctionFolder {
         })
     }
 
-    fn fold_fn_arg(
-        &mut self,
-        scope_id: u32,
-        fn_arg: FnArg,
-    ) -> Result<WFnArg<WType<WBasicType>>, Error> {
+    fn fold_fn_arg(&mut self, scope_id: u32, fn_arg: FnArg) -> Result<WFnArg<WTypeId>, Error> {
         let fn_arg = match fn_arg {
             syn::FnArg::Receiver(receiver) => {
                 let Some(self_ty) = &self.self_ty else {
@@ -262,10 +255,11 @@ impl FunctionFolder {
                 // do not scope self, it is unnecessary
                 let self_ident = WIdent::new(String::from("self"), receiver_span);
 
-                let self_type = WType {
+                let self_type = todo!("Self type");
+                /*WType {
                     reference,
                     inner: WBasicType::Path(self_ty.clone()),
-                };
+                };*/
 
                 self.add_unique_scoped_ident(self_ident.clone(), self_ident.clone());
 
@@ -286,7 +280,8 @@ impl FunctionFolder {
                 let pat_ty = pat_type.ty.clone();
                 let ty = fold_type(*pat_type.ty, self.self_ty.as_ref())?;
 
-                let ty = if let Some(basic_type) = ty.inner.try_total() {
+                let ty = todo!("Typed function arg");
+                /*let ty = if let Some(basic_type) = ty.inner.try_total() {
                     WType {
                         reference: ty.reference,
                         inner: basic_type,
@@ -298,7 +293,7 @@ impl FunctionFolder {
                         )),
                         WSpan::from_syn(&pat_ty),
                     ));
-                };
+                };*/
 
                 let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
 
@@ -356,7 +351,7 @@ impl FunctionFolder {
         None
     }
 
-    fn add_local_ident(&mut self, scope_id: u32, original_ident: WIdent, ty: WPartialGeneralType) {
+    fn add_local_ident(&mut self, scope_id: u32, original_ident: WIdent, ty: WTypeId) {
         let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
         self.local_types.insert(locally_unique_ident, ty);
     }

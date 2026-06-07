@@ -12,6 +12,8 @@ mod description;
 mod property;
 mod stage;
 
+mod context;
+
 pub use call::*;
 pub use expr::*;
 pub use impl_item::*;
@@ -25,3 +27,5 @@ pub use ty::*;
 pub use description::*;
 pub use property::*;
 pub use stage::*;
+
+pub use context::*;

@@ -1,9 +1,10 @@
-use indexmap::IndexMap;
+/*use indexmap::IndexMap;
 use machine_check_common::iir::{
     description::{IStructDeclaration, IStructId},
     path::IIdent,
     ty::{IElementaryType, IGeneralType, IType},
 };
+
 
 use crate::{
     into_iir::error,
@@ -69,3 +70,4 @@ impl WGeneralType<WElementaryType> {
         })
     }
 }
+*/

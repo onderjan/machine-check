@@ -3,9 +3,8 @@ use std::{fmt::Debug, hash::Hash};
 use syn::{Expr, Local, Path, Stmt, Type};
 
 use crate::wir::{
-    IntoSyn, WBasicType, WElementaryType, WExpr, WExprCall, WExprHighCall, WGeneralType, WIdent,
-    WIndexedExpr, WIndexedIdent, WItemImplTrait, WMacroableStmt, WPanicResult, WPanicResultType,
-    WPartialGeneralType, WSsaLocal, WStmt, WTacLocal, WType,
+    IntoSyn, WExpr, WExprCall, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent, WItemImplTrait,
+    WMacroableStmt, WSsaLocal, WStmt, WTacLocal, WTypeId,
 };
 
 pub trait YStage {
@@ -22,10 +21,10 @@ pub struct YTac;
 
 impl YStage for YTac {
     type AssignTypes = ZTac;
-    type InputType = WType<WBasicType>;
-    type OutputType = WBasicType;
+    type InputType = WTypeId;
+    type OutputType = WTypeId;
     type FnResult = WIdent;
-    type Local = WTacLocal<WPartialGeneralType>;
+    type Local = WTacLocal<WTypeId>;
     type ItemImplTrait = WItemImplTrait;
 }
 /*
@@ -83,10 +82,10 @@ pub struct YConverted;
 
 impl YStage for YConverted {
     type AssignTypes = ZConverted;
-    type InputType = WType<WElementaryType>;
-    type OutputType = WPanicResultType<WElementaryType>;
-    type FnResult = WPanicResult;
-    type Local = WSsaLocal<WGeneralType<WElementaryType>>;
+    type InputType = WTypeId;
+    type OutputType = WTypeId;
+    type FnResult = WTypeId;
+    type Local = WSsaLocal<WTypeId>;
     type ItemImplTrait = WItemImplTrait;
 }
 
@@ -95,7 +94,7 @@ pub struct ZTac;
 
 impl ZAssignTypes for ZTac {
     type Stmt = WMacroableStmt<ZTac>;
-    type FundamentalType = WBasicType;
+    type FundamentalType = WTypeId;
     type AssignLeft = WIndexedIdent;
     type AssignRight = WIndexedExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
@@ -140,7 +139,7 @@ pub struct ZConverted;
 
 impl ZAssignTypes for ZConverted {
     type Stmt = WStmt<ZConverted>;
-    type FundamentalType = WElementaryType;
+    type FundamentalType = WTypeId;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprCall>;
     type IfPolarity = WNoIfPolarity;

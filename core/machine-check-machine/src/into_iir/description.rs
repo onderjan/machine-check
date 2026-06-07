@@ -26,10 +26,11 @@ impl WDescription<YConverted> {
         for (index, item_struct) in self.structs.into_iter().enumerate() {
             let mut fields = IndexMap::new();
             for field in item_struct.fields {
-                fields.insert(
+                todo!("Field into IIR");
+                /*fields.insert(
                     field.ident.into_iir(),
                     field.ty.into_iir(&struct_declarations)?,
-                );
+                );*/
             }
 
             struct_declarations[index].fields = fields;

@@ -11,7 +11,7 @@ use syn::Item;
 
 use crate::{
     support::error_list::ErrorList,
-    wir::{WBasicType, WDescription, WIdent, WProperty, WSpan, YConverted},
+    wir::{WDescription, WIdent, WProperty, WSpan, WTypeId, YConverted},
 };
 
 pub fn create_description(
@@ -22,7 +22,7 @@ pub fn create_description(
 
 pub fn create_property_description<D>(
     expr: syn::Expr,
-    global_ident_types: &HashMap<WIdent, WBasicType>,
+    global_ident_types: &HashMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
 ) -> Result<(WProperty<YConverted>, Vec<String>), crate::Errors> {
     property::create_from_syn(expr, global_ident_types, property_macros)

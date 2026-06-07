@@ -6,11 +6,12 @@ use syn::{Expr, GenericArgument, PathArguments, Type};
 
 use crate::{
     into_wir::{from_syn::path::fold_path, Error, ErrorType},
-    wir::{WPartialBasicType, WPath, WSpan, WType},
+    wir::{WPath, WSpan, WTypeId},
 };
 
-pub fn fold_type(mut ty: Type, self_ty: Option<&WPath>) -> Result<WType<WPartialBasicType>, Error> {
-    let reference = match ty {
+pub fn fold_type(mut ty: Type, self_ty: Option<&WPath>) -> Result<WTypeId, Error> {
+    todo!("Fold type")
+    /*let reference = match ty {
         Type::Reference(type_reference) => {
             if type_reference.mutability.is_some() {
                 return Err(Error::unsupported_syn_construct(
@@ -26,9 +27,9 @@ pub fn fold_type(mut ty: Type, self_ty: Option<&WPath>) -> Result<WType<WPartial
     Ok(WType {
         reference,
         inner: fold_basic_type(ty, self_ty)?,
-    })
+    })*/
 }
-
+/*
 pub fn fold_basic_type(ty: Type, self_ty: Option<&WPath>) -> Result<WPartialBasicType, Error> {
     let ty_span = WSpan::from_syn(&ty);
     let ty = match ty {
@@ -155,3 +156,4 @@ pub fn extract_generic_sizes(
     };
     Ok(generic_sizes)
 }
+*/

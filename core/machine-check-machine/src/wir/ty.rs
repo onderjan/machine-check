@@ -13,7 +13,25 @@ use syn::{
 
 use super::{IntoSyn, WIdent, WPath};
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug)]
+pub struct WTypeDef;
+
+#[derive(Clone, Debug, Hash)]
+pub struct WTypeId(pub usize);
+
+impl IntoSyn<Type> for WTypeId {
+    fn into_syn(self) -> Type {
+        todo!("WTypeId into syn type")
+    }
+}
+
+impl IntoSyn<Expr> for WTypeId {
+    fn into_syn(self) -> Expr {
+        todo!("WTypeId into syn expr")
+    }
+}
+
+/* #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WPartialBasicType {
     Bitvector(Signedness, Option<u32>),
     BitvectorArray(IrTypeArray),
@@ -519,3 +537,4 @@ fn bitvector_signedness_str(signedness: Signedness) -> &'static str {
         Signedness::Signed => "Signed",
     }
 }
+*/

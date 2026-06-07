@@ -21,8 +21,8 @@ use crate::{
     },
     util::{create_type_path, path_matches_global_names},
     wir::{
-        WBasicType, WIdent, WProperty, WSubproperty, WSubpropertyFixedPoint, WSubpropertyFunc,
-        WSubpropertyNext, YConverted, YTac,
+        WIdent, WProperty, WSubproperty, WSubpropertyFixedPoint, WSubpropertyFunc,
+        WSubpropertyNext, WTypeId, YConverted, YTac,
     },
 };
 
@@ -69,7 +69,7 @@ impl ExprProperty {
 
 pub fn create_from_syn<D>(
     expr: syn::Expr,
-    global_ident_types: &HashMap<WIdent, WBasicType>,
+    global_ident_types: &HashMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
 ) -> Result<(WProperty<YConverted>, Vec<String>), Errors> {
     let span = expr.span();

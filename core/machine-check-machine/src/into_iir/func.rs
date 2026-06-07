@@ -53,6 +53,8 @@ impl WItemFn<YConverted> {
         self,
         struct_declarations: &IndexMap<IIdent, IStructDeclaration>,
     ) -> Result<IFnDeclaration, Error> {
+        todo!("Func into declaration")
+        /*/
         let mut next_var_id = 0;
 
         let fn_ident = self.signature.ident;
@@ -111,6 +113,7 @@ impl WItemFn<YConverted> {
             signature,
             variables,
         })
+        */
     }
 
     pub(super) fn into_iir(

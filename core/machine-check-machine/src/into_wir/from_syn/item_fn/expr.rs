@@ -20,10 +20,9 @@ use crate::{
     wir::{
         WArrayBaseExpr, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall, WExprReference,
         WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WIdent, WIfCondition, WIndexedExpr,
-        WIndexedIdent, WMacroableStmt, WNoIfPolarity, WPartialBasicType, WSpan, WStdBinary,
-        WStdUnary, WStmtAssign, WStmtIf, WType, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW,
-        MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT, MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW,
-        STD_CLONE, STD_INTO,
+        WIndexedIdent, WMacroableStmt, WNoIfPolarity, WSpan, WStdBinary, WStdUnary, WStmtAssign,
+        WStmtIf, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT,
+        MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
     },
 };
 
@@ -145,7 +144,7 @@ impl RightExprFolder<'_> {
         if let Ok(binary_op) = IrStdBinaryOp::from_str(&nongeneric_path_string) {
             return self.create_std_binary(binary_op, fn_path, expr_call.args);
         }
-        match nongeneric_path_string.as_str() {
+        /*match nongeneric_path_string.as_str() {
             MCK_HIGH_EXT => {
                 return self.create_mck_ext(fn_path, expr_call.args);
             }
@@ -162,7 +161,7 @@ impl RightExprFolder<'_> {
                 return self.create_std_into(fn_path, expr_call.args);
             }
             _ => {}
-        }
+        }*/
 
         let wir_fn_path = fold_path(fn_path.clone(), self.fn_folder.self_ty.as_ref())?;
         // ensure it is not a local-scope ident
@@ -192,9 +191,10 @@ impl RightExprFolder<'_> {
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
     ) -> Result<WExprHighCall, Error> {
-        Self::assure_nongeneric_fn_path(fn_path)?;
+        todo!("Create std unary")
+        /*Self::assure_nongeneric_fn_path(fn_path)?;
         let operand = self.parse_single_ident_arg(args)?;
-        Ok(WExprHighCall::StdUnary(WStdUnary { op, operand }))
+        Ok(WExprHighCall::StdUnary(WStdUnary { op, operand }))*/
     }
 
     fn create_std_binary(
@@ -203,12 +203,15 @@ impl RightExprFolder<'_> {
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
     ) -> Result<WExprHighCall, Error> {
+        todo!("Create std binary")
+        /*
         Self::assure_nongeneric_fn_path(fn_path)?;
         let (a, b) = self.parse_two_ident_args(args)?;
         Ok(WExprHighCall::StdBinary(WStdBinary { op, a, b }))
+        */
     }
 
-    fn create_mck_ext(
+    /*fn create_mck_ext(
         &mut self,
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
@@ -339,7 +342,7 @@ impl RightExprFolder<'_> {
     fn parse_single_type_generics(
         &self,
         segment: &PathSegment,
-    ) -> Result<WType<WPartialBasicType>, Error> {
+    ) -> Result<WTypeId<WPartialBasicType>, Error> {
         let turbofished = Self::extract_turbofished(segment)?;
         if turbofished.len() != 1 {
             return Err(Error::new(
@@ -499,7 +502,7 @@ impl RightExprFolder<'_> {
             };
         }
         Ok(())
-    }
+    }*/
 
     fn fold_right_expr_field(&mut self, expr_field: ExprField) -> Result<WExprField, Error> {
         let base = self.fn_folder.fold_expr_as_ident(*expr_field.base)?;

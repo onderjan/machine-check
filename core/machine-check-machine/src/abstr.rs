@@ -1,3 +1,4 @@
+/*
 mod item_impl;
 mod item_struct;
 
@@ -6,9 +7,8 @@ use syn::{GenericArgument, Item, Path};
 use crate::{
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        IntoSyn, WDescription, WElementaryType, WExpr, WExprCall, WGeneralType, WIdent,
-        WItemImplTrait, WPanicResult, WPanicResultType, WPath, WSsaLocal, WStmt, WType, YConverted,
-        YStage, ZAssignTypes, ZIfPolarity,
+        IntoSyn, WDescription, WExpr, WExprCall, WIdent, WItemImplTrait, WPath, WSsaLocal, WStmt,
+        WTypeId, YConverted, YStage, ZAssignTypes, ZIfPolarity,
     },
 };
 
@@ -40,7 +40,7 @@ pub struct ZAbstr;
 
 impl ZAssignTypes for ZAbstr {
     type Stmt = WStmt<ZAbstr>;
-    type FundamentalType = WElementaryType;
+    type FundamentalType = WTypeId;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprCall>;
     type IfPolarity = ZAbstrIfPolarity;
@@ -48,10 +48,10 @@ impl ZAssignTypes for ZAbstr {
 
 impl YStage for YAbstr {
     type AssignTypes = ZAbstr;
-    type InputType = WType<WElementaryType>;
-    type OutputType = WPanicResultType<WElementaryType>;
-    type FnResult = WPanicResult;
-    type Local = WSsaLocal<WGeneralType<WElementaryType>>;
+    type InputType = WTypeId;
+    type OutputType = WTypeId;
+    type FnResult = WTypeId;
+    type Local = WSsaLocal<WTypeId>;
     type ItemImplTrait = WAbstrItemImplTrait;
 }
 
@@ -105,3 +105,4 @@ pub(crate) fn create_abstract_description(
 
     (abstract_description, misc_items)
 }
+*/

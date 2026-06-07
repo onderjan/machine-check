@@ -20,7 +20,7 @@ use syn_path::path;
 use wir::IntoSyn;
 
 use crate::util::{create_item_mod, path_matches_global_names};
-use crate::wir::{WBasicType, WIdent, WSpan};
+use crate::wir::{WIdent, WSpan};
 
 mod abstr;
 mod concr;
@@ -57,10 +57,12 @@ pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Errors> {
 
 pub fn inherent_property() -> IProperty {
     let mut global_basic_types = HashMap::new();
+    todo!("Inherent property");
+    /*
     global_basic_types.insert(
         WIdent::new(String::from("__panic"), Span::call_site()),
         WBasicType::Bitvector(Signedness::None, 32),
-    );
+    );*/
 
     let expr = parse_quote!(AG![__panic == 0]);
 
@@ -96,8 +98,8 @@ pub fn process_property<M: FullMachine, D>(
 
     let mut global_basic_types = HashMap::new();
 
-    // TODO: get signedness information
-    for (global_ident, elementary_type) in &global_ident_types {
+    // TODO: add global basic types
+    /*for (global_ident, elementary_type) in &global_ident_types {
         let ty = match elementary_type {
             IElementaryType::Bitvector(width) => WBasicType::Bitvector(Signedness::None, *width),
             IElementaryType::Array(type_array) => WBasicType::BitvectorArray(type_array.clone()),
@@ -110,7 +112,7 @@ pub fn process_property<M: FullMachine, D>(
             WIdent::new(global_ident.name().to_string(), Span::call_site()),
             ty,
         );
-    }
+    }*/
 
     // TODO: do something with the panic messages
     let (property, _panic_messages) =
@@ -179,8 +181,9 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     let iir = description.clone().into_iir()?;
 
-    let (abstract_description, misc_abstract_items) =
-        abstr::create_abstract_description(description);
+    todo!("Create abstract description");
+    /*let (abstract_description, misc_abstract_items) =
+    abstr::create_abstract_description(description);
 
     if let Some(out_dir) = &out_dir {
         std::fs::write(
@@ -211,6 +214,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     }
 
     Ok(())
+    */
 }
 
 fn redirect_mck(items: &mut [Item]) -> Result<(), Error> {

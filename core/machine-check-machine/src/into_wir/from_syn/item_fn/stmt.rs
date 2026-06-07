@@ -13,8 +13,7 @@ use crate::{
     util::{create_expr_ident, path_matches_global_names},
     wir::{
         WBlock, WIdent, WIfCondition, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
-        WPanicMacroKind, WPartialGeneralType, WSpan, WSpanned, WStmtAssign, WStmtIf,
-        WStmtPanicMacro, ZTac,
+        WPanicMacroKind, WSpan, WSpanned, WStmtAssign, WStmtIf, WStmtPanicMacro, ZTac,
     },
 };
 
@@ -99,13 +98,14 @@ impl super::FunctionFolder {
         match stmt {
             Stmt::Local(local) => {
                 let mut pat = local.pat.clone();
-                let mut ty = WPartialGeneralType::Unknown;
+                /*let mut ty = WPartialGeneralType::Unknown;
                 if let Pat::Type(pat_type) = pat {
                     ty = fold_type(*pat_type.ty, self.self_ty.as_ref())
                         .map(WPartialGeneralType::Normal)
                         .map_err(Errors::single)?;
                     pat = *pat_type.pat;
-                }
+                }*/
+                let ty = todo!("Statement type");
 
                 let Pat::Ident(left_pat_ident) = pat else {
                     return Err(Errors::single(Error::unsupported_syn_construct(

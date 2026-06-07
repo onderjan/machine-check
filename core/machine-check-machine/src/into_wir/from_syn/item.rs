@@ -8,14 +8,14 @@ use crate::{
     into_wir::{from_syn::attribute_disallower::AttributeDisallower, Error, ErrorType, Errors},
     util::path_matches_global_names,
     wir::{
-        WBasicType, WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPath,
-        WSpan, WVisibility, YTac,
+        WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPath, WSpan,
+        WTypeId, WVisibility, YTac,
     },
 };
 
-use super::{item_fn::fold_impl_item_fn, path::fold_path, ty::fold_basic_type};
+use super::{item_fn::fold_impl_item_fn, path::fold_path};
 
-pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>, Errors> {
+pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WTypeId>, Errors> {
     let item_span = WSpan::from_syn(&item);
     if item.generics != Generics::default() {
         return Err(Errors::single(Error::unsupported_syn_construct(
@@ -119,6 +119,8 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
         let visibility = fold_visibility(field.vis)?;
         let ident = WIdent::from_syn_ident(field_ident);
         let field_ty = field.ty.clone();
+        let field = todo!("Fold struct field");
+        /*
         let field = match fold_basic_type(field.ty, Some(&self_path)) {
             Ok(ty) => {
                 if let Some(ty) = ty.try_total() {
@@ -138,6 +140,7 @@ pub fn fold_item_struct(mut item: ItemStruct) -> Result<WItemStruct<WBasicType>,
             }
             Err(err) => Err(err),
         };
+        */
 
         fields.push(field);
     }
