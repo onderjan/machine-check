@@ -28,7 +28,7 @@ impl YStage for YTac {
     type Local = WTacLocal<WPartialGeneralType>;
     type ItemImplTrait = WItemImplTrait;
 }
-
+/*
 #[derive(Clone, Debug, Hash)]
 pub struct YNonindexed;
 
@@ -76,6 +76,7 @@ impl YStage for YInferred {
     type Local = WSsaLocal<WGeneralType<WBasicType>>;
     type ItemImplTrait = WItemImplTrait;
 }
+*/
 
 #[derive(Clone, Debug, Hash)]
 pub struct YConverted;
@@ -99,7 +100,7 @@ impl ZAssignTypes for ZTac {
     type AssignRight = WIndexedExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
 }
-
+/*
 #[derive(Clone, Debug, Hash)]
 pub struct ZNonindexed;
 
@@ -132,6 +133,7 @@ impl ZAssignTypes for ZSsa {
     type AssignRight = WExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
 }
+*/
 
 #[derive(Clone, Debug, Hash)]
 pub struct ZConverted;

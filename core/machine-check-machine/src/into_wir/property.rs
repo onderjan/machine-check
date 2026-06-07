@@ -16,10 +16,7 @@ use syn_path::path;
 
 use crate::{
     into_wir::{
-        conversion::{
-            convert_indexing, convert_to_ssa, convert_total, convert_types, expand_macros,
-            infer_types, resolve_use,
-        },
+        conversion::{expand_macros, resolve_use},
         from_syn, Errors,
     },
     util::{create_type_path, path_matches_global_names},
@@ -142,13 +139,14 @@ pub fn create_from_syn<D>(
     }
 
     let property = property_from_exprs(property)?;
-    let property = convert_indexing::convert_property(property);
+    todo!("Property from exprs: {:#?}", property);
+    /*let property = convert_indexing::convert_property(property);
     let (property, panic_messages) = convert_total::convert_property(property);
     let property = convert_to_ssa::convert_property(property, global_ident_types)?;
     let property = infer_types::infer_property(property)?;
     let property = convert_types::convert_property(property)?;
 
-    Ok((property, panic_messages))
+    Ok((property, panic_messages))*/
 }
 
 fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors> {
