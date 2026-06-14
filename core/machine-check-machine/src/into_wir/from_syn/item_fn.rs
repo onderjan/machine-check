@@ -124,7 +124,7 @@ impl FunctionFolder<'_> {
 
         for temporary_ident in self.ident_creator.drain_created_temporaries() {
             self.local_types
-                .insert(temporary_ident, todo!("Unknown type"));
+                .insert(temporary_ident, self.ctx.wild_type());
         }
 
         let mut locals = Vec::new();

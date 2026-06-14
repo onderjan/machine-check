@@ -188,10 +188,9 @@ impl RightExprFolder<'_, '_, '_> {
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
     ) -> Result<WExprHighCall, Error> {
-        todo!("Create std unary")
-        /*Self::assure_nongeneric_fn_path(fn_path)?;
+        Self::assure_nongeneric_fn_path(fn_path)?;
         let operand = self.parse_single_ident_arg(args)?;
-        Ok(WExprHighCall::StdUnary(WStdUnary { op, operand }))*/
+        Ok(WExprHighCall::StdUnary(WStdUnary { op, operand }))
     }
 
     fn create_std_binary(
@@ -200,12 +199,9 @@ impl RightExprFolder<'_, '_, '_> {
         fn_path: &Path,
         args: Punctuated<Expr, Comma>,
     ) -> Result<WExprHighCall, Error> {
-        todo!("Create std binary")
-        /*
         Self::assure_nongeneric_fn_path(fn_path)?;
         let (a, b) = self.parse_two_ident_args(args)?;
         Ok(WExprHighCall::StdBinary(WStdBinary { op, a, b }))
-        */
     }
 
     /*fn create_mck_ext(
@@ -461,7 +457,7 @@ impl RightExprFolder<'_, '_, '_> {
         } else {
             parsed as i128
         })
-    }
+    }*/
 
     fn parse_single_ident_arg(&mut self, args: Punctuated<Expr, Comma>) -> Result<WIdent, Error> {
         if args.len() != 1 {
@@ -499,7 +495,7 @@ impl RightExprFolder<'_, '_, '_> {
             };
         }
         Ok(())
-    }*/
+    }
 
     fn fold_right_expr_field(&mut self, expr_field: ExprField) -> Result<WExprField, Error> {
         let base = self.fn_folder.fold_expr_as_ident(*expr_field.base)?;
@@ -623,13 +619,13 @@ impl RightExprFolder<'_, '_, '_> {
                 // move statement in parentheses
                 return self.move_through_temp(*paren.expr);
             }
-            syn::Expr::Lit(ExprLit {
+            /*syn::Expr::Lit(ExprLit {
                 lit: Lit::Bool(lit),
                 ..
             }) => {
                 // if bool, convert to Boolean
                 WIndexedExpr::NonIndexed(WExpr::Call(WExprHighCall::BooleanNew(lit.value)))
-            }
+            }*/
             _ => {
                 // fold the expression normally
                 // so that nested expressions are properly converted to SSA

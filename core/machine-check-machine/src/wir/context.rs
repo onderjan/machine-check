@@ -33,7 +33,7 @@ impl WContext {
         Ok(id)
     }
 
-    pub fn wildcard_type(&mut self) -> WTypeId {
+    pub fn wild_type(&mut self) -> WTypeId {
         let id = WTypeId(self.types.len());
         id
     }

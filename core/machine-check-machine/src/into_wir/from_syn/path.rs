@@ -11,12 +11,13 @@ pub fn fold_path(path: Path, self_ty: Option<&WPath>) -> Result<WPath, Error> {
     let mut segments = Vec::new();
 
     for segment in path.segments {
-        let PathArguments::None = segment.arguments else {
+        // TODO: add generics to WPath
+        /*let PathArguments::None = segment.arguments else {
             return Err(Error::unsupported_syn_construct(
                 "Generics here",
                 &segment.arguments,
             ));
-        };
+        };*/
         segments.push(WPathSegment {
             ident: WIdent::from_syn_ident(segment.ident),
         });

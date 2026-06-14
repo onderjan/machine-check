@@ -17,16 +17,6 @@ pub enum WExprHighCall {
     Call(WCall),
     StdUnary(WStdUnary),
     StdBinary(WStdBinary),
-    MckExt(WHighMckExt),
-    MckNew(WHighMckNew),
-    BooleanNew(bool),
-    StdInto(WHighStdInto),
-    StdClone(WIdent),
-    ArrayRead(WArrayRead),
-    ArrayWrite(WArrayWrite),
-    Phi(WPhi),
-    PhiTaken(WPhiTaken),
-    PhiNotTaken,
 }
 
 #[derive(Clone, Hash)]
@@ -314,61 +304,6 @@ impl IntoSyn<Expr> for WExprHighCall {
                     vec![WCallArg::Ident(call.a), WCallArg::Ident(call.b)],
                 )
             }
-            WExprHighCall::MckExt(call) => {
-                (String::from(MCK_HIGH_EXT), vec![WCallArg::Ident(call.from)])
-            }
-            WExprHighCall::MckNew(call) => match call {
-                WHighMckNew::BitvectorArray(_type_array, ident) => (
-                    String::from(MCK_HIGH_BITVECTOR_ARRAY_NEW),
-                    vec![WCallArg::Ident(ident)],
-                ),
-                WHighMckNew::Bitvector(signedness, _width, constant) => (
-                    String::from(match signedness {
-                        Signedness::None => MCK_HIGH_BITVECTOR_NEW,
-                        Signedness::Unsigned => MCK_HIGH_UNSIGNED_NEW,
-                        Signedness::Signed => MCK_HIGH_SIGNED_NEW,
-                    }),
-                    vec![WCallArg::Literal(Lit::Int(LitInt::new(
-                        constant.to_string().as_str(),
-                        span,
-                    )))],
-                ),
-            },
-            WExprHighCall::BooleanNew(value) => (
-                String::from(BOOLEAN_NEW),
-                vec![WCallArg::Literal(Lit::Bool(LitBool { value, span }))],
-            ),
-            WExprHighCall::StdInto(call) => {
-                (String::from(STD_INTO), vec![WCallArg::Ident(call.from)])
-            }
-            WExprHighCall::StdClone(from) => (String::from(STD_CLONE), vec![WCallArg::Ident(from)]),
-            WExprHighCall::ArrayRead(read) => (
-                String::from(ARRAY_READ),
-                vec![WCallArg::Ident(read.base), WCallArg::Ident(read.index)],
-            ),
-            WExprHighCall::ArrayWrite(write) => (
-                String::from(ARRAY_WRITE),
-                vec![
-                    WCallArg::Ident(write.base),
-                    WCallArg::Ident(write.index),
-                    WCallArg::Ident(write.element),
-                ],
-            ),
-            WExprHighCall::Phi(phi) => (
-                String::from(PHI),
-                vec![
-                    WCallArg::Ident(phi.then_ident),
-                    WCallArg::Ident(phi.else_ident),
-                ],
-            ),
-            WExprHighCall::PhiTaken(taken) => (
-                String::from(PHI_TAKEN),
-                vec![
-                    WCallArg::Ident(taken.ident),
-                    WCallArg::Ident(taken.condition),
-                ],
-            ),
-            WExprHighCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
         };
         let fn_path = construct_call_fn_path(fn_operand);
         WCall { fn_path, args }.into_syn()
