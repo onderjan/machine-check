@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, HashMap};
 use machine_check_common::ir_common::IrReference;
 use proc_macro2::Span;
 use syn::{
-    spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat,
-    Signature,
+    spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat, Path,
+    Signature, Type, TypePath,
 };
 
 use crate::{
@@ -39,7 +39,7 @@ pub fn fold_item_fn(ctx: &mut WContext, item_fn: ItemFn) -> Result<WItemFn<YTac>
 pub fn fold_impl_item_fn(
     ctx: &mut WContext,
     impl_item_fn: ImplItemFn,
-    self_ty: &WPath,
+    self_ty: &Type,
 ) -> Result<WItemFn<YTac>, Errors> {
     if impl_item_fn.defaultness.is_some() {
         return Err(Errors::single(Error::unsupported_syn_construct(
@@ -74,7 +74,7 @@ struct FunctionScope {
 
 struct FunctionFolder<'a> {
     ctx: &'a mut WContext,
-    self_ty: Option<WPath>,
+    self_ty: Option<Type>,
     ident_creator: IdentCreator,
     local_types: BTreeMap<WIdent, WTypeId>,
     scopes: Vec<FunctionScope>,
@@ -250,7 +250,7 @@ impl FunctionFolder<'_> {
                 // do not scope self, it is unnecessary
                 let self_ident = WIdent::new(String::from("self"), receiver_span);
 
-                let self_type = match self.ctx.get_noninferred_type_path(self_ty) {
+                let self_type = match self.ctx.get_noninferred_type(self_ty) {
                     Ok(type_id) => type_id,
                     Err(_) => {
                         return Err(Error::new(

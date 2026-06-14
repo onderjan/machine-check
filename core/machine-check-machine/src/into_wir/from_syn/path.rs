@@ -1,11 +1,11 @@
-use syn::{Path, PathArguments};
+use syn::{Path, PathArguments, Type};
 
 use crate::{
     into_wir::Error,
     wir::{WIdent, WPath, WPathSegment, WSpan},
 };
 
-pub fn fold_path(path: Path, self_ty: Option<&WPath>) -> Result<WPath, Error> {
+pub fn fold_path(path: Path, self_ty: Option<&Type>) -> Result<WPath, Error> {
     let path_span = WSpan::from_syn(&path);
 
     let mut segments = Vec::new();
@@ -51,7 +51,8 @@ pub fn fold_path(path: Path, self_ty: Option<&WPath>) -> Result<WPath, Error> {
             ));
         }
     } else {
-        // replace leading Self if possible
+        // TODO: replace leading Self if possible
+        /*
         if let Some(self_ty) = self_ty {
             if !segments.is_empty() && segments[0].ident.name() == "Self" {
                 // set replaced segments spans to the original Self span
@@ -68,7 +69,7 @@ pub fn fold_path(path: Path, self_ty: Option<&WPath>) -> Result<WPath, Error> {
                 // put leading colon according to self type
                 leading_colon = self_ty.leading_colon;
             }
-        }
+        }*/
     }
 
     Ok(WPath {

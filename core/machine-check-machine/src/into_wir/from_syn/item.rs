@@ -166,21 +166,6 @@ pub fn fold_item_impl(ctx: &mut WContext, item: ItemImpl) -> Result<WItemImpl<YT
         )));
     }
 
-    let self_ty = {
-        match *item.self_ty {
-            Type::Path(ty) => {
-                assert!(ty.qself.is_none());
-                fold_path(ty.path, None)
-            }
-            _ => {
-                return Err(Errors::single(Error::unsupported_syn_construct(
-                    "Non-path type",
-                    &item.self_ty,
-                )))
-            }
-        }
-    }?;
-
     let trait_ = match item.trait_ {
         Some((not, path, _for_token)) => {
             if not.is_some() {
@@ -210,11 +195,11 @@ pub fn fold_item_impl(ctx: &mut WContext, item: ItemImpl) -> Result<WItemImpl<YT
         let impl_item_span = WSpan::from_syn(&impl_item);
         let err_msg = match impl_item {
             ImplItem::Type(impl_item) => {
-                impl_item_types.push(fold_impl_item_type(impl_item, &self_ty));
+                impl_item_types.push(fold_impl_item_type(impl_item, &item.self_ty));
                 None
             }
             ImplItem::Fn(impl_item) => {
-                impl_item_fns.push(fold_impl_item_fn(ctx, impl_item, &self_ty));
+                impl_item_fns.push(fold_impl_item_fn(ctx, impl_item, &item.self_ty));
                 None
             }
             ImplItem::Const(_) => Some("Associated consts"),
@@ -231,6 +216,16 @@ pub fn fold_item_impl(ctx: &mut WContext, item: ItemImpl) -> Result<WItemImpl<YT
     let (impl_item_types, impl_item_fns) =
         Errors::combine_and_vec(impl_item_types, impl_item_fns, errors)?;
 
+    let self_ty = match *item.self_ty {
+        Type::Path(type_path) => fold_path(type_path.path, None)?,
+        _ => {
+            return Err(Errors::single(Error::unsupported_syn_construct(
+                "Non-path self type",
+                &item.self_ty,
+            )));
+        }
+    };
+
     Ok(WItemImpl {
         self_ty,
         trait_,
@@ -241,7 +236,7 @@ pub fn fold_item_impl(ctx: &mut WContext, item: ItemImpl) -> Result<WItemImpl<YT
 
 pub fn fold_impl_item_type(
     impl_item: ImplItemType,
-    self_ty: &WPath,
+    self_ty: &Type,
 ) -> Result<WImplItemType, Error> {
     let visibility = fold_visibility(impl_item.vis)?;
 
