@@ -4,8 +4,8 @@ use indexmap::IndexMap;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, Ident, Path,
-    PathArguments, PathSegment, Token, Type, TypeInfer, TypePath,
+    punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, Expr, ExprInfer,
+    GenericArgument, Ident, Path, PathArguments, PathSegment, Token, Type, TypeInfer, TypePath,
 };
 
 use crate::wir::{WPath, WTypeId};
@@ -15,10 +15,16 @@ pub enum WContextTypeDef {
     Struct,
 }
 
+#[derive(Debug, Clone)]
+pub enum WContextTypeResolved {
+    Def(usize),
+    Reference(Box<WContextTypeResolved>),
+}
+
 #[derive(Clone)]
 pub enum WContextType {
     Unresolved(Box<Type>),
-    Resolved,
+    Resolved(WContextTypeResolved),
 }
 
 impl Debug for WContextType {
@@ -27,7 +33,9 @@ impl Debug for WContextType {
             Self::Unresolved(ty) => {
                 write!(f, "Unresolved({})", quote! (#ty))
             }
-            Self::Resolved => write!(f, "Resolved"),
+            Self::Resolved(resolved) => {
+                write!(f, "Resolved({:?})", resolved)
+            }
         }
     }
 }
@@ -69,8 +77,9 @@ impl WContext {
                                 AngleBracketedGenericArguments {
                                     colon2_token: None,
                                     lt_token: Token![<](Span::call_site()),
-                                    args: Punctuated::from_iter([GenericArgument::Type(
-                                        Type::Infer(TypeInfer {
+                                    args: Punctuated::from_iter([GenericArgument::Const(
+                                        Expr::Infer(ExprInfer {
+                                            attrs: Vec::new(),
                                             underscore_token: Token![_](Span::call_site()),
                                         }),
                                     )]),
@@ -104,15 +113,6 @@ impl WContext {
         }
     }
 
-    pub fn get_noninferred_type_path(
-        &mut self,
-        path: &WPath,
-    ) -> Result<WTypeId, RequiresInferenceError> {
-        let id = WTypeId(self.types.len());
-        // TODO: check that it is noninferred
-        Ok(id)
-    }
-
     pub fn infer_type(&mut self, span: Span) -> WTypeId {
         self.get_type(&Type::Infer(TypeInfer {
             underscore_token: Token![_](span),
@@ -122,6 +122,58 @@ impl WContext {
     pub fn add_struct_def(&mut self, ty: Type) {
         self.type_defs
             .insert(WContextSynType(ty), WContextTypeDef::Struct);
+    }
+
+    fn resolve_type(&self, mut ty: Type) -> Option<WContextTypeResolved> {
+        if let Type::Reference(type_reference) = ty {
+            return Some(WContextTypeResolved::Reference(Box::new(
+                self.resolve_type(*type_reference.elem)?,
+            )));
+        }
+
+        // strip out generics
+        // TODO: preserve the generic data
+        if let Type::Path(type_path) = &mut ty {
+            for segment in &mut type_path.path.segments {
+                match &mut segment.arguments {
+                    PathArguments::AngleBracketed(bracketed) => {
+                        for arg in &mut bracketed.args {
+                            match arg {
+                                GenericArgument::Type(_) => {
+                                    *arg = GenericArgument::Type(Type::Infer(TypeInfer {
+                                        underscore_token: Token![_](arg.span()),
+                                    }));
+                                }
+                                GenericArgument::Const(_) => {
+                                    *arg = GenericArgument::Const(Expr::Infer(ExprInfer {
+                                        attrs: Vec::new(),
+                                        underscore_token: Token![_](arg.span()),
+                                    }));
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    PathArguments::None | PathArguments::Parenthesized(_) => {}
+                }
+            }
+        }
+
+        self.type_defs
+            .get_index_of(&WContextSynType(ty))
+            .map(WContextTypeResolved::Def)
+            .map(|index| index)
+    }
+
+    pub fn resolve_types(&mut self) {
+        for i in 0..self.types.len() {
+            let context_type = &self.types[i];
+            if let WContextType::Unresolved(ty) = context_type {
+                if let Some(resolved) = self.resolve_type(*ty.clone()) {
+                    self.types[i] = WContextType::Resolved(resolved);
+                }
+            }
+        }
     }
 }
 
