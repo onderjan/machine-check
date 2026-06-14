@@ -1,16 +1,50 @@
+use std::fmt::Debug;
+
+use indexmap::IndexMap;
 use proc_macro2::Span;
-use syn::{GenericArgument, Token, Type, TypeInfer};
+use quote::quote;
+use syn::{
+    punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, Ident, Path,
+    PathArguments, PathSegment, Token, Type, TypeInfer, TypePath,
+};
 
 use crate::wir::{WPath, WTypeId};
 
 #[derive(Clone, Debug)]
+pub enum WContextTypeDef {
+    Struct,
+}
+
+#[derive(Clone)]
 pub enum WContextType {
     Unresolved(Box<Type>),
     Resolved,
 }
 
+impl Debug for WContextType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unresolved(ty) => {
+                write!(f, "Unresolved({})", quote! (#ty))
+            }
+            Self::Resolved => write!(f, "Resolved"),
+        }
+    }
+}
+
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct WContextSynType(Type);
+
+impl Debug for WContextSynType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let ty = &self.0;
+        write!(f, "{}", quote!(#ty))
+    }
+}
+
 #[derive(Debug)]
 pub struct WContext {
+    type_defs: IndexMap<WContextSynType, WContextTypeDef>,
     types: Vec<WContextType>,
 }
 
@@ -18,7 +52,41 @@ pub struct RequiresInferenceError;
 
 impl WContext {
     pub fn new() -> Self {
-        Self { types: Vec::new() }
+        let mut type_defs = IndexMap::new();
+        type_defs.insert(
+            WContextSynType(Type::Path(TypePath {
+                qself: None,
+                path: Path {
+                    leading_colon: Some(Token![::](Span::call_site())),
+                    segments: Punctuated::from_iter([
+                        PathSegment {
+                            ident: Ident::new("machine_check", Span::call_site()),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("Bitvector", Span::call_site()),
+                            arguments: PathArguments::AngleBracketed(
+                                AngleBracketedGenericArguments {
+                                    colon2_token: None,
+                                    lt_token: Token![<](Span::call_site()),
+                                    args: Punctuated::from_iter([GenericArgument::Type(
+                                        Type::Infer(TypeInfer {
+                                            underscore_token: Token![_](Span::call_site()),
+                                        }),
+                                    )]),
+                                    gt_token: Token![>](Span::call_site()),
+                                },
+                            ),
+                        },
+                    ]),
+                },
+            })),
+            WContextTypeDef::Struct,
+        );
+        Self {
+            type_defs,
+            types: Vec::new(),
+        }
     }
 
     pub fn get_type(&mut self, ty: &Type) -> WTypeId {
@@ -49,6 +117,11 @@ impl WContext {
         self.get_type(&Type::Infer(TypeInfer {
             underscore_token: Token![_](span),
         }))
+    }
+
+    pub fn add_struct_def(&mut self, ty: Type) {
+        self.type_defs
+            .insert(WContextSynType(ty), WContextTypeDef::Struct);
     }
 }
 

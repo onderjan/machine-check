@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use syn::Item;
+use syn::{Item, Path, Type, TypePath};
 
 use crate::{
     into_wir::{
@@ -48,14 +48,21 @@ fn tac_from_items(item_iter: impl Iterator<Item = Item>) -> Result<WDescription<
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     let mut errors = Vec::new();
+
     for item in item_iter {
         match item {
-            Item::Struct(item) => structs.push(from_syn::fold_item_struct(&mut ctx, item)),
+            Item::Struct(item) => {
+                let ty = Type::Path(TypePath {
+                    qself: None,
+                    path: Path::from(item.ident.clone()),
+                });
+                structs.push(from_syn::fold_item_struct(&mut ctx, item));
+                ctx.add_struct_def(ty);
+            }
             Item::Impl(item) => impls.push(from_syn::fold_item_impl(&mut ctx, item)),
             _ => errors.push(Error::unsupported_syn_construct("Item kind", &item)),
         }
     }
-
     let structs = Errors::flat_result(structs);
     let impls = Errors::flat_result(impls);
     let (structs, impls) = Errors::combine_and_vec(structs, impls, errors)?;
