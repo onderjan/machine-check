@@ -11,7 +11,7 @@ use syn_path::path;
 
 use crate::{
     util::{create_expr_path, create_path_from_ident},
-    wir::{WItemFn, WVisibility},
+    wir::{WItemFn, WTypeId, WVisibility},
 };
 
 use super::{IntoSyn, WIdent, WPath, YStage};
@@ -26,14 +26,14 @@ pub struct WImplItemType {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct WSignature<Y: YStage> {
     pub ident: WIdent,
-    pub inputs: Vec<WFnArg<Y::InputType>>,
+    pub inputs: Vec<WFnArg>,
     pub output: Y::OutputType,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct WFnArg<IT: IntoSyn<Type>> {
+pub struct WFnArg {
     pub ident: WIdent,
-    pub ty: IT,
+    pub ty: WTypeId,
 }
 
 impl<Y: YStage> Debug for WSignature<Y> {
@@ -52,7 +52,7 @@ impl<Y: YStage> Debug for WSignature<Y> {
     }
 }
 
-impl<IT: IntoSyn<Type> + Debug> Debug for WFnArg<IT> {
+impl Debug for WFnArg {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}: {:?}", self.ident, self.ty)
     }
@@ -135,9 +135,10 @@ impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
                 paren_token: Paren::default(),
                 inputs: Punctuated::from_iter(self.signature.inputs.into_iter().map(|fn_arg| {
                     if fn_arg.ident.name() == "self" {
+                        todo!("Fn arg type");
                         // instead of the actual type, which may be converted to a non-Self path,
                         // create a dummy type for the receiver
-                        let fn_arg_ty = fn_arg.ty.into_syn();
+                        /* let fn_arg_ty = fn_arg.ty.into_syn();
                         let ty_span = fn_arg_ty.span();
                         let self_ty = Type::Path(TypePath {
                             qself: None,
@@ -164,7 +165,7 @@ impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
                             self_token: Token![self](span),
                             colon_token: None,
                             ty: Box::new(ty),
-                        })
+                        })*/
                     } else {
                         FnArg::Typed(syn::PatType {
                             attrs: Vec::new(),

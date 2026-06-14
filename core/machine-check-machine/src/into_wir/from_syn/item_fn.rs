@@ -9,13 +9,14 @@ use syn::{
 
 use crate::{
     into_wir::{
-        from_syn::{
-            attribute_disallower::AttributeDisallower, item::fold_visibility, ty::fold_type,
-        },
+        from_syn::{attribute_disallower::AttributeDisallower, item::fold_visibility},
         Error, ErrorType, Errors,
     },
     support::ident_creator::IdentCreator,
-    wir::{WContext, WFnArg, WIdent, WItemFn, WPath, WSignature, WSpan, WTacLocal, WTypeId, YTac},
+    wir::{
+        RequiresInferenceError, WContext, WFnArg, WIdent, WItemFn, WPath, WSignature, WSpan,
+        WTacLocal, WTypeId, YTac,
+    },
 };
 
 use super::path::fold_path;
@@ -194,7 +195,7 @@ impl FunctionFolder<'_> {
             .map(|fn_arg| self.fold_fn_arg(scope_id, fn_arg))
             .collect();
 
-        let inputs = Errors::flat_single_result(inputs);
+        let inputs = Errors::flat_single_result(inputs)?;
 
         let output = match signature.output {
             syn::ReturnType::Default => {
@@ -203,15 +204,19 @@ impl FunctionFolder<'_> {
                     signature_span,
                 )))
             }
-            syn::ReturnType::Type(_rarrow, ty) => {
-                fold_type(&mut self.ctx, *ty, self.self_ty.as_ref())
-            }
-        }
-        .map_err(Errors::single);
+            syn::ReturnType::Type(_rarrow, ty) => match self.ctx.get_noninferred_type(&*ty) {
+                Ok(ok) => ok,
+                Err(RequiresInferenceError) => {
+                    return Err(Errors::single(Error::new(
+                        ErrorType::IllegalConstruct(String::from(
+                            "Return type cannot require inference",
+                        )),
+                        WSpan::from_syn(&*ty),
+                    )))
+                }
+            },
+        };
 
-        let (inputs, output) = Errors::combine(inputs, output)?;
-
-        let output = todo!("Make sure output is total");
         /*
         let Some(output) = output.try_total() else {
             return Err(Errors::single(Error::new(
@@ -227,8 +232,8 @@ impl FunctionFolder<'_> {
         })
     }
 
-    fn fold_fn_arg(&mut self, scope_id: u32, fn_arg: FnArg) -> Result<WFnArg<WTypeId>, Error> {
-        let fn_arg = match fn_arg {
+    fn fold_fn_arg(&mut self, scope_id: u32, fn_arg: FnArg) -> Result<WFnArg, Error> {
+        let fn_arg = match &fn_arg {
             syn::FnArg::Receiver(receiver) => {
                 let Some(self_ty) = &self.self_ty else {
                     return Err(Error::new(
@@ -240,32 +245,21 @@ impl FunctionFolder<'_> {
                 };
 
                 let receiver_span = receiver.span();
-                let reference = match receiver.reference {
-                    Some((_and, lifetime)) => {
-                        if lifetime.is_some() {
-                            return Err(Error::unsupported_syn_construct("Lifetimes", &lifetime));
-                        }
-
-                        if receiver.mutability.is_some() {
-                            return Err(Error::unsupported_syn_construct(
-                                "Mutable receiver argument",
-                                &receiver.mutability,
-                            ));
-                        } else {
-                            IrReference::Immutable
-                        }
-                    }
-                    None => IrReference::None,
-                };
 
                 // do not scope self, it is unnecessary
                 let self_ident = WIdent::new(String::from("self"), receiver_span);
 
-                let self_type = todo!("Self type");
-                /*WType {
-                    reference,
-                    inner: WBasicType::Path(self_ty.clone()),
-                };*/
+                let self_type = match self.ctx.get_noninferred_type_path(self_ty) {
+                    Ok(type_id) => type_id,
+                    Err(_) => {
+                        return Err(Error::new(
+                            ErrorType::IllegalConstruct(String::from(
+                                "Argument with partially specified type",
+                            )),
+                            WSpan::from_syn(&fn_arg),
+                        ))
+                    }
+                };
 
                 self.add_unique_scoped_ident(self_ident.clone(), self_ident.clone());
 
@@ -275,6 +269,7 @@ impl FunctionFolder<'_> {
                 }
             }
             syn::FnArg::Typed(pat_type) => {
+                let pat_type = pat_type.clone();
                 let Pat::Ident(pat_ident) = *pat_type.pat else {
                     return Err(Error::unsupported_syn_construct(
                         "Non-ident typed pattern",
@@ -283,23 +278,17 @@ impl FunctionFolder<'_> {
                 };
 
                 let original_ident = WIdent::from_syn_ident(pat_ident.ident);
-                let pat_ty = pat_type.ty.clone();
-                let ty = fold_type(&mut self.ctx, *pat_type.ty, self.self_ty.as_ref())?;
-
-                let ty = todo!("Typed function arg");
-                /*let ty = if let Some(basic_type) = ty.inner.try_total() {
-                    WType {
-                        reference: ty.reference,
-                        inner: basic_type,
+                let ty = match self.ctx.get_noninferred_type(&pat_type.ty) {
+                    Ok(type_id) => type_id,
+                    Err(_) => {
+                        return Err(Error::new(
+                            ErrorType::IllegalConstruct(String::from(
+                                "Argument with partially specified type",
+                            )),
+                            WSpan::from_syn(&pat_type.ty),
+                        ))
                     }
-                } else {
-                    return Err(Error::new(
-                        ErrorType::IllegalConstruct(String::from(
-                            "Field with partially specified type",
-                        )),
-                        WSpan::from_syn(&pat_ty),
-                    ));
-                };*/
+                };
 
                 let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
 

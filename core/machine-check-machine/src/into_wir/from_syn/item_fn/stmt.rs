@@ -6,10 +6,7 @@ use syn::{
 };
 
 use crate::{
-    into_wir::{
-        from_syn::{item_fn::FunctionScope, ty::fold_type},
-        Error, ErrorType, Errors,
-    },
+    into_wir::{from_syn::item_fn::FunctionScope, Error, ErrorType, Errors},
     util::{create_expr_ident, path_matches_global_names},
     wir::{
         WBlock, WIdent, WIfCondition, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
@@ -98,14 +95,16 @@ impl<'a> super::FunctionFolder<'a> {
         match stmt {
             Stmt::Local(local) => {
                 let mut pat = local.pat.clone();
-                /*let mut ty = WPartialGeneralType::Unknown;
-                if let Pat::Type(pat_type) = pat {
-                    ty = fold_type(*pat_type.ty, self.self_ty.as_ref())
-                        .map(WPartialGeneralType::Normal)
-                        .map_err(Errors::single)?;
+                let ty = if let Pat::Type(pat_type) = pat {
+                    /*ty = fold_type(*pat_type.ty, self.self_ty.as_ref())
+                    .map(WPartialGeneralType::Normal)
+                    .map_err(Errors::single)?;*/
+                    let ty = self.ctx.get_type(&pat_type.ty);
                     pat = *pat_type.pat;
-                }*/
-                let ty = todo!("Statement type");
+                    ty
+                } else {
+                    self.ctx.wildcard_type()
+                };
 
                 let Pat::Ident(left_pat_ident) = pat else {
                     return Err(Errors::single(Error::unsupported_syn_construct(

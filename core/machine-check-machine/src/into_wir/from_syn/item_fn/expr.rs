@@ -12,10 +12,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    into_wir::{
-        from_syn::{path::fold_path, ty::fold_type},
-        Error, ErrorType,
-    },
+    into_wir::{from_syn::path::fold_path, Error, ErrorType},
     util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall, WExprReference,

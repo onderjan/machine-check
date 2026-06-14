@@ -16,7 +16,7 @@ use super::{IntoSyn, WIdent, WPath};
 #[derive(Clone, Debug)]
 pub struct WTypeDef;
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WTypeId(pub usize);
 
 impl IntoSyn<Type> for WTypeId {
