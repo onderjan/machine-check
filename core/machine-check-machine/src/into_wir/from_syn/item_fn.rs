@@ -123,8 +123,9 @@ impl FunctionFolder<'_> {
         assert_eq!(self.scopes.len(), 1);
 
         for temporary_ident in self.ident_creator.drain_created_temporaries() {
+            let span = temporary_ident.span();
             self.local_types
-                .insert(temporary_ident, self.ctx.wild_type());
+                .insert(temporary_ident, self.ctx.infer_type(span));
         }
 
         let mut locals = Vec::new();

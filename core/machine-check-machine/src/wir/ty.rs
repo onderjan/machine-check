@@ -13,9 +13,6 @@ use syn::{
 
 use super::{IntoSyn, WIdent, WPath};
 
-#[derive(Clone, Debug)]
-pub struct WTypeDef;
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WTypeId(pub usize);
 

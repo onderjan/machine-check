@@ -103,7 +103,7 @@ impl<'a> super::FunctionFolder<'a> {
                     pat = *pat_type.pat;
                     ty
                 } else {
-                    self.ctx.wild_type()
+                    self.ctx.infer_type(local.span())
                 };
 
                 let Pat::Ident(left_pat_ident) = pat else {
