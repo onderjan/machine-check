@@ -9,14 +9,16 @@ use syn::{
     GenericArgument, Ident, Path, PathArguments, PathSegment, Token, Type, TypeInfer, TypePath,
 };
 use syn_path::path;
+use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::wir::{
     WBlock, WExpr, WExprHighCall, WIndexedExpr, WIndexedIdent, WItemImpl, WItemStruct,
-    WMacroableStmt, WPath, WTypeId, YTac, ZTac,
+    WMacroableStmt, WPath, WTacLocal, WTypeId, YTac, ZTac,
 };
 
 #[derive(Clone, Debug)]
 pub enum WContextTypeDef {
+    Bitvector,
     Struct,
 }
 
@@ -59,6 +61,7 @@ impl Debug for WContextSynType {
 pub struct WContext {
     type_defs: IndexMap<WContextSynType, WContextTypeDef>,
     types: Vec<WContextType>,
+    eq_constraints: QuickUnionUf<UnionBySize>,
 }
 
 pub struct RequiresInferenceError;
@@ -67,40 +70,51 @@ impl WContext {
     pub fn new() -> Self {
         let mut type_defs = IndexMap::new();
         type_defs.insert(
-            WContextSynType(Type::Path(TypePath {
-                qself: None,
-                path: Path {
-                    leading_colon: Some(Token![::](Span::call_site())),
-                    segments: Punctuated::from_iter([
-                        PathSegment {
-                            ident: Ident::new("machine_check", Span::call_site()),
-                            arguments: PathArguments::None,
-                        },
-                        PathSegment {
-                            ident: Ident::new("Bitvector", Span::call_site()),
-                            arguments: PathArguments::AngleBracketed(
-                                AngleBracketedGenericArguments {
-                                    colon2_token: None,
-                                    lt_token: Token![<](Span::call_site()),
-                                    args: Punctuated::from_iter([GenericArgument::Const(
-                                        Expr::Infer(ExprInfer {
-                                            attrs: Vec::new(),
-                                            underscore_token: Token![_](Span::call_site()),
-                                        }),
-                                    )]),
-                                    gt_token: Token![>](Span::call_site()),
-                                },
-                            ),
-                        },
-                    ]),
-                },
-            })),
-            WContextTypeDef::Struct,
+            WContextSynType(Self::bitvector_type()),
+            WContextTypeDef::Bitvector,
         );
         Self {
             type_defs,
             types: Vec::new(),
+            eq_constraints: QuickUnionUf::new(0),
         }
+    }
+
+    fn bitvector_type() -> Type {
+        Type::Path(TypePath {
+            qself: None,
+            path: Path {
+                leading_colon: Some(Token![::](Span::call_site())),
+                segments: Punctuated::from_iter([
+                    PathSegment {
+                        ident: Ident::new("machine_check", Span::call_site()),
+                        arguments: PathArguments::None,
+                    },
+                    PathSegment {
+                        ident: Ident::new("Bitvector", Span::call_site()),
+                        arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                            colon2_token: None,
+                            lt_token: Token![<](Span::call_site()),
+                            args: Punctuated::from_iter([GenericArgument::Const(Expr::Infer(
+                                ExprInfer {
+                                    attrs: Vec::new(),
+                                    underscore_token: Token![_](Span::call_site()),
+                                },
+                            ))]),
+                            gt_token: Token![>](Span::call_site()),
+                        }),
+                    },
+                ]),
+            },
+        })
+    }
+
+    pub fn type_def_index(&mut self, ty: &Type) -> WTypeId {
+        WTypeId(
+            self.type_defs
+                .get_index_of(&WContextSynType(ty.clone()))
+                .expect("Type should be in type defs"),
+        )
     }
 
     pub fn get_type(&mut self, ty: &Type) -> WTypeId {
@@ -169,7 +183,15 @@ impl WContext {
             .map(WContextTypeResolved::Def)
     }
 
-    fn add_block_constraints(&mut self, block: &WBlock<ZTac>) {
+    fn add_eq_constraint(&mut self, a: WTypeId, b: WTypeId) {
+        let max = a.0.max(b.0);
+        while max >= self.eq_constraints.size() {
+            self.eq_constraints.insert(UnionBySize::default());
+        }
+
+        self.eq_constraints.union(a.0, b.0);
+    }
+    fn add_block_constraints(&mut self, locals: &Vec<WTacLocal<WTypeId>>, block: &WBlock<ZTac>) {
         for stmt in &block.stmts {
             eprintln!("Should add constraints for statement {:#?}", stmt);
             match stmt {
@@ -199,6 +221,14 @@ impl WContext {
                                     let bitvector_new_path = path!(::machine_check::Bitvector::new);
                                     let fn_path = Path::from(call.fn_path.clone());
                                     if fn_path == bitvector_new_path {
+                                        // constrain the output to be a bitvector
+                                        let bitvector_ty = self.get_type(&Self::bitvector_type());
+                                        let local_ty = locals
+                                            .iter()
+                                            .find(|e| &e.ident == left)
+                                            .expect("Local should be found");
+                                        self.add_eq_constraint(local_ty.ty.clone(), bitvector_ty);
+
                                         eprintln!("Bitvector new");
                                     } else {
                                         todo!("Call")
@@ -224,8 +254,8 @@ impl WContext {
                 }
                 WMacroableStmt::If(stmt_if) => {
                     eprintln!("Should add constraints for if {:#?}", stmt_if);
-                    self.add_block_constraints(&stmt_if.then_block);
-                    self.add_block_constraints(&stmt_if.else_block);
+                    self.add_block_constraints(locals, &stmt_if.then_block);
+                    self.add_block_constraints(locals, &stmt_if.else_block);
                 }
                 WMacroableStmt::PanicMacro(wstmt_panic_macro) => {
                     todo!("Constraints for panic macro")
@@ -237,16 +267,34 @@ impl WContext {
     pub fn resolve_types(&mut self, structs: &[WItemStruct<WTypeId>], impls: &[WItemImpl<YTac>]) {
         for item_impl in impls.iter() {
             for item_fn in &item_impl.impl_item_fns {
-                self.add_block_constraints(&item_fn.block);
+                self.add_block_constraints(&item_fn.locals, &item_fn.block);
             }
         }
 
+        let mut united = IndexMap::new();
+
         for i in 0..self.types.len() {
             let context_type = &self.types[i];
-            if let WContextType::Unresolved(ty) = context_type {
-                if let Some(resolved) = self.resolve_type(*ty.clone()) {
-                    self.types[i] = WContextType::Resolved(resolved);
+            let root = self.eq_constraints.find(i);
+            match context_type {
+                WContextType::Unresolved(unresolved) => {
+                    if let Some(resolved) = self.resolve_type(*unresolved.clone()) {
+                        united.insert(root, resolved);
+                    }
                 }
+                WContextType::Resolved(resolved) => {
+                    united.insert(root, resolved.clone());
+                }
+            }
+            if let WContextType::Unresolved(ty) = context_type {}
+        }
+
+        eprintln!("United resolved: {:?}", united);
+
+        for i in 0..self.types.len() {
+            let root = self.eq_constraints.find(i);
+            if let Some(resolved) = united.get(&root) {
+                self.types[i] = WContextType::Resolved(resolved.clone());
             }
         }
     }
