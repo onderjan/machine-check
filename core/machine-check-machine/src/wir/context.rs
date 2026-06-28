@@ -18,6 +18,7 @@ use crate::wir::{
 
 #[derive(Clone, Debug)]
 pub enum WContextTypeDef {
+    Bool,
     Bitvector,
     Struct,
 }
@@ -69,6 +70,7 @@ pub struct RequiresInferenceError;
 impl WContext {
     pub fn new() -> Self {
         let mut type_defs = IndexMap::new();
+        type_defs.insert(WContextSynType(Self::bool_type()), WContextTypeDef::Bool);
         type_defs.insert(
             WContextSynType(Self::bitvector_type()),
             WContextTypeDef::Bitvector,
@@ -105,6 +107,19 @@ impl WContext {
                         }),
                     },
                 ]),
+            },
+        })
+    }
+
+    fn bool_type() -> Type {
+        Type::Path(TypePath {
+            qself: None,
+            path: Path {
+                leading_colon: None,
+                segments: Punctuated::from_iter([PathSegment {
+                    ident: Ident::new("bool", Span::call_site()),
+                    arguments: PathArguments::None,
+                }]),
             },
         })
     }
@@ -254,7 +269,13 @@ impl WContext {
                                         .ty
                                         .clone();
                                     match binary.op {
-                                        IrStdBinaryOp::Eq => eprintln!("Binary eq"),
+                                        IrStdBinaryOp::Eq => {
+                                            // constrain the inputs to be of the same type
+                                            self.add_eq_constraint(a_ty, b_ty);
+                                            // constrain the output to be a Boolean
+                                            let bool_ty = self.get_type(&Self::bool_type());
+                                            self.add_eq_constraint(left_ty, bool_ty);
+                                        }
                                         IrStdBinaryOp::Add => {
                                             // constrain both inputs to output
                                             self.add_eq_constraint(left_ty.clone(), a_ty);
