@@ -212,6 +212,14 @@ impl WContext {
                         "Should add constraints for left {:?}, right {:?}",
                         left, right
                     );
+
+                    let left_ty = locals
+                        .iter()
+                        .find(|e| &e.ident == left)
+                        .expect("Local should be found")
+                        .ty
+                        .clone();
+
                     match right {
                         WExpr::Move(wident) => todo!("Move"),
                         WExpr::Call(call) => {
@@ -223,11 +231,7 @@ impl WContext {
                                     if fn_path == bitvector_new_path {
                                         // constrain the output to be a bitvector
                                         let bitvector_ty = self.get_type(&Self::bitvector_type());
-                                        let local_ty = locals
-                                            .iter()
-                                            .find(|e| &e.ident == left)
-                                            .expect("Local should be found");
-                                        self.add_eq_constraint(local_ty.ty.clone(), bitvector_ty);
+                                        self.add_eq_constraint(left_ty, bitvector_ty);
 
                                         eprintln!("Bitvector new");
                                     } else {
@@ -235,11 +239,30 @@ impl WContext {
                                     }
                                 }
                                 WExprHighCall::StdUnary(unary) => todo!("Std unary"),
-                                WExprHighCall::StdBinary(binary) => match binary.op {
-                                    IrStdBinaryOp::Eq => eprintln!("Binary eq"),
-                                    IrStdBinaryOp::Add => eprintln!("Binary add"),
-                                    _ => todo!("Std binary"),
-                                },
+                                WExprHighCall::StdBinary(binary) => {
+                                    let a_ty = locals
+                                        .iter()
+                                        .find(|e| e.ident == binary.a)
+                                        .expect("Local should be found")
+                                        .ty
+                                        .clone();
+
+                                    let b_ty = locals
+                                        .iter()
+                                        .find(|e| e.ident == binary.b)
+                                        .expect("Local should be found")
+                                        .ty
+                                        .clone();
+                                    match binary.op {
+                                        IrStdBinaryOp::Eq => eprintln!("Binary eq"),
+                                        IrStdBinaryOp::Add => {
+                                            // constrain both inputs to output
+                                            self.add_eq_constraint(left_ty.clone(), a_ty);
+                                            self.add_eq_constraint(left_ty, b_ty);
+                                        }
+                                        _ => todo!("Std binary"),
+                                    }
+                                }
                             }
                         }
                         WExpr::Field(wexpr_field) => {
