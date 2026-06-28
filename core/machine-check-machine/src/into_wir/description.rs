@@ -67,7 +67,7 @@ fn tac_from_items(item_iter: impl Iterator<Item = Item>) -> Result<WDescription<
     let impls = Errors::flat_result(impls);
     let (structs, impls) = Errors::combine_and_vec(structs, impls, errors)?;
 
-    ctx.resolve_types();
+    ctx.resolve_types(structs.as_slice(), impls.as_slice());
 
     eprintln!("Context: {:#?}", ctx);
 

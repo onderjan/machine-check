@@ -1,14 +1,19 @@
 use std::fmt::Debug;
 
 use indexmap::IndexMap;
+use machine_check_common::ir_common::IrStdBinaryOp;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
     punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, Expr, ExprInfer,
     GenericArgument, Ident, Path, PathArguments, PathSegment, Token, Type, TypeInfer, TypePath,
 };
+use syn_path::path;
 
-use crate::wir::{WPath, WTypeId};
+use crate::wir::{
+    WBlock, WExpr, WExprHighCall, WIndexedExpr, WIndexedIdent, WItemImpl, WItemStruct,
+    WMacroableStmt, WPath, WTypeId, YTac, ZTac,
+};
 
 #[derive(Clone, Debug)]
 pub enum WContextTypeDef {
@@ -162,10 +167,80 @@ impl WContext {
         self.type_defs
             .get_index_of(&WContextSynType(ty))
             .map(WContextTypeResolved::Def)
-            .map(|index| index)
     }
 
-    pub fn resolve_types(&mut self) {
+    fn add_block_constraints(&mut self, block: &WBlock<ZTac>) {
+        for stmt in &block.stmts {
+            eprintln!("Should add constraints for statement {:#?}", stmt);
+            match stmt {
+                WMacroableStmt::Assign(assign) => {
+                    let left = match &assign.left {
+                        WIndexedIdent::Indexed(wident, wident1) => {
+                            todo!("Constraints for indexed left")
+                        }
+                        WIndexedIdent::NonIndexed(ident) => ident,
+                    };
+                    let right = match &assign.right {
+                        WIndexedExpr::Indexed(base_expr, ident) => {
+                            todo!("Constraints for indexed right")
+                        }
+                        WIndexedExpr::NonIndexed(expr) => expr,
+                    };
+                    eprintln!(
+                        "Should add constraints for left {:?}, right {:?}",
+                        left, right
+                    );
+                    match right {
+                        WExpr::Move(wident) => todo!("Move"),
+                        WExpr::Call(call) => {
+                            eprintln!("Call");
+                            match call {
+                                WExprHighCall::Call(call) => {
+                                    let bitvector_new_path = path!(::machine_check::Bitvector::new);
+                                    let fn_path = Path::from(call.fn_path.clone());
+                                    if fn_path == bitvector_new_path {
+                                        eprintln!("Bitvector new");
+                                    } else {
+                                        todo!("Call")
+                                    }
+                                }
+                                WExprHighCall::StdUnary(unary) => todo!("Std unary"),
+                                WExprHighCall::StdBinary(binary) => match binary.op {
+                                    IrStdBinaryOp::Eq => eprintln!("Binary eq"),
+                                    IrStdBinaryOp::Add => eprintln!("Binary add"),
+                                    _ => todo!("Std binary"),
+                                },
+                            }
+                        }
+                        WExpr::Field(wexpr_field) => {
+                            eprintln!("Field");
+                        }
+                        WExpr::Struct(wexpr_struct) => {
+                            eprintln!("Struct");
+                        }
+                        WExpr::Reference(wexpr_reference) => todo!("Reference"),
+                        WExpr::Lit(lit, _) => todo!("Literal"),
+                    }
+                }
+                WMacroableStmt::If(stmt_if) => {
+                    eprintln!("Should add constraints for if {:#?}", stmt_if);
+                    self.add_block_constraints(&stmt_if.then_block);
+                    self.add_block_constraints(&stmt_if.else_block);
+                }
+                WMacroableStmt::PanicMacro(wstmt_panic_macro) => {
+                    todo!("Constraints for panic macro")
+                }
+            }
+        }
+    }
+
+    pub fn resolve_types(&mut self, structs: &[WItemStruct<WTypeId>], impls: &[WItemImpl<YTac>]) {
+        for item_impl in impls.iter() {
+            for item_fn in &item_impl.impl_item_fns {
+                self.add_block_constraints(&item_fn.block);
+            }
+        }
+
         for i in 0..self.types.len() {
             let context_type = &self.types[i];
             if let WContextType::Unresolved(ty) = context_type {
