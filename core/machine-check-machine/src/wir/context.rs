@@ -289,8 +289,12 @@ impl WContext {
                         WExpr::Field(wexpr_field) => {
                             eprintln!("Field");
                         }
-                        WExpr::Struct(wexpr_struct) => {
-                            eprintln!("Struct");
+                        WExpr::Struct(expr_struct) => {
+                            let struct_ty = self.get_type(&Type::Path(TypePath {
+                                qself: None,
+                                path: Path::from(expr_struct.type_path.clone()),
+                            }));
+                            self.add_eq_constraint(left_ty, struct_ty);
                         }
                         WExpr::Reference(wexpr_reference) => todo!("Reference"),
                         WExpr::Lit(lit, _) => todo!("Literal"),
