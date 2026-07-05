@@ -289,3 +289,66 @@ impl WSpanned for WIdent {
         WSpan::from_span(self.span)
     }
 }
+
+#[derive(Clone)]
+pub enum WPartialArgument {
+    Uint(u32, WSpan),
+    Infer(WSpan),
+}
+
+#[derive(Clone)]
+pub struct WPartialSegment {
+    pub ident: WIdent,
+    pub generics: Option<Vec<WPartialArgument>>,
+}
+
+#[derive(Clone)]
+pub struct WPartialPath {
+    pub leading_colon: Option<WSpan>,
+    pub segments: Vec<WPartialSegment>,
+}
+
+impl Debug for WPartialArgument {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Uint(num, _span) => write!(f, "{}", num),
+            Self::Infer(_span) => write!(f, "_"),
+        }
+    }
+}
+
+impl Debug for WPartialSegment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.ident, f)?;
+        if let Some(arguments) = &self.generics {
+            write!(f, "<")?;
+            let mut first = true;
+            for arg in arguments {
+                if first {
+                    first = false;
+                } else {
+                    write!(f, ",")?;
+                }
+                Debug::fmt(&arg, f)?;
+            }
+
+            write!(f, ">")?;
+        }
+        Ok(())
+    }
+}
+
+impl Debug for WPartialPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut skip_leading = self.leading_colon.is_none();
+        for segment in &self.segments {
+            if skip_leading {
+                skip_leading = false;
+            } else {
+                write!(f, "::")?;
+            }
+            Debug::fmt(&segment, f)?;
+        }
+        Ok(())
+    }
+}

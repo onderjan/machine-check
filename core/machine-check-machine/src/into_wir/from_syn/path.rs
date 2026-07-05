@@ -1,8 +1,8 @@
-use syn::{Path, PathArguments, Type};
+use syn::{AngleBracketedGenericArguments, Expr, GenericArgument, Lit, Path, PathArguments, Type};
 
 use crate::{
     into_wir::Error,
-    wir::{WIdent, WPath, WPathSegment, WSpan},
+    wir::{WIdent, WPartialArgument, WPartialPath, WPartialSegment, WPath, WPathSegment, WSpan},
 };
 
 pub fn fold_path(path: Path, self_ty: Option<&Type>) -> Result<WPath, Error> {
@@ -37,7 +37,7 @@ pub fn fold_path(path: Path, self_ty: Option<&Type>) -> Result<WPath, Error> {
     }
 
     // disallow global paths to any other crates than machine_check and std
-    let mut leading_colon = path.leading_colon.map(|leading| WSpan::from_syn(&leading));
+    let leading_colon = path.leading_colon.map(|leading| WSpan::from_syn(&leading));
 
     if leading_colon.is_some() {
         let crate_segment = segments
@@ -76,4 +76,98 @@ pub fn fold_path(path: Path, self_ty: Option<&Type>) -> Result<WPath, Error> {
         leading_colon,
         segments,
     })
+}
+
+pub fn fold_partial_path(path: Path) -> Result<WPartialPath, Error> {
+    let leading_colon = path.leading_colon.map(|c| WSpan::from_syn(&c));
+    let mut segments = Vec::new();
+    for segment in path.segments.into_iter() {
+        if segment.ident == "super" || segment.ident == "crate" || segment.ident == "$crate" {
+            return Err(Error::unsupported_construct(
+                "Path segment super / crate / $crate",
+                WSpan::from_span(segment.ident.span()),
+            ));
+        }
+
+        let generics = match segment.arguments {
+            PathArguments::None => None,
+            PathArguments::AngleBracketed(arguments) => Some(fold_path_arguments(arguments)?),
+            PathArguments::Parenthesized(parenthesized) => {
+                return Err(Error::unsupported_construct(
+                    "Function generics",
+                    WSpan::from_syn(&parenthesized),
+                ))
+            }
+        };
+
+        segments.push(WPartialSegment {
+            ident: WIdent::from_syn_ident(segment.ident),
+            generics,
+        })
+    }
+
+    Ok(WPartialPath {
+        leading_colon,
+        segments,
+    })
+}
+
+fn fold_path_arguments(
+    arguments: AngleBracketedGenericArguments,
+) -> Result<Vec<WPartialArgument>, Error> {
+    if arguments.colon2_token.is_some() {
+        return Err(Error::unsupported_construct(
+            "Turbofish",
+            WSpan::from_syn(&arguments.colon2_token),
+        ));
+    }
+    let mut result = Vec::new();
+    for argument in arguments.args {
+        let arg_span = WSpan::from_syn(&argument);
+        let mut arg_result = None;
+        match argument {
+            GenericArgument::Const(expr) => match expr {
+                Expr::Lit(expr_lit) => match expr_lit.lit {
+                    Lit::Int(lit_int) => {
+                        let Ok(num) = lit_int.base10_parse::<u32>() else {
+                            return Err(Error::unsupported_construct(
+                                "Const generic argument not fitting in u32",
+                                arg_span,
+                            ));
+                        };
+                        arg_result = Some(WPartialArgument::Uint(num, WSpan::from_syn(&lit_int)));
+                    }
+                    _ => {
+                        return Err(Error::unsupported_construct(
+                            "Non-integer const generic argument",
+                            arg_span,
+                        ))
+                    }
+                },
+                Expr::Infer(infer) => {
+                    arg_result = Some(WPartialArgument::Infer(WSpan::from_syn(&infer)));
+                }
+                _ => {
+                    return Err(Error::unsupported_construct(
+                        "Non-literal const generic argument",
+                        arg_span,
+                    ))
+                }
+            },
+            GenericArgument::Type(Type::Infer(infer)) => {
+                arg_result = Some(WPartialArgument::Infer(WSpan::from_syn(&infer)));
+            }
+            _ => {}
+        }
+
+        if let Some(arg_result) = arg_result {
+            result.push(arg_result);
+        } else {
+            return Err(Error::unsupported_construct(
+                "Generic argument that is not const or wildcard",
+                arg_span,
+            ));
+        }
+    }
+    Ok(result)
 }
