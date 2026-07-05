@@ -1,17 +1,9 @@
-use std::fmt::{Debug, Write};
+use std::fmt::Debug;
+use syn::{Expr, Type};
 
-use machine_check_common::{
-    ir_common::{IrReference, IrTypeArray},
-    Signedness,
-};
-use proc_macro2::Span;
-use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, ExprStruct, FieldValue,
-    GenericArgument, Ident, Lit, LitInt, Path, PathArguments, PathSegment, Token, Type, TypeInfer,
-    TypePath, TypeReference,
-};
+use crate::wir::{WIdent, WSpan, WSpanned};
 
-use super::{IntoSyn, WIdent, WPath};
+use super::IntoSyn;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct WTypeId(pub usize);
@@ -25,6 +17,105 @@ impl IntoSyn<Type> for WTypeId {
 impl IntoSyn<Expr> for WTypeId {
     fn into_syn(self) -> Expr {
         todo!("WTypeId into syn expr")
+    }
+}
+
+#[derive(Clone)]
+pub enum WPartialArgument {
+    Uint(u32, WSpan),
+    Infer(WSpan),
+}
+
+#[derive(Clone)]
+pub struct WPartialSegment {
+    pub ident: WIdent,
+    pub generics: Option<Vec<WPartialArgument>>,
+}
+
+#[derive(Clone)]
+pub struct WPartialPath {
+    pub leading_colon: Option<WSpan>,
+    pub segments: Vec<WPartialSegment>,
+}
+
+#[derive(Clone)]
+pub enum WPartialType {
+    Path(WPartialPath),
+    Reference(Box<WPartialType>),
+    Infer(WSpan),
+}
+
+impl WPartialType {
+    pub fn wir_span(&self) -> WSpan {
+        match self {
+            WPartialType::Path(path) => {
+                if let Some(last) = path.segments.last() {
+                    last.ident.wir_span()
+                } else {
+                    WSpan::call_site()
+                }
+            }
+            WPartialType::Reference(inner) => inner.wir_span(),
+            WPartialType::Infer(span) => *span,
+        }
+    }
+}
+
+impl Debug for WPartialArgument {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Uint(num, _span) => write!(f, "{}", num),
+            Self::Infer(_span) => write!(f, "_"),
+        }
+    }
+}
+
+impl Debug for WPartialSegment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.ident, f)?;
+        if let Some(arguments) = &self.generics {
+            write!(f, "<")?;
+            let mut first = true;
+            for arg in arguments {
+                if first {
+                    first = false;
+                } else {
+                    write!(f, ",")?;
+                }
+                Debug::fmt(&arg, f)?;
+            }
+
+            write!(f, ">")?;
+        }
+        Ok(())
+    }
+}
+
+impl Debug for WPartialPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut skip_leading = self.leading_colon.is_none();
+        for segment in &self.segments {
+            if skip_leading {
+                skip_leading = false;
+            } else {
+                write!(f, "::")?;
+            }
+            Debug::fmt(&segment, f)?;
+        }
+        Ok(())
+    }
+}
+
+impl Debug for WPartialType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Path(path) => Debug::fmt(&path, f),
+            Self::Reference(inner) => {
+                write!(f, "&")?;
+                Debug::fmt(inner.as_ref(), f)
+            }
+            Self::Infer(_span) => write!(f, "_"),
+        }
     }
 }
 

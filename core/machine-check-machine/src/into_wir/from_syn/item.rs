@@ -121,17 +121,11 @@ pub fn fold_item_struct(
 
         let visibility = fold_visibility(field.vis)?;
         let ident = WIdent::from_syn_ident(field_ident);
-        let field = match ctx.get_noninferred_type(&field.ty) {
-            Ok(type_id) => Ok(WField {
-                visibility,
-                ident,
-                ty: type_id,
-            }),
-            Err(_) => Err(Error::new(
-                ErrorType::IllegalConstruct(String::from("Field with partially specified type")),
-                WSpan::from_syn(&field.ty),
-            )),
-        };
+        let field = ctx.noninferred_id(&field.ty).map(|ty| WField {
+            visibility,
+            ident,
+            ty,
+        });
 
         fields.push(field);
     }

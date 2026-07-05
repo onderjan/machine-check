@@ -1,26 +1,26 @@
 use std::fmt::Debug;
 
 use indexmap::IndexMap;
-use machine_check_common::ir_common::IrStdBinaryOp;
 use proc_macro2::Span;
 use quote::quote;
-use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprInfer, GenericArgument,
-    Ident, Path, PathArguments, PathSegment, Token, Type, TypeInfer, TypePath,
-};
-use syn_path::path;
+use syn::Type;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
-use crate::wir::{
-    WBlock, WExpr, WExprHighCall, WIndexedExpr, WIndexedIdent, WItemImpl, WItemStruct,
-    WMacroableStmt, WTacLocal, WTypeId, YTac, ZTac,
+use crate::{
+    into_wir::{fold_type, Error, ErrorType},
+    wir::{
+        WIdent, WItemImpl, WPartialArgument, WPartialPath, WPartialSegment, WPartialType, WSpan,
+        WTypeId, YTac,
+    },
 };
+
+mod constraints;
 
 #[derive(Clone, Debug)]
 pub enum WContextTypeDef {
     Struct,
 }
-
+/*
 #[derive(Debug, Clone)]
 pub enum WContextTypeResolved {
     Bool,
@@ -46,7 +46,7 @@ impl Debug for WContextType {
             }
         }
     }
-}
+}*/
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WContextSynType(Type);
@@ -61,11 +61,9 @@ impl Debug for WContextSynType {
 #[derive(Debug)]
 pub struct WContext {
     type_defs: IndexMap<WContextSynType, WContextTypeDef>,
-    types: Vec<WContextType>,
+    types: Vec<WPartialType>,
     eq_constraints: QuickUnionUf<UnionBySize>,
 }
-
-pub struct RequiresInferenceError;
 
 impl WContext {
     pub fn new() -> Self {
@@ -76,71 +74,33 @@ impl WContext {
         }
     }
 
-    fn bitvector_type(width: Option<u32>) -> Type {
-        Type::Path(TypePath {
-            qself: None,
-            path: Path {
-                leading_colon: Some(Token![::](Span::call_site())),
-                segments: Punctuated::from_iter([
-                    PathSegment {
-                        ident: Ident::new("machine_check", Span::call_site()),
-                        arguments: PathArguments::None,
-                    },
-                    PathSegment {
-                        ident: Ident::new("Bitvector", Span::call_site()),
-                        arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                            colon2_token: None,
-                            lt_token: Token![<](Span::call_site()),
-                            args: Punctuated::from_iter([GenericArgument::Const(Expr::Infer(
-                                ExprInfer {
-                                    attrs: Vec::new(),
-                                    underscore_token: Token![_](Span::call_site()),
-                                },
-                            ))]),
-                            gt_token: Token![>](Span::call_site()),
-                        }),
-                    },
-                ]),
-            },
-        })
-    }
-
-    fn bool_type() -> Type {
-        Type::Path(TypePath {
-            qself: None,
-            path: Path {
-                leading_colon: None,
-                segments: Punctuated::from_iter([PathSegment {
-                    ident: Ident::new("bool", Span::call_site()),
-                    arguments: PathArguments::None,
-                }]),
-            },
-        })
-    }
-
-    pub fn get_type(&mut self, ty: &Type) -> WTypeId {
+    fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
         let id = WTypeId(self.types.len());
-        let ty = if let Some(resolved) = preresolve_type(ty) {
-            WContextType::Resolved(resolved)
-        } else {
-            WContextType::Unresolved(Box::new(ty.clone()))
-        };
         self.types.push(ty);
         id
     }
 
-    pub fn get_noninferred_type(&mut self, ty: &Type) -> Result<WTypeId, RequiresInferenceError> {
-        if let Some(false) = needs_inference(ty) {
-            Ok(self.get_type(ty))
-        } else {
-            Err(RequiresInferenceError)
-        }
+    pub fn type_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
+        let ty = fold_type(ty.clone())?;
+        Ok(self.partial_type_id(ty))
     }
 
-    pub fn infer_type(&mut self, span: Span) -> WTypeId {
-        self.get_type(&Type::Infer(TypeInfer {
-            underscore_token: Token![_](span),
-        }))
+    pub fn noninferred_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
+        let span = WSpan::from_syn(&ty);
+        let ty = fold_type(ty.clone())?;
+        if needs_inference(&ty) {
+            return Err(Error::new(
+                crate::into_wir::ErrorType::IllegalConstruct(String::from(
+                    "Interference not allowed here",
+                )),
+                span,
+            ));
+        }
+        Ok(self.partial_type_id(ty))
+    }
+
+    pub fn wildcard_id(&mut self, span: WSpan) -> WTypeId {
+        self.partial_type_id(WPartialType::Infer(span))
     }
 
     pub fn add_struct_def(&mut self, ty: Type) {
@@ -156,251 +116,154 @@ impl WContext {
 
         self.eq_constraints.union(a.0, b.0);
     }
-    fn add_block_constraints(&mut self, locals: &Vec<WTacLocal<WTypeId>>, block: &WBlock<ZTac>) {
-        for stmt in &block.stmts {
-            eprintln!("Should add constraints for statement {:#?}", stmt);
-            match stmt {
-                WMacroableStmt::Assign(assign) => {
-                    let left = match &assign.left {
-                        WIndexedIdent::Indexed(wident, wident1) => {
-                            todo!("Constraints for indexed left")
-                        }
-                        WIndexedIdent::NonIndexed(ident) => ident,
-                    };
-                    let right = match &assign.right {
-                        WIndexedExpr::Indexed(base_expr, ident) => {
-                            todo!("Constraints for indexed right")
-                        }
-                        WIndexedExpr::NonIndexed(expr) => expr,
-                    };
-                    eprintln!(
-                        "Should add constraints for left {:?}, right {:?}",
-                        left, right
-                    );
-
-                    let left_ty = locals
-                        .iter()
-                        .find(|e| &e.ident == left)
-                        .expect("Local should be found")
-                        .ty
-                        .clone();
-
-                    match right {
-                        WExpr::Move(wident) => todo!("Move"),
-                        WExpr::Call(call) => {
-                            eprintln!("Call");
-                            match call {
-                                WExprHighCall::Call(call) => {
-                                    let bitvector_new_path = path!(::machine_check::Bitvector::new);
-                                    let fn_path = Path::from(call.fn_path.clone());
-                                    if fn_path == bitvector_new_path {
-                                        // constrain the output to be a bitvector
-                                        let bitvector_ty =
-                                            self.get_type(&Self::bitvector_type(None));
-                                        self.add_eq_constraint(left_ty, bitvector_ty);
-
-                                        eprintln!("Bitvector new");
-                                    } else {
-                                        todo!("Call")
-                                    }
-                                }
-                                WExprHighCall::StdUnary(unary) => todo!("Std unary"),
-                                WExprHighCall::StdBinary(binary) => {
-                                    let a_ty = locals
-                                        .iter()
-                                        .find(|e| e.ident == binary.a)
-                                        .expect("Local should be found")
-                                        .ty
-                                        .clone();
-
-                                    let b_ty = locals
-                                        .iter()
-                                        .find(|e| e.ident == binary.b)
-                                        .expect("Local should be found")
-                                        .ty
-                                        .clone();
-                                    match binary.op {
-                                        IrStdBinaryOp::Eq => {
-                                            // constrain the inputs to be of the same type
-                                            self.add_eq_constraint(a_ty, b_ty);
-                                            // constrain the output to be a Boolean
-                                            let bool_ty = self.get_type(&Self::bool_type());
-                                            self.add_eq_constraint(left_ty, bool_ty);
-                                        }
-                                        IrStdBinaryOp::Add => {
-                                            // constrain both inputs to output
-                                            self.add_eq_constraint(left_ty.clone(), a_ty);
-                                            self.add_eq_constraint(left_ty, b_ty);
-                                        }
-                                        _ => todo!("Std binary"),
-                                    }
-                                }
-                            }
-                        }
-                        WExpr::Field(wexpr_field) => {
-                            eprintln!("Field");
-                        }
-                        WExpr::Struct(expr_struct) => {
-                            let struct_ty = self.get_type(&Type::Path(TypePath {
-                                qself: None,
-                                path: Path::from(expr_struct.type_path.clone()),
-                            }));
-                            self.add_eq_constraint(left_ty, struct_ty);
-                        }
-                        WExpr::Reference(wexpr_reference) => todo!("Reference"),
-                        WExpr::Lit(lit, _) => todo!("Literal"),
-                    }
-                }
-                WMacroableStmt::If(stmt_if) => {
-                    eprintln!("Should add constraints for if {:#?}", stmt_if);
-                    self.add_block_constraints(locals, &stmt_if.then_block);
-                    self.add_block_constraints(locals, &stmt_if.else_block);
-                }
-                WMacroableStmt::PanicMacro(wstmt_panic_macro) => {
-                    todo!("Constraints for panic macro")
-                }
-            }
-        }
-    }
-
-    pub fn resolve_from_defs(&self, ty: Type) -> Option<WContextTypeResolved> {
-        if let Type::Reference(type_reference) = ty {
-            return Some(WContextTypeResolved::Reference(Box::new(
-                self.resolve_from_defs(*type_reference.elem)?,
-            )));
-        }
-
-        let ty = WContextSynType(ty);
-        if let Some(index) = self.type_defs.get_index_of(&ty) {
-            return Some(WContextTypeResolved::Def(index));
-        }
-        None
-    }
-
-    pub fn resolve_types(&mut self, structs: &[WItemStruct<WTypeId>], impls: &[WItemImpl<YTac>]) {
+    pub fn resolve_types(&mut self, impls: &[WItemImpl<YTac>]) -> Result<(), Error> {
         for item_impl in impls.iter() {
             for item_fn in &item_impl.impl_item_fns {
-                self.add_block_constraints(&item_fn.locals, &item_fn.block);
+                self.add_block_constraints(&item_fn.locals, &item_fn.block)?;
             }
         }
 
         let mut united = IndexMap::new();
 
         for i in 0..self.types.len() {
-            let context_type = self.types[i].clone();
+            let current = self.types[i].clone();
             let root = self.eq_constraints.find(i);
-            match context_type {
-                WContextType::Unresolved(unresolved) => {
-                    if let Some(resolved) = self.resolve_from_defs(*unresolved) {
-                        united.insert(root, resolved);
-                    }
-                }
-                WContextType::Resolved(resolved) => {
-                    united.insert(root, resolved.clone());
-                }
-            }
+
+            let next = if let Some(previous) = united.get(&root) {
+                join_types(previous, current)?
+            } else {
+                current
+            };
+
+            united.insert(root, next);
         }
 
-        eprintln!("United resolved: {:?}", united);
+        eprintln!("United resolved: {:#?}", united);
 
         for i in 0..self.types.len() {
             let root = self.eq_constraints.find(i);
-            if let Some(resolved) = united.get(&root) {
-                self.types[i] = WContextType::Resolved(resolved.clone());
-            }
+            let resolved = united
+                .get(&root)
+                .expect("Equality class root should have type");
+            self.types[i] = resolved.clone();
         }
+
+        Ok(())
     }
 }
 
-fn preresolve_type(ty: &Type) -> Option<WContextTypeResolved> {
+fn needs_inference(ty: &WPartialType) -> bool {
+    eprintln!("Deciding if needs inference: {:?}", ty);
     match ty {
-        Type::Path(type_path) => {
-            let path = &type_path.path;
-            if path.leading_colon.is_some()
-                && path.segments.len() == 2
-                && path.segments[0].ident == "machine_check"
-                && path.segments[1].ident == "Bitvector"
-            {
-                return Some(WContextTypeResolved::Bitvector(None));
-            } else if path.leading_colon.is_none()
-                && path.segments.len() == 1
-                && path.segments[0].ident == "bool"
-            {
-                return Some(WContextTypeResolved::Bool);
-            }
-            None
-        }
-        Type::Reference(type_reference) => Some(WContextTypeResolved::Reference(Box::new(
-            preresolve_type(&type_reference.elem)?,
-        ))),
-        _ => None,
-    }
-}
-
-fn needs_inference(ty: &Type) -> Option<bool> {
-    match ty {
-        Type::Group(type_group) => needs_inference(&type_group.elem),
-        Type::Infer(_) => Some(true),
-        Type::Paren(type_paren) => needs_inference(&type_paren.elem),
-        Type::Path(type_path) => {
-            for segment in &type_path.path.segments {
-                match &segment.arguments {
-                    syn::PathArguments::None => {}
-                    syn::PathArguments::AngleBracketed(bracketed) => {
-                        for arg in &bracketed.args {
-                            match arg {
-                                GenericArgument::Type(ty) => match needs_inference(ty) {
-                                    Some(false) => {}
-                                    x => return x,
-                                },
-                                GenericArgument::Const(arg_const) => match arg_const {
-                                    syn::Expr::Lit(_) => {}
-                                    _ => {
-                                        // unsupported
-                                        return None;
-                                    }
-                                },
-                                GenericArgument::Lifetime(_)
-                                | GenericArgument::AssocType(_)
-                                | GenericArgument::AssocConst(_)
-                                | GenericArgument::Constraint(_)
-                                | _ => {
-                                    // unsupported
-                                    return None;
-                                }
-                            }
+        WPartialType::Path(path) => {
+            for segment in &path.segments {
+                if let Some(arguments) = &segment.generics {
+                    for argument in arguments {
+                        match argument {
+                            super::WPartialArgument::Uint(_, _) => {}
+                            super::WPartialArgument::Infer(_) => return true,
                         }
                     }
-                    syn::PathArguments::Parenthesized(_) => {
-                        // unsupported
-                        return None;
-                    }
                 }
             }
-            Some(false)
+            false
         }
-        Type::Reference(type_reference) => needs_inference(&type_reference.elem),
-        Type::Tuple(type_tuple) => {
-            for elem_type in &type_tuple.elems {
-                match needs_inference(elem_type) {
-                    Some(false) => {}
-                    x => return x,
-                }
-            }
-            Some(false)
-        }
-        Type::Array(_)
-        | Type::BareFn(_)
-        | Type::ImplTrait(_)
-        | Type::Macro(_)
-        | Type::Never(_)
-        | Type::Ptr(_)
-        | Type::Slice(_)
-        | Type::TraitObject(_)
-        | Type::Verbatim(_)
-        | _ => {
-            // unsupported
-            None
-        }
+        WPartialType::Infer(_) => true,
+        WPartialType::Reference(inner) => needs_inference(inner),
     }
+}
+
+fn bitvector_type(width: Option<u32>) -> WPartialType {
+    let generics = if let Some(width) = width {
+        Some(vec![WPartialArgument::Uint(width, WSpan::call_site())])
+    } else {
+        None
+    };
+    WPartialType::Path(WPartialPath {
+        leading_colon: Some(WSpan::call_site()),
+        segments: vec![
+            WPartialSegment {
+                ident: WIdent::new(String::from("machine_check"), Span::call_site()),
+                generics: None,
+            },
+            WPartialSegment {
+                ident: WIdent::new(String::from("Bitvector"), Span::call_site()),
+                generics,
+            },
+        ],
+    })
+}
+
+fn bool_type() -> WPartialType {
+    WPartialType::Path(WPartialPath {
+        leading_colon: None,
+        segments: vec![WPartialSegment {
+            ident: WIdent::new(String::from("bool"), Span::call_site()),
+            generics: None,
+        }],
+    })
+}
+
+fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartialType, Error> {
+    let span = current.wir_span();
+    Ok(match (previous, current) {
+        (WPartialType::Infer(_), current) => current,
+        (previous, WPartialType::Infer(_)) => previous.clone(),
+        (WPartialType::Path(lhs), WPartialType::Path(rhs)) => {
+            if lhs.leading_colon.is_some() != rhs.leading_colon.is_some()
+                || lhs.segments.len() != rhs.segments.len()
+            {
+                return Err(Error::new(ErrorType::InferenceFailure, span));
+            }
+            let mut segments = Vec::new();
+            for (lhs, rhs) in lhs.segments.iter().zip(rhs.segments.into_iter()) {
+                if lhs.ident != rhs.ident {
+                    return Err(Error::new(ErrorType::InferenceFailure, span));
+                }
+                let generics = match (&lhs.generics, rhs.generics) {
+                    (None, None) => None,
+                    (None, Some(rhs)) => Some(rhs),
+                    (Some(lhs), None) => Some(lhs.clone()),
+                    (Some(lhs), Some(rhs)) => {
+                        let mut arguments = Vec::new();
+                        for (lhs, rhs) in lhs.iter().zip(rhs.into_iter()) {
+                            let arg = match (lhs, rhs) {
+                                (WPartialArgument::Infer(_), rhs) => rhs,
+                                (lhs, WPartialArgument::Infer(_)) => lhs.clone(),
+                                (
+                                    WPartialArgument::Uint(lhs_num, _lhs_span),
+                                    WPartialArgument::Uint(rhs_num, rhs_span),
+                                ) => {
+                                    if *lhs_num != rhs_num {
+                                        return Err(Error::new(ErrorType::InferenceFailure, span));
+                                    }
+                                    WPartialArgument::Uint(rhs_num, rhs_span)
+                                }
+                            };
+                            arguments.push(arg);
+                        }
+                        Some(arguments)
+                    }
+                };
+                segments.push(WPartialSegment {
+                    ident: rhs.ident,
+                    generics,
+                });
+            }
+            WPartialType::Path(WPartialPath {
+                leading_colon: rhs.leading_colon,
+                segments,
+            })
+        }
+        (WPartialType::Reference(lhs), WPartialType::Reference(rhs)) => {
+            let joined_inner = join_types(lhs, *rhs)?;
+            WPartialType::Reference(Box::new(joined_inner))
+        }
+        (_previous, _current) => {
+            return Err(Error::new(
+                crate::into_wir::ErrorType::InferenceFailure,
+                span,
+            ));
+        }
+    })
 }

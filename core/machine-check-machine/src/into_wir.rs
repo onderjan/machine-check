@@ -9,6 +9,8 @@ use machine_check_common::PropertyMacros;
 use quote::ToTokens;
 use syn::Item;
 
+pub use from_syn::fold_type;
+
 use crate::{
     support::error_list::ErrorList,
     wir::{WDescription, WIdent, WProperty, WSpan, WTypeId, YConverted},

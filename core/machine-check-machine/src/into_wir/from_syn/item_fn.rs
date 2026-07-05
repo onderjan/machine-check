@@ -14,8 +14,8 @@ use crate::{
     },
     support::ident_creator::IdentCreator,
     wir::{
-        RequiresInferenceError, WContext, WFnArg, WIdent, WItemFn, WPath, WSignature, WSpan,
-        WTacLocal, WTypeId, YTac,
+        WContext, WFnArg, WIdent, WItemFn, WPath, WSignature, WSpan, WSpanned, WTacLocal, WTypeId,
+        YTac,
     },
 };
 
@@ -123,9 +123,9 @@ impl FunctionFolder<'_> {
         assert_eq!(self.scopes.len(), 1);
 
         for temporary_ident in self.ident_creator.drain_created_temporaries() {
-            let span = temporary_ident.span();
+            let span = temporary_ident.wir_span();
             self.local_types
-                .insert(temporary_ident, self.ctx.infer_type(span));
+                .insert(temporary_ident, self.ctx.wildcard_id(span));
         }
 
         let mut locals = Vec::new();
@@ -205,17 +205,7 @@ impl FunctionFolder<'_> {
                     signature_span,
                 )))
             }
-            syn::ReturnType::Type(_rarrow, ty) => match self.ctx.get_noninferred_type(&*ty) {
-                Ok(ok) => ok,
-                Err(RequiresInferenceError) => {
-                    return Err(Errors::single(Error::new(
-                        ErrorType::IllegalConstruct(String::from(
-                            "Return type cannot require inference",
-                        )),
-                        WSpan::from_syn(&*ty),
-                    )))
-                }
-            },
+            syn::ReturnType::Type(_rarrow, ty) => self.ctx.noninferred_id(&ty)?,
         };
 
         /*
@@ -250,17 +240,7 @@ impl FunctionFolder<'_> {
                 // do not scope self, it is unnecessary
                 let self_ident = WIdent::new(String::from("self"), receiver_span);
 
-                let self_type = match self.ctx.get_noninferred_type(self_ty) {
-                    Ok(type_id) => type_id,
-                    Err(_) => {
-                        return Err(Error::new(
-                            ErrorType::IllegalConstruct(String::from(
-                                "Argument with partially specified type",
-                            )),
-                            WSpan::from_syn(&fn_arg),
-                        ))
-                    }
-                };
+                let self_type = self.ctx.noninferred_id(self_ty)?;
 
                 self.add_unique_scoped_ident(self_ident.clone(), self_ident.clone());
 
@@ -279,17 +259,7 @@ impl FunctionFolder<'_> {
                 };
 
                 let original_ident = WIdent::from_syn_ident(pat_ident.ident);
-                let ty = match self.ctx.get_noninferred_type(&pat_type.ty) {
-                    Ok(type_id) => type_id,
-                    Err(_) => {
-                        return Err(Error::new(
-                            ErrorType::IllegalConstruct(String::from(
-                                "Argument with partially specified type",
-                            )),
-                            WSpan::from_syn(&pat_type.ty),
-                        ))
-                    }
-                };
+                let ty = self.ctx.noninferred_id(&pat_type.ty)?;
 
                 let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);
 

@@ -99,11 +99,11 @@ impl<'a> super::FunctionFolder<'a> {
                     /*ty = fold_type(*pat_type.ty, self.self_ty.as_ref())
                     .map(WPartialGeneralType::Normal)
                     .map_err(Errors::single)?;*/
-                    let ty = self.ctx.get_type(&pat_type.ty);
+                    let ty = self.ctx.type_id(&pat_type.ty)?;
                     pat = *pat_type.pat;
                     ty
                 } else {
-                    self.ctx.infer_type(local.span())
+                    self.ctx.wildcard_id(WSpan::from_syn(&pat))
                 };
 
                 let Pat::Ident(left_pat_ident) = pat else {
