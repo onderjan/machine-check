@@ -69,7 +69,5 @@ fn tac_from_items(item_iter: impl Iterator<Item = Item>) -> Result<WDescription<
 
     ctx.resolve_types(impls.as_slice())?;
 
-    eprintln!("Context: {:#?}", ctx);
-
     Ok(WDescription { structs, impls })
 }

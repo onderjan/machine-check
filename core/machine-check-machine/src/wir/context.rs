@@ -1,4 +1,7 @@
-use std::fmt::Debug;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
+};
 
 use indexmap::IndexMap;
 use proc_macro2::Span;
@@ -138,7 +141,7 @@ impl WContext {
             united.insert(root, next);
         }
 
-        eprintln!("United resolved: {:#?}", united);
+        let mut eq_classes = BTreeMap::<usize, BTreeSet<usize>>::new();
 
         for i in 0..self.types.len() {
             let root = self.eq_constraints.find(i);
@@ -146,6 +149,19 @@ impl WContext {
                 .get(&root)
                 .expect("Equality class root should have type");
             self.types[i] = resolved.clone();
+            eq_classes.entry(root).or_default().insert(i);
+        }
+
+        for i in 0..self.types.len() {
+            let root = self.eq_constraints.find(i);
+
+            eprintln!(
+                "Type @{}: {:?} (root {}, equality class {:?})",
+                i,
+                &self.types[i],
+                root,
+                eq_classes.entry(root).or_default()
+            );
         }
 
         Ok(())

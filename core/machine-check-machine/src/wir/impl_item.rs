@@ -16,11 +16,23 @@ use crate::{
 
 use super::{IntoSyn, WIdent, WPath, YStage};
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub struct WImplItemType {
     pub visibility: WVisibility,
     pub left_ident: WIdent,
     pub right_path: WPath,
+}
+
+impl Debug for WImplItemType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let WVisibility::Public(_) = self.visibility {
+            write!(f, "pub ")?;
+        }
+        write!(f, "type ")?;
+        Debug::fmt(&self.left_ident, f)?;
+        write!(f, " = ")?;
+        Debug::fmt(&self.right_path, f)
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -58,10 +70,18 @@ impl Debug for WFnArg {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub struct WTacLocal<LT: IntoSyn<Type>> {
     pub ident: WIdent,
     pub ty: LT,
+}
+
+impl<LT: IntoSyn<Type> + Debug> Debug for WTacLocal<LT> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.ident, f)?;
+        write!(f, ": ")?;
+        Debug::fmt(&self.ty, f)
+    }
 }
 
 #[derive(Clone, Debug, Hash)]

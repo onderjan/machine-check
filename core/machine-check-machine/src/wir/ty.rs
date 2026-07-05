@@ -5,7 +5,7 @@ use crate::wir::{WIdent, WSpan, WSpanned};
 
 use super::IntoSyn;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct WTypeId(pub usize);
 
 impl IntoSyn<Type> for WTypeId {
@@ -58,6 +58,12 @@ impl WPartialType {
             WPartialType::Reference(inner) => inner.wir_span(),
             WPartialType::Infer(span) => *span,
         }
+    }
+}
+
+impl Debug for WTypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "@{}", self.0)
     }
 }
 

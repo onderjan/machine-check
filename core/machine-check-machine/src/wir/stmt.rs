@@ -17,7 +17,7 @@ pub struct WBlock<Z: ZAssignTypes> {
     pub stmts: Vec<Z::Stmt>,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash)]
 pub enum WMacroableStmt<Z: ZAssignTypes> {
     Assign(WStmtAssign<Z>),
     If(WStmtIf<Z>),
@@ -158,6 +158,16 @@ impl<Z: ZAssignTypes> Debug for WStmt<Z> {
         match self {
             WStmt::Assign(assign) => assign.fmt(f),
             WStmt::If(if_stmt) => if_stmt.fmt(f),
+        }
+    }
+}
+
+impl<Z: ZAssignTypes> Debug for WMacroableStmt<Z> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WMacroableStmt::Assign(assign) => assign.fmt(f),
+            WMacroableStmt::If(if_stmt) => if_stmt.fmt(f),
+            WMacroableStmt::PanicMacro(panic_macro) => panic_macro.fmt(f),
         }
     }
 }
