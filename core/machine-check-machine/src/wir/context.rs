@@ -5,26 +5,26 @@ use machine_check_common::ir_common::IrStdBinaryOp;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, Expr, ExprInfer,
-    GenericArgument, Ident, Path, PathArguments, PathSegment, Token, Type, TypeInfer, TypePath,
+    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprInfer, GenericArgument,
+    Ident, Path, PathArguments, PathSegment, Token, Type, TypeInfer, TypePath,
 };
 use syn_path::path;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::wir::{
     WBlock, WExpr, WExprHighCall, WIndexedExpr, WIndexedIdent, WItemImpl, WItemStruct,
-    WMacroableStmt, WPath, WTacLocal, WTypeId, YTac, ZTac,
+    WMacroableStmt, WTacLocal, WTypeId, YTac, ZTac,
 };
 
 #[derive(Clone, Debug)]
 pub enum WContextTypeDef {
-    Bool,
-    Bitvector,
     Struct,
 }
 
 #[derive(Debug, Clone)]
 pub enum WContextTypeResolved {
+    Bool,
+    Bitvector(Option<u32>),
     Def(usize),
     Reference(Box<WContextTypeResolved>),
 }
@@ -69,20 +69,14 @@ pub struct RequiresInferenceError;
 
 impl WContext {
     pub fn new() -> Self {
-        let mut type_defs = IndexMap::new();
-        type_defs.insert(WContextSynType(Self::bool_type()), WContextTypeDef::Bool);
-        type_defs.insert(
-            WContextSynType(Self::bitvector_type()),
-            WContextTypeDef::Bitvector,
-        );
         Self {
-            type_defs,
+            type_defs: IndexMap::new(),
             types: Vec::new(),
             eq_constraints: QuickUnionUf::new(0),
         }
     }
 
-    fn bitvector_type() -> Type {
+    fn bitvector_type(width: Option<u32>) -> Type {
         Type::Path(TypePath {
             qself: None,
             path: Path {
@@ -124,18 +118,14 @@ impl WContext {
         })
     }
 
-    pub fn type_def_index(&mut self, ty: &Type) -> WTypeId {
-        WTypeId(
-            self.type_defs
-                .get_index_of(&WContextSynType(ty.clone()))
-                .expect("Type should be in type defs"),
-        )
-    }
-
     pub fn get_type(&mut self, ty: &Type) -> WTypeId {
         let id = WTypeId(self.types.len());
-        self.types
-            .push(WContextType::Unresolved(Box::new(ty.clone())));
+        let ty = if let Some(resolved) = preresolve_type(ty) {
+            WContextType::Resolved(resolved)
+        } else {
+            WContextType::Unresolved(Box::new(ty.clone()))
+        };
+        self.types.push(ty);
         id
     }
 
@@ -156,46 +146,6 @@ impl WContext {
     pub fn add_struct_def(&mut self, ty: Type) {
         self.type_defs
             .insert(WContextSynType(ty), WContextTypeDef::Struct);
-    }
-
-    fn resolve_type(&self, mut ty: Type) -> Option<WContextTypeResolved> {
-        if let Type::Reference(type_reference) = ty {
-            return Some(WContextTypeResolved::Reference(Box::new(
-                self.resolve_type(*type_reference.elem)?,
-            )));
-        }
-
-        // strip out generics
-        // TODO: preserve the generic data
-        if let Type::Path(type_path) = &mut ty {
-            for segment in &mut type_path.path.segments {
-                match &mut segment.arguments {
-                    PathArguments::AngleBracketed(bracketed) => {
-                        for arg in &mut bracketed.args {
-                            match arg {
-                                GenericArgument::Type(_) => {
-                                    *arg = GenericArgument::Type(Type::Infer(TypeInfer {
-                                        underscore_token: Token![_](arg.span()),
-                                    }));
-                                }
-                                GenericArgument::Const(_) => {
-                                    *arg = GenericArgument::Const(Expr::Infer(ExprInfer {
-                                        attrs: Vec::new(),
-                                        underscore_token: Token![_](arg.span()),
-                                    }));
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                    PathArguments::None | PathArguments::Parenthesized(_) => {}
-                }
-            }
-        }
-
-        self.type_defs
-            .get_index_of(&WContextSynType(ty))
-            .map(WContextTypeResolved::Def)
     }
 
     fn add_eq_constraint(&mut self, a: WTypeId, b: WTypeId) {
@@ -245,7 +195,8 @@ impl WContext {
                                     let fn_path = Path::from(call.fn_path.clone());
                                     if fn_path == bitvector_new_path {
                                         // constrain the output to be a bitvector
-                                        let bitvector_ty = self.get_type(&Self::bitvector_type());
+                                        let bitvector_ty =
+                                            self.get_type(&Self::bitvector_type(None));
                                         self.add_eq_constraint(left_ty, bitvector_ty);
 
                                         eprintln!("Bitvector new");
@@ -312,6 +263,20 @@ impl WContext {
         }
     }
 
+    pub fn resolve_from_defs(&self, ty: Type) -> Option<WContextTypeResolved> {
+        if let Type::Reference(type_reference) = ty {
+            return Some(WContextTypeResolved::Reference(Box::new(
+                self.resolve_from_defs(*type_reference.elem)?,
+            )));
+        }
+
+        let ty = WContextSynType(ty);
+        if let Some(index) = self.type_defs.get_index_of(&ty) {
+            return Some(WContextTypeResolved::Def(index));
+        }
+        None
+    }
+
     pub fn resolve_types(&mut self, structs: &[WItemStruct<WTypeId>], impls: &[WItemImpl<YTac>]) {
         for item_impl in impls.iter() {
             for item_fn in &item_impl.impl_item_fns {
@@ -322,11 +287,11 @@ impl WContext {
         let mut united = IndexMap::new();
 
         for i in 0..self.types.len() {
-            let context_type = &self.types[i];
+            let context_type = self.types[i].clone();
             let root = self.eq_constraints.find(i);
             match context_type {
                 WContextType::Unresolved(unresolved) => {
-                    if let Some(resolved) = self.resolve_type(*unresolved.clone()) {
+                    if let Some(resolved) = self.resolve_from_defs(*unresolved) {
                         united.insert(root, resolved);
                     }
                 }
@@ -334,7 +299,6 @@ impl WContext {
                     united.insert(root, resolved.clone());
                 }
             }
-            if let WContextType::Unresolved(ty) = context_type {}
         }
 
         eprintln!("United resolved: {:?}", united);
@@ -345,6 +309,31 @@ impl WContext {
                 self.types[i] = WContextType::Resolved(resolved.clone());
             }
         }
+    }
+}
+
+fn preresolve_type(ty: &Type) -> Option<WContextTypeResolved> {
+    match ty {
+        Type::Path(type_path) => {
+            let path = &type_path.path;
+            if path.leading_colon.is_some()
+                && path.segments.len() == 2
+                && path.segments[0].ident == "machine_check"
+                && path.segments[1].ident == "Bitvector"
+            {
+                return Some(WContextTypeResolved::Bitvector(None));
+            } else if path.leading_colon.is_none()
+                && path.segments.len() == 1
+                && path.segments[0].ident == "bool"
+            {
+                return Some(WContextTypeResolved::Bool);
+            }
+            None
+        }
+        Type::Reference(type_reference) => Some(WContextTypeResolved::Reference(Box::new(
+            preresolve_type(&type_reference.elem)?,
+        ))),
+        _ => None,
     }
 }
 
