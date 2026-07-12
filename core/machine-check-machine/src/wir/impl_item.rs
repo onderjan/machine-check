@@ -11,7 +11,7 @@ use syn_path::path;
 
 use crate::{
     util::{create_expr_path, create_path_from_ident},
-    wir::{WItemFn, WTypeId, WVisibility},
+    wir::{WItemFn, WPartialPath, WTypeId, WVisibility},
 };
 
 use super::{IntoSyn, WIdent, WPath, YStage};
@@ -20,7 +20,7 @@ use super::{IntoSyn, WIdent, WPath, YStage};
 pub struct WImplItemType {
     pub visibility: WVisibility,
     pub left_ident: WIdent,
-    pub right_path: WPath,
+    pub right_path: WPartialPath,
 }
 
 impl Debug for WImplItemType {

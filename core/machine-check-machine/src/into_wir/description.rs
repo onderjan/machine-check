@@ -7,7 +7,7 @@ use crate::{
         conversion::{convert_to_ssa, convert_total, expand_macros, resolve_use},
         from_syn, Error, Errors,
     },
-    wir::{WContext, WDescription, YConverted, YTac},
+    wir::{WDescription, WPartialContext, YConverted, YTac},
 };
 
 pub fn description_from_syn(
@@ -24,9 +24,10 @@ pub fn description_from_syn(
 
     resolve_use::remove_use(&mut items)?;
 
-    let mut ctx = WContext::new();
+    let mut ctx = WPartialContext::new();
     let w_description = tac_from_items(&mut ctx, items.into_iter())?;
     //let w_description = convert_indexing::convert_description(w_description);
+    let mut ctx = ctx.into_total()?;
     let (w_description, panic_messages) =
         convert_total::convert_description(&mut ctx, w_description);
     let w_description = convert_to_ssa::convert_description(&mut ctx, w_description)?;
@@ -41,7 +42,7 @@ pub fn description_from_syn(
 }
 
 fn tac_from_items(
-    ctx: &mut WContext,
+    ctx: &mut WPartialContext,
     item_iter: impl Iterator<Item = Item>,
 ) -> Result<WDescription<YTac>, Errors> {
     let mut structs = Vec::new();

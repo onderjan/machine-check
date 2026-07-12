@@ -1,5 +1,6 @@
 mod call;
 mod expr;
+mod ident;
 mod impl_item;
 mod item;
 mod op;
@@ -16,6 +17,7 @@ mod context;
 
 pub use call::*;
 pub use expr::*;
+pub use ident::*;
 pub use impl_item::*;
 pub use item::*;
 pub use op::*;

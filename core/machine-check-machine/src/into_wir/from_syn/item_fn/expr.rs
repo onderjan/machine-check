@@ -8,10 +8,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    into_wir::{
-        from_syn::path::{fold_partial_path, fold_path},
-        Error, ErrorType,
-    },
+    into_wir::{from_syn::path::fold_partial_path, Error, ErrorType},
     util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall, WExprReference,
@@ -522,7 +519,7 @@ impl RightExprFolder<'_, '_, '_> {
         }
 
         Ok(WExprStruct {
-            type_path: fold_path(expr_struct.path, self.fn_folder.self_ty.as_ref())?,
+            type_path: fold_partial_path(expr_struct.path)?,
             fields: args,
         })
     }
@@ -634,7 +631,7 @@ impl RightExprFolder<'_, '_, '_> {
         let tmp_ident = self
             .fn_folder
             .ident_creator
-            .create_temporary_ident(expr_span);
+            .create_temporary_ident(expr_span, ());
         // add assignment statement; the temporary is only assigned to once here
         self.stmts.push(WMacroableStmt::Assign(WStmtAssign {
             left: WIndexedIdent::NonIndexed(tmp_ident.clone()),
@@ -650,7 +647,7 @@ impl RightExprFolder<'_, '_, '_> {
         let tmp_ident = self
             .fn_folder
             .ident_creator
-            .create_temporary_ident(expr.span());
+            .create_temporary_ident(expr.span(), ());
         // fold expression
         let expr = self.fold_right_expr(expr)?;
         // add assignment statement; the temporary is only assigned to once here

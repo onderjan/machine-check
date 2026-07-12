@@ -5,9 +5,9 @@ use machine_check_common::ir_common::IrReference;
 
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    WBlock, WCall, WCallArg, WContext, WExpr, WExprHighCall, WFnArg, WHighMckNew, WIdent, WPhi,
-    WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
-    WSubproperty, WSubpropertyFunc, WTypeId, ZSsa, ZTotal,
+    phi_arg_item_path, WBlock, WCall, WCallArg, WContext, WExpr, WExprHighCall, WFnArg,
+    WHighMckNew, WIdent, WPhi, WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt,
+    WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
 
@@ -549,7 +549,7 @@ fn create_phi_call(
     else_ident: WIdent,
 ) -> WStmt<ZSsa> {
     let span = assigned.wir_span();
-    let fn_path = WContext::phi_arg_item_path(String::from("phi"), span);
+    let fn_path = phi_arg_item_path(String::from("phi"), span);
 
     WStmt::Assign(WStmtAssign {
         left: assigned,
@@ -570,7 +570,7 @@ fn create_taken_assign(
     condition_ident: WIdent,
 ) -> WStmt<ZSsa> {
     let span = phi_arg_ident.wir_span();
-    let fn_path = WContext::phi_arg_item_path(String::from("Taken"), span);
+    let fn_path = phi_arg_item_path(String::from("Taken"), span);
 
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
@@ -586,7 +586,7 @@ fn create_taken_assign(
 
 fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
     let span = phi_arg_ident.wir_span();
-    let fn_path = WContext::phi_arg_item_path(String::from("NotTaken"), span);
+    let fn_path = phi_arg_item_path(String::from("NotTaken"), span);
 
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,

@@ -1,17 +1,16 @@
 use machine_check_common::ir_common::IrStdBinaryOp;
 use syn::{Path, Type, TypePath};
-use syn_path::path;
 
 use crate::{
     into_wir::Error,
     wir::{
-        context::{bitvector_type, bool_type},
+        context::types::{bitvector_type, bool_type},
         WBlock, WExpr, WExprHighCall, WIndexedExpr, WIndexedIdent, WMacroableStmt,
         WPartialArgument, WTacLocal, WTypeId, ZTac,
     },
 };
 
-impl super::WContext {
+impl super::WPartialContext {
     pub(super) fn add_block_constraints(
         &mut self,
         locals: &Vec<WTacLocal<WTypeId>>,

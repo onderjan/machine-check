@@ -238,12 +238,13 @@ impl WExprStruct {
             ))
         };
 
-        let base_path = self.type_path.into_iir();
+        let base_path = self.type_path;
         let Some(base_ident) = base_path.get_ident() else {
             return unresolved_struct_type();
         };
+        let base_ident = base_ident.clone().into_iir();
 
-        let Some(base_ty) = fn_data.struct_data(base_ident) else {
+        let Some(base_ty) = fn_data.struct_data(&base_ident) else {
             return unresolved_struct_type();
         };
 

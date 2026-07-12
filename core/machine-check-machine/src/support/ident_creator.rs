@@ -2,13 +2,13 @@ use proc_macro2::Span;
 
 use crate::wir::WIdent;
 
-pub struct IdentCreator {
+pub struct IdentCreator<T> {
     prefix: String,
     next_temp_counter: u64,
-    created_temporaries: Vec<WIdent>,
+    created_temporaries: Vec<(WIdent, T)>,
 }
 
-impl IdentCreator {
+impl<T> IdentCreator<T> {
     pub fn new(prefix: String) -> Self {
         IdentCreator {
             prefix,
@@ -17,12 +17,12 @@ impl IdentCreator {
         }
     }
 
-    pub fn create_temporary_ident(&mut self, span: Span) -> WIdent {
+    pub fn create_temporary_ident(&mut self, span: Span, ty: T) -> WIdent {
         let tmp_ident = WIdent::new(
             format!("__mck_{}tmp_{}", self.prefix, self.next_temp_counter),
             span,
         );
-        self.created_temporaries.push(tmp_ident.clone());
+        self.created_temporaries.push((tmp_ident.clone(), ty));
 
         self.next_temp_counter = self
             .next_temp_counter
@@ -31,7 +31,7 @@ impl IdentCreator {
         tmp_ident
     }
 
-    pub fn drain_created_temporaries(&mut self) -> impl Iterator<Item = WIdent> + use<'_> {
+    pub fn drain_created_temporaries(&mut self) -> impl Iterator<Item = (WIdent, T)> + use<'_, T> {
         self.created_temporaries.drain(..)
     }
 }

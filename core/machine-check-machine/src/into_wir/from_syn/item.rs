@@ -5,18 +5,21 @@ use syn::{
 };
 
 use crate::{
-    into_wir::{from_syn::attribute_disallower::AttributeDisallower, Error, ErrorType, Errors},
+    into_wir::{
+        from_syn::{attribute_disallower::AttributeDisallower, path::fold_partial_path},
+        Error, ErrorType, Errors,
+    },
     util::path_matches_global_names,
     wir::{
-        WContext, WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPath,
+        WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPartialContext,
         WSpan, WTypeId, WVisibility, YTac,
     },
 };
 
-use super::{item_fn::fold_impl_item_fn, path::fold_path};
+use super::item_fn::fold_impl_item_fn;
 
 pub fn fold_item_struct(
-    ctx: &mut WContext,
+    ctx: &mut WPartialContext,
     mut item: ItemStruct,
 ) -> Result<WItemStruct<WTypeId>, Errors> {
     let item_span = WSpan::from_syn(&item);
@@ -55,7 +58,7 @@ pub fn fold_item_struct(
                     };
 
                     for parsed_path in parsed {
-                        derives.push(fold_path(parsed_path, None)?);
+                        derives.push(fold_partial_path(parsed_path)?);
                     }
                     allowed = true;
                 } else if meta.path.is_ident("allow") {
@@ -140,7 +143,10 @@ pub fn fold_item_struct(
     })
 }
 
-pub fn fold_item_impl(ctx: &mut WContext, item: ItemImpl) -> Result<WItemImpl<YTac>, Errors> {
+pub fn fold_item_impl(
+    ctx: &mut WPartialContext,
+    item: ItemImpl,
+) -> Result<WItemImpl<YTac>, Errors> {
     if item.defaultness.is_some() {
         return Err(Errors::single(Error::unsupported_syn_construct(
             "Defaultness",
@@ -211,7 +217,7 @@ pub fn fold_item_impl(ctx: &mut WContext, item: ItemImpl) -> Result<WItemImpl<YT
         Errors::combine_and_vec(impl_item_types, impl_item_fns, errors)?;
 
     let self_ty = match *item.self_ty {
-        Type::Path(type_path) => fold_path(type_path.path, None)?,
+        Type::Path(type_path) => fold_partial_path(type_path.path)?,
         _ => {
             return Err(Errors::single(Error::unsupported_syn_construct(
                 "Non-path self type",
@@ -250,7 +256,7 @@ pub fn fold_impl_item_type(
     Ok(WImplItemType {
         visibility,
         left_ident: WIdent::from_syn_ident(impl_item.ident),
-        right_path: fold_path(ty.path, Some(self_ty))?,
+        right_path: fold_partial_path(ty.path)?,
     })
 }
 

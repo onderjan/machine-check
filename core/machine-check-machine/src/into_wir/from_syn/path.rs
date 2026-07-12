@@ -8,6 +8,7 @@ use crate::{
     },
 };
 
+/*
 pub fn fold_path(path: Path, self_ty: Option<&Type>) -> Result<WPath, Error> {
     let path_span = WSpan::from_syn(&path);
 
@@ -23,6 +24,7 @@ pub fn fold_path(path: Path, self_ty: Option<&Type>) -> Result<WPath, Error> {
         };*/
         segments.push(WPathSegment {
             ident: WIdent::from_syn_ident(segment.ident),
+            generics
         });
     }
 
@@ -80,6 +82,7 @@ pub fn fold_path(path: Path, self_ty: Option<&Type>) -> Result<WPath, Error> {
         segments,
     })
 }
+    */
 
 pub fn fold_partial_path(path: Path) -> Result<WPartialPath, Error> {
     let leading_colon = path.leading_colon.map(|c| WSpan::from_syn(&c));

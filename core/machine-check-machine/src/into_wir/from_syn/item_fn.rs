@@ -9,22 +9,23 @@ use syn::{
 
 use crate::{
     into_wir::{
-        from_syn::{attribute_disallower::AttributeDisallower, item::fold_visibility},
+        from_syn::{
+            attribute_disallower::AttributeDisallower, item::fold_visibility,
+            path::fold_partial_path,
+        },
         Error, ErrorType, Errors,
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WContext, WFnArg, WIdent, WItemFn, WPath, WSignature, WSpan, WSpanned, WTacLocal, WTypeId,
-        YTac,
+        WContext, WFnArg, WIdent, WItemFn, WPartialContext, WPath, WSignature, WSpan, WSpanned,
+        WTacLocal, WTypeId, YTac,
     },
 };
-
-use super::path::fold_path;
 
 mod expr;
 mod stmt;
 
-pub fn fold_item_fn(ctx: &mut WContext, item_fn: ItemFn) -> Result<WItemFn<YTac>, Errors> {
+pub fn fold_item_fn(ctx: &mut WPartialContext, item_fn: ItemFn) -> Result<WItemFn<YTac>, Errors> {
     FunctionFolder {
         ctx,
         self_ty: None,
@@ -37,7 +38,7 @@ pub fn fold_item_fn(ctx: &mut WContext, item_fn: ItemFn) -> Result<WItemFn<YTac>
 }
 
 pub fn fold_impl_item_fn(
-    ctx: &mut WContext,
+    ctx: &mut WPartialContext,
     impl_item_fn: ImplItemFn,
     self_ty: &Type,
 ) -> Result<WItemFn<YTac>, Errors> {
@@ -73,9 +74,9 @@ struct FunctionScope {
 }
 
 struct FunctionFolder<'a> {
-    ctx: &'a mut WContext,
+    ctx: &'a mut WPartialContext,
     self_ty: Option<Type>,
-    ident_creator: IdentCreator,
+    ident_creator: IdentCreator<()>,
     local_types: BTreeMap<WIdent, WTypeId>,
     scopes: Vec<FunctionScope>,
     next_scope_id: u32,
@@ -122,7 +123,7 @@ impl FunctionFolder<'_> {
         // the only local scope remaining should be the outer one
         assert_eq!(self.scopes.len(), 1);
 
-        for temporary_ident in self.ident_creator.drain_created_temporaries() {
+        for (temporary_ident, ()) in self.ident_creator.drain_created_temporaries() {
             let span = temporary_ident.wir_span();
             self.local_types
                 .insert(temporary_ident, self.ctx.wildcard_id(span));
@@ -288,7 +289,7 @@ impl FunctionFolder<'_> {
             ));
         }
 
-        let path = fold_path(expr_path.path, self.self_ty.as_ref())?;
+        let path = fold_partial_path(expr_path.path)?;
         let mut segments_iter = path.segments.into_iter();
         if path.leading_colon.is_none() {
             if let Some(first) = segments_iter.next() {

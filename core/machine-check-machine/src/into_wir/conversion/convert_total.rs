@@ -13,7 +13,7 @@ use crate::{
         WBlock, WContext, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent,
         WIfCondition, WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity, WProperty, WSignature,
         WSpanned, WStdBinary, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc,
-        WTacLocal, YTac, YTotal, ZTac, ZTotal,
+        WTacLocal, WTypeId, YTac, YTotal, ZTac, ZTotal,
     },
 };
 
@@ -84,7 +84,7 @@ pub fn convert_property(
 
 struct FnConverter<'a> {
     ctx: &'a mut WContext,
-    ident_creator: IdentCreator,
+    ident_creator: IdentCreator<WTypeId>,
     panic_ident: WIdent,
     zero_bitvec_ident: WIdent,
     panic_result_idents: BTreeSet<WIdent>,
@@ -135,22 +135,8 @@ impl FnConverter<'_> {
 
         block.stmts = stmts;*/
 
-        for created_temporary in fn_converter.ident_creator.drain_created_temporaries() {
-            let ty = fn_converter
-                .ctx
-                .wildcard_id(created_temporary.wir_span().into());
-            /*let ty = if fn_converter
-                .panic_result_idents
-                .contains(&created_temporary)
-            {
-                WPartialGeneralType::PanicResult(None)
-            } else {
-                WPartialGeneralType::Unknown
-            };*/
-            locals.push(WTacLocal {
-                ident: created_temporary,
-                ty,
-            });
+        for (ident, ty) in fn_converter.ident_creator.drain_created_temporaries() {
+            locals.push(WTacLocal { ident, ty });
         }
 
         // TODO: convert output types to return PanicResult<OriginalResultType>
@@ -275,7 +261,7 @@ impl FnConverter<'_> {
         vec![WStmt::Assign(WStmtAssign { left, right })]
     }
 
-    fn fold_fn_call(
+    /*fn fold_fn_call(
         &mut self,
         original_left: WIdent,
         right: WExpr<WExprHighCall>,
@@ -347,7 +333,7 @@ impl FnConverter<'_> {
         });
 
         vec![panic_is_zero_assign, replace_panic_if_currently_zero]
-    }
+    }*/
 }
 
 /*

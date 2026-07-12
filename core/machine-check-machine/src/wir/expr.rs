@@ -6,9 +6,9 @@ use syn::{
     Lit, Token,
 };
 
-use crate::util::create_expr_ident;
+use crate::{util::create_expr_ident, wir::WPartialPath};
 
-use super::{IntoSyn, WIdent, WPath};
+use super::{IntoSyn, WIdent};
 
 #[derive(Clone, Hash)]
 pub enum WExpr<CF: IntoSyn<Expr>> {
@@ -28,7 +28,7 @@ pub struct WExprField {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WExprStruct {
-    pub type_path: WPath,
+    pub type_path: WPartialPath,
     pub fields: Vec<(WIdent, WIdent)>,
 }
 

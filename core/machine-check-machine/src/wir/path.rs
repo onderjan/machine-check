@@ -1,25 +1,51 @@
-use machine_check_common::iir::path::IIdent;
 use proc_macro2::Span;
 use std::fmt::Debug;
 use std::hash::Hash;
 use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, ExprPath,
-    GenericArgument, Ident, Lit, LitInt, Path, PathArguments, PathSegment, Token, Type, TypeInfer,
-    TypePath,
+    punctuated::Punctuated, Expr, ExprLit, GenericArgument, Lit, LitInt, Path, PathArguments,
+    PathSegment, Token,
 };
 
-use crate::wir::{WPartialType, WSpan, WSpanned};
+use crate::wir::{ident::WIdent, WSpan, WSpanned, WType};
 
-use super::IntoSyn;
+mod partial;
 
-#[derive(Clone)]
+pub use partial::{WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment};
+
+#[derive(Clone, Hash)]
+pub enum WPathArgument {
+    Type(WType),
+    Uint(u32, WSpan),
+}
+
+impl From<WPathArgument> for GenericArgument {
+    fn from(value: WPathArgument) -> Self {
+        match value {
+            WPathArgument::Type(ty) => GenericArgument::Type(ty.into()),
+            WPathArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
+                attrs: Vec::new(),
+                lit: Lit::Int(LitInt::new(&value.to_string(), span.first())),
+            })),
+        }
+    }
+}
+
+#[derive(Clone, Hash)]
+pub struct WPathGenerics {
+    pub turbofish: Option<WSpan>,
+    pub arguments: Vec<WPathArgument>,
+}
+
+#[derive(Clone, Hash)]
+pub struct WPathSegment {
+    pub ident: WIdent,
+    pub generics: Option<WPathGenerics>,
+}
+
+#[derive(Clone, Hash)]
 pub struct WPath {
     pub leading_colon: Option<WSpan>,
     pub segments: Vec<WPathSegment>,
-}
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct WPathSegment {
-    pub ident: WIdent,
 }
 
 impl WPath {
@@ -34,7 +60,7 @@ impl WPath {
             return false;
         }
         for (self_segment, other_segment) in self.segments.iter().zip(segments.iter()) {
-            if self_segment.ident.name != *other_segment {
+            if self_segment.ident.name() != *other_segment {
                 return false;
             }
         }
@@ -52,7 +78,7 @@ impl WPath {
             return false;
         }
         for (self_segment, other_segment) in self.segments.iter().zip(segments.iter()) {
-            if self_segment.ident.name != *other_segment {
+            if self_segment.ident.name() != *other_segment {
                 return false;
             }
         }
@@ -62,27 +88,31 @@ impl WPath {
     pub fn from_ident(ident: WIdent) -> Self {
         WPath {
             leading_colon: None,
-            segments: vec![WPathSegment { ident }],
+            segments: vec![WPathSegment {
+                ident,
+                generics: None,
+            }],
         }
     }
 
     pub fn span(&self) -> Span {
         // TODO: correct span
         if let Some(last_segment) = self.segments.last() {
-            last_segment.ident.span
+            last_segment.ident.span()
         } else {
             Span::call_site()
         }
     }
 
     pub fn segments_strs(&self) -> impl Iterator<Item = &str> {
-        self.segments
-            .iter()
-            .map(|segment| segment.ident.name.as_str())
+        self.segments.iter().map(|segment| segment.ident.name())
     }
 
     pub fn get_ident(&self) -> Option<&WIdent> {
-        if self.leading_colon.is_none() && self.segments.len() == 1 {
+        if self.leading_colon.is_none()
+            && self.segments.len() == 1
+            && self.segments[0].generics.is_none()
+        {
             Some(&self.segments[0].ident)
         } else {
             None
@@ -132,23 +162,6 @@ impl From<WPath> for Path {
     }
 }
 
-impl PartialEq for WPath {
-    fn eq(&self, other: &Self) -> bool {
-        self.leading_colon.is_some() == other.leading_colon.is_some()
-            && self.segments == other.segments
-    }
-}
-
-impl Eq for WPath {}
-
-impl Hash for WPath {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let has_leading_colon = self.leading_colon.is_some();
-        has_leading_colon.hash(state);
-        self.segments.hash(state);
-    }
-}
-
 impl Debug for WPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.leading_colon.is_some() {
@@ -162,269 +175,7 @@ impl Debug for WPath {
             } else {
                 f.write_str("::")?;
             }
-            f.write_str(&segment.ident.name)?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone)]
-pub struct WIdent {
-    name: String,
-    span: Span,
-}
-
-impl WIdent {
-    pub fn new(name: String, span: Span) -> Self {
-        Self { name, span }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn span(&self) -> Span {
-        self.span
-    }
-
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
-    }
-
-    pub fn set_span(&mut self, span: Span) {
-        self.span = span;
-    }
-
-    pub fn from_syn_ident(ident: Ident) -> Self {
-        Self {
-            name: ident.to_string(),
-            span: ident.span(),
-        }
-    }
-
-    pub fn into_path(self) -> WPath {
-        WPath::from_ident(self)
-    }
-
-    pub fn to_syn_ident(&self) -> Ident {
-        Ident::new(&self.name, self.span)
-    }
-
-    pub fn mck_prefixed(&self, prefix: &str) -> WIdent {
-        let orig_ident_str = self.name();
-        // make sure everything is prefixed by __mck_ only once at the start
-        let stripped_ident_str = orig_ident_str
-            .strip_prefix("__mck_")
-            .unwrap_or(orig_ident_str);
-
-        WIdent::new(
-            format!("__mck_{}_{}", prefix, stripped_ident_str),
-            self.span(),
-        )
-    }
-
-    pub fn into_iir(self) -> IIdent {
-        IIdent::new(self.name, WSpan::from_span(self.span).into_iir())
-    }
-}
-
-impl Debug for WIdent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // just print the name
-        f.write_str(&self.name)
-    }
-}
-
-impl PartialEq for WIdent {
-    fn eq(&self, other: &Self) -> bool {
-        // do not consider span for equality
-        self.name == other.name
-    }
-}
-
-impl Eq for WIdent {}
-
-impl Hash for WIdent {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // do not consider span for the hash
-        // this is fine as it just means two idents
-        // with different spans will hash to the same value
-        self.name.hash(state);
-    }
-}
-
-impl PartialOrd for WIdent {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for WIdent {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        // do not consider span for comparison
-        self.name.cmp(&other.name)
-    }
-}
-
-impl From<WIdent> for Ident {
-    fn from(ident: WIdent) -> Self {
-        Ident::new(&ident.name, ident.span)
-    }
-}
-
-impl IntoSyn<Expr> for WIdent {
-    fn into_syn(self) -> Expr {
-        Expr::Path(ExprPath {
-            attrs: Vec::new(),
-            qself: None,
-            path: Path {
-                leading_colon: None,
-                segments: Punctuated::from_iter(vec![PathSegment {
-                    ident: self.into(),
-                    arguments: PathArguments::None,
-                }]),
-            },
-        })
-    }
-}
-
-impl WSpanned for WIdent {
-    fn wir_span(&self) -> super::WSpan {
-        WSpan::from_span(self.span)
-    }
-}
-
-#[derive(Clone, Hash)]
-pub enum WPartialArgument {
-    Type(WPartialType),
-    Uint(u32, WSpan),
-    Infer(WSpan),
-}
-
-impl From<WPartialArgument> for GenericArgument {
-    fn from(value: WPartialArgument) -> Self {
-        match value {
-            WPartialArgument::Type(ty) => GenericArgument::Type(ty.into()),
-            WPartialArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
-                attrs: Vec::new(),
-                lit: Lit::Int(LitInt::new(&value.to_string(), span.first())),
-            })),
-            WPartialArgument::Infer(span) => GenericArgument::Type(Type::Infer(TypeInfer {
-                underscore_token: Token![_](span.first()),
-            })),
-        }
-    }
-}
-
-#[derive(Clone, Hash)]
-pub struct WPartialGenerics {
-    pub turbofish: Option<WSpan>,
-    pub arguments: Vec<WPartialArgument>,
-}
-
-#[derive(Clone, Hash)]
-pub struct WPartialSegment {
-    pub ident: WIdent,
-    pub generics: Option<WPartialGenerics>,
-}
-
-#[derive(Clone, Hash)]
-pub struct WPartialPath {
-    pub leading_colon: Option<WSpan>,
-    pub segments: Vec<WPartialSegment>,
-}
-
-impl Debug for WPartialArgument {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Type(ty) => Debug::fmt(&ty, f),
-            Self::Uint(num, _span) => write!(f, "{}", num),
-            Self::Infer(_span) => write!(f, "_"),
-        }
-    }
-}
-
-impl Debug for WPartialSegment {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.ident, f)?;
-        if let Some(generics) = &self.generics {
-            if generics.turbofish.is_some() {
-                write!(f, "::")?;
-            }
-            write!(f, "<")?;
-            let mut first = true;
-            for arg in &generics.arguments {
-                if first {
-                    first = false;
-                } else {
-                    write!(f, ",")?;
-                }
-                Debug::fmt(&arg, f)?;
-            }
-
-            write!(f, ">")?;
-        }
-        Ok(())
-    }
-}
-
-impl From<WPartialPath> for Path {
-    fn from(path: WPartialPath) -> Self {
-        let leading_span = if let Some(leading_colon) = path.leading_colon {
-            leading_colon.first()
-        } else {
-            Span::call_site()
-        };
-        Path {
-            leading_colon: if path.leading_colon.is_some() {
-                Some(Token![::](leading_span))
-            } else {
-                None
-            },
-
-            segments: Punctuated::from_iter(path.segments.into_iter().map(|segment| {
-                let arguments = match segment.generics {
-                    Some(generics) => {
-                        let span = segment.ident.span;
-                        let colon2_token = if generics.turbofish.is_some() {
-                            Some(Token![::](span))
-                        } else {
-                            None
-                        };
-                        let args = Punctuated::from_iter(
-                            generics
-                                .arguments
-                                .into_iter()
-                                .map(|arg| Into::<GenericArgument>::into(arg)),
-                        );
-                        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                            colon2_token,
-                            lt_token: Token![<](span),
-                            args,
-                            gt_token: Token![>](span),
-                        })
-                    }
-                    None => PathArguments::None,
-                };
-                PathSegment {
-                    ident: segment.ident.into(),
-                    arguments,
-                }
-            })),
-        }
-    }
-}
-
-impl Debug for WPartialPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut skip_leading = self.leading_colon.is_none();
-        for segment in &self.segments {
-            if skip_leading {
-                skip_leading = false;
-            } else {
-                write!(f, "::")?;
-            }
-            Debug::fmt(&segment, f)?;
+            f.write_str(segment.ident.name())?;
         }
         Ok(())
     }

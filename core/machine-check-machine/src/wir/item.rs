@@ -10,7 +10,7 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::wir::{WBlock, WSignature, WSpan, WSpanned};
+use crate::wir::{WBlock, WPartialPath, WSignature, WSpan, WSpanned};
 
 use super::{IntoSyn, WIdent, WImplItemType, WPath, YStage};
 
@@ -26,7 +26,7 @@ pub struct WItemFn<Y: YStage> {
 #[derive(Clone, Debug, Hash)]
 pub struct WItemStruct<FT: IntoSyn<Type>> {
     pub visibility: WVisibility,
-    pub derives: Vec<WPath>,
+    pub derives: Vec<WPartialPath>,
     pub ident: WIdent,
     pub fields: Vec<WField<FT>>,
 }
@@ -52,7 +52,7 @@ pub struct WField<FT: IntoSyn<Type>> {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemImpl<Y: YStage> {
-    pub self_ty: WPath,
+    pub self_ty: WPartialPath,
     pub trait_: Option<Y::ItemImplTrait>,
     pub impl_item_fns: Vec<WItemFn<Y>>,
     pub impl_item_types: Vec<WImplItemType>,
