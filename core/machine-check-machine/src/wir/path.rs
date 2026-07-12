@@ -5,9 +5,10 @@ use std::hash::Hash;
 use syn::{
     punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, ExprPath,
     GenericArgument, Ident, Lit, LitInt, Path, PathArguments, PathSegment, Token, Type, TypeInfer,
+    TypePath,
 };
 
-use crate::wir::{WSpan, WSpanned};
+use crate::wir::{WPartialType, WSpan, WSpanned};
 
 use super::IntoSyn;
 
@@ -295,6 +296,7 @@ impl WSpanned for WIdent {
 
 #[derive(Clone, Hash)]
 pub enum WPartialArgument {
+    Type(WPartialType),
     Uint(u32, WSpan),
     Infer(WSpan),
 }
@@ -302,6 +304,7 @@ pub enum WPartialArgument {
 impl From<WPartialArgument> for GenericArgument {
     fn from(value: WPartialArgument) -> Self {
         match value {
+            WPartialArgument::Type(ty) => GenericArgument::Type(ty.into()),
             WPartialArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
                 attrs: Vec::new(),
                 lit: Lit::Int(LitInt::new(&value.to_string(), span.first())),
@@ -334,6 +337,7 @@ pub struct WPartialPath {
 impl Debug for WPartialArgument {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Type(ty) => Debug::fmt(&ty, f),
             Self::Uint(num, _span) => write!(f, "{}", num),
             Self::Infer(_span) => write!(f, "_"),
         }

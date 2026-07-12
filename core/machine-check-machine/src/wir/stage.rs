@@ -52,20 +52,19 @@ impl YStage for YTotal {
     type ItemImplTrait = WItemImplTrait;
 }
 
-/*
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct YSsa;
 
 impl YStage for YSsa {
     type AssignTypes = ZSsa;
-    type InputType = WType<WBasicType>;
-    type OutputType = WPanicResultType<WBasicType>;
-    type FnResult = WPanicResult;
-    type Local = WSsaLocal<WPartialGeneralType>;
+    type InputType = WTypeId;
+    type OutputType = WTypeId;
+    type FnResult = WIdent;
+    type Local = WSsaLocal<WTypeId>;
     type ItemImplTrait = WItemImplTrait;
 }
 
-#[derive(Clone, Debug, Hash)]
+/*#[derive(Clone, Debug, Hash)]
 pub struct YInferred;
 
 impl YStage for YInferred {
@@ -123,18 +122,16 @@ impl ZAssignTypes for ZTotal {
     type IfPolarity = WNoIfPolarity;
 }
 
-/*
 #[derive(Clone, Debug, Hash)]
 pub struct ZSsa;
 
 impl ZAssignTypes for ZSsa {
     type Stmt = WStmt<ZSsa>;
-    type FundamentalType = WBasicType;
+    type FundamentalType = WTypeId;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
 }
-*/
 
 #[derive(Clone, Debug, Hash)]
 pub struct ZConverted;

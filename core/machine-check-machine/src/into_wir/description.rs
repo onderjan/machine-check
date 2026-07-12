@@ -4,7 +4,7 @@ use syn::{Item, Path, Type, TypePath};
 
 use crate::{
     into_wir::{
-        conversion::{convert_total, expand_macros, resolve_use},
+        conversion::{convert_to_ssa, convert_total, expand_macros, resolve_use},
         from_syn, Error, Errors,
     },
     wir::{WContext, WDescription, YConverted, YTac},
@@ -29,7 +29,7 @@ pub fn description_from_syn(
     //let w_description = convert_indexing::convert_description(w_description);
     let (w_description, panic_messages) =
         convert_total::convert_description(&mut ctx, w_description);
-    //let w_description = convert_to_ssa::convert_description(w_description)?;
+    let w_description = convert_to_ssa::convert_description(&mut ctx, w_description)?;
     todo!("Description from syn: {:#?}", w_description)
 
     // TODO: integrate new typechecking

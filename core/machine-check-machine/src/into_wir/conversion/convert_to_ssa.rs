@@ -5,20 +5,21 @@ use machine_check_common::ir_common::IrReference;
 
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    WBasicType, WBlock, WCallArg, WExpr, WExprHighCall, WFnArg, WHighMckNew, WIdent,
-    WPartialGeneralType, WPhi, WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt,
-    WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WType, ZSsa, ZTotal,
+    WBlock, WCall, WCallArg, WContext, WExpr, WExprHighCall, WFnArg, WHighMckNew, WIdent, WPhi,
+    WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
+    WSubproperty, WSubpropertyFunc, WTypeId, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
 
 pub fn convert_description(
+    ctx: &mut WContext,
     description: WDescription<YTotal>,
 ) -> Result<WDescription<YSsa>, Errors> {
     let mut impls = Vec::new();
     for item_impl in description.impls {
         let mut impl_item_fns = Vec::new();
         for impl_item_fn in item_impl.impl_item_fns {
-            let (impl_item_fn, nonlocal_idents) = process_fn(impl_item_fn, &BTreeMap::new())?;
+            let (impl_item_fn, nonlocal_idents) = process_fn(ctx, impl_item_fn, &BTreeMap::new())?;
             let mut errors = Vec::new();
             for nonlocal_ident in nonlocal_idents {
                 errors.push(Error::new(
@@ -45,12 +46,14 @@ pub fn convert_description(
 }
 
 pub fn convert_property(
+    ctx: &mut WContext,
     property: WProperty<YTotal>,
-    global_ident_types: &HashMap<WIdent, WBasicType>,
+    global_ident_types: &HashMap<WIdent, WTypeId>,
 ) -> Result<WProperty<YSsa>, Errors> {
     let num_subproperties = property.subproperties.len();
 
     let mut converter = SubpropertyConverter {
+        ctx,
         num_subproperties,
         global_ident_types,
         old_subproperties: BTreeMap::from_iter(property.subproperties.into_iter().enumerate()),
@@ -75,7 +78,8 @@ pub fn convert_property(
 }
 
 struct SubpropertyConverter<'a> {
-    global_ident_types: &'a HashMap<WIdent, WBasicType>,
+    ctx: &'a mut WContext,
+    global_ident_types: &'a HashMap<WIdent, WTypeId>,
     num_subproperties: usize,
     old_subproperties: BTreeMap<usize, WSubproperty<YTotal>>,
     new_subproperties: BTreeMap<usize, WSubproperty<YSsa>>,
@@ -114,10 +118,11 @@ impl SubpropertyConverter<'_> {
         let subproperty = match subproperty {
             WSubproperty::Func(subproperty_func) => {
                 let (mut func, nonlocal_idents) =
-                    process_fn(subproperty_func.func, &global_rewrites)?;
+                    process_fn(self.ctx, subproperty_func.func, &global_rewrites)?;
 
                 // add all non-local idents to the function arguments if possible
-                let mut errors = Vec::new();
+                todo!("Add non-local idents to function arguments")
+                /*let mut errors = Vec::new();
                 for nonlocal_ident in nonlocal_idents {
                     let ty = if let Some(ty) = self.global_ident_types.get(&nonlocal_ident) {
                         Some(ty)
@@ -157,7 +162,7 @@ impl SubpropertyConverter<'_> {
                     func,
                     children: subproperty_func.children,
                     display: subproperty_func.display,
-                })
+                })*/
             }
             WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
             WSubproperty::Next(next) => WSubproperty::Next(next),
@@ -171,6 +176,7 @@ impl SubpropertyConverter<'_> {
 }
 
 fn process_fn(
+    ctx: &mut WContext,
     item_fn: WItemFn<YTotal>,
     global_rewrites: &BTreeMap<WIdent, WIdent>,
 ) -> Result<(WItemFn<YSsa>, BTreeSet<WIdent>), Errors> {
@@ -197,6 +203,7 @@ fn process_fn(
 
     // visit
     let mut local_visitor = LocalVisitor {
+        ctx,
         global_rewrites,
         arg_idents,
         local_ident_counters,
@@ -210,12 +217,13 @@ fn process_fn(
 }
 
 struct LocalVisitor<'a> {
+    pub ctx: &'a mut WContext,
     pub global_rewrites: &'a BTreeMap<WIdent, WIdent>,
     pub arg_idents: BTreeSet<WIdent>,
     pub branch_counter: u32,
     pub local_ident_counters: BTreeMap<WIdent, Counter>,
     pub nonlocal_idents: BTreeSet<WIdent>,
-    pub temps: BTreeMap<WIdent, (WIdent, WPartialGeneralType)>,
+    pub temps: BTreeMap<WIdent, (WIdent, WTypeId)>,
     pub errors: Vec<Error>,
 }
 
@@ -223,7 +231,7 @@ struct LocalVisitor<'a> {
 struct Counter {
     pub present: BTreeSet<u32>,
     pub next: u32,
-    pub ty: WPartialGeneralType,
+    pub ty: WTypeId,
 }
 
 impl LocalVisitor<'_> {
@@ -235,8 +243,7 @@ impl LocalVisitor<'_> {
         };
 
         let block = self.process_block(item_fn.block);
-        self.process_ident(&mut item_fn.result.result_ident);
-        self.process_ident(&mut item_fn.result.panic_ident);
+        self.process_ident(&mut item_fn.result);
 
         let mut errors = Vec::new();
         errors.append(&mut self.errors);
@@ -346,14 +353,15 @@ impl LocalVisitor<'_> {
             let phi_else_ident =
                 ident.mck_prefixed(&format!("phi_else_{}", current_branch_counter));
 
-            let ty = match ty {
+            /*let ty = match ty {
                 WPartialGeneralType::Unknown => None,
                 WPartialGeneralType::Normal(ty) => Some(ty),
                 _ => panic!("Phi-inner type should be unknown or normal"),
             };
 
             // phi then and else have phi arg type
-            let phi_arg_type = WPartialGeneralType::PhiArg(ty);
+            let phi_arg_type = WPartialGeneralType::PhiArg(ty);*/
+            let phi_arg_type = self.ctx.phi_arg_id(ident.wir_span(), ty);
 
             self.temps.insert(
                 phi_then_ident.clone(),
@@ -385,14 +393,12 @@ impl LocalVisitor<'_> {
             // create temporary after the if that will phi the then and else temporaries
             let append_ident = create_new_temporary(&mut self.temps, ident, else_counter);
 
-            append_stmts.push(WStmt::Assign(WStmtAssign {
-                left: append_ident,
-                right: WExpr::Call(WExprHighCall::Phi(WPhi {
-                    condition: condition.ident.clone(),
-                    then_ident: phi_then_ident,
-                    else_ident: phi_else_ident,
-                })),
-            }));
+            append_stmts.push(create_phi_call(
+                append_ident,
+                condition.ident.clone(),
+                phi_then_ident,
+                phi_else_ident,
+            ));
         }
         let stmt = WStmtIf {
             condition,
@@ -458,7 +464,7 @@ impl LocalVisitor<'_> {
                     }
                 }
             }
-            WExprHighCall::MckNew(call) => {
+            /*WExprHighCall::MckNew(call) => {
                 match call {
                     crate::wir::WHighMckNew::BitvectorArray(_type_array, ident) => {
                         self.process_ident(ident);
@@ -470,40 +476,41 @@ impl LocalVisitor<'_> {
             }
             WExprHighCall::BooleanNew(_) => {
                 // no ident, do nothing
-            }
+            }*/
             WExprHighCall::StdUnary(call) => {
                 self.process_ident(&mut call.operand);
             }
             WExprHighCall::StdBinary(call) => {
                 self.process_ident(&mut call.a);
                 self.process_ident(&mut call.b);
-            }
-            WExprHighCall::MckExt(call) => {
-                self.process_ident(&mut call.from);
-            }
-            WExprHighCall::StdInto(call) => {
-                self.process_ident(&mut call.from);
-            }
-            WExprHighCall::StdClone(ident) => self.process_ident(ident),
-            WExprHighCall::ArrayRead(read) => {
-                self.process_ident(&mut read.base);
-                self.process_ident(&mut read.index);
-            }
-            WExprHighCall::ArrayWrite(write) => {
-                self.process_ident(&mut write.base);
-                self.process_ident(&mut write.index);
-                self.process_ident(&mut write.element);
-            }
-            WExprHighCall::Phi(phi) => {
-                self.process_ident(&mut phi.condition);
-                self.process_ident(&mut phi.then_ident);
-                self.process_ident(&mut phi.else_ident);
-            }
-            WExprHighCall::PhiTaken(taken) => {
-                self.process_ident(&mut taken.ident);
-                self.process_ident(&mut taken.condition);
-            }
-            WExprHighCall::PhiNotTaken => {}
+            } /*
+              WExprHighCall::MckExt(call) => {
+                  self.process_ident(&mut call.from);
+              }
+              WExprHighCall::StdInto(call) => {
+                  self.process_ident(&mut call.from);
+              }
+              WExprHighCall::StdClone(ident) => self.process_ident(ident),
+              WExprHighCall::ArrayRead(read) => {
+                  self.process_ident(&mut read.base);
+                  self.process_ident(&mut read.index);
+              }
+              WExprHighCall::ArrayWrite(write) => {
+                  self.process_ident(&mut write.base);
+                  self.process_ident(&mut write.index);
+                  self.process_ident(&mut write.element);
+              }
+              WExprHighCall::Phi(phi) => {
+                  self.process_ident(&mut phi.condition);
+                  self.process_ident(&mut phi.then_ident);
+                  self.process_ident(&mut phi.else_ident);
+              }
+              WExprHighCall::PhiTaken(taken) => {
+                  self.process_ident(&mut taken.ident);
+                  self.process_ident(&mut taken.condition);
+              }
+              WExprHighCall::PhiNotTaken => {}
+              */
         }
     }
 
@@ -535,29 +542,63 @@ impl LocalVisitor<'_> {
     }
 }
 
+fn create_phi_call(
+    assigned: WIdent,
+    condition: WIdent,
+    then_ident: WIdent,
+    else_ident: WIdent,
+) -> WStmt<ZSsa> {
+    let span = assigned.wir_span();
+    let fn_path = WContext::phi_arg_item_path(String::from("phi"), span);
+
+    WStmt::Assign(WStmtAssign {
+        left: assigned,
+        right: WExpr::Call(WExprHighCall::Call(WCall {
+            fn_path,
+            args: vec![
+                WCallArg::Ident(condition),
+                WCallArg::Ident(then_ident),
+                WCallArg::Ident(else_ident),
+            ],
+        })),
+    })
+}
+
 fn create_taken_assign(
     phi_arg_ident: WIdent,
     taken_ident: WIdent,
     condition_ident: WIdent,
 ) -> WStmt<ZSsa> {
+    let span = phi_arg_ident.wir_span();
+    let fn_path = WContext::phi_arg_item_path(String::from("Taken"), span);
+
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
-        right: WExpr::Call(WExprHighCall::PhiTaken(WPhiTaken {
-            ident: taken_ident,
-            condition: condition_ident,
+        right: WExpr::Call(WExprHighCall::Call(WCall {
+            fn_path,
+            args: vec![
+                WCallArg::Ident(taken_ident),
+                WCallArg::Ident(condition_ident),
+            ],
         })),
     })
 }
 
 fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
+    let span = phi_arg_ident.wir_span();
+    let fn_path = WContext::phi_arg_item_path(String::from("NotTaken"), span);
+
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
-        right: WExpr::Call(WExprHighCall::PhiNotTaken),
+        right: WExpr::Call(WExprHighCall::Call(WCall {
+            fn_path,
+            args: vec![],
+        })),
     })
 }
 
 fn create_new_temporary(
-    temps: &mut BTreeMap<WIdent, (WIdent, WPartialGeneralType)>,
+    temps: &mut BTreeMap<WIdent, (WIdent, WTypeId)>,
     orig_ident: &WIdent,
     counter: &mut Counter,
 ) -> WIdent {

@@ -1,5 +1,6 @@
+use proc_macro2::Span;
 use std::fmt::Debug;
-use syn::{Expr, Type};
+use syn::{Expr, Path, Token, Type, TypeInfer, TypePath, TypeReference};
 
 use crate::wir::{WPartialPath, WSpan, WSpanned};
 
@@ -20,7 +21,7 @@ impl IntoSyn<Expr> for WTypeId {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub enum WPartialType {
     Path(WPartialPath),
     Reference(Box<WPartialType>),
@@ -39,6 +40,30 @@ impl WPartialType {
             }
             WPartialType::Reference(inner) => inner.wir_span(),
             WPartialType::Infer(span) => *span,
+        }
+    }
+}
+
+impl From<WPartialType> for Type {
+    fn from(value: WPartialType) -> Self {
+        match value {
+            WPartialType::Path(path) => {
+                let path: Path = path.into();
+                Type::Path(TypePath { qself: None, path })
+            }
+            WPartialType::Reference(ty) => {
+                let span: Span = ty.wir_span().first();
+                let elem = Box::new((*ty).into());
+                Type::Reference(TypeReference {
+                    and_token: Token![&](span),
+                    lifetime: None,
+                    mutability: None,
+                    elem,
+                })
+            }
+            WPartialType::Infer(span) => Type::Infer(TypeInfer {
+                underscore_token: Token![_](span.first()),
+            }),
         }
     }
 }

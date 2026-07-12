@@ -106,6 +106,61 @@ impl WContext {
         self.partial_type_id(WPartialType::Infer(span))
     }
 
+    pub fn phi_arg_type_path(span: WSpan, inner: Option<WPartialType>) -> WPartialPath {
+        let generics = inner.map(|inner| WPartialGenerics {
+            turbofish: Some(span),
+            arguments: vec![WPartialArgument::Type(inner)],
+        });
+        WPartialPath {
+            leading_colon: Some(span),
+            segments: vec![
+                WPartialSegment {
+                    ident: WIdent::new(String::from("mck"), span.first()),
+                    generics: None,
+                },
+                WPartialSegment {
+                    ident: WIdent::new(String::from("forward"), span.first()),
+                    generics: None,
+                },
+                WPartialSegment {
+                    ident: WIdent::new(String::from("PhiArg"), span.first()),
+                    generics,
+                },
+            ],
+        }
+    }
+
+    pub fn phi_arg_item_path(item: String, span: WSpan) -> WPartialPath {
+        WPartialPath {
+            leading_colon: Some(span),
+            segments: vec![
+                WPartialSegment {
+                    ident: WIdent::new(String::from("mck"), span.first()),
+                    generics: None,
+                },
+                WPartialSegment {
+                    ident: WIdent::new(String::from("forward"), span.first()),
+                    generics: None,
+                },
+                WPartialSegment {
+                    ident: WIdent::new(String::from("PhiArg"), span.first()),
+                    generics: None,
+                },
+                WPartialSegment {
+                    ident: WIdent::new(item, span.first()),
+                    generics: None,
+                },
+            ],
+        }
+    }
+
+    pub fn phi_arg_id(&mut self, span: WSpan, inner: WTypeId) -> WTypeId {
+        let inner = self.types[inner.0].clone();
+        //"::mck::forward::PhiArg::phi"
+        let ty = WPartialType::Path(Self::phi_arg_type_path(span, Some(inner)));
+        self.partial_type_id(ty)
+    }
+
     pub fn add_struct_def(&mut self, ty: Type) {
         self.type_defs
             .insert(WContextSynType(ty), WContextTypeDef::Struct);
@@ -175,9 +230,8 @@ fn needs_inference(ty: &WPartialType) -> bool {
             for segment in &path.segments {
                 if let Some(generics) = &segment.generics {
                     for argument in &generics.arguments {
-                        match argument {
-                            super::WPartialArgument::Uint(_, _) => {}
-                            super::WPartialArgument::Infer(_) => return true,
+                        if let WPartialArgument::Infer(_) = argument {
+                            return true;
                         }
                     }
                 }
@@ -190,14 +244,10 @@ fn needs_inference(ty: &WPartialType) -> bool {
 }
 
 fn bitvector_type(width: Option<u32>) -> WPartialType {
-    let generics = if let Some(width) = width {
-        Some(WPartialGenerics {
-            turbofish: None,
-            arguments: vec![WPartialArgument::Uint(width, WSpan::call_site())],
-        })
-    } else {
-        None
-    };
+    let generics = width.map(|width| WPartialGenerics {
+        turbofish: None,
+        arguments: vec![WPartialArgument::Uint(width, WSpan::call_site())],
+    });
     WPartialType::Path(WPartialPath {
         leading_colon: Some(WSpan::call_site()),
         segments: vec![
@@ -261,6 +311,12 @@ fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartial
                                         return Err(Error::new(ErrorType::InferenceFailure, span));
                                     }
                                     WPartialArgument::Uint(rhs_num, rhs_span)
+                                }
+                                (WPartialArgument::Type(lhs), WPartialArgument::Type(rhs)) => {
+                                    WPartialArgument::Type(join_types(lhs, rhs)?)
+                                }
+                                _ => {
+                                    return Err(Error::new(ErrorType::InferenceFailure, span));
                                 }
                             };
                             arguments.push(arg);
