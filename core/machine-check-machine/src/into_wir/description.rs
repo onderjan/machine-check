@@ -4,13 +4,8 @@ use syn::{Item, Path, Type, TypePath};
 
 use crate::{
     into_wir::{
-        conversion::{expand_macros, resolve_use},
-        from_syn,
-        /*conversion::{
-            convert_indexing, convert_to_ssa, convert_total, convert_types, ,
-            infer_types, resolve_use, typecheck,
-        },*/
-        Error, Errors,
+        conversion::{convert_total, expand_macros, resolve_use},
+        from_syn, Error, Errors,
     },
     wir::{WContext, WDescription, YConverted, YTac},
 };
@@ -29,22 +24,26 @@ pub fn description_from_syn(
 
     resolve_use::remove_use(&mut items)?;
 
-    let w_description = tac_from_items(items.into_iter())?;
+    let mut ctx = WContext::new();
+    let w_description = tac_from_items(&mut ctx, items.into_iter())?;
+    //let w_description = convert_indexing::convert_description(w_description);
+    let (w_description, panic_messages) =
+        convert_total::convert_description(&mut ctx, w_description);
+    //let w_description = convert_to_ssa::convert_description(w_description)?;
     todo!("Description from syn: {:#?}", w_description)
-    /*let w_description = convert_indexing::convert_description(w_description);
-    let (w_description, panic_messages) = convert_total::convert_description(w_description);
-    let w_description = convert_to_ssa::convert_description(w_description)?;
 
     // TODO: integrate new typechecking
-    typecheck::typecheck(w_description.clone());
+    /*typecheck::typecheck(w_description.clone());
     let w_description = infer_types::infer_description(w_description)?;
     let w_description = convert_types::convert_description(w_description)?;
 
     Ok((w_description, panic_messages))*/
 }
 
-fn tac_from_items(item_iter: impl Iterator<Item = Item>) -> Result<WDescription<YTac>, Errors> {
-    let mut ctx = WContext::new();
+fn tac_from_items(
+    ctx: &mut WContext,
+    item_iter: impl Iterator<Item = Item>,
+) -> Result<WDescription<YTac>, Errors> {
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     let mut errors = Vec::new();
@@ -56,10 +55,10 @@ fn tac_from_items(item_iter: impl Iterator<Item = Item>) -> Result<WDescription<
                     qself: None,
                     path: Path::from(item.ident.clone()),
                 });
-                structs.push(from_syn::fold_item_struct(&mut ctx, item));
+                structs.push(from_syn::fold_item_struct(ctx, item));
                 ctx.add_struct_def(ty);
             }
-            Item::Impl(item) => impls.push(from_syn::fold_item_impl(&mut ctx, item)),
+            Item::Impl(item) => impls.push(from_syn::fold_item_impl(ctx, item)),
             _ => errors.push(Error::unsupported_syn_construct("Item kind", &item)),
         }
     }

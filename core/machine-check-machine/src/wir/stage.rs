@@ -38,20 +38,21 @@ impl YStage for YNonindexed {
     type FnResult = WIdent;
     type Local = WTacLocal<WPartialGeneralType>;
     type ItemImplTrait = WItemImplTrait;
-}
+}*/
 
 #[derive(Clone, Debug, Hash)]
 pub struct YTotal;
 
 impl YStage for YTotal {
     type AssignTypes = ZTotal;
-    type InputType = WType<WBasicType>;
-    type OutputType = WPanicResultType<WBasicType>;
-    type FnResult = WPanicResult;
-    type Local = WTacLocal<WPartialGeneralType>;
+    type InputType = WTypeId;
+    type OutputType = WTypeId;
+    type FnResult = WIdent;
+    type Local = WTacLocal<WTypeId>;
     type ItemImplTrait = WItemImplTrait;
 }
 
+/*
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct YSsa;
 
@@ -109,19 +110,20 @@ impl ZAssignTypes for ZNonindexed {
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
-}
+}*/
 
 #[derive(Clone, Debug, Hash)]
 pub struct ZTotal;
 
 impl ZAssignTypes for ZTotal {
     type Stmt = WStmt<ZTotal>;
-    type FundamentalType = WBasicType;
+    type FundamentalType = WTypeId;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
 }
 
+/*
 #[derive(Clone, Debug, Hash)]
 pub struct ZSsa;
 
