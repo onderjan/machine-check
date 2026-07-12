@@ -31,7 +31,8 @@ pub fn description_from_syn(
     let (w_description, panic_messages) =
         convert_total::convert_description(&mut ctx, w_description);
     let w_description = convert_to_ssa::convert_description(&mut ctx, w_description)?;
-    todo!("Description from syn: {:#?}", w_description)
+    ctx.convert_types()?;
+    todo!("Description from syn: {:#?}", w_description);
 
     // TODO: integrate new typechecking
     /*typecheck::typecheck(w_description.clone());

@@ -162,6 +162,39 @@ impl From<WPath> for Path {
     }
 }
 
+impl Debug for WPathArgument {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Type(ty) => Debug::fmt(&ty, f),
+            Self::Uint(num, _span) => write!(f, "{}", num),
+        }
+    }
+}
+
+impl Debug for WPathSegment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.ident, f)?;
+        if let Some(generics) = &self.generics {
+            if generics.turbofish.is_some() {
+                write!(f, "::")?;
+            }
+            write!(f, "<")?;
+            let mut first = true;
+            for arg in &generics.arguments {
+                if first {
+                    first = false;
+                } else {
+                    write!(f, ",")?;
+                }
+                Debug::fmt(&arg, f)?;
+            }
+
+            write!(f, ">")?;
+        }
+        Ok(())
+    }
+}
+
 impl Debug for WPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.leading_colon.is_some() {
@@ -175,7 +208,7 @@ impl Debug for WPath {
             } else {
                 f.write_str("::")?;
             }
-            f.write_str(segment.ident.name())?;
+            Debug::fmt(&segment, f)?;
         }
         Ok(())
     }

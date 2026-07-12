@@ -135,7 +135,7 @@ impl From<WPartialPath> for Path {
                             generics
                                 .arguments
                                 .into_iter()
-                                .map(|arg| Into::<GenericArgument>::into(arg)),
+                                .map(Into::<GenericArgument>::into),
                         );
                         PathArguments::AngleBracketed(AngleBracketedGenericArguments {
                             colon2_token,

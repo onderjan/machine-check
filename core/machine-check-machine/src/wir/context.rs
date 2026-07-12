@@ -5,6 +5,7 @@ use crate::wir::{
     WSpan, WType, WTypeId,
 };
 
+mod convert;
 mod partial;
 mod typedef;
 mod types;
