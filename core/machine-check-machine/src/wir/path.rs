@@ -2,7 +2,10 @@ use machine_check_common::iir::path::IIdent;
 use proc_macro2::Span;
 use std::fmt::Debug;
 use std::hash::Hash;
-use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment, Token};
+use syn::{
+    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, ExprPath,
+    GenericArgument, Ident, Lit, LitInt, Path, PathArguments, PathSegment, Token, Type, TypeInfer,
+};
 
 use crate::wir::{WSpan, WSpanned};
 
@@ -290,19 +293,39 @@ impl WSpanned for WIdent {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub enum WPartialArgument {
     Uint(u32, WSpan),
     Infer(WSpan),
 }
 
-#[derive(Clone)]
-pub struct WPartialSegment {
-    pub ident: WIdent,
-    pub generics: Option<Vec<WPartialArgument>>,
+impl From<WPartialArgument> for GenericArgument {
+    fn from(value: WPartialArgument) -> Self {
+        match value {
+            WPartialArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
+                attrs: Vec::new(),
+                lit: Lit::Int(LitInt::new(&value.to_string(), span.first())),
+            })),
+            WPartialArgument::Infer(span) => GenericArgument::Type(Type::Infer(TypeInfer {
+                underscore_token: Token![_](span.first()),
+            })),
+        }
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
+pub struct WPartialGenerics {
+    pub turbofish: Option<WSpan>,
+    pub arguments: Vec<WPartialArgument>,
+}
+
+#[derive(Clone, Hash)]
+pub struct WPartialSegment {
+    pub ident: WIdent,
+    pub generics: Option<WPartialGenerics>,
+}
+
+#[derive(Clone, Hash)]
 pub struct WPartialPath {
     pub leading_colon: Option<WSpan>,
     pub segments: Vec<WPartialSegment>,
@@ -320,10 +343,13 @@ impl Debug for WPartialArgument {
 impl Debug for WPartialSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.ident, f)?;
-        if let Some(arguments) = &self.generics {
+        if let Some(generics) = &self.generics {
+            if generics.turbofish.is_some() {
+                write!(f, "::")?;
+            }
             write!(f, "<")?;
             let mut first = true;
-            for arg in arguments {
+            for arg in &generics.arguments {
                 if first {
                     first = false;
                 } else {
@@ -335,6 +361,53 @@ impl Debug for WPartialSegment {
             write!(f, ">")?;
         }
         Ok(())
+    }
+}
+
+impl From<WPartialPath> for Path {
+    fn from(path: WPartialPath) -> Self {
+        let leading_span = if let Some(leading_colon) = path.leading_colon {
+            leading_colon.first()
+        } else {
+            Span::call_site()
+        };
+        Path {
+            leading_colon: if path.leading_colon.is_some() {
+                Some(Token![::](leading_span))
+            } else {
+                None
+            },
+
+            segments: Punctuated::from_iter(path.segments.into_iter().map(|segment| {
+                let arguments = match segment.generics {
+                    Some(generics) => {
+                        let span = segment.ident.span;
+                        let colon2_token = if generics.turbofish.is_some() {
+                            Some(Token![::](span))
+                        } else {
+                            None
+                        };
+                        let args = Punctuated::from_iter(
+                            generics
+                                .arguments
+                                .into_iter()
+                                .map(|arg| Into::<GenericArgument>::into(arg)),
+                        );
+                        PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                            colon2_token,
+                            lt_token: Token![<](span),
+                            args,
+                            gt_token: Token![>](span),
+                        })
+                    }
+                    None => PathArguments::None,
+                };
+                PathSegment {
+                    ident: segment.ident.into(),
+                    arguments,
+                }
+            })),
+        }
     }
 }
 

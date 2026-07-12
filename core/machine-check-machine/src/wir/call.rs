@@ -7,7 +7,7 @@ use syn::{
 
 use crate::{
     util::{create_expr_ident, create_expr_path, path_matches_global_names},
-    wir::WSpan,
+    wir::{WPartialPath, WPartialSegment, WSpan},
 };
 
 use super::{IntoSyn, WIdent, WMckBinary, WMckUnary, WPath, WPathSegment, WStdBinary, WStdUnary};
@@ -19,7 +19,7 @@ pub enum WExprHighCall {
     StdBinary(WStdBinary),
 }
 
-#[derive(Clone, Hash)]
+/*#[derive(Clone, Hash)]
 pub enum WExprCall {
     Call(WCall),
     MckUnary(WMckUnary),
@@ -33,7 +33,7 @@ pub enum WExprCall {
     Phi(WPhi),
     PhiTaken(WPhiTaken),
     PhiNotTaken,
-}
+}*/
 
 #[derive(Clone, Debug, Hash)]
 pub struct WPhi {
@@ -126,7 +126,7 @@ pub const PHI_NOT_TAKEN: &str = "::mck::forward::PhiArg::NotTaken";
 
 #[derive(Clone, Debug, Hash)]
 pub struct WCall {
-    pub fn_path: WPath,
+    pub fn_path: WPartialPath,
     pub args: Vec<WCallArg>,
 }
 
@@ -134,152 +134,6 @@ pub struct WCall {
 pub enum WCallArg {
     Ident(WIdent),
     Literal(Lit),
-}
-
-impl IntoSyn<Expr> for WExprCall {
-    fn into_syn(self) -> Expr {
-        let (fn_path, args) = self.call_fn_and_args();
-        WCall { fn_path, args }.into_syn()
-    }
-}
-
-impl WExprCall {
-    pub fn call_fn_and_args(self) -> (WPath, Vec<WCallArg>) {
-        let span = Span::call_site();
-        let (fn_operand, args) = match self {
-            WExprCall::Call(call) => return (call.fn_path, call.args),
-            WExprCall::MckUnary(call) => {
-                let operation = call.op.to_string();
-                (operation, vec![WCallArg::Ident(call.operand)])
-            }
-            WExprCall::MckBinary(call) => {
-                let operation = call.op.to_string();
-                (
-                    operation,
-                    vec![WCallArg::Ident(call.a), WCallArg::Ident(call.b)],
-                )
-            }
-            WExprCall::MckExt(call) => (
-                String::from(match call.signed {
-                    false => MCK_UEXT,
-                    true => MCK_SEXT,
-                }),
-                vec![WCallArg::Ident(call.from)],
-            ),
-            WExprCall::MckNew(call) => match call {
-                WMckNew::BitvectorArray(_type_array, ident) => (
-                    String::from(MCK_BITVECTOR_ARRAY_NEW),
-                    vec![WCallArg::Ident(ident)],
-                ),
-                WMckNew::Bitvector(bitvector) => (
-                    String::from(MCK_BITVECTOR_NEW),
-                    vec![WCallArg::Literal(Lit::Int(LitInt::new(
-                        bitvector.to_u64().to_string().as_str(),
-                        span,
-                    )))],
-                ),
-            },
-            WExprCall::BooleanNew(value) => (
-                String::from(BOOLEAN_NEW),
-                vec![WCallArg::Literal(Lit::Bool(LitBool { value, span }))],
-            ),
-            WExprCall::StdClone(from) => (String::from(STD_CLONE), vec![WCallArg::Ident(from)]),
-            WExprCall::ArrayRead(read) => (
-                String::from(ARRAY_READ),
-                vec![WCallArg::Ident(read.base), WCallArg::Ident(read.index)],
-            ),
-            WExprCall::ArrayWrite(write) => (
-                String::from(ARRAY_WRITE),
-                vec![
-                    WCallArg::Ident(write.base),
-                    WCallArg::Ident(write.index),
-                    WCallArg::Ident(write.element),
-                ],
-            ),
-            WExprCall::Phi(phi) => (
-                String::from(PHI),
-                vec![
-                    WCallArg::Ident(phi.then_ident),
-                    WCallArg::Ident(phi.else_ident),
-                ],
-            ),
-            WExprCall::PhiTaken(taken) => (
-                String::from(PHI_TAKEN),
-                vec![
-                    WCallArg::Ident(taken.ident),
-                    WCallArg::Ident(taken.condition),
-                ],
-            ),
-            WExprCall::PhiNotTaken => (String::from(PHI_NOT_TAKEN), vec![]),
-        };
-        (construct_call_fn_path(fn_operand), args)
-    }
-
-    pub fn right_idents(&self) -> Vec<WIdent> {
-        let mut result = Vec::new();
-        let (_call_fn, args) = self.clone().call_fn_and_args();
-        for arg in args {
-            match arg {
-                WCallArg::Ident(ident) => result.push(ident),
-                WCallArg::Literal(_) => {}
-            }
-        }
-        result
-    }
-
-    pub fn replace_ident(&mut self, original: &WIdent, replacement: &WIdent) {
-        match self {
-            WExprCall::Call(call) => {
-                for arg in &mut call.args {
-                    match arg {
-                        WCallArg::Ident(ident) => {
-                            replace_ident(ident, original, replacement);
-                        }
-                        WCallArg::Literal(_) => {}
-                    }
-                }
-            }
-            WExprCall::MckUnary(mck_unary) => {
-                replace_ident(&mut mck_unary.operand, original, replacement);
-            }
-            WExprCall::MckBinary(mck_binary) => {
-                replace_ident(&mut mck_binary.a, original, replacement);
-                replace_ident(&mut mck_binary.b, original, replacement);
-            }
-            WExprCall::MckExt(mck_ext) => {
-                replace_ident(&mut mck_ext.from, original, replacement);
-            }
-            WExprCall::MckNew(mck_new) => match mck_new {
-                WMckNew::Bitvector(_) => {}
-                WMckNew::BitvectorArray(_arr, ident) => {
-                    replace_ident(ident, original, replacement);
-                }
-            },
-            WExprCall::BooleanNew(_) => {}
-            WExprCall::StdClone(ident) => {
-                replace_ident(ident, original, replacement);
-            }
-            WExprCall::ArrayRead(array_read) => {
-                replace_ident(&mut array_read.base, original, replacement);
-                replace_ident(&mut array_read.index, original, replacement);
-            }
-            WExprCall::ArrayWrite(array_write) => {
-                replace_ident(&mut array_write.base, original, replacement);
-                replace_ident(&mut array_write.element, original, replacement);
-                replace_ident(&mut array_write.index, original, replacement);
-            }
-            WExprCall::Phi(phi) => {
-                replace_ident(&mut phi.condition, original, replacement);
-                replace_ident(&mut phi.then_ident, original, replacement);
-                replace_ident(&mut phi.else_ident, original, replacement);
-            }
-            WExprCall::PhiTaken(phi_taken) => {
-                replace_ident(&mut phi_taken.ident, original, replacement);
-                replace_ident(&mut phi_taken.condition, original, replacement);
-            }
-            WExprCall::PhiNotTaken => {}
-        }
-    }
 }
 
 fn replace_ident(ident: &mut WIdent, original: &WIdent, replacement: &WIdent) {
@@ -290,7 +144,6 @@ fn replace_ident(ident: &mut WIdent, original: &WIdent, replacement: &WIdent) {
 
 impl IntoSyn<Expr> for WExprHighCall {
     fn into_syn(self) -> Expr {
-        let span = Span::call_site();
         let (fn_operand, args) = match self {
             WExprHighCall::Call(call) => return call.into_syn(),
             WExprHighCall::StdUnary(call) => {
@@ -344,38 +197,21 @@ impl IntoSyn<Expr> for WCall {
     }
 }
 
-fn construct_call_fn_path(fn_operand: String) -> WPath {
+fn construct_call_fn_path(fn_operand: String) -> WPartialPath {
     let span = Span::call_site();
-
-    // construct the WPath
     let without_leading = fn_operand
         .strip_prefix("::")
         .expect("Special function operand should have a leading prefix");
-    let segments: Vec<WPathSegment> = without_leading
+    let segments: Vec<WPartialSegment> = without_leading
         .split("::")
-        .map(|segment| WPathSegment {
+        .map(|segment| WPartialSegment {
             ident: WIdent::new(String::from(segment), span),
+            generics: None,
         })
         .collect();
-    WPath {
+    WPartialPath {
         leading_colon: Some(WSpan::from_span(span)),
         segments,
-    }
-}
-
-impl Debug for WExprCall {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (call_fn, args) = self.clone().call_fn_and_args();
-
-        write!(f, "{:?}", call_fn)?;
-
-        let mut franz = f.debug_tuple("");
-
-        for arg in &args {
-            franz.field(arg);
-        }
-
-        franz.finish()
     }
 }
 

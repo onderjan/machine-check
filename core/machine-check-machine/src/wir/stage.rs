@@ -3,7 +3,7 @@ use std::{fmt::Debug, hash::Hash};
 use syn::{Expr, Local, Path, Stmt, Type};
 
 use crate::wir::{
-    IntoSyn, WExpr, WExprCall, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent, WItemImplTrait,
+    IntoSyn, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent, WItemImplTrait,
     WMacroableStmt, WSsaLocal, WStmt, WTacLocal, WTypeId,
 };
 
@@ -141,7 +141,7 @@ impl ZAssignTypes for ZConverted {
     type Stmt = WStmt<ZConverted>;
     type FundamentalType = WTypeId;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WExprCall>;
+    type AssignRight = WExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
 }
 

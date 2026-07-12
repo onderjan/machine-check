@@ -12,8 +12,8 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 use crate::{
     into_wir::{fold_type, Error, ErrorType},
     wir::{
-        WIdent, WItemImpl, WPartialArgument, WPartialPath, WPartialSegment, WPartialType, WSpan,
-        WTypeId, YTac,
+        WIdent, WItemImpl, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment,
+        WPartialType, WSpan, WTypeId, YTac,
     },
 };
 
@@ -173,8 +173,8 @@ fn needs_inference(ty: &WPartialType) -> bool {
     match ty {
         WPartialType::Path(path) => {
             for segment in &path.segments {
-                if let Some(arguments) = &segment.generics {
-                    for argument in arguments {
+                if let Some(generics) = &segment.generics {
+                    for argument in &generics.arguments {
                         match argument {
                             super::WPartialArgument::Uint(_, _) => {}
                             super::WPartialArgument::Infer(_) => return true,
@@ -191,7 +191,10 @@ fn needs_inference(ty: &WPartialType) -> bool {
 
 fn bitvector_type(width: Option<u32>) -> WPartialType {
     let generics = if let Some(width) = width {
-        Some(vec![WPartialArgument::Uint(width, WSpan::call_site())])
+        Some(WPartialGenerics {
+            turbofish: None,
+            arguments: vec![WPartialArgument::Uint(width, WSpan::call_site())],
+        })
     } else {
         None
     };
@@ -241,8 +244,12 @@ fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartial
                     (None, Some(rhs)) => Some(rhs),
                     (Some(lhs), None) => Some(lhs.clone()),
                     (Some(lhs), Some(rhs)) => {
+                        if lhs.turbofish.is_some() != rhs.turbofish.is_some() {
+                            return Err(Error::new(ErrorType::InferenceFailure, span));
+                        }
+
                         let mut arguments = Vec::new();
-                        for (lhs, rhs) in lhs.iter().zip(rhs.into_iter()) {
+                        for (lhs, rhs) in lhs.arguments.iter().zip(rhs.arguments.into_iter()) {
                             let arg = match (lhs, rhs) {
                                 (WPartialArgument::Infer(_), rhs) => rhs,
                                 (lhs, WPartialArgument::Infer(_)) => lhs.clone(),
@@ -258,7 +265,10 @@ fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartial
                             };
                             arguments.push(arg);
                         }
-                        Some(arguments)
+                        Some(WPartialGenerics {
+                            turbofish: rhs.turbofish,
+                            arguments,
+                        })
                     }
                 };
                 segments.push(WPartialSegment {

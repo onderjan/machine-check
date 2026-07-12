@@ -1,25 +1,22 @@
 use std::str::FromStr;
 
-use machine_check_common::{
-    ir_common::{IrReference, IrStdBinaryOp, IrStdUnaryOp, IrTypeArray},
-    Signedness,
-};
+use machine_check_common::ir_common::{IrStdBinaryOp, IrStdUnaryOp};
 use syn::{
     punctuated::Punctuated, spanned::Spanned, token::Comma, Expr, ExprBinary, ExprCall, ExprField,
-    ExprIndex, ExprLit, ExprReference, ExprStruct, ExprUnary, GenericArgument, Lit, Member, Path,
-    PathArguments, PathSegment, UnOp,
+    ExprIndex, ExprReference, ExprStruct, ExprUnary, Member, Path, UnOp,
 };
 use syn_path::path;
 
 use crate::{
-    into_wir::{from_syn::path::fold_path, Error, ErrorType},
+    into_wir::{
+        from_syn::path::{fold_partial_path, fold_path},
+        Error, ErrorType,
+    },
     util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall, WExprReference,
-        WExprStruct, WHighMckExt, WHighMckNew, WHighStdInto, WIdent, WIfCondition, WIndexedExpr,
-        WIndexedIdent, WMacroableStmt, WNoIfPolarity, WSpan, WStdBinary, WStdUnary, WStmtAssign,
-        WStmtIf, ZTac, MCK_HIGH_BITVECTOR_ARRAY_NEW, MCK_HIGH_BITVECTOR_NEW, MCK_HIGH_EXT,
-        MCK_HIGH_SIGNED_NEW, MCK_HIGH_UNSIGNED_NEW, STD_CLONE, STD_INTO,
+        WExprStruct, WIdent, WIfCondition, WIndexedExpr, WIndexedIdent, WMacroableStmt,
+        WNoIfPolarity, WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, ZTac,
     },
 };
 
@@ -160,7 +157,7 @@ impl RightExprFolder<'_, '_, '_> {
             _ => {}
         }*/
 
-        let wir_fn_path = fold_path(fn_path.clone(), self.fn_folder.self_ty.as_ref())?;
+        let wir_fn_path = fold_partial_path(fn_path.clone())?;
         // ensure it is not a local-scope ident
         if wir_fn_path.leading_colon.is_none() && wir_fn_path.segments.len() == 1 {
             let ident = &wir_fn_path.segments[0].ident;

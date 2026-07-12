@@ -1,6 +1,7 @@
 use machine_check_common::iir::path::ISpan;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
+use std::hash::Hash;
 use syn::Token;
 
 pub trait WSpanned {
@@ -18,6 +19,12 @@ pub trait WSpanned {
 pub struct WSpan {
     first: Span,
     last: Span,
+}
+
+impl Hash for WSpan {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
+        // do nothing here, the spans are just for information
+    }
 }
 
 impl WSpan {

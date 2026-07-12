@@ -2,7 +2,10 @@ use syn::{AngleBracketedGenericArguments, Expr, GenericArgument, Lit, Path, Path
 
 use crate::{
     into_wir::Error,
-    wir::{WIdent, WPartialArgument, WPartialPath, WPartialSegment, WPath, WPathSegment, WSpan},
+    wir::{
+        WIdent, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment, WPath,
+        WPathSegment, WSpan,
+    },
 };
 
 pub fn fold_path(path: Path, self_ty: Option<&Type>) -> Result<WPath, Error> {
@@ -91,7 +94,9 @@ pub fn fold_partial_path(path: Path) -> Result<WPartialPath, Error> {
 
         let generics = match segment.arguments {
             PathArguments::None => None,
-            PathArguments::AngleBracketed(arguments) => Some(fold_path_arguments(arguments)?),
+            PathArguments::AngleBracketed(arguments) => {
+                Some(fold_partial_path_arguments(arguments)?)
+            }
             PathArguments::Parenthesized(parenthesized) => {
                 return Err(Error::unsupported_construct(
                     "Function generics",
@@ -112,17 +117,14 @@ pub fn fold_partial_path(path: Path) -> Result<WPartialPath, Error> {
     })
 }
 
-fn fold_path_arguments(
-    arguments: AngleBracketedGenericArguments,
-) -> Result<Vec<WPartialArgument>, Error> {
-    if arguments.colon2_token.is_some() {
-        return Err(Error::unsupported_construct(
-            "Turbofish",
-            WSpan::from_syn(&arguments.colon2_token),
-        ));
-    }
-    let mut result = Vec::new();
-    for argument in arguments.args {
+fn fold_partial_path_arguments(
+    generics: AngleBracketedGenericArguments,
+) -> Result<WPartialGenerics, Error> {
+    let turbofish = generics
+        .colon2_token
+        .map(|turbofish| WSpan::from_syn(&turbofish));
+    let mut arguments: Vec<WPartialArgument> = Vec::new();
+    for argument in generics.args {
         let arg_span = WSpan::from_syn(&argument);
         let mut arg_result = None;
         match argument {
@@ -161,7 +163,7 @@ fn fold_path_arguments(
         }
 
         if let Some(arg_result) = arg_result {
-            result.push(arg_result);
+            arguments.push(arg_result);
         } else {
             return Err(Error::unsupported_construct(
                 "Generic argument that is not const or wildcard",
@@ -169,5 +171,8 @@ fn fold_path_arguments(
             ));
         }
     }
-    Ok(result)
+    Ok(WPartialGenerics {
+        turbofish,
+        arguments,
+    })
 }

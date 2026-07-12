@@ -6,8 +6,8 @@ use crate::{
     into_wir::Error,
     wir::{
         context::{bitvector_type, bool_type},
-        WBlock, WExpr, WExprHighCall, WIndexedExpr, WIndexedIdent, WMacroableStmt, WTacLocal,
-        WTypeId, ZTac,
+        WBlock, WExpr, WExprHighCall, WIndexedExpr, WIndexedIdent, WMacroableStmt,
+        WPartialArgument, WTacLocal, WTypeId, ZTac,
     },
 };
 
@@ -51,17 +51,36 @@ impl super::WContext {
                             eprintln!("Call");
                             match call {
                                 WExprHighCall::Call(call) => {
-                                    let bitvector_new_path = path!(::machine_check::Bitvector::new);
-                                    let fn_path = Path::from(call.fn_path.clone());
-                                    if fn_path == bitvector_new_path {
-                                        // constrain the output to be a bitvector
-                                        let bitvector_ty =
-                                            self.partial_type_id(bitvector_type(None));
-                                        self.add_eq_constraint(left_ty, bitvector_ty);
-
-                                        eprintln!("Bitvector new");
-                                    } else {
-                                        todo!("Call")
+                                    let mut found = false;
+                                    if call.fn_path.leading_colon.is_some()
+                                        && call.fn_path.segments.len() == 3
+                                    {
+                                        let segments = &call.fn_path.segments;
+                                        if segments[0].ident.name() == "machine_check"
+                                            && segments[1].ident.name() == "Bitvector"
+                                            && segments[2].ident.name() == "new"
+                                        {
+                                            let mut width = None;
+                                            if let Some(generics) = &segments[1].generics {
+                                                if generics.arguments.len() == 1 {
+                                                    if let WPartialArgument::Uint(
+                                                        width_arg,
+                                                        _span,
+                                                    ) = generics.arguments[0]
+                                                    {
+                                                        width = Some(width_arg)
+                                                    }
+                                                }
+                                            }
+                                            // constrain the output to be a bitvector of the given width
+                                            let bitvector_ty =
+                                                self.partial_type_id(bitvector_type(width));
+                                            self.add_eq_constraint(left_ty, bitvector_ty);
+                                            found = true
+                                        }
+                                    }
+                                    if !found {
+                                        todo!("Call {:?}", call)
                                     }
                                 }
                                 WExprHighCall::StdUnary(unary) => todo!("Std unary"),

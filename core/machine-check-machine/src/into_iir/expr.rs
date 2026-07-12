@@ -1,12 +1,7 @@
 use indexmap::IndexMap;
 use machine_check_common::{
     iir::{
-        description::{IFnId, IStructId, ITrait},
-        expr::{
-            call::{IArrayRead, IArrayWrite, ICall, IExprCall, IMckNew, IPhi},
-            op::{IMckBinary, IMckExt, IMckUnary},
-            IExpr, IExprField, IExprReference, IExprStruct,
-        },
+        expr::{IExpr, IExprField, IExprReference, IExprStruct},
         path::{IIdent, ISpan},
         ty::{IElementaryType, IGeneralType, IType},
         variable::IVarId,
@@ -16,22 +11,20 @@ use machine_check_common::{
 
 use crate::{
     into_iir::{error, func::WFnData},
-    wir::{
-        WCallArg, WExpr, WExprCall, WExprField, WExprReference, WExprStruct, WIdent, WMckNew,
-        WSpan, WSpanned,
-    },
+    wir::{WExpr, WExprField, WExprHighCall, WExprReference, WExprStruct, WIdent, WSpan, WSpanned},
     Error,
 };
 
-impl WExpr<WExprCall> {
+impl WExpr<WExprHighCall> {
     pub(super) fn into_iir(self, fn_data: &WFnData) -> Result<Option<IExpr>, Error> {
         Ok(Some(match self {
             WExpr::Move(ident) => {
                 let var_id = from_variable_map(ident, fn_data)?;
                 IExpr::Move(var_id)
             }
-            WExpr::Call(expr_call) => IExpr::Call(match expr_call {
-                WExprCall::Call(call) => {
+            WExpr::Call(expr_call) => todo!("Convert call into IIR: {:?}", expr_call),
+            /* IExpr::Call(match expr_call {
+                WExprHighCall::Call(call) => {
                     let unresolved_fn = || {
                         Err(error(
                             String::from("Unresolved function call"),
@@ -89,7 +82,7 @@ impl WExpr<WExprCall> {
                         args,
                     })
                 }
-                WExprCall::MckUnary(mck_unary) => {
+                WExprHighCall::MckUnary(mck_unary) => {
                     let operand = from_variable_map(mck_unary.operand, fn_data)?;
                     IExprCall::MckUnary(IMckUnary {
                         op: mck_unary.op,
@@ -155,7 +148,7 @@ impl WExpr<WExprCall> {
                     // do not translate to IIR as it is not needed there
                     return Ok(None);
                 }
-            }),
+            }),*/
             WExpr::Field(expr_field) => IExpr::Field(expr_field.into_iir(fn_data)?),
             WExpr::Struct(expr_struct) => IExpr::Struct(expr_struct.into_iir(fn_data)?),
             WExpr::Reference(expr_reference) => IExpr::Reference(match expr_reference {
