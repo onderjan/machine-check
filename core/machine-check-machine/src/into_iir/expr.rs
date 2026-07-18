@@ -1,17 +1,25 @@
 use indexmap::IndexMap;
 use machine_check_common::{
     iir::{
-        expr::{IExpr, IExprField, IExprReference, IExprStruct},
+        expr::{
+            call::{IExprCall, IMckNew},
+            IExpr, IExprField, IExprReference, IExprStruct,
+        },
         path::{IIdent, ISpan},
         ty::{IElementaryType, IGeneralType, IType},
         variable::IVarId,
     },
     ir_common::IrReference,
 };
+use mck::{concr::RConcreteBitvector, misc::RBound};
+use syn::Lit;
 
 use crate::{
     into_iir::{error, func::WFnData},
-    wir::{WExpr, WExprField, WExprHighCall, WExprReference, WExprStruct, WIdent, WSpan, WSpanned},
+    wir::{
+        WCallArg, WExpr, WExprField, WExprHighCall, WExprReference, WExprStruct, WIdent,
+        WPartialArgument, WSpan, WSpanned,
+    },
     Error,
 };
 
@@ -22,7 +30,35 @@ impl WExpr<WExprHighCall> {
                 let var_id = from_variable_map(ident, fn_data)?;
                 IExpr::Move(var_id)
             }
-            WExpr::Call(expr_call) => todo!("Convert call into IIR: {:?}", expr_call),
+            WExpr::Call(expr_call) => match expr_call {
+                WExprHighCall::Call(call) => {
+                    if call
+                        .fn_path
+                        .matches_absolute(&["machine_check", "Bitvector", "new"])
+                        && call.args.len() == 1
+                    {
+                        if let Some(generics) = &call.fn_path.segments[1].generics {
+                            if generics.arguments.len() == 1 {
+                                if let WPartialArgument::Uint(width, _span) = &generics.arguments[0]
+                                {
+                                    if let WCallArg::Literal(Lit::Int(lit_int)) = &call.args[0] {
+                                        if let Ok(value) = lit_int.base10_parse() {
+                                            let bound = RBound::new(*width);
+                                            let bitvector = RConcreteBitvector::new(value, bound);
+                                            return Ok(Some(IExpr::Call(IExprCall::MckNew(
+                                                IMckNew::Bitvector(bitvector),
+                                            ))));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    todo!("Call {:?}", call)
+                }
+                WExprHighCall::StdUnary(unary) => todo!("Unary call {:?}", unary),
+                WExprHighCall::StdBinary(binary) => todo!("Binary call {:?}", binary),
+            },
             /* IExpr::Call(match expr_call {
                 WExprHighCall::Call(call) => {
                     let unresolved_fn = || {
@@ -199,6 +235,11 @@ impl WExprField {
 
         let member_span = self.member.wir_span();
         let member_ident = self.member.into_iir();
+
+        eprintln!(
+            "Member ident: {:?}, type: {:?}, fields: {:?}",
+            member_ident, base_var_info.ty, fields
+        );
 
         let Some(member_index) = fields.get_index_of(&member_ident) else {
             return Err(error(String::from("Unresolved field member"), member_span));
