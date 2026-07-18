@@ -6,7 +6,8 @@ use crate::{
         WBlock, WDescription, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIdent,
         WImplItemType, WInferredContext, WItemFn, WItemImpl, WItemStruct, WLowContext,
         WPartialPath, WPartialSegment, WProperty, WSignature, WStmt, WStmtAssign, WStmtIf,
-        WSubproperty, WSubpropertyFunc, WTypeId, YLowered, YSsa, ZLowered, ZSsa,
+        WSubproperty, WSubpropertyFunc, WTypeId, YLowered, YSsa, YTac, YTotal, ZLowered, ZSsa,
+        ZTac, ZTotal,
     },
 };
 
@@ -14,7 +15,7 @@ mod convert_calls;
 
 pub fn lower_description(
     mut ctx: WInferredContext,
-    description: WDescription<YSsa>,
+    description: WDescription<YTotal>,
 ) -> Result<(WLowContext, WDescription<YLowered>), Errors> {
     let mut structs = Vec::new();
     let mut impls = Vec::new();
@@ -36,7 +37,7 @@ pub fn lower_description(
 
 pub fn convert_property(
     ctx: &mut WInferredContext,
-    property: WProperty<YSsa>,
+    property: WProperty<YTotal>,
 ) -> Result<WProperty<YLowered>, Errors> {
     let mut subproperties = Vec::new();
 
@@ -105,7 +106,7 @@ fn convert_item_struct(
 
 fn convert_item_impl(
     ctx: &mut WInferredContext,
-    item_impl: WItemImpl<YSsa>,
+    item_impl: WItemImpl<YTotal>,
 ) -> Result<WItemImpl<YLowered>, Errors> {
     let mut impl_item_fns = Vec::new();
 
@@ -138,7 +139,7 @@ fn convert_item_impl(
 
 fn convert_item_fn(
     ctx: &mut WInferredContext,
-    impl_item: WItemFn<YSsa>,
+    impl_item: WItemFn<YTotal>,
 ) -> Result<WItemFn<YLowered>, Errors> {
     let signature = WSignature {
         ident: impl_item.signature.ident,
@@ -169,7 +170,7 @@ struct FnTypeConverter<'a> {
 }
 
 impl FnTypeConverter<'_> {
-    fn convert_block(&self, block: WBlock<ZSsa>) -> Result<WBlock<ZLowered>, Errors> {
+    fn convert_block(&self, block: WBlock<ZTotal>) -> Result<WBlock<ZLowered>, Errors> {
         let mut stmts = Vec::new();
         let mut errors = Vec::new();
 

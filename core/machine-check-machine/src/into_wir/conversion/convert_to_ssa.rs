@@ -5,15 +5,16 @@ use machine_check_common::ir_common::IrReference;
 
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    phi_arg_item_path, WBlock, WCall, WCallArg, WExpr, WExprHighCall, WFnArg, WIdent,
-    WInferredContext, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign,
-    WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId, ZSsa, ZTotal,
+    phi_arg_item_path, WBlock, WCall, WCallArg, WExpr, WExprLowCall, WFnArg, WIdent,
+    WInferredContext, WLowContext, WMckNew, WPhi, WPhiTaken, WProperty, WSignature, WSpan,
+    WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId,
+    YLowered, ZLowered, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
 
 pub fn convert_description(
-    ctx: &mut WInferredContext,
-    description: WDescription<YTotal>,
+    ctx: &mut WLowContext,
+    description: WDescription<YLowered>,
 ) -> Result<WDescription<YSsa>, Errors> {
     let mut impls = Vec::new();
     for item_impl in description.impls {
@@ -46,8 +47,8 @@ pub fn convert_description(
 }
 
 pub fn convert_property(
-    ctx: &mut WInferredContext,
-    property: WProperty<YTotal>,
+    ctx: &mut WLowContext,
+    property: WProperty<YLowered>,
     global_ident_types: &HashMap<WIdent, WTypeId>,
 ) -> Result<WProperty<YSsa>, Errors> {
     let num_subproperties = property.subproperties.len();
@@ -78,10 +79,10 @@ pub fn convert_property(
 }
 
 struct SubpropertyConverter<'a> {
-    ctx: &'a mut WInferredContext,
+    ctx: &'a mut WLowContext,
     global_ident_types: &'a HashMap<WIdent, WTypeId>,
     num_subproperties: usize,
-    old_subproperties: BTreeMap<usize, WSubproperty<YTotal>>,
+    old_subproperties: BTreeMap<usize, WSubproperty<YLowered>>,
     new_subproperties: BTreeMap<usize, WSubproperty<YSsa>>,
 }
 impl SubpropertyConverter<'_> {
@@ -176,8 +177,8 @@ impl SubpropertyConverter<'_> {
 }
 
 fn process_fn(
-    ctx: &mut WInferredContext,
-    item_fn: WItemFn<YTotal>,
+    ctx: &mut WLowContext,
+    item_fn: WItemFn<YLowered>,
     global_rewrites: &BTreeMap<WIdent, WIdent>,
 ) -> Result<(WItemFn<YSsa>, BTreeSet<WIdent>), Errors> {
     // initialise local idents
@@ -217,7 +218,7 @@ fn process_fn(
 }
 
 struct LocalVisitor<'a> {
-    pub ctx: &'a mut WInferredContext,
+    pub ctx: &'a mut WLowContext,
     pub global_rewrites: &'a BTreeMap<WIdent, WIdent>,
     pub arg_idents: BTreeSet<WIdent>,
     pub branch_counter: u32,
@@ -235,7 +236,7 @@ struct Counter {
 }
 
 impl LocalVisitor<'_> {
-    pub fn process(&mut self, mut item_fn: WItemFn<YTotal>) -> Result<WItemFn<YSsa>, Errors> {
+    pub fn process(&mut self, mut item_fn: WItemFn<YLowered>) -> Result<WItemFn<YSsa>, Errors> {
         let signature = WSignature {
             ident: item_fn.signature.ident,
             inputs: item_fn.signature.inputs,
@@ -268,7 +269,7 @@ impl LocalVisitor<'_> {
         })
     }
 
-    fn process_block(&mut self, block: WBlock<ZTotal>) -> WBlock<ZSsa> {
+    fn process_block(&mut self, block: WBlock<ZLowered>) -> WBlock<ZSsa> {
         let mut stmts = Vec::new();
         for stmt in block.stmts {
             match stmt {
@@ -284,7 +285,7 @@ impl LocalVisitor<'_> {
         WBlock { stmts }
     }
 
-    fn process_if(&mut self, stmt: WStmtIf<ZTotal>) -> impl Iterator<Item = WStmt<ZSsa>> {
+    fn process_if(&mut self, stmt: WStmtIf<ZLowered>) -> impl Iterator<Item = WStmt<ZSsa>> {
         // process the condition if it is an identifier
         let mut condition = stmt.condition;
         self.process_ident(&mut condition.ident);
@@ -361,7 +362,7 @@ impl LocalVisitor<'_> {
 
             // phi then and else have phi arg type
             let phi_arg_type = WPartialGeneralType::PhiArg(ty);*/
-            let phi_arg_type = self.ctx.phi_arg_id(ident.wir_span(), ty);
+            let phi_arg_type = self.ctx.new_phi_arg_id(ident.wir_span(), ty);
 
             self.temps.insert(
                 phi_then_ident.clone(),
@@ -408,7 +409,7 @@ impl LocalVisitor<'_> {
         std::iter::once(WStmt::If(stmt)).chain(append_stmts)
     }
 
-    fn process_assign(&mut self, stmt: WStmtAssign<ZTotal>) -> WStmtAssign<ZSsa> {
+    fn process_assign(&mut self, stmt: WStmtAssign<ZLowered>) -> WStmtAssign<ZSsa> {
         let mut left = stmt.left;
         let mut right = stmt.right;
         // process right side first
@@ -422,7 +423,7 @@ impl LocalVisitor<'_> {
         WStmtAssign { left, right }
     }
 
-    fn process_expr(&mut self, expr: &mut WExpr<WExprHighCall>) {
+    fn process_expr(&mut self, expr: &mut WExpr<WExprLowCall>) {
         match expr {
             WExpr::Move(ident) => self.process_ident(ident),
             WExpr::Call(expr) => self.process_call(expr),
@@ -452,9 +453,9 @@ impl LocalVisitor<'_> {
         }
     }
 
-    fn process_call(&mut self, expr: &mut WExprHighCall) {
+    fn process_call(&mut self, expr: &mut WExprLowCall) {
         match expr {
-            WExprHighCall::Call(call) => {
+            WExprLowCall::Call(call) => {
                 for arg in &mut call.args {
                     match arg {
                         WCallArg::Ident(ident) => self.process_ident(ident),
@@ -464,53 +465,48 @@ impl LocalVisitor<'_> {
                     }
                 }
             }
-            /*WExprHighCall::MckNew(call) => {
-                match call {
-                    crate::wir::WHighMckNew::BitvectorArray(_type_array, ident) => {
-                        self.process_ident(ident);
-                    }
-                    WHighMckNew::Bitvector(..) => {
-                        // do nothing
-                    }
+            WExprLowCall::MckNew(call) => match call {
+                WMckNew::Bitvector(_value) => {}
+                WMckNew::BitvectorArray(_ty, from) => {
+                    self.process_ident(from);
                 }
-            }
-            WExprHighCall::BooleanNew(_) => {
+            },
+            WExprLowCall::BooleanNew(_) => {
                 // no ident, do nothing
-            }*/
-            WExprHighCall::StdUnary(call) => {
+            }
+            WExprLowCall::MckUnary(call) => {
                 self.process_ident(&mut call.operand);
             }
-            WExprHighCall::StdBinary(call) => {
+            WExprLowCall::MckBinary(call) => {
                 self.process_ident(&mut call.a);
                 self.process_ident(&mut call.b);
-            } /*
-              WExprHighCall::MckExt(call) => {
-                  self.process_ident(&mut call.from);
-              }
-              WExprHighCall::StdInto(call) => {
-                  self.process_ident(&mut call.from);
-              }
-              WExprHighCall::StdClone(ident) => self.process_ident(ident),
-              WExprHighCall::ArrayRead(read) => {
-                  self.process_ident(&mut read.base);
-                  self.process_ident(&mut read.index);
-              }
-              WExprHighCall::ArrayWrite(write) => {
-                  self.process_ident(&mut write.base);
-                  self.process_ident(&mut write.index);
-                  self.process_ident(&mut write.element);
-              }
-              WExprHighCall::Phi(phi) => {
-                  self.process_ident(&mut phi.condition);
-                  self.process_ident(&mut phi.then_ident);
-                  self.process_ident(&mut phi.else_ident);
-              }
-              WExprHighCall::PhiTaken(taken) => {
-                  self.process_ident(&mut taken.ident);
-                  self.process_ident(&mut taken.condition);
-              }
-              WExprHighCall::PhiNotTaken => {}
-              */
+            }
+            WExprLowCall::MckExt(call) => {
+                self.process_ident(&mut call.from);
+            }
+            /*WExprLowCall::StdInto(call) => {
+                self.process_ident(&mut call.from);
+            }*/
+            WExprLowCall::StdClone(ident) => self.process_ident(ident),
+            WExprLowCall::ArrayRead(read) => {
+                self.process_ident(&mut read.base);
+                self.process_ident(&mut read.index);
+            }
+            WExprLowCall::ArrayWrite(write) => {
+                self.process_ident(&mut write.base);
+                self.process_ident(&mut write.index);
+                self.process_ident(&mut write.element);
+            }
+            WExprLowCall::Phi(phi) => {
+                self.process_ident(&mut phi.condition);
+                self.process_ident(&mut phi.then_ident);
+                self.process_ident(&mut phi.else_ident);
+            }
+            WExprLowCall::PhiTaken(taken) => {
+                self.process_ident(&mut taken.ident);
+                self.process_ident(&mut taken.condition);
+            }
+            WExprLowCall::PhiNotTaken => {}
         }
     }
 
@@ -549,17 +545,13 @@ fn create_phi_call(
     else_ident: WIdent,
 ) -> WStmt<ZSsa> {
     let span = assigned.wir_span();
-    let fn_path = phi_arg_item_path(String::from("phi"), span);
 
     WStmt::Assign(WStmtAssign {
         left: assigned,
-        right: WExpr::Call(WExprHighCall::Call(WCall {
-            fn_path,
-            args: vec![
-                WCallArg::Ident(condition),
-                WCallArg::Ident(then_ident),
-                WCallArg::Ident(else_ident),
-            ],
+        right: WExpr::Call(WExprLowCall::Phi(WPhi {
+            condition,
+            then_ident,
+            else_ident,
         })),
     })
 }
@@ -570,30 +562,22 @@ fn create_taken_assign(
     condition_ident: WIdent,
 ) -> WStmt<ZSsa> {
     let span = phi_arg_ident.wir_span();
-    let fn_path = phi_arg_item_path(String::from("Taken"), span);
 
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
-        right: WExpr::Call(WExprHighCall::Call(WCall {
-            fn_path,
-            args: vec![
-                WCallArg::Ident(taken_ident),
-                WCallArg::Ident(condition_ident),
-            ],
+        right: WExpr::Call(WExprLowCall::PhiTaken(WPhiTaken {
+            ident: taken_ident,
+            condition: condition_ident,
         })),
     })
 }
 
 fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
     let span = phi_arg_ident.wir_span();
-    let fn_path = phi_arg_item_path(String::from("NotTaken"), span);
 
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
-        right: WExpr::Call(WExprHighCall::Call(WCall {
-            fn_path,
-            args: vec![],
-        })),
+        right: WExpr::Call(WExprLowCall::PhiNotTaken),
     })
 }
 

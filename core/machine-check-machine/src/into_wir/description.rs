@@ -7,12 +7,12 @@ use crate::{
         conversion::{convert_to_ssa, convert_total, convert_types, expand_macros, resolve_use},
         from_syn, Error, Errors,
     },
-    wir::{WDescription, WInferenceContext, WLowContext, YLowered, YTac},
+    wir::{WDescription, WInferenceContext, WLowContext, YLowered, YSsa, YTac},
 };
 
 pub fn description_from_syn(
     mut items: Vec<Item>,
-) -> Result<(WLowContext, WDescription<YLowered>, Vec<String>), Errors> {
+) -> Result<(WLowContext, WDescription<YSsa>, Vec<String>), Errors> {
     let mut use_map = HashMap::new();
     loop {
         use_map.extend(resolve_use::extract_use_map(&mut items)?);
@@ -30,8 +30,8 @@ pub fn description_from_syn(
     let mut ctx = ctx.into_total()?;
     let (w_description, panic_messages) =
         convert_total::convert_description(&mut ctx, w_description);
+    let (mut ctx, w_description) = convert_types::lower_description(ctx, w_description)?;
     let w_description = convert_to_ssa::convert_description(&mut ctx, w_description)?;
-    let (ctx, w_description) = convert_types::lower_description(ctx, w_description)?;
     Ok((ctx, w_description, panic_messages))
 }
 

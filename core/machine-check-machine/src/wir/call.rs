@@ -15,7 +15,7 @@ mod low;
 
 pub use {
     high::WExprHighCall,
-    low::{WExprLowCall, WMckNew},
+    low::{WExprLowCall, WMckNew, WPhi, WPhiTaken},
 };
 
 #[derive(Clone, Debug, Hash)]

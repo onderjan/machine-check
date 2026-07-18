@@ -5,7 +5,7 @@ use machine_check_common::{
     ir_common::IrReference,
 };
 
-use crate::wir::{WIdent, WTypeId};
+use crate::wir::{phi_arg_type_path, WIdent, WSpan, WType, WTypeId};
 
 #[derive(Debug, Clone)]
 pub enum WLowTypeDef {
@@ -47,6 +47,21 @@ impl WLowContext {
             );
         }
         result.inner
+    }
+
+    fn new_type_id(&mut self, ty: IGeneralType) -> WTypeId {
+        let type_id = WTypeId(self.types.len());
+        self.types.push(ty);
+        type_id
+    }
+
+    pub fn new_phi_arg_id(&mut self, span: WSpan, inner: WTypeId) -> WTypeId {
+        let IGeneralType::Normal(inner) = self.types[inner.0].clone() else {
+            panic!("Expected phi inner to be normal");
+        };
+
+        let ty = IGeneralType::PhiArg(inner);
+        self.new_type_id(ty)
     }
 
     /*

@@ -13,7 +13,7 @@ use crate::{
         WBlock, WDescription, WExpr, WExprField, WExprHighCall, WIdent, WIfCondition,
         WInferredContext, WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity, WProperty, WSignature,
         WSpanned, WStdBinary, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc,
-        WTacLocal, WTypeId, YTac, YTotal, ZTac, ZTotal,
+        WTacLocal, WTypeId, YLowered, YTac, YTotal, ZTac, ZTotal,
     },
 };
 

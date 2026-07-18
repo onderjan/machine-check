@@ -15,12 +15,13 @@ use crate::{
     support::error_list::ErrorList,
     wir::{
         WDescription, WIdent, WInferredContext, WLowContext, WProperty, WSpan, WTypeId, YLowered,
+        YSsa,
     },
 };
 
 pub fn create_description(
     items: Vec<Item>,
-) -> Result<(WLowContext, WDescription<YLowered>, Vec<String>), crate::Errors> {
+) -> Result<(WLowContext, WDescription<YSsa>, Vec<String>), crate::Errors> {
     description::description_from_syn(items).map_err(Errors::convert_inner)
 }
 
@@ -28,7 +29,7 @@ pub fn create_property_description<D>(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
-) -> Result<(WLowContext, WProperty<YLowered>, Vec<String>), crate::Errors> {
+) -> Result<(WLowContext, WProperty<YSsa>, Vec<String>), crate::Errors> {
     property::create_from_syn(expr, global_ident_types, property_macros)
         .map_err(Errors::convert_inner)
 }

@@ -27,24 +27,24 @@ impl YStage for YTac {
     type Local = WTacLocal<WTypeId>;
     type ItemImplTrait = WItemImplTrait;
 }
-/*
-#[derive(Clone, Debug, Hash)]
-pub struct YNonindexed;
-
-impl YStage for YNonindexed {
-    type AssignTypes = ZNonindexed;
-    type InputType = WType<WBasicType>;
-    type OutputType = WBasicType;
-    type FnResult = WIdent;
-    type Local = WTacLocal<WPartialGeneralType>;
-    type ItemImplTrait = WItemImplTrait;
-}*/
 
 #[derive(Clone, Debug, Hash)]
 pub struct YTotal;
 
 impl YStage for YTotal {
     type AssignTypes = ZTotal;
+    type InputType = WTypeId;
+    type OutputType = WTypeId;
+    type FnResult = WIdent;
+    type Local = WTacLocal<WTypeId>;
+    type ItemImplTrait = WItemImplTrait;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct YLowered;
+
+impl YStage for YLowered {
+    type AssignTypes = ZLowered;
     type InputType = WTypeId;
     type OutputType = WTypeId;
     type FnResult = WIdent;
@@ -64,31 +64,6 @@ impl YStage for YSsa {
     type ItemImplTrait = WItemImplTrait;
 }
 
-/*#[derive(Clone, Debug, Hash)]
-pub struct YInferred;
-
-impl YStage for YInferred {
-    type AssignTypes = ZSsa;
-    type InputType = WType<WBasicType>;
-    type OutputType = WPanicResultType<WBasicType>;
-    type FnResult = WPanicResult;
-    type Local = WSsaLocal<WGeneralType<WBasicType>>;
-    type ItemImplTrait = WItemImplTrait;
-}
-*/
-
-#[derive(Clone, Debug, Hash)]
-pub struct YLowered;
-
-impl YStage for YLowered {
-    type AssignTypes = ZLowered;
-    type InputType = WTypeId;
-    type OutputType = WTypeId;
-    type FnResult = WIdent;
-    type Local = WSsaLocal<WTypeId>;
-    type ItemImplTrait = WItemImplTrait;
-}
-
 #[derive(Clone, Debug, Hash)]
 pub struct ZTac;
 
@@ -99,17 +74,6 @@ impl ZAssignTypes for ZTac {
     type AssignRight = WIndexedExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
 }
-/*
-#[derive(Clone, Debug, Hash)]
-pub struct ZNonindexed;
-
-impl ZAssignTypes for ZNonindexed {
-    type Stmt = WMacroableStmt<ZNonindexed>;
-    type FundamentalType = WBasicType;
-    type AssignLeft = WIdent;
-    type AssignRight = WExpr<WExprHighCall>;
-    type IfPolarity = WNoIfPolarity;
-}*/
 
 #[derive(Clone, Debug, Hash)]
 pub struct ZTotal;
@@ -123,21 +87,21 @@ impl ZAssignTypes for ZTotal {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct ZSsa;
-
-impl ZAssignTypes for ZSsa {
-    type Stmt = WStmt<ZSsa>;
-    type FundamentalType = WTypeId;
-    type AssignLeft = WIdent;
-    type AssignRight = WExpr<WExprHighCall>;
-    type IfPolarity = WNoIfPolarity;
-}
-
-#[derive(Clone, Debug, Hash)]
 pub struct ZLowered;
 
 impl ZAssignTypes for ZLowered {
     type Stmt = WStmt<ZLowered>;
+    type FundamentalType = WTypeId;
+    type AssignLeft = WIdent;
+    type AssignRight = WExpr<WExprLowCall>;
+    type IfPolarity = WNoIfPolarity;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct ZSsa;
+
+impl ZAssignTypes for ZSsa {
+    type Stmt = WStmt<ZSsa>;
     type FundamentalType = WTypeId;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprLowCall>;
