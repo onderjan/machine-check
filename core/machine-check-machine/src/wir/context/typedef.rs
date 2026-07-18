@@ -21,7 +21,7 @@ impl Debug for WContextSynType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WTypeDefs {
     inner: IndexMap<WContextSynType, WContextTypeDef>,
 }
@@ -39,5 +39,9 @@ impl WTypeDefs {
 
     pub fn get(&self, ty: &Type) -> Option<&WContextTypeDef> {
         self.inner.get(&WContextSynType(ty.clone()))
+    }
+
+    pub fn into_inner(self) -> IndexMap<WContextSynType, WContextTypeDef> {
+        self.inner
     }
 }

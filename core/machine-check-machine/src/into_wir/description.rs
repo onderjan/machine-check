@@ -32,7 +32,7 @@ pub fn description_from_syn(
         convert_total::convert_description(&mut ctx, w_description);
     let w_description = convert_to_ssa::convert_description(&mut ctx, w_description)?;
     let w_description = convert_types::convert_description(&mut ctx, w_description)?;
-    ctx.convert_types()?;
+    //ctx.lower()?;
     Ok((ctx, w_description, panic_messages))
 }
 

@@ -5,7 +5,7 @@ use crate::wir::{
     WPathArgument, WSpan, WType, WTypeId,
 };
 
-mod convert;
+mod lower;
 
 use indexmap::IndexMap;
 use machine_check_common::{

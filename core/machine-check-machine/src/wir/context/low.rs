@@ -15,16 +15,12 @@ pub struct WLowContext {
     types: Vec<IGeneralType>,
 }
 
-/*
 impl WLowContext {
-    pub(super) fn new(type_defs: WTypeDefs, types: Vec<WType>) -> Self {
-        Self {
-            type_defs,
-            types,
-            iir_registrations: IndexMap::new(),
-        }
+    pub(super) fn new(type_defs: Vec<WLowTypeDef>, types: Vec<IGeneralType>) -> Self {
+        Self { type_defs, types }
     }
 
+    /*
     fn type_id(&mut self, ty: WType) -> WTypeId {
         let type_id = WTypeId(self.types.len());
         self.types.push(ty);
@@ -132,6 +128,5 @@ impl WLowContext {
                 IGeneralType::Normal(inner)
             }
         }
-    }
+    }*/
 }
-*/
