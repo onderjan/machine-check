@@ -11,7 +11,7 @@ use crate::{
     into_wir::{fold_type, Error, ErrorType},
     wir::{
         context::typedef::{WContextTypeDef, WTypeDefs},
-        WInferredContext, WItemImpl, WPartialArgument, WPartialGenerics, WPartialPath,
+        WInferredContext, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics, WPartialPath,
         WPartialSegment, WPartialType, WSpan, WTypeId, YTac,
     },
 };
@@ -63,8 +63,13 @@ impl WInferenceContext {
         self.partial_type_id(WPartialType::Infer(span))
     }
 
-    pub fn add_struct_def(&mut self, ty: Type) {
-        self.type_defs.add(ty, WContextTypeDef::Struct);
+    pub fn add_struct_def(&mut self, ty: Type, def: &WItemStruct<WTypeId>) {
+        let fields = def
+            .fields
+            .iter()
+            .map(|field| (field.ident.clone(), field.ty.clone()))
+            .collect();
+        self.type_defs.add(ty, WContextTypeDef::Struct(fields));
     }
 
     fn add_eq_constraint(&mut self, a: WTypeId, b: WTypeId) {

@@ -1,9 +1,17 @@
 use std::fmt::Debug;
 
-use machine_check_common::iir::ty::IGeneralType;
+use machine_check_common::iir::ty::{IElementaryType, IGeneralType};
+
+use crate::wir::WIdent;
+
+#[derive(Debug, Clone)]
+pub enum WLowTypeDef {
+    Struct(Vec<(WIdent, IElementaryType)>),
+}
 
 #[derive(Debug)]
 pub struct WLowContext {
+    type_defs: Vec<WLowTypeDef>,
     types: Vec<IGeneralType>,
 }
 

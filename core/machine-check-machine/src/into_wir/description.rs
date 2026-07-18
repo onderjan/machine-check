@@ -7,7 +7,7 @@ use crate::{
         conversion::{convert_to_ssa, convert_total, convert_types, expand_macros, resolve_use},
         from_syn, Error, Errors,
     },
-    wir::{WInferredContext, WDescription, WInferenceContext, YConverted, YTac},
+    wir::{WDescription, WInferenceContext, WInferredContext, YConverted, YTac},
 };
 
 pub fn description_from_syn(
@@ -51,8 +51,11 @@ fn tac_from_items(
                     qself: None,
                     path: Path::from(item.ident.clone()),
                 });
-                structs.push(from_syn::fold_item_struct(ctx, item));
-                ctx.add_struct_def(ty);
+                let struct_def = from_syn::fold_item_struct(ctx, item);
+                if let Ok(struct_def) = &struct_def {
+                    ctx.add_struct_def(ty, struct_def);
+                }
+                structs.push(struct_def);
             }
             Item::Impl(item) => impls.push(from_syn::fold_item_impl(ctx, item)),
             _ => errors.push(Error::unsupported_syn_construct("Item kind", &item)),

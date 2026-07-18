@@ -4,9 +4,11 @@ use indexmap::IndexMap;
 use quote::quote;
 use syn::Type;
 
+use crate::wir::{WIdent, WTypeId};
+
 #[derive(Clone, Debug)]
 pub enum WContextTypeDef {
-    Struct,
+    Struct(Vec<(WIdent, WTypeId)>),
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
