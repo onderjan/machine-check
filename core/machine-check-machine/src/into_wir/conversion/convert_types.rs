@@ -4,8 +4,8 @@ use crate::{
     into_wir::Errors,
     wir::{
         WBlock, WDescription, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIdent,
-        WImplItemType, WInferredContext, WItemFn, WItemImpl, WItemStruct, WPartialPath,
-        WPartialSegment, WPathSegment, WProperty, WSignature, WStmt, WStmtAssign, WStmtIf,
+        WImplItemType, WInferredContext, WItemFn, WItemImpl, WItemStruct, WLowContext,
+        WPartialPath, WPartialSegment, WProperty, WSignature, WStmt, WStmtAssign, WStmtIf,
         WSubproperty, WSubpropertyFunc, WTypeId, YLowered, YSsa, ZLowered, ZSsa,
     },
 };
@@ -13,23 +13,25 @@ use crate::{
 mod convert_calls;
 
 pub fn lower_description(
-    ctx: &mut WInferredContext,
+    mut ctx: WInferredContext,
     description: WDescription<YSsa>,
-) -> Result<WDescription<YLowered>, Errors> {
+) -> Result<(WLowContext, WDescription<YLowered>), Errors> {
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     for item_struct in description.structs {
-        structs.push(convert_item_struct(ctx, item_struct));
+        structs.push(convert_item_struct(&mut ctx, item_struct));
     }
     let structs = Errors::flat_result(structs)?;
 
     for item_impl in description.impls {
-        impls.push(convert_item_impl(ctx, item_impl));
+        impls.push(convert_item_impl(&mut ctx, item_impl));
     }
 
     let impls = Errors::flat_result(impls)?;
 
-    Ok(WDescription { structs, impls })
+    let ctx = ctx.lower()?;
+
+    Ok((ctx, WDescription { structs, impls }))
 }
 
 pub fn convert_property(

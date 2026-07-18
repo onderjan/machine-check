@@ -13,7 +13,7 @@ use machine_check_common::{
 };
 
 use crate::{
-    wir::{WBlock, WInferredContext, WItemFn, YLowered, ZLowered},
+    wir::{WBlock, WInferredContext, WItemFn, WLowContext, YLowered, ZLowered},
     Error,
 };
 
@@ -52,7 +52,7 @@ impl WFnData<'_> {
 }
 
 impl WItemFn<YLowered> {
-    pub(super) fn into_declaration(self, ctx: &WInferredContext) -> Result<IFnDeclaration, Error> {
+    pub(super) fn into_declaration(self, ctx: &WLowContext) -> Result<IFnDeclaration, Error> {
         let mut next_var_id = 0;
 
         let fn_ident = self.signature.ident;
@@ -63,7 +63,7 @@ impl WItemFn<YLowered> {
         for input in self.signature.inputs {
             let info = IVarInfo {
                 ident: input.ident.into_iir(),
-                ty: ctx.iir_id_general_type(input.ty),
+                ty: ctx.id_general_type(input.ty),
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
@@ -75,7 +75,7 @@ impl WItemFn<YLowered> {
         for local in self.locals {
             let info = IVarInfo {
                 ident: local.ident.into_iir(),
-                ty: ctx.iir_id_general_type(local.ty),
+                ty: ctx.id_general_type(local.ty),
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
@@ -107,7 +107,7 @@ impl WItemFn<YLowered> {
 
     pub(super) fn into_iir(
         self,
-        ctx: &WInferredContext,
+        ctx: &WLowContext,
         structs: &IndexMap<IIdent, IStructDeclaration>,
     ) -> Result<IFn, Error> {
         let declaration = self.clone().into_declaration(ctx)?;

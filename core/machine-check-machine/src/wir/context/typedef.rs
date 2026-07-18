@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use indexmap::IndexMap;
+use machine_check_common::iir::description::IStructId;
 use quote::quote;
 use syn::Type;
 
@@ -39,6 +40,10 @@ impl WTypeDefs {
 
     pub fn get(&self, ty: &Type) -> Option<&WContextTypeDef> {
         self.inner.get(&WContextSynType(ty.clone()))
+    }
+
+    pub fn get_index_of(&self, ty: &Type) -> Option<usize> {
+        self.inner.get_index_of(&WContextSynType(ty.clone()))
     }
 
     pub fn into_inner(self) -> IndexMap<WContextSynType, WContextTypeDef> {

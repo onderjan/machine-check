@@ -33,12 +33,12 @@ impl WExpr<WExprLowCall> {
             }
             WExpr::Call(expr_call) => match expr_call {
                 WExprLowCall::Call(call) => {
-                    if call
+                    /*if call
                         .fn_path
-                        .matches_absolute(&["machine_check", "Bitvector", "new"])
+                        .matches_absolute(&["mck", "concr", "Bitvector", "new"])
                         && call.args.len() == 1
                     {
-                        if let Some(generics) = &call.fn_path.segments[1].generics {
+                        if let Some(generics) = &call.fn_path.segments[2].generics {
                             if generics.arguments.len() == 1 {
                                 if let WPartialArgument::Uint(width, _span) = &generics.arguments[0]
                                 {
@@ -54,8 +54,8 @@ impl WExpr<WExprLowCall> {
                                 }
                             }
                         }
-                    }
-                    todo!("Call {:?}", call)
+                    }*/
+                    todo!("Call into IIR: {:?}", call)
                 }
                 WExprLowCall::MckUnary(unary) => {
                     let operand = from_variable_map(unary.operand, fn_data)?;
@@ -129,22 +129,6 @@ impl WExpr<WExprLowCall> {
                 fn_index,
                 },
                 args,
-                })
-                }
-                WExprLowCall::MckUnary(mck_unary) => {
-                let operand = from_variable_map(mck_unary.operand, fn_data)?;
-                IExprCall::MckUnary(IMckUnary {
-                op: mck_unary.op,
-                operand,
-                })
-                }
-                WExprLowCall::MckBinary(mck_binary) => {
-                let a = from_variable_map(mck_binary.a, fn_data)?;
-                let b = from_variable_map(mck_binary.b, fn_data)?;
-                IExprCall::MckBinary(IMckBinary {
-                op: mck_binary.op,
-                a,
-                b,
                 })
                 }*/
                 WExprLowCall::MckExt(mck_ext) => {

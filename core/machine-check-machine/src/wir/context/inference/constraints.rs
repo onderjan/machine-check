@@ -79,7 +79,7 @@ impl super::WInferenceContext {
                                         }
                                     }
                                     if !found {
-                                        todo!("Call {:?}", call)
+                                        todo!("Call constraint {:?}", call)
                                     }
                                 }
                                 WExprHighCall::StdUnary(unary) => todo!("Std unary"),

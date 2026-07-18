@@ -6,12 +6,12 @@ use proc_macro2::Span;
 use syn::{Ident, Path, Type, TypePath};
 
 use crate::{
-    wir::{WDescription, WInferredContext, WItemImplTrait, YLowered},
+    wir::{WDescription, WItemImplTrait, WLowContext, YLowered},
     Error,
 };
 
 impl WDescription<YLowered> {
-    pub fn into_iir(self, ctx: &mut WInferredContext) -> Result<IDescription, Error> {
+    pub fn into_iir(self, ctx: &mut WLowContext) -> Result<IDescription, Error> {
         eprintln!("Converting into IIR: {:#?}", self);
         eprintln!("Context: {:#?}", ctx);
 
@@ -33,13 +33,13 @@ impl WDescription<YLowered> {
         for (index, item_struct) in self.structs.into_iter().enumerate() {
             let mut fields = IndexMap::new();
             for field in item_struct.fields {
-                fields.insert(field.ident.into_iir(), ctx.iir_id_elementary_type(field.ty));
+                fields.insert(field.ident.into_iir(), ctx.id_elementary_type(field.ty));
             }
 
             struct_declarations[index].fields = fields;
         }
 
-        for (index, (decl_ident, _decl)) in struct_declarations.iter().enumerate() {
+        /*for (index, (decl_ident, _decl)) in struct_declarations.iter().enumerate() {
             ctx.register_iir_id(
                 Type::Path(TypePath {
                     qself: None,
@@ -47,7 +47,7 @@ impl WDescription<YLowered> {
                 }),
                 IStructId(index),
             );
-        }
+        }*/
 
         // third pass: add function declarations
 

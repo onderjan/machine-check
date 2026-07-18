@@ -3,12 +3,14 @@ use machine_check_common::{
     ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrStdBinaryOp, IrStdUnaryOp},
     Signedness,
 };
+use mck::{concr::ConcreteBitvector, misc::RBound};
+use syn::Lit;
 
 use crate::{
     into_wir::{conversion::convert_types::FnTypeConverter, Error, ErrorType},
     wir::{
-        WCall, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckUnary, WSpanned,
-        WStdBinary, WStdUnary, WType,
+        WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckNew,
+        WMckUnary, WPartialArgument, WPathArgument, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
 
@@ -31,7 +33,7 @@ impl FnTypeConverter<'_> {
 
     pub fn convert_call(&self, call: WExprHighCall) -> Result<WExpr<WExprLowCall>, Error> {
         Ok(WExpr::Call(match call {
-            WExprHighCall::Call(call) => WExprLowCall::Call(self.convert_normal_call(call)),
+            WExprHighCall::Call(call) => return self.convert_normal_call(call),
             WExprHighCall::StdUnary(call) => WExprLowCall::MckUnary(self.convert_unary(call)),
             WExprHighCall::StdBinary(call) => WExprLowCall::MckBinary(self.convert_binary(call)?),
             /*WExprHighCall::MckExt(call) => WExprLowCall::MckExt(convert_ext(call, local_types)?),
@@ -47,12 +49,36 @@ impl FnTypeConverter<'_> {
         }))
     }
 
-    fn convert_normal_call(&self, call: WCall) -> WCall {
-        let fn_path = convert_basic_path(call.fn_path);
+    fn convert_normal_call(&self, call: WCall) -> Result<WExpr<WExprLowCall>, Error> {
+        if call
+            .fn_path
+            .matches_absolute(&["machine_check", "Bitvector", "new"])
+            && call.args.len() == 1
+        {
+            if let Some(generics) = &call.fn_path.segments[1].generics {
+                if let WCallArg::Literal(Lit::Int(lit_int)) = &call.args[0] {
+                    if let Ok(value) = lit_int.base10_parse() {
+                        if generics.arguments.len() == 1 {
+                            if let WPartialArgument::Uint(width, _span) = &generics.arguments[0] {
+                                let bound = RBound::new(*width);
+                                let bitvector = ConcreteBitvector::new(value, bound);
+                                return Ok(WExpr::Call(WExprLowCall::MckNew(WMckNew::Bitvector(
+                                    bitvector,
+                                ))));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        todo!("Lower call {:?}", call);
+
+        /*let fn_path = convert_basic_path(call.fn_path);
         WCall {
             fn_path,
             args: call.args,
-        }
+        }*/
     }
 
     fn convert_unary(&self, call: WStdUnary) -> WMckUnary {

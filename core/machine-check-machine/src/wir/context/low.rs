@@ -1,8 +1,11 @@
 use std::fmt::Debug;
 
-use machine_check_common::iir::ty::{IElementaryType, IGeneralType};
+use machine_check_common::{
+    iir::ty::{IElementaryType, IGeneralType, IType},
+    ir_common::IrReference,
+};
 
-use crate::wir::WIdent;
+use crate::wir::{WIdent, WTypeId};
 
 #[derive(Debug, Clone)]
 pub enum WLowTypeDef {
@@ -18,6 +21,32 @@ pub struct WLowContext {
 impl WLowContext {
     pub(super) fn new(type_defs: Vec<WLowTypeDef>, types: Vec<IGeneralType>) -> Self {
         Self { type_defs, types }
+    }
+
+    pub fn id_general_type(&self, id: WTypeId) -> IGeneralType {
+        self.types
+            .get(id.0)
+            .expect("Type id should be present")
+            .clone()
+    }
+
+    pub fn id_type(&self, id: WTypeId) -> IType {
+        let result = self.id_general_type(id);
+        match result {
+            IGeneralType::Normal(ty) => ty,
+            _ => panic!("Expected normal IIR type, got {:?}", result),
+        }
+    }
+
+    pub fn id_elementary_type(&self, id: WTypeId) -> IElementaryType {
+        let result = self.id_type(id);
+        if !matches!(result.reference, IrReference::None) {
+            panic!(
+                "Expected elementary type but received reference {:?}",
+                result
+            );
+        }
+        result.inner
     }
 
     /*
