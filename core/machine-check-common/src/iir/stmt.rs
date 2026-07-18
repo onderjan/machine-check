@@ -169,21 +169,6 @@ impl Debug for IIfStmt {
 fn ensure_abstract_general_type(context: &IContext, value: &AbstractValue, ty: &IGeneralType) {
     match ty {
         IGeneralType::Normal(ty) => ensure_abstract_type(context, value, ty),
-        IGeneralType::PanicResult(ty) => {
-            let AbstractValue::Struct(fields) = value else {
-                panic!("Expected panic result type of value (represented by fields)");
-            };
-            assert_eq!(fields.len(), 2);
-            ensure_abstract_type(context, &fields[0], ty);
-            ensure_abstract_type(
-                context,
-                &fields[1],
-                &IType {
-                    reference: IrReference::None,
-                    inner: IElementaryType::Bitvector(32),
-                },
-            );
-        }
         IGeneralType::PhiArg(ty) => ensure_abstract_type(context, value, ty),
     }
 }

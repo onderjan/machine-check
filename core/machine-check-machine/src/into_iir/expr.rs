@@ -189,23 +189,6 @@ impl WExprField {
                 };
                 base_ty.fields.clone()
             }
-            IGeneralType::PanicResult(ty) => {
-                assert_eq!(ty.reference, IrReference::None);
-
-                let mut fields = IndexMap::new();
-
-                fields.insert(
-                    IIdent::new(String::from("result"), ISpan::Unspecified),
-                    ty.inner.clone(),
-                );
-
-                fields.insert(
-                    IIdent::new(String::from("panic"), ISpan::Unspecified),
-                    IElementaryType::Bitvector(32),
-                );
-
-                fields
-            }
             IGeneralType::PhiArg(_) => {
                 panic!(
                     "Field variable type {:?} should be not be phi arg",

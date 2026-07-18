@@ -63,10 +63,7 @@ impl WItemFn<YConverted> {
         for input in self.signature.inputs {
             let info = IVarInfo {
                 ident: input.ident.into_iir(),
-                ty: IGeneralType::Normal(IType {
-                    reference: IrReference::None,
-                    inner: ctx.iir_type(input.ty),
-                }),
+                ty: ctx.iir_id_general_type(input.ty),
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
@@ -78,10 +75,7 @@ impl WItemFn<YConverted> {
         for local in self.locals {
             let info = IVarInfo {
                 ident: local.ident.into_iir(),
-                ty: IGeneralType::Normal(IType {
-                    reference: IrReference::None,
-                    inner: ctx.iir_type(local.ty),
-                }),
+                ty: ctx.iir_id_general_type(local.ty),
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;

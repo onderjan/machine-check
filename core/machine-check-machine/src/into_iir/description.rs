@@ -29,7 +29,7 @@ impl WDescription<YConverted> {
         for (index, item_struct) in self.structs.into_iter().enumerate() {
             let mut fields = IndexMap::new();
             for field in item_struct.fields {
-                fields.insert(field.ident.into_iir(), ctx.iir_type(field.ty));
+                fields.insert(field.ident.into_iir(), ctx.iir_id_elementary_type(field.ty));
             }
 
             struct_declarations[index].fields = fields;

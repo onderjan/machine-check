@@ -13,8 +13,15 @@ mod partial;
 mod typedef;
 mod types;
 
-use machine_check_common::iir::ty::IElementaryType;
+use machine_check_common::{
+    iir::{
+        description::IStructId,
+        ty::{IElementaryType, IGeneralType, IType},
+    },
+    ir_common::IrReference,
+};
 pub use partial::WPartialContext;
+use syn::{Path, Type, TypePath};
 pub use types::*;
 
 #[derive(Debug)]
@@ -37,32 +44,96 @@ impl WContext {
         self.type_id(ty)
     }
 
-    pub fn iir_type(&self, id: WTypeId) -> IElementaryType {
-        iir_ty(self.types.get(id.0).expect("Type id should be present"))
+    pub fn iir_id_general_type(&self, id: WTypeId) -> IGeneralType {
+        self.iir_ty(self.types.get(id.0).expect("Type id should be present"))
     }
-}
 
-fn iir_ty(ty: &WType) -> IElementaryType {
-    match ty {
-        WType::Path(path) => {
-            let mut result = None;
-            if path.matches_absolute(&["mck", "forward", "Bitvector"]) {
-                if let Some(generics) = &path.segments[2].generics {
-                    if generics.arguments.len() == 1 {
-                        if let WPathArgument::Uint(width, _span) = generics.arguments[0] {
-                            result = Some(IElementaryType::Bitvector(width))
+    pub fn iir_id_type(&self, id: WTypeId) -> IType {
+        let result = self.iir_id_general_type(id);
+        match result {
+            IGeneralType::Normal(ty) => ty,
+            _ => panic!("Expected normal IIR type, got {:?}", result),
+        }
+    }
+
+    pub fn iir_id_elementary_type(&self, id: WTypeId) -> IElementaryType {
+        let result = self.iir_id_type(id);
+        if !matches!(result.reference, IrReference::None) {
+            panic!(
+                "Expected elementary type but received reference {:?}",
+                result
+            );
+        }
+        result.inner
+    }
+
+    fn iir_ty(&self, ty: &WType) -> IGeneralType {
+        match ty {
+            WType::Path(path) => {
+                if path.matches_absolute(&["mck", "forward", "Bitvector"]) {
+                    if let Some(generics) = &path.segments[2].generics {
+                        if generics.arguments.len() == 1 {
+                            if let WPathArgument::Uint(width, _span) = generics.arguments[0] {
+                                return IGeneralType::Normal(IType {
+                                    reference: IrReference::None,
+                                    inner: IElementaryType::Bitvector(width),
+                                });
+                            }
                         }
                     }
                 }
+
+                if path.matches_absolute(&["mck", "forward", "PhiArg"]) {
+                    if let Some(generics) = &path.segments[2].generics {
+                        if generics.arguments.len() == 1 {
+                            if let WPathArgument::Type(ty) = &generics.arguments[0] {
+                                let inner = self.iir_ty(&ty);
+                                let inner = match inner {
+                                    IGeneralType::Normal(ty) => ty,
+                                    _ => panic!(
+                                        "Expected normal IIR as phi arg inner, got {:?}",
+                                        inner
+                                    ),
+                                };
+                                return IGeneralType::PhiArg(inner);
+                            }
+                        }
+                    }
+                }
+
+                if path.matches_relative(&["bool"]) {
+                    return IGeneralType::Normal(IType {
+                        reference: IrReference::None,
+                        inner: IElementaryType::Boolean,
+                    });
+                }
+
+                let syn_path: Path = Path::from(path.clone());
+                let ty = Type::Path(TypePath {
+                    path: syn_path,
+                    qself: None,
+                });
+
+                if let Some(type_def) = self.type_defs.get(&ty) {
+                    // TODO: valid struct ID
+                    IGeneralType::Normal(IType {
+                        reference: IrReference::None,
+                        inner: IElementaryType::Struct(IStructId(0)),
+                    })
+                } else {
+                    panic!("Cannot convert type to IIR: {:?}", path)
+                }
             }
-            if let Some(result) = result {
-                result
-            } else {
-                panic!("Cannot convert type to IIR: {:?}", path)
+            WType::Reference(inner) => {
+                let inner = self.iir_ty(inner.as_ref());
+                let mut inner = match inner {
+                    IGeneralType::Normal(ty) => ty,
+                    _ => panic!("Expected normal IIR as reference inner, got {:?}", inner),
+                };
+                assert!(matches!(inner.reference, IrReference::None));
+                inner.reference = IrReference::Immutable;
+                IGeneralType::Normal(inner)
             }
-        }
-        WType::Reference(inner) => {
-            todo!("IIR from reference to {:?}", inner)
         }
     }
 }

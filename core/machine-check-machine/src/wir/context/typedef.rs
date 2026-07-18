@@ -34,4 +34,8 @@ impl WTypeDefs {
     pub fn add(&mut self, ty: Type, def: WContextTypeDef) {
         self.inner.insert(WContextSynType(ty), def);
     }
+
+    pub fn get(&self, ty: &Type) -> Option<&WContextTypeDef> {
+        self.inner.get(&WContextSynType(ty.clone()))
+    }
 }

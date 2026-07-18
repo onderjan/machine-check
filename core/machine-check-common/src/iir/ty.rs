@@ -24,7 +24,6 @@ pub struct IType {
 #[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IGeneralType {
     Normal(IType),
-    PanicResult(IType),
     PhiArg(IType),
 }
 
@@ -57,8 +56,7 @@ impl Debug for IGeneralType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Normal(inner) => write!(f, "{:?}", inner),
-            Self::PanicResult(inner) => write!(f, "::mck::PanicResult<{:?}>", inner),
-            Self::PhiArg(inner) => write!(f, "::mck::PanicResult<{:?}>", inner),
+            Self::PhiArg(inner) => write!(f, "::mck::PhiArg<{:?}>", inner),
         }
     }
 }
