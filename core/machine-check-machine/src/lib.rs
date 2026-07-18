@@ -66,14 +66,14 @@ pub fn inherent_property() -> IProperty {
 
     let expr = parse_quote!(AG![__panic == 0]);
 
-    let (property, _panic_messages) =
+    let (ctx, property, _panic_messages) =
         into_wir::create_property_description(expr, &global_basic_types, &PropertyMacros::empty())
             .expect("Inherent property should be created");
 
     //println!("Abstract description: {:?}", description);
 
     property
-        .into_iir()
+        .into_iir(&ctx)
         .expect("Inherent property should not produce an error")
 }
 
@@ -115,10 +115,10 @@ pub fn process_property<M: FullMachine, D>(
     }*/
 
     // TODO: do something with the panic messages
-    let (property, _panic_messages) =
+    let (ctx, property, _panic_messages) =
         into_wir::create_property_description(expr, &global_basic_types, property_macros)?;
 
-    let property = property.into_iir();
+    let property = property.into_iir(&ctx);
 
     Ok(property?)
 }
@@ -169,7 +169,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         None
     };
 
-    let (description, panic_messages) = into_wir::create_description(items.clone())?;
+    let (ctx, description, panic_messages) = into_wir::create_description(items.clone())?;
 
     if let Some(out_dir) = &out_dir {
         std::fs::write(
@@ -179,7 +179,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("SSA machine file should be writable");
     }
 
-    let iir = description.clone().into_iir()?;
+    let iir = description.clone().into_iir(&ctx)?;
 
     todo!("Create abstract description");
     /*let (abstract_description, misc_abstract_items) =

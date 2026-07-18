@@ -185,9 +185,9 @@ impl<M: FullMachine> Deducer<'_, M> {
 
         // consider unknown result with no panic
         let later_normal = RefinementValue::Boolean(mck::refin::Boolean::new_marked_unimportant());
-        let later_panic = RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
+        /*let later_panic = RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));*/
 
-        let refin = func.backward_interpret(&context, &abstr, later_normal, later_panic);
+        let refin = func.backward_interpret(&context, &abstr, later_normal);
 
         let mut chosen = None;
         for (input_index, input_var_id) in func.signature.inputs.iter().enumerate() {

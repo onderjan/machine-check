@@ -71,7 +71,7 @@ pub fn create_from_syn<D>(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
-) -> Result<(WProperty<YConverted>, Vec<String>), Errors> {
+) -> Result<(WContext, WProperty<YConverted>, Vec<String>), Errors> {
     let span = expr.span();
     /*println!(
         "Original syn string:\n{}",

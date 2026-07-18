@@ -20,7 +20,6 @@ pub struct IBlock {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct IFnOutput {
     pub normal: IVarId,
-    pub panic: IVarId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -70,11 +69,7 @@ impl IFn {
         input_values
     }
 
-    pub fn call(
-        &self,
-        context: &IContext,
-        input_values: Vec<AbstractValue>,
-    ) -> (AbstractValue, AbstractValue) {
+    pub fn call(&self, context: &IContext, input_values: Vec<AbstractValue>) -> AbstractValue {
         let abstr = self.forward_interpret(context, input_values);
         self.forward_result(&abstr)
     }
@@ -108,23 +103,19 @@ impl IFn {
         abstr
     }
 
-    pub fn forward_result(&self, abstr: &IAbstr) -> (AbstractValue, AbstractValue) {
-        let normal_result = abstr.value(self.signature.output.normal).clone();
-        let panic_result = abstr.value(self.signature.output.panic).clone();
-        (normal_result, panic_result)
+    pub fn forward_result(&self, abstr: &IAbstr) -> AbstractValue {
+        abstr.value(self.signature.output.normal).clone()
     }
 
     pub fn backward_interpret(
         &self,
         context: &IContext,
         abstr: &IAbstr,
-        later_normal: RefinementValue,
-        later_panic: RefinementValue,
+        later_result: RefinementValue,
     ) -> IRefin {
         let mut refin = IRefin::new();
 
-        refin.insert_value(self.signature.output.normal, later_normal);
-        refin.insert_value(self.signature.output.panic, later_panic);
+        refin.insert_value(self.signature.output.normal, later_result);
 
         let fn_context = IFnContext {
             func: self,

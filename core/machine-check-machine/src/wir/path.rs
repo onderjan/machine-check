@@ -85,6 +85,24 @@ impl WPath {
         true
     }
 
+    /// Returns true if the path is absolute and the segment idents match the given strings.
+    ///
+    /// Does not take generics into account.
+    pub fn matches_absolute(&self, segments: &[&str]) -> bool {
+        if self.leading_colon.is_none() {
+            return false;
+        }
+        if self.segments.len() != segments.len() {
+            return false;
+        }
+        for (self_segment, other_segment) in self.segments.iter().zip(segments.iter()) {
+            if self_segment.ident.name() != *other_segment {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn from_ident(ident: WIdent) -> Self {
         WPath {
             leading_colon: None,

@@ -1,16 +1,19 @@
 use std::collections::BTreeMap;
 
 use indexmap::IndexMap;
-use machine_check_common::iir::{
-    description::{IStructDeclaration, IStructId},
-    func::{IBlock, IFn, IFnDeclaration, IFnOutput, ISignature},
-    path::IIdent,
-    ty::IGeneralType,
-    variable::{IVarId, IVarInfo},
+use machine_check_common::{
+    iir::{
+        description::{IStructDeclaration, IStructId},
+        func::{IBlock, IFn, IFnDeclaration, IFnOutput, ISignature},
+        path::IIdent,
+        ty::{IGeneralType, IType},
+        variable::{IVarId, IVarInfo},
+    },
+    ir_common::IrReference,
 };
 
 use crate::{
-    wir::{WBlock, WItemFn, YConverted, ZConverted},
+    wir::{WBlock, WContext, WItemFn, YConverted, ZConverted},
     Error,
 };
 
@@ -49,12 +52,7 @@ impl WFnData<'_> {
 }
 
 impl WItemFn<YConverted> {
-    pub(super) fn into_declaration(
-        self,
-        struct_declarations: &IndexMap<IIdent, IStructDeclaration>,
-    ) -> Result<IFnDeclaration, Error> {
-        todo!("Func into declaration")
-        /*/
+    pub(super) fn into_declaration(self, ctx: &WContext) -> Result<IFnDeclaration, Error> {
         let mut next_var_id = 0;
 
         let fn_ident = self.signature.ident;
@@ -65,7 +63,10 @@ impl WItemFn<YConverted> {
         for input in self.signature.inputs {
             let info = IVarInfo {
                 ident: input.ident.into_iir(),
-                ty: IGeneralType::Normal(input.ty.into_iir(struct_declarations)?),
+                ty: IGeneralType::Normal(IType {
+                    reference: IrReference::None,
+                    inner: ctx.iir_type(input.ty),
+                }),
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
@@ -77,7 +78,10 @@ impl WItemFn<YConverted> {
         for local in self.locals {
             let info = IVarInfo {
                 ident: local.ident.into_iir(),
-                ty: local.ty.into_iir(struct_declarations)?,
+                ty: IGeneralType::Normal(IType {
+                    reference: IrReference::None,
+                    inner: ctx.iir_type(local.ty),
+                }),
             };
             let var_id = IVarId(next_var_id);
             next_var_id += 1;
@@ -85,8 +89,7 @@ impl WItemFn<YConverted> {
             variables.insert(var_id, info);
         }
 
-        let result_ident = self.result.result_ident.into_iir();
-        let panic_ident = self.result.panic_ident.into_iir();
+        let result_ident = self.result.into_iir();
 
         let result_normal_id = *variables
             .iter()
@@ -94,18 +97,11 @@ impl WItemFn<YConverted> {
             .expect("Result normal ident should be in variables")
             .0;
 
-        let result_panic_id = *variables
-            .iter()
-            .find(|(_, var_data)| var_data.ident == panic_ident)
-            .expect("Result panic ident should be in variables")
-            .0;
-
         let signature = ISignature {
             ident: fn_ident.into_iir(),
             inputs,
             output: IFnOutput {
                 normal: result_normal_id,
-                panic: result_panic_id,
             },
         };
 
@@ -113,14 +109,14 @@ impl WItemFn<YConverted> {
             signature,
             variables,
         })
-        */
     }
 
     pub(super) fn into_iir(
         self,
+        ctx: &WContext,
         structs: &IndexMap<IIdent, IStructDeclaration>,
     ) -> Result<IFn, Error> {
-        let declaration = self.clone().into_declaration(structs)?;
+        let declaration = self.clone().into_declaration(ctx)?;
 
         let mut ident_var_map = BTreeMap::new();
         for (var_id, var_data) in declaration.variables.iter() {

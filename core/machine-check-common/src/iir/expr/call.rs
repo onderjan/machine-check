@@ -249,8 +249,7 @@ impl ICall {
             input_values.push(input_value);
         }
 
-        let (normal, panic) = func.call(context.context, input_values);
-        AbstractValue::Struct(vec![normal, panic])
+        func.call(context.context, input_values)
     }
 
     pub fn backward_interpret(
@@ -262,11 +261,6 @@ impl ICall {
     ) {
         let func = context.context.fn_with_id(self.func);
 
-        let refin_later = refin_later.expect_struct();
-
-        let later_normal = refin_later[0].clone();
-        let later_panic = refin_later[1].clone();
-
         let mut input_values = Vec::new();
 
         for var_id in self.args.iter().cloned() {
@@ -276,8 +270,7 @@ impl ICall {
 
         let func_abstr = func.forward_interpret(context.context, input_values);
 
-        let func_refin =
-            func.backward_interpret(context.context, &func_abstr, later_normal, later_panic);
+        let func_refin = func.backward_interpret(context.context, &func_abstr, refin_later);
 
         let refin_inputs = func.backward_earlier(&func_abstr, &func_refin);
 

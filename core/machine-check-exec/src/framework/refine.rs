@@ -9,7 +9,7 @@ use machine_check_common::NodeId;
 use machine_check_common::StateId;
 use mck::abstr::Abstr;
 use mck::concr::FullMachine;
-use mck::refin::{RefinementDomain, RefinementValue};
+use mck::refin::RefinementValue;
 
 impl<M: FullMachine> super::Framework<M> {
     /// Refines the precision and the state space given a culprit of unknown verification result.
@@ -30,7 +30,9 @@ impl<M: FullMachine> super::Framework<M> {
 
         // compute marking
         let mut current_state_mark = culprit.result.clone();
-        let mut current_panic_mark = culprit.panic.clone();
+
+        // TODO: panic mark
+        //let mut current_panic_mark = culprit.panic.clone();
 
         // try increasing precision of the state preceding current mark
         let mut iter = culprit.path.iter().cloned().rev().peekable();
@@ -75,15 +77,11 @@ impl<M: FullMachine> super::Framework<M> {
                 &self.default_param_precision,
             );
 
-            let (input_mark, param_mark, new_state_mark) = self.compute_marks(
-                previous_node_id,
-                current_state_id,
-                current_state_mark,
-                current_panic_mark,
-            );
+            let (input_mark, param_mark, new_state_mark) =
+                self.compute_marks(previous_node_id, current_state_id, current_state_mark);
 
-            current_panic_mark =
-                RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));
+            /*current_panic_mark =
+            RefinementValue::Bitvector(mck::refin::RBitvector::new_unmarked(32));*/
 
             // refinement can be applied to input or param precision
             // we will replace the refinement if either there has been no refinement previously
@@ -173,7 +171,6 @@ impl<M: FullMachine> super::Framework<M> {
         previous_node_id: NodeId,
         current_state_id: StateId,
         current_state_mark: RefinementValue,
-        current_panic_mark: RefinementValue,
     ) -> (RefinementValue, RefinementValue, Option<RefinementValue>) {
         let param_start_tracker = self.machine.state().fields.len() as u32;
 
@@ -225,12 +222,7 @@ impl<M: FullMachine> super::Framework<M> {
 
             let abstr = next_fn.forward_interpret(&context, in_data);
 
-            let refin = next_fn.backward_interpret(
-                &context,
-                &abstr,
-                current_state_mark,
-                current_panic_mark,
-            );
+            let refin = next_fn.backward_interpret(&context, &abstr, current_state_mark);
 
             let mut earlier_marks = next_fn.backward_earlier(&abstr, &refin).into_iter();
             assert_eq!(earlier_marks.len(), 4);
@@ -267,8 +259,7 @@ impl<M: FullMachine> super::Framework<M> {
 
         let context = self.machine.description.context();
         let abstr = init_fn.forward_interpret(&context, in_data);
-        let refin =
-            init_fn.backward_interpret(&context, &abstr, current_state_mark, current_panic_mark);
+        let refin = init_fn.backward_interpret(&context, &abstr, current_state_mark);
 
         let mut earlier_marks = init_fn.backward_earlier(&abstr, &refin).into_iter();
         assert_eq!(earlier_marks.len(), 3);

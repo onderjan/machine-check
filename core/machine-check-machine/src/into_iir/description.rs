@@ -2,12 +2,15 @@ use indexmap::IndexMap;
 use machine_check_common::iir::description::{IDescription, IStruct, IStructDeclaration, ITrait};
 
 use crate::{
-    wir::{WDescription, WItemImplTrait, YConverted},
+    wir::{WContext, WDescription, WItemImplTrait, YConverted},
     Error,
 };
 
 impl WDescription<YConverted> {
-    pub fn into_iir(self) -> Result<IDescription, Error> {
+    pub fn into_iir(self, ctx: &WContext) -> Result<IDescription, Error> {
+        eprintln!("Converting into IIR: {:#?}", self);
+        eprintln!("Context: {:#?}", ctx);
+
         let mut struct_declarations = IndexMap::new();
 
         // first pass: create struct declarations
@@ -26,17 +29,15 @@ impl WDescription<YConverted> {
         for (index, item_struct) in self.structs.into_iter().enumerate() {
             let mut fields = IndexMap::new();
             for field in item_struct.fields {
-                todo!("Field into IIR");
-                /*fields.insert(
-                    field.ident.into_iir(),
-                    field.ty.into_iir(&struct_declarations)?,
-                );*/
+                fields.insert(field.ident.into_iir(), ctx.iir_type(field.ty));
             }
 
             struct_declarations[index].fields = fields;
         }
 
         // third pass: add function declarations
+
+        eprintln!("Struct declarations: {:?}", struct_declarations);
 
         for item_impl in &self.impls {
             let Some(ty_ident) = item_impl.self_ty.get_ident() else {
@@ -52,7 +53,7 @@ impl WDescription<YConverted> {
             let mut fn_declarations = IndexMap::new();
 
             for wir_fn in &item_impl.impl_item_fns {
-                let declaration = wir_fn.clone().into_declaration(&struct_declarations)?;
+                let declaration = wir_fn.clone().into_declaration(&ctx)?;
                 fn_declarations.insert((trait_, declaration.signature.ident.clone()), declaration);
             }
 
@@ -90,7 +91,7 @@ impl WDescription<YConverted> {
 
             let mut iir_fns = IndexMap::new();
             for wir_fn in item_impl.impl_item_fns {
-                let iir_fn = wir_fn.into_iir(&struct_declarations)?;
+                let iir_fn = wir_fn.into_iir(&ctx, &struct_declarations)?;
                 iir_fns.insert((trait_, iir_fn.signature.ident.clone()), iir_fn);
             }
 
