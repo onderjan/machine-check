@@ -6,239 +6,245 @@ use machine_check_common::{
 };
 
 use crate::{
-    into_wir::{Error, ErrorType},
+    into_wir::{conversion::convert_types::TypeConverter, Error, ErrorType},
     wir::{
-        WBasicType, WCall, WExpr, WExprCall, WExprHighCall, WGeneralType, WHighMckExt, WHighMckNew,
-        WIdent, WMckBinary, WMckExt, WMckNew, WMckUnary, WSpan, WSpanned, WStdBinary, WStdUnary,
+        WCall, WExpr, WExprHighCall, WHighMckExt, WHighMckNew, WIdent, WMckBinary, WMckExt,
+        WMckNew, WMckUnary, WSpan, WSpanned, WStdBinary, WStdUnary,
     },
 };
 
 use super::convert_basic_path;
 
-pub fn convert_call_fn_path(
-    call: WExprHighCall,
-    local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WExpr<WExprCall>, Error> {
-    Ok(WExpr::Call(match call {
-        WExprHighCall::Call(call) => WExprCall::Call(convert_call(call)),
-        WExprHighCall::StdUnary(call) => WExprCall::MckUnary(convert_unary(call)),
-        WExprHighCall::StdBinary(call) => WExprCall::MckBinary(convert_binary(call, local_types)?),
-        WExprHighCall::MckExt(call) => WExprCall::MckExt(convert_ext(call, local_types)?),
-        WExprHighCall::MckNew(call) => WExprCall::MckNew(convert_mck_new(call)?),
-        WExprHighCall::BooleanNew(value) => WExprCall::BooleanNew(value),
-        WExprHighCall::StdInto(call) => return Ok(WExpr::Move(call.from)),
-        WExprHighCall::StdClone(ident) => WExprCall::StdClone(ident),
-        WExprHighCall::ArrayRead(read) => WExprCall::ArrayRead(read),
-        WExprHighCall::ArrayWrite(write) => WExprCall::ArrayWrite(write),
-        WExprHighCall::Phi(phi) => WExprCall::Phi(phi),
-        WExprHighCall::PhiTaken(taken) => WExprCall::PhiTaken(taken),
-        WExprHighCall::PhiNotTaken => WExprCall::PhiNotTaken,
-    }))
-}
-
-fn convert_call(call: WCall) -> WCall {
-    let fn_path = convert_basic_path(call.fn_path);
-    WCall {
-        fn_path,
-        args: call.args,
+impl TypeConverter<'_> {
+    pub fn convert_call_fn_path(&self, call: WExprHighCall) -> Result<WExpr<WExprHighCall>, Error> {
+        /*Ok(WExpr::Call(match call {
+            WExprHighCall::Call(call) => WExprCall::Call(convert_call(call)),
+            WExprHighCall::StdUnary(call) => WExprCall::MckUnary(convert_unary(call)),
+            WExprHighCall::StdBinary(call) => {
+                WExprCall::MckBinary(convert_binary(call, local_types)?)
+            }
+            WExprHighCall::MckExt(call) => WExprCall::MckExt(convert_ext(call, local_types)?),
+            WExprHighCall::MckNew(call) => WExprCall::MckNew(convert_mck_new(call)?),
+            WExprHighCall::BooleanNew(value) => WExprCall::BooleanNew(value),
+            WExprHighCall::StdInto(call) => return Ok(WExpr::Move(call.from)),
+            WExprHighCall::StdClone(ident) => WExprCall::StdClone(ident),
+            WExprHighCall::ArrayRead(read) => WExprCall::ArrayRead(read),
+            WExprHighCall::ArrayWrite(write) => WExprCall::ArrayWrite(write),
+            WExprHighCall::Phi(phi) => WExprCall::Phi(phi),
+            WExprHighCall::PhiTaken(taken) => WExprCall::PhiTaken(taken),
+            WExprHighCall::PhiNotTaken => WExprCall::PhiNotTaken,
+        }))*/
+        // TODO: convert calls
+        Ok(WExpr::Call(call))
     }
-}
 
-fn convert_unary(call: WStdUnary) -> WMckUnary {
-    let op = match call.op {
-        IrStdUnaryOp::Not => IrMckUnaryOp::Not,
-        IrStdUnaryOp::Neg => IrMckUnaryOp::Neg,
-    };
-    WMckUnary {
-        op,
-        operand: call.operand,
+    /*fn convert_call(call: WCall) -> WCall {
+        let fn_path = convert_basic_path(call.fn_path);
+        WCall {
+            fn_path,
+            args: call.args,
+        }
     }
-}
 
-fn convert_binary(
-    call: WStdBinary,
-    local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WMckBinary, Error> {
-    let mut left_arg = call.a;
-    let mut right_arg = call.b;
+    fn convert_unary(call: WStdUnary) -> WMckUnary {
+        let op = match call.op {
+            IrStdUnaryOp::Not => IrMckUnaryOp::Not,
+            IrStdUnaryOp::Neg => IrMckUnaryOp::Neg,
+        };
+        WMckUnary {
+            op,
+            operand: call.operand,
+        }
+    }
 
-    let op = match call.op {
-        IrStdBinaryOp::BitAnd => IrMckBinaryOp::BitAnd,
-        IrStdBinaryOp::BitOr => IrMckBinaryOp::BitOr,
-        IrStdBinaryOp::BitXor => IrMckBinaryOp::BitXor,
-        IrStdBinaryOp::Shl => IrMckBinaryOp::LogicShl,
-        IrStdBinaryOp::Shr => match signedness(&left_arg, local_types) {
-            Some(Signedness::Signed) => IrMckBinaryOp::ArithShr,
-            Some(Signedness::Unsigned) => IrMckBinaryOp::LogicShr,
-            _ => {
-                return Err(Error::new(
-                    ErrorType::CallConversionError("Cannot determine right shift signedness"),
-                    left_arg.wir_span(),
-                ))
-            }
-        },
-        IrStdBinaryOp::Add => IrMckBinaryOp::Add,
-        IrStdBinaryOp::Sub => IrMckBinaryOp::Sub,
-        IrStdBinaryOp::Mul => IrMckBinaryOp::Mul,
-        IrStdBinaryOp::Eq => IrMckBinaryOp::Eq,
-        IrStdBinaryOp::Ne => IrMckBinaryOp::Ne,
-        IrStdBinaryOp::Lt | IrStdBinaryOp::Le | IrStdBinaryOp::Gt | IrStdBinaryOp::Ge => {
-            if matches!(call.op, IrStdBinaryOp::Gt | IrStdBinaryOp::Ge) {
-                // swap arguments
-                std::mem::swap(&mut left_arg, &mut right_arg);
-            }
+    fn convert_binary(
+        call: WStdBinary,
+        local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
+    ) -> Result<WMckBinary, Error> {
+        let mut left_arg = call.a;
+        let mut right_arg = call.b;
 
-            let includes_equality = matches!(call.op, IrStdBinaryOp::Le | IrStdBinaryOp::Ge);
-
-            let (Some(left_signedness), Some(right_signedness)) = (
-                signedness(&left_arg, local_types),
-                signedness(&right_arg, local_types),
-            ) else {
-                return Err(Error::new(
-                    ErrorType::CallConversionError("Cannot determine comparison signedness"),
-                    left_arg.wir_span(),
-                ));
-            };
-            if left_signedness != right_signedness {
-                return Err(Error::new(
-                    ErrorType::CallConversionError("Signedness of compared types does not match"),
-                    left_arg.wir_span(),
-                ));
-            }
-
-            match left_signedness {
-                Signedness::None => {
+        let op = match call.op {
+            IrStdBinaryOp::BitAnd => IrMckBinaryOp::BitAnd,
+            IrStdBinaryOp::BitOr => IrMckBinaryOp::BitOr,
+            IrStdBinaryOp::BitXor => IrMckBinaryOp::BitXor,
+            IrStdBinaryOp::Shl => IrMckBinaryOp::LogicShl,
+            IrStdBinaryOp::Shr => match signedness(&left_arg, local_types) {
+                Some(Signedness::Signed) => IrMckBinaryOp::ArithShr,
+                Some(Signedness::Unsigned) => IrMckBinaryOp::LogicShr,
+                _ => {
                     return Err(Error::new(
-                        ErrorType::CallConversionError(
-                            "Cannot compare bitvectors without signedness",
-                        ),
+                        ErrorType::CallConversionError("Cannot determine right shift signedness"),
                         left_arg.wir_span(),
                     ))
                 }
-                Signedness::Unsigned => {
-                    if includes_equality {
-                        IrMckBinaryOp::Ule
-                    } else {
-                        IrMckBinaryOp::Ult
-                    }
+            },
+            IrStdBinaryOp::Add => IrMckBinaryOp::Add,
+            IrStdBinaryOp::Sub => IrMckBinaryOp::Sub,
+            IrStdBinaryOp::Mul => IrMckBinaryOp::Mul,
+            IrStdBinaryOp::Eq => IrMckBinaryOp::Eq,
+            IrStdBinaryOp::Ne => IrMckBinaryOp::Ne,
+            IrStdBinaryOp::Lt | IrStdBinaryOp::Le | IrStdBinaryOp::Gt | IrStdBinaryOp::Ge => {
+                if matches!(call.op, IrStdBinaryOp::Gt | IrStdBinaryOp::Ge) {
+                    // swap arguments
+                    std::mem::swap(&mut left_arg, &mut right_arg);
                 }
-                Signedness::Signed => {
-                    if includes_equality {
-                        IrMckBinaryOp::Sle
-                    } else {
-                        IrMckBinaryOp::Slt
+
+                let includes_equality = matches!(call.op, IrStdBinaryOp::Le | IrStdBinaryOp::Ge);
+
+                let (Some(left_signedness), Some(right_signedness)) = (
+                    signedness(&left_arg, local_types),
+                    signedness(&right_arg, local_types),
+                ) else {
+                    return Err(Error::new(
+                        ErrorType::CallConversionError("Cannot determine comparison signedness"),
+                        left_arg.wir_span(),
+                    ));
+                };
+                if left_signedness != right_signedness {
+                    return Err(Error::new(
+                        ErrorType::CallConversionError(
+                            "Signedness of compared types does not match",
+                        ),
+                        left_arg.wir_span(),
+                    ));
+                }
+
+                match left_signedness {
+                    Signedness::None => {
+                        return Err(Error::new(
+                            ErrorType::CallConversionError(
+                                "Cannot compare bitvectors without signedness",
+                            ),
+                            left_arg.wir_span(),
+                        ))
+                    }
+                    Signedness::Unsigned => {
+                        if includes_equality {
+                            IrMckBinaryOp::Ule
+                        } else {
+                            IrMckBinaryOp::Ult
+                        }
+                    }
+                    Signedness::Signed => {
+                        if includes_equality {
+                            IrMckBinaryOp::Sle
+                        } else {
+                            IrMckBinaryOp::Slt
+                        }
                     }
                 }
             }
-        }
-        IrStdBinaryOp::Div => match signedness(&left_arg, local_types) {
-            Some(Signedness::Signed) => IrMckBinaryOp::Sdiv,
-            Some(Signedness::Unsigned) => IrMckBinaryOp::Udiv,
+            IrStdBinaryOp::Div => match signedness(&left_arg, local_types) {
+                Some(Signedness::Signed) => IrMckBinaryOp::Sdiv,
+                Some(Signedness::Unsigned) => IrMckBinaryOp::Udiv,
+                _ => {
+                    return Err(Error::new(
+                        ErrorType::CallConversionError("Cannot determine division signedness"),
+                        left_arg.wir_span(),
+                    ))
+                }
+            },
+            IrStdBinaryOp::Rem => match signedness(&left_arg, local_types) {
+                Some(Signedness::Signed) => IrMckBinaryOp::Srem,
+                Some(Signedness::Unsigned) => IrMckBinaryOp::Urem,
+                _ => {
+                    return Err(Error::new(
+                        ErrorType::CallConversionError("Cannot determine remainder signedness"),
+                        left_arg.wir_span(),
+                    ))
+                }
+            },
+        };
+
+        Ok(WMckBinary {
+            op,
+            a: left_arg,
+            b: right_arg,
+        })
+    }
+
+    fn convert_ext(
+        call: WHighMckExt,
+        local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
+    ) -> Result<WMckExt, Error> {
+        let signed = match signedness(&call.from, local_types) {
+            Some(Signedness::Signed) => true,
+            Some(Signedness::Unsigned) => false,
             _ => {
                 return Err(Error::new(
-                    ErrorType::CallConversionError("Cannot determine division signedness"),
-                    left_arg.wir_span(),
+                    ErrorType::CallConversionError("Cannot determine bit extension signedness"),
+                    call.from.wir_span(),
                 ))
             }
-        },
-        IrStdBinaryOp::Rem => match signedness(&left_arg, local_types) {
-            Some(Signedness::Signed) => IrMckBinaryOp::Srem,
-            Some(Signedness::Unsigned) => IrMckBinaryOp::Urem,
-            _ => {
-                return Err(Error::new(
-                    ErrorType::CallConversionError("Cannot determine remainder signedness"),
-                    left_arg.wir_span(),
-                ))
-            }
-        },
-    };
+        };
 
-    Ok(WMckBinary {
-        op,
-        a: left_arg,
-        b: right_arg,
-    })
-}
+        Ok(WMckExt {
+            signed,
+            width: call.width.expect("Cannot determine bit extension width"),
+            from: call.from,
+        })
+    }
 
-fn convert_ext(
-    call: WHighMckExt,
-    local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Result<WMckExt, Error> {
-    let signed = match signedness(&call.from, local_types) {
-        Some(Signedness::Signed) => true,
-        Some(Signedness::Unsigned) => false,
-        _ => {
-            return Err(Error::new(
-                ErrorType::CallConversionError("Cannot determine bit extension signedness"),
-                call.from.wir_span(),
-            ))
-        }
-    };
+    fn convert_mck_new(call: WHighMckNew) -> Result<WMckNew, Error> {
+        Ok(match call {
+            WHighMckNew::Bitvector(signedness, width, constant) => {
+                let width = width.expect("Created width should be known");
 
-    Ok(WMckExt {
-        signed,
-        width: call.width.expect("Cannot determine bit extension width"),
-        from: call.from,
-    })
-}
-
-fn convert_mck_new(call: WHighMckNew) -> Result<WMckNew, Error> {
-    Ok(match call {
-        WHighMckNew::Bitvector(signedness, width, constant) => {
-            let width = width.expect("Created width should be known");
-
-            fn outside_bounds_fn<T: Display>(err: mck::concr::OutsideBound<T>) -> Error {
-                Error::new(
-                    ErrorType::IllegalConstruct(err.to_string()),
-                    WSpan::call_site(),
-                )
-            }
-
-            WMckNew::Bitvector(match signedness {
-                Signedness::None | Signedness::Unsigned => {
-                    let Ok(constant) = constant.try_into() else {
-                        return Err(Error {
-                            ty: ErrorType::IllegalConstruct(String::from(
-                                "Constant does not fit into u64",
-                            )),
-                            span: WSpan::call_site(),
-                        });
-                    };
-
-                    match mck::concr::ConcreteBitvector::try_new(
-                        constant,
-                        mck::misc::RBound::new(width),
-                    ) {
-                        Ok(ok) => ok,
-                        Err(err) => return Err(outside_bounds_fn(err)),
-                    }
+                fn outside_bounds_fn<T: Display>(err: mck::concr::OutsideBound<T>) -> Error {
+                    Error::new(
+                        ErrorType::IllegalConstruct(err.to_string()),
+                        WSpan::call_site(),
+                    )
                 }
-                Signedness::Signed => {
-                    let Ok(constant) = constant.try_into() else {
-                        return Err(Error {
-                            ty: ErrorType::IllegalConstruct(String::from(
-                                "Constant does not fit into i64",
-                            )),
-                            span: WSpan::call_site(),
-                        });
-                    };
 
-                    match mck::concr::SignedBitvector::try_new(
-                        constant,
-                        mck::misc::RBound::new(width),
-                    ) {
-                        Ok(signed) => signed.cast_bitvector(),
-                        Err(err) => return Err(outside_bounds_fn(err)),
+                WMckNew::Bitvector(match signedness {
+                    Signedness::None | Signedness::Unsigned => {
+                        let Ok(constant) = constant.try_into() else {
+                            return Err(Error {
+                                ty: ErrorType::IllegalConstruct(String::from(
+                                    "Constant does not fit into u64",
+                                )),
+                                span: WSpan::call_site(),
+                            });
+                        };
+
+                        match mck::concr::ConcreteBitvector::try_new(
+                            constant,
+                            mck::misc::RBound::new(width),
+                        ) {
+                            Ok(ok) => ok,
+                            Err(err) => return Err(outside_bounds_fn(err)),
+                        }
                     }
-                }
-            })
-        }
-        WHighMckNew::BitvectorArray(type_array, fill_element) => {
-            WMckNew::BitvectorArray(type_array, fill_element)
-        }
-    })
+                    Signedness::Signed => {
+                        let Ok(constant) = constant.try_into() else {
+                            return Err(Error {
+                                ty: ErrorType::IllegalConstruct(String::from(
+                                    "Constant does not fit into i64",
+                                )),
+                                span: WSpan::call_site(),
+                            });
+                        };
+
+                        match mck::concr::SignedBitvector::try_new(
+                            constant,
+                            mck::misc::RBound::new(width),
+                        ) {
+                            Ok(signed) => signed.cast_bitvector(),
+                            Err(err) => return Err(outside_bounds_fn(err)),
+                        }
+                    }
+                })
+            }
+            WHighMckNew::BitvectorArray(type_array, fill_element) => {
+                WMckNew::BitvectorArray(type_array, fill_element)
+            }
+        })
+    }*/
 }
 
+/*
 fn signedness(
     ident: &WIdent,
     local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
@@ -256,3 +262,4 @@ fn signedness(
         _ => None,
     }
 }
+*/

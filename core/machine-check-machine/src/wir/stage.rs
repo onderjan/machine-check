@@ -84,7 +84,7 @@ impl YStage for YConverted {
     type AssignTypes = ZConverted;
     type InputType = WTypeId;
     type OutputType = WTypeId;
-    type FnResult = WTypeId;
+    type FnResult = WIdent;
     type Local = WSsaLocal<WTypeId>;
     type ItemImplTrait = WItemImplTrait;
 }

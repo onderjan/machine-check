@@ -219,4 +219,22 @@ impl WPartialPath {
             None
         }
     }
+
+    /// Returns true if the path is absolute and the segment idents start with the given strings.
+    ///
+    /// Does not take generics into account.
+    pub fn starts_with_absolute(&self, segments: &[&str]) -> bool {
+        if self.leading_colon.is_none() {
+            return false;
+        }
+        if self.segments.len() < segments.len() {
+            return false;
+        }
+        for (self_segment, other_segment) in self.segments.iter().zip(segments.iter()) {
+            if self_segment.ident.name() != *other_segment {
+                return false;
+            }
+        }
+        true
+    }
 }
