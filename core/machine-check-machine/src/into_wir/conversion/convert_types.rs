@@ -1,7 +1,7 @@
 use crate::{
     into_wir::Errors,
     wir::{
-        WBlock, WContext, WDescription, WExpr, WExprHighCall, WExprStruct, WIdent, WImplItemType,
+        WBlock, WInferredContext, WDescription, WExpr, WExprHighCall, WExprStruct, WIdent, WImplItemType,
         WItemFn, WItemImpl, WItemStruct, WPartialPath, WPartialSegment, WPathSegment, WProperty,
         WSignature, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId,
         YConverted, YSsa, ZConverted, ZSsa,
@@ -11,7 +11,7 @@ use crate::{
 mod convert_calls;
 
 pub fn convert_description(
-    ctx: &mut WContext,
+    ctx: &mut WInferredContext,
     description: WDescription<YSsa>,
 ) -> Result<WDescription<YConverted>, Errors> {
     let converter = TypeConverter { ctx };
@@ -32,7 +32,7 @@ pub fn convert_description(
 }
 
 pub fn convert_property(
-    ctx: &mut WContext,
+    ctx: &mut WInferredContext,
     property: WProperty<YSsa>,
 ) -> Result<WProperty<YConverted>, Errors> {
     let converter = TypeConverter { ctx };
@@ -85,7 +85,7 @@ fn convert_general_type(ty: WGeneralType<WBasicType>) -> WGeneralType<WElementar
 }*/
 
 struct TypeConverter<'a> {
-    ctx: &'a mut WContext,
+    ctx: &'a mut WInferredContext,
 }
 
 impl TypeConverter<'_> {

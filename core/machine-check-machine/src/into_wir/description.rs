@@ -7,12 +7,12 @@ use crate::{
         conversion::{convert_to_ssa, convert_total, convert_types, expand_macros, resolve_use},
         from_syn, Error, Errors,
     },
-    wir::{WContext, WDescription, WInferenceContext, YConverted, YTac},
+    wir::{WInferredContext, WDescription, WInferenceContext, YConverted, YTac},
 };
 
 pub fn description_from_syn(
     mut items: Vec<Item>,
-) -> Result<(WContext, WDescription<YConverted>, Vec<String>), Errors> {
+) -> Result<(WInferredContext, WDescription<YConverted>, Vec<String>), Errors> {
     let mut use_map = HashMap::new();
     loop {
         use_map.extend(resolve_use::extract_use_map(&mut items)?);

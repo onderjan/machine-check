@@ -1,15 +1,10 @@
-use std::fmt::Debug;
-
-use super::WContext;
+use super::WInferredContext;
 use crate::{
     into_wir::Error,
-    wir::{
-        context::{typedef::WTypeDefs, types::phi_arg_type_path},
-        WIdent, WPathSegment, WSpan, WSpanned, WType, WTypeId,
-    },
+    wir::{WIdent, WPathSegment, WSpanned, WType},
 };
 
-impl WContext {
+impl WInferredContext {
     pub fn convert_types(&mut self) -> Result<(), Error> {
         for ty in &mut self.types {
             convert_type(ty)?;

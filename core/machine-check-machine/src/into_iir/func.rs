@@ -13,7 +13,7 @@ use machine_check_common::{
 };
 
 use crate::{
-    wir::{WBlock, WContext, WItemFn, YConverted, ZConverted},
+    wir::{WBlock, WInferredContext, WItemFn, YConverted, ZConverted},
     Error,
 };
 
@@ -52,7 +52,7 @@ impl WFnData<'_> {
 }
 
 impl WItemFn<YConverted> {
-    pub(super) fn into_declaration(self, ctx: &WContext) -> Result<IFnDeclaration, Error> {
+    pub(super) fn into_declaration(self, ctx: &WInferredContext) -> Result<IFnDeclaration, Error> {
         let mut next_var_id = 0;
 
         let fn_ident = self.signature.ident;
@@ -107,7 +107,7 @@ impl WItemFn<YConverted> {
 
     pub(super) fn into_iir(
         self,
-        ctx: &WContext,
+        ctx: &WInferredContext,
         structs: &IndexMap<IIdent, IStructDeclaration>,
     ) -> Result<IFn, Error> {
         let declaration = self.clone().into_declaration(ctx)?;

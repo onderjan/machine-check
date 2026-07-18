@@ -6,12 +6,12 @@ use machine_check_common::iir::property::{
 };
 
 use crate::{
-    wir::{WContext, WProperty, WSubproperty, YConverted},
+    wir::{WInferredContext, WProperty, WSubproperty, YConverted},
     Error,
 };
 
 impl WProperty<YConverted> {
-    pub fn into_iir(self, ctx: &WContext) -> Result<IProperty, Error> {
+    pub fn into_iir(self, ctx: &WInferredContext) -> Result<IProperty, Error> {
         let mut subproperties = Vec::new();
 
         let mut subproperty_dependencies = BTreeMap::<usize, BTreeSet<usize>>::new();

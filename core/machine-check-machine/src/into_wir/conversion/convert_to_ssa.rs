@@ -5,14 +5,14 @@ use machine_check_common::ir_common::IrReference;
 
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    phi_arg_item_path, WBlock, WCall, WCallArg, WContext, WExpr, WExprHighCall, WFnArg,
+    phi_arg_item_path, WBlock, WCall, WCallArg, WInferredContext, WExpr, WExprHighCall, WFnArg,
     WHighMckNew, WIdent, WPhi, WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt,
     WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
 
 pub fn convert_description(
-    ctx: &mut WContext,
+    ctx: &mut WInferredContext,
     description: WDescription<YTotal>,
 ) -> Result<WDescription<YSsa>, Errors> {
     let mut impls = Vec::new();
@@ -46,7 +46,7 @@ pub fn convert_description(
 }
 
 pub fn convert_property(
-    ctx: &mut WContext,
+    ctx: &mut WInferredContext,
     property: WProperty<YTotal>,
     global_ident_types: &HashMap<WIdent, WTypeId>,
 ) -> Result<WProperty<YSsa>, Errors> {
@@ -78,7 +78,7 @@ pub fn convert_property(
 }
 
 struct SubpropertyConverter<'a> {
-    ctx: &'a mut WContext,
+    ctx: &'a mut WInferredContext,
     global_ident_types: &'a HashMap<WIdent, WTypeId>,
     num_subproperties: usize,
     old_subproperties: BTreeMap<usize, WSubproperty<YTotal>>,
@@ -176,7 +176,7 @@ impl SubpropertyConverter<'_> {
 }
 
 fn process_fn(
-    ctx: &mut WContext,
+    ctx: &mut WInferredContext,
     item_fn: WItemFn<YTotal>,
     global_rewrites: &BTreeMap<WIdent, WIdent>,
 ) -> Result<(WItemFn<YSsa>, BTreeSet<WIdent>), Errors> {
@@ -217,7 +217,7 @@ fn process_fn(
 }
 
 struct LocalVisitor<'a> {
-    pub ctx: &'a mut WContext,
+    pub ctx: &'a mut WInferredContext,
     pub global_rewrites: &'a BTreeMap<WIdent, WIdent>,
     pub arg_idents: BTreeSet<WIdent>,
     pub branch_counter: u32,

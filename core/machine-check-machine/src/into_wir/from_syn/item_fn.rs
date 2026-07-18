@@ -17,8 +17,8 @@ use crate::{
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WContext, WFnArg, WIdent, WInferenceContext, WItemFn, WPath, WSignature, WSpan, WSpanned,
-        WTacLocal, WTypeId, YTac,
+        WFnArg, WInferredContext, WIdent, WInferenceContext, WItemFn, WPath, WSignature, WSpan,
+        WSpanned, WTacLocal, WTypeId, YTac,
     },
 };
 

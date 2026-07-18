@@ -10,7 +10,7 @@ use proc_macro2::Span;
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WBlock, WContext, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent,
+        WBlock, WInferredContext, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent,
         WIfCondition, WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity, WProperty, WSignature,
         WSpanned, WStdBinary, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc,
         WTacLocal, WTypeId, YTac, YTotal, ZTac, ZTotal,
@@ -18,7 +18,7 @@ use crate::{
 };
 
 pub fn convert_description(
-    ctx: &mut WContext,
+    ctx: &mut WInferredContext,
     description: WDescription<YTac>,
 ) -> (WDescription<YTotal>, Vec<String>) {
     // add the division and remainder panic messages first
@@ -53,7 +53,7 @@ pub fn convert_description(
 }
 
 pub fn convert_property(
-    ctx: &mut WContext,
+    ctx: &mut WInferredContext,
     property: WProperty<YTac>,
 ) -> (WProperty<YTotal>, Vec<String>) {
     // add the division and remainder panic messages first
@@ -83,7 +83,7 @@ pub fn convert_property(
 }
 
 struct FnConverter<'a> {
-    ctx: &'a mut WContext,
+    ctx: &'a mut WInferredContext,
     ident_creator: IdentCreator<WTypeId>,
     panic_ident: WIdent,
     zero_bitvec_ident: WIdent,
@@ -93,7 +93,7 @@ struct FnConverter<'a> {
 
 impl FnConverter<'_> {
     fn fold_fn(
-        ctx: &mut WContext,
+        ctx: &mut WInferredContext,
         impl_item_fn: WItemFn<YTac>,
         panic_messages: &mut Vec<String>,
     ) -> WItemFn<YTotal> {

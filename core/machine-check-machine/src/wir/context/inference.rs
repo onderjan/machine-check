@@ -11,8 +11,8 @@ use crate::{
     into_wir::{fold_type, Error, ErrorType},
     wir::{
         context::typedef::{WContextTypeDef, WTypeDefs},
-        WContext, WItemImpl, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment,
-        WPartialType, WSpan, WTypeId, YTac,
+        WInferredContext, WItemImpl, WPartialArgument, WPartialGenerics, WPartialPath,
+        WPartialSegment, WPartialType, WSpan, WTypeId, YTac,
     },
 };
 
@@ -123,7 +123,7 @@ impl WInferenceContext {
         Ok(())
     }
 
-    pub fn into_total(self) -> Result<WContext, Error> {
+    pub fn into_total(self) -> Result<WInferredContext, Error> {
         let mut types = Vec::new();
         for ty in self.types {
             let span = ty.wir_span();
@@ -133,11 +133,7 @@ impl WInferenceContext {
             }
         }
 
-        Ok(WContext {
-            type_defs: self.type_defs,
-            types,
-            iir_registrations: IndexMap::new(),
-        })
+        Ok(WInferredContext::new(self.type_defs, types))
     }
 }
 
