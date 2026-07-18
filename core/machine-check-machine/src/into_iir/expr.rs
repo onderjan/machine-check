@@ -3,13 +3,14 @@ use machine_check_common::{
     iir::{
         expr::{
             call::{IExprCall, IMckNew},
+            op::{IMckBinary, IMckUnary},
             IExpr, IExprField, IExprReference, IExprStruct,
         },
         path::{IIdent, ISpan},
         ty::{IElementaryType, IGeneralType, IType},
         variable::IVarId,
     },
-    ir_common::IrReference,
+    ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrReference, IrStdBinaryOp, IrStdUnaryOp},
 };
 use mck::{concr::RConcreteBitvector, misc::RBound};
 use syn::Lit;
@@ -56,8 +57,38 @@ impl WExpr<WExprHighCall> {
                     }
                     todo!("Call {:?}", call)
                 }
-                WExprHighCall::StdUnary(unary) => todo!("Unary call {:?}", unary),
-                WExprHighCall::StdBinary(binary) => todo!("Binary call {:?}", binary),
+                WExprHighCall::StdUnary(unary) => {
+                    let operand = from_variable_map(unary.operand, fn_data)?;
+                    let op = match unary.op {
+                        IrStdUnaryOp::Not => IrMckUnaryOp::Not,
+                        IrStdUnaryOp::Neg => IrMckUnaryOp::Neg,
+                    };
+                    IExpr::Call(IExprCall::MckUnary(IMckUnary { op, operand }))
+                }
+                WExprHighCall::StdBinary(binary) => {
+                    let a = from_variable_map(binary.a, fn_data)?;
+                    let b = from_variable_map(binary.b, fn_data)?;
+
+                    let op = match binary.op {
+                        IrStdBinaryOp::BitAnd => IrMckBinaryOp::BitAnd,
+                        IrStdBinaryOp::BitOr => IrMckBinaryOp::BitOr,
+                        IrStdBinaryOp::BitXor => IrMckBinaryOp::BitXor,
+                        IrStdBinaryOp::Shl => todo!("Left shift"),
+                        IrStdBinaryOp::Shr => todo!("Right shift"),
+                        IrStdBinaryOp::Add => IrMckBinaryOp::Add,
+                        IrStdBinaryOp::Sub => IrMckBinaryOp::Sub,
+                        IrStdBinaryOp::Mul => IrMckBinaryOp::Mul,
+                        IrStdBinaryOp::Div => todo!("Div"),
+                        IrStdBinaryOp::Rem => todo!("Rem"),
+                        IrStdBinaryOp::Eq => IrMckBinaryOp::Eq,
+                        IrStdBinaryOp::Ne => IrMckBinaryOp::Ne,
+                        IrStdBinaryOp::Lt => todo!("Lt"),
+                        IrStdBinaryOp::Le => todo!("Le"),
+                        IrStdBinaryOp::Gt => todo!("Gt"),
+                        IrStdBinaryOp::Ge => todo!("Ge"),
+                    };
+                    IExpr::Call(IExprCall::MckBinary(IMckBinary { op: op, a, b }))
+                }
             },
             /* IExpr::Call(match expr_call {
                 WExprHighCall::Call(call) => {

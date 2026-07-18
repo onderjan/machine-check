@@ -136,6 +136,7 @@ impl WPartialContext {
         Ok(WContext {
             type_defs: self.type_defs,
             types,
+            iir_registrations: IndexMap::new(),
         })
     }
 }

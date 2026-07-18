@@ -1,11 +1,8 @@
 use std::fmt::Debug;
 
-use crate::{
-    into_wir::Error,
-    wir::{
-        context::{typedef::WTypeDefs, types::phi_arg_type_path},
-        WPathArgument, WSpan, WType, WTypeId,
-    },
+use crate::wir::{
+    context::{typedef::WTypeDefs, types::phi_arg_type_path},
+    WPathArgument, WSpan, WType, WTypeId,
 };
 
 mod convert;
@@ -13,6 +10,7 @@ mod partial;
 mod typedef;
 mod types;
 
+use indexmap::IndexMap;
 use machine_check_common::{
     iir::{
         description::IStructId,
@@ -28,6 +26,7 @@ pub use types::*;
 pub struct WContext {
     type_defs: WTypeDefs,
     types: Vec<WType>,
+    iir_registrations: IndexMap<Type, IStructId>,
 }
 
 impl WContext {
@@ -65,6 +64,10 @@ impl WContext {
             );
         }
         result.inner
+    }
+
+    pub fn register_iir_id(&mut self, ty: Type, id: IStructId) {
+        self.iir_registrations.insert(ty, id);
     }
 
     fn iir_ty(&self, ty: &WType) -> IGeneralType {
@@ -114,11 +117,10 @@ impl WContext {
                     qself: None,
                 });
 
-                if let Some(type_def) = self.type_defs.get(&ty) {
-                    // TODO: valid struct ID
+                if let Some(iir_id) = self.iir_registrations.get(&ty) {
                     IGeneralType::Normal(IType {
                         reference: IrReference::None,
-                        inner: IElementaryType::Struct(IStructId(0)),
+                        inner: IElementaryType::Struct(*iir_id),
                     })
                 } else {
                     panic!("Cannot convert type to IIR: {:?}", path)

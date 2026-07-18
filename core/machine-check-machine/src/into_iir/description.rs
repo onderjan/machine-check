@@ -1,5 +1,9 @@
 use indexmap::IndexMap;
-use machine_check_common::iir::description::{IDescription, IStruct, IStructDeclaration, ITrait};
+use machine_check_common::iir::description::{
+    IDescription, IStruct, IStructDeclaration, IStructId, ITrait,
+};
+use proc_macro2::Span;
+use syn::{Ident, Path, Type, TypePath};
 
 use crate::{
     wir::{WContext, WDescription, WItemImplTrait, YConverted},
@@ -7,7 +11,7 @@ use crate::{
 };
 
 impl WDescription<YConverted> {
-    pub fn into_iir(self, ctx: &WContext) -> Result<IDescription, Error> {
+    pub fn into_iir(self, ctx: &mut WContext) -> Result<IDescription, Error> {
         eprintln!("Converting into IIR: {:#?}", self);
         eprintln!("Context: {:#?}", ctx);
 
@@ -33,6 +37,16 @@ impl WDescription<YConverted> {
             }
 
             struct_declarations[index].fields = fields;
+        }
+
+        for (index, (decl_ident, _decl)) in struct_declarations.iter().enumerate() {
+            ctx.register_iir_id(
+                Type::Path(TypePath {
+                    qself: None,
+                    path: Path::from(Ident::new(decl_ident.name(), Span::call_site())),
+                }),
+                IStructId(index),
+            );
         }
 
         // third pass: add function declarations

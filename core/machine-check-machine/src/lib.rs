@@ -169,7 +169,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         None
     };
 
-    let (ctx, description, panic_messages) = into_wir::create_description(items.clone())?;
+    let (mut ctx, description, panic_messages) = into_wir::create_description(items.clone())?;
 
     if let Some(out_dir) = &out_dir {
         std::fs::write(
@@ -179,7 +179,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("SSA machine file should be writable");
     }
 
-    let iir = description.clone().into_iir(&ctx)?;
+    let iir = description.clone().into_iir(&mut ctx)?;
 
     todo!("Create abstract description");
     /*let (abstract_description, misc_abstract_items) =
