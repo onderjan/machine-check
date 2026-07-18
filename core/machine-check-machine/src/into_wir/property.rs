@@ -21,7 +21,7 @@ use crate::{
     },
     util::{create_type_path, path_matches_global_names},
     wir::{
-        WContext, WIdent, WPartialContext, WProperty, WSubproperty, WSubpropertyFixedPoint,
+        WContext, WIdent, WInferenceContext, WProperty, WSubproperty, WSubpropertyFixedPoint,
         WSubpropertyFunc, WSubpropertyNext, WTypeId, YConverted, YTac,
     },
 };
@@ -150,7 +150,7 @@ pub fn create_from_syn<D>(
 }
 
 fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors> {
-    let mut ctx = WPartialContext::new();
+    let mut ctx = WInferenceContext::new();
     let mut subproperties = Vec::new();
 
     for (index, subproperty) in property.subproperties.into_iter().enumerate() {

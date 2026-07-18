@@ -19,13 +19,13 @@ use crate::{
 mod constraints;
 
 #[derive(Debug)]
-pub struct WPartialContext {
+pub struct WInferenceContext {
     type_defs: WTypeDefs,
     types: Vec<WPartialType>,
     eq_constraints: QuickUnionUf<UnionBySize>,
 }
 
-impl WPartialContext {
+impl WInferenceContext {
     pub fn new() -> Self {
         Self {
             type_defs: WTypeDefs::new(),

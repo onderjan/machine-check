@@ -11,7 +11,7 @@ use crate::{
     },
     util::path_matches_global_names,
     wir::{
-        WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WPartialContext,
+        WField, WIdent, WImplItemType, WInferenceContext, WItemImpl, WItemImplTrait, WItemStruct,
         WSpan, WTypeId, WVisibility, YTac,
     },
 };
@@ -19,7 +19,7 @@ use crate::{
 use super::item_fn::fold_impl_item_fn;
 
 pub fn fold_item_struct(
-    ctx: &mut WPartialContext,
+    ctx: &mut WInferenceContext,
     mut item: ItemStruct,
 ) -> Result<WItemStruct<WTypeId>, Errors> {
     let item_span = WSpan::from_syn(&item);
@@ -144,7 +144,7 @@ pub fn fold_item_struct(
 }
 
 pub fn fold_item_impl(
-    ctx: &mut WPartialContext,
+    ctx: &mut WInferenceContext,
     item: ItemImpl,
 ) -> Result<WItemImpl<YTac>, Errors> {
     if item.defaultness.is_some() {

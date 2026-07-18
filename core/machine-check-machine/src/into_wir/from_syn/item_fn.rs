@@ -17,7 +17,7 @@ use crate::{
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WContext, WFnArg, WIdent, WItemFn, WPartialContext, WPath, WSignature, WSpan, WSpanned,
+        WContext, WFnArg, WIdent, WInferenceContext, WItemFn, WPath, WSignature, WSpan, WSpanned,
         WTacLocal, WTypeId, YTac,
     },
 };
@@ -25,7 +25,7 @@ use crate::{
 mod expr;
 mod stmt;
 
-pub fn fold_item_fn(ctx: &mut WPartialContext, item_fn: ItemFn) -> Result<WItemFn<YTac>, Errors> {
+pub fn fold_item_fn(ctx: &mut WInferenceContext, item_fn: ItemFn) -> Result<WItemFn<YTac>, Errors> {
     FunctionFolder {
         ctx,
         self_ty: None,
@@ -38,7 +38,7 @@ pub fn fold_item_fn(ctx: &mut WPartialContext, item_fn: ItemFn) -> Result<WItemF
 }
 
 pub fn fold_impl_item_fn(
-    ctx: &mut WPartialContext,
+    ctx: &mut WInferenceContext,
     impl_item_fn: ImplItemFn,
     self_ty: &Type,
 ) -> Result<WItemFn<YTac>, Errors> {
@@ -74,7 +74,7 @@ struct FunctionScope {
 }
 
 struct FunctionFolder<'a> {
-    ctx: &'a mut WPartialContext,
+    ctx: &'a mut WInferenceContext,
     self_ty: Option<Type>,
     ident_creator: IdentCreator<()>,
     local_types: BTreeMap<WIdent, WTypeId>,

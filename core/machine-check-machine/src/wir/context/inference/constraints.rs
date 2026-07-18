@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-impl super::WPartialContext {
+impl super::WInferenceContext {
     pub(super) fn add_block_constraints(
         &mut self,
         locals: &Vec<WTacLocal<WTypeId>>,

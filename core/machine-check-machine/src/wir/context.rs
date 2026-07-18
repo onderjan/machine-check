@@ -6,11 +6,12 @@ use crate::wir::{
 };
 
 mod convert;
-mod partial;
+mod inference;
 mod typedef;
 mod types;
 
 use indexmap::IndexMap;
+pub use inference::WInferenceContext;
 use machine_check_common::{
     iir::{
         description::IStructId,
@@ -18,7 +19,6 @@ use machine_check_common::{
     },
     ir_common::IrReference,
 };
-pub use partial::WPartialContext;
 use syn::{Path, Type, TypePath};
 pub use types::*;
 
