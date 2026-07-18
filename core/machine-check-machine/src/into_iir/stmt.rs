@@ -2,11 +2,11 @@ use machine_check_common::iir::stmt::{IAssignStmt, IIfStmt, IStmt};
 
 use crate::{
     into_iir::func::WFnData,
-    wir::{WStmt, ZConverted},
+    wir::{WStmt, ZLowered},
     Error,
 };
 
-impl WStmt<ZConverted> {
+impl WStmt<ZLowered> {
     pub(super) fn into_iir(self, fn_data: &WFnData) -> Result<Option<IStmt>, Error> {
         Ok(match self {
             WStmt::Assign(stmt_assign) => {

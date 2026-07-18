@@ -1,29 +1,30 @@
+use indexmap::IndexMap;
+
 use crate::{
     into_wir::Errors,
     wir::{
-        WBlock, WInferredContext, WDescription, WExpr, WExprHighCall, WExprStruct, WIdent, WImplItemType,
-        WItemFn, WItemImpl, WItemStruct, WPartialPath, WPartialSegment, WPathSegment, WProperty,
-        WSignature, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId,
-        YConverted, YSsa, ZConverted, ZSsa,
+        WBlock, WDescription, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIdent,
+        WImplItemType, WInferredContext, WItemFn, WItemImpl, WItemStruct, WPartialPath,
+        WPartialSegment, WPathSegment, WProperty, WSignature, WStmt, WStmtAssign, WStmtIf,
+        WSubproperty, WSubpropertyFunc, WTypeId, YLowered, YSsa, ZLowered, ZSsa,
     },
 };
 
 mod convert_calls;
 
-pub fn convert_description(
+pub fn lower_description(
     ctx: &mut WInferredContext,
     description: WDescription<YSsa>,
-) -> Result<WDescription<YConverted>, Errors> {
-    let converter = TypeConverter { ctx };
+) -> Result<WDescription<YLowered>, Errors> {
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     for item_struct in description.structs {
-        structs.push(converter.convert_item_struct(item_struct));
+        structs.push(convert_item_struct(ctx, item_struct));
     }
     let structs = Errors::flat_result(structs)?;
 
     for item_impl in description.impls {
-        impls.push(converter.convert_item_impl(item_impl));
+        impls.push(convert_item_impl(ctx, item_impl));
     }
 
     let impls = Errors::flat_result(impls)?;
@@ -34,16 +35,14 @@ pub fn convert_description(
 pub fn convert_property(
     ctx: &mut WInferredContext,
     property: WProperty<YSsa>,
-) -> Result<WProperty<YConverted>, Errors> {
-    let converter = TypeConverter { ctx };
-
+) -> Result<WProperty<YLowered>, Errors> {
     let mut subproperties = Vec::new();
 
     for subproperty in property.subproperties {
         let subproperty = match subproperty {
             WSubproperty::Func(subproperty_func) => WSubproperty::Func(WSubpropertyFunc {
                 parent: subproperty_func.parent,
-                func: converter.convert_item_fn(subproperty_func.func)?,
+                func: convert_item_fn(ctx, subproperty_func.func)?,
                 children: subproperty_func.children,
                 display: subproperty_func.display,
             }),
@@ -84,80 +83,91 @@ fn convert_general_type(ty: WGeneralType<WBasicType>) -> WGeneralType<WElementar
     }
 }*/
 
-struct TypeConverter<'a> {
-    ctx: &'a mut WInferredContext,
+fn convert_item_struct(
+    ctx: &mut WInferredContext,
+    item_struct: WItemStruct<WTypeId>,
+) -> Result<WItemStruct<WTypeId>, Errors> {
+    let derives = item_struct
+        .derives
+        .into_iter()
+        .map(convert_basic_path)
+        .collect();
+    let fields = item_struct.fields;
+    Ok(WItemStruct {
+        visibility: item_struct.visibility,
+        derives,
+        ident: item_struct.ident,
+        fields,
+    })
 }
 
-impl TypeConverter<'_> {
-    fn convert_item_struct(
-        &self,
-        item_struct: WItemStruct<WTypeId>,
-    ) -> Result<WItemStruct<WTypeId>, Errors> {
-        let derives = item_struct
-            .derives
-            .into_iter()
-            .map(convert_basic_path)
-            .collect();
-        let fields = item_struct.fields;
-        Ok(WItemStruct {
-            visibility: item_struct.visibility,
-            derives,
-            ident: item_struct.ident,
-            fields,
+fn convert_item_impl(
+    ctx: &mut WInferredContext,
+    item_impl: WItemImpl<YSsa>,
+) -> Result<WItemImpl<YLowered>, Errors> {
+    let mut impl_item_fns = Vec::new();
+
+    for impl_item_fn in item_impl.impl_item_fns {
+        impl_item_fns.push(convert_item_fn(ctx, impl_item_fn));
+    }
+
+    let impl_item_types = item_impl
+        .impl_item_types
+        .into_iter()
+        .map(|type_item| WImplItemType {
+            visibility: type_item.visibility,
+            left_ident: type_item.left_ident,
+            right_path: convert_basic_path(type_item.right_path),
         })
+        .collect();
+
+    let impl_item_fns = Errors::flat_result(impl_item_fns);
+
+    match impl_item_fns {
+        Ok(impl_item_fns) => Ok(WItemImpl {
+            self_ty: convert_basic_path(item_impl.self_ty),
+            trait_: item_impl.trait_,
+            impl_item_types,
+            impl_item_fns,
+        }),
+        Err(err) => Err(err),
+    }
+}
+
+fn convert_item_fn(
+    ctx: &mut WInferredContext,
+    impl_item: WItemFn<YSsa>,
+) -> Result<WItemFn<YLowered>, Errors> {
+    let signature = WSignature {
+        ident: impl_item.signature.ident,
+        inputs: impl_item.signature.inputs,
+        output: impl_item.signature.output,
+    };
+
+    let mut local_types = IndexMap::new();
+    for local in &impl_item.locals {
+        local_types.insert(local.ident.clone(), local.ty.clone());
     }
 
-    fn convert_item_impl(
-        &self,
-        item_impl: WItemImpl<YSsa>,
-    ) -> Result<WItemImpl<YConverted>, Errors> {
-        let mut impl_item_fns = Vec::new();
+    let fn_converter = FnTypeConverter { ctx, local_types };
 
-        for impl_item_fn in item_impl.impl_item_fns {
-            impl_item_fns.push(self.convert_item_fn(impl_item_fn));
-        }
+    let block = fn_converter.convert_block(impl_item.block)?;
+    Ok(WItemFn {
+        visibility: impl_item.visibility,
+        signature,
+        locals: impl_item.locals,
+        block,
+        result: impl_item.result,
+    })
+}
 
-        let impl_item_types = item_impl
-            .impl_item_types
-            .into_iter()
-            .map(|type_item| WImplItemType {
-                visibility: type_item.visibility,
-                left_ident: type_item.left_ident,
-                right_path: convert_basic_path(type_item.right_path),
-            })
-            .collect();
+struct FnTypeConverter<'a> {
+    ctx: &'a mut WInferredContext,
+    local_types: IndexMap<WIdent, WTypeId>,
+}
 
-        let impl_item_fns = Errors::flat_result(impl_item_fns);
-
-        match impl_item_fns {
-            Ok(impl_item_fns) => Ok(WItemImpl {
-                self_ty: convert_basic_path(item_impl.self_ty),
-                trait_: item_impl.trait_,
-                impl_item_types,
-                impl_item_fns,
-            }),
-            Err(err) => Err(err),
-        }
-    }
-
-    fn convert_item_fn(&self, impl_item: WItemFn<YSsa>) -> Result<WItemFn<YConverted>, Errors> {
-        let signature = WSignature {
-            ident: impl_item.signature.ident,
-            inputs: impl_item.signature.inputs,
-            output: impl_item.signature.output,
-        };
-
-        let block = self.convert_block(impl_item.block)?;
-        Ok(WItemFn {
-            visibility: impl_item.visibility,
-            signature,
-            locals: impl_item.locals,
-            block,
-            result: impl_item.result,
-        })
-    }
-
-    fn convert_block(&self, block: WBlock<ZSsa>) -> Result<WBlock<ZConverted>, Errors> {
+impl FnTypeConverter<'_> {
+    fn convert_block(&self, block: WBlock<ZSsa>) -> Result<WBlock<ZLowered>, Errors> {
         let mut stmts = Vec::new();
         let mut errors = Vec::new();
 
@@ -194,10 +204,10 @@ impl TypeConverter<'_> {
         Ok(WBlock { stmts })
     }
 
-    fn convert_expr(&self, expr: WExpr<WExprHighCall>) -> Result<WExpr<WExprHighCall>, Errors> {
+    fn convert_expr(&self, expr: WExpr<WExprHighCall>) -> Result<WExpr<WExprLowCall>, Errors> {
         match expr {
             WExpr::Move(ident) => Ok(WExpr::Move(ident)),
-            WExpr::Call(expr_call) => Ok(self.convert_call_fn_path(expr_call)?),
+            WExpr::Call(expr_call) => Ok(self.convert_call(expr_call)?),
             WExpr::Field(expr_field) => Ok(WExpr::Field(expr_field)),
             WExpr::Struct(expr_struct) => Ok(WExpr::Struct(WExprStruct {
                 type_path: convert_basic_path(expr_struct.type_path),

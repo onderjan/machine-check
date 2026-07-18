@@ -5,9 +5,9 @@ use machine_check_common::ir_common::IrReference;
 
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    phi_arg_item_path, WBlock, WCall, WCallArg, WInferredContext, WExpr, WExprHighCall, WFnArg,
-    WHighMckNew, WIdent, WPhi, WPhiTaken, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt,
-    WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId, ZSsa, ZTotal,
+    phi_arg_item_path, WBlock, WCall, WCallArg, WExpr, WExprHighCall, WFnArg, WIdent,
+    WInferredContext, WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign,
+    WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId, ZSsa, ZTotal,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
 

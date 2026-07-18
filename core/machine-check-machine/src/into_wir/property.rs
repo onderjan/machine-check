@@ -22,7 +22,7 @@ use crate::{
     util::{create_type_path, path_matches_global_names},
     wir::{
         WInferredContext, WIdent, WInferenceContext, WProperty, WSubproperty, WSubpropertyFixedPoint,
-        WSubpropertyFunc, WSubpropertyNext, WTypeId, YConverted, YTac,
+        WSubpropertyFunc, WSubpropertyNext, WTypeId, YLowered, YTac,
     },
 };
 
@@ -71,7 +71,7 @@ pub fn create_from_syn<D>(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
-) -> Result<(WInferredContext, WProperty<YConverted>, Vec<String>), Errors> {
+) -> Result<(WInferredContext, WProperty<YLowered>, Vec<String>), Errors> {
     let span = expr.span();
     /*println!(
         "Original syn string:\n{}",

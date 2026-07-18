@@ -13,12 +13,12 @@ pub use from_syn::fold_type;
 
 use crate::{
     support::error_list::ErrorList,
-    wir::{WDescription, WIdent, WInferredContext, WProperty, WSpan, WTypeId, YConverted},
+    wir::{WDescription, WIdent, WInferredContext, WProperty, WSpan, WTypeId, YLowered},
 };
 
 pub fn create_description(
     items: Vec<Item>,
-) -> Result<(WInferredContext, WDescription<YConverted>, Vec<String>), crate::Errors> {
+) -> Result<(WInferredContext, WDescription<YLowered>, Vec<String>), crate::Errors> {
     description::description_from_syn(items).map_err(Errors::convert_inner)
 }
 
@@ -26,7 +26,7 @@ pub fn create_property_description<D>(
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
-) -> Result<(WInferredContext, WProperty<YConverted>, Vec<String>), crate::Errors> {
+) -> Result<(WInferredContext, WProperty<YLowered>, Vec<String>), crate::Errors> {
     property::create_from_syn(expr, global_ident_types, property_macros)
         .map_err(Errors::convert_inner)
 }

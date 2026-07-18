@@ -13,7 +13,7 @@ use machine_check_common::{
 };
 
 use crate::{
-    wir::{WBlock, WInferredContext, WItemFn, YConverted, ZConverted},
+    wir::{WBlock, WInferredContext, WItemFn, YLowered, ZLowered},
     Error,
 };
 
@@ -51,7 +51,7 @@ impl WFnData<'_> {
     }
 }
 
-impl WItemFn<YConverted> {
+impl WItemFn<YLowered> {
     pub(super) fn into_declaration(self, ctx: &WInferredContext) -> Result<IFnDeclaration, Error> {
         let mut next_var_id = 0;
 
@@ -131,7 +131,7 @@ impl WItemFn<YConverted> {
     }
 }
 
-impl WBlock<ZConverted> {
+impl WBlock<ZLowered> {
     pub(super) fn into_iir(self, fn_data: &WFnData) -> Result<IBlock, Error> {
         let mut stmts = Vec::new();
 

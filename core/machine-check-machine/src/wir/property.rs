@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::wir::{WIdent, WItemFn, YConverted, YStage};
+use crate::wir::{WIdent, WItemFn, YLowered, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WProperty<Y: YStage> {
@@ -49,7 +49,7 @@ impl<Y: YStage> WSubproperty<Y> {
     }
 }
 
-impl WSubproperty<YConverted> {
+impl WSubproperty<YLowered> {
     pub fn dependencies(&self) -> BTreeSet<usize> {
         match self {
             WSubproperty::Func(subprop) => {

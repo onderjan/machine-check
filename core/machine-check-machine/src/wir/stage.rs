@@ -3,8 +3,8 @@ use std::{fmt::Debug, hash::Hash};
 use syn::{Expr, Local, Path, Stmt, Type};
 
 use crate::wir::{
-    IntoSyn, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent, WItemImplTrait,
-    WMacroableStmt, WSsaLocal, WStmt, WTacLocal, WTypeId,
+    IntoSyn, WExpr, WExprHighCall, WExprLowCall, WIdent, WIndexedExpr, WIndexedIdent,
+    WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WTacLocal, WTypeId,
 };
 
 pub trait YStage {
@@ -78,10 +78,10 @@ impl YStage for YInferred {
 */
 
 #[derive(Clone, Debug, Hash)]
-pub struct YConverted;
+pub struct YLowered;
 
-impl YStage for YConverted {
-    type AssignTypes = ZConverted;
+impl YStage for YLowered {
+    type AssignTypes = ZLowered;
     type InputType = WTypeId;
     type OutputType = WTypeId;
     type FnResult = WIdent;
@@ -134,13 +134,13 @@ impl ZAssignTypes for ZSsa {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct ZConverted;
+pub struct ZLowered;
 
-impl ZAssignTypes for ZConverted {
-    type Stmt = WStmt<ZConverted>;
+impl ZAssignTypes for ZLowered {
+    type Stmt = WStmt<ZLowered>;
     type FundamentalType = WTypeId;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WExprHighCall>;
+    type AssignRight = WExpr<WExprLowCall>;
     type IfPolarity = WNoIfPolarity;
 }
 

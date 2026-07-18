@@ -10,8 +10,8 @@ use proc_macro2::Span;
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WBlock, WInferredContext, WDescription, WExpr, WExprField, WExprHighCall, WHighMckNew, WIdent,
-        WIfCondition, WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity, WProperty, WSignature,
+        WBlock, WDescription, WExpr, WExprField, WExprHighCall, WIdent, WIfCondition,
+        WInferredContext, WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity, WProperty, WSignature,
         WSpanned, WStdBinary, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc,
         WTacLocal, WTypeId, YTac, YTotal, ZTac, ZTotal,
     },

@@ -6,11 +6,11 @@ use machine_check_common::iir::property::{
 };
 
 use crate::{
-    wir::{WInferredContext, WProperty, WSubproperty, YConverted},
+    wir::{WInferredContext, WProperty, WSubproperty, YLowered},
     Error,
 };
 
-impl WProperty<YConverted> {
+impl WProperty<YLowered> {
     pub fn into_iir(self, ctx: &WInferredContext) -> Result<IProperty, Error> {
         let mut subproperties = Vec::new();
 

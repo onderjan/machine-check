@@ -6,11 +6,11 @@ use proc_macro2::Span;
 use syn::{Ident, Path, Type, TypePath};
 
 use crate::{
-    wir::{WInferredContext, WDescription, WItemImplTrait, YConverted},
+    wir::{WDescription, WInferredContext, WItemImplTrait, YLowered},
     Error,
 };
 
-impl WDescription<YConverted> {
+impl WDescription<YLowered> {
     pub fn into_iir(self, ctx: &mut WInferredContext) -> Result<IDescription, Error> {
         eprintln!("Converting into IIR: {:#?}", self);
         eprintln!("Context: {:#?}", ctx);

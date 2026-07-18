@@ -1,44 +1,53 @@
-use std::{collections::BTreeMap, fmt::Display};
-
 use machine_check_common::{
+    iir::ty::{IElementaryType, IGeneralType, IType},
     ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrStdBinaryOp, IrStdUnaryOp},
     Signedness,
 };
 
 use crate::{
-    into_wir::{conversion::convert_types::TypeConverter, Error, ErrorType},
+    into_wir::{conversion::convert_types::FnTypeConverter, Error, ErrorType},
     wir::{
-        WCall, WExpr, WExprHighCall, WHighMckExt, WHighMckNew, WIdent, WMckBinary, WMckExt,
-        WMckNew, WMckUnary, WSpan, WSpanned, WStdBinary, WStdUnary,
+        WCall, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckUnary, WSpanned,
+        WStdBinary, WStdUnary, WType,
     },
 };
 
 use super::convert_basic_path;
 
-impl TypeConverter<'_> {
-    pub fn convert_call_fn_path(&self, call: WExprHighCall) -> Result<WExpr<WExprHighCall>, Error> {
-        /*Ok(WExpr::Call(match call {
-            WExprHighCall::Call(call) => WExprCall::Call(convert_call(call)),
-            WExprHighCall::StdUnary(call) => WExprCall::MckUnary(convert_unary(call)),
-            WExprHighCall::StdBinary(call) => {
-                WExprCall::MckBinary(convert_binary(call, local_types)?)
-            }
-            WExprHighCall::MckExt(call) => WExprCall::MckExt(convert_ext(call, local_types)?),
-            WExprHighCall::MckNew(call) => WExprCall::MckNew(convert_mck_new(call)?),
-            WExprHighCall::BooleanNew(value) => WExprCall::BooleanNew(value),
-            WExprHighCall::StdInto(call) => return Ok(WExpr::Move(call.from)),
-            WExprHighCall::StdClone(ident) => WExprCall::StdClone(ident),
-            WExprHighCall::ArrayRead(read) => WExprCall::ArrayRead(read),
-            WExprHighCall::ArrayWrite(write) => WExprCall::ArrayWrite(write),
-            WExprHighCall::Phi(phi) => WExprCall::Phi(phi),
-            WExprHighCall::PhiTaken(taken) => WExprCall::PhiTaken(taken),
-            WExprHighCall::PhiNotTaken => WExprCall::PhiNotTaken,
-        }))*/
-        // TODO: convert calls
-        Ok(WExpr::Call(call))
+impl FnTypeConverter<'_> {
+    pub fn convert_call_expr(
+        &self,
+        call_expr: WExpr<WExprHighCall>,
+    ) -> Result<WExpr<WExprLowCall>, Error> {
+        match call_expr {
+            WExpr::Move(ident) => Ok(WExpr::Move(ident)),
+            WExpr::Call(call) => self.convert_call(call),
+            WExpr::Field(field) => Ok(WExpr::Field(field)),
+            WExpr::Struct(expr_struct) => Ok(WExpr::Struct(expr_struct)),
+            WExpr::Reference(reference) => Ok(WExpr::Reference(reference)),
+            WExpr::Lit(lit, span) => Ok(WExpr::Lit(lit, span)),
+        }
     }
 
-    /*fn convert_call(call: WCall) -> WCall {
+    pub fn convert_call(&self, call: WExprHighCall) -> Result<WExpr<WExprLowCall>, Error> {
+        Ok(WExpr::Call(match call {
+            WExprHighCall::Call(call) => WExprLowCall::Call(self.convert_normal_call(call)),
+            WExprHighCall::StdUnary(call) => WExprLowCall::MckUnary(self.convert_unary(call)),
+            WExprHighCall::StdBinary(call) => WExprLowCall::MckBinary(self.convert_binary(call)?),
+            /*WExprHighCall::MckExt(call) => WExprLowCall::MckExt(convert_ext(call, local_types)?),
+            WExprHighCall::MckNew(call) => WExprLowCall::MckNew(convert_mck_new(call)?),
+            WExprHighCall::BooleanNew(value) => WExprLowCall::BooleanNew(value),
+            WExprHighCall::StdInto(call) => return Ok(WExpr::Move(call.from)),
+            WExprHighCall::StdClone(ident) => WExprLowCall::StdClone(ident),
+            WExprHighCall::ArrayRead(read) => WExprLowCall::ArrayRead(read),
+            WExprHighCall::ArrayWrite(write) => WExprLowCall::ArrayWrite(write),
+            WExprHighCall::Phi(phi) => WExprLowCall::Phi(phi),
+            WExprHighCall::PhiTaken(taken) => WExprLowCall::PhiTaken(taken),
+            WExprHighCall::PhiNotTaken => WExprLowCall::PhiNotTaken,*/
+        }))
+    }
+
+    fn convert_normal_call(&self, call: WCall) -> WCall {
         let fn_path = convert_basic_path(call.fn_path);
         WCall {
             fn_path,
@@ -46,7 +55,7 @@ impl TypeConverter<'_> {
         }
     }
 
-    fn convert_unary(call: WStdUnary) -> WMckUnary {
+    fn convert_unary(&self, call: WStdUnary) -> WMckUnary {
         let op = match call.op {
             IrStdUnaryOp::Not => IrMckUnaryOp::Not,
             IrStdUnaryOp::Neg => IrMckUnaryOp::Neg,
@@ -57,10 +66,7 @@ impl TypeConverter<'_> {
         }
     }
 
-    fn convert_binary(
-        call: WStdBinary,
-        local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-    ) -> Result<WMckBinary, Error> {
+    fn convert_binary(&self, call: WStdBinary) -> Result<WMckBinary, Error> {
         let mut left_arg = call.a;
         let mut right_arg = call.b;
 
@@ -69,7 +75,7 @@ impl TypeConverter<'_> {
             IrStdBinaryOp::BitOr => IrMckBinaryOp::BitOr,
             IrStdBinaryOp::BitXor => IrMckBinaryOp::BitXor,
             IrStdBinaryOp::Shl => IrMckBinaryOp::LogicShl,
-            IrStdBinaryOp::Shr => match signedness(&left_arg, local_types) {
+            IrStdBinaryOp::Shr => match self.signedness(&left_arg) {
                 Some(Signedness::Signed) => IrMckBinaryOp::ArithShr,
                 Some(Signedness::Unsigned) => IrMckBinaryOp::LogicShr,
                 _ => {
@@ -92,10 +98,9 @@ impl TypeConverter<'_> {
 
                 let includes_equality = matches!(call.op, IrStdBinaryOp::Le | IrStdBinaryOp::Ge);
 
-                let (Some(left_signedness), Some(right_signedness)) = (
-                    signedness(&left_arg, local_types),
-                    signedness(&right_arg, local_types),
-                ) else {
+                let (Some(left_signedness), Some(right_signedness)) =
+                    (self.signedness(&left_arg), self.signedness(&right_arg))
+                else {
                     return Err(Error::new(
                         ErrorType::CallConversionError("Cannot determine comparison signedness"),
                         left_arg.wir_span(),
@@ -135,7 +140,7 @@ impl TypeConverter<'_> {
                     }
                 }
             }
-            IrStdBinaryOp::Div => match signedness(&left_arg, local_types) {
+            IrStdBinaryOp::Div => match self.signedness(&left_arg) {
                 Some(Signedness::Signed) => IrMckBinaryOp::Sdiv,
                 Some(Signedness::Unsigned) => IrMckBinaryOp::Udiv,
                 _ => {
@@ -145,7 +150,7 @@ impl TypeConverter<'_> {
                     ))
                 }
             },
-            IrStdBinaryOp::Rem => match signedness(&left_arg, local_types) {
+            IrStdBinaryOp::Rem => match self.signedness(&left_arg) {
                 Some(Signedness::Signed) => IrMckBinaryOp::Srem,
                 Some(Signedness::Unsigned) => IrMckBinaryOp::Urem,
                 _ => {
@@ -164,6 +169,7 @@ impl TypeConverter<'_> {
         })
     }
 
+    /*
     fn convert_ext(
         call: WHighMckExt,
         local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
@@ -242,24 +248,32 @@ impl TypeConverter<'_> {
             }
         })
     }*/
-}
 
-/*
-fn signedness(
-    ident: &WIdent,
-    local_types: &BTreeMap<WIdent, WGeneralType<WBasicType>>,
-) -> Option<Signedness> {
-    let ty = local_types.get(ident);
-    let Some(ty) = ty else {
-        // type is not in local ident types, do not determine signedness
-        return None;
-    };
-    match ty {
-        WGeneralType::Normal(ty) => match ty.inner {
-            WBasicType::Bitvector(signedness, _) => Some(signedness),
-            _ => None,
-        },
-        _ => None,
+    fn signedness(&self, ident: &WIdent) -> Option<Signedness> {
+        let ty = self.local_types.get(ident);
+        let Some(ty) = ty else {
+            // type is not in local ident types, do not determine signedness
+            return None;
+        };
+        let ty = self.ctx.wir_type(ty.clone());
+        type_signedness(ty)
     }
 }
-*/
+
+fn type_signedness(ty: WType) -> Option<Signedness> {
+    match ty {
+        WType::Path(path) => {
+            if path.matches_absolute(&["machine_check", "Unsigned"]) {
+                return Some(Signedness::Unsigned);
+            }
+            if path.matches_absolute(&["machine_check", "Signed"]) {
+                return Some(Signedness::Signed);
+            }
+            if path.matches_absolute(&["machine_check", "Bitvector"]) {
+                return Some(Signedness::None);
+            }
+            None
+        }
+        WType::Reference(inner) => type_signedness(*inner),
+    }
+}

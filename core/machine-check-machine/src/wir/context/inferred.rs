@@ -46,6 +46,10 @@ impl WInferredContext {
         self.type_id(ty)
     }
 
+    pub fn wir_type(&self, id: WTypeId) -> WType {
+        self.types[id.0].clone()
+    }
+
     pub fn iir_id_general_type(&self, id: WTypeId) -> IGeneralType {
         self.iir_ty(self.types.get(id.0).expect("Type id should be present"))
     }
