@@ -1,21 +1,20 @@
-/*mod item_impl;
-mod item_struct;*/
+mod item_impl;
+mod item_struct;
 
 use syn::{GenericArgument, Item, Path, Type};
 
 use crate::{
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        IntoSyn, WDescription, WExpr, WExprLowCall, WIdent, WItemImplTrait, WPath, WSsaLocal,
-        WStmt, WTypeId, YSsa, YStage, ZAssignTypes, ZIfPolarity,
+        IntoSyn, WDescription, WExpr, WExprLowCall, WIdent, WItemImplTrait, WLowContext, WPath,
+        WSsaLocal, WStmt, WTypeId, YSsa, YStage, ZAssignTypes, ZIfPolarity,
     },
 };
 
-/*
 use self::{
     item_impl::{preprocess_item_impl, process_item_impl},
     item_struct::process_item_struct,
-};*/
+};
 
 #[derive(Clone, Debug, Hash)]
 pub struct YAbstr;
@@ -74,9 +73,8 @@ impl IntoSyn<Path> for WAbstrItemImplTrait {
 
 pub(crate) fn create_abstract_description(
     description: WDescription<YSsa>,
+    ctx: &WLowContext,
 ) -> (WDescription<YAbstr>, Vec<Item>) {
-    todo!("Create abstract description");
-    /*
     let mut machine_types = Vec::new();
     for item_impl in description.impls.iter() {
         if let Some(ty) = preprocess_item_impl(item_impl) {
@@ -92,7 +90,7 @@ pub(crate) fn create_abstract_description(
     };
 
     for item_struct in description.structs {
-        let (item_struct, other_impls) = process_item_struct(item_struct);
+        let (item_struct, other_impls) = process_item_struct(item_struct, ctx);
         abstract_description.structs.push(item_struct);
         misc_items.extend(other_impls.into_iter().map(Item::Impl));
     }
@@ -103,5 +101,4 @@ pub(crate) fn create_abstract_description(
     }
 
     (abstract_description, misc_items)
-    */
 }

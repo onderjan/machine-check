@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
-use crate::wir::{WBlock, WIdent, WStmt, ZConverted};
+use crate::wir::{WBlock, WIdent, WStmt, ZSsa};
 
-pub fn used_open_idents(block: &WBlock<ZConverted>) -> HashSet<WIdent> {
+pub fn used_open_idents(block: &WBlock<ZSsa>) -> HashSet<WIdent> {
     let mut used_open = UsedOpen { scopes: vec![] };
 
     used_open.open_block_idents(block)
@@ -13,7 +13,7 @@ struct UsedOpen {
 }
 
 impl UsedOpen {
-    fn open_block_idents(&mut self, block: &WBlock<ZConverted>) -> HashSet<WIdent> {
+    fn open_block_idents(&mut self, block: &WBlock<ZSsa>) -> HashSet<WIdent> {
         let mut result = HashSet::new();
 
         self.scopes.push(HashSet::new());
@@ -26,7 +26,7 @@ impl UsedOpen {
         result
     }
 
-    fn open_stmt_idents(&mut self, stmt: &WStmt<ZConverted>) -> HashSet<WIdent> {
+    fn open_stmt_idents(&mut self, stmt: &WStmt<ZSsa>) -> HashSet<WIdent> {
         match stmt {
             WStmt::Assign(stmt_assign) => {
                 let right_idents = stmt_assign.right.idents();

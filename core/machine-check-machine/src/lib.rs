@@ -186,7 +186,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     let iir = description.clone().into_iir(&mut ctx)?;
 
     let (abstract_description, misc_abstract_items) =
-        abstr::create_abstract_description(description);
+        abstr::create_abstract_description(description, &ctx);
 
     if let Some(out_dir) = &out_dir {
         std::fs::write(
@@ -209,10 +209,6 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     abstract_description.items.extend(misc_abstract_items);
 
-    todo!("Abstract description");
-
-    /*
-
     support::strip_machine::strip_machine(&mut abstract_description)?;
 
     concr::process_items(items, &panic_messages, iir)?;
@@ -228,7 +224,6 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     }
 
     Ok(())
-    */
 }
 
 fn redirect_mck(items: &mut [Item]) -> Result<(), Error> {

@@ -9,7 +9,7 @@ use crate::{
         create_path_from_ident, create_path_segment, create_path_with_last_generic_type,
         create_type_path,
     },
-    wir::{WElementaryType, WItemStruct},
+    wir::{WItemStruct, WLowContext},
 };
 
 use self::from_concrete::from_concrete_fn;
@@ -20,8 +20,9 @@ mod phi;
 mod runtime;
 
 pub fn process_item_struct(
-    mut item_struct: WItemStruct<WElementaryType>,
-) -> (WItemStruct<WElementaryType>, Vec<ItemImpl>) {
+    mut item_struct: WItemStruct,
+    ctx: &WLowContext,
+) -> (WItemStruct, Vec<ItemImpl>) {
     let mut has_derived_eq = false;
     let mut has_derived_partial_eq = false;
     // look for derives of PartialEq and Eq
@@ -53,11 +54,11 @@ pub fn process_item_struct(
     }
     item_struct.derives = passthrough_derives;
 
-    let abstr_impl = create_abstr(&item_struct);
+    let abstr_impl = create_abstr(&item_struct, ctx);
 
     if has_derived_partial_eq && has_derived_eq {
         // add phi and meta-eq implementations
-        let phi_impl = phi_impl(&item_struct);
+        let phi_impl = phi_impl(&item_struct, ctx);
         let meta_eq_impl = meta_eq_impl(&item_struct);
 
         (item_struct, vec![abstr_impl, meta_eq_impl, phi_impl])
@@ -66,7 +67,7 @@ pub fn process_item_struct(
     }
 }
 
-fn create_abstr(item_struct: &WItemStruct<WElementaryType>) -> ItemImpl {
+fn create_abstr(item_struct: &WItemStruct, ctx: &WLowContext) -> ItemImpl {
     let span = item_struct.ident.span();
 
     let mut concr_segments = Punctuated::new();
@@ -80,8 +81,8 @@ fn create_abstr(item_struct: &WItemStruct<WElementaryType>) -> ItemImpl {
     let abstr_path =
         create_path_with_last_generic_type(path!(::mck::abstr::Abstr), concr_ty.clone());
 
-    let from_concrete_fn = ImplItem::Fn(from_concrete_fn(item_struct, concr_ty));
-    let from_runtime_fn = ImplItem::Fn(from_runtime_fn(item_struct));
+    let from_concrete_fn = ImplItem::Fn(from_concrete_fn(item_struct, concr_ty, ctx));
+    let from_runtime_fn = ImplItem::Fn(from_runtime_fn(item_struct, ctx));
     let to_runtime_fn = ImplItem::Fn(to_runtime_fn(item_struct));
 
     ItemImpl {

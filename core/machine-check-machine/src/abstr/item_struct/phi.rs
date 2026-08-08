@@ -8,11 +8,11 @@ use crate::{
         create_item_impl, create_let_bare, create_path_from_ident, create_self, create_self_arg,
         create_type_path, ArgType,
     },
-    wir::{IntoSyn, WElementaryType, WItemStruct},
+    wir::{IntoSyn, WItemStruct, WLowContext},
 };
 
-pub fn phi_impl(item_struct: &WItemStruct<WElementaryType>) -> ItemImpl {
-    let phi_fn = phi_fn(item_struct);
+pub fn phi_impl(item_struct: &WItemStruct, ctx: &WLowContext) -> ItemImpl {
+    let phi_fn = phi_fn(item_struct, ctx);
 
     create_item_impl(
         Some(path!(::mck::forward::Phi)),
@@ -21,7 +21,7 @@ pub fn phi_impl(item_struct: &WItemStruct<WElementaryType>) -> ItemImpl {
     )
 }
 
-fn phi_fn(s: &WItemStruct<WElementaryType>) -> ImplItemFn {
+fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
     // phi each field together
     let self_arg = create_self_arg(ArgType::Normal);
     let other_ident = create_ident("other");
@@ -41,7 +41,12 @@ fn phi_fn(s: &WItemStruct<WElementaryType>) -> ImplItemFn {
         let self_field_temp_ident = create_ident(&format!("__mck_phi_self_{}", index));
         local_stmts.push(create_let_bare(
             self_field_temp_ident.clone(),
-            Some(field.ty.clone().into_syn()),
+            Some(
+                field
+                    .ty
+                    .clone()
+                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+            ),
         ));
         assign_stmts.push(create_assign(
             self_field_temp_ident.clone(),
@@ -53,7 +58,12 @@ fn phi_fn(s: &WItemStruct<WElementaryType>) -> ImplItemFn {
         let other_field_temp_ident = create_ident(&format!("__mck_phi_other_{}", index));
         local_stmts.push(create_let_bare(
             other_field_temp_ident.clone(),
-            Some(field.ty.clone().into_syn()),
+            Some(
+                field
+                    .ty
+                    .clone()
+                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+            ),
         ));
         assign_stmts.push(create_assign(
             other_field_temp_ident.clone(),
@@ -73,7 +83,12 @@ fn phi_fn(s: &WItemStruct<WElementaryType>) -> ImplItemFn {
         let phi_result_ident = create_ident(&format!("__mck_phi_result_{}", index));
         local_stmts.push(create_let_bare(
             phi_result_ident.clone(),
-            Some(field.ty.clone().into_syn()),
+            Some(
+                field
+                    .ty
+                    .clone()
+                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+            ),
         ));
         assign_stmts.push(create_assign(
             phi_result_ident.clone(),

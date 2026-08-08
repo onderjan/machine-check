@@ -11,10 +11,10 @@ use crate::{
         create_expr_reference, create_ident, create_impl_item_fn, create_let, create_let_bare,
         create_type_path, create_type_reference, ArgType,
     },
-    wir::{IntoSyn, WElementaryType, WItemStruct, WSpanned},
+    wir::{IntoSyn, WItemStruct, WLowContext, WSpanned},
 };
 
-pub fn from_runtime_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn {
+pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
     let span = item_struct.wir_span().first();
     let runtime_ident = Ident::new("__mck_runtime", span);
     let runtime_ty =
@@ -53,7 +53,12 @@ pub fn from_runtime_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn
         let our_field_temp_ident = create_ident(&format!("__mck_into_abstr_{}", index));
         local_stmts.push(create_let_bare(
             our_field_temp_ident.clone(),
-            Some(field.ty.clone().into_syn()),
+            Some(
+                field
+                    .ty
+                    .clone()
+                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+            ),
         ));
         assign_stmts.push(create_assign(
             our_field_temp_ident.clone(),
@@ -91,7 +96,7 @@ pub fn from_runtime_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn
     )
 }
 
-pub fn to_runtime_fn(item_struct: &WItemStruct<WElementaryType>) -> ImplItemFn {
+pub fn to_runtime_fn(item_struct: &WItemStruct) -> ImplItemFn {
     let span = item_struct.wir_span().first();
 
     let self_ident = Ident::new("self", span);

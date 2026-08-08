@@ -1,29 +1,31 @@
 use std::collections::HashMap;
 
 use machine_check_common::ir_common::IrReference;
+use proc_macro2::Span;
 
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, ZAbstr, ZAbstrIfPolarity},
     wir::{
-        WBlock, WElementaryType, WExpr, WExprCall, WExprReference, WFnArg, WGeneralType, WIdent,
-        WIfCondition, WItemFn, WItemImpl, WItemImplTrait, WPath, WPathSegment, WSignature,
-        WSsaLocal, WStmt, WStmtAssign, WStmtIf, WType, YConverted, ZConverted,
+        WBlock, WExpr, WExprLowCall, WExprReference, WFnArg, WIdent, WIfCondition, WItemFn,
+        WItemImpl, WItemImplTrait, WPath, WPathSegment, WSignature, WSsaLocal, WStmt, WStmtAssign,
+        WStmtIf, WType, WTypeId, YSsa, ZSsa,
     },
 };
 
 mod used_open;
 
-pub fn preprocess_item_impl(item_impl: &WItemImpl<YConverted>) -> Option<WPath> {
+pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WPath> {
     let Some(WItemImplTrait::Machine(_)) = item_impl.trait_ else {
         return None;
     };
 
     let mut ty = item_impl.self_ty.clone();
-    let span = ty.span();
+    let span = Span::call_site();
     ty.segments.insert(
         0,
         WPathSegment {
             ident: WIdent::new(String::from("super"), span),
+            generics: None,
         },
     );
 
@@ -31,7 +33,7 @@ pub fn preprocess_item_impl(item_impl: &WItemImpl<YConverted>) -> Option<WPath> 
 }
 
 pub fn process_item_impl(
-    item_impl: WItemImpl<YConverted>,
+    item_impl: WItemImpl<YSsa>,
     machine_types: &[WPath],
 ) -> Vec<WItemImpl<YAbstr>> {
     let mut impl_item_fns = Vec::new();
@@ -62,7 +64,7 @@ pub fn process_item_impl(
     results
 }
 
-pub fn fold_impl_item_fn(mut impl_item_fn: WItemFn<YConverted>) -> WItemFn<YAbstr> {
+pub fn fold_impl_item_fn(mut impl_item_fn: WItemFn<YSsa>) -> WItemFn<YAbstr> {
     let signature = WSignature {
         ident: impl_item_fn.signature.ident,
         inputs: impl_item_fn.signature.inputs,
@@ -72,13 +74,12 @@ pub fn fold_impl_item_fn(mut impl_item_fn: WItemFn<YConverted>) -> WItemFn<YAbst
     let mut locals_and_args_map = HashMap::new();
 
     for input in &signature.inputs {
-        let ty: &WType<WElementaryType> = &input.ty;
         locals_and_args_map.insert(
             input.ident.clone(),
             WSsaLocal {
                 ident: input.ident.clone(),
                 original: input.ident.clone(),
-                ty: WGeneralType::Normal(ty.clone()),
+                ty: input.ty.clone(),
             },
         );
     }
@@ -106,13 +107,13 @@ pub fn fold_impl_item_fn(mut impl_item_fn: WItemFn<YConverted>) -> WItemFn<YAbst
 
 #[derive(Debug)]
 struct AbstractConverter<'a> {
-    locals: &'a mut Vec<WSsaLocal<WGeneralType<WElementaryType>>>,
-    inputs: &'a Vec<WFnArg<WType<WElementaryType>>>,
+    locals: &'a mut Vec<WSsaLocal>,
+    inputs: &'a Vec<WFnArg>,
     next_cloned_id: u64,
 }
 
 impl AbstractConverter<'_> {
-    fn fold_block(&mut self, block: WBlock<ZConverted>) -> WBlock<ZAbstr> {
+    fn fold_block(&mut self, block: WBlock<ZSsa>) -> WBlock<ZAbstr> {
         WBlock {
             stmts: block
                 .stmts
@@ -122,7 +123,7 @@ impl AbstractConverter<'_> {
         }
     }
 
-    fn fold_stmt(&mut self, stmt: WStmt<ZConverted>) -> Vec<WStmt<ZAbstr>> {
+    fn fold_stmt(&mut self, stmt: WStmt<ZSsa>) -> Vec<WStmt<ZAbstr>> {
         match stmt {
             WStmt::Assign(stmt_assign) => {
                 vec![WStmt::Assign(WStmtAssign {
@@ -134,7 +135,7 @@ impl AbstractConverter<'_> {
         }
     }
 
-    fn fold_if(&mut self, stmt_if: WStmtIf<ZConverted>) -> Vec<WStmt<ZAbstr>> {
+    fn fold_if(&mut self, stmt_if: WStmtIf<ZSsa>) -> Vec<WStmt<ZAbstr>> {
         // split into two if statements with then branch for each branch of original:
         // 1. can be true
         // 2. can be false
@@ -156,7 +157,7 @@ impl AbstractConverter<'_> {
         &mut self,
         condition: &WIdent,
         polarity: bool,
-        mut taken_block: WBlock<ZConverted>,
+        mut taken_block: WBlock<ZSsa>,
     ) -> WStmtIf<ZAbstr> {
         // first, make sure that if we use variables from above scopes,
         // they are appropriately cloned
@@ -187,7 +188,7 @@ impl AbstractConverter<'_> {
 
     fn process_taken_branch_block(
         &mut self,
-        taken_block: WBlock<ZConverted>,
+        taken_block: WBlock<ZSsa>,
     ) -> (WBlock<ZAbstr>, WBlock<ZAbstr>) {
         // change Taken statements to MaybeTaken and also add them changed to NotTaken to else block
         // eliminate the NotTaken statements
@@ -204,8 +205,8 @@ impl AbstractConverter<'_> {
             };
 
             let taken = match stmt_assign.right {
-                WExpr::Call(WExprCall::PhiTaken(ident)) => ident,
-                WExpr::Call(WExprCall::PhiNotTaken) => {
+                WExpr::Call(WExprLowCall::PhiTaken(ident)) => ident,
+                WExpr::Call(WExprLowCall::PhiNotTaken) => {
                     // eliminate NotTaken, do not retain the statement
                     continue;
                 }
@@ -220,13 +221,13 @@ impl AbstractConverter<'_> {
             // this was Taken, retain
             taken_stmts.push(WStmt::Assign(WStmtAssign {
                 left: stmt_assign.left.clone(),
-                right: WExpr::Call(WExprCall::PhiTaken(taken)),
+                right: WExpr::Call(WExprLowCall::PhiTaken(taken)),
             }));
 
             // also add as NotTaken to the else block
             not_taken_stmts.push(WStmt::Assign(WStmtAssign {
                 left: stmt_assign.left,
-                right: WExpr::Call(WExprCall::PhiNotTaken),
+                right: WExpr::Call(WExprLowCall::PhiNotTaken),
             }));
         }
 
@@ -240,13 +241,17 @@ impl AbstractConverter<'_> {
 
     fn process_used_open_ident(
         &mut self,
-        taken_block: &mut WBlock<ZConverted>,
-        added_start_stmts: &mut Vec<WStmt<ZConverted>>,
+        taken_block: &mut WBlock<ZSsa>,
+        added_start_stmts: &mut Vec<WStmt<ZSsa>>,
         used_open_ident: WIdent,
     ) {
         let Some(local) = self.get_from_locals_and_idents(&used_open_ident) else {
             panic!("Not found open used {:?} in locals", used_open_ident);
         };
+
+        // TODO: cloning non-copy types
+
+        /*
 
         // only consider non-reference array and path-based types
 
@@ -285,7 +290,7 @@ impl AbstractConverter<'_> {
 
         let clone_stmt = WStmt::Assign(WStmtAssign {
             left: cloned_ident.clone(),
-            right: WExpr::Call(WExprCall::StdClone(clone_ref_ident.clone())),
+            right: WExpr::Call(WExprLowCall::StdClone(clone_ref_ident.clone())),
         });
 
         added_start_stmts.push(clone_ref_stmt.clone());
@@ -308,12 +313,10 @@ impl AbstractConverter<'_> {
             original: original_ident,
             ty: original_ty,
         });
+        */
     }
 
-    fn get_from_locals_and_idents(
-        &self,
-        ident: &WIdent,
-    ) -> Option<WSsaLocal<WGeneralType<WElementaryType>>> {
+    fn get_from_locals_and_idents(&self, ident: &WIdent) -> Option<WSsaLocal> {
         // TODO: make faster and nicer
         for local in self.locals.iter() {
             if &local.ident == ident {
@@ -326,7 +329,7 @@ impl AbstractConverter<'_> {
                 return Some(WSsaLocal {
                     ident: input.ident.clone(),
                     original: input.ident.clone(),
-                    ty: WGeneralType::Normal(input.ty.clone()),
+                    ty: input.ty.clone(),
                 });
             }
         }
@@ -335,7 +338,8 @@ impl AbstractConverter<'_> {
     }
 }
 
-fn replace_stmt_ident(stmt: &mut WStmt<ZConverted>, original: &WIdent, replacement: &WIdent) {
+/*
+fn replace_stmt_ident(stmt: &mut WStmt<ZSsa>, original: &WIdent, replacement: &WIdent) {
     match stmt {
         WStmt::Assign(stmt_assign) => match &mut stmt_assign.right {
             WExpr::Move(ident) | WExpr::Reference(WExprReference::Ident(ident)) => {
@@ -373,3 +377,4 @@ fn replace_stmt_ident(stmt: &mut WStmt<ZConverted>, original: &WIdent, replaceme
         }
     }
 }
+*/

@@ -110,8 +110,7 @@ impl WLowContext {
             IElementaryType::Struct(istruct_id) => self.type_defs[istruct_id.0].0.clone(),
         };
         let span = result.span();
-        // TODO phi arg type
-        match itype.reference {
+        let result = match itype.reference {
             IrReference::Immutable => Type::Reference(TypeReference {
                 and_token: Token![&](span),
                 lifetime: None,
@@ -119,6 +118,37 @@ impl WLowContext {
                 elem: Box::new(result),
             }),
             IrReference::None => result,
+        };
+
+        if is_phi_arg {
+            let phi_arg_path = Path {
+                leading_colon: Some(Token![::](span)),
+                segments: Punctuated::from_iter([
+                    PathSegment {
+                        ident: Ident::new("mck", span),
+                        arguments: PathArguments::None,
+                    },
+                    PathSegment {
+                        ident: Ident::new("forward", span),
+                        arguments: PathArguments::None,
+                    },
+                    PathSegment {
+                        ident: Ident::new("PhiArg", span),
+                        arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                            colon2_token: None,
+                            lt_token: Token![<](span),
+                            args: Punctuated::from_iter([GenericArgument::Type(result)]),
+                            gt_token: Token![>](span),
+                        }),
+                    },
+                ]),
+            };
+            Type::Path(TypePath {
+                qself: None,
+                path: phi_arg_path,
+            })
+        } else {
+            result
         }
     }
 

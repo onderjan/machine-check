@@ -4,8 +4,8 @@ use std::fmt::Debug;
 use syn::{
     punctuated::Punctuated,
     token::{Comma, Paren},
-    Expr, ExprCall, ExprInfer, ExprLit, ExprPath, Ident, Lit, LitInt, Path, PathSegment, Token,
-    Type,
+    Expr, ExprCall, ExprInfer, ExprLit, ExprPath, Ident, Lit, LitInt, Path, PathArguments,
+    PathSegment, Token, Type,
 };
 
 use crate::wir::{IntoSyn, WTypeId};
@@ -131,22 +131,42 @@ impl IntoSyn<Expr> for WExprLowCall {
             WExprLowCall::MckNew(new) => {
                 let span = Span::call_site();
                 match new {
-                    WMckNew::Bitvector(concrete_bitvector) => (
-                        MCK_BITVECTOR_NEW.to_string(),
-                        Punctuated::<Expr, Comma>::from_iter([
-                            Expr::Lit(ExprLit {
-                                attrs: Vec::new(),
-                                lit: Lit::Int(LitInt::new(
-                                    &concrete_bitvector.to_u64().to_string(),
-                                    span,
-                                )),
-                            }),
-                            Expr::Infer(ExprInfer {
-                                attrs: Vec::new(),
-                                underscore_token: Token![_](span),
-                            }),
-                        ]),
-                    ),
+                    WMckNew::Bitvector(concrete_bitvector) => {
+                        let cbound = Path {
+                            leading_colon: Some(Token![::](span)),
+                            segments: Punctuated::from_iter([
+                                PathSegment {
+                                    ident: Ident::new("mck", span),
+                                    arguments: PathArguments::None,
+                                },
+                                PathSegment {
+                                    ident: Ident::new("misc", span),
+                                    arguments: PathArguments::None,
+                                },
+                                PathSegment {
+                                    ident: Ident::new("CBound", span),
+                                    arguments: PathArguments::None,
+                                },
+                            ]),
+                        };
+                        (
+                            MCK_BITVECTOR_NEW.to_string(),
+                            Punctuated::<Expr, Comma>::from_iter([
+                                Expr::Lit(ExprLit {
+                                    attrs: Vec::new(),
+                                    lit: Lit::Int(LitInt::new(
+                                        &concrete_bitvector.to_u64().to_string(),
+                                        span,
+                                    )),
+                                }),
+                                Expr::Path(ExprPath {
+                                    attrs: Vec::new(),
+                                    qself: None,
+                                    path: cbound,
+                                }),
+                            ]),
+                        )
+                    }
                     WMckNew::BitvectorArray(ir_type_array, wident) => todo!("Mck array"),
                 }
             }
@@ -202,4 +222,51 @@ fn convert_args(func_args: Vec<WIdent>) -> Punctuated<Expr, Comma> {
         }));
     }
     args
+}
+
+impl WExprLowCall {
+    pub fn idents(&self) -> Vec<WIdent> {
+        match self {
+            WExprLowCall::Call(call) => call
+                .args
+                .iter()
+                .filter_map(|arg| match arg {
+                    super::WCallArg::Ident(ident) => Some(ident.clone()),
+                    super::WCallArg::Literal(lit) => None,
+                })
+                .collect(),
+            WExprLowCall::MckUnary(mck_unary) => {
+                vec![mck_unary.operand.clone()]
+            }
+            WExprLowCall::MckBinary(mck_binary) => {
+                vec![mck_binary.a.clone(), mck_binary.b.clone()]
+            }
+            WExprLowCall::MckExt(mck_ext) => {
+                vec![mck_ext.from.clone()]
+            }
+            WExprLowCall::MckNew(mck_new) => match mck_new {
+                WMckNew::Bitvector(_) => vec![],
+                WMckNew::BitvectorArray(_ir_type_array, ident) => vec![ident.clone()],
+            },
+            WExprLowCall::BooleanNew(_) => vec![],
+            WExprLowCall::StdClone(ident) => vec![ident.clone()],
+            WExprLowCall::ArrayRead(array_read) => {
+                vec![array_read.base.clone(), array_read.index.clone()]
+            }
+            WExprLowCall::ArrayWrite(array_write) => vec![
+                array_write.base.clone(),
+                array_write.index.clone(),
+                array_write.element.clone(),
+            ],
+            WExprLowCall::Phi(phi) => vec![
+                phi.condition.clone(),
+                phi.then_ident.clone(),
+                phi.else_ident.clone(),
+            ],
+            WExprLowCall::PhiTaken(phi_taken) => {
+                vec![phi_taken.ident.clone(), phi_taken.condition.clone()]
+            }
+            WExprLowCall::PhiNotTaken => vec![],
+        }
+    }
 }

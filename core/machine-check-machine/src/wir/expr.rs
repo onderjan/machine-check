@@ -9,7 +9,7 @@ use syn::{
 
 use crate::{
     util::create_expr_ident,
-    wir::{WPartialPath, WTypeId},
+    wir::{expr, WExprLowCall, WPartialPath, WTypeId},
 };
 
 use super::{IntoSyn, WIdent};
@@ -203,6 +203,32 @@ impl<CF: IntoSyn<Expr> + Debug> Debug for WExpr<CF> {
 
                 lit.fmt(f)
             }
+        }
+    }
+}
+
+impl WExpr<WExprLowCall> {
+    pub fn idents(&self) -> Vec<WIdent> {
+        match self {
+            WExpr::Move(ident) => {
+                vec![ident.clone()]
+            }
+            WExpr::Call(call) => call.idents(),
+            WExpr::Field(expr_field) => {
+                vec![expr_field.base.clone(), expr_field.member.clone()]
+            }
+            WExpr::Struct(expr_struct) => expr_struct
+                .fields
+                .iter()
+                .map(|(name, member)| member.clone())
+                .collect(),
+            WExpr::Reference(expr_reference) => match expr_reference {
+                WExprReference::Ident(ident) => vec![ident.clone()],
+                WExprReference::Field(expr_field) => {
+                    vec![expr_field.base.clone(), expr_field.member.clone()]
+                }
+            },
+            WExpr::Lit(..) => vec![],
         }
     }
 }

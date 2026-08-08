@@ -1,6 +1,6 @@
 use syn::{
     punctuated::Punctuated, spanned::Spanned, Expr, ExprField, ExprStruct, FieldValue, Ident,
-    ImplItemFn, Stmt, Token, Type,
+    ImplItemFn, Stmt, Token, Type, TypePath,
 };
 use syn_path::path;
 
@@ -10,10 +10,14 @@ use crate::{
         create_ident, create_impl_item_fn, create_let_bare, create_type_path,
         path_starts_with_global_names, ArgType,
     },
-    wir::{IntoSyn, WElementaryType, WItemStruct},
+    wir::{IntoSyn, WItemStruct, WLowContext},
 };
 
-pub fn from_concrete_fn(item_struct: &WItemStruct<WElementaryType>, concr_ty: Type) -> ImplItemFn {
+pub fn from_concrete_fn(
+    item_struct: &WItemStruct,
+    concr_ty: Type,
+    ctx: &WLowContext,
+) -> ImplItemFn {
     let concr_ident = create_ident("concr");
     let span = concr_ident.span();
     let concr_arg = create_arg(ArgType::Normal, concr_ident.clone(), Some(concr_ty));
@@ -30,7 +34,16 @@ pub fn from_concrete_fn(item_struct: &WItemStruct<WElementaryType>, concr_ty: Ty
             member: syn::Member::Named(field.ident.to_syn_ident()),
         });
 
-        let mut concr_field_path = field.ty.clone().into_syn_path();
+        let Type::Path(TypePath {
+            path: mut concr_field_path,
+            ..
+        }) = field
+            .ty
+            .clone()
+            .into_syn(&|type_id| ctx.id_syn_type(type_id))
+        else {
+            panic!("Field type should be a path");
+        };
 
         // TODO: nicer concrete type conversion
 
@@ -59,7 +72,12 @@ pub fn from_concrete_fn(item_struct: &WItemStruct<WElementaryType>, concr_ty: Ty
         let abstr_field_temp_ident = create_ident(&format!("__mck_into_abstr_{}", index));
         local_stmts.push(create_let_bare(
             abstr_field_temp_ident.clone(),
-            Some(field.ty.clone().into_syn()),
+            Some(
+                field
+                    .ty
+                    .clone()
+                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+            ),
         ));
         assign_stmts.push(create_assign(
             abstr_field_temp_ident.clone(),

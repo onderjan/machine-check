@@ -217,7 +217,14 @@ pub fn fold_item_impl(
         Errors::combine_and_vec(impl_item_types, impl_item_fns, errors)?;
 
     let self_ty = match *item.self_ty {
-        Type::Path(type_path) => fold_partial_path(type_path.path)?,
+        Type::Path(type_path) => fold_partial_path(type_path.path.clone())?
+            .into_total()
+            .map_err(|_| {
+                Errors::single(Error::unsupported_syn_construct(
+                    "Incompletely specified path",
+                    &type_path,
+                ))
+            })?,
         _ => {
             return Err(Errors::single(Error::unsupported_syn_construct(
                 "Non-path self type",
