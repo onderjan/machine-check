@@ -4,7 +4,7 @@ version = "0.7.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Macro crate for the formal verification tool machine-check"
-rust-version = "1.88"
+rust-version = "1.95"
 
 [lib]
 proc-macro = true

@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.95"
 version = "0.7.1"
 
 [features]
@@ -68,6 +68,3 @@ path = "examples/misc/array.rs"
 [[example]]
 name = "misc_signed"
 path = "examples/misc/signed.rs"
-
-[lints.clippy]
-uninlined_format_args = "allow"

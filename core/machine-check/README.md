@@ -113,7 +113,7 @@ and verification power. There may (and probably will be) some bugs or design ove
 Bug reports to the [repository](https://github.com/onderjan/machine-check) are very welcome.
 
 ## Minimum Supported Rust Version
-The Minimum Supported Rust Version for **machine-check** `0.7.1` is `1.88`.
+The Minimum Supported Rust Version for **machine-check** `0.8.0` is `1.95`.
 This can be raised to any stable Rust version in a minor release.
 The MSRV will not be raised in a patch release.
 
