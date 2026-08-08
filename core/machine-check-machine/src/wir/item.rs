@@ -10,25 +10,25 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::wir::{WBlock, WPartialPath, WSignature, WSpan, WSpanned};
+use crate::wir::{WBlock, WPartialPath, WSignature, WSpan, WSpanned, WTypeId};
 
-use super::{IntoSyn, WIdent, WImplItemType, WPath, YStage};
+use super::{IntoSyn, WIdent, WImplItemType, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemFn<Y: YStage> {
     pub visibility: WVisibility,
-    pub signature: WSignature<Y>,
+    pub signature: WSignature,
     pub locals: Vec<Y::Local>,
     pub block: WBlock<Y::AssignTypes>,
     pub result: Y::FnResult,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WItemStruct<FT: IntoSyn<Type>> {
+pub struct WItemStruct {
     pub visibility: WVisibility,
     pub derives: Vec<WPartialPath>,
     pub ident: WIdent,
-    pub fields: Vec<WField<FT>>,
+    pub fields: Vec<WField>,
 }
 
 #[derive(Clone, Debug)]
@@ -44,10 +44,10 @@ impl Hash for WVisibility {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WField<FT: IntoSyn<Type>> {
+pub struct WField {
     pub visibility: WVisibility,
     pub ident: WIdent,
-    pub ty: FT,
+    pub ty: WTypeId,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -70,7 +70,7 @@ impl Hash for WItemImplTrait {
 }
 
 impl IntoSyn<Path> for WItemImplTrait {
-    fn into_syn(self) -> Path {
+    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Path {
         match self {
             WItemImplTrait::Machine(_span) => {
                 path!(::mck::forward::Machine)
@@ -87,17 +87,17 @@ impl WSpanned for WItemImplTrait {
     }
 }
 
-impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
-    fn into_syn(self) -> ItemStruct {
+impl IntoSyn<ItemStruct> for WItemStruct {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemStruct {
         let span = Span::call_site();
 
         let named = Punctuated::from_iter(self.fields.into_iter().map(|field| Field {
             attrs: Vec::new(),
-            vis: field.visibility.into_syn(),
+            vis: field.visibility.into_syn(type_fn),
             mutability: syn::FieldMutability::None,
             ident: Some(field.ident.into()),
             colon_token: Some(Token![:](span)),
-            ty: field.ty.into_syn(),
+            ty: field.ty.into_syn(type_fn),
         }));
 
         let fields = FieldsNamed {
@@ -134,7 +134,7 @@ impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
 
         ItemStruct {
             attrs,
-            vis: self.visibility.into_syn(),
+            vis: self.visibility.into_syn(type_fn),
             struct_token: Token![struct](span),
             ident: self.ident.into(),
             generics: Generics::default(),
@@ -144,7 +144,7 @@ impl<FT: IntoSyn<Type>> IntoSyn<ItemStruct> for WItemStruct<FT> {
     }
 }
 
-impl<FT: IntoSyn<Type>> WSpanned for WItemStruct<FT> {
+impl WSpanned for WItemStruct {
     fn wir_span(&self) -> WSpan {
         self.ident.wir_span()
     }
@@ -154,21 +154,21 @@ impl<Y: YStage> IntoSyn<ItemImpl> for WItemImpl<Y>
 where
     WItemFn<Y>: IntoSyn<ImplItemFn>,
 {
-    fn into_syn(self) -> ItemImpl {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemImpl {
         let span = Span::call_site();
 
         let items = self
             .impl_item_types
             .into_iter()
-            .map(|type_item| ImplItem::Type(type_item.into_syn()))
+            .map(|type_item| ImplItem::Type(type_item.into_syn(type_fn)))
             .chain(
                 self.impl_item_fns
                     .into_iter()
-                    .map(|fn_item| ImplItem::Fn(fn_item.into_syn())),
+                    .map(|fn_item| ImplItem::Fn(fn_item.into_syn(type_fn))),
             )
             .collect();
 
-        let trait_path = self.trait_.map(|trait_| trait_.into_syn());
+        let trait_path = self.trait_.map(|trait_| trait_.into_syn(type_fn));
 
         ItemImpl {
             attrs: Vec::new(),
@@ -197,7 +197,7 @@ where
 }
 
 impl IntoSyn<Visibility> for WVisibility {
-    fn into_syn(self) -> Visibility {
+    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Visibility {
         match self {
             WVisibility::Public(span) => Visibility::Public(Token![pub](span.first())),
             WVisibility::Inherited => Visibility::Inherited,

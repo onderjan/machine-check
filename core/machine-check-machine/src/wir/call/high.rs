@@ -1,7 +1,7 @@
 use std::fmt::Debug;
-use syn::Expr;
+use syn::{Expr, Type};
 
-use crate::wir::{call::construct_call_fn_path, WCall, WCallArg};
+use crate::wir::{call::construct_call_fn_path, WCall, WCallArg, WTypeId};
 
 use super::{IntoSyn, WStdBinary, WStdUnary};
 
@@ -19,9 +19,9 @@ pub const MCK_HIGH_SIGNED_NEW: &str = "::machine_check::Signed::new";
 pub const MCK_HIGH_BITVECTOR_ARRAY_NEW: &str = "::machine_check::BitvectorArray::new_filled";
 
 impl IntoSyn<Expr> for WExprHighCall {
-    fn into_syn(self) -> Expr {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         let (fn_operand, args) = match self {
-            WExprHighCall::Call(call) => return call.into_syn(),
+            WExprHighCall::Call(call) => return call.into_syn(type_fn),
             WExprHighCall::StdUnary(call) => {
                 let operation = call.op.to_string();
                 (operation, vec![WCallArg::Ident(call.operand)])
@@ -35,6 +35,6 @@ impl IntoSyn<Expr> for WExprHighCall {
             }
         };
         let fn_path = construct_call_fn_path(fn_operand);
-        WCall { fn_path, args }.into_syn()
+        WCall { fn_path, args }.into_syn(type_fn)
     }
 }

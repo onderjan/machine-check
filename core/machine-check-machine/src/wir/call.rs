@@ -1,11 +1,11 @@
 use machine_check_common::{ir_common::IrTypeArray, Signedness};
 use proc_macro2::Span;
 use std::fmt::Debug;
-use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit};
+use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, Type};
 
 use crate::{
     util::{create_expr_ident, create_expr_path, path_matches_global_names},
-    wir::{WPartialPath, WPartialSegment, WSpan},
+    wir::{WPartialPath, WPartialSegment, WSpan, WTypeId},
 };
 
 use super::{IntoSyn, WIdent, WMckBinary, WMckUnary, WStdBinary, WStdUnary};
@@ -37,7 +37,7 @@ fn replace_ident(ident: &mut WIdent, original: &WIdent, replacement: &WIdent) {
 }
 
 impl IntoSyn<Expr> for WCall {
-    fn into_syn(self) -> Expr {
+    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         let path = self.fn_path.into();
 
         let mut args = Punctuated::from_iter(self.args.into_iter().map(|arg| match arg {

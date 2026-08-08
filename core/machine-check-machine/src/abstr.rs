@@ -1,21 +1,21 @@
-/*
-mod item_impl;
-mod item_struct;
+/*mod item_impl;
+mod item_struct;*/
 
-use syn::{GenericArgument, Item, Path};
+use syn::{GenericArgument, Item, Path, Type};
 
 use crate::{
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        IntoSyn, WDescription, WExpr, WExprCall, WIdent, WItemImplTrait, WPath, WSsaLocal, WStmt,
-        WTypeId, YConverted, YStage, ZAssignTypes, ZIfPolarity,
+        IntoSyn, WDescription, WExpr, WExprLowCall, WIdent, WItemImplTrait, WPath, WSsaLocal,
+        WStmt, WTypeId, YSsa, YStage, ZAssignTypes, ZIfPolarity,
     },
 };
 
+/*
 use self::{
     item_impl::{preprocess_item_impl, process_item_impl},
     item_struct::process_item_struct,
-};
+};*/
 
 #[derive(Clone, Debug, Hash)]
 pub struct YAbstr;
@@ -24,7 +24,7 @@ pub struct YAbstr;
 pub struct ZAbstrIfPolarity(pub bool);
 
 impl IntoSyn<Path> for ZAbstrIfPolarity {
-    fn into_syn(self) -> Path {
+    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Path {
         if self.0 {
             syn_path::path!(::mck::forward::Test::can_be_true)
         } else {
@@ -40,18 +40,15 @@ pub struct ZAbstr;
 
 impl ZAssignTypes for ZAbstr {
     type Stmt = WStmt<ZAbstr>;
-    type FundamentalType = WTypeId;
     type AssignLeft = WIdent;
-    type AssignRight = WExpr<WExprCall>;
+    type AssignRight = WExpr<WExprLowCall>;
     type IfPolarity = ZAbstrIfPolarity;
 }
 
 impl YStage for YAbstr {
     type AssignTypes = ZAbstr;
-    type InputType = WTypeId;
-    type OutputType = WTypeId;
-    type FnResult = WTypeId;
-    type Local = WSsaLocal<WTypeId>;
+    type FnResult = WIdent;
+    type Local = WSsaLocal;
     type ItemImplTrait = WAbstrItemImplTrait;
 }
 
@@ -62,8 +59,8 @@ pub struct WAbstrItemImplTrait {
 }
 
 impl IntoSyn<Path> for WAbstrItemImplTrait {
-    fn into_syn(self) -> Path {
-        let mut trait_path = self.trait_.into_syn();
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Path {
+        let mut trait_path = self.trait_.into_syn(type_fn);
         trait_path.segments.last_mut().unwrap().arguments = create_angle_bracketed_path_arguments(
             false,
             vec![GenericArgument::Type(create_type_path(
@@ -76,8 +73,10 @@ impl IntoSyn<Path> for WAbstrItemImplTrait {
 }
 
 pub(crate) fn create_abstract_description(
-    description: WDescription<YConverted>,
+    description: WDescription<YSsa>,
 ) -> (WDescription<YAbstr>, Vec<Item>) {
+    todo!("Create abstract description");
+    /*
     let mut machine_types = Vec::new();
     for item_impl in description.impls.iter() {
         if let Some(ty) = preprocess_item_impl(item_impl) {
@@ -104,5 +103,5 @@ pub(crate) fn create_abstract_description(
     }
 
     (abstract_description, misc_items)
+    */
 }
-*/

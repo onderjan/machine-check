@@ -7,10 +7,10 @@ use crate::{
         create_expr_logical_and, create_expr_path, create_impl_item_fn, create_item_impl,
         create_path_from_ident, create_self, create_self_arg, create_type_path, ArgType,
     },
-    wir::{WItemStruct, WTypeId},
+    wir::WItemStruct,
 };
 
-pub fn meta_eq_impl(item_struct: &WItemStruct<WTypeId>) -> ItemImpl {
+pub fn meta_eq_impl(item_struct: &WItemStruct) -> ItemImpl {
     let span = item_struct.ident.span();
 
     // two underscores to avoid unused variable warning if there are no fields

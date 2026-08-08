@@ -4,8 +4,14 @@ use machine_check_common::{
     iir::ty::{IElementaryType, IGeneralType, IType},
     ir_common::IrReference,
 };
+use proc_macro2::Span;
+use syn::{
+    punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, Expr, ExprLit,
+    GenericArgument, Ident, Lit, LitInt, Path, PathArguments, PathSegment, Token, Type, TypePath,
+    TypeReference,
+};
 
-use crate::wir::{phi_arg_type_path, WIdent, WSpan, WType, WTypeId};
+use crate::wir::{phi_arg_type_path, WIdent, WPath, WSpan, WType, WTypeId};
 
 #[derive(Debug, Clone)]
 pub enum WLowTypeDef {
@@ -14,12 +20,12 @@ pub enum WLowTypeDef {
 
 #[derive(Debug)]
 pub struct WLowContext {
-    type_defs: Vec<WLowTypeDef>,
+    type_defs: Vec<(Type, WLowTypeDef)>,
     types: Vec<IGeneralType>,
 }
 
 impl WLowContext {
-    pub(super) fn new(type_defs: Vec<WLowTypeDef>, types: Vec<IGeneralType>) -> Self {
+    pub(super) fn new(type_defs: Vec<(Type, WLowTypeDef)>, types: Vec<IGeneralType>) -> Self {
         Self { type_defs, types }
     }
 
@@ -35,6 +41,84 @@ impl WLowContext {
         match result {
             IGeneralType::Normal(ty) => ty,
             _ => panic!("Expected normal IIR type, got {:?}", result),
+        }
+    }
+
+    pub fn id_syn_type(&self, id: WTypeId) -> Type {
+        let (is_phi_arg, mut itype) = match self.id_general_type(id) {
+            IGeneralType::Normal(itype) => (false, itype),
+            IGeneralType::PhiArg(itype) => (true, itype),
+        };
+
+        let span = Span::call_site();
+
+        let result = match itype.inner {
+            IElementaryType::Bitvector(width) => {
+                let path = Path {
+                    leading_colon: Some(Token![::](span)),
+                    segments: Punctuated::from_iter([
+                        PathSegment {
+                            ident: Ident::new("mck", span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("forward", span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("Bitvector", span),
+                            arguments: PathArguments::AngleBracketed(
+                                AngleBracketedGenericArguments {
+                                    colon2_token: None,
+                                    lt_token: Token![<](span),
+                                    args: Punctuated::from_iter([GenericArgument::Const(
+                                        Expr::Lit(ExprLit {
+                                            attrs: Vec::new(),
+                                            lit: Lit::Int(LitInt::new(&width.to_string(), span)),
+                                        }),
+                                    )]),
+                                    gt_token: Token![>](span),
+                                },
+                            ),
+                        },
+                    ]),
+                };
+                Type::Path(TypePath { qself: None, path })
+            }
+
+            IElementaryType::Array(_ir_type_array) => todo!("Array syn type"),
+            IElementaryType::Boolean => {
+                let path = Path {
+                    leading_colon: Some(Token![::](span)),
+                    segments: Punctuated::from_iter([
+                        PathSegment {
+                            ident: Ident::new("mck", span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("forward", span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("Boolean", span),
+                            arguments: PathArguments::None,
+                        },
+                    ]),
+                };
+                Type::Path(TypePath { qself: None, path })
+            }
+            IElementaryType::Struct(istruct_id) => self.type_defs[istruct_id.0].0.clone(),
+        };
+        let span = result.span();
+        // TODO phi arg type
+        match itype.reference {
+            IrReference::Immutable => Type::Reference(TypeReference {
+                and_token: Token![&](span),
+                lifetime: None,
+                mutability: None,
+                elem: Box::new(result),
+            }),
+            IrReference::None => result,
         }
     }
 

@@ -88,8 +88,8 @@ fn convert_general_type(ty: WGeneralType<WBasicType>) -> WGeneralType<WElementar
 
 fn convert_item_struct(
     ctx: &mut WInferredContext,
-    item_struct: WItemStruct<WTypeId>,
-) -> Result<WItemStruct<WTypeId>, Errors> {
+    item_struct: WItemStruct,
+) -> Result<WItemStruct, Errors> {
     let derives = item_struct
         .derives
         .into_iter()

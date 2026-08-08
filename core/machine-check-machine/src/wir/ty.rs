@@ -10,16 +10,17 @@ use super::IntoSyn;
 pub struct WTypeId(pub usize);
 
 impl IntoSyn<Type> for WTypeId {
-    fn into_syn(self) -> Type {
-        todo!("WTypeId into syn type")
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Type {
+        type_fn(self)
     }
 }
 
+/*
 impl IntoSyn<Expr> for WTypeId {
     fn into_syn(self) -> Expr {
         todo!("WTypeId into syn expr")
     }
-}
+}*/
 
 impl Debug for WTypeId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

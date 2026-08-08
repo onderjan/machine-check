@@ -63,7 +63,7 @@ impl WInferenceContext {
         self.partial_type_id(WPartialType::Infer(span))
     }
 
-    pub fn add_struct_def(&mut self, ty: Type, def: &WItemStruct<WTypeId>) {
+    pub fn add_struct_def(&mut self, ty: Type, def: &WItemStruct) {
         let fields = def
             .fields
             .iter()

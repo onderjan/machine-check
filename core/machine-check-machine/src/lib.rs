@@ -172,32 +172,46 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
     let (mut ctx, description, panic_messages) = into_wir::create_description(items.clone())?;
 
     if let Some(out_dir) = &out_dir {
+        eprintln!("Writing machine files to directory {:?}", out_dir);
         std::fs::write(
             out_dir.join("description.rs"),
-            unparse(wir::IntoSyn::into_syn(description.clone()).items),
+            unparse(
+                wir::IntoSyn::into_syn(description.clone(), &|type_id| ctx.id_syn_type(type_id))
+                    .items,
+            ),
         )
         .expect("SSA machine file should be writable");
     }
 
     let iir = description.clone().into_iir(&mut ctx)?;
 
-    todo!("Create abstract description");
-    /*let (abstract_description, misc_abstract_items) =
-    abstr::create_abstract_description(description);
+    let (abstract_description, misc_abstract_items) =
+        abstr::create_abstract_description(description);
 
     if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("description_abstr.rs"),
-            unparse(wir::IntoSyn::into_syn(abstract_description.clone()).items),
+            unparse(
+                wir::IntoSyn::into_syn(abstract_description.clone(), &|type_id| {
+                    ctx.id_syn_type(type_id)
+                })
+                .items,
+            ),
         )
         .expect("Abstract machine file should be writable");
     }
 
     let mut abstract_description = Description {
-        items: abstract_description.into_syn().items,
+        items: abstract_description
+            .into_syn(&|type_id| ctx.id_syn_type(type_id))
+            .items,
     };
 
     abstract_description.items.extend(misc_abstract_items);
+
+    todo!("Abstract description");
+
+    /*
 
     support::strip_machine::strip_machine(&mut abstract_description)?;
 

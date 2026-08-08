@@ -1,8 +1,14 @@
 use machine_check_common::{ir_common::IrTypeArray, Signedness};
+use proc_macro2::Span;
 use std::fmt::Debug;
-use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprPath};
+use syn::{
+    punctuated::Punctuated,
+    token::{Comma, Paren},
+    Expr, ExprCall, ExprInfer, ExprLit, ExprPath, Ident, Lit, LitInt, Path, PathSegment, Token,
+    Type,
+};
 
-use crate::wir::IntoSyn;
+use crate::wir::{IntoSyn, WTypeId};
 
 use super::{WCall, WIdent, WMckBinary, WMckUnary};
 
@@ -106,36 +112,94 @@ pub const PHI_TAKEN: &str = "::mck::forward::PhiArg::Taken";
 pub const PHI_NOT_TAKEN: &str = "::mck::forward::PhiArg::NotTaken";
 
 impl IntoSyn<Expr> for WExprLowCall {
-    fn into_syn(self) -> Expr {
-        let (func_path, args) = match self {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
+        let span = Span::call_site();
+
+        let (func_path, func_args) = match self {
             WExprLowCall::Call(call) => {
-                return call.into_syn();
+                return call.into_syn(type_fn);
                 /*let func = call.fn_path.into();
                 let args = Punctuated::from_iter(call.args.iter().map(|arg| arg.into() ));
                 (func, args)*/
             }
             WExprLowCall::MckUnary(unary) => todo!("unary"),
-            WExprLowCall::MckBinary(binary) => todo!("binary"),
+            WExprLowCall::MckBinary(binary) => (
+                binary.op.to_string(),
+                convert_args(vec![binary.a, binary.b]),
+            ),
             WExprLowCall::MckExt(ext) => todo!("ext"),
-            WExprLowCall::MckNew(new) => todo!("new"),
+            WExprLowCall::MckNew(new) => {
+                let span = Span::call_site();
+                match new {
+                    WMckNew::Bitvector(concrete_bitvector) => (
+                        MCK_BITVECTOR_NEW.to_string(),
+                        Punctuated::<Expr, Comma>::from_iter([
+                            Expr::Lit(ExprLit {
+                                attrs: Vec::new(),
+                                lit: Lit::Int(LitInt::new(
+                                    &concrete_bitvector.to_u64().to_string(),
+                                    span,
+                                )),
+                            }),
+                            Expr::Infer(ExprInfer {
+                                attrs: Vec::new(),
+                                underscore_token: Token![_](span),
+                            }),
+                        ]),
+                    ),
+                    WMckNew::BitvectorArray(ir_type_array, wident) => todo!("Mck array"),
+                }
+            }
             WExprLowCall::BooleanNew(value) => todo!("value"),
             WExprLowCall::StdClone(ident) => todo!("ident"),
             WExprLowCall::ArrayRead(array_read) => todo!("array read"),
             WExprLowCall::ArrayWrite(array_write) => todo!("array write"),
-            WExprLowCall::Phi(phi) => todo!("phi"),
-            WExprLowCall::PhiTaken(phi_taken) => todo!("phi taken"),
-            WExprLowCall::PhiNotTaken => todo!("phi not taken"),
+            WExprLowCall::Phi(phi) => (
+                PHI.to_string(),
+                convert_args(vec![phi.then_ident, phi.else_ident]),
+            ),
+            WExprLowCall::PhiTaken(phi_taken) => (
+                PHI_TAKEN.to_string(),
+                convert_args(vec![phi_taken.ident, phi_taken.condition]),
+            ),
+            WExprLowCall::PhiNotTaken => (PHI_NOT_TAKEN.to_string(), convert_args(vec![])),
         };
 
+        let func_path = func_path
+            .strip_prefix("::")
+            .expect("Expected absolute path");
+        let mut path = Path {
+            leading_colon: Some(Token![::](span)),
+            segments: Punctuated::new(),
+        };
+        for segment in func_path.split("::") {
+            path.segments.push(PathSegment {
+                ident: Ident::new(segment, span),
+                arguments: syn::PathArguments::None,
+            });
+        }
         Expr::Call(ExprCall {
             attrs: Vec::new(),
             func: Box::new(Expr::Path(ExprPath {
                 attrs: Vec::new(),
                 qself: None,
-                path: func_path,
+                path,
             })),
             paren_token: Paren::default(),
-            args,
+            args: func_args,
         })
     }
+}
+
+fn convert_args(func_args: Vec<WIdent>) -> Punctuated<Expr, Comma> {
+    let mut args = Punctuated::new();
+
+    for arg in func_args {
+        args.push(Expr::Path(ExprPath {
+            attrs: Vec::new(),
+            qself: None,
+            path: Path::from(Ident::from(arg)),
+        }));
+    }
+    args
 }

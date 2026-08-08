@@ -14,7 +14,7 @@ use crate::{
     wir::{WItemFn, WPartialPath, WTypeId, WVisibility},
 };
 
-use super::{IntoSyn, WIdent, WPath, YStage};
+use super::{IntoSyn, WIdent, YStage};
 
 #[derive(Clone, Hash)]
 pub struct WImplItemType {
@@ -36,10 +36,10 @@ impl Debug for WImplItemType {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct WSignature<Y: YStage> {
+pub struct WSignature {
     pub ident: WIdent,
     pub inputs: Vec<WFnArg>,
-    pub output: Y::OutputType,
+    pub output: WTypeId,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -48,7 +48,7 @@ pub struct WFnArg {
     pub ty: WTypeId,
 }
 
-impl<Y: YStage> Debug for WSignature<Y> {
+impl Debug for WSignature {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}(", self.ident)?;
         let mut first = true;
@@ -71,12 +71,12 @@ impl Debug for WFnArg {
 }
 
 #[derive(Clone, Hash)]
-pub struct WTacLocal<LT: IntoSyn<Type>> {
+pub struct WTacLocal {
     pub ident: WIdent,
-    pub ty: LT,
+    pub ty: WTypeId,
 }
 
-impl<LT: IntoSyn<Type> + Debug> Debug for WTacLocal<LT> {
+impl Debug for WTacLocal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.ident, f)?;
         write!(f, ": ")?;
@@ -85,19 +85,19 @@ impl<LT: IntoSyn<Type> + Debug> Debug for WTacLocal<LT> {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WSsaLocal<LT: IntoSyn<Type>> {
+pub struct WSsaLocal {
     pub ident: WIdent,
     pub original: WIdent,
-    pub ty: LT,
+    pub ty: WTypeId,
 }
 
 impl IntoSyn<ImplItemType> for WImplItemType {
-    fn into_syn(self) -> ImplItemType {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ImplItemType {
         let span = Span::call_site();
 
         ImplItemType {
             attrs: Vec::new(),
-            vis: self.visibility.into_syn(),
+            vis: self.visibility.into_syn(type_fn),
             defaultness: None,
             type_token: Token![type](span),
             ident: self.left_ident.into(),
@@ -113,8 +113,8 @@ impl IntoSyn<ImplItemType> for WImplItemType {
 }
 
 impl<Y: YStage> IntoSyn<ImplItemFn> for WItemFn<Y> {
-    fn into_syn(self) -> ImplItemFn {
-        let item_fn: ItemFn = self.into_syn();
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ImplItemFn {
+        let item_fn: ItemFn = self.into_syn(type_fn);
 
         ImplItemFn {
             attrs: item_fn.attrs,
@@ -127,23 +127,25 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WItemFn<Y> {
 }
 
 impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
-    fn into_syn(self) -> ItemFn {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemFn {
         let span = Span::call_site();
 
-        let mut block = self.block.into_syn();
+        let mut block = self.block.into_syn(type_fn);
 
         let standard_stmts: Vec<Stmt> = block.stmts.drain(..).collect();
 
         for local in self.locals {
-            block.stmts.push(Stmt::Local(local.into_syn()));
+            block.stmts.push(Stmt::Local(local.into_syn(type_fn)));
         }
 
         block.stmts.extend(standard_stmts);
-        block.stmts.push(Stmt::Expr(self.result.into_syn(), None));
+        block
+            .stmts
+            .push(Stmt::Expr(self.result.into_syn(type_fn), None));
 
         ItemFn {
             attrs: Vec::new(),
-            vis: self.visibility.into_syn(),
+            vis: self.visibility.into_syn(type_fn),
             sig: Signature {
                 constness: None,
                 asyncness: None,
@@ -155,10 +157,9 @@ impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
                 paren_token: Paren::default(),
                 inputs: Punctuated::from_iter(self.signature.inputs.into_iter().map(|fn_arg| {
                     if fn_arg.ident.name() == "self" {
-                        todo!("Fn arg type");
                         // instead of the actual type, which may be converted to a non-Self path,
                         // create a dummy type for the receiver
-                        /* let fn_arg_ty = fn_arg.ty.into_syn();
+                        let fn_arg_ty = fn_arg.ty.into_syn(type_fn);
                         let ty_span = fn_arg_ty.span();
                         let self_ty = Type::Path(TypePath {
                             qself: None,
@@ -185,7 +186,7 @@ impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
                             self_token: Token![self](span),
                             colon_token: None,
                             ty: Box::new(ty),
-                        })*/
+                        })
                     } else {
                         FnArg::Typed(syn::PatType {
                             attrs: Vec::new(),
@@ -197,14 +198,14 @@ impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
                                 subpat: None,
                             })),
                             colon_token: Token![:](span),
-                            ty: Box::new(fn_arg.ty.into_syn()),
+                            ty: Box::new(fn_arg.ty.into_syn(type_fn)),
                         })
                     }
                 })),
                 variadic: None,
                 output: syn::ReturnType::Type(
                     Token![->](span),
-                    Box::new(self.signature.output.into_syn()),
+                    Box::new(self.signature.output.into_syn(type_fn)),
                 ),
             },
             block: Box::new(block),
@@ -212,18 +213,18 @@ impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
     }
 }
 
-impl<LT: IntoSyn<Type>> IntoSyn<Local> for WTacLocal<LT> {
-    fn into_syn(self) -> Local {
-        ident_type_local(self.ident, Some(self.ty), false)
+impl IntoSyn<Local> for WTacLocal {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Local {
+        ident_type_local(self.ident, Some(self.ty), false, type_fn)
     }
 }
 
-impl<LT: IntoSyn<Type>> IntoSyn<Local> for WSsaLocal<LT> {
-    fn into_syn(self) -> Local {
-        let mut local = ident_type_local(self.ident, Some(self.ty), false);
+impl IntoSyn<Local> for WSsaLocal {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Local {
+        let mut local = ident_type_local(self.ident, Some(self.ty), false, type_fn);
         let span = local.span();
 
-        local.attrs = vec![Attribute {
+        /*local.attrs = vec![Attribute {
             pound_token: Token![#](span),
             style: syn::AttrStyle::Outer,
             bracket_token: Bracket::default(),
@@ -232,13 +233,18 @@ impl<LT: IntoSyn<Type>> IntoSyn<Local> for WSsaLocal<LT> {
                 eq_token: Token![=](span),
                 value: create_expr_path(create_path_from_ident(self.original.into())),
             }),
-        }];
+        }];*/
 
         local
     }
 }
 
-pub fn ident_type_local<LT: IntoSyn<Type>>(ident: WIdent, ty: Option<LT>, mutable: bool) -> Local {
+pub fn ident_type_local(
+    ident: WIdent,
+    ty: Option<WTypeId>,
+    mutable: bool,
+    type_fn: &impl Fn(WTypeId) -> Type,
+) -> Local {
     let span = ident.span();
 
     let mut pat = Pat::Ident(PatIdent {
@@ -258,7 +264,7 @@ pub fn ident_type_local<LT: IntoSyn<Type>>(ident: WIdent, ty: Option<LT>, mutabl
             attrs: Vec::new(),
             pat: Box::new(pat),
             colon_token: Token![:](span),
-            ty: Box::new(ty.into_syn()),
+            ty: Box::new(ty.into_syn(type_fn)),
         });
     }
 

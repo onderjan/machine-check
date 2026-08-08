@@ -4,11 +4,11 @@ use std::fmt::Debug;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Paren},
-    Block, Expr, ExprAssign, ExprBlock, ExprCall, ExprIf, Macro, Stmt, StmtMacro, Token,
+    Block, Expr, ExprAssign, ExprBlock, ExprCall, ExprIf, Macro, Stmt, StmtMacro, Token, Type,
 };
 use syn_path::path;
 
-use crate::util::create_expr_path;
+use crate::{util::create_expr_path, wir::WTypeId};
 
 use super::{IntoSyn, WIdent, ZAssignTypes, ZIfPolarity};
 
@@ -63,8 +63,11 @@ pub enum WPanicMacroKind {
 }
 
 impl<Z: ZAssignTypes> IntoSyn<Block> for WBlock<Z> {
-    fn into_syn(self) -> Block {
-        let stmts = self.stmts.into_iter().map(IntoSyn::into_syn).collect();
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Block {
+        let mut stmts = Vec::new();
+        for stmt in self.stmts {
+            stmts.push(stmt.into_syn(type_fn));
+        }
 
         Block {
             brace_token: Brace::default(),
@@ -74,16 +77,16 @@ impl<Z: ZAssignTypes> IntoSyn<Block> for WBlock<Z> {
 }
 
 impl<Z: ZAssignTypes> IntoSyn<Stmt> for WStmt<Z> {
-    fn into_syn(self) -> Stmt {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Stmt {
         let span = Span::call_site();
         match self {
             WStmt::Assign(stmt) => {
-                let right = stmt.right.into_syn();
+                let right = stmt.right.into_syn(type_fn);
 
                 Stmt::Expr(
                     Expr::Assign(ExprAssign {
                         attrs: Vec::new(),
-                        left: Box::new(stmt.left.into_syn()),
+                        left: Box::new(stmt.left.into_syn(type_fn)),
                         eq_token: Token![=](span),
                         right: Box::new(right),
                     }),
@@ -92,29 +95,32 @@ impl<Z: ZAssignTypes> IntoSyn<Stmt> for WStmt<Z> {
             }
             WStmt::If(stmt) => {
                 let condition = {
-                    let func_operator = stmt.condition.polarity.into_syn();
+                    let func_operator = stmt.condition.polarity.into_syn(type_fn);
                     Expr::Call(ExprCall {
                         attrs: vec![],
                         func: Box::new(create_expr_path(func_operator)),
                         paren_token: Default::default(),
-                        args: Punctuated::from_iter([stmt.condition.ident.into_syn()]),
+                        args: Punctuated::from_iter([stmt.condition.ident.into_syn(type_fn)]),
                     })
                 };
+
+                let then_branch = stmt.then_block.into_syn(type_fn);
+                let else_branch = (
+                    Token![else](span),
+                    Box::new(Expr::Block(ExprBlock {
+                        attrs: Vec::new(),
+                        label: None,
+                        block: stmt.else_block.into_syn(type_fn),
+                    })),
+                );
 
                 Stmt::Expr(
                     Expr::If(ExprIf {
                         attrs: Vec::new(),
                         if_token: Token![if](span),
                         cond: Box::new(condition),
-                        then_branch: stmt.then_block.into_syn(),
-                        else_branch: Some((
-                            Token![else](span),
-                            Box::new(Expr::Block(ExprBlock {
-                                attrs: Vec::new(),
-                                label: None,
-                                block: stmt.else_block.into_syn(),
-                            })),
-                        )),
+                        then_branch,
+                        else_branch: Some(else_branch),
                     }),
                     Some(Token![;](span)),
                 )
@@ -124,10 +130,10 @@ impl<Z: ZAssignTypes> IntoSyn<Stmt> for WStmt<Z> {
 }
 
 impl<Z: ZAssignTypes> IntoSyn<Stmt> for WMacroableStmt<Z> {
-    fn into_syn(self) -> Stmt {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Stmt {
         let panic_macro = match self {
-            WMacroableStmt::Assign(stmt) => return WStmt::Assign(stmt).into_syn(),
-            WMacroableStmt::If(stmt) => return WStmt::If(stmt).into_syn(),
+            WMacroableStmt::Assign(stmt) => return WStmt::Assign(stmt).into_syn(type_fn),
+            WMacroableStmt::If(stmt) => return WStmt::If(stmt).into_syn(type_fn),
             WMacroableStmt::PanicMacro(panic_macro) => panic_macro,
         };
         let span = Span::call_site();

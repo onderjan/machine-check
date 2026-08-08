@@ -27,7 +27,7 @@ impl WInferredContext {
             types.push(lowered);
         }
 
-        for (_ty, def) in self.type_defs.clone().into_inner() {
+        for (ty, def) in self.type_defs.clone().into_inner() {
             match def {
                 WContextTypeDef::Struct(fields) => {
                     let mut low_fields = Vec::new();
@@ -47,7 +47,7 @@ impl WInferredContext {
                         };
                         low_fields.push((field_name, inner));
                     }
-                    type_defs.push(WLowTypeDef::Struct(low_fields));
+                    type_defs.push((ty.0, WLowTypeDef::Struct(low_fields)));
                 }
             }
         }

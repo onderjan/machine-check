@@ -21,7 +21,7 @@ use super::item_fn::fold_impl_item_fn;
 pub fn fold_item_struct(
     ctx: &mut WInferenceContext,
     mut item: ItemStruct,
-) -> Result<WItemStruct<WTypeId>, Errors> {
+) -> Result<WItemStruct, Errors> {
     let item_span = WSpan::from_syn(&item);
     if item.generics != Generics::default() {
         return Err(Errors::single(Error::unsupported_syn_construct(

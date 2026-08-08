@@ -1,6 +1,8 @@
-use std::collections::BTreeSet;
+use std::{any::TypeId, collections::BTreeSet};
 
-use crate::wir::{WIdent, WItemFn, YLowered, YSsa, YStage};
+use syn::Type;
+
+use crate::wir::{WIdent, WItemFn, WTypeId, YLowered, YSsa, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WProperty<Y: YStage> {
@@ -72,5 +74,5 @@ impl WSubproperty<YSsa> {
 }
 
 pub trait IntoSyn<T> {
-    fn into_syn(self) -> T;
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> T;
 }

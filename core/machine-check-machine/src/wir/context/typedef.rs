@@ -13,7 +13,7 @@ pub enum WContextTypeDef {
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct WContextSynType(Type);
+pub struct WContextSynType(pub(super) Type);
 
 impl Debug for WContextSynType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

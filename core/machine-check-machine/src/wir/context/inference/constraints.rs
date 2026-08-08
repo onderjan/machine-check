@@ -6,14 +6,14 @@ use crate::{
     wir::{
         context::types::{bitvector_type, bool_type},
         WBlock, WExpr, WExprHighCall, WIndexedExpr, WIndexedIdent, WMacroableStmt,
-        WPartialArgument, WTacLocal, WTypeId, ZTac,
+        WPartialArgument, WTacLocal, ZTac,
     },
 };
 
 impl super::WInferenceContext {
     pub(super) fn add_block_constraints(
         &mut self,
-        locals: &Vec<WTacLocal<WTypeId>>,
+        locals: &Vec<WTacLocal>,
         block: &WBlock<ZTac>,
     ) -> Result<(), Error> {
         for stmt in &block.stmts {

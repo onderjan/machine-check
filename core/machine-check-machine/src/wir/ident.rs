@@ -2,9 +2,9 @@ use machine_check_common::iir::path::IIdent;
 use proc_macro2::Span;
 use std::fmt::Debug;
 use std::hash::Hash;
-use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment};
+use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment, Type};
 
-use crate::wir::{IntoSyn, WPath, WSpan, WSpanned};
+use crate::wir::{IntoSyn, WPath, WSpan, WSpanned, WTypeId};
 
 #[derive(Clone)]
 pub struct WIdent {
@@ -111,7 +111,7 @@ impl From<WIdent> for Ident {
 }
 
 impl IntoSyn<Expr> for WIdent {
-    fn into_syn(self) -> Expr {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         Expr::Path(ExprPath {
             attrs: Vec::new(),
             qself: None,
