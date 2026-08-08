@@ -50,6 +50,7 @@ where
     type Param: Param<C>;
     type State: State<C>;
 
+    /*
     #[must_use]
     fn init(&self, input: &Self::Input, param: &Self::Param) -> PanicResult<Self::State>;
     #[must_use]
@@ -59,6 +60,14 @@ where
         input: &Self::Input,
         param: &Self::Param,
     ) -> PanicResult<Self::State>;
+     */
+
+    // TODO: bring PanicResult back
+
+    #[must_use]
+    fn init(&self, input: &Self::Input, param: &Self::Param) -> Self::State;
+    #[must_use]
+    fn next(&self, state: &Self::State, input: &Self::Input, param: &Self::Param) -> Self::State;
 }
 
 pub trait Test {

@@ -11,7 +11,7 @@ pub mod abstr {
 
     use crate::{
         abstr::{PanicBitvector, Phi},
-        misc::Join,
+        misc::{CBound, Join},
         traits::misc::MetaEq,
     };
 
@@ -19,6 +19,15 @@ pub mod abstr {
     pub struct PanicResult<T> {
         pub panic: PanicBitvector,
         pub result: T,
+    }
+
+    impl<T> PanicResult<T> {
+        pub fn without_panic(result: T) -> Self {
+            Self {
+                panic: PanicBitvector::new(0, CBound),
+                result,
+            }
+        }
     }
 
     impl<T: MetaEq> MetaEq for PanicResult<T> {

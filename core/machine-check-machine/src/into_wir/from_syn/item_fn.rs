@@ -2,9 +2,10 @@ use std::collections::{BTreeMap, HashMap};
 
 use machine_check_common::ir_common::IrReference;
 use proc_macro2::Span;
+use quote::quote;
 use syn::{
     spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat, Path,
-    Signature, Type, TypePath,
+    Signature, Type, TypePath, TypeReference,
 };
 
 use crate::{
@@ -236,12 +237,39 @@ impl FunctionFolder<'_> {
                     ));
                 };
 
+                let self_ty = if let Some((reference_and, reference_lifetime)) = &receiver.reference
+                {
+                    if let Some(lifetime) = &reference_lifetime {
+                        return Err(Error::new(
+                            ErrorType::IllegalConstruct(String::from("Lifetime")),
+                            WSpan::from_syn(&lifetime),
+                        ));
+                    };
+
+                    // make the self type into a reference
+                    Type::Reference(TypeReference {
+                        and_token: *reference_and,
+                        lifetime: None,
+                        mutability: None,
+                        elem: Box::new(self_ty.clone()),
+                    })
+                } else {
+                    self_ty.clone()
+                };
+
+                if let Some(mutability) = &receiver.mutability {
+                    return Err(Error::new(
+                        ErrorType::IllegalConstruct(String::from("Mutability")),
+                        WSpan::from_syn(&mutability),
+                    ));
+                };
+
                 let receiver_span = receiver.span();
 
                 // do not scope self, it is unnecessary
                 let self_ident = WIdent::new(String::from("self"), receiver_span);
 
-                let self_type = self.ctx.noninferred_id(self_ty)?;
+                let self_type = self.ctx.noninferred_id(&self_ty)?;
 
                 self.add_unique_scoped_ident(self_ident.clone(), self_ident.clone());
 

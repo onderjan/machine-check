@@ -37,6 +37,7 @@ impl<M: FullMachine> StateSpace<M> {
         }
     }
 
+    // TODO: bring back tail_data: AbstrPanicState<M>,
     pub fn add_step(
         &mut self,
         head_id: NodeId,

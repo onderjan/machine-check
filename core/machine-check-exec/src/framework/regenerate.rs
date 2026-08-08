@@ -8,6 +8,7 @@ use mck::abstr::Machine as AbstrMachine;
 use mck::concr::FullMachine;
 use mck::misc::Meta;
 
+use crate::AbstrPanicState;
 use crate::AbstrState;
 
 impl<M: FullMachine> super::Framework<M> {
@@ -105,7 +106,9 @@ impl<M: FullMachine> super::Framework<M> {
 
                     // TODO: apply decay and trackers canonisation without conversion to/from runtime
 
-                    let mut next_result = next_state.result.to_runtime();
+                    // TODO: bring PanicResult back
+                    let mut next_result = next_state.to_runtime();
+                    //let mut next_result = next_state.result.to_runtime();
 
                     // apply decay
                     step_precision.force_decay(&mut next_result);
@@ -113,14 +116,16 @@ impl<M: FullMachine> super::Framework<M> {
                     // make trackers canonical
                     next_result.canonicise_trackers();
 
-                    next_state.result = AbstrState::<M>::from_runtime(&next_result);
+                    next_state = AbstrState::<M>::from_runtime(&next_result);
+
+                    let next_panic_state = AbstrPanicState::<M>::without_panic(next_state);
 
                     // add the step to the state space
                     self.work_state.num_generated_transitions += 1;
                     let (next_state_index, inserted, added_param_id) = self
                         .work_state
                         .space
-                        .add_step(node_id, next_state, &input, &param, param_id);
+                        .add_step(node_id, next_panic_state, &input, &param, param_id);
 
                     param_id = Some(added_param_id);
 
