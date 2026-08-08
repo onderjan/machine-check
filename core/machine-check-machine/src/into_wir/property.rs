@@ -16,7 +16,7 @@ use syn_path::path;
 
 use crate::{
     into_wir::{
-        conversion::{expand_macros, resolve_use},
+        conversion::{convert_to_ssa, convert_total, convert_types, expand_macros, resolve_use},
         from_syn, Errors,
     },
     util::{create_type_path, path_matches_global_names},
@@ -68,6 +68,7 @@ impl ExprProperty {
 }
 
 pub fn create_from_syn<D>(
+    ctx: WInferenceContext,
     expr: syn::Expr,
     global_ident_types: &HashMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
@@ -138,19 +139,25 @@ pub fn create_from_syn<D>(
         }
     }
 
-    let property = property_from_exprs(property)?;
-    todo!("Property from exprs: {:#?}", property);
-    /*let property = convert_indexing::convert_property(property);
-    let (property, panic_messages) = convert_total::convert_property(property);
-    let property = convert_to_ssa::convert_property(property, global_ident_types)?;
-    let property = infer_types::infer_property(property)?;
-    let property = convert_types::convert_property(property)?;
+    eprintln!("Property exprs: {:#?}", property);
 
-    Ok((property, panic_messages))*/
+    let (ctx, property) = property_from_exprs(ctx, property)?;
+    eprintln!("Property from exprs: {:#?}", property);
+    eprintln!("Inference context: {:#?}", ctx);
+    //let w_description = convert_indexing::convert_description(w_description);
+    let mut ctx = ctx.into_total()?;
+    eprintln!("Inferred context: {:#?}", ctx);
+    let (property, panic_messages) = convert_total::convert_property(&mut ctx, property);
+    let (mut ctx, property) = convert_types::lower_property(ctx, property)?;
+    let property = convert_to_ssa::convert_property(&mut ctx, property, global_ident_types)?;
+
+    Ok((ctx, property, panic_messages))
 }
 
-fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors> {
-    let mut ctx = WInferenceContext::new();
+fn property_from_exprs(
+    mut ctx: WInferenceContext,
+    property: ExprProperty,
+) -> Result<(WInferenceContext, WProperty<YTac>), Errors> {
     let mut subproperties = Vec::new();
 
     for (index, subproperty) in property.subproperties.into_iter().enumerate() {
@@ -204,7 +211,7 @@ fn property_from_exprs(property: ExprProperty) -> Result<WProperty<YTac>, Errors
         subproperties.push(subproperty);
     }
 
-    Ok(WProperty { subproperties })
+    Ok((ctx, WProperty { subproperties }))
 }
 
 fn property_use_map(span: Span) -> HashMap<Ident, Path> {

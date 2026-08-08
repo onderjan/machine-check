@@ -35,17 +35,17 @@ pub fn lower_description(
     Ok((ctx, WDescription { structs, impls }))
 }
 
-pub fn convert_property(
-    ctx: &mut WInferredContext,
+pub fn lower_property(
+    mut ctx: WInferredContext,
     property: WProperty<YTotal>,
-) -> Result<WProperty<YLowered>, Errors> {
+) -> Result<(WLowContext, WProperty<YLowered>), Errors> {
     let mut subproperties = Vec::new();
 
     for subproperty in property.subproperties {
         let subproperty = match subproperty {
             WSubproperty::Func(subproperty_func) => WSubproperty::Func(WSubpropertyFunc {
                 parent: subproperty_func.parent,
-                func: convert_item_fn(ctx, subproperty_func.func)?,
+                func: convert_item_fn(&mut ctx, subproperty_func.func)?,
                 children: subproperty_func.children,
                 display: subproperty_func.display,
             }),
@@ -56,7 +56,9 @@ pub fn convert_property(
         subproperties.push(subproperty);
     }
 
-    Ok(WProperty { subproperties })
+    let ctx = ctx.lower()?;
+
+    Ok((ctx, WProperty { subproperties }))
 }
 /*
 fn convert_basic_type(ty: WBasicType) -> WElementaryType {

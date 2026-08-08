@@ -15,12 +15,12 @@ use support::error_list::ErrorList;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
-use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
+use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment, Type};
 use syn_path::path;
 use wir::IntoSyn;
 
 use crate::util::{create_item_mod, path_matches_global_names};
-use crate::wir::{WIdent, WSpan};
+use crate::wir::{bitvector_type, bool_type, WIdent, WInferenceContext, WSpan, WType};
 
 mod abstr;
 mod concr;
@@ -57,18 +57,26 @@ pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Errors> {
 
 pub fn inherent_property() -> IProperty {
     let mut global_basic_types = HashMap::new();
-    todo!("Inherent property");
-    /*
+
+    let mut ctx = WInferenceContext::new();
+    let panic_type_id = ctx
+        .type_id(&bitvector_type(Some(32)).into())
+        .expect("Panic type should be inserted into context");
+
     global_basic_types.insert(
         WIdent::new(String::from("__panic"), Span::call_site()),
-        WBasicType::Bitvector(Signedness::None, 32),
-    );*/
+        panic_type_id,
+    );
 
     let expr = parse_quote!(AG![__panic == 0]);
 
-    let (ctx, property, _panic_messages) =
-        into_wir::create_property_description(expr, &global_basic_types, &PropertyMacros::empty())
-            .expect("Inherent property should be created");
+    let (ctx, property, _panic_messages) = into_wir::create_property_description(
+        ctx,
+        expr,
+        &global_basic_types,
+        &PropertyMacros::empty(),
+    )
+    .expect("Inherent property should be created");
 
     //println!("Abstract description: {:?}", description);
 
@@ -98,25 +106,31 @@ pub fn process_property<M: FullMachine, D>(
 
     let mut global_basic_types = HashMap::new();
 
+    let mut ctx = WInferenceContext::new();
+
     // TODO: add global basic types
-    /*for (global_ident, elementary_type) in &global_ident_types {
+    for (global_ident, elementary_type) in &global_ident_types {
         let ty = match elementary_type {
-            IElementaryType::Bitvector(width) => WBasicType::Bitvector(Signedness::None, *width),
-            IElementaryType::Array(type_array) => WBasicType::BitvectorArray(type_array.clone()),
-            IElementaryType::Boolean => WBasicType::Boolean,
+            IElementaryType::Bitvector(width) => bitvector_type(Some(32)),
+            IElementaryType::Array(type_array) => todo!("Array"),
+            IElementaryType::Boolean => bool_type(),
             IElementaryType::Struct(_struct_id) => {
                 todo!("Support nested structs")
             }
         };
+        let ty: Type = ty.into();
+        let type_id = ctx
+            .type_id(&ty)
+            .expect("Global ident type id should be put into context");
         global_basic_types.insert(
             WIdent::new(global_ident.name().to_string(), Span::call_site()),
-            ty,
+            type_id,
         );
-    }*/
+    }
 
     // TODO: do something with the panic messages
     let (ctx, property, _panic_messages) =
-        into_wir::create_property_description(expr, &global_basic_types, property_macros)?;
+        into_wir::create_property_description(ctx, expr, &global_basic_types, property_macros)?;
 
     let property = property.into_iir(&ctx);
 
