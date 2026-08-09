@@ -88,19 +88,32 @@ impl super::WInferenceContext {
                                     let b_ty = get_type(globals, locals, &binary.b)?;
 
                                     match binary.op {
-                                        IrStdBinaryOp::Eq => {
+                                        IrStdBinaryOp::Eq
+                                        | IrStdBinaryOp::Ne
+                                        | IrStdBinaryOp::Lt
+                                        | IrStdBinaryOp::Le
+                                        | IrStdBinaryOp::Gt
+                                        | IrStdBinaryOp::Ge => {
                                             // constrain the inputs to be of the same type
                                             self.add_eq_constraint(a_ty, b_ty);
                                             // constrain the output to be a Boolean
                                             let bool_ty = self.partial_type_id(bool_type());
                                             self.add_eq_constraint(left_ty, bool_ty);
                                         }
-                                        IrStdBinaryOp::Add => {
+                                        IrStdBinaryOp::BitAnd
+                                        | IrStdBinaryOp::BitOr
+                                        | IrStdBinaryOp::BitXor
+                                        | IrStdBinaryOp::Shl
+                                        | IrStdBinaryOp::Shr
+                                        | IrStdBinaryOp::Add
+                                        | IrStdBinaryOp::Sub
+                                        | IrStdBinaryOp::Mul
+                                        | IrStdBinaryOp::Div
+                                        | IrStdBinaryOp::Rem => {
                                             // constrain both inputs to output
                                             self.add_eq_constraint(left_ty.clone(), a_ty);
                                             self.add_eq_constraint(left_ty, b_ty);
                                         }
-                                        _ => todo!("Std binary"),
                                     }
                                 }
                             }

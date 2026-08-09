@@ -4,6 +4,7 @@ use std::{
 };
 
 use indexmap::IndexMap;
+use proc_macro2::Span;
 use syn::Type;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
@@ -101,11 +102,30 @@ impl WInferenceContext {
         globals: &BTreeMap<WIdent, WTypeId>,
         subproperties: &[WSubproperty<YTac>],
     ) -> Result<(), Error> {
+        let mut globals_with_results = globals.clone();
+        for (index, _) in subproperties.iter().enumerate() {
+            globals_with_results.insert(
+                WIdent::new(format!("__mck_subproperty_{}", index), Span::call_site()),
+                self.partial_type_id(WPartialType::Path(WPartialPath {
+                    leading_colon: None,
+                    segments: vec![WPartialSegment {
+                        ident: WIdent::new(String::from("bool"), Span::call_site()),
+                        generics: None,
+                    }],
+                })),
+            );
+        }
+
         for subproperty in subproperties.iter() {
             match subproperty {
                 WSubproperty::Func(subproperty_func) => {
                     let func = &subproperty_func.func;
-                    self.add_block_constraints(globals, &func.locals, &func.block, true)?;
+                    self.add_block_constraints(
+                        &globals_with_results,
+                        &func.locals,
+                        &func.block,
+                        true,
+                    )?;
                 }
                 WSubproperty::FixedPoint(_) => {}
                 WSubproperty::Next(_) => {}
