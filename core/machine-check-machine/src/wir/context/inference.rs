@@ -11,8 +11,8 @@ use crate::{
     into_wir::{fold_type, Error, ErrorType},
     wir::{
         context::typedef::{WContextTypeDef, WTypeDefs},
-        WInferredContext, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics, WPartialPath,
-        WPartialSegment, WPartialType, WSpan, WTypeId, YTac,
+        WIdent, WInferredContext, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics,
+        WPartialPath, WPartialSegment, WPartialType, WSpan, WSubproperty, WTypeId, YTac,
     },
 };
 
@@ -80,13 +80,43 @@ impl WInferenceContext {
 
         self.eq_constraints.union(a.0, b.0);
     }
-    pub fn resolve_types(&mut self, impls: &[WItemImpl<YTac>]) -> Result<(), Error> {
+
+    pub fn resolve_impls_types(&mut self, impls: &[WItemImpl<YTac>]) -> Result<(), Error> {
         for item_impl in impls.iter() {
             for item_fn in &item_impl.impl_item_fns {
-                self.add_block_constraints(&item_fn.locals, &item_fn.block)?;
+                self.add_block_constraints(
+                    &BTreeMap::new(),
+                    &item_fn.locals,
+                    &item_fn.block,
+                    false,
+                )?;
             }
         }
 
+        self.unify()
+    }
+
+    pub fn resolve_subproperties_types(
+        &mut self,
+        globals: &BTreeMap<WIdent, WTypeId>,
+        subproperties: &[WSubproperty<YTac>],
+    ) -> Result<(), Error> {
+        for subproperty in subproperties.iter() {
+            match subproperty {
+                WSubproperty::Func(subproperty_func) => {
+                    let func = &subproperty_func.func;
+                    self.add_block_constraints(globals, &func.locals, &func.block, true)?;
+                }
+                WSubproperty::FixedPoint(_) => {}
+                WSubproperty::Next(_) => {}
+            }
+        }
+
+        self.unify()
+    }
+
+    fn unify(&mut self) -> Result<(), Error> {
+        eprintln!("Unifying {:?}", self);
         let mut united = IndexMap::new();
 
         for i in 0..self.types.len() {
@@ -143,6 +173,7 @@ impl WInferenceContext {
 }
 
 fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartialType, Error> {
+    eprintln!("Joining types {:?} and {:?}", previous, current);
     let span = current.wir_span();
     Ok(match (previous, current) {
         (WPartialType::Infer(_), current) => current,

@@ -1,6 +1,9 @@
 mod macros;
 
-use std::{collections::HashMap, hash::Hash};
+use std::{
+    collections::{BTreeMap, HashMap},
+    hash::Hash,
+};
 
 use machine_check_common::PropertyMacros;
 use proc_macro2::Span;
@@ -70,7 +73,7 @@ impl ExprProperty {
 pub fn create_from_syn<D>(
     ctx: WInferenceContext,
     expr: syn::Expr,
-    global_ident_types: &HashMap<WIdent, WTypeId>,
+    globals: &BTreeMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
 ) -> Result<(WLowContext, WProperty<YSsa>, Vec<String>), Errors> {
     let span = expr.span();
@@ -141,7 +144,7 @@ pub fn create_from_syn<D>(
 
     eprintln!("Property exprs: {:#?}", property);
 
-    let (ctx, property) = property_from_exprs(ctx, property)?;
+    let (ctx, property) = property_from_exprs(ctx, globals, property)?;
     eprintln!("Property from exprs: {:#?}", property);
     eprintln!("Inference context: {:#?}", ctx);
     //let w_description = convert_indexing::convert_description(w_description);
@@ -149,13 +152,14 @@ pub fn create_from_syn<D>(
     eprintln!("Inferred context: {:#?}", ctx);
     let (property, panic_messages) = convert_total::convert_property(&mut ctx, property);
     let (mut ctx, property) = convert_types::lower_property(ctx, property)?;
-    let property = convert_to_ssa::convert_property(&mut ctx, property, global_ident_types)?;
+    let property = convert_to_ssa::convert_property(&mut ctx, property, globals)?;
 
     Ok((ctx, property, panic_messages))
 }
 
 fn property_from_exprs(
     mut ctx: WInferenceContext,
+    globals: &BTreeMap<WIdent, WTypeId>,
     property: ExprProperty,
 ) -> Result<(WInferenceContext, WProperty<YTac>), Errors> {
     let mut subproperties = Vec::new();
@@ -210,6 +214,8 @@ fn property_from_exprs(
 
         subproperties.push(subproperty);
     }
+
+    ctx.resolve_subproperties_types(globals, subproperties.as_slice())?;
 
     Ok((ctx, WProperty { subproperties }))
 }

@@ -1,21 +1,26 @@
+use std::collections::BTreeMap;
+
 use machine_check_common::ir_common::IrStdBinaryOp;
 use syn::{Path, Type, TypePath};
 
 use crate::{
-    into_wir::Error,
+    into_wir::{Error, ErrorType},
     wir::{
         context::types::{bitvector_type, bool_type},
-        WBlock, WExpr, WExprHighCall, WIndexedExpr, WIndexedIdent, WMacroableStmt,
-        WPartialArgument, WTacLocal, ZTac,
+        WBlock, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt,
+        WPartialArgument, WSpanned, WTacLocal, WTypeId, ZTac,
     },
 };
 
 impl super::WInferenceContext {
     pub(super) fn add_block_constraints(
         &mut self,
+        globals: &BTreeMap<WIdent, WTypeId>,
         locals: &Vec<WTacLocal>,
         block: &WBlock<ZTac>,
+        is_property: bool,
     ) -> Result<(), Error> {
+        eprintln!("Adding constraints for block {:?}", block);
         for stmt in &block.stmts {
             eprintln!("Should add constraints for statement {:#?}", stmt);
             match stmt {
@@ -37,12 +42,7 @@ impl super::WInferenceContext {
                         left, right
                     );
 
-                    let left_ty = locals
-                        .iter()
-                        .find(|e| &e.ident == left)
-                        .expect("Local should be found")
-                        .ty
-                        .clone();
+                    let left_ty = get_type(globals, locals, &left)?;
 
                     match right {
                         WExpr::Move(wident) => todo!("Move"),
@@ -84,19 +84,9 @@ impl super::WInferenceContext {
                                 }
                                 WExprHighCall::StdUnary(unary) => todo!("Std unary"),
                                 WExprHighCall::StdBinary(binary) => {
-                                    let a_ty = locals
-                                        .iter()
-                                        .find(|e| e.ident == binary.a)
-                                        .expect("Local should be found")
-                                        .ty
-                                        .clone();
+                                    let a_ty = get_type(globals, locals, &binary.a)?;
+                                    let b_ty = get_type(globals, locals, &binary.b)?;
 
-                                    let b_ty = locals
-                                        .iter()
-                                        .find(|e| e.ident == binary.b)
-                                        .expect("Local should be found")
-                                        .ty
-                                        .clone();
                                     match binary.op {
                                         IrStdBinaryOp::Eq => {
                                             // constrain the inputs to be of the same type
@@ -126,13 +116,19 @@ impl super::WInferenceContext {
                             self.add_eq_constraint(left_ty, struct_ty);
                         }
                         WExpr::Reference(wexpr_reference) => todo!("Reference"),
-                        WExpr::Lit(lit, _) => todo!("Literal"),
+                        WExpr::Lit(lit, _) => {
+                            if is_property {
+                                // ignore
+                            } else {
+                                todo!("Literal")
+                            }
+                        }
                     }
                 }
                 WMacroableStmt::If(stmt_if) => {
                     eprintln!("Should add constraints for if {:#?}", stmt_if);
-                    self.add_block_constraints(locals, &stmt_if.then_block)?;
-                    self.add_block_constraints(locals, &stmt_if.else_block)?;
+                    self.add_block_constraints(globals, locals, &stmt_if.then_block, is_property)?;
+                    self.add_block_constraints(globals, locals, &stmt_if.else_block, is_property)?;
                 }
                 WMacroableStmt::PanicMacro(wstmt_panic_macro) => {
                     todo!("Constraints for panic macro")
@@ -141,4 +137,23 @@ impl super::WInferenceContext {
         }
         Ok(())
     }
+}
+
+fn get_type(
+    globals: &BTreeMap<WIdent, WTypeId>,
+    locals: &[WTacLocal],
+    ident: &WIdent,
+) -> Result<WTypeId, Error> {
+    if let Some(local_tac) = locals.iter().find(|e| &e.ident == ident) {
+        return Ok(local_tac.ty.clone());
+    }
+
+    if let Some(global_ty) = globals.get(ident) {
+        return Ok(global_ty.clone());
+    }
+
+    Err(Error::new(
+        ErrorType::UndefinedVariable(ident.name().to_string()),
+        ident.wir_span(),
+    ))
 }

@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use machine_check_common::iir::description::IMachine;
@@ -56,33 +56,31 @@ pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Errors> {
 }
 
 pub fn inherent_property() -> IProperty {
-    let mut global_basic_types = HashMap::new();
+    todo!("Inherent property");
+    /*let mut globals = BTreeMap::new();
 
-    let mut ctx = WInferenceContext::new();
-    let panic_type_id = ctx
-        .type_id(&bitvector_type(Some(32)).into())
-        .expect("Panic type should be inserted into context");
+        let mut ctx = WInferenceContext::new();
+        let panic_type_id = ctx
+            .type_id(&bitvector_type(Some(32)).into())
+            .expect("Panic type should be inserted into context");
 
-    global_basic_types.insert(
-        WIdent::new(String::from("__panic"), Span::call_site()),
-        panic_type_id,
-    );
+        globals.insert(
+            WIdent::new(String::from("__panic"), Span::call_site()),
+            panic_type_id,
+        );
 
-    let expr = parse_quote!(AG![__panic == 0]);
+        let expr = parse_quote!(AG![__panic == 0]);
 
-    let (ctx, property, _panic_messages) = into_wir::create_property_description(
-        ctx,
-        expr,
-        &global_basic_types,
-        &PropertyMacros::empty(),
-    )
-    .expect("Inherent property should be created");
+        let (ctx, property, _panic_messages) =
+            into_wir::create_property_description(ctx, expr, &globals, &PropertyMacros::empty())
+                .expect("Inherent property should be created");
 
     //println!("Abstract description: {:?}", description);
 
     property
         .into_iir(&ctx)
         .expect("Inherent property should not produce an error")
+        */
 }
 
 pub fn process_property<M: FullMachine, D>(
@@ -99,19 +97,19 @@ pub fn process_property<M: FullMachine, D>(
 
     let mut global_ident_types = machine.state().fields.clone();
 
-    global_ident_types.insert(
+    /*global_ident_types.insert(
         IIdent::new(String::from("__panic"), ISpan::Unspecified),
         IElementaryType::Bitvector(32),
-    );
+    );*/
 
-    let mut global_basic_types = HashMap::new();
+    let mut global_basic_types = BTreeMap::new();
 
     let mut ctx = WInferenceContext::new();
 
     // TODO: add global basic types
     for (global_ident, elementary_type) in &global_ident_types {
         let ty = match elementary_type {
-            IElementaryType::Bitvector(width) => bitvector_type(Some(32)),
+            IElementaryType::Bitvector(width) => bitvector_type(Some(*width)),
             IElementaryType::Array(type_array) => todo!("Array"),
             IElementaryType::Boolean => bool_type(),
             IElementaryType::Struct(_struct_id) => {

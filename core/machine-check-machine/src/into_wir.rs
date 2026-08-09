@@ -3,7 +3,7 @@ mod description;
 mod from_syn;
 mod property;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use machine_check_common::PropertyMacros;
 use quote::ToTokens;
@@ -28,11 +28,10 @@ pub fn create_description(
 pub fn create_property_description<D>(
     ctx: WInferenceContext,
     expr: syn::Expr,
-    global_ident_types: &HashMap<WIdent, WTypeId>,
+    globals: &BTreeMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
 ) -> Result<(WLowContext, WProperty<YSsa>, Vec<String>), crate::Errors> {
-    property::create_from_syn(ctx, expr, global_ident_types, property_macros)
-        .map_err(Errors::convert_inner)
+    property::create_from_syn(ctx, expr, globals, property_macros).map_err(Errors::convert_inner)
 }
 
 #[derive(thiserror::Error, Debug, Clone)]

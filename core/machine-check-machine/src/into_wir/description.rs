@@ -64,7 +64,7 @@ fn tac_from_items(
     let impls = Errors::flat_result(impls);
     let (structs, impls) = Errors::combine_and_vec(structs, impls, errors)?;
 
-    ctx.resolve_types(impls.as_slice())?;
+    ctx.resolve_impls_types(impls.as_slice())?;
 
     Ok(WDescription { structs, impls })
 }

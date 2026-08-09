@@ -178,6 +178,14 @@ impl WLowContext {
         self.new_type_id(ty)
     }
 
+    pub fn new_bool_id(&mut self) -> WTypeId {
+        let ty = IGeneralType::Normal(IType {
+            reference: IrReference::None,
+            inner: IElementaryType::Boolean,
+        });
+        self.new_type_id(ty)
+    }
+
     /*
     fn type_id(&mut self, ty: WType) -> WTypeId {
         let type_id = WTypeId(self.types.len());

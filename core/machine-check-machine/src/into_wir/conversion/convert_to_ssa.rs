@@ -49,14 +49,14 @@ pub fn convert_description(
 pub fn convert_property(
     ctx: &mut WLowContext,
     property: WProperty<YLowered>,
-    global_ident_types: &HashMap<WIdent, WTypeId>,
+    globals: &BTreeMap<WIdent, WTypeId>,
 ) -> Result<WProperty<YSsa>, Errors> {
     let num_subproperties = property.subproperties.len();
 
     let mut converter = SubpropertyConverter {
         ctx,
         num_subproperties,
-        global_ident_types,
+        global_ident_types: globals,
         old_subproperties: BTreeMap::from_iter(property.subproperties.into_iter().enumerate()),
         new_subproperties: BTreeMap::new(),
     };
@@ -80,7 +80,7 @@ pub fn convert_property(
 
 struct SubpropertyConverter<'a> {
     ctx: &'a mut WLowContext,
-    global_ident_types: &'a HashMap<WIdent, WTypeId>,
+    global_ident_types: &'a BTreeMap<WIdent, WTypeId>,
     num_subproperties: usize,
     old_subproperties: BTreeMap<usize, WSubproperty<YLowered>>,
     new_subproperties: BTreeMap<usize, WSubproperty<YSsa>>,
@@ -122,18 +122,17 @@ impl SubpropertyConverter<'_> {
                     process_fn(self.ctx, subproperty_func.func, &global_rewrites)?;
 
                 // add all non-local idents to the function arguments if possible
-                todo!("Add non-local idents to function arguments")
-                /*let mut errors = Vec::new();
+                let mut errors = Vec::new();
                 for nonlocal_ident in nonlocal_idents {
                     let ty = if let Some(ty) = self.global_ident_types.get(&nonlocal_ident) {
-                        Some(ty)
+                        Some(ty.clone())
                     } else {
                         let mut ty = None;
                         for subproperty_index in 0..self.num_subproperties {
                             let subproperty_ident_name =
                                 format!("__mck_subproperty_{}", subproperty_index);
                             if nonlocal_ident.name() == subproperty_ident_name {
-                                ty = Some(&WBasicType::Boolean);
+                                ty = Some(self.ctx.new_bool_id());
                                 break;
                             }
                         }
@@ -142,12 +141,10 @@ impl SubpropertyConverter<'_> {
                     };
 
                     if let Some(ty) = ty {
+                        // TODO: maybe we should dereference here
                         func.signature.inputs.push(WFnArg {
                             ident: nonlocal_ident,
-                            ty: WType {
-                                reference: IrReference::None,
-                                inner: ty.clone(),
-                            },
+                            ty,
                         });
                     } else {
                         errors.push(Error::new(
@@ -163,7 +160,7 @@ impl SubpropertyConverter<'_> {
                     func,
                     children: subproperty_func.children,
                     display: subproperty_func.display,
-                })*/
+                })
             }
             WSubproperty::FixedPoint(fixed_point) => WSubproperty::FixedPoint(fixed_point),
             WSubproperty::Next(next) => WSubproperty::Next(next),
