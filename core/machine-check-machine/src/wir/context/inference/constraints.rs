@@ -47,7 +47,10 @@ impl super::WInferenceContext {
                     let left_ty = get_type(types, &left)?;
 
                     match right {
-                        WExpr::Move(wident) => todo!("Move"),
+                        WExpr::Move(right) => {
+                            let right_ty = get_type(types, &right)?;
+                            self.add_eq_constraint(left_ty, right_ty);
+                        }
                         WExpr::Call(call) => {
                             self.add_call_constraint(types, left_ty, call)?;
                         }
