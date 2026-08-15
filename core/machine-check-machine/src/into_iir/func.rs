@@ -1,19 +1,15 @@
 use std::collections::BTreeMap;
 
 use indexmap::IndexMap;
-use machine_check_common::{
-    iir::{
-        description::{IStructDeclaration, IStructId},
-        func::{IBlock, IFn, IFnDeclaration, IFnOutput, ISignature},
-        path::IIdent,
-        ty::{IGeneralType, IType},
-        variable::{IVarId, IVarInfo},
-    },
-    ir_common::IrReference,
+use machine_check_common::iir::{
+    description::{IStructDeclaration, IStructId},
+    func::{IBlock, IFn, IFnDeclaration, IFnOutput, ISignature},
+    path::IIdent,
+    variable::{IVarId, IVarInfo},
 };
 
 use crate::{
-    wir::{WBlock, WInferredContext, WItemFn, WLowContext, YLowered, YSsa, ZLowered, ZSsa},
+    wir::{WBlock, WItemFn, WLowContext, YSsa, ZSsa},
     Error,
 };
 
@@ -42,12 +38,6 @@ impl WFnData<'_> {
         self.structs
             .get_index(struct_id.0)
             .map(|(_ident, value)| value)
-    }
-
-    pub fn struct_index_and_data(&self, ident: &IIdent) -> Option<(usize, &IStructDeclaration)> {
-        self.structs
-            .get_full(ident)
-            .map(|(index, _, data)| (index, data))
     }
 }
 

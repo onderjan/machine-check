@@ -1,5 +1,4 @@
 use machine_check_common::{
-    iir::ty::{IElementaryType, IGeneralType, IType},
     ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrStdBinaryOp, IrStdUnaryOp},
     Signedness,
 };
@@ -10,42 +9,16 @@ use crate::{
     into_wir::{conversion::convert_types::FnTypeConverter, Error, ErrorType},
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckNew,
-        WMckUnary, WPartialArgument, WPathArgument, WSpanned, WStdBinary, WStdUnary, WType,
+        WMckUnary, WPartialArgument, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
 
-use super::convert_basic_path;
-
 impl FnTypeConverter<'_> {
-    pub fn convert_call_expr(
-        &self,
-        call_expr: WExpr<WExprHighCall>,
-    ) -> Result<WExpr<WExprLowCall>, Error> {
-        match call_expr {
-            WExpr::Move(ident) => Ok(WExpr::Move(ident)),
-            WExpr::Call(call) => self.convert_call(call),
-            WExpr::Field(field) => Ok(WExpr::Field(field)),
-            WExpr::Struct(expr_struct) => Ok(WExpr::Struct(expr_struct)),
-            WExpr::Reference(reference) => Ok(WExpr::Reference(reference)),
-            WExpr::Lit(lit, span) => Ok(WExpr::Lit(lit, span)),
-        }
-    }
-
     pub fn convert_call(&self, call: WExprHighCall) -> Result<WExpr<WExprLowCall>, Error> {
         Ok(WExpr::Call(match call {
             WExprHighCall::Call(call) => return self.convert_normal_call(call),
             WExprHighCall::StdUnary(call) => WExprLowCall::MckUnary(self.convert_unary(call)),
             WExprHighCall::StdBinary(call) => WExprLowCall::MckBinary(self.convert_binary(call)?),
-            /*WExprHighCall::MckExt(call) => WExprLowCall::MckExt(convert_ext(call, local_types)?),
-            WExprHighCall::MckNew(call) => WExprLowCall::MckNew(convert_mck_new(call)?),
-            WExprHighCall::BooleanNew(value) => WExprLowCall::BooleanNew(value),
-            WExprHighCall::StdInto(call) => return Ok(WExpr::Move(call.from)),
-            WExprHighCall::StdClone(ident) => WExprLowCall::StdClone(ident),
-            WExprHighCall::ArrayRead(read) => WExprLowCall::ArrayRead(read),
-            WExprHighCall::ArrayWrite(write) => WExprLowCall::ArrayWrite(write),
-            WExprHighCall::Phi(phi) => WExprLowCall::Phi(phi),
-            WExprHighCall::PhiTaken(taken) => WExprLowCall::PhiTaken(taken),
-            WExprHighCall::PhiNotTaken => WExprLowCall::PhiNotTaken,*/
         }))
     }
 
@@ -76,12 +49,6 @@ impl FnTypeConverter<'_> {
         }
 
         todo!("Lower call {:?}", call);
-
-        /*let fn_path = convert_basic_path(call.fn_path);
-        WCall {
-            fn_path,
-            args: call.args,
-        }*/
     }
 
     fn convert_unary(&self, call: WStdUnary) -> WMckUnary {

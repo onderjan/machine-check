@@ -1,8 +1,8 @@
-use std::{any::TypeId, collections::BTreeSet};
+use std::collections::BTreeSet;
 
 use syn::Type;
 
-use crate::wir::{WIdent, WItemFn, WTypeId, YLowered, YSsa, YStage};
+use crate::wir::{WIdent, WItemFn, WTypeId, YSsa, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WProperty<Y: YStage> {

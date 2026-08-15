@@ -12,7 +12,7 @@ use crate::{
     util::path_matches_global_names,
     wir::{
         WField, WIdent, WImplItemType, WInferenceContext, WItemImpl, WItemImplTrait, WItemStruct,
-        WSpan, WTypeId, WVisibility, YTac,
+        WSpan, WVisibility, YTac,
     },
 };
 
@@ -104,7 +104,6 @@ pub fn fold_item_struct(
     attribute_disallower.into_result()?;
 
     let self_ident = WIdent::from_syn_ident(item.ident);
-    let self_path = self_ident.clone().into_path();
 
     let visibility = fold_visibility(item.vis)?;
 

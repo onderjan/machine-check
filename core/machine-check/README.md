@@ -122,9 +122,9 @@ The MSRV will not be raised in a patch release.
  - `0.7.0`: Improved properties and experimental equality domain.
  - `0.6.1`: Bugfixes for propositional μ-calculus.
  - `0.6.0`: Support for parametric systems, properties extended to support 
-  propositional μ-calculus.
+   propositional μ-calculus.
  - `0.5.0`: Support for division and remainder, experimental (opt-in) implementation
-  of a dual-interval abstraction domain.
+   of a dual-interval abstraction domain.
  - `0.4.0`: An initial version of a Graphical User Interface, a monotonicity fix,
    tweaks to the verification core including no longer short-circuiting
    state generation on panic when verifying the inherent property.

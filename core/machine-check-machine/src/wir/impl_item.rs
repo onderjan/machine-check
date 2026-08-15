@@ -1,18 +1,13 @@
 use proc_macro2::Span;
 use std::fmt::Debug;
 use syn::{
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::{Bracket, Paren},
-    Attribute, FnArg, Generics, ImplItemFn, ImplItemType, ItemFn, Local, MetaNameValue, Pat,
-    PatIdent, PatType, Receiver, Signature, Stmt, Token, Type, TypePath, TypeReference,
+    punctuated::Punctuated, spanned::Spanned, token::Paren, FnArg, Generics, ImplItemFn,
+    ImplItemType, ItemFn, Local, Pat, PatIdent, PatType, Receiver, Signature, Stmt, Token, Type,
+    TypePath, TypeReference,
 };
 use syn_path::path;
 
-use crate::{
-    util::{create_expr_path, create_path_from_ident},
-    wir::{WItemFn, WPartialPath, WTypeId, WVisibility},
-};
+use crate::wir::{WItemFn, WPartialPath, WTypeId, WVisibility};
 
 use super::{IntoSyn, WIdent, YStage};
 
@@ -221,10 +216,9 @@ impl IntoSyn<Local> for WTacLocal {
 
 impl IntoSyn<Local> for WSsaLocal {
     fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Local {
-        let mut local = ident_type_local(self.ident, Some(self.ty), false, type_fn);
-        let span = local.span();
-
-        /*local.attrs = vec![Attribute {
+        let local = ident_type_local(self.ident, Some(self.ty), false, type_fn);
+        /*let span = local.span();
+        local.attrs = vec![Attribute {
             pound_token: Token![#](span),
             style: syn::AttrStyle::Outer,
             bracket_token: Bracket::default(),

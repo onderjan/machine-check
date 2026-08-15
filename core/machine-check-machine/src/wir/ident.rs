@@ -111,7 +111,7 @@ impl From<WIdent> for Ident {
 }
 
 impl IntoSyn<Expr> for WIdent {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
+    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         Expr::Path(ExprPath {
             attrs: Vec::new(),
             qself: None,

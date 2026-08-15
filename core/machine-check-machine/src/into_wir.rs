@@ -3,7 +3,7 @@ mod description;
 mod from_syn;
 mod property;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use machine_check_common::PropertyMacros;
 use quote::ToTokens;
@@ -13,10 +13,7 @@ pub use from_syn::fold_type;
 
 use crate::{
     support::error_list::ErrorList,
-    wir::{
-        WDescription, WIdent, WInferenceContext, WInferredContext, WLowContext, WProperty, WSpan,
-        WTypeId, YLowered, YSsa,
-    },
+    wir::{WDescription, WIdent, WInferenceContext, WLowContext, WProperty, WSpan, WTypeId, YSsa},
 };
 
 pub fn create_description(

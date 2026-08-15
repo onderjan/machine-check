@@ -1,19 +1,14 @@
 use std::collections::BTreeSet;
 
-use machine_check_common::{
-    ir_common::{IrReference, IrStdBinaryOp},
-    Signedness,
-};
 use mck::misc::{PANIC_MSG_DIV_BY_ZERO, PANIC_MSG_REM_BY_ZERO};
 use proc_macro2::Span;
 
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WBlock, WDescription, WExpr, WExprField, WExprHighCall, WIdent, WIfCondition,
-        WInferredContext, WItemFn, WItemImpl, WMacroableStmt, WNoIfPolarity, WProperty, WSignature,
-        WSpanned, WStdBinary, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc,
-        WTacLocal, WTypeId, YLowered, YTac, YTotal, ZTac, ZTotal,
+        WBlock, WDescription, WIdent, WInferredContext, WItemFn, WItemImpl, WMacroableStmt,
+        WProperty, WSignature, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc,
+        WTacLocal, WTypeId, YTac, YTotal, ZTac, ZTotal,
     },
 };
 

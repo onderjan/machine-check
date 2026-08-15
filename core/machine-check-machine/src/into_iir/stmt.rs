@@ -2,7 +2,7 @@ use machine_check_common::iir::stmt::{IAssignStmt, IIfStmt, IStmt};
 
 use crate::{
     into_iir::func::WFnData,
-    wir::{WStmt, ZLowered, ZSsa},
+    wir::{WStmt, ZSsa},
     Error,
 };
 

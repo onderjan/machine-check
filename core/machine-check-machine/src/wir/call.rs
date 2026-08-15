@@ -1,4 +1,3 @@
-use machine_check_common::{ir_common::IrTypeArray, Signedness};
 use proc_macro2::Span;
 use std::fmt::Debug;
 use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, Type};
@@ -28,12 +27,6 @@ pub struct WCall {
 pub enum WCallArg {
     Ident(WIdent),
     Literal(Lit),
-}
-
-fn replace_ident(ident: &mut WIdent, original: &WIdent, replacement: &WIdent) {
-    if ident == original {
-        *ident = replacement.clone();
-    }
 }
 
 impl IntoSyn<Expr> for WCall {

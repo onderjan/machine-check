@@ -1,12 +1,8 @@
 use indexmap::IndexMap;
-use machine_check_common::iir::description::{
-    IDescription, IStruct, IStructDeclaration, IStructId, ITrait,
-};
-use proc_macro2::Span;
-use syn::{Ident, Path, Type, TypePath};
+use machine_check_common::iir::description::{IDescription, IStruct, IStructDeclaration, ITrait};
 
 use crate::{
-    wir::{WDescription, WItemImplTrait, WLowContext, YLowered, YSsa},
+    wir::{WDescription, WItemImplTrait, WLowContext, YSsa},
     Error,
 };
 
@@ -67,7 +63,7 @@ impl WDescription<YSsa> {
             let mut fn_declarations = IndexMap::new();
 
             for wir_fn in &item_impl.impl_item_fns {
-                let declaration = wir_fn.clone().into_declaration(&ctx)?;
+                let declaration = wir_fn.clone().into_declaration(ctx)?;
                 fn_declarations.insert((trait_, declaration.signature.ident.clone()), declaration);
             }
 
@@ -105,7 +101,7 @@ impl WDescription<YSsa> {
 
             let mut iir_fns = IndexMap::new();
             for wir_fn in item_impl.impl_item_fns {
-                let iir_fn = wir_fn.into_iir(&ctx, &struct_declarations)?;
+                let iir_fn = wir_fn.into_iir(ctx, &struct_declarations)?;
                 iir_fns.insert((trait_, iir_fn.signature.ident.clone()), iir_fn);
             }
 

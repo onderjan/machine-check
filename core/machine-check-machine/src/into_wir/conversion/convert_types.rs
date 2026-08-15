@@ -6,8 +6,7 @@ use crate::{
         WBlock, WDescription, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIdent,
         WImplItemType, WInferredContext, WItemFn, WItemImpl, WItemStruct, WLowContext,
         WPartialPath, WPartialSegment, WProperty, WSignature, WStmt, WStmtAssign, WStmtIf,
-        WSubproperty, WSubpropertyFunc, WTypeId, YLowered, YSsa, YTac, YTotal, ZLowered, ZSsa,
-        ZTac, ZTotal,
+        WSubproperty, WSubpropertyFunc, WTypeId, YLowered, YTotal, ZLowered, ZTotal,
     },
 };
 
@@ -60,36 +59,9 @@ pub fn lower_property(
 
     Ok((ctx, WProperty { subproperties }))
 }
-/*
-fn convert_basic_type(ty: WBasicType) -> WElementaryType {
-    match ty {
-        WBasicType::Bitvector(_signedness, width) => {
-            // lose signedness information
-            WElementaryType::Bitvector(width)
-        }
-        WBasicType::BitvectorArray(type_array) => WElementaryType::Array(type_array),
-        WBasicType::Boolean => WElementaryType::Boolean,
-        WBasicType::Path(path) => WElementaryType::Path(convert_basic_path(path)),
-    }
-}
-
-fn convert_type(ty: WType<WBasicType>) -> WType<WElementaryType> {
-    WType {
-        reference: ty.reference,
-        inner: convert_basic_type(ty.inner),
-    }
-}
-
-fn convert_general_type(ty: WGeneralType<WBasicType>) -> WGeneralType<WElementaryType> {
-    match ty {
-        WGeneralType::Normal(ty) => WGeneralType::Normal(convert_type(ty)),
-        WGeneralType::PanicResult(ty) => WGeneralType::PanicResult(convert_type(ty)),
-        WGeneralType::PhiArg(ty) => WGeneralType::PhiArg(convert_type(ty)),
-    }
-}*/
 
 fn convert_item_struct(
-    ctx: &mut WInferredContext,
+    _ctx: &mut WInferredContext,
     item_struct: WItemStruct,
 ) -> Result<WItemStruct, Errors> {
     let derives = item_struct

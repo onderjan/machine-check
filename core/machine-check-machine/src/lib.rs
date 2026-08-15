@@ -1,13 +1,12 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use machine_check_common::iir::description::IMachine;
-use machine_check_common::iir::path::{IIdent, ISpan};
 use machine_check_common::iir::property::IProperty;
 use machine_check_common::iir::ty::IElementaryType;
-use machine_check_common::{PropertyMacros, Signedness};
+use machine_check_common::PropertyMacros;
 use mck::concr::FullMachine;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
@@ -20,7 +19,7 @@ use syn_path::path;
 use wir::IntoSyn;
 
 use crate::util::{create_item_mod, path_matches_global_names};
-use crate::wir::{bitvector_type, bool_type, WIdent, WInferenceContext, WSpan, WType};
+use crate::wir::{bitvector_type, bool_type, WIdent, WInferenceContext, WSpan};
 
 mod abstr;
 mod concr;
@@ -95,7 +94,7 @@ pub fn process_property<M: FullMachine, D>(
         ))
     })?;
 
-    let mut global_ident_types = machine.state().fields.clone();
+    let global_ident_types = machine.state().fields.clone();
 
     /*global_ident_types.insert(
         IIdent::new(String::from("__panic"), ISpan::Unspecified),
@@ -110,7 +109,7 @@ pub fn process_property<M: FullMachine, D>(
     for (global_ident, elementary_type) in &global_ident_types {
         let ty = match elementary_type {
             IElementaryType::Bitvector(width) => bitvector_type(Some(*width)),
-            IElementaryType::Array(type_array) => todo!("Array"),
+            IElementaryType::Array(_type_array) => todo!("Array"),
             IElementaryType::Boolean => bool_type(),
             IElementaryType::Struct(_struct_id) => {
                 todo!("Support nested structs")

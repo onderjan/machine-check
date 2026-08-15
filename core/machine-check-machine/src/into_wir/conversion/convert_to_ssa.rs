@@ -1,16 +1,13 @@
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
-
-use machine_check_common::ir_common::IrReference;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    phi_arg_item_path, WBlock, WCall, WCallArg, WExpr, WExprLowCall, WFnArg, WIdent,
-    WInferredContext, WLowContext, WMckNew, WPhi, WPhiTaken, WProperty, WSignature, WSpan,
-    WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId,
-    YLowered, ZLowered, ZSsa, ZTotal,
+    WBlock, WCallArg, WExpr, WExprLowCall, WFnArg, WIdent, WLowContext, WMckNew, WPhi, WPhiTaken,
+    WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty,
+    WSubpropertyFunc, WTypeId, YLowered, ZLowered, ZSsa,
 };
-use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa, YTotal};
+use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa};
 
 pub fn convert_description(
     ctx: &mut WLowContext,
@@ -359,7 +356,7 @@ impl LocalVisitor<'_> {
 
             // phi then and else have phi arg type
             let phi_arg_type = WPartialGeneralType::PhiArg(ty);*/
-            let phi_arg_type = self.ctx.new_phi_arg_id(ident.wir_span(), ty);
+            let phi_arg_type = self.ctx.new_phi_arg_id(ty);
 
             self.temps.insert(
                 phi_then_ident.clone(),
@@ -541,8 +538,6 @@ fn create_phi_call(
     then_ident: WIdent,
     else_ident: WIdent,
 ) -> WStmt<ZSsa> {
-    let span = assigned.wir_span();
-
     WStmt::Assign(WStmtAssign {
         left: assigned,
         right: WExpr::Call(WExprLowCall::Phi(WPhi {
@@ -558,8 +553,6 @@ fn create_taken_assign(
     taken_ident: WIdent,
     condition_ident: WIdent,
 ) -> WStmt<ZSsa> {
-    let span = phi_arg_ident.wir_span();
-
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprLowCall::PhiTaken(WPhiTaken {
@@ -570,8 +563,6 @@ fn create_taken_assign(
 }
 
 fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
-    let span = phi_arg_ident.wir_span();
-
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprLowCall::PhiNotTaken),

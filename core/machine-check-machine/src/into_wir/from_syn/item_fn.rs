@@ -1,11 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
 
-use machine_check_common::ir_common::IrReference;
 use proc_macro2::Span;
-use quote::quote;
 use syn::{
-    spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat, Path,
-    Signature, Type, TypePath, TypeReference,
+    spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat,
+    Signature, Type, TypeReference,
 };
 
 use crate::{
@@ -18,8 +16,8 @@ use crate::{
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WFnArg, WIdent, WInferenceContext, WInferredContext, WItemFn, WPath, WSignature, WSpan,
-        WSpanned, WTacLocal, WTypeId, YTac,
+        WFnArg, WIdent, WInferenceContext, WItemFn, WSignature, WSpan, WSpanned, WTacLocal,
+        WTypeId, YTac,
     },
 };
 

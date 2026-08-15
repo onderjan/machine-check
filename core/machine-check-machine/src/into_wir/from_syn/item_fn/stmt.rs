@@ -223,10 +223,10 @@ impl<'a> super::FunctionFolder<'a> {
         Ok(())
     }
 
-    fn fold_if<'b>(
+    fn fold_if(
         &mut self,
         expr: ExprIf,
-        result_stmts: &'b mut Vec<WMacroableStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
     ) -> Result<(), Errors> {
         let condition = self.force_right_expr_to_ident(*expr.cond, result_stmts)?;
 

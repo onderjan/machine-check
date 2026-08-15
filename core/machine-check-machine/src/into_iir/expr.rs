@@ -1,27 +1,20 @@
-use indexmap::IndexMap;
-use machine_check_common::{
-    iir::{
-        expr::{
-            call::{IArrayRead, IArrayWrite, IExprCall, IMckNew, IPhi},
-            op::{IMckBinary, IMckExt, IMckUnary},
-            IExpr, IExprField, IExprReference, IExprStruct,
-        },
-        path::{IIdent, ISpan},
-        ty::{IElementaryType, IGeneralType, IType},
-        variable::IVarId,
-    },
-    ir_common::{IrMckBinaryOp, IrMckUnaryOp, IrReference, IrStdBinaryOp, IrStdUnaryOp},
-};
-use mck::{concr::RConcreteBitvector, misc::RBound};
-use syn::Lit;
-
 use crate::{
     into_iir::{error, func::WFnData},
     wir::{
-        WCallArg, WExpr, WExprField, WExprHighCall, WExprLowCall, WExprReference, WExprStruct,
-        WIdent, WMckNew, WPartialArgument, WSpan, WSpanned,
+        WExpr, WExprField, WExprLowCall, WExprReference, WExprStruct, WIdent, WMckNew, WSpan,
+        WSpanned,
     },
     Error,
+};
+
+use machine_check_common::iir::{
+    expr::{
+        call::{IArrayRead, IArrayWrite, IExprCall, IMckNew, IPhi},
+        op::{IMckBinary, IMckExt, IMckUnary},
+        IExpr, IExprField, IExprReference, IExprStruct,
+    },
+    ty::{IElementaryType, IGeneralType, IType},
+    variable::IVarId,
 };
 
 impl WExpr<WExprLowCall> {
@@ -33,28 +26,6 @@ impl WExpr<WExprLowCall> {
             }
             WExpr::Call(expr_call) => match expr_call {
                 WExprLowCall::Call(call) => {
-                    /*if call
-                        .fn_path
-                        .matches_absolute(&["mck", "concr", "Bitvector", "new"])
-                        && call.args.len() == 1
-                    {
-                        if let Some(generics) = &call.fn_path.segments[2].generics {
-                            if generics.arguments.len() == 1 {
-                                if let WPartialArgument::Uint(width, _span) = &generics.arguments[0]
-                                {
-                                    if let WCallArg::Literal(Lit::Int(lit_int)) = &call.args[0] {
-                                        if let Ok(value) = lit_int.base10_parse() {
-                                            let bound = RBound::new(*width);
-                                            let bitvector = RConcreteBitvector::new(value, bound);
-                                            return Ok(Some(IExpr::Call(IExprCall::MckNew(
-                                                IMckNew::Bitvector(bitvector),
-                                            ))));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }*/
                     todo!("Call into IIR: {:?}", call)
                 }
                 WExprLowCall::MckUnary(unary) => {

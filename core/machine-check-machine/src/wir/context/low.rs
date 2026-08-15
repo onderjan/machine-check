@@ -11,7 +11,7 @@ use syn::{
     TypeReference,
 };
 
-use crate::wir::{phi_arg_type_path, WIdent, WPath, WSpan, WType, WTypeId};
+use crate::wir::{WIdent, WSpan, WTypeId};
 
 #[derive(Debug, Clone)]
 pub enum WLowTypeDef {
@@ -45,7 +45,7 @@ impl WLowContext {
     }
 
     pub fn id_syn_type(&self, id: WTypeId) -> Type {
-        let (is_phi_arg, mut itype) = match self.id_general_type(id) {
+        let (is_phi_arg, itype) = match self.id_general_type(id) {
             IGeneralType::Normal(itype) => (false, itype),
             IGeneralType::PhiArg(itype) => (true, itype),
         };
@@ -169,7 +169,7 @@ impl WLowContext {
         type_id
     }
 
-    pub fn new_phi_arg_id(&mut self, span: WSpan, inner: WTypeId) -> WTypeId {
+    pub fn new_phi_arg_id(&mut self, inner: WTypeId) -> WTypeId {
         let IGeneralType::Normal(inner) = self.types[inner.0].clone() else {
             panic!("Expected phi inner to be normal");
         };
