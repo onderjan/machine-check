@@ -85,12 +85,19 @@ impl WInferenceContext {
     pub fn resolve_impls_types(&mut self, impls: &[WItemImpl<YTac>]) -> Result<(), Error> {
         for item_impl in impls.iter() {
             for item_fn in &item_impl.impl_item_fns {
-                self.add_block_constraints(
-                    &BTreeMap::new(),
-                    &item_fn.locals,
-                    &item_fn.block,
-                    false,
-                )?;
+                let mut types = BTreeMap::new();
+
+                for arg in &item_fn.signature.inputs {
+                    types.insert(arg.ident.clone(), arg.ty.clone());
+                }
+                types.extend(
+                    item_fn
+                        .locals
+                        .iter()
+                        .map(|local| (local.ident.clone(), local.ty.clone())),
+                );
+
+                self.add_block_constraints(&types, &item_fn.block, false)?;
             }
         }
 
@@ -120,12 +127,14 @@ impl WInferenceContext {
             match subproperty {
                 WSubproperty::Func(subproperty_func) => {
                     let func = &subproperty_func.func;
-                    self.add_block_constraints(
-                        &globals_with_results,
-                        &func.locals,
-                        &func.block,
-                        true,
-                    )?;
+                    let mut types = globals_with_results.clone();
+                    types.extend(
+                        func.locals
+                            .iter()
+                            .map(|local| (local.ident.clone(), local.ty.clone())),
+                    );
+
+                    self.add_block_constraints(&types, &func.block, true)?;
                 }
                 WSubproperty::FixedPoint(_) => {}
                 WSubproperty::Next(_) => {}

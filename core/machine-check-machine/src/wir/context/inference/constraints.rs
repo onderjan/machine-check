@@ -6,17 +6,19 @@ use syn::{Path, Type, TypePath};
 use crate::{
     into_wir::{Error, ErrorType},
     wir::{
-        context::types::{bitvector_type, bool_type},
+        context::{
+            typedef::WContextTypeDef,
+            types::{bitvector_type, bool_type},
+        },
         signed_type, unsigned_type, WBlock, WExpr, WExprHighCall, WIdent, WIndexedExpr,
-        WIndexedIdent, WMacroableStmt, WPartialArgument, WSpanned, WTacLocal, WTypeId, ZTac,
+        WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialType, WSpanned, WTypeId, ZTac,
     },
 };
 
 impl super::WInferenceContext {
     pub(super) fn add_block_constraints(
         &mut self,
-        globals: &BTreeMap<WIdent, WTypeId>,
-        locals: &Vec<WTacLocal>,
+        types: &BTreeMap<WIdent, WTypeId>,
         block: &WBlock<ZTac>,
         is_property: bool,
     ) -> Result<(), Error> {
@@ -42,15 +44,46 @@ impl super::WInferenceContext {
                         left, right
                     );
 
-                    let left_ty = get_type(globals, locals, &left)?;
+                    let left_ty = get_type(types, &left)?;
 
                     match right {
                         WExpr::Move(wident) => todo!("Move"),
                         WExpr::Call(call) => {
-                            self.add_call_constraint(globals, locals, left_ty, call);
+                            self.add_call_constraint(types, left_ty, call)?;
                         }
-                        WExpr::Field(wexpr_field) => {
-                            eprintln!("Field");
+                        WExpr::Field(expr_field) => {
+                            let base_ty = get_type(types, &expr_field.base)?;
+                            // TODO: this should be in fixpoint to work with inference well
+                            let mut base_ty = &self.types[base_ty.0];
+
+                            eprintln!("Field {:?}: base type {:?}", expr_field, base_ty);
+
+                            while let WPartialType::Reference(ty) = base_ty {
+                                base_ty = ty.as_ref();
+                            }
+
+                            if let WPartialType::Path(path) = base_ty {
+                                eprintln!("Field {:?}: base path {:?}", expr_field, path);
+                                let base_ty = Type::Path(TypePath {
+                                    qself: None,
+                                    path: Path::from(path.clone()),
+                                });
+                                let base_def = self.type_defs.get(&base_ty);
+                                eprintln!("Base def: {:?}", base_def);
+                                if let Some(WContextTypeDef::Struct(struct_def)) = base_def {
+                                    for field in struct_def {
+                                        if field.0 == expr_field.member {
+                                            // TODO: reference
+                                            eprintln!("Member type: {:?}", field);
+                                            self.add_eq_constraint(
+                                                left_ty.clone(),
+                                                field.1.clone(),
+                                            );
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
                         WExpr::Struct(expr_struct) => {
                             let struct_ty = self.type_id(&Type::Path(TypePath {
@@ -71,8 +104,8 @@ impl super::WInferenceContext {
                 }
                 WMacroableStmt::If(stmt_if) => {
                     eprintln!("Should add constraints for if {:#?}", stmt_if);
-                    self.add_block_constraints(globals, locals, &stmt_if.then_block, is_property)?;
-                    self.add_block_constraints(globals, locals, &stmt_if.else_block, is_property)?;
+                    self.add_block_constraints(types, &stmt_if.then_block, is_property)?;
+                    self.add_block_constraints(types, &stmt_if.else_block, is_property)?;
                 }
                 WMacroableStmt::PanicMacro(wstmt_panic_macro) => {
                     todo!("Constraints for panic macro")
@@ -84,8 +117,7 @@ impl super::WInferenceContext {
 
     fn add_call_constraint(
         &mut self,
-        globals: &BTreeMap<WIdent, WTypeId>,
-        locals: &[WTacLocal],
+        types: &BTreeMap<WIdent, WTypeId>,
         left_ty: WTypeId,
         call: &WExprHighCall,
     ) -> Result<(), Error> {
@@ -98,6 +130,11 @@ impl super::WInferenceContext {
                     let is_bitvector = segments[1].ident.name() == "Bitvector";
                     let is_unsigned = segments[1].ident.name() == "Unsigned";
                     let is_signed = segments[1].ident.name() == "Signed";
+
+                    eprintln!(
+                        "Bitvector: {}, unsigned: {}, signed: {}",
+                        is_bitvector, is_unsigned, is_signed
+                    );
 
                     if segments[0].ident.name() == "machine_check"
                         && (is_bitvector || is_unsigned || is_signed)
@@ -133,8 +170,8 @@ impl super::WInferenceContext {
             }
             WExprHighCall::StdUnary(unary) => todo!("Std unary"),
             WExprHighCall::StdBinary(binary) => {
-                let a_ty = get_type(globals, locals, &binary.a)?;
-                let b_ty = get_type(globals, locals, &binary.b)?;
+                let a_ty = get_type(types, &binary.a)?;
+                let b_ty = get_type(types, &binary.b)?;
 
                 match binary.op {
                     IrStdBinaryOp::Eq
@@ -170,16 +207,8 @@ impl super::WInferenceContext {
     }
 }
 
-fn get_type(
-    globals: &BTreeMap<WIdent, WTypeId>,
-    locals: &[WTacLocal],
-    ident: &WIdent,
-) -> Result<WTypeId, Error> {
-    if let Some(local_tac) = locals.iter().find(|e| &e.ident == ident) {
-        return Ok(local_tac.ty.clone());
-    }
-
-    if let Some(global_ty) = globals.get(ident) {
+fn get_type(types: &BTreeMap<WIdent, WTypeId>, ident: &WIdent) -> Result<WTypeId, Error> {
+    if let Some(global_ty) = types.get(ident) {
         return Ok(global_ty.clone());
     }
 
