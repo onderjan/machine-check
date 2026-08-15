@@ -7,8 +7,8 @@ use crate::{
     into_wir::{Error, ErrorType},
     wir::{
         context::types::{bitvector_type, bool_type},
-        WBlock, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent, WMacroableStmt,
-        WPartialArgument, WSpanned, WTacLocal, WTypeId, ZTac,
+        signed_type, unsigned_type, WBlock, WExpr, WExprHighCall, WIdent, WIndexedExpr,
+        WIndexedIdent, WMacroableStmt, WPartialArgument, WSpanned, WTacLocal, WTypeId, ZTac,
     },
 };
 
@@ -47,76 +47,7 @@ impl super::WInferenceContext {
                     match right {
                         WExpr::Move(wident) => todo!("Move"),
                         WExpr::Call(call) => {
-                            eprintln!("Call");
-                            match call {
-                                WExprHighCall::Call(call) => {
-                                    let mut found = false;
-                                    if call.fn_path.leading_colon.is_some()
-                                        && call.fn_path.segments.len() == 3
-                                    {
-                                        let segments = &call.fn_path.segments;
-                                        if segments[0].ident.name() == "machine_check"
-                                            && segments[1].ident.name() == "Bitvector"
-                                            && segments[2].ident.name() == "new"
-                                        {
-                                            let mut width = None;
-                                            if let Some(generics) = &segments[1].generics {
-                                                if generics.arguments.len() == 1 {
-                                                    if let WPartialArgument::Uint(
-                                                        width_arg,
-                                                        _span,
-                                                    ) = generics.arguments[0]
-                                                    {
-                                                        width = Some(width_arg)
-                                                    }
-                                                }
-                                            }
-                                            // constrain the output to be a bitvector of the given width
-                                            let bitvector_ty =
-                                                self.partial_type_id(bitvector_type(width));
-                                            self.add_eq_constraint(left_ty, bitvector_ty);
-                                            found = true
-                                        }
-                                    }
-                                    if !found {
-                                        todo!("Call constraint {:?}", call)
-                                    }
-                                }
-                                WExprHighCall::StdUnary(unary) => todo!("Std unary"),
-                                WExprHighCall::StdBinary(binary) => {
-                                    let a_ty = get_type(globals, locals, &binary.a)?;
-                                    let b_ty = get_type(globals, locals, &binary.b)?;
-
-                                    match binary.op {
-                                        IrStdBinaryOp::Eq
-                                        | IrStdBinaryOp::Ne
-                                        | IrStdBinaryOp::Lt
-                                        | IrStdBinaryOp::Le
-                                        | IrStdBinaryOp::Gt
-                                        | IrStdBinaryOp::Ge => {
-                                            // constrain the inputs to be of the same type
-                                            self.add_eq_constraint(a_ty, b_ty);
-                                            // constrain the output to be a Boolean
-                                            let bool_ty = self.partial_type_id(bool_type());
-                                            self.add_eq_constraint(left_ty, bool_ty);
-                                        }
-                                        IrStdBinaryOp::BitAnd
-                                        | IrStdBinaryOp::BitOr
-                                        | IrStdBinaryOp::BitXor
-                                        | IrStdBinaryOp::Shl
-                                        | IrStdBinaryOp::Shr
-                                        | IrStdBinaryOp::Add
-                                        | IrStdBinaryOp::Sub
-                                        | IrStdBinaryOp::Mul
-                                        | IrStdBinaryOp::Div
-                                        | IrStdBinaryOp::Rem => {
-                                            // constrain both inputs to output
-                                            self.add_eq_constraint(left_ty.clone(), a_ty);
-                                            self.add_eq_constraint(left_ty, b_ty);
-                                        }
-                                    }
-                                }
-                            }
+                            self.add_call_constraint(globals, locals, left_ty, call);
                         }
                         WExpr::Field(wexpr_field) => {
                             eprintln!("Field");
@@ -145,6 +76,93 @@ impl super::WInferenceContext {
                 }
                 WMacroableStmt::PanicMacro(wstmt_panic_macro) => {
                     todo!("Constraints for panic macro")
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn add_call_constraint(
+        &mut self,
+        globals: &BTreeMap<WIdent, WTypeId>,
+        locals: &[WTacLocal],
+        left_ty: WTypeId,
+        call: &WExprHighCall,
+    ) -> Result<(), Error> {
+        eprintln!("Call");
+        match call {
+            WExprHighCall::Call(call) => {
+                let mut found = false;
+                if call.fn_path.leading_colon.is_some() && call.fn_path.segments.len() == 3 {
+                    let segments = &call.fn_path.segments;
+                    let is_bitvector = segments[1].ident.name() == "Bitvector";
+                    let is_unsigned = segments[1].ident.name() == "Unsigned";
+                    let is_signed = segments[1].ident.name() == "Signed";
+
+                    if segments[0].ident.name() == "machine_check"
+                        && (is_bitvector || is_unsigned || is_signed)
+                        && segments[2].ident.name() == "new"
+                    {
+                        let mut width = None;
+                        if let Some(generics) = &segments[1].generics {
+                            if generics.arguments.len() == 1 {
+                                if let WPartialArgument::Uint(width_arg, _span) =
+                                    generics.arguments[0]
+                                {
+                                    width = Some(width_arg)
+                                }
+                            }
+                        }
+                        let ty = if is_bitvector {
+                            bitvector_type(width)
+                        } else if is_unsigned {
+                            unsigned_type(width)
+                        } else {
+                            signed_type(width)
+                        };
+
+                        // constrain the output to be a bitvector of the given width
+                        let bitvector_ty = self.partial_type_id(ty);
+                        self.add_eq_constraint(left_ty, bitvector_ty);
+                        found = true
+                    }
+                }
+                if !found {
+                    todo!("Call constraint {:?}", call)
+                }
+            }
+            WExprHighCall::StdUnary(unary) => todo!("Std unary"),
+            WExprHighCall::StdBinary(binary) => {
+                let a_ty = get_type(globals, locals, &binary.a)?;
+                let b_ty = get_type(globals, locals, &binary.b)?;
+
+                match binary.op {
+                    IrStdBinaryOp::Eq
+                    | IrStdBinaryOp::Ne
+                    | IrStdBinaryOp::Lt
+                    | IrStdBinaryOp::Le
+                    | IrStdBinaryOp::Gt
+                    | IrStdBinaryOp::Ge => {
+                        // constrain the inputs to be of the same type
+                        self.add_eq_constraint(a_ty, b_ty);
+                        // constrain the output to be a Boolean
+                        let bool_ty = self.partial_type_id(bool_type());
+                        self.add_eq_constraint(left_ty, bool_ty);
+                    }
+                    IrStdBinaryOp::BitAnd
+                    | IrStdBinaryOp::BitOr
+                    | IrStdBinaryOp::BitXor
+                    | IrStdBinaryOp::Shl
+                    | IrStdBinaryOp::Shr
+                    | IrStdBinaryOp::Add
+                    | IrStdBinaryOp::Sub
+                    | IrStdBinaryOp::Mul
+                    | IrStdBinaryOp::Div
+                    | IrStdBinaryOp::Rem => {
+                        // constrain both inputs to output
+                        self.add_eq_constraint(left_ty.clone(), a_ty);
+                        self.add_eq_constraint(left_ty, b_ty);
+                    }
                 }
             }
         }

@@ -50,9 +50,12 @@ impl FnTypeConverter<'_> {
     }
 
     fn convert_normal_call(&self, call: WCall) -> Result<WExpr<WExprLowCall>, Error> {
-        if call
+        if (call
             .fn_path
             .matches_absolute(&["machine_check", "Bitvector", "new"])
+            || call
+                .fn_path
+                .matches_absolute(&["machine_check", "Unsigned", "new"]))
             && call.args.len() == 1
         {
             if let Some(generics) = &call.fn_path.segments[1].generics {

@@ -6,6 +6,18 @@ use crate::wir::{
 };
 
 pub fn bitvector_type(width: Option<u32>) -> WPartialType {
+    bitvector_like_type("Bitvector", width)
+}
+
+pub fn unsigned_type(width: Option<u32>) -> WPartialType {
+    bitvector_like_type("Unsigned", width)
+}
+
+pub fn signed_type(width: Option<u32>) -> WPartialType {
+    bitvector_like_type("Signed", width)
+}
+
+fn bitvector_like_type(name: &str, width: Option<u32>) -> WPartialType {
     let generics = width.map(|width| WPartialGenerics {
         turbofish: None,
         arguments: vec![WPartialArgument::Uint(width, WSpan::call_site())],
@@ -18,7 +30,7 @@ pub fn bitvector_type(width: Option<u32>) -> WPartialType {
                 generics: None,
             },
             WPartialSegment {
-                ident: WIdent::new(String::from("Bitvector"), Span::call_site()),
+                ident: WIdent::new(String::from(name), Span::call_site()),
                 generics,
             },
         ],
