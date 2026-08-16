@@ -8,7 +8,7 @@ use syn::Lit;
 use crate::{
     into_wir::{conversion::lower::FnLowerer, Error, ErrorType},
     wir::{
-        WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckNew,
+        WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
         WMckUnary, WPartialArgument, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
@@ -57,6 +57,50 @@ impl FnLowerer<'_> {
                 // TODO: check types
                 // just make into move
                 return Ok(WExpr::Move(ident.clone()));
+            }
+        }
+
+        if call
+            .fn_path
+            .matches_absolute(&["machine_check", "Ext", "ext"])
+            && call.args.len() == 1
+        {
+            if let WCallArg::Ident(inner) = &call.args[0] {
+                let inner_ty = self
+                    .local_types
+                    .get(inner)
+                    .expect("Ext arg should have local type");
+                let inner_ty = self.ctx.wir_type(inner_ty.clone());
+                let mut signed = None;
+                match inner_ty {
+                    WType::Path(path) => {
+                        if path.matches_absolute(&["machine_check", "Unsigned"]) {
+                            signed = Some(false);
+                        } else if path.matches_absolute(&["machine_check", "Signed"]) {
+                            signed = Some(true);
+                        }
+                    }
+                    WType::Reference(_wtype) => todo!("Reference ext type"),
+                }
+                let Some(signed) = signed else {
+                    panic!("Signedness not estabilished for extension");
+                };
+
+                if let Some(generics) = &call.fn_path.segments[1].generics {
+                    if generics.arguments.len() == 1 {
+                        if let WPartialArgument::Uint(width, _span) = &generics.arguments[0] {
+                            return Ok(WExpr::Call(WExprLowCall::MckExt(WMckExt {
+                                signed,
+                                width: *width,
+                                from: inner.clone(),
+                            })));
+                        }
+                    }
+                }
+
+                // TODO: check types
+                // just make into move
+                return Ok(WExpr::Move(inner.clone()));
             }
         }
 

@@ -127,7 +127,34 @@ impl IntoSyn<Expr> for WExprLowCall {
                 binary.op.to_string(),
                 convert_args(vec![binary.a, binary.b]),
             ),
-            WExprLowCall::MckExt(ext) => todo!("ext"),
+            WExprLowCall::MckExt(ext) => {
+                let cbound = Path {
+                    leading_colon: Some(Token![::](span)),
+                    segments: Punctuated::from_iter([
+                        PathSegment {
+                            ident: Ident::new("mck", span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("forward", span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("Ext", span),
+                            arguments: PathArguments::None,
+                        },
+                    ]),
+                };
+                let ext_name = if ext.signed { MCK_SEXT } else { MCK_UEXT }.to_string();
+                (
+                    ext_name,
+                    Punctuated::<Expr, Comma>::from_iter([Expr::Path(ExprPath {
+                        attrs: Vec::new(),
+                        qself: None,
+                        path: ext.from.into(),
+                    })]),
+                )
+            }
             WExprLowCall::MckNew(new) => {
                 let span = Span::call_site();
                 match new {

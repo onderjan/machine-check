@@ -12,10 +12,7 @@ use super::{IntoSyn, WIdent, WMckBinary, WMckUnary, WStdBinary, WStdUnary};
 mod high;
 mod low;
 
-pub use {
-    high::WExprHighCall,
-    low::{WExprLowCall, WMckNew, WPhi, WPhiTaken},
-};
+pub use {high::WExprHighCall, low::*};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WCall {
