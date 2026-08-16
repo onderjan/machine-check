@@ -32,9 +32,9 @@ impl FnTypeConverter<'_> {
             && call.args.len() == 1
         {
             if let Some(generics) = &call.fn_path.segments[1].generics {
-                if let WCallArg::Literal(Lit::Int(lit_int)) = &call.args[0] {
-                    if let Ok(value) = lit_int.base10_parse() {
-                        if generics.arguments.len() == 1 {
+                if generics.arguments.len() == 1 {
+                    if let WCallArg::Literal(Lit::Int(lit_int)) = &call.args[0] {
+                        if let Ok(value) = lit_int.base10_parse() {
                             if let WPartialArgument::Uint(width, _span) = &generics.arguments[0] {
                                 let bound = RBound::new(*width);
                                 let bitvector = ConcreteBitvector::new(value, bound);
@@ -45,6 +45,18 @@ impl FnTypeConverter<'_> {
                         }
                     }
                 }
+            }
+        }
+
+        if call
+            .fn_path
+            .matches_absolute(&["std", "convert", "Into", "into"])
+            && call.args.len() == 1
+        {
+            if let WCallArg::Ident(ident) = &call.args[0] {
+                // TODO: check types
+                // just make into move
+                return Ok(WExpr::Move(ident.clone()));
             }
         }
 
