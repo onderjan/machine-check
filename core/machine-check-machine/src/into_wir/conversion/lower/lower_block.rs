@@ -1,13 +1,15 @@
 use machine_check_common::ir_common::IrMckBinaryOp;
-use mck::{concr::ConcreteBitvector, misc::RBound};
 use proc_macro2::Span;
 
 use crate::{
-    into_wir::{conversion::lower::lower_basic_path, Errors},
+    into_wir::{
+        conversion::lower::{create_panic_call, lower_basic_path},
+        Errors,
+    },
     wir::{
         WBlock, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIfCondition, WIndexedExpr,
-        WIndexedIdent, WMacroableStmt, WMckBinary, WMckNew, WNoIfPolarity, WStmt, WStmtAssign,
-        WStmtIf, ZLowered, ZTac,
+        WIndexedIdent, WMacroableStmt, WMckBinary, WNoIfPolarity, WStmt, WStmtAssign, WStmtIf,
+        ZLowered, ZTac,
     },
 };
 
@@ -87,7 +89,7 @@ impl super::FnLowerer<'_> {
         // assign to the panic variable if it is currently zero
         let panic_is_zero_ident = self
             .ident_creator
-            .create_temporary_ident(span, self.ctx.panic_type_id());
+            .create_temporary_ident(span, self.ctx.boolean_type_id());
 
         let panic_is_zero_call = WExprLowCall::MckBinary(WMckBinary {
             op: IrMckBinaryOp::Eq,
@@ -118,10 +120,4 @@ impl super::FnLowerer<'_> {
 
         vec![panic_is_zero_assign, replace_panic_if_currently_zero]
     }
-}
-
-fn create_panic_call(val: u64) -> WExpr<WExprLowCall> {
-    WExpr::Call(WExprLowCall::MckNew(WMckNew::Bitvector(
-        ConcreteBitvector::new(val, RBound::new(32)),
-    )))
 }

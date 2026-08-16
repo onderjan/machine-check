@@ -4,11 +4,13 @@ use crate::{
     into_wir::Errors,
     support::ident_creator::IdentCreator,
     wir::{
-        WDescription, WIdent, WImplItemType, WInferredContext, WItemFn, WItemImpl, WItemStruct,
-        WLowContext, WPartialPath, WPartialSegment, WProperty, WSignature, WSubproperty,
-        WSubpropertyFunc, WTypeId, YLowered, YTac,
+        WDescription, WExpr, WExprLowCall, WIdent, WImplItemType, WInferredContext, WItemFn,
+        WItemImpl, WItemStruct, WLowContext, WMckNew, WPartialPath, WPartialSegment, WProperty,
+        WSignature, WStmt, WStmtAssign, WSubproperty, WSubpropertyFunc, WTacLocal, WTypeId,
+        YLowered, YTac,
     },
 };
+use mck::{concr::ConcreteBitvector, misc::RBound};
 
 mod lower_block;
 mod lower_call;
@@ -128,8 +130,32 @@ fn lower_item_fn(
     }
     let span = signature.ident.span();
 
+    let mut locals = impl_item.locals;
+
     let panic_ident = WIdent::new(String::from("__mck_panic"), span);
     let zero_bitvec_ident = WIdent::new(String::from("__mck_paniczbv"), span);
+
+    let panic_ty = ctx.panic_type_id();
+    locals.push(WTacLocal {
+        ident: panic_ident.clone(),
+        ty: panic_ty.clone(),
+    });
+    locals.push(WTacLocal {
+        ident: zero_bitvec_ident.clone(),
+        ty: panic_ty.clone(),
+    });
+
+    let zero_panic_call = create_panic_call(0);
+    let mut stmts = vec![
+        WStmt::Assign(WStmtAssign {
+            left: panic_ident.clone(),
+            right: zero_panic_call.clone(),
+        }),
+        WStmt::Assign(WStmtAssign {
+            left: zero_bitvec_ident.clone(),
+            right: zero_panic_call,
+        }),
+    ];
 
     let mut fn_converter = FnLowerer {
         ctx,
@@ -140,11 +166,19 @@ fn lower_item_fn(
         zero_bitvec_ident,
     };
 
-    let block = fn_converter.lower_block(impl_item.block)?;
+    let mut block = fn_converter.lower_block(impl_item.block)?;
+
+    for (ident, ty) in fn_converter.ident_creator.drain_created_temporaries() {
+        locals.push(WTacLocal { ident, ty });
+    }
+
+    stmts.append(&mut block.stmts);
+    block.stmts = stmts;
+
     Ok(WItemFn {
         visibility: impl_item.visibility,
         signature,
-        locals: impl_item.locals,
+        locals,
         block,
         result: impl_item.result,
     })
@@ -211,4 +245,10 @@ fn path_start_to_mck_str(str: &str, mut path: WPartialPath) -> WPartialPath {
         },
     );
     path
+}
+
+fn create_panic_call(val: u64) -> WExpr<WExprLowCall> {
+    WExpr::Call(WExprLowCall::MckNew(WMckNew::Bitvector(
+        ConcreteBitvector::new(val, RBound::new(32)),
+    )))
 }

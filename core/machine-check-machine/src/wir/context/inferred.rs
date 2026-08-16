@@ -19,15 +19,22 @@ pub struct WInferredContext {
     type_defs: WTypeDefs,
     types: Vec<WType>,
     iir_registrations: IndexMap<Type, IStructId>,
+    boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
 }
 
 impl WInferredContext {
-    pub(super) fn new(type_defs: WTypeDefs, types: Vec<WType>, panic_type_id: WTypeId) -> Self {
+    pub(super) fn new(
+        type_defs: WTypeDefs,
+        types: Vec<WType>,
+        boolean_type_id: WTypeId,
+        panic_type_id: WTypeId,
+    ) -> Self {
         Self {
             type_defs,
             types,
             iir_registrations: IndexMap::new(),
+            boolean_type_id,
             panic_type_id,
         }
     }
@@ -36,6 +43,10 @@ impl WInferredContext {
         let type_id = WTypeId(self.types.len());
         self.types.push(ty);
         type_id
+    }
+
+    pub fn boolean_type_id(&self) -> WTypeId {
+        self.boolean_type_id.clone()
     }
 
     pub fn panic_type_id(&self) -> WTypeId {
