@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::wir::{context::typedef::WTypeDefs, WPathArgument, WType, WTypeId};
+use crate::wir::{context::typedef::WTypeDefs, WPathArgument, WSignatures, WType, WTypeId};
 
 mod lower;
 
@@ -16,24 +16,27 @@ use syn::{Path, Type, TypePath};
 
 #[derive(Debug)]
 pub struct WInferredContext {
+    signatures: WSignatures,
     type_defs: WTypeDefs,
     types: Vec<WType>,
-    iir_registrations: IndexMap<Type, IStructId>,
+    //iir_registrations: IndexMap<Type, IStructId>,
     boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
 }
 
 impl WInferredContext {
     pub(super) fn new(
+        signatures: WSignatures,
         type_defs: WTypeDefs,
         types: Vec<WType>,
         boolean_type_id: WTypeId,
         panic_type_id: WTypeId,
     ) -> Self {
         Self {
+            signatures,
             type_defs,
             types,
-            iir_registrations: IndexMap::new(),
+            //iir_registrations: IndexMap::new(),
             boolean_type_id,
             panic_type_id,
         }
@@ -57,7 +60,11 @@ impl WInferredContext {
         self.types[id.0].clone()
     }
 
-    pub fn iir_id_general_type(&self, id: WTypeId) -> IGeneralType {
+    pub fn signatures(&self) -> &WSignatures {
+        &self.signatures
+    }
+
+    /*pub fn iir_id_general_type(&self, id: WTypeId) -> IGeneralType {
         self.iir_ty(self.types.get(id.0).expect("Type id should be present"))
     }
 
@@ -151,5 +158,5 @@ impl WInferredContext {
                 IGeneralType::Normal(inner)
             }
         }
-    }
+    }*/
 }

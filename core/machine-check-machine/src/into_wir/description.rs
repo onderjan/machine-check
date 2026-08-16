@@ -70,7 +70,7 @@ fn tac_from_items(
     let (structs, impls) = Errors::combine_and_vec(structs, impls, errors)?;
 
     let signatures = generate_signatures(&structs, &impls);
-    let ctx = ctx.infer_impls(&signatures, impls.as_slice())?;
+    let ctx = ctx.infer_impls(signatures, impls.as_slice())?;
     let description = WDescription { structs, impls };
 
     Ok((ctx, description))

@@ -86,7 +86,7 @@ impl WInferenceContext {
 
     pub fn infer_impls(
         mut self,
-        signatures: &WSignatures,
+        signatures: WSignatures,
         impls: &[WItemImpl<YTac>],
     ) -> Result<WInferredContext, Error> {
         for item_impl in impls.iter() {
@@ -104,16 +104,16 @@ impl WInferenceContext {
                         .map(|local| (local.ident.clone(), local.ty.clone())),
                 );
 
-                self.add_block_constraints(signatures, &types, &item_fn.block, Some(self_path))?;
+                self.add_block_constraints(&signatures, &types, &item_fn.block, Some(self_path))?;
             }
         }
 
-        self.unify()
+        self.unify(signatures)
     }
 
     pub fn infer_subproperties(
         mut self,
-        signatures: &WSignatures,
+        signatures: WSignatures,
         globals: &BTreeMap<WIdent, WTypeId>,
         subproperties: &[WSubproperty<YTac>],
     ) -> Result<WInferredContext, Error> {
@@ -142,17 +142,17 @@ impl WInferenceContext {
                             .map(|local| (local.ident.clone(), local.ty.clone())),
                     );
 
-                    self.add_block_constraints(signatures, &types, &func.block, None)?;
+                    self.add_block_constraints(&signatures, &types, &func.block, None)?;
                 }
                 WSubproperty::FixedPoint(_) => {}
                 WSubproperty::Next(_) => {}
             }
         }
 
-        self.unify()
+        self.unify(signatures)
     }
 
-    fn unify(mut self) -> Result<WInferredContext, Error> {
+    fn unify(mut self, signatures: WSignatures) -> Result<WInferredContext, Error> {
         eprintln!("Unifying {:?}", self);
         let mut united = IndexMap::new();
 
@@ -192,10 +192,10 @@ impl WInferenceContext {
             );
         }
 
-        self.into_total()
+        self.into_total(signatures)
     }
 
-    pub fn into_total(mut self) -> Result<WInferredContext, Error> {
+    pub fn into_total(mut self, signatures: WSignatures) -> Result<WInferredContext, Error> {
         let boolean_type_id = self.type_id(&Type::from(bool_type()))?;
         let panic_type_id = self.type_id(&Type::from(bitvector_type(Some(32))))?;
 
@@ -209,6 +209,7 @@ impl WInferenceContext {
         }
 
         Ok(WInferredContext::new(
+            signatures,
             self.type_defs,
             types,
             boolean_type_id,

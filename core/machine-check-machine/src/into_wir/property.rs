@@ -216,8 +216,7 @@ fn property_from_exprs(
         subproperties.push(subproperty);
     }
 
-    let signatures = &WSignatures::new(IndexMap::new());
-
+    let signatures = WSignatures::new(IndexMap::new());
     let ctx = ctx.infer_subproperties(signatures, globals, subproperties.as_slice())?;
 
     Ok((ctx, WProperty { subproperties }))
