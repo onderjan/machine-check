@@ -22,7 +22,6 @@ impl super::WInferenceContext {
         signatures: &WSignatures,
         types: &BTreeMap<WIdent, WTypeId>,
         block: &WBlock<ZTac>,
-        self_path: Option<&WPath>,
     ) -> Result<(), Error> {
         eprintln!("Adding constraints for block {:?}", block);
         for stmt in &block.stmts {
@@ -54,7 +53,7 @@ impl super::WInferenceContext {
                             self.add_eq_constraint(left_ty, right_ty);
                         }
                         WExpr::Call(call) => {
-                            self.add_call_constraint(signatures, types, self_path, left_ty, call)?;
+                            self.add_call_constraint(signatures, types, left_ty, call)?;
                         }
                         WExpr::Field(expr_field) => {
                             let base_ty = get_type(types, &expr_field.base)?;
@@ -112,8 +111,8 @@ impl super::WInferenceContext {
                 }
                 WMacroableStmt::If(stmt_if) => {
                     eprintln!("Should add constraints for if {:#?}", stmt_if);
-                    self.add_block_constraints(signatures, types, &stmt_if.then_block, self_path)?;
-                    self.add_block_constraints(signatures, types, &stmt_if.else_block, self_path)?;
+                    self.add_block_constraints(signatures, types, &stmt_if.then_block)?;
+                    self.add_block_constraints(signatures, types, &stmt_if.else_block)?;
                 }
                 WMacroableStmt::PanicMacro(_stmt_panic_macro) => {
                     // panic macro returns a never type
@@ -128,15 +127,13 @@ impl super::WInferenceContext {
         &mut self,
         signatures: &WSignatures,
         types: &BTreeMap<WIdent, WTypeId>,
-        self_path: Option<&WPath>,
         left_ty: WTypeId,
         call: &WExprHighCall,
     ) -> Result<(), Error> {
         eprintln!("Call");
         match call {
             WExprHighCall::Call(call) => {
-                return self
-                    .add_normal_call_constraint(signatures, types, self_path, left_ty, call);
+                return self.add_normal_call_constraint(signatures, types, left_ty, call);
             }
             WExprHighCall::StdUnary(unary) => todo!("Std unary"),
             WExprHighCall::StdBinary(binary) => {
@@ -180,7 +177,6 @@ impl super::WInferenceContext {
         &mut self,
         signatures: &WSignatures,
         types: &BTreeMap<WIdent, WTypeId>,
-        self_path: Option<&WPath>,
         left_ty: WTypeId,
         call: &WCall,
     ) -> Result<(), Error> {
@@ -317,12 +313,7 @@ impl super::WInferenceContext {
             }
         }
 
-        let call_path = if let Some(self_path) = self_path.as_ref() {
-            call.fn_path.clone().resolve_self(self_path)
-        } else {
-            call.fn_path.clone()
-        }
-        .without_generics();
+        let call_path = call.fn_path.clone().without_generics();
 
         if let Some(signature) = signatures.get(&call_path) {
             let WSignature::ImplFn(signature) = signature else {

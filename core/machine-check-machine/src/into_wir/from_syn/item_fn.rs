@@ -16,8 +16,8 @@ use crate::{
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WFnArg, WFnSignature, WIdent, WInferenceContext, WItemFn, WSignature, WSpan, WSpanned,
-        WTacLocal, WTypeId, YTac,
+        WFnArg, WFnSignature, WIdent, WInferenceContext, WItemFn, WPath, WSignature, WSpan,
+        WSpanned, WTacLocal, WTypeId, YTac,
     },
 };
 
@@ -39,7 +39,7 @@ pub fn fold_item_fn(ctx: &mut WInferenceContext, item_fn: ItemFn) -> Result<WIte
 pub fn fold_impl_item_fn(
     ctx: &mut WInferenceContext,
     impl_item_fn: ImplItemFn,
-    self_ty: &Type,
+    self_ty: (&Type, &WPath),
 ) -> Result<WItemFn<YTac>, Errors> {
     if impl_item_fn.defaultness.is_some() {
         return Err(Errors::single(Error::unsupported_syn_construct(
@@ -57,7 +57,7 @@ pub fn fold_impl_item_fn(
 
     let item_fn = FunctionFolder {
         ctx,
-        self_ty: Some(self_ty.clone()),
+        self_ty: Some(self_ty),
         ident_creator: IdentCreator::new(String::from("")),
         scopes: Vec::new(),
         local_types: BTreeMap::new(),
@@ -74,7 +74,7 @@ struct FunctionScope {
 
 struct FunctionFolder<'a> {
     ctx: &'a mut WInferenceContext,
-    self_ty: Option<Type>,
+    self_ty: Option<(&'a Type, &'a WPath)>,
     ident_creator: IdentCreator<()>,
     local_types: BTreeMap<WIdent, WTypeId>,
     scopes: Vec<FunctionScope>,
@@ -249,10 +249,10 @@ impl FunctionFolder<'_> {
                         and_token: *reference_and,
                         lifetime: None,
                         mutability: None,
-                        elem: Box::new(self_ty.clone()),
+                        elem: Box::new(self_ty.0.clone()),
                     })
                 } else {
-                    self_ty.clone()
+                    self_ty.0.clone()
                 };
 
                 if let Some(mutability) = &receiver.mutability {

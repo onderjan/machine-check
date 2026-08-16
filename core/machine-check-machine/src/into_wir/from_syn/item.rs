@@ -190,32 +190,7 @@ pub fn fold_item_impl(
 
     let mut errors = Vec::new();
 
-    for impl_item in item.items {
-        let impl_item_span = WSpan::from_syn(&impl_item);
-        let err_msg = match impl_item {
-            ImplItem::Type(impl_item) => {
-                impl_item_types.push(fold_impl_item_type(impl_item, &item.self_ty));
-                None
-            }
-            ImplItem::Fn(impl_item) => {
-                impl_item_fns.push(fold_impl_item_fn(ctx, impl_item, &item.self_ty));
-                None
-            }
-            ImplItem::Const(_) => Some("Associated consts"),
-            ImplItem::Macro(_) => Some("Macro invocations in impl"),
-            _ => Some("Implementation item kind"),
-        };
-        if let Some(err_msg) = err_msg {
-            errors.push(Error::unsupported_construct(err_msg, impl_item_span));
-        }
-    }
-    let impl_item_types = Errors::flat_single_result(impl_item_types);
-    let impl_item_fns = Errors::flat_result(impl_item_fns);
-
-    let (impl_item_types, impl_item_fns) =
-        Errors::combine_and_vec(impl_item_types, impl_item_fns, errors)?;
-
-    let self_ty = match *item.self_ty {
+    let self_ty = match *item.self_ty.clone() {
         Type::Path(type_path) => fold_partial_path(type_path.path.clone())?
             .into_total()
             .map_err(|_| {
@@ -232,6 +207,35 @@ pub fn fold_item_impl(
         }
     };
 
+    for impl_item in item.items {
+        let impl_item_span = WSpan::from_syn(&impl_item);
+        let err_msg = match impl_item {
+            ImplItem::Type(impl_item) => {
+                impl_item_types.push(fold_impl_item_type(impl_item));
+                None
+            }
+            ImplItem::Fn(impl_item) => {
+                impl_item_fns.push(fold_impl_item_fn(
+                    ctx,
+                    impl_item,
+                    (item.self_ty.as_ref(), &self_ty),
+                ));
+                None
+            }
+            ImplItem::Const(_) => Some("Associated consts"),
+            ImplItem::Macro(_) => Some("Macro invocations in impl"),
+            _ => Some("Implementation item kind"),
+        };
+        if let Some(err_msg) = err_msg {
+            errors.push(Error::unsupported_construct(err_msg, impl_item_span));
+        }
+    }
+    let impl_item_types = Errors::flat_single_result(impl_item_types);
+    let impl_item_fns = Errors::flat_result(impl_item_fns);
+
+    let (impl_item_types, impl_item_fns) =
+        Errors::combine_and_vec(impl_item_types, impl_item_fns, errors)?;
+
     Ok(WItemImpl {
         self_ty,
         trait_,
@@ -240,10 +244,7 @@ pub fn fold_item_impl(
     })
 }
 
-pub fn fold_impl_item_type(
-    impl_item: ImplItemType,
-    self_ty: &Type,
-) -> Result<WImplItemType, Error> {
+pub fn fold_impl_item_type(impl_item: ImplItemType) -> Result<WImplItemType, Error> {
     let visibility = fold_visibility(impl_item.vis)?;
 
     if impl_item.generics != Generics::default() {

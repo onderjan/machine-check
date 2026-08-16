@@ -90,7 +90,6 @@ impl WInferenceContext {
         impls: &[WItemImpl<YTac>],
     ) -> Result<WInferredContext, Error> {
         for item_impl in impls.iter() {
-            let self_path = &item_impl.self_ty;
             for item_fn in &item_impl.impl_item_fns {
                 let mut types = BTreeMap::new();
 
@@ -104,7 +103,7 @@ impl WInferenceContext {
                         .map(|local| (local.ident.clone(), local.ty.clone())),
                 );
 
-                self.add_block_constraints(&signatures, &types, &item_fn.block, Some(self_path))?;
+                self.add_block_constraints(&signatures, &types, &item_fn.block)?;
             }
         }
 
@@ -142,7 +141,7 @@ impl WInferenceContext {
                             .map(|local| (local.ident.clone(), local.ty.clone())),
                     );
 
-                    self.add_block_constraints(&signatures, &types, &func.block, None)?;
+                    self.add_block_constraints(&signatures, &types, &func.block)?;
                 }
                 WSubproperty::FixedPoint(_) => {}
                 WSubproperty::Next(_) => {}

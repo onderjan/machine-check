@@ -9,7 +9,7 @@ use crate::{
     into_wir::{conversion::lower::FnLowerer, Error, ErrorType},
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
-        WMckUnary, WPartialArgument, WSpanned, WStdBinary, WStdUnary, WType,
+        WMckUnary, WPartialArgument, WSignature, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
 
@@ -104,7 +104,17 @@ impl FnLowerer<'_> {
             }
         }
 
-        todo!("Lower call {:?}", call);
+        let without_generics = call.fn_path.clone().without_generics();
+
+        if self.ctx.signatures().get(&without_generics).is_none() {
+            panic!(
+                "Call should be in signatures due to constraints: {:?}",
+                call
+            );
+        }
+
+        // must be a correct call due to the constraints placed
+        Ok(WExpr::Call(WExprLowCall::Call(call)))
     }
 
     fn lower_unary(&self, call: WStdUnary) -> WMckUnary {

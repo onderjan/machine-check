@@ -3,7 +3,7 @@ use std::str::FromStr;
 use machine_check_common::ir_common::{IrStdBinaryOp, IrStdUnaryOp};
 use syn::{
     punctuated::Punctuated, spanned::Spanned, token::Comma, Expr, ExprBinary, ExprCall, ExprField,
-    ExprIndex, ExprReference, ExprStruct, ExprUnary, Member, Path, UnOp,
+    ExprIndex, ExprReference, ExprStruct, ExprUnary, Member, Path, Type, TypePath, UnOp,
 };
 use syn_path::path;
 
@@ -165,6 +165,13 @@ impl RightExprFolder<'_, '_, '_> {
                 ));
             }
         }
+
+        let wir_fn_path = if let Some((_self_ty, self_ty_path)) = self.fn_folder.self_ty {
+            wir_fn_path.resolve_self(self_ty_path)
+        } else {
+            wir_fn_path
+        };
+
         let mut args = Vec::new();
         for arg in expr_call.args {
             args.push(self.force_call_arg(arg)?);

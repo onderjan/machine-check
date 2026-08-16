@@ -6,7 +6,7 @@ use crate::{
     wir::{
         WDescription, WExpr, WExprLowCall, WFnSignature, WIdent, WImplItemType, WInferredContext,
         WItemFn, WItemImpl, WItemStruct, WLowContext, WMckNew, WPartialPath, WPartialSegment,
-        WProperty, WStmt, WStmtAssign, WSubproperty, WSubpropertyFunc, WTacLocal, WTypeId,
+        WPath, WProperty, WStmt, WStmtAssign, WSubproperty, WSubpropertyFunc, WTacLocal, WTypeId,
         YLowered, YTac,
     },
 };
@@ -47,7 +47,7 @@ pub fn lower_property(
         let subproperty = match subproperty {
             WSubproperty::Func(subproperty_func) => WSubproperty::Func(WSubpropertyFunc {
                 parent: subproperty_func.parent,
-                func: lower_item_fn(&mut ctx, subproperty_func.func)?,
+                func: lower_item_fn(&mut ctx, None, subproperty_func.func)?,
                 children: subproperty_func.children,
                 display: subproperty_func.display,
             }),
@@ -88,7 +88,7 @@ fn lower_item_impl(
     let mut impl_item_fns = Vec::new();
 
     for impl_item_fn in item_impl.impl_item_fns {
-        impl_item_fns.push(lower_item_fn(ctx, impl_item_fn));
+        impl_item_fns.push(lower_item_fn(ctx, Some(&item_impl.self_ty), impl_item_fn));
     }
 
     let impl_item_types = item_impl
@@ -116,6 +116,7 @@ fn lower_item_impl(
 
 fn lower_item_fn(
     ctx: &mut WInferredContext,
+    self_path: Option<&WPath>,
     impl_item: WItemFn<YTac>,
 ) -> Result<WItemFn<YLowered>, Errors> {
     let signature = WFnSignature {
@@ -157,8 +158,9 @@ fn lower_item_fn(
         }),
     ];
 
-    let mut fn_converter = FnLowerer {
+    let mut fn_lowerer = FnLowerer {
         ctx,
+        self_path,
         local_types,
         next_panic_num: 0,
         ident_creator: IdentCreator::new(String::from("panic")),
@@ -166,9 +168,9 @@ fn lower_item_fn(
         zero_bitvec_ident,
     };
 
-    let mut block = fn_converter.lower_block(impl_item.block)?;
+    let mut block = fn_lowerer.lower_block(impl_item.block)?;
 
-    for (ident, ty) in fn_converter.ident_creator.drain_created_temporaries() {
+    for (ident, ty) in fn_lowerer.ident_creator.drain_created_temporaries() {
         locals.push(WTacLocal { ident, ty });
     }
 
@@ -186,6 +188,7 @@ fn lower_item_fn(
 
 struct FnLowerer<'a> {
     ctx: &'a mut WInferredContext,
+    self_path: Option<&'a WPath>,
     local_types: IndexMap<WIdent, WTypeId>,
     // TODO: just use a str for panics
     next_panic_num: u32,
