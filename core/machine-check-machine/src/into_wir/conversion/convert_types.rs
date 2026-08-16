@@ -4,9 +4,10 @@ use crate::{
     into_wir::Errors,
     wir::{
         WBlock, WDescription, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIdent,
-        WImplItemType, WInferredContext, WItemFn, WItemImpl, WItemStruct, WLowContext,
-        WPartialPath, WPartialSegment, WProperty, WSignature, WStmt, WStmtAssign, WStmtIf,
-        WSubproperty, WSubpropertyFunc, WTypeId, YLowered, YTotal, ZLowered, ZTotal,
+        WImplItemType, WIndexedExpr, WIndexedIdent, WInferredContext, WItemFn, WItemImpl,
+        WItemStruct, WLowContext, WMacroableStmt, WPartialPath, WPartialSegment, WProperty,
+        WSignature, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId, YLowered,
+        YTac, ZLowered, ZTac,
     },
 };
 
@@ -14,7 +15,7 @@ mod convert_calls;
 
 pub fn lower_description(
     mut ctx: WInferredContext,
-    description: WDescription<YTotal>,
+    description: WDescription<YTac>,
 ) -> Result<(WLowContext, WDescription<YLowered>), Errors> {
     let mut structs = Vec::new();
     let mut impls = Vec::new();
@@ -36,7 +37,7 @@ pub fn lower_description(
 
 pub fn lower_property(
     mut ctx: WInferredContext,
-    property: WProperty<YTotal>,
+    property: WProperty<YTac>,
 ) -> Result<(WLowContext, WProperty<YLowered>), Errors> {
     let mut subproperties = Vec::new();
 
@@ -80,7 +81,7 @@ fn convert_item_struct(
 
 fn convert_item_impl(
     ctx: &mut WInferredContext,
-    item_impl: WItemImpl<YTotal>,
+    item_impl: WItemImpl<YTac>,
 ) -> Result<WItemImpl<YLowered>, Errors> {
     let mut impl_item_fns = Vec::new();
 
@@ -113,7 +114,7 @@ fn convert_item_impl(
 
 fn convert_item_fn(
     ctx: &mut WInferredContext,
-    impl_item: WItemFn<YTotal>,
+    impl_item: WItemFn<YTac>,
 ) -> Result<WItemFn<YLowered>, Errors> {
     let signature = WSignature {
         ident: impl_item.signature.ident,
@@ -144,20 +145,25 @@ struct FnTypeConverter<'a> {
 }
 
 impl FnTypeConverter<'_> {
-    fn convert_block(&self, block: WBlock<ZTotal>) -> Result<WBlock<ZLowered>, Errors> {
+    fn convert_block(&self, block: WBlock<ZTac>) -> Result<WBlock<ZLowered>, Errors> {
         let mut stmts = Vec::new();
         let mut errors = Vec::new();
 
         for stmt in block.stmts {
             match stmt {
-                WStmt::Assign(stmt) => match self.convert_expr(stmt.right) {
-                    Ok(right) => stmts.push(WStmt::Assign(WStmtAssign {
-                        left: stmt.left,
-                        right,
-                    })),
-                    Err(err) => errors.push(err),
-                },
-                WStmt::If(stmt) => {
+                WMacroableStmt::Assign(stmt) => {
+                    let WIndexedIdent::NonIndexed(left) = stmt.left else {
+                        todo!("Indexed expr");
+                    };
+                    let WIndexedExpr::NonIndexed(right) = stmt.right else {
+                        todo!("Indexed expr");
+                    };
+                    match self.convert_expr(right) {
+                        Ok(right) => stmts.push(WStmt::Assign(WStmtAssign { left, right })),
+                        Err(err) => errors.push(err),
+                    }
+                }
+                WMacroableStmt::If(stmt) => {
                     let then_block = self
                         .convert_block(stmt.then_block)
                         .map_err(|err| errors.push(err));
@@ -173,6 +179,7 @@ impl FnTypeConverter<'_> {
                         }))
                     }
                 }
+                WMacroableStmt::PanicMacro(panic_macro) => todo!("Lower panic macro"),
             };
         }
 

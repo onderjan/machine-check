@@ -4,10 +4,10 @@ use syn::{Item, Path, Type, TypePath};
 
 use crate::{
     into_wir::{
-        conversion::{convert_to_ssa, convert_total, convert_types, expand_macros, resolve_use},
+        conversion::{convert_to_ssa, convert_types, expand_macros, resolve_use},
         from_syn, Error, Errors,
     },
-    wir::{WDescription, WInferenceContext, WLowContext, YLowered, YSsa, YTac},
+    wir::{WDescription, WInferenceContext, WLowContext, YSsa, YTac},
 };
 
 pub fn description_from_syn(
@@ -27,9 +27,10 @@ pub fn description_from_syn(
     let mut ctx = WInferenceContext::new();
     let w_description = tac_from_items(&mut ctx, items.into_iter())?;
     //let w_description = convert_indexing::convert_description(w_description);
-    let mut ctx = ctx.into_total()?;
-    let (w_description, panic_messages) =
-        convert_total::convert_description(&mut ctx, w_description);
+    let ctx = ctx.into_total()?;
+    /*let (w_description, panic_messages) =
+    convert_total::convert_description(&mut ctx, w_description);*/
+    let panic_messages = Vec::new();
     let (mut ctx, w_description) = convert_types::lower_description(ctx, w_description)?;
     let w_description = convert_to_ssa::convert_description(&mut ctx, w_description)?;
     Ok((ctx, w_description, panic_messages))

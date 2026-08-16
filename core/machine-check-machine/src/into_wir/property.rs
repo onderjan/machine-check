@@ -148,9 +148,10 @@ pub fn create_from_syn<D>(
     eprintln!("Property from exprs: {:#?}", property);
     eprintln!("Inference context: {:#?}", ctx);
     //let w_description = convert_indexing::convert_description(w_description);
-    let mut ctx = ctx.into_total()?;
+    let ctx = ctx.into_total()?;
     eprintln!("Inferred context: {:#?}", ctx);
-    let (property, panic_messages) = convert_total::convert_property(&mut ctx, property);
+    //let (property, panic_messages) = convert_total::convert_property(&mut ctx, property);
+    let panic_messages = Vec::new();
     let (mut ctx, property) = convert_types::lower_property(ctx, property)?;
     let property = convert_to_ssa::convert_property(&mut ctx, property, globals)?;
 
