@@ -11,6 +11,7 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 use crate::{
     into_wir::{fold_type, Error, ErrorType},
     wir::{
+        bitvector_type,
         context::typedef::{WContextTypeDef, WTypeDefs},
         WIdent, WInferredContext, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics,
         WPartialPath, WPartialSegment, WPartialType, WSpan, WSubproperty, WTypeId, YTac,
@@ -187,7 +188,9 @@ impl WInferenceContext {
         Ok(())
     }
 
-    pub fn into_total(self) -> Result<WInferredContext, Error> {
+    pub fn into_total(mut self) -> Result<WInferredContext, Error> {
+        let panic_type_id = self.type_id(&Type::from(bitvector_type(Some(32))))?;
+
         let mut types = Vec::new();
         for ty in self.types {
             let span = ty.wir_span();
@@ -197,7 +200,7 @@ impl WInferenceContext {
             }
         }
 
-        Ok(WInferredContext::new(self.type_defs, types))
+        Ok(WInferredContext::new(self.type_defs, types, panic_type_id))
     }
 }
 

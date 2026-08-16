@@ -2,6 +2,7 @@ use indexmap::IndexMap;
 
 use crate::{
     into_wir::Errors,
+    support::ident_creator::IdentCreator,
     wir::{
         WDescription, WIdent, WImplItemType, WInferredContext, WItemFn, WItemImpl, WItemStruct,
         WLowContext, WPartialPath, WPartialSegment, WProperty, WSignature, WSubproperty,
@@ -125,8 +126,19 @@ fn lower_item_fn(
     for local in &impl_item.locals {
         local_types.insert(local.ident.clone(), local.ty.clone());
     }
+    let span = signature.ident.span();
 
-    let fn_converter = FnLowerer { ctx, local_types };
+    let panic_ident = WIdent::new(String::from("__mck_panic"), span);
+    let zero_bitvec_ident = WIdent::new(String::from("__mck_paniczbv"), span);
+
+    let mut fn_converter = FnLowerer {
+        ctx,
+        local_types,
+        next_panic_num: 0,
+        ident_creator: IdentCreator::new(String::from("panic")),
+        panic_ident,
+        zero_bitvec_ident,
+    };
 
     let block = fn_converter.lower_block(impl_item.block)?;
     Ok(WItemFn {
@@ -141,6 +153,13 @@ fn lower_item_fn(
 struct FnLowerer<'a> {
     ctx: &'a mut WInferredContext,
     local_types: IndexMap<WIdent, WTypeId>,
+    // TODO: just use a str for panics
+    next_panic_num: u32,
+
+    // for making total
+    ident_creator: IdentCreator<WTypeId>,
+    panic_ident: WIdent,
+    zero_bitvec_ident: WIdent,
 }
 
 fn lower_basic_path(path: WPartialPath) -> WPartialPath {
