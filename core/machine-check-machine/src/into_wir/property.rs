@@ -19,7 +19,7 @@ use syn_path::path;
 
 use crate::{
     into_wir::{
-        conversion::{convert_to_ssa, convert_total, convert_types, expand_macros, resolve_use},
+        conversion::{convert_to_ssa, convert_total, expand_macros, lower, resolve_use},
         from_syn, Errors,
     },
     util::{create_type_path, path_matches_global_names},
@@ -152,7 +152,7 @@ pub fn create_from_syn<D>(
     eprintln!("Inferred context: {:#?}", ctx);
     //let (property, panic_messages) = convert_total::convert_property(&mut ctx, property);
     let panic_messages = Vec::new();
-    let (mut ctx, property) = convert_types::lower_property(ctx, property)?;
+    let (mut ctx, property) = lower::lower_property(ctx, property)?;
     let property = convert_to_ssa::convert_property(&mut ctx, property, globals)?;
 
     Ok((ctx, property, panic_messages))

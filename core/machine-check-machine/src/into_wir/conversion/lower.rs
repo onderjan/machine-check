@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-mod convert_calls;
+mod lower_call;
 
 pub fn lower_description(
     mut ctx: WInferredContext,
@@ -20,12 +20,12 @@ pub fn lower_description(
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     for item_struct in description.structs {
-        structs.push(convert_item_struct(&mut ctx, item_struct));
+        structs.push(lower_item_struct(&mut ctx, item_struct));
     }
     let structs = Errors::flat_result(structs)?;
 
     for item_impl in description.impls {
-        impls.push(convert_item_impl(&mut ctx, item_impl));
+        impls.push(lower_item_impl(&mut ctx, item_impl));
     }
 
     let impls = Errors::flat_result(impls)?;
@@ -45,7 +45,7 @@ pub fn lower_property(
         let subproperty = match subproperty {
             WSubproperty::Func(subproperty_func) => WSubproperty::Func(WSubpropertyFunc {
                 parent: subproperty_func.parent,
-                func: convert_item_fn(&mut ctx, subproperty_func.func)?,
+                func: lower_item_fn(&mut ctx, subproperty_func.func)?,
                 children: subproperty_func.children,
                 display: subproperty_func.display,
             }),
@@ -61,14 +61,14 @@ pub fn lower_property(
     Ok((ctx, WProperty { subproperties }))
 }
 
-fn convert_item_struct(
+fn lower_item_struct(
     _ctx: &mut WInferredContext,
     item_struct: WItemStruct,
 ) -> Result<WItemStruct, Errors> {
     let derives = item_struct
         .derives
         .into_iter()
-        .map(convert_basic_path)
+        .map(lower_basic_path)
         .collect();
     let fields = item_struct.fields;
     Ok(WItemStruct {
@@ -79,14 +79,14 @@ fn convert_item_struct(
     })
 }
 
-fn convert_item_impl(
+fn lower_item_impl(
     ctx: &mut WInferredContext,
     item_impl: WItemImpl<YTac>,
 ) -> Result<WItemImpl<YLowered>, Errors> {
     let mut impl_item_fns = Vec::new();
 
     for impl_item_fn in item_impl.impl_item_fns {
-        impl_item_fns.push(convert_item_fn(ctx, impl_item_fn));
+        impl_item_fns.push(lower_item_fn(ctx, impl_item_fn));
     }
 
     let impl_item_types = item_impl
@@ -95,7 +95,7 @@ fn convert_item_impl(
         .map(|type_item| WImplItemType {
             visibility: type_item.visibility,
             left_ident: type_item.left_ident,
-            right_path: convert_basic_path(type_item.right_path),
+            right_path: lower_basic_path(type_item.right_path),
         })
         .collect();
 
@@ -112,7 +112,7 @@ fn convert_item_impl(
     }
 }
 
-fn convert_item_fn(
+fn lower_item_fn(
     ctx: &mut WInferredContext,
     impl_item: WItemFn<YTac>,
 ) -> Result<WItemFn<YLowered>, Errors> {
@@ -127,9 +127,9 @@ fn convert_item_fn(
         local_types.insert(local.ident.clone(), local.ty.clone());
     }
 
-    let fn_converter = FnTypeConverter { ctx, local_types };
+    let fn_converter = FnLowerer { ctx, local_types };
 
-    let block = fn_converter.convert_block(impl_item.block)?;
+    let block = fn_converter.lower_block(impl_item.block)?;
     Ok(WItemFn {
         visibility: impl_item.visibility,
         signature,
@@ -139,13 +139,13 @@ fn convert_item_fn(
     })
 }
 
-struct FnTypeConverter<'a> {
+struct FnLowerer<'a> {
     ctx: &'a mut WInferredContext,
     local_types: IndexMap<WIdent, WTypeId>,
 }
 
-impl FnTypeConverter<'_> {
-    fn convert_block(&self, block: WBlock<ZTac>) -> Result<WBlock<ZLowered>, Errors> {
+impl FnLowerer<'_> {
+    fn lower_block(&self, block: WBlock<ZTac>) -> Result<WBlock<ZLowered>, Errors> {
         let mut stmts = Vec::new();
         let mut errors = Vec::new();
 
@@ -158,17 +158,17 @@ impl FnTypeConverter<'_> {
                     let WIndexedExpr::NonIndexed(right) = stmt.right else {
                         todo!("Indexed expr");
                     };
-                    match self.convert_expr(right) {
+                    match self.lower_expr(right) {
                         Ok(right) => stmts.push(WStmt::Assign(WStmtAssign { left, right })),
                         Err(err) => errors.push(err),
                     }
                 }
                 WMacroableStmt::If(stmt) => {
                     let then_block = self
-                        .convert_block(stmt.then_block)
+                        .lower_block(stmt.then_block)
                         .map_err(|err| errors.push(err));
                     let else_block = self
-                        .convert_block(stmt.else_block)
+                        .lower_block(stmt.else_block)
                         .map_err(|err| errors.push(err));
 
                     if let (Ok(then_block), Ok(else_block)) = (then_block, else_block) {
@@ -188,13 +188,13 @@ impl FnTypeConverter<'_> {
         Ok(WBlock { stmts })
     }
 
-    fn convert_expr(&self, expr: WExpr<WExprHighCall>) -> Result<WExpr<WExprLowCall>, Errors> {
+    fn lower_expr(&self, expr: WExpr<WExprHighCall>) -> Result<WExpr<WExprLowCall>, Errors> {
         match expr {
             WExpr::Move(ident) => Ok(WExpr::Move(ident)),
-            WExpr::Call(expr_call) => Ok(self.convert_call(expr_call)?),
+            WExpr::Call(expr_call) => Ok(self.lower_call(expr_call)?),
             WExpr::Field(expr_field) => Ok(WExpr::Field(expr_field)),
             WExpr::Struct(expr_struct) => Ok(WExpr::Struct(WExprStruct {
-                type_path: convert_basic_path(expr_struct.type_path),
+                type_path: lower_basic_path(expr_struct.type_path),
                 fields: expr_struct.fields,
             })),
             WExpr::Reference(expr_reference) => Ok(WExpr::Reference(expr_reference)),
@@ -203,7 +203,7 @@ impl FnTypeConverter<'_> {
     }
 }
 
-fn convert_basic_path(path: WPartialPath) -> WPartialPath {
+fn lower_basic_path(path: WPartialPath) -> WPartialPath {
     if path.starts_with_absolute(&["machine_check", "Bitvector"])
         || path.starts_with_absolute(&["machine_check", "Unsigned"])
         || path.starts_with_absolute(&["machine_check", "Signed"])

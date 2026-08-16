@@ -6,23 +6,23 @@ use mck::{concr::ConcreteBitvector, misc::RBound};
 use syn::Lit;
 
 use crate::{
-    into_wir::{conversion::convert_types::FnTypeConverter, Error, ErrorType},
+    into_wir::{conversion::lower::FnLowerer, Error, ErrorType},
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckNew,
         WMckUnary, WPartialArgument, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
 
-impl FnTypeConverter<'_> {
-    pub fn convert_call(&self, call: WExprHighCall) -> Result<WExpr<WExprLowCall>, Error> {
+impl FnLowerer<'_> {
+    pub fn lower_call(&self, call: WExprHighCall) -> Result<WExpr<WExprLowCall>, Error> {
         Ok(WExpr::Call(match call {
-            WExprHighCall::Call(call) => return self.convert_normal_call(call),
-            WExprHighCall::StdUnary(call) => WExprLowCall::MckUnary(self.convert_unary(call)),
-            WExprHighCall::StdBinary(call) => WExprLowCall::MckBinary(self.convert_binary(call)?),
+            WExprHighCall::Call(call) => return self.lower_normal_call(call),
+            WExprHighCall::StdUnary(call) => WExprLowCall::MckUnary(self.lower_unary(call)),
+            WExprHighCall::StdBinary(call) => WExprLowCall::MckBinary(self.lower_binary(call)?),
         }))
     }
 
-    fn convert_normal_call(&self, call: WCall) -> Result<WExpr<WExprLowCall>, Error> {
+    fn lower_normal_call(&self, call: WCall) -> Result<WExpr<WExprLowCall>, Error> {
         if (call
             .fn_path
             .matches_absolute(&["machine_check", "Bitvector", "new"])
@@ -63,7 +63,7 @@ impl FnTypeConverter<'_> {
         todo!("Lower call {:?}", call);
     }
 
-    fn convert_unary(&self, call: WStdUnary) -> WMckUnary {
+    fn lower_unary(&self, call: WStdUnary) -> WMckUnary {
         let op = match call.op {
             IrStdUnaryOp::Not => IrMckUnaryOp::Not,
             IrStdUnaryOp::Neg => IrMckUnaryOp::Neg,
@@ -74,7 +74,7 @@ impl FnTypeConverter<'_> {
         }
     }
 
-    fn convert_binary(&self, call: WStdBinary) -> Result<WMckBinary, Error> {
+    fn lower_binary(&self, call: WStdBinary) -> Result<WMckBinary, Error> {
         let mut left_arg = call.a;
         let mut right_arg = call.b;
 
