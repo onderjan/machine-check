@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use indexmap::GetDisjointMutError;
 use machine_check_common::ir_common::IrStdBinaryOp;
 use syn::{Path, Type, TypePath};
 
@@ -21,7 +20,7 @@ impl super::WInferenceContext {
         &mut self,
         types: &BTreeMap<WIdent, WTypeId>,
         block: &WBlock<ZTac>,
-        is_property: bool,
+        _is_property: bool,
     ) -> Result<(), Error> {
         eprintln!("Adding constraints for block {:?}", block);
         for stmt in &block.stmts {
@@ -45,11 +44,11 @@ impl super::WInferenceContext {
                         left, right
                     );
 
-                    let left_ty = get_type(types, &left)?;
+                    let left_ty = get_type(types, left)?;
 
                     match right {
                         WExpr::Move(right) => {
-                            let right_ty = get_type(types, &right)?;
+                            let right_ty = get_type(types, right)?;
                             self.add_eq_constraint(left_ty, right_ty);
                         }
                         WExpr::Call(call) => {
@@ -96,8 +95,10 @@ impl super::WInferenceContext {
                             }))?;
                             self.add_eq_constraint(left_ty, struct_ty);
                         }
-                        WExpr::Reference(wexpr_reference) => todo!("Reference"),
-                        WExpr::Lit(lit, _) => {
+                        WExpr::Reference(_wexpr_reference) => {
+                            // TODO: process references
+                        }
+                        WExpr::Lit(_lit, _) => {
                             // TODO: process literals
                             /*if is_property {
                                 // ignore
@@ -109,8 +110,8 @@ impl super::WInferenceContext {
                 }
                 WMacroableStmt::If(stmt_if) => {
                     eprintln!("Should add constraints for if {:#?}", stmt_if);
-                    self.add_block_constraints(types, &stmt_if.then_block, is_property)?;
-                    self.add_block_constraints(types, &stmt_if.else_block, is_property)?;
+                    self.add_block_constraints(types, &stmt_if.then_block, _is_property)?;
+                    self.add_block_constraints(types, &stmt_if.else_block, _is_property)?;
                 }
                 WMacroableStmt::PanicMacro(_stmt_panic_macro) => {
                     // panic macro returns a never type
@@ -202,7 +203,36 @@ impl super::WInferenceContext {
                             ));
                         };
                         let right_ty = get_type(types, ident)?;
-                        // todo: add constraint
+
+                        // add constraints
+
+                        let right_ty = &self.types[right_ty.0];
+
+                        eprintln!("Should add ext constraints, right type: {:?}", right_ty);
+                        match right_ty {
+                            WPartialType::Path(path) => {
+                                if path.matches_absolute(&["machine_check", "Bitvector"])
+                                    || path.matches_absolute(&["machine_check", "Signed"])
+                                    || path.matches_absolute(&["machine_check", "Unsigned"])
+                                {
+                                    // drop the generics
+                                    let mut path = path.clone();
+                                    path.segments[1].generics = None;
+
+                                    let constraint_ty = self.type_id(&Type::Path(TypePath {
+                                        qself: None,
+                                        path: Path::from(path),
+                                    }))?;
+                                    self.add_eq_constraint(left_ty.clone(), constraint_ty);
+                                }
+                            }
+                            WPartialType::Reference(_reference) => {
+                                // todo: ext reference
+                            }
+                            WPartialType::Infer(_) => {
+                                // todo: infer reference
+                            }
+                        }
 
                         found = true;
                     }
