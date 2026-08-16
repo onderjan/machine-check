@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use indexmap::GetDisjointMutError;
 use machine_check_common::ir_common::IrStdBinaryOp;
 use syn::{Path, Type, TypePath};
 
@@ -10,7 +11,7 @@ use crate::{
             typedef::WContextTypeDef,
             types::{bitvector_type, bool_type},
         },
-        signed_type, unsigned_type, WBlock, WExpr, WExprHighCall, WIdent, WIndexedExpr,
+        signed_type, unsigned_type, WBlock, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr,
         WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialType, WSpanned, WTypeId, ZTac,
     },
 };
@@ -165,6 +166,43 @@ impl super::WInferenceContext {
                         let bitvector_ty = self.partial_type_id(ty);
                         self.add_eq_constraint(left_ty, bitvector_ty);
                         found = true
+                    }
+
+                    if segments[0].ident.name() == "machine_check"
+                        && segments[1].ident.name() == "Ext"
+                        && segments[2].ident.name() == "ext"
+                    {
+                        let mut width = None;
+                        if let Some(generics) = &segments[1].generics {
+                            if generics.arguments.len() == 1 {
+                                if let WPartialArgument::Uint(width_arg, _span) =
+                                    generics.arguments[0]
+                                {
+                                    width = Some(width_arg)
+                                }
+                            }
+                        }
+                        let span = call.fn_path.wir_span();
+                        if call.args.len() != 1 {
+                            return Err(Error::new(
+                                ErrorType::IllegalConstruct(String::from(
+                                    "Expected exactly 1 argument",
+                                )),
+                                span,
+                            ));
+                        }
+                        let WCallArg::Ident(ident) = &call.args[0] else {
+                            return Err(Error::new(
+                                ErrorType::IllegalConstruct(String::from(
+                                    "Expected ident in argument",
+                                )),
+                                span,
+                            ));
+                        };
+                        let right_ty = get_type(types, ident)?;
+                        // todo: add constraint
+
+                        found = true;
                     }
                 }
                 if !found {
